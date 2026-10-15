@@ -40,7 +40,10 @@ function makeHarness({ top = 120, bottom = 700, innerHeight = 800 } = {}) {
   const ref = { invokeMethodAsync: (m, ...a) => { reports.push([m, ...a]); return Promise.resolve(); } };
   const flush = () => { const f = frame; frame = null; if (f) f(); };
   const fire = (t) => { for (const l of listeners[t] ?? []) l.fn(); };
-  return { api: window.canvasRegion, ref, reports, flush, fire, listeners, window,
+  // Two reports per frame: the region for the native canvas, the full rect for the hover readout.
+  const region = () => reports.filter(r => r[0] === 'OnCanvasRegionChanged');
+  const geometry = () => reports.filter(r => r[0] === 'OnChartGeometryChanged');
+  return { api: window.canvasRegion, ref, reports, region, geometry, flush, fire, listeners, window,
            setRect: (r) => { rect = r; } };
 }
 
@@ -56,14 +59,14 @@ test('reports the top inset and the gap BELOW the chart, once the layout settles
   const h = makeHarness({ top: 120, bottom: 700, innerHeight: 800 });
   h.api.start(h.ref);
   h.flush();
-  assert.deepEqual(h.reports, [['OnCanvasRegionChanged', 120, 100]]);
+  assert.deepEqual(h.region(), [['OnCanvasRegionChanged', 120, 100]]);
 });
 
 test('a chart scrolled above the viewport reports a top of 0, not a negative inset', () => {
   const h = makeHarness({ top: -40, bottom: 500, innerHeight: 800 });
   h.api.start(h.ref);
   h.flush();
-  assert.deepEqual(h.reports[0], ['OnCanvasRegionChanged', 0, 300]);
+  assert.deepEqual(h.region()[0], ['OnCanvasRegionChanged', 0, 300]);
 });
 
 test('scrolling re-reports, in the capture phase, passively', () => {
@@ -78,7 +81,7 @@ test('scrolling re-reports, in the capture phase, passively', () => {
   h.setRect({ top: 60, bottom: 640 });
   h.fire('scroll');
   h.flush();
-  assert.deepEqual(h.reports.at(-1), ['OnCanvasRegionChanged', 60, 160]);
+  assert.deepEqual(h.region().at(-1), ['OnCanvasRegionChanged', 60, 160]);
 });
 
 test('a burst of resizes in one frame is one report', () => {
@@ -87,7 +90,22 @@ test('a burst of resizes in one frame is one report', () => {
   h.flush();
   h.fire('resize'); h.fire('resize'); h.fire('resize');
   h.flush();
-  assert.equal(h.reports.length, 2);
+  assert.equal(h.region().length, 2);
+  assert.equal(h.geometry().length, 2);
+});
+
+test('reports the full chart rect for the hover readout, and again when it resizes', () => {
+  // ChartHoverTracker drops a parked mouse's sample when this rect changes (Alt+Z, a window
+  // resize, a scroll): the pointer is no longer over the spot it was sampled at.
+  const h = makeHarness();
+  h.setRect({ left: 10, top: 120, bottom: 700, width: 1280, height: 580 });
+  h.api.start(h.ref);
+  h.flush();
+  assert.deepEqual(h.geometry(), [['OnChartGeometryChanged', 10, 120, 1280, 580]]);
+  h.setRect({ left: 0, top: 40, bottom: 760, width: 1300, height: 720 });
+  h.fire('resize');
+  h.flush();
+  assert.deepEqual(h.geometry().at(-1), ['OnChartGeometryChanged', 0, 40, 1300, 720]);
 });
 
 test('start is idempotent and stop removes the listeners', () => {

@@ -266,6 +266,11 @@
         CanvasRegion.Report(topDip, bottomDip);
     }
 
+    /// <summary>The chart element's rect from canvasRegion.js; a real change clears the hover readout.</summary>
+    [JSInvokable]
+    public void OnChartGeometryChanged(double left, double top, double width, double height)
+        => HoverTracker.OnChartGeometryChanged(left, top, width, height);
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
