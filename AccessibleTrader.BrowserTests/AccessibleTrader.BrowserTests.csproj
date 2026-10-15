@@ -45,4 +45,9 @@
     <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
   </ItemGroup>
 
+  <!-- Saved sessions the restore tests resume (SessionRestoreBrowserTests). -->
+  <ItemGroup>
+    <None Include="Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
