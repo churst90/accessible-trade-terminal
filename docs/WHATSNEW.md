@@ -8,6 +8,12 @@
 
 ## Unreleased
 
+- **The hover box names the candle under the mouse.** If you zoom, pan or step through bars with the
+  mouse resting on the chart, the date and prices in the hover box now follow the candle under it.
+  Before, they kept naming the candle that used to be there. After a resize or Alt+Z the box hides
+  until you move the mouse.
+- **Reopening the terminal brings back the tab you left.** With two terminal tabs open, an idle live
+  chart could win and be the one restored. Now the tab you were last working in is.
 - **The newest candle is the real one.** The candle still forming used to restart flat when you
   opened a chart, as if the day or week began when you arrived. It now continues the exchange's
   candle from its real open, high and low. Live stock daily candles, which didn't move at all, now do.

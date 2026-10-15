@@ -3727,12 +3727,14 @@ them back exactly as they were. Alerts are not part of a workspace; they persist
 on their own the moment you create them. Bar data is refetched fresh on load.
 
 You also do not need to remember to save at all: the terminal **autosaves your
-session** every thirty seconds and again when it closes, and the next start
+session** within thirty seconds of a change and again when it closes, and the next start
 simply resumes it — you hear "Resumed your last session: N tabs" and you are
 back where you left off, tabs, drawings, strategies and all. This covers the
 browser-refresh case on the web build too, which previously lost everything
 unsaved. If you prefer a blank start, turn off Settings > Workspace > "Resume
 last session at startup"; explicit named workspaces are untouched either way.
+With more than one terminal tab open, the one resumed is the tab you were last
+working in: a tab that is only receiving live prices does not count as a change.
 
 ### Sharing your setup
 

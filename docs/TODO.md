@@ -117,6 +117,59 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-15 — Cody's two BTCUSDT 1d screenshots, focus mode and normal).** Read from
+> the pixels and the drawing code; none of these has a test yet. Done the same day (see CHANGES):
+> the hover readout now follows the chart under a still mouse, and an idle live tab no longer wins
+> the session resume. Neither has been tried in a real browser.
+>
+> **Open questions for Cody (from that work):**
+> - He reported Market Structure and Volume Profile lost on a tray "Restore". Brave's records and
+>   `dotpad.log` say they were first added at 02:09:36 / 02:09:57, AFTER the 02:09 restore, and that
+>   each restore resumed exactly what the closed tab held. Was there an earlier session where he added
+>   them and the Add Indicator dialog seemed to work? If so, that add never reached the chart — chase it.
+> - Should "Resumed your last session" name the active chart and its series count, so a wrong or old
+>   layout is audible? (New speech; not done.)
+> - Two terminal tabs in one browser window, window closed: the last tab closed still wins. A per-tab
+>   id in `sessionStorage` would fix F5 and discarded-tab reloads (not tray restores, which open a new
+>   tab). Wanted?
+> - A page scroll that moves the chart also clears the hover readout (any rect change counts). Keep,
+>   or only size changes?
+>
+> **Unverified:** that a real window resize and Alt+Z clear the hover readout in the browser and on the
+> desktop head (unit, bUnit and JS tests only).
+>
+> The rest are **IMMEDIATE FIXES**, next in line:
+>
+> 1. **The hover readout box covers the newest candles.** It sits top right (`ChartArea.razor`, the
+>    `right:72px` box), over the most recent highs and the "ascending triangle" label, in focus mode
+>    too. Move it out of the plot's live edge (top left of the plot, or follow the pointer away from it).
+> 2. **The oscillator pane's value badge names nothing.** `ChartRenderer.RenderCrosshair` labels each
+>    indicator pane with `CrosshairValueAt` — the FIRST component with a value (on Cipher B the WT
+>    histogram, 55.70) while the Wave Trend lines sat near −40. A sighted reader takes it for the lines.
+>    Label it with the component's name or colour, or read the focused component. The price pane draws
+>    its cursor line at the close with no badge at all — give it one, same style.
+> 3. **The legend cannot tell WT Histogram from Money Flow** — both get the same plain green square
+>    (their up colour). A histogram with an up/down pair should show both colours, and two such rows
+>    in one pane must differ. In focus mode the dashed overbought line also runs through the
+>    "Wave Trend Fast" text, so it reads as struck through: the legend needs an opaque backing, or the
+>    level lines must stop at it.
+> 4. **Price axis and readout format numbers differently.** The axis says `85000.00` (no separator,
+>    pennies on Bitcoin); the readout says `82,366.23`. `ChartMath.FormatAxisValue` should group
+>    thousands and drop decimals the axis step does not need.
+> 5. **"Market Structure — 4 marks" means four KINDS of mark** (`ChartRenderer.cs`, the collapsed
+>    marker row: `markerColors.Count`), on a chart showing about forty. Say "4 mark types".
+> 6. **Volume Profile (Visible Range) paints over the newest three months of candles** — the part a
+>    trader most needs to see. Draw it under the candles with lower opacity, or pin it to the axis side
+>    with a narrower maximum width (setting).
+> 7. **Formation lines are flat and never end.** "rising wedge" is a flat solid line at 75,000 with a
+>    dashed one near 60,300, running from late March to the right edge six months later; likewise the
+>    triangles. If solid = breakout level and dashed = measured target (both were reached, so they did
+>    their job), the label should say so ("rising wedge breakdown 75,000 / target 60,300"), and the
+>    lines should stop when the target is hit or the formation is invalidated. A sighted reader expects
+>    a wedge to be two sloping lines. Confirm what solid and dashed mean in the code before changing.
+> 8. **A white line hugs the closes in the price pane and neither legend names it.** Find what draws it
+>    (an overlay? the price-line series "Price"?) and either list it or drop it.
+>
 > **START HERE (2026-10-09 — Cody's four questions fixed: live candles, bar dates, `;`, `0`,
 > alerts; see CHANGES).** Suite **8,564** listed. Full suites now run on GitHub (`tests.yml` on push),
 > not locally. **NOTHING BELOW HAS BEEN HEARD** — ask Cody to try the forming candle, the dates, `;`,

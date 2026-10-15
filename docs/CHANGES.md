@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The hover readout under a still mouse; resume picks the tab you left (2026-10-15)
+
+From Cody's two BTCUSDT 1d screenshots. **Not tried in a real browser yet.**
+
+- **The hover readout named a bar from an older chart.** `ChartHoverTracker` computed the readout
+  (date, price, OHLC) and its hairline only on a mouse move. A keyboard user's mouse sits still while
+  the chart zooms, pans, steps and ticks, so the box kept naming the bar that USED to be under the
+  pointer: the screenshot's hairline sat on about March 31 while the box read April 20 with April 20's
+  candle. The tracker now keeps the last pointer sample and re-maps it, through the same code as a
+  mouse move, whenever a mapping input changes (data, viewport start/length, price range, log scale,
+  active tab) or the pane dividers move. A re-map never plays the hover tick or speaks. When the
+  chart's rect changes (resize, Alt+Z focus mode, scroll) the pointer's position on the chart is no
+  longer known, so the readout clears until the next move. `canvasRegion.js` now reports the chart
+  rect (`OnChartGeometryChanged`); its cache-bust moved to `v=20261015a`.
+- **Resume could pick a tab that was merely ticking.** Each browser session autosaves its own slot and
+  resume reads the most recently written one. A live chart dispatches on every tick, so an untouched
+  tab rewrote its slot every 30 seconds and could win the resume over the tab the user had just closed.
+  The 30-second sample now writes only when the workspace differs from what it last wrote (the scroll
+  position does not count); the save on tab close still always writes.
+  - **Not the cause of Cody's missing indicators.** Brave's session records and the app's own log show
+    he had one terminal tab at a time, each tray "Restore" opened a new tab that resumed the right
+    session, and Market Structure and Volume Profile were first added at 02:09, after the second
+    restore. His 02:11 session resumes with all six series in a real WebHost
+    (`SessionRestoreBrowserTests`). Why he remembers them before that is an open question.
+
 ### Cody's four questions: live candles, bar dates, formation pinning, the 0 key, alerts (2026-10-09)
 
 Cody asked why the forming candle starts flat, why today's daily bar reads "October 8", what `;`
