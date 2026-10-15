@@ -38,10 +38,13 @@ namespace AccessibleTrader.BlazorClient.Services
     /// re-read never sounds or speaks: the hover tick and explore speech answer the user's own
     /// pointer movement, and a chart moving under a parked mouse is not that.</para>
     ///
-    /// <para>A change in the chart's SIZE or position (focus mode, a window resize, a scroll)
-    /// is different: the stored element-relative position no longer names the same spot on
-    /// screen, so the readout is cleared until the pointer next moves rather than
-    /// guessed.</para>
+    /// <para>A change in the chart's SIZE or position (a scroll, a window resize, focus mode)
+    /// moves the chart, not the pointer: the pointer is still at the same spot on screen. So the
+    /// sample is kept in viewport terms too (the element's rect when it was taken plus the
+    /// element-relative position) and re-mapped against the new rect, silently, like any other
+    /// re-read. It used to be cleared until the next mouse move (Cody, 2026-10-15: "the pointer
+    /// did not move; only the chart moved"). It is still cleared when the pointer is now off the
+    /// chart, and when the rect it was sampled against is not known.</para>
     /// </summary>
     public class ChartHoverTracker : IDisposable
     {
@@ -57,7 +60,14 @@ namespace AccessibleTrader.BlazorClient.Services
         private int _lastSpokenIndex = -1;
 
         // The last pointer event the readout came from; null when there is nothing to re-read.
-        private (double X, double Y, double Width, double Height, bool Explore)? _sample;
+        // X/Y are element-relative; Origin is the element's viewport rect (left, top) the event
+        // was measured against, null when no reported rect matched it. Origin + (X, Y) is where
+        // the pointer is on screen, which a scroll or resize does not move.
+        private (double X, double Y, double Width, double Height, bool Explore, (double Left, double Top)? Origin)? _sample;
+        // Focus mode re-lays the chart out and the new rect follows in a later report: until it
+        // lands the sample is kept but not shown, so a readout from the old layout is never drawn
+        // over the new one.
+        private bool _awaitingGeometry;
         // The workspace inputs Current was last mapped through; a re-read runs only when one moved.
         private MappingInputs? _mappedFrom;
         // The chart element's last reported rect, to tell a real resize or move from a repeat report.
@@ -116,9 +126,9 @@ namespace AccessibleTrader.BlazorClient.Services
             // A pane added or removed moves the dividers without changing the canvas size, so
             // the price under a fixed Y changes: re-read, don't clear.
             if (_paneLayout != null) _paneLayout.LayoutChanged += OnPaneLayoutChanged;
-            // Alt+Z resizes the chart. The element's own resize report (OnChartGeometryChanged)
-            // catches that too; this covers a page whose report has not arrived.
-            _focusModeSub = eventBus?.Subscribe<AccessibleTrader.Core.Models.FocusModeChangedEvent>(_ => DropSample());
+            // Alt+Z re-lays the chart out; the element's resize report (OnChartGeometryChanged)
+            // follows and re-maps the sample. Hide until then rather than show the old mapping.
+            _focusModeSub = eventBus?.Subscribe<AccessibleTrader.Core.Models.FocusModeChangedEvent>(_ => OnFocusModeChanged());
         }
 
         public void Toggle()
@@ -133,6 +143,7 @@ namespace AccessibleTrader.BlazorClient.Services
                     // sample taken before it was hidden.
                     _sample = null;
                     _mappedFrom = null;
+                    _awaitingGeometry = false;
                 }
             }
             Changed?.Invoke();
@@ -140,21 +151,72 @@ namespace AccessibleTrader.BlazorClient.Services
 
         /// <summary>
         /// The chart element's rect (CSS pixels, viewport-relative), reported by canvasRegion.js
-        /// on every element resize, window resize and scroll. A real change drops the hover
-        /// sample: the pointer's position relative to the chart is no longer the one it was
-        /// sampled at. A repeat of the same rect (a scroll elsewhere on the page) does nothing.
+        /// on every element resize, window resize and scroll, and by the mouse handler just before
+        /// a move measured against a rect not yet reported. A real change re-maps the hover sample
+        /// to where the still pointer now is on the chart; a repeat of the same rect (a scroll
+        /// elsewhere on the page) does nothing, unless focus mode is waiting for it.
         /// </summary>
         public void OnChartGeometryChanged(double left, double top, double width, double height)
         {
-            bool moved;
+            bool changed = false;
             lock (_gate)
             {
-                moved = _geometry is { } g
-                    && (Math.Abs(g.Left - left) > 0.5 || Math.Abs(g.Top - top) > 0.5
-                        || Math.Abs(g.Width - width) > 0.5 || Math.Abs(g.Height - height) > 0.5);
+                var previous = _geometry;
                 _geometry = (left, top, width, height);
+                bool moved = previous is not { } g || !SameRect(g, (left, top, width, height));
+                if (_sample is not { } p || (!moved && !_awaitingGeometry)) return;
+                _awaitingGeometry = false;
+
+                // Sampled before any rect was known (or against one that did not match): there
+                // is no way to tell where the pointer is now, so say nothing rather than guess.
+                if (p.Origin is not { } o) changed = DropSampleLocked();
+                else
+                {
+                    // Same spot on screen, new element origin.
+                    double x = o.Left + p.X - left, y = o.Top + p.Y - top;
+                    // Off the chart now (scrolled out from under the pointer, or the chart shrank
+                    // away from it): there is no bar under the pointer to name.
+                    if (x < 0 || y < 0 || x >= width || y >= height) changed = DropSampleLocked();
+                    else
+                    {
+                        _sample = (x, y, width, height, p.Explore, (left, top));
+                        if (IsEnabled || p.Explore)
+                        {
+                            var before = Current;
+                            Map(x, y, width, height, out _, out _);
+                            changed = !Equals(before, Current);
+                            if (!changed) Current = before;
+                        }
+                    }
+                }
             }
-            if (moved) DropSample();
+            if (changed) Changed?.Invoke();
+        }
+
+        private static bool SameRect((double Left, double Top, double Width, double Height) a,
+            (double Left, double Top, double Width, double Height) b)
+            => Math.Abs(a.Left - b.Left) <= 0.5 && Math.Abs(a.Top - b.Top) <= 0.5
+               && Math.Abs(a.Width - b.Width) <= 0.5 && Math.Abs(a.Height - b.Height) <= 0.5;
+
+        private void OnFocusModeChanged()
+        {
+            bool changed;
+            lock (_gate)
+            {
+                if (_sample is not { } p) return;
+                if (p.Origin == null)
+                {
+                    // No origin: the coming report cannot re-map it, so drop it now.
+                    changed = DropSampleLocked();
+                }
+                else
+                {
+                    _awaitingGeometry = true;
+                    changed = Current != null;
+                    Current = null;
+                }
+            }
+            if (changed) Changed?.Invoke();
         }
 
         private void OnPaneLayoutChanged() => Recompute(force: true);
@@ -172,6 +234,7 @@ namespace AccessibleTrader.BlazorClient.Services
             {
                 if (_sample is not { } p) return;
                 if (!IsEnabled && !p.Explore) return;
+                if (_awaitingGeometry) return; // focus mode: the new layout's rect has not arrived
                 if (!force && MappingInputs.Of(_store.State).Equals(_mappedFrom)) return;
                 var before = Current;
                 Map(p.X, p.Y, p.Width, p.Height, out _, out _);
@@ -203,7 +266,14 @@ namespace AccessibleTrader.BlazorClient.Services
             bool raise;
             lock (_gate)
             {
-                _sample = (x, y, width, height, explore);
+                // The rect this event was measured against is the last one reported, provided its
+                // size agrees with the event's (the mouse handler reports a changed rect before
+                // the move that was measured against it). One that disagrees is stale: no origin.
+                (double, double)? origin = _geometry is { } g
+                    && Math.Abs(g.Width - width) <= 0.5 && Math.Abs(g.Height - height) <= 0.5
+                    ? (g.Left, g.Top) : null;
+                _sample = (x, y, width, height, explore, origin);
+                _awaitingGeometry = false;
                 var before = Current;
                 state = Map(x, y, width, height, out index, out bar);
                 raise = Current != null || before != null;
@@ -324,22 +394,20 @@ namespace AccessibleTrader.BlazorClient.Services
         /// <summary>Forget the pointer sample and hide the readout until the pointer next moves.</summary>
         private void DropSample()
         {
-            lock (_gate)
-            {
-                _sample = null;
-                _mappedFrom = null;
-            }
-            Clear();
+            bool changed;
+            lock (_gate) changed = DropSampleLocked();
+            if (changed) Changed?.Invoke();
         }
 
-        private void Clear()
+        /// <summary>The caller holds <c>_gate</c>; true when the readout was showing and the caller must raise Changed.</summary>
+        private bool DropSampleLocked()
         {
-            lock (_gate)
-            {
-                if (Current == null) return;
-                Current = null;
-            }
-            Changed?.Invoke();
+            _sample = null;
+            _mappedFrom = null;
+            _awaitingGeometry = false;
+            if (Current == null) return false;
+            Current = null;
+            return true;
         }
 
         public void Dispose()

@@ -21,7 +21,7 @@ const source = readFileSync(
 
 // ── Sandbox scaffolding ─────────────────────────────────────────────────────
 
-function makeHarness() {
+function makeHarness({ deferFrames = false } = {}) {
   const calls = [];               // every invokeMethodAsync: [method, ...args]
   const dotnet = {
     invokeMethodAsync: (method, ...args) => {
@@ -31,12 +31,16 @@ function makeHarness() {
   };
 
   const listeners = {};           // element listeners
+  let rect = { left: 0, top: 0, width: 1000, height: 500 };
   const el = {
     id: 'chart-interact-zone',
     addEventListener: (type, fn) => { (listeners[type] ??= []).push(fn); },
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 500 }),
+    getBoundingClientRect: () => rect,
     focus: () => {},
   };
+  // Frames run at once unless deferFrames, when flushFrames runs them (to put a scroll between
+  // an event and the frame that sends it).
+  let frames = [];
   const windowListeners = {};
   let now = 100_000;              // controllable clock for double-tap timing
   const timers = [];              // [{id, cb, due}]
@@ -45,6 +49,9 @@ function makeHarness() {
   const sandbox = {
     window: {
       addEventListener: (type, fn) => { (windowListeners[type] ??= []).push(fn); },
+      // canvasRegion.js's half of the move contract, recorded in the same call log so the
+      // order of the rect sync and the move is visible.
+      canvasRegion: { syncRect: () => { calls.push(['syncRect', { ...rect }]); } },
     },
     document: {
       getElementById: (id) => (id === el.id ? el : null),
@@ -57,7 +64,7 @@ function makeHarness() {
     Date: { now: () => now },
     setTimeout: (cb, ms) => { const id = nextTimer++; timers.push({ id, cb, due: now + ms }); return id; },
     clearTimeout: (id) => { const i = timers.findIndex(t => t.id === id); if (i >= 0) timers.splice(i, 1); },
-    requestAnimationFrame: (cb) => { cb(); return 0; },
+    requestAnimationFrame: (cb) => { if (deferFrames) { frames.push(cb); return frames.length; } cb(); return 0; },
     cancelAnimationFrame: () => {},
   };
   sandbox.window.document = sandbox.document;
@@ -88,7 +95,9 @@ function makeHarness() {
     for (const fn of windowListeners[type] ?? []) fn(ev);
   };
 
-  return { calls, fire, fireWindow, advance, touch, tick: (ms) => { now += ms; }, api: sandbox.window.accessibleTrader };
+  const flushFrames = () => { const f = frames; frames = []; for (const cb of f) cb(); };
+  return { calls, fire, fireWindow, advance, touch, tick: (ms) => { now += ms; }, api: sandbox.window.accessibleTrader,
+           setRect: (r) => { rect = r; }, flushFrames, sandbox };
 }
 
 const results = [];
@@ -298,6 +307,46 @@ test('a release over the chart is not reported twice, and a stray release is not
   h.fire('mouseup', { clientX: 120, clientY: 100 });
   h.fireWindow('mouseup', { clientX: 120, clientY: 100 });      // the same event bubbling to window
   assert.equal(ofMethod(h.calls, 'OnMouseEvent').filter(c => c[3] === 'MouseUp').length, 1);
+});
+
+// ── A mouse move and the rect it is measured against (2026-10-15) ─────────────
+// ChartHoverTracker re-maps a parked mouse when the chart scrolls or resizes, from the rect the
+// move was measured against. So the move must be measured against the rect the tracker was last
+// told about: the rect is synced first, and the offset and size come from that same rect.
+
+test('a mouse move syncs the chart rect first, then is measured against that rect', () => {
+  const h = makeHarness({ deferFrames: true });
+  h.fire('mousemove', { clientX: 300, clientY: 200 });
+  // The page scrolls before the frame that sends the move: the chart is now 100px further left.
+  h.setRect({ left: -100, top: 0, width: 1000, height: 500 });
+  h.flushFrames();
+
+  const i = h.calls.findIndex(c => c[0] === 'syncRect');
+  const m = h.calls.findIndex(c => c[0] === 'OnMouseEvent');
+  assert.ok(i >= 0, 'the move did not sync the chart rect: the tracker pairs it with a stale one');
+  assert.ok(i < m, 'the rect was synced after the move was sent');
+  assert.deepEqual(h.calls[i][1], { left: -100, top: 0, width: 1000, height: 500 });
+  assert.deepEqual(h.calls[m].slice(1), [400, 200, 'MouseMove', 1000, 500],
+    'the move must be relative to the rect at the time it is sent, the one just synced');
+});
+
+test('a burst of mouse moves in one frame is still one move, at the latest position', () => {
+  const h = makeHarness({ deferFrames: true });
+  h.fire('mousemove', { clientX: 300, clientY: 200 });
+  h.fire('mousemove', { clientX: 310, clientY: 210 });
+  h.setRect({ left: 0, top: 0, width: 800, height: 400 });
+  h.flushFrames();
+  const moves = ofMethod(h.calls, 'OnMouseEvent');
+  assert.equal(moves.length, 1);
+  assert.deepEqual(moves[0].slice(1), [310, 210, 'MouseMove', 800, 400]);
+});
+
+test('a page without canvasRegion.js still sends the move', () => {
+  const h = makeHarness({ deferFrames: true });
+  delete h.sandbox.window.canvasRegion;
+  h.fire('mousemove', { clientX: 300, clientY: 200 });
+  h.flushFrames();
+  assert.deepEqual(ofMethod(h.calls, 'OnMouseEvent')[0].slice(1), [300, 200, 'MouseMove', 1000, 500]);
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────

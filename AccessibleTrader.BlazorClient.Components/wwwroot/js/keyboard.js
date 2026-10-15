@@ -695,17 +695,26 @@ window.accessibleTrader = {
         // click-drag. Throttled via requestAnimationFrame so at most one .NET dispatch
         // happens per paint tick — keeps the drag-preview smooth without flooding the
         // JS interop bridge on a fast mouse.
+        //
+        // The position is measured when the frame fires, against the rect at that moment, and
+        // canvasRegion.syncRect reports that rect first if it has not been reported yet. The
+        // hover tracker keeps the last move in screen terms (the rect it was measured against
+        // plus the offset) so it can re-map a parked mouse when the chart scrolls or resizes
+        // under it; that only works if a move and the rect it is paired with are the same rect.
+        // Measured at event time instead, the offset and the width came from two different
+        // events' rects, and a scroll inside the frame paired the move with the wrong rect.
         let moveRafHandle = 0;
-        let pendingMoveX = 0, pendingMoveY = 0;
+        let pendingClientX = 0, pendingClientY = 0;
         el.addEventListener('mousemove', function (e) {
-            const rect = el.getBoundingClientRect();
-            pendingMoveX = e.clientX - rect.left;
-            pendingMoveY = e.clientY - rect.top;
+            pendingClientX = e.clientX;
+            pendingClientY = e.clientY;
             if (moveRafHandle) return;
             moveRafHandle = requestAnimationFrame(function () {
                 moveRafHandle = 0;
+                if (window.canvasRegion && window.canvasRegion.syncRect) window.canvasRegion.syncRect();
+                const rect = el.getBoundingClientRect();
                 dotnetHelper.invokeMethodAsync('OnMouseEvent',
-                    pendingMoveX, pendingMoveY, 'MouseMove', rect.width, rect.height);
+                    pendingClientX - rect.left, pendingClientY - rect.top, 'MouseMove', rect.width, rect.height);
             });
         });
 
