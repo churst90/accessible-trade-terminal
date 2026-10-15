@@ -2,6 +2,8 @@ using System.Reactive.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services.Workspace
 {
@@ -96,18 +98,39 @@ namespace AccessibleTrader.Core.Services.Workspace
             {
                 // Sample, not Throttle: a busy live chart dispatches constantly and
                 // a trailing-edge throttle would never fire. Sample emits at most
-                // once per interval and only when the state actually changed —
-                // idle sessions write nothing.
+                // once per interval and only when the state actually changed.
                 _sampleSub = _store.StateStream
                     .Sample(sampleInterval ?? DefaultSampleInterval)
-                    .Subscribe(_ => SaveNow());
+                    .Subscribe(_ => Save(force: false));
             }
         }
 
         public bool IsEnabled =>
             _settings.GetSetting(SettingsKeys.ResumeLastSession)?.ToObject<bool>() ?? true;
 
-        public void SaveNow()
+        /// <summary>What this session last wrote to its slot, serialized — the sampled save's
+        /// "has anything a resume would give back changed" test. Guarded by <see cref="_saveLock"/>:
+        /// the sample fires on a pool thread and the shutdown hooks on the circuit's.</summary>
+        private string? _lastWritten;
+        private readonly object _saveLock = new();
+
+        /// <summary>
+        /// The shutdown hooks' save. Always writes, even when nothing changed since the last
+        /// sample: the write time is how resume knows this was the session the user left last.
+        /// </summary>
+        public void SaveNow() => Save(force: true);
+
+        /// <summary>
+        /// <para><b>A tick is not the user working.</b> "The most recently written slot is the
+        /// tab the user was last working in" was only true while every write meant a change the
+        /// user made. A live chart's state changes on every tick (DataManager dispatches
+        /// <c>UpdateDataAction</c> and <c>LiveTickObservedAction</c> for each), so the sample
+        /// below rewrote an untouched live tab's slot every 30 seconds, and with two terminal
+        /// tabs open the one that ticked last won the resume — close the tab you were working
+        /// in, restore from the tray, and get the other one. So the sampled save writes only
+        /// when the configuration it would write differs from the one it last wrote.</para>
+        /// </summary>
+        private void Save(bool force)
         {
             if (_demo.IsDemo || !IsEnabled) return;
             // A blank session must NEVER clobber the saved one — startup runs
@@ -117,13 +140,44 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             try
             {
-                _library.SaveWorkspaceProfile(_slotName, _store);
+                var config = _library.CaptureWorkspace(_store);
+                if (config == null) return;
+                string written = ComparisonKey(config);
+                lock (_saveLock)
+                {
+                    // An unchanged session still rewrites a slot that has gone from disk —
+                    // another session's resume prunes all but the newest few, and a session
+                    // that no longer writes on ticks can fall out of them while still open.
+                    if (!force && written == _lastWritten && SlotIsOnDisk()) return;
+                    _library.SaveProfile(_slotName, config);
+                    _lastWritten = written;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Session autosave failed; will retry on the next sample.");
             }
         }
+
+        /// <summary>
+        /// The configuration as it would be written, minus the scroll position. A new bar on a
+        /// chart at the live edge scrolls it (ViewportReducer.UpdateData), so the saved
+        /// ViewportStartIndex moves on every bar a live market opens — and resume deliberately
+        /// never re-applies it (WorkspaceInitializer.RestoreViewportLength opens at the live
+        /// edge), so a change to it alone is not a change to anything the user gets back.
+        /// </summary>
+        private static string ComparisonKey(WorkspaceConfiguration config)
+        {
+            var json = JObject.FromObject(config);
+            foreach (var start in json.Descendants().OfType<JProperty>()
+                                      .Where(p => p.Name == nameof(TabConfiguration.ViewportStartIndex))
+                                      .ToList())
+                start.Value = 0;
+            return json.ToString(Formatting.None);
+        }
+
+        private bool SlotIsOnDisk() =>
+            _library.GetAllProfilesWithTimes().Any(p => p.Name == _slotName);
 
         /// <summary>Every session slot on disk, newest first. Includes the legacy unsuffixed
         /// name so a session saved before per-slot autosave still resumes.</summary>

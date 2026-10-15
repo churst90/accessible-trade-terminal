@@ -31,6 +31,18 @@ namespace AccessibleTrader.Tests
             {
                 Store.State.Returns(_ => State);
                 Store.StateStream.Returns(StateSubject);
+                // What the library would write for the current state. A fresh object per call,
+                // keyed on the symbol, so "changed" and "unchanged" mean what they would on disk.
+                Library.CaptureWorkspace(Store).Returns(_ => new WorkspaceConfiguration { Symbol = State.Identity.Symbol });
+                // A written slot is then on the fake "disk", as it would be on the real one.
+                Library.GetAllProfilesWithTimes().Returns(_ => _slots);
+                Library.When(l => l.SaveProfile(Arg.Any<string>(), Arg.Any<WorkspaceConfiguration>()))
+                    .Do(ci =>
+                    {
+                        var name = ci.ArgAt<string>(0);
+                        _slots.RemoveAll(x => x.Name == name);
+                        _slots.Add((name, DateTime.UtcNow));
+                    });
                 Settings.GetSetting(SettingsKeys.ResumeLastSession)
                     .Returns(settingValue.HasValue ? JToken.FromObject(settingValue.Value) : null);
                 return new SessionAutosaveService(Store, Library, Initializer, Settings,
@@ -67,10 +79,18 @@ namespace AccessibleTrader.Tests
             // The name is now this SESSION's own slot, not one fixed name shared by every
             // circuit — see SessionAutosaveService._slotName. What must hold is that exactly
             // one save happened and it went to a session slot.
-            h.Library.Received(1).SaveWorkspaceProfile(
+            h.Library.Received(1).SaveProfile(
                 Arg.Is<string>(n => n.StartsWith(SessionAutosaveService.LastSessionProfileName,
                                                  StringComparison.Ordinal)),
-                h.Store);
+                Arg.Any<WorkspaceConfiguration>());
+        }
+
+        /// <summary>Neither write path was taken — the capture-and-write the autosave uses, nor
+        /// the one-call save it used to use.</summary>
+        private static void AssertNothingWritten(Harness h)
+        {
+            h.Library.DidNotReceiveWithAnyArgs().SaveProfile(default!, default!);
+            h.Library.DidNotReceiveWithAnyArgs().SaveWorkspaceProfile(default!, default!);
         }
 
         [Fact]
@@ -81,7 +101,7 @@ namespace AccessibleTrader.Tests
 
             svc.SaveNow(); // store is WorkspaceState.Initial — blank
 
-            h.Library.DidNotReceiveWithAnyArgs().SaveWorkspaceProfile(default!, default!);
+            AssertNothingWritten(h);
         }
 
         [Fact]
@@ -93,7 +113,7 @@ namespace AccessibleTrader.Tests
 
             svc.SaveNow();
 
-            h.Library.DidNotReceiveWithAnyArgs().SaveWorkspaceProfile(default!, default!);
+            AssertNothingWritten(h);
         }
 
         [Fact]
@@ -105,7 +125,7 @@ namespace AccessibleTrader.Tests
 
             svc.SaveNow();
 
-            h.Library.DidNotReceiveWithAnyArgs().SaveWorkspaceProfile(default!, default!);
+            AssertNothingWritten(h);
         }
 
         [Fact]
@@ -118,12 +138,13 @@ namespace AccessibleTrader.Tests
             h.StateSubject.OnNext(h.State); // activity within the sample window
 
             var deadline = Environment.TickCount64 + 3000;
-            while (System.Linq.Enumerable.Count(h.Library.ReceivedCalls()) == 0 && Environment.TickCount64 < deadline)
+            while (!h.Library.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveProfile))
+                   && Environment.TickCount64 < deadline)
                 await Task.Delay(20);
-            h.Library.Received().SaveWorkspaceProfile(
+            h.Library.Received().SaveProfile(
                 Arg.Is<string>(n => n.StartsWith(SessionAutosaveService.LastSessionProfileName,
                                                  StringComparison.Ordinal)),
-                h.Store);
+                Arg.Any<WorkspaceConfiguration>());
         }
 
         [Fact]
@@ -193,10 +214,10 @@ namespace AccessibleTrader.Tests
             svcB.SaveNow();
 
             string nameA = (string)a.Library.ReceivedCalls()
-                .First(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveWorkspaceProfile))
+                .First(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveProfile))
                 .GetArguments()[0]!;
             string nameB = (string)b.Library.ReceivedCalls()
-                .First(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveWorkspaceProfile))
+                .First(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveProfile))
                 .GetArguments()[0]!;
 
             Assert.StartsWith(SessionAutosaveService.LastSessionProfileName, nameA);
@@ -227,6 +248,178 @@ namespace AccessibleTrader.Tests
 
             h.Initializer.Received(1).RestoreWorkspace(fresh);
             h.Initializer.DidNotReceive().RestoreWorkspace(stale);
+        }
+
+        // ── Market data is not the user working ──────────────────────────────
+        //
+        // Resume picks the slot written most recently, on the reasoning that it is the tab the
+        // user was last working in. But a live chart's state changes on EVERY TICK —
+        // DataManager dispatches UpdateDataAction and LiveTickObservedAction for each one — and
+        // the 30-second Sample saved whenever the state had changed, so any terminal tab left
+        // open on a live market rewrote its slot every 30 seconds whether or not anyone touched
+        // it. With a second tab open, "most recently written" meant "whichever ticked last":
+        // close the tab you were working in, bring the terminal back from the tray, and a tab
+        // you had not touched for an hour won. Found investigating Cody's 2026-10-15 report
+        // (Market Structure and Volume Profile missing after a restore); his own incident had
+        // one tab at a time, so this was not its cause — see SessionRestoreBrowserTests.
+
+        private static WorkspaceStore LiveStore(string symbol)
+        {
+            var store = new WorkspaceStore(new EventBus(), new ViewportRangeCalculator(),
+                new ViewportNavigationService(), new VolumeStateService());
+            store.Dispatch(new SetIdentityAction(new ChartIdentity("Spot", "Bitstamp", symbol, "1m")));
+            var bars = Enumerable.Range(0, 120)
+                .Select(i => new Ohlcv(new DateTime(2026, 10, 15, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i),
+                                       100, 101, 99, 100, 1000))
+                .ToList();
+            store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(bars), IsInitialLoad: true));
+            return store;
+        }
+
+        /// <summary>One live tick the way DataManager delivers it — the WHOLE buffer, with the
+        /// forming bar updated or a new bar opened — and the feed stamped alive. A new bar on a
+        /// chart at the live edge also scrolls the viewport (ViewportReducer.UpdateData), which
+        /// is a change to the saved ViewportStartIndex. None of it is anything a resume gives back.</summary>
+        private static void Tick(WorkspaceStore store, int minute, double close)
+        {
+            var bar = new Ohlcv(new DateTime(2026, 10, 15, 0, 0, 0, DateTimeKind.Utc).AddMinutes(minute),
+                                100, Math.Max(101, close), 99, close, 1000);
+            var bars = store.State.Data.ToList();
+            if (bars.Count > 0 && bars[^1].Date == bar.Date) bars[^1] = bar; else bars.Add(bar);
+            store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(bars), IsInitialLoad: false));
+            store.Dispatch(new LiveTickObservedAction(DateTime.UtcNow));
+        }
+
+        private static SessionAutosaveService RealAutosave(IWorkspaceStore store, IWorkspaceLibraryService lib,
+                                                           IWorkspaceInitializer? init = null) =>
+            new(store, lib, init ?? Substitute.For<IWorkspaceInitializer>(), Substitute.For<ISettingsManager>(),
+                new DemoPolicy(false), Substitute.For<IEventBus>(), NullLogger<SessionAutosaveService>.Instance,
+                TimeSpan.FromMilliseconds(40));
+
+        [Fact]
+        public async Task A_tab_that_only_receives_ticks_does_not_displace_the_tab_the_user_closed()
+        {
+            var dir = TestTemp.NewDir("att-autosave-ticks-");
+            try
+            {
+                var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())
+                    { LibraryDirectoryOverride = dir };
+
+                // Two terminal tabs on live markets. BTC is the one the user is working in; ETH
+                // is open in the background.
+                var btc = LiveStore("BTC/USD");
+                var eth = LiveStore("ETH/USD");
+                var working = RealAutosave(btc, lib);
+                using var background = RealAutosave(eth, lib);
+
+                // Both tabs take their first sample, so both slots exist.
+                Tick(btc, 119, 100.5);
+                Tick(eth, 119, 100.5);
+                var deadline = Environment.TickCount64 + 3000;
+                while (lib.GetAllProfilesWithTimes().Count(p => p.Name.StartsWith(
+                           SessionAutosaveService.LastSessionProfileName, StringComparison.Ordinal)) < 2
+                       && Environment.TickCount64 < deadline)
+                    await Task.Delay(20);
+                Assert.True(lib.GetAllProfilesWithTimes().Count(p => p.Name.StartsWith(
+                                SessionAutosaveService.LastSessionProfileName, StringComparison.Ordinal)) == 2,
+                    "precondition: both tabs' first samples should have written their slots");
+
+                // The user closes the BTC tab: the shutdown hook's final save, then the circuit goes.
+                working.SaveNow();
+                working.Dispose();
+
+                // The ETH tab sits untouched while its market trades through several sample
+                // intervals: the forming bar moves, then a new one opens.
+                int startBefore = eth.State.ViewportStartIndex;
+                for (int i = 0; i < 12; i++)
+                {
+                    Tick(eth, i < 6 ? 119 : 120, 100 + i * 0.1);
+                    await Task.Delay(25);
+                }
+                await Task.Delay(120);   // past the last sample
+                Assert.True(eth.State.ViewportStartIndex != startBefore,
+                    "vacuity: the new bar did not scroll the background chart, so this test no longer "
+                  + "covers the one tick-driven change that reaches the saved configuration");
+
+                // The tray's "Restore workspaces to browser" opens a new tab, which resumes.
+                var init = Substitute.For<IWorkspaceInitializer>();
+                var fresh = new WorkspaceStore(new EventBus(), new ViewportRangeCalculator(),
+                    new ViewportNavigationService(), new VolumeStateService());
+                using var reopened = RealAutosave(fresh, lib, init);
+                Assert.True(reopened.TryResumeAtStartup());
+
+                var restored = (WorkspaceConfiguration)init.ReceivedCalls()
+                    .Single(c => c.GetMethodInfo().Name == nameof(IWorkspaceInitializer.RestoreWorkspace))
+                    .GetArguments()[0]!;
+                Assert.True(restored.Tabs[0].Symbol == "BTC/USD",
+                    $"the reopened tab resumed {restored.Tabs[0].Symbol}, the tab that only received ticks, "
+                  + "instead of BTC/USD, the tab the user closed");
+            }
+            finally { System.IO.Directory.Delete(dir, recursive: true); }
+        }
+
+        private static int Writes(Harness h) =>
+            h.Library.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveProfile));
+
+        private static async Task<bool> WaitForWritesAsync(Harness h, int n, int timeoutMs = 3000)
+        {
+            var deadline = Environment.TickCount64 + timeoutMs;
+            while (Writes(h) < n && Environment.TickCount64 < deadline) await Task.Delay(10);
+            return Writes(h) >= n;
+        }
+
+        [Fact]
+        public async Task A_sample_that_would_write_the_same_workspace_writes_nothing_but_a_change_is_written()
+        {
+            var h = new Harness();
+            using var svc = h.Build(interval: TimeSpan.FromMilliseconds(30));
+            h.MakeMeaningful();
+
+            h.StateSubject.OnNext(h.State);
+            Assert.True(await WaitForWritesAsync(h, 1), "the first sample of a meaningful session never wrote its slot");
+            // Ticks: the state object changes, what would be written does not.
+            for (int i = 0; i < 5; i++) { h.StateSubject.OnNext(h.State with { }); await Task.Delay(40); }
+            Assert.True(Writes(h) == 1,
+                $"five samples that would write the same workspace rewrote the slot {Writes(h) - 1} time(s)");
+
+            // The user changes the chart: written on the next sample.
+            h.State = h.State with { Identity = new ChartIdentity("Spot", "Bitstamp", "ETH/USD", "1h") };
+            h.StateSubject.OnNext(h.State);
+            Assert.True(await WaitForWritesAsync(h, 2), "a changed workspace was never written");
+        }
+
+        [Fact]
+        public async Task An_unchanged_session_rewrites_its_slot_if_the_slot_was_pruned()
+        {
+            // Another session's resume prunes all but the newest few slots. A session that no
+            // longer writes on ticks can fall out of them while still open; its next sample
+            // must put the slot back rather than leave the session with nothing on disk.
+            var h = new Harness();
+            using var svc = h.Build(interval: TimeSpan.FromMilliseconds(30));
+            h.MakeMeaningful();
+            h.Library.GetAllProfilesWithTimes().Returns(Array.Empty<(string, DateTime)>());
+
+            h.StateSubject.OnNext(h.State);
+            Assert.True(await WaitForWritesAsync(h, 1));
+            h.StateSubject.OnNext(h.State with { });
+            Assert.True(await WaitForWritesAsync(h, 2), "the slot is not on disk, and the unchanged sample did not write it back");
+        }
+
+        [Fact]
+        public void SaveNow_writes_even_when_nothing_changed_since_the_last_save()
+        {
+            // The shutdown hooks' save is how resume learns which session the user left last:
+            // its write time is the signal, so it is never skipped as "unchanged".
+            var h = new Harness();
+            using var svc = h.Build();
+            h.MakeMeaningful();
+
+            svc.SaveNow();
+            svc.SaveNow();
+
+            Assert.True(Writes(h) == 2,
+                "the second SaveNow, with nothing changed and the slot on disk, was skipped — so a "
+              + "shutdown save no longer marks this as the session the user left last");
         }
 
         [Fact]
