@@ -89,6 +89,11 @@ namespace AccessibleTrader.Core.Services
             CoreSeriesIds.Price,
         };
 
+        /// <summary>Whether a series is one of the provider-owned core stack (Candles, Volume,
+        /// Price) rather than something the user put on the chart. The resume announcement
+        /// counts "your indicators" by this, so it and the reconciler share one definition.</summary>
+        internal static bool IsCoreStackSeries(string seriesId) => CoreStackIds.Contains(seriesId);
+
         /// <summary>
         /// Returns the core series ids that should exist on the chart for a given provider
         /// data shape, plus the id that should become the primary/focused series. This is

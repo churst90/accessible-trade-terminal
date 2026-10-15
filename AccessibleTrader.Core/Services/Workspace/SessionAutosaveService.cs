@@ -232,9 +232,11 @@ namespace AccessibleTrader.Core.Services.Workspace
             {
                 _initializer.RestoreWorkspace(config);
                 int tabs = config.IsMultiTab ? config.Tabs.Count : 1;
-                _eventBus.Publish(new AnnouncementEvent(tabs <= 1
+                string resumed = tabs <= 1
                     ? "Resumed your last session."
-                    : $"Resumed your last session: {tabs} tabs.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+                    : $"Resumed your last session: {tabs} tabs.";
+                _eventBus.Publish(new AnnouncementEvent(WithActiveChart(resumed),
+                    Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 _logger.LogInformation("Resumed last session ({Tabs} tab(s)).", tabs);
                 return true;
             }
@@ -244,6 +246,64 @@ namespace AccessibleTrader.Core.Services.Workspace
                 // always a safe landing.
                 _logger.LogError(ex, "Resuming the last session failed; starting fresh.");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// The resume sentence followed by what came back on the chart in front of the user:
+        /// "BTCUSDT 1 day, with Cipher B, Market Structure and RSI."
+        ///
+        /// <para>
+        /// Cody, 2026-10-15: "Resumed your last session" said nothing about WHAT resumed, so
+        /// after a restart he could not tell by ear whether the layout he had left was the one
+        /// he got back — he believed indicators were missing and had no quick way to check. The
+        /// active chart and its indicators make a wrong or stale layout audible on arrival.
+        /// </para>
+        ///
+        /// <para>
+        /// Read from the STORE after the restore, not from the saved file: the store is what is
+        /// actually on screen. The saved names can be stale (restore re-derives an indicator's
+        /// name from its parameters, so an old file's "Cipher SR 5 20 1.2 …" is "Cipher SR" by
+        /// the time it is on the chart), and the restore is what decides which tab is active.
+        /// Names are <c>Name</c>, the one series navigation speaks. Candles, Volume and Price are
+        /// on every chart and are not "your indicators"; drawings are not indicators either.
+        /// </para>
+        ///
+        /// <para>An announcement must never cost the user the resume, so anything that goes
+        /// wrong here falls back to the bare sentence.</para>
+        /// </summary>
+        private string WithActiveChart(string resumed)
+        {
+            try
+            {
+                var state = _store.State;
+                var id = state.Identity;
+                string chart = string.IsNullOrWhiteSpace(id.Symbol) ? "Chart" : id.Symbol;
+                if (!string.IsNullOrWhiteSpace(id.Timeframe))
+                    chart += " " + Accessibility.ChartLayoutDescriber.SpokenTimeframe(id.Timeframe);
+
+                var names = (state.ActiveSeries ?? System.Collections.Immutable.ImmutableList<ChartSeries>.Empty)
+                    .Where(s => !WorkspaceInitializer.IsCoreStackSeries(s.Id) && !s.IsDrawing)
+                    .Select(s => !string.IsNullOrWhiteSpace(s.Name) ? s.Name
+                               : !string.IsNullOrWhiteSpace(s.FriendlyName) ? s.FriendlyName
+                               : s.IndicatorCode)
+                    .ToList();
+
+                // Three names is a sentence; more is a list nobody can hold, and the count is
+                // still enough to notice "that should be seven".
+                string indicators = names.Count switch
+                {
+                    0 => "no indicators",
+                    1 => $"with {names[0]}",
+                    <= 3 => $"with {string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
+                    _ => $"with {names.Count} indicators",
+                };
+                return $"{resumed} {chart}, {indicators}.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not describe the resumed chart; announcing the resume alone.");
+                return resumed;
             }
         }
 
