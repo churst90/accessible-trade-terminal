@@ -34,6 +34,15 @@ namespace AccessibleTrader.Tests
                 // What the library would write for the current state. A fresh object per call,
                 // keyed on the symbol, so "changed" and "unchanged" mean what they would on disk.
                 Library.CaptureWorkspace(Store).Returns(_ => new WorkspaceConfiguration { Symbol = State.Identity.Symbol });
+                // A written slot is then on the fake "disk", as it would be on the real one.
+                Library.GetAllProfilesWithTimes().Returns(_ => _slots);
+                Library.When(l => l.SaveProfile(Arg.Any<string>(), Arg.Any<WorkspaceConfiguration>()))
+                    .Do(ci =>
+                    {
+                        var name = ci.ArgAt<string>(0);
+                        _slots.RemoveAll(x => x.Name == name);
+                        _slots.Add((name, DateTime.UtcNow));
+                    });
                 Settings.GetSetting(SettingsKeys.ResumeLastSession)
                     .Returns(settingValue.HasValue ? JToken.FromObject(settingValue.Value) : null);
                 return new SessionAutosaveService(Store, Library, Initializer, Settings,
@@ -368,13 +377,10 @@ namespace AccessibleTrader.Tests
 
             h.StateSubject.OnNext(h.State);
             Assert.True(await WaitForWritesAsync(h, 1), "the first sample of a meaningful session never wrote its slot");
-            h.SeedSlot(((string)h.Library.ReceivedCalls()
-                .First(c => c.GetMethodInfo().Name == nameof(IWorkspaceLibraryService.SaveProfile))
-                .GetArguments()[0]!), DateTime.UtcNow, new WorkspaceConfiguration());
-
             // Ticks: the state object changes, what would be written does not.
             for (int i = 0; i < 5; i++) { h.StateSubject.OnNext(h.State with { }); await Task.Delay(40); }
-            Assert.Equal(1, Writes(h));
+            Assert.True(Writes(h) == 1,
+                $"five samples that would write the same workspace rewrote the slot {Writes(h) - 1} time(s)");
 
             // The user changes the chart: written on the next sample.
             h.State = h.State with { Identity = new ChartIdentity("Spot", "Bitstamp", "ETH/USD", "1h") };
@@ -407,12 +413,13 @@ namespace AccessibleTrader.Tests
             var h = new Harness();
             using var svc = h.Build();
             h.MakeMeaningful();
-            h.SeedSlot("__last-session__other", DateTime.UtcNow, new WorkspaceConfiguration());
 
             svc.SaveNow();
             svc.SaveNow();
 
-            Assert.Equal(2, Writes(h));
+            Assert.True(Writes(h) == 2,
+                "the second SaveNow, with nothing changed and the slot on disk, was skipped — so a "
+              + "shutdown save no longer marks this as the session the user left last");
         }
 
         [Fact]
