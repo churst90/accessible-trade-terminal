@@ -14,10 +14,22 @@ From Cody's two BTCUSDT 1d screenshots. **Not tried in a real browser yet.**
   pointer: the screenshot's hairline sat on about March 31 while the box read April 20 with April 20's
   candle. The tracker now keeps the last pointer sample and re-maps it, through the same code as a
   mouse move, whenever a mapping input changes (data, viewport start/length, price range, log scale,
-  active tab) or the pane dividers move. A re-map never plays the hover tick or speaks. When the
-  chart's rect changes (resize, Alt+Z focus mode, scroll) the pointer's position on the chart is no
-  longer known, so the readout clears until the next move. `canvasRegion.js` now reports the chart
-  rect (`OnChartGeometryChanged`); its cache-bust moved to `v=20261015a`.
+  active tab) or the pane dividers move. A re-map never plays the hover tick or speaks.
+  - **Scroll, resize and Alt+Z re-map too (Cody's call).** The pointer did not move on screen; the
+    chart did. The sample keeps the rect origin it was measured against, so on a new rect
+    (`OnChartGeometryChanged`, reported by `canvasRegion.js`) the pointer's screen position gives its new
+    place on the chart; off the chart, or with no known origin, the readout clears. Alt+Z hides the
+    readout until the new layout's rect arrives, then re-maps. `keyboard.js` now measures a mouse move
+    when its frame fires and calls `canvasRegion.syncRect()` first, so a move and its rect cannot
+    disagree. Proven in real Chromium for a page scroll (`ChartHoverFollowsAScrollBrowserTests`, which
+    blocks every mousemove: Chromium sent none). Cache-busts: `keyboard.js?v=20261015a`,
+    `canvasRegion.js?v=20261015b`. Resize, Alt+Z and the desktop head are UNVERIFIED in a real window.
+- **The resume names the chart that came back.** "Resumed your last session: 3 tabs." could not tell a
+  blind user whether the RIGHT layout was restored. It now goes on with the active chart and the
+  indicators added to it, read from the store after the restore: "BTCUSDT 1 day, with Cipher B, Market
+  Structure and Volume Profile (Visible Range)." More than three are counted ("with 4 indicators"),
+  none is "no indicators"; Candles, Volume, Price and drawings are not counted. If describing the chart
+  fails, the old sentence is spoken and the resume still succeeds (`SessionResumeAnnouncementTests`).
 - **Resume could pick a tab that was merely ticking.** Each browser session autosaves its own slot and
   resume reads the most recently written one. A live chart dispatches on every tick, so an untouched
   tab rewrote its slot every 30 seconds and could win the resume over the tab the user had just closed.

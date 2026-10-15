@@ -10,8 +10,11 @@
 
 - **The hover box names the candle under the mouse.** If you zoom, pan or step through bars with the
   mouse resting on the chart, the date and prices in the hover box now follow the candle under it.
-  Before, they kept naming the candle that used to be there. After a resize or Alt+Z the box hides
-  until you move the mouse.
+  Before, they kept naming the candle that used to be there. Scrolling the page, resizing the window
+  and Alt+Z keep it on whatever is under the mouse; it hides only if the mouse ends up off the chart.
+- **You hear what came back.** When the terminal resumes your last session it now names the chart
+  you were on and its indicators, for example "BTCUSDT 1 day, with Cipher B and Market Structure", so
+  you can tell straight away whether your layout is all there.
 - **Reopening the terminal brings back the tab you left.** With two terminal tabs open, an idle live
   chart could win and be the one restored. Now the tab you were last working in is.
 - **The newest candle is the real one.** The candle still forming used to restart flat when you

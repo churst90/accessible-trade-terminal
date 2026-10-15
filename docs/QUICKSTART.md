@@ -422,8 +422,9 @@ says when you pressed nothing.
 
 **Workspaces.** Every tab, its symbol and timeframe, indicators with their settings and sounds,
 drawings, Heikin-Ashi and log scale, pane heights and running strategies. **Ctrl+Alt+Shift+W**
-saves, **Ctrl+Alt+W** loads. The session autosaves every 30 seconds and resumes on start
-("Resumed your last session: N tabs"); alerts persist on their own.
+saves, **Ctrl+Alt+W** loads. The session autosaves within 30 seconds of a change and resumes on start, naming
+the chart you were on and its indicators ("Resumed your last session: 3 tabs. BTCUSDT 1 day, with
+Cipher B and Market Structure."); alerts persist on their own.
 
 **Tabs.** Alt+Shift+N opens one everywhere; Ctrl+T, Ctrl+W, Ctrl+Tab and Ctrl+Shift+Tab work on
 the desktop apps only. On the web press Ctrl+Alt+Shift+T to focus the tab bar, then arrows,

@@ -3728,7 +3728,11 @@ on their own the moment you create them. Bar data is refetched fresh on load.
 
 You also do not need to remember to save at all: the terminal **autosaves your
 session** within thirty seconds of a change and again when it closes, and the next start
-simply resumes it — you hear "Resumed your last session: N tabs" and you are
+simply resumes it — you hear something like "Resumed your last session: 3 tabs.
+BTCUSDT 1 day, with Cipher B, Market Structure and Volume Profile (Visible Range)."
+That names the chart you were on and the indicators you added to it (more than
+three are counted: "with 5 indicators"; Candles, Volume and Price are not
+mentioned), so you can tell by ear that the right layout came back, and you are
 back where you left off, tabs, drawings, strategies and all. This covers the
 browser-refresh case on the web build too, which previously lost everything
 unsaved. If you prefer a blank start, turn off Settings > Workspace > "Resume

@@ -127,16 +127,19 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   `dotpad.log` say they were first added at 02:09:36 / 02:09:57, AFTER the 02:09 restore, and that
 >   each restore resumed exactly what the closed tab held. Was there an earlier session where he added
 >   them and the Add Indicator dialog seemed to work? If so, that add never reached the chart — chase it.
-> - Should "Resumed your last session" name the active chart and its series count, so a wrong or old
->   layout is audible? (New speech; not done.)
-> - Two terminal tabs in one browser window, window closed: the last tab closed still wins. A per-tab
->   id in `sessionStorage` would fix F5 and discarded-tab reloads (not tray restores, which open a new
->   tab). Wanted?
-> - A page scroll that moves the chart also clears the hover readout (any rect change counts). Keep,
->   or only size changes?
+> - **Decided 2026-10-15:** "Resumed your last session" names the active chart and its indicators
+>   (done). Agent questions: mention drawings ("and 2 drawings")? A short spoken name for Volume Profile
+>   without "(Visible Range)"? Tab switch and "Ready." still say "1d" where the resume says "1 day" — match? A per-tab `sessionStorage` id: **keep as is for now** (Cody) — two terminal tabs in
+>   one window, window closed, the last tab closed still wins. The hover readout RE-MAPS from the
+>   pointer's screen position on scroll, resize and Alt+Z instead of clearing, and clears only when the
+>   pointer ends up off the chart (Cody approved; done). Agent questions: when a scroll leaves the
+>   pointer off the chart the sample is dropped, so scrolling back shows nothing until the mouse moves —
+>   keep it and show it again? A chart that moves without resizing or scrolling sends no rect report,
+>   so a parked mouse there is not re-mapped.
 >
-> **Unverified:** that a real window resize and Alt+Z clear the hover readout in the browser and on the
-> desktop head (unit, bUnit and JS tests only).
+> **Unverified:** the hover re-map on a real window resize and Alt+Z, and on the desktop head (scroll is
+> proven in Chromium); wheel/keyboard/scrollbar scrolls; the resume sentence by ear (the restore's own
+> "Tab N: …" announcement comes just before it and should be interrupted by it).
 >
 > The rest are **IMMEDIATE FIXES**, next in line:
 >
