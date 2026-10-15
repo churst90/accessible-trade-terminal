@@ -165,6 +165,32 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void A_chart_that_cannot_be_described_still_announces_the_resume()
+        {
+            // The sentence names the active chart (SessionResumeAnnouncementTests). Describing it
+            // must never cost the user the resume or its announcement: a restore that leaves a
+            // state the describer cannot read falls back to the bare sentence.
+            var h = new Harness();
+            using var svc = h.Build();
+            var config = new WorkspaceConfiguration
+            {
+                Tabs = new List<TabConfiguration> { new(), new(), new() },
+            };
+            h.SeedSlot("__last-session__aaa", DateTime.UtcNow, config);
+            bool restored = false;
+            h.Store.State.Returns(_ => restored
+                ? throw new InvalidOperationException("state unreadable after restore")
+                : h.State);
+            h.Initializer.When(i => i.RestoreWorkspace(config)).Do(_ => restored = true);
+
+            Assert.True(svc.TryResumeAtStartup());
+
+            h.EventBus.Received(1).Publish(Arg.Is<AnnouncementEvent>(e =>
+                e.Message == "Resumed your last session: 3 tabs."
+                && e.Channel == AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        }
+
+        [Fact]
         public void Resume_skips_when_nothing_saved_or_workspace_already_loaded()
         {
             var h = new Harness();
