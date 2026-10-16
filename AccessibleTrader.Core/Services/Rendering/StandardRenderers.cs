@@ -220,11 +220,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// split is at a value they never reach.
         /// </para>
         /// </summary>
-        private static bool WantsPolaritySplit(ComponentConfig comp) =>
+        internal static bool WantsPolaritySplit(ComponentConfig comp) =>
             comp.UsePolarityColoring && !string.IsNullOrEmpty(comp.ColorHexSecondary);
 
         /// <summary>The colour a polarity-split component takes at <paramref name="value"/>.</summary>
-        private static SKColor PolarityColor(ComponentConfig comp, double value, SKColor above)
+        internal static SKColor PolarityColor(ComponentConfig comp, double value, SKColor above)
         {
             if (value >= comp.ColorBaseline) return above;
             return SKColor.TryParse(comp.ColorHexSecondary, out var below) ? below : above;
@@ -462,6 +462,44 @@ namespace AccessibleTrader.Core.Services.Rendering
         ///   <see cref="ColorSource.Value"/>        — green when the bar value &gt;= 0, red when negative.
         ///                                            Used for MACD histogram and any oscillator-style bar.
         /// </summary>
+        /// <summary>
+        /// The up and down colours a directional bar or histogram is painted in — the ONE place
+        /// that decides them, shared by the bars, the pane legend and the crosshair badge.
+        ///
+        /// <para>
+        /// The legend used to make its own guess: every non-volume bar got the same fixed green,
+        /// so on Cipher B "WT Histogram" and "Money Flow" carried identical keys and neither showed
+        /// that half its bars are red (Cody's 2026-10-15 screenshots). A key that is computed
+        /// somewhere other than where the bars are painted drifts from them; this is that rule,
+        /// lifted out of <see cref="RenderDirectionalBars"/> unchanged.
+        /// </para>
+        ///
+        /// <para>
+        /// VOLUME takes the theme's candle colours, so the two panes agree about what "up" looks
+        /// like. Other directional bars — a MACD histogram, a money-flow bar — keep their own
+        /// palette: they are not price direction and colouring them like candles would say they
+        /// were.
+        /// </para>
+        /// </summary>
+        /// <param name="theme">Null only for callers with no theme to hand (the legend's pure row
+        /// builder under test): volume then falls back to the plain green/red pair and the
+        /// colour-vision override, a theme setting, is not applied.</param>
+        internal static (SKColor Up, SKColor Down) DirectionalBarColors(ChartTheme? theme, ComponentConfig comp)
+        {
+            bool followsPrice = comp.Role is ComponentRole.Volume or ComponentRole.PriceAction;
+
+            var upColor   = followsPrice ? theme?.CandleBullishBody ?? SKColors.Green : SKColors.Green;
+            var downColor = followsPrice ? theme?.CandleBearishBody ?? new SKColor(204, 0, 0) : new SKColor(204, 0, 0);
+            if (!followsPrice || comp.IsUserStyled)
+            {
+                if (!string.IsNullOrEmpty(comp.ColorHex) && SKColor.TryParse(comp.ColorHex, out var parsedUp))
+                    upColor = parsedUp;
+                if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
+                    downColor = parsedDown;
+            }
+            return theme is null ? (upColor, downColor) : ApplyColorVision(theme, upColor, downColor);
+        }
+
         public static void RenderDirectionalBars(RenderContext ctx, ChartSeries series, ComponentConfig comp)
         {
             var barData = series.GetComponentData(comp.Name);
@@ -470,22 +508,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float spacing  = barWidth * 0.1f;
 
-            // VOLUME takes the theme's candle colours, so the two panes agree about what "up"
-            // looks like. Other directional bars — a MACD histogram, a money-flow bar — keep
-            // their own palette: they are not price direction and colouring them like candles
-            // would say they were.
-            bool followsPrice = comp.Role is ComponentRole.Volume or ComponentRole.PriceAction;
-
-            var upColor   = followsPrice ? ctx.Theme.CandleBullishBody : SKColors.Green;
-            var downColor = followsPrice ? ctx.Theme.CandleBearishBody : new SKColor(204, 0, 0);
-            if (!followsPrice || comp.IsUserStyled)
-            {
-                if (!string.IsNullOrEmpty(comp.ColorHex) && SKColor.TryParse(comp.ColorHex, out var parsedUp))
-                    upColor = parsedUp;
-                if (!string.IsNullOrEmpty(comp.ColorHexSecondary) && SKColor.TryParse(comp.ColorHexSecondary, out var parsedDown))
-                    downColor = parsedDown;
-            }
-            (upColor, downColor) = ApplyColorVision(ctx.Theme, upColor, downColor);
+            // Shared with the legend and the crosshair badge — see DirectionalBarColors.
+            var (upColor, downColor) = DirectionalBarColors(ctx.Theme, comp);
             using var upPaint = SKPaintPool.Rent();
             upPaint.Paint.Color = upColor.WithAlpha(180);
             upPaint.Paint.Style = SKPaintStyle.Fill;

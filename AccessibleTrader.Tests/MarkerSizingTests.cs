@@ -181,7 +181,7 @@ namespace AccessibleTrader.Tests
 
             var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, 400f, 16f, 4f);
 
-            Assert.Equal("Value Deviation — 3 marks", rows.Single().Label);
+            Assert.Equal("Value Deviation — 3 mark types", rows.Single().Label);
         }
 
         // ── DrawRect geometry ────────────────────────────────────────────
