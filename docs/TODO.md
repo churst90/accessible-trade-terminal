@@ -117,8 +117,38 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-16 — the eight 2026-10-15 chart visuals are DONE; see CHANGES).** Each has a
+> test seen red with its bug put back. Checked in rendered PNGs and (hover box) real Chromium at
+> 1000x610 and 1400x950. **Unverified:** Windows / desktop head, density above 1, log scale for the
+> formation edges, focus mode for the hover box, the box beside a tall legend in a real browser.
+>
+> **Open questions for Cody (from that work):**
+> - **WT Histogram and Money Flow still look alike.** Their legend keys now show each one's real
+>   up/down pair, but the provider gives them near-identical colours (`#00FF7F`/`#FF2D55` vs
+>   `#00E676`/`#FF1744`). Give one of them a different pair?
+> - **The legend now hides what is under it** (backing alpha 178 → 245, so level lines stop reading as
+>   a strikethrough). In the eight-pane layout a three-row legend fully covers the oldest bars of a
+>   small pane. Acceptable, or stop level lines at the box instead and keep the see-through backing?
+> - **Axis badge:** a colour chip, no name (the 60px strip has no room). Enough? It follows the
+>   component you are navigating; Cipher B's default focus is a hidden anchor wave, so it falls back to
+>   Wave Trend Fast. BTC badge reads `82,366` beside the readout's `82,366.23` — OK? In Heikin-Ashi the
+>   price badge shows the HA close (where the cursor line always was) while the readout shows the raw
+>   close. The price chip ignores user-styled candle colours.
+> - **Hover box:** switches sides as the hairline crosses the plot's centre — want hysteresis? Behind a
+>   nine-row legend it goes under the legend, about half-way down the price pane.
+> - **Volume Profile:** bin opacity 60/255 (down from 100), or follow the theme's own `ProfileNormal`
+>   alpha, which has always been ignored? Should the 20% strip shrink or become a setting?
+> - **Formations:** "trigger … break below" or "breakdown"? End the target on a touch (now) or a close
+>   beyond it? A failed breakout does not end the lines early (not modelled). Only the dominant
+>   formation labels its target — label every one? Trigger/target now start at the trigger swing, not
+>   the formation's first bar — keep?
+> - **The white Price line** is now named in the legend. Keep it on by default on candle charts? (Hiding
+>   it would change navigation and speech, so it was left.) It also adds a white swatch on the price
+>   axis at the last close.
+> - A polarity-split line still shows one colour in the legend (not in scope).
+>
 > **START HERE (2026-10-15 — Cody's two BTCUSDT 1d screenshots, focus mode and normal).** Read from
-> the pixels and the drawing code; none of these has a test yet. Done the same day (see CHANGES):
+> the pixels and the drawing code (eight visual items, all fixed 2026-10-16). Done the same day (see CHANGES):
 > the hover readout now follows the chart under a still mouse, and an idle live tab no longer wins
 > the session resume. Neither has been tried in a real browser.
 >
@@ -141,37 +171,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > proven in Chromium); wheel/keyboard/scrollbar scrolls; the resume sentence by ear (the restore's own
 > "Tab N: …" announcement comes just before it and should be interrupted by it).
 >
-> The rest are **IMMEDIATE FIXES**, next in line:
->
-> 1. **The hover readout box covers the newest candles.** It sits top right (`ChartArea.razor`, the
->    `right:72px` box), over the most recent highs and the "ascending triangle" label, in focus mode
->    too. Move it out of the plot's live edge (top left of the plot, or follow the pointer away from it).
-> 2. **The oscillator pane's value badge names nothing.** `ChartRenderer.RenderCrosshair` labels each
->    indicator pane with `CrosshairValueAt` — the FIRST component with a value (on Cipher B the WT
->    histogram, 55.70) while the Wave Trend lines sat near −40. A sighted reader takes it for the lines.
->    Label it with the component's name or colour, or read the focused component. The price pane draws
->    its cursor line at the close with no badge at all — give it one, same style.
-> 3. **The legend cannot tell WT Histogram from Money Flow** — both get the same plain green square
->    (their up colour). A histogram with an up/down pair should show both colours, and two such rows
->    in one pane must differ. In focus mode the dashed overbought line also runs through the
->    "Wave Trend Fast" text, so it reads as struck through: the legend needs an opaque backing, or the
->    level lines must stop at it.
-> 4. **Price axis and readout format numbers differently.** The axis says `85000.00` (no separator,
->    pennies on Bitcoin); the readout says `82,366.23`. `ChartMath.FormatAxisValue` should group
->    thousands and drop decimals the axis step does not need.
-> 5. **"Market Structure — 4 marks" means four KINDS of mark** (`ChartRenderer.cs`, the collapsed
->    marker row: `markerColors.Count`), on a chart showing about forty. Say "4 mark types".
-> 6. **Volume Profile (Visible Range) paints over the newest three months of candles** — the part a
->    trader most needs to see. Draw it under the candles with lower opacity, or pin it to the axis side
->    with a narrower maximum width (setting).
-> 7. **Formation lines are flat and never end.** "rising wedge" is a flat solid line at 75,000 with a
->    dashed one near 60,300, running from late March to the right edge six months later; likewise the
->    triangles. If solid = breakout level and dashed = measured target (both were reached, so they did
->    their job), the label should say so ("rising wedge breakdown 75,000 / target 60,300"), and the
->    lines should stop when the target is hit or the formation is invalidated. A sighted reader expects
->    a wedge to be two sloping lines. Confirm what solid and dashed mean in the code before changing.
-> 8. **A white line hugs the closes in the price pane and neither legend names it.** Find what draws it
->    (an overlay? the price-line series "Price"?) and either list it or drop it.
+> The eight IMMEDIATE FIXES filed here are **DONE 2026-10-16** — see the block above and CHANGES.
 >
 > **START HERE (2026-10-09 — Cody's four questions fixed: live candles, bar dates, `;`, `0`,
 > alerts; see CHANGES).** Suite **8,564** listed. Full suites now run on GitHub (`tests.yml` on push),

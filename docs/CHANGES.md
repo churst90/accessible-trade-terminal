@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Eight chart visuals from Cody's 2026-10-15 screenshots (2026-10-16)
+
+The IMMEDIATE FIXES filed from the two BTCUSDT 1d screenshots, all eight. Each fix has a test that
+was seen to go red with its bug put back. Checked in rendered PNGs and, for the hover box, in real
+Chromium. **Not looked at on Windows or in the desktop head, and not at density above 1.**
+
+- **The hover readout box no longer covers the newest candles.** It was fixed at top right
+  (`top:6px; right:72px`), over the live edge where the pointer usually is, in focus mode too.
+  `ChartHoverTracker.PlaceReadout` now puts it at the top of the plot on the half AWAY from the
+  hairline, inset by the real axis width on the right, capped at half the plot (it wraps rather than
+  reach the hairline). On the left it sits beside or under the price pane's legend: the renderer
+  publishes that rect through `IPaneLayoutService.MainLegendFraction`, and a legend appearing under a
+  still mouse moves the box through the existing re-map. `HoverReadoutPlacementTests` (38),
+  `HoverReadoutStaysOffTheHairlineBrowserTests` (1000x610 and 1400x950).
+- **Each axis badge says whose value it is, and the price pane has one.** `CrosshairValueAt` took the
+  first component with a value in declaration order, hidden ones included: on Cipher B that was the
+  histogram (55.70) while the Wave Trend lines sat near −40. `CrosshairReadingAt` now prefers the
+  component keyboard navigation is on, then the pane's first visible line, then bars; it never reads a
+  hidden, disabled or sub-pane component. Each badge carries a 3px chip in that component's colour (bars
+  by the same up/down rule they are painted with). The price pane gets a badge at the close, and its
+  axis keeps labels out from under it. The badge is computed once per pane and handed to both the axis
+  and the crosshair, so the two copies of the lookup are gone. `CrosshairBadgeAndLegendKeyTests`.
+- **Histogram legend keys show both colours; the legend is no longer struck through.** Every
+  non-volume bar or histogram got one fixed green key, so WT Histogram and Money Flow looked alike; bar
+  rows now draw a two-column key in their real up and down colours. The legend backing goes from alpha
+  178 to 245 (`LegendBackingAlpha`), so a level line behind it no longer reads as a strikethrough —
+  chosen over stopping level lines at the box because the oscillator lines, bars and candles cross the
+  legend too. Side effect: the legend now fully hides what is under it.
+- **Axis numbers are grouped and lose the pennies.** `ChartMath.FormatAxisValue` formatted in the
+  machine's culture with at least two decimals (`85000.00`). It now groups thousands in invariant
+  culture, matching the hover readout, and prints only the decimals the gridline step can produce
+  (`85,000`, RSI `70`, a sub-cent token still `0.000030`). The badge uses the new `FormatAxisReading`,
+  two digits finer than the step (`55.7`, `440.25`; whole dollars on BTC, because `82,366.23` does not
+  fit the ~50px badge and would fall back to `82K`). Nine-digit volume still falls back to `120M`. No
+  speech path calls either formatter.
+- **"Market Structure — 4 marks" says "4 mark types".** The count is the number of marker components,
+  not marks on the chart.
+- **Volume Profile is drawn under the candles.** The whole profile was painted last, so its strip (20%
+  of the pane, right-aligned) covered the newest three months. `ProfileRenderLayer` now has two passes:
+  the bins straight after the pane background, the point-of-control line over the candles (it is a
+  level read against them). Bin opacity drops from 100 to 60: under the candles the bins become the
+  surface the newest candles sit on, and at 100 a falling candle on Blackout fell from 4.07:1 to
+  2.38:1. `VolumeProfileDepthTests` (36, every theme, real renderer pixels).
+- **Formation lines say what they are and stop when they stop mattering.** Solid is the trigger (the
+  price a close must break), dashed the measured target — confirmed in the detector. Labels now read
+  "rising wedge trigger 74,912.00, break below" / "rising wedge measured target 60,367.00", with the
+  speech's own role word and digits, grouped. The trigger ends at the bar that closed through it (or
+  the bar the formation expired); the target ends at the first bar after the break that touched it
+  (new `ChartPattern.TargetReachedAtIndex`, scanned forward from the break only), or one
+  formation-length later. Triangles and wedges are drawn as their two sloping edges (`UpperBoundary`,
+  `LowerBoundary` — the detector already fitted both and threw them away), and their trigger and target
+  start at the trigger's swing. The real Bitstamp daily reproduces Cody's wedge (2026-03-29 to 05-06,
+  trigger 74,912, broke 05-27, target touched 06-05). Causality tests now compare the reached index and
+  both edges, with a vacuity floor of ten reached targets. **Speech unchanged.**
+- **The white line through the closes is named.** It is the core Price series (`#FFFFFF`, seeded on
+  every OHLCV chart), which the price-pane legend filter excluded by code. It is a navigable, spoken
+  series, so it is now listed ("Price") rather than hidden (`ChartRenderer.MainPaneLegendSeries`,
+  `PriceLineLegendTests`). Side effect: a white swatch on the price axis at the last close.
+
 ### The hover readout under a still mouse; resume picks the tab you left (2026-10-15)
 
 From Cody's two BTCUSDT 1d screenshots. **Not tried in a real browser yet.**

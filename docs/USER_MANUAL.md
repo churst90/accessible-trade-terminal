@@ -879,9 +879,14 @@ to the newest, live bar and announces it — the mouse twin of the Backslash key
 
 **The crosshair.** As the pointer moves over the chart, a crosshair follows it: a
 vertical line snapped to the bar under the pointer, a horizontal line at the pointer's
-price, and a readout in the top corner showing the bar's date, the price at the pointer,
-and the bar's open/high/low/close. The readout is real text on the page — not part of
+price, and a readout at the top of the chart showing the bar's date, the price at the pointer,
+and the bar's open/high/low/close. The readout sits on the half of the chart AWAY from the
+pointer — top left while you are on the newest bars, top right on older ones — and beside or
+under the price pane's legend, so it never covers the candles you are pointing at. The readout is real text on the page — not part of
 the chart image — so screen magnifiers, browser zoom, and custom styles all work on it.
+At the right edge, each pane's current value sits in a small badge on its axis, with a colour
+chip naming the line it belongs to (an oscillator pane reads its main line, or the component
+you are navigating, not a histogram behind it); the price pane's badge is the bar's close.
 It never speaks (that would be constant chatter as the mouse moves); the spoken
 equivalent is simply clicking the bar. You can turn the crosshair off and on from the
 chart's right-click menu.
@@ -1603,7 +1608,12 @@ understand where you are, and get your edge somewhere you have tested.
 #### Seeing them, if that helps
 
 **Settings → Appearance → Draw chart formations.** Off by default. It shades each formation's span,
-draws the trigger level solid, and draws the conventional measured target faint and dashed.
+draws the trigger level solid, and draws the conventional measured target faint and dashed. A
+triangle or wedge is also drawn as its two sloping edges across the formation. Each line is labelled
+with what it is — "rising wedge trigger 74,912.00, break below", "measured target 60,367.00" — and
+it stops where it stopped mattering: the trigger at the bar that closed through it (or the bar the
+formation expired), the target at the first bar that reached it. Only a formation still forming runs
+to the right edge.
 
 The audience is anyone who is not listening: a low-vision user, a sighted trading partner, a
 screenshot in a bug report. If you are working by ear you already have everything the drawing shows,

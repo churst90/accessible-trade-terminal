@@ -8,6 +8,19 @@
 
 ## Unreleased
 
+- **The chart says more and hides less** (for a sighted helper or anyone using low vision):
+  - The hover box moves to the side of the chart away from the mouse, so it no longer sits on the
+    newest candles.
+  - Each pane's value badge on the right edge has a colour chip showing which line it belongs to, and
+    the price pane has a badge too. An oscillator's badge reads its main line, not a histogram behind it.
+  - Legend keys for histograms show both of their colours, and lines no longer show through the legend
+    text.
+  - Axis prices read like the hover box: `85,000`, not `85000.00`.
+  - Volume Profile is drawn under the candles instead of over the newest ones.
+  - Formation lines are labelled with what they are ("trigger", "measured target") and stop where the
+    formation broke or reached its target; wedges and triangles show their two sloping edges.
+  - The white line through the closes is the Price series, and the legend now names it.
+  - "4 marks" on a marker legend row now reads "4 mark types".
 - **The hover box names the candle under the mouse.** If you zoom, pan or step through bars with the
   mouse resting on the chart, the date and prices in the hover box now follow the candle under it.
   Before, they kept naming the candle that used to be there. Scrolling the page, resizing the window
