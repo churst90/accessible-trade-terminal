@@ -21,7 +21,7 @@ public sealed class ChartHoverFollowsAScrollBrowserTests
     public ChartHoverFollowsAScrollBrowserTests(TerminalBrowserFixture fixture) => _fixture = fixture;
 
     private const string ReadoutJs =
-        "() => { const d = document.querySelector(\"#chart-interact-zone div[style*='right:72px']\"); return d ? d.innerText : null; }";
+        "() => { const d = document.querySelector('#chart-interact-zone .chart-hover-readout'); return d ? d.innerText : null; }";
 
     private static async Task<string?> WaitForReadoutAsync(TerminalPage t, Func<string?, bool> done, int timeoutMs = 4_000)
     {

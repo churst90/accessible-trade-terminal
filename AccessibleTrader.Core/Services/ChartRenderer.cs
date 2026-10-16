@@ -378,7 +378,13 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 // Update shared layout service so ChartArea.razor can position drag handles.
-                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width);
+                // The price pane's legend goes with it, as fractions like the dividers: the hover
+                // readout (DOM, over the chart image) moves to the top left when the pointer is on
+                // the newest bars, and must sit clear of this box.
+                (float, float, float, float)? legendFraction = legendRect is { } lr
+                    ? (lr.Left / width, lr.Top / height, lr.Right / width, lr.Bottom / height)
+                    : null;
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, legendFraction);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };

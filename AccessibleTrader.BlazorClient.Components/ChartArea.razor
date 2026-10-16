@@ -113,9 +113,17 @@
                the price readout beside it updated. The theme value measures 11.45:1 and 7.68:1.
                2px rather than 1px: a position indicator at 1px is below what 1.4.11 practice
                treats as perceivable, and the Skia path already draws its crosshair wider. *@
-            <div style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
+            <div class="chart-hover-hairline" style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
             <div style="position:absolute; left:0; right:0; height:2px; background:var(--crosshair-color); top:@(Px(_hover.CursorY));"></div>
-            <div style="position:absolute; top:6px; right:72px; background:rgba(18,18,18,0.92); color:#fff;
+            @* Placed by ChartHoverTracker.PlaceReadout: top of the plot, on the half AWAY from the
+               hairline, beside or under the price pane's legend when it is on the left. It was
+               fixed at top right (top:6px; right:72px) and covered the newest candles and their
+               highs in Cody's 2026-10-15 screenshots, focus mode included — the live edge is
+               where the pointer usually is. max-width keeps it in its own half (it wraps instead);
+               border-box so that cap includes the padding and border. *@
+            <div class="chart-hover-readout"
+                 style="position:absolute; top:@(Px(_hover.Readout.Top)); @(_hover.Readout.AtLeft ? "left" : "right"):@(Px(_hover.Readout.Inset));
+                        max-width:@(Px(_hover.Readout.MaxWidth)); box-sizing:border-box; background:rgba(18,18,18,0.92); color:#fff;
                         border:1px solid var(--border-color); border-radius:4px; padding:4px 10px; font-size:0.85rem;
                         font-variant-numeric: tabular-nums; text-align:right; line-height:1.5;">
                 <div>@_hover.DateText &nbsp; @_hover.PriceText</div>
