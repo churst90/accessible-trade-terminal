@@ -308,15 +308,7 @@ namespace AccessibleTrader.Core.Services
                 // chart rather than restarting in every pane.
                 var chartRect = new SKRect(0, mainPaneRect.Top, width - _axisWidth, height - _axisHeight);
 
-                // Legend for main-pane indicator overlays (e.g. Cipher A, Cipher SR).
-                // Exclude core series (candles, price line, volume) AND any volume-profile
-                // series (VPVR / VPFR / TPO / any .IsProfile series) — those are their own
-                // visual element rendered by ProfileRenderLayer, not an overlay that needs
-                // a legend entry.
-                var mainOverlaySeries = mainSeries
-                    .Where(s => !s.IsProfile)
-                    .Where(s => s.IndicatorCode?.ToUpperInvariant() is not ("CANDLES" or "PRICE" or "VOLUME" or "HEATMAP"))
-                    .ToList();
+                var mainOverlaySeries = MainPaneLegendSeries(mainSeries);
                 // Measured BEFORE the pane draws, because the formation layer places its labels
                 // inside the pane and the legend is painted on top of it afterwards. Until
                 // 2026-09-22 the layer did not know the legend existed, so "ascending triangle"
@@ -843,6 +835,32 @@ namespace AccessibleTrader.Core.Services
         private const float LegendKeyPx  = 14f;   // width of the key column — a line stub or a glyph
         private const float LegendPadPx  = 6f;
         private const float LegendLinePx = 17f;
+
+        /// <summary>
+        /// The price-pane series that get a row in the price pane's legend.
+        ///
+        /// <para>
+        /// Left out: the candles and the volume (they ARE the chart — a key reading "Candles"
+        /// names nothing a reader could miss), the liquidity heatmap, and every volume-profile
+        /// series (VPVR / VPFR / TPO / any <c>IsProfile</c>), which is its own visual element
+        /// drawn by ProfileRenderLayer rather than an overlay.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>The Price series is NOT left out, and used to be.</b> On an OHLCV chart it is a white
+        /// line through every close, drawn on top of the candles (CoreIndicatorProvider: #FFFFFF,
+        /// seeded on every OHLCV chart by WorkspaceInitializer). Cody's 2026-10-15 screenshots show
+        /// it plainly, with a legend reading only "Market Structure — 4 marks" — and in focus mode
+        /// no legend at all — so a sighted companion asking "what is the white line?" had nothing
+        /// on screen to answer with. It is a real, navigable, spoken series, so the fix is to name
+        /// it, not to stop drawing it (pinned by PriceLineLegendTests).
+        /// </para>
+        /// </summary>
+        internal static List<ChartSeries> MainPaneLegendSeries(IEnumerable<ChartSeries> mainSeries) =>
+            mainSeries
+                .Where(s => !s.IsProfile)
+                .Where(s => s.IndicatorCode?.ToUpperInvariant() is not ("CANDLES" or "VOLUME" or "HEATMAP"))
+                .ToList();
 
         /// <summary>
         /// The legend's rows and the box they occupy — ONE computation, shared by the pass that
