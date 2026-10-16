@@ -62,8 +62,11 @@ namespace AccessibleTrader.Core.Services.Analysis
             _ => kind.ToString()
         };
 
-        /// <summary>The level's role, so the number that follows means something.</summary>
-        private static string TriggerName(ChartPatternKind kind) => kind switch
+        /// <summary>
+        /// The level's role, so the number that follows means something. Internal so the drawn
+        /// labels (ChartFormationLayer) use the same word the speech does.
+        /// </summary>
+        internal static string TriggerName(ChartPatternKind kind) => kind switch
         {
             ChartPatternKind.DoubleTop or ChartPatternKind.DoubleBottom
                 or ChartPatternKind.HeadAndShoulders or ChartPatternKind.InverseHeadAndShoulders
