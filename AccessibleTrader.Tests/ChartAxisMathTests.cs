@@ -122,15 +122,90 @@ public sealed class ChartAxisMathTests
 
     /// <summary>
     /// A flat F2 collapses a sub-cent token to "0.00" and says nothing. The decimals come from
-    /// the range's magnitude, so the label always carries about two digits past the range scale.
+    /// the GRIDLINE STEP, so a label carries exactly the digits its line has — a sub-cent token
+    /// still gets six, a 0.0012-wide oscillator four, an RSI pane none.
+    ///
+    /// <para>
+    /// Updated 2026-10-16: these used to expect "two digits past the range, never fewer than
+    /// two" (<c>0.0000300</c>, <c>64120.50</c>, <c>70.00</c>, <c>0.0831</c>) — the rule that
+    /// put pennies on a Bitcoin axis. The values are now ones that sit ON a gridline, which is
+    /// the only kind of value an axis label is.
+    /// </para>
     /// </summary>
     [Theory]
-    [InlineData(0.00003, 0.00001, "0.0000300")]
-    [InlineData(64_120.5, 16_000.0, "64120.50")]
-    [InlineData(70.0, 100.0, "70.00")]
-    [InlineData(0.0831, 0.01, "0.0831")]
+    [InlineData(0.00003, 0.00001, "0.000030")]
+    [InlineData(64_000.0, 16_000.0, "64,000")]
+    [InlineData(70.0, 100.0, "70")]
+    [InlineData(0.083, 0.01, "0.083")]
+    [InlineData(0.0012, 0.0012, "0.0012")]
+    [InlineData(441.5, 3.0, "441.5")]
     public void FormatAxisValue_CarriesTheDigitsTheRangeNeeds(double value, double range, string expected)
         => Assert.Equal(expected, ChartMath.FormatAxisValue(value, range));
+
+    /// <summary>
+    /// <b>Cody's 2026-10-15 screenshot: the price axis said <c>85000.00</c> while the hover
+    /// readout said <c>82,366.23</c>.</b> On a Bitcoin pane the labels step by thousands, so
+    /// every label is a whole number: it groups its thousands, and it carries no decimals,
+    /// because the step cannot produce any. Asserted over every label a real BTC range draws,
+    /// not one spelling.
+    /// </summary>
+    [Theory]
+    [InlineData(60_000.0, 90_000.0)]   // a 1d BTC window, ~30k wide
+    [InlineData(80_000.0, 86_000.0)]   // a tighter intraday window
+    [InlineData(15_000.0, 70_000.0)]   // a multi-year window
+    public void FormatAxisValue_OnABitcoinAxis_GroupsThousandsAndCarriesNoPennies(double min, double max)
+    {
+        double range = max - min;
+        double step = ChartMath.GridStep(range);
+        int labels = 0;
+        for (double v = Math.Ceiling(min / step) * step; v <= max; v += step, labels++)
+        {
+            string text = ChartMath.FormatAxisValue(v, range);
+            Assert.DoesNotContain(".", text);
+            Assert.Contains(",", text);
+            Assert.Equal(v, double.Parse(text, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture));
+        }
+        Assert.True(labels >= 3, $"only {labels} gridlines on a {range} range — the test proves nothing");
+    }
+
+    /// <summary>
+    /// The axis writes a number THE WAY THE HOVER READOUT DOES — same thousands separator, same
+    /// decimal point — whatever culture the machine runs in. The readout formats under the
+    /// invariant culture; the axis used to format under the current one, so on a German Windows
+    /// head the two would have disagreed about what a comma means.
+    /// </summary>
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("de-DE")]
+    public void FormatAxisValue_WritesNumbersLikeTheHoverReadout_InAnyCulture(string culture)
+    {
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            string readout = AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(85_000.0);
+            Assert.Equal(readout.Split('.')[0], ChartMath.FormatAxisValue(85_000.0, 20_000.0));
+            Assert.Equal("0.5", ChartMath.FormatAxisValue(0.5, 3.0));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = saved; }
+    }
+
+    /// <summary>
+    /// The crosshair badge is a READING, not a gridline, so it carries two digits finer than the
+    /// step: an oscillator reads 55.7, not 56; a stock stepping by dollars keeps its cents; a
+    /// sub-cent oscillator keeps its significant digits. On a Bitcoin pane stepping by thousands
+    /// that is whole dollars — see FormatAxisReading for why not the pennies (the strip is 60px
+    /// and the pennies would have tipped the badge into the "82K" short form).
+    /// </summary>
+    [Theory]
+    [InlineData(82_366.23, 20_000.0, "82,366")]
+    [InlineData(55.7, 200.0, "55.7")]
+    [InlineData(-40.3, 200.0, "-40.3")]
+    [InlineData(440.25, 20.0, "440.25")]
+    [InlineData(0.00123456, 0.0012, "0.001235")]
+    public void FormatAxisReading_CarriesTwoDigitsPastTheStep(double value, double range, string expected)
+        => Assert.Equal(expected, ChartMath.FormatAxisReading(value, range));
 
     /// <summary>
     /// The decimal count is clamped at ten. Without the clamp a range near zero asks for
@@ -158,12 +233,21 @@ public sealed class ChartAxisMathTests
             $"got {text}");
     }
 
-    /// <summary>A real negative keeps its sign — the strip must not eat one.</summary>
+    /// <summary>
+    /// A real negative keeps its sign — the strip must not eat one. (The second case was
+    /// <c>-0.01</c> on a range of 1 until 2026-10-16; that range's gridlines step by 0.1, so
+    /// -0.01 is not a label value and now rounds to the zero line, correctly. The badge, which
+    /// does read off-grid values, is asserted on it below.)
+    /// </summary>
     [Theory]
     [InlineData(-50.0, 100.0)]
-    [InlineData(-0.01, 1.0)]
+    [InlineData(-0.1, 1.0)]
     public void FormatAxisValue_KeepsARealNegative(double value, double range)
         => Assert.StartsWith("-", ChartMath.FormatAxisValue(value, range));
+
+    [Fact]
+    public void FormatAxisReading_KeepsARealNegative()
+        => Assert.StartsWith("-", ChartMath.FormatAxisReading(-0.01, 1.0));
 
     // ── The short form, for a strip that cannot hold nine digits ─────────────
 

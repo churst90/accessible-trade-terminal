@@ -80,25 +80,85 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Range-aware axis label text. A flat F2/F4 choice collapses to "0.0000" for assets whose
-        /// visible range is tiny — early KAS ticks around $0.00003 — so the decimal count comes
-        /// from the range's magnitude and always carries about two significant digits beyond it.
+        /// Range-aware axis label text: thousands grouped, and exactly as many decimals as the
+        /// gridline step has — no more.
         ///
         /// <para>
-        /// "−0.00" is stripped to "0.00". A value a hair below zero is a rounding residue from the
+        /// <b>Why the step decides (Cody's 2026-10-15 screenshots).</b> The price axis said
+        /// <c>85000.00</c> while the hover readout beside it said <c>82,366.23</c>: no separator,
+        /// and pennies on a Bitcoin axis whose labels step by thousands. The old rule took
+        /// "two decimals past the range's magnitude, never fewer than two", so EVERY axis carried
+        /// at least two decimals whether the step could produce them or not. A label sits on a
+        /// gridline, and the gridline step is a 1–2–5 × 10^k number (<see cref="GridStep"/>), so
+        /// every label is a whole multiple of 10^k: <c>max(0, −k)</c> decimals represent it
+        /// EXACTLY, and every digit past that is a zero that was never information. A range of
+        /// tens of thousands now reads <c>85,000</c>; an RSI pane <c>70</c>; a sub-cent token
+        /// still gets the decimals it needs (<c>0.000030</c> on a 0.00001 range), which was the
+        /// reason the range-aware rule existed in the first place.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Grouping and culture match the hover readout</b> (<c>PriceFormatter.FormatPrice</c>:
+        /// <c>"N2"</c> under <see cref="System.Globalization.CultureInfo.InvariantCulture"/>), so
+        /// the axis and the readout write a number the same way. This used to format under the
+        /// CURRENT culture, so a German Windows head would have printed <c>85000,00</c>.
+        /// </para>
+        ///
+        /// <para>
+        /// Grouping makes a large label WIDER, which moves the point at which the renderer falls
+        /// back to <see cref="FormatAxisValueCompact"/> — by measurement, as it always has, so a
+        /// nine-digit volume still reads <c>120M</c>.
+        /// </para>
+        ///
+        /// <para>
+        /// "−0" is stripped to "0". A value a hair below zero is a rounding residue from the
         /// axis-step arithmetic, not a real negative, and the minus sign survives the rounding. On
         /// a price axis that reads as a data error — exactly the kind of detail that makes a
         /// careful reader distrust every other number on screen.
         /// </para>
         /// </summary>
         public static string FormatAxisValue(double value, double range)
-        {
-            double absRange = Math.Abs(range);
-            int decimals = (absRange == 0 || double.IsNaN(absRange) || double.IsInfinity(absRange))
-                ? 2
-                : Math.Clamp(2 - (int)Math.Floor(Math.Log10(absRange)), 2, 10);
+            => FormatGrouped(value, AxisDecimals(range, extraDigits: 0));
 
-            string text = value.ToString("F" + decimals);
+        /// <summary>
+        /// The crosshair badge's text: the same grouping and culture as
+        /// <see cref="FormatAxisValue"/>, with TWO digits finer than the gridline step.
+        ///
+        /// <para>
+        /// A badge is a READING, not a gridline — the cursor's value is not a multiple of the
+        /// step, so the step's own precision would round 55.7 on an oscillator to 56. Two digits
+        /// past the step is what the eye can place between two gridlines anyway: 55.7 on a
+        /// ±100 Wave Trend pane, 440.25 on a stock stepping by dollars, 0.001235 on a sub-cent
+        /// oscillator. On a Bitcoin pane stepping by thousands it is whole dollars,
+        /// <c>82,366</c>, and that is deliberate rather than a lost penny: the badge is drawn into
+        /// the 60 px axis strip, <c>82,366.23</c> in 12 px bold is about 53 px against the ~50 px
+        /// the badge has, and a label that does not fit falls back to the short form — so asking
+        /// for the pennies would have printed <c>82K</c>. The hover readout carries the pennies;
+        /// the badge says where the line is.
+        /// </para>
+        /// </summary>
+        public static string FormatAxisReading(double value, double range)
+            => FormatGrouped(value, AxisDecimals(range, extraDigits: 2));
+
+        /// <summary>
+        /// Decimals for a value on an axis of this range: the gridline step's own decimals, plus
+        /// <paramref name="extraDigits"/>, clamped to 0–10. Two for a degenerate range, which has
+        /// no step to read.
+        /// </summary>
+        internal static int AxisDecimals(double range, int extraDigits)
+        {
+            double step = GridStep(Math.Abs(range));
+            if (step <= 0 || double.IsNaN(step) || double.IsInfinity(step)) return 2;
+
+            // The step is m × 10^k with m in {1, 2, 5}; k is the exponent. The epsilon keeps
+            // Log10(1000) landing a hair under 3 from flooring to 2.
+            int exponent = (int)Math.Floor(Math.Log10(step) + 1e-9);
+            return Math.Clamp(extraDigits - exponent, 0, 10);
+        }
+
+        private static string FormatGrouped(double value, int decimals)
+        {
+            string text = value.ToString("N" + decimals, System.Globalization.CultureInfo.InvariantCulture);
 
             if (text.Length > 1 && text[0] == '-' && text.AsSpan(1).IndexOfAnyExcept('0', '.', ',') < 0)
                 text = text[1..];
