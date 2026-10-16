@@ -362,6 +362,60 @@ public class ChartFormationLayerTests : IDisposable
         Assert.True(InkAt(bmp, 199, 80), "a forming formation's 'if it breaks' target stops short of the live edge");
     }
 
+    // ── A wedge is drawn as a wedge (Cody's 2026-10-15 screenshots) ──────────────────────
+
+    /// <summary>
+    /// A rising wedge over bars 110–150: highs 120 → 130 (bars 112 → 148), lows 90 → 110
+    /// (bars 110 → 150), so the trigger is the last low, 110, and the target 110 − 30 = 80.
+    /// </summary>
+    private static ChartPattern Wedge() =>
+        new(ChartPatternKind.RisingWedge, ChartPatternState.Forming, 110, 150, 155, 110,
+            DateTime.Today, DateTime.Today, ExpiresAtIndex: 230, BreaksBelow: true, MeasuredTarget: 80,
+            UpperBoundary: new FormationLine(112, 120, 148, 130),
+            LowerBoundary: new FormationLine(110, 90, 150, 110));
+
+    /// <summary>
+    /// Ink against what the same column looks like on a row nothing is drawn on — inside the
+    /// formation's span the background carries the span's faint tint, so plain background is the
+    /// wrong reference there.
+    /// </summary>
+    private static bool InkAgainstColumn(SKBitmap bmp, int bar, double price, int referenceRow = 30)
+    {
+        int x = ColumnOf(bar), y = RowOf(price);
+        var reference = bmp.GetPixel(x, referenceRow);
+        for (int dy = -1; dy <= 1; dy++)
+            if (bmp.GetPixel(x, y + dy) != reference) return true;
+        return false;
+    }
+
+    [Fact]
+    public void AWedgeIsDrawnAsItsTwoSlopingEdges()
+    {
+        using var bmp = RenderToBitmap(Wedge());
+
+        // Halfway along each edge: the upper at bar 130 is 125, the lower is 100.
+        Assert.True(InkAgainstColumn(bmp, 130, 125), "no upper edge where the wedge's highs run");
+        Assert.True(InkAgainstColumn(bmp, 130, 100), "no lower edge where the wedge's lows run");
+
+        // And they are SLOPED: nothing at those prices near the opposite end of the span, where a
+        // flat line at the same price would also be.
+        Assert.False(InkAgainstColumn(bmp, 114, 125), "the upper edge is flat, not rising");
+        Assert.False(InkAgainstColumn(bmp, 146, 100), "the lower edge is flat, not rising");
+    }
+
+    /// <summary>
+    /// With the edges drawn, the flat trigger starts where the lower edge ends (the last low, bar
+    /// 150) instead of cutting through the wedge from its first bar.
+    /// </summary>
+    [Fact]
+    public void AWedgesTriggerStartsWhereItsEdgeEnds()
+    {
+        using var bmp = RenderToBitmap(Wedge());
+
+        Assert.False(InkAgainstColumn(bmp, 125, 110), "the trigger runs through the inside of the wedge");
+        Assert.True(InkAt(bmp, 156, 110), "the trigger does not carry on from the wedge's last low");
+    }
+
     // ── Labels say what the line is (Cody's 2026-10-15 screenshots) ───────────────────────
 
     [Fact]

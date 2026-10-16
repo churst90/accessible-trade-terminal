@@ -131,6 +131,36 @@ namespace AccessibleTrader.Core.Services.Rendering
             ctx.Canvas.DrawLine(x1, ctx.PaneRect.Top, x1, ctx.PaneRect.Bottom, edge);
             ctx.Canvas.DrawLine(x2, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom, edge);
 
+            // ── A triangle or wedge: its two sloping edges ──────────────────────
+            //
+            // Cody's 2026-10-15 screenshot showed a "rising wedge" as one flat line at 75,000. A
+            // sighted reader expects a wedge to be two converging lines, and the detector had them
+            // — it classifies the shape from exactly these two slopes. Drawn across the
+            // formation's span, lighter than the trigger: they show the shape, the trigger is the
+            // number to watch.
+            bool hasEdges = p.UpperBoundary is not null && p.LowerBoundary is not null;
+            if (hasEdges)
+            {
+                using var boundary = new SKPaint
+                {
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = 1.2f * ctx.Density,
+                    Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 170),
+                };
+                DrawBoundary(ctx, p.UpperBoundary!, p.StartBarIndex, p.EndBarIndex, boundary);
+                DrawBoundary(ctx, p.LowerBoundary!, p.StartBarIndex, p.EndBarIndex, boundary);
+            }
+
+            // Where the levels begin. With the edges drawn, a flat trigger from the formation's
+            // first bar would cut straight through the wedge it belongs to; it starts instead
+            // where the edge it continues ends — the swing whose price it is — and carries on flat
+            // from there to the break. Without edges (tops, bottoms, flags, ranges) it is the
+            // formation's first bar, as before.
+            float xLevels = hasEdges
+                ? Math.Max(x1, XFor(ctx, TriggerPivotBar(p)) + ctx.ItemWidth / 2f)
+                : x1;
+
             // ── The trigger: solid, because it is a real price ──────────────────
             //
             // Skipped entirely when the level is off the visible price range. A line clamped to the
@@ -147,8 +177,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 StrokeWidth = 1.6f * ctx.Density,
                 Color = theme.Accent,
             };
-            ctx.Canvas.DrawLine(x1, yTrigger, xTriggerEnd, yTrigger, trigger);
-            Label(ctx, TriggerLabel(p), x1 + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
+            ctx.Canvas.DrawLine(xLevels, yTrigger, xTriggerEnd, yTrigger, trigger);
+            Label(ctx, TriggerLabel(p), xLevels + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
 
             // A range has a second boundary and it is every bit as real as the first.
             if (p.SecondaryLevel is double bottom && IsOnScreen(ctx, bottom))
@@ -177,11 +207,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                     PathEffect = dash,
                     Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 110),
                 };
-                ctx.Canvas.DrawLine(x1, yTarget, xTargetEnd, yTarget, targetPaint);
+                ctx.Canvas.DrawLine(xLevels, yTarget, xTargetEnd, yTarget, targetPaint);
                 // Named, because a chart carrying three formations drew three lines all labelled
                 // "measured target" and none of them said whose.
                 if (labelLevels)
-                    Label(ctx, TargetLabel(p, target), x1 + 4 * ctx.Density, yTarget,
+                    Label(ctx, TargetLabel(p, target), xLevels + 4 * ctx.Density, yTarget,
                           new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
             }
         }
@@ -332,6 +362,32 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         private static float XFor(RenderContext ctx, int barIndex) =>
             ctx.PaneRect.Left + (barIndex - ctx.ViewportStart) * ctx.ItemWidth;
+
+        /// <summary>
+        /// The bar of the swing whose price is the trigger: the last low for a formation that
+        /// confirms below, the last high for one that confirms above — the detector's own rule
+        /// (<c>trigger = breakBelow ? l2 : h2</c>).
+        /// </summary>
+        internal static int TriggerPivotBar(ChartPattern p) =>
+            p.BreaksBelow ? p.LowerBoundary!.ToBar : p.UpperBoundary!.ToBar;
+
+        /// <summary>
+        /// One edge, straight in SCREEN space through its two pivots and extended across the
+        /// formation's span. Straight on screen rather than in price, so on a log chart it is the
+        /// line a person would rule through the two swings — and both pivots, being real prices,
+        /// land exactly where the candles that made them are.
+        /// </summary>
+        private static void DrawBoundary(RenderContext ctx, FormationLine line, int fromBar, int toBar, SKPaint paint)
+        {
+            if (line.ToBar == line.FromBar) return;
+            float half = ctx.ItemWidth / 2f;
+            float xa = XFor(ctx, line.FromBar) + half, ya = YFor(ctx, line.FromPrice);
+            float xb = XFor(ctx, line.ToBar) + half, yb = YFor(ctx, line.ToPrice);
+            float slope = (yb - ya) / (xb - xa);
+
+            float xs = XFor(ctx, fromBar) + half, xe = XFor(ctx, toBar) + half;
+            ctx.Canvas.DrawLine(xs, ya + slope * (xs - xa), xe, ya + slope * (xe - xa), paint);
+        }
 
         /// <summary>
         /// Where a level that ends at <paramref name="barIndex"/> stops: the centre of that bar,

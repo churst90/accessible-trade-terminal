@@ -428,6 +428,64 @@ public class ChartPatternDetectorTests
         Assert.True(reached > 0 && unreached > 0, $"reached {reached}, unreached {unreached}");
     }
 
+    /// <summary>
+    /// A triangle or wedge carries the two lines it was classified from, and they ARE the shape its
+    /// name says: a rising wedge's edges both rise and close in, a falling wedge's both fall and
+    /// close in, a symmetrical triangle's top falls while its bottom rises. And the trigger is the
+    /// price at the end of the edge it continues. Cody's 2026-10-15 screenshot drew a rising wedge
+    /// as one flat line; these are what let it be drawn as a wedge.
+    /// </summary>
+    [Fact]
+    public void TrianglesAndWedgesCarryTheTwoEdgesTheirNameDescribes()
+    {
+        var all = new[] { 5, 11, 23 }.SelectMany(seed => Detector.Detect(RandomWalk(1500, seed))).ToList();
+        var shaped = all.Where(p => p.Kind is ChartPatternKind.RisingWedge or ChartPatternKind.FallingWedge
+            or ChartPatternKind.SymmetricalTriangle or ChartPatternKind.AscendingTriangle
+            or ChartPatternKind.DescendingTriangle).ToList();
+        Assert.True(shaped.Count >= 10, $"only {shaped.Count} triangles and wedges to check");
+        Assert.Contains(shaped, p => p.Kind == ChartPatternKind.RisingWedge);
+
+        foreach (var p in all)
+        {
+            if (!shaped.Contains(p))
+            {
+                Assert.True(p.UpperBoundary is null && p.LowerBoundary is null, $"{p.Kind} carries wedge edges");
+                continue;
+            }
+
+            var up = p.UpperBoundary!;
+            var lo = p.LowerBoundary!;
+            double upRise = up.ToPrice - up.FromPrice, loRise = lo.ToPrice - lo.FromPrice;
+            string where = $"{p.Kind} at {p.StartBarIndex}-{p.EndBarIndex}: upper {up}, lower {lo}";
+
+            Assert.True(up.FromBar < up.ToBar && lo.FromBar < lo.ToBar, where);
+            Assert.InRange(up.FromBar, p.StartBarIndex, p.EndBarIndex);
+            Assert.InRange(lo.ToBar, p.StartBarIndex, p.EndBarIndex);
+            Assert.Equal(p.TriggerLevel, p.BreaksBelow ? lo.ToPrice : up.ToPrice);
+
+            switch (p.Kind)
+            {
+                case ChartPatternKind.RisingWedge:
+                    Assert.True(upRise > 0 && loRise > 0, $"a rising wedge whose edges do not both rise — {where}");
+                    Assert.True(up.ToPrice - lo.ToPrice < up.FromPrice - lo.FromPrice, $"a wedge that does not close in — {where}");
+                    break;
+                case ChartPatternKind.FallingWedge:
+                    Assert.True(upRise < 0 && loRise < 0, $"a falling wedge whose edges do not both fall — {where}");
+                    Assert.True(up.ToPrice - lo.ToPrice < up.FromPrice - lo.FromPrice, $"a wedge that does not close in — {where}");
+                    break;
+                case ChartPatternKind.SymmetricalTriangle:
+                    Assert.True(upRise < 0 && loRise > 0, $"a symmetrical triangle that does not converge — {where}");
+                    break;
+                case ChartPatternKind.AscendingTriangle:
+                    Assert.True(loRise > 0, $"an ascending triangle whose lows do not rise — {where}");
+                    break;
+                case ChartPatternKind.DescendingTriangle:
+                    Assert.True(upRise < 0, $"a descending triangle whose highs do not fall — {where}");
+                    break;
+            }
+        }
+    }
+
     [Fact]
     public void FormingPatterns_CarryNoCompletionBar()
     {

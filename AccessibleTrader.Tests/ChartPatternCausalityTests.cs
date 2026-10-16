@@ -308,6 +308,17 @@ namespace AccessibleTrader.Tests
                 offenders.Add($"{where}: the side it breaks reverses.");
             if (Shift(q.ExpiresAtIndex, shift) is int e && p.ExpiresAtIndex is int pe && e != pe && pe < limit)
                 offenders.Add($"{where}: expiry moves from bar {pe} to bar {e}.");
+
+            // The drawn edges of a triangle or wedge are pivots, fixed once the formation is known.
+            foreach (var (name, a, b) in new[] { ("upper", p.UpperBoundary, q.UpperBoundary), ("lower", p.LowerBoundary, q.LowerBoundary) })
+            {
+                bool same = (a is null && b is null)
+                    || (a is not null && b is not null
+                        && a.FromBar == b.FromBar + shift && a.ToBar == b.ToBar + shift
+                        && Close(a.FromPrice, b.FromPrice) && Close(a.ToPrice, b.ToPrice));
+                if (!same)
+                    offenders.Add($"{where}: the {name} edge moves from {b} to {a}.");
+            }
         }
 
         private static int? Shift(int? v, int by) => v is null ? null : v + by;

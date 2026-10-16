@@ -127,6 +127,11 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// registry — and every price-derived pattern claim tested here so far has come back null.
     /// </para>
     /// </param>
+    /// <param name="UpperBoundary">
+    /// For a triangle or wedge, the line through the two swing highs it was classified from
+    /// (null for every other kind). See <see cref="FormationLine"/>.
+    /// </param>
+    /// <param name="LowerBoundary">The same through the two swing lows.</param>
     /// <param name="TargetReachedAtIndex">
     /// The first bar at or after the break whose range touched <paramref name="MeasuredTarget"/>
     /// (low at or under it for a downside break, high at or over it for an upside one), or null if
@@ -157,7 +162,9 @@ namespace AccessibleTrader.Core.Services.Analysis
         bool BreaksBelow = true,
         double? MeasuredTarget = null,
         double? SecondaryLevel = null,
-        int? TargetReachedAtIndex = null)
+        int? TargetReachedAtIndex = null,
+        FormationLine? UpperBoundary = null,
+        FormationLine? LowerBoundary = null)
     {
         /// <summary>
         /// <see cref="ExpiresAtIndex"/>, falling back to the formation-length rule when a caller
@@ -216,6 +223,21 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// </summary>
         public (ChartPatternKind, DateTime, DateTime) Identity => (Kind, StartTime, EndTime);
     }
+
+    /// <summary>
+    /// One edge of a triangle or wedge: the straight line through the two swing pivots the
+    /// detector compared to classify it.
+    ///
+    /// <para>
+    /// The detector has always READ a wedge as two sloping lines — the slope of the last two highs
+    /// against the slope of the last two lows — and then thrown the lines away, keeping one flat
+    /// trigger price. So the chart drew a "rising wedge" as a single flat line at 75,000 (Cody's
+    /// 2026-10-15 BTCUSDT daily screenshot), and a sighted reader looking for a wedge saw no wedge.
+    /// Carrying the pivots lets the drawing show the shape the name describes. Both pivots are
+    /// confirmed by <see cref="ChartPattern.KnownAtIndex"/>, so the line is fixed from then on.
+    /// </para>
+    /// </summary>
+    public record FormationLine(int FromBar, double FromPrice, int ToBar, double ToPrice);
 
     /// <param name="Span">Bars either side a pivot must dominate. Passed through to the swing analyzer.</param>
     /// <param name="ToleranceAtr">
@@ -570,7 +592,9 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                 yield return new ChartPattern(kind.Value, p.State, start, end, known, trigger,
                     bars[Math.Min(start, bars.Count - 1)].Date, bars[Math.Min(end, bars.Count - 1)].Date,
-                    p.CompletedAt, expires, breakBelow, target);
+                    p.CompletedAt, expires, breakBelow, target,
+                    UpperBoundary: new FormationLine(h1.BarIndex, h1.Price, h2.BarIndex, h2.Price),
+                    LowerBoundary: new FormationLine(l1.BarIndex, l1.Price, l2.BarIndex, l2.Price));
             }
         }
 
