@@ -99,6 +99,14 @@ namespace AccessibleTrader.Tests
                         offenders.Add($"{p.Kind} at bars {p.StartBarIndex}-{p.EndBarIndex}: completion reads " +
                                       $"{Show(q.CompletedAtIndex)} with {k} bars loaded and {Show(expected)} " +
                                       $"is what the full series says had happened by then.");
+
+                    // Same for the bar that traded at the measured target — it is what ends the
+                    // drawn target line, and a line cannot end on a bar that has not printed.
+                    int? reached = p.TargetReachedAtIndex < k ? p.TargetReachedAtIndex : null;
+                    if (q.TargetReachedAtIndex != reached)
+                        offenders.Add($"{p.Kind} at bars {p.StartBarIndex}-{p.EndBarIndex}: target reached reads " +
+                                      $"{Show(q.TargetReachedAtIndex)} with {k} bars loaded and {Show(reached)} " +
+                                      $"is what the full series says had happened by then.");
                 }
             }
 
@@ -148,6 +156,11 @@ namespace AccessibleTrader.Tests
                     if (Shift(q.CompletedAtIndex, d) != p.CompletedAtIndex)
                         offenders.Add($"{p.Kind} from {p.StartTime:yyyy-MM-dd HH:mm}: completion moves from " +
                                       $"{Show(p.CompletedAtIndex)} to {Show(Shift(q.CompletedAtIndex, d))} " +
+                                      $"once {d} older bars are prepended.");
+
+                    if (Shift(q.TargetReachedAtIndex, d) != p.TargetReachedAtIndex)
+                        offenders.Add($"{p.Kind} from {p.StartTime:yyyy-MM-dd HH:mm}: target reached moves from " +
+                                      $"{Show(p.TargetReachedAtIndex)} to {Show(Shift(q.TargetReachedAtIndex, d))} " +
                                       $"once {d} older bars are prepended.");
                 }
 
@@ -235,14 +248,19 @@ namespace AccessibleTrader.Tests
         {
             // Both theories above pass trivially against a series with no formations in it, and a
             // detector returning nothing at all would be the most reliable way to satisfy them.
-            int total = 0;
+            int total = 0, reached = 0;
             var kinds = new HashSet<ChartPatternKind>();
             foreach (int flavour in CausalityProbeSeries.AllFlavours)
             {
                 var found = Detect(CausalityProbeSeries.Bars(flavour, SeriesLength));
                 total += found.Count;
+                reached += found.Count(p => p.TargetReachedAtIndex != null);
                 foreach (var p in found) kinds.Add(p.Kind);
             }
+
+            // The target-reached comparisons above are vacuous unless some targets ARE reached.
+            Assert.True(reached >= 10, $"Only {reached} formations reach their measured target across all " +
+                                       $"four series — the target-reached checks have nothing to compare.");
 
             Assert.True(total > 200, $"Only {total} patterns across all four series — the comparison above " +
                                      $"has almost nothing to compare.");

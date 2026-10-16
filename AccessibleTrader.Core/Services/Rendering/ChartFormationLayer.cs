@@ -90,10 +90,23 @@ namespace AccessibleTrader.Core.Services.Rendering
             float x1 = XFor(ctx, Math.Max(p.StartBarIndex, firstVisible));
             float x2 = XFor(ctx, Math.Min(p.EndBarIndex, lastVisible) + 1);
 
-            // Levels extend PAST the formation to the right edge, because a trigger only matters
-            // for the bars that come after the shape — drawing it only under the shape would put
-            // the line everywhere except where it is used.
-            float xEnd = ctx.PaneRect.Right;
+            // Levels extend PAST the formation, because a trigger only matters for the bars that
+            // come after the shape — drawing it only under the shape would put the line everywhere
+            // except where it is used. But they STOP where the formation's story stops. They used
+            // to run to the right edge forever: Cody's 2026-10-15 BTCUSDT daily screenshot had a
+            // March rising wedge's trigger (solid, 75,000) and measured target (dashed, 60,300)
+            // still crossing the chart in October, months after price had closed through the one
+            // and traded at the other — so a sighted reader could not tell a finished formation
+            // from a live one. Now:
+            //   trigger → the bar that closed through it, or the bar the formation aged out on
+            //             (ChartPattern.ResolvesAt; for a live formation that is its expiry, which
+            //             is at or past the last bar, so it still reaches the live edge);
+            //   target  → the first bar that traded at it, or the end of its window
+            //             (ChartPattern.TargetEndsAt).
+            // Both are causal: each end is a bar already on the chart, found scanning forward
+            // from the break, never a peek past it.
+            float xTriggerEnd = XEndAt(ctx, p.ResolvesAt);
+            float xTargetEnd = XEndAt(ctx, p.TargetEndsAt);
 
             // A formation can span a third of the chart, and three of them at alpha 22 turned the
             // whole pane into bands of colour with the price action swimming underneath — visible in
@@ -134,16 +147,16 @@ namespace AccessibleTrader.Core.Services.Rendering
                 StrokeWidth = 1.6f * ctx.Density,
                 Color = theme.Accent,
             };
-            ctx.Canvas.DrawLine(x1, yTrigger, xEnd, yTrigger, trigger);
-            Label(ctx, ChartPatternNarrator.Name(p.Kind), x1 + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
+            ctx.Canvas.DrawLine(x1, yTrigger, xTriggerEnd, yTrigger, trigger);
+            Label(ctx, TriggerLabel(p), x1 + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
 
             // A range has a second boundary and it is every bit as real as the first.
             if (p.SecondaryLevel is double bottom && IsOnScreen(ctx, bottom))
             {
                 float yBottom = YFor(ctx, bottom);
-                ctx.Canvas.DrawLine(x1, yBottom, xEnd, yBottom, trigger);
+                ctx.Canvas.DrawLine(x1, yBottom, xTriggerEnd, yBottom, trigger);
                 if (labelLevels)
-                    Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} floor", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
+                    Label(ctx, SecondaryLabel(p, bottom), x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
             }
 
             // ── The measured target: faint, dashed, and labelled as a convention ─
@@ -164,13 +177,69 @@ namespace AccessibleTrader.Core.Services.Rendering
                     PathEffect = dash,
                     Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 110),
                 };
-                ctx.Canvas.DrawLine(x1, yTarget, xEnd, yTarget, targetPaint);
+                ctx.Canvas.DrawLine(x1, yTarget, xTargetEnd, yTarget, targetPaint);
                 // Named, because a chart carrying three formations drew three lines all labelled
                 // "measured target" and none of them said whose.
                 if (labelLevels)
-                    Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} target", x1 + 4 * ctx.Density, yTarget,
+                    Label(ctx, TargetLabel(p, target), x1 + 4 * ctx.Density, yTarget,
                           new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
             }
+        }
+
+        // ── What each line is called ─────────────────────────────────────────────
+        //
+        // The labels used to be the formation's bare name on the solid line and "<name> target" on
+        // the dashed one, with no numbers. On Cody's 2026-10-15 screenshot that meant a sighted
+        // reader saw "rising wedge" over a flat line at 75,000 and could not tell what the line
+        // was — the edge of the wedge? support? — or what the faint dashed one below it meant.
+        // Each label now says the line's ROLE, in the same word the speech uses
+        // (ChartPatternNarrator.TriggerName: neckline, trigger, flag edge, top), and its price,
+        // and the target says "measured" as the speech does. Internal so the tests read these.
+
+        /// <summary>"rising wedge trigger 74,508.12, break below" — the solid line.</summary>
+        internal static string TriggerLabel(ChartPattern p)
+        {
+            string name = ChartPatternNarrator.Name(p.Kind);
+            string role = ChartPatternNarrator.TriggerName(p.Kind);
+
+            // "bear flag flag edge": the role repeats the name's last word for flags. Speech keeps
+            // the two apart with a comma ("bear flag forming, flag edge …"); a label has no comma
+            // to spare, so the repeat goes.
+            string lastWord = name[(name.LastIndexOf(' ') + 1)..];
+            if (role.StartsWith(lastWord + " ", StringComparison.Ordinal)) role = role[(lastWord.Length + 1)..];
+
+            string text = $"{name} {role} {LabelPrice(p.TriggerLevel)}";
+
+            // A range has not chosen a side — naming one would invent a direction the shape does
+            // not have (the speech makes the same refusal). Everything else confirms on one side
+            // of its line, and the side is what turns a flat line into "the breakdown level".
+            return p.Kind == ChartPatternKind.Rectangle
+                ? text
+                : $"{text}, break {(p.BreaksBelow ? "below" : "above")}";
+        }
+
+        /// <summary>"range bottom 61,200.00" — a range's second solid line.</summary>
+        internal static string SecondaryLabel(ChartPattern p, double level) =>
+            $"{ChartPatternNarrator.Name(p.Kind)} bottom {LabelPrice(level)}";
+
+        /// <summary>"rising wedge measured target 60,300.00" — the dashed line.</summary>
+        internal static string TargetLabel(ChartPattern p, double target) =>
+            $"{ChartPatternNarrator.Name(p.Kind)} measured target {LabelPrice(target)}";
+
+        /// <summary>
+        /// A price as the labels show it: thousands grouped, as the hover readout groups them
+        /// ("82,366.23"), with the same magnitude-scaled decimals the speech uses
+        /// (SpeechPriceFormatter: about three significant digits, never fewer than two
+        /// decimals), so the number a sighted companion reads off the line is the number Cody
+        /// heard, digit for digit.
+        /// </summary>
+        internal static string LabelPrice(double price)
+        {
+            if (double.IsNaN(price) || double.IsInfinity(price)) return "no data";
+            double abs = Math.Abs(price);
+            if (abs == 0) return "0";
+            int decimals = Math.Clamp(2 - (int)Math.Floor(Math.Log10(abs)), 2, 10);
+            return price.ToString("N" + decimals, System.Globalization.CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -263,6 +332,14 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         private static float XFor(RenderContext ctx, int barIndex) =>
             ctx.PaneRect.Left + (barIndex - ctx.ViewportStart) * ctx.ItemWidth;
+
+        /// <summary>
+        /// Where a level that ends at <paramref name="barIndex"/> stops: the centre of that bar,
+        /// so the line visibly meets the candle that ended it, clamped to the pane so a live
+        /// level whose end lies in the future still reaches the right edge.
+        /// </summary>
+        private static float XEndAt(RenderContext ctx, int barIndex) =>
+            Math.Min(ctx.PaneRect.Right, XFor(ctx, barIndex) + ctx.ItemWidth / 2f);
 
         /// <summary>
         /// Price to pixels, honouring log scale — a target drawn with linear maths on a log chart

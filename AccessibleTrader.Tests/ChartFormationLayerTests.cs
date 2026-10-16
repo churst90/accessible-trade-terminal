@@ -82,11 +82,12 @@ public class ChartFormationLayerTests : IDisposable
         ChartPatternKind kind = ChartPatternKind.DoubleTop,
         ChartPatternState state = ChartPatternState.Forming,
         int start = 110, int end = 150, int known = 155,
-        double trigger = 100, double? target = 80, double? secondary = null)
+        double trigger = 100, double? target = 80, double? secondary = null,
+        int expires = 195, int? targetReached = null)
         => new(kind, state, start, end, known, trigger, DateTime.Today, DateTime.Today,
                CompletedAtIndex: state == ChartPatternState.Completed ? 160 : null,
-               ExpiresAtIndex: 195, BreaksBelow: true, MeasuredTarget: target,
-               SecondaryLevel: secondary);
+               ExpiresAtIndex: expires, BreaksBelow: true, MeasuredTarget: target,
+               SecondaryLevel: secondary, TargetReachedAtIndex: targetReached);
 
     private static void Render(RenderContext ctx, params ChartPattern[] p) =>
         new ChartFormationLayer().Render(ctx, p);
@@ -268,6 +269,148 @@ public class ChartFormationLayerTests : IDisposable
 
         Assert.InRange(top, ctx.PaneRect.Top, ctx.PaneRect.Bottom);
         Assert.InRange(bottom, ctx.PaneRect.Top, ctx.PaneRect.Bottom);
+    }
+
+    // ── Lines stop where the formation's story stops (Cody's 2026-10-15 screenshots) ──────
+    //
+    // A March rising wedge's trigger (solid, 75,000) and measured target (dashed, 60,300) were
+    // still crossing a BTCUSDT daily chart in October, months after price had closed through the
+    // one and traded at the other. These read the PIXELS on the line's own row, to the right of
+    // the formation's span (so neither the span shading, its edges nor the labels are in the way):
+    // ink before the bar that ended the line, background after it.
+
+    /// <summary>The fixture's price-to-row mapping: 50..150 over a 600px pane, linear.</summary>
+    private static int RowOf(double price) => (int)Math.Round(600 - (price - 50) / 100.0 * 600);
+
+    /// <summary>The fixture's bar-to-column mapping: bar 100 at x 0, 8px per bar, bar centre.</summary>
+    private static int ColumnOf(int bar) => (bar - 100) * 8 + 4;
+
+    private SKBitmap RenderToBitmap(params ChartPattern[] p)
+    {
+        var ctx = Ctx();
+        ctx.Canvas.Clear(ctx.Theme.Background);
+        Render(ctx, p);
+        using var image = _surfaces[^1].Snapshot();
+        return SKBitmap.FromImage(image);
+    }
+
+    /// <summary>
+    /// Anything but the cleared background within a pixel of the row (the line is 1–1.6px), in
+    /// the six columns leading up to the bar's centre — wide enough that a dashed target cannot
+    /// hide in a gap (6px dashes, 6px gaps), narrow enough to stay well clear of a line that
+    /// ended five bars (40px) earlier.
+    /// </summary>
+    private static bool InkAt(SKBitmap bmp, int bar, double price)
+    {
+        var bg = DefaultTheme().Background;
+        int x0 = ColumnOf(bar), y = RowOf(price);
+        for (int x = x0 - 6; x <= x0; x++)
+            for (int dy = -1; dy <= 1; dy++)
+                if (bmp.GetPixel(x, y + dy) != bg) return true;
+        return false;
+    }
+
+    [Fact]
+    public void ABrokenFormationsTriggerStopsAtTheBarThatClosedThroughIt()
+    {
+        // Completed at bar 160 (the fixture), target touched at bar 170.
+        using var bmp = RenderToBitmap(P(state: ChartPatternState.Completed, targetReached: 170));
+
+        Assert.True(InkAt(bmp, 156, 100), "the trigger is not drawn between the formation and its break");
+        Assert.True(InkAt(bmp, 160, 100), "the trigger does not reach the candle that broke it");
+        Assert.False(InkAt(bmp, 165, 100), "the trigger runs on past the bar that closed through it");
+        Assert.False(InkAt(bmp, 199, 100), "the trigger still reaches the right edge");
+    }
+
+    [Fact]
+    public void AMeasuredTargetStopsAtTheBarThatTradedAtIt()
+    {
+        using var bmp = RenderToBitmap(P(state: ChartPatternState.Completed, targetReached: 170));
+
+        Assert.True(InkAt(bmp, 168, 80), "the target is not drawn up to the bar that reached it");
+        Assert.False(InkAt(bmp, 176, 80), "the target runs on past the bar that traded at it");
+        Assert.False(InkAt(bmp, 199, 80), "the target still reaches the right edge");
+    }
+
+    /// <summary>
+    /// Not reached: the target stays a projection for the formation's own length past the break
+    /// (160 + 40 = bar 200, off this viewport's right edge), so here it still runs to the edge.
+    /// </summary>
+    [Fact]
+    public void AnUnreachedTargetRunsToTheEndOfItsWindow()
+    {
+        using var bmp = RenderToBitmap(P(state: ChartPatternState.Completed, targetReached: null));
+        Assert.True(InkAt(bmp, 199, 80), "an unreached target inside its window was cut short");
+    }
+
+    [Fact]
+    public void AnExpiredFormationsTriggerStopsAtItsExpiry()
+    {
+        using var bmp = RenderToBitmap(P(state: ChartPatternState.Expired, expires: 180));
+
+        Assert.True(InkAt(bmp, 178, 100), "an expired formation's trigger is not drawn up to its expiry");
+        Assert.False(InkAt(bmp, 186, 100), "an expired formation's trigger runs on past its expiry");
+    }
+
+    /// <summary>A live formation's expiry lies past the newest bar, so its levels reach the live edge.</summary>
+    [Fact]
+    public void ALiveFormationsLevelsReachTheRightEdge()
+    {
+        using var bmp = RenderToBitmap(P(state: ChartPatternState.Forming, expires: 230));
+
+        Assert.True(InkAt(bmp, 199, 100), "a forming formation's trigger stops short of the live edge");
+        Assert.True(InkAt(bmp, 199, 80), "a forming formation's 'if it breaks' target stops short of the live edge");
+    }
+
+    // ── Labels say what the line is (Cody's 2026-10-15 screenshots) ───────────────────────
+
+    [Fact]
+    public void TheSolidLineIsLabelledAsTheTriggerWithItsPriceAndSide()
+    {
+        var wedge = P(kind: ChartPatternKind.RisingWedge, trigger: 74_508.12, target: 60_300);
+        string label = ChartFormationLayer.TriggerLabel(wedge);
+
+        Assert.Contains("rising wedge", label);
+        Assert.Contains("trigger", label);        // the speech's word for a wedge's level
+        Assert.Contains("74,508.12", label);
+        Assert.Contains("below", label);
+
+        // Seen on the first render of the real BTC daily: "bear flag flag edge 59,485.04".
+        string flag = ChartFormationLayer.TriggerLabel(P(kind: ChartPatternKind.BearFlag, trigger: 59_485.04));
+        Assert.DoesNotContain("flag flag", flag);
+        Assert.Contains("edge", flag);
+
+        // A range has not picked a side, and its label must not pick one for it.
+        var range = P(kind: ChartPatternKind.Rectangle, trigger: 110, secondary: 90, target: null);
+        Assert.DoesNotContain("below", ChartFormationLayer.TriggerLabel(range));
+        Assert.DoesNotContain("above", ChartFormationLayer.TriggerLabel(range));
+    }
+
+    [Fact]
+    public void TheDashedLineIsLabelledAsTheMeasuredTargetWithItsPrice()
+    {
+        string label = ChartFormationLayer.TargetLabel(P(kind: ChartPatternKind.RisingWedge), 60_300);
+        Assert.Contains("rising wedge", label);
+        Assert.Contains("measured target", label);
+        Assert.Contains("60,300.00", label);
+    }
+
+    /// <summary>
+    /// The number on the line is the number Cody heard, digit for digit — only grouped, as the
+    /// hover readout groups it, for the sighted reader beside him.
+    /// </summary>
+    [Theory]
+    [InlineData(74_508.12)]
+    [InlineData(82_366.23)]
+    [InlineData(1_234_567.891)]
+    [InlineData(612.5)]
+    [InlineData(0.0363)]
+    [InlineData(0.00003141)]
+    public void LabelPricesAreTheSpokenDigitsGrouped(double price)
+    {
+        string label = ChartFormationLayer.LabelPrice(price);
+        Assert.Equal(Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(price), label.Replace(",", ""));
+        if (price >= 1000) Assert.Contains(",", label);
     }
 
     /// <summary>

@@ -127,6 +127,22 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// registry — and every price-derived pattern claim tested here so far has come back null.
     /// </para>
     /// </param>
+    /// <param name="TargetReachedAtIndex">
+    /// The first bar at or after the break whose range touched <paramref name="MeasuredTarget"/>
+    /// (low at or under it for a downside break, high at or over it for an upside one), or null if
+    /// none did within <see cref="TargetWindowEndsAt"/> — or the pattern never broke.
+    /// <para>
+    /// Exists so the drawn target line can STOP. Cody's 2026-10-15 screenshot of a BTCUSDT daily
+    /// chart had a rising wedge's dashed target at 60,300 running from March to the right edge six
+    /// months after price had already traded there; a sighted reader could not tell a level that
+    /// was done from one still in play. Touched rather than closed-through, because a measured
+    /// target is a price the convention says will TRADE — unlike the trigger, where a wick through
+    /// is the classic fake-out and only a close counts. Scanned with the same causality as
+    /// <paramref name="CompletedAtIndex"/>: from the break bar forward, never before it, so a
+    /// shorter series can only ever report the same bar or none (ChartPatternCausalityTests).
+    /// Nothing spoken reads it.
+    /// </para>
+    /// </param>
     public record ChartPattern(
         ChartPatternKind Kind,
         ChartPatternState State,
@@ -140,7 +156,8 @@ namespace AccessibleTrader.Core.Services.Analysis
         int? ExpiresAtIndex = null,
         bool BreaksBelow = true,
         double? MeasuredTarget = null,
-        double? SecondaryLevel = null)
+        double? SecondaryLevel = null,
+        int? TargetReachedAtIndex = null)
     {
         /// <summary>
         /// <see cref="ExpiresAtIndex"/>, falling back to the formation-length rule when a caller
@@ -155,6 +172,22 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// and the last bar at which it is worth mentioning at all.
         /// </summary>
         public int ResolvesAt => CompletedAtIndex ?? RelevanceEndsAt;
+
+        /// <summary>
+        /// The last bar at which the measured target is still a live projection: the formation's
+        /// own length past the break, by the same rule as <see cref="ExpiresAtIndex"/> — a move
+        /// that reaches the number later than that belongs to some later move, not to this shape.
+        /// Before a break it is the formation's own expiry, since the target is only "if it
+        /// breaks" until then.
+        /// </summary>
+        public int TargetWindowEndsAt => CompletedAtIndex is int done
+            ? ChartPatternDetector.Expiry(done, StartBarIndex, EndBarIndex)
+            : RelevanceEndsAt;
+
+        /// <summary>
+        /// Where the target's story finishes: the bar that touched it, or the end of its window.
+        /// </summary>
+        public int TargetEndsAt => TargetReachedAtIndex ?? TargetWindowEndsAt;
 
         /// <summary>
         /// Stable identity for one formation, independent of the life stage it is being described
@@ -294,6 +327,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             found.AddRange(Flags(bars, atr, o));
 
             return found
+                .Select(p => p with { TargetReachedAtIndex = TargetReached(bars, p) })
                 .OrderBy(p => p.KnownAtIndex)
                 .ThenBy(p => p.Kind)
                 .ToList();
@@ -694,6 +728,25 @@ namespace AccessibleTrader.Core.Services.Analysis
             return bars.Count - 1 > expiresAt
                 ? (ChartPatternState.Expired, null, false)
                 : (ChartPatternState.Forming, null, false);
+        }
+
+        /// <summary>
+        /// The first bar from the break onward whose range touched the measured target, within the
+        /// target's window. See <see cref="ChartPattern.TargetReachedAtIndex"/> for why it exists
+        /// and why a touch (not a close) counts.
+        /// </summary>
+        internal static int? TargetReached(IReadOnlyList<Ohlcv> bars, ChartPattern p)
+        {
+            if (p.CompletedAtIndex is not int done || p.MeasuredTarget is not double target || target <= 0)
+                return null;
+
+            int last = Math.Min(p.TargetWindowEndsAt, bars.Count - 1);
+            for (int i = done; i <= last; i++)
+            {
+                bool touched = p.BreaksBelow ? bars[i].Low <= target : bars[i].High >= target;
+                if (touched) return i;
+            }
+            return null;
         }
 
         private static int Sign(double delta, double tol)

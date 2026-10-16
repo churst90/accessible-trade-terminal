@@ -390,6 +390,44 @@ public class ChartPatternDetectorTests
         }
     }
 
+    /// <summary>
+    /// The bar that ends a formation's drawn target line (Cody's 2026-10-15 screenshot: a rising
+    /// wedge's dashed target still crossing the chart months after price had traded there). It
+    /// must be the FIRST bar from the break onward whose range touched the target, inside the
+    /// target's window — and none at all when no bar in that window did, or the pattern never broke.
+    /// </summary>
+    [Fact]
+    public void TargetReached_IsTheFirstBarFromTheBreakThatTradedAtTheTarget()
+    {
+        var bars = RandomWalk(1500, seed: 5);
+        var all = Detector.Detect(bars);
+        int reached = 0, unreached = 0;
+
+        foreach (var p in all)
+        {
+            bool Touches(int i) => p.BreaksBelow ? bars[i].Low <= p.MeasuredTarget : bars[i].High >= p.MeasuredTarget;
+
+            if (p.CompletedAtIndex is not int done || p.MeasuredTarget is not > 0)
+            {
+                Assert.Null(p.TargetReachedAtIndex);
+                continue;
+            }
+
+            int last = Math.Min(p.TargetWindowEndsAt, bars.Count - 1);
+            int? expected = null;
+            for (int i = done; i <= last && expected == null; i++)
+                if (Touches(i)) expected = i;
+
+            Assert.True(expected == p.TargetReachedAtIndex,
+                $"{p.Kind} broke at {done}: target {p.MeasuredTarget} first traded at {expected?.ToString() ?? "none"} " +
+                $"within its window (to {last}), but the pattern says {p.TargetReachedAtIndex?.ToString() ?? "none"}");
+            if (expected == null) unreached++; else reached++;
+        }
+
+        // Both branches have to be exercised, or this passes against a detector that never sets it.
+        Assert.True(reached > 0 && unreached > 0, $"reached {reached}, unreached {unreached}");
+    }
+
     [Fact]
     public void FormingPatterns_CarryNoCompletionBar()
     {
