@@ -65,7 +65,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                     canvas, width, height, state.Data, state.ActiveSeries, state.CurrentDataIndex,
                     state.ViewportStartIndex, state.ViewportLength, state.ViewportRange, state.PaneRanges,
                     state.IsHeikinAshi, state.IsLogScale, density, state.PaneHeightRatios,
-                    state.RightMarginBars, Formations(state.Identity, state.Data));
+                    state.RightMarginBars, Formations(state.Identity, state.Data),
+                    // So an indicator pane's crosshair badge reads the component the user is on.
+                    state.FocusedSeriesId, state.FocusedComponentIndex);
             }
             catch { /* keep the last good frame */ }
         }

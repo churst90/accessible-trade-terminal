@@ -210,7 +210,11 @@ namespace AccessibleTrader.Core.Services
             return new PaneAllocation(mainPaneHeight, indHeights);
         }
 
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)
+        /// <param name="focusedSeriesId">The series keyboard navigation is on, so an indicator
+        /// pane's crosshair badge can read the component the user is on (see
+        /// <see cref="CrosshairReadingAt"/>). Null reads each pane's primary line.</param>
+        /// <param name="focusedComponentIndex">The component within that series.</param>
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1)
         {
             try
             {
@@ -326,8 +330,28 @@ namespace AccessibleTrader.Core.Services
                     ? MeasureLegendBox(mainPaneRect, mainOverlaySeries, density)
                     : null;
 
+                // The bar the crosshair labels: RenderCrosshair's own clamp (never past the last
+                // real bar), computed ONCE so every pane's badge and every axis that keeps its
+                // labels out from under one are reading the same bar.
+                int crossIndex = Math.Min(cursorIndex - viewportStart, visibleData.Count - 1);
+
+                // The price pane's cursor line sits at the close and had NO badge (Cody's
+                // 2026-10-15 screenshots): a line across the candles with nothing saying what it
+                // marks. It gets the same badge as the indicator panes, chipped in the candle's
+                // own direction colour.
+                CrosshairBadge? mainBadge = null;
+                if (crossIndex >= 0)
+                {
+                    var bar = visibleData[crossIndex];
+                    var (bull, bear) = StandardRenderers.ApplyColorVision(
+                        _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
+                    mainBadge = new CrosshairBadge(bar.Close,
+                        ChartMath.MapY(bar.Close, mainPaneRect.Top, mainPaneRect.Bottom, mainMin, mainMax, isLogScale),
+                        bar.Close >= bar.Open ? bull : bear, mainMax - mainMin);
+                }
+
                 RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect);
-                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
+                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density, mainBadge?.TextY(density));
                 if (mainOverlaySeries.Count > 0)
                     RenderPaneLegend(canvas, mainPaneRect, mainOverlaySeries, density);
                 // Small colored ticks on the Y-axis at each visible line indicator's
@@ -338,7 +362,7 @@ namespace AccessibleTrader.Core.Services
 
                 float itemWidthForAxis = (width - _axisWidth) / Math.Max(1, viewportLength);
 
-                var indicatorPaneInfos = new List<(SKRect Rect, double Min, double Max, List<ChartSeries> Series)>();
+                var indicatorPaneInfos = new List<(SKRect Rect, CrosshairBadge? Badge)>();
                 var dividers = new List<(string BelowPaneName, float DividerFraction)>();
 
                 for (int pi = 0; pi < indicatorSeries.Count; pi++)
@@ -364,16 +388,21 @@ namespace AccessibleTrader.Core.Services
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
                     var indAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight);
                     RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect);
-                    // Where RenderCrosshair will put this pane's value badge — same clamp, same
-                    // lookup — so the axis can keep its labels out from under it.
-                    float? badgeTextY = null;
-                    int badgeIndex = Math.Min(cursorIndex - viewportStart, visibleData.Count - 1);
-                    if (badgeIndex >= 0 && CrosshairValueAt(paneSeriesList, badgeIndex, viewportStart) is { } badgeValue)
-                        badgeTextY = ChartMath.MapY(badgeValue, paneRect.Top, paneRect.Bottom, min, max, false) + (4 * density);
-                    RenderYAxis(canvas, indAxisRect, min, max, false, density, badgeTextY);
+                    // This pane's value badge, decided ONCE: the axis keeps its labels out from
+                    // under it and RenderCrosshair draws it, from the same object. They used to
+                    // be two copies of the same lookup, kept in step by a comment.
+                    CrosshairBadge? badge = null;
+                    if (crossIndex >= 0
+                        && CrosshairReadingAt(paneSeriesList, crossIndex, viewportStart, focusedSeriesId, focusedComponentIndex) is { } reading)
+                    {
+                        badge = new CrosshairBadge(reading.Value,
+                            ChartMath.MapY(reading.Value, paneRect.Top, paneRect.Bottom, min, max, false),
+                            ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min);
+                    }
+                    RenderYAxis(canvas, indAxisRect, min, max, false, density, badge?.TextY(density));
                     RenderPaneLegend(canvas, paneRect, paneSeriesList, density);
                     RenderYAxisSwatches(canvas, indAxisRect, paneSeriesList, min, max, false, density);
-                    indicatorPaneInfos.Add((paneRect, min, max, paneSeriesList));
+                    indicatorPaneInfos.Add((paneRect, badge));
                     currentY += indicatorPaneHeight;
                 }
 
@@ -386,7 +415,7 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawLine(0, height - _axisHeight, width - _axisWidth, height - _axisHeight, sepPaint);
 
                 RenderXAxis(canvas, new SKRect(0, height - _axisHeight, width - _axisWidth, height), visibleData, itemWidthForAxis, density);
-                RenderCrosshair(canvas, new SKRect(0, 0, width - _axisWidth, totalPaneHeight), visibleData, cursorIndex - viewportStart, viewportStart, mainMin, mainMax, isLogScale, itemWidthForAxis, density, mainPaneHeight, indicatorPaneInfos);
+                RenderCrosshair(canvas, new SKRect(0, 0, width - _axisWidth, totalPaneHeight), visibleData, cursorIndex - viewportStart, itemWidthForAxis, density, mainPaneRect, mainBadge, indicatorPaneInfos);
             }
             catch (Exception ex)
             {
@@ -725,8 +754,56 @@ namespace AccessibleTrader.Core.Services
         // moved above this one. Two doc comments on one member: the compiler takes the last and
         // silently drops the first, so the tooltip described a method that was not this one.)
         /// <summary>
-        /// The first non-NaN component reading in an indicator pane at the cursor's bar, or
-        /// null when nothing in the pane has a value there.
+        /// One pane's crosshair value badge: the value, where its line is drawn, the colour of
+        /// the thing it reads, and the pane range that decides its decimals.
+        ///
+        /// <para>
+        /// A value of its own so the axis (which keeps its labels out from under the badge) and
+        /// the crosshair (which draws it) are handed the SAME badge. They used to be two copies
+        /// of one lookup in two methods, kept in step by a comment.
+        /// </para>
+        /// </summary>
+        internal readonly record struct CrosshairBadge(double Value, float LineY, SKColor Chip, double Range)
+        {
+            /// <summary>The baseline the badge's text is drawn at.</summary>
+            public float TextY(float density) => LineY + (4 * density);
+        }
+
+        /// <summary>The component an indicator pane's crosshair badge reads, and its value there.</summary>
+        internal readonly record struct CrosshairReading(
+            double Value, ChartSeries Series, ComponentConfig Component, int AbsIndex);
+
+        /// <summary>The value an indicator pane's crosshair badge shows. See <see cref="CrosshairReadingAt"/>.</summary>
+        internal static double? CrosshairValueAt(
+            IReadOnlyList<ChartSeries> paneSeries, int localIndex, int viewportStart)
+            => CrosshairReadingAt(paneSeries, localIndex, viewportStart)?.Value;
+
+        /// <summary>
+        /// WHOSE value an indicator pane's crosshair badge shows at the cursor's bar, or null when
+        /// nothing drawn in the pane has a value there.
+        ///
+        /// <para>
+        /// <b>The badge named nothing (Cody's 2026-10-15 screenshots).</b> It used to read the
+        /// FIRST component in the pane with a value — declaration order, hidden components
+        /// included. Cipher B declares two hidden anchor waves and its histogram ahead of the
+        /// Wave Trend lines, so the badge said 55.70 while both lines sat near −40 — and a
+        /// sighted reader takes a number on the line's axis for the line. Now, in order:
+        /// </para>
+        /// <list type="number">
+        /// <item>The component keyboard navigation is ON, when it is in this pane and drawn here
+        /// with a value: the badge follows what Cody is reading, so a sighted companion watching
+        /// his screen sees the same number his screen reader says.</item>
+        /// <item>Otherwise the pane's first continuous LINE (line, oscillator, area, step line):
+        /// the trace a reader's eye follows to the axis.</item>
+        /// <item>Then a bar or histogram (a volume pane has nothing else), then anything else
+        /// drawn with a value.</item>
+        /// </list>
+        /// <para>
+        /// Never a hidden or disabled component — the badge cannot label a line that is not on
+        /// the screen — and never one drawn in a sub-pane strip, whose values map against that
+        /// strip's own range, not the pane's. The badge also carries the component's colour as a
+        /// chip (<see cref="ReadingColor"/>), so it says whose value it is as well as what.
+        /// </para>
         ///
         /// <para><paramref name="localIndex"/> is VIEWPORT-LOCAL and component arrays are
         /// ABSOLUTE, so this is where the two index spaces meet. The crosshair label used to
@@ -734,30 +811,92 @@ namespace AccessibleTrader.Core.Services
         /// put the cursor on bar 560, and the RSI pane's line and its number came from
         /// <c>rsi[60]</c> — a reading from five hundred bars ago, rendered as the current one.
         /// Every other renderer path indexes components as <c>ViewportStart + i</c>.</para>
-        ///
-        /// <para>Internal rather than private so it can be tested against real component data.
-        /// The rest of <c>RenderCrosshair</c> is canvas work; this is the arithmetic that was
-        /// wrong.</para>
         /// </summary>
-        internal static double? CrosshairValueAt(
-            IReadOnlyList<ChartSeries> paneSeries, int localIndex, int viewportStart)
+        internal static CrosshairReading? CrosshairReadingAt(
+            IReadOnlyList<ChartSeries> paneSeries, int localIndex, int viewportStart,
+            string? focusedSeriesId = null, int focusedComponentIndex = -1)
         {
             int absIndex = localIndex + viewportStart;
             if (absIndex < 0) return null;
 
-            foreach (var s in paneSeries)
+            CrosshairReading? Read(ChartSeries s, ComponentConfig comp)
             {
-                foreach (var comp in s.Components)
+                if (ReadingTier(comp) < 0) return null;
+                var data = s.GetComponentData(comp.Name);
+                return data != null && absIndex < data.Length && !double.IsNaN(data[absIndex])
+                    ? new CrosshairReading(data[absIndex], s, comp, absIndex)
+                    : null;
+            }
+
+            if (focusedSeriesId != null && focusedComponentIndex >= 0)
+            {
+                foreach (var s in paneSeries)
                 {
-                    var data = s.GetComponentData(comp.Name);
-                    if (data != null && absIndex < data.Length && !double.IsNaN(data[absIndex]))
-                        return data[absIndex];
+                    if (s.Id != focusedSeriesId) continue;
+                    int ci = s.ClampComponent(focusedComponentIndex);
+                    if (ci >= 0 && Read(s, s.Components[ci]) is { } focused) return focused;
                 }
             }
+
+            for (int tier = 0; tier <= 2; tier++)
+                foreach (var s in paneSeries)
+                    foreach (var comp in s.Components)
+                        if (ReadingTier(comp) == tier && Read(s, comp) is { } reading)
+                            return reading;
             return null;
         }
 
-        private void RenderCrosshair(SKCanvas canvas, SKRect area, List<Ohlcv> visibleData, int localIndex, int viewportStart, double min, double max, bool isLogScale, float itemWidth, float density, float mainPaneHeight, List<(SKRect Rect, double Min, double Max, List<ChartSeries> Series)> indicatorPanes)
+        /// <summary>
+        /// How readable a component's value is as "the pane's value": 0 for a continuous line,
+        /// 1 for bars, 2 for markers and levels, −1 for what the badge must not read at all —
+        /// hidden, disabled, in a sub-pane strip, or a type with no value of its own on this axis.
+        /// </summary>
+        private static int ReadingTier(ComponentConfig comp)
+        {
+            if (!comp.IsVisible || !comp.IsEnabled || !string.IsNullOrEmpty(comp.SubPaneName)) return -1;
+            return comp.DisplayType switch
+            {
+                ComponentDisplayType.Line or ComponentDisplayType.Oscillator or ComponentDisplayType.Area
+                    or ComponentDisplayType.Gradient or ComponentDisplayType.StepLine => 0,
+                ComponentDisplayType.Bar or ComponentDisplayType.Histogram
+                    or ComponentDisplayType.ZeroArea => 1,
+                ComponentDisplayType.Cloud or ComponentDisplayType.CandleColor or ComponentDisplayType.Heatmap
+                    or ComponentDisplayType.Profile or ComponentDisplayType.Distribution => -1,
+                _ => 2,
+            };
+        }
+
+        /// <summary>
+        /// The colour the reading's component is drawn in AT that value, for the badge's chip —
+        /// so the chip matches the stroke or bar the eye is following, and the legend row for it.
+        /// A bar takes its up or down colour from the same rule the bars are painted by
+        /// (<see cref="StandardRenderers.DirectionalBarColors"/>); a polarity-split line takes the
+        /// side of its baseline it is on. Opaque, because a chip is a key, not a fill.
+        /// </summary>
+        internal static SKColor ReadingColor(CrosshairReading r, ChartTheme theme, Ohlcv? bar)
+        {
+            var comp = r.Component;
+            var data = r.Series.GetComponentData(comp.Name);
+
+            if (StandardRenderers.ResolveBarColor(comp, data, r.AbsIndex) is { } ruled)
+                return ruled.WithAlpha(255);
+
+            if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
+            {
+                var (up, down) = StandardRenderers.DirectionalBarColors(theme, comp);
+                bool isUp = comp.ColorSource == ColorSource.PriceAction
+                    ? bar is not { } b || b.Close >= b.Open
+                    : r.Value >= comp.ColorBaseline;
+                return (isUp ? up : down).WithAlpha(255);
+            }
+
+            if (!SKColor.TryParse(comp.ColorHex, out var color)) color = SKColors.White;
+            if (StandardRenderers.WantsPolaritySplit(comp))
+                color = StandardRenderers.PolarityColor(comp, r.Value, color);
+            return color.WithAlpha(255);
+        }
+
+        private void RenderCrosshair(SKCanvas canvas, SKRect area, List<Ohlcv> visibleData, int localIndex, float itemWidth, float density, SKRect mainPaneRect, CrosshairBadge? mainBadge, List<(SKRect Rect, CrosshairBadge? Badge)> indicatorPanes)
         {
             if (visibleData.Count == 0) return;
             // Upper-bound clamp: never draw the crosshair past the last real data bar,
@@ -777,35 +916,64 @@ namespace AccessibleTrader.Core.Services
             canvas.DrawLine(cx, 0, cx, area.Bottom, haloPaint);
             canvas.DrawLine(cx, 0, cx, area.Bottom, vPaint);
 
-            // Horizontal crosshair in main pane (price)
-            float cy = ChartMath.MapY(visibleData[localIndex].Close, area.Top, area.Top + mainPaneHeight, min, max, isLogScale);
-            canvas.DrawLine(area.Left, cy, area.Right, cy, haloPaint);
-            canvas.DrawLine(area.Left, cy, area.Right, cy, vPaint);
+            using var labelBgPaint = new SKPaint { Color = new SKColor(40, 40, 40, 210), Style = SKPaintStyle.Fill };
+
+            // Horizontal crosshair in main pane (price), at the close — with its badge.
+            if (mainBadge is { } mb)
+            {
+                canvas.DrawLine(area.Left, mb.LineY, area.Right, mb.LineY, haloPaint);
+                canvas.DrawLine(area.Left, mb.LineY, area.Right, mb.LineY, vPaint);
+                DrawCrosshairBadge(canvas, mainPaneRect.Right, mb, density, labelBgPaint);
+            }
 
             // Horizontal crosshair in each indicator pane at the cursor's indicator value
             using var indPaint = new SKPaint { Color = SKColors.Gray.WithAlpha(100), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
-            using var labelBgPaint = new SKPaint { Color = new SKColor(40, 40, 40, 210), Style = SKPaintStyle.Fill };
-            foreach (var (paneRect, paneMin, paneMax, paneSeries) in indicatorPanes)
+            foreach (var (paneRect, badge) in indicatorPanes)
             {
-                double? val = CrosshairValueAt(paneSeries, localIndex, viewportStart);
-
-                if (!val.HasValue) continue;
-                float iy = ChartMath.MapY(val.Value, paneRect.Top, paneRect.Bottom, paneMin, paneMax, false);
-                canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, haloPaint);
-                canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, indPaint);
-
-                // Y-value label at the right edge of the pane (matches RenderYAxis style, and
-                // that includes fitting the strip: this badge is drawn INTO the axis strip too,
-                // so a nine-digit volume reading overflowed the canvas here as well.)
-                string label = FitAxisLabel(ChartMath.FormatAxisValue(val.Value, paneMax - paneMin),
-                                            val.Value, _axisWidth - (8 * density));
-                float labelW = _textFont.MeasureText(label);
-                float labelH = _textFont.Size + (4 * density);
-                float lx = paneRect.Right + (2 * density);
-                float ly = iy - (labelH / 2);
-                canvas.DrawRect(new SKRect(lx, ly, lx + labelW + (6 * density), ly + labelH), labelBgPaint);
-                canvas.DrawText(label, lx + (3 * density), iy + (4 * density), SKTextAlign.Left, _textFont, _textPaint);
+                if (badge is not { } b) continue;
+                canvas.DrawLine(paneRect.Left, b.LineY, paneRect.Right, b.LineY, haloPaint);
+                canvas.DrawLine(paneRect.Left, b.LineY, paneRect.Right, b.LineY, indPaint);
+                DrawCrosshairBadge(canvas, paneRect.Right, b, density, labelBgPaint);
             }
+        }
+
+        /// <summary>Width of the colour chip at the left of a crosshair badge, at density 1.</summary>
+        internal const float BadgeChipPx = 3f;
+
+        /// <summary>
+        /// A value badge at the right edge of a pane, in the axis strip: a chip in the colour of
+        /// the thing it reads, then the reading.
+        ///
+        /// <para>
+        /// The CHIP is what makes it say whose value it is. The strip is 60 px wide, so a name does
+        /// not fit beside a five-digit reading; a colour does, and it is the same colour as the
+        /// line or bar the eye is following and as that component's legend key (Cody's 2026-10-15
+        /// screenshots: an unlabelled 55.70 beside two lines near −40).
+        /// </para>
+        ///
+        /// <para>
+        /// Fits the strip like RenderYAxis's labels do — this badge is drawn INTO the axis strip
+        /// too, so a nine-digit volume reading overflowed the canvas here as well — with the chip
+        /// and its gap taken out of the budget first.
+        /// </para>
+        /// </summary>
+        private void DrawCrosshairBadge(SKCanvas canvas, float paneRight, CrosshairBadge badge, float density, SKPaint bgPaint)
+        {
+            float chipW = BadgeChipPx * density;
+            float gap = 2 * density;
+            float pad = 3 * density;
+            float lx = paneRight + (2 * density);
+
+            string label = FitAxisLabel(ChartMath.FormatAxisReading(badge.Value, badge.Range), badge.Value,
+                                        _axisWidth - (2 * density) - chipW - gap - pad);
+            float labelW = _textFont.MeasureText(label);
+            float labelH = _textFont.Size + (4 * density);
+            float ly = badge.LineY - (labelH / 2);
+
+            canvas.DrawRect(new SKRect(lx, ly, lx + chipW + gap + labelW + pad, ly + labelH), bgPaint);
+            using (var chipPaint = new SKPaint { Color = badge.Chip, Style = SKPaintStyle.Fill })
+                canvas.DrawRect(new SKRect(lx, ly, lx + chipW, ly + labelH), chipPaint);
+            canvas.DrawText(label, lx + chipW + gap, badge.TextY(density), SKTextAlign.Left, _textFont, _textPaint);
         }
 
         /// <summary>
@@ -843,6 +1011,13 @@ namespace AccessibleTrader.Core.Services
         private const float LegendKeyPx  = 14f;   // width of the key column — a line stub or a glyph
         private const float LegendPadPx  = 6f;
         private const float LegendLinePx = 17f;
+
+        /// <summary>
+        /// The legend backing's opacity. 245 of 255 lets a full-strength white line behind the box
+        /// through at about 4% — below what reads as a stroke across text — where the old 178
+        /// let it through at 30%, which read as a strikethrough. See RenderPaneLegend.
+        /// </summary>
+        internal const byte LegendBackingAlpha = 245;
 
         /// <summary>
         /// The legend's rows and the box they occupy — ONE computation, shared by the pass that
@@ -907,9 +1082,17 @@ namespace AccessibleTrader.Core.Services
             // it. The border does the containing work instead, which is what an overlay is
             // supposed to look like. Text stays legible because the fill is still the dominant
             // layer and the ink is near-white.
+            //
+            // ...and it was not, so the fill is near-opaque again (LegendBackingAlpha). At 70%
+            // the chart showing through included every horizontal line behind the box, at 30%
+            // of its strength: in focus mode the dashed overbought level ran straight through
+            // "Wave Trend Fast" and the row read as struck through (Cody's 2026-10-15
+            // screenshots). Stopping the level lines at the box was the other fix and the
+            // narrower one — the Wave Trend lines, the histogram bars and the candles all cross
+            // the legend too, and none of them would stop.
             var surface = _theme.Current.SurfaceSunken;
             var bgRound = new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 5 * density);
-            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(178), Style = SKPaintStyle.Fill })
+            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(LegendBackingAlpha), Style = SKPaintStyle.Fill })
                 canvas.DrawRoundRect(bgRound, bgPaint);
             using (var borderPaint = new SKPaint { Color = _theme.Current.ChromeBorder.WithAlpha(140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
                 canvas.DrawRoundRect(bgRound, borderPaint);
@@ -971,8 +1154,26 @@ namespace AccessibleTrader.Core.Services
                     break;
 
                 default:
-                    paint.Color = row.Colors[0];
                     paint.Style = SKPaintStyle.Fill;
+                    if (row.Colors.Count >= 2)
+                    {
+                        // A miniature histogram: one column per colour, alternately rising from the
+                        // midline and hanging below it, so a bar series' key shows its up AND down
+                        // colours and reads as bars rather than as one more coloured square.
+                        int cols = Math.Min(row.Colors.Count, 3);
+                        float colGap = 1.5f * density;
+                        float colW = Math.Min(4.5f * density, (key - colGap * (cols - 1)) / cols);
+                        float colH = 5.5f * density;
+                        float left = x + (key - (cols * colW + (cols - 1) * colGap)) / 2f;
+                        for (int i = 0; i < cols; i++)
+                        {
+                            paint.Color = row.Colors[i];
+                            float colTop = i % 2 == 0 ? cy - colH : cy;
+                            canvas.DrawRect(SKRect.Create(left + i * (colW + colGap), colTop, colW, colH), paint);
+                        }
+                        break;
+                    }
+                    paint.Color = row.Colors[0];
                     float h = 7f * density;
                     canvas.DrawRect(SKRect.Create(x + (key - h) / 2f, cy - h / 2f, h, h), paint);
                     break;
@@ -1175,19 +1376,18 @@ namespace AccessibleTrader.Core.Services
                 {
                     if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
 
-                    // Directional bar/histogram components render green/red by value direction, not
-                    // the static ColorHex. Show the up-direction green so the key matches the chart.
                     SKColor color;
+                    IReadOnlyList<SKColor>? barColors = null;
                     string label = comp.DisplayName ?? comp.Name;
                     if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
                     {
-                        // Directional bars paint green/red by value direction rather than by a
-                        // static hex, so the key shows the UP colour — and for volume that is now
-                        // the theme's bullish candle, not a fixed green.
-                        bool followsPrice = comp.Role is ComponentRole.Volume or ComponentRole.PriceAction;
-                        color = followsPrice && theme != null
-                            ? theme.CandleBullishBody.WithAlpha(200)
-                            : new SKColor(68, 187, 68, 200);
+                        // Directional bars paint by direction rather than by one static hex, so the
+                        // key shows BOTH colours, taken from the rule the bars are painted by. It
+                        // used to show one fixed green for every non-volume bar, so on Cipher B
+                        // "WT Histogram" and "Money Flow" had identical keys, and neither said
+                        // that half its bars are red (Cody's 2026-10-15 screenshots).
+                        barColors = LegendBarColors(comp, theme);
+                        color = barColors[0];
                     }
                     else if (!SKColor.TryParse(comp.ColorHex, out color))
                         continue;
@@ -1201,7 +1401,7 @@ namespace AccessibleTrader.Core.Services
                     }
                     else if (IsBaseData(comp.DisplayType))
                     {
-                        entries.Add(new LegendRow(label, LegendGlyph.Fill, new[] { color },
+                        entries.Add(new LegendRow(label, LegendGlyph.Fill, barColors ?? new[] { color },
                             Rank: 0, SeriesName: shortName));
                     }
                     else
@@ -1215,12 +1415,17 @@ namespace AccessibleTrader.Core.Services
                 // Collapse this series' marker rows into one. Per series, so an indicator with only
                 // one or two marks keeps their real names. The key carries up to three of the
                 // family's distinct colours rather than pretending six marks are one colour.
+                //
+                // The count is of mark TYPES — marker components — not of marks on the chart. The
+                // row said "Market Structure — 4 marks" over a chart showing about forty (Cody's
+                // 2026-10-15 screenshots). Counting the drawn marks would need the viewport, which
+                // this pure function does not have, and the number would change on every pan.
                 if (markerColors.Count >= CollapseMarkersAt)
                 {
                     for (int k = entries.Count - 1; k >= seriesStart; k--)
                         if (entries[k].Rank == 2) entries.RemoveAt(k);
 
-                    entries.Add(new LegendRow($"{shortName} — {markerColors.Count} marks",
+                    entries.Add(new LegendRow($"{shortName} — {markerColors.Count} mark types",
                         LegendGlyph.Marker, markerColors.Distinct().ToList(),
                         Rank: 2, SeriesName: shortName, MarkerShape: markerShape));
                 }
@@ -1271,6 +1476,25 @@ namespace AccessibleTrader.Core.Services
                     new[] { theme?.TextMuted ?? new SKColor(150, 150, 158) }, Rank: 3, SeriesName: ""));
 
             return shown;
+        }
+
+        /// <summary>
+        /// The colours a bar or histogram's legend key carries: its up and down colours, from
+        /// <see cref="StandardRenderers.DirectionalBarColors"/> — the rule the bars themselves
+        /// are painted by — or, for a component painted by explicit colour rules, those rules'
+        /// colours (up to three), since that is what its bars actually show.
+        /// </summary>
+        internal static IReadOnlyList<SKColor> LegendBarColors(ComponentConfig comp, ChartTheme? theme)
+        {
+            if (comp.ColorRules is { Count: > 0 })
+            {
+                var ruled = comp.ColorRules
+                    .Select(r => SKColor.TryParse(r.ColorHex, out var c) ? c.WithAlpha(200) : (SKColor?)null)
+                    .Where(c => c.HasValue).Select(c => c!.Value).Distinct().Take(3).ToList();
+                if (ruled.Count > 0) return ruled;
+            }
+            var (up, down) = StandardRenderers.DirectionalBarColors(theme, comp);
+            return new[] { up.WithAlpha(200), down.WithAlpha(200) };
         }
 
         /// <summary>Discrete per-bar glyphs — the components that identify themselves by shape.</summary>

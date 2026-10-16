@@ -437,11 +437,18 @@ public sealed class ChartVisualStabilityTests
         Assert.InRange(layout.AxisWidthFraction, 0.01f, 0.5f);
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
 
+        // The price pane's crosshair badge (since 2026-10-15) sits in the strip at the cursor's
+        // close and carries a chip in the candle's direction colour — ON PURPOSE, and only on the
+        // badge's own rows. Those rows are skipped; a body painted under the strip spans the bar's
+        // whole open-to-close height (100 to 109 here), so it is still caught on every other row.
+        float closeY = ChartMath.MapY(109.0, 0, H * (1f - layout.AxisHeightFraction), 95, 115, false);
+        bool OnBadgeRows(int y) => Math.Abs(y - closeY) <= 10;
+
         var bullish = Theme().CandleBullishBody;
         var intruders = new List<int>();
         for (int x = axisLeft + 2; x < W; x++)
         for (int y = 0; y < H; y++)
-            if (CloseTo(bmp.GetPixel(x, y), bullish)) { intruders.Add(x); break; }
+            if (!OnBadgeRows(y) && CloseTo(bmp.GetPixel(x, y), bullish)) { intruders.Add(x); break; }
 
         Assert.True(intruders.Count == 0,
             $"candle bodies were painted in {intruders.Count} columns of the y-axis strip " +

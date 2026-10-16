@@ -72,8 +72,8 @@ namespace AccessibleTrader.Tests
 
             Assert.Equal("Candles", labels[0]);
             // Both continuous lines precede the collapsed marker row.
-            Assert.True(labels.IndexOf("Value POC") < labels.IndexOf("Value Deviation — 3 marks"));
-            Assert.True(labels.IndexOf("EMA 50") < labels.IndexOf("Value Deviation — 3 marks"));
+            Assert.True(labels.IndexOf("Value POC") < labels.IndexOf("Value Deviation — 3 mark types"));
+            Assert.True(labels.IndexOf("EMA 50") < labels.IndexOf("Value Deviation — 3 mark types"));
         }
 
         [Fact]
@@ -122,7 +122,35 @@ namespace AccessibleTrader.Tests
 
             var labels = Labels(ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad));
 
-            Assert.Equal(new[] { "Value Deviation — 6 marks" }, labels);
+            Assert.Equal(new[] { "Value Deviation — 6 mark types" }, labels);
+        }
+
+        /// <summary>
+        /// <b>The collapsed row's number counts KINDS of mark, and must say so.</b> Cody's
+        /// 2026-10-15 screenshot read "Market Structure — 4 marks" over a chart showing about forty
+        /// of them: the four was the number of marker components. A count that reads as "how many
+        /// marks are on the chart" and is ten times too small is a wrong number, not a terse one.
+        /// Asserted as a property — the count is the component count, and no "N marks" phrasing
+        /// survives — rather than as one spelling.
+        /// </summary>
+        [Fact]
+        public void The_collapsed_count_is_described_as_mark_types_not_marks()
+        {
+            var panes = new List<ChartSeries>
+            {
+                Series("Market Structure",
+                    ("Swing High", ComponentDisplayType.TriangleDown),
+                    ("Swing Low", ComponentDisplayType.TriangleUp),
+                    ("Break of Structure", ComponentDisplayType.Diamond),
+                    ("Change of Character", ComponentDisplayType.Cross)),
+            };
+
+            string label = Labels(ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad)).Single();
+
+            Assert.StartsWith("Market Structure", label);
+            Assert.Contains("4", label);
+            Assert.DoesNotMatch(@"\b\d+\s+marks?\b(?!\s+(types|kinds))", label);
+            Assert.Matches(@"\b4\s+(mark\s+)?(types|kinds)\b", label);
         }
 
         [Fact]
@@ -159,7 +187,7 @@ namespace AccessibleTrader.Tests
             var labels = Labels(ChartRenderer.BuildLegendRows(panes, TallPane, Line, Pad));
 
             Assert.Contains("Swing High", labels);
-            Assert.Contains("Value Deviation — 3 marks", labels);
+            Assert.Contains("Value Deviation — 3 mark types", labels);
         }
 
         // ── Sizing ───────────────────────────────────────────────────────
@@ -372,7 +400,7 @@ namespace AccessibleTrader.Tests
 
             var row = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, TallPane, Line, Pad).Single();
 
-            Assert.Equal("Value Deviation — 6 marks", row.Label);
+            Assert.Equal("Value Deviation — 6 mark types", row.Label);
             Assert.Equal(6, row.Colors.Count);
         }
 
