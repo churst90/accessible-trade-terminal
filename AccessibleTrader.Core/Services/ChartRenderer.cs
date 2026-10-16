@@ -378,7 +378,13 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 // Update shared layout service so ChartArea.razor can position drag handles.
-                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width);
+                // The price pane's legend goes with it, as fractions like the dividers: the hover
+                // readout (DOM, over the chart image) moves to the top left when the pointer is on
+                // the newest bars, and must sit clear of this box.
+                (float, float, float, float)? legendFraction = legendRect is { } lr
+                    ? (lr.Left / width, lr.Top / height, lr.Right / width, lr.Bottom / height)
+                    : null;
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, legendFraction);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
@@ -440,13 +446,20 @@ namespace AccessibleTrader.Core.Services
                     RenderAnchorRegimeTint(ctx, _crossPaneAnchorPolarity);
                 if (li == 0 && paneName == "Main" && _crossPaneTbdDistribution != null)
                     RenderTbdDistributionTint(ctx, _crossPaneTbdDistribution);
+                // The volume profile's bars go UNDER the candles, on the pane fill like the tints.
+                // They were painted after everything, and in Cody's 2026-10-15 screenshots the
+                // strip (20% of the pane, right-aligned) covered the newest three months of
+                // candles. The POC line is drawn below, over the candles.
+                if (li == 0 && profileSeries.Count > 0)
+                    _profileLayer.RenderBins(ctx, profileSeries);
             }
             // Formations draw AFTER every data layer so their levels sit on top of the candles
             // rather than under them — a trigger line hidden behind a wick communicates nothing.
             if (paneName == "Main" && _frameFormations is { Count: > 0 })
                 _formationLayer.Render(ctx, _frameFormations);
 
-            if (profileSeries.Any()) _profileLayer.Render(ctx, profileSeries);
+            // The POC is a level, read against the candles for the same reason as a formation's.
+            if (profileSeries.Count > 0) _profileLayer.RenderPoc(ctx, profileSeries);
             canvas.Restore();
 
             // ── Sub-pane passes ───────────────────────────────────────────────

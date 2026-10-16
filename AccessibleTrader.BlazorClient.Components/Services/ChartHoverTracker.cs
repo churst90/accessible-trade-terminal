@@ -15,7 +15,16 @@ namespace AccessibleTrader.BlazorClient.Services
         double BarX,
         string DateText,
         string PriceText,
-        string OhlcText);
+        string OhlcText,
+        HoverReadoutPlacement Readout);
+
+    /// <summary>
+    /// Where the readout box goes, in CSS pixels relative to the chart-interact-zone: its top,
+    /// which side of the plot it hangs from, the distance from that side (from the element's
+    /// left edge, or from its right edge — which includes the price axis column), and the widest
+    /// it may grow before its text wraps. See <see cref="ChartHoverTracker.PlaceReadout"/>.
+    /// </summary>
+    public sealed record HoverReadoutPlacement(bool AtLeft, double Top, double Inset, double MaxWidth);
 
     /// <summary>
     /// Tracks the mouse over the chart and produces crosshair + readout state
@@ -372,8 +381,63 @@ namespace AccessibleTrader.BlazorClient.Services
                 DateText: FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
                 PriceText: PriceFormatter.FormatPrice(price),
                 OhlcText: $"O {PriceFormatter.FormatPrice(bar.Open)}  H {PriceFormatter.FormatPrice(bar.High)}  " +
-                          $"L {PriceFormatter.FormatPrice(bar.Low)}  C {PriceFormatter.FormatPrice(bar.Close)}");
+                          $"L {PriceFormatter.FormatPrice(bar.Low)}  C {PriceFormatter.FormatPrice(bar.Close)}",
+                Readout: PlaceReadout(barX, width, height, plotWidth, _paneLayout?.MainLegendFraction));
             return state;
+        }
+
+        /// <summary>Gap between the readout box and the plot edge, the legend, and the plot's centre line.</summary>
+        internal const double ReadoutMargin = 6;
+
+        /// <summary>
+        /// About how wide the box is when nothing wraps (0.85rem tabular figures, "O 82,366.23  H
+        /// 82,366.23  L 82,366.23  C 82,366.23" plus padding). Only decides whether the box sits
+        /// BESIDE the legend or under it; a box that turns out wider wraps inside its
+        /// <see cref="HoverReadoutPlacement.MaxWidth"/> rather than overlapping anything.
+        /// </summary>
+        internal const double ReadoutNaturalWidth = 400;
+
+        /// <summary>
+        /// Where the readout box goes: at the top of the plot, on the half AWAY from the hairline.
+        ///
+        /// <para>It used to sit top right always (<c>top:6px; right:72px</c>), and in Cody's
+        /// 2026-10-15 BTCUSDT 1d screenshots, normal and focus mode, it covered the newest candles,
+        /// their highs and the "ascending triangle" label: the live edge, where a pointer most
+        /// often is. Now a hairline in the right half of the plot puts the box top left, and one
+        /// in the left half puts it top right, still clear of the price axis. Its width is capped
+        /// at its own half of the plot (it wraps instead), so it can never reach the hairline.</para>
+        ///
+        /// <para>On the left it must not cover the price pane's legend, which the renderer paints
+        /// at the pane's top-left and publishes through <c>IPaneLayoutService.MainLegendFraction</c>.
+        /// The box goes beside the legend when its unwrapped width fits there before the centre
+        /// line, otherwise under the legend. The legend is capped at 45% of the pane's height, so
+        /// under it is still the upper half of the pane.</para>
+        /// </summary>
+        /// <param name="barX">The hairline, CSS px from the element's left edge.</param>
+        /// <param name="width">The element's width; the plot is <paramref name="plotWidth"/> of it, the rest is the price axis.</param>
+        /// <param name="height">The element's height.</param>
+        /// <param name="legend">The price pane's legend as fractions of the element, or null.</param>
+        public static HoverReadoutPlacement PlaceReadout(double barX, double width, double height, double plotWidth,
+            (float Left, float Top, float Right, float Bottom)? legend)
+        {
+            const double m = ReadoutMargin;
+            double half = plotWidth / 2;
+            double halfWidth = Math.Max(0, half - 2 * m);
+
+            // Hairline on the older half: top right, measured from the element's right edge, so
+            // the inset is the axis column plus the margin.
+            if (barX < half)
+                return new HoverReadoutPlacement(false, m, Math.Max(0, width - plotWidth) + m, halfWidth);
+
+            if (legend is not { } lg)
+                return new HoverReadoutPlacement(true, m, m, halfWidth);
+
+            double legendRight = lg.Right * width, legendTop = lg.Top * height, legendBottom = lg.Bottom * height;
+            double besideLeft = legendRight + m;
+            double beside = half - m - besideLeft;
+            if (beside >= ReadoutNaturalWidth)
+                return new HoverReadoutPlacement(true, Math.Max(m, legendTop), besideLeft, beside);
+            return new HoverReadoutPlacement(true, legendBottom + m, m, halfWidth);
         }
 
         /// <summary>

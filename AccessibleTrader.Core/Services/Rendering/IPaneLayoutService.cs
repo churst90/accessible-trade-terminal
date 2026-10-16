@@ -38,11 +38,25 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         float AxisWidthFraction { get; }
 
+        /// <summary>
+        /// The price pane's legend box as fractions of the canvas (left, top, right, bottom), or
+        /// null when the price pane has no legend. The legend is painted by the renderer at the
+        /// pane's top-left; the hover readout (DOM, over the chart image) reads this so it can sit
+        /// beside or below the legend instead of on top of it.
+        ///
+        /// <para>Added 2026-10-15 when the readout moved off the chart's live edge: Cody's
+        /// screenshots had the box parked top right, over the newest candles and highs, in focus
+        /// mode too. When the hairline is on the newest bars the box now goes to the top LEFT of
+        /// the plot, which is exactly where the legend is.</para>
+        /// </summary>
+        (float Left, float Top, float Right, float Bottom)? MainLegendFraction { get; }
+
         /// <summary>Called by ChartRenderer after pane heights are calculated.</summary>
         void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
-            float axisWidthFraction);
+            float axisWidthFraction,
+            (float Left, float Top, float Right, float Bottom)? mainLegendFraction = null);
 
         /// <summary>Fires whenever <see cref="Update"/> is called with changed values.</summary>
         event Action? LayoutChanged;
@@ -53,21 +67,25 @@ namespace AccessibleTrader.Core.Services.Rendering
         private IReadOnlyList<(string, float)> _dividers = Array.Empty<(string, float)>();
         private float _axisHeightFraction;
         private float _axisWidthFraction;
+        private (float Left, float Top, float Right, float Bottom)? _mainLegendFraction;
 
         public IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers => _dividers;
         public float AxisHeightFraction => _axisHeightFraction;
         public float AxisWidthFraction => _axisWidthFraction;
+        public (float Left, float Top, float Right, float Bottom)? MainLegendFraction => _mainLegendFraction;
 
         public event Action? LayoutChanged;
 
         public void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
-            float axisWidthFraction)
+            float axisWidthFraction,
+            (float Left, float Top, float Right, float Bottom)? mainLegendFraction = null)
         {
             _dividers = dividers;
             _axisHeightFraction = axisHeightFraction;
             _axisWidthFraction = axisWidthFraction;
+            _mainLegendFraction = mainLegendFraction;
             LayoutChanged?.Invoke();
         }
     }
