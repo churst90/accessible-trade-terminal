@@ -440,13 +440,20 @@ namespace AccessibleTrader.Core.Services
                     RenderAnchorRegimeTint(ctx, _crossPaneAnchorPolarity);
                 if (li == 0 && paneName == "Main" && _crossPaneTbdDistribution != null)
                     RenderTbdDistributionTint(ctx, _crossPaneTbdDistribution);
+                // The volume profile's bars go UNDER the candles, on the pane fill like the tints.
+                // They were painted after everything, and in Cody's 2026-10-15 screenshots the
+                // strip (20% of the pane, right-aligned) covered the newest three months of
+                // candles. The POC line is drawn below, over the candles.
+                if (li == 0 && profileSeries.Count > 0)
+                    _profileLayer.RenderBins(ctx, profileSeries);
             }
             // Formations draw AFTER every data layer so their levels sit on top of the candles
             // rather than under them — a trigger line hidden behind a wick communicates nothing.
             if (paneName == "Main" && _frameFormations is { Count: > 0 })
                 _formationLayer.Render(ctx, _frameFormations);
 
-            if (profileSeries.Any()) _profileLayer.Render(ctx, profileSeries);
+            // The POC is a level, read against the candles for the same reason as a formation's.
+            if (profileSeries.Count > 0) _profileLayer.RenderPoc(ctx, profileSeries);
             canvas.Restore();
 
             // ── Sub-pane passes ───────────────────────────────────────────────
