@@ -29,6 +29,12 @@ if (args.Length == 0)
     return 0;
 }
 
+// Lab-wide: which Cipher B every command computes (LabCipherProfile). Taken off the argument
+// list before dispatch so no command's own parser ever sees it.
+try { args = LabCipherProfile.Consume(args); }
+catch (ArgumentException ex) { Console.Error.WriteLine(ex.Message); return 2; }
+if (LabCipherProfile.CipherBOld) Console.WriteLine(LabCipherProfile.Describe());
+
 try
 {
     return args[0].ToLowerInvariant() switch
@@ -310,6 +316,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
+    Console.WriteLine("  Any command: --cipherb old  computes Cipher B as before 2026-10-17 (WTSignalPeriod 4, Legacy money flow, Gated buy dot)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine("  StrategyLab catalogue list [--status <level>] [--verbose]        # specs + what the evidence is");
     Console.WriteLine("  StrategyLab catalogue export --out <file.json> [--id <spec-id>]  # bundle for the terminal to import");

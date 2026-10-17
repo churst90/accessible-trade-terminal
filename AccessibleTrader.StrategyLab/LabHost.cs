@@ -131,7 +131,11 @@ public sealed class LabHost
         // ── Indicator engine ─────────────────────────────────────────────────
         services.AddSingleton<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
         services.AddSingleton<IIndicatorService, IndicatorService>();
-        services.AddSingleton<IIndicatorEngine, IndicatorEngine>();
+        // The real engine behind the lab's Cipher B profile switch (--cipherb old|new): every
+        // command resolves IIndicatorEngine, so this is the one place the switch can reach all of
+        // them. See LabCipherProfile.
+        services.AddSingleton<IndicatorEngine>();
+        services.AddSingleton<IIndicatorEngine>(sp => new LabProfileIndicatorEngine(sp.GetRequiredService<IndicatorEngine>()));
 
         // ── Strategy / signal pipeline ───────────────────────────────────────
         services.AddSingleton<IEventBus, EventBus>();
