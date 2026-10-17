@@ -699,6 +699,52 @@ namespace AccessibleTrader.Core.Services
                 ? Math.Min(paneTop + band.HeightFraction * canvasHeight, paneBottom - 1)
                 : paneTop;
 
+        // ── Dragging a pane divider ──────────────────────────────────────────
+
+        /// <summary>The least share of the plot height a saved pane ratio may give a pane (TabReducer's ResizePane clamps to the same).</summary>
+        public const float MinPaneRatio = 0.05f;
+        /// <summary>The most share of the plot height a saved pane ratio may give a pane.</summary>
+        public const float MaxPaneRatio = 0.60f;
+
+        /// <summary>
+        /// The share of the plot height (the canvas minus the x-axis strip) a pane has AS DRAWN,
+        /// from the renderer's dividers: what <c>PaneHeightRatios</c> stores for a pane and
+        /// <c>ChartRenderer.AllocatePaneHeights</c> multiplies by the plot height. Null for the price
+        /// pane (it takes what the others leave) or a pane not on the canvas.
+        /// </summary>
+        public static float? RenderedPaneRatio(string pane,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers, float axisHeightFraction)
+        {
+            if (dividers == null) return null;
+            float plot = 1f - Math.Clamp(axisHeightFraction, 0f, 0.5f);
+            for (int i = 0; i < dividers.Count; i++)
+            {
+                if (dividers[i].BelowPaneName != pane) continue;
+                float bottom = i + 1 < dividers.Count ? dividers[i + 1].DividerFraction : plot;
+                return plot > 0 ? (bottom - dividers[i].DividerFraction) / plot : null;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// <b>A dragged divider follows the pointer</b> (Cody, 2026-10-17): the ratio the pane BELOW
+        /// a divider gets when the pointer has moved from <paramref name="startY"/> to
+        /// <paramref name="y"/> (CSS px) since the drag began on a pane that then had
+        /// <paramref name="startRatio"/> of the plot. Down shrinks it by exactly the pixels moved,
+        /// over the plot's real height — the chart element's measured height minus the x-axis
+        /// strip. It used to divide by a hard-coded 600 px "estimate" that nothing ever updated
+        /// (the whole canvas, not the plot, and not this window's), and to add each move's delta
+        /// to a stored ratio that started from a guessed 0.15 rather than the pane's real height,
+        /// so the first move jumped the divider and every move after ran ahead of or behind the
+        /// pointer by the ratio of the two heights. Clamped as TabReducer clamps.
+        /// </summary>
+        public static float DraggedPaneRatio(float startRatio, double startY, double y, double containerHeight, float axisHeightFraction)
+        {
+            double plot = containerHeight * (1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f));
+            if (plot <= 0) return Math.Clamp(startRatio, MinPaneRatio, MaxPaneRatio);
+            return Math.Clamp(startRatio - (float)((y - startY) / plot), MinPaneRatio, MaxPaneRatio);
+        }
+
         /// <summary>
         /// A cursor Y within the whole canvas mapped to a price in the pane it actually falls
         /// in, on that pane's PLOT (below its status band, where the renderer maps the range).

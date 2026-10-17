@@ -251,7 +251,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             ratios.TryGetValue(paneName, out float current);
             // If not yet set, start from a reasonable default (0.15 per indicator pane)
             if (current == 0f) current = 0.15f;
-            float newRatio = Math.Clamp(current + delta, 0.05f, 0.60f);
+            float newRatio = Math.Clamp(current + delta, ChartMath.MinPaneRatio, ChartMath.MaxPaneRatio);
             return state with { PaneHeightRatios = ratios.SetItem(paneName, newRatio) };
         }
     }

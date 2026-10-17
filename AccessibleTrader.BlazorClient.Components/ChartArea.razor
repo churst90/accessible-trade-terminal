@@ -353,7 +353,9 @@
     private bool _isDragging;
     private string? _dragPaneName;
     private double _dragStartY;
-    private double _containerHeight = 600; // initial estimate; updated on first drag
+    // The pane's share of the plot when the drag began, and the chart element's CSS height then.
+    private float _dragStartRatio;
+    private double _dragContainerHeight;
 
     private DotNetObjectReference<ChartArea>? _jsRef;
 
@@ -518,11 +520,32 @@
         _subs.Add(focusSub);
     }
 
-    private void OnDividerMouseDown(MouseEventArgs e, string paneName)
+    /// <summary>
+    /// A drag starts from the pane's height AS DRAWN and the chart element's REAL height (Cody,
+    /// 2026-10-17): the height canvasRegion.js reports (the same rect the hover readout maps
+    /// against), or measured now when no report has arrived. It used a hard-coded 600 px
+    /// estimate, so at 1000x610 (a ~330 px chart) the divider moved about half as far as the
+    /// pointer, and on a tall window further. No height, no drag: there is nothing to map by.
+    /// </summary>
+    private async Task OnDividerMouseDown(MouseEventArgs e, string paneName)
     {
+        double height = HoverTracker.ChartSize?.Height ?? 0;
+        if (height <= 0)
+        {
+            try
+            {
+                var m = await JS.InvokeAsync<double[]>("accessibleTrader.getChartMetrics", "chart-interact-zone");
+                if (m is { Length: >= 2 }) height = m[1];
+            }
+            catch { /* JS bridge absent (tests) */ }
+        }
+        if (height <= 0 || ChartMath.RenderedPaneRatio(paneName, PaneLayout.Dividers, PaneLayout.AxisHeightFraction) is not { } ratio)
+            return;
         _isDragging = true;
         _dragPaneName = paneName;
         _dragStartY = e.ClientY;
+        _dragStartRatio = ratio;
+        _dragContainerHeight = height;
     }
 
     private void OnMouseMove(MouseEventArgs e)
@@ -531,10 +554,12 @@
         double dy = e.ClientY - _dragStartY;
         if (Math.Abs(dy) < 2) return; // dead zone to avoid micro-dispatches
 
-        // Estimate container height from the divider fraction data to convert px → fraction
-        float delta = (float)(-dy / _containerHeight); // drag up = pane below grows
-        Store.Dispatch(new ResizePaneAction(_dragPaneName, delta));
-        _dragStartY = e.ClientY;
+        // Absolute, from where the drag began: the pane gets exactly the pixels the pointer has
+        // moved (drag up = the pane below grows), so nothing accumulates between frames.
+        float target = ChartMath.DraggedPaneRatio(_dragStartRatio, _dragStartY, e.ClientY,
+            _dragContainerHeight, PaneLayout.AxisHeightFraction);
+        var ratios = Store.State.PaneHeightRatios ?? System.Collections.Immutable.ImmutableDictionary<string, float>.Empty;
+        Store.Dispatch(new SetPaneHeightRatiosAction(ratios.SetItem(_dragPaneName, target)));
     }
 
     private void OnMouseUp(MouseEventArgs e)
@@ -543,15 +568,7 @@
         _dragPaneName = null;
     }
 
-    private void OnPaneLayoutChanged()
-    {
-        // Update container height estimate from divider data
-        if (PaneLayout.Dividers.Count > 0 && PaneLayout.Dividers[0].DividerFraction > 0)
-        {
-            // Not directly available, but we can approximate from the axis fraction
-        }
-        InvokeAsync(StateHasChanged);
-    }
+    private void OnPaneLayoutChanged() => InvokeAsync(StateHasChanged);
 
     private bool IsDataReadyToRender()
     {
