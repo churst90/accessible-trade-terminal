@@ -294,6 +294,9 @@ try
             GetFlag(args.Skip(1).ToArray(), "--recent-start"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var rpp) ? rpp : 20000,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var rps) ? rps : 200),
+        "cipher-a-battery" => await CipherABatteryCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var cab) ? cab : 2000),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
