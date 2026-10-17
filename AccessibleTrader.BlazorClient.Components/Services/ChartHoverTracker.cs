@@ -372,15 +372,19 @@ namespace AccessibleTrader.BlazorClient.Services
             // pane, the RSI in the RSI pane. It used to be the price-pane range mapped onto
             // whichever pane the pointer was over, so over RSI the box printed a "price" that was
             // no price at all. Over the x-axis strip there is no value; the bar still is.
+            //
+            // On the pane's PLOT, which starts below its status band (2026-10-17): the renderer maps
+            // the pane's maximum to the band's bottom edge, not the pane's top.
             string? pane = PaneNameAt(y, height, dividers, axisH);
+            var bands = _paneLayout?.StatusBands;
             double value = double.NaN;
             if (pane == "Main")
                 value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH,
-                    state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+                    state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, bands);
             else if (pane != null)
             {
                 var (min, max) = state.PaneRanges.TryGetValue(pane, out var r) ? r : (0, 100);
-                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH, min, max, false);
+                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH, min, max, false, bands);
             }
 
             // Snap the vertical hairline to the hovered bar's slot centre so the

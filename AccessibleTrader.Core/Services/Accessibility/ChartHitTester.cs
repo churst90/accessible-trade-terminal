@@ -33,13 +33,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <param name="dividers">Rendered pane dividers (fractions of total height), from IPaneLayoutService.</param>
         /// <param name="axisHeightFraction">Bottom x-axis strip fraction, from IPaneLayoutService.</param>
         /// <param name="axisWidthFraction">Right y-axis column fraction, from IPaneLayoutService.</param>
+        /// <param name="statusBands">Each pane's status band, from IPaneLayoutService: a pane's
+        /// values are drawn on its plot, which starts below the band.</param>
         public static ChartHit? HitTest(
             WorkspaceState state,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
             float axisWidthFraction,
             double x, double y, double width, double height,
-            double tolerancePx = TolerancePx)
+            double tolerancePx = TolerancePx,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
         {
             if (state.Data == null || state.Data.Count == 0 || width <= 0 || height <= 0) return null;
 
@@ -80,9 +83,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
             }
 
-            float paneTopPx = (float)(bandTopFrac * height);
             float paneBottomPx = (float)(bandBottomFrac * height);
-            if (paneBottomPx <= paneTopPx) return null;
+            if (paneBottomPx <= (float)(bandTopFrac * height)) return null;
+            // The renderer maps the pane's range onto its PLOT, which starts below the pane's
+            // status band (2026-10-17); map the components onto the same span.
+            float paneTopPx = (float)ChartMath.PlotTopPx(paneName, bandTopFrac * height, paneBottomPx, height, statusBands);
 
             bool isMain = string.Equals(paneName, "Main", StringComparison.OrdinalIgnoreCase);
             (double Min, double Max) range;

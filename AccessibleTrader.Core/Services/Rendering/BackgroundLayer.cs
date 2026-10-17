@@ -36,7 +36,9 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 bgPaint.Color = _theme.Background;
             }
-            ctx.Canvas.DrawRect(ctx.PaneRect, bgPaint);
+            // The whole frame, status band included; the gridlines below stay on the plot, where
+            // the values they mark are mapped.
+            ctx.Canvas.DrawRect(ctx.BackgroundRect, bgPaint);
             bgPaint.Shader?.Dispose();
 
             // Minor + major gridlines at "nice number" intervals. Every 5th line is
@@ -79,7 +81,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // Draw pane border
             using var borderPaint = new SKPaint { Color = _theme.GridLines, Style = SKPaintStyle.Stroke, StrokeWidth = 1 * ctx.Density };
-            ctx.Canvas.DrawRect(ctx.PaneRect, borderPaint);
+            ctx.Canvas.DrawRect(ctx.BackgroundRect, borderPaint);
         }
     }
 }

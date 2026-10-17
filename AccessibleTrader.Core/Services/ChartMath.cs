@@ -650,6 +650,19 @@ namespace AccessibleTrader.Core.Services
             double canvasHeight,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction)
+            => PaneAtPx(y, canvasHeight, dividers, axisHeightFraction) is { } p ? (p.Top, p.Bottom) : null;
+
+        /// <summary>
+        /// The pane under <paramref name="y"/>: its name, its band in pixels, and where its PLOT
+        /// starts — below its status band (<see cref="Rendering.IPaneLayoutService.StatusBands"/>),
+        /// which is where the renderer maps the pane's maximum. Null over the x-axis strip.
+        /// </summary>
+        public static (string Pane, double Top, double PlotTop, double Bottom)? PaneAtPx(
+            double y,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
         {
             if (canvasHeight <= 0) return null;
 
@@ -657,36 +670,51 @@ namespace AccessibleTrader.Core.Services
             double yFrac = y / canvasHeight;
             if (yFrac < 0 || yFrac > plotBottomFrac) return null;
 
+            string pane = "Main";
             double bandTopFrac = 0.0;
             double bandBottomFrac = plotBottomFrac;
             if (dividers != null)
             {
-                foreach (var (_, frac) in dividers)
+                foreach (var (below, frac) in dividers)
                 {
-                    if (yFrac >= frac) bandTopFrac = frac;
+                    if (yFrac >= frac) { bandTopFrac = frac; pane = below; }
                     else { bandBottomFrac = Math.Min(bandBottomFrac, frac); break; }
                 }
             }
 
             double top = bandTopFrac * canvasHeight;
             double bottom = bandBottomFrac * canvasHeight;
-            return bottom > top ? (top, bottom) : null;
+            if (bottom <= top) return null;
+            return (pane, top, PlotTopPx(pane, top, bottom, canvasHeight, statusBands), bottom);
         }
 
         /// <summary>
+        /// Where a pane's plot starts, in pixels: its top plus its status band
+        /// (<see cref="Rendering.IPaneLayoutService.StatusBands"/>), never past its bottom. The
+        /// renderer maps the pane's maximum here.
+        /// </summary>
+        public static double PlotTopPx(string pane, double paneTop, double paneBottom, double canvasHeight,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands)
+            => statusBands != null && statusBands.TryGetValue(pane, out var band) && band.HeightFraction > 0
+                ? Math.Min(paneTop + band.HeightFraction * canvasHeight, paneBottom - 1)
+                : paneTop;
+
+        /// <summary>
         /// A cursor Y within the whole canvas mapped to a price in the pane it actually falls
-        /// in. Returns <see cref="double.NaN"/> over the x-axis strip.
+        /// in, on that pane's PLOT (below its status band, where the renderer maps the range).
+        /// Returns <see cref="double.NaN"/> over the x-axis strip. A Y inside the status band
+        /// reads above the pane's maximum, which is where it is on the scale.
         /// </summary>
         public static double MapYToPriceInPane(
             double y,
             double canvasHeight,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
-            double min, double max, bool isLog)
+            double min, double max, bool isLog,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
         {
-            var band = PaneBandPx(y, canvasHeight, dividers, axisHeightFraction);
-            if (band == null) return double.NaN;
-            return MapYToPrice(y - band.Value.Top, band.Value.Bottom - band.Value.Top, min, max, isLog);
+            if (PaneAtPx(y, canvasHeight, dividers, axisHeightFraction, statusBands) is not { } p) return double.NaN;
+            return MapYToPrice(y - p.PlotTop, p.Bottom - p.PlotTop, min, max, isLog);
         }
 
         /// <summary>
@@ -699,7 +727,8 @@ namespace AccessibleTrader.Core.Services
             double canvasHeight,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
-            double min, double max, bool isLog)
+            double min, double max, bool isLog,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
         {
             // The main pane runs from the top of the plot to the first divider.
             double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
@@ -707,9 +736,10 @@ namespace AccessibleTrader.Core.Services
             if (dividers != null && dividers.Count > 0)
                 bottomFrac = Math.Min(bottomFrac, dividers[0].DividerFraction);
 
-            double top = 0.0;
             double bottom = bottomFrac * canvasHeight;
-            if (bottom <= top) return 0;
+            if (bottom <= 0) return 0;
+            // Its plot starts below its status band, where MapYToPriceInPane starts it too.
+            double top = PlotTopPx("Main", 0.0, bottom, canvasHeight, statusBands);
 
             double y = top + PriceToScreenY(price, bottom - top, min, max, isLog);
 

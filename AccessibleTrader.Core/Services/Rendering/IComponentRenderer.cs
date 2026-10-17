@@ -36,13 +36,20 @@ namespace AccessibleTrader.Core.Services.Rendering
         // A rect something else will paint OVER this pane after the layers run — today the
         // pane legend, which the renderer measures before the pane draws. Layers that place
         // text (the formation layer) keep their labels out of it. Null means nothing to avoid.
-        SKRect? Avoid = null
+        SKRect? Avoid = null,
+        // The pane's whole frame when it is taller than PaneRect: the plot PLUS the status band
+        // above it (2026-10-17), which the background fills and borders so the band reads as the
+        // top of the pane. Values are mapped into PaneRect only. Null means PaneRect.
+        SKRect? FrameRect = null
     ) {
         public float Width => PaneRect.Width;
         public float Height => PaneRect.Height;
         public float Top => PaneRect.Top;
         public float Bottom => PaneRect.Bottom;
         public IReadOnlyList<Ohlcv> VisibleData => Data; // Backwards compatibility for some layers
+
+        /// <summary>What the background fills and borders: the frame when there is one, the pane otherwise.</summary>
+        public SKRect BackgroundRect => FrameRect ?? PaneRect;
 
         /// <summary>The gradient span: the whole chart when known, this pane otherwise.</summary>
         public SKRect GradientRect => ChartRect ?? PaneRect;

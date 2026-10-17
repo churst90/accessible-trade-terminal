@@ -316,7 +316,9 @@
         try
         {
             return ChartStatusLine.BuildPanes(state, PaneLayout.Dividers, PaneLayout.AxisHeightFraction,
-                PaneLayout.AxisWidthFraction, bar, alpha, theme, w, h, App.UiScale / 100.0);
+                PaneLayout.AxisWidthFraction, bar, alpha, theme, w, h, App.UiScale / 100.0,
+                // No more lines than the renderer left room for above each pane's plot.
+                PaneLayout.StatusBands);
         }
         catch (Exception ex)
         {
