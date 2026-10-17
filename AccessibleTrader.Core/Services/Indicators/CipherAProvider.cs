@@ -23,7 +23,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// set, not VuManChu's (…24 28 34). On the 2D chart every line fits at 0.3–0.7 px RMSE and the
     /// neighbouring lengths are 4–8 px off; on the hold-out DPR chart the set fits again. Each line
     /// has its own colour: blue/white while it is above the next-longer line (the last line: while
-    /// it is below the one before), grey otherwise — 1,420 of 1,420 digitised line-segments on three
+    /// it is below the one before), grey otherwise — 1,410 of 1,410 digitised line-segments on three
     /// charts. MCA does not tint the background; the lines themselves change colour, which is
     /// drawn here with <c>DefaultColorAboveComponent</c>.</para>
     ///
