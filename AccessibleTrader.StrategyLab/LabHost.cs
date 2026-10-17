@@ -122,6 +122,7 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
         services.AddSingleton<IIndicatorProvider, HurstExponentProvider>();
         services.AddSingleton<IIndicatorProvider, PivotLevelsProvider>();
+        services.AddSingleton<IIndicatorProvider, DssBressertProvider>();
         services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionFundingProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionOiProvider>();
