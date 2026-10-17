@@ -711,10 +711,99 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
             double min, double max, bool isLog,
-            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null,
+            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips = null)
         {
             if (PaneAtPx(y, canvasHeight, dividers, axisHeightFraction, statusBands) is not { } p) return double.NaN;
-            return MapYToPrice(y - p.PlotTop, p.Bottom - p.PlotTop, min, max, isLog);
+            // On the pane's own range, which the renderer maps over the area above its sub-pane
+            // strips (if it has any), not over the whole plot.
+            double bottom = MainAreaBottomPx(p.Pane, p.Bottom, canvasHeight, subPaneStrips);
+            return MapYToPrice(y - p.PlotTop, bottom - p.PlotTop, min, max, isLog);
+        }
+
+        /// <summary>
+        /// The bottom of the area a pane's own components are drawn in: the top of its first
+        /// sub-pane strip (<see cref="Rendering.IPaneLayoutService.SubPaneStrips"/>), or the pane's
+        /// bottom when it has none.
+        /// </summary>
+        public static double MainAreaBottomPx(string pane, double paneBottom, double canvasHeight,
+            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips)
+            => subPaneStrips != null && subPaneStrips.TryGetValue(pane, out var strips) && strips.Count > 0
+                ? Math.Min(paneBottom, strips[0].TopFraction * canvasHeight)
+                : paneBottom;
+
+        /// <summary>
+        /// The part of the canvas a pane's values are drawn in, under <paramref name="y"/>: the
+        /// pane's name, the sub-pane strip's name (null for the area above the strips), and that
+        /// area's top and bottom in pixels — the span the renderer maps the area's range over.
+        /// Null over the x-axis strip. Pair it with <see cref="RangeFor"/> for the range.
+        /// </summary>
+        public static (string Pane, string? SubPane, double Top, double Bottom)? PlotAreaAtPx(
+            double y,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands,
+            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips)
+        {
+            if (PaneAtPx(y, canvasHeight, dividers, axisHeightFraction, statusBands) is not { } p) return null;
+            if (subPaneStrips != null && subPaneStrips.TryGetValue(p.Pane, out var strips))
+                foreach (var s in strips)
+                    if (y >= s.TopFraction * canvasHeight && y < s.BottomFraction * canvasHeight)
+                        return (p.Pane, s.Name, s.TopFraction * canvasHeight, s.BottomFraction * canvasHeight);
+            return (p.Pane, null, p.PlotTop, MainAreaBottomPx(p.Pane, p.Bottom, canvasHeight, subPaneStrips));
+        }
+
+        /// <summary>
+        /// The span a component of <paramref name="pane"/> is drawn over, in pixels: its sub-pane
+        /// strip when <paramref name="subPane"/> names one that was drawn, otherwise the area above
+        /// the strips (below the status band). Null when the pane is not on the canvas.
+        /// </summary>
+        public static (double Top, double Bottom)? PlotAreaPx(
+            string pane, string? subPane,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction,
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands,
+            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips)
+        {
+            if (canvasHeight <= 0) return null;
+            double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
+            double topFrac = 0, bottomFrac = plotBottomFrac;
+            bool found = pane == "Main";
+            if (dividers != null)
+                for (int i = 0; i < dividers.Count; i++)
+                {
+                    if (pane == "Main") { bottomFrac = Math.Min(bottomFrac, dividers[0].DividerFraction); break; }
+                    if (dividers[i].BelowPaneName != pane) continue;
+                    found = true;
+                    topFrac = dividers[i].DividerFraction;
+                    bottomFrac = i + 1 < dividers.Count ? dividers[i + 1].DividerFraction : plotBottomFrac;
+                    break;
+                }
+            if (!found) return null;
+            double top = topFrac * canvasHeight, bottom = bottomFrac * canvasHeight;
+            if (bottom <= top) return null;
+            if (!string.IsNullOrEmpty(subPane) && subPaneStrips != null && subPaneStrips.TryGetValue(pane, out var strips))
+                foreach (var s in strips)
+                    if (s.Name == subPane) return (s.TopFraction * canvasHeight, s.BottomFraction * canvasHeight);
+            return (PlotTopPx(pane, top, bottom, canvasHeight, statusBands), MainAreaBottomPx(pane, bottom, canvasHeight, subPaneStrips));
+        }
+
+        /// <summary>
+        /// The range the renderer maps an area over: the price pane's viewport range (log when the
+        /// chart is), an indicator pane's PaneRanges entry (0–100 when it has none), and a sub-pane
+        /// strip's <c>"Pane/Sub"</c> entry (−1–1 when it has none), log only in the price pane.
+        /// The same defaults <c>ChartRenderer</c> draws with.
+        /// </summary>
+        public static (double Min, double Max, bool IsLog) RangeFor(WorkspaceState state, string pane, string? subPane)
+        {
+            bool isMain = pane == "Main";
+            bool log = isMain && state.IsLogScale;
+            if (!string.IsNullOrEmpty(subPane))
+                return state.PaneRanges.TryGetValue($"{pane}/{subPane}", out var sr) ? (sr.Min, sr.Max, log) : (-1.0, 1.0, log);
+            if (isMain) return (state.ViewportRange.Min, state.ViewportRange.Max, log);
+            return state.PaneRanges.TryGetValue(pane, out var r) ? (r.Min, r.Max, false) : (0.0, 100.0, false);
         }
 
         /// <summary>
@@ -728,7 +817,8 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
             double min, double max, bool isLog,
-            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null,
+            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips = null)
         {
             // The main pane runs from the top of the plot to the first divider.
             double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
@@ -736,7 +826,8 @@ namespace AccessibleTrader.Core.Services
             if (dividers != null && dividers.Count > 0)
                 bottomFrac = Math.Min(bottomFrac, dividers[0].DividerFraction);
 
-            double bottom = bottomFrac * canvasHeight;
+            // Its values are drawn above its sub-pane strips, if it has any.
+            double bottom = MainAreaBottomPx("Main", bottomFrac * canvasHeight, canvasHeight, subPaneStrips);
             if (bottom <= 0) return 0;
             // Its plot starts below its status band, where MapYToPriceInPane starts it too.
             double top = PlotTopPx("Main", 0.0, bottom, canvasHeight, statusBands);

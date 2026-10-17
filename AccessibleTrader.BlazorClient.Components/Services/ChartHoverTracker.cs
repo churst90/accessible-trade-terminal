@@ -373,18 +373,15 @@ namespace AccessibleTrader.BlazorClient.Services
             // whichever pane the pointer was over, so over RSI the box printed a "price" that was
             // no price at all. Over the x-axis strip there is no value; the bar still is.
             //
-            // On the pane's PLOT, which starts below its status band (2026-10-17): the renderer maps
-            // the pane's maximum to the band's bottom edge, not the pane's top.
-            string? pane = PaneNameAt(y, height, dividers, axisH);
-            var bands = _paneLayout?.StatusBands;
+            // On the part of the pane the value is drawn in (Cody, 2026-10-17): its PLOT, which
+            // starts below its status band, and — when the pane has sub-pane strips (Loukas
+            // Cycles' FY) — the area above them on the pane's range, or a strip on the strip's
+            // own range. The strip used to be read on the pane's range stretched over both.
             double value = double.NaN;
-            if (pane == "Main")
-                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH,
-                    state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, bands);
-            else if (pane != null)
+            if (ChartMath.PlotAreaAtPx(y, height, dividers, axisH, _paneLayout?.StatusBands, _paneLayout?.SubPaneStrips) is { } area)
             {
-                var (min, max) = state.PaneRanges.TryGetValue(pane, out var r) ? r : (0, 100);
-                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH, min, max, false, bands);
+                var (min, max, isLog) = ChartMath.RangeFor(state, area.Pane, area.SubPane);
+                value = ChartMath.MapYToPrice(y - area.Top, area.Bottom - area.Top, min, max, isLog);
             }
 
             // Snap the vertical hairline to the hovered bar's slot centre so the

@@ -350,7 +350,12 @@ namespace AccessibleTrader.Core.Services
                 var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);
                 statusBands["Main"] = new PaneStatusBand(mainStatus.Lines.Count, mainBand / height);
                 var mainPlotRect = PlotRect(mainPaneRect, mainBand);
-                var mainAxisPlotRect = new SKRect(mainAxisRect.Left, mainPlotRect.Top, mainAxisRect.Right, mainAxisRect.Bottom);
+                // The price pane's own values are drawn above its sub-pane strips, if it has any;
+                // its axis, badge and value labels map over that same area (Cody, 2026-10-17).
+                var (mainArea, mainStrips) = SubPaneLayout(mainPlotRect, mainSeries);
+                var subPaneStrips = new Dictionary<string, IReadOnlyList<SubPaneStrip>>(StringComparer.Ordinal);
+                if (mainStrips.Count > 0) subPaneStrips["Main"] = Published(mainStrips, height);
+                var mainAxisPlotRect = new SKRect(mainAxisRect.Left, mainArea.Top, mainAxisRect.Right, mainArea.Bottom);
                 // The formation layer still keeps its labels out of the block; with the band the
                 // block is above the plot, so this only matters to a label placed above it.
                 SKRect? legendRect = mainStatus is { Lines.Count: > 0 } ms
@@ -367,12 +372,12 @@ namespace AccessibleTrader.Core.Services
                     var bar = visibleData[crossIndex];
                     var (bull, bear) = StandardRenderers.ApplyColorVision(
                         _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
-                    float closeY = ChartMath.MapY(bar.Close, mainPlotRect.Top, mainPlotRect.Bottom, mainMin, mainMax, isLogScale);
+                    float closeY = ChartMath.MapY(bar.Close, mainArea.Top, mainArea.Bottom, mainMin, mainMax, isLogScale);
                     mainBadge = new CrosshairBadge(bar.Close, closeY, bar.Close >= bar.Open ? bull : bear, mainMax - mainMin,
-                        BadgeCentre(closeY, mainPlotRect.Top, mainPlotRect.Bottom, ScaleLabelHeight(density)));
+                        BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)));
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, allPaneRanges: paneRanges, chartRect: chartRect, avoid: legendRect, statusBand: mainBand);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
@@ -382,6 +387,7 @@ namespace AccessibleTrader.Core.Services
                     mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
                 RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
                 RenderScaleLabels(canvas, mainAxisPlotRect, mainScale, mainMax - mainMin, density);
+                RenderStripAxes(canvas, "Main", mainStrips, mainAxisRect.Left, mainAxisRect.Right, mainSeries, paneRanges, isLogScale, data.Count, density);
                 if (PaintsStatusLines && crossIndex >= 0 && mainStatus.Lines.Count > 0)
                     PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, textScale, statusFont);
                 currentY += mainPaneHeight;
@@ -413,10 +419,13 @@ namespace AccessibleTrader.Core.Services
                     var (paneStatus, paneBand) = StatusBandFor(group.Key, paneSeriesList, statusBar, statusCtx, paneRect, density, textScale, statusFont);
                     statusBands[group.Key] = new PaneStatusBand(paneStatus.Lines.Count, paneBand / height);
                     var plotRect = PlotRect(paneRect, paneBand);
+                    var (paneArea, paneStrips) = SubPaneLayout(plotRect, paneSeriesList);
+                    if (paneStrips.Count > 0) subPaneStrips[group.Key] = Published(paneStrips, height);
                     // Indicator panes always use raw (non-HA) data so PriceAction coloring (e.g. volume)
                     // reflects real open/close direction, not the HA-transformed direction.
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
-                    var indAxisRect = new SKRect(width - _axisWidth, plotRect.Top, width, currentY + indicatorPaneHeight);
+                    // The pane's own range is on the axis beside the area above its strips.
+                    var indAxisRect = new SKRect(width - _axisWidth, paneArea.Top, width, paneArea.Bottom);
                     RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect, statusBand: paneBand);
                     // This pane's value badge, decided ONCE: the axis keeps its labels out from
                     // under it and RenderCrosshair draws it, from the same object. They used to
@@ -426,10 +435,10 @@ namespace AccessibleTrader.Core.Services
                     if (crossIndex >= 0
                         && CrosshairReadingAt(paneSeriesList, crossIndex, viewportStart, focusedSeriesId, focusedComponentIndex) is { } reading)
                     {
-                        float lineY = ChartMath.MapY(reading.Value, plotRect.Top, plotRect.Bottom, min, max, false);
+                        float lineY = ChartMath.MapY(reading.Value, paneArea.Top, paneArea.Bottom, min, max, false);
                         badge = new CrosshairBadge(reading.Value, lineY,
                             ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min,
-                            BadgeCentre(lineY, plotRect.Top, plotRect.Bottom, ScaleLabelHeight(density)));
+                            BadgeCentre(lineY, paneArea.Top, paneArea.Bottom, ScaleLabelHeight(density)));
                         // The plot the badge reads — navigation's, else the pane's primary line —
                         // keeps its axis label first when the strip cannot hold them all.
                         preferred = (reading.Series.Id, reading.Component.Name);
@@ -438,6 +447,7 @@ namespace AccessibleTrader.Core.Services
                         indAxisRect, min, max, false, density, badge, preferred);
                     RenderYAxis(canvas, indAxisRect, min, max, false, density, AvoidRows(badge, scale, density));
                     RenderScaleLabels(canvas, indAxisRect, scale, max - min, density);
+                    RenderStripAxes(canvas, group.Key, paneStrips, width - _axisWidth, width, paneSeriesList, paneRanges, false, data.Count, density);
                     if (PaintsStatusLines && crossIndex >= 0 && paneStatus.Lines.Count > 0)
                         PaintStatusBlock(canvas, paneRect, paneStatus, density, textScale, statusFont);
                     indicatorPaneInfos.Add((paneRect, badge));
@@ -447,7 +457,7 @@ namespace AccessibleTrader.Core.Services
                 // Update shared layout service so ChartArea.razor can position drag handles and,
                 // from the same dividers and bands, each pane's status lines — and so every
                 // pointer-to-value mapping starts each pane's plot below its band, as drawn here.
-                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, statusBands);
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, statusBands, subPaneStrips);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
@@ -489,22 +499,11 @@ namespace AccessibleTrader.Core.Services
             var nonProfileSeries = series.Where(s => !s.IsProfile || IsHeatmapSeries(s)).ToList();
             var profileSeries    = series.Where(s =>  s.IsProfile && s.IsVisible && !IsHeatmapSeries(s)).ToList();
 
-            // ── Detect sub-panes from component metadata ─────────────────────
-            // Collect unique sub-pane names in declaration order.
-            var subPaneInfo = new List<(string Name, float HeightRatio)>();
-            var seenSubPanes = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var s in series)
-                foreach (var comp in s.Components)
-                    if (!string.IsNullOrEmpty(comp.SubPaneName) && seenSubPanes.Add(comp.SubPaneName!))
-                        subPaneInfo.Add((comp.SubPaneName!, Math.Clamp(comp.SubPaneHeightRatio ?? 0.22f, 0.05f, 0.40f)));
-
-            float totalSubRatio   = Math.Min(subPaneInfo.Sum(sp => sp.HeightRatio), 0.70f);
-            float mainAreaHeight  = subPaneInfo.Count > 0
-                ? Math.Max(rect.Height * (1f - totalSubRatio), rect.Height * 0.30f)
-                : rect.Height;
+            // ── Sub-pane strips, from component metadata (SubPaneLayout, shared with the axis
+            // and published for the pointer mappings) ─────────────────────────
+            var (mainRect, strips) = SubPaneLayout(rect, series);
 
             // ── Main area pass ────────────────────────────────────────────────
-            var mainRect         = new SKRect(rect.Left, rect.Top, rect.Right, rect.Top + mainAreaHeight);
             var adjustedMainRect = new SKRect(rect.Left, mainRect.Top, rect.Right, mainRect.Bottom);
             // The frame the background fills and borders: the plot plus the status band above it,
             // so the band reads as the top of the pane, not a gap between two.
@@ -545,11 +544,8 @@ namespace AccessibleTrader.Core.Services
             canvas.Restore();
 
             // ── Sub-pane passes ───────────────────────────────────────────────
-            float subY = rect.Top + mainAreaHeight;
-            foreach (var (spName, ratio) in subPaneInfo)
+            foreach (var (spName, spRect) in strips)
             {
-                float spHeight = rect.Height * ratio;
-                var spRect         = new SKRect(rect.Left, subY, rect.Right, subY + spHeight);
                 var adjustedSpRect = new SKRect(rect.Left, spRect.Top, rect.Right, spRect.Bottom);
 
                 string spKey    = $"{paneName}/{spName}";
@@ -569,8 +565,73 @@ namespace AccessibleTrader.Core.Services
                     canvas.DrawLine(spRect.Left, spRect.Top, spRect.Right, spRect.Top, sepPaint);
                 foreach (var layer in _layers) layer.Render(spCtx, nonProfileSeries);
                 canvas.Restore();
+            }
+        }
 
-                subY += spHeight;
+        /// <summary>One sub-pane strip as laid out: its name and the rect it is drawn in.</summary>
+        internal readonly record struct SubPaneArea(string Name, SKRect Rect);
+
+        /// <summary>
+        /// <b>Where a pane's sub-pane strips go, as a pure function</b> — the one layout the
+        /// drawing, the axis, the crosshair badge and (through
+        /// <see cref="IPaneLayoutService.SubPaneStrips"/>) every pointer mapping use (Cody,
+        /// 2026-10-17). A component with a <c>SubPaneName</c> (Loukas Cycles' "FY") is drawn in a
+        /// strip along the bottom of the pane's plot, one strip per name in declaration order,
+        /// each <c>SubPaneHeightRatio</c> of the plot (0.22 when unset, clamped 5–40%); the
+        /// strips together take at most 70% and the pane's own components the area above.
+        ///
+        /// <para>
+        /// Extracted from <c>RenderPane</c>, where it was computed and used only for drawing:
+        /// the axis, badge, hover readout and hit tester all mapped the pane's range over the
+        /// whole plot, strip included, so every one of them disagreed with the pixels. When the
+        /// ratios add up to more than 70% the strips now share the 70% in proportion; they used
+        /// to keep their full ratios and run off the bottom of the pane.
+        /// </para>
+        /// </summary>
+        internal static (SKRect Main, List<SubPaneArea> Strips) SubPaneLayout(SKRect plot, IEnumerable<ChartSeries> series)
+        {
+            var info = new List<(string Name, float Ratio)>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var s in series)
+                foreach (var comp in s.Components)
+                    if (!string.IsNullOrEmpty(comp.SubPaneName) && seen.Add(comp.SubPaneName!))
+                        info.Add((comp.SubPaneName!, Math.Clamp(comp.SubPaneHeightRatio ?? 0.22f, 0.05f, 0.40f)));
+            var strips = new List<SubPaneArea>();
+            if (info.Count == 0) return (plot, strips);
+
+            float sum = info.Sum(i => i.Ratio);
+            float mainHeight = plot.Height * (1f - Math.Min(sum, 0.70f));
+            float stripSpace = plot.Height - mainHeight;
+            float y = plot.Top + mainHeight;
+            foreach (var (name, ratio) in info)
+            {
+                float h = stripSpace * ratio / sum;
+                strips.Add(new SubPaneArea(name, new SKRect(plot.Left, y, plot.Right, y + h)));
+                y += h;
+            }
+            return (new SKRect(plot.Left, plot.Top, plot.Right, plot.Top + mainHeight), strips);
+        }
+
+        /// <summary>A pane's strips as <see cref="IPaneLayoutService"/> publishes them: fractions of the canvas height.</summary>
+        private static IReadOnlyList<SubPaneStrip> Published(List<SubPaneArea> strips, int height)
+            => strips.Select(s => new SubPaneStrip(s.Name, s.Rect.Top / height, s.Rect.Bottom / height)).ToList();
+
+        /// <summary>
+        /// Each sub-pane strip's own scale on the axis beside it: gridline labels and its plots'
+        /// newest-value labels, on the strip's range (<c>"Pane/Sub"</c>, −1–1 when unset, as the
+        /// strip is drawn). The strip had no scale of its own; its rows carried the pane's range,
+        /// stretched (Cody, 2026-10-17).
+        /// </summary>
+        private void RenderStripAxes(SKCanvas canvas, string paneName, List<SubPaneArea> strips, float axisLeft, float axisRight,
+            IReadOnlyList<ChartSeries> series, IReadOnlyDictionary<string, (double Min, double Max)> ranges, bool isLog, int barCount, float density)
+        {
+            foreach (var (name, rect) in strips)
+            {
+                var (min, max) = ranges.TryGetValue($"{paneName}/{name}", out var r) ? r : (-1.0, 1.0);
+                var axis = new SKRect(axisLeft, rect.Top, axisRight, rect.Bottom);
+                var labels = PlaceScaleLabels(ScaleLabelsFor(series, barCount, _theme.Current, name), axis, min, max, isLog, density, null, null);
+                RenderYAxis(canvas, axis, min, max, isLog, density, AvoidRows(null, labels, density));
+                RenderScaleLabels(canvas, axis, labels, max - min, density);
             }
         }
 
@@ -716,7 +777,8 @@ namespace AccessibleTrader.Core.Services
         /// disabled or sub-pane component — the crosshair badge's rule (<see cref="ReadingTier"/>):
         /// a sub-pane strip's values are on that strip's range, not this axis.
         /// </summary>
-        internal static List<ScaleLabel> ScaleLabelsFor(IReadOnlyList<ChartSeries> paneSeries, int barCount, ChartTheme theme)
+        /// <param name="subPane">A sub-pane strip's name: its components' labels instead, for the strip's own axis.</param>
+        internal static List<ScaleLabel> ScaleLabelsFor(IReadOnlyList<ChartSeries> paneSeries, int barCount, ChartTheme theme, string? subPane = null)
         {
             var labels = new List<ScaleLabel>();
             foreach (var s in paneSeries)
@@ -724,7 +786,7 @@ namespace AccessibleTrader.Core.Services
                 if (s.IsDrawing || !s.IsVisible) continue;
                 foreach (var comp in s.Components)
                 {
-                    int tier = ReadingTier(comp);
+                    int tier = ReadingTier(comp, subPane);
                     if (tier is not (0 or 1)) continue;
                     var data = s.GetComponentData(comp.Name);
                     if (data == null || data.Length == 0) continue;
@@ -1083,9 +1145,12 @@ namespace AccessibleTrader.Core.Services
         /// 1 for bars, 2 for markers and levels, −1 for what the badge must not read at all —
         /// hidden, disabled, in a sub-pane strip, or a type with no value of its own on this axis.
         /// </summary>
-        private static int ReadingTier(ComponentConfig comp)
+        /// <param name="subPane">Null for the pane's own area (a component in a sub-pane strip
+        /// reads −1 there); a strip's name for that strip, where only its components read.</param>
+        private static int ReadingTier(ComponentConfig comp, string? subPane = null)
         {
-            if (!comp.IsVisible || !comp.IsEnabled || !string.IsNullOrEmpty(comp.SubPaneName)) return -1;
+            if (!comp.IsVisible || !comp.IsEnabled) return -1;
+            if (!string.Equals(comp.SubPaneName ?? "", subPane ?? "", StringComparison.Ordinal)) return -1;
             return comp.DisplayType switch
             {
                 ComponentDisplayType.Line or ComponentDisplayType.Oscillator or ComponentDisplayType.Area

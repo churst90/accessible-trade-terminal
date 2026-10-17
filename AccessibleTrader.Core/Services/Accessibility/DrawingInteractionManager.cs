@@ -525,7 +525,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (height <= 0) return null;
             return ChartHitTester.HitTest(
                 _store.State, Dividers, AxisHeightFraction, AxisWidthFraction, x, y, width, height,
-                statusBands: StatusBands);
+                statusBands: StatusBands, subPaneStrips: SubPaneStrips);
         }
 
         /// <summary>
@@ -773,7 +773,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private double PriceToScreenY(double price, WorkspaceState state, double height)
             => ChartMath.PriceToCanvasY(price, height, Dividers, AxisHeightFraction,
-                                        state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, StatusBands);
+                                        state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, StatusBands, SubPaneStrips);
 
         /// <summary>
         /// Create a preview drawing series seeded with anchor1 on both ends so the user
@@ -939,6 +939,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>Each pane's status band: its plot, where its values are drawn, starts below it.</summary>
         private IReadOnlyDictionary<string, Rendering.PaneStatusBand>? StatusBands => _paneLayout?.StatusBands;
+
+        /// <summary>Each pane's sub-pane strips: a pane's own values are drawn above them.</summary>
+        private IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? SubPaneStrips => _paneLayout?.SubPaneStrips;
         private float AxisWidthFraction  => _paneLayout?.AxisWidthFraction ?? 0f;
 
         /// <summary>
@@ -946,7 +949,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Returns NaN over the x-axis strip, where there is no price to report.
         /// </summary>
         private double MapYToPrice(double y, double height, double min, double max, bool isLog)
-            => ChartMath.MapYToPriceInPane(y, height, Dividers, AxisHeightFraction, min, max, isLog, StatusBands);
+            => ChartMath.MapYToPriceInPane(y, height, Dividers, AxisHeightFraction, min, max, isLog, StatusBands, SubPaneStrips);
 
         /// <summary>A cursor X over the whole canvas → a bar index, excluding the y-axis column.</summary>
         private int MapXToIndex(double x, double width, int startIndex, int length)
