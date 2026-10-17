@@ -149,6 +149,68 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Price: 116.00.", said);
         }
 
+        // ── DSS gives its state; Cipher B reads only what is shown (Cody, 2026-10-17) ──
+
+        /// <summary>
+        /// "dss narration should give its state": after its two numbers, the DSS says where it is
+        /// and what it just did, in words — zone at an extreme, direction, a cross of its trigger —
+        /// on the ladder and when focused alike, against the chart's own overbought line.
+        /// </summary>
+        [Fact]
+        public void DssSaysItsStateInWordsAfterItsValues()
+        {
+            var ladder = Announce(Chart(focused: CoreSeriesIds.Candles, Candles(), Dss()));
+            Assert.Contains("DSS Bressert: DSS 85.00, Trigger 82.00, overbought, rising, crossed above trigger.", ladder);
+
+            var focused = Announce(Chart(focused: "dss", Candles(), Dss()));
+            Assert.Contains("overbought, rising, crossed above trigger", focused);
+
+            // Its own lines, not a constant: moved to 90, 85 is not overbought.
+            var moved = Dss();
+            moved.Levels.Add(new LevelConfig { Name = "Overbought", Value = 90 });
+            var said = Announce(Chart(focused: CoreSeriesIds.Candles, Candles(), moved));
+            Assert.Contains("DSS Bressert: DSS 85.00, Trigger 82.00, rising, crossed above trigger.", said);
+        }
+
+        /// <summary>
+        /// "cipher b, read only what is not hidden as with series": a real Cipher B, built by the
+        /// factory with its own visibility, with a value in EVERY component at the bar — none of its
+        /// hidden components is read, focused or on the ladder, and the shown ones are.
+        /// </summary>
+        [Fact]
+        public void CipherBReadsOnlyItsShownComponents()
+        {
+            var meta = new AccessibleTrader.Core.Services.Indicators.CipherBProvider().GetIndicators()[0];
+            var styling = new AccessibleTrader.Core.Services.StylingService(
+                new AccessibleTrader.Core.Services.ComponentRoleMapper(),
+                new AccessibleTrader.Core.Services.Audio.SonificationProfileProvider(),
+                new AccessibleTrader.Core.Services.PaneAssignmentService());
+            var made = new AccessibleTrader.Core.Services.IndicatorModelFactory(styling, new MockIndicatorPreferencesService())
+                .CreateSeriesFromMetadata(meta, "Cipher B", "Pane_CIPHER_B", new List<(string, string)>(), null);
+            var buf = new SeriesDataBuffer { SeriesId = made.Id };
+            foreach (var c in made.Components) buf.ComponentData[c.Name] = At3(-61.5);
+            var cipher = made.WithData(buf);
+
+            var hidden = cipher.Components.Where(c => !c.IsVisible).Select(c => c.DisplayName ?? c.Name).ToList();
+            Assert.True(hidden.Count >= 2, "precondition: Cipher B declares hidden components (anchor waves, polarity)");
+
+            foreach (string said in new[]
+                     {
+                         Announce(Chart(focused: CoreSeriesIds.Candles, Candles(), cipher)),
+                         Announce(Chart(focused: cipher.Id, Candles(), cipher)),
+                     })
+            {
+                foreach (var h in hidden)
+                    Assert.DoesNotContain(h, said);
+                Assert.Contains("Wave Trend Fast", said);
+            }
+        }
+
+        private static ChartSeries Dss() =>
+            Series("dss", "DSS Bressert", AccessibleTrader.Core.Services.Indicators.DssBressertProvider.Code, "Pane_DSS_BRESSERT",
+                ("DSS", ComponentDisplayType.Oscillator, new[] { 70d, 75d, 78d, 85d }),
+                ("Trigger", ComponentDisplayType.Oscillator, new[] { 72d, 76d, 80d, 82d }));
+
         // ── Fixtures ───────────────────────────────────────────────────────
 
         private static int IndexOf(string said, string what)

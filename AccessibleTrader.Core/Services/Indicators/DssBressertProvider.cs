@@ -250,6 +250,39 @@ namespace AccessibleTrader.Core.Services.Indicators
             return $"{zone} at DSS {v:F1}{trend}.{trgPart}";
         }
 
+        /// <summary>
+        /// The DSS's STATE at a bar in words only — "overbought", "rising", "crossed above
+        /// trigger" — for Alt+Shift+D, which has just read the DSS and Trigger values aloud and
+        /// must not read them again. Cody, 2026-10-17: "dss narration should give its state".
+        /// The zone is named only at an extreme (a "neutral" between 20 and 80 says nothing the
+        /// number did not); the cross is the DSS crossing its own trigger on this bar, the turn
+        /// signal the indicator exists for, and otherwise spoken nowhere.
+        /// </summary>
+        public static IReadOnlyList<string> StateWords(double[]? dss, double[]? trigger, int index,
+            double overbought = 80, double oversold = 20)
+        {
+            var words = new List<string>();
+            if (dss == null || index < 0 || index >= dss.Length || double.IsNaN(dss[index])) return words;
+            double v = dss[index];
+
+            if (v >= overbought) words.Add("overbought");
+            else if (v <= oversold) words.Add("oversold");
+
+            if (index > 0 && !double.IsNaN(dss[index - 1]))
+            {
+                if (v > dss[index - 1]) words.Add("rising");
+                else if (v < dss[index - 1]) words.Add("falling");
+            }
+
+            if (trigger != null && index > 0 && index < trigger.Length
+                && !double.IsNaN(trigger[index]) && !double.IsNaN(trigger[index - 1]) && !double.IsNaN(dss[index - 1]))
+            {
+                if (dss[index - 1] < trigger[index - 1] && v >= trigger[index]) words.Add("crossed above trigger");
+                else if (dss[index - 1] > trigger[index - 1] && v <= trigger[index]) words.Add("crossed below trigger");
+            }
+            return words;
+        }
+
         // ── The maths ───────────────────────────────────────────────────────────────────────
 
         internal readonly record struct Result(double[] Mit, double[] Dss, double[] Trigger);
