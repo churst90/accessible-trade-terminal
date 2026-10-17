@@ -50,6 +50,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompWT2          = "Wave Trend 2";
         public const string CompWtHistogram  = "WT Histogram";
         public const string CompMoneyFlowWave= "Money Flow Wave";
+        /// <summary>The names the user hears for <see cref="CompWT1"/> and
+        /// <see cref="CompMoneyFlowWave"/> — and the keys the app's speech formatter hands this
+        /// provider's speech its data under (see <see cref="SpeechValue"/>).</summary>
+        internal const string DisplayWT1 = "Wave Trend Fast", DisplayMoneyFlow = "Money Flow";
         public const string CompCrossBull    = "WaveTrend Cross Bull";
         public const string CompCrossBear    = "WaveTrend Cross Bear";
         /// <summary>MCB's big green buy dot (BuyDotMode = MCB), or the gated crossover (Gated). Named
@@ -182,7 +186,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SubscribedLevelNames = Array.Empty<string>() },
 
                     // ── The two waves: areas from zero, painted first (DrawOrder −2) ──
-                    new() { Name = CompWT1,           DisplayName = "Wave Trend Fast", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
+                    new() { Name = CompWT1,           DisplayName = DisplayWT1, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             // Market Cipher B's fast wave: an OPAQUE light-blue (#90CAF9) area from
                             // zero, whose edge shows as a light-blue rim wherever it runs ahead of the
                             // slow wave. #90CAF9 is exact: MCB's composites inside both waves solve to
@@ -245,7 +249,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // the WT Histogram's.
                     // Shape (2026-10-17): an AREA at MCB's ~50% (#80), painted OVER the VWAP and the
                     // waves as MCB paints it (DrawOrder 0, after their −1 and −2).
-                    new() { Name = CompMoneyFlowWave, DisplayName = "Money Flow", DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
+                    new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
                             DefaultColorHex = "#803FFF00", DefaultColorHexSecondary = "#80FF1100",
                             DefaultIsAreaFill = true,
                             DefaultColorSource = ColorSource.Value,
@@ -1393,28 +1397,30 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static string GetSignalDotSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
         {
-            double wt1 = GetVal(data, CompWT1, idx);
+            double wt1 = SpeechValue(data, CompWT1, DisplayWT1, idx);
             string wtStr = double.IsNaN(wt1) ? "" : $" Wave Trend {wt1:F1}.";
             return $"Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
         private static string GetDivergenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx, string kind)
         {
-            double wt1 = GetVal(data, CompWT1, idx);
+            double wt1 = SpeechValue(data, CompWT1, DisplayWT1, idx);
             string wtStr = double.IsNaN(wt1) ? "" : $" Wave Trend {wt1:F1}.";
             return $"{kind} divergence, confirmed on pivot. Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
         private static string GetTripleConfluenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
         {
-            double wt1 = GetVal(data, CompWT1, idx);
-            double mf  = GetVal(data, CompMoneyFlowWave, idx);
+            double wt1 = SpeechValue(data, CompWT1, DisplayWT1, idx);
+            double mf  = SpeechValue(data, CompMoneyFlowWave, DisplayMoneyFlow, idx);
 
             var parts = new StringBuilder();
             parts.Append($"Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.");
             if (!double.IsNaN(wt1)) parts.Append($" Wave Trend {wt1:F1}, oversold.");
             if (!double.IsNaN(mf) && mf > 0.0) parts.Append(" Money flow positive.");
-            parts.Append(" Trend and volatility confirmed.");
+            // It used to end " Trend and volatility confirmed." on every gold dot. Gold needs only
+            // GoldMinConfluence (3) of its four conditions, so ADX and ATR may be exactly the ones
+            // that failed — and this speech is not handed them to check. Said only what holds.
             return parts.ToString();
         }
 
@@ -1571,6 +1577,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             var span = buffer.GetComponentSpan(name);
             int len = Math.Min(span.Length, data.Length);
             for (int i = 0; i < len; i++) span[i] = data[i];
+        }
+
+        /// <summary>
+        /// A sibling's value for <see cref="GetComponentSpeech"/>. The app's formatter
+        /// (<c>SpeechFormatter.ProviderSpeechStrategy</c>) keys the data it hands over by DISPLAY
+        /// name, so a lookup by component name alone found nothing and every "Wave Trend …" clause
+        /// was silently dropped (2026-10-17 review; CipherBProviderSpeechTests). The name is tried
+        /// first for callers that key by name (StrategyLab, the provider's own tests).
+        /// </summary>
+        private static double SpeechValue(IReadOnlyDictionary<string, double[]> data, string name, string displayName, int idx)
+        {
+            double v = GetVal(data, name, idx);
+            return double.IsNaN(v) ? GetVal(data, displayName, idx) : v;
         }
 
         private static double GetVal(IReadOnlyDictionary<string, double[]> r, string key, int idx)
