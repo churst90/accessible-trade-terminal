@@ -376,7 +376,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string macd = MacdCrossoverFact(series, index);
                 if (!string.IsNullOrEmpty(macd)) yield return macd;
             }
+            else if (code == Indicators.DssBressertProvider.Code)
+            {
+                // Its state in words (Cody, 2026-10-17: "dss narration should give its state"),
+                // against the chart's OWN overbought/oversold lines, so a user who moved them to
+                // 90/10 hears "overbought" where the line is.
+                double ob = LevelNamed(series, "Overbought") ?? 80, os = LevelNamed(series, "Oversold") ?? 20;
+                foreach (var w in Indicators.DssBressertProvider.StateWords(
+                             series.GetComponentData(Indicators.DssBressertProvider.CompDss),
+                             series.GetComponentData(Indicators.DssBressertProvider.CompTrigger), index, ob, os))
+                    yield return w;
+            }
         }
+
+        private static double? LevelNamed(ChartSeries series, string name) =>
+            series.Levels.FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase))?.Value;
 
         /// <summary>
         /// THE LADDER: every other visible series at the bar, one sentence each, in the order the
