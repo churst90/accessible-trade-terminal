@@ -345,74 +345,57 @@ namespace AccessibleTrader.Tests
         }
 
         // ── CipherSrLevelProvider ───────────────────────────────────────────────
+        //
+        // Reads Cipher SR's held levels — the "Resistance Zone" / "Support Zone" lines — since the
+        // Market Cipher SR rebuild (2026-10-17) retired the pivot-bar dots it used to read. The zone
+        // lines are causal (a level starts on the bar that can first know it), so no confirmation
+        // lag is applied: one PriceLevel per run of the line, emitted where the run starts.
 
-        private static double[] SparseArray(int length, params (int Index, double Value)[] pivots)
+        /// <summary>A zone line: <paramref name="runs"/> are (first bar, level), each held until the next.</summary>
+        private static double[] ZoneLine(int length, params (int From, double Level)[] runs)
         {
             var arr = new double[length];
             Array.Fill(arr, double.NaN);
-            foreach (var (i, v) in pivots) arr[i] = v;
+            foreach (var (from, level) in runs)
+                for (int i = from; i < length; i++) arr[i] = level;
             return arr;
         }
 
-        [Theory]
-        [InlineData(null, null, 100, 4)]    // AutoScale default ON: clamp(100/25, 2, 15)
-        [InlineData(null, null, 1000, 15)]  // upper clamp
-        [InlineData(null, null, 10, 2)]     // lower clamp
-        [InlineData(0.0, 8.0, 100, 8)]      // explicit PivotBars honoured when AutoScale off
-        [InlineData(0.0, 100.0, 100, 60)]   // explicit clamp upper
-        [InlineData(0.0, 1.0, 100, 2)]      // explicit clamp lower
-        [InlineData(1.0, 8.0, 100, 4)]      // AutoScale ON ignores PivotBars
-        public void CipherSr_ConfirmationLag_MirrorsTheIndicator(
-            double? autoScale, double? pivotBars, int barCount, int expected)
-        {
-            Dictionary<string, double>? parameters = null;
-            if (autoScale.HasValue || pivotBars.HasValue)
-            {
-                parameters = new Dictionary<string, double>();
-                if (autoScale.HasValue) parameters["AutoScale"] = autoScale.Value;
-                if (pivotBars.HasValue) parameters["PivotBars"] = pivotBars.Value;
-            }
-
-            Assert.Equal(expected, CipherSrLevelProvider.ResolveConfirmationLag(parameters, barCount));
-        }
-
         [Fact]
-        public void CipherSr_EmitsPivotsFromBothComponents_WithMatchingKinds()
+        public void CipherSr_EmitsOneLevelPerRunOfEachZoneLine_WithMatchingKinds()
         {
             var series = IndicatorSeries("CIPHER_SR",
-                ("Resistance", SparseArray(100, (40, 110.0))),
-                ("Support",    SparseArray(100, (50, 90.0))));
+                ("Resistance Zone", ZoneLine(100, (40, 110.0), (70, 108.0))),
+                ("Support Zone",    ZoneLine(100, (50, 90.0))));
             var p = new CipherSrLevelProvider();
 
             var levels = p.GetLevels(FlatBars(100), StateWith(series));
 
-            Assert.Equal(2, levels.Count);
-            Assert.Equal(110.0, Assert.Single(levels, l => l.Kind == LevelKind.Resistance).Price);
+            Assert.Equal(new[] { 110.0, 108.0 }, levels.Where(l => l.Kind == LevelKind.Resistance).Select(l => l.Price));
             Assert.Equal(90.0, Assert.Single(levels, l => l.Kind == LevelKind.Support).Price);
         }
 
         [Fact]
-        public void CipherSr_PivotInsideTheConfirmationLag_IsNotVisible()
+        public void CipherSr_ALevelOnLaterBarsThanTheHistoryIsNotVisible()
         {
-            // 100 bars, AutoScale default → lag 4, so indices 96..99 are unconfirmed.
-            // This is the backtest-flattery fence: before the 2026-07-26 fix a strategy
-            // could act on a pivot that still needed future bars to confirm.
+            // The backtest fence: the series may be computed over more bars than the strategy has
+            // reached; a level that starts after the current bar must not be read.
             var series = IndicatorSeries("CIPHER_SR",
-                ("Resistance", SparseArray(100, (97, 110.0), (90, 105.0))),
-                ("Support",    Array.Empty<double>()));
+                ("Resistance Zone", ZoneLine(100, (30, 105.0), (90, 110.0))),
+                ("Support Zone",    Array.Empty<double>()));
             var p = new CipherSrLevelProvider();
 
-            var levels = p.GetLevels(FlatBars(100), StateWith(series));
+            var levels = p.GetLevels(FlatBars(80), StateWith(series));
 
             Assert.Equal(105.0, Assert.Single(levels).Price);
         }
 
         [Fact]
-        public void CipherSr_MoreRecentPivot_IsStronger()
+        public void CipherSr_MoreRecentLevel_IsStronger()
         {
             var series = IndicatorSeries("CIPHER_SR",
-                ("Resistance", SparseArray(100, (20, 110.0), (80, 111.0))),
-                ("Support",    Array.Empty<double>()));
+                ("Resistance Zone", ZoneLine(100, (20, 110.0), (80, 111.0))),
+                ("Support Zone",    Array.Empty<double>()));
             var p = new CipherSrLevelProvider();
 
             var levels = p.GetLevels(FlatBars(100), StateWith(series));
@@ -423,11 +406,11 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void CipherSr_PivotOlderThanTheLookbackWindow_IsDropped()
+        public void CipherSr_LevelReplacedBeforeTheLookbackWindow_IsDropped()
         {
             var series = IndicatorSeries("CIPHER_SR",
-                ("Resistance", SparseArray(100, (5, 110.0), (60, 105.0))),
-                ("Support",    Array.Empty<double>()));
+                ("Resistance Zone", ZoneLine(100, (5, 110.0), (30, 105.0))),
+                ("Support Zone",    Array.Empty<double>()));
             var p = new CipherSrLevelProvider { LookbackBars = 50 };
 
             var levels = p.GetLevels(FlatBars(100), StateWith(series));

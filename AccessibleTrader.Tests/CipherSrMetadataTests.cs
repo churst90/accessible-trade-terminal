@@ -7,8 +7,9 @@ using AccessibleTrader.Tests.Mocks;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Verifies Cipher SR component metadata (crystal bell, frequencies, zone line flags)
-    /// and confirms that IndicatorModelFactory propagates IsZoneLine to ComponentConfig.
+    /// Cipher SR's components since the Market Cipher SR rebuild (2026-10-17): the two held levels
+    /// (zone lines, drawn as runs of dots), the session range and VWAP (muted by default), and the
+    /// factory carrying the zone-line flag through to the component config.
     /// </summary>
     public class CipherSrMetadataTests
     {
@@ -21,57 +22,39 @@ namespace AccessibleTrader.Tests
         private static IndicatorComponentMetadata Get(string name) =>
             GetComponents().Single(c => c.Name == name);
 
-        // ── 1. Component count ────────────────────────────────────────────────
-
         [Fact]
-        public void CipherSr_GetMetadata_Returns4Components()
+        public void CipherSr_DeclaresMarketCipherSrsSixParts_ZoneLinesFirst()
         {
-            Assert.Equal(4, GetComponents().Count);
-        }
-
-        // ── 2. Resistance dot — crystal_bell, 700 Hz ─────────────────────────
-
-        [Fact]
-        public void Resistance_HasSoundPatchId_CrystalBell()
-        {
-            Assert.Equal("crystal_bell", Get(CipherSrProvider.CompResistance).DefaultSoundPatchId);
+            Assert.Equal(new[]
+            {
+                CipherSrProvider.CompResistanceLine, CipherSrProvider.CompSupportLine,
+                CipherSrProvider.CompRangeHigh, CipherSrProvider.CompRangeLow, CipherSrProvider.CompRangeMid,
+                CipherSrProvider.CompVwap,
+            }, GetComponents().Select(c => c.Name));
         }
 
         [Fact]
-        public void Resistance_HasBaseFrequency_700()
+        public void TheHeldLevelsAreZoneLinesDrawnAsDots_InMarketCiphersColours()
         {
-            Assert.Equal(700.0, Get(CipherSrProvider.CompResistance).DefaultBaseFrequency);
-        }
-
-        // ── 3. Support dot — 330 Hz ───────────────────────────────────────────
-
-        [Fact]
-        public void Support_HasBaseFrequency_330()
-        {
-            Assert.Equal(330.0, Get(CipherSrProvider.CompSupport).DefaultBaseFrequency);
-        }
-
-        // ── 4. Zone line flags ────────────────────────────────────────────────
-
-        [Fact]
-        public void ResistanceLine_HasDefaultIsZoneLine_True()
-        {
-            Assert.True(Get(CipherSrProvider.CompResistanceLine).DefaultIsZoneLine);
+            foreach (var (name, colour) in new[] { (CipherSrProvider.CompResistanceLine, "#E040FB"), (CipherSrProvider.CompSupportLine, "#FFEB3B") })
+            {
+                var c = Get(name);
+                Assert.True(c.DefaultIsZoneLine);
+                Assert.Equal(ComponentDisplayType.Line, c.DisplayType);   // a Dot would be a marker to the narrator
+                Assert.Equal(DashStyle.Dot, c.DefaultDashStyle);
+                Assert.Equal(colour, c.DefaultColorHex);
+            }
         }
 
         [Fact]
-        public void SupportLine_HasDefaultIsZoneLine_True()
+        public void TheRangeAndVwapAreMutedAndAreNotZoneLines()
         {
-            Assert.True(Get(CipherSrProvider.CompSupportLine).DefaultIsZoneLine);
+            foreach (var name in new[] { CipherSrProvider.CompRangeHigh, CipherSrProvider.CompRangeLow, CipherSrProvider.CompRangeMid, CipherSrProvider.CompVwap })
+            {
+                Assert.True(Get(name).DefaultIsMuted, $"{name} should be muted by default");
+                Assert.False(Get(name).DefaultIsZoneLine, $"{name} is not a support/resistance level");
+            }
         }
-
-        [Fact]
-        public void Resistance_Dot_HasDefaultIsZoneLine_False()
-        {
-            Assert.False(Get(CipherSrProvider.CompResistance).DefaultIsZoneLine);
-        }
-
-        // ── 5. IndicatorModelFactory propagates IsZoneLine ────────────────────
 
         [Fact]
         public void IndicatorModelFactory_PropagatesIsZoneLine_ToComponentConfig()
@@ -90,15 +73,12 @@ namespace AccessibleTrader.Tests
                 new List<(string Name, string Value)>(),
                 null);
 
-            var resistanceLine = series.Config.Components
-                .Single(c => c.Name == CipherSrProvider.CompResistanceLine);
-            var resistanceDot  = series.Config.Components
-                .Single(c => c.Name == CipherSrProvider.CompResistance);
-
-            Assert.True(resistanceLine.IsZoneLine,
+            Assert.True(series.Config.Components.Single(c => c.Name == CipherSrProvider.CompResistanceLine).IsZoneLine,
                 "Resistance Zone component must have IsZoneLine=true after factory creates config.");
-            Assert.False(resistanceDot.IsZoneLine,
-                "Resistance dot component must have IsZoneLine=false.");
+            Assert.False(series.Config.Components.Single(c => c.Name == CipherSrProvider.CompVwap).IsZoneLine,
+                "VWAP must have IsZoneLine=false.");
+            Assert.True(series.Config.Components.Single(c => c.Name == CipherSrProvider.CompVwap).IsMuted,
+                "VWAP must come up muted.");
         }
     }
 }

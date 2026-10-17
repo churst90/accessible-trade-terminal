@@ -68,7 +68,12 @@ namespace AccessibleTrader.Core.Services.Strategies
             ["CIPHER_A.Manipulation"] = "Cipher A's Manipulation (gold X) was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; Market Cipher A's Yellow X is a bearish warning, now Cipher A's Yellow X, and there is no replacement for the old oversold-with-positive-money-flow signal",
             ["CIPHER_A.Exhaustion"] = "Cipher A's Exhaustion was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; Market Cipher A's Red X is now Cipher A's Red X (EMA 5 crossing below EMA 11), and there is no replacement for the old overbought-with-negative-money-flow signal",
             ["CIPHER_A.WT Momentum"] = "Cipher A's WT Momentum was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; read Cipher B's Wave Trend instead",
-            ["CIPHER_A.WT Momentum Gradient"] = "Cipher A's WT Momentum Gradient was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; read Cipher B's Wave Trend instead (the gradient was it clamped to ±53 and rescaled to 0–1)",
+            ["CIPHER_A.WT Momentum Gradient"] = "Cipher A's WT Momentum Gradient was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; read Cipher B's Wave Trend instead (the gradient was Wave Trend clamped to ±53 and rescaled to 0–1)",
+
+            // Cipher SR rebuilt to draw what Market Cipher SR draws (CipherSrProvider). Its pivot-bar
+            // dots were look-ahead (drawn before the pivot could be known) and MCSR has no such marker.
+            ["CIPHER_SR.Resistance"] = "Cipher SR's Resistance pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Resistance Zone, the held resistance level, instead",
+            ["CIPHER_SR.Support"] = "Cipher SR's Support pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Support Zone, the held support level, instead",
         };
 
         /// <inheritdoc/>

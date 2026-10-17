@@ -358,6 +358,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             bool first = true;
             float lastY = 0;
 
+            // A held level that is REPLACED by a new one is two levels, not a slope between them.
+            // The provider says where ("{name}_replaced", non-NaN on the bar the new level took
+            // over — Cipher SR's zone lines), and the pen lifts there. Cipher SR used to leave its
+            // line EMPTY on that bar instead, which kept the picture right and made the narrator
+            // announce every replaced level as broken.
+            var replaced = series.GetComponentData(comp.Name + Indicators.CipherSrProvider.ReplacedSuffix);
+
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
@@ -365,6 +372,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                 double val = lineData[dataIdx];
                 if (double.IsNaN(val)) { first = true; continue; }
+                if (dataIdx < replaced.Length && !double.IsNaN(replaced[dataIdx])) first = true;
 
                 float x = (i * barWidth) + halfBar;
                 float y = ResolveMarkerY(ctx, comp, i, val);

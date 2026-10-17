@@ -495,8 +495,9 @@ namespace AccessibleTrader.Tests
         [InlineData("ICHIMOKU.Chikou Span")]        // close[j + 26], published as a comparable line
         [InlineData("SWING_STRUCTURE.SwingHigh")]   // stamped Span bars before it could be known
         [InlineData("SWING_STRUCTURE.SwingLow")]
-        [InlineData("CIPHER_SR.Resistance")]        // pivot dot, knowable PivotBars later
-        [InlineData("CIPHER_SR.Support")]
+        // CIPHER_SR.Resistance / .Support (pivot dots, knowable PivotBars later) were here until the
+        // components were RETIRED on 2026-10-17 (Market Cipher SR rebuild); a saved leaf naming them
+        // is now told why by SignalCatalog.Retired (CipherSrMarketCipherFidelityTests).
         [InlineData("Dpo.Dpo")]                     // centred by definition
         public void KnownLookaheadComponentsAreNotOfferedAsSignals(string id)
         {
