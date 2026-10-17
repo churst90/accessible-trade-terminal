@@ -1361,9 +1361,9 @@ Properties keeps the older behaviour within reach: "WT Slow Wave Smoothing" 4, "
 Legacy, "Buy Dot Rule" Gated and "Gold Dot Rule" Confluence reproduce Cipher B's numbers from before
 October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
-from value. All three are descriptive: they tell you where you are, not what to do. Cipher A and
-Cipher SR, Market Cipher's price-chart companions, are described under "Adding and tuning
-indicators" below.
+from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
+Cipher SR and Dual Band Strength (DBSI-style), our versions of Market Cipher's price-chart
+companions, are described under "Adding and tuning indicators" below.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
@@ -1500,6 +1500,28 @@ drawn but silent by default, and empty on daily and longer charts. Its settings 
 (3), VolumeMA (6) and H/L Pivot Days Back (1). Market Cipher SR works from 15-minute bars whatever the
 chart; ours uses the chart's own bars, so on a daily chart a new level arrives about every five or
 six days per side, and narration has a lot more to say than it did.
+
+**Dual Band Strength (DBSI-style)** (Trend, on the price chart) is a fast bull and bear strength
+score inspired by Market Cipher DBSI. Each candle gets two whole numbers: the bulls' score, printed
+under the candle in green, and the bears' score, printed over it in red. Bulls run from −4 to 16 and
+bears from −5 to 15; the higher number is the side in control, and on the newest candle that number
+is printed in yellow. The score is a weighted vote of twelve fast direction checks — mostly whether
+price is higher than one or two candles ago, fast stochastics turning, a fast MACD rising, WaveTrend
+rising — so it reacts within two or three candles. A 200-bar trend line runs with it, green while the
+close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in
+control"; Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
+line the close is on. With narration on (N) a bar close announces "Bulls take control at …" or "Bears
+take control at …", "Bulls reached the long entry score at …" or the bears' short version, and price
+crossing the trend line. The two scores start muted; the trend line and those announcements do not.
+
+It is a reconstruction, not DBSI. Fitted to 143 DBSI candles, it names the side in control the way
+DBSI does on about 9 candles in 10, but its numbers are often 2 to 4 points off and it never reaches
+DBSI's 20s, so use it for direction and rough strength, not for DBSI's exact readings or its rare
+20-plus signals. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
+**Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
+regular-candle chart, where DBSI reads the chart's own candles) and **Label the newest N bars** (25,
+as DBSI; 0 labels every candle). The numbers disappear when the candles are too narrow to fit them;
+zoom in to bring them back.
 
 **Spider Lines was removed** on 2026-10-17. It was eight exponential moving averages (8 to 200)
 under a misleading name, unrelated to Market Cipher's spider lines, which are diagonal support and

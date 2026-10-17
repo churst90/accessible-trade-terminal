@@ -451,7 +451,12 @@ nullable — `null` means "defer to the global role/type-based default."
 | `Area` | Line with shaded fill down to the pane bottom. |
 | `Gradient` | Line with gradient fill to pane bottom (area-chart style). |
 | `Level` | Static horizontal line at a fixed Y value. |
+| `CandleColor` | Per-bar candle colour override: the value is a phase index (0–10) mapped to a sentiment colour that paints the candle body. Price pane only. |
+| `ValueLabel` | The value printed as text at its bar ("15", "-5"; other values with the status line's decimals). `MarkerAnchor.AboveBar` / `BelowBar` centre it a few px over the drawn bar's high / under its low (Heikin-Ashi bars when the chart is); `MarkerAnchor.Value` centres it on the value. Colour = the component colour, lifted per theme to 4.5:1 on a backing plate. With `ColorAboveComponent` naming a sibling, the newest bar's label is drawn in `ColorHexSecondary` when this value is above the sibling's there. A **series parameter named `labelBars`** (> 0) limits labels to the newest N bars; absent or 0 labels every bar (matched by name — declare it under exactly that name). The text shrinks to fit the bar slot (11 down to 7 px × density) and, if even 7 px does not fit, that component's labels are all left out. Has a reading (status line, Alt+Shift+D) but is not a marker, so it is not narrated per bar. A bar-anchored label never stretches the axis and has no crosshair reading. Formation labels treat its plates as covered ground. Added 2026-10-17 (Dual Band Strength). |
 | `Wick`, `Candle`, `Profile`, `Heatmap`, `Distribution` | Specialized internal types; not typically used by indicator plugins. |
+
+`ComponentDisplayType` is **append-only**: a saved workspace stores its ordinal, so new members go at
+the end (`CandleColor` is 24, `ValueLabel` 25) and none is ever reordered or removed.
 
 ---
 
@@ -475,6 +480,8 @@ nullable — `null` means "defer to the global role/type-based default."
 | `DefaultColorRules` | `List<ColorRule>?` | Per-bar conditional color rules. Applied in order — first matching rule wins. Null or empty = use `DefaultColorHex` for all bars (no conditional coloring). Rules are copied into `ComponentConfig.ColorRules` by `IndicatorModelFactory` at component creation time. |
 | `DefaultColorAboveComponent` | `string?` | A two-colour line coloured against ANOTHER component of the same series (its `Name`) instead of a constant: `DefaultColorHex` where this value is at or below that component, `DefaultColorHexSecondary` where it is above. Cipher A's ribbon uses it (each EMA blue above the next-longer one; the last line swaps its two colours to be blue below the one before). Null = not used. |
 | `DefaultDrawOrder` | `int?` | Paint order within the series, lower first. Null = 0. Only the drawing order: keyboard order, speech, sound and the status line keep the declared order. Cipher A paints its ribbon at −1, under its symbols; Cipher B paints its VWAP over the waves. |
+| `DefaultIsDrawn` | `bool?` | `false` = heard, not painted: the component keeps its data, navigation stop, speech and narration, but the chart draws nothing for it, it never stretches an axis and it is never a crossable overlay line. Null = drawn. Provider-owned: rebuilt from metadata on every load, not a user setting. Dual Band Strength's hand-over and entry-score markers use it, so they are narrated without burying the numbers. (A level's equivalent is `LevelDescriptor.IsDrawn`.) |
+| `DefaultMarkerAnchor` | `MarkerAnchor?` | `Value` (default), `BelowBar` or `AboveBar`. Bar anchors place a marker (or a `ValueLabel`) on the candle as drawn, so it stays aligned when Heikin-Ashi is on. |
 | `DefaultFillColorHex` | `string?` | The colour an area fill is painted in when it differs from its edge line. An 8-digit `#AARRGGBB` carries its opacity, used as-is. Null = the line's colour. |
 
 #### Declaring DefaultColorRules

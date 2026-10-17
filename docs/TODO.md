@@ -119,9 +119,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 > **START HERE (2026-10-17 late night — the Market Cipher pass: formation label contrast, Cipher B stock
 > defaults and the gold/Buy dot, Cipher A and Cipher SR rebuilt from real Market Cipher charts, Spider
-> Lines removed: DONE; see CHANGES).** Each change has tests seen red. **Unverified:** every sound and
-> narration change (none heard by Cody); Windows / desktop head; light themes for Cipher A's pale ribbon
-> lines; low-vision viewing of the formation labels.
+> Lines removed, Dual Band Strength (DBSI-style) added: DONE; see CHANGES).** Each change has tests seen
+> red. **Unverified:** every sound and narration change (none heard by Cody); Windows / desktop head;
+> light themes for Cipher A's pale ribbon lines; low-vision viewing of the formation labels.
 >
 > **In progress (separate branch):** a StrategyLab re-run of every Cipher-based strategy on the new
 > indicators. No results yet; the gold-dot pinning question below waits on it.
@@ -190,6 +190,30 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   lines bullish.") are built and tested but, like every `GetDetailFact`, no key speaks them (the
 >   2026-10-17 question about wiring detail sentences applies). Cipher A's report said Alt+Shift+D
 >   speaks it; it does not.
+>
+> **Open questions for Cody — Dual Band Strength (DBSI-style)** (new the same night; reverse-fitted: r
+> 0.92/0.93, RMSE about 3 points, side in control 94% fitted / 91% on the study's held-out folds, exact
+> integer only 14%; **not heard**):
+> 1. **Heikin-Ashi is on by default even on a regular-candle chart.** DBSI reads the chart's own candles;
+>    the provider cannot see the chart type. Follow the chart type (the app would have to pass it)?
+> 2. **The trend line and the four event markers are unmuted** so they narrate (a muted component is not
+>    narrated); the brief said "sound muted by default". Acceptable?
+> 3. **Trend narration and colour can disagree under Heikin-Ashi:** the colour uses the Heikin-Ashi close,
+>    the "price crossed" narration the raw close, for a bar near the line. Which should win?
+> 4. **Hand-overs may be chatty** — the score turns on 2–3-bar momentum (8 hand-overs in 100 daily bars;
+>    more on 15-minute charts). Listen, and check the arrival sentence ("Muted. Bulls. Bulls minus 4,
+>    bears 15, bears in control") is not too long.
+> 5. **The scores have no useful pitch.** Unmuted, a score plays at the price pane's floor (its value is
+>    not a price). The study suggests bull minus bear as one centred pitch.
+> 6. **A marker already showing when N is switched on is never announced** when that bar closes
+>    (pre-existing narrator seeding, not DBSI's).
+> 7. **Heikin-Ashi seeding mismatch:** the drawn Heikin-Ashi candles are seeded at the view's left edge,
+>    the indicator's from the first bar, so the first few on-screen candles can differ (pre-existing).
+> 8. **Colour-vision-safe mode does not recolour the labels** (they are still told apart by position).
+> 9. **`labelBars` is matched by name:** the renderer reads a series parameter called exactly that. It is
+>    documented in the plugin guide, but it is a name-based coupling.
+> - Optional: label height. Real DBSI's label height varies (not decoded); ours sits a fixed 3 px off the
+>   candle.
 >
 > **Open questions — formations and Spider Lines:**
 > - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative

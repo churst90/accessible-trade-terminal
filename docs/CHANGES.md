@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Dual Band Strength (DBSI-style): DBSI's numbers on the candles, reverse-fitted (2026-10-17, late night)
+
+A new indicator inspired by Market Cipher DBSI, code `DBSI_STYLE`, in the Trend category on the price
+pane, registered in both heads and StrategyLab. It is a **reconstruction, not DBSI**: a model
+reverse-fitted to 143 DBSI candles digitised off six real charts (the 2026-10-17 feasibility study).
+Each guard was proven red by sabotage (24 cases). **Not heard by Cody**; checked in rendered PNGs on
+Linux only.
+
+- **What it draws.** A bull score under each candle (green) and a bear score over it (red), whole
+  numbers; on the newest candle the leading side's number is yellow. Only the newest 25 candles are
+  labelled ("Label the newest N bars", 0 = every bar), as DBSI does. A 200-bar trend line (EMA), green
+  while the close is above it and red below.
+- **The model, copied to the digit from the study:** twelve fast direction votes (two-bar momentum,
+  which counts twice because the constants were fitted that way; stochastic %K over %D at 16, 5 and 6;
+  a 5/13 MACD rising; a 2-bar hlc3 average rising; WaveTrend rising and above its slow wave; close
+  above the 2-bar midpoint; close and open above the previous), then bull = round(max(−5, −4.332 +
+  1.668 × bull votes)) and bear = round(max(−5, −4.790 + 1.668 × bear votes)). Bulls therefore run −4
+  to 16 and bears −5 to 15, where DBSI reaches the 20s. "Compute on Heikin-Ashi candles" is on by
+  default (DBSI is used on Heikin-Ashi charts and the fit is better there).
+- **How close it is.** On the study's own bars every vote and every printed number equals the study
+  model's. In sample: r 0.92 bull / 0.93 bear, typical error about 3 points (RMSE 3.10), the side in
+  control 94% of the time. The study's nested held-out figure — the honest one — is r 0.91 / 0.93, RMSE
+  3.5, side in control 91%. **The exact integer matches only 14% of the time** (within ±2 points 59%).
+  On the vendor's 15-minute image the leader agrees on 22 of 24 closed bars.
+- **What you hear.** Landing on Bulls or Bears: "Bulls 15, bears minus 5, bulls in control".
+  Alt+Shift+D adds both scores, the trend, who is in control and which side of the trend line the
+  close is on. With N on the indicator, a bar close can say "Bulls take control at …", "Bears take
+  control at …", "Bulls reached the long entry score at …" / "Bears reached the short entry score at
+  …" (Long and Short entry score, default 7), and "Price crossed above Dual Band Strength (DBSI-style)
+  at …" for the trend line. A tie hands nothing over.
+- **Sound.** The two scores start muted. The trend line and the four event markers are **not** muted,
+  because a muted component is not narrated; the markers are heard but never drawn (DBSI draws nothing
+  for them).
+- **New for every indicator** (plugin authors too): `ComponentDisplayType.ValueLabel` (appended as
+  ordinal 25), a value printed as text at its bar, legible on every theme (the formation labels' ink
+  rule, on a 245 backing), kept inside the plot, shrunk to the bar slot and left out altogether when
+  even 7 px will not fit; a series parameter named `labelBars` limits it to the newest N bars. And
+  `ComponentConfig.IsDrawn` / `DefaultIsDrawn`: a component heard but not painted, never stretching an
+  axis or offered as a crossable line, rebuilt from metadata on every load. Formation labels now count
+  the value labels' plates as ground to avoid.
+- Tests: `DbsiStyleGoldenTests`, `DbsiStyleProviderTests`, `ValueLabelRenderingTests`.
+- **Caveats.** Heikin-Ashi is on even on a regular-candle chart (the provider cannot see the chart
+  type). Under Heikin-Ashi the trend line's colour uses the Heikin-Ashi close while the "price crossed"
+  narration uses the raw close, so the two can disagree for a bar near the line. Labels disappear when
+  bars are too narrow for the numbers (zoom in). Colour-vision-safe mode does not recolour the labels
+  (they differ by position too). The drawn Heikin-Ashi candles are seeded at the left edge of the view
+  and the indicator's from the first bar, so the first few on screen can differ (pre-existing).
+
 ### Cipher B's gold dot is shown again, with the one gold rule that can be read; the green dot is "Buy dot" (2026-10-17, late night)
 
 Cody asked for the gold dot to be visible, fitted to Market Cipher B's gold-dot conditions, and for the

@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **New indicator: Dual Band Strength (DBSI-style).** A bulls score under each candle and a bears score
+  over it, like Market Cipher DBSI, plus a 200-bar trend line. Land on a score to hear "Bulls 15, bears
+  minus 5, bulls in control"; with narration on it tells you when control changes hands. It is our
+  reconstruction: it names the side in control as DBSI does about 9 candles in 10, but its numbers are
+  often a few points off.
 - **Cipher B's big green dot is now the "Buy dot", and the gold dot is back** with a much rarer rule:
   three on daily Bitcoin in its whole history. It is the gold dot from the free VuManChu Cipher B;
   we found no sign that Market Cipher B itself has one. "Gold Dot Rule: Confluence" in Properties
