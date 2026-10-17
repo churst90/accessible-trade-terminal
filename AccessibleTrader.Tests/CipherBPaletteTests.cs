@@ -60,30 +60,31 @@ public sealed class CipherBPaletteTests
     }
 
     /// <summary>
-    /// Every colour in the WT Histogram's legend key is at least 30° of hue away from every
-    /// colour in Money Flow's key. The old pairs were 1° apart (green 150° vs 151°, red 345° vs
-    /// 348°). Read from the legend rows the chart draws, in every built-in theme, because a
-    /// colour-vision theme can remap a bar pair.
+    /// The WT Histogram and Money Flow readings are at least 30° of hue apart, above zero and
+    /// below. The old pairs were 1° apart (green 150° vs 151°, red 345° vs 348°). Read through
+    /// <see cref="ChartRenderer.ReadingColor"/> — the colour the status line prints each value in
+    /// and the axis label is filled with — in every built-in theme, because a colour-vision theme
+    /// can remap a bar pair. (Was read from the legend's key rows until the TradingView status
+    /// line replaced the legend, 2026-10-17.)
     /// </summary>
     [Fact]
-    public void The_wt_histogram_and_money_flow_keys_are_told_apart_by_hue()
+    public void The_wt_histogram_and_money_flow_readings_are_told_apart_by_hue()
     {
+        var s = CipherB();
+        var hist = s.Components.Single(c => c.Name == CipherBProvider.CompWtHistogram);
+        var mf   = s.Components.Single(c => c.DisplayName == "Money Flow");
         foreach (var type in Enum.GetValues<ThemeType>())
         {
             var themes = Themes();
             themes.SetTheme(type);
-            var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { CipherB() }, 600f, 17f, 6f, themes.Current)
-                                    .ToDictionary(r => r.Label);
-            Assert.True(rows.ContainsKey("WT Histogram") && rows.ContainsKey("Money Flow"),
-                $"{type}: the legend has no WT Histogram or Money Flow row; nothing is being tested.");
-
-            foreach (var h in rows["WT Histogram"].Colors)
-                foreach (var m in rows["Money Flow"].Colors)
-                {
-                    float d = HueDistance(h, m);
-                    Assert.True(d >= 30f,
-                        $"{type}: WT Histogram key colour {h} and Money Flow key colour {m} are only {d:F0}° of hue apart.");
-                }
+            foreach (double v in new[] { 10.0, -10.0 })
+            {
+                var h = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(v, s, hist, 0), themes.Current, null);
+                var m = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(v, s, mf, 0), themes.Current, null);
+                float d = HueDistance(h, m);
+                Assert.True(d >= 30f,
+                    $"{type}, value {v}: WT Histogram {h} and Money Flow {m} are only {d:F0}° of hue apart.");
+            }
         }
     }
 
