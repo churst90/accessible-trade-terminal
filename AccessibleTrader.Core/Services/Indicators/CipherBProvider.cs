@@ -1375,14 +1375,15 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static string GetMFWaveSpeech(double value)
         {
-            // The display value (±100 at most, see MoneyFlowClamp) spoken as a "percent" of
-            // pressure. It is not a true percentage of anything — 180 × an average body ratio in
-            // MCB mode — but it is the number drawn, and the clamp below is only a guard.
-            double pct = value;
-            if (pct > 100.0) pct = 100.0;
-            if (pct < -100.0) pct = -100.0;
-            string dir = pct >= 0 ? "buying" : "selling";
-            return $"{Math.Abs(pct):F0}% {dir} pressure";
+            // Which side the money flow is on, then the number drawn — "buying pressure, 18.0".
+            // It used to say "18% buying pressure", but the value is not a percentage of anything
+            // (180 × a 60-bar average of candle body over range in MCB mode), so the "%" claimed a
+            // meaning it does not have (Cody, 2026-10-17: "Money flow wording, fix this"). Same
+            // number, same precision as the status line and Alt+Shift+D print.
+            if (double.IsNaN(value)) return "no data";
+            if (value == 0) return "neutral, 0.0";
+            string side = value > 0 ? "buying" : "selling";
+            return $"{side} pressure, {Math.Abs(value).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}";
         }
 
         /// <summary>The wave's value, with "overbought" / "oversold" past ±53 — the default
