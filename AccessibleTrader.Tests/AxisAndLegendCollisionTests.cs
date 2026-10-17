@@ -256,9 +256,9 @@ public sealed class AxisAndLegendCollisionTests
             StatusSeries("ADX", ("ADX", ComponentDisplayType.Line, 20))).Lines;
 
         // Since 2026-10-17 the block is not over the plot but in a band above it, so a pane gets a
-        // line only where the band leaves the plot its floor (half the pane, and 30 px): the 40 px
-        // pane, which used to get one line over a 15 px plot, now gets none; 55 px gets one. Every
-        // pane that gets a block gets one that fits and leaves the plot its floor.
+        // line only where the band leaves the plot its floor (40% of the pane, and 20 px): the
+        // 40 px pane, which used to get one line over a 15 px plot, now gets none; 55 px gets one.
+        // Every pane that gets a block gets one that fits and leaves the plot its floor.
         float floor = Math.Max(ChartStatusLine.MinPlotPx, paneHeight * ChartStatusLine.MinPlotFraction);
         if (paneHeight - (pad + line + pad) >= floor) Assert.NotEmpty(lines);
         if (lines.Count == 0) return;

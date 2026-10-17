@@ -271,7 +271,7 @@ public sealed class StatusBandTests
         Assert.Equal(new PaneStatusBand(0, 0f), layout.StatusBands["Pane_H"]);
         Assert.True(layout.StatusBands["Pane_T"].Lines == 1, "the control pane shows no status line — the fixture proves nothing");
 
-        // Eight crowded panes on a 300 px canvas: none of them can keep a 30 px plot under a line.
+        // Eight crowded panes on a 300 px canvas (~27 px each): none can keep a 20 px plot under a line.
         var crowd = Enumerable.Range(0, 8).Select(i => Line($"p{i}", $"P{i}", $"Pane_{i}", "#FF00FF", 100)).ToList();
         var crowdRanges = Enumerable.Range(0, 8).ToDictionary(i => $"Pane_{i}", _ => (0.0, 100.0));
         crowdRanges["Main"] = (95, 110);
@@ -297,23 +297,23 @@ public sealed class StatusBandTests
     }
 
     /// <summary>
-    /// A short pane gives up LINES rather than its plot, and says so: three indicators in a 100 px
-    /// pane used to get three lines (a 59 px block) over a 41 px plot — the three-line floor
-    /// overruling the block's 45% cap. Now the plot keeps at least half the pane and 30 px, and the
-    /// lines that do not fit are counted on the last one.
+    /// A short pane gives up LINES rather than its plot, and says so: three indicators in an 80 px
+    /// pane used to get three lines (a 59 px block) over a 21 px plot — the three-line floor
+    /// overruling the block's 45% cap. Now the plot keeps at least 40% of the pane and 20 px, and
+    /// the lines that do not fit are counted on the last one.
     /// </summary>
     [Fact]
     public void A_short_pane_shows_fewer_lines_and_counts_the_rest_rather_than_crush_its_plot()
     {
         float line = ChartStatusLine.LinePx, pad = ChartStatusLine.PadPx;
-        Assert.Equal(3, ChartStatusLine.LineBudget(100f, line, pad));   // the old budget: the three-line floor
-        int n = ChartStatusLine.PaneLineBudget(100f, line, pad, ChartStatusLine.MinPlotPx);
+        Assert.Equal(3, ChartStatusLine.LineBudget(80f, line, pad));   // the old budget: the three-line floor
+        int n = ChartStatusLine.PaneLineBudget(80f, line, pad, ChartStatusLine.MinPlotPx);
         Assert.Equal(2, n);
-        Assert.True(100f - ChartStatusLine.BandHeight(n, line, pad) >= 50f);
+        Assert.True(80f - ChartStatusLine.BandHeight(n, line, pad) >= 0.4f * 80f);
 
         var three = Enumerable.Range(0, 3).Select(i => Line($"s{i}", $"Ind {(char)('A' + i)}", "Pane_0", "#FFFFFF", i)).ToArray();
         var ctx = new ChartStatusLine.Context(Themes().Current, ChartStatusLine.DefaultBackingAlpha, null, null);
-        var lines = ChartStatusLine.Build("Pane_0", three, 3, ctx, 100f, 4000f, line, t => t.Length * 7f).Lines;
+        var lines = ChartStatusLine.Build("Pane_0", three, 3, ctx, 80f, 4000f, line, t => t.Length * 7f).Lines;
         Assert.Equal(2, lines.Count);
         Assert.Equal("+2 more (see the object tree)", lines[^1].Title);
     }

@@ -99,20 +99,29 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>
         /// The least a pane's PLOT may keep, in CSS px (× density in device pixels), once its
-        /// status band is taken out: 30, the crowded floor <see cref="ChartRenderer.AllocatePaneHeights"/>
-        /// already holds a whole pane to as the least that still reads as a plot. A band that
-        /// would leave less than this is shrunk a line at a time, down to no lines at all.
+        /// status band is taken out. A band that would leave less is shrunk a line at a time, down
+        /// to no lines at all.
+        ///
+        /// <para>
+        /// <b>20, and the window that decides it is 1000x610</b> with Cipher B, RSI and MACD: the
+        /// chart is about 330 CSS px tall there, so <see cref="ChartRenderer.AllocatePaneHeights"/>
+        /// takes its crowded path and each oscillator pane gets about 50 px. One line's band is
+        /// 25 px, which leaves a 25 px plot. At 30 (the crowded floor for a whole pane) every one of
+        /// those panes lost its status line — and the line is the only thing on screen naming the
+        /// oscillator in that pane. 25 px still shows an oscillator's shape and its crossings; under
+        /// 20 a line is a flat stroke, and an 8-pane chart's ~30 px panes (a 5 px plot) get none.
+        /// </para>
         /// </summary>
-        public const float MinPlotPx = 30f;
+        public const float MinPlotPx = 20f;
 
         /// <summary>
-        /// The least fraction of a pane its PLOT may keep once its status band is taken out: a
-        /// half — the text above a plot never takes more of the pane than the plot does. The
-        /// block's own 45% cap (<see cref="LineBudget"/>) already keeps an ordinary pane inside
-        /// this; it bites on the three-line floor, which in a short pane used to let the block
-        /// cover most of the plot (at 80 px, three lines are 59 of the 80).
+        /// The least fraction of a pane its PLOT may keep once its status band is taken out: 40% —
+        /// the band never takes more than 60% of a pane. The block's own 45% cap
+        /// (<see cref="LineBudget"/>) keeps an ordinary pane well inside this; it bites on the
+        /// three-line floor, which in a short pane let the block take most of it (at 80 px, three
+        /// lines are 59 of the 80 — now two, 42 of 80, and "+N more").
         /// </summary>
-        public const float MinPlotFraction = 0.5f;
+        public const float MinPlotFraction = 0.4f;
 
         // Fraction of the pane the block may occupy before it competes with the data.
         private const float MaxPaneFraction = 0.45f;
