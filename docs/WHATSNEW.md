@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Cipher B's RSI and Stochastic now say "overbought" and "oversold"** past their own 80 and 20, and
+  narration announces when they cross (once you unmute them).
 - **Above and below always mean the indicator's own midline.** The bright upper and warm lower sound of
   an oscillator now switch at its midline (RSI's 50, Momentum's zero, Cipher B's RSI and Stochastic
   lines' 50) however the pane is scrolled; before, they switched at the middle of whatever was on

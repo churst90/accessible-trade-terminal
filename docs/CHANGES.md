@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Levels can be heard but not drawn; Cipher B's RSI and Stochastic are spoken and narrated at 80/20 (2026-10-17, late)
+
+Cody: "yes, they should be narrated", and asked whether an SDK author can give components different
+bounds. They need not: components in one pane share its axis (and are pitched where drawn); what
+differs is their MEANING — a midline (`DefaultReferenceLevel`) and extremes (levels a component
+subscribes to). The one missing piece was a level that is not drawn.
+
+- **`LevelDescriptor.IsDrawn` / `LevelConfig.IsDrawn`** (default true). An undrawn level textures,
+  clicks, is spoken as a zone, narrated when crossed and alertable for the components subscribed to
+  it, exactly as a drawn one — it is not painted and does not stretch the axis
+  (`DataLayer`, `ViewportRangeCalculator`).
+- **Cipher B**: undrawn "Stoch Overbought" 80 and "Stoch Oversold" 20, subscribed to by RSI and
+  Stochastic alone; every component that took "all levels" now names the waves' five explicitly
+  (`CipherBProvider.WaveLevels`), so nothing that heard ±53 hears anything new. Their templates gain
+  `{zone}`: "RSI. 85.0. Overbought." Replaces the evening's per-component zone fields (never released).
+- **Live narration of other lines' own levels.** `NarrationScanner.ScanLevelCrosses` read only a
+  series' primary line, so the RSI crossing 80 would have been textured and clicked but never said.
+  Lines whose levels the primary does not answer to are now narrated by name: "Cipher B RSI: crossed
+  above stoch overbought, 80." Muted lines stay quiet (RSI and Stochastic start muted).
+- **Plugin guide**: level subscriptions, component midlines and undrawn levels documented (it never
+  mentioned `SubscribedLevelNames`).
+- Tests: `CipherBStochasticZonesTests` (zone word, live narration muted/unmuted, waves unaffected),
+  `CipherBLookTests.The_lines_own_80_and_20_are_not_painted`; each seen red with its part undone.
+
 ### An oscillator is above or below by its own midline (2026-10-17, night)
 
 Cody, after the 80/20 zones: Cipher B's RSI and Stochastic still "don't follow the rule … above,
@@ -31,10 +55,8 @@ be -53 and 53?" Both lines subscribed to no level, so they had no texture. And �
 the lines run 0–100 on Cipher B's −100…+100 pane (as Market Cipher draws them), where +53 is just above
 their middle and −53 is never reached. Cody chose **80 / 20, sound only**.
 
-- **Per-component sound zones.** New `ZoneOverbought` / `ZoneOversold` (+ `ZoneNoiseAmount`,
-  `ZoneNoiseType`) on a component: texture inside, a click on the crossing, nothing drawn, no other
-  component affected (`AudioZoneHelper.ComputeZoneNoise`, the boundary-click block in
-  `CreateAudioPoint`). Cipher B's RSI and Stochastic use 80/20 with a plain Stochastic's 0.45 texture.
+- **Their own 80/20.** First built as per-component zone fields; replaced the same night by
+  undrawn LEVELS (see the next entry), so they are also spoken and narrated.
 - **The waves' ±53 zone was never heard.** Its texture (0.10) sat under the waves' own base texture
   (0.15) and the engine plays the stronger, so between ±53 and ±60 the waves sounded as they did at
   zero. The levels now carry 0.30 at ±53 and 0.45 at ±60: clean, rough, rougher.
