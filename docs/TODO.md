@@ -237,6 +237,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    documented in the plugin guide, but it is a name-based coupling.
 > - Optional: label height. Real DBSI's label height varies (not decoded); ours sits a fixed 3 px off the
 >   candle.
+> - **Why ours never prints 17+ (studied 2026-10-17, research only, provider unchanged).** Our 12 either/or
+>   votes cap the score at 15.7 and keep bull + bear near 10.9; real DBSI's total varies 6–20. Real DBSI
+>   gives its biggest numbers to fast moves AGAINST the slower trend (fresh reversals), not to moves with
+>   it. Leave-one-chart-out, 133 model variants: strength bonuses, dead bands, free weights and pure
+>   counting failed; a 4×-timeframe "votes against" term helped (held-out RMSE 3.51 → 3.28, 14 of 33 high
+>   values printed, 5 false; 4× was chosen from 20 siblings) but is not a clear win. **Best open lead:**
+>   when the same side keeps the lead, the real score rises by exactly +1 on 28 of 30 steps (ours stays
+>   flat), rises are 80% odd and falls 64% even — some per-bar counter we have not identified; 57 streak
+>   counters did not explain it. Cody: keep as is (recommended), or adopt the 4× formula in
+>   the scratchpad report `dbsi_highscores_REPORT.md` (tops out at 18, needs higher-timeframe bars)?
 >
 > **Open questions — formations and Spider Lines:**
 > - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative
