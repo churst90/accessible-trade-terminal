@@ -66,8 +66,10 @@ public sealed class CipherBSignalRulesTests
         // BuyDotMode = Gated: these tests are about the confirmed / cooled-down / anchor-gated
         // oversold crossover. Since 2026-10-17 the DEFAULT blue (now green) dot is Market Cipher
         // B's plain rule instead — see CipherBLookTests — and the gated rule is an option (and
-        // still the gold dot's base in both modes).
-        var p = new Dictionary<string, object> { ["TfAware"] = false, ["BuyDotMode"] = "Gated" };
+        // still the Confluence gold dot's base in both modes). GoldDotMode = Confluence: the gold
+        // tests here are about that confluence rule; the default gold rule since 2026-10-18 is
+        // VuManChu's (CipherBGoldDotTests).
+        var p = new Dictionary<string, object> { ["TfAware"] = false, ["BuyDotMode"] = "Gated", ["GoldDotMode"] = "Confluence" };
         foreach (var (k, v) in overrides) p[k] = v;
         return p;
     }

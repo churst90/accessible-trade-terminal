@@ -590,6 +590,11 @@ namespace AccessibleTrader.Tests
             // causal, but the synthetic series never lines them up on one bar. Real bars do
             // (2021-07-01 and 2021-09-20 on Bitstamp BTC/USD) — CipherAProviderTests pins those.
             "CIPHER_A.Blood Diamond",
+            // The default gold dot since 2026-10-18 (VuManChu's rule: a slow-wave divergence from a
+            // bottom at or below -75) fires a handful of times in thousands of bars and on neither
+            // series here. Its causality is pinned on 1400-bar probes, prefix by prefix and on the
+            // bar each dot is first known: CipherBGoldDotTests.A_gold_dot_is_on_the_bar_it_is_first_known_and_never_moves.
+            "CIPHER_B.Triple Confluence Buy",
             "CIPHER_C.Bottom Double",
             "CIPHER_C.Shallow Peak",
             "CIPHER_C.Shallow Trough",
