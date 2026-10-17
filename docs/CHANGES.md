@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's RSI and Stochastic get their own zones; the waves' ±53 zone is heard (2026-10-17, evening)
+
+Cody: "the rsi/stoch though doesn't have the texturing on the os/ob zones … shouldn't the os/ob zones
+be -53 and 53?" Both lines subscribed to no level, so they had no texture. And ±53 is the waves' scale:
+the lines run 0–100 on Cipher B's −100…+100 pane (as Market Cipher draws them), where +53 is just above
+their middle and −53 is never reached. Cody chose **80 / 20, sound only**.
+
+- **Per-component sound zones.** New `ZoneOverbought` / `ZoneOversold` (+ `ZoneNoiseAmount`,
+  `ZoneNoiseType`) on a component: texture inside, a click on the crossing, nothing drawn, no other
+  component affected (`AudioZoneHelper.ComputeZoneNoise`, the boundary-click block in
+  `CreateAudioPoint`). Cipher B's RSI and Stochastic use 80/20 with a plain Stochastic's 0.45 texture.
+- **The waves' ±53 zone was never heard.** Its texture (0.10) sat under the waves' own base texture
+  (0.15) and the engine plays the stronger, so between ±53 and ±60 the waves sounded as they did at
+  zero. The levels now carry 0.30 at ±53 and 0.45 at ±60: clean, rough, rougher.
+- Tests: `CipherBStochasticZonesTests` (texture and clicks at 80/20, none at 53/60/50; the waves graded
+  past ±53 and ±60), each seen red with its part undone; `DeclaredKnobObservabilityTests` gains a cell
+  inside a component's own zone. Not heard yet.
+
 ### Cipher B heard as drawn; Alt+Shift+D reads the whole ladder; areas stop at the last bar (2026-10-17, afternoon)
 
 From Cody's report on the morning's push. Each change has a test seen red with its bug put back.

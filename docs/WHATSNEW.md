@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Cipher B's RSI and Stochastic lines turn rough above 80 and below 20** and click as they cross,
+  on their own 0–100 scale (nothing extra is drawn). The waves now audibly roughen past ±53, and more
+  past ±60; before, the ±53 zone was too quiet to hear.
 - **Bars sound like what they say.** A histogram bar now plays its higher tone above zero and its
   lower tone below, matching the number you hear and the colour on screen. Before, Cipher B's WT
   Histogram and Money Flow, MACD's histogram and several others followed the candle instead, so a

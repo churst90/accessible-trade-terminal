@@ -1320,9 +1320,11 @@ it, a yellow "VWAP" area (the fast wave minus the slow) over both, the money flo
 above zero and red below over that, and along the bottom a money-flow bar, green while money flows
 in and dark red while it flows out, carrying big green **buy dots** — one on every upward cross of
 the waves with the slow wave at −60 or lower. Small green and red dots on the slow wave mark every
-cross. A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100; they are the last two
-stops when you arrow through Cipher B's parts and start **muted**. The levels are plain grey lines,
-solid at ±60 and zero, dotted at ±53. Properties keeps the older behaviour within reach: "WT Slow
+cross. A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale
+(drawn in the top half of the pane, as Market Cipher draws them); they are the last two stops when you
+arrow through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20 and
+click as they cross those — their own extremes, heard but not drawn. The levels are plain grey lines,
+solid at ±60 and zero, dotted at ±53; the waves turn rough past ±53 and rougher past ±60. Properties keeps the older behaviour within reach: "WT Slow
 Wave Smoothing" 4, "Money Flow Formula" Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers
 from before October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
