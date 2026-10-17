@@ -54,6 +54,22 @@ namespace AccessibleTrader.Tests
             Assert.Equal("Main", meta.DefaultPane); // markers live on the price pane
         }
 
+        /// <summary>
+        /// Read the way the renderer reads it (SKColor.TryParse, eight digits = #AARRGGBB): the
+        /// marker is AMBER and slightly translucent. "#FFD54FE0" parsed as opaque purple.
+        /// </summary>
+        [Fact]
+        public async Task The_event_marker_is_amber_as_the_renderer_parses_it()
+        {
+            var (provider, _) = await BuildAsync();
+            var hex = Assert.Single(Assert.Single(provider.GetIndicators()).Components).DefaultColorHex;
+            Assert.True(SkiaSharp.SKColor.TryParse(hex, out var c), hex);
+            Assert.Equal((byte)0xFF, c.Red);
+            Assert.Equal((byte)0xD5, c.Green);
+            Assert.Equal((byte)0x4F, c.Blue);
+            Assert.InRange(c.Alpha, (byte)0xC0, (byte)0xFF);
+        }
+
         [Fact]
         public async Task Markers_land_on_the_covering_bar_with_event_values()
         {

@@ -206,8 +206,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         UpperComponentName = CompSenkouA,
                         LowerComponentName = CompSenkouB,
-                        BullishColorHex    = "#4CAF5060",
-                        BearishColorHex    = "#F4433660",
+                        // #AARRGGBB — alpha FIRST, which is how SKColor.TryParse reads eight digits.
+                        // These were "#4CAF5060" / "#F4433660" (Material green/red with the alpha
+                        // tacked on the end), which Skia read as alpha 0x4C on #AF5060 and alpha 0xF4
+                        // on #433660: a pinkish bull cloud and a near-opaque purple bear cloud.
+                        // Found 2026-10-17 by the Market Cipher comparison (same bug in Cipher B's dots).
+                        BullishColorHex    = "#604CAF50",
+                        BearishColorHex    = "#60F44336",
                         DisplayName        = "Kumo",
                         IsVisible          = true,
                         Sonification       = new CloudSonificationConfig(
