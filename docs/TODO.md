@@ -247,6 +247,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   flat), rises are 80% odd and falls 64% even — some per-bar counter we have not identified; 57 streak
 >   counters did not explain it. Cody: keep as is (recommended), or adopt the 4× formula in
 >   the scratchpad report `dbsi_highscores_REPORT.md` (tops out at 18, needs higher-timeframe bars)?
+>   **Round 2 (same night): still no exact decode; provider unchanged.** Data grew to 20 charts / 897
+>   values / 84 at 17+ (Bitfinex XRP 7 timeframes, Bybit ETH, Coinbase BTC 4h HA; all from public vendor
+>   videos). On the 14 new charts the shipped model scores 14.5% exact, RMSE 4.0, side in control 93.6%.
+>   Every family tried tops out near 20% exact held-out, including a gradient-boosting ceiling (~160
+>   variants). New facts: −5 is a real zero (when one side prints −5 the other prints ≥11, 146/146); every
+>   +1 step from 8 or more happens during that side's "close beyond close[2]" run (72/72), but adding the
+>   run as a term does not help. Vendor transcript: "36 separate indications that are percentage weighed".
+>   **What would settle it:** ~300–500 consecutive bars of both numbers written down from TradingView Bar
+>   Replay by someone with a DBSI subscription.
 >
 > **Open questions — formations and Spider Lines:**
 > - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative
