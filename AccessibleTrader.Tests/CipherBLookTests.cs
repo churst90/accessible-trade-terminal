@@ -1,0 +1,340 @@
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Audio;
+using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Core.Services.Rendering;
+using AccessibleTrader.Core.Services.Theming;
+using AccessibleTrader.Sdk.Analysis;
+using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Logging;
+using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Theming;
+using AccessibleTrader.Tests.Mocks;
+using Microsoft.Extensions.Logging.Abstractions;
+using Newtonsoft.Json.Linq;
+using NSubstitute;
+using SkiaSharp;
+
+namespace AccessibleTrader.Tests;
+
+/// <summary>
+/// <b>Cipher B drawn the way Market Cipher B draws it (2026-10-17).</b>
+///
+/// <para>Measured from real MCB images: the vendor's product image on marketciphertrading.com and
+/// TradingView idea vBzsjpDu, whose status line reads "MarketCipher B (2.2.6, 60, 60, 53, -60,
+/// -53)". MCB paints, bottom to top: an OPAQUE light-blue (#90CAF9) area for the fast wave, a
+/// #0D47A1 area at ~90% for the slow wave, a yellow (#FFEB3B) VWAP area at ~73%, and a lime/red
+/// money-flow area at ~50%; a money-flow bar along the bottom; plain grey levels; a magenta "RSI"
+/// line and a green/red "Stochastic" line. Every pixel asserted here is read back from the real
+/// <see cref="ChartRenderer"/> drawing a series the real factory built from the provider's own
+/// metadata — a colour declared and never painted is the defect this repo keeps finding.</para>
+/// </summary>
+public sealed class CipherBLookTests
+{
+    private const int W = 300, H = 400, N = 30;
+
+    private static ThemeService Themes(ThemeType? type = null)
+    {
+        var settings = Substitute.For<ISettingsManager>();
+        settings.GetSetting(Arg.Any<string>(), Arg.Any<JToken?>()).Returns((JToken?)null);
+        var t = new ThemeService(settings);
+        if (type is { } tt) t.SetTheme(tt);
+        return t;
+    }
+
+    private static StylingService Styling() =>
+        new(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
+
+    /// <summary>Cipher B exactly as the factory builds it from the provider, in the main pane,
+    /// every component holding one constant value (NaN where not given), plus its levels.</summary>
+    private static ChartSeries CipherB(Dictionary<string, double> values)
+    {
+        var provider = new CipherBProvider();
+        var factory = new IndicatorModelFactory(Styling(), new MockIndicatorPreferencesService());
+        var s = factory.CreateSeriesFromMetadata(provider.GetIndicators()[0], "Cipher B", "Main",
+            new List<(string, string)>(), null);
+        foreach (var c in s.Components)
+            s.Data.ComponentData[c.Name] = Enumerable.Repeat(values.TryGetValue(c.Name, out var v) ? v : double.NaN, N).ToArray();
+        foreach (var d in provider.GetDefaultLevels("CIPHER_B"))
+            s.Levels.Add(new LevelConfig { Name = d.Name, Value = d.Value, ColorHex = d.ColorHex, DashStyle = d.Dash, IsVisible = true });
+        return s;
+    }
+
+    private static (SKBitmap Bmp, ThemeService Themes) Render(ChartSeries s, ThemeType? type = null)
+    {
+        var themes = Themes(type);
+        var renderer = new ChartRenderer(themes, Styling(), new PaneLayoutService(),
+            NullLogger<ChartRenderer>.Instance, Substitute.For<IAppLogger>());
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var bars = Enumerable.Range(0, N).Select(i => new Ohlcv(start.AddDays(i), 10, 11, 9, 10, 1)).ToList();
+        var bmp = new SKBitmap(W, H);
+        using (var canvas = new SKCanvas(bmp))
+            renderer.Render(canvas, W, H, bars, new[] { s }, cursorIndex: -1, viewportStart: 0, viewportLength: N,
+                viewportRange: (-100, 100), paneRanges: new Dictionary<string, (double, double)>(), rightMarginBars: 0);
+        return (bmp, themes);
+    }
+
+    private static int Y(double v, ThemeService t) =>
+        (int)Math.Round(ChartMath.MapY(v, 0, H - t.Current.AxisHeight, -100, 100, false));
+
+    /// <summary>The centre of the middle bar's slot (a bar boundary falls in the gap between columns).</summary>
+    private static int X(ThemeService t) => (int)((N / 2 + 0.5f) * (W - t.Current.AxisWidth) / N);
+
+    private static SKColor Over(SKColor fg, SKColor bg)
+    {
+        float a = fg.Alpha / 255f;
+        byte Mix(byte f, byte b) => (byte)Math.Round(f * a + b * (1 - a));
+        return new SKColor(Mix(fg.Red, bg.Red), Mix(fg.Green, bg.Green), Mix(fg.Blue, bg.Blue));
+    }
+
+    private static void Near(SKColor expected, SKColor actual, string what, int tol = 8) =>
+        Assert.True(Math.Abs(expected.Red - actual.Red) <= tol && Math.Abs(expected.Green - actual.Green) <= tol
+                    && Math.Abs(expected.Blue - actual.Blue) <= tol,
+            $"{what}: expected about {expected}, the pixel is {actual}.");
+
+    private static readonly SKColor Fast = SKColor.Parse("#90CAF9"), Slow = SKColor.Parse("#E60D47A1");
+    private static readonly SKColor Vwap = SKColor.Parse("#BAFFEB3B"), MfUp = SKColor.Parse("#803FFF00"), MfDown = SKColor.Parse("#80FF1100");
+
+    // ── The waves ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Inside both waves the pixel is MCB's dark-blue body (#0D47A1 at 90% over the opaque
+    /// light-blue fast wave); where the fast wave runs beyond the slow one it is the light-blue
+    /// rim. Until 2026-10-17 the waves were a white and a cyan LINE, and both points read as
+    /// background.
+    /// </summary>
+    [Fact]
+    public void The_slow_wave_is_a_dark_blue_body_over_an_opaque_light_blue_fast_wave()
+    {
+        var (bmp, t) = Render(CipherB(new() { [CipherBProvider.CompWT1] = -70, [CipherBProvider.CompWT2] = -50 }));
+        using var _ = bmp;
+        Near(Over(Slow, Fast), bmp.GetPixel(X(t), Y(-25, t)), "inside both waves");
+        Near(Fast, bmp.GetPixel(X(t), Y(-62, t)), "the fast wave's rim, beyond the slow one");
+    }
+
+    /// <summary>
+    /// MCB paints its VWAP OVER the waves and its money flow over the VWAP. Our WT Histogram (the
+    /// VWAP) is declared BEFORE the waves — a keyboard stop Cody knows — so only a draw order can
+    /// put it on top. With the histogram drawn in declared order the waves cover it and the first
+    /// point reads plain blue.
+    /// </summary>
+    [Fact]
+    public void The_vwap_is_painted_over_the_waves_and_money_flow_over_the_vwap()
+    {
+        var (bmp, t) = Render(CipherB(new()
+        {
+            [CipherBProvider.CompWT1] = -70, [CipherBProvider.CompWT2] = -60,
+            [CipherBProvider.CompWtHistogram] = -30, [CipherBProvider.CompMoneyFlowWave] = -15,
+        }));
+        using var _ = bmp;
+        var body = Over(Slow, Fast);
+        Near(Over(Vwap, body), bmp.GetPixel(X(t), Y(-22, t)), "VWAP over the waves");
+        Near(Over(MfDown, Over(Vwap, body)), bmp.GetPixel(X(t), Y(-8, t)), "money flow over the VWAP");
+    }
+
+    /// <summary>Money flow above zero is MCB's lime at 50%, painted as an area.</summary>
+    [Fact]
+    public void Money_flow_is_a_half_transparent_area()
+    {
+        var (bmp, t) = Render(CipherB(new() { [CipherBProvider.CompMoneyFlowWave] = 30 }));
+        using var _ = bmp;
+        var bg = t.Current.Background;
+        Near(Over(MfUp, bg), bmp.GetPixel(X(t), Y(15, t)), "money flow above zero");
+        // Between two bars' slots, where a column chart leaves a gap: an area has none.
+        int gap = (int)Math.Round((N / 2) * (W - t.Current.AxisWidth) / (double)N);
+        Near(Over(MfUp, bg), bmp.GetPixel(gap, Y(15, t)), "money flow between two bars (an area, not columns)");
+    }
+
+    /// <summary>
+    /// The keyboard order did not move: every component Cipher B had before 2026-10-17 is still
+    /// declared in the same order, and the two new lines come LAST. Only the paint order changed.
+    /// </summary>
+    [Fact]
+    public void Keyboard_order_is_unchanged_and_the_new_lines_come_last()
+    {
+        var names = new CipherBProvider().GetIndicators()[0].Components.Select(c => c.Name).ToList();
+        string[] before =
+        {
+            "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
+            "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Adaptive OB", "Adaptive OS", "Anchor Polarity",
+            "Oversold Crossover", "Overbought Crossover", "Triple Confluence Buy", "Bullish Divergence",
+            "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation",
+        };
+        Assert.Equal(before.Concat(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch }), names);
+    }
+
+    // ── The money-flow bar ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// MCB's money-flow bar along the bottom: green while money flow is positive, maroon while
+    /// negative (#4D = 30%, solved from MCB's composites). Before 2026-10-17 the bottom of the pane
+    /// was the green "OS Zone" shading whatever money flow did.
+    /// </summary>
+    [Theory]
+    [InlineData(25.0)]
+    [InlineData(-25.0)]
+    public void The_money_flow_bar_follows_money_flows_sign(double mf)
+    {
+        var (bmp, t) = Render(CipherB(new() { [CipherBProvider.CompMoneyFlowWave] = mf }));
+        using var _ = bmp;
+        var bg = t.Current.Background;
+        var expected = Over(mf > 0 ? SKColor.Parse("#4D3FFF00") : SKColor.Parse("#4DFF1100"), bg);
+        Near(expected, bmp.GetPixel(X(t), Y(-95, t)), $"money-flow bar with money flow at {mf}", 6);
+    }
+
+    // ── Levels ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Plain neutral lines, solid at ±60 and zero and dotted at ±53, as MCB draws them; until
+    /// 2026-10-17 they were red and green. What Cody HEARS from them — names, values, earcons and
+    /// zone noise — is pinned to what it was.
+    /// </summary>
+    [Fact]
+    public void Levels_are_plain_grey_lines_and_sound_as_they_did()
+    {
+        var levels = new CipherBProvider().GetDefaultLevels("CIPHER_B").ToDictionary(l => l.Name);
+        // The literal, not the provider's constant — a test that compares the constant with
+        // itself passes whatever the constant says.
+        Assert.All(levels.Values, l => Assert.Equal("#8C8C96", l.ColorHex));
+        Assert.Equal(DashStyle.Solid, levels["Extreme OB"].Dash);
+        Assert.Equal(DashStyle.Solid, levels["Extreme OS"].Dash);
+        Assert.Equal(DashStyle.Solid, levels["Zero"].Dash);
+        Assert.Equal(DashStyle.Dot, levels["Overbought"].Dash);
+        Assert.Equal(DashStyle.Dot, levels["Oversold"].Dash);
+
+        (string Name, double Value, float Vol, float Noise)[] heard =
+        {
+            ("Extreme OB", 60, 0.8f, 0.20f), ("Overbought", 53, 0.6f, 0.10f), ("Zero", 0, 0.7f, 0f),
+            ("Oversold", -53, 0.6f, 0.10f), ("Extreme OS", -60, 0.8f, 0.20f),
+        };
+        foreach (var (name, value, vol, noise) in heard)
+        {
+            var l = levels[name];
+            Assert.Equal(value, l.Value); Assert.True(l.PlayEarcon); Assert.Equal(vol, l.EarconVolume); Assert.Equal(noise, l.ZoneNoiseAmount);
+        }
+    }
+
+    // ── The two stochastic lines ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// MCB's Stochastic line is red while above its RSI line and green while at or below it (397 of
+    /// 397 digitised bars). Read in the drawn pixels and in the status line's reading colour.
+    /// </summary>
+    [Theory]
+    [InlineData(70.0, "#FF1100")]
+    [InlineData(20.0, "#3FFF00")]
+    public void The_stochastic_is_red_above_the_rsi_line_and_green_below(double stoch, string hex)
+    {
+        var s = CipherB(new() { [CipherBProvider.CompMcbRsi] = 40, [CipherBProvider.CompMcbStoch] = stoch });
+        var (bmp, t) = Render(s);
+        using var _ = bmp;
+        Near(SKColor.Parse(hex), bmp.GetPixel(X(t), Y(stoch, t)), $"the Stochastic line at {stoch}", 20);
+
+        var comp = s.Components.Single(c => c.Name == CipherBProvider.CompMcbStoch);
+        var reading = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(stoch, s, comp, N / 2), t.Current, null);
+        Assert.Equal(SKColor.Parse(hex), reading);
+    }
+
+    /// <summary>
+    /// The two new lines add no voice: they start muted (drawn, navigable, spoken on request), and
+    /// nothing else Cipher B had is muted by default.
+    /// </summary>
+    [Fact]
+    public void Only_the_two_new_lines_start_muted()
+    {
+        var s = CipherB(new());
+        var muted = s.Components.Where(c => c.IsMuted).Select(c => c.Name).ToList();
+        Assert.Equal(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch }, muted);
+        Assert.All(s.Components.Where(c => c.Name is CipherBProvider.CompMcbRsi or CipherBProvider.CompMcbStoch),
+            c => Assert.True(c.IsVisible, $"{c.Name} is muted to be SEEN, so it must be visible"));
+    }
+
+    // ── Perceivable on every theme ────────────────────────────────────────────────
+
+    /// <summary>
+    /// The wave silhouette has to be seen on all twelve themes. On a dark theme the light-blue fast
+    /// wave carries it; on a light one the dark-blue body does — at least one of the two reaches
+    /// 3:1 everywhere. The slow wave's EDGE (#1E88E5) reaches 3:1 on every theme but SteelGray,
+    /// where it is 2.1:1 and recorded here rather than hidden; a body-coloured edge (#0D47A1)
+    /// would be under 2.5:1 on every dark theme.
+    /// </summary>
+    [Fact]
+    public void The_waves_can_be_seen_on_every_theme()
+    {
+        var meta = new CipherBProvider().GetIndicators()[0].Components;
+        var slowEdge = SKColor.Parse(meta.Single(c => c.Name == CipherBProvider.CompWT2).DefaultColorHex!);
+        foreach (var type in Enum.GetValues<ThemeType>())
+        {
+            var bg = Themes(type).Current.Background;
+            double fast = WcagContrast.Ratio(Fast, bg), body = WcagContrast.Ratio(Over(Slow, bg), bg);
+            Assert.True(Math.Max(fast, body) >= 3.0, $"{type}: neither wave reaches 3:1 (fast {fast:F1}, body {body:F1})");
+            double edge = WcagContrast.Ratio(slowEdge, bg);
+            if (type == ThemeType.SteelGray)
+                Assert.True(edge < 3.0, $"SteelGray's slow-wave edge now reaches {edge:F1}:1 — drop this exemption.");
+            else
+                Assert.True(edge >= 3.0, $"{type}: the slow wave's edge is {edge:F1}:1 against the background");
+        }
+    }
+
+    // ── The opacity gate does not move anything else ──────────────────────────────
+
+    /// <summary>
+    /// A bar colour written with 6 digits keeps the historical 180 opacity; only an 8-digit colour
+    /// says its own. No built-in bar carried an 8-digit colour before Cipher B's.
+    /// </summary>
+    [Theory]
+    [InlineData("#00FF00", 180)]
+    [InlineData("#4000FF00", 0x40)]
+    public void A_bar_is_painted_at_the_opacity_its_colour_carries_else_the_old_one(string hex, int alpha)
+    {
+        var config = new SeriesConfig { Id = "h", Name = "h", Pane = "Main", IndicatorCode = "H" };
+        config.Components.Add(new ComponentConfig { Name = "h", DisplayType = ComponentDisplayType.Histogram,
+            ColorHex = hex, ColorHexSecondary = hex, ColorSource = ColorSource.Value });
+        var s = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "h" });
+        s.Data.ComponentData["h"] = Enumerable.Repeat(50.0, N).ToArray();
+        var (bmp, t) = Render(s);
+        using var _ = bmp;
+        var bg = t.Current.Background;
+        Near(Over(SKColor.Parse(hex).WithAlpha((byte)alpha), bg), bmp.GetPixel(X(t), Y(25, t)), $"bar {hex}", 4);
+    }
+
+    // ── Saved charts ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A chart saved before 2026-10-17 carries the red "OB Zone" and green "OS Zone" shading. Zone
+    /// bands are never authored by the user, so on load a fixed band the provider no longer
+    /// declares is dropped, and the money-flow bar is added.
+    /// </summary>
+    [Fact]
+    public void A_saved_chart_loses_the_old_zone_shading_and_gains_the_money_flow_bar()
+    {
+        var meta = new CipherBProvider().GetIndicators();
+        var config = new SeriesConfig { Id = "c", Name = "Cipher B", IndicatorCode = "CIPHER_B", Pane = "Pane_CIPHER_B" };
+        config.ZoneBands.Add(new ZoneBandConfig { DisplayName = "OB Zone", ColorHex = "#40FF6666", FixedTop = 100, FixedBottom = 53 });
+        config.ZoneBands.Add(new ZoneBandConfig { DisplayName = "OS Zone", ColorHex = "#4066BB66", FixedTop = -53, FixedBottom = -100 });
+
+        WorkspaceInitializer.MigrateSeriesConfig(config, meta);
+
+        Assert.Equal(new[] { "Money Flow Bar" }, config.ZoneBands.Select(b => b.DisplayName));
+    }
+
+    // ── Narration ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// "Money flow bullish / bearish" follows money flow's sign. The thresholds were −70 / −90 from
+    /// when the wave sat at −100..−60, so any value above −70 — nearly all of them since the wave
+    /// moved to zero — read bullish, and bearish could not be reached.
+    /// </summary>
+    [Theory]
+    [InlineData(20.0, ZoneStatus.Overbought)]
+    [InlineData(-20.0, ZoneStatus.Oversold)]
+    [InlineData(1.0, ZoneStatus.Normal)]
+    public void Money_flow_narration_follows_its_sign(double mf, ZoneStatus expected)
+    {
+        var s = CipherB(new() { [CipherBProvider.CompMoneyFlowWave] = mf });
+        var ctx = new IndicatorContextAnalyzer().AnalyzeAt(s, CipherBProvider.CompMoneyFlowWave, N - 1);
+        Assert.NotNull(ctx);
+        Assert.Equal(expected, ctx!.Zone);
+    }
+}

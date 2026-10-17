@@ -88,6 +88,18 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private bool _isAreaFill = false;
         [ObservableProperty] private bool _usePolarityColoring = false;
 
+        /// <summary>Area-fill colour when it differs from the edge line's; empty = the line colour.
+        /// See <see cref="IndicatorComponentMetadata.DefaultFillColorHex"/>.</summary>
+        public string FillColorHex { get; set; } = "";
+
+        /// <summary>Paint order within the series (lower first). Drawing only — never navigation
+        /// order. See <see cref="IndicatorComponentMetadata.DefaultDrawOrder"/>.</summary>
+        public int DrawOrder { get; set; }
+
+        /// <summary>Name of the sibling component this line's two colours compare against; empty =
+        /// not used. See <see cref="IndicatorComponentMetadata.DefaultColorAboveComponent"/>.</summary>
+        public string ColorAboveComponent { get; set; } = "";
+
         /// <summary>
         /// Denominator used when <see cref="AmplitudeMapping.ReferenceDeviation"/> is active.
         /// Overrides the viewport-derived max deviation so components with a compressed value
@@ -237,6 +249,7 @@ namespace AccessibleTrader.Sdk.Models
                 IsMuted = IsMuted, IsVisible = IsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
+                FillColorHex = FillColorHex, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
                 UpperComponentName = UpperComponentName, LowerComponentName = LowerComponentName,
                 NoiseAmount = NoiseAmount,
                 ColorBaseline = ColorBaseline,

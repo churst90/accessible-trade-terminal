@@ -75,12 +75,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             });
             // (The "Trigger Wave" definition that sat here named a component Cipher B does not
             // have — see the note above.)
-            // Money Flow Wave: raw values −100..−60, neutral at −80.
-            // OB = −70 (>50% buying pressure), OS = −90 (>50% selling pressure).
+            // Money Flow Wave: zero-centred (positive = money flowing in), about ±40 on a daily
+            // chart. These thresholds were −70 / −90 — written when the wave sat at −100..−60 with
+            // its neutral at −80 — and outlived the move to zero: every value above −70 read
+            // "bullish", so "Money flow bullish" was the state almost all the time and "bearish"
+            // could not be reached. A ±5 band around zero gives a neutral state that is not a
+            // single value and keeps the bullish/bearish calls on the wave's real sign changes.
             RegisterDefinition(new IndicatorContextDefinition
             {
                 IndicatorCode = "CIPHER_B", ComponentName = "Money Flow Wave",
-                OverboughtThreshold = -70, OversoldThreshold = -90,
+                OverboughtThreshold = 5, OversoldThreshold = -5,
                 TrendLookbackBars = 3,
                 SpeechTemplate = "{value:F1}"
             });

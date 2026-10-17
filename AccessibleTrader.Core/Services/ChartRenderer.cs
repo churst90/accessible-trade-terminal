@@ -1033,6 +1033,11 @@ namespace AccessibleTrader.Core.Services
                 return (isUp ? up : down).WithAlpha(255);
             }
 
+            // A line coloured against a sibling (Cipher B's Stochastic, red above its RSI line)
+            // reads in the colour its line is drawn in at this bar.
+            if (StandardRenderers.ColorAgainstSibling(comp, r.Series, r.AbsIndex, r.Value) is { } sibling)
+                return sibling.WithAlpha(255);
+
             if (!SKColor.TryParse(comp.ColorHex, out var color)) color = SKColors.White;
             if (StandardRenderers.WantsPolaritySplit(comp))
                 color = StandardRenderers.PolarityColor(comp, r.Value, color);

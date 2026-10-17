@@ -93,8 +93,9 @@ public sealed class CipherBPaletteTests
     public void The_wt_histogram_is_mcb_vwap_yellow_on_both_sides_of_zero()
     {
         var hist = CipherB().Components.Single(c => c.Name == CipherBProvider.CompWtHistogram);
-        Assert.Equal(SKColor.Parse("#FFEB3B"), SKColor.Parse(hist.ColorHex));
-        Assert.Equal(SKColor.Parse("#FFEB3B"), SKColor.Parse(hist.ColorHexSecondary));
+        // At MCB's ~73% opacity since 2026-10-17 (#BA = 186): the colour is compared opaque.
+        Assert.Equal(SKColor.Parse("#FFEB3B"), SKColor.Parse(hist.ColorHex).WithAlpha(255));
+        Assert.Equal(SKColor.Parse("#FFEB3B"), SKColor.Parse(hist.ColorHexSecondary).WithAlpha(255));
     }
 
     /// <summary>MCB's money flow: lime above zero, red below (composite-solved, see the provider).</summary>
@@ -102,8 +103,9 @@ public sealed class CipherBPaletteTests
     public void Money_flow_is_mcb_lime_and_red()
     {
         var mf = CipherB().Components.Single(c => c.Name == CipherBProvider.CompMoneyFlowWave);
-        Assert.Equal(SKColor.Parse("#3FFF00"), SKColor.Parse(mf.ColorHex));
-        Assert.Equal(SKColor.Parse("#FF1100"), SKColor.Parse(mf.ColorHexSecondary));
+        // At MCB's ~50% opacity since 2026-10-17 (#80): the colour is compared opaque.
+        Assert.Equal(SKColor.Parse("#3FFF00"), SKColor.Parse(mf.ColorHex).WithAlpha(255));
+        Assert.Equal(SKColor.Parse("#FF1100"), SKColor.Parse(mf.ColorHexSecondary).WithAlpha(255));
     }
 
     /// <summary>

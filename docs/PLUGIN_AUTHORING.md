@@ -885,11 +885,12 @@ public List<LevelDescriptor> GetDefaultLevels(string code)
     if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase)) return new();
     return new()
     {
-        new("Extreme OB",  60.0, "#FF2222", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
-        new("Overbought",  53.0, "#FF6666", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
-        new("Zero",         0.0, "#666666", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
-        new("Oversold",   -53.0, "#66BB66", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
-        new("Extreme OS", -60.0, "#22FF22", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+        // Market Cipher B's plain neutral levels: solid at ±60 and zero, dotted at ±53.
+        new("Extreme OB",  60.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+        new("Overbought",  53.0, "#8C8C96", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
+        new("Zero",         0.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
+        new("Oversold",   -53.0, "#8C8C96", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
+        new("Extreme OS", -60.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
     };
 }
 ```

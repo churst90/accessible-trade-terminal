@@ -461,6 +461,9 @@ public sealed class DeclaredKnobObservabilityTests
             return prop.Name switch
             {
                 "ColorHex" or "ColorHexSecondary" => s == "#FF00FF" ? "#00FFFF" : "#FF00FF",
+                // A parseable colour: an unparseable one falls back to the line colour, which
+                // reads as "nothing observed it".
+                "FillColorHex" => s == "#80FF00FF" ? "#8000FFFF" : "#80FF00FF",
                 "Waveform" or "AboveReferenceWaveform" or "BelowReferenceWaveform"
                     => s == "square" ? "triangle" : "square",
                 "EnvelopeType" => s == "Ping" ? "Sustain" : "Ping",
@@ -513,6 +516,8 @@ public sealed class DeclaredKnobObservabilityTests
         ComponentDisplayType.Candle,
         ComponentDisplayType.Line,
         ComponentDisplayType.Oscillator,
+        // Area, because FillColorHex is read only where a line is filled (StandardRenderers.IsFilled).
+        ComponentDisplayType.Area,
         ComponentDisplayType.Histogram,
         ComponentDisplayType.ZeroArea,
         ComponentDisplayType.Dot,

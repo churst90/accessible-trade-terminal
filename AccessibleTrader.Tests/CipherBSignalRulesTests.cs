@@ -63,7 +63,11 @@ public sealed class CipherBSignalRulesTests
     /// </summary>
     private static Dictionary<string, object> Params(params (string Key, object Value)[] overrides)
     {
-        var p = new Dictionary<string, object> { ["TfAware"] = false };
+        // BuyDotMode = Gated: these tests are about the confirmed / cooled-down / anchor-gated
+        // oversold crossover. Since 2026-10-17 the DEFAULT blue (now green) dot is Market Cipher
+        // B's plain rule instead — see CipherBLookTests — and the gated rule is an option (and
+        // still the gold dot's base in both modes).
+        var p = new Dictionary<string, object> { ["TfAware"] = false, ["BuyDotMode"] = "Gated" };
         foreach (var (k, v) in overrides) p[k] = v;
         return p;
     }

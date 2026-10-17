@@ -223,6 +223,53 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static bool WantsPolaritySplit(ComponentConfig comp) =>
             comp.UsePolarityColoring && !string.IsNullOrEmpty(comp.ColorHexSecondary);
 
+        /// <summary>
+        /// The opacity a fill or a bar is painted at: the one an 8-digit <c>#AARRGGBB</c> colour
+        /// carries, or <paramref name="legacy"/> for a 6-digit one.
+        ///
+        /// <para>
+        /// Bars were always painted at 180 and line fills at 60, whatever the colour said. That
+        /// made Market Cipher B's look impossible to draw: its fast wave is an OPAQUE area, its
+        /// slow wave a ~90% one, its VWAP ~73% and its money flow ~50% (solved from MCB
+        /// screenshots, see CipherBProvider). The rule is the one zone bands already follow
+        /// (<see cref="RenderZoneBand"/>): a colour written with an alpha means that alpha. No
+        /// built-in bar, histogram or filled line carried an 8-digit colour before 2026-10-17, so
+        /// nothing else changes.
+        /// </para>
+        /// </summary>
+        internal static byte HexAlpha(string? hex, byte legacy) =>
+            hex is { Length: 9 } && hex[0] == '#' && SKColor.TryParse(hex, out var c) ? c.Alpha : legacy;
+
+        /// <summary>
+        /// The colour an area under a line is filled with: <see cref="ComponentConfig.FillColorHex"/>
+        /// when the component names one, else the line's colour; at the opacity that colour carries
+        /// (<see cref="HexAlpha"/>), or the historical 60 for a 6-digit colour.
+        /// </summary>
+        internal static SKColor FillColor(ComponentConfig comp, SKColor lineColor)
+        {
+            if (!string.IsNullOrEmpty(comp.FillColorHex) && SKColor.TryParse(comp.FillColorHex, out var fill))
+                return fill.WithAlpha(HexAlpha(comp.FillColorHex, 60));
+            return lineColor.WithAlpha(HexAlpha(comp.ColorHex, 60));
+        }
+
+        /// <summary>
+        /// The colour of a line coloured against a SIBLING component
+        /// (<see cref="ComponentConfig.ColorAboveComponent"/>): the secondary colour where this value
+        /// is above the sibling's at the same bar, the primary at or below it. Null when the
+        /// component is not coloured that way or either value is missing.
+        ///
+        /// <para>Market Cipher B's slow stochastic line is red while it is above the fast one and
+        /// green while below — 397 of 397 digitised bars of a "MarketCipher B (2.2.6, …)" chart.</para>
+        /// </summary>
+        internal static SKColor? ColorAgainstSibling(ComponentConfig comp, ChartSeries series, int dataIdx, double value)
+        {
+            if (string.IsNullOrEmpty(comp.ColorAboveComponent)) return null;
+            var other = series.GetComponentData(comp.ColorAboveComponent);
+            if (other == null || dataIdx < 0 || dataIdx >= other.Length || double.IsNaN(other[dataIdx]) || double.IsNaN(value)) return null;
+            string hex = value > other[dataIdx] ? comp.ColorHexSecondary : comp.ColorHex;
+            return SKColor.TryParse(hex, out var c) ? c : null;
+        }
+
         /// <summary>The colour a polarity-split component takes at <paramref name="value"/>.</summary>
         internal static SKColor PolarityColor(ComponentConfig comp, double value, SKColor above)
         {
@@ -265,6 +312,12 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // A two-colour component is drawn segment by segment so the colour can change at the
             // baseline. Explicit ColorRules already take that path below and win over this.
+            if (!hasColorRules && !string.IsNullOrEmpty(comp.ColorAboveComponent))
+            {
+                RenderSiblingColouredLine(ctx, series, comp, paint, lineData, barWidth, halfBar);
+                return;
+            }
+
             if (!hasColorRules && WantsPolaritySplit(comp))
             {
                 RenderPolarityLine(ctx, series, comp, paint, lineData, barWidth, halfBar);
@@ -333,7 +386,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 path.Close();
 
                 SKColor lineColor = paint.Color;
-                using var fillPaint = new SKPaint { Color = lineColor.WithAlpha(60), Style = SKPaintStyle.Fill };
+                using var fillPaint = new SKPaint { Color = FillColor(comp, lineColor), Style = SKPaintStyle.Fill, IsAntialias = true };
                 ctx.Canvas.DrawPath(path, fillPaint);
 
                 // Re-draw the line on top of the fill
@@ -355,6 +408,51 @@ namespace AccessibleTrader.Core.Services.Rendering
             else
             {
                 ctx.Canvas.DrawPath(path, paint);
+            }
+        }
+
+        /// <summary>
+        /// A line in two colours chosen bar by bar against a sibling component
+        /// (<see cref="ColorAgainstSibling"/>), split where the two lines cross so the colour
+        /// changes at the crossing rather than at the next bar.
+        /// </summary>
+        private static void RenderSiblingColouredLine(RenderContext ctx, ChartSeries series, ComponentConfig comp,
+            SKPaint paint, double[] lineData, float barWidth, float halfBar)
+        {
+            var other = series.GetComponentData(comp.ColorAboveComponent);
+            SKColor below = paint.Color;
+            SKColor above = SKColor.TryParse(comp.ColorHexSecondary, out var a) ? a : below;
+            float width = paint.StrokeWidth <= 0 ? Math.Max(1f, comp.Thickness) * ctx.Density : paint.StrokeWidth;
+
+            float? px = null, py = null; double pv = double.NaN, po = double.NaN;
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= lineData.Length) break;
+                double v = lineData[dataIdx];
+                double o = other != null && dataIdx < other.Length ? other[dataIdx] : double.NaN;
+                if (double.IsNaN(v)) { px = null; py = null; pv = double.NaN; continue; }
+                float x = (i * barWidth) + halfBar;
+                float y = ResolveMarkerY(ctx, comp, i, v);
+                if (px.HasValue)
+                {
+                    double d0 = pv - po, d1 = v - o;
+                    if (!double.IsNaN(d0) && !double.IsNaN(d1) && (d0 > 0) != (d1 > 0) && d0 != d1)
+                    {
+                        double t = d0 / (d0 - d1);
+                        float xc = px.Value + (float)((x - px.Value) * t), yc = py!.Value + (float)((y - py.Value) * t);
+                        Seg(px.Value, py.Value, xc, yc, d0 > 0 ? above : below);
+                        Seg(xc, yc, x, y, d1 > 0 ? above : below);
+                    }
+                    else Seg(px.Value, py!.Value, x, y, !double.IsNaN(d1) && d1 > 0 ? above : below);
+                }
+                px = x; py = y; pv = v; po = o;
+            }
+
+            void Seg(float x0, float y0, float x1, float y1, SKColor c)
+            {
+                using var stroke = new SKPaint { Color = c, Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeWidth = width, StrokeCap = SKStrokeCap.Round };
+                ctx.Canvas.DrawLine(x0, y0, x1, y1, stroke);
             }
         }
 
@@ -510,15 +608,29 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // Shared with the legend and the crosshair badge — see DirectionalBarColors.
             var (upColor, downColor) = DirectionalBarColors(ctx.Theme, comp);
+            // The opacity the colour carries (8-digit #AARRGGBB), else the historical 180.
+            upColor   = upColor.WithAlpha(HexAlpha(comp.ColorHex, 180));
+            downColor = downColor.WithAlpha(HexAlpha(comp.ColorHexSecondary, 180));
             using var upPaint = SKPaintPool.Rent();
-            upPaint.Paint.Color = upColor.WithAlpha(180);
+            upPaint.Paint.Color = upColor;
             upPaint.Paint.Style = SKPaintStyle.Fill;
             using var downPaint = SKPaintPool.Rent();
-            downPaint.Paint.Color = downColor.WithAlpha(180);
+            downPaint.Paint.Color = downColor;
             downPaint.Paint.Style = SKPaintStyle.Fill;
 
             bool useCandleDirection = comp.ColorSource == ColorSource.PriceAction;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;
+
+            // A histogram that asks for a fill (IsAreaFill) is drawn as an AREA from its baseline:
+            // the shape Market Cipher B gives its VWAP and money flow. Only value-coloured bars
+            // without colour rules — a candle-direction or rule colour changes per bar and has no
+            // edge to fill between. The display type, and with it the sonification profile, stays
+            // Histogram.
+            if (comp.IsAreaFill && !useCandleDirection && !hasColorRules)
+            {
+                RenderHistogramArea(ctx, comp, barData, upColor, downColor);
+                return;
+            }
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -570,6 +682,55 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                 if (ruleRented) ruleLease.Dispose();
             }
+        }
+
+        /// <summary>
+        /// A value-coloured histogram drawn as a filled area from its baseline (the component's
+        /// <see cref="ComponentConfig.ReferenceLevel"/>, else 0): one polygon per run on one side of
+        /// <see cref="ComponentConfig.ColorBaseline"/>, split where the value crosses it, so the
+        /// colour changes exactly at the crossing.
+        /// </summary>
+        private static void RenderHistogramArea(RenderContext ctx, ComponentConfig comp, double[] data, SKColor up, SKColor down)
+        {
+            float barWidth = ctx.Width / ctx.ViewportLength, halfBar = barWidth / 2f;
+            double baseValue = comp.ReferenceLevel ?? 0.0, split = comp.ColorBaseline;
+            float yBase = Math.Clamp(ChartMath.MapY(baseValue, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale), ctx.Top, ctx.Bottom);
+            using var upPaint = new SKPaint { Color = up, Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var downPaint = new SKPaint { Color = down, Style = SKPaintStyle.Fill, IsAntialias = true };
+
+            SKPath? path = null; bool runUp = false;
+            void Close(float x)
+            {
+                if (path == null) return;
+                path.LineTo(x, yBase); path.Close();
+                ctx.Canvas.DrawPath(path, runUp ? upPaint : downPaint);
+                path.Dispose(); path = null;
+            }
+            void Open(float x, float y, bool isUp) { path = new SKPath(); path.MoveTo(x, yBase); path.LineTo(x, y); runUp = isUp; }
+
+            float? px = null; double pv = double.NaN;
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= data.Length) break;
+                double v = data[dataIdx];
+                if (double.IsNaN(v)) { if (px.HasValue) Close(px.Value); px = null; pv = double.NaN; continue; }
+                float x = (i * barWidth) + halfBar;
+                float y = ChartMath.MapY(v, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                bool isUp = v >= split;
+                if (!px.HasValue) Open(x, y, isUp);
+                else if (isUp != runUp && pv != v)
+                {
+                    double t = (split - pv) / (v - pv);
+                    float xc = px.Value + (float)((x - px.Value) * t);
+                    float yc = ChartMath.MapY(split, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    path!.LineTo(xc, yc); Close(xc);
+                    Open(xc, yc, isUp); path!.LineTo(x, y);
+                }
+                else path!.LineTo(x, y);
+                px = x; pv = v;
+            }
+            if (px.HasValue) Close(px.Value);
         }
 
         // ── New display type renderers (Phase 10-A) ───────────────────────────
@@ -1258,6 +1419,37 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// - Fixed: band spans the full viewport between <see cref="ZoneBandConfig.FixedTop"/>
         ///   and <see cref="ZoneBandConfig.FixedBottom"/> in pane coordinates (OB/OS zones).
         /// </summary>
+        /// <summary>
+        /// A fixed band coloured bar by bar by the SIGN of a component
+        /// (<see cref="ZoneBandConfig.SignComponentName"/>): Market Cipher B's money-flow bar, a
+        /// strip along the bottom of the pane that is green while money flow is positive and
+        /// maroon while it is negative. Adjacent bars of one colour are merged into one rectangle
+        /// so there are no hairline seams.
+        /// </summary>
+        private static void RenderSignBand(RenderContext ctx, ChartSeries series, ZoneBandConfig band, float yTop, float yBottom, SKPaint positive)
+        {
+            var data = series.GetComponentData(band.SignComponentName);
+            if (data == null || data.Length == 0) return;
+            SKColor.TryParse(band.NegativeColorHex, out var neg);
+            using var negative = new SKPaint { Color = neg.WithAlpha(HexAlpha(band.NegativeColorHex, 50)), Style = SKPaintStyle.Fill };
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            int runStart = -1, runSign = 0;
+            void Flush(int end)
+            {
+                if (runStart < 0 || runSign == 0 || end < runStart) return;
+                ctx.Canvas.DrawRect(SKRect.Create(runStart * barWidth, yTop, (end - runStart + 1) * barWidth, yBottom - yTop),
+                    runSign > 0 ? positive : negative);
+            }
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                double v = dataIdx < data.Length ? data[dataIdx] : double.NaN;
+                int sign = double.IsNaN(v) ? 0 : (v >= 0 ? 1 : -1);
+                if (sign != runSign) { Flush(i - 1); runStart = i; runSign = sign; }
+            }
+            Flush(ctx.ViewportLength - 1);
+        }
+
         public static void RenderZoneBand(RenderContext ctx, ChartSeries series, ZoneBandConfig band)
         {
             SKColor.TryParse(band.ColorHex, out var color);
@@ -1269,6 +1461,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float yTop    = ChartMath.MapY(band.FixedTop,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                 float yBottom = ChartMath.MapY(band.FixedBottom, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                 if (yTop > yBottom) (yTop, yBottom) = (yBottom, yTop);
+                if (!string.IsNullOrEmpty(band.SignComponentName))
+                {
+                    RenderSignBand(ctx, series, band, yTop, yBottom, paint);
+                    return;
+                }
                 ctx.Canvas.DrawRect(SKRect.Create(0f, yTop, ctx.Width, yBottom - yTop), paint);
                 return;
             }

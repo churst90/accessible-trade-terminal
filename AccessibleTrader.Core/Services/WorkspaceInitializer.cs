@@ -718,11 +718,22 @@ namespace AccessibleTrader.Core.Services
                     config.CloudFills.Add(fill.Clone());
             }
 
-            // Merge missing zone bands from current metadata defaults.
+            // A FIXED zone band (one with a top and a bottom) is never authored by the user — only
+            // a provider declares one, and the user can only hide it. So a saved fixed band the
+            // provider no longer declares is a stale default, and it goes: Cipher B's coloured
+            // "OB Zone" / "OS Zone" were retired on 2026-10-17 (Market Cipher B draws plain level
+            // lines), and without this every saved chart kept painting them.
+            config.ZoneBands.RemoveAll(b => b.IsFixedMode && !meta.DefaultZoneBands.Any(d =>
+                d.IsFixedMode && d.DisplayName.Equals(b.DisplayName, StringComparison.OrdinalIgnoreCase)));
+
+            // Merge missing zone bands from current metadata defaults. Matched on the component
+            // AND the name: every fixed band has an empty ComponentName, so matching on that alone
+            // let the first saved fixed band stand in for every new one.
             foreach (var band in meta.DefaultZoneBands)
             {
                 bool exists = config.ZoneBands.Any(b =>
-                    b.ComponentName.Equals(band.ComponentName, StringComparison.OrdinalIgnoreCase));
+                    b.ComponentName.Equals(band.ComponentName, StringComparison.OrdinalIgnoreCase) &&
+                    b.DisplayName.Equals(band.DisplayName, StringComparison.OrdinalIgnoreCase));
                 if (!exists)
                     config.ZoneBands.Add(band.Clone());
             }

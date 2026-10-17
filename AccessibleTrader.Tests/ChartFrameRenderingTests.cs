@@ -338,8 +338,13 @@ public sealed class ChartFrameRenderingTests
             foreach (var c in series.Components)
                 if (c.IsAreaFill) filled.Add($"{meta.Code}.{c.Name}");
         }
-        Assert.True(filled.Count == 0,
-            "a fill is opt-in and nothing has opted in yet:\n  " + string.Join("\n  ", filled));
+        // Cipher B opted in on 2026-10-17: Market Cipher B draws its two waves, its VWAP and its
+        // money flow as filled areas (CipherBLookTests). Nothing else has.
+        var optedIn = new[] { "CIPHER_B.WT Histogram", "CIPHER_B.Wave Trend", "CIPHER_B.Wave Trend 2", "CIPHER_B.Money Flow Wave" };
+        var unexpected = filled.Except(optedIn).ToList();
+        Assert.True(unexpected.Count == 0,
+            "a fill is opt-in and only Cipher B's MCB areas have opted in:\n  " + string.Join("\n  ", unexpected));
+        Assert.True(optedIn.All(filled.Contains), "Cipher B's MCB areas are no longer filled — this list is stale.");
     }
 
     // ── A two-colour line reads its own declaration ──────────────────────────

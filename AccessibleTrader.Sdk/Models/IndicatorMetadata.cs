@@ -204,6 +204,36 @@ namespace AccessibleTrader.Sdk.Models
         public bool? DefaultUsePolarityColoring { get; set; }
 
         /// <summary>
+        /// The colour an area fill is painted in, when it differs from the line drawn along its
+        /// edge. Null = the line's own colour. An 8-digit #AARRGGBB value carries its opacity and
+        /// that opacity is used as-is (see <c>StandardRenderers.FillColor</c>).
+        /// </summary>
+        public string? DefaultFillColorHex { get; set; }
+
+        /// <summary>
+        /// Paint order within the series: lower draws first. Null = 0. Only the DRAWING order —
+        /// components keep their declared order everywhere else (keyboard navigation, speech,
+        /// sonification, the status line). Lets an indicator put a wave behind a histogram it
+        /// declares first without moving a navigation stop.
+        /// </summary>
+        public int? DefaultDrawOrder { get; set; }
+
+        /// <summary>
+        /// Whether the component starts muted (drawn, navigable and spoken on request, but not
+        /// sonified and not auto-narrated). Null = false. For plots added to match a reference look
+        /// that should not add a voice the user did not ask for.
+        /// </summary>
+        public bool? DefaultIsMuted { get; set; }
+
+        /// <summary>
+        /// A two-colour line coloured by its relation to ANOTHER component of the same series
+        /// instead of to a constant: <see cref="DefaultColorHex"/> where this value is at or below
+        /// the named component's value, <see cref="DefaultColorHexSecondary"/> where it is above.
+        /// Null = not used.
+        /// </summary>
+        public string? DefaultColorAboveComponent { get; set; }
+
+        /// <summary>
         /// Per-bar conditional color rules. Applied in order — first matching rule wins.
         /// Null or empty = no conditional coloring (use DefaultColorHex for all bars).
         /// When set, these rules are copied into <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.ColorRules"/>

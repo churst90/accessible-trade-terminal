@@ -33,6 +33,16 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Label shown in Properties → Levels (moved off Appearance 2026-09-12).</summary>
         public string DisplayName { get; set; } = "";
 
+        /// <summary>
+        /// Fixed mode only: name of a component whose SIGN colours the band bar by bar —
+        /// <see cref="ColorHex"/> where it is at or above zero, <see cref="NegativeColorHex"/>
+        /// below, nothing where it has no value. Empty = one colour across the whole band.
+        /// Cipher B's Money Flow bar (a strip along the bottom of the pane, as Market Cipher B draws it).
+        /// </summary>
+        public string SignComponentName { get; set; } = "";
+        /// <summary>Colour for bars where <see cref="SignComponentName"/> is negative.</summary>
+        public string NegativeColorHex { get; set; } = "";
+
         /// <summary>True when both <see cref="FixedTop"/> and <see cref="FixedBottom"/> are set to real values.</summary>
         public bool IsFixedMode =>
             !double.IsNaN(FixedTop) && !double.IsNaN(FixedBottom);
@@ -46,6 +56,8 @@ namespace AccessibleTrader.Sdk.Models
             FixedBottom   = FixedBottom,
             IsVisible     = IsVisible,
             DisplayName   = DisplayName,
+            SignComponentName = SignComponentName,
+            NegativeColorHex  = NegativeColorHex,
         };
     }
 }

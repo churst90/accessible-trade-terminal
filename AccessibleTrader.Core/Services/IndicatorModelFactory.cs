@@ -382,6 +382,10 @@ namespace AccessibleTrader.Core.Services
                 // answer of "true for every Oscillator", which nothing read — see
                 // StandardRenderers.IsFilled for the whole account.
                 IsAreaFill         = meta.DefaultIsAreaFill ?? false,
+                FillColorHex       = meta.DefaultFillColorHex ?? string.Empty,
+                DrawOrder          = meta.DefaultDrawOrder ?? 0,
+                ColorAboveComponent = meta.DefaultColorAboveComponent ?? string.Empty,
+                IsMuted            = meta.DefaultIsMuted ?? false,
                 UsePolarityColoring = meta.DefaultUsePolarityColoring ?? _stylingService.GetUsePolarityColoring(indicatorCode, meta.Name, type),
 
                 // Bell synthesis hints — provider metadata Layer 1; overridden by user edit (DecayMs on ComponentConfig).

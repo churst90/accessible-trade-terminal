@@ -85,7 +85,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 }
 
                 // 2. STANDARD COMPONENTS
-                foreach (var comp in s.Components)
+                // Painted in DrawOrder (stable: ties keep the declared order). The declared order
+                // is the keyboard's and the speech's; DrawOrder only moves what is painted over
+                // what. Cipher B declares its WT Histogram before the waves (a navigation stop Cody
+                // knows) but Market Cipher B paints that "VWAP" area OVER the waves.
+                foreach (var comp in InDrawOrder(s.Components))
                 {
                     if (!comp.IsVisible || comp.IsEnabled == false) continue;
 
@@ -195,6 +199,17 @@ namespace AccessibleTrader.Core.Services.Rendering
                     pathEffect?.Dispose();
                 }
             }
+        }
+
+        /// <summary>The components in paint order: ascending <see cref="ComponentConfig.DrawOrder"/>,
+        /// declared order within a tie. Every component has DrawOrder 0 unless its provider says
+        /// otherwise, so for everything else this IS the declared order.</summary>
+        internal static IEnumerable<ComponentConfig> InDrawOrder(IReadOnlyList<ComponentConfig> components)
+        {
+            bool any = false;
+            for (int i = 0; i < components.Count; i++) if (components[i].DrawOrder != 0) { any = true; break; }
+            if (!any) return components;
+            return components.Select((c, i) => (c, i)).OrderBy(t => t.c.DrawOrder).ThenBy(t => t.i).Select(t => t.c);
         }
     }
 }
