@@ -422,7 +422,7 @@ public sealed class CipherBSignalRulesTests
         var r = Run(flavour, Params(("ConfirmBars", ConfirmBars)));
 
         var wt1 = Series(r, CipherBProvider.CompWT1);
-        var os = Series(r, CipherBProvider.CompAdaptiveOs);
+        var os = Series(r, CipherBProvider.ThresholdOsKey);
         var blue = FiredBars(r, CipherBProvider.CompBlue);
 
         Assert.True(blue.Count > 0, $"no blue dots on series {flavour} — this proves nothing");
@@ -486,8 +486,8 @@ public sealed class CipherBSignalRulesTests
             ("MinThresholdFloor", Floor),
             ("AdaptiveLookback", 200)));
 
-        var ob = Series(r, CipherBProvider.CompAdaptiveOb);
-        var os = Series(r, CipherBProvider.CompAdaptiveOs);
+        var ob = Series(r, CipherBProvider.ThresholdObKey);
+        var os = Series(r, CipherBProvider.ThresholdOsKey);
         Assert.NotEmpty(ob);
 
         var obInside = Enumerable.Range(0, ob.Length).Where(i => !double.IsNaN(ob[i]) && ob[i] < Floor).ToList();
@@ -513,7 +513,7 @@ public sealed class CipherBSignalRulesTests
             ("MinThresholdFloor", 40.0),
             ("AdaptiveLookback", 200)));
 
-        var os = Series(r, CipherBProvider.CompAdaptiveOs).Where(v => !double.IsNaN(v)).ToList();
+        var os = Series(r, CipherBProvider.ThresholdOsKey).Where(v => !double.IsNaN(v)).ToList();
         Assert.True(os.Count > 0);
         Assert.True(os.Distinct().Count() > 1,
             "the adaptive oversold line held one value for the entire series — it is not adapting, " +

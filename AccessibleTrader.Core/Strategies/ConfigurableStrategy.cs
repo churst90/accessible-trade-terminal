@@ -85,6 +85,11 @@ public class ConfigurableStrategy : BaseStrategy
     private volatile bool _prewarmNotified = false;
     private bool _hasHtfLeaves = false;
 
+    // A leaf naming a RETIRED signal (SignalCatalog.Retired) is false on every bar; the strategy
+    // says so once instead of running forever without firing. Added with the removal of Cipher
+    // B's Adaptive OB/OS components (Cody's 2026-10-17 report).
+    private bool _retiredNotified = false;
+
     // Pure-pulse auto-promotion notification. BuildSetupTab's ValidateForSave() now blocks save
     // when a pure-pulse tree has a non-Immediate entry trigger, but legacy specs loaded from
     // disk (predating that validation, or imported .atstrat files from older versions) can
@@ -339,6 +344,15 @@ public class ConfigurableStrategy : BaseStrategy
         // thousands of Armed/Dropped/Reconfirm events for replayed bars. The backtester stamps
         // this flag in StrategyBacktester.Run.
         bool publishEvents = !state.IsBacktesting;
+
+        if (!_retiredNotified)
+        {
+            _retiredNotified = true;
+            if (publishEvents && RetiredLeafReason(_spec.Conditions) is { } retired)
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Error,
+                    $"Strategy '{_spec.Name}' has a condition that can never be true: {retired}. Edit the strategy to replace it."));
+        }
 
         // Live warmup gate — mirror of the backtester's `i < warmupBars` drop. Indicators
         // referenced by the spec need their stability window of history before their values
@@ -642,6 +656,25 @@ public class ConfigurableStrategy : BaseStrategy
             EntryTriggerKind.OnNextNCandleClose => $"Waiting for {trigger.NCandles} confirming candle closes.",
             _ => "Entry pending."
         };
+    }
+
+    /// <summary>The reason the first leaf naming a retired signal gives, or null when none does.</summary>
+    private string? RetiredLeafReason(ConditionNode node)
+    {
+        switch (node)
+        {
+            case ConditionLeaf l:
+                foreach (var id in new[] { l.SignalDescriptorId, l.SecondSignalDescriptorId })
+                    if (!string.IsNullOrEmpty(id) && _catalog.GetById(id) == null && _catalog.RefusalReason(id) is { } why)
+                        return why;
+                return null;
+            case ConditionGroup g:
+                foreach (var c in g.Children)
+                    if (RetiredLeafReason(c) is { } found) return found;
+                return null;
+            default:
+                return null;
+        }
     }
 
     private static ConditionLeaf? FindLeaf(ConditionNode node, string id)

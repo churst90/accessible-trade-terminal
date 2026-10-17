@@ -43,6 +43,21 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         public IReadOnlyList<SignalDescriptor> All => _all;
 
+        /// <summary>
+        /// Signals a provider USED to declare, and why each went. A strategy or alert saved while
+        /// one existed still names it; without this its leaf resolves to nothing and is false on
+        /// every bar with no reason given — a condition that silently never fires, which is
+        /// indistinguishable from a market that never got there. Listed here, the reason reaches
+        /// <see cref="RefusalReason"/> and the evaluator says it (ConditionEvaluator.Resolve).
+        /// </summary>
+        internal static readonly IReadOnlyDictionary<string, string> Retired = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            // Cody's 2026-10-17 report: hidden stops that said ±53, which the levels already say.
+            // See CipherBProvider.ThresholdObKey.
+            ["CIPHER_B.Adaptive OB"] = "Cipher B's Adaptive OB was removed on 2026-10-17; compare Wave Trend Fast with your overbought level (53 by default) instead",
+            ["CIPHER_B.Adaptive OS"] = "Cipher B's Adaptive OS was removed on 2026-10-17; compare Wave Trend Fast with your oversold level (-53 by default) instead",
+        };
+
         /// <inheritdoc/>
         public IReadOnlyList<SignalDescriptor> Excluded => _excluded;
 
@@ -122,6 +137,7 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             _all = list;
             _excluded = refused;
+            foreach (var (id, why) in Retired) reasons.TryAdd(id, why);
             _refusals = reasons;
             // Both halves are addressable by ID. A refused leaf resolving to null would read as a
             // typo in the strategy spec; resolving to a descriptor that knows it is not causal

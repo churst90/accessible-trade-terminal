@@ -52,7 +52,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   Anchor Wave Fast / Slow  — 5× period-scaled WT pair, hidden by default
     ///   Anchor Fill              — Cloud fill between the anchor pair (visible)
     ///   Anchor Polarity          — +1/0/-1 hidden component for strategy gating
-    ///   Adaptive OB / OS         — Two lines showing the rolling-percentile bands
+    ///   (Adaptive OB / OS were components until 2026-10-17; the thresholds are now companion
+    ///    arrays, ThresholdObKey / ThresholdOsKey — see there)
     ///   RSI / Stochastic         — MCB's two 0–100 lines (40- and 80-bar smoothed stochastics),
     ///                              drawn but muted by default (added 2026-10-17)
     ///   Money Flow Bar           — zone band: MCB's strip along the bottom, green/maroon by
@@ -109,8 +110,25 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompWT1Anchor    = "Anchor Wave";
         public const string CompWT2Anchor    = "Anchor Wave 2";
         public const string CompAnchorPolarity = "Anchor Polarity";
-        public const string CompAdaptiveOb   = "Adaptive OB";
-        public const string CompAdaptiveOs   = "Adaptive OS";
+        /// <summary>
+        /// The overbought / oversold thresholds the dots are gated on, per bar: ±OBLevel in Fixed
+        /// mode, the floored rolling percentiles of the fast wave in Percentile mode.
+        ///
+        /// <para>COMPANION ARRAYS, not components (like the divergences' <c>_anchorIdx</c>). Until
+        /// 2026-10-17 they were two hidden Oscillator components, "Adaptive OB" and "Adaptive OS".
+        /// Cody's 2026-10-17 report: "the adaptive os/ob components, do I really need these?
+        /// they're hidden, don't the reference lines cover this already". Hidden components are
+        /// still keyboard stops, so Ctrl+Up/Down through Cipher B landed on "Hidden. Adaptive OB.
+        /// Oscillator. 53.0" and its twin — in the default Fixed mode a constant ±53 on every bar,
+        /// the number the ±53 reference lines already say. The numbers are kept because Percentile
+        /// mode gates the dots on them and the bar detail (GetDetailFact) reads them; nothing
+        /// navigates to them. A saved chart drops the two components on load because a series is
+        /// rebuilt from this metadata (IndicatorModelFactory, layer 1); a strategy or alert that
+        /// named them is told so (SignalCatalog.Retired, AlertEvaluator). CipherBAdaptiveThresholdTests.</para>
+        /// </summary>
+        public const string ThresholdObKey   = CompWT1 + "_adaptiveOb";
+        /// <inheritdoc cref="ThresholdObKey"/>
+        public const string ThresholdOsKey   = CompWT1 + "_adaptiveOs";
         public const string CompMcbRsi       = "RSI";
         public const string CompMcbStoch     = "Stochastic";
 
@@ -303,24 +321,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Wave cross down {value}",
                             DefaultUsePolarityColoring = false },
 
-                    // ── Adaptive OB/OS lines ────────────────────────────────
-                    // Hidden by default — power users can un-hide to see the rolling-percentile
-                    // envelopes. In Fixed mode these are just constant ±OBLevel lines; in
-                    // Percentile mode they track WT1's recent distribution.
-                    new() { Name = CompAdaptiveOb,    DisplayName = "Adaptive OB", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF6666", DefaultThickness = 1.0f, IsVisible = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultWaveform = "sine",
-                            DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            SpeechTemplate = "Adaptive overbought. {value:F1}." },
-                    new() { Name = CompAdaptiveOs,    DisplayName = "Adaptive OS", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#66BB66", DefaultThickness = 1.0f, IsVisible = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultWaveform = "sine",
-                            DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            SpeechTemplate = "Adaptive oversold. {value:F1}." },
+                    // The adaptive OB/OS thresholds are not components since 2026-10-17 — see
+                    // ThresholdObKey for why (Cody's 2026-10-17 report).
 
                     // OB/OS zone shading is now declared as fixed-mode ZoneBandConfig
                     // entries in DefaultZoneBands — no phantom data components.
@@ -1234,8 +1236,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompWT1Anchor,      wt1Anc,          n);
             WriteToBuffer(buffer, CompWT2Anchor,      wt2Anc,          n);
             WriteToBuffer(buffer, CompAnchorPolarity, ancPol,          n);
-            WriteToBuffer(buffer, CompAdaptiveOb,     adaptiveOb,      n);
-            WriteToBuffer(buffer, CompAdaptiveOs,     adaptiveOs,      n);
+            // Companion arrays, not components (ThresholdObKey says why).
+            WriteToBuffer(buffer, ThresholdObKey,     adaptiveOb,      n);
+            WriteToBuffer(buffer, ThresholdOsKey,     adaptiveOs,      n);
             WriteToBuffer(buffer, CompMoneyFlowWave,  mfDisplay,       n);
             WriteToBuffer(buffer, CompCrossBull,      crossBullSignal, n);
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);
@@ -1351,8 +1354,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompWT1Anchor      => $"{value:F1}",
                 CompWT2Anchor      => $"{value:F1}",
                 CompAnchorPolarity => value > 0 ? "bullish" : (value < 0 ? "bearish" : "neutral"),
-                CompAdaptiveOb     => $"{value:F1}",
-                CompAdaptiveOs     => $"{value:F1}",
                 CompMoneyFlowWave  => GetMFWaveSpeech(value),
                 CompCrossBull      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 CompCrossBear      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
@@ -1434,8 +1435,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             double hidBear = GetVal(results, CompHidBear,      index);
             double ancVal  = GetVal(results, CompWT1Anchor,    index);
             double ancPol  = GetVal(results, CompAnchorPolarity, index);
-            double obVal   = GetVal(results, CompAdaptiveOb,   index);
-            double osVal   = GetVal(results, CompAdaptiveOs,   index);
+            double obVal   = GetVal(results, ThresholdObKey,   index);
+            double osVal   = GetVal(results, ThresholdOsKey,   index);
 
             // Effective OB/OS at this bar — may be fixed or adaptive.
             double effectiveOb = !double.IsNaN(obVal) ? obVal :  obLevel;
