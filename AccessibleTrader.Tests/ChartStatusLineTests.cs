@@ -612,6 +612,138 @@ public sealed class ChartStatusLineTests
         Assert.All(ys, y => Assert.InRange(y, h / 2f, 200 - h / 2f));
     }
 
+    // ── Labels and the crosshair badge (the coordinator's review of the 2026-10-17 shots) ──
+    //
+    // At 1000x610 the badge — drawn last — covered most of the top "123.44" label, which read as
+    // clipped; at eight panes labels and badges ran past their 29 px panes ("93.1" over "93.1").
+
+    /// <summary>The badge is an obstacle: labels are placed around it, every one inside the strip.</summary>
+    [Fact]
+    public void Axis_labels_are_placed_around_the_crosshair_badge_never_under_it()
+    {
+        const float h = 16f;
+        var labels = new List<ChartRenderer.ScaleLabel>
+        {
+            new(96.0, SKColors.Red, 0, "a", "A"), new(94.0, SKColors.Green, 0, "b", "B"), new(91.0, SKColors.Blue, 0, "c", "C"),
+        };
+        float badge = 12f;   // the cursor's value near the top of a 0..100 strip, 200 px tall
+        var placed = ChartRenderer.StackScaleLabels(labels, new SKRect(0, 0, 60, 200), 0, 100, false, h, reservedY: badge, reservedValue: 94.5);
+
+        Assert.Equal(3, placed.Count);
+        foreach (var p in placed)
+        {
+            Assert.True(Math.Abs(p.Y - badge) >= h - 0.01f, $"label {p.Component} at y {p.Y} is under the badge at {badge}");
+            Assert.InRange(p.Y, h / 2f, 200 - h / 2f);
+        }
+        var ys = placed.Select(p => p.Y).OrderBy(y => y).ToList();
+        for (int i = 1; i < ys.Count; i++) Assert.True(ys[i] - ys[i - 1] >= h - 0.01f, $"labels overlap: {string.Join(", ", ys)}");
+        Assert.Equal(new[] { "A", "B", "C" }, placed.OrderBy(p => p.Y).Select(p => p.Component));   // still in value order
+    }
+
+    /// <summary>
+    /// Labels are placed one at a time, so the free spot nearest a later label can be on the
+    /// wrong side of an earlier one (here 51 lands above 52). The stack is put back in value
+    /// order on the spots taken, so it still reads top to bottom as the values do.
+    /// </summary>
+    [Fact]
+    public void A_crowded_stack_still_reads_in_value_order()
+    {
+        var labels = new List<ChartRenderer.ScaleLabel>
+        {
+            new(52.0, SKColors.Red, 0, "a", "52"), new(50.0, SKColors.Green, 0, "b", "50"), new(51.0, SKColors.Blue, 0, "c", "51"),
+        };
+        var placed = ChartRenderer.StackScaleLabels(labels, new SKRect(0, 0, 60, 200), 0, 100, false, 16f);
+        Assert.Equal(new[] { "52", "51", "50" }, placed.OrderBy(p => p.Y).Select(p => p.Component));
+    }
+
+    /// <summary>
+    /// A label that would only repeat the badge — the same value at the same place, as the price
+    /// line's newest close does while the cursor is on the newest bar — is left out.
+    /// </summary>
+    [Fact]
+    public void A_label_that_repeats_the_badge_is_left_out()
+    {
+        var labels = new List<ChartRenderer.ScaleLabel>
+        {
+            new(50.0, SKColors.White, 0, "price", "Price"), new(30.0, SKColors.Blue, 0, "ema", "EMA"),
+        };
+        float badgeY = ChartMath.MapY(50.0, 0, 200, 0, 100, false);
+        var placed = ChartRenderer.StackScaleLabels(labels, new SKRect(0, 0, 60, 200), 0, 100, false, 16f, badgeY, 50.0);
+        Assert.Equal(new[] { "EMA" }, placed.Select(p => p.Component));
+    }
+
+    /// <summary>
+    /// A strip too short for every label keeps the one for the plot navigation is on (or the
+    /// pane's primary line) and leaves the rest out — never pushes them past its ends. With a
+    /// badge taking the only spot, it keeps none rather than overprint.
+    /// </summary>
+    [Fact]
+    public void A_short_strip_keeps_the_preferred_label_and_overflows_nothing()
+    {
+        const float h = 16f;
+        var strip = new SKRect(0, 100, 60, 130);   // a 30 px pane: room for one label
+        var labels = new List<ChartRenderer.ScaleLabel>
+        {
+            new(20.0, SKColors.Red, 1, "s", "Histogram"), new(10.0, SKColors.Green, 0, "s", "Fast"), new(5.0, SKColors.Blue, 0, "s", "Slow"),
+        };
+        var one = ChartRenderer.StackScaleLabels(labels, strip, 0, 100, false, h, preferred: ("s", "Slow"));
+        Assert.Equal(new[] { "Slow" }, one.Select(p => p.Component));
+        Assert.All(one, p => Assert.InRange(p.Y, strip.Top + h / 2f, strip.Bottom - h / 2f));
+
+        var none = ChartRenderer.StackScaleLabels(labels, strip, 0, 100, false, h, reservedY: 115f, reservedValue: 50.0, preferred: ("s", "Slow"));
+        Assert.Empty(none);
+    }
+
+    /// <summary>A reading at a pane's very top or bottom is badged inside the pane, not half in the next.</summary>
+    [Theory]
+    [InlineData(100.5f)]
+    [InlineData(129.5f)]
+    public void A_badge_at_a_panes_edge_is_drawn_inside_the_pane(float lineY)
+    {
+        const float h = 15f;
+        float c = ChartRenderer.BadgeCentre(lineY, 100f, 130f, h);
+        Assert.InRange(c, 100f + h / 2f, 130f - h / 2f);
+    }
+
+    /// <summary>
+    /// In pixels, at eight panes: a pane whose lines sit at the bottom of its range keeps its
+    /// badge and labels on its own strip. None of its colours reach the next pane's axis rows.
+    /// </summary>
+    [Fact]
+    public void At_eight_panes_a_panes_axis_labels_and_badge_stay_in_its_own_strip()
+    {
+        var data = FlatBars(30, 100, 105);
+        var series = new List<ChartSeries>
+        {
+            Series("osc", "Osc", "Pane_0", 30,
+                new Comp("Fast", ComponentDisplayType.Line, "#FF00FF", _ => 1.0),
+                new Comp("Slow", ComponentDisplayType.Line, "#00FF00", _ => 2.5)),
+        };
+        var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (95, 115), ["Pane_0"] = (0, 100) };
+        for (int p = 1; p < 8; p++)
+        {
+            series.Add(Series($"p{p}", $"P{p}", $"Pane_{p}", 30, new Comp("V", ComponentDisplayType.Line, "#808080", _ => 50)));
+            ranges[$"Pane_{p}"] = (0, 100);
+        }
+
+        var (renderer, layout) = Renderer();
+        using var bmp = Render(renderer, series, data, ranges, (95, 115), cursor: 20);
+
+        float nextTop = layout.Dividers[1].DividerFraction * H;
+        float paneTop = layout.Dividers[0].DividerFraction * H;
+        Assert.True(nextTop - paneTop < 40, $"the fixture's panes are {nextTop - paneTop:F0} px — not the crowded case");
+        int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
+        var stray = new List<string>();
+        for (int y = (int)Math.Ceiling(nextTop) + 1; y < (int)nextTop + 8; y++)
+            for (int x = axisLeft; x < W; x++)
+            {
+                var c = bmp.GetPixel(x, y);
+                bool magenta = c.Red > 200 && c.Blue > 200 && c.Green < 60, green = c.Green > 200 && c.Red < 60 && c.Blue < 60;
+                if (magenta || green) stray.Add($"({x},{y})={c}");
+            }
+        Assert.True(stray.Count == 0, "the oscillator pane's badge or labels run into the next pane's axis: " + string.Join(", ", stray.Take(4)));
+    }
+
     /// <summary>
     /// <b>The keyboard cursor's date is a label on the time axis</b>, centred on the crosshair —
     /// the date used to be in the hover readout box only, so only for the mouse. Pinned as the

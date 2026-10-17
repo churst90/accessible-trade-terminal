@@ -350,9 +350,9 @@ namespace AccessibleTrader.Core.Services
                     var bar = visibleData[crossIndex];
                     var (bull, bear) = StandardRenderers.ApplyColorVision(
                         _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
-                    mainBadge = new CrosshairBadge(bar.Close,
-                        ChartMath.MapY(bar.Close, mainPaneRect.Top, mainPaneRect.Bottom, mainMin, mainMax, isLogScale),
-                        bar.Close >= bar.Open ? bull : bear, mainMax - mainMin);
+                    float closeY = ChartMath.MapY(bar.Close, mainPaneRect.Top, mainPaneRect.Bottom, mainMin, mainMax, isLogScale);
+                    mainBadge = new CrosshairBadge(bar.Close, closeY, bar.Close >= bar.Open ? bull : bear, mainMax - mainMin,
+                        BadgeCentre(closeY, mainPaneRect.Top, mainPaneRect.Bottom, ScaleLabelHeight(density)));
                 }
 
                 RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect);
@@ -360,7 +360,7 @@ namespace AccessibleTrader.Core.Services
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
                 var mainScale = PlaceScaleLabels(ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current),
-                    mainAxisRect, mainMin, mainMax, isLogScale, density);
+                    mainAxisRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
                 RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
                 RenderScaleLabels(canvas, mainAxisRect, mainScale, mainMax - mainMin, density);
                 if (PaintsStatusLines && mainStatus != null)
@@ -399,15 +399,20 @@ namespace AccessibleTrader.Core.Services
                     // under it and RenderCrosshair draws it, from the same object. They used to
                     // be two copies of the same lookup, kept in step by a comment.
                     CrosshairBadge? badge = null;
+                    (string, string)? preferred = null;
                     if (crossIndex >= 0
                         && CrosshairReadingAt(paneSeriesList, crossIndex, viewportStart, focusedSeriesId, focusedComponentIndex) is { } reading)
                     {
-                        badge = new CrosshairBadge(reading.Value,
-                            ChartMath.MapY(reading.Value, paneRect.Top, paneRect.Bottom, min, max, false),
-                            ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min);
+                        float lineY = ChartMath.MapY(reading.Value, paneRect.Top, paneRect.Bottom, min, max, false);
+                        badge = new CrosshairBadge(reading.Value, lineY,
+                            ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min,
+                            BadgeCentre(lineY, paneRect.Top, paneRect.Bottom, ScaleLabelHeight(density)));
+                        // The plot the badge reads — navigation's, else the pane's primary line —
+                        // keeps its axis label first when the strip cannot hold them all.
+                        preferred = (reading.Series.Id, reading.Component.Name);
                     }
                     var scale = PlaceScaleLabels(ScaleLabelsFor(paneSeriesList, data.Count, _theme.Current),
-                        indAxisRect, min, max, false, density);
+                        indAxisRect, min, max, false, density, badge, preferred);
                     RenderYAxis(canvas, indAxisRect, min, max, false, density, AvoidRows(badge, scale, density));
                     RenderScaleLabels(canvas, indAxisRect, scale, max - min, density);
                     if (PaintsStatusLines && crossIndex >= 0
@@ -703,51 +708,94 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Places the labels on the strip at their values, stacked so no two overlap: sorted by
-        /// position, pushed down past the one above, then back up from the strip's bottom. A
-        /// label whose value is off the pane's range is left out (the swatches were too). When the
-        /// strip cannot hold them all, bars give way before lines, and a later plot before an
-        /// earlier one, rather than overprint.
+        /// Places the labels on the strip at their values, never overlapping each other, the
+        /// crosshair badge, or the strip's ends. A label whose value is off the pane's range is
+        /// left out (the swatches were too).
+        ///
+        /// <para>
+        /// <b>Two flaws in the first version (the coordinator's review of the 2026-10-17
+        /// screenshots).</b> The labels were stacked among themselves only, and the crosshair
+        /// badge — drawn last — sat on top of whichever landed at the cursor's value: at
+        /// 1000x610 it hid most of the top "123.44", which read as clipped. And in an eight-pane
+        /// chart a 29 px pane holds one label: the stack pushed the rest out past the strip's
+        /// end, under the badge and into the next pane's axis ("93.1" over "93.1").
+        /// </para>
+        ///
+        /// <para>
+        /// So the badge is an obstacle the labels are placed around, a label that would only
+        /// repeat the badge (same value at the same place — the price line's newest close while
+        /// the cursor is on the newest bar) is dropped, and labels are placed one at a time in
+        /// priority order — the plot navigation is on (or the pane's primary line, which the
+        /// badge reads), then lines, then bars, then declaration order — each at the free spot
+        /// nearest its value inside the strip. One that has no free spot is left out rather than
+        /// overprinted. Finally the placed labels are put back in value order on the spots they
+        /// took, so the stack still reads top to bottom as the values do.
+        /// </para>
         /// </summary>
-        private List<ScaleLabel> PlaceScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog, float density)
-            => StackScaleLabels(labels, axisRect, min, max, isLog, ScaleLabelHeight(density));
+        private List<ScaleLabel> PlaceScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog,
+            float density, CrosshairBadge? badge, (string Series, string Component)? preferred)
+            => StackScaleLabels(labels, axisRect, min, max, isLog, ScaleLabelHeight(density),
+                badge?.Centre, badge?.Value, preferred);
 
         private float ScaleLabelHeight(float density) => _textFont.Size + (4 * density);
 
-        internal static List<ScaleLabel> StackScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog, float labelH)
+        /// <param name="reservedY">The crosshair badge's centre on this strip, an obstacle; null when there is none.</param>
+        /// <param name="reservedValue">The badge's value: a label with the same value at the badge's place repeats it and is dropped.</param>
+        /// <param name="preferred">The plot whose label is kept first: the one navigation is on, or the pane's primary line.</param>
+        internal static List<ScaleLabel> StackScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog,
+            float labelH, float? reservedY = null, double? reservedValue = null, (string Series, string Component)? preferred = null)
         {
-            var onPane = new List<ScaleLabel>();
-            foreach (var l in labels)
+            const float Eps = 0.01f;
+            float lo = axisRect.Top + labelH / 2f, hi = axisRect.Bottom - labelH / 2f;
+            if (hi < lo - Eps) return new List<ScaleLabel>();
+
+            var onPane = new List<(ScaleLabel L, int Index)>();
+            for (int i = 0; i < labels.Count; i++)
             {
+                var l = labels[i];
                 float y = ChartMath.MapY(l.Value, axisRect.Top, axisRect.Bottom, min, max, isLog);
                 if (float.IsNaN(y) || y < axisRect.Top || y > axisRect.Bottom) continue;
-                onPane.Add(l with { Y = y });
+                if (reservedY is { } r && reservedValue is { } rv
+                    && Math.Abs(l.Value - rv) <= 1e-9 * Math.Max(1.0, Math.Abs(rv)) && Math.Abs(y - r) < labelH / 2f)
+                    continue;   // the badge already prints this number here
+                onPane.Add((l with { Y = y }, i));
             }
-            int room = (int)(axisRect.Height / Math.Max(labelH, 1f));
-            if (onPane.Count > room)
-                onPane = onPane.Select((l, i) => (l, i)).OrderBy(t => t.l.Tier).ThenBy(t => t.i)
-                               .Take(Math.Max(room, 0)).Select(t => t.l).ToList();
-            if (onPane.Count == 0) return onPane;
 
-            var placed = onPane.OrderBy(l => l.Y).ToList();
-            float top = axisRect.Top + labelH / 2f, bottom = axisRect.Bottom - labelH / 2f;
-            float prev = float.MinValue;
-            for (int i = 0; i < placed.Count; i++)
+            var occupied = new List<float>();
+            if (reservedY is { } ry) occupied.Add(Math.Clamp(ry, lo, Math.Max(lo, hi)));
+
+            var placed = new List<ScaleLabel>();
+            foreach (var (l, _) in onPane
+                .OrderBy(t => preferred is { } p && t.L.Series == p.Series && t.L.Component == p.Component ? 0 : 1)
+                .ThenBy(t => t.L.Tier).ThenBy(t => t.Index))
             {
-                float y = Math.Max(placed[i].Y, Math.Max(top, prev + labelH));
-                placed[i] = placed[i] with { Y = y };
-                prev = y;
+                float want = Math.Clamp(l.Y, lo, Math.Max(lo, hi));
+                bool Free(float c) => c >= lo - Eps && c <= hi + Eps && occupied.All(o => Math.Abs(c - o) >= labelH - Eps);
+                float? best = null;
+                foreach (float c in occupied.SelectMany(o => new[] { o - labelH, o + labelH }).Prepend(want))
+                    if (Free(c) && (best is not { } b || Math.Abs(c - want) < Math.Abs(b - want)))
+                        best = c;
+                if (best is not { } spot) continue;   // no room: left out, never overprinted
+                occupied.Add(spot);
+                placed.Add(l with { Y = spot });
             }
-            float next = float.MaxValue;
-            for (int i = placed.Count - 1; i >= 0; i--)
-            {
-                float y = Math.Min(placed[i].Y, Math.Min(bottom, next - labelH));
-                placed[i] = placed[i] with { Y = y };
-                next = y;
-            }
-            return placed;
+
+            // Back into value order on the spots taken: highest value on the highest spot.
+            var spots = placed.Select(p => p.Y).OrderBy(y => y).ToList();
+            var byValue = placed.OrderByDescending(p => isLog && p.Value > 0 ? Math.Log(p.Value) : p.Value).ToList();
+            if (max < min) byValue.Reverse();
+            return byValue.Select((p, i) => p with { Y = spots[i] }).ToList();
         }
 
+        /// <summary>
+        /// Where a crosshair badge is drawn: at its value, but never past either end of its pane —
+        /// a reading near the pane's top or bottom used to hang half into the next pane's axis.
+        /// </summary>
+        internal static float BadgeCentre(float lineY, float paneTop, float paneBottom, float labelH)
+        {
+            float lo = paneTop + labelH / 2f, hi = paneBottom - labelH / 2f;
+            return hi < lo ? (paneTop + paneBottom) / 2f : Math.Clamp(lineY, lo, hi);
+        }
         /// <summary>The text baselines of the badge and the value labels, for the axis to keep its gridline labels clear of.</summary>
         private static List<float> AvoidRows(CrosshairBadge? badge, List<ScaleLabel> labels, float density)
         {
@@ -906,10 +954,15 @@ namespace AccessibleTrader.Core.Services
         /// of one lookup in two methods, kept in step by a comment.
         /// </para>
         /// </summary>
-        internal readonly record struct CrosshairBadge(double Value, float LineY, SKColor Chip, double Range)
+        /// <param name="LabelY">Where the badge is drawn: <see cref="BadgeCentre"/>, its value's row kept
+        /// inside its pane. NaN draws it on <paramref name="LineY"/>.</param>
+        internal readonly record struct CrosshairBadge(double Value, float LineY, SKColor Chip, double Range, float LabelY = float.NaN)
         {
+            /// <summary>The badge's vertical centre as drawn.</summary>
+            public float Centre => float.IsNaN(LabelY) ? LineY : LabelY;
+
             /// <summary>The baseline the badge's text is drawn at.</summary>
-            public float TextY(float density) => LineY + (4 * density);
+            public float TextY(float density) => Centre + (4 * density);
         }
 
         /// <summary>The component an indicator pane's crosshair badge reads, and its value there.</summary>
@@ -1116,7 +1169,7 @@ namespace AccessibleTrader.Core.Services
                                         _axisWidth - (2 * density) - chipW - gap - pad);
             float labelW = _textFont.MeasureText(label);
             float labelH = _textFont.Size + (4 * density);
-            float ly = badge.LineY - (labelH / 2);
+            float ly = badge.Centre - (labelH / 2);
 
             canvas.DrawRect(new SKRect(lx, ly, lx + chipW + gap + labelW + pad, ly + labelH), bgPaint);
             using (var chipPaint = new SKPaint { Color = badge.Chip, Style = SKPaintStyle.Fill })
