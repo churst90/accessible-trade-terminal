@@ -40,7 +40,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         // The pane's whole frame when it is taller than PaneRect: the plot PLUS the status band
         // above it (2026-10-17), which the background fills and borders so the band reads as the
         // top of the pane. Values are mapped into PaneRect only. Null means PaneRect.
-        SKRect? FrameRect = null
+        SKRect? FrameRect = null,
+        // Text another layer has already printed on this pane — today the value labels
+        // (ValueLabelRenderer.Plates) — which the formation layer's label placement treats as
+        // covered ground, like candle ink. Null means nothing to avoid.
+        IReadOnlyList<SKRect>? TextObstacles = null
     ) {
         public float Width => PaneRect.Width;
         public float Height => PaneRect.Height;

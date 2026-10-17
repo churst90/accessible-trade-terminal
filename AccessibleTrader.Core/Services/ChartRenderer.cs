@@ -513,8 +513,10 @@ namespace AccessibleTrader.Core.Services
             }
             // Formations draw AFTER every data layer so their levels sit on top of the candles
             // rather than under them — a trigger line hidden behind a wick communicates nothing.
+            // ...and place their labels off the numbers the value labels printed (DBSI-style's
+            // scores), as they keep off candle ink.
             if (paneName == "Main" && _frameFormations is { Count: > 0 })
-                _formationLayer.Render(ctx, _frameFormations);
+                _formationLayer.Render(ctx with { TextObstacles = ValueLabelRenderer.Plates(ctx, nonProfileSeries) }, _frameFormations);
 
             // The POC is a level, read against the candles for the same reason as a formation's.
             if (profileSeries.Count > 0) _profileLayer.RenderPoc(ctx, profileSeries);
@@ -1075,6 +1077,8 @@ namespace AccessibleTrader.Core.Services
                     or ComponentDisplayType.ZeroArea => 1,
                 ComponentDisplayType.Cloud or ComponentDisplayType.CandleColor or ComponentDisplayType.Heatmap
                     or ComponentDisplayType.Profile or ComponentDisplayType.Distribution => -1,
+                // A number printed at the bar is not a position on this axis.
+                ComponentDisplayType.ValueLabel when comp.MarkerAnchor != MarkerAnchor.Value => -1,
                 _ => 2,
             };
         }
@@ -1093,6 +1097,9 @@ namespace AccessibleTrader.Core.Services
 
             if (StandardRenderers.ResolveBarColor(comp, data, r.AbsIndex) is { } ruled)
                 return ruled.WithAlpha(255);
+
+            if (comp.DisplayType == ComponentDisplayType.ValueLabel)
+                return Rendering.ValueLabelRenderer.RawColour(comp, r.Series, r.AbsIndex, data?.Length ?? 0);
 
             if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
             {

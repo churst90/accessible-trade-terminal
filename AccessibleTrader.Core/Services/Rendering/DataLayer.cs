@@ -92,6 +92,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 foreach (var comp in InDrawOrder(s.Components))
                 {
                     if (!comp.IsVisible || comp.IsEnabled == false) continue;
+                    // Heard, not painted (ComponentConfig.IsDrawn): its data, speech and narration
+                    // stay; the chart draws nothing for it.
+                    if (!comp.IsDrawn) continue;
 
                     // Sub-pane filter: null = main-area pass (skip sub-pane components);
                     //                  string = sub-pane pass (skip components not in that strip).
@@ -158,6 +161,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                                 break;
                             case ComponentDisplayType.GradientDot:
                                 StandardRenderers.RenderGradientDot(ctx, s, comp);
+                                break;
+                            case ComponentDisplayType.ValueLabel:
+                                ValueLabelRenderer.Render(ctx, s, comp);
                                 break;
                             case ComponentDisplayType.CandleColor:
                                 // Handled by the pre-scan above: the phase array is passed to
