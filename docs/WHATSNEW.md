@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Above and below always mean the indicator's own midline.** The bright upper and warm lower sound of
+  an oscillator now switch at its midline (RSI's 50, Momentum's zero, Cipher B's RSI and Stochastic
+  lines' 50) however the pane is scrolled; before, they switched at the middle of whatever was on
+  screen.
 - **Cipher B's RSI and Stochastic lines turn rough above 80 and below 20** and click as they cross,
   on their own 0–100 scale (nothing extra is drawn). The waves now audibly roughen past ±53, and more
   past ±60; before, the ±53 zone was too quiet to hear.

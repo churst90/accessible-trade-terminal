@@ -111,7 +111,8 @@ where a value sits relative to the structure that matters. Every voice is built 
 warm sine base with a slight coloring blended in, and the coloring carries the
 meaning: an oscillator takes on a brighter square tinge above its midline and a
 softer triangle warmth below it, so you can hear which side you are on without
-checking a number; a candle's body adds a deep sub-octave weight that grows with the
+checking a number — and the midline is the indicator's own (RSI's 50, a zero-line oscillator's
+zero, Cipher B's RSI and Stochastic lines' 50), wherever the pane happens to be scrolled or zoomed; a candle's body adds a deep sub-octave weight that grows with the
 body's size — a big conviction candle sounds *heavier* than a doji at the same
 loudness, so size reads as character rather than volume — and wicks ring as clean
 pings whose grit grows with their length, the upper wick a bright tone and the lower

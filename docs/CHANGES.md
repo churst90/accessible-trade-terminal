@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### An oscillator is above or below by its own midline (2026-10-17, night)
+
+Cody, after the 80/20 zones: Cipher B's RSI and Stochastic still "don't follow the rule … above,
+… below … are we patching a deeper problem with indicators with components with different bounds?"
+Yes. The engine decided "which side" two ways: the above/below WAVEFORM at the component's declared
+reference, the bright/warm TIMBRE and the above/below SOUND PATCH at the middle of the pane's visible
+range. A survey of every built-in oscillator (`ReferenceLevel` vs pane) found them disagreeing on 30
+lines: Cipher B's two 0–100 lines (midline 50, pane middle 0 — always "above"), and 28 oscillators in
+auto-fit panes whose middle moves as you scroll (Momentum, ROC, CCI, TRIX, PPO, DPO, AVWAP bias,
+funding, open interest, COT, crowding, Hurst, BTC strength, top/bottom confidence, pivot zone). Every
+one of them declares its midline; only the timbre ignored it. One rule now
+(`DefaultSonificationStrategy.AboveMidline`): the declared reference, the pane middle only when none.
+Bounded oscillators whose midline is the pane middle (RSI, Stochastic, MFI …) sound exactly as before.
+`OscillatorMidlineTests` sweeps all 54 oscillator lines in a deliberately shifted pane; with the old
+rule all 54 fail. Not heard yet.
+
+Still on the pane's scale, deliberately: PITCH (a line is pitched where it is drawn). Not yet on the
+component's own scale: SPOKEN zone words and level-crossing narration for the two 0–100 lines read the
+pane's levels, so they texture at 80/20 but are not told "overbought".
+
 ### Cipher B's RSI and Stochastic get their own zones; the waves' ±53 zone is heard (2026-10-17, evening)
 
 Cody: "the rsi/stoch though doesn't have the texturing on the os/ob zones … shouldn't the os/ob zones
