@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Charts you already had pick up indicator improvements.** A saved chart now gets new levels an
+  indicator has gained and its improved defaults, while anything you changed yourself in Properties stays
+  as you set it. This is what brings Cipher B's RSI and Stochastic 80/20 and its louder ±53 texture to an
+  existing chart. Ctrl+Left/Right also stops at a hidden zero line in every case.
 - **Cipher B's RSI and Stochastic now say "overbought" and "oversold"** past their own 80 and 20, and
   narration announces when they cross (once you unmute them).
 - **Above and below always mean the indicator's own midline.** The bright upper and warm lower sound of

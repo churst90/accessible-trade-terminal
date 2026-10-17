@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Restored charts' levels follow the indicator, except where you changed them (2026-10-17, late night)
+
+Cody, after the 80/20 push: "ctrl left/right only jumps between midline crosses and it does so even if
+0 line is hidden … the texturing has disappeared and ctrl left/right does not jump to os/ob zones now".
+Every test passed; his chart did not, because his chart was RESTORED. His saved session (read from the
+file) held Cipher B's five levels as saved that afternoon — ±53 at 0.10, ±60 at 0.20, Zero hidden — and
+no "Stoch Overbought"/"Stoch Oversold". Saved levels were restored verbatim (they are per-instance and
+Properties edits every field), so no later change to an indicator's levels ever reached a chart that
+already existed: the RSI and Stochastic subscribed to levels his chart lacked (no texture, no 80/20
+jumps; Ctrl+Left/Right fell back to their 50 midline), and the louder ±53/±60 texture never arrived.
+
+- **`LevelConfig.ProviderDefaults`** records what the indicator declared for each level. On restore
+  (`SeriesManagementService.HealSavedLevels`, inside `MaterializeSaved`, so the background monitor too):
+  levels the indicator declares that the chart lacks are added; whether a level is drawn always comes
+  from the indicator; every other field still equal to that baseline takes the indicator's current value,
+  and a field you changed is kept. A level saved before the baseline existed knows only the defaults known
+  to be retired (Cipher B's 0.10 / 0.20) — anything else on it is treated as yours.
+- **The Ctrl+Left/Right midline fallback honours a hidden midline** — the rule every level-based jump has
+  followed since 2026-09-12. (His RSI reached it only because its levels were missing.)
+- Tests: `SavedLevelsHealTests` restores a save shaped like his through the real path — the 80/20 appear
+  undrawn, ±53/±60 at 0.30/0.45, his hidden Zero stays hidden, the RSI is textured past 80, Ctrl+Right lands
+  on its 80 crossing and not the 50 it crosses first; edits survive; the fallback ignores a hidden midline.
+  Each seen red with its part undone. Not heard yet.
+
+**Lesson for this project:** a change to an indicator's levels must be tested on a RESTORED chart, not
+only a fresh one.
+
 ### Levels can be heard but not drawn; Cipher B's RSI and Stochastic are spoken and narrated at 80/20 (2026-10-17, late)
 
 Cody: "yes, they should be narrated", and asked whether an SDK author can give components different
