@@ -412,7 +412,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// How much candle a rect would cover, in square pixels: the overlap of
         /// <paramref name="r"/> (grown by a pixel, so a label touching a wick counts) with every
         /// visible bar's body and wicks, laid out as the candle renderer lays them out — bodies 80%
-        /// of the bar's width, a 1px wick. Reads <see cref="RenderContext.Data"/>, which is the
+        /// of the bar's width, a 1px wick — plus any <see cref="RenderContext.TextObstacles"/> it overlaps. Reads <see cref="RenderContext.Data"/>, which is the
         /// bars as drawn (Heikin-Ashi when the chart is), indexed from the viewport's first bar.
         /// </summary>
         internal static float PriceInkUnder(RenderContext ctx, SKRect r)
@@ -440,6 +440,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 area += Overlap(r, cx - 0.5f, yHigh, cx + 0.5f, top);
                 area += Overlap(r, cx - 0.5f, bottom, cx + 0.5f, yLow);
             }
+            // Numbers already printed on the candles (value labels) count as covered ground too:
+            // a formation label over "15" hides the number a sighted reader checks against what
+            // was spoken.
+            if (ctx.TextObstacles is { Count: > 0 } obstacles)
+                foreach (var o in obstacles) area += Overlap(r, o.Left, o.Top, o.Right, o.Bottom);
             return area;
         }
 

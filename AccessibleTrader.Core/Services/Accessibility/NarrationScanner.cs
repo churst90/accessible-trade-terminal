@@ -439,6 +439,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                && string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase)
                && string.IsNullOrEmpty(comp.SubPaneName)
                && comp.DisplayType == ComponentDisplayType.Line
+               // An undrawn line is not on the chart to be crossed (DBSI-style's hidden ±1 Control
+               // and its trend's source close are lines only so they have a reading).
+               && comp.IsDrawn
                && !comp.IsZoneLine
                && comp.Role != ComponentRole.PriceAction
                && comp.Role != ComponentRole.Body

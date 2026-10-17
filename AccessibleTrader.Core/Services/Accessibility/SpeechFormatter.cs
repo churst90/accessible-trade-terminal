@@ -530,6 +530,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ComponentDisplayType.Square       => "square",
             ComponentDisplayType.Cross        => "cross",
             ComponentDisplayType.CandleColor  => "sentiment phase",
+            ComponentDisplayType.ValueLabel   => "value label",
             _                                 => dt.ToString().ToLower()
         };
 

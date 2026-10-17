@@ -114,6 +114,12 @@ namespace AccessibleTrader.Core.Services
                 {
                     if (!comp.IsVisible) continue;
                     if (!string.IsNullOrEmpty(comp.SubPaneName)) continue;
+                    // (4) DRAWN AT ITS VALUE. An undrawn component (ComponentConfig.IsDrawn) is not
+                    //     on the chart at all, and a value label anchored to the BAR prints a number
+                    //     that is not a position — DBSI-style's "15" on a $20 stock is not a price
+                    //     of 15, and letting it in drags the axis to the floor.
+                    if (!comp.IsDrawn) continue;
+                    if (comp.DisplayType == ComponentDisplayType.ValueLabel && comp.MarkerAnchor != MarkerAnchor.Value) continue;
 
                     var data = s.GetComponentData(comp.Name);
                     if (data == null || data.Length == 0) continue;
@@ -206,6 +212,10 @@ namespace AccessibleTrader.Core.Services
                     string rangeKey = string.IsNullOrEmpty(comp.SubPaneName)
                         ? paneName
                         : $"{paneName}/{comp.SubPaneName}";
+
+                    // Not on the chart, or not at a position on this axis (see condition (4) above).
+                    if (!comp.IsDrawn) continue;
+                    if (comp.DisplayType == ComponentDisplayType.ValueLabel && comp.MarkerAnchor != MarkerAnchor.Value) continue;
 
                     var data = s.GetComponentData(comp.Name);
                     if (data == null || data.Length == 0) continue;
