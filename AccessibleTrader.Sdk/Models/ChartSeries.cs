@@ -108,6 +108,33 @@ namespace AccessibleTrader.Sdk.Models
         /// Only meaningful when hosted on a series with DefaultPane = "Main".
         /// </summary>
         CandleColor,
+        /// <summary>
+        /// The value printed as TEXT at each bar — a number on the candle, the way Market Cipher
+        /// DBSI prints its bull and bear scores. Added 2026-10-17, LAST, because the ordinal is
+        /// what a saved workspace stores (this enum is append-only).
+        ///
+        /// <para>Where: <see cref="MarkerAnchor.AboveBar"/> centres the text above the drawn bar's
+        /// high, <see cref="MarkerAnchor.BelowBar"/> below its low (both a few pixels clear, on the
+        /// candle as drawn — Heikin-Ashi when the chart is); <see cref="MarkerAnchor.Value"/> centres
+        /// it on the value through the pane's axis. A bar-anchored label's value is not a position,
+        /// so it never stretches the axis.</para>
+        ///
+        /// <para>Colour: <see cref="ComponentConfig.ColorHex"/>, made legible on the theme (4.5:1
+        /// on a backing plate). With <see cref="ComponentConfig.ColorAboveComponent"/> naming a
+        /// sibling, the NEWEST bar's label is drawn in <see cref="ComponentConfig.ColorHexSecondary"/>
+        /// when this value is above the sibling's there — DBSI's yellow for the side winning the
+        /// candle that is still forming. Every other bar keeps the primary colour.</para>
+        ///
+        /// <para>How many: every bar, unless the series has a parameter named
+        /// <c>labelBars</c> greater than zero, in which case only the newest that many bars of the
+        /// series (TradingView's label limit, which is why DBSI labels 25). Labels are left out
+        /// altogether when a bar's slot is too narrow for the widest one at the smallest legible
+        /// size — numbers printed over each other read as neither.</para>
+        ///
+        /// <para>It has a reading (the status line and Alt+Shift+D print and say the number); it is
+        /// not a marker, so the narrator does not announce it on every bar.</para>
+        /// </summary>
+        ValueLabel,
     }
     
     /// <summary>

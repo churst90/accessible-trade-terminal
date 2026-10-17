@@ -244,6 +244,20 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public bool IsZoneLine { get; set; } = false;
 
+        /// <summary>
+        /// False = heard, not painted: the component keeps its data, its navigation stop, its
+        /// speech and its narration (a marker still announces when it fires), but the chart draws
+        /// nothing for it and its values never stretch an axis. The component-level twin of
+        /// <see cref="LevelConfig.IsDrawn"/>. Provider-owned: rebuilt from
+        /// <see cref="IndicatorComponentMetadata.DefaultIsDrawn"/> on every load, never a user choice.
+        ///
+        /// <para>Added 2026-10-17 for the DBSI-style indicator, whose control flips and entry
+        /// scores Cody asked to hear narrated: Market Cipher DBSI draws nothing for them (the
+        /// numbers on the candles already show who leads), and a marker on every flip would bury
+        /// those numbers.</para>
+        /// </summary>
+        public bool IsDrawn { get; set; } = true;
+
 
         /// <summary>
         /// When set on a marker-type component (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square),
@@ -321,6 +335,7 @@ namespace AccessibleTrader.Sdk.Models
                 DecayMs = DecayMs,
                 PlaybackLayer = PlaybackLayer,
                 IsZoneLine = IsZoneLine,
+                IsDrawn = IsDrawn,
                 SignalSpeechTemplate = SignalSpeechTemplate,
                 SubscribedLevelNames = SubscribedLevelNames,
                 DeviationNorm = DeviationNorm

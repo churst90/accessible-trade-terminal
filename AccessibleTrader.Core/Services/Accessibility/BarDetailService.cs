@@ -347,7 +347,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Magnitude-aware, not F2: the raw dump must not collapse sub-dollar
                 // prices (or tiny oscillator values like a MACD of 0.0012) to "0.00".
                 // For ordinary magnitudes it reads identically to the old F2.
-                sb.Append($"{comp.DisplayName ?? comp.Name} {SpeechPriceFormatter.FormatPrice(val)}, ");
+                // A value label prints a NUMBER, often a whole one ("Bulls 15", "Bears minus 5"),
+                // and is said that way, not as a price with two decimals.
+                string said = comp.DisplayType == ComponentDisplayType.ValueLabel
+                    ? Rendering.ValueLabelRenderer.Spoken(val)
+                    : SpeechPriceFormatter.FormatPrice(val);
+                sb.Append($"{comp.DisplayName ?? comp.Name} {said}, ");
             }
 
             foreach (var fact in NarrativeFacts(series, index))
@@ -385,6 +390,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 foreach (var w in Indicators.DssBressertProvider.StateWords(
                              series.GetComponentData(Indicators.DssBressertProvider.CompDss),
                              series.GetComponentData(Indicators.DssBressertProvider.CompTrigger), index, ob, os))
+                    yield return w;
+            }
+            else if (code == Indicators.DbsiStyleProvider.Code)
+            {
+                // Who is in control, a hand-over or an entry score on this bar, and the side of the
+                // trend line — the numbers themselves were just read as Bulls and Bears.
+                foreach (var w in Indicators.DbsiStyleProvider.StateWords(series.GetComponentData, index))
                     yield return w;
             }
         }
@@ -483,7 +495,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (marker) { parts.Add(label); continue; }
 
                 bool isVolume = comp.Role == ComponentRole.Volume || IsVolume(s);
-                string text = isVolume ? ChartStatusLine.FormatVolume(v) : SpeechPriceFormatter.FormatPrice(v);
+                string text = isVolume ? ChartStatusLine.FormatVolume(v)
+                    : comp.DisplayType == ComponentDisplayType.ValueLabel ? Rendering.ValueLabelRenderer.Spoken(v)
+                    : SpeechPriceFormatter.FormatPrice(v);
                 parts.Add(labelled ? $"{label} {text}" : text);
             }
 
