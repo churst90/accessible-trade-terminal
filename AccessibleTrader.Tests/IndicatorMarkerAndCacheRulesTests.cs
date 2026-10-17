@@ -15,8 +15,8 @@ namespace AccessibleTrader.Tests;
 /// </para>
 ///
 /// <list type="bullet">
-///   <item><b>Cipher A:</b> an oversold condition stopped having to be SUSTAINED, so a one-bar
-///         spike through the line became a buy signal.</item>
+///   <item><b>Cipher A:</b> (rebuilt 2026-10-17 from Market Cipher A) a crossing symbol is the
+///         bar the lines CROSS, not every bar one line is above the other.</item>
 ///   <item><b>Top/Bottom:</b> the rising-edge test went, so an eight-bar capitulation stamped
 ///         eight bottoms and the earcon fired eight times for one event.</item>
 ///   <item><b>Cipher S:</b> the staleness margin on the cycle auto-detector went, so the chart
@@ -88,50 +88,52 @@ public sealed class IndicatorMarkerAndCacheRulesTests
     private static List<Ohlcv> CyclicalSeries(int n)
         => Bars(i => 160.0 + 60.0 * Math.Sin(2 * Math.PI * i / 300.0), n, range: 1.5);
 
-    // ── Cipher A: an oversold condition has to be sustained ─────────────────────────
+    // ── Cipher A: a crossing symbol is the crossing bar, not a state ───────────────
 
     /// <summary>
-    /// <b>A buy signal needs the wave to have been oversold on the previous bar too.</b>
+    /// <b>Every Cipher A crossing symbol fires on the bar its two lines cross — the lines were the
+    /// other way round on the bar before.</b>
     ///
     /// <para>
-    /// <c>sustainedOs</c> is <c>wt1[i] &lt; -ob AND wt1[i-1] &lt; -ob</c>. The A2h mutant dropped
-    /// the second half, so a single bar dipping past the line qualified. Asserted on the bars that
-    /// fired, over the shared probe series.
+    /// Green Dot (EMA 11 over EMA 33), Blue Triangle (EMA 5 over EMA 25), Red X (EMA 5 under EMA 11)
+    /// and Red Diamond (the wave under its slow wave) are events. Drop the previous-bar half of a
+    /// crossing test and each becomes "EMA 5 is below EMA 11", true for weeks, and the chart rattles.
+    /// Asserted on the bars that fired, over the shared probe series, against the provider's own
+    /// ribbon and wave arrays.
     /// </para>
     /// </summary>
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
-    public void EveryCipherABuySignalHasTwoBarsBelowOversold(int flavour)
+    public void EveryCipherACrossingSymbolIsTheBarOfTheCross(int flavour)
     {
-        const double ObLevel = 53.0;
-        var provider = new CipherAProvider();
         var bars = CausalityProbeSeries.Bars(flavour, 1000);
-        var r = Run(provider, "CIPHER_A", bars, new Dictionary<string, object> { ["OBLevel"] = ObLevel });
+        var r = Run(new CipherAProvider(), "CIPHER_A", bars, new Dictionary<string, object>());
+        double[] L(int k) => r[CipherAProvider.RibbonLine(k)];
+        var wt1 = r[CipherAProvider.Wt1Key]; var wt2 = r[CipherAProvider.Wt2Key];
 
-        // NOT CompWtMomentum: that array holds the CLOSE PRICE, because the component is drawn as
-        // a dot pinned to the bar. The wave itself — the number the oversold test reads — is in the
-        // "_color" companion, which is what the gradient renderer colours the dot from.
-        var wt = r[CipherAProvider.CompWtMomentum + "_color"];
-        var buys = FiredBars(r, CipherAProvider.CompBuySignal);
-        var sells = FiredBars(r, CipherAProvider.CompSellSignal);
+        var cases = new (string Comp, double[] A, double[] B, bool Up)[]
+        {
+            (CipherAProvider.CompGreenDot,     L(1), L(7), true),
+            (CipherAProvider.CompBlueTriangle, L(0), L(5), true),
+            (CipherAProvider.CompRedX,         L(0), L(1), false),
+            (CipherAProvider.CompRedDiamond,   wt1,  wt2,  false),
+        };
+        int fired = 0; var states = new List<string>();
+        foreach (var (comp, a, b, up) in cases)
+            foreach (int i in FiredBars(r, comp))
+            {
+                fired++;
+                bool now = up ? a[i] > b[i] : a[i] < b[i];
+                bool before = up ? a[i - 1] <= b[i - 1] : a[i - 1] >= b[i - 1];
+                if (!(now && before)) states.Add($"{comp} at {i}: {a[i - 1]:F2}/{b[i - 1]:F2} before, {a[i]:F2}/{b[i]:F2} now");
+            }
 
-        Assert.True(buys.Count + sells.Count > 0,
-            $"Cipher A produced no buy or sell signals on series {flavour} — this proves nothing");
-
-        var unsustained = new List<string>();
-        foreach (int b in buys)
-            if (b > 0 && !(wt[b] < -ObLevel && wt[b - 1] < -ObLevel))
-                unsustained.Add($"buy at {b}: wave {wt[b]:F1} now, {wt[b - 1]:F1} before");
-        foreach (int b in sells)
-            if (b > 0 && !(wt[b] > ObLevel && wt[b - 1] > ObLevel))
-                unsustained.Add($"sell at {b}: wave {wt[b]:F1} now, {wt[b - 1]:F1} before");
-
-        Assert.True(unsustained.Count == 0,
-            $"{unsustained.Count} Cipher A signals on series {flavour} fired on a single-bar excursion " +
-            $"past the oversold/overbought line:\n  " + string.Join("\n  ", unsustained.Take(6)) +
-            "\nThe condition has to have held on the previous bar as well, or a one-bar spike is a trade.");
+        Assert.True(fired > 0, $"Cipher A drew no crossing symbol on series {flavour} — this proves nothing");
+        Assert.True(states.Count == 0,
+            $"{states.Count} Cipher A crossing symbols on series {flavour} fired on a bar that is not a cross:\n  "
+            + string.Join("\n  ", states.Take(6)));
     }
 
     // ── Top/Bottom: a confirmation is an edge, not a level ──────────────────────────

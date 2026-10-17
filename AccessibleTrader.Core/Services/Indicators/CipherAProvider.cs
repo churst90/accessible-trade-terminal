@@ -1,4 +1,5 @@
 using System.Text;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -6,608 +7,323 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// Accessible Cipher A — price-chart overlay indicator inspired by Market Cipher A.
+    /// Cipher A — a rebuild of Market Cipher A (CryptoFace, invite-only on TradingView), MEASURED
+    /// against real Market Cipher A charts on 2026-10-17. Everything here is the chart's own
+    /// candles: no other symbol, no volume.
     ///
-    /// All signals render directly on the main price chart at actual price Y positions
-    /// (above or below candle wicks), offset by a fraction of the candle range so they
-    /// do not overlap with the body.
+    /// <para><b>How it was measured.</b> Seven TradingView chart snapshots that show Market Cipher A
+    /// were digitised column by column against the same bars: three with the legend
+    /// "MarketCipher A (2.1.2, 1, 21)" (BTCUSD 1D Bitstamp Heikin-Ashi, and two snapshots of DPRUSDT
+    /// 1D Gate.io Heikin-Ashi), a BTCUSD 2D chart whose eight ribbon lines are 23 px apart per bar,
+    /// a second BTCUSD 1D Heikin-Ashi chart, and — never used for fitting — a BTCUSDT 1D Binance
+    /// chart, a Bitget BTC 3h Heikin-Ashi chart and an SLPUSDT 1D Binance chart. Scripts, images
+    /// and numbers: the 2026-10-17 Cipher A report.</para>
     ///
-    /// Components:
-    ///   WT Momentum           — Continuous small dot on every candle at the close price.
-    ///                           Color gradient: teal (oversold) → gray (neutral) → red (overbought).
-    ///                           DisplayType = Dot; companion "_color" array drives RenderDot's gradient path.
-    ///   Buy Signal            — Blue dot below the candle low: WT1 × WT2 cross-up from oversold.
-    ///   Sell Signal           — Red dot above the candle high: WT1 × WT2 cross-down from overbought.
-    ///   Bullish Divergence    — Bright green diamond below low: price lower low but WT higher low.
-    ///   Bearish Divergence    — Bright red diamond above high: price higher high but WT lower high.
-    ///   Overbought Bearish Divergence — Dark red diamond above high: bearish divergence from OB zone.
-    ///                           Supersedes Bearish Divergence (both cannot appear on the same bar).
-    ///   Manipulation          — Gold X below low: WT oversold AND Money Flow positive.
-    ///                           Indicates smart-money accumulation while price is depressed —
-    ///                           the "manipulation" phase before a reversal upward.
-    ///   Exhaustion            — Red X above high: WT overbought AND Money Flow negative.
-    ///                           Indicates distribution/selling into strength — momentum exhausted.
+    /// <para><b>The ribbon</b> is eight EMAs of the close, 5 11 15 18 21 25 29 33 — OpenCipher A's
+    /// set, not VuManChu's (…24 28 34). On the 2D chart every line fits at 0.3–0.7 px RMSE and the
+    /// neighbouring lengths are 4–8 px off; on the hold-out DPR chart the set fits again. Each line
+    /// has its own colour: blue/white while it is above the next-longer line (the last line: while
+    /// it is below the one before), grey otherwise — 1,420 of 1,420 digitised line-segments on three
+    /// charts. MCA does not tint the background; the lines themselves change colour, which is
+    /// drawn here with <c>DefaultColorAboveComponent</c>.</para>
     ///
-    /// Y-offset formula (all signals):
-    ///   offset = Max(candleRange × 0.15, closePrice × 0.002)
-    ///   Ensures shapes clear the wicks at any price scale.
+    /// <para><b>The symbols</b> (exact bar / within one bar, fit charts then hold-outs):</para>
+    /// <list type="bullet">
+    /// <item><b>Green Dot</b> — EMA 11 crosses above EMA 33. 13/13 on the bar; hold-out 5/5.</item>
+    /// <item><b>Blue Triangle</b> — EMA 5 crosses above EMA 25 while EMA 29 is below EMA 33
+    /// (OpenCipher A's rule). 15/16 within one bar; hold-out 10/10.</item>
+    /// <item><b>Yellow Diamond</b> — Wave Trend fast above slow while EMA 5 is above both EMA 11 and
+    /// EMA 33. Recall 128/128; on the clearest chart 25 of 26 predictions are real.</item>
+    /// <item><b>Red X</b> — EMA 5 crosses below EMA 11. 36/36; hold-out 17/17 within one bar.</item>
+    /// <item><b>Red Diamond</b> — Wave Trend fast crosses below slow (hlc3, 9, 12, SMA 3: Cipher B's
+    /// fitted wave), on a candle without a Red X — with one it is the Blood Diamond. 117/124 within
+    /// one bar; hold-out 37/40, with no false ones.</item>
+    /// <item><b>Blood Diamond</b> — a Red Diamond and a Red X on the same candle. 5/5; hold-out 6/6.</item>
+    /// <item><b>Yellow X</b> — a Red Diamond with the slow wave at −40 or lower and price in the bottom
+    /// 22 % of its 80-bar range (the 80-bar stochastic of hlc3, SMA 3 — Cipher B's fitted
+    /// "Stochastic" line). 22/22 on the fit charts. Not volume: the chart's volume on Yellow X
+    /// bars is ordinary (median 0.9× its 20-bar average).</item>
+    /// </list>
     ///
-    /// Parameters:
-    ///   WT1Period  — Wave Trend channel period (default 9)
-    ///   WT2Period  — Wave Trend average period (default 12)
-    ///   OBLevel    — Overbought / oversold threshold (default 53)
-    ///   MFPeriod   — Money Flow smoothing period (default 3)
-    ///   PivotBars  — Bars each side for divergence pivot detection (default 3)
+    /// <para><b>Saved charts and strategies.</b> The code stays <c>CIPHER_A</c>. The components of the
+    /// all-WaveTrend Cipher A this replaced (Buy/Sell Signal, the divergences, Manipulation,
+    /// Exhaustion, WT Momentum) are gone: a saved chart rebuilds its components from this metadata,
+    /// and a strategy or alert naming one is told why (<c>SignalCatalog.Retired</c>).</para>
     /// </summary>
     public class CipherAProvider : IIndicatorProvider
     {
         public string Name => "Cipher A";
 
-        public const string CompWtMomentum   = "WT Momentum";
-        public const string CompBuySignal    = "Buy Signal";
-        public const string CompSellSignal   = "Sell Signal";
-        public const string CompBullDiv      = "Bullish Divergence";
-        public const string CompBearDiv      = "Bearish Divergence";
-        public const string CompBloodDiamond = "Overbought Bearish Divergence";
-        public const string CompManipulation = "Manipulation";
-        public const string CompExhaustion   = "Exhaustion";
+        public const string CompGreenDot      = "Green Dot";
+        public const string CompBlueTriangle  = "Blue Triangle";
+        public const string CompYellowDiamond = "Yellow Diamond";
+        public const string CompRedX          = "Red X";
+        public const string CompRedDiamond    = "Red Diamond";
+        public const string CompBloodDiamond  = "Blood Diamond";
+        public const string CompYellowX       = "Yellow X";
 
-        // Companion array key for GradientDot color source — not a navigable component.
-        private const string CompWtMomentumColor = CompWtMomentum + "_color";
+        /// <summary>The ribbon's lengths, shortest first. Measured, not a setting.</summary>
+        public static readonly int[] RibbonLengths = { 5, 11, 15, 18, 21, 25, 29, 33 };
+        public static string RibbonLine(int k) => $"EMA {RibbonLengths[k]}";
 
-        /// <summary>
-        /// Queryable copy of the WT Momentum gradient (0.0 extreme oversold / teal →
-        /// 0.5 neutral → 1.0 extreme overbought / red). Exposed as a hidden Line component so
-        /// <c>SignalCatalog</c> picks it up and strategies can gate on momentum gradient
-        /// strength (e.g. <c>GreaterThan 0.7</c> = strong bullish pressure). The renderer
-        /// skips IsVisible=false components so this does not draw on the chart.
-        /// </summary>
-        public const string CompWtMomentumGradient = "WT Momentum Gradient";
+        // Companion arrays (not components, so not keyboard stops): read by the speech and the bar detail.
+        public const string Wt1Key   = "Cipher A_wt1";
+        public const string Wt2Key   = "Cipher A_wt2";
+        public const string StochKey = "Cipher A_stoch80";
+
+        /// <summary>MCA's uptrend ladder, darkest (EMA 5) to near-white (EMA 33). VuManChu copied these
+        /// hexes exactly; the 2D chart's lines 3–7 are pixel-exact.</summary>
+        private static readonly string[] BlueLadder = { "#1573D4", "#3096FF", "#57ABFF", "#85C2FF", "#9BCDFF", "#B3D9FF", "#C9E5FF", "#DFECFB" };
+        /// <summary>The downtrend grey, (90, 99, 114) on the 2D chart.</summary>
+        private const string Grey = "#5A6372";
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
             new IndicatorMetadata
             {
                 Code        = "CIPHER_A",
-                Causality = ComponentCausality.Causal,
-                Name        = "Cipher A (retired)",
+                Causality   = ComponentCausality.Causal,
+                Name        = "Cipher A",
                 Category    = "Multi-Signal",
                 DefaultPane = "Main",
-                IsDeprecated = true,
                 Description =
-                    "RETIRED 2026-07: Cipher A's engine is the same WaveTrend as Cipher B, so on any " +
-                    "chart with Cipher B it adds no independent information — it is B's signals " +
-                    "projected onto the price pane. Kept functional for saved workspaces and legacy " +
-                    "strategies (v16/v17 Trilogy), but hidden from the Add Indicator dialog. Use " +
-                    "Cipher B instead. Original: price-chart overlay with WT momentum ribbon, " +
-                    "buy/sell dots, divergence diamonds, and confluence crosses.",
-                Components = new List<IndicatorComponentMetadata>
-                {
-                    // ── WT Momentum ribbon ───────────────────────────────────────────────────────
-                    // Continuous Dot on every candle at close price level.
-                    // RenderDot detects the companion "_color" array and applies teal→gray→red gradient.
-                    // Accessibility: speaks and sounds as "dot" — one Ping per bar, gradient timbre.
-                    // UsesGradientSpeech: navigation speech produces "strong bullish momentum" etc.
-                    // Rendered first so signal shapes layer on top of it.
-                    new() { Name = CompWtMomentum,   DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00E5FF", DefaultColorHexSecondary = "#F23645",
-                            DefaultThickness = 6.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 80, DefaultBaseFrequency = 440.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultSoundPatchId = "gradient_blend",
-                            UsesGradientSpeech = true,
-                            SpeechTemplate = "Wave Trend momentum. {gradient_speech}.",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // ── Buy / Sell dots ──────────────────────────────────────────────────────────
-                    // Filled circles matching the real MC A visual style.
-                    // Blue dot below low: WT1 × WT2 cross-up from oversold territory.
-                    new() { Name = CompBuySignal,    DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#0BBCF5",
-                            DefaultThickness = 9.0f,
-                            DefaultWaveform = "sine", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 380, DefaultBaseFrequency = 880.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "sine_bell",
-                            DefaultSignalSpeechTemplate = "Buy signal at {price}",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // Red dot above high: WT1 × WT2 cross-down from overbought territory.
-                    new() { Name = CompSellSignal,   DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF1744",
-                            DefaultThickness = 9.0f,
-                            DefaultWaveform = "sine", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 380, DefaultBaseFrequency = 220.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "sine_bell",
-                            DefaultSignalSpeechTemplate = "Sell signal at {price}",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // ── Divergence diamonds ──────────────────────────────────────────────────────
-                    // Bright green diamond below low: price lower low + WT higher low = bullish divergence.
-                    new() { Name = CompBullDiv,      DisplayType = ComponentDisplayType.Diamond, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00E676",
-                            DefaultThickness = 11.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 280, DefaultBaseFrequency = 660.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultSignalSpeechTemplate = "Bullish divergence detected",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // Bright red diamond above high: price higher high + WT lower high = bearish divergence.
-                    // Suppressed on bars where Overbought Bearish Divergence fires.
-                    new() { Name = CompBearDiv,      DisplayType = ComponentDisplayType.Diamond, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF1744",
-                            DefaultThickness = 11.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 280, DefaultBaseFrequency = 330.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultSignalSpeechTemplate = "Bearish divergence detected",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // Dark red diamond above high: bearish divergence AND prior WT pivot was in overbought.
-                    // Stronger bearish signal — supersedes Bearish Divergence on the same bar.
-                    new() { Name = CompBloodDiamond, DisplayType = ComponentDisplayType.Diamond, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#D50000",
-                            DefaultThickness = 13.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 500, DefaultBaseFrequency = 165.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultSignalSpeechTemplate = "Overbought bearish divergence, high confidence",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // ── Money Flow confluence signals ────────────────────────────────────────────
-                    // Gold X below low: WT in oversold zone AND Money Flow positive.
-                    // "Manipulation" — smart-money accumulation while price is depressed.
-                    new() { Name = CompManipulation, DisplayType = ComponentDisplayType.Cross, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FFD600",
-                            DefaultThickness = 8.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 320, DefaultBaseFrequency = 550.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "detuned_pair_bell",
-                            DefaultSignalSpeechTemplate = "Potential smart money accumulation",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // Red X above high: WT in overbought zone AND Money Flow negative.
-                    // "Exhaustion" — distribution/selling into strength, momentum running dry.
-                    new() { Name = CompExhaustion,   DisplayType = ComponentDisplayType.Cross, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF6D00",
-                            DefaultThickness = 8.0f,
-                            DefaultWaveform = "triangle", DefaultEnvelopeType = "Ping",
-                            DefaultDecayMs = 320, DefaultBaseFrequency = 250.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "detuned_pair_bell",
-                            DefaultSignalSpeechTemplate = "Potential distribution, exhaustion signal",
-                            IsVisible = true,
-                            DefaultUsePolarityColoring = false },
-
-                    // Queryable gradient (hidden from render). 0.0 = extreme oversold / strong
-                    // bullish pressure build, 0.5 = neutral, 1.0 = extreme overbought / strong
-                    // bearish pressure. Derived from raw WT1 clamped to ±obLevel and remapped.
-                    // Exists so strategies can gate on momentum gradient strength via
-                    // ConditionLeaf operators (e.g. GreaterThan 0.7 = "strong overbought").
-                    new() { Name = CompWtMomentumGradient, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.None,
-                            DefaultColorHex = "#808080",
-                            DefaultThickness = 1.0f,
-                            IsVisible = false,
-                            DefaultUsePolarityColoring = false },
-                },
+                    "Market Cipher A, measured against real Market Cipher A charts: an eight-EMA ribbon " +
+                    "(5 11 15 18 21 25 29 33) whose lines are blue while each is above the next and grey " +
+                    "when not, and seven symbols — Green Dot, Blue Triangle, Yellow Diamond (bullish) and " +
+                    "Red X, Red Diamond, Blood Diamond, Yellow X (bearish). Computed from the chart's own " +
+                    "candles only.",
+                Components = BuildComponents(),
                 Parameters = new List<IndicatorParameterMetadata>
                 {
-                    new() { Name = "WT1Period",  DisplayName = "WT Channel Period",     DataType = typeof(int),    DefaultValue = 9.0,
-                            Description = "Period for the Wave Trend channel EMA." },
-                    new() { Name = "WT2Period",  DisplayName = "WT Average Period",     DataType = typeof(int),    DefaultValue = 12.0,
-                            Description = "Period for the Wave Trend signal SMA." },
-                    new() { Name = "OBLevel",    DisplayName = "OB/OS Threshold",       DataType = typeof(double), DefaultValue = 53.0,
-                            Description = "Overbought/oversold threshold. Buy signals require WT below −threshold; sell above +threshold." },
-                    new() { Name = "MFPeriod",   DisplayName = "Money Flow Period",     DataType = typeof(int),    DefaultValue = 3.0,
-                            Description = "SMA period for the Money Flow calculation used in Manipulation and Exhaustion signals." },
-                    new() { Name = "PivotBars",  DisplayName = "Divergence Pivot Bars", DataType = typeof(int),    DefaultValue = 3.0,
-                            Description = "Bars each side required for divergence pivot confirmation." },
-                    new() { Name = "DivergenceConfirmLag", DisplayName = "Shift divergences to their confirmation bar",
-                            DataType = typeof(bool), DefaultValue = true,
-                            Description = "Default ON. A divergence pivot at bar p is only confirmable at p+PivotBars, so the marker is drawn there rather than at the pivot. Turning it off restores the pivot-stamped Market Cipher dot for chart review, and makes the markers look-ahead-biased for any strategy that reads them." },
-                }
+                    new() { Name = "WT1Period", DisplayName = "Wave Trend Channel Period", DataType = typeof(int), DefaultValue = 9.0,
+                            MinValue = 2, MaxValue = 50, Step = 1,
+                            Description = "Channel period of the Wave Trend behind Red Diamond, Blood Diamond, Yellow Diamond and Yellow X. 9 fits Market Cipher A." },
+                    new() { Name = "WT2Period", DisplayName = "Wave Trend Average Period", DataType = typeof(int), DefaultValue = 12.0,
+                            MinValue = 2, MaxValue = 50, Step = 1,
+                            Description = "Average period of the Wave Trend. 12 puts Red Diamonds on Market Cipher A's bars more often than 13 (VuManChu's)." },
+                    new() { Name = "WTSignalPeriod", DisplayName = "Wave Trend Slow Wave Smoothing", DataType = typeof(int), DefaultValue = 3.0,
+                            MinValue = 1, MaxValue = 10, Step = 1,
+                            Description = "Bars in the simple average that makes the slow wave from the fast one. 3, as Cipher B." },
+                    new() { Name = "YellowXWaveLevel", DisplayName = "Yellow X Wave Level", DataType = typeof(double), DefaultValue = -40.0,
+                            MinValue = -100, MaxValue = 0, Step = 1,
+                            Description = "A Red Diamond is a Yellow X only with the slow wave at or below this level." },
+                    new() { Name = "YellowXRangeLevel", DisplayName = "Yellow X Range Level (%)", DataType = typeof(double), DefaultValue = 22.0,
+                            MinValue = 1, MaxValue = 100, Step = 1,
+                            Description = "…and with price in the bottom this-many percent of its 80-bar range (the 80-bar stochastic of hlc3, smoothed over 3)." },
+                },
             }
+        };
+
+        private static List<IndicatorComponentMetadata> BuildComponents()
+        {
+            var list = new List<IndicatorComponentMetadata>
+            {
+                // ── Symbols. Bullish first, then bearish; each a marker that pings. ─────────────
+                Marker(CompGreenDot,      ComponentDisplayType.Dot,       "#00E676", 9f,  "sine_bell",         880.0, 380, "Green dot, bullish"),
+                Marker(CompBlueTriangle,  ComponentDisplayType.TriangleUp,"#4058F0", 11f, "crystal_bell",      660.0, 320, "Blue triangle, momentum turning"),
+                // Fires on many bars in a row in a trend, so it is the quietest: short and in the background.
+                Marker(CompYellowDiamond, ComponentDisplayType.Diamond,   "#9E9D24", 7f,  "triangle_bell",     1046.0, 90, "Yellow diamond", PlaybackLayer.Background),
+                Marker(CompRedX,          ComponentDisplayType.Cross,     "#FF5252", 8f,  "detuned_pair_bell", 250.0, 320, "Red X, bearish"),
+                Marker(CompRedDiamond,    ComponentDisplayType.Diamond,   "#B71C1C", 7f,  "triangle_bell",     330.0, 200, "Red diamond"),
+                Marker(CompBloodDiamond,  ComponentDisplayType.Diamond,   "#FF0000", 14f, "dual_tone_bell",    165.0, 500, "Blood diamond, strongly bearish"),
+                Marker(CompYellowX,       ComponentDisplayType.Cross,     "#FFEB3B", 12f, "detuned_pair_bell", 550.0, 450, "Yellow X, bearish warning"),
+            };
+
+            // ── The ribbon. Muted: eight voices within a few percent of price would bury the
+            // candles and the symbols. Each is navigable and says its value and its colour.
+            for (int k = 0; k < RibbonLengths.Length; k++)
+            {
+                bool last = k == RibbonLengths.Length - 1;
+                list.Add(new IndicatorComponentMetadata
+                {
+                    Name = RibbonLine(k),
+                    DisplayType = ComponentDisplayType.Line,
+                    Role = ComponentRole.Signal,
+                    // Coloured against a sibling: the secondary colour where this line is ABOVE the
+                    // sibling, the primary at or below. Lines 1–7 are blue above the next-longer line;
+                    // the last line is blue BELOW the one before it, so its two colours swap.
+                    DefaultColorAboveComponent = last ? RibbonLine(k - 1) : RibbonLine(k + 1),
+                    DefaultColorHex          = last ? BlueLadder[k] : Grey,
+                    DefaultColorHexSecondary = last ? Grey : BlueLadder[k],
+                    DefaultThickness = k == 0 ? 2.0f : 1.5f,
+                    DefaultIsMuted = true,
+                    DefaultPlaybackLayer = PlaybackLayer.Background,
+                    DefaultUsePolarityColoring = false,
+                    // Painted under the symbols; keyboard order is unchanged.
+                    DefaultDrawOrder = -1,
+                });
+            }
+            return list;
+        }
+
+        private static IndicatorComponentMetadata Marker(string name, ComponentDisplayType shape, string color, float size,
+            string patch, double freq, int decayMs, string narration, PlaybackLayer layer = PlaybackLayer.Foreground) => new()
+        {
+            Name = name,
+            DisplayType = shape,
+            Role = ComponentRole.Signal,
+            DefaultColorHex = color,
+            DefaultThickness = size,
+            DefaultEnvelopeType = "Ping",
+            DefaultSoundPatchId = patch,
+            DefaultBaseFrequency = freq,
+            DefaultDecayMs = decayMs,
+            DefaultPitchMapping = PitchMapping.None,
+            DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultPlaybackLayer = layer,
+            DefaultSignalSpeechTemplate = narration,
+            DefaultUsePolarityColoring = false,
+        };
+
+        /// <summary>Stacking slot above the high, so symbols on one candle sit one above another
+        /// as Market Cipher A draws them, rather than on top of each other.</summary>
+        private static int Slot(string comp) => comp switch
+        {
+            CompRedX => 1, CompRedDiamond => 2, CompBloodDiamond => 2, CompYellowDiamond => 3,
+            CompGreenDot => 4, CompYellowX => 5, CompBlueTriangle => 6, _ => 1,
         };
 
         public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
             if (!code.Equals("CIPHER_A", StringComparison.OrdinalIgnoreCase)) return;
             int n = data.Length;
-            if (n < 10) return;
+            if (n < 2) return;
 
-            int    wt1Period = GetInt(parameters, "WT1Period", 9);
-            int    wt2Period = GetInt(parameters, "WT2Period", 12);
-            double obLevel   = GetDbl(parameters, "OBLevel",   53.0);
-            int    mfPeriod  = GetInt(parameters, "MFPeriod",  3);
-            int    pivotBars = GetInt(parameters, "PivotBars", 3);
+            int wtChannel = Math.Max(1, GetInt(parameters, "WT1Period", 9));
+            int wtAverage = Math.Max(1, GetInt(parameters, "WT2Period", 12));
+            int wtSignal  = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
+            double yxWave  = GetDbl(parameters, "YellowXWaveLevel", -40.0);
+            double yxRange = GetDbl(parameters, "YellowXRangeLevel", 22.0);
 
-            // ── Price source arrays ────────────────────────────────────────────────────────
-            var close  = new double[n];
-            var open   = new double[n];
-            var high   = new double[n];
-            var low    = new double[n];
-            var volume = new double[n];
-            var hlc3   = new double[n];
+            var close = new double[n]; var open = new double[n]; var high = new double[n]; var low = new double[n]; var hlc3 = new double[n];
             for (int i = 0; i < n; i++)
             {
-                if (data[i].Close <= 0 || data[i].Open <= 0 || data[i].High <= 0)
-                {
-                    hlc3[i] = double.NaN;  // propagates as NaN through EMA — prevents zero from corrupting WT
-                    continue;
-                }
-                close[i]  = data[i].Close;
-                open[i]   = data[i].Open;
-                high[i]   = data[i].High;
-                low[i]    = data[i].Low;
-                volume[i] = data[i].Volume;
-                hlc3[i]   = (high[i] + low[i] + close[i]) / 3.0;
+                close[i] = data[i].Close; open[i] = data[i].Open; high[i] = data[i].High; low[i] = data[i].Low;
+                hlc3[i] = (high[i] + low[i] + close[i]) / 3.0;
             }
 
-            // ── Wave Trend ─────────────────────────────────────────────────────────────────
-            var esa     = MovingAverageHelper.Ema(hlc3, wt1Period);
-            var absDiff = new double[n];
-            for (int i = 0; i < n; i++)
-                absDiff[i] = double.IsNaN(esa[i]) ? double.NaN : Math.Abs(hlc3[i] - esa[i]);
-            var d  = MovingAverageHelper.Ema(absDiff, wt1Period);
-            var ci = new double[n];
-            for (int i = 0; i < n; i++)
-                ci[i] = (double.IsNaN(d[i]) || d[i] < 1e-10)
-                    ? double.NaN
-                    : (hlc3[i] - esa[i]) / (0.015 * d[i]);
-            var wt1 = MovingAverageHelper.Ema(ci, wt2Period);
-            // WT2 uses WMA(4) instead of SMA(4): same smoothing window but weights
-            // recent bars more heavily, reducing WT2's lag at regime changes by ~1 bar.
-            var wt2 = MovingAverageHelper.Wma(wt1, 4);
+            var ema = new double[RibbonLengths.Length][];
+            for (int k = 0; k < RibbonLengths.Length; k++) ema[k] = IndicatorMath.Ema(close, RibbonLengths[k]);
+            var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wtChannel, wtAverage, wtSignal);
+            var stoch = WaveTrendMath.SmoothedStochastic(hlc3, high, low, 80, 3);
 
-            // ── Money Flow ─────────────────────────────────────────────────────────────────
-            // Magnitude-weighted directional volume. Weighting the volume by the candle's
-            // body-to-range ratio (Chaikin-style CLV) means a strong close near the high
-            // counts more than a marginal up-close that barely cleared open — this
-            // dampens Manipulation/Exhaustion false positives in doji-heavy chop.
-            var mfv = new double[n];
-            for (int i = 0; i < n; i++)
+            double[] e5 = ema[0], e11 = ema[1], e25 = ema[5], e29 = ema[6], e33 = ema[7];
+            var green = Nan(n); var blue = Nan(n); var yd = Nan(n); var redX = Nan(n); var redD = Nan(n); var blood = Nan(n); var yx = Nan(n);
+            for (int i = 1; i < n; i++)
             {
-                double range = high[i] - low[i];
-                if (range < 1e-10) { mfv[i] = 0.0; continue; }
-                double clv = ((close[i] - low[i]) - (high[i] - close[i])) / range; // Chaikin CLV in [-1..+1]
-                mfv[i] = volume[i] * clv;
-            }
-            var mf = MovingAverageHelper.Sma(mfv, mfPeriod);
+                double unit = Math.Max((high[i] - low[i]) * 0.15, Math.Abs(close[i]) * 0.002);
+                double At(string comp) => high[i] + unit * Slot(comp);
 
-            // ── Output arrays ──────────────────────────────────────────────────────────────
-            var wtMomentum   = new double[n];  // close price (Y position for Dot)
-            var wtMomentumCl = new double[n];  // raw WT1 value (gradient color source for RenderDot)
-            var wtMomentumGr = new double[n];  // normalized 0..1 gradient (queryable by strategies)
-            var buySignal    = new double[n];
-            var sellSignal   = new double[n];
-            var bullDiv      = new double[n];
-            var bearDiv      = new double[n];
-            var bloodDiamond = new double[n];
-            var manipulation = new double[n];
-            var exhaustion   = new double[n];
-            Array.Fill(wtMomentum,   double.NaN);
-            Array.Fill(wtMomentumCl, double.NaN);
-            Array.Fill(wtMomentumGr, double.NaN);
-            Array.Fill(buySignal,    double.NaN);
-            Array.Fill(sellSignal,   double.NaN);
-            Array.Fill(bullDiv,      double.NaN);
-            Array.Fill(bearDiv,      double.NaN);
-            Array.Fill(bloodDiamond, double.NaN);
-            Array.Fill(manipulation, double.NaN);
-            Array.Fill(exhaustion,   double.NaN);
-
-            // ── WT Momentum ribbon (every bar with valid WT1) ──────────────────────────────
-            // Gradient derivation: clamp raw WT1 to [-obLevel..+obLevel] and linear-map to
-            // [0..1]. 0.0 = deep oversold (strong bullish pressure building), 0.5 = neutral,
-            // 1.0 = deep overbought (strong bearish pressure building). The range compression
-            // is deliberate — once WT is past ±obLevel the regime is already established and
-            // the gradient saturates.
-            double denom = obLevel > 0 ? (obLevel * 2.0) : 106.0;
-            for (int i = 0; i < n; i++)
-            {
-                if (double.IsNaN(wt1[i])) continue;
-                wtMomentum[i]   = close[i];   // Y position = close price
-                wtMomentumCl[i] = wt1[i];     // color = raw WT1 oscillator value
-                double clamped  = Math.Max(-obLevel, Math.Min(obLevel, wt1[i]));
-                wtMomentumGr[i] = (clamped + obLevel) / denom;
+                bool rx = WaveTrendMath.CrossedUnder(e5, e11, i);
+                bool rd = WaveTrendMath.CrossedUnder(wt1, wt2, i);
+                if (WaveTrendMath.CrossedOver(e11, e33, i)) green[i] = At(CompGreenDot);
+                if (WaveTrendMath.CrossedOver(e5, e25, i) && e29[i] < e33[i]) blue[i] = At(CompBlueTriangle);
+                if (wt1[i] > wt2[i] && e5[i] > e11[i] && e5[i] > e33[i]) yd[i] = At(CompYellowDiamond);
+                if (rx) redX[i] = At(CompRedX);
+                if (rd && !rx) redD[i] = At(CompRedDiamond);   // with a Red X it is drawn as the Blood Diamond instead
+                if (rd && rx) blood[i] = At(CompBloodDiamond);
+                if (rd && wt2[i] <= yxWave && stoch[i] < yxRange) yx[i] = At(CompYellowX);
             }
 
-            // ── Crossover buy / sell signals (2-bar sustained OS/OB) ───────────────────────
-            // A bare wt1-crosses-wt2 event at oversold fires too often during wick noise:
-            // one bar dips to -60, the next bar pops back to -40, and the "crossover"
-            // happens on the pop with WT1 already headed up. Requiring the PRIOR bar to
-            // also have been oversold means the setup was sustained, not a one-bar spike.
-            for (int i = 2; i < n; i++)
-            {
-                if (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i]) ||
-                    double.IsNaN(wt1[i - 1]) || double.IsNaN(wt2[i - 1])) continue;
-
-                bool crossUp   = wt1[i - 1] < wt2[i - 1] && wt1[i] >= wt2[i];
-                bool crossDown = wt1[i - 1] > wt2[i - 1] && wt1[i] <= wt2[i];
-
-                double range  = high[i] - low[i];
-                double offset = Math.Max(range * 0.15, close[i] * 0.002);
-
-                bool sustainedOs = wt1[i] < -obLevel && !double.IsNaN(wt1[i - 1]) && wt1[i - 1] < -obLevel;
-                bool sustainedOb = wt1[i] >  obLevel && !double.IsNaN(wt1[i - 1]) && wt1[i - 1] >  obLevel;
-
-                if (crossUp   && sustainedOs) buySignal[i]  = low[i]  - offset;
-                if (crossDown && sustainedOb) sellSignal[i] = high[i] + offset;
-            }
-
-            // ── Money Flow confluence signals (persistent condition, not event-based) ───────
-            // Manipulation: WT oversold AND MF positive — smart money buying while price is low.
-            // Exhaustion:   WT overbought AND MF negative — distribution into strength.
-            for (int i = 0; i < n; i++)
-            {
-                if (double.IsNaN(wt1[i]) || double.IsNaN(mf[i])) continue;
-                double range  = high[i] - low[i];
-                double offset = Math.Max(range * 0.15, close[i] * 0.002);
-
-                if (wt1[i] < -obLevel && mf[i] > 0) manipulation[i] = low[i]  - offset;
-                if (wt1[i] >  obLevel && mf[i] < 0) exhaustion[i]   = high[i] + offset;
-            }
-
-            // ── Divergence detection via pivot highs / lows ────────────────────────────────
-            int start = pivotBars;
-            int end   = n - pivotBars;
-
-            var pivotLowIdx  = new List<int>();
-            var pivotHighIdx = new List<int>();
-
-            for (int i = start; i < end; i++)
-            {
-                if (double.IsNaN(wt1[i])) continue;
-                bool isLow = true, isHigh = true;
-                for (int j = i - pivotBars; j <= i + pivotBars; j++)
-                {
-                    if (j == i || double.IsNaN(wt1[j])) continue;
-                    if (wt1[j] < wt1[i]) isLow  = false;
-                    if (wt1[j] > wt1[i]) isHigh = false;
-                }
-                if (isLow)  pivotLowIdx.Add(i);
-                if (isHigh) pivotHighIdx.Add(i);
-            }
-
-            // Bull Divergence: price lower low AND WT higher low at consecutive pivot lows.
-            for (int k = 1; k < pivotLowIdx.Count; k++)
-            {
-                int prev = pivotLowIdx[k - 1], curr = pivotLowIdx[k];
-                if (double.IsNaN(wt1[prev]) || double.IsNaN(wt1[curr])) continue;
-                if (low[curr] < low[prev] && wt1[curr] > wt1[prev])
-                {
-                    double range  = high[curr] - low[curr];
-                    double offset = Math.Max(range * 0.15, close[curr] * 0.002);
-                    bullDiv[curr] = low[curr] - offset;
-                }
-            }
-
-            // Bear Divergence: price higher high AND WT lower high at consecutive pivot highs.
-            // Overbought Bearish Divergence: same AND prior WT pivot was in overbought → supersedes.
-            for (int k = 1; k < pivotHighIdx.Count; k++)
-            {
-                int prev = pivotHighIdx[k - 1], curr = pivotHighIdx[k];
-                if (double.IsNaN(wt1[prev]) || double.IsNaN(wt1[curr])) continue;
-                if (high[curr] > high[prev] && wt1[curr] < wt1[prev])
-                {
-                    double range  = high[curr] - low[curr];
-                    double offset = Math.Max(range * 0.15, close[curr] * 0.002);
-                    if (wt1[prev] > obLevel)
-                        bloodDiamond[curr] = high[curr] + offset;   // supersedes Bear Div
-                    else
-                        bearDiv[curr]      = high[curr] + offset;
-                }
-            }
-
-            // ── Look-ahead honesty: divergence confirmation lag ───────────────────────────
-            // The pivot loop above reads wt1[i-pivotBars .. i+pivotBars], so a divergence at bar
-            // `curr` is not confirmable until curr+pivotBars — yet it is written at `curr`, on the
-            // pivot low itself. A backtest reading Bullish Divergence therefore enters at the exact
-            // low with three bars of hindsight, and live never sees the marker on the current bar at
-            // all. Cipher B fixed this on 2026-06-12 and the comment there
-            // (CipherBProvider.Calculate) spells out that it "inflates every divergence-based
-            // backtest" — Cipher A has the identical loop and was never back-ported, which is the
-            // recurrence pattern this codebase keeps producing: fixed where reported, untouched at
-            // the structurally identical site next door. Same default (ON) and same shared shift.
-            bool confirmLag = IndicatorParams.GetBool(parameters, "DivergenceConfirmLag", true);
-            if (confirmLag && pivotBars > 0)
-            {
-                bullDiv      = IndicatorMath.ShiftMarkersForward(bullDiv,      pivotBars, n);
-                bearDiv      = IndicatorMath.ShiftMarkersForward(bearDiv,      pivotBars, n);
-                bloodDiamond = IndicatorMath.ShiftMarkersForward(bloodDiamond, pivotBars, n);
-            }
-
-            // ── Write to buffer ────────────────────────────────────────────────────────────
-            WriteToBuffer(buffer, CompWtMomentum,         wtMomentum,   n);
-            WriteToBuffer(buffer, CompWtMomentumColor,    wtMomentumCl, n);  // companion color array
-            WriteToBuffer(buffer, CompWtMomentumGradient, wtMomentumGr, n);  // queryable gradient
-            WriteToBuffer(buffer, CompBuySignal,          buySignal,    n);
-            WriteToBuffer(buffer, CompSellSignal,         sellSignal,   n);
-            WriteToBuffer(buffer, CompBullDiv,            bullDiv,      n);
-            WriteToBuffer(buffer, CompBearDiv,            bearDiv,      n);
-            WriteToBuffer(buffer, CompBloodDiamond,       bloodDiamond, n);
-            WriteToBuffer(buffer, CompManipulation,       manipulation, n);
-            WriteToBuffer(buffer, CompExhaustion,         exhaustion,   n);
+            Write(buffer, CompGreenDot, green); Write(buffer, CompBlueTriangle, blue); Write(buffer, CompYellowDiamond, yd);
+            Write(buffer, CompRedX, redX); Write(buffer, CompRedDiamond, redD); Write(buffer, CompBloodDiamond, blood); Write(buffer, CompYellowX, yx);
+            for (int k = 0; k < RibbonLengths.Length; k++) Write(buffer, RibbonLine(k), ema[k]);
+            Write(buffer, Wt1Key, wt1); Write(buffer, Wt2Key, wt2); Write(buffer, StochKey, stoch);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
-        public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
-        {
-            int pivot = GetInt(parameters, "PivotBars", 3);
-            return pivot * 2 + 20;
-        }
+        /// <summary>EMA 33 needs about four times its length to forget its seed; the range stochastic needs 80 bars.</summary>
+        public int GetStabilityWindow(string code, Dictionary<string, object> parameters) => 140;
 
-        /// <summary>
-        /// Returns an imperative speech string for the given component at the current bar.
-        /// Called by NavigationFeedbackManager when the component has a SpeechTemplate that
-        /// requires runtime context (e.g. momentum direction, divergence type) beyond what
-        /// the declarative SpeechTemplate token substitution can express.
-        /// Returns null to fall through to the declarative SpeechTemplate or generic formatter.
-        /// </summary>
+        // ── Speech ──────────────────────────────────────────────────────────────────────────
+
+        /// <summary>Value-only speech when the keyboard lands on a component (NavigationFeedbackManager
+        /// says the name first): what made the symbol, and for a ribbon line its colour and why.</summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
-            if (double.IsNaN(value))
-                return "no data";
+            if (double.IsNaN(value)) return "no data";
+            string price = SpeechPriceFormatter.FormatPrice(bar.Close);
+            double wt1 = Get(allComponentData, Wt1Key, dataIndex), wt2 = Get(allComponentData, Wt2Key, dataIndex);
+            double st = Get(allComponentData, StochKey, dataIndex);
 
-            // Providers return VALUE-ONLY strings. NavigationFeedbackManager prepends
-            // "[Component Name]. [Type]. " on UP/DOWN moves.
+            int k = Array.FindIndex(RibbonLengths, L => componentName == $"EMA {L}");
+            if (k >= 0) return RibbonLineSpeech(k, value, allComponentData, dataIndex);
 
             return componentName switch
             {
-                // WT Momentum ribbon — gradient strength speech (value-only: no name prefix)
-                CompWtMomentum => GetMomentumValueSpeech(allComponentData, dataIndex),
-
-                // Signal dots — which waves crossed, WT1 value at crossing, and price.
-                CompBuySignal    => BuildWaveCrossSpeech(allComponentData, dataIndex, bar.Close, isBuy: true),
-                CompSellSignal   => BuildWaveCrossSpeech(allComponentData, dataIndex, bar.Close, isBuy: false),
-
-                // Divergences — price + cause description + pivot lag disclosure.
-                // Divergence detection uses a pivot window of PivotBars; the signal appears
-                // at the center of the window, so it's effectively PivotBars bars late.
-                CompBullDiv      => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Price lower low, WT higher low. Confirmed on pivot.",
-                CompBearDiv      => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Price higher high, WT lower high. Confirmed on pivot.",
-                CompBloodDiamond => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Overbought zone, high confidence. Confirmed on pivot.",
-
-                // Confluence signals — price + the two conditions that fired.
-                CompManipulation => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Oversold with positive money flow.",
-                CompExhaustion   => $"Price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(bar.Close)}. Overbought with negative money flow.",
-
-                _ => null
+                CompGreenDot      => $"EMA 11 crossed above EMA 33. Price {price}.",
+                CompBlueTriangle  => $"EMA 5 crossed above EMA 25, with EMA 29 still below EMA 33. Price {price}.",
+                CompYellowDiamond => $"Wave Trend above its slow wave{At(wt1)}, EMA 5 above EMA 11 and EMA 33. Price {price}.",
+                CompRedX          => $"EMA 5 crossed below EMA 11. Price {price}.",
+                CompRedDiamond    => $"Wave Trend crossed down{At(wt2)}. Price {price}.",
+                CompBloodDiamond  => $"Red diamond and red X on one candle: Wave Trend crossed down{At(wt2)} as EMA 5 crossed below EMA 11. Price {price}.",
+                CompYellowX       => $"Wave Trend crossed down{At(wt2)} with price in the bottom {(double.IsNaN(st) ? "part" : $"{st:F0} percent")} of its 80-bar range. Price {price}.",
+                _ => null,
             };
+
+            static string At(double v) => double.IsNaN(v) ? "" : $" at {v:F1}";
         }
 
-        private static string GetMomentumValueSpeech(IReadOnlyDictionary<string, double[]> data, int idx)
+        private static string RibbonLineSpeech(int k, double value, IReadOnlyDictionary<string, double[]> data, int idx)
         {
-            if (!data.TryGetValue(CompWtMomentum + "_color", out var colorArr) ||
-                colorArr == null || idx >= colorArr.Length || double.IsNaN(colorArr[idx]))
-                return "no data";
-
-            double v = colorArr[idx];
-            if (v > 60)  return $"Strong bullish, {v:F1}";
-            if (v > 20)  return $"Bullish, {v:F1}";
-            if (v > -20) return $"Neutral, {v:F1}";
-            if (v > -60) return $"Bearish, {v:F1}";
-            return $"Strong bearish, {v:F1}";
+            bool last = k == RibbonLengths.Length - 1;
+            int sib = last ? k - 1 : k + 1;
+            double other = Get(data, RibbonLine(sib), idx);
+            string v = SpeechPriceFormatter.FormatPrice(value);
+            if (double.IsNaN(other)) return v + ".";
+            bool bull = last ? value < other : value > other;
+            string rel = last ? (bull ? "below" : "above") : (bull ? "above" : "below");
+            return $"{v}. {(bull ? "Blue, bullish" : "Grey, bearish")}: {rel} {RibbonLine(sib)}.";
         }
 
-        /// <summary>
-        /// Buy/Sell signal speech: identifies the crossing waves (WT1 crossed WT2), the WT1
-        /// oscillator value at the moment of crossing, and the bar's close price.
-        /// E.g. "WT1 crossed WT2 upward at -62.3, price 84,500.00."
-        /// </summary>
-        private static string BuildWaveCrossSpeech(
-            IReadOnlyDictionary<string, double[]> data, int idx, double closePrice, bool isBuy)
-        {
-            double wt1 = double.NaN;
-            if (data.TryGetValue(CompWtMomentumColor, out var colorArr) &&
-                colorArr != null && idx < colorArr.Length)
-                wt1 = colorArr[idx];
-
-            string direction = isBuy ? "upward" : "downward";
-            string wt1Str    = double.IsNaN(wt1) ? "" : $" at {wt1:F1}";
-            return $"WT1 crossed WT2 {direction}{wt1Str}, price {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(closePrice)}.";
-        }
-
-        /// <summary>
-        /// Returns a spoken summary of the indicator's state at the given bar index.
-        /// Triggered by Ctrl+Shift+D (full analysis) and F4 (context summary).
-        /// Describes active signals, divergence state, and WT momentum direction in plain language.
-        /// Returns an empty string when no meaningful fact is available (NaN data, wrong code, etc.).
-        /// </summary>
+        /// <summary>The bar detail (Alt+Shift+D and the context summary): the ribbon's colour and any symbol on the bar.</summary>
         public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data, IReadOnlyDictionary<string, double[]> results, int index, Dictionary<string, object> parameters)
         {
             if (!code.Equals("CIPHER_A", StringComparison.OrdinalIgnoreCase) || index < 0) return string.Empty;
-
-            double buyVal    = GetVal(results, CompBuySignal,    index);
-            double sellVal   = GetVal(results, CompSellSignal,   index);
-            double bullVal   = GetVal(results, CompBullDiv,      index);
-            double bearVal   = GetVal(results, CompBearDiv,      index);
-            double bloodVal  = GetVal(results, CompBloodDiamond, index);
-            double manipVal  = GetVal(results, CompManipulation, index);
-            double exhVal    = GetVal(results, CompExhaustion,   index);
-            double wtColor   = GetVal(results, CompWtMomentumColor, index);
-
             var sb = new StringBuilder();
-
-            // WT Momentum context (1-sentence)
-            if (!double.IsNaN(wtColor))
+            int blueLines = 0, known = 0;
+            for (int k = 0; k < RibbonLengths.Length; k++)
             {
-                string momentumDesc = wtColor > 60  ? "strong bullish"
-                                    : wtColor > 20  ? "bullish"
-                                    : wtColor > -20 ? "neutral"
-                                    : wtColor > -60 ? "bearish"
-                                    :                 "strong bearish";
-                sb.Append($"WT momentum {momentumDesc}. ");
+                bool last = k == RibbonLengths.Length - 1;
+                double v = Get(results, RibbonLine(k), index), o = Get(results, RibbonLine(last ? k - 1 : k + 1), index);
+                if (double.IsNaN(v) || double.IsNaN(o)) continue;
+                known++;
+                if (last ? v < o : v > o) blueLines++;
             }
+            if (known == RibbonLengths.Length)
+                sb.Append(blueLines == known ? "Ribbon blue, all eight lines bullish. "
+                        : blueLines == 0 ? "Ribbon grey, all eight lines bearish. "
+                        : $"Ribbon mixed, {blueLines} of 8 lines blue. ");
 
-            // Active signals on this bar (comma-separated)
-            var activeSignals = new List<string>();
-            if (!double.IsNaN(buyVal))    activeSignals.Add("Buy signal");
-            if (!double.IsNaN(manipVal))  activeSignals.Add("Accumulation signal");
-            if (!double.IsNaN(bullVal))   activeSignals.Add("Bullish divergence");
-            if (!double.IsNaN(bloodVal))  activeSignals.Add("Overbought bearish divergence");
-            else if (!double.IsNaN(bearVal)) activeSignals.Add("Bearish divergence");
-            if (!double.IsNaN(sellVal))   activeSignals.Add("Sell signal");
-            if (!double.IsNaN(exhVal))    activeSignals.Add("Exhaustion signal");
-
-            sb.Append(activeSignals.Count > 0
-                ? string.Join(", ", activeSignals) + "."
-                : "No active signals.");
-
+            var on = new List<string>();
+            foreach (var c in new[] { CompBloodDiamond, CompYellowX, CompRedX, CompRedDiamond, CompGreenDot, CompBlueTriangle, CompYellowDiamond })
+            {
+                if (double.IsNaN(Get(results, c, index))) continue;
+                if (c == CompRedX || c == CompRedDiamond) { if (!double.IsNaN(Get(results, CompBloodDiamond, index))) continue; }
+                on.Add(c);
+            }
+            if (on.Count > 0) sb.Append(string.Join(", ", on) + ".");
             return sb.ToString().TrimEnd();
         }
 
-        // ── DSP helpers ───────────────────────────────────────────────────────────────────
+        public List<LevelDescriptor> GetDefaultLevels(string code) => new();
 
-        private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)
+        // ── helpers ─────────────────────────────────────────────────────────────────────────
+
+        private static double[] Nan(int n) { var a = new double[n]; Array.Fill(a, double.NaN); return a; }
+
+        private static void Write(IIndicatorResultBuffer buffer, string name, double[] data)
         {
             var span = buffer.GetComponentSpan(name);
             int len = Math.Min(span.Length, data.Length);
             for (int i = 0; i < len; i++) span[i] = data[i];
         }
 
-        private static double GetVal(IReadOnlyDictionary<string, double[]> r, string key, int idx)
-        {
-            if (!r.TryGetValue(key, out var arr) || arr == null || idx >= arr.Length) return double.NaN;
-            return arr[idx];
-        }
-
-        // Cipher A renders on the price pane — no separate OB/OS reference level lines.
-        public List<LevelDescriptor> GetDefaultLevels(string code)
-            => new();
+        private static double Get(IReadOnlyDictionary<string, double[]> r, string key, int idx) =>
+            r.TryGetValue(key, out var arr) && arr != null && idx >= 0 && idx < arr.Length ? arr[idx] : double.NaN;
 
         private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
