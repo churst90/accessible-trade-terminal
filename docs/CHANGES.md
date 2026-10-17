@@ -74,6 +74,13 @@ and none of the sound changes has been heard.**
   sentence ("Overbought at DSS 85.0, rising. Trigger 82.0. DSS crossed above trigger.") is built and
   tested but, like every indicator's `GetDetailFact`, **no key speaks it** — Alt+Shift+D reads raw
   values by design.
+- **Browser harness: a fresh page no longer resumes the previous test's chart.** All pages share
+  one Kestrel host and one Workspaces directory, and the terminal resumes the newest
+  `__last-session__*.json`, so a test that loaded a chart handed it to the next page. The new
+  status-line tests changed xUnit's order and CI failed 5 tests that pass alone (SpeechBrowserTests'
+  empty-chart pair, RefusedControlBrowserTests' three — each opened onto a 100-bar chart);
+  reproduced locally with the same five. `NewPageAsync` now deletes the slots unless
+  `resumeSession: true` (only `SessionRestoreBrowserTests` asks).
 - **Chart-pattern outcomes use Bulkowski's words** (Cody: "change the language as you found").
   Outcome speech: "Double top confirmed here: downward breakout, closed below the neckline at
   42,100…", "Range, upward breakout here: closed above the top at 110…". Line labels: "…, downward

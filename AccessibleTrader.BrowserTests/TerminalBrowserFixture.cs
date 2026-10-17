@@ -74,9 +74,19 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
     /// <summary>
     /// A fresh browser context on the terminal's home page, with the input pipeline proven
     /// armed. Dispose the returned object at the end of the test.
+    ///
+    /// <para><b>Fresh means no resumed session</b>, unless <paramref name="resumeSession"/> asks
+    /// for one. Every page shares one Kestrel host and one Workspaces directory, and the terminal
+    /// resumes the newest <c>__last-session__*.json</c> on start — so a test that loaded a chart
+    /// left it for whichever test opened the next page. That was a latent order dependency: on
+    /// 2026-10-17 the new status-line tests changed xUnit's order, and SpeechBrowserTests'
+    /// "empty chart" and RefusedControlBrowserTests' no-series toolbar both opened onto the
+    /// previous test's 100-bar chart and failed in CI while passing alone.</para>
     /// </summary>
-    internal async Task<TerminalPage> NewPageAsync()
+    internal async Task<TerminalPage> NewPageAsync(bool resumeSession = false)
     {
+        if (!resumeSession) ForgetSessionSlots();
+
         if (_browser == null)
             throw new InvalidOperationException(
                 "No browser. " + (BrowserAvailability.SkipReason ?? "Launch failed."));
@@ -109,6 +119,17 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
             throw;
         }
         return terminal;
+    }
+
+    /// <summary>The terminal's autosaved session slots, deleted so the next page starts blank.</summary>
+    private void ForgetSessionSlots()
+    {
+        string dir = Path.Combine(DataRoot, "data", "AccessibleTrader", "Workspaces");
+        if (!Directory.Exists(dir)) return;
+        foreach (var slot in Directory.GetFiles(dir, "__last-session__*.json"))
+        {
+            try { File.Delete(slot); } catch (IOException) { /* a page still writing it; it is not the newest for long */ }
+        }
     }
 
     /// <summary>

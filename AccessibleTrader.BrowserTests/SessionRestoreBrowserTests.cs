@@ -58,7 +58,7 @@ public sealed class SessionRestoreBrowserTests
               + "tab closed, so there is nothing for the next tab to resume. Slots now: "
               + string.Join(", ", SlotFiles().Select(Path.GetFileName)));
 
-            var second = await _fixture.NewPageAsync();
+            var second = await _fixture.NewPageAsync(resumeSession: true);
             try
             {
                 var names = await WaitForSeriesAsync(second, ms, vp);
@@ -100,7 +100,7 @@ public sealed class SessionRestoreBrowserTests
         var expected = new[] { "Candles", "Volume", "Price", "Cipher B", MarketStructure, VolumeProfile };
         try
         {
-            var t = await _fixture.NewPageAsync();
+            var t = await _fixture.NewPageAsync(resumeSession: true);
             try
             {
                 var names = await WaitForSeriesAsync(t, expected);
