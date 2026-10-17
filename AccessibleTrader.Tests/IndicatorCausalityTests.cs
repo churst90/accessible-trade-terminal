@@ -585,7 +585,10 @@ namespace AccessibleTrader.Tests
             "CFTC_COT.NetExtreme",
             "CFTC_COT.NetPctOi",
             "CFTC_COT.NetZScore",
-            "CIPHER_A.Bearish Divergence",
+            // A Red Diamond and a Red X on the same candle: both halves are exercised here and are
+            // causal, but the synthetic series never lines them up on one bar. Real bars do
+            // (2021-07-01 and 2021-09-20 on Bitstamp BTC/USD) — CipherAProviderTests pins those.
+            "CIPHER_A.Blood Diamond",
             "CIPHER_C.Bottom Double",
             "CIPHER_C.Shallow Peak",
             "CIPHER_C.Shallow Trough",

@@ -4,125 +4,80 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Verifies Cipher A self-describing metadata: component count, audio patch IDs,
-    /// frequencies, decay values, playback layers, and gradient speech flags.
+    /// Cipher A's declared shape since the 2026-10-17 rebuild from Market Cipher A: what each
+    /// component is drawn as, where, and in which colour — the colours being the ones measured on
+    /// real Market Cipher A charts. The rules themselves are pinned in <see cref="CipherAProviderTests"/>.
     /// </summary>
     public class CipherAMetadataTests
     {
-        private static List<IndicatorComponentMetadata> GetComponents()
-        {
-            var provider = new CipherAProvider();
-            return provider.GetIndicators()[0].Components;
-        }
-
-        private static IndicatorComponentMetadata Get(string name) =>
-            GetComponents().Single(c => c.Name == name);
-
-        // ── 1. Component count ────────────────────────────────────────────────
+        private static IndicatorMetadata Meta() => new CipherAProvider().GetIndicators().Single();
+        private static IndicatorComponentMetadata Get(string name) => Meta().Components.Single(c => c.Name == name);
 
         [Fact]
-        public void CipherA_GetMetadata_Returns9Components()
+        public void CipherA_IsOfferedOnThePricePaneUnderItsOldCode()
         {
-            // 8 visible + 1 hidden queryable gradient (WT Momentum Gradient). The gradient
-            // is not navigable on chart (IsVisible=false) but is surfaced via SignalCatalog
-            // so strategies can gate on momentum strength.
-            Assert.Equal(9, GetComponents().Count);
+            var m = Meta();
+            Assert.Equal("CIPHER_A", m.Code);
+            Assert.Equal("Main", m.DefaultPane);
+            Assert.False(m.IsDeprecated);
+            Assert.Equal(ComponentCausality.Causal, m.Causality);
         }
 
-        [Fact]
-        public void CipherA_WtMomentumGradient_IsHiddenQueryableComponent()
+        [Theory]
+        [InlineData(CipherAProvider.CompGreenDot,      ComponentDisplayType.Dot)]
+        [InlineData(CipherAProvider.CompBlueTriangle,  ComponentDisplayType.TriangleUp)]
+        [InlineData(CipherAProvider.CompYellowDiamond, ComponentDisplayType.Diamond)]
+        [InlineData(CipherAProvider.CompRedX,          ComponentDisplayType.Cross)]
+        [InlineData(CipherAProvider.CompRedDiamond,    ComponentDisplayType.Diamond)]
+        [InlineData(CipherAProvider.CompBloodDiamond,  ComponentDisplayType.Diamond)]
+        [InlineData(CipherAProvider.CompYellowX,       ComponentDisplayType.Cross)]
+        public void EachSymbolIsDrawnAsMarketCipherADrawsIt(string name, ComponentDisplayType shape)
         {
-            var grad = Get(CipherAProvider.CompWtMomentumGradient);
-            Assert.False(grad.IsVisible);
-            Assert.Equal(ComponentDisplayType.Line, grad.DisplayType);
+            var c = Get(name);
+            Assert.Equal(shape, c.DisplayType);
+            Assert.Equal(ComponentRole.Signal, c.Role);
+            Assert.False(string.IsNullOrWhiteSpace(c.DefaultSignalSpeechTemplate));
+            // The narration names the symbol the way Market Cipher A's users do.
+            Assert.StartsWith(name.ToLowerInvariant().Split(' ')[0], c.DefaultSignalSpeechTemplate!.ToLowerInvariant());
         }
 
-        // ── 2. Buy Signal audio ───────────────────────────────────────────────
-
+        /// <summary>The Blood Diamond is the big one: it stands for a Red Diamond and a Red X together.</summary>
         [Fact]
-        public void BuySignal_HasSoundPatchId_SineBell()
+        public void TheBloodDiamondIsTheBiggestDiamond()
         {
-            Assert.Equal("sine_bell", Get(CipherAProvider.CompBuySignal).DefaultSoundPatchId);
+            Assert.True(Get(CipherAProvider.CompBloodDiamond).DefaultThickness > Get(CipherAProvider.CompRedDiamond).DefaultThickness);
+            Assert.True(Get(CipherAProvider.CompBloodDiamond).DefaultThickness > Get(CipherAProvider.CompYellowDiamond).DefaultThickness);
         }
 
+        /// <summary>
+        /// Each ribbon line is a two-colour line against its neighbour: MCA's uptrend ladder from
+        /// #1573D4 (EMA 5) to #DFECFB (EMA 33), grey #5A6372 otherwise. The last line is blue BELOW its
+        /// sibling, so its colours are the other way round.
+        /// </summary>
         [Fact]
-        public void BuySignal_HasBaseFrequency_880()
+        public void EachRibbonLineIsColouredAgainstItsNeighbour()
         {
-            Assert.Equal(880.0, Get(CipherAProvider.CompBuySignal).DefaultBaseFrequency);
-        }
-
-        [Fact]
-        public void BuySignal_HasDecayMs_380()
-        {
-            Assert.Equal(380, Get(CipherAProvider.CompBuySignal).DefaultDecayMs);
-        }
-
-        [Fact]
-        public void BuySignal_HasPlaybackLayer_Foreground()
-        {
-            Assert.Equal(PlaybackLayer.Foreground, Get(CipherAProvider.CompBuySignal).DefaultPlaybackLayer);
-        }
-
-        // ── 3. Sell Signal base frequency ────────────────────────────────────
-
-        [Fact]
-        public void SellSignal_HasBaseFrequency_220()
-        {
-            Assert.Equal(220.0, Get(CipherAProvider.CompSellSignal).DefaultBaseFrequency);
-        }
-
-        // ── 4. Blood Diamond (Overbought Bearish Divergence) ──────────────────
-
-        [Fact]
-        public void BloodDiamond_HasDecayMs_500()
-        {
-            Assert.Equal(500, Get(CipherAProvider.CompBloodDiamond).DefaultDecayMs);
-        }
-
-        [Fact]
-        public void BloodDiamond_HasBaseFrequency_165()
-        {
-            Assert.Equal(165.0, Get(CipherAProvider.CompBloodDiamond).DefaultBaseFrequency);
-        }
-
-        // ── 5. Manipulation / Exhaustion use detuned_pair_bell ────────────────
-
-        [Fact]
-        public void Manipulation_HasSoundPatchId_DetunedPairBell()
-        {
-            Assert.Equal("detuned_pair_bell", Get(CipherAProvider.CompManipulation).DefaultSoundPatchId);
-        }
-
-        [Fact]
-        public void Exhaustion_HasSoundPatchId_DetunedPairBell()
-        {
-            Assert.Equal("detuned_pair_bell", Get(CipherAProvider.CompExhaustion).DefaultSoundPatchId);
-        }
-
-        // ── 6. WT Momentum dot gradient speech and layer ──────────────────────
-
-        [Fact]
-        public void WtMomentum_HasUsesGradientSpeech_True()
-        {
-            Assert.True(Get(CipherAProvider.CompWtMomentum).UsesGradientSpeech);
-        }
-
-        [Fact]
-        public void WtMomentum_HasPlaybackLayer_Background()
-        {
-            Assert.Equal(PlaybackLayer.Background, Get(CipherAProvider.CompWtMomentum).DefaultPlaybackLayer);
-        }
-
-        // ── 7. All 8 components have non-null DefaultColorHex ─────────────────
-
-        [Fact]
-        public void AllComponents_HaveNonNullDefaultColorHex()
-        {
-            foreach (var comp in GetComponents())
+            string[] ladder = { "#1573D4", "#3096FF", "#57ABFF", "#85C2FF", "#9BCDFF", "#B3D9FF", "#C9E5FF", "#DFECFB" };
+            for (int k = 0; k < 8; k++)
             {
-                Assert.False(string.IsNullOrEmpty(comp.DefaultColorHex),
-                    $"Component '{comp.Name}' must have a non-null DefaultColorHex.");
+                var c = Get(CipherAProvider.RibbonLine(k));
+                Assert.Equal(ComponentDisplayType.Line, c.DisplayType);
+                bool last = k == 7;
+                Assert.Equal(CipherAProvider.RibbonLine(last ? 6 : k + 1), c.DefaultColorAboveComponent);
+                Assert.Equal(last ? ladder[k] : "#5A6372", c.DefaultColorHex);
+                Assert.Equal(last ? "#5A6372" : ladder[k], c.DefaultColorHexSecondary);
+                Assert.False(c.DefaultIsZoneLine);   // a moving average has nothing to break or test
+                Assert.True(c.DefaultDrawOrder < 0);  // under the symbols
             }
+        }
+
+        [Fact]
+        public void TheYellowDiamondIsTheQuietestSymbol()
+        {
+            // It fires on many candles in a row in a trend; it sits in the background, short.
+            var yd = Get(CipherAProvider.CompYellowDiamond);
+            Assert.Equal(PlaybackLayer.Background, yd.DefaultPlaybackLayer);
+            Assert.True(Meta().Components.Where(c => c.DefaultEnvelopeType == "Ping").All(c => c.DefaultDecayMs >= yd.DefaultDecayMs));
         }
     }
 }
