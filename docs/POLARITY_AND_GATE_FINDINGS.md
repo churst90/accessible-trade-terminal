@@ -1,4 +1,19 @@
 # Polarity and the gate — two tests, two negative results, one usable edge
+> **RE-RUN 2026-10-17 (new Cipher A/B) — the dip filter gets bigger and stays Fragile.**
+>
+> Cipher B was refitted to Market Cipher B on 2026-10-17; its "Oversold Crossover" (the cipherB-long
+> signal here) now fires on every wave cross up with the slow wave at −60 or below. `gate --cipherb old`
+> reproduces every number below exactly (n 3,059, lift +0.107R, excess +0.100R, p 0.0004, costs, eras,
+> per-symbol). With the new Cipher B: n 5,615, MA-gate lift **+0.151R**, excess over random
+> **+0.145R**, p below 0.0001 (0 of 20,000), gate open on 26% of signals (was 47%); equities gated
+> +0.280R at 0 bps, +0.163R at 10 bps/side; positive on 28 of 33 equities. Eras, excess over random:
+> −0.04, −0.04, +0.46, +0.37 — two eras at nothing where the old signal had one. Noise injection on
+> fixed seeds 0-2 (the 07-31 table below used a per-process random seed and cannot be reproduced):
+> old keeps 23% / 6% / 10% at 25 / 50 / 100% noise, new keeps 29% / 23% / 23%. The short side is
+> still nothing (gap −0.075R, p 0.12). **Verdict unchanged: Fragile.** Full write-up:
+> `reports/cipher_strategies_rerun_REPORT.md`, section 3. The numbers below are the old signal's and
+> are kept as recorded.
+>
 > **RE-RUN 2026-08-27 — reproduces almost exactly; nothing here changes.**
 >
 > `polarity` and `gate` were both recomputed after the three statistical fixes. This is the doc

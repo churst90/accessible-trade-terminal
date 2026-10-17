@@ -400,12 +400,17 @@
       ],
       "evidence": "Fragile",
       "firstMeasured": "2026-07-28",
-      "lastMeasured": "2026-08-27",
+      "lastMeasured": "2026-10-17",
       "decay": [
         {
           "asOf": "2026-08-27",
           "value": 0.107,
           "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/POLARITY_AND_GATE_FINDINGS.md for what moved."
+        },
+        {
+          "asOf": "2026-10-17",
+          "value": 0.145,
+          "note": "RE-RUN with the refitted Cipher B (Market Cipher B green dot: every wave cross up with the slow wave at -60 or below). gate --cipherb old reproduces 0.100 exactly; new excess over random 0.145R, p < 0.0001, 28 of 33 equities; 29% kept at 25% noise on fixed seeds 0-2 (old 23%); two of four eras at nothing. Still Fragile. The value field above (0.107) is the old signal's MA lift; this decay value is the new signal's excess over random."
         }
       ],
       "correlatesWith": [
@@ -734,8 +739,14 @@
       ],
       "evidence": "Falsified",
       "firstMeasured": "2026-06-15",
-      "lastMeasured": "2026-07-26",
-      "decay": [],
+      "lastMeasured": "2026-10-17",
+      "decay": [
+        {
+          "asOf": "2026-10-17",
+          "value": 0.0,
+          "note": "RE-MEASURED on the rebuilt Cipher A, refitted Cipher B and rebuilt causal Cipher SR (reports/cipher_strategies_rerun_REPORT.md). cipher-a-battery: 0 of 441 signal cells and 0 of 70 pre-registered A x B combination cells survive a family-wise max-|t| block-permutation null; confluence structure and SR proximity still null at 4h/1d/2d. Still Falsified."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
       "reMeasure": {

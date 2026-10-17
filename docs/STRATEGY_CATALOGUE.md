@@ -57,6 +57,32 @@ inside `ConfluenceCommand`, but the provider still repaints, so any backtest of 
 `CIPHER_SR` leaf in its entry stack is optimistic by an unmeasured amount. Four of the affected
 specs were retired for it; three remain and say so.
 
+### RE-RUN 2026-10-17 (new Cipher A/B)
+
+The caveat above is now history in a different way: since the causality contract (3601e37e,
+2026-08-21) the old SR dots were declared look-ahead and REFUSED as strategy leaves, and on 2026-10-17
+they were retired with the SR rebuild. So `CIPHER_SR.Support` has fired in no backtest since
+2026-08-21, and `CIPHER_A.Buy Signal` in none since Cipher A was rebuilt on 2026-10-17. Three live
+specs still name both, inside an OR: **bare-bull-pulse, faber-pulse and capitulation-buy** now rest on
+Cipher B's green Buy dot and the (now rare) gold dot alone. `StrategyLab spec-variants` runs each as
+written, with the dead leaves removed, and with replacements; "as written" and "removed" print
+identical numbers, and the proposal is to delete both leaves and add no replacement — Cody decides
+(see `reports/cipher_strategies_rerun_REPORT.md`, section 9, for every number).
+
+Two things every rolling-window figure in `CatalogueProvenance` should be read with:
+
+- **They were computed before the 2026-08-24 fix to a look-ahead in date-filtered backtests
+  (ef4d3916)**, where a later window read the whole chart's bar 0 and the risk plan placed stops from
+  the chart's last bar, and before trade counts stopped including each take-profit rung (411022a2).
+  They reproduce only at their own build. The largest casualty: v23p's "ETH 100% of windows positive
+  at +0.523R" is −0.416R with 14% of windows positive now.
+- **The Cipher B refit moves the green-dot specs most.** As written, pre-refit to new, whole sample on
+  the recorded asset: v13 BTC +0.454R to +0.222R; v23a BTC +0.776R to +0.504R; v23c QQQ +1.036R to
+  +0.658R (9 to 7 trades) and gold −0.124R to −0.289R; v24 ETH −0.006R to +0.263R; v23r BTC 4h +0.461R
+  to +0.534R. v14, v18 and pulse-reversal are unchanged. All on single assets and tens of trades.
+
+`StrategyLab spec-variants --all [--cipherb old]` re-measures the whole catalogue.
+
 ### Libraries that predate the split
 
 An existing install keeps the thirty specs it was already seeded with — including the six since retired —, and those rows have no

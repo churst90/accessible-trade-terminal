@@ -117,14 +117,37 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-17 night — Cipher strategy re-run on the new Cipher A/B/SR: DONE; see CHANGES
+> and `reports/cipher_strategies_rerun_REPORT.md`).** SR and the gold dot were finished after they
+> merged mid-run, so nothing is pending on them. **Decisions for Cody (nothing applied):**
+> - [ ] Delete `CIPHER_A.Buy Signal` and `CIPHER_SR.Support` from bare-bull-pulse, faber-pulse and
+>   capitulation-buy (`StrategyCatalogue.cs` ~1301/1451/1534; both are dead, removing them changes no
+>   backtest), with no replacement — or pick one of the replacements in report section 9 — and update
+>   their CatalogueProvenance verdicts to say the pulse is now the Buy dot plus a rare gold dot.
+> - [ ] Gold dot rule: VuManChu's (now default, about a seventh as many fires) or the old confluence;
+>   the returns give no reason either way (report section 4).
+> - [ ] The 1h Cipher SR proximity result (old Cipher B +0.308R p 0.006, new +0.164R p 0.069, KAS and
+>   TAO only, one of eight tests): test on an independent 1h asset set, or let it go?
+> - [ ] CatalogueProvenance's rolling-window figures were all computed before the 2026-08-24
+>   date-filtered-backtest look-ahead fix (ef4d3916) and the take-profit-rung trade-count fix
+>   (411022a2); re-record them from `spec-variants --all`, or mark them as pre-fix?
+> - [ ] The battery's cells that need retired leaves inside an AND (v23+A, v23+SR, v23+ASR, v23+ALL,
+>   v23r-ASELL/AEXH/SRRES, v27 SR cells, "CIPHER_A.Manipulation alone") make no trades: delete them
+>   from StrategyBatteryCommand, keep them as a record, or rebuild them on the new symbols?
+> - [ ] ML confidence model: retrain on the new Cipher B export when lightgbm/scikit-learn are
+>   available (the export itself reproduced; univariate AUCs unchanged).
+> - **Not done, by the pre-registered rule:** the A + B + DBSI suite test. Neither Cipher A nor
+>   Cipher B NEW cleared the bar (family-wise null, both halves, 50% kept under 25% noise).
+>
 > **START HERE (2026-10-17 late night — the Market Cipher pass: formation label contrast, Cipher B stock
 > defaults and the gold/Buy dot, Cipher A and Cipher SR rebuilt from real Market Cipher charts, Spider
 > Lines removed, Dual Band Strength (DBSI-style) added: DONE; see CHANGES).** Each change has tests seen
 > red. **Unverified:** every sound and narration change (none heard by Cody); Windows / desktop head;
 > light themes for Cipher A's pale ribbon lines; low-vision viewing of the formation labels.
 >
-> **In progress (separate branch):** a StrategyLab re-run of every Cipher-based strategy on the new
-> indicators. No results yet; the gold-dot pinning question below waits on it.
+> **Done:** the StrategyLab re-run of every Cipher-based strategy on the new indicators — see the
+> re-run START HERE block above for its decisions (the gold-dot rule question is answered there: the
+> returns give no reason to prefer either rule).
 >
 > **Open questions for Cody — Cipher B:**
 > - **Gold dot: keep it on "stock MCB" Cipher B?** It is shown by default with VuManChu's gold rule, but

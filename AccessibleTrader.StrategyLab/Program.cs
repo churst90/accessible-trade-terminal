@@ -29,6 +29,12 @@ if (args.Length == 0)
     return 0;
 }
 
+// Lab-wide: which Cipher B every command computes (LabCipherProfile). Taken off the argument
+// list before dispatch so no command's own parser ever sees it.
+try { args = LabCipherProfile.Consume(args); }
+catch (ArgumentException ex) { Console.Error.WriteLine(ex.Message); return 2; }
+if (!LabCipherProfile.IsDefault) Console.WriteLine(LabCipherProfile.Describe());
+
 try
 {
     return args[0].ToLowerInvariant() switch
@@ -87,7 +93,8 @@ try
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var cf) ? cf : 5000,
             GetFlag(args.Skip(1).ToArray(), "--bull") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompBlue,
             GetFlag(args.Skip(1).ToArray(), "--bear") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompRed,
-            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--srgate"), out var sg2) ? sg2 : 0.5),
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--srgate"), out var sg2) ? sg2 : 0.5,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--sr-lag"), out var srl) ? srl : -1),
         "favourability" => await FavourabilityCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
@@ -287,6 +294,12 @@ try
             GetFlag(args.Skip(1).ToArray(), "--recent-start"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var rpp) ? rpp : 20000,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var rps) ? rps : 200),
+        "cipher-a-battery" => await CipherABatteryCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var cab) ? cab : 2000),
+        "spec-variants" => await SpecVariantsCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            all: HasFlag(args.Skip(1).ToArray(), "--all")),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };
@@ -310,6 +323,8 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
+    Console.WriteLine("  Any command: --cipherb old  computes Cipher B as before 2026-10-17 (WTSignalPeriod 4, Legacy money flow, Gated buy dot, Confluence gold)");
+    Console.WriteLine("               --cipherb-gold old|new  sets the gold dot alone (default: follows --cipherb)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine("  StrategyLab catalogue list [--status <level>] [--verbose]        # specs + what the evidence is");
     Console.WriteLine("  StrategyLab catalogue export --out <file.json> [--id <spec-id>]  # bundle for the terminal to import");

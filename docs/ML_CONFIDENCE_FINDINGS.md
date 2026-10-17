@@ -1,5 +1,14 @@
 # ML Confidence-Model Experiment (round 14, 2026-06-14/15)
 
+> **RE-RUN 2026-10-17 (new Cipher A/B) — export reproduced, model not retrained.** `ml-export --tf 1d
+> --only USDT --cipherb old` reproduces the stored June `ml_1d.csv` (21,118 rows) cell for cell on
+> wt1, wt2, mfw, sig_wtx, sig_blue, sig_gold and win. With the refitted Cipher B, wt2 and mfw change on
+> every row, sig_blue fires 346 times (was 183), sig_gold 13 (was 93), sig_wtx 2,057 (was 1,767). The
+> univariate AUC of each Cipher B column against `win` is 0.497-0.528 in both old and new, identical
+> to two decimals. The LightGBM model was not retrained (lightgbm and scikit-learn are not installed
+> on this machine), so the 0.52 AUC below is the old Cipher B's; nothing in the inputs suggests the
+> refit would move it. Full write-up: `reports/cipher_strategies_rerun_REPORT.md`, section 3.
+
 Tests the "train a model on OHLCV to make an asset-tuned master indicator that outputs
 confidence-scored buy/sell signals" idea — starting with the cheap falsification: *do the
 features rank trade outcomes out-of-sample?* If not, the edge isn't ML-extractable and we
