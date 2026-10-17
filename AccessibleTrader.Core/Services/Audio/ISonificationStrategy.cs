@@ -251,6 +251,17 @@ namespace AccessibleTrader.Core.Services.Audio
                         triggerClick = true;
                 }
 
+                // The component's own sound-only zone lines click on the crossing too, like a level.
+                if (!triggerClick)
+                {
+                    foreach (var own in new[] { comp.ZoneOverbought, comp.ZoneOversold })
+                        if (own is double t && LevelCross.Direction(prevVal.Value, val, t) != 0)
+                        {
+                            triggerClick = true;
+                            break;
+                        }
+                }
+
                 if (!triggerClick)
                 {
                     foreach (var lc in series.Config.Levels)

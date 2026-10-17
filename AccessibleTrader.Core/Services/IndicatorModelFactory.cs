@@ -401,6 +401,12 @@ namespace AccessibleTrader.Core.Services
                 // Zone line — proximity earcon fired by NavigationFeedbackManager when cursor bar overlaps this level.
                 IsZoneLine = meta.DefaultIsZoneLine,
 
+                // The component's own sound-only zones (a 0–100 line on a pane of another scale).
+                ZoneOverbought  = meta.DefaultZoneOverbought,
+                ZoneOversold    = meta.DefaultZoneOversold,
+                ZoneNoiseAmount = meta.DefaultZoneNoiseAmount,
+                ZoneNoiseType   = meta.DefaultZoneNoiseType,
+
                 // Signal speech template — overrides standard template for marker-type components when signal is active.
                 SignalSpeechTemplate = meta.DefaultSignalSpeechTemplate,
 

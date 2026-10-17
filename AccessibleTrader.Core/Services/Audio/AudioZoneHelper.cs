@@ -25,11 +25,20 @@ namespace AccessibleTrader.Core.Services.Audio
         internal static (float NoiseAmount, string NoiseType) ComputeZoneNoise(
             ChartSeries series, ComponentConfig comp, double val)
         {
-            // Empty subscription list = opt out of all zone noise.
-            if (comp.SubscribedLevelNames is { Count: 0 }) return (0f, "pink");
-
             float maxNoise = 0f;
             string noiseType = "pink";
+
+            // The component's OWN zones first, on its own scale — independent of the pane's levels
+            // and of the subscription list (Cipher B's 0–100 RSI and Stochastic subscribe to none of
+            // the waves' ±53/±60 and carry 80/20 of their own; Cody, 2026-10-17).
+            if ((comp.ZoneOverbought is double ob && val > ob) || (comp.ZoneOversold is double os && val < os))
+            {
+                maxNoise  = comp.ZoneNoiseAmount;
+                noiseType = comp.ZoneNoiseType ?? "pink";
+            }
+
+            // Empty subscription list = opt out of all LEVEL zone noise.
+            if (comp.SubscribedLevelNames is { Count: 0 }) return (maxNoise, noiseType);
 
             foreach (var lc in series.Config.Levels)
             {

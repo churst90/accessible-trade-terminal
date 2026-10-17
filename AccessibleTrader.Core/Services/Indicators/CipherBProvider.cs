@@ -430,6 +430,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 50.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
+                            // Their extremes on THEIR 0–100 scale, for sound only (Cody, 2026-10-17:
+                            // "80 / 20", "sound only"). Cipher B's ±53/±60 are the waves' levels: on
+                            // this line +53 is just above the middle and −53 is never reached.
+                            DefaultZoneOverbought = 80.0, DefaultZoneOversold = 20.0,
+                            DefaultTriggerBoundaryClick = true,
                             SpeechTemplate = "RSI. {value:F1}.",
                             SubscribedLevelNames = Array.Empty<string>(),
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
@@ -443,6 +448,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 50.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
+                            // Their extremes on THEIR 0–100 scale, for sound only (Cody, 2026-10-17:
+                            // "80 / 20", "sound only"). Cipher B's ±53/±60 are the waves' levels: on
+                            // this line +53 is just above the middle and −53 is never reached.
+                            DefaultZoneOverbought = 80.0, DefaultZoneOversold = 20.0,
+                            DefaultTriggerBoundaryClick = true,
                             SpeechTemplate = "Stochastic. {value:F1}.",
                             SubscribedLevelNames = Array.Empty<string>(),
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
@@ -1529,13 +1539,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // Market Cipher B's levels are plain neutral lines: solid at ±60 and at zero, dotted
                 // at ±53 (the 2.2.6 chart). MCB draws them near-white, which vanishes on a light
                 // chart; #8C8C96 keeps 3.2:1 or more against every theme but SteelGray (2.3:1).
-                // Until 2026-10-17 they were red/green (dotted ±60, dashed ±53, dashed zero). Only
-                // colour and dash changed: names, values, earcons and zone noise are as they were.
-                new("Extreme OB",  60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
-                new("Overbought",  53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
+                // Until 2026-10-17 they were red/green (dotted ±60, dashed ±53, dashed zero).
+                //
+                // Zone texture 0.30 at ±53 and 0.45 at ±60 (was 0.10 / 0.20). The waves carry a base
+                // texture of 0.15 of their own and the engine plays the STRONGER of base and zone, so
+                // 0.10 was never heard: between ±53 and ±60 the waves sounded exactly as they did at
+                // zero, and the zone only began at ±60. Found answering Cody's 2026-10-17 "shouldn't
+                // the os/ob zones be -53 and 53?" — now three audible steps: clean, rough past ±53,
+                // rougher past ±60 (0.45 is a plain Stochastic's zone texture).
+                new("Extreme OB",  60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
+                new("Overbought",  53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
                 new("Zero",         0.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
-                new("Extreme OS", -60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+                new("Oversold",   -53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
+                new("Extreme OS", -60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
             };
         }
 

@@ -190,8 +190,10 @@ public sealed class CipherBLookTests
 
     /// <summary>
     /// Plain neutral lines, solid at ±60 and zero and dotted at ±53, as MCB draws them; until
-    /// 2026-10-17 they were red and green. What Cody HEARS from them — names, values, earcons and
-    /// zone noise — is pinned to what it was.
+    /// 2026-10-17 they were red and green. What Cody HEARS from them — names, values and earcons —
+    /// is pinned to what it was. Their zone noise was raised the same afternoon (0.10/0.20 →
+    /// 0.30/0.45): under the waves' own 0.15 the ±53 zone was never heard
+    /// (CipherBStochasticZonesTests.The_waves_get_rougher_past_53_and_again_past_60).
     /// </summary>
     [Fact]
     public void Levels_are_plain_grey_lines_and_sound_as_they_did()
@@ -208,8 +210,8 @@ public sealed class CipherBLookTests
 
         (string Name, double Value, float Vol, float Noise)[] heard =
         {
-            ("Extreme OB", 60, 0.8f, 0.20f), ("Overbought", 53, 0.6f, 0.10f), ("Zero", 0, 0.7f, 0f),
-            ("Oversold", -53, 0.6f, 0.10f), ("Extreme OS", -60, 0.8f, 0.20f),
+            ("Extreme OB", 60, 0.8f, 0.45f), ("Overbought", 53, 0.6f, 0.30f), ("Zero", 0, 0.7f, 0f),
+            ("Oversold", -53, 0.6f, 0.30f), ("Extreme OS", -60, 0.8f, 0.45f),
         };
         foreach (var (name, value, vol, noise) in heard)
         {
