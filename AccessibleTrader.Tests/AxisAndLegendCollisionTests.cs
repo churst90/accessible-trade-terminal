@@ -187,8 +187,11 @@ public sealed class AxisAndLegendCollisionTests
         var series = new[] { IndicatorSeries("candles", "Main", Array.Empty<double>()) };
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (95, 115) };
 
-        // Sixty slots for twenty bars: the right two thirds of the plot hold no data.
-        using var bmp = RenderFrame(renderer, series, data, ranges, (95, 115), viewportLength: 60);
+        // Sixty slots for twenty bars: the right two thirds of the plot hold no data. The cursor
+        // is on bar 5, not the last: since 2026-10-17 the cursor's date is a label on this axis
+        // centred on its bar (TradingView's model), and on the LAST bar half of it rightly hangs
+        // past the bar it names. This test is about the tick labels, which name slots.
+        using var bmp = RenderFrame(renderer, series, data, ranges, (95, 115), viewportLength: 60, cursorIndex: 5);
 
         int plotRight = (int)((1f - layout.AxisWidthFraction) * W);
         int axisTop = (int)((1f - layout.AxisHeightFraction) * H);
@@ -208,60 +211,74 @@ public sealed class AxisAndLegendCollisionTests
         Assert.Equal(0, textRightOfData);
     }
 
-    // ── The legend: never taller than its pane ─────────────────────────────
+    // ── The status lines: never taller than their pane ──────────────────────
+
+    // The boxed legend these two tests were written for was retired on 2026-10-17 (Cody's
+    // decision: TradingView status line). The property they pin carries over to the status lines
+    // unchanged, so they are ported, not dropped: the block is budgeted by ChartStatusLine.Build.
+
+    private static ChartSeries StatusSeries(string name, params (string Comp, ComponentDisplayType Type, double Value)[] comps)
+    {
+        var s = new ChartSeries();
+        s.Config.Name = name;
+        foreach (var (comp, type, value) in comps)
+        {
+            s.Components.Add(new ComponentConfig { Name = comp, DisplayName = comp, DisplayType = type, ColorHex = "#00FFFF" });
+            s.Data.ComponentData[comp] = Enumerable.Repeat(value, 10).ToArray();
+        }
+        return s;
+    }
+
+    private static PaneStatus StatusIn(float paneHeight, params ChartSeries[] series) =>
+        ChartStatusLine.Build("Pane_0", series, 5,
+            new ChartStatusLine.Context(new ThemeService(Substitute.For<ISettingsManager>()).Current, ChartStatusLine.DefaultBackingAlpha, null, null),
+            paneHeight, 2000f, ChartStatusLine.LinePx, t => t.Length * 7f);
 
     /// <summary>
     /// The row budget had a floor of three rows regardless of pane height, on the argument that a
     /// cramped key beats none. At eight panes a pane is about 55px and three rows plus padding is
     /// 63px, so the legend ran out of the bottom of its own pane and across the next pane's
     /// divider — the photograph shows "Signal" cut in half by the ADX pane's top edge. A key
-    /// that covers the thing it is a key to is not a key.
+    /// that covers the thing it is a key to is not a key. Same rule for the status lines.
     /// </summary>
     [Theory]
     [InlineData(20f)]
     [InlineData(40f)]
     [InlineData(55f)]
     [InlineData(120f)]
-    public void TheLegendFitsInsideItsPane_HoweverShortThePane(float paneHeight)
+    public void TheStatusBlockFitsInsideItsPane_HoweverShortThePane(float paneHeight)
     {
-        const float Line = 17f, Pad = 6f;
-        var s = new ChartSeries();
-        s.Config.Name = "MACD";
-        s.Components.Add(new ComponentConfig { Name = "Histogram", DisplayType = ComponentDisplayType.Histogram, ColorHex = "#00FF00" });
-        s.Components.Add(new ComponentConfig { Name = "Macd", DisplayType = ComponentDisplayType.Line, ColorHex = "#00FFFF" });
-        s.Components.Add(new ComponentConfig { Name = "Signal", DisplayType = ComponentDisplayType.Line, ColorHex = "#FFAA00" });
+        float line = ChartStatusLine.LinePx, pad = ChartStatusLine.PadPx;
+        var lines = StatusIn(paneHeight,
+            StatusSeries("MACD", ("Histogram", ComponentDisplayType.Histogram, 1), ("Macd", ComponentDisplayType.Line, 2)),
+            StatusSeries("RSI", ("RSI", ComponentDisplayType.Line, 50)),
+            StatusSeries("CCI", ("CCI", ComponentDisplayType.Line, 10)),
+            StatusSeries("ADX", ("ADX", ComponentDisplayType.Line, 20))).Lines;
 
-        var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, paneHeight, Line, Pad);
-
-        // A pane that cannot hold a single row (29px) gets no legend at all; every taller one
-        // gets one that fits.
-        if (paneHeight >= Pad + Line + Pad) Assert.NotEmpty(rows);
-        if (rows.Count == 0) return;
-        float boxHeight = Pad + rows.Count * Line + Pad;
-        Assert.True(boxHeight <= paneHeight,
-            $"{rows.Count} rows make a {boxHeight}px legend inside a {paneHeight}px pane");
+        // A pane that cannot hold a single line (25px) gets none at all; every taller one gets
+        // a block that fits.
+        if (paneHeight >= pad + line + pad) Assert.NotEmpty(lines);
+        if (lines.Count == 0) return;
+        float blockHeight = pad + lines.Count * line + pad;
+        Assert.True(blockHeight <= paneHeight,
+            $"{lines.Count} lines make a {blockHeight}px block inside a {paneHeight}px pane");
     }
 
     /// <summary>
-    /// When only one row fits, that row still names something — the first entry, with the count
-    /// of what it stands in for — rather than being spent entirely on "+3 more".
+    /// When only one line fits, that line still names something — the first indicator, with the
+    /// count of what it stands in for — rather than being spent entirely on "+2 more".
     /// </summary>
     [Fact]
-    public void ASingleRowLegendNamesTheFirstEntryAndTheRest()
+    public void ASingleLineStatusBlockNamesTheFirstIndicatorAndTheRest()
     {
-        const float Line = 17f, Pad = 6f;
-        var s = new ChartSeries();
-        s.Config.Name = "MACD";
-        s.Components.Add(new ComponentConfig { Name = "Macd", DisplayType = ComponentDisplayType.Line, ColorHex = "#00FFFF" });
-        s.Components.Add(new ComponentConfig { Name = "Signal", DisplayType = ComponentDisplayType.Line, ColorHex = "#FFAA00" });
-        s.Components.Add(new ComponentConfig { Name = "Histogram", DisplayType = ComponentDisplayType.Histogram, ColorHex = "#00FF00" });
+        var lines = StatusIn(40f,
+            StatusSeries("MACD", ("Macd", ComponentDisplayType.Line, 2)),
+            StatusSeries("RSI", ("RSI", ComponentDisplayType.Line, 50)),
+            StatusSeries("CCI", ("CCI", ComponentDisplayType.Line, 10))).Lines;
 
-        var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, 40f, Line, Pad);
-
-        var row = Assert.Single(rows);
-        Assert.False(row.Label.StartsWith('+'), $"the only row names nothing: '{row.Label}'");
-        Assert.Contains("+2 more", row.Label);
-        Assert.DoesNotContain("  ", row.Label);
+        var only = Assert.Single(lines);
+        Assert.Equal("MACD", only.Title);
+        Assert.Contains("+2 more", only.Note);
     }
 
     // ── The y axis: a label also has to fit the strip it is drawn in ─────────

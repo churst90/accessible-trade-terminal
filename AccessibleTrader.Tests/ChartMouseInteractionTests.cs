@@ -259,7 +259,13 @@ public sealed class ChartMouseInteractionTests
     // ── Hover crosshair tracker ──────────────────────────────────────────────
 
     [Fact]
-    public void MouseMove_produces_a_hover_sample_with_date_price_and_ohlc_text()
+    /// <summary>
+    /// The sample names the bar (its index, for the status lines to read) and carries the two
+    /// axis labels' text. It carried an O H L C string for the floating readout box until
+    /// 2026-10-17; that box is retired (Cody's decision: TradingView status line) and the bar's
+    /// O H L C is the price pane's status line, built from <see cref="ChartHoverInfo.BarIndex"/>.
+    /// </summary>
+    public void MouseMove_produces_a_hover_sample_naming_the_bar_its_date_and_the_price()
     {
         var h = new Harness();
         using var tracker = new ChartHoverTracker(h.Input, h.Store);
@@ -269,8 +275,11 @@ public sealed class ChartMouseInteractionTests
         Assert.NotNull(tracker.Current);
         Assert.False(string.IsNullOrEmpty(tracker.Current!.DateText));
         Assert.False(string.IsNullOrEmpty(tracker.Current.PriceText));
-        Assert.Contains("O ", tracker.Current.OhlcText);
-        Assert.Contains("C ", tracker.Current.OhlcText);
+        var state = h.Store.State;
+        Assert.InRange(tracker.Current.BarIndex, 0, state.Data.Count - 1);
+        Assert.Equal(ChartHoverTracker.FormatBarDate(state.Data[tracker.Current.BarIndex].Date,
+                AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
+            tracker.Current.DateText);
     }
 
     [Fact]

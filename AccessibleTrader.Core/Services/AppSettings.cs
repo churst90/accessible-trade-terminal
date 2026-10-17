@@ -67,6 +67,8 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         bool MarketStructureOnByDefault { get; set; }
         int UiScale { get; set; }
+        /// <summary>The chart status lines' backing opacity, percent, 50 to 100. See SettingsKeys.StatusLineBackingOpacity.</summary>
+        int StatusLineBackingOpacity { get; set; }
 
         // Audio
         string SoundTheme { get; set; }
@@ -207,6 +209,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetInt(SettingsKeys.UiScale, 100);
             set => Set(SettingsKeys.UiScale, value);
+        }
+        public int StatusLineBackingOpacity
+        {
+            get => GetInt(SettingsKeys.StatusLineBackingOpacity, 96);
+            set => Set(SettingsKeys.StatusLineBackingOpacity, value);
         }
 
         public string SoundTheme

@@ -4,27 +4,29 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.BlazorClient.Services
 {
     /// <summary>
-    /// One hover sample for the chart crosshair: the raw cursor position, the
-    /// snapped screen X of the bar under the cursor, and pre-formatted readout
-    /// text. Coordinates are CSS pixels relative to the chart-interact-zone,
-    /// the same space the JS mouse handler reports in.
+    /// One hover sample for the chart crosshair: the raw cursor position, the snapped screen X
+    /// of the bar under the cursor and that bar's index, the date for the time-axis label, and
+    /// the value at the pointer for the price-axis label (null over the x-axis strip).
+    /// Coordinates are CSS pixels relative to the chart-interact-zone, the same space the JS
+    /// mouse handler reports in.
+    ///
+    /// <para>
+    /// The floating readout box this used to place (date, pointer price, O H L C) was retired on
+    /// 2026-10-17 (Cody's decision: TradingView status line). The date is now a label on the
+    /// time axis at the hairline, the pointer's value a label on the axis of the pane it is in,
+    /// and the bar's O H L C the price pane's status line, which reads
+    /// <see cref="BarIndex"/> while the pointer leads.
+    /// </para>
     /// </summary>
     public sealed record ChartHoverInfo(
         double CursorX,
         double CursorY,
         double BarX,
+        int BarIndex,
         string DateText,
-        string PriceText,
-        string OhlcText,
-        HoverReadoutPlacement Readout);
-
-    /// <summary>
-    /// Where the readout box goes, in CSS pixels relative to the chart-interact-zone: its top,
-    /// which side of the plot it hangs from, the distance from that side (from the element's
-    /// left edge, or from its right edge — which includes the price axis column), and the widest
-    /// it may grow before its text wraps. See <see cref="ChartHoverTracker.PlaceReadout"/>.
-    /// </summary>
-    public sealed record HoverReadoutPlacement(bool AtLeft, double Top, double Inset, double MaxWidth);
+        string? PriceText,
+        double PlotWidth,
+        double PlotBottom);
 
     /// <summary>
     /// Tracks the mouse over the chart and produces crosshair + readout state
@@ -77,6 +79,8 @@ namespace AccessibleTrader.BlazorClient.Services
         // lands the sample is kept but not shown, so a readout from the old layout is never drawn
         // over the new one.
         private bool _awaitingGeometry;
+        // The keyboard cursor's index at the last real pointer move; see HoverLeads.
+        private int _cursorAtLastMove = int.MinValue;
         // The workspace inputs Current was last mapped through; a re-read runs only when one moved.
         private MappingInputs? _mappedFrom;
         // The chart element's last reported rect, to tell a real resize or move from a repeat report.
@@ -282,6 +286,9 @@ namespace AccessibleTrader.BlazorClient.Services
                     && Math.Abs(g.Width - width) <= 0.5 && Math.Abs(g.Height - height) <= 0.5
                     ? (g.Left, g.Top) : null;
                 _sample = (x, y, width, height, explore, origin);
+                // A real pointer move: the status lines follow the hovered bar until the keyboard
+                // cursor next moves (HoverLeads). A re-map under a still mouse does not count.
+                _cursorAtLastMove = _store.State.CurrentDataIndex;
                 _awaitingGeometry = false;
                 var before = Current;
                 state = Map(x, y, width, height, out index, out bar);
@@ -360,13 +367,21 @@ namespace AccessibleTrader.BlazorClient.Services
 
             index = i;
             bar = state.Data[i];
-            double price = ChartMath.MapYToPriceInPane(
-                y, height, dividers, axisH,
-                state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
 
-            // Over the x-axis strip there is no price to report; the bar under the cursor
-            // still is, so the crosshair keeps its date and OHLC.
-            if (double.IsNaN(price)) price = state.ViewportRange.Min;
+            // The value at the pointer, on the scale of the pane it is IN: the price in the price
+            // pane, the RSI in the RSI pane. It used to be the price-pane range mapped onto
+            // whichever pane the pointer was over, so over RSI the box printed a "price" that was
+            // no price at all. Over the x-axis strip there is no value; the bar still is.
+            string? pane = PaneNameAt(y, height, dividers, axisH);
+            double value = double.NaN;
+            if (pane == "Main")
+                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH,
+                    state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+            else if (pane != null)
+            {
+                var (min, max) = state.PaneRanges.TryGetValue(pane, out var r) ? r : (0, 100);
+                value = ChartMath.MapYToPriceInPane(y, height, dividers, axisH, min, max, false);
+            }
 
             // Snap the vertical hairline to the hovered bar's slot centre so the
             // line answers "which bar am I on", not just "where is my cursor".
@@ -377,67 +392,49 @@ namespace AccessibleTrader.BlazorClient.Services
                 : x;
 
             Current = new ChartHoverInfo(
-                x, y, barX,
-                DateText: FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
-                PriceText: PriceFormatter.FormatPrice(price),
-                OhlcText: $"O {PriceFormatter.FormatPrice(bar.Open)}  H {PriceFormatter.FormatPrice(bar.High)}  " +
-                          $"L {PriceFormatter.FormatPrice(bar.Low)}  C {PriceFormatter.FormatPrice(bar.Close)}",
-                Readout: PlaceReadout(barX, width, height, plotWidth, _paneLayout?.MainLegendFraction));
+                x, y, barX, i,
+                DateText: ChartMath.FormatCrosshairDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
+                PriceText: double.IsNaN(value) ? null : Core.Services.Rendering.ChartStatusLine.FormatReading(value),
+                PlotWidth: plotWidth,
+                PlotBottom: height * (1 - axisH));
             return state;
         }
 
-        /// <summary>Gap between the readout box and the plot edge, the legend, and the plot's centre line.</summary>
-        internal const double ReadoutMargin = 6;
-
-        /// <summary>
-        /// About how wide the box is when nothing wraps (0.85rem tabular figures, "O 82,366.23  H
-        /// 82,366.23  L 82,366.23  C 82,366.23" plus padding). Only decides whether the box sits
-        /// BESIDE the legend or under it; a box that turns out wider wraps inside its
-        /// <see cref="HoverReadoutPlacement.MaxWidth"/> rather than overlapping anything.
-        /// </summary>
-        internal const double ReadoutNaturalWidth = 400;
-
-        /// <summary>
-        /// Where the readout box goes: at the top of the plot, on the half AWAY from the hairline.
-        ///
-        /// <para>It used to sit top right always (<c>top:6px; right:72px</c>), and in Cody's
-        /// 2026-10-15 BTCUSDT 1d screenshots, normal and focus mode, it covered the newest candles,
-        /// their highs and the "ascending triangle" label: the live edge, where a pointer most
-        /// often is. Now a hairline in the right half of the plot puts the box top left, and one
-        /// in the left half puts it top right, still clear of the price axis. Its width is capped
-        /// at its own half of the plot (it wraps instead), so it can never reach the hairline.</para>
-        ///
-        /// <para>On the left it must not cover the price pane's legend, which the renderer paints
-        /// at the pane's top-left and publishes through <c>IPaneLayoutService.MainLegendFraction</c>.
-        /// The box goes beside the legend when its unwrapped width fits there before the centre
-        /// line, otherwise under the legend. The legend is capped at 45% of the pane's height, so
-        /// under it is still the upper half of the pane.</para>
-        /// </summary>
-        /// <param name="barX">The hairline, CSS px from the element's left edge.</param>
-        /// <param name="width">The element's width; the plot is <paramref name="plotWidth"/> of it, the rest is the price axis.</param>
-        /// <param name="height">The element's height.</param>
-        /// <param name="legend">The price pane's legend as fractions of the element, or null.</param>
-        public static HoverReadoutPlacement PlaceReadout(double barX, double width, double height, double plotWidth,
-            (float Left, float Top, float Right, float Bottom)? legend)
+        /// <summary>The pane a canvas Y falls in, by the renderer's dividers; null over the x-axis strip.</summary>
+        internal static string? PaneNameAt(double y, double height,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers, float axisH)
         {
-            const double m = ReadoutMargin;
-            double half = plotWidth / 2;
-            double halfWidth = Math.Max(0, half - 2 * m);
+            if (height <= 0) return null;
+            double f = y / height;
+            if (f < 0 || f > 1.0 - Math.Clamp(axisH, 0f, 0.5f)) return null;
+            string name = "Main";
+            if (dividers != null)
+                foreach (var (below, frac) in dividers)
+                {
+                    if (f >= frac) name = below;
+                    else break;
+                }
+            return name;
+        }
 
-            // Hairline on the older half: top right, measured from the element's right edge, so
-            // the inset is the axis column plus the margin.
-            if (barX < half)
-                return new HoverReadoutPlacement(false, m, Math.Max(0, width - plotWidth) + m, halfWidth);
+        /// <summary>
+        /// Whether the status lines read the hovered bar: the pointer moved onto the chart more
+        /// recently than the keyboard cursor moved. See ChartStatusLine.ActiveBar — following a
+        /// parked mouse would print a bar the keyboard user is not hearing (2026-10-15).
+        /// </summary>
+        public bool HoverLeads
+        {
+            get
+            {
+                lock (_gate)
+                    return Current != null && _cursorAtLastMove == _store.State.CurrentDataIndex;
+            }
+        }
 
-            if (legend is not { } lg)
-                return new HoverReadoutPlacement(true, m, m, halfWidth);
-
-            double legendRight = lg.Right * width, legendTop = lg.Top * height, legendBottom = lg.Bottom * height;
-            double besideLeft = legendRight + m;
-            double beside = half - m - besideLeft;
-            if (beside >= ReadoutNaturalWidth)
-                return new HoverReadoutPlacement(true, Math.Max(m, legendTop), besideLeft, beside);
-            return new HoverReadoutPlacement(true, legendBottom + m, m, halfWidth);
+        /// <summary>The chart element's last reported size in CSS pixels, or null before canvasRegion.js reports one.</summary>
+        public (double Width, double Height)? ChartSize
+        {
+            get { lock (_gate) return _geometry is { } g ? (g.Width, g.Height) : null; }
         }
 
         /// <summary>
@@ -452,8 +449,7 @@ namespace AccessibleTrader.BlazorClient.Services
         /// (SpeechTimeFormatter.ToBarDisplay), so the slider and the arrows agree.</para>
         /// </summary>
         public static string FormatBarDate(DateTime d, int barSeconds)
-            => AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatBar(d, barSeconds,
-                barSeconds >= 86400 ? "MMM d, yyyy" : "MMM d, yyyy HH:mm");
+            => ChartMath.FormatCrosshairDate(d, barSeconds);
 
         /// <summary>Forget the pointer sample and hide the readout until the pointer next moves.</summary>
         private void DropSample()

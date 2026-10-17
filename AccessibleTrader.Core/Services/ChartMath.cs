@@ -223,6 +223,18 @@ namespace AccessibleTrader.Core.Services
         /// Seconds between bars, inferred from the bars themselves — for the x axis, which is
         /// not told the timeframe but must name bars by the same rule the speech does.
         /// </summary>
+        /// <summary>
+        /// A bar's date as the crosshair's time-axis label prints it: daily-and-up bars by their
+        /// own date with no time ("Apr 20, 2026"), intraday bars by date and clock time in the
+        /// user's zone, through the rule every spoken readout uses
+        /// (<see cref="Accessibility.SpeechTimeFormatter.ToBarDisplay"/>). One copy for the Skia
+        /// label at the keyboard cursor and the DOM label at the hover hairline, which used to be
+        /// the hover readout box's (ChartHoverTracker.FormatBarDate) alone.
+        /// </summary>
+        public static string FormatCrosshairDate(DateTime d, int barSeconds)
+            => Accessibility.SpeechTimeFormatter.FormatBar(d, barSeconds,
+                barSeconds >= 86400 ? "MMM d, yyyy" : "MMM d, yyyy HH:mm");
+
         public static int BarSecondsOf(IReadOnlyList<Ohlcv> bars)
         {
             // The SMALLEST gap between neighbours, not the average: weekends and overnight

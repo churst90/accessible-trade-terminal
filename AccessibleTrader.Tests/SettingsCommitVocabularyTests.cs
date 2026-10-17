@@ -54,6 +54,8 @@ namespace AccessibleTrader.Tests
             "OnUiScaleChanged",
             "OnHollowCandlesChanged",
             "OnToolbarCaptionsChanged",
+            // The chart status lines' backing (Cody's 2026-10-17 decision: TradingView status line).
+            "OnStatusBackingChanged",
         };
 
         /// <summary>
@@ -159,6 +161,7 @@ namespace AccessibleTrader.Tests
                 "_colorVisionSafeInitial",
                 "_hollowUpCandlesInitial",
                 "_toolbarCaptionsInitial",
+                "_statusBackingInitial",
                 "_selectedThemeInitial",
             };
             foreach (var field in mustRestore)

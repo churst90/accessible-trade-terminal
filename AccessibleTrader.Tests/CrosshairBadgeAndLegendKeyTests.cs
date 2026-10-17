@@ -334,85 +334,69 @@ public sealed class CrosshairBadgeAndLegendKeyTests
             "is drawn within one line of it and the badge is painted over part of it.");
     }
 
-    // ── Item 3: legend keys and the backing behind them ────────────────────
+    // ── Item 3: telling bar series apart, and the backing behind the text ────
+    //
+    // Until 2026-10-17 these asserted the boxed legend's KEYS: a two-column key per histogram in
+    // its up and down colours, drawn in pixels. The legend is retired (Cody's decision: TradingView
+    // status line): a status line has no key — each plot's reading is printed in the colour the
+    // plot is drawn in AT that reading. So the colour properties are ported to the readings, and
+    // The_drawn_histogram_key_shows_both_colours is retired with the key it drew: no key is drawn
+    // anywhere now (the readings' colours are asserted below, the DOM in StatusLineInChartAreaTests).
+
+    private static ChartStatusLine.Context StatusContext(IReadOnlyList<Ohlcv>? bars = null) =>
+        new(Themes().Current, ChartStatusLine.DefaultBackingAlpha, bars, null);
+
+    private static StatusLine LineFor(ChartSeries s, int bar, IReadOnlyList<Ohlcv>? bars = null) =>
+        ChartStatusLine.Build(s.Pane, new[] { s }, bar, StatusContext(bars), 400f, 4000f, 17f, t => t.Length * 7f).Lines.Single();
 
     /// <summary>
     /// <b>"WT Histogram" and "Money Flow" had the same key.</b> Every non-volume bar got one fixed
     /// green, so the two rows were indistinguishable and neither said half its bars are red. A
-    /// bar's key carries its up AND down colours, from the rule the bars are painted by.
+    /// histogram's reading is printed in its up colour above the baseline and its down colour
+    /// below — the rule the bars are painted by — and the two histograms' colours differ.
     /// </summary>
     [Fact]
-    public void A_histograms_key_carries_its_up_and_down_colours_and_two_histograms_differ()
+    public void A_histograms_reading_is_in_its_up_or_down_colour_and_two_histograms_differ()
     {
-        var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { CipherB() }, 400f, 17f, 6f, Themes().Current)
-                                .ToDictionary(r => r.Label);
+        StatusValue Reading(ChartSeries s, string label) => LineFor(s, 10).Values.Single(v => v.Label == label);
 
-        var hist = rows["WT Histogram"].Colors;
-        var mf = rows["Money Flow"].Colors;
-
-        Assert.Equal(new[] { Hex(WtHistUp).WithAlpha(200), Hex(WtHistDown).WithAlpha(200) }, hist);
-        Assert.Equal(new[] { Hex(MfUp).WithAlpha(200), Hex(MfDown).WithAlpha(200) }, mf);
-        Assert.NotEqual(hist, mf);
+        Assert.Equal(Hex(WtHistUp), Reading(CipherB(hist: 30), "WT Histogram").Color);
+        Assert.Equal(Hex(WtHistDown), Reading(CipherB(hist: -30), "WT Histogram").Color);
+        Assert.Equal(Hex(MfUp), Reading(CipherB(), "Money Flow").Color);
+        Assert.NotEqual(Reading(CipherB(hist: 30), "WT Histogram").Color, Reading(CipherB(), "Money Flow").Color);
     }
 
     /// <summary>
     /// Volume keeps the THEME's candle pair, as its bars do — the pair that says "up" in the
-    /// price pane says it here too. Both halves, not the up colour alone.
+    /// price pane says it here too — chosen by the bar's own direction, both halves.
     /// </summary>
     [Fact]
-    public void A_volume_key_carries_the_themes_candle_pair()
+    public void A_volume_reading_takes_the_themes_candle_pair_by_the_bars_direction()
     {
         var theme = Themes().Current;
         var vol = Series("volume", "Volume", 30, new Comp("Volume", ComponentDisplayType.Bar, "#123456", 1000, "#654321"));
         vol.Components[0].Role = ComponentRole.Volume;
-
-        var row = ChartRenderer.BuildLegendRows(new List<ChartSeries> { vol }, 400f, 17f, 6f, theme).Single();
-
+        vol.Components[0].ColorSource = ColorSource.PriceAction;
         var (up, down) = StandardRenderers.ApplyColorVision(theme, theme.CandleBullishBody, theme.CandleBearishBody);
-        Assert.Equal(new[] { up.WithAlpha(200), down.WithAlpha(200) }, row.Colors);
-    }
 
-    /// <summary>
-    /// In pixels: the key a histogram's row DRAWS shows the down colour as well as the up one. A
-    /// row that carried two colours and a key that painted only the first would pass every
-    /// assertion above and still show one green square.
-    /// </summary>
-    [Fact]
-    public void The_drawn_histogram_key_shows_both_colours()
-    {
-        var (renderer, _) = Renderer();
-        var data = Bars(30, 10, 12);
-        var overlay = Series("osc", "Main", 30,
-            new Comp("Histo", ComponentDisplayType.Histogram, "#00FF00", double.NaN, "#FF0000"));
-
-        using var bmp = RenderFrame(renderer, new[] { overlay }, data,
-            new Dictionary<string, (double Min, double Max)> { ["Main"] = (0, 100) }, (0, 100));
-
-        // The first row's key cell: box at (pad, pad), key column after one more pad, one row tall.
-        bool red = false, green = false;
-        for (int x = 12; x <= 26; x++)
-            for (int y = 12; y <= 29; y++)
-            {
-                var c = bmp.GetPixel(x, y);
-                red |= c.Red > 150 && c.Green < 90 && c.Blue < 90;
-                green |= c.Green > 150 && c.Red < 90 && c.Blue < 90;
-            }
-        Assert.True(green, "the histogram's key drew no up (green) colour at all — the fixture is wrong");
-        Assert.True(red, "the histogram's key drew no down (red) colour: its row says two colours and the key shows one");
+        Assert.Equal(up.WithAlpha(255), LineFor(vol, 10, Bars(30, 100, 105)).Values.Single().Color);
+        Assert.Equal(down.WithAlpha(255), LineFor(vol, 10, Bars(30, 105, 100)).Values.Single().Color);
     }
 
     /// <summary>
     /// <b>A level line read as a strikethrough.</b> In focus mode the dashed overbought line ran
-    /// straight through "Wave Trend Fast": the backing was 70% opaque, so every line behind the box
-    /// showed through it at 30% of its strength. A full-strength magenta level drawn through the
-    /// middle of the first row must not be visible inside the box — and must be visible beside it,
-    /// or the test proves nothing.
+    /// straight through "Wave Trend Fast": the legend's backing was 70% opaque, so every line
+    /// behind it showed through at 30% of its strength. Ported to the status line's backing, as
+    /// the renderer paints it into a snapshot: a full-strength magenta level through the middle
+    /// of the first line must not be visible inside the backing — and must be visible beside it,
+    /// or the test proves nothing. (The DOM lines use the same backing colour and opacity.)
     /// </summary>
     [Fact]
-    public void A_level_line_behind_the_legend_does_not_show_through_it()
+    public void A_level_line_behind_a_status_line_does_not_show_through_it()
     {
         var (renderer, layout) = Renderer();
-        var data = Bars(30, 10, 12);   // the price cursor line sits far below the legend
+        renderer.PaintsStatusLines = true;
+        var data = Bars(30, 10, 12);   // the price cursor line sits far below the status lines
 
         ChartSeries Overlay(double levelValue)
         {
@@ -422,11 +406,11 @@ public sealed class CrosshairBadgeAndLegendKeyTests
         }
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (0, 100) };
 
-        // Render once to learn the plot height, then put the level through the first row's centre
-        // (box top 6, padding 6, half a 17px row).
+        // Render once to learn the plot height, then put the level through the first line's
+        // centre (block top 4, half a 17px line).
         RenderFrame(renderer, new[] { Overlay(50) }, data, ranges, (0, 100)).Dispose();
         float mainBottom = H * (1f - layout.AxisHeightFraction);
-        const float rowCentre = 6f + 6f + 8.5f;
+        const float rowCentre = 4f + 8.5f;
         double level = 100.0 * (1.0 - rowCentre / mainBottom);
 
         using var bmp = RenderFrame(renderer, new[] { Overlay(level) }, data, ranges, (0, 100));
@@ -434,16 +418,16 @@ public sealed class CrosshairBadgeAndLegendKeyTests
         static bool Magenta(SKColor c) => c.Red - c.Green > 40 && c.Blue - c.Green > 40;
 
         int plotRight = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
-        bool beside = Enumerable.Range(18, 6).Any(y => Magenta(bmp.GetPixel(plotRight - 40, y)));
-        Assert.True(beside, "the level line is not drawn beside the legend either — the fixture is wrong");
+        bool beside = Enumerable.Range(10, 6).Any(y => Magenta(bmp.GetPixel(plotRight - 40, y)));
+        Assert.True(beside, "the level line is not drawn beside the status line either — the fixture is wrong");
 
-        // Inside the box: the left padding, where nothing but the backing is drawn.
+        // Inside the backing: its left padding, where nothing but the backing is drawn.
         var through = new List<string>();
-        for (int x = 8; x <= 11; x++)
-            for (int y = 18; y <= 23; y++)
+        for (int x = 5; x <= 7; x++)
+            for (int y = 10; y <= 15; y++)
                 if (Magenta(bmp.GetPixel(x, y))) through.Add($"({x},{y})={bmp.GetPixel(x, y)}");
         Assert.True(through.Count == 0,
-            "the level line shows through the legend box, so it strikes through the row's text: "
+            "the level line shows through the status line's backing, so it strikes through the text: "
             + string.Join(", ", through.Take(4)));
     }
 }

@@ -69,7 +69,12 @@ namespace AccessibleTrader.Core.Services.Theming
             Text("footerText",        "textMuted",   "Footer text",      "the footer",               theme.TextMuted,    footerBottom);
             Text("axisTextTop",       "axisText",    "Axis text",        "the top of the chart",     theme.AxisText,     chartTop);
             Text("axisTextBottom",    "axisText",    "Axis text",        "the bottom of the chart",  theme.AxisText,     chartBottom);
-            Text("accentInk",         "accent",      "Primary button text", "the accent",            ThemeCssBridge.InkOn(theme.Accent), theme.Accent);
+            // The chart's status lines (Cody's 2026-10-17 decision: TradingView status line): names
+            // and inputs, and any reading whose own colour is too faint, are printed in the axis
+            // ink on the sunken surface at its default opacity over the chart.
+            Text("statusLineText",    "axisText",    "Status line text", "the status line's backing",
+                 Rendering.ChartStatusLine.Ink(theme), Rendering.ChartStatusLine.Backing(theme, Rendering.ChartStatusLine.DefaultBackingAlpha));
+            Text("accentInk",        "accent",      "Primary button text", "the accent",            ThemeCssBridge.InkOn(theme.Accent), theme.Accent);
 
             Graphic("bullTop",        "bullBody",    "The rising candle",  "the top of the chart",    theme.CandleBullishBody, chartTop);
             Graphic("bullBottom",     "bullBody",    "The rising candle",  "the bottom of the chart", theme.CandleBullishBody, chartBottom);

@@ -72,7 +72,13 @@ public sealed class ChartHoverStillMouseTests
 
     public static TheoryData<string> MappingChanges => new()
     {
-        "pan", "zoom", "log scale", "new bar", "live tick on the hovered bar",
+        "pan", "zoom", "log scale", "new bar",
+        // "live tick on the hovered bar" was a case here until 2026-10-17: it rewrote the hovered
+        // bar's OHLC, which the readout box printed. The box is retired (Cody's decision:
+        // TradingView status line); the hover sample now names only the bar, its date and the
+        // value at the pointer, none of which a tick changes. The O H L C is the price pane's status
+        // line, rebuilt from the store on every render — pinned by
+        // StatusLineInChartAreaTests.A_live_tick_on_the_hovered_bar_reaches_the_status_line.
     };
 
     private static void Apply(Harness h, string change, ChartHoverInfo hovered)
@@ -93,15 +99,6 @@ public sealed class ChartHoverStillMouseTests
                 h.Store.Dispatch(new UpdateDataAction(
                     h.Store.State.Data.Append(new Ohlcv(last.Date.AddDays(1), 600, 650, 590, 640, 1000)),
                     IsInitialLoad: false));
-                break;
-            case "live tick on the hovered bar":
-                // The bar under the pointer is rewritten in place (ReplaceLast on the live bar in
-                // production; here whichever bar is hovered, so the readout's OHLC must change).
-                var bars = h.Store.State.Data.ToList();
-                int idx = bars.FindIndex(b => ChartHoverTracker.FormatBarDate(b.Date, PlaybackNarration.BarSeconds(h.Store.State)) == hovered.DateText);
-                Assert.True(idx >= 0, $"no bar is named '{hovered.DateText}'");
-                bars[idx] = bars[idx] with { Close = bars[idx].Close + 7.5 };
-                h.Store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(bars), IsInitialLoad: false));
                 break;
             default:
                 throw new System.ArgumentException(change);
@@ -127,10 +124,10 @@ public sealed class ChartHoverStillMouseTests
         Assert.NotEqual(before, fresh);
         Assert.True(Equals(fresh, still),
             $"After '{change}' with the mouse held still the readout said " +
-            $"'{still?.DateText} {still?.PriceText} / {still?.OhlcText}' (hairline x {still?.BarX:F1}), " +
+            $"'{still?.DateText} {still?.PriceText} / bar {still?.BarIndex}' (hairline x {still?.BarX:F1}), " +
             $"but the bar now under that same pointer is " +
-            $"'{fresh!.DateText} {fresh.PriceText} / {fresh.OhlcText}' (hairline x {fresh.BarX:F1}). " +
-            $"Before the change it said '{before.DateText} / {before.OhlcText}'.");
+            $"'{fresh!.DateText} {fresh.PriceText} / bar {fresh.BarIndex}' (hairline x {fresh.BarX:F1}). " +
+            $"Before the change it said '{before.DateText} / bar {before.BarIndex}'.");
     }
 
     [Fact]
@@ -208,7 +205,7 @@ public sealed class ChartHoverStillMouseTests
     }
 
     private static string Describe(ChartHoverInfo? i)
-        => i == null ? "nothing" : $"'{i.DateText} {i.PriceText} / {i.OhlcText}' (hairline x {i.BarX:F1})";
+        => i == null ? "nothing" : $"'{i.DateText} {i.PriceText} / bar {i.BarIndex}' (hairline x {i.BarX:F1})";
 
     [Theory]
     [InlineData("sideways", -200.0, Top0, true)]
@@ -489,23 +486,23 @@ public sealed class ChartHoverStillMouseTests
         cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H)).GetAwaiter().GetResult();
         var shown = tracker.Current;
         Assert.NotNull(shown);
-        cut.WaitForAssertion(() => Assert.Contains(shown!.OhlcText, cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains(shown!.DateText, cut.Markup));
 
         // Scrolled sideways by 200px: the pointer is over another bar now, and the markup says so.
         cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, Top0, W, H)).GetAwaiter().GetResult();
         var remapped = tracker.Current;
         Assert.NotNull(remapped);
-        Assert.NotEqual(shown!.OhlcText, remapped!.OhlcText);
+        Assert.NotEqual(shown!.DateText, remapped!.DateText);
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains(remapped.OhlcText, cut.Markup);
-            Assert.DoesNotContain(shown.OhlcText, cut.Markup);
+            Assert.Contains(remapped.DateText, cut.Markup);
+            Assert.DoesNotContain(shown.DateText, cut.Markup);
         });
 
         // Scrolled so the chart is below the pointer: nothing is named.
         cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, 800, W, H)).GetAwaiter().GetResult();
         Assert.Null(tracker.Current);
-        cut.WaitForAssertion(() => Assert.DoesNotContain(remapped.OhlcText, cut.Markup));
+        cut.WaitForAssertion(() => Assert.DoesNotContain(remapped.DateText, cut.Markup));
     }
 
     // ── Throttle and the off switch ──────────────────────────────────────────

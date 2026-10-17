@@ -552,35 +552,36 @@ public sealed class ChartVisualStabilityTests
             "without it a short indicator pane stacks its numbers into a smear.");
     }
 
-    // ── The y-axis swatch ──────────────────────────────────────────────────────────
+    // ── The y-axis value label (was the swatch) ────────────────────────────────────
 
     /// <summary>
-    /// <b>The live-value swatch is a small tick, not a band across the axis.</b>
+    /// <b>The live-value label is one label high and stays in the axis column.</b>
     ///
     /// <para>
-    /// It once was a band: <c>SKCanvas.DrawRect</c>'s four-float overload is
-    /// <c>(x, y, width, height)</c>, and passing BOUNDS to it turned a 4x3 pixel tick into a
-    /// rectangle roughly nineteen hundred pixels wide, which buried the price labels behind a solid
-    /// colour block. The comment in <c>RenderYAxisSwatches</c> records that; nothing held it.
+    /// This pinned the 4x3 px swatch tick until 2026-10-17, when the tick became TradingView's
+    /// value label — a filled box in the line's colour with the number in it (Cody's decision:
+    /// TradingView status line). The tick's 8 px width bound is gone with the tick; the defect it
+    /// guarded is not. <c>SKCanvas.DrawRect</c>'s four-float overload is <c>(x, y, width,
+    /// height)</c>, and passing BOUNDS to it once turned the tick into a rectangle about nineteen
+    /// hundred pixels across that buried the price labels. The same mistake in the label's rect
+    /// makes it taller than a label and wider than the strip, which is what this now bounds.
     /// </para>
     ///
     /// <para>
-    /// <b>A note on how this was arrived at.</b> The A2i mutant for this rewrote
-    /// <c>DrawRect(SKRect.Create(x, y, w, h))</c> as <c>DrawRect(x, y, w, h)</c> — and those are
-    /// byte-identical, measured, so that mutant was equivalent and proved nothing. The defect is
-    /// real; the mutant was mis-specified. What reintroduces it is passing bounds, and that is what
-    /// this test is written against.
+    /// A note from the original: the A2i mutant rewrote <c>DrawRect(SKRect.Create(x, y, w, h))</c>
+    /// as <c>DrawRect(x, y, w, h)</c>, which is byte-identical — equivalent, proving nothing. What
+    /// reintroduces the defect is passing bounds, and that is what this is written against.
     /// </para>
     /// </summary>
     [Fact]
-    public void TheYAxisSwatchIsATickAndNotABandAcrossTheAxis()
+    public void TheYAxisValueLabelIsOneLabelHighAndStaysInTheAxisColumn()
     {
         var (renderer, layout) = Renderer();
         var data = Bars(30, _ => (100.0, 110.0, 99.0, 109.0));
 
-        // A main-pane overlay line: RenderYAxisSwatches draws a tick for each of these at its
-        // latest value. A distinctive colour so its pixels are unambiguous.
-        var swatch = new SKColor(0, 255, 0);
+        // A main-pane overlay line: the axis carries a label at its newest value, filled in its
+        // colour. A distinctive colour so its pixels are unambiguous.
+        var fill = new SKColor(0, 255, 0);
         var series = new[]
         {
             FrameCandleSeries(),
@@ -591,24 +592,23 @@ public sealed class ChartVisualStabilityTests
             new Dictionary<string, (double Min, double Max)> { ["Main"] = (95, 115) });
 
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
-
-        int widest = 0;
+        int minX = int.MaxValue, maxX = -1, minY = int.MaxValue, maxY = -1;
         for (int y = 0; y < H; y++)
-        {
-            int run = 0;
-            for (int x = axisLeft; x < W; x++)
-            {
-                run = CloseTo(bmp.GetPixel(x, y), swatch) ? run + 1 : 0;
-                // Inside the column loop, deliberately: taking the maximum after it only ever sees
-                // the run still alive at the last column, which for a 4px tick is zero.
-                widest = Math.Max(widest, run);
-            }
-        }
+            for (int x = 0; x < W; x++)
+                if (x >= axisLeft - 2 && CloseTo(bmp.GetPixel(x, y), fill))
+                {
+                    minX = Math.Min(minX, x); maxX = Math.Max(maxX, x);
+                    minY = Math.Min(minY, y); maxY = Math.Max(maxY, y);
+                }
 
-        Assert.True(widest > 0, "no swatch was drawn in the axis column at all — the fixture proves nothing");
-        Assert.True(widest <= 8,
-            $"the y-axis swatch is {widest} pixels wide. It is a 4-pixel tick marking where a line " +
-            "currently sits; anything wider is a block across the axis, and it buries the price labels.");
+        Assert.True(maxX >= 0, "no value label was drawn in the axis column at all — the fixture proves nothing");
+        int height = maxY - minY + 1, width = maxX - minX + 1;
+        Assert.True(height <= 20,
+            $"the y-axis value label is {height} pixels tall. It is one line of type in a box; anything taller " +
+            "is a block down the axis, and it buries the price labels.");
+        Assert.True(minX >= axisLeft && maxX < W,
+            $"the y-axis value label spans x {minX}–{maxX}, outside the axis column {axisLeft}–{W - 1}.");
+        Assert.True(width < W - axisLeft, $"the value label is {width} px wide, the whole axis column or more");
     }
 
     // ── Recorded, not tested ───────────────────────────────────────────────────────
