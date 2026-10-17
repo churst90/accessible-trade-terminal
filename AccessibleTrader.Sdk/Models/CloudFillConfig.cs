@@ -45,6 +45,14 @@ namespace AccessibleTrader.Sdk.Models
         public string BearishColorHex { get; set; } = "#EF5350";
         /// <summary>Whether this fill is currently rendered. Toggled via Properties → Appearance.</summary>
         public bool IsVisible { get; set; } = true;
+        /// <summary>
+        /// The indicator's declared <see cref="IsVisible"/> when this fill was last built or
+        /// restored, saved beside it: on restore a saved <see cref="IsVisible"/> equal to it
+        /// follows the indicator's current default, one that differs is the user's choice and is
+        /// kept. Null = saved before it existed. Same rule as
+        /// <see cref="ComponentConfig.ProviderIsVisible"/>.
+        /// </summary>
+        public bool? ProviderIsVisible { get; set; }
         /// <summary>Label shown in Properties → Appearance (e.g. "WT Fill", "EMA Fill").</summary>
         public string DisplayName { get; set; } = "";
         /// <summary>
@@ -60,6 +68,7 @@ namespace AccessibleTrader.Sdk.Models
             BullishColorHex    = BullishColorHex,
             BearishColorHex    = BearishColorHex,
             IsVisible          = IsVisible,
+            ProviderIsVisible  = ProviderIsVisible,
             DisplayName        = DisplayName,
             Sonification       = Sonification,
         };

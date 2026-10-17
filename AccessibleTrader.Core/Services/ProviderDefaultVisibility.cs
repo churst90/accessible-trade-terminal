@@ -1,0 +1,66 @@
+using AccessibleTrader.Core.Services.Indicators;
+
+namespace AccessibleTrader.Core.Services
+{
+    /// <summary>
+    /// <b>A restored chart's visibility follows the indicator, except where the user changed it.</b>
+    ///
+    /// <para>Whether a component (or a cloud fill) is shown is saved per chart, and restore puts the
+    /// saved flag back. Until 2026-10-17 it put it back VERBATIM, so a provider that changed a
+    /// default visibility reached only charts added afterwards: Cody's Cipher B, saved while its
+    /// divergences, red and gold dots and Anchor Fill were shown by default, would have kept showing
+    /// — and sounding — every one of them after they were hidden to match Market Cipher B. The same
+    /// shape as the levels bug that day (<c>SeriesManagementService.HealSavedLevels</c>).</para>
+    ///
+    /// <para>The rule: a saved flag EQUAL to the default it was saved against was never the user's
+    /// choice, so it takes the indicator's CURRENT default; a flag that differs is the user's (H,
+    /// Properties, Ctrl+Alt+Shift+K) and is kept. The default it was saved against is recorded beside
+    /// it (<c>ComponentConfig.ProviderIsVisible</c>, <c>CloudFillConfig.ProviderIsVisible</c>). A save
+    /// from before that record existed knows only the defaults listed below as RETIRED; for anything
+    /// else the saved flag is kept, which is exactly what restore always did. (Using the current
+    /// default as the baseline would be the same thing: a flag equal to it would take it.)</para>
+    ///
+    /// <para>What this cannot tell apart: a user who hid a component and showed it again has the
+    /// default back and follows the indicator from then on — the same answer levels give.</para>
+    /// </summary>
+    public static class ProviderDefaultVisibility
+    {
+        /// <summary>The visibility a restored component or fill takes.</summary>
+        /// <param name="saved">The flag the workspace file holds.</param>
+        /// <param name="savedAgainst">The provider default recorded beside it; null in older saves.</param>
+        /// <param name="currentDefault">What the indicator declares now.</param>
+        /// <param name="retiredDefault">For an older save, the default the provider is KNOWN to have
+        /// had (<see cref="RetiredComponentDefault"/>); null = unknown.</param>
+        public static bool Resolve(bool saved, bool? savedAgainst, bool currentDefault, bool? retiredDefault)
+        {
+            bool? baseline = savedAgainst ?? retiredDefault;
+            return baseline is bool b && saved == b ? currentDefault : saved;
+        }
+
+        /// <summary>
+        /// A component default visibility a provider has since changed, for saves that predate
+        /// <c>ComponentConfig.ProviderIsVisible</c>. Only entries whose old default is known from
+        /// the history of the provider belong here.
+        /// </summary>
+        public static bool? RetiredComponentDefault(string indicatorCode, string componentName) =>
+            (indicatorCode.ToUpperInvariant(), componentName) switch
+            {
+                // Cipher B, 2026-10-17: shown by default since they were written; hidden to match
+                // stock Market Cipher B (CipherBProvider, "Our own signals, HIDDEN by default").
+                ("CIPHER_B", CipherBProvider.CompRed or CipherBProvider.CompGold
+                           or CipherBProvider.CompBullDiv or CipherBProvider.CompBearDiv
+                           or CipherBProvider.CompHidBull or CipherBProvider.CompHidBear) => true,
+                _ => null,
+            };
+
+        /// <summary>The same for cloud fills, keyed by their display name.</summary>
+        public static bool? RetiredCloudFillDefault(string indicatorCode, string fillDisplayName) =>
+            (indicatorCode.ToUpperInvariant(), fillDisplayName) switch
+            {
+                // Cipher B, 2026-10-17: both shown by default until that day. WT Fill was hidden in
+                // the morning (65ea3d68), Anchor Fill in the evening.
+                ("CIPHER_B", "Anchor Fill" or "WT Fill") => true,
+                _ => null,
+            };
+    }
+}

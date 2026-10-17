@@ -200,7 +200,13 @@ namespace AccessibleTrader.Core.Services
                 {
                     var saved = componentOverrides.FirstOrDefault(o => o.Name == fresh.Name);
                     if (saved == null) continue;
-                    fresh.IsVisible      = saved.IsVisible;
+                    // Visibility: the saved flag where the user changed it, else the indicator's
+                    // CURRENT default — fresh.IsVisible here, from metadata. A provider can then
+                    // hide or show a component by default and reach charts that already exist
+                    // (Cipher B's own signals, 2026-10-17). See ProviderDefaultVisibility.
+                    fresh.IsVisible      = ProviderDefaultVisibility.Resolve(
+                        saved.IsVisible, saved.ProviderIsVisible, fresh.IsVisible,
+                        ProviderDefaultVisibility.RetiredComponentDefault(meta.Code, fresh.Name));
                     fresh.IsEnabled      = saved.IsEnabled;
                     fresh.IsMuted        = saved.IsMuted;
                     fresh.Volume         = saved.Volume;
@@ -252,8 +258,14 @@ namespace AccessibleTrader.Core.Services
             foreach (var uiComp in sourceComponents) config.Components.Add(uiComp.Clone());
 
             // Copy default cloud fills from metadata
+            // ProviderIsVisible records the default each fill was built against, so a restore can
+            // tell the user's show/hide from a default (ProviderDefaultVisibility).
             foreach (var fill in meta.DefaultCloudFills)
-                config.CloudFills.Add(fill.Clone());
+            {
+                var copy = fill.Clone();
+                copy.ProviderIsVisible = fill.IsVisible;
+                config.CloudFills.Add(copy);
+            }
 
             // Copy default zone bands from metadata
             foreach (var band in meta.DefaultZoneBands)
@@ -330,6 +342,8 @@ namespace AccessibleTrader.Core.Services
                 UpperComponentName = meta.UpperComponentName ?? string.Empty,
                 LowerComponentName = meta.LowerComponentName ?? string.Empty,
                 IsVisible    = meta.IsVisible,
+                // The baseline a restore compares the saved flag with (ProviderDefaultVisibility).
+                ProviderIsVisible = meta.IsVisible,
                 IsEnabled    = true,
                 SubPaneName       = meta.SubPaneName,
                 SubPaneHeightRatio = meta.SubPaneHeightRatio,
