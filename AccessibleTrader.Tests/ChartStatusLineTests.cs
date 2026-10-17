@@ -488,43 +488,50 @@ public sealed class ChartStatusLineTests
         return d;
     }
 
+    // Two overlays with no data, so neither draws anything of its own, under different names and
+    // colours: their status lines differ in every glyph. Both take a status line, so both frames
+    // keep the same status band and lay the plot out identically (2026-10-17) — comparing a chart
+    // with an overlay against one without would now differ by the band alone, legend or not.
+    private static ChartSeries SilentOverlay(string name, string hex) =>
+        Series("osc", name, "Main", 30, new Comp("Line", ComponentDisplayType.Line, hex, _ => double.NaN));
+
     /// <summary>
     /// <b>The live chart's image carries no legend.</b> The status lines are DOM text over it, so a
     /// legend painted into the image as well would be a second copy under the first, unreachable by
-    /// a magnifier. An overlay with no data draws nothing of its own, so the top left of the price
-    /// pane must be pixel-identical with and without it.
+    /// a magnifier. Two silent overlays with different names: the top left of the price pane must
+    /// be pixel-identical between them.
     /// </summary>
     [Fact]
     public void The_live_renderer_paints_no_legend_into_the_image()
     {
         var data = FlatBars(30, 10, 12);
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (0, 100) };
-        var overlay = Series("osc", "Overlay 14", "Main", 30, new Comp("Line", ComponentDisplayType.Line, "#00FFFF", _ => double.NaN));
 
         var (renderer, _) = Renderer();
-        using var without = Render(renderer, Array.Empty<ChartSeries>(), data, ranges, (0, 100));
-        using var with = Render(renderer, new[] { overlay }, data, ranges, (0, 100));
+        using var a = Render(renderer, new[] { SilentOverlay("Overlay 14", "#00FFFF") }, data, ranges, (0, 100));
+        using var b = Render(renderer, new[] { SilentOverlay("Different 99 7", "#FF00FF") }, data, ranges, (0, 100));
 
-        Assert.Equal(0, Differences(without, with, new SKRectI(0, 0, 200, 60)));
+        Assert.Equal(0, Differences(a, b, new SKRectI(0, 0, 200, 60)));
     }
 
     /// <summary>
     /// An off-screen snapshot (the AI analyst's chart image) has nothing over it, so there the
-    /// renderer paints the status lines itself — or the picture would name none of its lines.
+    /// renderer paints the status lines itself — or the picture would name none of its lines. The
+    /// same two overlays as above: here their lines differ in the image. (The vacuity twin of the
+    /// test above: the region it compares is where a painted line would be.)
     /// </summary>
     [Fact]
     public void A_snapshot_renderer_paints_the_status_lines()
     {
         var data = FlatBars(30, 10, 12);
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (0, 100) };
-        var overlay = Series("osc", "Overlay 14", "Main", 30, new Comp("Line", ComponentDisplayType.Line, "#00FFFF", _ => double.NaN));
 
         var (renderer, _) = Renderer();
         renderer.PaintsStatusLines = true;
-        using var without = Render(renderer, Array.Empty<ChartSeries>(), data, ranges, (0, 100));
-        using var with = Render(renderer, new[] { overlay }, data, ranges, (0, 100));
+        using var a = Render(renderer, new[] { SilentOverlay("Overlay 14", "#00FFFF") }, data, ranges, (0, 100));
+        using var b = Render(renderer, new[] { SilentOverlay("Different 99 7", "#FF00FF") }, data, ranges, (0, 100));
 
-        Assert.True(Differences(without, with, new SKRectI(0, 0, 200, 60)) > 50,
+        Assert.True(Differences(a, b, new SKRectI(0, 0, 200, 60)) > 50,
             "the snapshot renderer drew no status line for the overlay");
     }
 
@@ -538,15 +545,18 @@ public sealed class ChartStatusLineTests
     {
         var data = FlatBars(30, 100, 105);
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (95, 115), ["Pane_0"] = (0, 100) };
-        var rsi = Series("rsi", "RSI 14", "Pane_0", 30, new Comp("RSI", ComponentDisplayType.Line, "#FF00FF", i => i < 29 ? 50 : 30));
+        var rsi = Series("rsi", "RSI 14", "Pane_0", 30, new Comp("RSI", ComponentDisplayType.Line, "#FF00FF", i => i < 29 ? 50 : 20));
 
         var (renderer, layout) = Renderer();
-        // The cursor is on an older bar, so the crosshair badge (at 50) is nowhere near the newest value (30).
+        // The cursor is on an older bar, so the crosshair badge (at 50) is nowhere near the newest
+        // value (20 — it was 30 until the pane's plot started below its status band, 2026-10-17, and
+        // on the shorter plot 30 sat less than a label's height under the badge and was stacked off its row).
         using var bmp = Render(renderer, new[] { rsi }, data, ranges, (95, 115), cursor: 5);
 
-        float paneTop = layout.Dividers.Single().DividerFraction * H;
+        // The pane's plot, where the axis maps its values, starts below its status band.
+        float paneTop = StatusBandGeometry.PlotTop(layout, "Pane_0", layout.Dividers.Single().DividerFraction * H, H);
         float paneBottom = H * (1f - layout.AxisHeightFraction);
-        float y = ChartMath.MapY(30, paneTop, paneBottom, 0, 100, false);
+        float y = ChartMath.MapY(20, paneTop, paneBottom, 0, 100, false);
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
         var fill = bmp.GetPixel(axisLeft + 4, (int)Math.Round(y) - 5);
         Assert.True(Math.Abs(fill.Red - 255) < 12 && fill.Green < 12 && Math.Abs(fill.Blue - 255) < 12,

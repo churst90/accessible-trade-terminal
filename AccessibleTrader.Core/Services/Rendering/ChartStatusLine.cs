@@ -97,6 +97,32 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         public const byte DefaultBackingAlpha = 245;
 
+        /// <summary>
+        /// The least a pane's PLOT may keep, in CSS px (× density in device pixels), once its
+        /// status band is taken out. A band that would leave less is shrunk a line at a time, down
+        /// to no lines at all.
+        ///
+        /// <para>
+        /// <b>20, and the window that decides it is 1000x610</b> with Cipher B, RSI and MACD: the
+        /// chart is about 330 CSS px tall there, so <see cref="ChartRenderer.AllocatePaneHeights"/>
+        /// takes its crowded path and each oscillator pane gets about 50 px. One line's band is
+        /// 25 px, which leaves a 25 px plot. At 30 (the crowded floor for a whole pane) every one of
+        /// those panes lost its status line — and the line is the only thing on screen naming the
+        /// oscillator in that pane. 25 px still shows an oscillator's shape and its crossings; under
+        /// 20 a line is a flat stroke, and an 8-pane chart's ~30 px panes (a 5 px plot) get none.
+        /// </para>
+        /// </summary>
+        public const float MinPlotPx = 20f;
+
+        /// <summary>
+        /// The least fraction of a pane its PLOT may keep once its status band is taken out: 40% —
+        /// the band never takes more than 60% of a pane. The block's own 45% cap
+        /// (<see cref="LineBudget"/>) keeps an ordinary pane well inside this; it bites on the
+        /// three-line floor, which in a short pane let the block take most of it (at 80 px, three
+        /// lines are 59 of the 80 — now two, 42 of 80, and "+N more").
+        /// </summary>
+        public const float MinPlotFraction = 0.4f;
+
         // Fraction of the pane the block may occupy before it competes with the data.
         private const float MaxPaneFraction = 0.45f;
         // Absolute ceiling regardless of how tall the pane is.
@@ -169,12 +195,17 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <param name="maxWidth">The widest a line may be, in the units <paramref name="measure"/> returns.</param>
         /// <param name="line">One line's height.</param>
         /// <param name="measure">The width of a piece of text in the line's font.</param>
+        /// <param name="budgetOverride">How many lines the block may have: the pane's
+        /// <see cref="StatusBand"/> lines, which the renderer reserved room for. Null counts it here,
+        /// with <see cref="PaneLineBudget"/>, taking the pad and the plot floor in the units of
+        /// <paramref name="line"/> at 100% text size.</param>
         public static PaneStatus Build(
             string paneName, IReadOnlyList<ChartSeries> paneSeries, int absIndex, Context ctx,
-            float paneHeight, float maxWidth, float line, Func<string, float> measure)
+            float paneHeight, float maxWidth, float line, Func<string, float> measure, int? budgetOverride = null)
         {
             var lines = new List<StatusLine>();
-            int budget = LineBudget(paneHeight, line, line * (PadPx / LinePx));
+            int budget = budgetOverride
+                ?? PaneLineBudget(paneHeight, line, line * (PadPx / LinePx), line * (MinPlotPx / LinePx));
             if (budget < 1 || absIndex < 0) return new PaneStatus(paneName, lines);
 
             float gap = measure("M") * GapEm * 1.6f;
@@ -218,15 +249,20 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// size setting, where the canvas does not, so the budget has to be counted in it.
         /// </summary>
         /// <param name="textScale">Settings → Appearance → Text size, as a fraction (1 = 100%).</param>
+        /// <param name="bands">Each pane's status band as the renderer reserved it
+        /// (<see cref="IPaneLayoutService.StatusBands"/>): a pane's block has at most the lines its
+        /// band has room for, so the text never reaches the plot below it. A pane missing from it
+        /// (no frame has been drawn yet) is counted here by the same rule.</param>
         public static IReadOnlyList<PlacedPane> BuildPanes(
             WorkspaceState state, IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction, float axisWidthFraction, int absIndex, byte backingAlpha, ChartTheme theme,
-            double cssWidth, double cssHeight, double textScale)
+            double cssWidth, double cssHeight, double textScale,
+            IReadOnlyDictionary<string, PaneStatusBand>? bands = null)
         {
             var placed = new List<PlacedPane>();
             if (state.Data == null || state.Data.Count == 0 || cssWidth <= 0 || cssHeight <= 0) return placed;
-            float scale = (float)Math.Clamp(textScale, 0.5, 2.5);
-            float line = LinePx * scale;
+            float scale = ClampTextScale(textScale);
+            var (line, pad, minPlot) = BandMetrics(1f, scale);
             float plotWidth = (float)(cssWidth * (1 - Math.Clamp(axisWidthFraction, 0f, 0.9f)));
             double plotBottom = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
 
@@ -249,7 +285,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                     ? MainPaneSeries(state.ActiveSeries.Where(s => s.Pane == "Main"))
                     : state.ActiveSeries.Where(s => s.Pane == name && s.IsVisible && !s.IsDrawing).ToList();
                 float h = (float)((bottom - top) * cssHeight);
-                var status = Build(name, series, absIndex, ctx, h, plotWidth * MaxWidthFraction, line, Measure);
+                int budget = bands != null && bands.TryGetValue(name, out var band)
+                    ? band.Lines
+                    : PaneLineBudget(h, line, pad, minPlot);
+                var status = Build(name, series, absIndex, ctx, h, plotWidth * MaxWidthFraction, line, Measure, budget);
                 if (status.Lines.Count > 0) placed.Add(new PlacedPane(status, top, bottom));
             }
             return placed;
@@ -258,6 +297,49 @@ namespace AccessibleTrader.Core.Services.Rendering
         private static readonly SKTypeface StatusTypeface =
             SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
             ?? SKTypeface.Default;
+
+        /// <summary>The text size setting as the status lines use it: a fraction, clamped to the setting's 50%–250%.</summary>
+        public static float ClampTextScale(double textScale) => (float)Math.Clamp(textScale, 0.5, 2.5);
+
+        /// <summary>
+        /// A status band's measures, in pixels of a surface at <paramref name="density"/> pixels per
+        /// CSS px (1 for the DOM's CSS px, the device pixel ratio for the renderer's bitmap):
+        /// one line's height, the pad above the block and below it, and the least the plot keeps.
+        ///
+        /// <para>
+        /// These are the DOM's own measures, so the band the renderer leaves is the block ChartArea
+        /// draws: each line is <c>font-size: 0.75rem; line-height: 1.4167</c>, which is
+        /// <see cref="LinePx"/> CSS px at 100% text size and grows with the setting (it sets the
+        /// root font size); the block is placed <see cref="PadPx"/> CSS px below the pane's top,
+        /// a fixed px offset that does NOT grow; and the band keeps the same pad under the block
+        /// so a line drawn at the pane's maximum (its stroke straddles the plot's top) does not
+        /// touch the text.
+        /// </para>
+        /// </summary>
+        public static (float Line, float Pad, float MinPlot) BandMetrics(float density, float textScale)
+            => (LinePx * ClampTextScale(textScale) * density, PadPx * density, MinPlotPx * density);
+
+        /// <summary>
+        /// The height of the band a block of <paramref name="lines"/> takes at the top of its pane:
+        /// the pad, the lines, the pad again. None for no lines — a pane without a status line
+        /// keeps its whole height for the plot.
+        /// </summary>
+        public static float BandHeight(int lines, float line, float pad) => lines <= 0 ? 0f : pad + lines * line + pad;
+
+        /// <summary>
+        /// How many status lines a pane may show once the band they need is taken out of its plot:
+        /// <see cref="LineBudget"/>, then fewer — down to none — while the plot would keep less than
+        /// <see cref="MinPlotFraction"/> of the pane or less than <paramref name="minPlot"/>. The
+        /// lines that do not fit are counted ("+N more") exactly as before; what changed is that a
+        /// short pane gives up a line rather than its plot.
+        /// </summary>
+        public static int PaneLineBudget(float paneHeight, float line, float pad, float minPlot)
+        {
+            int n = LineBudget(paneHeight, line, pad);
+            float floor = Math.Max(minPlot, paneHeight * MinPlotFraction);
+            while (n > 0 && paneHeight - BandHeight(n, line, pad) < floor) n--;
+            return n;
+        }
 
         /// <summary>
         /// How many lines a pane of <paramref name="paneHeight"/> may show: what fits in 45% of it,

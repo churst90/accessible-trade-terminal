@@ -61,10 +61,16 @@ public sealed class CipherBLookTests
         return s;
     }
 
+    // Where the price pane's PLOT starts in the last frame Render drew: below the pane's status
+    // band (2026-10-17), which Cipher B's status line takes at the pane's top. Every value is
+    // mapped from there, so Y has to start there too.
+    [ThreadStatic] private static float _plotTop;
+
     private static (SKBitmap Bmp, ThemeService Themes) Render(ChartSeries s, ThemeType? type = null)
     {
         var themes = Themes(type);
-        var renderer = new ChartRenderer(themes, Styling(), new PaneLayoutService(),
+        var layout = new PaneLayoutService();
+        var renderer = new ChartRenderer(themes, Styling(), layout,
             NullLogger<ChartRenderer>.Instance, Substitute.For<IAppLogger>());
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var bars = Enumerable.Range(0, N).Select(i => new Ohlcv(start.AddDays(i), 10, 11, 9, 10, 1)).ToList();
@@ -72,11 +78,12 @@ public sealed class CipherBLookTests
         using (var canvas = new SKCanvas(bmp))
             renderer.Render(canvas, W, H, bars, new[] { s }, cursorIndex: -1, viewportStart: 0, viewportLength: N,
                 viewportRange: (-100, 100), paneRanges: new Dictionary<string, (double, double)>(), rightMarginBars: 0);
+        _plotTop = layout.StatusBands.TryGetValue("Main", out var band) ? band.HeightFraction * H : 0f;
         return (bmp, themes);
     }
 
     private static int Y(double v, ThemeService t) =>
-        (int)Math.Round(ChartMath.MapY(v, 0, H - t.Current.AxisHeight, -100, 100, false));
+        (int)Math.Round(ChartMath.MapY(v, _plotTop, H - t.Current.AxisHeight, -100, 100, false));
 
     /// <summary>The centre of the middle bar's slot (a bar boundary falls in the gap between columns).</summary>
     private static int X(ThemeService t) => (int)((N / 2 + 0.5f) * (W - t.Current.AxisWidth) / N);

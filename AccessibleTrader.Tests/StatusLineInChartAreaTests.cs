@@ -41,7 +41,7 @@ public sealed class StatusLineInChartAreaTests
         public readonly ChartHoverTracker Tracker;
 
         public Rig(Func<WorkspaceState, WorkspaceState>? tweak = null, int? backingPercent = null,
-            IReadOnlyList<(string, float)>? dividers = null)
+            IReadOnlyList<(string, float)>? dividers = null, IReadOnlyDictionary<string, PaneStatusBand>? bands = null)
         {
             var bars = Bars();
             State = WorkspaceState.Initial with
@@ -61,6 +61,8 @@ public sealed class StatusLineInChartAreaTests
                     .Returns(new JValue(p));
             if (dividers != null)
                 Harness.Ctx.Services.GetRequiredService<IPaneLayoutService>().Dividers.Returns(dividers);
+            if (bands != null)
+                Harness.Ctx.Services.GetRequiredService<IPaneLayoutService>().StatusBands.Returns(bands);
             Cut = Harness.Ctx.RenderComponent<ChartArea>();
             Input = Harness.Ctx.Services.GetRequiredService<BlazorInputService>();
             Tracker = Harness.Ctx.Services.GetRequiredService<ChartHoverTracker>();
@@ -240,5 +242,66 @@ public sealed class StatusLineInChartAreaTests
         var line = pane.QuerySelector(".chart-status-line")!;
         Assert.Contains("RSI", line.TextContent);
         Assert.Contains(ChartStatusLine.FormatReading(30.0 + 90 * 0.25), line.TextContent);
+    }
+
+    /// <summary>
+    /// <b>The block is no taller than the band the renderer left for it</b> (2026-10-17: each
+    /// pane's plot starts below its status lines). ChartArea hands the published bands to the
+    /// model, so a pane whose band has room for one line shows one — the first indicator, with the
+    /// others counted on it — even where the pane, counted on its own, would have room for three.
+    /// A block taller than its band would sit on the plot again.
+    /// </summary>
+    [Fact]
+    public void A_panes_block_has_no_more_lines_than_the_band_the_renderer_left()
+    {
+        ChartSeries Ind(string id, string name)
+        {
+            var s = new ChartSeries(
+                new SeriesConfig { Id = id, Name = name, Pane = "Pane_RSI", IndicatorCode = id.ToUpperInvariant() },
+                new SeriesDataBuffer { SeriesId = id });
+            s.Components.Add(new ComponentConfig { Name = "V", DisplayName = "V", DisplayType = ComponentDisplayType.Line, ColorHex = "#7E57C2", IsVisible = true });
+            s.Data.ComponentData["V"] = Enumerable.Repeat(40.0, 100).ToArray();
+            return s;
+        }
+        var three = System.Collections.Immutable.ImmutableList.Create(Ind("a", "RSI 14"), Ind("b", "CCI 20"), Ind("c", "MFI 14"));
+
+        // Control: no band published (no frame yet) — the pane, 30% of 720 px, holds all three.
+        using (var free = new Rig(s => s with { ActiveSeries = three }, dividers: new[] { ("Pane_RSI", 0.6f) }))
+            Assert.Equal(3, free.Cut.FindAll(".chart-status-pane[data-pane='Pane_RSI'] .chart-status-line").Count);
+
+        var bands = new Dictionary<string, PaneStatusBand>
+        {
+            ["Main"] = new(1, 25f / (float)H),
+            ["Pane_RSI"] = new(1, 25f / (float)H),
+        };
+        using var rig = new Rig(s => s with { ActiveSeries = three }, dividers: new[] { ("Pane_RSI", 0.6f) }, bands: bands);
+        var lines = rig.Cut.FindAll(".chart-status-pane[data-pane='Pane_RSI'] .chart-status-line");
+        var only = Assert.Single(lines);
+        Assert.Contains("RSI", only.TextContent);
+        Assert.Contains("+2 more", only.TextContent);
+    }
+
+    /// <summary>
+    /// The model's measures ARE the block's CSS: the lines are 0.75rem with a 1.4167 line height
+    /// (<see cref="ChartStatusLine.FontPx"/>, <see cref="ChartStatusLine.LinePx"/> at 100% text),
+    /// and each pane's block starts <see cref="ChartStatusLine.PadPx"/> px below its top. The band
+    /// the renderer keeps is counted in these; a restyle that changed one without the other would
+    /// put the text back on the plot.
+    /// </summary>
+    [Fact]
+    public void The_blocks_css_is_the_measure_the_band_is_counted_in()
+    {
+        using var rig = new Rig();
+        var style = rig.Cut.Find(".chart-status").GetAttribute("style")!.Replace(" ", "");
+        var font = System.Text.RegularExpressions.Regex.Match(style, @"font-size:([\d.]+)rem");
+        var lh = System.Text.RegularExpressions.Regex.Match(style, @"line-height:([\d.]+);");
+        Assert.True(font.Success && lh.Success, $"the block's style has no rem font size and unitless line height: {style}");
+        double fontPx = double.Parse(font.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * 16;
+        double linePx = fontPx * double.Parse(lh.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(ChartStatusLine.FontPx, fontPx, 3);
+        Assert.Equal(ChartStatusLine.LinePx, linePx, 1);
+
+        var pane = rig.Cut.Find(".chart-status-pane[data-pane='Main']").GetAttribute("style")!.Replace(" ", "");
+        Assert.Contains($"+{ChartStatusLine.PadPx.ToString(System.Globalization.CultureInfo.InvariantCulture)}px)", pane);
     }
 }

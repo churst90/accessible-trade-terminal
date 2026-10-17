@@ -69,7 +69,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // So an indicator pane's crosshair badge reads the component the user is on.
                     state.FocusedSeriesId, state.FocusedComponentIndex,
                     // So the price pane's status block is measured with its symbol line.
-                    state.Identity);
+                    state.Identity,
+                    // So each pane's status band is as tall as the DOM text ChartArea draws in
+                    // it, which grows with Settings > Appearance > Text size.
+                    (_settings?.UiScale ?? 100) / 100f);
             }
             catch { /* keep the last good frame */ }
         }

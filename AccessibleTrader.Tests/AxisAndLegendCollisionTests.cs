@@ -255,13 +255,18 @@ public sealed class AxisAndLegendCollisionTests
             StatusSeries("CCI", ("CCI", ComponentDisplayType.Line, 10)),
             StatusSeries("ADX", ("ADX", ComponentDisplayType.Line, 20))).Lines;
 
-        // A pane that cannot hold a single line (25px) gets none at all; every taller one gets
-        // a block that fits.
-        if (paneHeight >= pad + line + pad) Assert.NotEmpty(lines);
+        // Since 2026-10-17 the block is not over the plot but in a band above it, so a pane gets a
+        // line only where the band leaves the plot its floor (40% of the pane, and 20 px): the
+        // 40 px pane, which used to get one line over a 15 px plot, now gets none; 55 px gets one.
+        // Every pane that gets a block gets one that fits and leaves the plot its floor.
+        float floor = Math.Max(ChartStatusLine.MinPlotPx, paneHeight * ChartStatusLine.MinPlotFraction);
+        if (paneHeight - (pad + line + pad) >= floor) Assert.NotEmpty(lines);
         if (lines.Count == 0) return;
         float blockHeight = pad + lines.Count * line + pad;
         Assert.True(blockHeight <= paneHeight,
             $"{lines.Count} lines make a {blockHeight}px block inside a {paneHeight}px pane");
+        Assert.True(paneHeight - blockHeight >= floor,
+            $"{lines.Count} lines leave a {paneHeight}px pane's plot {paneHeight - blockHeight}px, under its {floor}px floor");
     }
 
     /// <summary>
@@ -271,7 +276,8 @@ public sealed class AxisAndLegendCollisionTests
     [Fact]
     public void ASingleLineStatusBlockNamesTheFirstIndicatorAndTheRest()
     {
-        var lines = StatusIn(40f,
+        // 60 px: an indicator pane at its floor, which has room for one line above its plot.
+        var lines = StatusIn(60f,
             StatusSeries("MACD", ("Macd", ComponentDisplayType.Line, 2)),
             StatusSeries("RSI", ("RSI", ComponentDisplayType.Line, 50)),
             StatusSeries("CCI", ("CCI", ComponentDisplayType.Line, 10))).Lines;
