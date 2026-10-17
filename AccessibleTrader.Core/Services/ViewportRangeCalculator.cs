@@ -54,7 +54,7 @@ namespace AccessibleTrader.Core.Services
                 if (paneName != "Main") continue;
                 foreach (var lvl in s.Levels)
                 {
-                    if (!lvl.IsVisible) continue;
+                    if (!lvl.IsVisible || !lvl.IsDrawn) continue;   // not drawn: does not stretch the axis
                     // Same test the components use, and for the same reason. A reference level
                     // named "Zero" at 0.0 on a BTC chart at 60,000–86,000 sits 2.31 spans below
                     // the low — inside the three-span allowance — and pulled the whole price
@@ -236,7 +236,7 @@ namespace AccessibleTrader.Core.Services
                 string paneKey = paneName;
                 foreach (var lvl in s.Levels)
                 {
-                    if (!lvl.IsVisible) continue;
+                    if (!lvl.IsVisible || !lvl.IsDrawn) continue;   // not drawn: does not stretch the axis
                     accum.TryGetValue(paneKey, out var cur);
                     double rMin = cur.HasData ? cur.Min : double.MaxValue;
                     double rMax = cur.HasData ? cur.Max : double.MinValue;

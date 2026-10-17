@@ -36,6 +36,17 @@ namespace AccessibleTrader.Sdk.Models
         string? AboveLabel = null,
 
         /// <summary>What being BELOW this line means. See <see cref="AboveLabel"/>.</summary>
-        string? BelowLabel = null
+        string? BelowLabel = null,
+
+        /// <summary>
+        /// False = a level that is HEARD but not DRAWN: it textures, clicks, is spoken as a zone,
+        /// narrated when crossed and alertable exactly like a drawn level, for the components that
+        /// subscribe to it (<c>SubscribedLevelNames</c>), but no line is painted and the axis is not
+        /// stretched to reach it. For a line whose extremes are not the pane's: Cipher B's 0–100
+        /// RSI and Stochastic share a −100…+100 pane whose ±53/±60 belong to the waves, and take
+        /// undrawn 80/20 levels of their own (Cody, 2026-10-17: "80 / 20", "sound only", "yes, they
+        /// should be narrated").
+        /// </summary>
+        bool IsDrawn = true
     );
 }

@@ -591,7 +591,7 @@ All audio fields are nullable; null means "use the profile / display-type defaul
 
 | Field | Type | Description |
 |---|---|---|
-| `DefaultReferenceLevel` | `double?` | Explicit reference level for this component. Drives the waveform above/below split, polarity coloring boundary, and `TriggerBoundaryClick` threshold. When null, the engine uses `0.0` for `Oscillator` and `ZeroArea` display types, otherwise null. |
+| `DefaultReferenceLevel` | `double?` | The component's MIDLINE. Drives the above/below split of the waveform, the bright/warm timbre and the above/below sound patch (one rule since 2026-10-17 — the timbre used to split at the middle of the pane's visible range), the polarity coloring boundary, and the `TriggerBoundaryClick` threshold. When null, the engine uses `0.0` for `Oscillator` and `ZeroArea` display types, otherwise null. |
 | `DefaultTriggerBoundaryClick` | `bool?` | See Audio section above. |
 | `DefaultIsZoneLine` | `bool` | When true, `NavigationFeedbackManager` plays a quiet 100ms proximity tone on audio slot 2 whenever the navigated bar's price range (High/Low) overlaps this component's value within 0.5% tolerance. Intended for carry-forward S/R lines (Resistance Zone, Support Zone). Propagated to `ComponentConfig.IsZoneLine`. Default: `false`. |
 
@@ -851,7 +851,10 @@ public record LevelDescriptor(
     bool PlayEarcon       = false,   // earcon when the series crosses this level
     float EarconVolume    = 0.7f,
     float ZoneNoiseAmount = 0f,      // background noise while inside the zone
-    string ZoneNoiseType  = "pink"
+    string ZoneNoiseType  = "pink",
+    string? AboveLabel    = null,    // a named band above the line ("strong trend")
+    string? BelowLabel    = null,
+    bool IsDrawn          = true     // false = heard, spoken and narrated, but not painted
 );
 ```
 
@@ -867,6 +870,28 @@ the indicator simply has no reference levels. User-supplied `Overbought` /
 `Oversold` parameter values override the `Value` of descriptors with those exact
 names, so name your threshold levels `"Overbought"` and `"Oversold"` if you want
 them user-tunable.
+
+### Which components a level applies to — and lines on a different scale
+
+A level applies to every component of the indicator unless a component says otherwise with
+`SubscribedLevelNames` on its metadata: `null` (the default) = every level, an empty array = none,
+a list = only the levels named. Texture, earcons, the spoken zone ("overbought"), the crossing
+narration and alerts all follow the same subscription, so declaring it once is enough.
+
+You do NOT declare bounds per component. Components drawn in one pane share its axis, and a
+component is pitched where it is drawn. What can differ per component is its MEANING, and that
+has two declarations:
+
+- **Its midline**: `DefaultReferenceLevel` (RSI 50, a zero-line oscillator 0). Above / below it
+  decides the bright or warm timbre, the waveform and the above/below sound patch.
+- **Its extremes**: levels it subscribes to. When those extremes are not the pane's, declare them
+  with `IsDrawn: false` — heard, spoken and narrated for the components that subscribe to them,
+  without painting a second set of lines.
+
+Cipher B is the worked example: its waves use the pane's ±53/±60, while its 0–100 RSI and
+Stochastic lines (drawn on the same −100…+100 axis, as Market Cipher draws them) have a midline of
+50 and subscribe only to two undrawn levels at 80 and 20. A component that needs its own AXIS, not
+just its own meaning, belongs in a strip (`SubPaneName`).
 
 ### DashStyle options
 
@@ -891,6 +916,12 @@ public List<LevelDescriptor> GetDefaultLevels(string code)
         new("Zero",         0.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
         new("Oversold",   -53.0, "#8C8C96", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
         new("Extreme OS", -60.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
+
+        // The 0–100 RSI and Stochastic lines' own extremes: heard, not drawn.
+        new("Stoch Overbought", 80.0, "#8C8C96", DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.6f,
+            ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink", IsDrawn: false),
+        new("Stoch Oversold",   20.0, "#8C8C96", DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.6f,
+            ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink", IsDrawn: false),
     };
 }
 ```

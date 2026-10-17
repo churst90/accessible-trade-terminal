@@ -628,6 +628,7 @@ namespace AccessibleTrader.Core.Services
                     ColorHex        = desc.ColorHex,
                     DashStyle       = desc.Dash,
                     IsVisible       = true,
+                    IsDrawn         = desc.IsDrawn,
                     PlayEarcon      = desc.PlayEarcon,
                     EarconVolume    = desc.EarconVolume,
                     ZoneNoiseAmount = desc.ZoneNoiseAmount,

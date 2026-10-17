@@ -190,17 +190,6 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public bool IsZoneLine { get; set; } = false;
 
-        /// <summary>
-        /// The component's own overbought / oversold for SOUND only (texture inside, a click on the
-        /// crossing). See IndicatorComponentMetadata.DefaultZoneOverbought. Null = none.
-        /// </summary>
-        public double? ZoneOverbought { get; set; }
-        /// <inheritdoc cref="ZoneOverbought"/>
-        public double? ZoneOversold { get; set; }
-        /// <summary>Texture amount inside <see cref="ZoneOverbought"/> / <see cref="ZoneOversold"/>.</summary>
-        public float ZoneNoiseAmount { get; set; } = 0.45f;
-        /// <summary>Texture colour inside the component's own zones.</summary>
-        public string ZoneNoiseType { get; set; } = "pink";
 
         /// <summary>
         /// When set on a marker-type component (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square),
@@ -275,10 +264,6 @@ namespace AccessibleTrader.Sdk.Models
                 DecayMs = DecayMs,
                 PlaybackLayer = PlaybackLayer,
                 IsZoneLine = IsZoneLine,
-                ZoneOverbought = ZoneOverbought,
-                ZoneOversold = ZoneOversold,
-                ZoneNoiseAmount = ZoneNoiseAmount,
-                ZoneNoiseType = ZoneNoiseType,
                 SignalSpeechTemplate = SignalSpeechTemplate,
                 SubscribedLevelNames = SubscribedLevelNames,
                 DeviationNorm = DeviationNorm

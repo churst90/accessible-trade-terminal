@@ -91,6 +91,11 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private float _thickness = 1.0f;
         [ObservableProperty] private DashStyle _dashStyle = DashStyle.Dash;
         [ObservableProperty] private bool _isVisible = true;
+        /// <summary>
+        /// False = heard but not drawn (see LevelDescriptor.IsDrawn). <see cref="IsVisible"/> still
+        /// switches the level off entirely; this only stops it being painted.
+        /// </summary>
+        [ObservableProperty] private bool _isDrawn = true;
 
         // ── Per-level audio behavior ─────────────────────────────────────────
         /// <summary>When true, crossing this level fires an earcon click.</summary>

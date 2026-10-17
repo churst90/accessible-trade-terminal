@@ -103,6 +103,16 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompBlue         = "Oversold Crossover";
         public const string CompRed          = "Overbought Crossover";
         public const string CompGold         = "Triple Confluence Buy";
+        /// <summary>
+        /// The pane's levels — the waves' scale, ±53 / ±60 and zero. Named explicitly on every
+        /// component that used to take "all levels" (null), so the undrawn 80/20 below reach only
+        /// the two 0–100 lines; nothing that heard ±53 before hears anything new.
+        /// </summary>
+        internal static readonly string[] WaveLevels = { "Extreme OB", "Overbought", "Zero", "Oversold", "Extreme OS" };
+
+        /// <summary>The 0–100 RSI and Stochastic lines' own extremes: undrawn levels at 80 and 20.</summary>
+        internal static readonly string[] LineLevels = { "Stoch Overbought", "Stoch Oversold" };
+
         public const string CompBullDiv      = "Bullish Divergence";
         public const string CompBearDiv      = "Bearish Divergence";
         public const string CompHidBull      = "Hidden Bull Continuation";
@@ -155,7 +165,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
-                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
+                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompWT2Anchor,     DisplayName = "Anchor Wave Slow", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             DefaultColorHex = "#1A237E", DefaultThickness = 2.5f, IsVisible = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
@@ -164,7 +175,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
-                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
+                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
 
                     // ── WT Histogram — the real MCB "VWAP" wave ─────────────
                     // This is WT1 − WT2. Real MCB's "VWAP" has the same sign as WT1 − WT2 on 96%
@@ -227,7 +239,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
                             SpeechTemplate = "Wave Trend 1. Oscillator. {value:F1}.",
-                            DefaultIsAreaFill = true, DefaultUsePolarityColoring = false },
+                            DefaultIsAreaFill = true, DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompWT2,           DisplayName = "Wave Trend Slow", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             // Market Cipher B's slow wave: a #0D47A1 area at ~90% (#E6) over the fast
                             // one — the dark-blue body of every MCB chart; MCB's own price-scale label
@@ -248,7 +261,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
                             SpeechTemplate = "Wave Trend 2. Oscillator. {value:F1}.",
-                            DefaultIsAreaFill = true, DefaultUsePolarityColoring = false },
+                            DefaultIsAreaFill = true, DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
 
                     // ── Money Flow — body/range ratio, zero-centered ──────
                     // Rewritten from the previous RSI(hlc3*volume) approach to the canonical
@@ -310,7 +324,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultBaseFrequency = 660.0,
                             DefaultSignalSpeechTemplate = "Wave cross up {value}",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompCrossBear,     DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
                             DefaultColorHex = "#D9FF5252", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -319,7 +334,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultBaseFrequency = 220.0,
                             DefaultSignalSpeechTemplate = "Wave cross down {value}",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
 
                     // The adaptive OB/OS thresholds are not components since 2026-10-17 — see
                     // ThresholdObKey for why (Cody's 2026-10-17 report).
@@ -332,7 +348,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f, IsVisible = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            SpeechTemplate = "Anchor polarity. {value:F0}." },
+                            SpeechTemplate = "Anchor polarity. {value:F0}.",
+                            SubscribedLevelNames = WaveLevels },
 
                     // ── Signal dots ─────────────────────────────────────────
                     // MCB's big green buy dot: opaque #3FFF00 (sampled exactly in the 2.2.6 chart),
@@ -348,7 +365,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Oversold crossover, long signal",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompRed,           DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
                             DefaultColorHex = "#FF1744", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
@@ -359,7 +377,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Overbought crossover, short signal",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompGold,          DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
                             DefaultColorHex = "#FFD700", DefaultThickness = 8.0f,
                             DefaultEnvelopeType = "Ping",
@@ -370,7 +389,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Triple confluence buy, strong confirmation",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
 
                     // ── Divergence dots ─────────────────────────────────────
                     new() { Name = CompBullDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
@@ -383,7 +403,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Bullish divergence",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompBearDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
                             DefaultColorHex = "#FF1744", DefaultThickness = 3.5f,
                             DefaultEnvelopeType = "Ping",
@@ -394,7 +415,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Bearish divergence",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBull,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
                             DefaultColorHex = "#26C6DA", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
@@ -405,7 +427,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Hidden bullish continuation",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBear,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
                             DefaultColorHex = "#FF9800", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
@@ -416,7 +439,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultSignalSpeechTemplate = "Hidden bearish continuation",
-                            DefaultUsePolarityColoring = false },
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
 
                     // ── MCB's two stochastic lines (added 2026-10-17, MUTED by default) ──────
                     // Drawn because Market Cipher B draws them; muted (DefaultIsMuted) so they add no
@@ -430,13 +454,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 50.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
-                            // Their extremes on THEIR 0–100 scale, for sound only (Cody, 2026-10-17:
-                            // "80 / 20", "sound only"). Cipher B's ±53/±60 are the waves' levels: on
-                            // this line +53 is just above the middle and −53 is never reached.
-                            DefaultZoneOverbought = 80.0, DefaultZoneOversold = 20.0,
                             DefaultTriggerBoundaryClick = true,
-                            SpeechTemplate = "RSI. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>(),
+                            SpeechTemplate = "RSI. {value:F1}. {zone}.",   // "overbought" past its own 80
+                            SubscribedLevelNames = LineLevels,   // their own undrawn 80/20, not the waves' ±53/±60
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
                     // Green at or below the RSI line, red above it: MCB colours it that way on 397 of
                     // 397 digitised bars. #3FFF00 / #FF1100 are the line's own sampled colours.
@@ -448,13 +468,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 50.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
-                            // Their extremes on THEIR 0–100 scale, for sound only (Cody, 2026-10-17:
-                            // "80 / 20", "sound only"). Cipher B's ±53/±60 are the waves' levels: on
-                            // this line +53 is just above the middle and −53 is never reached.
-                            DefaultZoneOverbought = 80.0, DefaultZoneOversold = 20.0,
                             DefaultTriggerBoundaryClick = true,
-                            SpeechTemplate = "Stochastic. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>(),
+                            SpeechTemplate = "Stochastic. {value:F1}. {zone}.",
+                            SubscribedLevelNames = LineLevels,   // their own undrawn 80/20, not the waves' ±53/±60
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
                 },
                 DefaultCloudFills = new List<CloudFillConfig>
@@ -1552,6 +1568,18 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Zero",         0.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
                 new("Oversold",   -53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
                 new("Extreme OS", -60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
+
+                // The RSI and Stochastic lines' OWN extremes. They run 0–100 on this −100…+100 pane
+                // (as MCB draws them), where the waves' ±53 means "just above the middle" and −53 is
+                // never reached. Cody, 2026-10-17: 80 / 20, sound only — and "yes, they should be
+                // narrated". Undrawn (IsDrawn: false) so the pane keeps MCB's look; subscribed to by
+                // those two lines alone (LineLevels), so texture, clicks, the spoken zone and the
+                // crossing narration all come from the one level path every indicator uses. A plain
+                // Stochastic's texture (0.45 pink).
+                new("Stoch Overbought", 80.0, LevelGrey, DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.6f,
+                    ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink", IsDrawn: false),
+                new("Stoch Oversold",   20.0, LevelGrey, DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.6f,
+                    ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink", IsDrawn: false),
             };
         }
 

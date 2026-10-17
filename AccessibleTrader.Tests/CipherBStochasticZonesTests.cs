@@ -1,4 +1,7 @@
+using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;
@@ -15,6 +18,10 @@ namespace AccessibleTrader.Tests;
 /// scale — the two lines run 0–100 on Cipher B's −100…+100 pane (as Market Cipher draws them), so +53
 /// is just above their middle and −53 is never reached. Cody chose 80 / 20, sound only: the
 /// component's own zone (ComponentConfig.ZoneOverbought / ZoneOversold), nothing drawn.</para>
+///
+/// <para>Since the same evening ("yes, they should be narrated") the 80/20 are LEVELS — undrawn
+/// (<c>IsDrawn: false</c>), subscribed to by those two lines alone — so the texture, the clicks, the
+/// spoken zone and the crossing narration all come from the one level path every indicator uses.</para>
 ///
 /// <para>Built as the app builds it: the provider's metadata through <see cref="IndicatorModelFactory"/>,
 /// the provider's levels with their noise and earcons (as SeriesManagementService injects them), and
@@ -34,7 +41,7 @@ public sealed class CipherBStochasticZonesTests
             s.Levels.Add(new LevelConfig
             {
                 Name = d.Name, Value = d.Value, ColorHex = d.ColorHex, DashStyle = d.Dash, IsVisible = true,
-                PlayEarcon = d.PlayEarcon, EarconVolume = d.EarconVolume,
+                PlayEarcon = d.PlayEarcon, EarconVolume = d.EarconVolume, IsDrawn = d.IsDrawn,
                 ZoneNoiseAmount = d.ZoneNoiseAmount, ZoneNoiseType = d.ZoneNoiseType,
             });
         return s;
@@ -93,5 +100,108 @@ public sealed class CipherBStochasticZonesTests
             Assert.True(past60 > past53, $"{wave} at {sign * 65}: {past60} is no rougher than at {sign * 56} ({past53})");
         }
         Assert.Equal(clean, Sound(s, wave, 30).NoiseAmount);   // 30 is not "oversold 20" for a wave
+    }
+
+    // ── Spoken and narrated, not drawn ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void The_80_20_levels_are_heard_but_not_drawn()
+    {
+        var levels = new CipherBProvider().GetDefaultLevels("CIPHER_B").ToDictionary(l => l.Name);
+        Assert.False(levels["Stoch Overbought"].IsDrawn);
+        Assert.False(levels["Stoch Oversold"].IsDrawn);
+        Assert.All(CipherBProvider.WaveLevels, n => Assert.True(levels[n].IsDrawn));
+        Assert.Equal(80.0, levels["Stoch Overbought"].Value);
+        Assert.Equal(20.0, levels["Stoch Oversold"].Value);
+    }
+
+    [Theory]
+    [InlineData("RSI")]
+    [InlineData("Stochastic")]
+    public void Navigation_says_overbought_past_80_and_oversold_below_20_on_its_own_scale(string line)
+    {
+        var s = CipherB();
+        var c = s.Components.Single(x => x.DisplayName == line);
+        Assert.Equal("Overbought", StandardTemplateStrategy.ResolveZone(s, 85, c));
+        Assert.Equal("Oversold", StandardTemplateStrategy.ResolveZone(s, 15, c));
+        Assert.Equal("", StandardTemplateStrategy.ResolveZone(s, 55, c));   // above the waves' 53: not an extreme here
+        Assert.Contains("{zone}", c.SpeechTemplate);
+    }
+
+    [Fact]
+    public void The_waves_still_say_overbought_at_their_own_53_and_ignore_80()
+    {
+        var s = CipherB();
+        var wt = s.Components.Single(x => x.DisplayName == "Wave Trend Fast");
+        Assert.Equal("Overbought", StandardTemplateStrategy.ResolveZone(s, 56, wt));
+        Assert.Equal("", StandardTemplateStrategy.ResolveZone(s, 30, wt));   // 30 is not "oversold 20" for a wave
+        Assert.Equal("", StandardTemplateStrategy.ResolveZone(s, 10, wt));   // below the lines' 20: still not a wave's extreme
+    }
+
+    /// <summary>
+    /// With narration on, the RSI line crossing ITS 80 is said on the bar close, by name — even though
+    /// Cipher B's primary reading is a wave whose own crossings take a different path — and a MUTED RSI
+    /// stays quiet, as in playback narration.
+    /// </summary>
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    public void Live_narration_says_the_rsi_crossed_its_own_80(bool rsiMuted, int expected)
+    {
+        const int n = 20, cross = 10;
+        var s = CipherB();
+        s.Config.IsAutoNarrated = true;
+        s.Config.FriendlyName = "Cipher B";
+        s.Components.Single(c => c.DisplayName == "RSI").IsMuted = rsiMuted;
+
+        var t0 = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var bars = Enumerable.Range(0, n).Select(i => new Ohlcv(t0.AddDays(i), 100, 101, 99, 100, 10)).ToList();
+        var values = new Dictionary<string, double[]>();
+        foreach (var c in s.Components) values[c.Name] = Enumerable.Repeat(double.NaN, n).ToArray();
+        string Name(string display) => s.Components.Single(c => c.DisplayName == display).Name;
+        values[Name("Wave Trend Fast")] = Enumerable.Repeat(10.0, n).ToArray();
+        values[Name("Wave Trend Slow")] = Enumerable.Repeat(9.0, n).ToArray();
+        values[Name("RSI")] = Enumerable.Range(0, n).Select(i => i < cross ? 70.0 : 85.0).ToArray();
+        values[Name("Stochastic")] = Enumerable.Repeat(50.0, n).ToArray();
+
+        var bus = new SpyEventBus();
+        var store = new MockWorkspaceStore();
+        var router = new CapturingSpeechRouter();
+        _ = new AutoNarrationService(store, bus, router, new IndicatorContextAnalyzer());
+
+        WorkspaceState St(int count)
+        {
+            var buf = new SeriesDataBuffer { SeriesId = s.Config.Id };
+            foreach (var (name, v) in values) buf.ComponentData[name] = v.Take(count).ToArray();
+            return WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(bars.Take(count)),
+                ActiveSeries = ImmutableList.Create(new ChartSeries(s.Config, buf)),
+                FocusedSeriesId = s.Config.Id,
+                CurrentDataIndex = count - 1,
+                InitStatus = InitializationStatus.Ready,
+                DataStatus = DataStatus.Ready,
+                IsSpeechEnabled = true,
+            };
+        }
+
+        for (int count = cross - 2; count <= cross + 4; count++)
+        {
+            store.EmitState(St(count));
+            bus.Publish(new RedrawEvent());
+        }
+
+        int heard = router.Spoken.Count(m => m.Contains("RSI: crossed above stoch overbought, 80", StringComparison.OrdinalIgnoreCase));
+        Assert.True(heard == expected, $"expected {expected}, heard {heard}:\n  " + string.Join("\n  ", router.Spoken));
+        Assert.DoesNotContain(router.Spoken, m => m.Contains("Stochastic: crossed", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed class CapturingSpeechRouter : ISpeechFeedbackRouter
+    {
+        public List<string> Spoken { get; } = new();
+        public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Chart) => Spoken.Add(message);
+        public void SpeakPoint(WorkspaceState s, WorkspaceState? p, ChartSeries ser, Ohlcv pt, string pfx = "") { }
+        public void SpeakProfile(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int bin, string pfx = "") { }
+        public void SpeakHeatmap(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int di, int bin, string pfx = "") { }
     }
 }

@@ -149,22 +149,6 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public bool DefaultIsZoneLine { get; set; } = false;
 
-        /// <summary>
-        /// This component's OWN overbought / oversold, on its own scale, for sound only: above
-        /// <see cref="DefaultZoneOverbought"/> or below <see cref="DefaultZoneOversold"/> the voice
-        /// takes the zone texture, and crossing either clicks (with TriggerBoundaryClick), exactly
-        /// as a pane level would — but nothing is drawn and no other component is affected.
-        /// For a line whose scale is not its pane's: Cipher B's MCB "RSI" and "Stochastic" run 0–100
-        /// on a −100…+100 pane whose ±53 levels belong to the waves (Cody, 2026-10-17: 80/20,
-        /// sound only). Null = none. Propagated to ComponentConfig.ZoneOverbought / ZoneOversold.
-        /// </summary>
-        public double? DefaultZoneOverbought { get; set; }
-        /// <inheritdoc cref="DefaultZoneOverbought"/>
-        public double? DefaultZoneOversold { get; set; }
-        /// <summary>Texture amount inside the component's own zones (a plain Stochastic's 0.45).</summary>
-        public float DefaultZoneNoiseAmount { get; set; } = 0.45f;
-        /// <summary>Texture colour inside the component's own zones.</summary>
-        public string DefaultZoneNoiseType { get; set; } = "pink";
 
         /// <summary>
         /// When set on a marker-type component, used instead of the generic speech template

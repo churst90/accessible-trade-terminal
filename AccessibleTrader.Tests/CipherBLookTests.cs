@@ -57,7 +57,7 @@ public sealed class CipherBLookTests
         foreach (var c in s.Components)
             s.Data.ComponentData[c.Name] = Enumerable.Repeat(values.TryGetValue(c.Name, out var v) ? v : double.NaN, N).ToArray();
         foreach (var d in provider.GetDefaultLevels("CIPHER_B"))
-            s.Levels.Add(new LevelConfig { Name = d.Name, Value = d.Value, ColorHex = d.ColorHex, DashStyle = d.Dash, IsVisible = true });
+            s.Levels.Add(new LevelConfig { Name = d.Name, Value = d.Value, ColorHex = d.ColorHex, DashStyle = d.Dash, IsVisible = true, IsDrawn = d.IsDrawn });
         return s;
     }
 
@@ -195,6 +195,25 @@ public sealed class CipherBLookTests
     /// 0.30/0.45): under the waves' own 0.15 the ±53 zone was never heard
     /// (CipherBStochasticZonesTests.The_waves_get_rougher_past_53_and_again_past_60).
     /// </summary>
+    /// <summary>
+    /// The RSI and Stochastic lines' own 80 / 20 are heard, not drawn (Cody, 2026-10-17: "sound
+    /// only"): no grey on their rows, while the waves' ±60 line right beside them is painted.
+    /// </summary>
+    [Fact]
+    public void The_lines_own_80_and_20_are_not_painted()
+    {
+        var (bmp, t) = Render(CipherB(new Dictionary<string, double>()));
+        var grey = SKColor.Parse("#8C8C96");
+        int GreyOn(int y) => Enumerable.Range(0, W - (int)t.Current.AxisWidth)
+            .Count(x => Close(bmp.GetPixel(x, y), grey));
+        Assert.True(GreyOn(Y(60, t)) > 20, "precondition: the ±60 level is painted and detectable");
+        Assert.Equal(0, GreyOn(Y(80, t)));
+        Assert.Equal(0, GreyOn(Y(20, t)));
+    }
+
+    private static bool Close(SKColor a, SKColor b) =>
+        Math.Abs(a.Red - b.Red) < 24 && Math.Abs(a.Green - b.Green) < 24 && Math.Abs(a.Blue - b.Blue) < 24;
+
     [Fact]
     public void Levels_are_plain_grey_lines_and_sound_as_they_did()
     {

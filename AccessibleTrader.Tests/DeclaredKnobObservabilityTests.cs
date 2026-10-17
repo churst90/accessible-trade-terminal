@@ -549,9 +549,6 @@ public sealed class DeclaredKnobObservabilityTests
         ("value-pitch, reference at 50", _ => { }),   // the fixture's own defaults
         ("no reference, pitch None", c => { c.ReferenceLevel = null; c.PitchMapping = PitchMapping.None; }),
         ("direction pitch", c => c.PitchMapping = PitchMapping.Direction),
-        // ZoneNoiseAmount / ZoneNoiseType are read only INSIDE the component's own sound zone
-        // (2026-10-17, Cipher B's 0–100 RSI and Stochastic), so one cell puts every value there.
-        ("inside its own zone", c => c.ZoneOverbought = -1e12),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

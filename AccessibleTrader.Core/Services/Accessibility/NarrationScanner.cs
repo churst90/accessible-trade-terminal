@@ -683,6 +683,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var comp = PrimaryReading(series);
             if (comp == null) return;
 
+            // Other lines' OWN levels first: the primary's early returns below must not silence them.
+            ScanOwnLevelCrosses(series, comp, barIndex, utterance);
+
             // One voice per threshold. A component with a registered definition already has
             // hand-written overbought/oversold wording, and RSI declares 70/30 in both places.
             if (_contextAnalyzer.HasZoneThresholds(series.IndicatorCode, comp.Name)) return;
@@ -732,6 +735,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (below.Count > 0)
                 utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
                               $"{series.FriendlyName}: crossed below {string.Join(", ", below)}.");
+        }
+
+        /// <summary>
+        /// Crossings of levels that belong to ANOTHER line of the series — ones its primary reading
+        /// does not answer to. Cipher B's 0–100 RSI and Stochastic share a −100…+100 pane whose
+        /// ±53/±60 are the waves', and carry undrawn 80/20 of their own (Cody, 2026-10-17: "yes, they
+        /// should be narrated"). The scan above reads the primary line only, so without this their
+        /// crossings were textured and clicked but never said. Named by the line, because two lines
+        /// share those levels: "Cipher B RSI: crossed above stoch overbought, 80." Hidden and MUTED
+        /// lines are skipped — a muted line's events stay quiet, as in playback narration.
+        /// </summary>
+        private void ScanOwnLevelCrosses(ChartSeries series, ComponentConfig primary, int barIndex, ScanUtterance utterance)
+        {
+            foreach (var comp in series.Components)
+            {
+                if (ReferenceEquals(comp, primary) || !comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
+                if (comp.SubscribedLevelNames is not { Count: > 0 } subs) continue;
+
+                var data = series.GetComponentData(comp.Name);
+                if (data == null || barIndex < 0 || barIndex >= data.Length) continue;
+                double val = data[barIndex];
+                if (double.IsNaN(val)) continue;
+
+                var above = new List<string>();
+                var below = new List<string>();
+                foreach (var level in series.Levels)
+                {
+                    if (!level.IsVisible) continue;
+                    if (!subs.Contains(level.Name, StringComparer.OrdinalIgnoreCase)) continue;
+                    if (SubscribesToLevel(primary, level.Name)) continue;   // the primary already speaks it
+
+                    string key = $"{series.Id}:{comp.Name}:{level.Name}";
+                    bool nowAbove = val > level.Value;
+                    if (_lastAboveLevel.TryGetValue(key, out bool wasAbove) && wasAbove != nowAbove)
+                        (nowAbove ? above : below).Add(LevelPhrase(level));
+                    _lastAboveLevel[key] = nowAbove;
+                }
+
+                string who = $"{series.FriendlyName} {comp.DisplayName ?? comp.Name}";
+                if (above.Count > 0)
+                    utterance.Add(ScanUtterance.TierOscillator, who, $"{series.Id}:{comp.Name}:levels",
+                                  $"{who}: crossed above {string.Join(", ", above)}.");
+                if (below.Count > 0)
+                    utterance.Add(ScanUtterance.TierOscillator, who, $"{series.Id}:{comp.Name}:levels",
+                                  $"{who}: crossed below {string.Join(", ", below)}.");
+            }
         }
 
         /// <summary>
