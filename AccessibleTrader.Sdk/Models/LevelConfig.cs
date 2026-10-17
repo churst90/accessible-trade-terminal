@@ -97,6 +97,18 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         [ObservableProperty] private bool _isDrawn = true;
 
+        /// <summary>
+        /// What the INDICATOR declared for this level when it was last injected or restored — the
+        /// baseline that tells a value the user changed from one the indicator has changed since.
+        /// A saved chart restores its levels as saved (they are per-instance and the Properties
+        /// dialog edits them), so without this nothing an indicator later changed about a level
+        /// ever reached a chart that already existed: Cody, 2026-10-17, restored a Cipher B saved
+        /// before its 80/20 levels and its louder ±53 texture existed, and heard neither.
+        /// On restore, a field still equal to this baseline takes the indicator's current value;
+        /// a field the user changed is kept. Null on levels saved before 2026-10-17.
+        /// </summary>
+        public LevelDefaults? ProviderDefaults { get; set; }
+
         // ── Per-level audio behavior ─────────────────────────────────────────
         /// <summary>When true, crossing this level fires an earcon click.</summary>
         [ObservableProperty] private bool _playEarcon = false;
@@ -215,7 +227,37 @@ namespace AccessibleTrader.Sdk.Models
                 Role            = Role,
                 AboveLabel      = AboveLabel,
                 BelowLabel      = BelowLabel,
+                ProviderDefaults = ProviderDefaults?.Copy(),
             };
         }
+    }
+
+    /// <summary>
+    /// The indicator's declaration of one level, as last seen — see <see cref="LevelConfig.ProviderDefaults"/>.
+    /// Every field is nullable: a null field is UNKNOWN (a pre-2026-10-17 save) and is never taken
+    /// as "unchanged by the user".
+    /// </summary>
+    public sealed class LevelDefaults
+    {
+        public double? Value { get; set; }
+        public string? ColorHex { get; set; }
+        public DashStyle? Dash { get; set; }
+        public bool? PlayEarcon { get; set; }
+        public float? EarconVolume { get; set; }
+        public float? ZoneNoiseAmount { get; set; }
+        public string? ZoneNoiseType { get; set; }
+        /// <summary>False when the band labels are unknown (pre-2026-10-17); they may be null when known.</summary>
+        public bool LabelsKnown { get; set; }
+        public string? AboveLabel { get; set; }
+        public string? BelowLabel { get; set; }
+
+        public static LevelDefaults From(LevelDescriptor d) => new()
+        {
+            Value = d.Value, ColorHex = d.ColorHex, Dash = d.Dash, PlayEarcon = d.PlayEarcon,
+            EarconVolume = d.EarconVolume, ZoneNoiseAmount = d.ZoneNoiseAmount, ZoneNoiseType = d.ZoneNoiseType,
+            LabelsKnown = true, AboveLabel = d.AboveLabel, BelowLabel = d.BelowLabel,
+        };
+
+        public LevelDefaults Copy() => (LevelDefaults)MemberwiseClone();
     }
 }

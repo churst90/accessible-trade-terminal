@@ -214,7 +214,14 @@ namespace AccessibleTrader.Core.Services.Input
             var primaryComp = focusedSeries.Components.FirstOrDefault(c =>
                 c.DisplayType == ComponentDisplayType.ZeroArea ||
                 c.DisplayType == ComponentDisplayType.Oscillator);
-            if (primaryComp != null) return CrossingType.ZeroLine;
+            // The last-resort midline — a line with no visible level of its own scanned about its
+            // reference — must honour the same switch as the levels above: Cody, 2026-10-17, "ctrl
+            // left/right only jumps between midline crosses and it does so even if 0 line is
+            // hidden". (His Cipher B RSI had no levels on a restored chart; HealSavedLevels now
+            // gives it its 80/20, but a hidden midline must stop being a target either way.)
+            if (primaryComp != null
+                && !focusedSeries.Levels.Any(l => l.EffectiveRole == LevelRole.Neutral && !l.IsVisible))
+                return CrossingType.ZeroLine;
 
             return CrossingType.Trendline;
         }

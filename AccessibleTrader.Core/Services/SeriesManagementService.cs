@@ -534,6 +534,7 @@ namespace AccessibleTrader.Core.Services
             {
                 freshSeries.Config.Levels.Clear();
                 foreach (var l in config.Levels) freshSeries.Config.Levels.Add(l.Clone());
+                HealSavedLevels(freshSeries, config.IndicatorCode.ToUpperInvariant(), indicatorEngine);
             }
             else
             {
@@ -601,6 +602,80 @@ namespace AccessibleTrader.Core.Services
         /// viewport expands the price range to reach any visible main-pane level.
         /// </para>
         /// </summary>
+        /// <summary>A provider's level as a chart level, with its declaration kept as the baseline.</summary>
+        internal static LevelConfig FromDescriptor(LevelDescriptor desc, double value) => new()
+        {
+            Name            = desc.Name,
+            Value           = value,
+            ColorHex        = desc.ColorHex,
+            DashStyle       = desc.Dash,
+            IsVisible       = true,
+            IsDrawn         = desc.IsDrawn,
+            PlayEarcon      = desc.PlayEarcon,
+            EarconVolume    = desc.EarconVolume,
+            ZoneNoiseAmount = desc.ZoneNoiseAmount,
+            ZoneNoiseType   = desc.ZoneNoiseType,
+            AboveLabel      = desc.AboveLabel,
+            BelowLabel      = desc.BelowLabel,
+            ProviderDefaults = LevelDefaults.From(desc),
+        };
+
+        /// <summary>
+        /// Brings a restored chart's levels up to the indicator's CURRENT declaration without
+        /// undoing the user's own edits.
+        ///
+        /// <para>Saved levels are restored as saved — they are per-instance and Properties edits
+        /// every field — so until 2026-10-17 nothing an indicator later changed about its levels
+        /// reached a chart that already existed. Cody restored a Cipher B saved that afternoon:
+        /// its RSI and Stochastic subscribed to the new undrawn 80/20 levels, which his chart did
+        /// not have (no texture, and Ctrl+Left/Right fell back to midline crossings), and its ±53 /
+        /// ±60 still carried the old 0.10 / 0.20 texture the waves drown out.</para>
+        ///
+        /// <para>Now: a level the indicator declares that the chart lacks is ADDED; whether a level
+        /// is drawn always comes from the indicator (no dialog edits it); and every other field
+        /// still equal to the baseline the level last saw (<see cref="LevelConfig.ProviderDefaults"/>)
+        /// takes the indicator's current value, while a field the user changed is kept. A level
+        /// saved before the baseline existed knows only the defaults listed in
+        /// <see cref="RetiredDefaults"/> — anything else on it is treated as the user's.</para>
+        /// </summary>
+        internal static void HealSavedLevels(ChartSeries series, string codeUp, Indicators.IIndicatorEngine? engine)
+        {
+            var provider = engine?.GetProvider(codeUp);
+            if (provider == null) return;
+
+            foreach (var desc in provider.GetDefaultLevels(codeUp))
+            {
+                var lvl = series.Levels.FirstOrDefault(l => !l.IsUserDefined && l.Name == desc.Name);
+                if (lvl == null) { series.Levels.Add(FromDescriptor(desc, desc.Value)); continue; }
+
+                var was = lvl.ProviderDefaults ?? RetiredDefaults(codeUp, desc.Name);
+                if (was.Value is double v && Math.Abs(lvl.Value - v) < 1e-9) lvl.Value = desc.Value;
+                if (was.ColorHex is { } c && string.Equals(lvl.ColorHex, c, StringComparison.OrdinalIgnoreCase)) lvl.ColorHex = desc.ColorHex;
+                if (was.Dash is { } d && lvl.DashStyle == d) lvl.DashStyle = desc.Dash;
+                if (was.PlayEarcon is { } pe && lvl.PlayEarcon == pe) lvl.PlayEarcon = desc.PlayEarcon;
+                if (was.EarconVolume is { } ev && Math.Abs(lvl.EarconVolume - ev) < 1e-6) lvl.EarconVolume = desc.EarconVolume;
+                if (was.ZoneNoiseAmount is { } zn && Math.Abs(lvl.ZoneNoiseAmount - zn) < 1e-6) lvl.ZoneNoiseAmount = desc.ZoneNoiseAmount;
+                if (was.ZoneNoiseType is { } zt && string.Equals(lvl.ZoneNoiseType, zt, StringComparison.OrdinalIgnoreCase)) lvl.ZoneNoiseType = desc.ZoneNoiseType;
+                if (was.LabelsKnown && lvl.AboveLabel == was.AboveLabel) lvl.AboveLabel = desc.AboveLabel;
+                if (was.LabelsKnown && lvl.BelowLabel == was.BelowLabel) lvl.BelowLabel = desc.BelowLabel;
+                lvl.IsDrawn = desc.IsDrawn;
+                lvl.ProviderDefaults = LevelDefaults.From(desc);
+            }
+        }
+
+        /// <summary>
+        /// The baseline for a level saved before <see cref="LevelConfig.ProviderDefaults"/> existed:
+        /// only defaults a provider is KNOWN to have retired, so a saved value equal to one of them
+        /// was never the user's choice. Everything else is unknown and left alone.
+        /// </summary>
+        private static LevelDefaults RetiredDefaults(string codeUp, string levelName) => (codeUp, levelName) switch
+        {
+            // Cipher B, 2026-10-17: ±53 0.10 → 0.30 and ±60 0.20 → 0.45 (the waves' own 0.15 hid them).
+            ("CIPHER_B", "Overbought" or "Oversold")     => new LevelDefaults { ZoneNoiseAmount = 0.10f },
+            ("CIPHER_B", "Extreme OB" or "Extreme OS")   => new LevelDefaults { ZoneNoiseAmount = 0.20f },
+            _ => new LevelDefaults(),
+        };
+
         private void InjectDefaultLevels(ChartSeries series, string codeUp, Dictionary<string, double> parameters)
             => InjectDefaultLevels(series, codeUp, parameters, _indicatorEngine, _indicatorPrefs);
 
@@ -621,21 +696,7 @@ namespace AccessibleTrader.Core.Services
                 if (desc.Name == "Overbought" && parameters.TryGetValue("Overbought", out double ub)) finalValue = ub;
                 if (desc.Name == "Oversold"   && parameters.TryGetValue("Oversold",   out double lb)) finalValue = lb;
 
-                series.Levels.Add(new LevelConfig
-                {
-                    Name            = desc.Name,
-                    Value           = finalValue,
-                    ColorHex        = desc.ColorHex,
-                    DashStyle       = desc.Dash,
-                    IsVisible       = true,
-                    IsDrawn         = desc.IsDrawn,
-                    PlayEarcon      = desc.PlayEarcon,
-                    EarconVolume    = desc.EarconVolume,
-                    ZoneNoiseAmount = desc.ZoneNoiseAmount,
-                    ZoneNoiseType   = desc.ZoneNoiseType,
-                    AboveLabel      = desc.AboveLabel,
-                    BelowLabel      = desc.BelowLabel,
-                });
+                series.Levels.Add(FromDescriptor(desc, finalValue));
             }
 
             // Layer 3: apply saved level preferences (user overrides) on top of provider defaults.
