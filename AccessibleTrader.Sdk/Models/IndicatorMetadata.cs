@@ -149,6 +149,14 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public bool DefaultIsZoneLine { get; set; } = false;
 
+        /// <summary>
+        /// False = the component is heard, not painted (its data, navigation stop, speech and
+        /// narration stay; the chart draws nothing for it and it never stretches an axis).
+        /// Propagated to <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.IsDrawn"/> on every
+        /// load. Null = drawn.
+        /// </summary>
+        public bool? DefaultIsDrawn { get; set; }
+
 
         /// <summary>
         /// When set on a marker-type component, used instead of the generic speech template

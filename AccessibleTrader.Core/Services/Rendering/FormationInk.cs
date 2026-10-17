@@ -122,7 +122,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             surfaces.Min(s => WcagContrast.Ratio(ink, s));
 
         /// <summary>White or black, whichever stands further from the worst of these surfaces.</summary>
-        private static SKColor Pole(SKColor[] surfaces) =>
+        internal static SKColor Pole(SKColor[] surfaces) =>
             WorstRatio(SKColors.White, surfaces) >= WorstRatio(SKColors.Black, surfaces) ? SKColors.White : SKColors.Black;
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// the first mix that reaches <paramref name="minimum"/> on every surface; the pole itself
         /// when none does (a theme whose chart is so mid-grey that nothing passes everywhere).
         /// </summary>
-        private static SKColor Toward(SKColor from, SKColor pole, SKColor[] surfaces, double minimum)
+        internal static SKColor Toward(SKColor from, SKColor pole, SKColor[] surfaces, double minimum)
         {
             for (int k = 0; k <= 32; k++)
             {

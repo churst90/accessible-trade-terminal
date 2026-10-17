@@ -434,6 +434,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                     values.Add(new StatusValue(labelled ? label : "", "—", Ink(theme), false));
                     continue;
                 }
+                if (comp.DisplayType == ComponentDisplayType.ValueLabel)
+                {
+                    // The number as printed on the candle, in the colour it is printed in.
+                    int count = data?.Length ?? 0;
+                    values.Add(Value(labelled ? label : "", ValueLabelRenderer.Text(v),
+                        ValueLabelRenderer.RawColour(comp, s, absIndex, count), theme, backing));
+                    continue;
+                }
                 var color = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(v, s, comp, absIndex), theme, bar);
                 // Volume in the volume pane's own spoken form; everything else in Alt+Shift+D's.
                 bool isVolume = comp.Role == ComponentRole.Volume || s.Id.Equals("volume", StringComparison.OrdinalIgnoreCase);
@@ -448,13 +456,15 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>
         /// Whether a component has a reading of its own to print: lines, oscillators, areas, step
-        /// lines, bars and histograms. Not a level (a constant, drawn as its own line), a cloud,
+        /// lines, bars, histograms and value labels. Not a level (a constant, drawn as its own line), a cloud,
         /// candle colouring, a heatmap or a profile.
         /// </summary>
         internal static bool HasReading(ComponentDisplayType t) => t is
             ComponentDisplayType.Line or ComponentDisplayType.Oscillator or ComponentDisplayType.Area
             or ComponentDisplayType.Gradient or ComponentDisplayType.StepLine
-            or ComponentDisplayType.Bar or ComponentDisplayType.Histogram or ComponentDisplayType.ZeroArea;
+            or ComponentDisplayType.Bar or ComponentDisplayType.Histogram or ComponentDisplayType.ZeroArea
+            // A number printed on the candle: the number is its reading (DBSI-style's "Bulls 15").
+            or ComponentDisplayType.ValueLabel;
 
         /// <summary>
         /// A series name split into the indicator's name and its numeric inputs. A series is named
