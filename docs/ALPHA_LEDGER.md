@@ -34,7 +34,7 @@ this table is a 0.37% per-30-day spread. Edges here are attention-direction, not
 
 | # | Claim | Verdict | The control that decided it |
 |---|---|---|---|
-| 8 | **Buy dips only above the 200MA** | **Fragile.** Real (+0.107R vs +0.007R for random entries with the same filter) but only **21% retained** under noise injection, against 86% for cross-sectional momentum | Random-entry baseline, then noise injection |
+| 8 | **Buy dips only above the 200MA** | **Fragile.** Real (+0.107R vs +0.007R for random entries with the same filter) but only **21% retained** under noise injection, against 86% for cross-sectional momentum. **RE-RUN 2026-10-17 with the refitted Cipher B: still Fragile** — excess over random +0.145R (p < 0.0001, 28 of 33 equities), 29% retained at 25% noise on fixed seeds, two of four eras at nothing | Random-entry baseline, then noise injection |
 | 9 | **Crypto bearish engulfing weekly → down week** | **Interesting, not established.** +8.30 pts, pooled p = 0.013, cheap alternative flat (+0.04), holds in both eras and strengthens (H1 +5.2, H2 +12.0) — but four pooled tests put Bonferroni at 0.0125, and ten crypto instruments are not ten independent samples | Random-week null, cheap alternative, era split — needs an independent asset set with a correlation-preserving null |
 | 10 | **The Trading Cross z-score rule** | **Real, but it is drawdown avoidance, not timing.** 10/10 crypto beat hold, 0/3 traditional | Exposure-matched timing null (p = 0.001) — the block bootstrap could not decide it |
 
@@ -54,9 +54,9 @@ agreement; full-sample ranking makes any extension metric look prescient.
 | 13 | **Macro release days (CPI, NFP, PPI, GDP)** | **Null** | 2 of 20 release-day cells significant where ~3 false positives are expected; CPI shows nothing anywhere. **The contrast with FOMC is the finding** — FOMC is a policy *action*, CPI/NFP are *data* the market spends the interval forecasting |
 | 14 | **Fixed-percentage scale-outs protect gains** | **Destroys 95–100% of the return** | The R-distribution has a fat right tail; capping it removes the only trades that pay |
 | 15 | **Camel / Lucas cycle counts (54–66d BTC)** | **Detector artifact** | 200 surrogate series from shuffled log returns reproduce the cycle length on every asset, landing inside the claimed band |
-| 16 | **Cipher confluence (A + B + SR)** | **Falsified** | Eight versions walked forward to break-even; structure labels indistinguishable from random; SR proximity was a 15-bar lookahead |
+| 16 | **Cipher confluence (A + B + SR)** | **Falsified** — re-measured 2026-10-17 with the rebuilt Cipher A, refitted Cipher B and rebuilt (causal) Cipher SR: still nothing | Eight versions walked forward to break-even; structure labels indistinguishable from random; SR proximity was a 15-bar lookahead. **2026-10-17:** the rebuilt Cipher A's seven symbols, signal by signal on 8 assets x 6 gates (441 cells) and 6 pre-registered A x B combinations (70 cells): 0 survive a family-wise max-statistic null; Red Diamond, Blood Diamond and Yellow X are Cipher B's wave cross down (100% overlap); the causal SR adds nothing at 4h/1d/2d (one 1h result on KAS+TAO at p 0.006, unreplicated) |
 | 17 | **Hurst exponent as a cross-asset classifier** | **Useless** | 0.57–0.60 on all 17 asset/timeframe combinations — no discrimination |
-| 18 | **Sentiment (Fear & Greed) adds orthogonal information** | **Redundant** | The gated spec was byte-identical to the ungated one: when the oscillator buys at a cycle bottom at support, you are already in extreme fear |
+| 18 | **Sentiment (Fear & Greed) adds orthogonal information** | **Redundant** (stands as recorded; 2026-10-17: its SR cells have made no trades since the SR dot was refused on 2026-08-21, so it cannot be re-measured as built) | The gated spec was byte-identical to the ungated one: when the oscillator buys at a cycle bottom at support, you are already in extreme fear |
 | 19 | **Weekly bullish engulfing predicts the next week** | **Null** | Equities −2.31 pts with 0 of 39 instruments significant (≈2 expected by chance); the crypto arm's +3.21 is an era artifact (H1 +10.4, H2 −1.8). The cheap alternative — "last week simply closed up" — is flat too |
 | 20 | **How price approaches a level predicts whether it holds** | **Null**, both halves | Matched random lines. Real levels hold 46.2% vs random 46.7%, and every conditioning bucket lands inside ±1.2 pts of its random control. Loitering does lower the hold rate — and lowers it identically for random lines |
 | 21 | **A fixed 1:3 reward-to-risk target** | **Falsified**, both classes | Total R rises monotonically 1:1→1:8 and no target beats the signal exit (crypto +3.265 vs +0.155 at 1:3). The median trade loses; the top 10% carry 101% (crypto) and **245%** (equities) of total R |
@@ -66,7 +66,7 @@ agreement; full-sample ranking makes any extension metric look prescient.
 | 25 | **Sweep-and-reclaim entry** | **Not supported** | The one arm resembling the claim is the smallest sample and is contradicted by two larger ones; most of its gap is the breach arm being *bad*, not the reclaim being good |
 | 26 | **The ladder — always in the trend's direction** | **Falsified** | Loses at every rung width **with costs set to zero**, so it is the structure and not the churn. Long-only is 4× better in crypto and 7× in equities; the short side helps on 1 of 10 crypto names — the sixth symmetric-short failure here |
 | 27 | **Earnings surprise ranks forward returns** | **Null on the sample we could reach** | Quintiles non-monotone at 20/60/120 bars with Q2 best every time; the event itself is *below* an exposure-matched null at 60 and 120 bars. But the universe is 10 mega-caps — the most analyst-covered names there are, where drift is weakest by construction |
-| 28 | **ML confidence model on price features** | **Below the bar** | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
+| 28 | **ML confidence model on price features** | **Below the bar** (2026-10-17: export reproduced exactly; refitted Cipher B leaves every univariate AUC at 0.50-0.53; model not retrained — lightgbm not installed) | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
 
 ---
 
@@ -81,7 +81,11 @@ cells of an 89-cell battery. The winner's rolling-window number is a maximum ove
 
 **Cipher SR still repaints in the provider.** The lookahead was corrected inside `ConfluenceCommand`
 but not in the provider, so any backtest touching a `CIPHER_SR` leaf is optimistic by an unmeasured
-amount.
+amount. *(2026-10-17: superseded. The old SR dots were refused as strategy leaves from 2026-08-21
+and retired on 2026-10-17; the rebuilt Cipher SR's zone lines are causal. A spec still naming
+`CIPHER_SR.Support` gets a leaf that never fires. Row 18's v27 SR cells therefore cannot be
+re-measured as built. Every rolling-window figure behind the catalogue also predates the 2026-08-24
+fix to a look-ahead in date-filtered backtests (ef4d3916) — see `reports/cipher_strategies_rerun_REPORT.md`.)*
 
 ## The methodology that produced these answers
 

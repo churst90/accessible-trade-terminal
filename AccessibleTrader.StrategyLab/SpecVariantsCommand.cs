@@ -68,8 +68,33 @@ public static class SpecVariantsCommand
         public const string CapitulationBuy = "builtin.long.capitulation-buy";
     }
 
-    public static async Task<int> RunAsync(string snapshotDir, int windowBars = 1500, int stepBars = 250, int warmup = 200)
+    /// <summary>Where each Cipher-dependent catalogue spec was recorded (CatalogueProvenance), for
+    /// <c>--all</c>; every other spec runs on BTC and ETH daily.</summary>
+    private static readonly Dictionary<string, string[]> RecordedOn = new()
     {
+        ["builtin.long.v14-hidden-bull-sma200"] = new[] { "bitstamp_BTC_USDT_4h.json" },
+        ["builtin.short.v18-refined"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_BTC_USDT_1d.json" },
+        ["builtin.long.v23-cipherb-weekly"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_BTC_USDT_1d.json" },
+        ["builtin.long.v23r-cipherb-faber"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_ETH_USDT_4h.json" },
+        ["builtin.short.v23h-cipherb-hurst"] = new[] { "mexc_KAS_USDT_4h.json" },
+        ["builtin.long.v23c-cipherb-cot"] = new[] { "twelvedata_XAU_USD_1d.json", "twelvedata_SPY_1d.json", "twelvedata_QQQ_1d.json" },
+        ["builtin.long.capitulation-buy"] = new[] { "bitstamp_BTC_USDT_1d.json", "bitstamp_ETH_USDT_1d.json",
+                                                    "bitstamp_XRP_USDT_1d.json", "bitstamp_LTC_USDT_1d.json" },
+    };
+
+    public static async Task<int> RunAsync(string snapshotDir, int windowBars = 1500, int stepBars = 250, int warmup = 200,
+        bool all = false)
+    {
+        // --all: every catalogue spec with a Cipher leaf, as written only (the OLD-vs-NEW sweep of the
+        // whole catalogue). Without it: the three specs with retired leaves and every proposal.
+        var targets = all
+            ? CatalogueProvenance_Specs()
+                .Where(sp => Leaves(sp.Conditions).Any(l => l.SignalDescriptorId.StartsWith("CIPHER_", StringComparison.OrdinalIgnoreCase)))
+                .Select(sp => (sp.Id, RecordedOn.TryGetValue(sp.Id, out var f) ? f
+                    : new[] { "bitstamp_BTC_USDT_1d.json", "bitstamp_ETH_USDT_1d.json" }))
+                .ToArray()
+            : Targets;
+        var variants = all ? Variants.Take(1).ToArray() : Variants;
         Console.WriteLine("SPEC VARIANTS — catalogue specs with retired leaves: as written / removed / replaced");
         Console.WriteLine(LabCipherProfile.Describe());
         var host = LabHost.Build();
@@ -79,13 +104,13 @@ public static class SpecVariantsCommand
 
         int tries = 0;
         var states = new Dictionary<string, (SnapshotFile Snap, WorkspaceState State)>();
-        foreach (var (specId, files) in Targets)
+        foreach (var (specId, files) in targets)
         {
             var spec = LabHost.FindBuiltInSpec(specId);
             if (spec == null) { Console.WriteLine($"  ! {specId}: not in the catalogue"); continue; }
             Console.WriteLine();
             Console.WriteLine($"══ {spec.Name}  [{spec.Id}]");
-            foreach (var v in Variants)
+            foreach (var v in variants)
             {
                 var root = (ConditionGroup)MapTree(spec.Conditions, v.Map)!;
                 var mapped = spec with { Id = spec.Id + ".variant", Conditions = root };
@@ -117,6 +142,9 @@ public static class SpecVariantsCommand
         Console.WriteLine($"variants x assets tried: {tries} (count every one toward variantsTried)");
         return 0;
     }
+
+    private static IEnumerable<StrategySpec> CatalogueProvenance_Specs() =>
+        AccessibleTrader.StrategyLab.Catalogue.CatalogueProvenance.SpecsWithProvenance();
 
     private static string Describe(ConditionLeaf l, ISignalCatalog catalog)
     {

@@ -298,7 +298,8 @@ try
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var cab) ? cab : 2000),
         "spec-variants" => await SpecVariantsCommand.RunAsync(
-            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data"),
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            all: HasFlag(args.Skip(1).ToArray(), "--all")),
         "help" or "--help" or "-h" => PrintUsage(),
         _ => UnknownCommand(args[0])
     };

@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Cipher strategy research re-run on the new Cipher A, B and SR (2026-10-17, night)
+
+Every StrategyLab result that used a Cipher indicator was re-run after Cipher A was rebuilt, Cipher B
+refitted to Market Cipher B (including the gold dot) and Cipher SR rebuilt. Full report:
+`reports/cipher_strategies_rerun_REPORT.md`; dated "RE-RUN 2026-10-17" sections in
+POLARITY_AND_GATE, CONFLUENCE_SENTIMENT, ASSET_PROFILE, ML_CONFIDENCE, STRATEGY_CATALOGUE,
+ALPHA_LEDGER (rows 8, 16, 18, 28), BTC_STRATEGY, CROWDING and LAB_DESIGN; `edges.json` decay entries.
+
+- **New lab switch `--cipherb old|new`** (and `--cipherb-gold old|new`) on every command: it sits in
+  the indicator engine the lab host hands out, so gate, confluence, asset-profile, ml-export and every
+  strategy run see it. Old output is identical line for line to the pre-refit build (aca73a1d).
+  LabCipherProfileTests, seen red with the switch made a no-op and with it unwired.
+- **New commands:** `cipher-a-battery` (the rebuilt Cipher A signal by signal on eight assets and six
+  gates, block-permuted, family-wise max-statistic null, plus six pre-registered A x B combinations)
+  and `spec-variants` (catalogue specs as written / dead leaves removed / replaced; `--all` sweeps the
+  catalogue). `confluence --sr-lag N`: the rebuilt SR is causal, so the old 15-bar shift is optional.
+- **Findings.** The dip filter (ledger row 8) gets larger with the new green dot (+0.145R excess over
+  random, was +0.100R) and stays Fragile (29% kept at 25% noise). The rebuilt Cipher A has no signal
+  that survives a family-wise null (0 of 441 cells; 0 of 70 combinations); three of its seven symbols
+  are Cipher B's wave cross down. The causal SR adds nothing at 4h, 1d or 2d. The gold refit cuts gold
+  to about a seventh as many fires, with no return-based reason to prefer either rule. The A + B + DBSI
+  suite test was not run: neither member cleared the pre-registered bar.
+- **Found on the way, older than the refit:** the April-July rolling-window and catalogue numbers
+  reproduce only at their own build. Three August fixes moved them — a look-ahead in date-filtered
+  backtests (ef4d3916, 2026-08-24), divergence timing (91648ad5) and take-profit rungs counted as
+  trades (411022a2) — and the July confluence structure result moved with the causality contract
+  (3601e37e). v23p's "best cell anywhere" (ETH +0.523R) is −0.416R now. The 2026-07-31 noise table
+  used a per-process random seed and cannot be reproduced; it was re-run on fixed seeds.
+- **Dead leaves:** bare-bull-pulse, faber-pulse and capitulation-buy OR in `CIPHER_A.Buy Signal`
+  (dead since 2026-10-17) and `CIPHER_SR.Support` (refused since 2026-08-21). Proposal, not applied:
+  delete both, add no replacement.
+- Caveats: the July gate battery's code was never committed, so the Cipher A battery is a
+  reconstruction from its description; EUR and COIN have no snapshot; the ML model was not retrained
+  (lightgbm not installed); every result is on survivor snapshots.
+
 ### Labels inside the chart, status lines never over the data, tint as a property, strips and dividers that agree (2026-10-17, night)
 
 From Cody's look at the deployed BTCUSDT 1d chart: "fix the 2 label problems and make the background

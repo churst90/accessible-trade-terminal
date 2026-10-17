@@ -95,6 +95,8 @@ Three things fall out of this that are not available today:
 - **Orthogonality becomes measurable.** With edges as objects you can compute the correlation matrix
   *between their signals* — and the single most repeated failure in this project (stacking four
   correlated Cipher components and calling it confluence) becomes a number the tool refuses.
+  *(2026-10-17: re-measured on the rebuilt Cipher A, refitted Cipher B and rebuilt Cipher SR — still
+  nothing; `reports/cipher_strategies_rerun_REPORT.md`.)*
 - **Nulls are first-class.** Nineteen recorded negatives stop the next hopeful re-run, which is
   worth more hours than any positive in the table.
 

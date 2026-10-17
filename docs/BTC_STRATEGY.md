@@ -23,6 +23,12 @@ Cipher SR proximity was a lookahead artifact, cycles are a swing-detector artifa
 carry no forward information, and the RSI dip-buy worked only in equities and failed noise injection
 even there.
 
+> **RE-RUN 2026-10-17 (new Cipher A/B):** nothing here changes. The rebuilt Cipher SR is causal and
+> still adds nothing at 4h/1d/2d; the rebuilt Cipher A's seven symbols have no signal that survives a
+> family-wise null on BTC or seven other assets; the refitted Cipher B moves the v23 trio on BTC daily
+> from +0.390R to +0.391R per trade. This strategy uses no Cipher input. See
+> `reports/cipher_strategies_rerun_REPORT.md`.
+
 ## The result: trend alone
 
 Rule: rolling z-score of log close over 50 bars; **long when z crosses above +1σ, flat when it

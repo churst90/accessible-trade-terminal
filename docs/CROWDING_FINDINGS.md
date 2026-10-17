@@ -12,6 +12,12 @@ pure-Cipher confluence walk-forwarding to break-even "because price-derived indi
 auto-correlated", and `GateCommand` found a z-score gate was *structurally incapable* of being open
 at a dip-buy signal.
 
+> **RE-RUN 2026-10-17 (new Cipher A/B):** the premise holds for the rebuilt indicators too, and is now
+> partly measurable as overlap: three of the rebuilt Cipher A's seven symbols (Red Diamond, Blood
+> Diamond, Yellow X) land within one bar of a Cipher B wave cross down 100% of the time, and the
+> pre-registered Cipher A x Cipher B combinations had nothing survive a family-wise null. See
+> `reports/cipher_strategies_rerun_REPORT.md`, sections 6-7.
+
 Crowding was the one candidate that is not a price transform: funding rate (what leveraged traders
 pay to hold a side) plus open-interest change (how many of them there are). Rishi Narang's taxonomy
 calls this "technical sentiment" and says it can be traded directly or used as a conditioner on

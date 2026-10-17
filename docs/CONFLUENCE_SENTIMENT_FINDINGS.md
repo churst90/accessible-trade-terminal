@@ -1,5 +1,25 @@
 # Confluence & Sentiment Findings (round 13, 2026-06-12)
 
+> **RE-RUN 2026-10-17 (new Cipher A/B).** Three things, in order of importance.
+>
+> 1. **These numbers reproduce only at the build they were recorded on.** The lab built at 45672f51
+>    (2026-07-26) gives v23 base BTC +0.266R / 87% / 27.4 trades and v23 + Cipher C +0.289R / 87% /
+>    22.7 on today's snapshots — the table below, so the data has not moved. The build just before
+>    the Cipher refit (aca73a1d) gives v23 base BTC **+0.390R / 100% / 13.2**. Bisected to three fixes,
+>    none of them the refit: ef4d3916 (2026-08-24) removed a look-ahead in date-filtered backtests
+>    (later windows read the whole chart's bar 0, and stops were placed from the chart's last bar),
+>    91648ad5 moved divergences to the bar they fire, and 411022a2 stopped counting each take-profit
+>    rung as a trade. Every rolling-window number here was computed with that window look-ahead.
+> 2. **The SR cells have made no trades since 2026-08-21.** Cipher SR's Support dot was declared
+>    look-ahead by the causality contract (3601e37e) and refused; it was retired on 2026-10-17 when SR
+>    was rebuilt with causal zone lines. v27 +SR / FULL / FULL+FEAR cannot be re-measured as built,
+>    so the sentiment finding (ledger row 18) stands as recorded.
+> 3. **Old vs new Cipher B on today's code** (rolling 1500/250, BTC 15 windows, ETH 7): v23 base BTC
+>    +0.390 / 100% to +0.391 / 93%, ETH +0.323 / 100% to +0.294 / 86%; v23 + Cipher C BTC +0.317 / 87%
+>    to +0.274 / 80%, ETH +0.247 / 100% to +0.334 / 100%. The v23 trio barely moves because its
+>    wave-cross leg dominates. Cipher C's "quality improver" survives on ETH and not on BTC — no
+>    stronger than before. Full write-up: `reports/cipher_strategies_rerun_REPORT.md`, sections 1 and 3.
+
 Tests the core buy thesis — *"buy when a cycle indicator is at the bottom AND a Cipher B
 buy fires AND we're at Cipher SR support"* — and the open question *"does sentiment add
 anything?"* All cells run with the look-ahead-honest divergence fix (round 12c) as default.
