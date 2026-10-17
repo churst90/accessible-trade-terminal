@@ -318,12 +318,12 @@ namespace AccessibleTrader.Core.Services.Audio
             // Sign-coloured components (histograms, zero-line dots/areas, or any polarity-coloured
             // component) are green/red by their own value vs ColorBaseline; candles/bars are green/red
             // by the price bar's direction (close vs open).
-            // Oscillators pick their patch by which side of the visible MIDLINE the value
-            // sits on (RSI 50, Stoch 50, WT 0 in a symmetric pane) — "bullish/bearish bar"
-            // has no meaning for them, and this matches the midpoint split the built-in
-            // timbre uses. The Properties dialog labels these "Above/Below midline patch".
+            // Oscillators pick their patch by which side of THEIR MIDLINE the value sits on
+            // (RSI 50, Stoch 50, WT 0) — "bullish/bearish bar" has no meaning for them, and
+            // this is the same split the built-in timbre and the waveform use (AboveMidline).
+            // The Properties dialog labels these "Above/Below midline patch".
             bool barBullish = comp.DisplayType == ComponentDisplayType.Oscillator
-                ? normalizedValue >= 0.5
+                ? AboveMidline(comp, val, normalizedValue)
                 : OwnSignSide(comp, val) ?? point.Close >= point.Open;
             string? effPatchId = barBullish ? comp.BullishSoundPatchId : comp.BearishSoundPatchId;
             if (string.IsNullOrEmpty(effPatchId)) effPatchId = comp.SoundPatchId;
@@ -442,12 +442,15 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
                 else if (comp.DisplayType == ComponentDisplayType.Oscillator)
                 {
-                    // Split on the visible-range MIDPOINT (not a reference level, which many
-                    // oscillators leave unset/at 0), so the upper vs lower zone is ALWAYS audible:
-                    // lower half = warm triangle, upper half = bright square. NO sawtooth. For an
-                    // RSI in a 0-100 pane it clearly brightens as it rises through the middle. Two
-                    // soft, contrasting timbres (warm↔bright) read clearly without harshness.
-                    if (normalizedValue >= 0.5)
+                    // Split on the component's OWN MIDLINE (AboveMidline): below = warm triangle,
+                    // above = bright square. NO sawtooth. Two soft, contrasting timbres (warm↔bright)
+                    // read clearly without harshness. Until 2026-10-17 this split at the middle of
+                    // the pane's VISIBLE RANGE — right only where that middle happened to be the
+                    // midline. Wrong for Cipher B's 0–100 RSI and Stochastic (pane middle 0, their
+                    // midline 50: always "above" — Cody: "doesn't follow the rule … above 0, … below")
+                    // and drifting for the 28 auto-fit oscillators (Momentum, ROC, CCI, TRIX, PPO,
+                    // funding, COT …) whose pane middle moves as you scroll.
+                    if (AboveMidline(comp, val, normalizedValue))
                     {
                         // Upper zone: brighter, but softened — a little square with a touch of
                         // triangle warmth, so it reads as "up" without a loud square edge.
@@ -570,6 +573,19 @@ namespace AccessibleTrader.Core.Services.Audio
                 return val >= comp.ColorBaseline;
             return null;
         }
+
+        /// <summary>
+        /// Is the value on the UPPER side of this component's midline? The midline is its declared
+        /// <see cref="ComponentConfig.ReferenceLevel"/> — RSI 50, Wave Trend 0, Cipher B's 0–100
+        /// lines 50, Momentum 0 — the same level the above/below WAVEFORM already switches on, so
+        /// timbre, waveform and sound patch can never disagree about which side a value is on.
+        /// Only a component that declares no reference falls back to the middle of the pane's
+        /// visible range. (Surveyed 2026-10-17: every built-in oscillator declares one; on every
+        /// bounded pane but Cipher B's two 0–100 lines it equals the pane middle, so those sound
+        /// exactly as before.)
+        /// </summary>
+        internal static bool AboveMidline(ComponentConfig comp, double val, double normalizedValue) =>
+            comp.ReferenceLevel is double mid ? val >= mid : normalizedValue >= 0.5;
 
         public int ResolveComponentVoiceCount(ComponentConfig comp)
         {
