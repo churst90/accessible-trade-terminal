@@ -6,88 +6,39 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// Accessible Cipher B — native C# replica of Market Cipher B, tuned to match
-    /// the real MCB as closely as public evidence permits.
+    /// Accessible Cipher B — a native C# replica of Market Cipher B (MCB), fitted on 2026-10-17 to
+    /// five dated MCB screenshots (the strongest a TradingView chart whose status line reads
+    /// "MarketCipher B (2.2.6, …)"); the per-element evidence is in the comments below.
     ///
-    /// This implementation was rebuilt to align with the actual MCB visuals after
-    /// reverse-engineering from screenshots and the open-source VuManChu clone:
+    /// <para><b>What MCB draws, and is shown by default:</b> the fast and slow WaveTrend waves (light-
+    /// and dark-blue areas), MCB's "VWAP" (our WT Histogram, WT1 − WT2, one yellow area), the money
+    /// flow (lime/red area) and the money-flow bar along the bottom, a small dot at every wave cross,
+    /// the big green buy dot (Oversold Crossover), the 0–100 "RSI" and "Stochastic" lines (drawn,
+    /// muted), and plain level lines at ±60, ±53 and zero.</para>
     ///
-    ///   • Money Flow is a smoothed (close-open)/(high-low) candle body ratio —
-    ///     NOT RSI(hlc3*volume). The body/range formula is volumeless, so it works
-    ///     on forex CFDs and illiquid markets where volume is synthetic, matching
-    ///     MCB's observed cross-asset behavior.
+    /// <para><b>What is ours, computed but hidden by default</b> (none of it appears on any of those
+    /// MCB charts, where our rules fire it several times each): the red Overbought Crossover, the gold
+    /// Triple Confluence Buy, regular and hidden divergences (with their pivot-to-pivot lines), the
+    /// higher-timeframe anchor waves, Anchor Polarity and the Anchor Fill cloud, and the WT Fill band.
+    /// Hidden components stay keyboard stops, strategy and alert inputs; they are not drawn, sounded
+    /// or narrated until shown (H on the component, Properties, or Ctrl+Alt+Shift+K).</para>
     ///
-    ///   • MCB's "VWAP" is WT1 − WT2 — a MACD-style histogram on the WaveTrend
-    ///     oscillator. It flips at WT crossovers (same sign as WT1 − WT2 on 96% of
-    ///     bars in a digitised MCB 2.2.6 chart). MCB draws it as ONE yellow area
-    ///     (#FFEB3B), not green/red bars; see the WT Histogram component below.
-    ///     The old rolling VWAP deviation has been removed.
+    /// <para><b>Older behaviour behind parameters.</b> WTSignalPeriod = 4, MoneyFlowMode = Legacy and
+    /// BuyDotMode = Gated reproduce every number this indicator produced before 2026-10-17; saved
+    /// backtests used them. The parameters themselves are declared, with descriptions, in
+    /// <see cref="GetIndicators"/> — the one list of them, so it cannot drift from this one.</para>
     ///
-    ///   • Stoch %K/%D, Laguerre RSI, Trigger Wave, and rolling-VWAP deviation
-    ///     were dropped. They were hidden by default in the legacy metadata — a
-    ///     tell that they didn't earn their slot. Users who want those can add them
-    ///     as separate indicators.
+    /// <para><b>Gates that are ours, not MCB's</b> (they decide the hidden signals and the Gated buy
+    /// dot): an N-bar confirmation and cooldown on the gated crossovers, anchor-wave suppression of
+    /// counter-trend dots, a K-of-4 confluence for gold (RSI oversold, a green bar, ADX above a gate,
+    /// ATR above a percentile floor), a true-range conviction test and a depth gate on divergences,
+    /// and timeframe-aware scaling of all of them. ThresholdMode = Percentile replaces the fixed ±OBLevel
+    /// those gates use with rolling percentiles of the fast wave.</para>
     ///
-    ///   • Adaptive OB/OS thresholds: rolling percentile of WT1's own distribution
-    ///     replaces the fixed ±53 constants. This makes Cipher B work across BTC,
-    ///     equities, and forex without rescaling — the 0.015 constant and ±53/60
-    ///     levels are a matched CCI-normalisation pair, so the right move is to
-    ///     adapt the thresholds to the data, not fiddle with the constant.
-    ///
-    ///   • Blue/Red dots require 2-bar sustained OS/OB before firing, plus a
-    ///     cooldown period to prevent stuttering in noisy oversold zones.
-    ///
-    ///   • Gold dot is now gated by ADX (trend must exist) and ATR percentile
-    ///     (not in dead chop) in addition to the original triple-confluence logic.
-    ///
-    ///   • Divergences require above-average True Range on the second pivot —
-    ///     real reversals happen on conviction; weak-range divergences are random.
-    ///
-    /// Wave components (oscillator pane):
-    ///   WT1                      — Wave Trend fast line
-    ///   WT2                      — Wave Trend slow channel
-    ///   WT Fill                  — Cloud fill between WT1 and WT2
-    ///   WT Histogram             — WT1 − WT2 bars (the real MCB "VWAP")
-    ///   Money Flow Wave          — Body/range ratio, slow green/red wave
-    ///   Anchor Wave Fast / Slow  — 5× period-scaled WT pair, hidden by default
-    ///   Anchor Fill              — Cloud fill between the anchor pair (visible)
-    ///   Anchor Polarity          — +1/0/-1 hidden component for strategy gating
-    ///   (Adaptive OB / OS were components until 2026-10-17; the thresholds are now companion
-    ///    arrays, ThresholdObKey / ThresholdOsKey — see there)
-    ///   RSI / Stochastic         — MCB's two 0–100 lines (40- and 80-bar smoothed stochastics),
-    ///                              drawn but muted by default (added 2026-10-17)
-    ///   Money Flow Bar           — zone band: MCB's strip along the bottom, green/maroon by
-    ///                              money-flow sign (replaced the OB/OS zone shading 2026-10-17)
-    ///
-    /// Signal dots:
-    ///   WaveTrend Cross Bull/Bear — small dot at every WT1/WT2 cross
-    ///   Oversold Crossover (Blue) — confirmed long signal after 2-bar oversold hold
-    ///   Overbought Crossover (Red) — confirmed short signal after 2-bar overbought hold
-    ///   Triple Confluence Buy (Gold) — cross + RSI OS + positive MF + ADX &gt; gate + ATR above floor
-    ///   Bullish Divergence        — regular bullish divergence at pivot low
-    ///   Bearish Divergence        — regular bearish divergence at pivot high
-    ///   Hidden Bull/Bear Continuation — hidden divergences
-    ///
-    /// Parameters:
-    ///   WT1Period            — WT channel period (default 9)
-    ///   WT2Period            — WT average period (default 12)
-    ///   MFPeriod             — Money Flow SMA length (default 60 — body/range is slow)
-    ///   OBLevel              — Fixed-mode OB/OS threshold (default 53)
-    ///   RSIPeriod            — RSI period for Gold confluence (default 14)
-    ///   RSIOSLevel           — RSI oversold for Gold (default 30)
-    ///   PivotBars            — Bars each side for divergence pivot detection (default 3)
-    ///   AnchorMultiplier     — Anchor period multiplier (default 5 = 5× base WT periods)
-    ///   ThresholdMode        — "Fixed" or "Percentile" (default Fixed)
-    ///   AdaptiveLookback     — Window for percentile threshold (default 500)
-    ///   UpperPercentile      — Upper percentile for OB in Percentile mode (default 0.95)
-    ///   LowerPercentile      — Lower percentile for OS in Percentile mode (default 0.05)
-    ///   MinThresholdFloor    — |Minimum| threshold in Percentile mode to avoid whipsaw (default 40)
-    ///   ConfirmBars          — Consecutive bars required OS/OB before dot fires (default 2)
-    ///   CooldownBars         — Suppress further same-side dots for N bars (default 0 = auto = WT1Period)
-    ///   AdxPeriod            — ADX lookback for Gold gate (default 14)
-    ///   AdxGate              — Gold fires only if ADX &gt; this (default 18)
-    ///   AtrPeriod            — ATR lookback for Gold volatility floor (default 14)
-    ///   AtrFloorPct          — Gold requires ATR percentile rank &gt; this (default 0.20)
+    /// <para><b>Retired</b> (still in old saves and old docs): Stoch %K/%D, Laguerre RSI, Trigger
+    /// Wave and a rolling-VWAP deviation (before 2026-10; the 2026-10-17 "RSI" / "Stochastic" lines
+    /// are MCB's own, not these); the red/green OB/OS zone shading; the Adaptive OB / Adaptive OS
+    /// components (now the companion arrays <see cref="ThresholdObKey"/> / <see cref="ThresholdOsKey"/>).</para>
     /// </summary>
     public class CipherBProvider : IIndicatorProvider
     {
@@ -156,7 +107,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 RangeMin = -100, RangeMax = 100,
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    // ── Anchor Waves — hidden lines, visual carried by Anchor Fill cloud ──
+                    // ── Anchor Waves — a 5×-period WaveTrend pair: the higher-timeframe regime ──
+                    // Ours, not MCB's (no anchor appears on any MCB chart). Hidden lines; they feed
+                    // Anchor Polarity, the anchor suppression of the gated dots, and the Anchor Fill
+                    // cloud (also hidden by default since 2026-10-17).
                     new() { Name = CompWT1Anchor,     DisplayName = "Anchor Wave Fast", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             DefaultColorHex = "#78909C", DefaultThickness = 2.0f, IsVisible = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
@@ -376,7 +330,20 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Oversold crossover, long signal",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
+                    //
+                    // ── Our own signals, HIDDEN by default (2026-10-17) ─────────────────────────
+                    // Cody: "finish disabling the elements on cipher b to make it similar to stock
+                    // market cipher's config". The red Overbought Crossover, the gold Triple
+                    // Confluence Buy and the four divergences appear on none of the five dated MCB
+                    // charts (the vendor's product image, "MarketCipher B (2.2.6, …)" BTCUSD 1D, and
+                    // three 2022–2023 BTC charts) — while our rules fire them on those same bars: red
+                    // 6/1/1/2, gold 2/2/2/0, divergences 9/4/3/6 across S2–S5. MCB's red marks are
+                    // the small cross dots above. Computed, keyboard stops, strategy and alert inputs
+                    // as before; hidden, so not drawn, sounded or narrated until shown. A chart saved
+                    // when they were visible by default follows the new default unless its user had
+                    // changed them (IndicatorModelFactory, layer 2; ComponentConfig.ProviderIsVisible).
                     new() { Name = CompRed,           DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#FF1744", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -389,6 +356,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompGold,          DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#FFD700", DefaultThickness = 8.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -401,8 +369,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
 
-                    // ── Divergence dots ─────────────────────────────────────
+                    // ── Divergence dots (hidden by default — see the Overbought Crossover) ──
+                    // A divergence dot also draws a slanted line back to its first pivot (the
+                    // _anchorIdx / _anchorY companions); a hidden dot draws neither.
                     new() { Name = CompBullDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#00E676", DefaultThickness = 3.5f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -415,6 +386,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompBearDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#FF1744", DefaultThickness = 3.5f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -427,6 +399,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBull,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#26C6DA", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -439,6 +412,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBear,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                            IsVisible = false,
                             DefaultColorHex = "#FF9800", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -486,7 +460,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { UpperComponentName = CompWT1Anchor, LowerComponentName = CompWT2Anchor,
                             BullishColorHex = "#881A237E", BearishColorHex = "#88880E4F",
-                            DisplayName = "Anchor Fill", IsVisible = true,
+                            // Hidden by default since 2026-10-17: MCB has no anchor band (it showed as
+                            // a dark navy ribbon through the waves). Hidden, its chart-playback bell
+                            // is silent too (AudioSequencer.FireCloudVoices reads IsVisible).
+                            DisplayName = "Anchor Fill", IsVisible = false,
                             Sonification = new CloudSonificationConfig(
                                 BullishFrequency: 160f,
                                 BearishFrequency: 110f,

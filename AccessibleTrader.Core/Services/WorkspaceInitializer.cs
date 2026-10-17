@@ -711,11 +711,25 @@ namespace AccessibleTrader.Core.Services
 
             foreach (var fill in meta.DefaultCloudFills)
             {
-                bool exists = config.CloudFills.Any(f =>
+                var saved = config.CloudFills.FirstOrDefault(f =>
                     f.UpperComponentName.Equals(fill.UpperComponentName, StringComparison.OrdinalIgnoreCase) &&
                     f.LowerComponentName.Equals(fill.LowerComponentName, StringComparison.OrdinalIgnoreCase));
-                if (!exists)
-                    config.CloudFills.Add(fill.Clone());
+                if (saved == null)
+                {
+                    var copy = fill.Clone();
+                    copy.ProviderIsVisible = fill.IsVisible;
+                    config.CloudFills.Add(copy);
+                    continue;
+                }
+
+                // Saved fills are restored wholesale (MaterializeSaved), so this is where a changed
+                // DEFAULT visibility reaches them: shown or hidden as the indicator now declares,
+                // unless the user had changed it (ProviderDefaultVisibility). Cipher B's Anchor
+                // Fill, hidden by default on 2026-10-17, is the case that needed it.
+                saved.IsVisible = ProviderDefaultVisibility.Resolve(
+                    saved.IsVisible, saved.ProviderIsVisible, fill.IsVisible,
+                    ProviderDefaultVisibility.RetiredCloudFillDefault(config.IndicatorCode ?? "", fill.DisplayName));
+                saved.ProviderIsVisible = fill.IsVisible;
             }
 
             // A FIXED zone band (one with a top and a bottom) is never authored by the user — only

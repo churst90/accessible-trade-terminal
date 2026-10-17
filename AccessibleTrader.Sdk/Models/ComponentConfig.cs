@@ -68,6 +68,19 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private bool _isVisible = true;
 
         /// <summary>
+        /// The INDICATOR's default for <see cref="IsVisible"/> when this config was built — set
+        /// from <see cref="IndicatorComponentMetadata.IsVisible"/> on every build and saved with
+        /// the workspace beside the flag itself. It is the baseline that tells a user's choice
+        /// from a default: on restore a saved <see cref="IsVisible"/> EQUAL to it was never
+        /// changed, so it follows the indicator's current default; one that differs is the user's
+        /// (H, Properties, show-all) and is kept. Without it a provider could never change a
+        /// default visibility for a chart that already exists — the bug levels had until
+        /// <c>LevelConfig.ProviderDefaults</c> (2026-10-17). Null = saved before it existed;
+        /// see <c>ProviderDefaultVisibility</c> for how those are read. Never set by the user.
+        /// </summary>
+        public bool? ProviderIsVisible { get; set; }
+
+        /// <summary>
         /// Whether THIS component's signals are spoken unprompted — the component-level half of
         /// <see cref="SeriesConfig.IsAutoNarrated"/>, toggled by N with the cursor on a component.
         ///
@@ -288,7 +301,7 @@ namespace AccessibleTrader.Sdk.Models
                 EnvelopeType = EnvelopeType,
                 Volume = Volume, BaseFrequency = BaseFrequency, BullishFrequency = BullishFrequency, BearishFrequency = BearishFrequency,
                 SpeechTemplate = SpeechTemplate, Thickness = Thickness, DashStyle = DashStyle, IsEnabled = IsEnabled,
-                IsMuted = IsMuted, IsVisible = IsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
+                IsMuted = IsMuted, IsVisible = IsVisible, ProviderIsVisible = ProviderIsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
                 FillColorHex = FillColorHex, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,

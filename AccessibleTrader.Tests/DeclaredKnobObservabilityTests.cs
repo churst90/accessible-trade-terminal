@@ -99,6 +99,13 @@ public sealed class DeclaredKnobObservabilityTests
             + "does not overwrite it on a theme switch. Its effect is on the next theme change, "
             + "not on any frame rendered from one config.",
 
+        ["ProviderIsVisible"] =
+            "Not a knob: the indicator's default visibility recorded beside IsVisible, so a RESTORE "
+            + "can tell the user's show/hide from a default (ProviderDefaultVisibility, read by "
+            + "IndicatorModelFactory's layer 2). Nothing reads it while a frame is rendered or "
+            + "sounded — IsVisible itself is what every channel reads. CipherBStockVisibilityTests "
+            + "covers its one reader.",
+
         // The four below ARE read, by a consumer that is real and traced — just not by one of
         // these four channels. Each names its reader, so the claim can be checked rather than
         // trusted. If a reader here is ever deleted, this line becomes the lie instead.
