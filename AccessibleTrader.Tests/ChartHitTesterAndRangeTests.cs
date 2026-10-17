@@ -141,6 +141,43 @@ public sealed class ChartHitTesterAndRangeTests
     /// published bands to the hit tester; without them it would look for the line where it would
     /// be on a plot starting at the pane's top — 45 px higher here, past the grab distance.
     /// </summary>
+    /// <summary>
+    /// <b>A price pane with a sub-pane strip</b> (Cody, 2026-10-17): its own lines are drawn in the
+    /// area above the strip, so a click on one must be looked for there, and a drawing anchored at
+    /// a price lands on the row it is drawn on. The drawing manager hands the published strips to
+    /// the hit tester and to its price ↔ row pair; without them the line is looked for on the price
+    /// range stretched over the strip too — 72 px lower here.
+    /// </summary>
+    [Fact]
+    public void In_a_price_pane_with_a_strip_a_click_and_an_anchor_use_the_area_above_the_strip()
+    {
+        var layout = new Core.Services.Rendering.PaneLayoutService();
+        var strips = new Dictionary<string, IReadOnlyList<Core.Services.Rendering.SubPaneStrip>>
+        {
+            ["Main"] = new[] { new Core.Services.Rendering.SubPaneStrip("FY", 0.6f, 1f) },
+        };
+        layout.Update(NoDividers, 0f, 0f, null, strips);
+        var h = new Harness(paneLayout: layout);
+        h.AddOverlayLine("ema-1", "EMA 20", constantValue: 100.5);
+        h.AddOverlayLine("far", "Far 5", constantValue: 99.0);
+        Assert.Equal("far", h.Store.State.FocusedSeriesId);
+        var state = h.Store.State;
+        float drawnY = ChartMath.MapY(100.5, 0, 720 * 0.6f, state.ViewportRange.Min, state.ViewportRange.Max, false);
+        float stretchedY = ChartMath.MapY(100.5, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
+        Assert.True(Math.Abs(drawnY - stretchedY) > ChartHitTester.TolerancePx, "the strip moves the line less than the grab distance — the fixture proves nothing");
+
+        // The drawing tools' pair, on the same area.
+        double y = ChartMath.PriceToCanvasY(100.5, 720, NoDividers, 0f, state.ViewportRange.Min, state.ViewportRange.Max, false,
+            null, layout.SubPaneStrips);
+        Assert.Equal(drawnY, y, 2);
+        Assert.Equal(100.5, ChartMath.MapYToPriceInPane(y, 720, NoDividers, 0f, state.ViewportRange.Min, state.ViewportRange.Max, false,
+            null, layout.SubPaneStrips), 6);
+
+        h.Input.ProcessMouse(320, drawnY, "MouseDown", 1280, 720);
+        h.Input.ProcessMouse(320, drawnY, "MouseUp", 1280, 720);
+        Assert.Equal("ema-1", h.Store.State.FocusedSeriesId);
+    }
+
     [Fact]
     public void Click_on_a_line_below_the_price_panes_status_band_focuses_it()
     {
