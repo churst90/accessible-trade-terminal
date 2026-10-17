@@ -215,7 +215,7 @@ public sealed class NewBarNarrationTests
 
         string said = Assert.Single(spoken);
         Assert.Equal(
-            $"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00",
+            $"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: downward breakout, closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00",
             said);
     }
 

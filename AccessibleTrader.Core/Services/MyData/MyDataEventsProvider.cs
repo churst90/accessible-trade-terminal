@@ -43,7 +43,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DisplayName = d.Name,
                             Role = ComponentRole.Signal,
                             DisplayType = ComponentDisplayType.Dot,
-                            DefaultColorHex = "#FFD54FE0",
+                            // #AARRGGBB: amber #FFD54F at alpha E0. Was "#FFD54FE0", which Skia
+                            // reads as an opaque #D54FE0 — purple, not amber (2026-10-17).
+                            DefaultColorHex = "#E0FFD54F",
                             DefaultThickness = 4.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultSoundPatchId = "crystal_bell",
