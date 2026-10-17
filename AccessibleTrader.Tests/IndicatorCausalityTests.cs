@@ -589,6 +589,11 @@ namespace AccessibleTrader.Tests
             "CFTC_COT.NetPctOi",
             "CFTC_COT.NetZScore",
             "CIPHER_A.Bearish Divergence",
+            // The default gold dot since 2026-10-18 (VuManChu's rule: a slow-wave divergence from a
+            // bottom at or below -75) fires a handful of times in thousands of bars and on neither
+            // series here. Its causality is pinned on 1400-bar probes, prefix by prefix and on the
+            // bar each dot is first known: CipherBGoldDotTests.A_gold_dot_is_on_the_bar_it_is_first_known_and_never_moves.
+            "CIPHER_B.Triple Confluence Buy",
             "CIPHER_C.Bottom Double",
             "CIPHER_C.Shallow Peak",
             "CIPHER_C.Shallow Trough",

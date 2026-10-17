@@ -40,13 +40,19 @@ namespace AccessibleTrader.Core.Services
         /// <summary>
         /// A component default visibility a provider has since changed, for saves that predate
         /// <c>ComponentConfig.ProviderIsVisible</c>. Only entries whose old default is known from
-        /// the history of the provider belong here.
+        /// the history of the provider belong here — the default in force BEFORE the record
+        /// existed, even when the provider has since changed it again.
         /// </summary>
         public static bool? RetiredComponentDefault(string indicatorCode, string componentName) =>
             (indicatorCode.ToUpperInvariant(), componentName) switch
             {
                 // Cipher B, 2026-10-17: shown by default since they were written; hidden to match
                 // stock Market Cipher B (CipherBProvider, "Our own signals, HIDDEN by default").
+                // The gold dot was shown by default again on 2026-10-18 (its MCB rule). Its entry
+                // stays: every save older than the ProviderIsVisible record was written while gold
+                // was shown by default, so a gold hidden in one was hidden by the user and is kept;
+                // the saves written while it was hidden by default carry ProviderIsVisible = false,
+                // which is how they reach the new default (CipherBGoldDotTests).
                 ("CIPHER_B", CipherBProvider.CompRed or CipherBProvider.CompGold
                            or CipherBProvider.CompBullDiv or CipherBProvider.CompBearDiv
                            or CipherBProvider.CompHidBull or CipherBProvider.CompHidBear) => true,

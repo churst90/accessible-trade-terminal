@@ -30,18 +30,20 @@ public sealed class CipherBStockVisibilityTests
         new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
         new MockIndicatorPreferencesService());
 
-    /// <summary>Ours, not Market Cipher B's: hidden by default.</summary>
+    /// <summary>Ours, not Market Cipher B's: hidden by default. The gold dot was here on 2026-10-17
+    /// and is shown again since 2026-10-18 with its own rule (CipherBGoldDotTests).</summary>
     private static readonly string[] HiddenByDefault =
     {
         CipherBProvider.CompWT1Anchor, CipherBProvider.CompWT2Anchor, CipherBProvider.CompAnchorPolarity,
-        CipherBProvider.CompRed, CipherBProvider.CompGold,
+        CipherBProvider.CompRed,
         CipherBProvider.CompBullDiv, CipherBProvider.CompBearDiv, CipherBProvider.CompHidBull, CipherBProvider.CompHidBear,
     };
 
-    /// <summary>The six whose default changed on 2026-10-17 (the anchors were always hidden).</summary>
+    /// <summary>The five whose default changed on 2026-10-17 and stayed changed (the anchors were
+    /// always hidden; gold was hidden that day and shown again the next).</summary>
     private static readonly string[] NewlyHidden =
     {
-        CipherBProvider.CompRed, CipherBProvider.CompGold,
+        CipherBProvider.CompRed,
         CipherBProvider.CompBullDiv, CipherBProvider.CompBearDiv, CipherBProvider.CompHidBull, CipherBProvider.CompHidBear,
     };
 
@@ -132,8 +134,9 @@ public sealed class CipherBStockVisibilityTests
     public void Codys_saved_chart_takes_the_new_defaults()
     {
         var save = CodysSave();
-        // The fixture really is the old shape: the six shown, the Anchor Fill shown, no baseline.
-        Assert.All(NewlyHidden, n => Assert.True(save.Components.Single(c => c.Name == n).IsVisible));
+        // The fixture really is the old shape: the six (gold among them) shown, the Anchor Fill
+        // shown, no baseline.
+        Assert.All(NewlyHidden.Append(CipherBProvider.CompGold), n => Assert.True(save.Components.Single(c => c.Name == n).IsVisible));
         Assert.True(save.CloudFills.Single(f => f.DisplayName == "Anchor Fill").IsVisible);
         Assert.All(save.Components, c => Assert.Null(c.ProviderIsVisible));
 

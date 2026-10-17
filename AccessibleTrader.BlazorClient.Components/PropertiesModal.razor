@@ -251,7 +251,7 @@
                                         <option value="">All Components</option>
                                         @foreach (var c in _series.Components)
                                         {
-                                            <option value="@c.Name">@c.Name</option>
+                                            <option value="@c.Name">@CompLabel(c)</option>
                                         }
                                     </select>
                                 </div>
@@ -269,33 +269,33 @@
                                    cannot collide across the @foreach. *@
                                 var cid = "app-" + Slug(comp.Name);
                                 <fieldset>
-                                    <legend>Component: @comp.Name</legend>
+                                    <legend>Component: @CompLabel(comp)</legend>
                                     @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle
                                         || comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar)
                                     {
                                         <div class="modal-row">
                                             <label for="@(cid)-bull-color">Bullish Color</label>
-                                            <input id="@(cid)-bull-color" type="color" aria-label="Bullish Color for @comp.Name" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#00CC44")' />
+                                            <input id="@(cid)-bull-color" type="color" aria-label="Bullish Color for @CompLabel(comp)" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#00CC44")' />
                                         </div>
                                         <div class="modal-row">
                                             <label for="@(cid)-bear-color">Bearish Color</label>
-                                            <input id="@(cid)-bear-color" type="color" aria-label="Bearish Color for @comp.Name" value="@comp.ColorHexSecondary" @onchange='e => comp.ColorHexSecondary = e.Value?.ToString() ?? "#CC2200"' />
+                                            <input id="@(cid)-bear-color" type="color" aria-label="Bearish Color for @CompLabel(comp)" value="@comp.ColorHexSecondary" @onchange='e => comp.ColorHexSecondary = e.Value?.ToString() ?? "#CC2200"' />
                                         </div>
                                     }
                                     else
                                     {
                                         <div class="modal-row">
                                             <label for="@(cid)-color">Color</label>
-                                            <input id="@(cid)-color" type="color" aria-label="Color for @comp.Name" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#FFF")' />
+                                            <input id="@(cid)-color" type="color" aria-label="Color for @CompLabel(comp)" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#FFF")' />
                                         </div>
                                     }
                                     <div class="modal-row">
                                         <label for="@(cid)-thickness">Thickness (@comp.Thickness.ToString("F1"))</label>
-                                        <input id="@(cid)-thickness" type="range" min="0.5" max="10" step="0.5" aria-label="Thickness for @comp.Name" value="@comp.Thickness" @onchange='e => comp.Thickness = float.Parse(e.Value?.ToString() ?? "1")' />
+                                        <input id="@(cid)-thickness" type="range" min="0.5" max="10" step="0.5" aria-label="Thickness for @CompLabel(comp)" value="@comp.Thickness" @onchange='e => comp.Thickness = float.Parse(e.Value?.ToString() ?? "1")' />
                                     </div>
                                     <div class="modal-row">
                                         <label for="@(cid)-dash">Dash Style</label>
-                                        <select id="@(cid)-dash" aria-label="Dash Style for @comp.Name" value="@comp.DashStyle" @onchange='e => comp.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Solid")'>
+                                        <select id="@(cid)-dash" aria-label="Dash Style for @CompLabel(comp)" value="@comp.DashStyle" @onchange='e => comp.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Solid")'>
                                             @foreach (var style in Enum.GetValues<DashStyle>())
                                             {
                                                 <option value="@style">@style</option>
@@ -316,7 +316,7 @@
                                        so the choice never rests on a colour. *@
                                     <div class="modal-row">
                                         <label for="@(cid)-tint">Background tint</label>
-                                        <select id="@(cid)-tint" aria-label="Background tint for @comp.Name"
+                                        <select id="@(cid)-tint" aria-label="Background tint for @CompLabel(comp)"
                                                 aria-describedby="@(cid)-tint-hint"
                                                 value="@comp.BackgroundTintInEffect()"
                                                 @onchange="e => SetBackgroundTint(comp, e.Value?.ToString())">
@@ -601,7 +601,7 @@
                                         <option value="">All Components</option>
                                         @foreach (var c in _series.Components)
                                         {
-                                            <option value="@c.Name">@c.Name</option>
+                                            <option value="@c.Name">@CompLabel(c)</option>
                                         }
                                     </select>
                                 </div>
@@ -620,7 +620,7 @@
                                     or ComponentDisplayType.Square;
 
                                 <fieldset>
-                                    <legend>Speech: @comp.Name</legend>
+                                    <legend>Speech: @CompLabel(comp)</legend>
 
                                     <div class="modal-row" style="flex-direction:column; align-items:stretch;">
                                         <label for="speech-tmpl-@comp.Name" style="flex:none; margin-bottom:3px;">
@@ -629,7 +629,7 @@
                                         <textarea id="speech-tmpl-@comp.Name"
                                                   rows="2"
                                                   style="width:100%; background:#222; border:1px solid var(--border-color); color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
-                                                  aria-label="Continuous speech template for @comp.Name"
+                                                  aria-label="Continuous speech template for @CompLabel(comp)"
                                                   placeholder="@(defaults.Continuous ?? "{name}. {type}. {value}.")"
                                                   @onchange='e => comp.SpeechTemplate = e.Value?.ToString() ?? ""'>@comp.SpeechTemplate</textarea>
                                         @if (!string.IsNullOrEmpty(defaults.Continuous))
@@ -640,7 +640,7 @@
                                         }
                                         <button style="font-size:0.75rem; padding:2px 8px; align-self:flex-end;"
                                                 @onclick="() => ResetSpeechTemplate(comp, signal: false)"
-                                                aria-label="Reset continuous template for @comp.Name to default">
+                                                aria-label="Reset continuous template for @CompLabel(comp) to default">
                                             Reset to default
                                         </button>
                                     </div>
@@ -654,7 +654,7 @@
                                             <textarea id="signal-tmpl-@comp.Name"
                                                       rows="2"
                                                       style="width:100%; background:#222; border:1px solid var(--border-color); color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
-                                                      aria-label="Signal speech template for @comp.Name"
+                                                      aria-label="Signal speech template for @CompLabel(comp)"
                                                       placeholder="@(defaults.Signal ?? "(silent)")"
                                                       @onchange='e => comp.SignalSpeechTemplate = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value?.ToString()'>@comp.SignalSpeechTemplate</textarea>
                                             @if (!string.IsNullOrEmpty(defaults.Signal))
@@ -665,7 +665,7 @@
                                             }
                                             <button style="font-size:0.75rem; padding:2px 8px; align-self:flex-end;"
                                                     @onclick="() => ResetSpeechTemplate(comp, signal: true)"
-                                                    aria-label="Reset signal template for @comp.Name to default">
+                                                    aria-label="Reset signal template for @CompLabel(comp) to default">
                                                 Reset to default
                                             </button>
                                         </div>
@@ -694,7 +694,7 @@
                                         <option value="">All Components</option>
                                         @foreach (var c in _series.Components)
                                         {
-                                            <option value="@c.Name">@c.Name</option>
+                                            <option value="@c.Name">@CompLabel(c)</option>
                                         }
                                     </select>
                                 </div>
@@ -706,12 +706,12 @@
                                 @* Named twice over, as on the Appearance tab — see the note there. *@
                                 var sid = "son-" + Slug(comp.Name);
                                 <fieldset>
-                                    <legend>Acoustics: @comp.Name</legend>
+                                    <legend>Acoustics: @CompLabel(comp)</legend>
                                     <div class="modal-row">
                                         <label for="@(sid)-patch">Sound Patch</label>
                                         <select id="@(sid)-patch" value="@(comp.SoundPatchId ?? "")"
                                                 @onchange="e => comp.SoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
-                                                aria-label="Sound patch for @comp.Name">
+                                                aria-label="Sound patch for @CompLabel(comp)">
                                             <option value="">(manual — use controls below)</option>
                                             @foreach (var opt in PatchOptions())
                                             {
@@ -719,7 +719,7 @@
                                             }
                                         </select>
                                         <button type="button" @onclick="() => PreviewComponentPatch(comp.SoundPatchId)"
-                                                aria-label="Preview patch for @comp.Name">&#9654;</button>
+                                                aria-label="Preview patch for @CompLabel(comp)">&#9654;</button>
                                     </div>
                                     @if (IsDirectional(comp))
                                     {
@@ -728,7 +728,7 @@
                                             <label for="@(sid)-bull-patch">@dir.Up</label>
                                             <select id="@(sid)-bull-patch" value="@(comp.BullishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BullishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
-                                                    aria-label="@dir.Up for @comp.Name">
+                                                    aria-label="@dir.Up for @CompLabel(comp)">
                                                 <option value="">(use Sound Patch above)</option>
                                                 @foreach (var opt in PatchOptions())
                                                 {
@@ -736,13 +736,13 @@
                                                 }
                                             </select>
                                             <button type="button" @onclick="() => PreviewComponentPatch(comp.BullishSoundPatchId)"
-                                                    aria-label="Preview bullish patch for @comp.Name">&#9654;</button>
+                                                    aria-label="Preview bullish patch for @CompLabel(comp)">&#9654;</button>
                                         </div>
                                         <div class="modal-row">
                                             <label for="@(sid)-bear-patch">@dir.Down</label>
                                             <select id="@(sid)-bear-patch" value="@(comp.BearishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BearishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
-                                                    aria-label="@dir.Down for @comp.Name">
+                                                    aria-label="@dir.Down for @CompLabel(comp)">
                                                 <option value="">(use Sound Patch above)</option>
                                                 @foreach (var opt in PatchOptions())
                                                 {
@@ -750,7 +750,7 @@
                                                 }
                                             </select>
                                             <button type="button" @onclick="() => PreviewComponentPatch(comp.BearishSoundPatchId)"
-                                                    aria-label="Preview bearish patch for @comp.Name">&#9654;</button>
+                                                    aria-label="Preview bearish patch for @CompLabel(comp)">&#9654;</button>
                                         </div>
                                     }
                                     <p style="font-size:0.75rem; color:var(--text-muted); margin:2px 0 8px;">
@@ -764,7 +764,7 @@
                                     </p>
                                     <div class="modal-row">
                                         <label for="@(sid)-waveform">Waveform (Instrument)</label>
-                                        <select id="@(sid)-waveform" aria-label="Waveform (Instrument) for @comp.Name" value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
+                                        <select id="@(sid)-waveform" aria-label="Waveform (Instrument) for @CompLabel(comp)" value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
                                             <option value="sine">Sine (Soft)</option>
                                             <option value="triangle">Triangle (Mellow)</option>
                                             <option value="sawtooth">Sawtooth (Bright)</option>
@@ -773,7 +773,7 @@
                                     </div>
                                     <div class="modal-row">
                                         <label for="@(sid)-volume">Volume</label>
-                                        <input id="@(sid)-volume" type="range" min="0" max="1" step="0.05" aria-label="Volume for @comp.Name" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
+                                        <input id="@(sid)-volume" type="range" min="0" max="1" step="0.05" aria-label="Volume for @CompLabel(comp)" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
                                         <span>@((comp.Volume * 100).ToString("F0"))%</span>
                                     </div>
                                     @* PITCH MAPPING, exposed 2026-09-24. The engine has always honoured it
@@ -805,12 +805,12 @@
                                     }
                                     <div class="modal-row">
                                         <label for="@(sid)-freq">Base Frequency (Hz)</label>
-                                        <input id="@(sid)-freq" type="number" step="10" min="50" max="2000" aria-label="Base Frequency (Hz) for @comp.Name" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
+                                        <input id="@(sid)-freq" type="number" step="10" min="50" max="2000" aria-label="Base Frequency (Hz) for @CompLabel(comp)" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
                                     </div>
                                     <div class="modal-row">
                                         <label for="@(sid)-noise">Noise Texture (@(comp.NoiseAmount.ToString("F2")))</label>
                                         <input id="@(sid)-noise" type="range" min="0" max="1" step="0.05" value="@comp.NoiseAmount"
-                                               aria-label="Noise Texture amount for @comp.Name"
+                                               aria-label="Noise Texture amount for @CompLabel(comp)"
                                                @onchange='e => comp.NoiseAmount = float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float nv) ? nv : 0f' />
                                         <span style="min-width:32px;">@((comp.NoiseAmount * 100).ToString("F0"))%</span>
                                     </div>
@@ -1128,6 +1128,16 @@
     /// </summary>
     private static string Slug(string s) =>
         new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+
+    /// <summary>
+    /// The name a component is SHOWN and SPOKEN by here — its display name, as on the status line,
+    /// Ctrl+Up/Down, Alt+Shift+D, narration and the alert picker. Until 2026-10-18 the pickers,
+    /// legends and field labels of this dialog read the machine name, so Cipher B's "Buy dot" was
+    /// "Oversold Crossover" here and nowhere else. Ids and option values still use the machine name,
+    /// which is what the selection and saved settings key on.
+    /// </summary>
+    private static string CompLabel(ComponentConfig c) =>
+        string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName;
 
     private static string Prettify(string id) =>
         string.Join(' ', id.Split('_').Select(w => w.Length == 0 ? w : char.ToUpper(w[0]) + w.Substring(1)));
