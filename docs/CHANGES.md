@@ -4,6 +4,346 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Dual Band Strength (DBSI-style): DBSI's numbers on the candles, reverse-fitted (2026-10-17, late night)
+
+A new indicator inspired by Market Cipher DBSI, code `DBSI_STYLE`, in the Trend category on the price
+pane, registered in both heads and StrategyLab. It is a **reconstruction, not DBSI**: a model
+reverse-fitted to 143 DBSI candles digitised off six real charts (the 2026-10-17 feasibility study).
+Each guard was proven red by sabotage (24 cases). **Not heard by Cody**; checked in rendered PNGs on
+Linux only.
+
+- **What it draws.** A bull score under each candle (green) and a bear score over it (red), whole
+  numbers; on the newest candle the leading side's number is yellow. Only the newest 25 candles are
+  labelled ("Label the newest N bars", 0 = every bar), as DBSI does. A 200-bar trend line (EMA), green
+  while the close is above it and red below.
+- **The model, copied to the digit from the study:** twelve fast direction votes (two-bar momentum,
+  which counts twice because the constants were fitted that way; stochastic %K over %D at 16, 5 and 6;
+  a 5/13 MACD rising; a 2-bar hlc3 average rising; WaveTrend rising and above its slow wave; close
+  above the 2-bar midpoint; close and open above the previous), then bull = round(max(−5, −4.332 +
+  1.668 × bull votes)) and bear = round(max(−5, −4.790 + 1.668 × bear votes)). Bulls therefore run −4
+  to 16 and bears −5 to 15, where DBSI reaches the 20s. "Compute on Heikin-Ashi candles" is on by
+  default (DBSI is used on Heikin-Ashi charts and the fit is better there).
+- **How close it is.** On the study's own bars every vote and every printed number equals the study
+  model's. In sample: r 0.92 bull / 0.93 bear, typical error about 3 points (RMSE 3.10), the side in
+  control 94% of the time. The study's nested held-out figure — the honest one — is r 0.91 / 0.93, RMSE
+  3.5, side in control 91%. **The exact integer matches only 14% of the time** (within ±2 points 59%).
+  On the vendor's 15-minute image the leader agrees on 22 of 24 closed bars.
+- **What you hear.** Landing on Bulls or Bears: "Bulls 15, bears minus 5, bulls in control".
+  Alt+Shift+D adds both scores, the trend, who is in control and which side of the trend line the
+  close is on. With N on the indicator, a bar close can say "Bulls take control at …", "Bears take
+  control at …", "Bulls reached the long entry score at …" / "Bears reached the short entry score at
+  …" (Long and Short entry score, default 7), and "Price crossed above Dual Band Strength (DBSI-style)
+  at …" for the trend line. A tie hands nothing over.
+- **Sound.** The two scores start muted. The trend line and the four event markers are **not** muted,
+  because a muted component is not narrated; the markers are heard but never drawn (DBSI draws nothing
+  for them).
+- **New for every indicator** (plugin authors too): `ComponentDisplayType.ValueLabel` (appended as
+  ordinal 25), a value printed as text at its bar, legible on every theme (the formation labels' ink
+  rule, on a 245 backing), kept inside the plot, shrunk to the bar slot and left out altogether when
+  even 7 px will not fit; a series parameter named `labelBars` limits it to the newest N bars. And
+  `ComponentConfig.IsDrawn` / `DefaultIsDrawn`: a component heard but not painted, never stretching an
+  axis or offered as a crossable line, rebuilt from metadata on every load. Formation labels now count
+  the value labels' plates as ground to avoid.
+- Tests: `DbsiStyleGoldenTests`, `DbsiStyleProviderTests`, `ValueLabelRenderingTests`.
+- **Caveats.** Heikin-Ashi is on even on a regular-candle chart (the provider cannot see the chart
+  type). Under Heikin-Ashi the trend line's colour uses the Heikin-Ashi close while the "price crossed"
+  narration uses the raw close, so the two can disagree for a bar near the line. Labels disappear when
+  bars are too narrow for the numbers (zoom in). Colour-vision-safe mode does not recolour the labels
+  (they differ by position too). The drawn Heikin-Ashi candles are seeded at the left edge of the view
+  and the indicator's from the first bar, so the first few on screen can differ (pre-existing).
+
+### Cipher B's gold dot is shown again, with the one gold rule that can be read; the green dot is "Buy dot" (2026-10-17, late night)
+
+Cody asked for the gold dot to be visible, fitted to Market Cipher B's gold-dot conditions, and for the
+two dots to be called "Gold dot" and "Buy dot". Each change has a test seen red with its part undone.
+**Not heard, and not seen on Windows.** (The code comments and the Properties text date this
+2026-10-18.)
+
+- **No evidence that real Market Cipher B has a gold dot at all.** About 100 TradingView idea images
+  tagged Market Cipher B were colour-scanned (7 by eye) and none shows a gold dot in the lower pane;
+  neither the vendor's material nor the guides we reached mention one; one third-party guide
+  (tradelogic.pro, 2026-02-24) says outright that the golden circle exists only in VuManChu's free
+  clone; every gold-dot description we traced came from VuManChu. So nothing could be digitised and
+  fitted. What ships is **VuManChu Cipher B's gold circle, ported from its Pine code**, and the code,
+  tests and Properties text say so. **Cody's decision is pending** — the agent recommends hiding it
+  by default again (see TODO).
+- **The rule (Gold Dot Rule = MCB, the default).** A gold dot fires when the slow wave makes a bottom
+  at or below −65 (strictly lower than the two bars either side) that is a regular bullish divergence
+  against the previous such bottom — price made a lower low, the wave a higher low — and that previous
+  bottom was at or below −75 with RSI(14) under 30 there, and the slow wave is now above −75 and at
+  least 5 above that bottom. Where VuManChu's header text and its code disagree (RSI 20 / −80 / a
+  cross), the code was ported. It is stamped on the first bar the bottom is knowable, two bars after
+  it, and never moves; VuManChu draws it two bars back. It runs on our fitted slow wave (hlc3, 9/12,
+  SMA 3), reads raw-candle lows, and is drawn in the money-flow bar beside the buy dot (Confluence mode
+  keeps it on the slow wave). An independent bar-by-bar Python reimplementation from the Pine source
+  agreed with it on every bar of daily BTC, ETH, SOL and XRP. "Gold Dot: RSI Divergence Too" (off, as
+  in that code) also accepts an RSI divergence.
+- **It is rare.** Bitstamp daily, whole history:
+
+  | Series | Old rule | New rule | With RSI divergence |
+  |---|---|---|---|
+  | BTC | 31 | 3 | 9 |
+  | ETH | 15 | 3 | 5 |
+  | SOL | 12 | 0 | 1 |
+  | XRP | 21 | 0 | 1 |
+
+  BTC's three confirm on 2014-03-26, 2014-10-02 and 2023-03-13; each comes 1–2 bars after a buy dot.
+- **Old behaviour kept.** Gold Dot Rule = Confluence reproduces the old gold dot byte for byte (17
+  hashed goldens captured before the change); StrategyLab takes `--set CIPHER_B.GoldDotMode=Confluence`
+  on top of the 2026-10-17 `WTSignalPeriod=4 / MoneyFlowMode=Legacy / BuyDotMode=Gated` flags. The old
+  gates (RSI Oversold, ADX, ATR, Gold Min Confluence, Anchor Suppression, Confirm Bars, Timeframe-Aware)
+  now say "Confluence gold rule only".
+- **Shown on saved charts too.** A chart saved before the hidden-gold build (gold shown) and one saved
+  by it (gold hidden by default, `ProviderIsVisible = false`) both show it; a gold the user hid stays
+  hidden. Not covered: a "Save as Defaults" made on Cipher B while gold was hidden still wins, by design.
+- **Names and speech.** The machine names stay (`Oversold Crossover`, `Triple Confluence Buy`), so saved
+  charts, alerts, strategy ids and StrategyLab keep working; what you hear and see is "Buy dot" and
+  "Gold dot" — status line, Ctrl+Up/Down, Alt+Shift+D, the alert and strategy pickers ("Cipher B — Buy
+  dot"). Narration: "Gold dot, waves turning up from oversold" (it claims no buy; the code it is ported
+  from says not to buy on it) and "Buy dot, waves crossed up from oversold" (was "Oversold crossover,
+  long signal"); both are checked true on every fired bar under both rules. Landing on gold says
+  ", oversold" only when the fast wave is below −53 — it was unconditional, and false on two of the new
+  dots (BTC 2023-03-13 at −38.0, ETH 2024-09-10 at −51.1).
+- **Properties names components by their display names**, as every other surface does: the component
+  pickers, the "Component: / Speech: / Acoustics:" legends and every "… for X" field label read the
+  machine name before. This reaches every indicator, not only Cipher B (Cipher B's fast wave now reads
+  "Wave Trend Fast" there). `PropertiesComponentNamesTests` (bUnit).
+- **Strategies.** A leaf's parameters are numeric, so a strategy leaf cannot choose the gold rule: on
+  the chart it reads the chart's Cipher B (set Gold Dot Rule there), on a higher timeframe and in the
+  backtester it gets the default MCB rule. Catalogue and battery strategies that read the gold dot
+  (the three bull-pulse strategies, `StrategyBatteryCommand`'s `*-gold` cells, MlExport's `sig_gold`)
+  fire about 10× less often. Not pinned to Confluence — Cody's call.
+- Tests: `CipherBGoldDotTests` (47: hand-built rule cases at every boundary, the RSI branch, causality,
+  the Confluence golden, speech truth, every naming surface, visibility on Cody's save in both shapes)
+  and `PropertiesComponentNamesTests`; 16 sabotages, each red.
+
+### Cipher SR draws what Market Cipher SR draws; a replaced level is no longer "broken" (2026-10-17, late night)
+
+Two commits. The first fixed what Cipher SR said; the second rebuilt what it draws from Market Cipher
+SR's own frames. Each fix has a test seen red with its part undone, measured on a committed copy of
+Cody's Bitstamp BTC daily chart (5,416 bars) with his saved Cipher SR settings. **Not heard.**
+
+- **Replaced was announced as broken.** On the bar a new pivot took over, the zone line was left empty
+  so the renderer would not join the two levels, and the narrator reads "had a value, now empty" as a
+  break: 84 of the 136 "Resistance at X broken" announcements on that chart were levels price never
+  closed through, and the new level was never named. The zone line now has a value on every bar a
+  level is live, and a companion `{zone}_replaced` array holds the old level on the bar it is
+  replaced. The narrator says **"New resistance at Y, replacing X."** and starts the new level's cross,
+  approach and touch state afresh; the line renderer lifts the pen there, so the picture is unchanged.
+  The narrator acts on `_replaced` only for lines that publish it.
+- **Other speech fixes in the same pass:** a real break was named for the side price closed on the bar
+  before (14 of 55 called a support "resistance"), now for the side the level was born on; 44 pivot
+  dots spoke another level's test count and 62 said the wrong side of price; warm-up ignored Auto-Scale
+  (40 bars, now 375); the detail sentence (which no key speaks yet) named an unconfirmed dot and called
+  it "nearest" (now "Most recent resistance"). The pivot dots and Auto-Scale were then retired by the
+  rebuild below.
+- **Rebuilt from Market Cipher SR.** Sources: the vendor's product image; a TradingView chart whose
+  legend reads "MarketCipher SR (2.2.0, 1, 15, 6)"; the vendor's tutorial video showing the settings
+  dialog (H/L Pivot Days Back 1, Resolution 15 minutes, VolumeMA 6, VWAP; plots Pivot High, Pivot Low,
+  Center Of Range, Cipher Resistance, Cipher Support, VWAP); and two YouTube frames of Coinbase BTC-USD
+  (10-minute, fitted; 12-minute, held out) digitised against Coinbase candles for the same minutes.
+  - **Resistance Zone / Support Zone** (names kept): one level per side, the exact high (low) of a bar
+    the next bar did not beat — every observed level fitted a pivot with **one** bar on the right —
+    taken only when the pivot bar's volume is above its 6-bar average, with 3 bars on the left. It is
+    held through closes beyond it until a newer level replaces it, and drawn as a dotted run in MCSR's
+    purple (#E040FB) and yellow (#FFEB3B). **MCSR's acceptance rule is not identified:** no feature or
+    pair of features separated its 17 accepted levels from the 251 pivots it skipped. Our level equals
+    MCSR's (within 0.06%) on **68.6%** of observed dot bars on the fitted frame and **62.5%** on the
+    held-out one; the old design scored 12.6% and 0%.
+  - **No break rule.** A level is never "broken"; price crossing it is announced as a cross ("Price
+    crossed above Resistance Zone at …").
+  - **New, muted by default:** Range High, Range Low and Range Mid (the UTC day's running high, low and
+    midpoint — MCSR's legend values for 2022-01-29 reproduced exactly; MCSR repaints the whole day from
+    its first bar on history, which needs look-ahead, so ours is the running value MCSR shows live) and
+    VWAP (hlc3 volume-weighted, reset at 00:00 UTC; two legend values matched to within a cent). All
+    four are empty on daily and longer charts, where a session is one bar.
+  - **Arrowing onto a zone line says its age:** "97939.00, price below, held 152 days, tested 2 times",
+    from a `{zone}_since` companion the speech formatter now hands to the provider.
+  - **Retired:** the Resistance and Support pivot-bar dots — drawn before the pivot could be known, and
+    MCSR has none; a saved strategy or alert naming them is told to use the zone lines. **Removed
+    settings:** Auto-Scale, Pivot Bars, Volume Lookback, Volume Multiplier, Break Threshold, Adaptive
+    Break, ATR Period and the ±0.3% bands on new charts. **New settings:** Pivot Left Bars (3),
+    VolumeMA (6), H/L Pivot Days Back (1). Saved values for removed settings are carried but ignored.
+  - `CipherSrLevelProvider` (risk plans and stops) reads the causal zone lines and drops its
+    confirmation-lag guess.
+- **Caveats.** MCSR computes its levels on 15-minute bars whatever the chart; ours uses the chart's own
+  bars, so a 1-hour chart gets 1-hour pivots and a daily chart daily ones. On BTC daily that is about
+  one new level per side every 5.5 days, and **Cipher SR's narration on that chart goes from 255
+  utterances over its history (after the speech fixes) to about 1,915** — one every two or three days.
+  Cody's saved ±0.3% bands still restore from his file and are drawn around the dots (new charts get
+  none). Sessions are UTC days, not exchange sessions, for stocks too.
+- Tests: `CipherSrSpeechTests`, `CipherSrSavedChartTests` (Cody's own saved series restores narrating
+  through `MaterializeSaved`), `CipherSrMarketCipherFidelityTests` (floors 65% fitted, 55% held out),
+  `CipherSrZoneLineRenderTests`, `CipherSrZoneRulesTests`; 9 speech sabotages all red; 18 rebuild
+  sabotages, 17 red — the green one ("an equal left high counts as beaten") cannot be seen on
+  continuous prices.
+- **Reachability guard.** `IndicatorBoolParameterReachabilityTests`' floor on shared `GetBool` call
+  sites drops from 8 to 5: Spider Lines left and Cipher A and SR lost their switches (6 call sites
+  remain, 9 before). The floor guards against an empty population, not a per-provider count.
+
+### Cipher A is back, rebuilt from measurements of real Market Cipher A (2026-10-17, late night)
+
+Cipher A had been retired since 1.6.0 as Cipher B's WaveTrend drawn on the price chart. It is now
+Market Cipher A as measured: seven TradingView charts showing Market Cipher A (three with
+"MarketCipher A (2.1.2, 1, 21)" in their legend) digitised column by column against the same bars,
+and checked on three charts never used for fitting (BTCUSDT 1D Binance, a 2023 Bitget 3-hour chart,
+SLPUSDT 1D). It is offered again in Add Indicator (Multi-Signal, price pane); the code stays `CIPHER_A`.
+**Not heard; seen only in rendered PNGs on the default dark theme.**
+
+- **The ribbon:** eight EMAs of the close, 5 11 15 18 21 25 29 33 (OpenCipher A's set, not VuManChu's
+  …24 28 34). Each line is blue while it is above the next-longer line and grey otherwise; the last,
+  EMA 33, is blue while it is below EMA 29. That rule fits all 1,410 line colours read off three charts
+  (303 + 654 + 453); "every line against EMA 33" fits only on the daily chart, which is why the 2-day
+  chart's colours are pinned too. On the 2-day chart (23 px a candle) the lines fit within 0.05–0.10%
+  of price (EMA 5: 0.4%). MCA paints no background tint. The eight lines start **muted**.
+- **The seven symbols**, each a marker with its own bell, first in the keyboard order, then the eight
+  lines (15 stops):
+
+  | Symbol | Rule |
+  |---|---|
+  | Green Dot | EMA 11 crosses above EMA 33 |
+  | Blue Triangle | EMA 5 crosses above EMA 25 while EMA 29 is below EMA 33 |
+  | Yellow Diamond | Wave Trend above its slow wave, EMA 5 above EMA 11 and EMA 33 |
+  | Red X | EMA 5 crosses below EMA 11 |
+  | Red Diamond | Wave Trend crosses down (Cipher B's fitted wave) |
+  | Blood Diamond | a Red Diamond and a Red X on one candle |
+  | Yellow X | a Red Diamond with the slow wave at −40 or lower and price in the bottom 22% of its 80-bar range |
+
+- **Fidelity.** Fitted charts, on the real symbol's candle: Green Dot 13/13, Red X 36/36, Blood
+  Diamond 5/5, Yellow X 22/22; within one candle Blue Triangle 15/16, Red Diamond 117/124, Yellow
+  Diamond recall 128/128. Held out, within one candle: Green Dot 5/5, Blue Triangle 10/10, Red X 17/17,
+  Blood Diamond 6/6, Red Diamond 37/40 with no false ones, Yellow Diamond 35/37 on the 3-hour chart.
+- **Speech.** Landing on a symbol says what made it ("EMA 11 crossed above EMA 33. Price 23,964.");
+  on a line, its value and colour ("Blue, bullish: above EMA 11."). Its detail sentence ("Ribbon blue,
+  all eight lines bullish." / "Ribbon mixed, 5 of 8 lines blue.") is built and tested but, like every
+  indicator's `GetDetailFact`, **no key speaks it** — Alt+Shift+D reads the values (the agent's report
+  said otherwise; the code does not call it). Narration names the symbols ("Green dot,
+  bullish", "Blood diamond, strongly bearish", "Yellow X, bearish warning"); the eight lines are
+  price-space lines, so with Cipher A narrating they also get "Price crossed above EMA 5 at …".
+- **What went.** The old components — Buy/Sell Signal, the three divergences, Manipulation, Exhaustion,
+  WT Momentum and its gradient — were all Cipher B's WaveTrend, and Market Cipher A draws none of them.
+  A saved chart rebuilds as the new Cipher A (tested on a chart saved with the old nine components);
+  their saved parameters are ignored. The nine are listed in `SignalCatalog.Retired`, so a strategy or
+  alert naming one says once that it can never be true, and what to use instead. The WaveTrend now
+  lives in a shared `WaveTrendMath` (a line-for-line copy of Cipher B's, pinned equal: Red Diamond plus
+  Blood Diamond is exactly Cipher B's cross-down on 893 real bars).
+- **Caveats.** The Yellow Diamond rule is the best fit among those tried; its precision can be checked
+  only on two charts, and no published replica has it. The Yellow X's 22% was 20% until the SLP
+  hold-out showed an X at 21.1, so SLP is not a clean hold-out for that number, and the margin is narrow
+  (21.1 against 22.6). EMA 29 and EMA 33 are pinned by the 2-day chart alone. The "high volume" in Yellow
+  X descriptions is not in the data (median 0.91× its 20-bar volume average). MCA's translucent fill
+  between EMA 5 and EMA 33 is not drawn. On a Heikin-Ashi chart our indicators read the raw candles while
+  TradingView feeds MCA the Heikin-Ashi ones, so a symbol can land a candle away. The pale end of the blue
+  ladder is near invisible on light themes (MCA's own is too; not measured). Not looked at in the desktop
+  head.
+- **Strategies.** Three built-in StrategyLab catalogue strategies (Faber-Pulse Long, Capitulation Buy,
+  Bare Bull Pulse Long) OR in `CIPHER_A.Buy Signal`, and live each would now say once that the condition
+  can never be true; `StrategyBatteryCommand` cells on the old Buy/Sell Signal, Exhaustion and
+  Manipulation score as never firing. Not edited — Cody's call (TODO).
+- Tests: `CipherAProviderTests` against digitised real MCA symbols and colours and a Python reference
+  model on 893 Bitstamp candles (`CipherAGoldenData`), including no change on the newest bar at any of
+  700 cut points (the fleet causality guard's few cut points missed a planted Green Dot look-ahead);
+  `CipherAMetadataTests` rewritten. 14 sabotages, each red.
+
+### Spider Lines is removed; saved charts, strategies and alerts that name it say so once (2026-10-17, late night)
+
+Cody: "I'd just remove the indicator for now." Spider Lines (`SPIDER_LINES`) was eight Fibonacci-length
+EMAs (8 to 200) and a Stacking Score, every EMA flagged as a zone line, under a name that belongs to
+Market Cipher's diagonal support and resistance lines on the BTC log chart. It had nothing to do with
+them.
+
+- **Gone from all three hosts** (desktop, web, StrategyLab); `PaneAssignmentService` and the
+  moving-average cross test no longer name it.
+- **Before, an unknown code was not dropped.** Restore rebuilt it as a series with no provider behind
+  it — listed, drawing nothing, saying nothing — and a strategy leaf or alert on it was false forever
+  without a word. Now a new `RetiredIndicators` list (code, name, date, why, what instead) is read by:
+  workspace restore (multi-tab and legacy), which leaves it off and appends one sentence to the resume
+  and Load Workspace announcements ("Spider Lines was removed on 2026-10-17, so it was left off this
+  chart: … To get the same lines back, add an EMA for each length you want."); `SignalCatalog`, so a
+  strategy leaf or tree alert says why ("…use an EMA with length 21 instead"); `ConfigurableStrategy`,
+  which also reports a stop or target placed on it; `AlertEvaluator`, once per alert, with the remedy
+  "Edit the alert or delete it."; and the background monitor, which does not build it and says once
+  that it is not narrated.
+- Tests: `SpiderLinesRemovalTests` (10, from files on disk through the real restore, library and
+  orchestrator paths; a guard that no provider declares a retired code); 9 sabotages, each red.
+  `SpiderLinesFastModeCanBeTurnedOn` and three causality exemptions removed.
+- **Not verified:** the Load Workspace dialog's sentence is tested only through the notice it reads
+  (no rendered dialog); the background monitor's announcement is not run end to end. The desktop head
+  was not compiled (its change is one deleted line).
+
+### Cipher B shows what stock Market Cipher B shows, on saved charts too; its dots say the wave trend again (2026-10-17, late night)
+
+Cody: "finish disabling the elements on cipher b to make it similar to stock market cipher's config. Go
+through cipher B's code … make sure it's cleanly written and commented where needed." Each change has a
+test seen red with its part undone. **Not heard, and not seen on Windows.**
+
+- **Hidden by default:** the red Overbought Crossover, the four divergences (with their slanted pivot
+  lines) and the Anchor Fill cloud — ours, not Market Cipher B's: none of them appears on the five dated
+  MCB charts, while our rules fire them on those same bars. The gold dot was hidden too, and shown again
+  later the same night (entry above). They are still computed, still keyboard stops in the same order
+  (18), and still strategy and alert inputs; hidden means silent — no bell, no narration, not in
+  Alt+Shift+D or the status line. Bring one back with H on it or in Properties; Ctrl+Alt+Shift+K shows
+  every hidden component (the anchor waves and Anchor Polarity too); Anchor Fill is under Properties →
+  Appearance → Cloud Fills.
+- **A saved chart follows a changed default visibility unless you changed it.** Visibility was restored
+  verbatim, so a new default reached only new charts — the same shape as the levels bug that day.
+  `ComponentConfig.ProviderIsVisible` and `CloudFillConfig.ProviderIsVisible` now record the default each
+  flag was saved against: equal on restore → it takes the indicator's current default; different →
+  yours, kept. Saves older than the record know Cipher B's retired defaults
+  (`ProviderDefaultVisibility`: the six signals, Anchor Fill and WT Fill were shown). It runs in
+  `IndicatorModelFactory` (so the background monitor gets it) and, for fills, in
+  `WorkspaceInitializer.MigrateSeriesConfig`; "Save as Defaults" still wins. Tested on Cody's own saved
+  Cipher B, copied read-only into `Fixtures/CodysCipherBSave.cs`, through the real restore path. What it
+  cannot tell apart: a component hidden and shown again follows the indicator from then on.
+- **Cipher B's dots say the wave trend again.** Landing on a cross, buy, sell, divergence or gold dot said
+  only "Price …": the provider looked its data up by component name and the formatter keys it by
+  display name ("Wave Trend Fast"). Gold also says "Money flow positive" again, and no longer ends "Trend
+  and volatility confirmed" — its old rule needs only 3 of 4 conditions, and ATR was sometimes the one
+  that failed. `CipherBProviderSpeechTests` drives the real formatter.
+- **Money Flow says "buying pressure, 18.0"** (or "selling pressure, …"), not "18% buying pressure": the
+  value is not a percentage (Cody). `CipherBMoneyFlowSpeechTests`.
+- **Code review of `CipherBProvider`, output byte-identical** (a golden of every array, every bar's
+  speech and detail, 79 series × parameter cases): stale comments corrected; dead code out (an unused
+  array, a money-flow pass computed and discarded, a gold cooldown that was always zero); the WaveTrend
+  core and the conviction test written once; magic numbers named; seven wrong parameter descriptions
+  corrected (ADX/ATR gates, Confirm Bars, Anchor Suppression and its depth, OB/OS Threshold,
+  Timeframe-Aware Gates).
+- **Left open:** the rest of a saved cloud fill (colours, sound) is still restored verbatim; show-all
+  also unhides the always-hidden anchors; hidden components are still keyboard stops (9 of 18 now) and
+  their alerts still fire.
+
+### Formation labels readable on every theme and placed off the candles (2026-10-17, late night)
+
+The labels and lines a chart formation draws (Settings → Appearance → Draw chart formations) were all
+in the theme's accent colour at fixed opacities, which no check ever held against the chart. On the
+default theme the label text was 3.65:1 on its backing (2.46:1 where the backing sat over a doji), the
+dashed measured target 1.63:1 and the span edges 1.34:1. WCAG asks 4.5:1 for text and 3:1 for a line
+you need to see; every built-in theme missed at least one.
+
+- **Per-theme ink (`FormationInk`).** Each colour starts as the theme's accent and is mixed toward
+  white (or black on a light chart) in 1/32 steps only until text reaches 4.5:1 on its backing over
+  everything it can cover (both chart ends, candle bodies and wicks, a doji, the accent line) and every
+  line reaches 3:1 on both chart ends. Nine of twelve themes keep their text colour; Classic's goes
+  from #2962FF to #517FFF. User-built themes get the same guarantee with nothing new in the theme editor.
+- **The backing is 245/255**, as the status line's (was 205, so a candle showed through at 20%).
+- **The measured target is still the lightest line** — the trigger's ink at the least opacity that
+  reaches 3:1, never heavier than the trigger, thinner and dashed — so the visual weight is still the
+  disclaimer, but it can now be seen.
+- **One-pixel lines sit on the pixel grid.** Unsnapped, a 1 px line on a whole-pixel row draws as two
+  half-strength rows: the corrected colour measured 1.63:1 on screen, exactly the old figure.
+- **Span edges are dotted** (2 on, 4 off), so at 3:1 they do not compete with the candles. A judgement
+  call; the alternative is to call them decorative and leave them faint.
+- **Placement.** A label sat just above its line at the line's start, often right on the breakout
+  candles. It now tries 18 spots — above and below the line at nine points along it — and takes the one
+  covering the least candle body and wick, with small costs for moving away from the line or covering it.
+  A label with nothing under it stays exactly where it was.
+- Tests: `FormationLabelLegibilityTests` (41: the palette per theme, a pixel read-back per theme, the
+  1 px snap, two placement cases, the cost function), each proven red.
+- **Caveats:** measured ratios, not a viewing — nobody with low vision has looked yet. Where candles
+  crowd both sides of a short line the label still touches some (the backing keeps it legible). The
+  worst case under the backing counts the theme's candle colours, not indicator lines, background tints,
+  volume-profile bins or user-styled candles. Skia on Linux only; not checked on Windows.
+
 ### Labels inside the chart, status lines never over the data, tint as a property, strips and dividers that agree (2026-10-17, night)
 
 From Cody's look at the deployed BTCUSDT 1d chart: "fix the 2 label problems and make the background
