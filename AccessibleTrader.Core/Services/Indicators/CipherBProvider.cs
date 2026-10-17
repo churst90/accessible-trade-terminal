@@ -349,7 +349,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             SpeechTemplate = "Anchor polarity. {value:F0}.",
-                            SubscribedLevelNames = WaveLevels },
+                            SubscribedLevelNames = WaveLevels,
+                            // A background tint is OFFERED, not painted: Market Cipher B paints
+                            // nothing on the price chart (Cody, 2026-10-17: "make the background
+                            // tint like the real cipher b"). Properties → Background tint → Price
+                            // chart brings back the higher-timeframe regime shading this used to
+                            // force on (teal at +1, soft red at -1, at 0x16 alpha). Midline is the
+                            // ColorBaseline, 0.
+                            DefaultBackgroundTint = BackgroundTint.Off,
+                            DefaultTintColorAboveHex = "#1626A69A",
+                            DefaultTintColorBelowHex = "#16EF5350" },
 
                     // ── Signal dots ─────────────────────────────────────────
                     // MCB's big green buy dot: opaque #3FFF00 (sampled exactly in the 2.2.6 chart),

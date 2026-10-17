@@ -89,7 +89,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultIsAreaFill = false,
                             SpeechTemplate = "Distribution {value:F2}.",
-                            IsVisible = true },
+                            IsVisible = true,
+                            // "Topping conditions present" on the price chart, not only in this
+                            // pane: soft red behind every bar at 0.5 and over, 20% of 0x20 at 0.5
+                            // deepening to all of it at 1.0, nothing below 0.5. Was hardcoded in
+                            // ChartRenderer as RenderTbdDistributionTint until 2026-10-17; the
+                            // declaration reproduces it byte for byte. Its own midline, because
+                            // ColorBaseline (0) and ReferenceLevel (0) drive this line's colour
+                            // and sound and must not move.
+                            DefaultBackgroundTint = BackgroundTint.PriceChart,
+                            DefaultTintColorAboveHex = "#20EF5350",
+                            DefaultTintColorBelowHex = "#00000000",
+                            DefaultTintMidline = 0.5,
+                            DefaultTintFullAt = 1.0 },
 
                     new() { Name = CompBottom,
                             DisplayName = "Bottom Confirmed",

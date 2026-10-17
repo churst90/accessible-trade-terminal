@@ -296,6 +296,12 @@ public sealed class DeclaredKnobObservabilityTests
                 rect.Width / TheBars.Count, 1f,
                 string.IsNullOrEmpty(series.Pane) ? "Main" : series.Pane, 0, theme);
 
+            // The background tints, at the depth ChartRenderer paints them (after the background
+            // layer, before the data): this pane's own, then the price-chart ones as if this were
+            // the price pane. Without this the five tint knobs are painted by a renderer this
+            // channel never calls and would all read as unread.
+            BackgroundTintPainter.PaintPaneTints(ctx, new[] { series });
+            BackgroundTintPainter.PaintPriceChartTints(ctx, new[] { series });
             new DataLayer(Styling()).Render(ctx, new[] { series });
 
             // A sub-pane component is skipped by the main pass; render the sub-pane pass too, so
@@ -464,6 +470,9 @@ public sealed class DeclaredKnobObservabilityTests
                 // A parseable colour: an unparseable one falls back to the line colour, which
                 // reads as "nothing observed it".
                 "FillColorHex" => s == "#80FF00FF" ? "#8000FFFF" : "#80FF00FF",
+                // Parseable too: an unparseable tint colour paints nothing, which on a side the
+                // fixture already leaves clear is indistinguishable from not being read.
+                "TintColorAboveHex" or "TintColorBelowHex" => s == "#40FF00FF" ? "#4000FFFF" : "#40FF00FF",
                 "Waveform" or "AboveReferenceWaveform" or "BelowReferenceWaveform"
                     => s == "square" ? "triangle" : "square",
                 "EnvelopeType" => s == "Ping" ? "Sustain" : "Ping",
@@ -551,8 +560,19 @@ public sealed class DeclaredKnobObservabilityTests
         ("direction pitch", c => c.PitchMapping = PitchMapping.Direction),
     };
 
+    /// <summary>
+    /// Cells outside the shape x audio product. The background tint is Off unless declared, and
+    /// with it off its colours, midline and ramp are dead by construction — "dead in this fixture"
+    /// is not a finding. One line with the tint ON, painting this pane, observes all five; it is
+    /// a single cell rather than a third axis because no tint knob is shape-specific.
+    /// </summary>
+    private static readonly (ComponentDisplayType Shape, string Name, Action<ComponentConfig> Tweak)[] ExtraCells =
+    {
+        (ComponentDisplayType.Line, "background tint on, this pane", c => c.BackgroundTint = BackgroundTint.ThisPane),
+    };
+
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()
-        => from s in ShapeAxis from a in AudioAxis select (s, a.Name, a.Tweak);
+        => (from s in ShapeAxis from a in AudioAxis select (s, a.Name, a.Tweak)).Concat(ExtraCells);
 
     [Fact]
     public void EveryDeclaredComponentKnob_MovesSomethingTheUserCanSeeHearOrBeTold()

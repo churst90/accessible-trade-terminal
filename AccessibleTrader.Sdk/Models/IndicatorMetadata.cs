@@ -234,6 +234,46 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public string? DefaultColorAboveComponent { get; set; }
 
+        // ── Background tint (null = off) ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Whether this component shades the chart background behind each bar from its value, and
+        /// where: <see cref="BackgroundTint.ThisPane"/> (its own pane or sub-pane strip) or
+        /// <see cref="BackgroundTint.PriceChart"/>. Null = <see cref="BackgroundTint.Off"/>. The
+        /// user can change it per chart in Properties → Appearance → Background tint, and that
+        /// choice is kept across restarts; a chart whose user never changed it follows this
+        /// declaration, so changing the default here reaches charts that already exist.
+        /// Independent of <see cref="IsVisible"/>: a hidden data component can still tint.
+        /// </summary>
+        public BackgroundTint? DefaultBackgroundTint { get; set; }
+
+        /// <summary>
+        /// The tint painted where the value is at or above <see cref="DefaultTintMidline"/>.
+        /// #RRGGBB or #AARRGGBB; the alpha is the tint's strength and is used as-is, so declare
+        /// a low one (0x16–0x20 is a whisper). An alpha of 00 paints nothing on this side.
+        /// Null = <see cref="DefaultColorHex"/> at alpha 0x16.
+        /// </summary>
+        public string? DefaultTintColorAboveHex { get; set; }
+
+        /// <summary>The tint below the midline. Null = <see cref="DefaultColorHexSecondary"/> at
+        /// alpha 0x16; an alpha of 00 paints nothing below. See <see cref="DefaultTintColorAboveHex"/>.</summary>
+        public string? DefaultTintColorBelowHex { get; set; }
+
+        /// <summary>
+        /// The value that divides the two tint colours (at or above = the above colour). Null =
+        /// the component's <see cref="ColorBaseline"/>, the line its own bar and polarity colours
+        /// already split at, so a histogram's tint agrees with its bars.
+        /// </summary>
+        public double? DefaultTintMidline { get; set; }
+
+        /// <summary>
+        /// Null = every tinted bar at the colour's full alpha. Set, the strength ramps with the
+        /// distance from the midline: 20% of the colour's alpha at the midline, 100% at this value
+        /// (and beyond). Top/Bottom Detector's Distribution Confidence declares midline 0.5, full
+        /// at 1.0 — the tint deepens as the topping case builds.
+        /// </summary>
+        public double? DefaultTintFullAt { get; set; }
+
         /// <summary>
         /// Per-bar conditional color rules. Applied in order — first matching rule wins.
         /// Null or empty = no conditional coloring (use DefaultColorHex for all bars).

@@ -308,6 +308,26 @@
                                             Visible
                                         </label>
                                     </div>
+                                    @* BACKGROUND TINT, 2026-10-17 (Cody: "shading/tinting should be
+                                       something any indicator can do"). Its own switch, not the
+                                       Visible box's: a hidden data line such as Cipher B's Anchor
+                                       Polarity can still tint. The hint says in words where and on
+                                       which side of which value it shades, and that it is visual only,
+                                       so the choice never rests on a colour. *@
+                                    <div class="modal-row">
+                                        <label for="@(cid)-tint">Background tint</label>
+                                        <select id="@(cid)-tint" aria-label="Background tint for @comp.Name"
+                                                aria-describedby="@(cid)-tint-hint"
+                                                value="@comp.BackgroundTintInEffect()"
+                                                @onchange="e => SetBackgroundTint(comp, e.Value?.ToString())">
+                                            <option value="@BackgroundTint.Off">Off</option>
+                                            <option value="@BackgroundTint.ThisPane">This pane</option>
+                                            <option value="@BackgroundTint.PriceChart">Price chart</option>
+                                        </select>
+                                    </div>
+                                    <p id="@(cid)-tint-hint" style="font-size:0.75rem; color:var(--text-muted); margin:2px 0 8px;">
+                                        @TintHint(comp)
+                                    </p>
 
                                     @* ── Color Rules ──────────────────────────────────────────── *@
                                     <div style="margin-top:10px; border-top:1px solid #222; padding-top:8px;">
@@ -1411,6 +1431,42 @@
     {
         comp.ColorHexSecondary = hex;
         comp.IsUserStyled = true;
+    }
+
+    // Background tint: the user's CHOICE, not the indicator's default — UserBackgroundTint is
+    // what the workspace keeps, so a pick survives a restart and a provider's later change of
+    // default, while a component nobody touched keeps following its indicator.
+    private static void SetBackgroundTint(ComponentConfig comp, string? raw)
+    {
+        if (Enum.TryParse<BackgroundTint>(raw, out var tint)) comp.UserBackgroundTint = tint;
+    }
+
+    /// <summary>Where the tint shades and on which side of which value, in words, read with the
+    /// select through aria-describedby: the colours themselves are never the only cue.</summary>
+    internal static string TintHint(ComponentConfig comp)
+    {
+        string? where = comp.BackgroundTintInEffect() switch
+        {
+            BackgroundTint.ThisPane => "this component's own pane",
+            BackgroundTint.PriceChart => "the price chart",
+            _ => null,
+        };
+        if (where == null) return "Off: nothing is shaded. A tint is visual only; nothing is spoken or sounded.";
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        string name = string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName;
+        string mid = (comp.TintMidline ?? comp.ColorBaseline).ToString("G4", inv);
+        bool above = AccessibleTrader.Core.Services.Rendering.BackgroundTintPainter.Resolve(comp.TintColorAboveHex, comp.ColorHex).Alpha > 0;
+        bool below = AccessibleTrader.Core.Services.Rendering.BackgroundTintPainter.Resolve(comp.TintColorBelowHex, comp.ColorHexSecondary).Alpha > 0;
+        string sides = (above, below) switch
+        {
+            (true, true) => $"one shade where {name} is at or above {mid}, another where it is below",
+            (true, false) => $"where {name} is at or above {mid}",
+            (false, true) => $"where {name} is below {mid}",
+            _ => "nowhere, because neither side has a colour",
+        };
+        string ramp = comp.TintFullAt is double full ? $", deepening up to {full.ToString("G4", inv)}" : "";
+        return $"Shades {where} behind each bar {sides}{ramp}. Visual only: nothing is spoken or sounded.";
     }
 
     private void AddColorRule(ComponentConfig comp)

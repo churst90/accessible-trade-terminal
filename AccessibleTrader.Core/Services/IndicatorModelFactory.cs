@@ -211,6 +211,10 @@ namespace AccessibleTrader.Core.Services
                     // without this line a hand-picked colour survives one restart and then loses
                     // its protection. StandardRenderers.cs:328 is the reader.
                     fresh.IsUserStyled   = saved.IsUserStyled;
+                    // The user's background-tint CHOICE (null = never chose, follow the indicator).
+                    // Only the choice: BackgroundTint itself came from metadata above, so a
+                    // provider's new default reaches every chart whose user never picked one.
+                    fresh.UserBackgroundTint = saved.UserBackgroundTint;
                 }
             }
 
@@ -385,6 +389,13 @@ namespace AccessibleTrader.Core.Services
                 FillColorHex       = meta.DefaultFillColorHex ?? string.Empty,
                 DrawOrder          = meta.DefaultDrawOrder ?? 0,
                 ColorAboveComponent = meta.DefaultColorAboveComponent ?? string.Empty,
+                // Background tint — the indicator's declaration, rebuilt on every load. The user's
+                // own choice is UserBackgroundTint, restored in layer 2; it is never set here.
+                BackgroundTint     = meta.DefaultBackgroundTint ?? BackgroundTint.Off,
+                TintColorAboveHex  = meta.DefaultTintColorAboveHex ?? string.Empty,
+                TintColorBelowHex  = meta.DefaultTintColorBelowHex ?? string.Empty,
+                TintMidline        = meta.DefaultTintMidline,
+                TintFullAt         = meta.DefaultTintFullAt,
                 IsMuted            = meta.DefaultIsMuted ?? false,
                 UsePolarityColoring = meta.DefaultUsePolarityColoring ?? _stylingService.GetUsePolarityColoring(indicatorCode, meta.Name, type),
 
