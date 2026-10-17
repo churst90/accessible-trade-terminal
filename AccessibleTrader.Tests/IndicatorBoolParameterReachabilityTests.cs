@@ -197,9 +197,12 @@ namespace AccessibleTrader.Tests
 
             // Vacuity floor on the POPULATION: if nobody reads a boolean parameter through the
             // shared helper any more, this test is guarding an empty set and should say so.
+            // The floor was 8 until 2026-10-17, when Spider Lines was removed and Cipher A and
+            // Cipher SR were rebuilt without boolean switches: 9 call sites became 6. It stays
+            // a floor on the population, not a count to keep in step with every provider.
             int callSites = files.Sum(f =>
                 Regex.Matches(File.ReadAllText(f), @"IndicatorParams\.GetBool\(").Count);
-            Assert.True(callSites >= 8,
+            Assert.True(callSites >= 5,
                 $"only {callSites} shared boolean reads found — the helper has been routed around");
         }
 
