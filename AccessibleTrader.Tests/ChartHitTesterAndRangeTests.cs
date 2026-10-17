@@ -29,7 +29,7 @@ public sealed class ChartHitTesterAndRangeTests
         public DrawingInteractionManager Manager { get; }
         public List<Ohlcv> Bars { get; }
 
-        public Harness(int barCount = 200)
+        public Harness(int barCount = 200, Core.Services.Rendering.IPaneLayoutService? paneLayout = null)
         {
             Bus = new SpyEventBus();
             Store = new WorkspaceStore(
@@ -52,7 +52,8 @@ public sealed class ChartHitTesterAndRangeTests
                 new StubDrawingService(),
                 Store,
                 new IndicatorModelFactory(new MockStylingService(), new MockIndicatorPreferencesService()),
-                Input);
+                Input,
+                paneLayout);
         }
 
         /// <summary>Adds an overlay line series in the Main pane with a constant value.</summary>
@@ -133,6 +134,37 @@ public sealed class ChartHitTesterAndRangeTests
     }
 
     // ── Click-to-focus ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <b>A click lands on the line where it is DRAWN</b>, below the price pane's status band
+    /// (2026-10-17: each pane's plot starts below its status lines). The drawing manager hands the
+    /// published bands to the hit tester; without them it would look for the line where it would
+    /// be on a plot starting at the pane's top — 45 px higher here, past the grab distance.
+    /// </summary>
+    [Fact]
+    public void Click_on_a_line_below_the_price_panes_status_band_focuses_it()
+    {
+        var layout = new Core.Services.Rendering.PaneLayoutService();
+        const float band = 60f;
+        layout.Update(NoDividers, 0f, 0f,
+            new Dictionary<string, Core.Services.Rendering.PaneStatusBand> { ["Main"] = new(2, band / 720f) });
+        var h = new Harness(paneLayout: layout);
+        h.AddOverlayLine("ema-1", "EMA 20", constantValue: 100.5);
+        // Focus starts elsewhere, so only a hit on the EMA can move it there.
+        h.AddOverlayLine("far", "Far 5", constantValue: 99.0);
+        h.Store.Dispatch(new SelectSeriesAction("far"));
+        Assert.Equal("far", h.Store.State.FocusedSeriesId);
+        var state = h.Store.State;
+        float drawnY = ChartMath.MapY(100.5, band, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
+        float unbandedY = ChartMath.MapY(100.5, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
+        Assert.True(Math.Abs(drawnY - unbandedY) > ChartHitTester.TolerancePx,
+            "the band moves the line less than the grab distance — the fixture proves nothing");
+
+        h.Input.ProcessMouse(320, drawnY, "MouseDown", 1280, 720);
+        h.Input.ProcessMouse(320, drawnY, "MouseUp", 1280, 720);
+
+        Assert.Equal("ema-1", h.Store.State.FocusedSeriesId);
+    }
 
     [Fact]
     public void Click_NearAnIndicatorLine_MovesKeyboardFocusToThatSeries()

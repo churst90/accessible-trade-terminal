@@ -47,9 +47,14 @@ public sealed class AreaFillEdgeTests
     private static StylingService Styling() =>
         new(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
 
+    // Where the price pane's PLOT starts in the last frame Render drew: below the status band the
+    // series' status line takes at the pane's top (2026-10-17). Y maps from there, as the renderer does.
+    [ThreadStatic] private static float _plotTop;
+
     private static SKBitmap Render(ChartSeries s, ThemeService themes, bool empty = false)
     {
-        var renderer = new ChartRenderer(themes, Styling(), new PaneLayoutService(),
+        var layout = new PaneLayoutService();
+        var renderer = new ChartRenderer(themes, Styling(), layout,
             NullLogger<ChartRenderer>.Instance, Substitute.For<IAppLogger>());
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var bars = Enumerable.Range(0, Bars).Select(i => new Ohlcv(start.AddDays(i), 10, 11, 9, 10, 1)).ToList();
@@ -58,6 +63,7 @@ public sealed class AreaFillEdgeTests
             renderer.Render(canvas, W, H, bars, new[] { s }, cursorIndex: -1, viewportStart: 0, viewportLength: Slots,
                 viewportRange: (-100, 100), paneRanges: new Dictionary<string, (double, double)>(),
                 rightMarginBars: Margin);
+        _plotTop = layout.StatusBands.TryGetValue("Main", out var band) ? band.HeightFraction * H : 0f;
         if (!empty) Dump(bmp, s.Name);
         return bmp;
     }
@@ -76,7 +82,7 @@ public sealed class AreaFillEdgeTests
     private static float PaneWidth(ThemeService t) => W - t.Current.AxisWidth;
     private static float BarWidth(ThemeService t) => PaneWidth(t) / Slots;
     private static int Y(double v, ThemeService t) =>
-        (int)Math.Round(ChartMath.MapY(v, 0, H - t.Current.AxisHeight, -100, 100, false));
+        (int)Math.Round(ChartMath.MapY(v, _plotTop, H - t.Current.AxisHeight, -100, 100, false));
 
     /// <summary>Pixels (x, y) inside the price pane in <paramref name="x0"/>..<paramref name="x1"/>
     /// that differ between the two renders.</summary>

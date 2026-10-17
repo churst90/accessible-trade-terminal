@@ -205,7 +205,8 @@ public sealed class CrosshairBadgeAndLegendKeyTests
 
         using var bmp = RenderFrame(renderer, new[] { CipherB() }, data, ranges, (95, 115));
 
-        float paneTop = layout.Dividers.Single().DividerFraction * H;
+        // The pane's plot, where its values are mapped, starts below its status band.
+        float paneTop = StatusBandGeometry.PlotTop(layout, "Pane_0", layout.Dividers.Single().DividerFraction * H, H);
         float paneBottom = H * (1f - layout.AxisHeightFraction);
         float lineY = ChartMath.MapY(-40, paneTop, paneBottom, -100, 100, false);
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
@@ -245,7 +246,7 @@ public sealed class CrosshairBadgeAndLegendKeyTests
         using (var canvas = new SKCanvas(bmp))
             new ChartFrameRenderer(renderer).Render(canvas, W, H, state, 1f);
 
-        float paneTop = layout.Dividers.Single().DividerFraction * H;
+        float paneTop = StatusBandGeometry.PlotTop(layout, "Pane_0", layout.Dividers.Single().DividerFraction * H, H);
         float paneBottom = H * (1f - layout.AxisHeightFraction);
         float histY = ChartMath.MapY(55.7, paneTop, paneBottom, -100, 100, false);
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
@@ -272,7 +273,7 @@ public sealed class CrosshairBadgeAndLegendKeyTests
             new Dictionary<string, (double Min, double Max)> { ["Main"] = (95, 115) }, (95, 115));
 
         float mainBottom = H * (1f - layout.AxisHeightFraction);
-        float closeY = ChartMath.MapY(109, 0, mainBottom, 95, 115, false);
+        float closeY = ChartMath.MapY(109, StatusBandGeometry.PlotTop(layout, "Main", 0, H), mainBottom, 95, 115, false);
         int axisLeft = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
         var bullish = StandardRenderers.ApplyColorVision(Themes().Current,
             Themes().Current.CandleBullishBody, Themes().Current.CandleBearishBody).up;
@@ -386,48 +387,45 @@ public sealed class CrosshairBadgeAndLegendKeyTests
     /// <summary>
     /// <b>A level line read as a strikethrough.</b> In focus mode the dashed overbought line ran
     /// straight through "Wave Trend Fast": the legend's backing was 70% opaque, so every line
-    /// behind it showed through at 30% of its strength. Ported to the status line's backing, as
-    /// the renderer paints it into a snapshot: a full-strength magenta level through the middle
-    /// of the first line must not be visible inside the backing — and must be visible beside it,
-    /// or the test proves nothing. (The DOM lines use the same backing colour and opacity.)
+    /// behind it showed through at 30% of its strength. The backing went to 96%, and since
+    /// 2026-10-17 there is nothing of the plot behind a status line at all: each pane's plot starts
+    /// below its status band. So the level goes where it would be most in the way — the very top
+    /// of the range, the row a level at the pane's maximum used to share with the first line —
+    /// and must be drawn just below the block, not in any of its rows. Ported from "does not show
+    /// through" (it put the level through the first line's centre, a row the plot no longer has).
+    /// Painted into a snapshot, as the renderer does there; the DOM lines sit in the same band.
     /// </summary>
     [Fact]
-    public void A_level_line_behind_a_status_line_does_not_show_through_it()
+    public void A_level_line_at_the_top_of_its_range_is_drawn_below_the_status_line_not_through_it()
     {
         var (renderer, layout) = Renderer();
         renderer.PaintsStatusLines = true;
         var data = Bars(30, 10, 12);   // the price cursor line sits far below the status lines
 
-        ChartSeries Overlay(double levelValue)
-        {
-            var s = Series("osc", "Main", 30, new Comp("Wave Trend Fast", ComponentDisplayType.Line, "#00FFFF", double.NaN));
-            s.Levels.Add(new LevelConfig { Name = "Overbought", Value = levelValue, ColorHex = "#FF00FF", Thickness = 2f, DashStyle = DashStyle.Solid });
-            return s;
-        }
+        var overlay = Series("osc", "Main", 30, new Comp("Wave Trend Fast", ComponentDisplayType.Line, "#00FFFF", double.NaN));
+        overlay.Levels.Add(new LevelConfig { Name = "Overbought", Value = 100, ColorHex = "#FF00FF", Thickness = 2f, DashStyle = DashStyle.Solid });
         var ranges = new Dictionary<string, (double Min, double Max)> { ["Main"] = (0, 100) };
 
-        // Render once to learn the plot height, then put the level through the first line's
-        // centre (block top 4, half a 17px line).
-        RenderFrame(renderer, new[] { Overlay(50) }, data, ranges, (0, 100)).Dispose();
-        float mainBottom = H * (1f - layout.AxisHeightFraction);
-        const float rowCentre = 4f + 8.5f;
-        double level = 100.0 * (1.0 - rowCentre / mainBottom);
-
-        using var bmp = RenderFrame(renderer, new[] { Overlay(level) }, data, ranges, (0, 100));
+        using var bmp = RenderFrame(renderer, new[] { overlay }, data, ranges, (0, 100));
 
         static bool Magenta(SKColor c) => c.Red - c.Green > 40 && c.Blue - c.Green > 40;
-
         int plotRight = (int)Math.Round(W * (1f - layout.AxisWidthFraction));
-        bool beside = Enumerable.Range(10, 6).Any(y => Magenta(bmp.GetPixel(plotRight - 40, y)));
-        Assert.True(beside, "the level line is not drawn beside the status line either — the fixture is wrong");
+        Assert.True(layout.StatusBands.TryGetValue("Main", out var band) && band.Lines == 1,
+            "the fixture's price pane has no one-line status block — it proves nothing");
+        int plotTop = (int)Math.Round(band.HeightFraction * H);
 
-        // Inside the backing: its left padding, where nothing but the backing is drawn.
+        bool below = Enumerable.Range(plotTop - 1, 4).Any(y => Magenta(bmp.GetPixel(plotRight - 40, y)));
+        Assert.True(below, $"the level at the range's top is not drawn at the plot's top (y {plotTop}) — the fixture is wrong");
+
+        // Every row of the block (it starts PadPx below the pane's top, one LinePx line), across
+        // the whole plot width: not a pixel of the level.
         var through = new List<string>();
-        for (int x = 5; x <= 7; x++)
-            for (int y = 10; y <= 15; y++)
+        int blockTop = (int)ChartStatusLine.PadPx, blockBottom = (int)(ChartStatusLine.PadPx + ChartStatusLine.LinePx);
+        for (int x = 1; x < plotRight - 1; x++)
+            for (int y = blockTop; y < blockBottom; y++)
                 if (Magenta(bmp.GetPixel(x, y))) through.Add($"({x},{y})={bmp.GetPixel(x, y)}");
         Assert.True(through.Count == 0,
-            "the level line shows through the status line's backing, so it strikes through the text: "
+            "the level line at the top of the range is drawn through the status line's rows: "
             + string.Join(", ", through.Take(4)));
     }
 }

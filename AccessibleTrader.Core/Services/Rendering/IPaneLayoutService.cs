@@ -42,36 +42,64 @@ namespace AccessibleTrader.Core.Services.Rendering
         // beside) was retired on 2026-10-17 with both: Cody's decision, TradingView status line.
         // Each pane's status lines are DOM text placed from the dividers above.
 
+        /// <summary>
+        /// Each pane's STATUS BAND, by pane name ("Main" and each divider's pane): the strip at the
+        /// pane's top that its status lines sit in and its plot starts below (2026-10-17). A pane
+        /// whose band has no lines is listed with none. Empty until a frame has been drawn.
+        ///
+        /// <para>
+        /// The renderer maps a pane's values into the pane MINUS this band, so anything that turns
+        /// a pointer back into a value, or a value into a pointer position, has to start the pane's
+        /// plot at the same place: <see cref="ChartMath.MapYToPriceInPane"/>,
+        /// <see cref="ChartMath.PriceToCanvasY"/> and <c>ChartHitTester</c> take it, and ChartArea
+        /// gives each pane's status block no more lines than its band has room for.
+        /// </para>
+        /// </summary>
+        IReadOnlyDictionary<string, PaneStatusBand> StatusBands { get; }
+
         /// <summary>Called by ChartRenderer after pane heights are calculated.</summary>
         void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
-            float axisWidthFraction);
+            float axisWidthFraction,
+            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null);
 
         /// <summary>Fires whenever <see cref="Update"/> is called with changed values.</summary>
         event Action? LayoutChanged;
     }
 
+    /// <summary>
+    /// A pane's status band: how many status lines it has room for, and its height as a fraction
+    /// of the canvas height (0 with no lines). See <see cref="IPaneLayoutService.StatusBands"/>.
+    /// </summary>
+    public readonly record struct PaneStatusBand(int Lines, float HeightFraction);
+
     public class PaneLayoutService : IPaneLayoutService
     {
+        private static readonly IReadOnlyDictionary<string, PaneStatusBand> NoBands = new Dictionary<string, PaneStatusBand>();
+
         private IReadOnlyList<(string, float)> _dividers = Array.Empty<(string, float)>();
         private float _axisHeightFraction;
         private float _axisWidthFraction;
+        private IReadOnlyDictionary<string, PaneStatusBand> _statusBands = NoBands;
 
         public IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers => _dividers;
         public float AxisHeightFraction => _axisHeightFraction;
         public float AxisWidthFraction => _axisWidthFraction;
+        public IReadOnlyDictionary<string, PaneStatusBand> StatusBands => _statusBands;
 
         public event Action? LayoutChanged;
 
         public void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
-            float axisWidthFraction)
+            float axisWidthFraction,
+            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null)
         {
             _dividers = dividers;
             _axisHeightFraction = axisHeightFraction;
             _axisWidthFraction = axisWidthFraction;
+            _statusBands = statusBands ?? NoBands;
             LayoutChanged?.Invoke();
         }
     }

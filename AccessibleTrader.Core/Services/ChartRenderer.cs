@@ -218,7 +218,10 @@ namespace AccessibleTrader.Core.Services
         /// <param name="identity">The chart's symbol, timeframe and provider, for the price pane's
         /// status line: measured here so formation labels stay out from under it, and painted
         /// when <see cref="PaintsStatusLines"/> is on.</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null)
+        /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
+        /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
+        /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f)
         {
             try
             {
@@ -328,21 +331,30 @@ namespace AccessibleTrader.Core.Services
                 // axis that keeps its labels out from under one are reading the same bar.
                 int crossIndex = Math.Min(cursorIndex - viewportStart, visibleData.Count - 1);
 
-                // The price pane's STATUS LINES (Cody's 2026-10-17 decision: TradingView status
-                // line). On the live chart they are DOM text drawn by ChartArea over this image,
-                // but they are measured here, BEFORE the pane draws, because the formation layer
-                // places its labels inside the pane and must keep them out from under the block.
-                // Until 2026-09-22 the layer did not know the legend existed, so "ascending
-                // triangle" staggered its labels straight underneath it — visible in a
-                // screenshot, invisible to every test. The block is measured at the keyboard
-                // cursor's bar; a hovered bar's readings can be a little wider or narrower.
-                using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * density);
+                // Each pane's STATUS LINES (Cody's 2026-10-17 decision: TradingView status line).
+                // On the live chart they are DOM text drawn by ChartArea over this image, but they
+                // are measured here, BEFORE each pane draws, because the pane's PLOT starts below
+                // them: every pane keeps a STATUS BAND at its top exactly as tall as the block
+                // shown there (none when it shows none), and maps its values into what is left.
+                // Before that the block sat on the plot, and Cipher B's 0–100 RSI and Stochastic,
+                // which run near the top of its −100…+100 pane, and the waves' peaks disappeared
+                // behind it (Cody, 2026-10-17, BTCUSDT 1d). TradingView keeps a top margin for the
+                // same reason; this one is the block's own height, at the text size the DOM uses.
+                // The line COUNT does not depend on the bar (a plot with no reading keeps its place
+                // as "—"), so the band is the same whichever bar the DOM reads.
+                float textScale = ChartStatusLine.ClampTextScale(statusTextScale);
+                using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * textScale * density);
                 var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, isHeikinAshi);
-                PaneStatus? mainStatus = crossIndex >= 0
-                    ? BuildStatus("Main", mainOverlaySeries, viewportStart + crossIndex, statusCtx, mainPaneRect, density, statusFont)
-                    : null;
+                int statusBar = crossIndex >= 0 ? viewportStart + crossIndex : Math.Clamp(cursorIndex, 0, data.Count - 1);
+                var statusBands = new Dictionary<string, PaneStatusBand>(StringComparer.Ordinal);
+                var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);
+                statusBands["Main"] = new PaneStatusBand(mainStatus.Lines.Count, mainBand / height);
+                var mainPlotRect = PlotRect(mainPaneRect, mainBand);
+                var mainAxisPlotRect = new SKRect(mainAxisRect.Left, mainPlotRect.Top, mainAxisRect.Right, mainAxisRect.Bottom);
+                // The formation layer still keeps its labels out of the block; with the band the
+                // block is above the plot, so this only matters to a label placed above it.
                 SKRect? legendRect = mainStatus is { Lines.Count: > 0 } ms
-                    ? StatusBlockRect(mainPaneRect, ms, density, statusFont)
+                    ? StatusBlockRect(mainPaneRect, ms, density, textScale, statusFont)
                     : null;
 
                 // The price pane's cursor line sits at the close and had NO badge (Cody's
@@ -355,21 +367,23 @@ namespace AccessibleTrader.Core.Services
                     var bar = visibleData[crossIndex];
                     var (bull, bear) = StandardRenderers.ApplyColorVision(
                         _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
-                    float closeY = ChartMath.MapY(bar.Close, mainPaneRect.Top, mainPaneRect.Bottom, mainMin, mainMax, isLogScale);
+                    float closeY = ChartMath.MapY(bar.Close, mainPlotRect.Top, mainPlotRect.Bottom, mainMin, mainMax, isLogScale);
                     mainBadge = new CrosshairBadge(bar.Close, closeY, bar.Close >= bar.Open ? bull : bear, mainMax - mainMin,
-                        BadgeCentre(closeY, mainPaneRect.Top, mainPaneRect.Bottom, ScaleLabelHeight(density)));
+                        BadgeCentre(closeY, mainPlotRect.Top, mainPlotRect.Bottom, ScaleLabelHeight(density)));
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
+                // On the axis beside the PLOT: the strip spans the whole pane, its scale only the
+                // part the values are mapped into.
                 var mainScale = PlaceScaleLabels(ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current),
-                    mainAxisRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
-                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
-                RenderScaleLabels(canvas, mainAxisRect, mainScale, mainMax - mainMin, density);
-                if (PaintsStatusLines && mainStatus != null)
-                    PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, statusFont);
+                    mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
+                RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
+                RenderScaleLabels(canvas, mainAxisPlotRect, mainScale, mainMax - mainMin, density);
+                if (PaintsStatusLines && crossIndex >= 0 && mainStatus.Lines.Count > 0)
+                    PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, textScale, statusFont);
                 currentY += mainPaneHeight;
 
                 float itemWidthForAxis = (width - _axisWidth) / Math.Max(1, viewportLength);
@@ -395,11 +409,15 @@ namespace AccessibleTrader.Core.Services
                     }
 
                     var paneSeriesList = group.ToList();
+                    // This pane's status band, as the price pane's above: its plot starts below it.
+                    var (paneStatus, paneBand) = StatusBandFor(group.Key, paneSeriesList, statusBar, statusCtx, paneRect, density, textScale, statusFont);
+                    statusBands[group.Key] = new PaneStatusBand(paneStatus.Lines.Count, paneBand / height);
+                    var plotRect = PlotRect(paneRect, paneBand);
                     // Indicator panes always use raw (non-HA) data so PriceAction coloring (e.g. volume)
                     // reflects real open/close direction, not the HA-transformed direction.
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
-                    var indAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight);
-                    RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect);
+                    var indAxisRect = new SKRect(width - _axisWidth, plotRect.Top, width, currentY + indicatorPaneHeight);
+                    RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect, statusBand: paneBand);
                     // This pane's value badge, decided ONCE: the axis keeps its labels out from
                     // under it and RenderCrosshair draws it, from the same object. They used to
                     // be two copies of the same lookup, kept in step by a comment.
@@ -408,10 +426,10 @@ namespace AccessibleTrader.Core.Services
                     if (crossIndex >= 0
                         && CrosshairReadingAt(paneSeriesList, crossIndex, viewportStart, focusedSeriesId, focusedComponentIndex) is { } reading)
                     {
-                        float lineY = ChartMath.MapY(reading.Value, paneRect.Top, paneRect.Bottom, min, max, false);
+                        float lineY = ChartMath.MapY(reading.Value, plotRect.Top, plotRect.Bottom, min, max, false);
                         badge = new CrosshairBadge(reading.Value, lineY,
                             ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min,
-                            BadgeCentre(lineY, paneRect.Top, paneRect.Bottom, ScaleLabelHeight(density)));
+                            BadgeCentre(lineY, plotRect.Top, plotRect.Bottom, ScaleLabelHeight(density)));
                         // The plot the badge reads — navigation's, else the pane's primary line —
                         // keeps its axis label first when the strip cannot hold them all.
                         preferred = (reading.Series.Id, reading.Component.Name);
@@ -420,16 +438,16 @@ namespace AccessibleTrader.Core.Services
                         indAxisRect, min, max, false, density, badge, preferred);
                     RenderYAxis(canvas, indAxisRect, min, max, false, density, AvoidRows(badge, scale, density));
                     RenderScaleLabels(canvas, indAxisRect, scale, max - min, density);
-                    if (PaintsStatusLines && crossIndex >= 0
-                        && BuildStatus(group.Key, paneSeriesList, viewportStart + crossIndex, statusCtx, paneRect, density, statusFont) is { Lines.Count: > 0 } paneStatus)
-                        PaintStatusBlock(canvas, paneRect, paneStatus, density, statusFont);
+                    if (PaintsStatusLines && crossIndex >= 0 && paneStatus.Lines.Count > 0)
+                        PaintStatusBlock(canvas, paneRect, paneStatus, density, textScale, statusFont);
                     indicatorPaneInfos.Add((paneRect, badge));
                     currentY += indicatorPaneHeight;
                 }
 
                 // Update shared layout service so ChartArea.razor can position drag handles and,
-                // from the same dividers, each pane's status lines.
-                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width);
+                // from the same dividers and bands, each pane's status lines — and so every
+                // pointer-to-value mapping starts each pane's plot below its band, as drawn here.
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, statusBands);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
@@ -455,9 +473,15 @@ namespace AccessibleTrader.Core.Services
         private static bool IsHeatmapSeries(ChartSeries s) =>
             s.Components.Any(c => c.DisplayType == ComponentDisplayType.Heatmap);
 
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null, SKRect? chartRect = null, SKRect? avoid = null)
+        /// <param name="rect">The whole pane.</param>
+        /// <param name="statusBand">The height of the pane's status band (<see cref="StatusBandFor"/>):
+        /// the pane's background and border fill the whole pane, its values are mapped and clipped
+        /// to what is below the band.</param>
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f)
         {
             if (viewportLength <= 0) return;
+            var paneRect = rect;
+            rect = PlotRect(rect, statusBand);
 
             int renderCount = Math.Max(1, viewportLength);
             float itemWidth = rect.Width / renderCount;
@@ -482,11 +506,18 @@ namespace AccessibleTrader.Core.Services
             // ── Main area pass ────────────────────────────────────────────────
             var mainRect         = new SKRect(rect.Left, rect.Top, rect.Right, rect.Top + mainAreaHeight);
             var adjustedMainRect = new SKRect(rect.Left, mainRect.Top, rect.Right, mainRect.Bottom);
-            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid);
+            // The frame the background fills and borders: the plot plus the status band above it,
+            // so the band reads as the top of the pane, not a gap between two.
+            var frameRect        = new SKRect(rect.Left, paneRect.Top, rect.Right, mainRect.Bottom);
+            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid,
+                FrameRect: statusBand > 0 ? frameRect : null);
 
-            canvas.Save(); canvas.ClipRect(mainRect);
+            canvas.Save(); canvas.ClipRect(frameRect);
             for (int li = 0; li < _layers.Count; li++)
             {
+                // The background has filled the whole frame; everything after it — the data, its
+                // markers, fills and labels — is held to the plot, so nothing reaches the band.
+                if (li == 1) canvas.ClipRect(mainRect);
                 _layers[li].Render(ctx, nonProfileSeries);
                 // Anchor-regime tint is painted immediately after the BackgroundLayer
                 // (index 0) so it sits *under* the candle/data/overlay layers but
@@ -1200,20 +1231,37 @@ namespace AccessibleTrader.Core.Services
         /// <summary>The status lines' backing opacity when this renderer paints them, and when it measures the price pane's block.</summary>
         public byte StatusBackingAlpha { get; set; } = ChartStatusLine.DefaultBackingAlpha;
 
-        /// <summary>A pane's status block at <paramref name="absIndex"/>, sized against the pane in device pixels.</summary>
-        private static PaneStatus BuildStatus(string paneName, IReadOnlyList<ChartSeries> paneSeries, int absIndex,
-            ChartStatusLine.Context ctx, SKRect paneRect, float density, SKFont font)
-            => ChartStatusLine.Build(paneName, paneSeries, absIndex, ctx,
+        /// <summary>
+        /// A pane's status block at <paramref name="absIndex"/> and the STATUS BAND it takes at the
+        /// pane's top, in device pixels: the lines the pane has room for once its plot keeps its
+        /// floor (<see cref="ChartStatusLine.PaneLineBudget"/>), and the band they need
+        /// (<see cref="ChartStatusLine.BandHeight"/>) — 0 when the pane shows none. Measured in
+        /// the DOM's units scaled to this bitmap (<see cref="ChartStatusLine.BandMetrics"/>), so
+        /// the band is the block ChartArea draws there, at every text size.
+        /// </summary>
+        internal static (PaneStatus Status, float Band) StatusBandFor(string paneName, IReadOnlyList<ChartSeries> paneSeries, int absIndex,
+            ChartStatusLine.Context ctx, SKRect paneRect, float density, float textScale, SKFont font)
+        {
+            var (line, pad, minPlot) = ChartStatusLine.BandMetrics(density, textScale);
+            int budget = ChartStatusLine.PaneLineBudget(paneRect.Height, line, pad, minPlot);
+            var status = ChartStatusLine.Build(paneName, paneSeries, absIndex, ctx,
                 paneRect.Height, paneRect.Width * ChartStatusLine.MaxWidthFraction,
-                ChartStatusLine.LinePx * density, t => font.MeasureText(t));
+                line, t => font.MeasureText(t), budget);
+            return (status, ChartStatusLine.BandHeight(status.Lines.Count, line, pad));
+        }
+
+        /// <summary>The part of a pane its values are mapped into: everything below its status band.</summary>
+        internal static SKRect PlotRect(SKRect paneRect, float statusBand)
+            => statusBand <= 0 ? paneRect
+                : new SKRect(paneRect.Left, Math.Min(paneRect.Top + statusBand, paneRect.Bottom - 1), paneRect.Right, paneRect.Bottom);
 
         /// <summary>
         /// The rect a pane's status block covers, measured with the same pieces and gaps as
         /// <see cref="PaintStatusBlock"/> paints — what the formation layer keeps its labels out of.
         /// </summary>
-        private static SKRect StatusBlockRect(SKRect paneRect, PaneStatus status, float density, SKFont font)
+        private static SKRect StatusBlockRect(SKRect paneRect, PaneStatus status, float density, float textScale, SKFont font)
         {
-            float pad = ChartStatusLine.PadPx * density, line = ChartStatusLine.LinePx * density;
+            var (line, pad, _) = ChartStatusLine.BandMetrics(density, textScale);
             float widest = status.Lines.Select(l => StatusLineWidth(l, font, density)).DefaultIfEmpty(0).Max();
             return new SKRect(paneRect.Left + pad, paneRect.Top + pad,
                 paneRect.Left + pad + widest, paneRect.Top + pad + status.Lines.Count * line);
@@ -1238,10 +1286,10 @@ namespace AccessibleTrader.Core.Services
         /// reading in its plot's colour (or the ink beside a chip of that colour, when the colour
         /// is too faint on the backing). The DOM painter in ChartArea draws the same model.
         /// </summary>
-        private void PaintStatusBlock(SKCanvas canvas, SKRect paneRect, PaneStatus status, float density, SKFont font)
+        private void PaintStatusBlock(SKCanvas canvas, SKRect paneRect, PaneStatus status, float density, float textScale, SKFont font)
         {
             var theme = _theme.Current;
-            float pad = ChartStatusLine.PadPx * density, line = ChartStatusLine.LinePx * density;
+            var (line, pad, _) = ChartStatusLine.BandMetrics(density, textScale);
             float gap = font.MeasureText("M") * 0.8f;
             var inkColor = ChartStatusLine.Ink(theme);
             var muted = inkColor.WithAlpha(190);
