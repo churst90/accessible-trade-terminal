@@ -287,10 +287,7 @@ namespace AccessibleTrader.Tests
             "PULSE.AnchorMtf",          // Wilder RSI over weekly buckets — only ~100 weekly bars in 700
             "PULSE.AnchorSlope",        // slope of an EMA-smoothed anchor, so twice removed from its seed
             "PULSE.AnchorSlow",
-            "SPIDER_LINES.EMA 144",
-            "SPIDER_LINES.EMA 200",     // three time constants in 700 bars is not enough to reach 1e-6
-            "SPIDER_LINES.Stacking Score",   // ranks those EMAs; flips wherever two sit inside the residue
-            "REGIME.AboveEma200",            // boolean over a 200-EMA, same knife edge
+            "REGIME.AboveEma200",            // boolean over a 200-EMA: three time constants in 700 bars is not enough to reach 1e-6, and the boolean flips wherever close sits inside the residue
             // Seeded at zero in BOTH runs, so its own seed is not the source — it multiplies the
             // Wilder ATR/RSI residue underneath it by the accumulator's steady-state gain of
             // 1/(1 - 0.5^(1/30)) ~= 43, which is what lifts it above 1e-6 at bar 700 when the

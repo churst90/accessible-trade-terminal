@@ -235,7 +235,12 @@ namespace AccessibleTrader.Core.Services.Workspace
                 string resumed = tabs <= 1
                     ? "Resumed your last session."
                     : $"Resumed your last session: {tabs} tabs.";
-                _eventBus.Publish(new AnnouncementEvent(WithActiveChart(resumed),
+                // Anything the restore had to leave off — an indicator since removed from the
+                // app — rides on the same sentence, so it is said once and nothing cuts it off.
+                string said = WithActiveChart(resumed);
+                if (!string.IsNullOrWhiteSpace(_initializer.LastRestoreNotice))
+                    said += " " + _initializer.LastRestoreNotice;
+                _eventBus.Publish(new AnnouncementEvent(said,
                     Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 _logger.LogInformation("Resumed last session ({Tabs} tab(s)).", tabs);
                 return true;

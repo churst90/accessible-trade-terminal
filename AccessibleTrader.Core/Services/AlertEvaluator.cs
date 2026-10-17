@@ -237,6 +237,8 @@ namespace AccessibleTrader.Core.Services
                 var line = FindSeries(state, alert.LineIndicatorCode!, alert.LineSeriesId);
                 var lineComp = line?.Components.FirstOrDefault(c =>
                     c.Name.Equals(alert.LineComponentName, StringComparison.OrdinalIgnoreCase));
+                if (line == null && RetiredReason(alert.LineIndicatorCode, alert.LineComponentName) is { } retiredLine)
+                    Degrade(alert, retiredLine);
                 if (line == null || lineComp == null)
                 {
                     Degrade(alert, $"the line it compares against, {alert.LineIndicatorCode} {alert.LineComponentName}, is not on this chart");
@@ -514,10 +516,23 @@ namespace AccessibleTrader.Core.Services
         {
             if (alert.IndicatorCode == null) return null;
             var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            // An indicator that was REMOVED (Spider Lines, 2026-10-17) is on no chart and never
+            // will be; without this the alert stayed armed in silence. Said first — "it is no
+            // longer on this chart" is true but does not tell the user it is not coming back.
+            if (series == null && RetiredReason(alert.IndicatorCode, alert.ComponentName) is { } retired)
+                Degrade(alert, retired);
             if (series == null && !string.IsNullOrEmpty(alert.SeriesId))
                 Degrade(alert, $"the {alert.IndicatorCode} it was set on is no longer on this chart, and a different {alert.IndicatorCode} will not be watched in its place");
             return series;
         }
+
+        /// <summary>Why an alert's indicator (or the line it compares against) can never be read
+        /// because the whole indicator was removed — component-specific when the component has an
+        /// exact replacement — or null when it was not removed.</summary>
+        internal static string? RetiredReason(string? code, string? component) =>
+            !Indicators.RetiredIndicators.IsRetired(code) ? null
+            : string.IsNullOrWhiteSpace(component) ? Indicators.RetiredIndicators.Reason(code)
+            : Indicators.RetiredIndicators.SignalReason($"{code}.{component}");
 
         /// <summary>
         /// The crossover memory's key for ONE instance of an indicator. The code-keyed entry

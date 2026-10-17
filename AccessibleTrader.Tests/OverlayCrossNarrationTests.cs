@@ -166,7 +166,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void ADeclaredZoneLine_IsLeftToTheZoneScan()
         {
-            // Cipher SR and Spider Lines already announce their crosses with support/resistance
+            // Cipher SR's pivots already announce their crosses with support/resistance
             // vocabulary. Announcing them here too would say the same cross twice in one breath.
             var spoken = RunToBarTwoClose(EmaConfig(zoneLine: true), CrossUpCloses, FlatLine);
 

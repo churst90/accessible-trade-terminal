@@ -153,7 +153,7 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>
         /// EMA seeded from the FIRST close, matching <c>IndicatorMath.Ema</c> — the seed every
-        /// chart series built on that library uses (Cipher B/C/SR, Ichimoku, Spider Lines, and
+        /// chart series built on that library uses (Cipher B/C/SR, Ichimoku, and
         /// anything a plugin author writes against the documented helper).
         ///
         /// <para>

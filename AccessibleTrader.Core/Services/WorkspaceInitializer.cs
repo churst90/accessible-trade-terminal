@@ -35,6 +35,16 @@ namespace AccessibleTrader.Core.Services
         /// defaults (waveforms, colors, envelope types) are always applied.
         /// </summary>
         void RestoreWorkspace(WorkspaceConfiguration config);
+
+        /// <summary>
+        /// What the last <see cref="RestoreWorkspace"/> left off the chart and why, as one
+        /// sentence for whoever announces the load — or null when it left nothing off. Today
+        /// that is an indicator that was REMOVED from the app (<see cref="Indicators.RetiredIndicators"/>):
+        /// the saved chart still names it, and dropping it without a word would leave a user who
+        /// cannot see the chart believing it is still there. The caller appends this to its own
+        /// "resumed" / "loaded" sentence, so it is said once and nothing interrupts it.
+        /// </summary>
+        string? LastRestoreNotice => null;
     }
 
     public class WorkspaceInitializer : IWorkspaceInitializer
@@ -55,6 +65,13 @@ namespace AccessibleTrader.Core.Services
         /// setting again, which is what "on by default" should mean.
         /// </summary>
         private bool _structureSeededThisSession;
+
+        /// <summary>The retired indicator codes the current restore skipped, for
+        /// <see cref="LastRestoreNotice"/>.</summary>
+        private readonly List<string> _retiredSkipped = new();
+
+        /// <inheritdoc/>
+        public string? LastRestoreNotice { get; private set; }
 
         public WorkspaceInitializer(
             ISeriesManagementService seriesService,
@@ -390,6 +407,8 @@ namespace AccessibleTrader.Core.Services
         //   share the ResolveDesiredCoreStack helper to keep the two paths in sync.
         public void RestoreWorkspace(WorkspaceConfiguration config)
         {
+            _retiredSkipped.Clear();
+            LastRestoreNotice = null;
             if (config == null) return;
 
             var allMeta = _indicatorService.GetAvailableIndicators();
@@ -405,6 +424,21 @@ namespace AccessibleTrader.Core.Services
             }
 
             RestoreActiveStrategies(config);
+
+            LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
+        }
+
+        /// <summary>
+        /// Whether a saved series names an indicator that was removed from the app. Such a series
+        /// is NOT restored: with no provider behind it, the unknown-code fallback would rebuild it
+        /// verbatim as a series that never computes — a line on the series list that draws
+        /// nothing and says nothing. It is skipped and named in <see cref="LastRestoreNotice"/>.
+        /// </summary>
+        private bool SkipRetired(SeriesConfig seriesConfig)
+        {
+            if (!Indicators.RetiredIndicators.IsRetired(seriesConfig.IndicatorCode)) return false;
+            _retiredSkipped.Add(seriesConfig.IndicatorCode);
+            return true;
         }
 
         /// <summary>
@@ -530,6 +564,7 @@ namespace AccessibleTrader.Core.Services
             {
                 foreach (var seriesConfig in config.Series)
                 {
+                    if (SkipRetired(seriesConfig)) continue;
                     MigrateSeriesConfig(seriesConfig, allMeta);
                     var meta = allMeta.FirstOrDefault(m =>
                         m.Code.Equals(seriesConfig.IndicatorCode, StringComparison.OrdinalIgnoreCase));
@@ -570,6 +605,7 @@ namespace AccessibleTrader.Core.Services
             {
                 foreach (var seriesConfig in tab.Series)
                 {
+                    if (SkipRetired(seriesConfig)) continue;
                     MigrateSeriesConfig(seriesConfig, allMeta);
                     var meta = allMeta.FirstOrDefault(m =>
                         m.Code.Equals(seriesConfig.IndicatorCode, StringComparison.OrdinalIgnoreCase));

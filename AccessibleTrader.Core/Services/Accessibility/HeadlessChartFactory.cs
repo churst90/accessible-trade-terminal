@@ -145,11 +145,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var template = new List<ChartSeries>();
             var builtIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var missing = new List<string>();
+            var removed = new List<string>();
 
-            // 1. The narrated series, as before.
+            // 1. The narrated series, as before — less any indicator removed from the app, which
+            //    has no provider to compute it (the verbatim fallback in Build would make a series
+            //    that never computes and never speaks). Named on the chart for the monitor to say.
             foreach (var original in saved)
             {
                 if (!original.IsAutoNarrated || original.Drawing != null) continue;
+                if (RetiredIndicators.IsRetired(original.IndicatorCode))
+                {
+                    if (!removed.Contains(original.IndicatorCode, StringComparer.OrdinalIgnoreCase)) removed.Add(original.IndicatorCode);
+                    continue;
+                }
                 var built = Build(identity, original, saved, allMeta);
                 if (built != null && builtIds.Add(original.Id)) template.Add(built);
             }
@@ -167,6 +175,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (var code in ReferencedIndicatorCodes(alerts, saved))
             {
                 if (instanceOnly.Contains(code)) continue;
+                // A removed indicator: nothing to build, and not "missing here" — the evaluator
+                // tells the user, per alert, that it was removed and what to use instead.
+                if (RetiredIndicators.IsRetired(code)) continue;
                 if (template.Any(t => string.Equals(t.IndicatorCode, code, StringComparison.OrdinalIgnoreCase))) continue;
 
                 var config = saved.FirstOrDefault(s => s.Drawing == null
@@ -208,6 +219,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var config = saved.FirstOrDefault(s => s.Drawing == null
                     && string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (config == null) continue;   // gone from the tab: the evaluator says so, and watches nothing in its place
+                if (RetiredIndicators.IsRetired(config.IndicatorCode)) continue;   // removed from the app: the evaluator says so
                 var built = Build(identity, config, saved, allMeta);
                 if (built == null) continue;
                 built.Config.IsAutoNarrated = false;
@@ -248,7 +260,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Add(built.Id)) template.Add(built);
             }
 
-            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing);
+            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing, removed);
         }
 
         /// <summary>

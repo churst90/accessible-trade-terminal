@@ -38,7 +38,7 @@ public sealed class ComponentRoleMapper : IComponentRoleMapper
         { "STOCH.D",             ComponentRole.Signal },
         { "MACD.ZERO",           ComponentRole.Median },
         { "HEATMAP.LIQUIDITY",   ComponentRole.Level },
-        // Custom providers (Cipher A/B/SR, SpiderLines, EmaFill) declare Role directly in
+        // Custom providers (Cipher A/B/SR, EmaFill) declare Role directly in
         // IndicatorComponentMetadata — the factory applies it and never consults this mapper.
         // Only Skender reflection-generated indicators and core series (Price/Candles/Volume)
         // need entries here.

@@ -959,6 +959,7 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         private void ReportMissingIndicators(Watch watch, HeadlessChart chart)
         {
+            ReportRemovedIndicators(watch, chart);
             if (chart.MissingIndicators.Count == 0) return;
             string key = WatchKey(watch) + "|" + string.Join(",", chart.MissingIndicators.OrderBy(c => c, StringComparer.OrdinalIgnoreCase));
             if (!_warnedMissingIndicators.Add(key)) return;
@@ -971,6 +972,30 @@ namespace AccessibleTrader.WebHost.Services
             _logger.LogWarning("{Text}", text);
             Announce(text);
         }
+
+        /// <summary>
+        /// A narrated series on an indicator that was REMOVED from the app (Spider Lines,
+        /// 2026-10-17). The saved tab still names it, so the user expects to hear it; it is not
+        /// built because nothing can compute it. Said once per chart, through the same latch as
+        /// a missing indicator, in the words the in-session restore uses.
+        /// </summary>
+        private void ReportRemovedIndicators(Watch watch, HeadlessChart chart)
+        {
+            if (chart.RemovedIndicators.Count == 0) return;
+            string key = WatchKey(watch) + "|removed|" + string.Join(",", chart.RemovedIndicators.OrderBy(c => c, StringComparer.OrdinalIgnoreCase));
+            if (!_warnedMissingIndicators.Add(key)) return;
+            foreach (var code in chart.RemovedIndicators)
+            {
+                string text = RemovedIndicatorNotice(code, watch.Symbol);
+                _logger.LogWarning("{Text}", text);
+                Announce(text);
+            }
+        }
+
+        /// <summary>The sentence <see cref="ReportRemovedIndicators"/> says for one removed code.</summary>
+        internal static string RemovedIndicatorNotice(string code, string symbol) =>
+            $"{AccessibleTrader.Core.Services.Indicators.RetiredIndicators.NameOf(code) ?? code} on {symbol} is not narrated in the background. "
+            + $"{AccessibleTrader.Core.Services.Indicators.RetiredIndicators.Reason(code)}.";
 
         /// <summary>A chart that is no longer wanted for any reason — its tab closed, its last N
         /// flag and its last alert gone — is forgotten; its memory would otherwise sit in the

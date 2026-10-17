@@ -453,8 +453,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// announced though on new bar announcements"</i>. The first half was already true and is
         /// deliberate — a line has a value on every bar, and playback speaks discrete signals
         /// only. The second half was NOT true: cross detection lived in <see cref="ScanZoneLines"/>
-        /// behind <c>comp.IsZoneLine</c>, which only Cipher SR's pivots and Spider Lines'
-        /// fibonacci EMAs set. A user who flagged a plain EMA with N got silence from it forever —
+        /// behind <c>comp.IsZoneLine</c>, which only Cipher SR's pivots set (and Spider Lines'
+        /// EMAs, until that indicator was removed on 2026-10-17). A user who flagged a plain EMA with N got silence from it forever —
         /// no marker to fire, no zone definition to transition, no zone-line flag to cross.
         /// </para>
         ///

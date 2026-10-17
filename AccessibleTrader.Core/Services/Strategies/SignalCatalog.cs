@@ -62,8 +62,11 @@ namespace AccessibleTrader.Core.Services.Strategies
         public IReadOnlyList<SignalDescriptor> Excluded => _excluded;
 
         /// <inheritdoc/>
+        /// <remarks>A signal on a whole indicator that was removed (Spider Lines, 2026-10-17) is
+        /// answered from <see cref="Indicators.RetiredIndicators"/>: its provider is gone, so no
+        /// component of it is enumerated above, and every one of them must still say why.</remarks>
         public string? RefusalReason(string id) =>
-            _refusals.TryGetValue(id, out var why) ? why : null;
+            _refusals.TryGetValue(id, out var why) ? why : Indicators.RetiredIndicators.SignalReason(id);
 
         public SignalCatalog(IEnumerable<IIndicatorProvider> providers)
         {

@@ -161,7 +161,7 @@ namespace AccessibleTrader.Core.Services.Input
 
             if (code.StartsWith("EMA") || code.StartsWith("SMA") || code.StartsWith("WMA") ||
                 code.StartsWith("DEMA") || code.StartsWith("TEMA") || code.StartsWith("HULL") ||
-                code.StartsWith("ALMA") || code.StartsWith("VWMA") || code.Contains("SPIDER") ||
+                code.StartsWith("ALMA") || code.StartsWith("VWMA") ||
                 code.Contains("MOVING AVG") || code.Contains("MOVING AVERAGE"))
                 return CrossingType.MovingAverageCross;
 
