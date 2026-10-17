@@ -149,6 +149,9 @@ public sealed class CipherBLookTests
     /// <summary>
     /// The keyboard order did not move: every component Cipher B had before 2026-10-17 is still
     /// declared in the same order, and the two new lines come LAST. Only the paint order changed.
+    /// The one exception is a removal: "Adaptive OB" and "Adaptive OS" (between WaveTrend Cross
+    /// Bear and Anchor Polarity) stopped being components on 2026-10-17 — Cody's report, see
+    /// CipherBAdaptiveThresholdTests — so this list is the old eighteen minus those two.
     /// </summary>
     [Fact]
     public void Keyboard_order_is_unchanged_and_the_new_lines_come_last()
@@ -157,7 +160,7 @@ public sealed class CipherBLookTests
         string[] before =
         {
             "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
-            "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Adaptive OB", "Adaptive OS", "Anchor Polarity",
+            "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Anchor Polarity",
             "Oversold Crossover", "Overbought Crossover", "Triple Confluence Buy", "Bullish Divergence",
             "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation",
         };

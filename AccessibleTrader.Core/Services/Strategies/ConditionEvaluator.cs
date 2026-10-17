@@ -192,9 +192,23 @@ namespace AccessibleTrader.Core.Services.Strategies
             return true;
         }
 
+        /// <summary>
+        /// The descriptor a leaf names, or null — and when it is null because the signal was
+        /// RETIRED (<see cref="SignalCatalog.Retired"/>), the reason is recorded, so a tree alert
+        /// says once that it cannot fire instead of staying false forever in silence. Added with
+        /// the removal of Cipher B's Adaptive OB/OS components (Cody's 2026-10-17 report).
+        /// </summary>
+        private SignalDescriptor? Resolve(string id)
+        {
+            var desc = _catalog.GetById(id);
+            if (desc == null && _catalog.RefusalReason(id) is { } why)
+                Degrade($"retired|{id}", why);
+            return desc;
+        }
+
         private bool EvaluateLeaf(ConditionLeaf leaf, IReadOnlyList<Ohlcv> history, WorkspaceState state)
         {
-            var desc = _catalog.GetById(leaf.SignalDescriptorId);
+            var desc = Resolve(leaf.SignalDescriptorId);
             if (desc == null) return false;
 
             if (RefusedForCausality(desc)) return false;
@@ -377,7 +391,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             int barIndex)
         {
             if (barIndex < 0) return false;
-            var desc = _catalog.GetById(leaf.SignalDescriptorId);
+            var desc = Resolve(leaf.SignalDescriptorId);
             if (desc == null) return false;
             if (RefusedForCausality(desc)) return false;
 
@@ -913,7 +927,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             // Resolve the second descriptor (the line being crossed). If unset, the operator
             // degrades to false — same behavior as the original stub but with the path now wired.
             if (string.IsNullOrEmpty(leaf.SecondSignalDescriptorId)) return false;
-            var secondDesc = _catalog.GetById(leaf.SecondSignalDescriptorId);
+            var secondDesc = Resolve(leaf.SecondSignalDescriptorId);
             if (secondDesc == null) return false;
             if (RefusedForCausality(secondDesc)) return false;
 
@@ -1004,7 +1018,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             int htfEndExclusive, string prov, string sym, bool above)
         {
             if (string.IsNullOrEmpty(leaf.SecondSignalDescriptorId)) return false;
-            var secondDesc = _catalog.GetById(leaf.SecondSignalDescriptorId);
+            var secondDesc = Resolve(leaf.SecondSignalDescriptorId);
             if (secondDesc == null) return false;
             if (RefusedForCausality(secondDesc)) return false;
 

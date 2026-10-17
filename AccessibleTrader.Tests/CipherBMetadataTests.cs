@@ -88,11 +88,18 @@ namespace AccessibleTrader.Tests
             Assert.Equal(0.0, Get(CipherBProvider.CompWtHistogram).DefaultReferenceLevel);
         }
 
+        /// <summary>
+        /// The adaptive OB/OS thresholds are NOT components since 2026-10-17 (Cody's report: hidden
+        /// stops that said ±53, which the levels already say). The provider still writes them, as
+        /// companion arrays — CipherBAdaptiveThresholdTests.
+        /// </summary>
         [Fact]
-        public void AdaptiveObOs_ExistInMetadata()
+        public void AdaptiveObOs_AreNotComponents()
         {
-            Assert.NotNull(Get(CipherBProvider.CompAdaptiveOb));
-            Assert.NotNull(Get(CipherBProvider.CompAdaptiveOs));
+            var names = new CipherBProvider().GetIndicators()[0].Components.Select(c => c.Name).ToList();
+            Assert.DoesNotContain(names, n => n.Contains("Adaptive", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(CipherBProvider.ThresholdObKey, names);
+            Assert.DoesNotContain(CipherBProvider.ThresholdOsKey, names);
         }
 
         // ── 6. WaveTrend cross dots — MCB-accurate small dots ─────────────────

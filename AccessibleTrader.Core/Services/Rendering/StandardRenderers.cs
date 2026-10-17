@@ -376,18 +376,43 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             if (isArea && !first)
             {
-                // Close the fill shape down to the pane bottom.
+                // The fill is one polygon per RUN of values, each dropped to zero at its OWN first
+                // and last bar. Cody's 2026-10-17 screenshot (BTCUSDT 1d at the live edge): Cipher
+                // B's slow-wave area ran past the newest bar into the future space as a triangle
+                // back up to zero at the pane's right edge. This closed the whole line at the last
+                // SLOT ((ViewportLength - 1), which at the live edge is ten empty slots past the
+                // newest bar) and at the first slot, whatever bar the data started on — so the
+                // warm-up was bridged by a slanted edge too, and a NaN hole was bridged across. The
+                // runs before the last were left unclosed, which Skia fills along the line's own
+                // chord: nothing at all where the line is flat. AreaFillEdgeTests.
                 float yBase = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                 yBase = Math.Clamp(yBase, ctx.Top, ctx.Bottom);
-                float endX = ((ctx.ViewportLength - 1) * barWidth) + halfBar;
-                float startX = halfBar;
-                path.LineTo(endX, yBase);
-                path.LineTo(startX, yBase);
-                path.Close();
+                using var fillPath = new SKPath();
+                float? runStartX = null, runLastX = null;
+                void CloseRun()
+                {
+                    if (runStartX is null) return;
+                    fillPath.LineTo(runLastX!.Value, yBase);
+                    fillPath.Close();
+                    runStartX = runLastX = null;
+                }
+                for (int i = 0; i < ctx.ViewportLength; i++)
+                {
+                    int dataIdx = ctx.ViewportStart + i;
+                    if (dataIdx >= lineData.Length) break;
+                    double val = lineData[dataIdx];
+                    if (double.IsNaN(val)) { CloseRun(); continue; }
+                    float x = (i * barWidth) + halfBar;
+                    float y = ResolveMarkerY(ctx, comp, i, val);
+                    if (runStartX is null) { fillPath.MoveTo(x, yBase); runStartX = x; }
+                    fillPath.LineTo(x, y);
+                    runLastX = x;
+                }
+                CloseRun();
 
                 SKColor lineColor = paint.Color;
                 using var fillPaint = new SKPaint { Color = FillColor(comp, lineColor), Style = SKPaintStyle.Fill, IsAntialias = true };
-                ctx.Canvas.DrawPath(path, fillPaint);
+                ctx.Canvas.DrawPath(fillPath, fillPaint);
 
                 // Re-draw the line on top of the fill
                 using var linePaint = new SKPaint { Color = lineColor, StrokeWidth = paint.StrokeWidth, Style = SKPaintStyle.Stroke, IsAntialias = true };
@@ -781,8 +806,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                     if (first) { path.MoveTo(x, yZero); path.LineTo(x, y); first = false; }
                     else path.LineTo(x, y);
                 }
-                // Close back to zero
-                float endX = (to * barWidth) + halfBar;
+                // Close back to zero at the run's own last BAR. `to` is the last SLOT for the final
+                // run, ten empty slots past the newest bar at the live edge, and closing there drew
+                // the same triangle into the future space as the line area (Cody's 2026-10-17
+                // screenshot; AreaFillEdgeTests).
+                float endX = (Math.Min(to, data.Length - 1 - ctx.ViewportStart) * barWidth) + halfBar;
                 float startX = (from * barWidth) + halfBar;
                 path.LineTo(endX, yZero);
                 path.LineTo(startX, yZero);
@@ -1403,7 +1431,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             for (int i = to; i >= from; i--)
             {
                 int dataIdx = ctx.ViewportStart + i;
-                if (dataIdx >= lowerData.Length) break;
+                // Skip the slots past the data, do not stop at them. The final run is flushed
+                // with `to` = the last SLOT, so at the live edge the first index this loop met was
+                // already past the data and `break` dropped the WHOLE lower edge: the latest cloud
+                // run — everything since the last crossover — filled only the sliver between the
+                // upper line and its own chord, nothing where it was flat. Found checking every
+                // area for the overrun in Cody's 2026-10-17 screenshot; AreaFillEdgeTests.
+                if (dataIdx >= lowerData.Length) continue;
                 float x = (i * barWidth) + halfBar;
                 float y = ChartMath.MapY(lowerData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                 path.LineTo(x, y);
@@ -1502,8 +1536,13 @@ namespace AccessibleTrader.Core.Services.Rendering
                     runLevel = v;
                 }
             }
+            // Flushed at the last BAR with data, not the last slot: a band around a level the
+            // indicator has stopped reporting is not drawn into the future space, the rule every
+            // other area follows since Cody's 2026-10-17 screenshot (AreaFillEdgeTests). Until
+            // then the last S/R zone ran on to the pane's right edge.
             if (runStart >= 0)
-                FlushZoneBand(ctx, runLevel, runStart, ctx.ViewportLength - 1, barWidth, halfWidthRatio, paint);
+                FlushZoneBand(ctx, runLevel, runStart, Math.Min(ctx.ViewportLength, data.Length - ctx.ViewportStart) - 1,
+                    barWidth, halfWidthRatio, paint);
         }
 
         /// <summary>

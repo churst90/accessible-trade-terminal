@@ -187,6 +187,14 @@ namespace AccessibleTrader.Core.Services
                 var comp = series?.Components.FirstOrDefault(c =>
                     c.Name.Equals(alert.ComponentName, StringComparison.OrdinalIgnoreCase));
 
+                // The series is here but the component the alert reads is not: one the indicator no
+                // longer has (Cipher B's Adaptive OB/OS, removed 2026-10-17 on Cody's report). This
+                // returned null silently, so the alert stayed armed and could never fire; it now
+                // says so once, like a lost comparison line.
+                if (series != null && comp == null)
+                    Degrade(alert, $"{(string.IsNullOrWhiteSpace(series.FriendlyName) ? series.IndicatorCode : series.FriendlyName)} has no {alert.ComponentName} any more, so this alert cannot fire"
+                        + (Strategies.SignalCatalog.Retired.TryGetValue($"{series.IndicatorCode}.{alert.ComponentName}", out var retired) ? $" ({retired})" : ""));
+
                 if (series == null || comp == null || live < 0 || live >= series.GetComponentData(comp.Name).Length) return null;
                 currentValue = series.GetComponentData(comp.Name)[live];
                 prevValue    = PreviousValue(previousValues, series, comp.Name);
