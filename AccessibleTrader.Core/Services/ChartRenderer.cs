@@ -269,8 +269,13 @@ namespace AccessibleTrader.Core.Services
                 // the HTF regime color so sighted users see bull/bear context while
                 // looking at price, not only while looking at the oscillator.
                 _frameFormations = formations;
+                //
+                // ONLY WHILE THAT COMPONENT IS SHOWN (Cody, 2026-10-17: "make the background tint like
+                // the real cipher b" — Market Cipher B paints nothing on the price chart). Anchor
+                // Polarity is hidden by default, so by default the price pane is clean; un-hiding it
+                // brings the tint back. The same rule as everywhere else: a hidden part draws nothing.
                 _crossPaneAnchorPolarity = seriesList
-                    .Where(s => s.IsVisible)
+                    .Where(s => s.IsVisible && s.Components.Any(c => c.Name == "Anchor Polarity" && c.IsVisible))
                     .Select(s => s.GetComponentData("Anchor Polarity"))
                     .FirstOrDefault(d => d != null && d.Length > 0);
 

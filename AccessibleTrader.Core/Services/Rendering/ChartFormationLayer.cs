@@ -251,7 +251,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 ChartPatternState.Completed => $"{text}, {ChartPatternNarrator.BreakoutName(p)}",
                 ChartPatternState.Expired   => $"{text}, held",
-                _                           => $"{text}, confirms on a {ChartPatternNarrator.BreakoutName(p)}",
+                // "an upward", "a downward" — Cody's 2026-10-17 screenshot read "confirms on a upward".
+                _                           => $"{text}, confirms on {(p.BreaksBelow ? "a" : "an")} {ChartPatternNarrator.BreakoutName(p)}",
             };
         }
 
@@ -297,6 +298,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
 
+            float pad = 3f * ctx.Density;
+            (text, x) = FitInPane(text, x, ctx.PaneRect, pad, t => font.MeasureText(t));
             float width = font.MeasureText(text);
             float row = NextLabelRow(ctx, taken, y, x, width);
 
@@ -305,7 +308,6 @@ namespace AccessibleTrader.Core.Services.Rendering
             // "descending triangle" over a support line — legible only if you already knew what it
             // said. Staggering them fixed labels colliding with EACH OTHER; this fixes them
             // colliding with the chart.
-            float pad = 3f * ctx.Density;
             var plate = new SKRect(x - pad, row - font.Size, x + width + pad, row + pad);
 
             using var platePaint = new SKPaint
@@ -318,6 +320,28 @@ namespace AccessibleTrader.Core.Services.Rendering
             ctx.Canvas.DrawRoundRect(plate, 2f * ctx.Density, 2f * ctx.Density, platePaint);
 
             ctx.Canvas.DrawText(text, x, row, SKTextAlign.Left, font, paint);
+        }
+
+        /// <summary>
+        /// Keeps a label — plate included — inside the pane. A label starts at its line's left end,
+        /// so a formation near the right edge ran its text off the plot and under the price axis
+        /// (Cody's 2026-10-17 screenshot: "ascending triangle trigger 87,219.40, confirms on a upward
+        /// bre…"). It slides LEFT until it fits, and only a label longer than the whole pane is
+        /// shortened, with an ellipsis, so the words are never cut mid-glyph by the axis.
+        /// </summary>
+        internal static (string Text, float X) FitInPane(string text, float x, SKRect pane, float pad, Func<string, float> measure)
+        {
+            float room = pane.Width - 2 * pad;
+            if (measure(text) > room)
+            {
+                string t = text;
+                while (t.Length > 1 && measure(t + "…") > room) t = t[..^1];
+                text = t.TrimEnd(' ', ',') + "…";
+            }
+            float w = measure(text);
+            if (x + w + pad > pane.Right) x = pane.Right - pad - w;
+            if (x - pad < pane.Left) x = pane.Left + pad;
+            return (text, x);
         }
 
         /// <summary>

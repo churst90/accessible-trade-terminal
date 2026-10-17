@@ -462,6 +462,64 @@ public class ChartFormationLayerTests : IDisposable
             Assert.DoesNotContain("break below", ChartFormationLayer.TriggerLabel(p));
     }
 
+    /// <summary>"confirms on AN upward breakout" — Cody's 2026-10-17 screenshot read "on a upward".</summary>
+    [Fact]
+    public void TheArticleAgreesWithTheBreakoutWord()
+    {
+        var up = P(kind: ChartPatternKind.AscendingTriangle, trigger: 87_219.40) with { BreaksBelow = false };
+        var down = P(kind: ChartPatternKind.RisingWedge, trigger: 74_912);
+        Assert.Contains("confirms on an upward breakout", ChartFormationLayer.TriggerLabel(up));
+        Assert.Contains("confirms on a downward breakout", ChartFormationLayer.TriggerLabel(down));
+    }
+
+    /// <summary>
+    /// A formation near the right edge keeps its label inside the pane. The canvas here is WIDER than
+    /// the pane (800 of 1000 px), so text that ran past the pane's right edge would land on pixels a
+    /// test can see — on the chart it ran under the price axis and was cut mid-word.
+    /// </summary>
+    [Fact]
+    public void ALabelNearTheRightEdgeStaysInsideThePane()
+    {
+        var bars = Enumerable.Range(0, 300).Select(i => new Ohlcv
+        {
+            Date = new DateTime(2024, 1, 1).AddDays(i), Open = 100, High = 110, Low = 90, Close = 100, Volume = 1
+        }).ToList();
+        var surface = SKSurface.Create(new SKImageInfo(1000, 600));
+        _surfaces.Add(surface);
+        var theme = DefaultTheme();
+        surface.Canvas.Clear(theme.Background);
+        var ctx = new RenderContext(surface.Canvas, new SKRect(0, 0, 800, 600), bars,
+            ViewportStart: 100, ViewportLength: 100, Min: 50, Max: 150, IsLogScale: false,
+            ItemWidth: 8f, Density: 1f, PaneName: "Main", LocalCursorIndex: 50, Theme: theme);
+        // A forming ascending triangle whose trigger starts six bars from the right edge.
+        Render(ctx, P(kind: ChartPatternKind.AscendingTriangle, start: 180, end: 194, known: 194, trigger: 120,
+                      target: null, expires: 260) with { BreaksBelow = false });
+
+        using var image = surface.Snapshot();
+        using var bmp = SKBitmap.FromImage(image);
+        int stray = 0;
+        for (int x = 801; x < 1000; x++)
+            for (int y = 0; y < 600; y++)
+                if (bmp.GetPixel(x, y) != theme.Background) stray++;
+        Assert.True(stray == 0, $"{stray} label pixels drawn past the pane's right edge");
+
+        int inside = 0;
+        for (int x = 600; x <= 800; x++)
+            for (int y = 0; y < 600; y++)
+                if (bmp.GetPixel(x, y) != theme.Background) inside++;
+        Assert.True(inside > 50, "precondition: the label and its line are drawn near the right edge");
+    }
+
+    [Fact]
+    public void ALabelLongerThanThePaneIsShortenedWithAnEllipsisNotCut()
+    {
+        Func<string, float> measure = t => t.Length * 6f;
+        var (text, x) = ChartFormationLayer.FitInPane("ascending triangle trigger 87,219.40, confirms on an upward breakout",
+            700, new SKRect(0, 0, 200, 100), 3, measure);
+        Assert.EndsWith("…", text);
+        Assert.True(x - 3 >= 0 && x + measure(text) + 3 <= 200, $"'{text}' at {x} does not fit");
+    }
+
     [Fact]
     public void TheDashedLineIsLabelledAsTheMeasuredTargetWithItsPrice()
     {
