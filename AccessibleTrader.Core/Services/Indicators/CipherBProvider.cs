@@ -14,24 +14,28 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para><b>What MCB draws, and is shown by default:</b> the fast and slow WaveTrend waves (light-
     /// and dark-blue areas), MCB's "VWAP" (our WT Histogram, WT1 − WT2, one yellow area), the money
     /// flow (lime/red area) and the money-flow bar along the bottom, a small dot at every wave cross,
-    /// the big green buy dot (Oversold Crossover), the 0–100 "RSI" and "Stochastic" lines (drawn,
-    /// muted), and plain level lines at ±60, ±53 and zero.</para>
+    /// the big green "Buy dot" (Oversold Crossover), the 0–100 "RSI" and "Stochastic" lines (drawn,
+    /// muted), and plain level lines at ±60, ±53 and zero. Also shown: the "Gold dot" (Triple
+    /// Confluence Buy), whose default rule is the readable VuManChu Cipher B code's gold circle
+    /// (<see cref="McbGoldDots"/>) — no dated MCB chart we found shows one, so it is a port of
+    /// the open clone's definition, not a fit to MCB.</para>
     ///
     /// <para><b>What is ours, computed but hidden by default</b> (none of it appears on any of those
-    /// MCB charts, where our rules fire it several times each): the red Overbought Crossover, the gold
-    /// Triple Confluence Buy, regular and hidden divergences (with their pivot-to-pivot lines), the
+    /// MCB charts, where our rules fire it several times each): the red Overbought Crossover,
+    /// regular and hidden divergences (with their pivot-to-pivot lines), the
     /// higher-timeframe anchor waves, Anchor Polarity and the Anchor Fill cloud, and the WT Fill band.
     /// Hidden components stay keyboard stops, strategy and alert inputs; they are not drawn, sounded
     /// or narrated until shown (H on the component, Properties, or Ctrl+Alt+Shift+K).</para>
     ///
-    /// <para><b>Older behaviour behind parameters.</b> WTSignalPeriod = 4, MoneyFlowMode = Legacy and
-    /// BuyDotMode = Gated reproduce every number this indicator produced before 2026-10-17; saved
+    /// <para><b>Older behaviour behind parameters.</b> WTSignalPeriod = 4, MoneyFlowMode = Legacy,
+    /// BuyDotMode = Gated and GoldDotMode = Confluence reproduce every number this indicator
+    /// produced before 2026-10-17; saved
     /// backtests used them. The parameters themselves are declared, with descriptions, in
     /// <see cref="GetIndicators"/> — the one list of them, so it cannot drift from this one.</para>
     ///
     /// <para><b>Gates that are ours, not MCB's</b> (they decide the hidden signals and the Gated buy
     /// dot): an N-bar confirmation and cooldown on the gated crossovers, anchor-wave suppression of
-    /// counter-trend dots, a K-of-4 confluence for gold (RSI oversold, a green bar, ADX above a gate,
+    /// counter-trend dots, a K-of-4 confluence for the Confluence gold rule (RSI oversold, a green bar, ADX above a gate,
     /// ATR above a percentile floor), a true-range conviction test and a depth gate on divergences,
     /// and timeframe-aware scaling of all of them. ThresholdMode = Percentile replaces the fixed ±OBLevel
     /// those gates use with rolling percentiles of the fast wave.</para>
@@ -58,13 +62,20 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompCrossBear    = "WaveTrend Cross Bear";
         /// <summary>MCB's big green buy dot (BuyDotMode = MCB), or the gated crossover (Gated). Named
         /// "Blue" for the colour it had until 2026-10-17; the name is kept because strategies,
-        /// alerts and tests reference it.</summary>
+        /// alerts and tests reference it. Heard and shown as <see cref="DisplayBuyDot"/>.</summary>
         public const string CompBlue         = "Oversold Crossover";
         /// <summary>The red gated sell dot — ours, hidden by default.</summary>
         public const string CompRed          = "Overbought Crossover";
-        /// <summary>The gold dot: a gated buy that also meets the K-of-4 confluence — ours, hidden
-        /// by default.</summary>
+        /// <summary>The gold dot, heard and shown as <see cref="DisplayGoldDot"/>. GoldDotMode = MCB
+        /// (default since 2026-10-18): the Cipher B gold dot as the readable VuManChu Cipher B code
+        /// defines it (<see cref="McbGoldDots"/>). Confluence: our older gated buy that also meets
+        /// the K-of-4 confluence. The machine name is the old one because saved charts, alerts and
+        /// strategies (SignalDescriptorId "CIPHER_B.Triple Confluence Buy") reference it.</summary>
         public const string CompGold         = "Triple Confluence Buy";
+        /// <summary>What the user hears and sees for <see cref="CompBlue"/> and <see cref="CompGold"/>
+        /// — the status line, Ctrl+Up/Down, Alt+Shift+D, narration, Properties and the alert and
+        /// strategy pickers all read DisplayName (2026-10-18, Cody: "Buy dot", "Gold dot").</summary>
+        internal const string DisplayBuyDot = "Buy dot", DisplayGoldDot = "Gold dot";
         /// <summary>
         /// The pane's levels — the waves' scale, ±53 / ±60 and zero. Named explicitly on every
         /// component that used to take "all levels" (null), so the undrawn 80/20 below reach only
@@ -319,7 +330,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // MCB's big green buy dot: opaque #3FFF00 (sampled exactly in the 2.2.6 chart),
                     // drawn in the money-flow bar. Was blue (#0BBCF5) on the wave until 2026-10-17;
                     // see BuyDotMode for the rule.
-                    new() { Name = CompBlue,          DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
+                    // Spoken "Buy dot, waves crossed up from oversold" (was "Oversold crossover, long
+                    // signal"): true of both rules — MCB's fires on a cross up with the slow wave at or
+                    // below −BuyDotLevel (−60), Gated on a cross up with the fast wave below the OS
+                    // threshold for ConfirmBars bars.
+                    new() { Name = CompBlue,          DisplayName = DisplayBuyDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
                             DefaultColorHex = "#3FFF00", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -328,14 +343,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultBaseFrequency = 840.0,
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Oversold crossover, long signal",
+                            DefaultSignalSpeechTemplate = "Buy dot, waves crossed up from oversold",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     //
                     // ── Our own signals, HIDDEN by default (2026-10-17) ─────────────────────────
                     // Cody: "finish disabling the elements on cipher b to make it similar to stock
                     // market cipher's config". The red Overbought Crossover, the gold Triple
-                    // Confluence Buy and the four divergences appear on none of the five dated MCB
+                    // Confluence Buy (shown again since 2026-10-18 with its own rule, below) and the
+                    // four divergences appear on none of the five dated MCB
                     // charts (the vendor's product image, "MarketCipher B (2.2.6, …)" BTCUSD 1D, and
                     // three 2022–2023 BTC charts) — while our rules fire them on those same bars: red
                     // 6/1/1/2, gold 2/2/2/0, divergences 9/4/3/6 across S2–S5. MCB's red marks are
@@ -356,8 +372,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Overbought crossover, short signal",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
-                    new() { Name = CompGold,          DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                    // ── The gold dot: VISIBLE by default again (2026-10-18) ──
+                    // Cody: make it visible and fit it to Market Cipher B's gold-dot conditions. Its
+                    // rule (GoldDotMode = MCB) is the readable VuManChu Cipher B code's gold circle,
+                    // ported exactly — see McbGoldDots. Drawn in the money-flow bar with the buy dot,
+                    // where that code draws it (−106, beside the buy circle's −107), on the bar the
+                    // divergence is first knowable. Spoken "Gold dot, waves turning up from oversold":
+                    // true of both rules (MCB: the slow wave made a bottom at or below −65 and has
+                    // risen two bars from it; Confluence: a cross up with the fast wave below OS). It
+                    // claims no "buy": the code it is ported from says "DONT BUY WHEN GOLD CIRCLE
+                    // APPEAR". Sound unchanged (dual_tone_bell, 440 Hz, 500 ms).
+                    new() { Name = CompGold,          DisplayName = DisplayGoldDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
                             DefaultColorHex = "#FFD700", DefaultThickness = 8.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -366,7 +391,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultBaseFrequency = 440.0,
                             DefaultPitchMapping = PitchMapping.None,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Triple confluence buy, strong confirmation",
+                            DefaultSignalSpeechTemplate = "Gold dot, waves turning up from oversold",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
 
@@ -512,14 +537,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
                             Description = "MCB = 180 x average Heikin-Ashi body/range over Money Flow Period bars (fitted to Market Cipher B). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
                     new() { Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
-                            Description = "MCB = a green dot on every cross up with the slow wave at or below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17. The gold dot uses the gated rule either way." },
+                            Description = "MCB = a green dot on every cross up with the slow wave at or below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17. The gold dot has its own rule (Gold Dot Rule)." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "MCB buy-dot depth: the slow wave must be at or below minus this at the cross. 60 = MCB 2.2.6." },
+                    // Added 2026-10-18. Confluence keeps every gold dot saved strategies and backtests
+                    // were measured on (CipherBGoldDotTests pins it byte for byte).
+                    new() { Name = "GoldDotMode",    DisplayName = "Gold Dot Rule",          DefaultValue = "MCB", DataType = typeof(string),
+                            Description = "MCB = the Cipher B gold dot as the open VuManChu Cipher B code defines it: a bullish divergence on the slow wave (both bottoms at or below -65, price making a lower low), the earlier bottom at or below -75 with RSI under 30 there, and the slow wave now above -75 and at least 5 above that bottom. Shown two bars after the second bottom, when it is first known. Confluence = the gated buy dot plus 3 of 4 of RSI oversold, a green bar, ADX and ATR, used before 2026-10-18." },
+                    new() { Name = "GoldRsiDivergence", DisplayName = "Gold Dot: RSI Divergence Too", DefaultValue = false, DataType = typeof(bool),
+                            Description = "MCB gold rule only. Also accept a bullish RSI divergence (both RSI bottoms at or below 30) in place of the slow-wave one, as VuManChu's 'Show RSI Regular Divergences' does. Off, as in that code." },
                     new() { Name = "OBLevel",        DisplayName = "OB/OS Threshold",        DefaultValue = 53.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "Fixed-mode OB/OS level for the gated dots and divergences. In Percentile mode it is used only until the rolling window has warmed up." },
                     // Signal logic
                     new() { Name = "RSIPeriod",      DisplayName = "RSI Period (Gold/Base)", DefaultValue = 14.0, DataType = typeof(int),    MinValue = 2,  MaxValue = 60, Step = 1 },
-                    new() { Name = "RSIOSLevel",     DisplayName = "RSI Oversold (Gold)",    DefaultValue = 30.0, DataType = typeof(double), MinValue = 10, MaxValue = 50, Step = 1 },
+                    new() { Name = "RSIOSLevel",     DisplayName = "RSI Oversold (Gold)",    DefaultValue = 30.0, DataType = typeof(double), MinValue = 10, MaxValue = 50, Step = 1,
+                            Description = "Confluence gold rule only (the MCB gold rule uses a fixed 30, as its source code does)." },
                     new() { Name = "PivotBars",      DisplayName = "Divergence Pivot Bars",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10, Step = 1 },
                     // Anchor waves
                     new() { Name = "AnchorMultiplier", DisplayName = "Anchor Wave Multiplier", DefaultValue = 5.0, DataType = typeof(int), MinValue = 2, MaxValue = 10, Step = 1,
@@ -537,23 +569,23 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                     // Signal quality gates
                     new() { Name = "ConfirmBars",    DisplayName = "Confirmation Bars",     DefaultValue = 2.0, DataType = typeof(int), MinValue = 1, MaxValue = 5, Step = 1,
-                            Description = "Bars the fast wave must stay past OS/OB before a gated dot fires: the red Overbought Crossover, the Gated buy dot and so gold (1 = immediate, 2 = sustained)." },
+                            Description = "Bars the fast wave must stay past OS/OB before a gated dot fires: the red Overbought Crossover, the Gated buy dot and so the Confluence gold dot (1 = immediate, 2 = sustained)." },
                     new() { Name = "CooldownBars",   DisplayName = "Cooldown Bars",         DefaultValue = 0.0, DataType = typeof(int), MinValue = 0, MaxValue = 50, Step = 1,
                             Description = "Suppress further same-side dots for N bars after one fires. 0 = auto (uses WT1Period)." },
                     new() { Name = "AdxPeriod",      DisplayName = "ADX Period (Gold gate)", DefaultValue = 14.0, DataType = typeof(int), MinValue = 2, MaxValue = 50, Step = 1 },
                     new() { Name = "AdxGate",        DisplayName = "ADX Minimum (Gold)",    DefaultValue = 18.0, DataType = typeof(double), MinValue = 0, MaxValue = 50, Step = 1,
-                            Description = "One of the four gold conditions: ADX above this value (0 = always met)." },
+                            Description = "Confluence gold rule only. One of its four conditions: ADX above this value (0 = always met)." },
                     new() { Name = "AtrPeriod",      DisplayName = "ATR Period (Gold gate)", DefaultValue = 14.0, DataType = typeof(int), MinValue = 2, MaxValue = 50, Step = 1 },
                     new() { Name = "AtrFloorPct",    DisplayName = "ATR Percentile Floor",  DefaultValue = 0.20, DataType = typeof(double), MinValue = 0, MaxValue = 0.5, Step = 0.05,
-                            Description = "One of the four gold conditions: current ATR ranks above this percentile of recent ATRs (0 = always met)." },
+                            Description = "Confluence gold rule only. One of its four conditions: current ATR ranks above this percentile of recent ATRs (0 = always met)." },
                     new() { Name = "GoldMinConfluence", DisplayName = "Gold Min Confluence", DefaultValue = 3.0, DataType = typeof(int), MinValue = 1, MaxValue = 4, Step = 1,
-                            Description = "Number of gold confluence conditions (RSI<OS, green bar, ADX>gate, ATR>floor) that must hold. 3-of-4 is the default; 4 = strict AND, 1 = any single condition." },
+                            Description = "Confluence gold rule only. Number of its conditions (RSI<OS, green bar, ADX>gate, ATR>floor) that must hold. 3-of-4 is the default; 4 = strict AND, 1 = any single condition." },
                     new() { Name = "UseAnchorSuppression", DisplayName = "Anchor Suppression", DefaultValue = true, DataType = typeof(bool),
-                            Description = "When ON, the Gated buy dot (and so gold) is suppressed while Anchor Wave is strongly bearish, and the red dot while it is strongly bullish. Prevents counter-trend entries against a clear higher-TF regime." },
+                            Description = "When ON, the Gated buy dot (and so the Confluence gold dot) is suppressed while Anchor Wave is strongly bearish, and the red dot while it is strongly bullish. Prevents counter-trend entries against a clear higher-TF regime." },
                     new() { Name = "AnchorSuppressDepth", DisplayName = "Anchor Suppress Depth", DefaultValue = 40.0, DataType = typeof(double), MinValue = 10, MaxValue = 80, Step = 5,
                             Description = "Anchor Wave must exceed ±this value to count as 'strongly directional' for suppression. Lower values suppress more often." },
                     new() { Name = "TfAware",        DisplayName = "Timeframe-Aware Gates", DefaultValue = true, DataType = typeof(bool),
-                            Description = "When ON, Cipher B reads the chart's timeframe (or, failing that, the bars' spacing) and scales gold/divergence gates accordingly. Default values are daily-tuned; intraday TFs need looser ADX/ATR/MF/conviction or signals fire too rarely. Turn OFF to use literal parameter values." },
+                            Description = "When ON, Cipher B reads the chart's timeframe (or, failing that, the bars' spacing) and scales the Confluence gold and divergence gates accordingly. Default values are daily-tuned; intraday TFs need looser ADX/ATR/MF/conviction or signals fire too rarely. Turn OFF to use literal parameter values." },
                 }
             }
         };
@@ -599,6 +631,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool   mcbMoneyFlow   = !string.Equals(GetStr(parameters, "MoneyFlowMode", "MCB"), "Legacy", StringComparison.OrdinalIgnoreCase);
             bool   mcbBuyDot      = !string.Equals(GetStr(parameters, "BuyDotMode", "MCB"), "Gated", StringComparison.OrdinalIgnoreCase);
             double buyDotLevel    = Math.Abs(GetDbl(parameters, "BuyDotLevel", 60.0));
+            bool   mcbGoldDot     = !string.Equals(GetStr(parameters, "GoldDotMode", "MCB"), "Confluence", StringComparison.OrdinalIgnoreCase);
+            bool   goldRsiDiv     = IndicatorParams.GetBool(parameters, "GoldRsiDivergence", false);
             double obLevel       = GetDbl(parameters, "OBLevel",        53.0);
             int    rsiPeriod     = GetInt(parameters, "RSIPeriod",      14);
             double rsiOS         = GetDbl(parameters, "RSIOSLevel",     30.0);
@@ -621,7 +655,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double atrFloorPct   = GetDbl(parameters, "AtrFloorPct",  0.20);
             int    goldMinConfluence = GetInt(parameters, "GoldMinConfluence", 3);
 
-            // Anchor suppression: blocks the GATED crossovers (the Gated buy dot, and so gold;
+            // Anchor suppression: blocks the GATED crossovers (the Gated buy dot, and so Confluence gold;
             // the red dot) when the anchor wave is strongly opposed to their direction. A
             // strongly bearish anchor (negative polarity AND deeper than the threshold) means
             // the higher-TF regime is bearish, so a buy fired in it is usually a counter-trend
@@ -854,7 +888,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 mfDisplay[i] = scaled;
             }
 
-            // ── RSI (for Gold confluence) ─────────────────────────────────────
+            // ── RSI (for both gold rules: VuManChu's rsi(close, 14), and the Confluence gate) ──
             var rsi = IndicatorMath.Rsi(close, rsiPeriod);
 
             // ── MCB "RSI" and "Stochastic" lines (drawn, muted by default) ──────────────────
@@ -907,8 +941,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // ── Signal dots ──────────────────────────────────────────────────
             // Two buy rules run side by side: MCB's (mcbBuy, the default Oversold Crossover) and
             // the older GATED one (gatedBuy — confirmation, cooldown, anchor suppression), which
-            // is the Oversold Crossover in BuyDotMode = Gated and, in both modes, the only way to
-            // a gold dot. The red Overbought Crossover is gated the same way.
+            // is the Oversold Crossover in BuyDotMode = Gated and, in both buy-dot modes, the base of
+            // the Confluence gold dot (GoldDotMode = Confluence). The red Overbought Crossover is gated the same way.
             var crossBullSignal = new double[n];
             var crossBearSignal = new double[n];
             var gatedBuySignal  = new double[n];
@@ -974,7 +1008,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         gatedBuySignal[i] = wt2[i] - GatedDotOffset;
                         gatedBuyCd = cooldownBars;
 
-                        // Gold: K-of-4 confluence on (RSI < oversold, a green bar, ADX > gate, ATR
+                        // Confluence gold (GoldDotMode = Confluence; the default before 2026-10-18): K-of-4 confluence on (RSI < oversold, a green bar, ADX > gate, ATR
                         // above its percentile floor), GoldMinConfluence = 3 by default. Strict
                         // AND-of-all-four was too brittle — even with TF-aware scaling it fired on
                         // ~5-8% of gated buys, 0-3 gold dots per 4000-bar dataset; any 3 of 4 keeps
@@ -1239,12 +1273,26 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);
             // BuyDotMode = MCB (default since 2026-10-17): MCB's rule above. Gated: the old
             // confirmed + cooled-down + anchor-gated crossover, which matched 3 of MCB's 11 green
-            // dots. The gold dot is computed from the gated rule in BOTH modes, so it is unchanged.
+            // dots. Confluence gold reads the gated rule, which runs in both modes, and MCB gold reads
+            // no buy dot at all — so BuyDotMode never moves gold.
             WriteToBuffer(buffer, CompBlue,           mcbBuyDot ? mcbBuy : gatedBuySignal, n);
             WriteToBuffer(buffer, CompMcbRsi,         mcbRsi,          n);
             WriteToBuffer(buffer, CompMcbStoch,       mcbStoch,        n);
             WriteToBuffer(buffer, CompRed,            redSignal,       n);
-            WriteToBuffer(buffer, CompGold,           goldSignal,      n);
+            // GoldDotMode = MCB (default since 2026-10-18): the VuManChu gold circle (McbGoldDots),
+            // drawn in the money-flow bar beside the buy dot, on the bar it is first knowable.
+            // Confluence: the gated K-of-4 rule above, unchanged byte for byte.
+            if (mcbGoldDot)
+            {
+                var fires = McbGoldDots(wt2, low, rsi, goldRsiDiv);
+                var mcbGold = new double[n];
+                for (int i = 0; i < n; i++) mcbGold[i] = fires[i] ? McbBuyDotY : double.NaN;
+                WriteToBuffer(buffer, CompGold,       mcbGold,         n);
+            }
+            else
+            {
+                WriteToBuffer(buffer, CompGold,       goldSignal,      n);
+            }
             // ── Look-ahead honesty: divergence confirmation lag ──────────────────
             // A pivot at bar p is only CONFIRMED after seeing wt1[p+1..p+pivotBars]
             // (the right-shoulder check in the pivot loop above). But the marker is
@@ -1368,7 +1416,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompBearDiv        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "bearish"),
                 CompHidBull        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "hidden bullish"),
                 CompHidBear        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "hidden bearish"),
-                CompGold           => GetTripleConfluenceSpeech(bar, allComponentData, dataIndex),
+                CompGold           => GetGoldDotSpeech(bar, allComponentData, dataIndex),
                 _ => null
             };
         }
@@ -1410,14 +1458,18 @@ namespace AccessibleTrader.Core.Services.Indicators
             return $"{kind} divergence, confirmed on pivot. Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
-        private static string GetTripleConfluenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
+        private static string GetGoldDotSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
         {
             double wt1 = SpeechValue(data, CompWT1, DisplayWT1, idx);
             double mf  = SpeechValue(data, CompMoneyFlowWave, DisplayMoneyFlow, idx);
 
             var parts = new StringBuilder();
             parts.Append($"Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.");
-            if (!double.IsNaN(wt1)) parts.Append($" Wave Trend {wt1:F1}, oversold.");
+            // The wave's value, with "oversold" only when it IS past −53. It used to say ", oversold"
+            // unconditionally: true of the Confluence rule (the fast wave is below OS at its cross),
+            // not of the MCB gold rule, which fires two bars after a slow-wave bottom, by when the
+            // fast wave has often climbed above −53.
+            if (!double.IsNaN(wt1)) parts.Append($" Wave Trend {GetWTValueSpeech(wt1)}.");
             if (!double.IsNaN(mf) && mf > 0.0) parts.Append(" Money flow positive.");
             // It used to end " Trend and volatility confirmed." on every gold dot. Gold needs only
             // GoldMinConfluence (3) of its four conditions, so ADX and ATR may be exactly the ones
@@ -1483,8 +1535,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             var signals = new List<string>();
-            if (!double.IsNaN(goldVal))  signals.Add("Triple confluence buy");
-            else if (!double.IsNaN(blueVal)) signals.Add("Long signal");
+            // Gold and the buy dot are independent since 2026-10-18 (MCB gold needs no cross), so
+            // both are named. The red dot needs a cross down, so it never shares a bar with the buy dot.
+            if (!double.IsNaN(goldVal))  signals.Add(DisplayGoldDot);
+            if (!double.IsNaN(blueVal))  signals.Add(DisplayBuyDot);
             else if (!double.IsNaN(redVal))  signals.Add("Short signal");
             if (!double.IsNaN(bullVal)) signals.Add("Bullish divergence");
             if (!double.IsNaN(bearVal)) signals.Add("Bearish divergence");
@@ -1551,6 +1605,125 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 0; i < n; i++)
                 ci[i] = (double.IsNaN(d[i]) || d[i] < 1e-10) ? double.NaN : (src[i] - esa[i]) / (WaveTrendCciScale * d[i]);
             return IndicatorMath.Ema(ci, averageLength);
+        }
+
+        // ── The gold dot (GoldDotMode = MCB) ─────────────────────────────────────
+
+        /// <summary>VuManChu's <c>osLevel3 = input(-75, 'WT Oversold Level 3')</c>: the earlier
+        /// bottom must reach it, and the slow wave must be back above it.</summary>
+        internal const double GoldDeepLevel = -75.0;
+        /// <summary>VuManChu's <c>wtDivOSLevel = input(-65, 'WT Bullish Divergence min')</c>: a
+        /// slow-wave bottom counts for the divergence only at or below this.</summary>
+        internal const double GoldWtDivergenceLevel = -65.0;
+        /// <summary>VuManChu's <c>rsiDivOSLevel = input(30, 'RSI Bullish Divergence min')</c>, for the
+        /// optional RSI divergence (GoldRsiDivergence).</summary>
+        internal const double GoldRsiDivergenceLevel = 30.0;
+        /// <summary>The literal <c>wtLow_prev - wt2 &lt;= -5</c>: the slow wave at least this far above
+        /// the earlier bottom.</summary>
+        internal const double GoldMinRise = 5.0;
+        /// <summary>The literal <c>lastRsi &lt; 30</c> (not the RSIOSLevel input, which the code
+        /// does not read here).</summary>
+        internal const double GoldRsiAtLow = 30.0;
+
+        /// <summary>
+        /// <b>The gold dot, ported exactly from the readable VuManChu Cipher B code</b>
+        /// ("VMC Cipher_B_Divergences", pastebin.com/raw/m8Kp9XZk, fetched 2026-10-18). The lines it
+        /// rests on, verbatim:
+        /// <code>
+        /// f_bot_fractal(src) => src[4] > src[2] and src[3] > src[2] and src[2] &lt; src[1] and src[2] &lt; src[0]
+        /// fractalBot = f_fractalize(src) &lt; 0 and (useLimits ? src[2] &lt;= botLimit : true) ? src[2] : na
+        /// lowPrev = valuewhen(fractalBot, src[2], 0)[2]
+        /// lowPrice = valuewhen(fractalBot, low[2], 0)[2]
+        /// bullSignal = fractalBot and low[2] &lt; lowPrice and src[2] > lowPrev
+        /// [wtFractalTop, wtFractalBot, wtLow_prev, wtBearDiv, wtBullDiv, ...] = f_findDivs(wt2, wtDivOBLevel, wtDivOSLevel, true)
+        /// [rsiFractalTop, rsiFractalBot, rsiLow_prev, rsiBearDiv, rsiBullDiv, ...] = f_findDivs(rsi, rsiDivOBLevel, rsiDivOSLevel, true)
+        /// lastRsi = valuewhen(wtFractalBot, rsi[2], 0)[2]
+        /// wtGoldBuy = ((wtShowDiv and wtBullDiv) or (rsiShowDiv and rsiBullDiv)) and
+        ///            wtLow_prev &lt;= osLevel3 and
+        ///            wt2 > osLevel3 and
+        ///            wtLow_prev - wt2 &lt;= -5 and
+        ///            lastRsi &lt; 30
+        /// </code>
+        /// with wtShowDiv = true, rsiShowDiv = false, osLevel3 = −75, wtDivOSLevel = −65,
+        /// rsiDivOSLevel = 30, and rsi = rsi(close, 14). In words, at bar t:
+        /// <list type="bullet">
+        /// <item>bar t−2 is a slow-wave bottom — strictly below the two bars either side of it — at
+        ///   or below −65 (a "fractal", confirmed only once bars t−1 and t exist);</item>
+        /// <item>the previous such bottom, confirmed at or before bar t−2, was HIGHER on the wave and
+        ///   its bar's low was HIGHER in price: price made a lower low, the wave a higher one — a
+        ///   regular bullish divergence (or, with <paramref name="includeRsiDivergence"/>, the same on
+        ///   RSI with both RSI bottoms at or below 30);</item>
+        /// <item>that previous slow-wave bottom was at or below −75, and RSI at its bar was under 30;</item>
+        /// <item>the slow wave NOW (bar t, not the bottom) is above −75 and at least 5 above that
+        ///   previous bottom.</item>
+        /// </list>
+        ///
+        /// <para><b>No cross is required</b> — the code's own header says "have crossed up", and
+        /// "RSI below 20, … below or equal to -80"; the code says neither, and the code is what
+        /// draws the dot. Where they disagree the CODE is ported.</para>
+        ///
+        /// <para><b>Causal: stamped at t, the bar the bottom is first knowable.</b> The code
+        /// evaluates the condition at t and draws it with <c>offset = -2</c>, i.e. on the bottom bar
+        /// two bars in the past — a picture that knew two bars of the future. This returns true at t
+        /// and reads nothing after t. Nothing is shifted afterwards: there is no pivot-stamped marker
+        /// to move (unlike the pivot divergences' DivergenceConfirmLag).</para>
+        ///
+        /// <para>The slow wave is OUR wt2 — Market Cipher B's, fitted on 2026-10-17 (hlc3, 9/12, SMA
+        /// of 3) — not VuManChu's own (ohlc4, 9/13). Lows are raw candles' lows, as the code reads
+        /// <c>low</c>. NaN anywhere in a comparison makes it false, as <c>na</c> does in Pine.</para>
+        ///
+        /// <para>Whether Market Cipher B itself has a gold dot is NOT established: none of the dated
+        /// MCB charts examined on 2026-10-17/18 shows one, and tradelogic.pro (2026-02-24) states
+        /// "The Golden Circle does not exist in the official Market Cipher B from CryptoFace." Every
+        /// gold-dot description traced back to VuManChu.</para>
+        /// </summary>
+        internal static bool[] McbGoldDots(double[] wt2, double[] low, double[] rsi, bool includeRsiDivergence)
+        {
+            int n = wt2.Length;
+            var gold = new bool[n];
+            var wtDiv  = BullishFractalDivergence(wt2, low, GoldWtDivergenceLevel, out var wtPrevBottom);
+            bool[]? rsiDiv = includeRsiDivergence
+                ? BullishFractalDivergence(rsi, low, GoldRsiDivergenceLevel, out _)
+                : null;
+            for (int t = 0; t < n; t++)
+            {
+                bool divergence = wtDiv[t] || (rsiDiv != null && rsiDiv[t]);
+                int p = wtPrevBottom[t];   // wtLow_prev / lastRsi: the previous WT bottom's bar
+                if (!divergence || p < 0) continue;
+                gold[t] = wt2[p] <= GoldDeepLevel
+                       && wt2[t] > GoldDeepLevel
+                       && wt2[p] - wt2[t] <= -GoldMinRise
+                       && rsi[p] < GoldRsiAtLow;
+            }
+            return gold;
+        }
+
+        /// <summary>
+        /// VuManChu's <c>f_findDivs(src, _, botLimit, true)</c>, bullish half: per bar t, whether a
+        /// bottom fractal at t−2 (at or below <paramref name="botLimit"/>) makes a regular bullish
+        /// divergence with the previous qualifying bottom; and in <paramref name="prevBottom"/> the
+        /// BAR of that previous bottom (the one <c>valuewhen(fractalBot, src[2], 0)[2]</c> reads), or
+        /// −1 when there is none. Reads only bars at or before t.
+        /// </summary>
+        private static bool[] BullishFractalDivergence(double[] src, double[] low, double botLimit, out int[] prevBottom)
+        {
+            int n = src.Length;
+            var signal = new bool[n];
+            var isFractal = new bool[n];
+            prevBottom = new int[n];
+            int latestBottom = -1;   // bottom bar of the latest fractal confirmed at or before t−2
+            for (int t = 0; t < n; t++)
+            {
+                if (t >= 2 && isFractal[t - 2]) latestBottom = t - 4;
+                prevBottom[t] = latestBottom;
+                if (t < 4) continue;
+                int b = t - 2;
+                isFractal[t] = src[t - 4] > src[b] && src[t - 3] > src[b] && src[b] < src[t - 1] && src[b] < src[t]
+                               && src[b] <= botLimit;
+                signal[t] = isFractal[t] && latestBottom >= 0
+                            && low[b] < low[latestBottom] && src[b] > src[latestBottom];
+            }
+            return signal;
         }
 
         // ── Buffer / parameter helpers ────────────────────────────────────────

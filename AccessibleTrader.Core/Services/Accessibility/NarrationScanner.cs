@@ -85,6 +85,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly Dictionary<string, double> _lastZoneClose = new();
 
+        /// <summary>
+        /// Whether each zone line's CURRENT level was a ceiling (true) or a floor when it first
+        /// appeared — the side of price it was born on. A break is named by this.
+        ///
+        /// <para>
+        /// The close at the last bar the level existed (<see cref="_lastZoneClose"/>) is not
+        /// enough: a break that needs a close CONVINCINGLY through the level (Cipher SR's, until the
+        /// 2026-10-17 Market Cipher SR rebuild removed breaks; any zone line can still go empty), so price often
+        /// closes a little past it first, and the bar before the break is then already on the far
+        /// side. On Cody's BTC daily chart 14 of the 55 real breaks were named the wrong way round
+        /// — "Resistance at 84,398 broken" about the support price had just fallen through
+        /// (CipherSrSpeechTests).
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<string, bool> _zoneBornAsResistance = new();
+
         /// <summary>Last touch count seen per series+component.</summary>
         private readonly Dictionary<string, int> _lastTouchCount = new();
 
@@ -171,6 +187,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             RemoveByPrefix(_lastSeenPivotIndex, prefix);
             RemoveByPrefix(_lastZoneLineValue, prefix);
             RemoveByPrefix(_lastZoneClose, prefix);
+            RemoveByPrefix(_zoneBornAsResistance, prefix);
             RemoveByPrefix(_lastTouchCount, prefix);
             RemoveByPrefix(_inProximity, prefix);
             RemoveByPrefix(_lastPriceAboveZone, prefix);
@@ -864,6 +881,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         {
                             _lastPriceAboveZone[zoneKey] = seedClose > data[idx];
                             _lastZoneClose[zoneKey] = seedClose;
+                            _zoneBornAsResistance[zoneKey] = LevelPolarity.IsResistance(data[idx], seedClose);
                         }
                     }
                 }
@@ -940,6 +958,37 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string zoneKey = $"{series.Id}:{comp.Name}";
                 string lineName = comp.DisplayName ?? comp.Name;
 
+                // ── Replacement ──────────────────────────────────────────────────────
+                // A provider that publishes "{zone}_replaced" (Cipher SR) says, on the bar a newer
+                // level took over from a live one, which level it replaced. That is not a break —
+                // price never closed through the old level — and until 2026-10-17 it was announced
+                // as one: the line went empty for that bar and the rule below read the gap as
+                // "Resistance at X broken" (84 of 136 on Cody's BTC daily chart). A line from a
+                // provider that publishes no such array is untouched by this block.
+                var replacedData = series.GetComponentData(comp.Name + Indicators.CipherSrProvider.ReplacedSuffix);
+                if (replacedData.Length > 0 && !double.IsNaN(currentVal)
+                    && TryReadReplacement(replacedData, barIndex, currentVal, zoneKey, out double replacedLevel))
+                {
+                    string newWord = LevelPolarity.Word(currentVal, currentClose);
+                    utterance.Add(ScanUtterance.TierBreak, series.FriendlyName, zoneKey,
+                        $"{series.FriendlyName}: New {newWord} at {SpeechPriceFormatter.FormatPrice(currentVal)}, " +
+                        $"replacing {SpeechPriceFormatter.FormatPrice(replacedLevel)}.");
+
+                    // Everything the scanner remembered was about the OLD level. Start the new one
+                    // where it stands: on the side price is on now (no cross is announced for a
+                    // level that moved under price), already near or not (the clause above named
+                    // it, so no "approaching" on top), with its own touch count.
+                    _lastZoneLineValue[zoneKey] = currentVal;
+                    _lastZoneClose[zoneKey] = currentClose;
+                    _zoneBornAsResistance[zoneKey] = LevelPolarity.IsResistance(currentVal, currentClose);
+                    _lastPriceAboveZone[zoneKey] = currentClose > currentVal;
+                    _inProximity[zoneKey] = Math.Abs(currentClose - currentVal) / currentClose * 100.0 <= 0.5;
+                    var newTouches = series.GetComponentData(comp.Name.Replace(" Zone", "") + "_touches");
+                    _lastTouchCount[$"{series.Id}:{comp.Name}:touches"] =
+                        barIndex < newTouches.Length && !double.IsNaN(newTouches[barIndex]) ? (int)newTouches[barIndex] : 0;
+                    continue;
+                }
+
                 // ── Break detection ──────────────────────────────────────────────────
                 if (_lastZoneLineValue.TryGetValue(zoneKey, out double lastVal))
                 {
@@ -962,12 +1011,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         double breakRefClose = _lastZoneClose.TryGetValue(zoneKey, out double lastClose)
                             ? lastClose
                             : currentClose;
-                        string breakMsg = LevelPolarity.IsResistance(lastVal, breakRefClose)
+                        bool wasResistance = _zoneBornAsResistance.TryGetValue(zoneKey, out bool born)
+                            ? born
+                            : LevelPolarity.IsResistance(lastVal, breakRefClose);
+                        string breakMsg = wasResistance
                             ? $"{series.FriendlyName}: Resistance at {SpeechPriceFormatter.FormatPrice(lastVal)} broken."
                             : $"{series.FriendlyName}: Support at {SpeechPriceFormatter.FormatPrice(lastVal)} broken.";
                         utterance.Add(ScanUtterance.TierBreak, series.FriendlyName, zoneKey, breakMsg);
                         _lastZoneLineValue.Remove(zoneKey);
                         _lastZoneClose.Remove(zoneKey);
+                        _zoneBornAsResistance.Remove(zoneKey);
                         _inProximity.Remove(zoneKey);
                         _lastPriceAboveZone.Remove(zoneKey);
                         string tcKey2 = $"{series.Id}:{comp.Name}:touches";
@@ -981,6 +1034,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Everything below describes THIS bar, so this bar's close is the reference.
                 bool isResistance = LevelPolarity.IsResistance(currentVal, currentClose);
 
+                // A level seen for the first time (or a new value on a line that publishes no
+                // replacement record) is born here, on the side of price it is on now.
+                if (!_lastZoneLineValue.TryGetValue(zoneKey, out double seenVal) || seenVal != currentVal
+                    || !_zoneBornAsResistance.ContainsKey(zoneKey))
+                    _zoneBornAsResistance[zoneKey] = isResistance;
                 _lastZoneLineValue[zoneKey] = currentVal;
                 _lastZoneClose[zoneKey] = currentClose;
 
@@ -1182,6 +1240,30 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Did this zone line's level get REPLACED on <paramref name="barIndex"/>, and from what?
+        /// The provider's own record first: "{zone}_replaced" holds the old level on the bar it
+        /// happened. Failing that, a level that has changed since the last bar this scanner saw
+        /// (bars closed between two scans, so the record's bar was never scanned) is a
+        /// replacement too — on a line that publishes the record, the value changes for no other
+        /// reason.
+        /// </summary>
+        private bool TryReadReplacement(double[] replacedData, int barIndex, double currentVal, string zoneKey, out double oldLevel)
+        {
+            if (barIndex < replacedData.Length && !double.IsNaN(replacedData[barIndex]))
+            {
+                oldLevel = replacedData[barIndex];
+                return true;
+            }
+            if (_lastZoneLineValue.TryGetValue(zoneKey, out double lastVal) && !double.IsNaN(lastVal) && lastVal != currentVal)
+            {
+                oldLevel = lastVal;
+                return true;
+            }
+            oldLevel = double.NaN;
+            return false;
+        }
 
         private static bool IsMarkerDisplayType(ComponentDisplayType dt) => dt switch
         {

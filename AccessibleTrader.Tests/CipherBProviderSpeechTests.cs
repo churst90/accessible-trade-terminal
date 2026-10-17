@@ -33,7 +33,7 @@ public sealed class CipherBProviderSpeechTests
 
     /// <summary>A Cipher B built as the app builds it, holding the provider's output; TF-aware gates
     /// off so the ADX gate is the declared 18.</summary>
-    private static (ChartSeries Series, List<Ohlcv> Bars, IndicatorEngine Engine, Dictionary<string, double[]> Results) Chart(int flavour = 0, int length = 1400)
+    private static (ChartSeries Series, List<Ohlcv> Bars, IndicatorEngine Engine, Dictionary<string, double[]> Results) Chart(int flavour = 0, int length = 1400, string goldDotMode = "MCB")
     {
         var providers = new List<IIndicatorProvider> { new CipherBProvider() };
         var engine = new IndicatorEngine(new IndicatorService(providers, NullLogger<IndicatorService>.Instance),
@@ -44,7 +44,7 @@ public sealed class CipherBProviderSpeechTests
 
         var bars = CausalityProbeSeries.Bars(flavour, length);
         var results = new Dictionary<string, double[]>();
-        new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object> { ["TfAware"] = false },
+        new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object> { ["TfAware"] = false, ["GoldDotMode"] = goldDotMode },
             new IndicatorResultBuffer(results, bars.Count));
         foreach (var kv in results) series.Data.ComponentData[kv.Key] = kv.Value;
         return (series, bars, engine, results);
@@ -95,6 +95,8 @@ public sealed class CipherBProviderSpeechTests
     }
 
     /// <summary>
+    /// The CONFLUENCE gold rule (GoldDotMode = Confluence, the default until 2026-10-18; the MCB
+    /// rule's speech is in CipherBGoldDotTests).
     /// Gold needs only GoldMinConfluence (3) of its four conditions, so on some gold bars ADX or ATR
     /// is under its gate — it must not say "trend and volatility confirmed" there (on real daily
     /// BTC, ETH, XRP and SOL about one gold dot each had ATR under its floor). What it does say must be true on
@@ -107,7 +109,7 @@ public sealed class CipherBProviderSpeechTests
         int unconfirmedGold = 0;
         foreach (int flavour in CausalityProbeSeries.AllFlavours)
         {
-            var (series, bars, engine, results) = Chart(flavour, 6000);
+            var (series, bars, engine, results) = Chart(flavour, 6000, goldDotMode: "Confluence");
             // Only to show the old claim was false somewhere: ADX at or under its gate (18), or ATR
             // at or under its floor (the 20th percentile of the last 200 bars, as the provider takes
             // it with the default AdaptiveLookback). The assertions below do not depend on these.

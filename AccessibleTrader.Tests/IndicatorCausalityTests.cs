@@ -495,8 +495,9 @@ namespace AccessibleTrader.Tests
         [InlineData("ICHIMOKU.Chikou Span")]        // close[j + 26], published as a comparable line
         [InlineData("SWING_STRUCTURE.SwingHigh")]   // stamped Span bars before it could be known
         [InlineData("SWING_STRUCTURE.SwingLow")]
-        [InlineData("CIPHER_SR.Resistance")]        // pivot dot, knowable PivotBars later
-        [InlineData("CIPHER_SR.Support")]
+        // CIPHER_SR.Resistance / .Support (pivot dots, knowable PivotBars later) were here until the
+        // components were RETIRED on 2026-10-17 (Market Cipher SR rebuild); a saved leaf naming them
+        // is now told why by SignalCatalog.Retired (CipherSrMarketCipherFidelityTests).
         [InlineData("Dpo.Dpo")]                     // centred by definition
         public void KnownLookaheadComponentsAreNotOfferedAsSignals(string id)
         {
@@ -589,6 +590,11 @@ namespace AccessibleTrader.Tests
             // causal, but the synthetic series never lines them up on one bar. Real bars do
             // (2021-07-01 and 2021-09-20 on Bitstamp BTC/USD) — CipherAProviderTests pins those.
             "CIPHER_A.Blood Diamond",
+            // The default gold dot since 2026-10-18 (VuManChu's rule: a slow-wave divergence from a
+            // bottom at or below -75) fires a handful of times in thousands of bars and on neither
+            // series here. Its causality is pinned on 1400-bar probes, prefix by prefix and on the
+            // bar each dot is first known: CipherBGoldDotTests.A_gold_dot_is_on_the_bar_it_is_first_known_and_never_moves.
+            "CIPHER_B.Triple Confluence Buy",
             "CIPHER_C.Bottom Double",
             "CIPHER_C.Shallow Peak",
             "CIPHER_C.Shallow Trough",

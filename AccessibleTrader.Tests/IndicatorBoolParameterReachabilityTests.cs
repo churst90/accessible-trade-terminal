@@ -112,15 +112,9 @@ namespace AccessibleTrader.Tests
             return diff;
         }
 
-        [Fact]
-        public void CipherSrAdaptiveBreakCanBeTurnedOff()
-        {
-            var bars = Series(400, seed: 11);
-            var (off, on) = RunBothWays(new CipherSrProvider(), "CIPHER_SR", "AdaptiveBreak", bars);
-
-            Assert.True(DifferingValues(off, on) > 0,
-                "AdaptiveBreak made no difference to any component — the provider never saw the flag");
-        }
+        // CipherSrAdaptiveBreakCanBeTurnedOff was here until 2026-10-17, when Cipher SR was rebuilt to
+        // Market Cipher SR's design: a level is held until replaced, so there is no break and no
+        // Adaptive Break switch. Its settings are pinned by CipherSrSpeechTests.EveryDeclaredSettingChangesTheOutput.
 
         [Fact]
         public void CipherSAdaptiveSmoothingCanBeTurnedOn()
@@ -203,9 +197,12 @@ namespace AccessibleTrader.Tests
 
             // Vacuity floor on the POPULATION: if nobody reads a boolean parameter through the
             // shared helper any more, this test is guarding an empty set and should say so.
+            // The floor was 8 until 2026-10-17, when Spider Lines was removed and Cipher A and
+            // Cipher SR were rebuilt without boolean switches: 9 call sites became 6. It stays
+            // a floor on the population, not a count to keep in step with every provider.
             int callSites = files.Sum(f =>
                 Regex.Matches(File.ReadAllText(f), @"IndicatorParams\.GetBool\(").Count);
-            Assert.True(callSites >= 8,
+            Assert.True(callSites >= 5,
                 $"only {callSites} shared boolean reads found — the helper has been routed around");
         }
 

@@ -745,6 +745,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var touchData = series.GetComponentData(touchKey);
                 if (touchData.Length > 0 && !compDataDict.ContainsKey(touchKey))
                     compDataDict[touchKey] = touchData;
+
+                // A zone line's own companions, by suffix rather than by a naming convention:
+                // "{zone}_since" (when the level became live — Cipher SR speaks its age from it)
+                // and "{zone}_replaced". Cipher SR's touch arrays are named after the zone without
+                // " Zone" — the narrator's convention — and since its pivot-dot components were
+                // retired (2026-10-17) no component carries that name, so they are added here too.
+                if (c.IsZoneLine)
+                {
+                    foreach (var key in new[] { c.Name + "_since", c.Name + "_replaced", c.Name.Replace(" Zone", "") + "_touches" })
+                    {
+                        var extra = series.GetComponentData(key);
+                        if (extra.Length > 0 && !compDataDict.ContainsKey(key)) compDataDict[key] = extra;
+                    }
+                }
             }
             if (ctx.LiveClose is double live)
                 compDataDict["__live_close"] = new[] { live };
