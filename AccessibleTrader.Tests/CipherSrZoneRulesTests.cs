@@ -106,7 +106,12 @@ public sealed class CipherSrZoneRulesTests
                 for (int i = p; i < line.Length; i++)
                 {
                     if (double.IsNaN(line[i]) || line[i] != level) continue;
-                    if (i <= p + PivotBars)
+                    // Bar p + PivotBars is the first bar on which the pivot is provable (it is the last
+                    // of the bars that must not beat it), so that is where the level may appear. The
+                    // bound was "<=" while the provider left the line empty on that bar; the line now
+                    // carries the level there (CipherSrSpeechTests), which IndicatorCausalityTests
+                    // confirms causal.
+                    if (i < p + PivotBars)
                         early.Add($"{lineComponent} carried {level:F2} at bar {i}, only {i - p} bars " +
                                   $"after its pivot at {p}");
                     break;

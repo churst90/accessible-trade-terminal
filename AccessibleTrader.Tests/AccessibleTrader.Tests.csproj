@@ -121,6 +121,13 @@
     </ProjectReference>
   </ItemGroup>
 
+  <!-- Real market data the tests measure against (CipherSrSpeechTests: Cody's BTC daily chart).
+       Committed rather than read from strategy-lab-data/, which is not in the repository, so CI
+       runs the same measurement a developer does. -->
+  <ItemGroup>
+    <None Update="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!--
     Copies the built fixture DLL into the test output directory so
     StrategyPluginRegistryTests can stage it into a per-test scratch dir. We use

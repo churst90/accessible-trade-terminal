@@ -39,16 +39,21 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   answer depend on how much history was loaded after it — the same bar showed a window of 2
     ///   on a fresh 60-bar chart and 15 in a 500-bar backtest.
     ///
-    /// NaN-Break Pattern:
-    ///   At the bar where a new pivot forms, the zone line is NaN rather than the new value.
-    ///   The dot component marks that bar; the zone line restarts from the next bar. This
-    ///   prevents the renderer from drawing a vertical connector between old and new level
-    ///   (the "closed box" artifact in the original implementation).
+    /// Replaced is not broken (2026-10-17):
+    ///   The zone line carries a level on EVERY bar it is live, including the bar a newer pivot
+    ///   takes over from it. On that bar the companion "{zone}_replaced" array holds the OLD level
+    ///   (NaN on every other bar). The narrator reads it to say "New resistance at Y, replacing X";
+    ///   the line renderer reads it to lift the pen, so no slanted stroke joins the two levels.
+    ///   Until then the line was left EMPTY on that bar to stop the renderer joining them, and the
+    ///   narrator — which reads "had a value, now empty" as a break — announced 84 of the 136
+    ///   "Resistance/Support at X broken" on Cody's BTC daily chart about levels price never
+    ///   closed through (CipherSrSpeechTests).
     ///
     /// Break/Invalidation:
     ///   Resistance is invalidated when Close > level × (1 + BreakThreshold).
     ///   Support is invalidated when Close &lt; level × (1 - BreakThreshold).
-    ///   Invalidated zones emit NaN for all subsequent bars until a new pivot forms.
+    ///   Invalidated zones emit NaN for all subsequent bars until a new pivot forms. An empty
+    ///   line after a live one therefore means a break and nothing else.
     ///
     /// Sonification (independent of visual display type):
     ///   Resistance dot:   660 Hz Ping — audible "ceiling".
@@ -59,9 +64,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   During playback: zone lines produce steady tones that step to new pitches when a
     ///   new pivot confirms, giving an audible sense of levels stepping up or down.
     ///
-    /// GetDetailFact (Ctrl+Shift+D / F4 context speech):
-    ///   Reports active zone prices, how long each level has held, and how many times
-    ///   price has tested (wick-touched without closing through) each zone.
+    /// GetDetailFact:
+    ///   Names the most recent confirmed resistance and support and which side of them the bar
+    ///   closed. No key speaks it today (BarDetailService bypasses GetDetailFact).
     /// </summary>
     public class CipherSrProvider : IIndicatorProvider
     {
@@ -75,6 +80,15 @@ namespace AccessibleTrader.Core.Services.Indicators
         // Companion arrays — hidden from navigation, used by GetComponentSpeech for touch counts.
         private const string CompResistanceTouches = CompResistance + "_touches";
         private const string CompSupportTouches    = CompSupport    + "_touches";
+
+        /// <summary>
+        /// The suffix of the companion array that says a zone line's level was REPLACED on a bar:
+        /// it holds the old level there and NaN everywhere else. Read by the narrator
+        /// (NarrationScanner.ScanZoneLines) and the line renderer (StandardRenderers.RenderLine).
+        /// </summary>
+        public const string ReplacedSuffix = "_replaced";
+        public const string CompResistanceReplaced = CompResistanceLine + ReplacedSuffix;
+        public const string CompSupportReplaced    = CompSupportLine    + ReplacedSuffix;
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -183,7 +197,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "PivotBars",        DisplayName = "Pivot Bars (each side)", DataType = typeof(int),    DefaultValue = 5.0,
-                            Description = "Bars on each side required to confirm a pivot. Overridden when AutoScale=1." },
+                            Description = "Bars on each side a high or low must beat to be a pivot. Ignored while Auto-Scale is on (the default): set Auto-Scale to 0 to use this value." },
                     new() { Name = "VolumeLookback",   DisplayName = "Volume Lookback",        DataType = typeof(int),    DefaultValue = 20.0,
                             Description = "Bars for rolling volume average used in confluence filtering." },
                     new() { Name = "VolumeMultiplier", DisplayName = "Volume Multiplier",      DataType = typeof(double), DefaultValue = 1.2,
@@ -195,7 +209,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "AtrPeriod",        DisplayName = "ATR Period (Adaptive Break)", DataType = typeof(int), DefaultValue = 14.0,
                             Description = "ATR lookback used when AdaptiveBreak is true." },
                     new() { Name = "AutoScale",        DisplayName = "Auto-Scale Pivot Bars",  DataType = typeof(int),    DefaultValue = 1.0,
-                            Description = "1 = set PivotBars from loaded bar count (barCount ÷ 25, clamped 2–15). Works at any timeframe." },
+                            Description = "1 = each bar's pivot window grows with its position in the history: bar number ÷ 25, from 2 up to 15 bars each side (15 from bar 374 on). Pivot Bars is ignored while this is on. 0 = use Pivot Bars." },
                 }
             }
         };
@@ -228,6 +242,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             var supportLine       = NanArray(n);
             var resistanceTouches = NanArray(n);
             var supportTouches    = NanArray(n);
+            var resistanceReplaced = NanArray(n);
+            var supportReplaced    = NanArray(n);
 
             // Levels indexed by the bar they become CONFIRMABLE (pivot bar + its own window),
             // which is the bar the carry-forward line is allowed to step to them. Separate from
@@ -283,10 +299,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // from bars it had not seen. This is the same rule SwingStructureAnalyzer already used
             // (ConfirmedAtIndex = BarIndex + Span).
             //
-            // NaN-break: at the bar where a new level is accepted, the zone line emits NaN.
-            //   The dot component already marks the pivot bar visually. The zone line restarts
-            //   at the next bar. This eliminates vertical connector strokes in the renderer
-            //   (the "box artifact" from the original implementation).
+            // Replacement: at the bar where a new level is accepted while an old one is live, the
+            //   line carries the NEW level and "{zone}_replaced" records the old one. The line used
+            //   to be NaN on that bar (to stop the renderer drawing a connector), which every reader
+            //   of the line took for "no level" and the narrator took for a break.
             //
             // Break detection: a close convincingly past the level invalidates it.
             //   The zone emits NaN for all subsequent bars until a new pivot forms.
@@ -324,31 +340,40 @@ namespace AccessibleTrader.Core.Services.Indicators
                     supTouchCount = 0;
                 }
 
-                // Accept new pivot level and reset touch counter.
-                if (newRes) { lastRes = resConfirmed[i]; resTouchCount = 0; }
-                if (newSup) { lastSup = supConfirmed[i]; supTouchCount = 0; }
+                // Accept new pivot level and reset touch counter. A level still live when a newer
+                // one arrives is REPLACED, which is a different event from a break and is recorded
+                // as one.
+                if (newRes)
+                {
+                    if (!double.IsNaN(lastRes) && lastRes != resConfirmed[i]) resistanceReplaced[i] = lastRes;
+                    lastRes = resConfirmed[i]; resTouchCount = 0;
+                }
+                if (newSup)
+                {
+                    if (!double.IsNaN(lastSup) && lastSup != supConfirmed[i]) supportReplaced[i] = lastSup;
+                    lastSup = supConfirmed[i]; supTouchCount = 0;
+                }
 
                 // Count wick touches: wick reached the level but close did not close through it.
-                // Skip the pivot bar itself — the pivot high/low IS the level, so High==lastRes
-                // is trivially true and would always produce a spurious "tested once" read-out.
-                // Only count touches on SUBSEQUENT bars where price returns to test the level.
-                if (!double.IsNaN(lastRes) && !newRes)
+                // Not on the bar the level is accepted: that bar's wick is no test of a level it did
+                // not yet know. The count is WRITTEN there (0), so the touch array, like the line,
+                // has a value on every bar of the level's life and none of the previous level's.
+                if (!double.IsNaN(lastRes))
                 {
-                    if (data[i].High >= lastRes && data[i].Close < lastRes)
+                    if (!newRes && data[i].High >= lastRes && data[i].Close < lastRes)
                         resTouchCount++;
                     resistanceTouches[i] = resTouchCount;
                 }
-                if (!double.IsNaN(lastSup) && !newSup)
+                if (!double.IsNaN(lastSup))
                 {
-                    if (data[i].Low <= lastSup && data[i].Close > lastSup)
+                    if (!newSup && data[i].Low <= lastSup && data[i].Close > lastSup)
                         supTouchCount++;
                     supportTouches[i] = supTouchCount;
                 }
 
-                // Write zone line: NaN at the pivot bar itself (break visual connection),
-                // carry-forward value on all other bars while the level is active.
-                if (!newRes && !double.IsNaN(lastRes)) resistanceLine[i] = lastRes;
-                if (!newSup && !double.IsNaN(lastSup)) supportLine[i]    = lastSup;
+                // Zone line: the live level on every bar it is live, the bar it is accepted included.
+                if (!double.IsNaN(lastRes)) resistanceLine[i] = lastRes;
+                if (!double.IsNaN(lastSup)) supportLine[i]    = lastSup;
             }
 
             WriteToBuffer(buffer, CompResistance,        resistance,        n);
@@ -357,17 +382,32 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompSupportLine,       supportLine,       n);
             WriteToBuffer(buffer, CompResistanceTouches, resistanceTouches, n);
             WriteToBuffer(buffer, CompSupportTouches,    supportTouches,    n);
+            WriteToBuffer(buffer, CompResistanceReplaced, resistanceReplaced, n);
+            WriteToBuffer(buffer, CompSupportReplaced,    supportReplaced,    n);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
+        /// <summary>
+        /// Bars before a pivot found here is the pivot a longer history would find. With Auto-Scale
+        /// on, a bar's window is Clamp((i + 1) / 25, 2, 15), so it only stops depending on where the
+        /// data starts at bar 374 (window 15); before 2026-10-17 this was computed from PivotBars as
+        /// if Auto-Scale were off — 40 bars — and the headless alert chart, which fetches this many,
+        /// found its pivots with a window of 2 (CipherSrSpeechTests).
+        /// </summary>
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
         {
-            int pivot = GetInt(parameters, "PivotBars",      5);
+            bool autoScale = GetInt(parameters, "AutoScale", 1) != 0;
+            int pivot = autoScale ? AutoScaleMaxWindow : GetInt(parameters, "PivotBars", 5);
             int vol   = GetInt(parameters, "VolumeLookback", 20);
-            return (pivot * 2) + vol + 10;
+            int fixedWindow = (pivot * 2) + vol + 10;
+            return autoScale ? Math.Max(fixedWindow, AutoScaleSaturatesAt + 1) : fixedWindow;
         }
+
+        private const int AutoScaleMaxWindow = 15;
+        /// <summary>The first bar index at which (i + 1) / 25 reaches <see cref="AutoScaleMaxWindow"/>.</summary>
+        private const int AutoScaleSaturatesAt = AutoScaleMaxWindow * 25 - 1;
 
         /// <summary>
         /// Returns an imperative speech string for the given component at the current bar.
@@ -392,16 +432,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                                lcArr != null && lcArr.Length > 0 && lcArr[0] > 0
                 ? lcArr[0]
                 : bar.Close;
-            double distancePct = liveClose > 0
-                ? Math.Abs(liveClose - value) / liveClose * 100.0
-                : double.NaN;
-
             return componentName switch
             {
-                // Pivot dots: level price, distance from current price, and how many times
-                // price has wick-tested this level without closing through it.
-                CompResistance => FormatPivotSpeech(value, distancePct, allComponentData, CompResistanceTouches, dataIndex, isResistance: true),
-                CompSupport    => FormatPivotSpeech(value, distancePct, allComponentData, CompSupportTouches,    dataIndex, isResistance: false),
+                // Pivot dots: level price, where current price is relative to it, and how many
+                // times price wick-tested this level without closing through it.
+                CompResistance => FormatPivotSpeech(value, liveClose, allComponentData, CompResistanceLine, CompResistanceTouches, dataIndex),
+                CompSupport    => FormatPivotSpeech(value, liveClose, allComponentData, CompSupportLine,    CompSupportTouches,    dataIndex),
 
                 // Zone lines: level price, position of current price, and accumulated wick-test count.
                 CompResistanceLine => FormatZoneLineSpeech(value, liveClose, allComponentData, CompResistanceTouches, dataIndex, isResistance: true),
@@ -413,10 +449,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>
         /// Returns a spoken summary of the indicator's state at the given bar index.
-        /// Triggered by Ctrl+Shift+D (full analysis) and F4 (context summary).
-        /// Describes the nearest active resistance and support zones, their distances from
-        /// the current close, touch counts, and how long each level has been held.
-        /// Returns empty string when no SR data is available at the given index.
+        /// Names the most recent confirmed resistance and support (the levels the zone lines
+        /// carry on this bar) and which side of them the bar closed. No key speaks this today:
+        /// BarDetailService bypasses GetDetailFact (BarDetailService.cs, "intentionally bypassed").
         /// </summary>
         public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data, IReadOnlyDictionary<string, double[]> results, int index, Dictionary<string, object> parameters)
         {
@@ -425,19 +460,17 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             var sb = new StringBuilder();
 
-            double resDot  = GetVal(results, CompResistance,     index);
-            double resZone = GetVal(results, CompResistanceLine, index);
-            double supDot  = GetVal(results, CompSupport,        index);
-            double supZone = GetVal(results, CompSupportLine,    index);
-
-            // Nearest resistance
-            double resLevel = !double.IsNaN(resDot) ? resDot : resZone;
-            double supLevel = !double.IsNaN(supDot) ? supDot : supZone;
+            // The levels the zone lines carry on this bar: the most recent CONFIRMED swing high and
+            // low. Not the dots — a dot sits on its pivot bar, PivotBars bars before anything could
+            // know it was one, and this used to prefer the dot's value when there was one. And not
+            // "nearest", which it used to say: the nearest level above price is often an older one.
+            double resLevel = GetVal(results, CompResistanceLine, index);
+            double supLevel = GetVal(results, CompSupportLine,    index);
 
             if (!double.IsNaN(resLevel))
-                sb.Append($"Nearest resistance: {Accessibility.SpeechPriceFormatter.FormatPrice(resLevel)}. ");
+                sb.Append($"Most recent resistance: {Accessibility.SpeechPriceFormatter.FormatPrice(resLevel)}. ");
             if (!double.IsNaN(supLevel))
-                sb.Append($"Nearest support: {Accessibility.SpeechPriceFormatter.FormatPrice(supLevel)}. ");
+                sb.Append($"Most recent support: {Accessibility.SpeechPriceFormatter.FormatPrice(supLevel)}. ");
 
             if (!double.IsNaN(resLevel) && !double.IsNaN(supLevel))
             {
@@ -453,41 +486,54 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Speech helpers ────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Formats pivot dot speech: level price, distance from current price, and touch count.
+        /// Formats pivot dot speech: level price, where current price is, and touch count.
         /// E.g. "170.00, price 2.3% below, tested 3 times" or "170.00, at price, tested once".
         /// </summary>
-        private static string FormatPivotSpeech(double value, double distancePct,
-            IReadOnlyDictionary<string, double[]> allComponentData, string touchKey, int dataIndex, bool isResistance)
+        /// <remarks>
+        /// The SIDE comes from where price is, not from the dot's type: an old resistance price
+        /// has since risen above is "price 30% above", not "below" (until 2026-10-17 every
+        /// resistance dot said "below" and every support dot "above").
+        ///
+        /// The COUNT is this dot's own level's. The level a dot marks becomes live PivotBars bars
+        /// AFTER the dot — on the first bar after it that the zone line carries the dot's price —
+        /// and until then the touch array counts the PREVIOUS level. So the count is read over the
+        /// run of bars on which the zone line carries this price, starting there, and is the count
+        /// on the run's last bar. It used to be read from the dot forward to the first empty value,
+        /// which was the previous level's last bar: 44 dots on BTC daily spoke another level's
+        /// count and none spoke their own (CipherSrSpeechTests).
+        /// </remarks>
+        private static string FormatPivotSpeech(double value, double liveClose,
+            IReadOnlyDictionary<string, double[]> allComponentData, string lineKey, string touchKey, int dataIndex)
         {
+            double distancePct = liveClose > 0 ? Math.Abs(liveClose - value) / liveClose * 100.0 : double.NaN;
             // NaN distancePct means no valid close was available (zero bar or no data).
             string distStr = double.IsNaN(distancePct)
                 ? ""
                 : distancePct < 0.1
                     ? "at price"
-                    : isResistance
+                    : liveClose < value
                         ? $"price {distancePct:F1}% below"
                         : $"price {distancePct:F1}% above";
 
-            // The pivot bar itself has NaN in the touches array (touch counting starts on the
-            // next bar). Scan forward from the pivot to get the most recent accumulated count
-            // for this level, stopping at the first NaN which marks a break or a new pivot.
             int touches = 0;
-            if (allComponentData.TryGetValue(touchKey, out var arr) && arr.Length > 0)
+            if (allComponentData.TryGetValue(lineKey, out var line) && line.Length > 0
+                && allComponentData.TryGetValue(touchKey, out var arr) && arr.Length > 0)
             {
-                for (int i = dataIndex + 1; i < arr.Length; i++)
+                int start = -1;
+                for (int i = dataIndex + 1; i < line.Length; i++)
+                    if (line[i] == value) { start = i; break; }
+                if (start >= 0)
                 {
-                    if (double.IsNaN(arr[i])) break;
-                    touches = (int)arr[i];
+                    int end = start;
+                    while (end + 1 < line.Length && line[end + 1] == value) end++;
+                    if (end < arr.Length && !double.IsNaN(arr[end])) touches = (int)arr[end];
                 }
-                // Fallback: check the index itself (non-NaN on zone line bars when called from pivot speech path)
-                if (touches == 0 && dataIndex < arr.Length && !double.IsNaN(arr[dataIndex]))
-                    touches = (int)arr[dataIndex];
             }
 
             string touchStr = touches == 0 ? "" : touches == 1 ? ", tested once" : $", tested {touches} times";
             string sep = string.IsNullOrEmpty(distStr) ? "" : ", ";
 
-            return $"{value:F2}{sep}{distStr}{touchStr}";
+            return $"{Accessibility.SpeechPriceFormatter.FormatPrice(value)}{sep}{distStr}{touchStr}";
         }
 
         /// <summary>
