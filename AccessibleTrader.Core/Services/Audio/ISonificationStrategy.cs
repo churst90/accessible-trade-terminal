@@ -127,14 +127,27 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else if (comp.PitchMapping == PitchMapping.Direction || comp.PitchMapping == PitchMapping.PriceDirection)
             {
-                // PriceDirection always uses candle direction.
                 // Direction uses ReferenceLevel when set (non-zero) so value-anchored components
-                // (e.g. Cipher B MF Wave anchored at −80) get the correct bullish/bearish split.
+                // get the bullish/bearish split at their own anchor.
+                //
+                // Otherwise: A BAR IS HEARD ON THE SIDE IT IS DRAWN ON. A bar coloured by its own
+                // value (a histogram, a zero-line area or dot, a polarity-split line) takes the
+                // bullish or bearish pitch from that same value against its ColorBaseline — the
+                // rule its colour, its sound patch and its spoken number already follow. Only
+                // bars coloured by the CANDLE (volume, ColorSource.PriceAction) follow the candle.
+                // Until 2026-10-17 a zero reference fell through to the candle for everything, so
+                // Cody heard Cipher B's WT Histogram at its high "positive" pitch on a negative
+                // bar (Oct 11, an up candle) and Money Flow's deep "down" pitch on positive bars
+                // under red candles — the tone and the spoken value disagreeing. The same held for
+                // every sign-coloured histogram under PriceDirection (MACD's and the other
+                // zero-cross histograms).
                 bool isBullish = (comp.PitchMapping == PitchMapping.Direction
                                   && comp.ReferenceLevel.HasValue
                                   && comp.ReferenceLevel.Value != 0.0)
                     ? val >= comp.ReferenceLevel.Value
-                    : point.Close >= point.Open;
+                    // Profiles keep their old pitch: they are sonified per price bin by
+                    // NavigationSonifier.SonifyProfile and left out of playback, and nobody asked.
+                    : (series.IsProfile ? null : OwnSignSide(comp, val)) ?? point.Close >= point.Open;
                 freq = isBullish ? comp.BullishFrequency : comp.BearishFrequency;
                 freq *= comp.FreqMultiplier;
             }
@@ -300,11 +313,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // timbre uses. The Properties dialog labels these "Above/Below midline patch".
             bool barBullish = comp.DisplayType == ComponentDisplayType.Oscillator
                 ? normalizedValue >= 0.5
-                : (comp.UsePolarityColoring
-                    || comp.DisplayType is ComponentDisplayType.Histogram
-                        or ComponentDisplayType.ZeroDot or ComponentDisplayType.ZeroArea)
-                ? val >= comp.ColorBaseline
-                : point.Close >= point.Open;
+                : OwnSignSide(comp, val) ?? point.Close >= point.Open;
             string? effPatchId = barBullish ? comp.BullishSoundPatchId : comp.BearishSoundPatchId;
             if (string.IsNullOrEmpty(effPatchId)) effPatchId = comp.SoundPatchId;
 
@@ -531,6 +540,24 @@ namespace AccessibleTrader.Core.Services.Audio
 
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
             return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale);
+        }
+
+        /// <summary>
+        /// Which side of its own <see cref="ComponentConfig.ColorBaseline"/> a component is DRAWN
+        /// on — true above, false below — or null when its colour does not come from its own value
+        /// (candles, volume and any <see cref="ColorSource.PriceAction"/> bar, which are coloured by
+        /// the candle). The same rule the renderer colours by (ChartRenderer.ReadingColor /
+        /// StandardRenderers), so the pitch, the sound patch, the colour and the spoken sign of a
+        /// bar can never disagree.
+        /// </summary>
+        internal static bool? OwnSignSide(ComponentConfig comp, double val)
+        {
+            if (comp.ColorSource == ColorSource.PriceAction || comp.Role == ComponentRole.Volume) return null;
+            if (comp.UsePolarityColoring
+                || comp.DisplayType is ComponentDisplayType.Histogram or ComponentDisplayType.Bar
+                    or ComponentDisplayType.ZeroDot or ComponentDisplayType.ZeroArea)
+                return val >= comp.ColorBaseline;
+            return null;
         }
 
         public int ResolveComponentVoiceCount(ComponentConfig comp)
