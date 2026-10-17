@@ -287,6 +287,11 @@ namespace AccessibleTrader.Tests
             "PULSE.AnchorMtf",          // Wilder RSI over weekly buckets — only ~100 weekly bars in 700
             "PULSE.AnchorSlope",        // slope of an EMA-smoothed anchor, so twice removed from its seed
             "PULSE.AnchorSlow",
+            // DBSI-style's "Long Term Trend": a 200-bar EMA (SMA-seeded, as Pine's ta.ema), the same
+            // three-time-constants-in-700-bars residue. It converges — prepend history and the
+            // disagreement falls by e^-1 every 100 bars further from the array start — measured in
+            // DbsiStyleProviderTests.Trend_ResidueConverges_ItIsNotAnchoredToArrayIndexZero.
+            "DBSI_STYLE.Trend",
             "REGIME.AboveEma200",            // boolean over a 200-EMA: three time constants in 700 bars is not enough to reach 1e-6, and the boolean flips wherever close sits inside the residue
             // Seeded at zero in BOTH runs, so its own seed is not the source — it multiplies the
             // Wilder ATR/RSI residue underneath it by the accumulator's steady-state gain of

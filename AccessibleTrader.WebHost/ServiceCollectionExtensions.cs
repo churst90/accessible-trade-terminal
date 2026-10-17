@@ -350,6 +350,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, HurstExponentProvider>();
             services.AddScoped<IIndicatorProvider, PivotLevelsProvider>();
             services.AddScoped<IIndicatorProvider, DssBressertProvider>();
+            services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 
             services.AddScoped<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
