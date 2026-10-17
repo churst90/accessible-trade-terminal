@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -67,16 +68,66 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             var bar = BarAsDrawn(state, idx);
 
+            // EVERYTHING AT THE BAR, IN ONE ANNOUNCEMENT. Cody, 2026-10-17: "alt shift d doesn't
+            // seem to read the entire ladder either, it reads the current chart formation, the
+            // current focused series and that's it". He was right, and the manual had promised
+            // the opposite for months — "the candle's open, high, low, close and volume ... every
+            // active indicator's reading there, and ... any signal events on the bar across all
+            // indicators". This key read the focused series alone (for the candles not even the
+            // four prices, only the shape and the wick percentages), so "everything the terminal
+            // knows about a single moment" meant pressing Page Down and asking again, once per
+            // series. And since the TradingView status line (ChartStatusLine) went in the same
+            // day, the sighted view prints every visible indicator's reading in every pane at
+            // once — Cody's rule is that nothing the status line shows may be reachable only by
+            // eye, and "the ladder" is that block, all panes, top to bottom.
+            //
+            // The order:
+            //   1. the bar's date;
+            //   2. the FOCUSED series, exactly as before — a user who walked to an indicator
+            //      hears the thing they walked to first, not the candle they walked away from;
+            //   3. the candle as drawn (Heikin-Ashi aware): open, high, low, close, volume, then
+            //      its shape, pattern and wick percentages. When the candles ARE the focused
+            //      series this is step 2;
+            //   4. every OTHER visible series in the status line's order — the price pane's
+            //      overlays first, then the panes top to bottom as the renderer stacks them —
+            //      each by name with its readings and the marks that fire at this bar (those are
+            //      the "signal events on the bar across all indicators");
+            //   5. the chart formations, last, as before.
+            //
             // The trailing context the candle analyser needs is assembled by CandlePatternSpeech
             // from `state` itself. There used to be a 50-bar slice built here and handed down as
             // `recentData`; nothing in the method ever read it — it was allocated on every press
             // of the detail key and discarded, and it also predated the analyser knowing how to
             // find the classified bar inside a window.
-            string detail = GetBarDetailFact(state, series, bar, idx);
+            bool focusedIsCandles = IsCandles(series);
+            var candles = state.ActiveSeries.FirstOrDefault(IsCandles);
+            var volume = state.ActiveSeries.FirstOrDefault(IsVolume);
+
+            // The candle is read when its series is on screen, or when it is the one in focus
+            // (a focused series is always read, hidden or not, exactly as before). Volume rides
+            // with the candle when the Volume series is shown and not already the focused one.
+            bool readCandle = focusedIsCandles || (candles != null && candles.IsVisible);
+            bool volumeWithCandle = readCandle && volume != null && volume.IsVisible && volume.Id != series.Id;
+
+            var blocks = new List<string>();
+            if (focusedIsCandles)
+            {
+                blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
+            }
+            else
+            {
+                blocks.Add(Sentence(FocusedSeriesFact(series, idx)));
+                if (readCandle) blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
+            }
+
+            blocks.AddRange(LadderFacts(state, series, idx, readCandle, volumeWithCandle));
 
             string formations = ChartFormationDetail(state, idx);
-            if (!string.IsNullOrEmpty(formations))
-                detail = string.IsNullOrEmpty(detail) ? formations : detail + " " + formations;
+            if (!string.IsNullOrEmpty(formations)) blocks.Add(formations);
+
+            string detail = $"{SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state))}: "
+                + string.Join(" ", blocks.Where(b => b.Length > 0));
+            detail = detail.TrimEnd();
 
             _eventBus.Publish(new AnnouncementEvent(detail, true));
         }
@@ -173,60 +224,104 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static Ohlcv BarAsDrawn(WorkspaceState state, int idx)
             => ChartMath.BarAsDrawn(state.Data!, idx, state.IsHeikinAshi);
 
-        private string GetBarDetailFact(WorkspaceState state, ChartSeries series, Ohlcv bar, int index)
+        private static bool IsCandles(ChartSeries s) =>
+            s.Id == CoreSeriesIds.Candles || s.IndicatorCode == "CANDLES";
+
+        private static bool IsVolume(ChartSeries s) =>
+            s.Id.Equals(CoreSeriesIds.Volume, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s.IndicatorCode, "VOLUME", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsPrice(ChartSeries s) =>
+            s.Id == CoreSeriesIds.Price || string.Equals(s.IndicatorCode, "PRICE", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>A block that ends a sentence: a period added unless one is there already.</summary>
+        private static string Sentence(string text)
+        {
+            text = text.TrimEnd();
+            if (text.Length == 0) return "";
+            return text.EndsWith('.') ? text : text + ".";
+        }
+
+        /// <summary>
+        /// The candle as drawn: its four prices and volume, then its shape, where in a pattern it
+        /// sits, which way it leans, and its body and wick percentages.
+        ///
+        /// <para>
+        /// <b>The four prices are new on 2026-10-17.</b> This block used to name the shape and the
+        /// wick percentages and stop, so the key the manual calls "the one-key way to gather
+        /// everything the terminal knows about a single moment" could not say what the candle
+        /// opened or closed at — the status line's symbol line prints both, and Cody's report was
+        /// that the detail key read less than the screen showed. They come from
+        /// <see cref="BarAsDrawn"/>, the same Heikin-Ashi-aware bar the status line's O H L C
+        /// prints, so the ear and the eye agree about which candle this is. Volume is the raw
+        /// bar's (a Heikin-Ashi chart re-draws prices, not volume) in the volume pane's own
+        /// spoken form (<see cref="ChartStatusLine.FormatVolume"/>: exact, grouped, no fake
+        /// ".00").
+        /// </para>
+        /// </summary>
+        private string CandleFact(WorkspaceState state, Ohlcv bar, int index, bool includeVolume)
         {
             var sb = new StringBuilder();
-            sb.Append($"{SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state))}: ");
+            sb.Append($"Open {SpeechPriceFormatter.FormatPrice(bar.Open)}, high {SpeechPriceFormatter.FormatPrice(bar.High)}, " +
+                      $"low {SpeechPriceFormatter.FormatPrice(bar.Low)}, close {SpeechPriceFormatter.FormatPrice(bar.Close)}");
+            if (includeVolume)
+                sb.Append($", volume {ChartStatusLine.FormatVolume(state.Data![index].Volume)}");
+            sb.Append(". ");
 
-            // If it's the primary candle series, add candle pattern details
-            // Pattern/type details only apply to true OHLCV series. Price-line primary
-            // series (analytics providers) deliberately skip this block — a single-value
-            // point has no wicks, body, or multi-bar pattern to describe.
-            if (series.Id == CoreSeriesIds.Candles || series.IndicatorCode == "CANDLES")
-            {
-                // THE SAME CLASSIFIER THE LIVE ANNOUNCEMENT USES, over the same trailing window.
-                //
-                // This block used to call a private ClassifyBar that knew five single-bar shapes
-                // and nothing else, so "tell me everything about this bar" could not say
-                // "morning star", "three white soldiers" or "bullish engulfing" on any bar the
-                // user was not present for — which is every bar the detail key exists to read.
-                // Its thresholds also disagreed with the analyser's (a 90% body was a marubozu
-                // here, 95% there), so the same bar was named differently depending on whether
-                // you asked about it or heard it close.
-                //
-                // Deliberately NOT gated on DescribeCandlePatterns, exactly as the chart-formation
-                // clause below is not gated on DescribeChartPatterns: those settings govern
-                // unsolicited narration, and this key is the user asking a direct question.
-                var analysis = CandlePatternSpeech.AnalyzeAt(
-                    _analyzer, state.Data, index, state.IsHeikinAshi, current: bar);
-                string shape = CandlePatternSpeech.DescribeShape(analysis);
-                string bias  = CandlePatternSpeech.Bias(analysis);
+            // THE SAME CLASSIFIER THE LIVE ANNOUNCEMENT USES, over the same trailing window.
+            //
+            // This block used to call a private ClassifyBar that knew five single-bar shapes
+            // and nothing else, so "tell me everything about this bar" could not say
+            // "morning star", "three white soldiers" or "bullish engulfing" on any bar the
+            // user was not present for — which is every bar the detail key exists to read.
+            // Its thresholds also disagreed with the analyser's (a 90% body was a marubozu
+            // here, 95% there), so the same bar was named differently depending on whether
+            // you asked about it or heard it close.
+            //
+            // Deliberately NOT gated on DescribeCandlePatterns, exactly as the chart-formation
+            // clause is not gated on DescribeChartPatterns: those settings govern unsolicited
+            // narration, and this key is the user asking a direct question.
+            var analysis = CandlePatternSpeech.AnalyzeAt(
+                _analyzer, state.Data, index, state.IsHeikinAshi, current: bar);
+            string shape = CandlePatternSpeech.DescribeShape(analysis);
+            string bias  = CandlePatternSpeech.Bias(analysis);
 
-                // WHICH CANDLES. A three-bar pattern is only recognisable on its LAST bar, so
-                // "three white soldiers" was announced on one bar in three and the other two said
-                // nothing — a name with no way to find the candles it refers to, for a listener
-                // who cannot see the chart. This clause says where in the pattern this bar sits,
-                // on every bar of it. See CandlePatternSpeech.MembershipAt for why looking forward
-                // is legitimate here and is not wired into the live routes.
-                string member = CandlePatternSpeech.MembershipClause(analysis,
-                    CandlePatternSpeech.MembershipAt(_analyzer, state.Data, index, state.IsHeikinAshi));
-                double range = bar.High - bar.Low;
-                double body  = Math.Abs(bar.Close - bar.Open);
-                double bodyPct = range > 0 ? (body / range) * 100.0 : 0;
-                double upperWick = bar.High - Math.Max(bar.Open, bar.Close);
-                double lowerWick = Math.Min(bar.Open, bar.Close) - bar.Low;
-                double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
-                double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
+            // WHICH CANDLES. A three-bar pattern is only recognisable on its LAST bar, so
+            // "three white soldiers" was announced on one bar in three and the other two said
+            // nothing — a name with no way to find the candles it refers to, for a listener
+            // who cannot see the chart. This clause says where in the pattern this bar sits,
+            // on every bar of it. See CandlePatternSpeech.MembershipAt for why looking forward
+            // is legitimate here and is not wired into the live routes.
+            string member = CandlePatternSpeech.MembershipClause(analysis,
+                CandlePatternSpeech.MembershipAt(_analyzer, state.Data, index, state.IsHeikinAshi));
+            double range = bar.High - bar.Low;
+            double body  = Math.Abs(bar.Close - bar.Open);
+            double bodyPct = range > 0 ? (body / range) * 100.0 : 0;
+            double upperWick = bar.High - Math.Max(bar.Open, bar.Close);
+            double lowerWick = Math.Min(bar.Open, bar.Close) - bar.Low;
+            double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
+            double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                // Shape, then WHERE in the pattern, then which way it leans: what it is, which
-                // candles, what it means.
-                var parts = new List<string> { shape };
-                if (member.Length > 0) parts.Add(member);
-                if (bias.Length > 0)   parts.Add(bias);
-                string leadIn = string.Join(", ", parts) + ".";
-                sb.Append($"{leadIn} Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%. ");
-                return sb.ToString().TrimEnd();
-            }
+            // Shape, then WHERE in the pattern, then which way it leans: what it is, which
+            // candles, what it means.
+            var parts = new List<string> { shape };
+            if (member.Length > 0) parts.Add(member);
+            if (bias.Length > 0)   parts.Add(bias);
+            string leadIn = string.Join(", ", parts) + ".";
+            sb.Append($"{leadIn} Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// The focused (non-candle) series: every visible component's raw value, then the
+        /// indicator's narrative facts. Unchanged by the 2026-10-17 rework apart from where it
+        /// sits: it is still read first, so the series the user navigated to is the first thing
+        /// heard. Price-line primary series (analytics providers) land here too — a single-value
+        /// point has no wicks, body or multi-bar pattern to describe.
+        /// </summary>
+        private static string FocusedSeriesFact(ChartSeries series, int index)
+        {
+            var sb = new StringBuilder();
 
             // Alt+Shift+D always reads raw component values regardless of indicator type.
             // GetDetailFact is intentionally bypassed here so every indicator reveals its
@@ -255,23 +350,135 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 sb.Append($"{comp.DisplayName ?? comp.Name} {SpeechPriceFormatter.FormatPrice(val)}, ");
             }
 
-            // Indicator-specific narrative facts. Layered after the raw value list so the user
-            // first hears "Upper 100.2, Lower 95.6" and then the interpretation ("band expanding,
-            // volatility increasing"). Each branch is a guarded noop when the series doesn't
-            // carry the required components or a NaN slice is in view.
+            foreach (var fact in NarrativeFacts(series, index))
+                sb.Append(fact + ", ");
+
+            return sb.ToString().TrimEnd(',', ' ');
+        }
+
+        /// <summary>
+        /// Indicator-specific narrative facts. Layered after the raw value list so the user first
+        /// hears "Upper 100.2, Lower 95.6" and then the interpretation ("band expanding,
+        /// volatility increasing"). Each branch is a guarded noop when the series doesn't carry
+        /// the required components or a NaN slice is in view. Read for the focused series and for
+        /// every series on the ladder alike.
+        /// </summary>
+        private static IEnumerable<string> NarrativeFacts(ChartSeries series, int index)
+        {
             string code = (series.IndicatorCode ?? string.Empty).ToUpperInvariant();
             if (code == "BB" || code == "BOLLINGER" || code == "BOLLINGERBANDS")
             {
                 string bb = BollingerSqueezeExpansionFact(series, index);
-                if (!string.IsNullOrEmpty(bb)) sb.Append(bb + ", ");
+                if (!string.IsNullOrEmpty(bb)) yield return bb;
             }
             else if (code == "MACD")
             {
                 string macd = MacdCrossoverFact(series, index);
-                if (!string.IsNullOrEmpty(macd)) sb.Append(macd + ", ");
+                if (!string.IsNullOrEmpty(macd)) yield return macd;
+            }
+        }
+
+        /// <summary>
+        /// THE LADDER: every other visible series at the bar, one sentence each, in the order the
+        /// status line stacks them — the price pane's lines (<see cref="ChartStatusLine.MainPaneSeries"/>)
+        /// and then each indicator pane top to bottom.
+        ///
+        /// <para>
+        /// The pane order is the renderer's, by way of <see cref="ChartPaneModel.Panes"/> over the
+        /// VISIBLE series: the renderer groups the visible series by pane in first-appearance
+        /// order with the price pane on top, and so does ChartPaneModel. Feeding it every series
+        /// would let a hidden series decide where a pane sits in the list when it is not where the
+        /// pane sits on the screen.
+        /// </para>
+        ///
+        /// <para>
+        /// Hidden series are left out: a hidden series is not on the chart, and the status line
+        /// does not print it. MUTED series are read: muted is about sound — a user mutes Cipher B
+        /// so its tones stop competing with the candles, not because they no longer want to know
+        /// its value — and this key is speech the user explicitly asked for.
+        /// </para>
+        ///
+        /// <para>
+        /// Skipped as already said: the focused series (step 2), and the candles, volume and the
+        /// close line when the candle block read them. The close line is skipped only on a
+        /// normal chart — on a Heikin-Ashi chart the candle block reads the HA close, and the
+        /// Price line is the RAW close (ChartMath.BarAsDrawn), a different number.
+        /// </para>
+        /// </summary>
+        private static IEnumerable<string> LadderFacts(
+            WorkspaceState state, ChartSeries focused, int index, bool candleRead, bool volumeRead)
+        {
+            var visible = state.ActiveSeries.Where(s => s.IsVisible && !s.IsDrawing).ToList();
+            foreach (var pane in ChartPaneModel.Panes(visible))
+            {
+                IEnumerable<ChartSeries> paneSeries = pane.Key.Equals(ChartPaneModel.MainPaneKey, StringComparison.OrdinalIgnoreCase)
+                    ? ChartStatusLine.MainPaneSeries(pane.Series)
+                    : pane.Series;
+                foreach (var s in paneSeries)
+                {
+                    if (s.Id == focused.Id) continue;
+                    if (candleRead && IsCandles(s)) continue;
+                    if (volumeRead && IsVolume(s)) continue;
+                    if (candleRead && !state.IsHeikinAshi && IsPrice(s)) continue;
+
+                    string fact = LadderReading(s, index);
+                    if (fact.Length > 0) yield return fact;
+                }
+            }
+        }
+
+        /// <summary>
+        /// One series on the ladder: "Name: reading, reading, Mark." — or "Name: 55.20." for a
+        /// one-plot indicator, whose name already says what the number is.
+        ///
+        /// <para>
+        /// The components read are the ones the status line prints (ChartStatusLine.SeriesLine):
+        /// visible and enabled, with a reading of their own (<see cref="ChartStatusLine.HasReading"/> —
+        /// lines, oscillators, areas, bars, histograms; not a constant level, a cloud fill or a
+        /// candle colouring) or a marker. A marker is read by NAME and only when it fires at this
+        /// bar — a mark is there or it is not, and those marks are the signal events the manual
+        /// promises. A NaN reading (warm-up, a plot with nothing at this bar) is skipped, and a
+        /// series with nothing to say at the bar is left out entirely rather than read as a bare
+        /// name.
+        /// </para>
+        ///
+        /// <para>
+        /// The value is the status line's (the plot's raw value) in the detail key's spoken form:
+        /// <see cref="SpeechPriceFormatter.FormatPrice"/>'s magnitude-aware digits, or the volume
+        /// pane's form for a volume reading. The series is named as Page Up and Page Down name it
+        /// (<see cref="ChartSeries.Name"/>).
+        /// </para>
+        /// </summary>
+        private static string LadderReading(ChartSeries s, int index)
+        {
+            bool labelled = s.Components.Count(c => c.IsVisible && c.IsEnabled
+                && !ChartRenderer.IsMarker(c.DisplayType) && ChartStatusLine.HasReading(c.DisplayType)) > 1;
+
+            var parts = new List<string>();
+            foreach (var comp in s.Components)
+            {
+                if (!comp.IsVisible || !comp.IsEnabled) continue;
+                bool marker = ChartRenderer.IsMarker(comp.DisplayType);
+                if (!marker && !ChartStatusLine.HasReading(comp.DisplayType)) continue;
+
+                var data = s.GetComponentData(comp.Name);
+                double v = data != null && index >= 0 && index < data.Length ? data[index] : double.NaN;
+                if (double.IsNaN(v)) continue;
+
+                string label = comp.DisplayName ?? comp.Name;
+                if (marker) { parts.Add(label); continue; }
+
+                bool isVolume = comp.Role == ComponentRole.Volume || IsVolume(s);
+                string text = isVolume ? ChartStatusLine.FormatVolume(v) : SpeechPriceFormatter.FormatPrice(v);
+                parts.Add(labelled ? $"{label} {text}" : text);
             }
 
-            return sb.ToString().TrimEnd(',', ' ');
+            parts.AddRange(NarrativeFacts(s, index));
+            if (parts.Count == 0) return "";
+
+            string name = !string.IsNullOrWhiteSpace(s.Name) ? s.Name.Trim()
+                : !string.IsNullOrWhiteSpace(s.FriendlyName) ? s.FriendlyName.Trim() : s.Id;
+            return Sentence($"{name}: {string.Join(", ", parts)}");
         }
 
         /// <summary>
