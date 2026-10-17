@@ -17,10 +17,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///     on forex CFDs and illiquid markets where volume is synthetic, matching
     ///     MCB's observed cross-asset behavior.
     ///
-    ///   • The green/red histogram bars MCB labels "VWAP" are actually WT1 − WT2
-    ///     plotted as columns — a MACD-style histogram on the WaveTrend oscillator.
-    ///     They flip exactly at WT crossovers, which is only possible if they are
-    ///     the WT difference itself. The old rolling VWAP deviation has been removed.
+    ///   • MCB's "VWAP" is WT1 − WT2 — a MACD-style histogram on the WaveTrend
+    ///     oscillator. It flips at WT crossovers (same sign as WT1 − WT2 on 96% of
+    ///     bars in a digitised MCB 2.2.6 chart). MCB draws it as ONE yellow area
+    ///     (#FFEB3B), not green/red bars; see the WT Histogram component below.
+    ///     The old rolling VWAP deviation has been removed.
     ///
     ///   • Stoch %K/%D, Laguerre RSI, Trigger Wave, and rolling-VWAP deviation
     ///     were dropped. They were hidden by default in the legacy metadata — a
@@ -141,17 +142,30 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
 
-                    // ── WT Histogram — the real MCB "VWAP" bars ─────────────
-                    // This is WT1 − WT2 plotted as columns. In real MCB the green/red
-                    // histogram bars labeled "VWAP" flip exactly at WT crossovers, which
-                    // is only possible if they ARE the WT difference itself. The old
-                    // rolling VWAP deviation was the wrong abstraction.
+                    // ── WT Histogram — the real MCB "VWAP" wave ─────────────
+                    // This is WT1 − WT2. Real MCB's "VWAP" has the same sign as WT1 − WT2 on 96%
+                    // of bars (BTCUSD 1D Bitstamp HA, Jul 2021 – Aug 2022, digitised from a
+                    // TradingView chart whose status line reads "MarketCipher B (2.2.6, …)"), so
+                    // it flips at the WT crosses. The old rolling VWAP deviation was the wrong
+                    // abstraction.
+                    //
+                    // ONE colour, MCB's yellow, both sides of zero. Until 2026-10-17 this was a
+                    // green/red pair (#00FF7F / #FF2D55) on the claim that MCB draws green/red
+                    // "VWAP" bars; no MCB screenshot shows that. Every one shows a single yellow
+                    // area: the price-scale label of MCB's VWAP plot reads exactly #FFEB3B
+                    // (TradingView idea LfGIzkND, Oct 2023), and the official product image on
+                    // marketciphertrading.com plus two 2022 charts composite to #FFEB3B at about
+                    // 73% opacity within 6 per channel. The green/red pair also sat on top of
+                    // Money Flow's (#00E676 / #FF1744), so the two keys and the two sets of bars
+                    // looked alike (docs/TODO.md, 2026-10-16). Bars are drawn at alpha 180
+                    // (~70%), which is about MCB's own opacity.
+                    // Shape: MCB draws an area from zero; this stays a Histogram because the
+                    // display type picks the sonification profile (bar rule: constant loudness,
+                    // grit ∝ magnitude). At daily widths the columns touch and read as an area.
                     // Audio: Background, Direction pitch — positive rising = bullish,
-                    // negative falling = bearish.
-                    // Saturated colors (full opacity, no alpha) so the histogram reads
-                    // crisply against the WT lines instead of looking washed out.
+                    // negative falling = bearish. Colour is not read by audio or speech.
                     new() { Name = CompWtHistogram,   DisplayName = "WT Histogram", DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00FF7F", DefaultColorHexSecondary = "#FF2D55",
+                            DefaultColorHex = "#FFEB3B", DefaultColorHexSecondary = "#FFEB3B",
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
                             DefaultReferenceLevel = 0.0,
@@ -208,8 +222,18 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // bars for MF < 0, extending from zero to the value. With a slow smoothed
                     // series the adjacent bars form a contiguous colored band that reads as a
                     // filled area wave — exactly how real MCB displays Money Flow behind WT.
+                    //
+                    // Colours from MCB, not from VuManChu (#3EE145 / #FF3D2E). MCB's money-flow
+                    // area is a lime green and a pure red at about 50% opacity: solved from its
+                    // composites over both TradingView's #131722 background and MCB's own blue
+                    // wave in a "MarketCipher B (2.2.6, …)" chart (green #248A12 / #2AA854, red
+                    // #8A1212 / #8C3254 → about #3FFF00 and #FF1100 at alpha 0.5, within 8 per
+                    // channel). #FF1100 is a red MCB itself uses (its Stoch line's label). The red
+                    // over the blue wave is the maroon-pink that guides call MCB's "pink" area.
+                    // Until 2026-10-17 this was #00E676 / #FF1744, a pair almost identical to
+                    // the WT Histogram's.
                     new() { Name = CompMoneyFlowWave, DisplayName = "Money Flow", DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00E676", DefaultColorHexSecondary = "#FF1744",
+                            DefaultColorHex = "#3FFF00", DefaultColorHexSecondary = "#FF1100",
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
                             DefaultReferenceLevel = 0.0,
@@ -226,8 +250,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SubscribedLevelNames = Array.Empty<string>() },
 
                     // ── WaveTrend crossover dots ────────────────────────────
+                    // Skia reads an 8-digit hex as #AARRGGBB. These were written #RRGGBBAA
+                    // ("#4FC3F7A0", "#EF9A9AA0"), so the bull dot drew #C3F7A0 at 31% — a faint
+                    // pale green — and the bear dot drew #9A9AA0, grey. MCB's cross dots are
+                    // TradingView's red #FF5252 and lime #00E676 at about 85% (the official
+                    // product image composites to #D9524F / #06D27D over #131722), so that is
+                    // what these are now, written the way Skia reads them.
                     new() { Name = CompCrossBull,     DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#4FC3F7A0", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
+                            DefaultColorHex = "#D900E676", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSoundPatchId = "sine_bell",
                             DefaultDecayMs = 100,
@@ -236,7 +266,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Wave cross up {value}",
                             DefaultUsePolarityColoring = false },
                     new() { Name = CompCrossBear,     DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#EF9A9AA0", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
+                            DefaultColorHex = "#D9FF5252", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSoundPatchId = "sine_bell",
                             DefaultDecayMs = 100,

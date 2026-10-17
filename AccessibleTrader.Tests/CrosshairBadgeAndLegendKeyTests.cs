@@ -26,8 +26,10 @@ public sealed class CrosshairBadgeAndLegendKeyTests
 {
     private const int W = 400, H = 300;
 
-    // Cipher B's own colours (CipherBProvider): the histogram and Money Flow are both
-    // green-over-red pairs, the Wave Trend lines white and cyan.
+    // Cipher B's colours as they were on 2026-10-15 (CipherBProvider): the histogram and Money
+    // Flow both green-over-red pairs, the Wave Trend lines white and cyan. Kept as a fixture of
+    // two two-colour bars; since 2026-10-17 the provider's WT Histogram is one yellow and Money
+    // Flow lime/red (CipherBPaletteTests).
     private const string WtHistUp = "#00FF7F", WtHistDown = "#FF2D55";
     private const string MfUp = "#00E676", MfDown = "#FF1744";
 
