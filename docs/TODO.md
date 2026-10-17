@@ -117,6 +117,26 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-17 pm — Cody's Cipher B report: all DONE; see CHANGES).** Bars pitched by
+> their own sign, Alt+Shift+D reads the whole ladder, DSS states its state, areas stop at the last
+> bar (and clouds' latest run is drawn), Adaptive OB/OS removed. **Unverified by ear.**
+>
+> **Open questions for Cody:**
+> - **Alt+Shift+D:** the focused series still reads its markers as numbers ("WaveTrend Cross Bull
+>   -94.79" — the dot's height) while the ladder says the name only; make the focused series say the
+>   name too? With Price focused the close is said twice. On Cody's chart the readout is ~450–600
+>   characters — too long by ear? Hidden Candles skip the candle block, though the status line still
+>   prints O H L C — right?
+> - **Other state sentences:** only DSS speaks its state. Cipher B's existing sentence reads hidden
+>   components and repeats signals; RSI's and others' restate the numbers. Rewrite them as words-only
+>   state like DSS's, indicator by indicator?
+> - **Hidden keyboard stops:** Anchor Wave Fast/Slow and Anchor Polarity are still hidden Ctrl+Up/Down
+>   stops with real values (StrategyLab uses them). Skip hidden components in that walk?
+> - **S/R zone bands** now stop at the last bar; S/R boxes are often projected right on purpose —
+>   one-line revert in `RenderZoneBand`.
+> - Strategies: only removed signals are announced; causality refusals and HTF load failures are
+>   still silent.
+>
 > **START HERE (2026-10-17 — Cody's answers to the 2026-10-16 questions: all DONE; see CHANGES).**
 > TradingView status lines (legend + hover box retired), Cipher B redrawn and re-fitted against real
 > Market Cipher B, DSS Bressert, Bulkowski breakout wording, #AARRGGBB colour bugs. Each has tests seen

@@ -120,7 +120,11 @@ tail below and none above is unmistakable by ear. The volume bars sit a perfect
 fourth below the body — E4 on an up bar, E3 on a down bar, against the body's A4 and
 A3 — so the bed is audibly under the candle rather than on it, and neither lands on a
 wick. Until 2.11.0 volume played on the body's own pitch, which is why a busy bar
-could sound like one thick note instead of two. And when a reading pushes into an
+could sound like one thick note instead of two. Volume takes its up or down tone from the candle
+because it is coloured by the candle; every other bar — MACD's histogram, Cipher B's WT Histogram
+and Money Flow, PPO, CMF, Force Index — takes it from its own value, the higher tone above zero
+and the lower below, the side it is drawn on and the sign you hear spoken. (Until October 2026
+those followed the candle too, so a negative bar under an up candle sounded positive.) And when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
 tone so the extremity itself is audible. It is a pronounced roughness, not a faint
@@ -588,7 +592,7 @@ counted when the pane is sized.
 Inside a pane the structure continues. A **series** is one thing you added: the candles, an
 RSI, a trend line. A **component** is one line or marker that series draws, and it has a value
 on every bar. MACD is one series with three components: the MACD line, the signal line and the
-histogram. Cipher B is one series with eleven. PageUp and PageDown walk series; Up and Down
+histogram. Cipher B is one series with eighteen. PageUp and PageDown walk series; Up and Down
 walk the components of the series you are on.
 
 A few panes divide into **strips**, a band of the sheet with its own upright ruler: Cipher B
@@ -1234,10 +1238,18 @@ by the button's announced pressed state — whether history is currently hidden.
 ### Inspecting a single bar
 
 When one bar deserves a thorough look before you act on it, press Alt+Shift+D
-for a full point analysis. It reads the candle's
-open, high, low, close and volume, names any candlestick pattern recognised at that
-bar — "Engulfing bullish" — reports every active indicator's reading there, and lists
-any signal events on the bar across all indicators. It is the one-key way to gather
+for a full point analysis. It starts with the bar's date and the series you are focused on, so
+an indicator you walked to is heard first. Then comes the candle as drawn — open, high, low,
+close and volume (on a Heikin-Ashi chart, the Heikin-Ashi candle) — with the candlestick
+pattern at that bar ("Bullish engulfing") and its body and wick percentages. After that, every
+other visible indicator, in the order its status line sits on screen: the price pane first,
+then each pane down the chart, each with its readings and any of its marks that fire on that
+bar. An indicator with nothing at that bar — Market Structure between its marks — says nothing.
+Some indicators add their state in words after their numbers: DSS Bressert says whether it is
+overbought or oversold, rising or falling, and when it has just crossed its trigger ("DSS 85.00,
+Trigger 82.00, overbought, rising, crossed above trigger"). Chart formations come last. Hidden
+indicators, and an indicator's hidden parts, are left out; muted ones are still read, because
+muting silences the sound, not the information. It is the one-key way to gather
 everything the terminal knows about a single moment, which is exactly what you want
 in front of a decision — and a natural lead-in to the analysis tools in the next
 chapter.

@@ -8,6 +8,19 @@
 
 ## Unreleased
 
+- **Bars sound like what they say.** A histogram bar now plays its higher tone above zero and its
+  lower tone below, matching the number you hear and the colour on screen. Before, Cipher B's WT
+  Histogram and Money Flow, MACD's histogram and several others followed the candle instead, so a
+  negative bar could sound positive. Volume still follows the candle.
+- **Alt+Shift+D reads everything at the bar:** the indicator you are on, the candle's prices and
+  volume, then every other visible indicator from the top of the chart down with any signals on that
+  bar, then formations. Hidden indicators and hidden parts are skipped, and an indicator with nothing
+  to say stays quiet. DSS Bressert adds its state: overbought or oversold, rising or falling, and
+  when it crosses its trigger.
+- **Cipher B is two stops shorter:** the hidden Adaptive OB and OS parts are gone; they only repeated
+  the ±53 lines.
+- **Filled waves stop at the newest bar** instead of trailing off into the empty space, and clouds
+  such as Ichimoku's draw their newest stretch again.
 - **Cipher B looks like Market Cipher B.** Blue wave areas, a yellow VWAP, green and red money flow,
   a money-flow bar along the bottom with big green buy dots, and Market Cipher's RSI and Stochastic
   lines. Its numbers were matched against real Market Cipher charts: buy dots now land where Market

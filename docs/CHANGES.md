@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B heard as drawn; Alt+Shift+D reads the whole ladder; areas stop at the last bar (2026-10-17, afternoon)
+
+From Cody's report on the morning's push. Each change has a test seen red with its bug put back.
+**Nothing here has been heard or seen on Windows yet.**
+
+- **A bar is pitched by the side it is drawn on, not the candle.** Cody: Cipher B's WT Histogram
+  "on october 11 daily has a positive sound but says negative"; Money Flow's "negative deeper
+  sounding bars say positive". A Direction pitch with a zero reference fell through to the candle's
+  direction (`ISonificationStrategy.CreateAudioPoint`), and histograms default to PriceDirection,
+  which is the candle too. `OwnSignSide` now gives every bar that is not coloured by the candle its
+  bullish/bearish pitch AND sound patch from its own value against `ColorBaseline` — the side its
+  colour and its spoken number already use. Volume (coloured by the candle) and profiles (pitched per
+  price bin) are unchanged. Sound changes for: Cipher B's WT Histogram and Money Flow (Money Flow
+  regressed this morning, when its anchor moved from −80 to zero), MACD's and PPO's histograms,
+  Chaikin Oscillator, CMF, Ease of Movement, Force Index. `BarPitchFollowsItsColourTests` sweeps every
+  built-in indicator with the renderer's colour as the oracle.
+- **Alt+Shift+D reads everything at the bar** (Cody: "doesn't seem to read the entire ladder").
+  The manual promised OHLCV, the candle pattern, every active indicator and every signal; the code
+  read the focused series (for candles not even the four prices) and the formations. Now: date; the
+  focused series; the candle as drawn (OHLCV, Heikin-Ashi aware, then shape and wicks); every other
+  visible series in the status line's order — price pane, then each pane down — with its readings and
+  the marks that fire on that bar; formations last. Hidden series AND hidden components are not read
+  (Cody: "read only what is not hidden"); muted ones are. A series with nothing at the bar is silent
+  (Cody: "just don't say anything"). `BarDetailReadsEverythingTests`.
+- **DSS Bressert says its state** (Cody: "dss narration should give its state"): after its two
+  numbers, in words — overbought/oversold against the chart's own lines, rising/falling, "crossed
+  above/below trigger" (`DssBressertProvider.StateWords`). Other indicators' detail sentences
+  (`GetDetailFact`) remain unspoken: Cipher B's reads hidden components and repeats signals the
+  ladder already names, so wiring them all in would break both rules above.
+- **Filled areas stop at their last bar.** Cipher B's wave areas ran past the newest bar into the
+  future space as a triangle back to zero (Cody's screenshot), and bridged warm-up and NaN gaps with
+  slanted edges: `StandardRenderers.RenderLine`'s area branch closed at the pane's last and first
+  slots. Each run of values is now its own polygon. Checking every filled kind found worse: at the live
+  edge every cloud's latest run (since its last crossover) was not drawn at all — a `break` for a
+  `continue` (Ichimoku, MA clouds, Cipher B's Anchor Fill). Component S/R zone bands stop at the last
+  bar too. `AreaFillEdgeTests` (pixel-compared with an empty chart).
+- **Cipher B's Adaptive OB / Adaptive OS are no longer components** (Cody: "do I really need
+  these?"). They were hidden keyboard stops reading "Hidden. Adaptive OB. Oscillator. 53.0" on every
+  bar in the default Fixed mode — the ±53 lines again. The thresholds are still computed (companion
+  arrays) so Percentile mode still gates the dots. Saved charts drop them on load (components are
+  rebuilt from metadata). Cipher B has 18 keyboard stops instead of 20. A saved strategy or alert that
+  used them now says once why it cannot fire; and any alert whose component has disappeared from its
+  indicator now warns once instead of returning nothing (`AlertEvaluator`). `CipherBAdaptiveThresholdTests`.
+- **Browser harness: pages opt into session save and resume.** Deleting the session slots (this
+  morning's fix) raced the close-time save Blazor makes about three minutes after a tab closes; one
+  mixed run in four still failed. Each test page now writes "Resume last session" for its own circuit,
+  and only `SessionRestoreBrowserTests` turns it on — proven by turning it off there, which made the
+  restore test fail for want of a saved session.
+
 ### TradingView status lines; Cipher B redrawn as real Market Cipher B; DSS Bressert; breakout wording (2026-10-17)
 
 From Cody's answers to the 2026-10-16 questions. Each change has a test seen red with its bug put
