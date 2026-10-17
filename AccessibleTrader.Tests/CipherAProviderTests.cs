@@ -83,7 +83,7 @@ public sealed class CipherAProviderTests
     public void The_ribbon_and_waves_are_the_fitted_model()
     {
         var bars = RawBars(); var r = Run(bars);
-        Assert.Equal(587, bars.Count);
+        Assert.True(bars.Count > 850, $"only {bars.Count} bars");
         foreach (var (date, g) in CipherAGoldenData.RawValues)
         {
             int i = bars.FindIndex(b => D(b) == date);
@@ -172,17 +172,28 @@ public sealed class CipherAProviderTests
     /// from vBzsjpDu: blue/white while the line is above the next-longer one (the last line: below
     /// the one before), grey otherwise. The colour is classed from the pixel the renderer would paint
     /// (blue channel high and above red), not from the declaration.
+    ///
+    /// <para>Two charts, because each alone cannot tell the per-line rule from a ribbon-wide one.
+    /// On vBzsjpDu (daily Heikin-Ashi, 654 colours) "each line against the next" and "each line
+    /// against EMA 33" agree everywhere; the 2D chart (303 colours, 23 px a candle) has the April
+    /// 2021 stretch where EMA 5 dipped under EMA 11 above a still-rising ribbon and Market Cipher A
+    /// drew EMA 5 alone grey.</para>
     /// </summary>
-    [Fact]
-    public void Each_ribbon_line_is_blue_or_grey_where_Market_Cipher_A_drew_it_so()
+    [Theory]
+    [InlineData("daily Heikin-Ashi (vBzsjpDu)")]
+    [InlineData("2D candles (G4ISY3cn)")]
+    public void Each_ribbon_line_is_blue_or_grey_where_Market_Cipher_A_drew_it_so(string chart)
     {
-        var ha = ChartMath.CalculateHeikinAshi(RawBars()); var r = Run(ha);
+        bool twoDay = chart.StartsWith("2D");
+        var bars = twoDay ? TwoDay(RawBars()) : ChartMath.CalculateHeikinAshi(RawBars());
+        var rows = twoDay ? CipherAGoldenData.MeasuredRibbonColours2D : CipherAGoldenData.MeasuredRibbonColours;
+        var r = Run(bars);
         var series = Restored(Array.Empty<string>());
         foreach (var kv in r) series.Data.ComponentData[kv.Key] = kv.Value;
-        var idx = ha.Select((b, i) => (D(b), i)).ToDictionary(z => z.Item1, z => z.i);
+        var idx = bars.Select((b, i) => (D(b), i)).ToDictionary(z => z.Item1, z => z.i);
 
         int ok = 0; var wrong = new List<string>();
-        foreach (var row in CipherAGoldenData.MeasuredRibbonColours)
+        foreach (var row in rows)
         {
             var f = row.Split(','); int line = int.Parse(f[1]) - 1; bool blue = f[2] == "B";
             var comp = series.Components.Single(c => c.Name == CipherAProvider.RibbonLine(line));
@@ -192,8 +203,41 @@ public sealed class CipherAProviderTests
             bool paintedBlue = c!.Value.Blue >= 190 && c.Value.Blue > c.Value.Red + 20;
             if (paintedBlue == blue) ok++; else wrong.Add($"{f[0]} {comp.Name}: real {(blue ? "blue" : "grey")}");
         }
-        Assert.True(CipherAGoldenData.MeasuredRibbonColours.Length >= 600, "the measured colours are missing");
-        Assert.True(wrong.Count == 0, $"{wrong.Count} of {ok + wrong.Count} ribbon colours differ from Market Cipher A:\n  " + string.Join("\n  ", wrong.Take(10)));
+        Assert.True(rows.Length >= 300, "the measured colours are missing");
+        Assert.True(wrong.Count == 0, $"{chart}: {wrong.Count} of {ok + wrong.Count} ribbon colours differ from Market Cipher A:\n  " + string.Join("\n  ", wrong.Take(10)));
+    }
+
+    /// <summary>TradingView's 2D candles for BITSTAMP:BTCUSD: two days each, starting on an even day since 1970-01-01.</summary>
+    private static List<Ohlcv> TwoDay(List<Ohlcv> daily) =>
+        daily.GroupBy(b => (long)(b.Date - DateTime.UnixEpoch).TotalDays / 2)
+             .Select(g => new Ohlcv(DateTime.UnixEpoch.AddDays(g.Key * 2), g.First().Open, g.Max(b => b.High), g.Min(b => b.Low), g.Last().Close, g.Sum(b => b.Volume)))
+             .ToList();
+
+    // ── 2b. No look-ahead, bar by bar ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Every component and companion value on the newest bar is the same whether the provider sees
+    /// the series up to that bar or the whole series — tried at every one of the last 700 bars of
+    /// real data. The fleet guard (IndicatorCausalityTests) samples a few cut points, which a rare
+    /// symbol like the Green Dot can slip between; this tries them all.
+    /// </summary>
+    [Fact]
+    public void Nothing_on_the_newest_bar_changes_when_later_bars_arrive()
+    {
+        var bars = RawBars(); var full = Run(bars);
+        var moved = new List<string>(); int compared = 0;
+        for (int n = bars.Count - 700; n < bars.Count; n++)
+        {
+            var part = Run(bars.GetRange(0, n));
+            foreach (var (key, arr) in part)
+            {
+                double a = arr[n - 1], b = full[key][n - 1];
+                compared++;
+                if (!(double.IsNaN(a) && double.IsNaN(b)) && a != b) moved.Add($"{key} on {D(bars[n - 1])}: {a} with the bars up to it, {b} with all of them");
+            }
+        }
+        Assert.True(compared > 700 * 15, $"compared only {compared} values");
+        Assert.True(moved.Count == 0, $"{moved.Count} values on the newest bar changed when later bars arrived:\n  " + string.Join("\n  ", moved.Take(8)));
     }
 
     // ── 3. Cipher B parity: one WaveTrend ───────────────────────────────────────────────
