@@ -83,7 +83,9 @@ namespace AccessibleTrader.Core.Services.Rendering
         private static void Draw(RenderContext ctx, ChartPattern p, int firstVisible, int lastVisible,
             List<float> takenLabelRows, bool labelLevels)
         {
-            var theme = ctx.Theme;
+            // Every colour below comes from FormationInk: the accent, lifted only as far as this
+            // theme's chart needs for the text to reach 4.5:1 and the lines 3:1 (see there).
+            var ink = FormationInk.For(ctx.Theme);
 
             // The formation's own span, clamped to the viewport so a shape running off the left
             // edge still draws the part that is visible rather than vanishing.
@@ -117,19 +119,27 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 IsAntialias = true,
                 Style = SKPaintStyle.Fill,
-                Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 9),
+                Color = ink.SpanFill,
             };
             ctx.Canvas.DrawRect(new SKRect(x1, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom), span);
 
+            // The span's two edges reach 3:1 like every other line here (at alpha 70 they were
+            // 1.34:1 on Classic), but DOTTED: two full-height solid lines per formation at that
+            // contrast would compete with the candles the way a loud grid does, and these mark
+            // where the shape begins and ends — context, not a level to read a price off. Each
+            // dot is the colour that passes; the gaps are what keep them quiet.
+            using var dots = SKPathEffect.CreateDash(new[] { 2f * ctx.Density, 4f * ctx.Density }, 0);
             using var edge = new SKPaint
             {
                 IsAntialias = true,
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = 1f * ctx.Density,
-                Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 70),
+                PathEffect = dots,
+                Color = ink.SpanEdge,
             };
-            ctx.Canvas.DrawLine(x1, ctx.PaneRect.Top, x1, ctx.PaneRect.Bottom, edge);
-            ctx.Canvas.DrawLine(x2, ctx.PaneRect.Top, x2, ctx.PaneRect.Bottom, edge);
+            float e1 = Crisp(ctx, x1), e2 = Crisp(ctx, x2);
+            ctx.Canvas.DrawLine(e1, ctx.PaneRect.Top, e1, ctx.PaneRect.Bottom, edge);
+            ctx.Canvas.DrawLine(e2, ctx.PaneRect.Top, e2, ctx.PaneRect.Bottom, edge);
 
             // ── A triangle or wedge: its two sloping edges ──────────────────────
             //
@@ -146,7 +156,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     IsAntialias = true,
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = 1.2f * ctx.Density,
-                    Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 170),
+                    Color = ink.Boundary,
                 };
                 DrawBoundary(ctx, p.UpperBoundary!, p.StartBarIndex, p.EndBarIndex, boundary);
                 DrawBoundary(ctx, p.LowerBoundary!, p.StartBarIndex, p.EndBarIndex, boundary);
@@ -175,10 +185,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                 IsAntialias = true,
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = 1.6f * ctx.Density,
-                Color = theme.Accent,
+                Color = ink.Trigger,
             };
             ctx.Canvas.DrawLine(xLevels, yTrigger, xTriggerEnd, yTrigger, trigger);
-            Label(ctx, TriggerLabel(p), xLevels + 4 * ctx.Density, yTrigger, theme.Accent, takenLabelRows);
+            Label(ctx, TriggerLabel(p), xLevels + 4 * ctx.Density, xTriggerEnd, yTrigger, ink.Text, ink.Plate, takenLabelRows);
 
             // A range has a second boundary and it is every bit as real as the first.
             if (p.SecondaryLevel is double bottom && IsOnScreen(ctx, bottom))
@@ -186,7 +196,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float yBottom = YFor(ctx, bottom);
                 ctx.Canvas.DrawLine(x1, yBottom, xTriggerEnd, yBottom, trigger);
                 if (labelLevels)
-                    Label(ctx, SecondaryLabel(p, bottom), x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
+                    Label(ctx, SecondaryLabel(p, bottom), x1 + 4 * ctx.Density, xTriggerEnd, yBottom, ink.Text, ink.Plate, takenLabelRows);
             }
 
             // ── The measured target: faint, dashed, and labelled as a convention ─
@@ -197,7 +207,9 @@ namespace AccessibleTrader.Core.Services.Rendering
             if (p.MeasuredTarget is double target && target > 0
                 && p.State != ChartPatternState.Expired && IsOnScreen(ctx, target))
             {
-                float yTarget = YFor(ctx, target);
+                // On the pixel grid: a 1px line centred between two rows is drawn as two rows at
+                // half strength, and half of a 3:1 colour is not 3:1 on screen.
+                float yTarget = Crisp(ctx, YFor(ctx, target));
                 using var dash = SKPathEffect.CreateDash(new[] { 6f * ctx.Density, 6f * ctx.Density }, 0);
                 using var targetPaint = new SKPaint
                 {
@@ -205,14 +217,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = 1f * ctx.Density,
                     PathEffect = dash,
-                    Color = new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 110),
+                    Color = ink.Target,
                 };
                 ctx.Canvas.DrawLine(xLevels, yTarget, xTargetEnd, yTarget, targetPaint);
                 // Named, because a chart carrying three formations drew three lines all labelled
                 // "measured target" and none of them said whose.
                 if (labelLevels)
-                    Label(ctx, TargetLabel(p, target), xLevels + 4 * ctx.Density, yTarget,
-                          new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
+                    Label(ctx, TargetLabel(p, target), xLevels + 4 * ctx.Density, xTargetEnd, yTarget,
+                          ink.TargetText, ink.Plate, takenLabelRows);
             }
         }
 
@@ -281,7 +293,8 @@ namespace AccessibleTrader.Core.Services.Rendering
         }
 
         /// <summary>
-        /// A label above its line, nudged clear of labels already placed and kept inside the pane.
+        /// A label beside its line, placed where it covers the least price, nudged clear of labels
+        /// already placed and kept inside the pane.
         ///
         /// <para>
         /// The first version drew every label at its own line's y with no awareness of the others.
@@ -289,11 +302,12 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// of each other, all three labels landed on the same pixel row and overprinted into an
         /// illegible smear — and any label near the top of the range was drawn above the pane
         /// entirely. Both were obvious in a screenshot and invisible to a test that only asks
-        /// whether drawing throws.
+        /// whether drawing throws. Where it goes along and beside the line is
+        /// <see cref="PlaceLabel"/>.
         /// </para>
         /// </summary>
-        private static void Label(RenderContext ctx, string text, float x, float y, SKColor colour,
-            List<float> taken)
+        private static void Label(RenderContext ctx, string text, float x, float xLineEnd, float y,
+            SKColor colour, SKColor plateColour, List<float> taken)
         {
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
@@ -301,26 +315,148 @@ namespace AccessibleTrader.Core.Services.Rendering
             float pad = 3f * ctx.Density;
             (text, x) = FitInPane(text, x, ctx.PaneRect, pad, t => font.MeasureText(t));
             float width = font.MeasureText(text);
-            float row = NextLabelRow(ctx, taken, y, x, width);
+            (x, float row) = PlaceLabel(ctx, taken, y, x, xLineEnd, width, font.Size, pad);
 
-            // A backing plate, because these labels land on top of candles. In the screenshot that
-            // prompted this, "head and shoulders" ran straight across a green candle body and
-            // "descending triangle" over a support line — legible only if you already knew what it
-            // said. Staggering them fixed labels colliding with EACH OTHER; this fixes them
-            // colliding with the chart.
-            var plate = new SKRect(x - pad, row - font.Size, x + width + pad, row + pad);
+            // A backing plate, because a label can still land on candles when there is nowhere
+            // clear to put it. In the screenshot that prompted this, "head and shoulders" ran
+            // straight across a green candle body and "descending triangle" over a support line —
+            // legible only if you already knew what it said. Staggering them fixed labels colliding
+            // with EACH OTHER; this fixes them colliding with the chart.
+            var plate = PlateRect(x, row, width, font.Size, pad);
 
             using var platePaint = new SKPaint
             {
                 IsAntialias = true,
                 Style = SKPaintStyle.Fill,
-                Color = new SKColor(ctx.Theme.Background.Red, ctx.Theme.Background.Green,
-                                    ctx.Theme.Background.Blue, 205),
+                Color = plateColour,
             };
             ctx.Canvas.DrawRoundRect(plate, 2f * ctx.Density, 2f * ctx.Density, platePaint);
 
             ctx.Canvas.DrawText(text, x, row, SKTextAlign.Left, font, paint);
         }
+
+        /// <summary>The plate behind a label whose text starts at <paramref name="x"/> on baseline <paramref name="row"/>.</summary>
+        internal static SKRect PlateRect(float x, float row, float width, float fontSize, float pad) =>
+            new(x - pad, row - fontSize, x + width + pad, row + pad);
+
+        // What a placement costs beyond the price it covers, in square device pixels. Displacement
+        // is per pixel the label moved from where it asked to be (a stagger past another label or
+        // the legend) — about four wicks' worth per row, so a label leaves its line's side only to
+        // get clear of real candles. The other two only break ties: above before below, the line's
+        // start before further along it.
+        private const float DisplacementPerPx = 4f, BelowTieBreak = 1f, SlideTieBreak = 0.5f;
+        private const int SlideSteps = 8;
+
+        /// <summary>
+        /// Where a label goes: the text's left x and its baseline. Appends the chosen row to
+        /// <paramref name="taken"/>.
+        ///
+        /// <para>
+        /// It used to be "just above the line, at the line's start", and on Cody's 2026-10-17
+        /// BTCUSDT daily chart "symmetrical triangle trigger 65,415.69, upward breakout" sat on top
+        /// of the August breakout candles — a triangle's trigger starts at the swing that made it,
+        /// which is right where price is about to break through it. Now there are 18 candidates:
+        /// above and below the line, each at nine points from the line's start to where the label
+        /// would still end on the line (or, on a line shorter than the label, to the line's
+        /// middle, so the label still starts on it). Each is staggered past taken rows and the legend exactly
+        /// as before (<see cref="NextLabelRow"/>'s walk), and scored by the area of candle body and
+        /// wick its plate would cover (<see cref="PriceInkUnder"/>), plus a cost for being pushed
+        /// off its line and a large one for covering its OWN line. The cheapest wins; ties go to
+        /// above, then to the line's start — which is the old placement, so a label with nothing
+        /// under it does not move. Deterministic, and about 18 × the bars under one label.
+        /// </para>
+        /// </summary>
+        internal static (float X, float Row) PlaceLabel(RenderContext ctx, List<float> taken, float y,
+            float x, float xLineEnd, float width, float fontSize, float pad)
+        {
+            float d = ctx.Density;
+            // Furthest right the label may start: still ending on its line — or, for a line shorter
+            // than its label (a trigger that broke a few bars after the swing), starting in the
+            // line's first half — and always inside the pane.
+            float endsOnLine = xLineEnd - pad - width;
+            float startsInFirstHalf = x + (xLineEnd - x) / 2f;
+            float xMax = Math.Min(Math.Max(endsOnLine, startsInFirstHalf), ctx.PaneRect.Right - pad - width);
+
+            float bestCost = float.MaxValue;
+            (float X, float Row) best = (x, float.NaN);
+            for (int side = 0; side < 2; side++)
+            {
+                bool below = side == 1;
+                // Above: the plate's bottom on the line (as before). Below: its top 2px under it.
+                float want = below ? y + fontSize + 2 * d : y - 3 * d;
+                // A label that cannot sit below without being clamped back up over its line does not try.
+                if (below && want > ctx.PaneRect.Bottom - 2 * d) continue;
+
+                for (int k = 0; k <= SlideSteps; k++)
+                {
+                    if (k > 0 && !(xMax > x)) break;
+                    float cx = k == 0 ? x : x + (xMax - x) * k / SlideSteps;
+                    float row = WalkRow(ctx, taken, want, cx, width);
+                    var plate = PlateRect(cx, row, width, fontSize, pad);
+
+                    float cost = PriceInkUnder(ctx, plate)
+                        + DisplacementPerPx * d * Math.Abs(row - want)
+                        + (below ? BelowTieBreak : 0f) + SlideTieBreak * k;
+                    // Covering its own line hides the very thing it names.
+                    if (plate.Top < y - d && plate.Bottom > y + d) cost += plate.Width * plate.Height;
+
+                    if (cost < bestCost) { bestCost = cost; best = (cx, row); }
+                }
+            }
+
+            taken.Add(best.Row);
+            return best;
+        }
+
+        /// <summary>
+        /// How much candle a rect would cover, in square pixels: the overlap of
+        /// <paramref name="r"/> (grown by a pixel, so a label touching a wick counts) with every
+        /// visible bar's body and wicks, laid out as the candle renderer lays them out — bodies 80%
+        /// of the bar's width, a 1px wick. Reads <see cref="RenderContext.Data"/>, which is the
+        /// bars as drawn (Heikin-Ashi when the chart is), indexed from the viewport's first bar.
+        /// </summary>
+        internal static float PriceInkUnder(RenderContext ctx, SKRect r)
+        {
+            float w = ctx.ItemWidth;
+            if (!(w > 0)) return 0f;
+            r.Inflate(ctx.Density, ctx.Density);
+
+            var data = ctx.Data;
+            int n = Math.Min(ctx.ViewportLength, data.Count);
+            int i0 = Math.Max(0, (int)Math.Floor((r.Left - ctx.PaneRect.Left) / w) - 1);
+            int i1 = Math.Min(n - 1, (int)Math.Ceiling((r.Right - ctx.PaneRect.Left) / w) + 1);
+            float half = Math.Max(0.5f, MathF.Floor(w * 0.4f));
+
+            float area = 0f;
+            for (int i = i0; i <= i1; i++)
+            {
+                var b = data[i];
+                float cx = ctx.PaneRect.Left + i * w + w / 2f;
+                float yHigh = YFor(ctx, (double)b.High), yLow = YFor(ctx, (double)b.Low);
+                float yOpen = YFor(ctx, (double)b.Open), yClose = YFor(ctx, (double)b.Close);
+                float top = Math.Min(yOpen, yClose), bottom = Math.Max(Math.Max(yOpen, yClose), top + 1f);
+
+                area += Overlap(r, cx - half, top, cx + half, bottom);
+                area += Overlap(r, cx - 0.5f, yHigh, cx + 0.5f, top);
+                area += Overlap(r, cx - 0.5f, bottom, cx + 0.5f, yLow);
+            }
+            return area;
+        }
+
+        private static float Overlap(SKRect r, float left, float top, float right, float bottom)
+        {
+            float w = Math.Min(r.Right, right) - Math.Max(r.Left, left);
+            float h = Math.Min(r.Bottom, bottom) - Math.Max(r.Top, top);
+            return w > 0 && h > 0 ? w * h : 0f;
+        }
+
+        /// <summary>
+        /// A 1-device-pixel line's coordinate, moved onto the pixel grid. Drawn between two rows,
+        /// antialiasing paints both at half strength, and half of a colour chosen to reach 3:1
+        /// does not.
+        /// </summary>
+        private static float Crisp(RenderContext ctx, float v) =>
+            ((int)MathF.Round(ctx.Density) % 2 == 1) ? MathF.Floor(v) + 0.5f : MathF.Round(v);
 
         /// <summary>
         /// Keeps a label — plate included — inside the pane. A label starts at its line's left end,
@@ -360,8 +496,19 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static float NextLabelRow(RenderContext ctx, List<float> taken, float y,
             float x = float.NaN, float width = 0f)
         {
+            float row = WalkRow(ctx, taken, y - 3 * ctx.Density, x, width);
+            taken.Add(row);
+            return row;
+        }
+
+        /// <summary>
+        /// The stagger: from the row a label asks for, down past every row already taken and the
+        /// legend, clamped inside the pane. Shared by <see cref="NextLabelRow"/> and every
+        /// candidate <see cref="PlaceLabel"/> weighs; appends nothing.
+        /// </summary>
+        private static float WalkRow(RenderContext ctx, List<float> taken, float row, float x, float width)
+        {
             float lineHeight = 12f * ctx.Density;
-            float row = y - 3 * ctx.Density;
 
             // Push down past anything already occupying this row — and past the rect the
             // renderer says it will paint over this pane (the legend), when the label's own
@@ -380,7 +527,6 @@ namespace AccessibleTrader.Core.Services.Rendering
             row = Math.Max(row, ctx.PaneRect.Top + lineHeight);
             while (Blocked(row)) row += lineHeight;
             row = Math.Min(row, ctx.PaneRect.Bottom - 2 * ctx.Density);
-            taken.Add(row);
             return row;
         }
 
