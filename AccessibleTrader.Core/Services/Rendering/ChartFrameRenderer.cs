@@ -67,7 +67,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                     state.IsHeikinAshi, state.IsLogScale, density, state.PaneHeightRatios,
                     state.RightMarginBars, Formations(state.Identity, state.Data),
                     // So an indicator pane's crosshair badge reads the component the user is on.
-                    state.FocusedSeriesId, state.FocusedComponentIndex);
+                    state.FocusedSeriesId, state.FocusedComponentIndex,
+                    // So the price pane's status block is measured with its symbol line.
+                    state.Identity);
             }
             catch { /* keep the last good frame */ }
         }

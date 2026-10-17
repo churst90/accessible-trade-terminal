@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Core.Services.Rendering;
+using AccessibleTrader.Core.Services.Theming;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
@@ -214,7 +215,10 @@ namespace AccessibleTrader.Core.Services
         /// pane's crosshair badge can read the component the user is on (see
         /// <see cref="CrosshairReadingAt"/>). Null reads each pane's primary line.</param>
         /// <param name="focusedComponentIndex">The component within that series.</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1)
+        /// <param name="identity">The chart's symbol, timeframe and provider, for the price pane's
+        /// status line: measured here so formation labels stay out from under it, and painted
+        /// when <see cref="PaintsStatusLines"/> is on.</param>
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null)
         {
             try
             {
@@ -313,19 +317,28 @@ namespace AccessibleTrader.Core.Services
                 var chartRect = new SKRect(0, mainPaneRect.Top, width - _axisWidth, height - _axisHeight);
 
                 var mainOverlaySeries = MainPaneLegendSeries(mainSeries);
-                // Measured BEFORE the pane draws, because the formation layer places its labels
-                // inside the pane and the legend is painted on top of it afterwards. Until
-                // 2026-09-22 the layer did not know the legend existed, so "ascending triangle"
-                // staggered its labels straight underneath the box and the box covered them —
-                // visible in a screenshot, invisible to every test.
-                SKRect? legendRect = mainOverlaySeries.Count > 0
-                    ? MeasureLegendBox(mainPaneRect, mainOverlaySeries, density)
-                    : null;
 
                 // The bar the crosshair labels: RenderCrosshair's own clamp (never past the last
-                // real bar), computed ONCE so every pane's badge and every axis that keeps its
-                // labels out from under one are reading the same bar.
+                // real bar), computed ONCE so every pane's badge, every status line and every
+                // axis that keeps its labels out from under one are reading the same bar.
                 int crossIndex = Math.Min(cursorIndex - viewportStart, visibleData.Count - 1);
+
+                // The price pane's STATUS LINES (Cody's 2026-10-17 decision: TradingView status
+                // line). On the live chart they are DOM text drawn by ChartArea over this image,
+                // but they are measured here, BEFORE the pane draws, because the formation layer
+                // places its labels inside the pane and must keep them out from under the block.
+                // Until 2026-09-22 the layer did not know the legend existed, so "ascending
+                // triangle" staggered its labels straight underneath it — visible in a
+                // screenshot, invisible to every test. The block is measured at the keyboard
+                // cursor's bar; a hovered bar's readings can be a little wider or narrower.
+                using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * density);
+                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity);
+                PaneStatus? mainStatus = crossIndex >= 0
+                    ? BuildStatus("Main", mainOverlaySeries, viewportStart + crossIndex, statusCtx, mainPaneRect, density, statusFont)
+                    : null;
+                SKRect? legendRect = mainStatus is { Lines.Count: > 0 } ms
+                    ? StatusBlockRect(mainPaneRect, ms, density, statusFont)
+                    : null;
 
                 // The price pane's cursor line sits at the close and had NO badge (Cody's
                 // 2026-10-15 screenshots): a line across the candles with nothing saying what it
@@ -343,13 +356,15 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect);
-                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density, mainBadge?.TextY(density));
-                if (mainOverlaySeries.Count > 0)
-                    RenderPaneLegend(canvas, mainPaneRect, mainOverlaySeries, density);
-                // Small colored ticks on the Y-axis at each visible line indicator's
-                // most-recent value (WT Fast / Slow / MF etc.). No-op if no line
-                // components exist in the pane.
-                RenderYAxisSwatches(canvas, mainAxisRect, mainOverlaySeries, mainMin, mainMax, isLogScale, density);
+                // Each visible plot's newest value as a label on the axis, in the plot's colour
+                // (TradingView's "labels on the price scale"), placed before the axis draws so the
+                // gridline labels keep out from under them as they keep out from under the badge.
+                var mainScale = PlaceScaleLabels(ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current),
+                    mainAxisRect, mainMin, mainMax, isLogScale, density);
+                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
+                RenderScaleLabels(canvas, mainAxisRect, mainScale, mainMax - mainMin, density);
+                if (PaintsStatusLines && mainStatus != null)
+                    PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, statusFont);
                 currentY += mainPaneHeight;
 
                 float itemWidthForAxis = (width - _axisWidth) / Math.Max(1, viewportLength);
@@ -391,28 +406,33 @@ namespace AccessibleTrader.Core.Services
                             ChartMath.MapY(reading.Value, paneRect.Top, paneRect.Bottom, min, max, false),
                             ReadingColor(reading, _theme.Current, rawVisibleData[crossIndex]), max - min);
                     }
-                    RenderYAxis(canvas, indAxisRect, min, max, false, density, badge?.TextY(density));
-                    RenderPaneLegend(canvas, paneRect, paneSeriesList, density);
-                    RenderYAxisSwatches(canvas, indAxisRect, paneSeriesList, min, max, false, density);
+                    var scale = PlaceScaleLabels(ScaleLabelsFor(paneSeriesList, data.Count, _theme.Current),
+                        indAxisRect, min, max, false, density);
+                    RenderYAxis(canvas, indAxisRect, min, max, false, density, AvoidRows(badge, scale, density));
+                    RenderScaleLabels(canvas, indAxisRect, scale, max - min, density);
+                    if (PaintsStatusLines && crossIndex >= 0
+                        && BuildStatus(group.Key, paneSeriesList, viewportStart + crossIndex, statusCtx, paneRect, density, statusFont) is { Lines.Count: > 0 } paneStatus)
+                        PaintStatusBlock(canvas, paneRect, paneStatus, density, statusFont);
                     indicatorPaneInfos.Add((paneRect, badge));
                     currentY += indicatorPaneHeight;
                 }
 
-                // Update shared layout service so ChartArea.razor can position drag handles.
-                // The price pane's legend goes with it, as fractions like the dividers: the hover
-                // readout (DOM, over the chart image) moves to the top left when the pointer is on
-                // the newest bars, and must sit clear of this box.
-                (float, float, float, float)? legendFraction = legendRect is { } lr
-                    ? (lr.Left / width, lr.Top / height, lr.Right / width, lr.Bottom / height)
-                    : null;
-                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width, legendFraction);
+                // Update shared layout service so ChartArea.razor can position drag handles and,
+                // from the same dividers, each pane's status lines.
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
                 canvas.DrawLine(width - _axisWidth, 0, width - _axisWidth, height - _axisHeight, sepPaint);
                 canvas.DrawLine(0, height - _axisHeight, width - _axisWidth, height - _axisHeight, sepPaint);
 
-                RenderXAxis(canvas, new SKRect(0, height - _axisHeight, width - _axisWidth, height), visibleData, itemWidthForAxis, density);
+                // The cursor bar's date as a label ON THE TIME AXIS (TradingView's model; it used to
+                // be in the hover readout box only, and only for the mouse). Measured first so the
+                // axis leaves out the tick labels it would cut in half.
+                var xAxisRect = new SKRect(0, height - _axisHeight, width - _axisWidth, height);
+                var dateBadge = crossIndex >= 0 ? CursorDateBadge(xAxisRect, visibleData, crossIndex, itemWidthForAxis, density) : null;
+                RenderXAxis(canvas, xAxisRect, visibleData, itemWidthForAxis, density, dateBadge?.Rect);
+                if (dateBadge is { } db) DrawDateBadge(canvas, db, density);
                 RenderCrosshair(canvas, new SKRect(0, 0, width - _axisWidth, totalPaneHeight), visibleData, cursorIndex - viewportStart, itemWidthForAxis, density, mainPaneRect, mainBadge, indicatorPaneInfos);
             }
             catch (Exception ex)
@@ -579,12 +599,12 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        /// <param name="avoidTextY">
-        /// Baseline of the crosshair's value badge in this strip, when there is one. The badge is
-        /// painted last, over whatever label sits nearest — so the axis leaves that label out
-        /// rather than have two numbers share the same rows.
+        /// <param name="avoidTextYs">
+        /// Baselines of what is painted over this strip afterwards: the crosshair's value badge and
+        /// each plot's value label. Each is painted over whatever gridline label sits nearest — so
+        /// the axis leaves that label out rather than have two numbers share the same rows.
         /// </param>
-        private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, float? avoidTextY = null)
+        private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, IReadOnlyList<float>? avoidTextYs = null)
         {
             // Round-number anchors. The old algorithm labelled at fixed fractions (0, 0.25, 0.5,
             // 0.75, 1.0) of the raw min/max, producing labels like "76227.38" on a 64k–80k BTC
@@ -619,7 +639,7 @@ namespace AccessibleTrader.Core.Services
                     rect.Top + _textFont.Size + (6 * density),
                     rect.Bottom - (3 * density));
                 if (Math.Abs(textY - lastTextY) < minLabelSpacing) continue;
-                if (avoidTextY.HasValue && Math.Abs(textY - avoidTextY.Value) < minLabelSpacing) continue;
+                if (avoidTextYs != null && avoidTextYs.Any(a => Math.Abs(textY - a) < minLabelSpacing)) continue;
                 lastTextY = textY;
                 float lx = rect.Left + (3 * density);
                 // MEASURED AGAINST THE EDGE IT IS DRAWN AT, which is the check this axis never
@@ -634,48 +654,163 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Draws a small colored tick on the left edge of the Y-axis strip at
-        /// the current live-bar Y position for every visible line/area component
-        /// in the pane. Gives an at-a-glance read of "where does each indicator
-        /// currently sit" without having to follow the line visually across a
-        /// busy canvas.
+        /// One plot's value label on its pane's axis: the plot's newest value, filled in the
+        /// plot's colour at that value, with black or white text, whichever contrasts more.
         /// </summary>
-        private void RenderYAxisSwatches(SKCanvas canvas, SKRect axisRect, List<ChartSeries> paneSeries, double min, double max, bool isLogScale, float density)
+        /// <param name="Tier">0 for a line, 1 for bars — lines keep their label when the strip
+        /// is too short for all of them.</param>
+        /// <param name="Y">Where the label is centred once placed; NaN until then.</param>
+        internal readonly record struct ScaleLabel(double Value, SKColor Fill, int Tier, string Series, string Component, float Y = float.NaN)
         {
-            if (paneSeries == null || paneSeries.Count == 0) return;
-            float tickW = 4 * density;
-            float tickH = 3 * density;
+            /// <summary>The text colour: black or white, whichever reads better on the fill.</summary>
+            public SKColor Ink => WcagContrast.MostContrasting(Fill.WithAlpha(255), SKColors.Black, SKColors.White);
+        }
+
+        /// <summary>
+        /// The value labels a pane's axis carries — TradingView's "labels on the price scale"
+        /// (Cody's 2026-10-17 decision: TradingView status line). One per visible line or bar plot,
+        /// at its NEWEST value, the bar the chart is live on; the status line carries the value at
+        /// the cursor and the crosshair badge marks it on the axis. Replaces the 4x3 px swatch
+        /// ticks this axis had (lines and areas only: a colour with no number). Never a hidden,
+        /// disabled or sub-pane component — the crosshair badge's rule (<see cref="ReadingTier"/>):
+        /// a sub-pane strip's values are on that strip's range, not this axis.
+        /// </summary>
+        internal static List<ScaleLabel> ScaleLabelsFor(IReadOnlyList<ChartSeries> paneSeries, int barCount, ChartTheme theme)
+        {
+            var labels = new List<ScaleLabel>();
             foreach (var s in paneSeries)
             {
+                if (s.IsDrawing || !s.IsVisible) continue;
                 foreach (var comp in s.Components)
                 {
-                    if (!comp.IsVisible) continue;
-                    if (comp.DisplayType is not (ComponentDisplayType.Line or ComponentDisplayType.Area)) continue;
+                    int tier = ReadingTier(comp);
+                    if (tier is not (0 or 1)) continue;
                     var data = s.GetComponentData(comp.Name);
                     if (data == null || data.Length == 0) continue;
-                    // Walk back from last bar until a non-NaN value is found — some
-                    // indicators produce NaN tails inside their warm-up region.
-                    double? v = null;
-                    for (int i = data.Length - 1; i >= 0 && i > data.Length - 20; i--)
+                    // Walk back from the newest bar to a value: some indicators end in NaN
+                    // inside their warm-up region, or one bar short of the price data.
+                    int last = Math.Min(data.Length, Math.Max(barCount, 1)) - 1;
+                    for (int i = last; i >= 0 && i > last - 20; i--)
                     {
-                        if (!double.IsNaN(data[i])) { v = data[i]; break; }
+                        if (double.IsNaN(data[i])) continue;
+                        var fill = ReadingColor(new CrosshairReading(data[i], s, comp, i), theme, null);
+                        labels.Add(new ScaleLabel(data[i], fill, tier, s.Id, comp.Name));
+                        break;
                     }
-                    if (!v.HasValue) continue;
-                    if (!SKColor.TryParse(comp.ColorHex, out var color)) continue;
-                    float y = ChartMath.MapY(v.Value, axisRect.Top, axisRect.Bottom, min, max, isLogScale);
-                    if (y < axisRect.Top || y > axisRect.Bottom) continue;
-                    using var p = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-                    // SKCanvas.DrawRect's four-float overload is (x, y, WIDTH, HEIGHT), not
-                    // (left, top, right, bottom). Passing bounds here made a 4x3px tick into a
-                    // rect ~1900px wide and ~y tall — a solid colour block down the price axis
-                    // that buried the axis labels behind it.
-                    canvas.DrawRect(SKRect.Create(axisRect.Left, y - (tickH / 2f), tickW, tickH), p);
                 }
+            }
+            return labels;
+        }
+
+        /// <summary>
+        /// Places the labels on the strip at their values, stacked so no two overlap: sorted by
+        /// position, pushed down past the one above, then back up from the strip's bottom. A
+        /// label whose value is off the pane's range is left out (the swatches were too). When the
+        /// strip cannot hold them all, bars give way before lines, and a later plot before an
+        /// earlier one, rather than overprint.
+        /// </summary>
+        private List<ScaleLabel> PlaceScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog, float density)
+            => StackScaleLabels(labels, axisRect, min, max, isLog, ScaleLabelHeight(density));
+
+        private float ScaleLabelHeight(float density) => _textFont.Size + (4 * density);
+
+        internal static List<ScaleLabel> StackScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog, float labelH)
+        {
+            var onPane = new List<ScaleLabel>();
+            foreach (var l in labels)
+            {
+                float y = ChartMath.MapY(l.Value, axisRect.Top, axisRect.Bottom, min, max, isLog);
+                if (float.IsNaN(y) || y < axisRect.Top || y > axisRect.Bottom) continue;
+                onPane.Add(l with { Y = y });
+            }
+            int room = (int)(axisRect.Height / Math.Max(labelH, 1f));
+            if (onPane.Count > room)
+                onPane = onPane.Select((l, i) => (l, i)).OrderBy(t => t.l.Tier).ThenBy(t => t.i)
+                               .Take(Math.Max(room, 0)).Select(t => t.l).ToList();
+            if (onPane.Count == 0) return onPane;
+
+            var placed = onPane.OrderBy(l => l.Y).ToList();
+            float top = axisRect.Top + labelH / 2f, bottom = axisRect.Bottom - labelH / 2f;
+            float prev = float.MinValue;
+            for (int i = 0; i < placed.Count; i++)
+            {
+                float y = Math.Max(placed[i].Y, Math.Max(top, prev + labelH));
+                placed[i] = placed[i] with { Y = y };
+                prev = y;
+            }
+            float next = float.MaxValue;
+            for (int i = placed.Count - 1; i >= 0; i--)
+            {
+                float y = Math.Min(placed[i].Y, Math.Min(bottom, next - labelH));
+                placed[i] = placed[i] with { Y = y };
+                next = y;
+            }
+            return placed;
+        }
+
+        /// <summary>The text baselines of the badge and the value labels, for the axis to keep its gridline labels clear of.</summary>
+        private static List<float> AvoidRows(CrosshairBadge? badge, List<ScaleLabel> labels, float density)
+        {
+            var rows = labels.Select(l => l.Y + (4 * density)).ToList();
+            if (badge is { } b) rows.Add(b.TextY(density));
+            return rows;
+        }
+
+        private void RenderScaleLabels(SKCanvas canvas, SKRect axisRect, List<ScaleLabel> labels, double range, float density)
+        {
+            if (labels.Count == 0) return;
+            float labelH = ScaleLabelHeight(density);
+            float lx = axisRect.Left + (2 * density);
+            float pad = 3 * density;
+            using var fill = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var ink = new SKPaint { IsAntialias = true };
+            foreach (var l in labels)
+            {
+                string text = FitAxisLabel(ChartMath.FormatAxisReading(l.Value, range), l.Value,
+                                           axisRect.Right - lx - (2 * pad));
+                float w = _textFont.MeasureText(text) + 2 * pad;
+                fill.Color = l.Fill.WithAlpha(255);
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(lx, l.Y - labelH / 2f, lx + w, l.Y + labelH / 2f), 2 * density), fill);
+                ink.Color = l.Ink;
+                canvas.DrawText(text, lx + pad, l.Y + (4 * density), SKTextAlign.Left, _textFont, ink);
             }
         }
 
-        private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density)
+        /// <summary>The cursor bar's date label on the time axis: its text and the rect it covers.</summary>
+        internal readonly record struct DateBadge(string Text, SKRect Rect, float TextX, float TextY);
+
+        /// <summary>
+        /// The date of the bar under the keyboard cursor, as a label on the time axis centred on
+        /// the crosshair and kept inside the strip — TradingView's model. The date used to be in
+        /// the hover readout box only, so only for the mouse. Same text as the hover's, by the
+        /// rule every spoken readout uses (<see cref="ChartMath.FormatCrosshairDate"/>).
+        /// </summary>
+        private DateBadge? CursorDateBadge(SKRect xAxisRect, List<Ohlcv> visibleData, int localIndex, float itemWidth, float density)
         {
+            if (localIndex < 0 || localIndex >= visibleData.Count) return null;
+            string text = ChartMath.FormatCrosshairDate(visibleData[localIndex].Date, ChartMath.BarSecondsOf(visibleData));
+            float pad = 5 * density;
+            float w = _textFont.MeasureText(text) + 2 * pad;
+            float cx = xAxisRect.Left + (localIndex * itemWidth) + (itemWidth / 2);
+            float left = Math.Clamp(cx - w / 2f, xAxisRect.Left, Math.Max(xAxisRect.Left, xAxisRect.Right - w));
+            float top = xAxisRect.Top + (2 * density);
+            float bottom = Math.Min(xAxisRect.Bottom - (2 * density), top + _textFont.Size + (8 * density));
+            return new DateBadge(text, new SKRect(left, top, left + w, bottom), left + pad, xAxisRect.Top + _textFont.Size + (6 * density));
+        }
+
+        private void DrawDateBadge(SKCanvas canvas, DateBadge badge, float density)
+        {
+            using var bg = new SKPaint { Color = new SKColor(40, 40, 40, 235), Style = SKPaintStyle.Fill, IsAntialias = true };
+            canvas.DrawRoundRect(new SKRoundRect(badge.Rect, 3 * density), bg);
+            using var ink = new SKPaint { Color = SKColors.White, IsAntialias = true };
+            canvas.DrawText(badge.Text, badge.TextX, badge.TextY, SKTextAlign.Left, _textFont, ink);
+        }
+        /// <param name="avoid">The cursor's date label, painted over the strip afterwards: a tick
+        /// label it would cut in half is left out.</param>
+        private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density, SKRect? avoid = null)
+        {
+            bool Clear(float left, float right) =>
+                avoid is not { } av || right < av.Left - (4 * density) || left > av.Right + (4 * density);
             if (!visibleData.Any()) return;
 
             // Adaptive label format driven by the visible span. A 6h chart showing
@@ -735,8 +870,10 @@ namespace AccessibleTrader.Core.Services
                 prevLabel = label;
                 lastLabelledIndex = dIdx;
 
-                canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
-                lastLabelRight = x + _textFont.MeasureText(label);
+                float labelRight = x + _textFont.MeasureText(label);
+                if (Clear(x, labelRight))
+                    canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
+                lastLabelRight = labelRight;
             }
 
             // The final bar, right-aligned at its own right edge (or the strip's, whichever is
@@ -750,7 +887,8 @@ namespace AccessibleTrader.Core.Services
                 if (markDateBoundaries && prevLabelDate.HasValue && d.Date != prevLabelDate.Value.Date)
                     label = d.ToString("MM/dd ") + label;
                 float labelLeft = lastBarRight - (2 * density) - _textFont.MeasureText(label);
-                if (label != prevLabel && labelLeft > lastLabelRight + (8 * density))
+                if (label != prevLabel && labelLeft > lastLabelRight + (8 * density)
+                    && Clear(labelLeft, lastBarRight - (2 * density)))
                     canvas.DrawText(label, lastBarRight - (2 * density), textY, SKTextAlign.Right, _textFont, _textPaint);
             }
         }
@@ -982,50 +1120,112 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Renders a small component legend in the top-left corner of a pane.
+        /// Whether this renderer paints the panes' status lines into the image itself.
         ///
         /// <para>
-        /// Three rules, all of them learned from one weekly BTC chart that carried Market Structure
-        /// and Value Deviation at once:
-        /// </para>
-        /// <list type="number">
-        /// <item>
-        /// <b>Size against the pane, not a constant.</b> A fixed nine-row cap is 152px, which on a
-        /// price pane sharing space with a volume pane covered a third of the plot and sat on top
-        /// of the candles. The cap is now whatever fits in the top ~45% of the pane.
-        /// </item>
-        /// <item>
-        /// <b>Rank before truncating.</b> Taking the first N in series order let one marker-heavy
-        /// indicator spend the whole budget, so the candles, the moving average and the levels —
-        /// the things a reader actually needs named — never appeared. Price and continuous lines
-        /// now outrank markers.
-        /// </item>
-        /// <item>
-        /// <b>Collapse marker families.</b> An indicator whose whole output is a graded set of
-        /// marks (six Value Deviation tiers) gets ONE row naming the series and the count, rather
-        /// than six rows of near-identical labels.
-        /// </item>
-        /// </list>
-        ///
-        /// <para>
-        /// When rows still do not fit, the last row says how many were dropped. A legend that
-        /// silently shows a subset reads as a complete list of what is on the chart, which is
-        /// exactly the wrong thing for it to imply.
+        /// <b>Off for the live chart.</b> Cody's 2026-10-17 decision: TradingView status line. The
+        /// boxed legend this renderer used to paint at each pane's top left is retired; on the live
+        /// chart (both heads) ChartArea draws the status lines as real DOM text over the image,
+        /// which a magnifier, browser zoom, the app's text size and user CSS can reach and canvas
+        /// pixels cannot. On for an off-screen snapshot nothing overlays (the AI analyst's chart
+        /// image), so the picture still says what its lines are. Same model either way
+        /// (<see cref="ChartStatusLine"/>).
         /// </para>
         /// </summary>
-        private const float LegendKeyPx  = 14f;   // width of the key column — a line stub or a glyph
-        private const float LegendPadPx  = 6f;
-        private const float LegendLinePx = 17f;
+        public bool PaintsStatusLines { get; set; }
+
+        /// <summary>The status lines' backing opacity when this renderer paints them, and when it measures the price pane's block.</summary>
+        public byte StatusBackingAlpha { get; set; } = ChartStatusLine.DefaultBackingAlpha;
+
+        /// <summary>A pane's status block at <paramref name="absIndex"/>, sized against the pane in device pixels.</summary>
+        private static PaneStatus BuildStatus(string paneName, IReadOnlyList<ChartSeries> paneSeries, int absIndex,
+            ChartStatusLine.Context ctx, SKRect paneRect, float density, SKFont font)
+            => ChartStatusLine.Build(paneName, paneSeries, absIndex, ctx,
+                paneRect.Height, paneRect.Width * ChartStatusLine.MaxWidthFraction,
+                ChartStatusLine.LinePx * density, t => font.MeasureText(t));
 
         /// <summary>
-        /// The legend backing's opacity. 245 of 255 lets a full-strength white line behind the box
-        /// through at about 4% — below what reads as a stroke across text — where the old 178
-        /// let it through at 30%, which read as a strikethrough. See RenderPaneLegend.
+        /// The rect a pane's status block covers, measured with the same pieces and gaps as
+        /// <see cref="PaintStatusBlock"/> paints — what the formation layer keeps its labels out of.
         /// </summary>
-        internal const byte LegendBackingAlpha = 245;
+        private static SKRect StatusBlockRect(SKRect paneRect, PaneStatus status, float density, SKFont font)
+        {
+            float pad = ChartStatusLine.PadPx * density, line = ChartStatusLine.LinePx * density;
+            float widest = status.Lines.Select(l => StatusLineWidth(l, font, density)).DefaultIfEmpty(0).Max();
+            return new SKRect(paneRect.Left + pad, paneRect.Top + pad,
+                paneRect.Left + pad + widest, paneRect.Top + pad + status.Lines.Count * line);
+        }
+
+        private static float StatusLineWidth(StatusLine l, SKFont font, float density)
+        {
+            float gap = font.MeasureText("M") * 0.8f, pad = ChartStatusLine.PadPx * density;
+            float w = pad + font.MeasureText(l.Title);
+            if (l.Inputs.Length > 0) w += gap + font.MeasureText(l.Inputs);
+            foreach (var v in l.Values)
+                w += gap + (v.Label.Length > 0 ? font.MeasureText(v.Label + " ") : 0) + font.MeasureText(v.Text)
+                     + (v.Chip ? font.MeasureText("M") : 0);
+            if (l.HiddenValues > 0) w += gap + font.MeasureText($"+{l.HiddenValues}");
+            if (l.Note.Length > 0) w += gap + font.MeasureText(l.Note);
+            return w + pad;
+        }
 
         /// <summary>
-        /// The price-pane series that get a row in the price pane's legend.
+        /// Paints a pane's status lines into the image: one line per indicator at the pane's top
+        /// left, each on its own backing strip, the name and inputs in the theme's ink, each
+        /// reading in its plot's colour (or the ink beside a chip of that colour, when the colour
+        /// is too faint on the backing). The DOM painter in ChartArea draws the same model.
+        /// </summary>
+        private void PaintStatusBlock(SKCanvas canvas, SKRect paneRect, PaneStatus status, float density, SKFont font)
+        {
+            var theme = _theme.Current;
+            float pad = ChartStatusLine.PadPx * density, line = ChartStatusLine.LinePx * density;
+            float gap = font.MeasureText("M") * 0.8f;
+            var inkColor = ChartStatusLine.Ink(theme);
+            var muted = inkColor.WithAlpha(190);
+            using var bg = new SKPaint { Color = theme.SurfaceSunken.WithAlpha(StatusBackingAlpha), Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var ink = new SKPaint { IsAntialias = true };
+            using var chip = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
+
+            float y = paneRect.Top + pad;
+            foreach (var l in status.Lines)
+            {
+                float x = paneRect.Left + pad;
+                float w = StatusLineWidth(l, font, density);
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(x, y, x + w, y + line - density), 3 * density), bg);
+                float baseline = y + line * 0.72f;
+                x += pad;
+
+                void Text(string t, SKColor c)
+                {
+                    ink.Color = c;
+                    canvas.DrawText(t, x, baseline, SKTextAlign.Left, font, ink);
+                    x += font.MeasureText(t);
+                }
+
+                Text(l.Title, inkColor);
+                if (l.Inputs.Length > 0) { x += gap; Text(l.Inputs, muted); }
+                foreach (var v in l.Values)
+                {
+                    x += gap;
+                    if (v.Label.Length > 0) Text(v.Label + " ", muted);
+                    if (v.Chip)
+                    {
+                        float s = font.Size * 0.6f;
+                        chip.Color = v.Color;
+                        canvas.DrawRect(SKRect.Create(x, baseline - s, s, s), chip);
+                        x += font.MeasureText("M");
+                    }
+                    Text(v.Text, v.Chip ? inkColor : v.Color);
+                }
+                if (l.HiddenValues > 0) { x += gap; Text($"+{l.HiddenValues}", muted); }
+                if (l.Note.Length > 0) { x += gap; Text(l.Note, muted); }
+                y += line;
+            }
+        }
+
+        /// <summary>
+        /// The price-pane series that get a status line (they had a row in the retired legend) and
+        /// a value label on the price axis.
         ///
         /// <para>
         /// Left out: the candles and the volume (they ARE the chart — a key reading "Candles"
@@ -1051,215 +1251,11 @@ namespace AccessibleTrader.Core.Services
                 .ToList();
 
         /// <summary>
-        /// The legend's rows and the box they occupy — ONE computation, shared by the pass that
-        /// reserves the space and the pass that paints it, so the rect the formation layer avoids
-        /// is the rect the legend actually draws.
-        /// </summary>
-        private (List<LegendRow> Rows, SKRect Box) MeasureLegend(SKRect paneRect, List<ChartSeries> paneSeries, float density)
-        {
-            float key  = LegendKeyPx  * density;
-            float pad  = LegendPadPx  * density;
-            float line = LegendLinePx * density;
-
-            var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad, _theme.Current);
-            if (rows.Count == 0) return (rows, SKRect.Empty);
-
-            // Hard ceiling on width, independent of what anything calls itself. The row budget
-            // already stops the legend growing DOWN into the chart; without this it just grew
-            // ACROSS instead, which is the same problem rotated.
-            float maxTextPx = Math.Max(60f * density, paneRect.Width * 0.26f);
-            for (int i = 0; i < rows.Count; i++)
-                rows[i] = rows[i] with { Label = Ellipsize(rows[i].Label, maxTextPx) };
-
-            float maxTextWidth = 0f;
-            foreach (var row in rows)
-                maxTextWidth = Math.Max(maxTextWidth, _textFont.MeasureText(row.Label));
-
-            float boxW = pad + key + pad + maxTextWidth + pad;
-            float boxH = pad + rows.Count * line + pad;
-            float bx   = paneRect.Left + pad;
-            float by   = paneRect.Top  + pad;
-            return (rows, new SKRect(bx, by, bx + boxW, by + boxH));
-        }
-
-        /// <summary>Where the pane's legend will be painted, or null when it has no rows.</summary>
-        private SKRect? MeasureLegendBox(SKRect paneRect, List<ChartSeries> paneSeries, float density)
-        {
-            var (rows, box) = MeasureLegend(paneRect, paneSeries, density);
-            return rows.Count == 0 ? null : box;
-        }
-
-        private void RenderPaneLegend(SKCanvas canvas, SKRect paneRect, List<ChartSeries> paneSeries, float density)
-        {
-            float key  = LegendKeyPx  * density;
-            float pad  = LegendPadPx  * density;
-            float line = LegendLinePx * density;
-
-            var (rows, box) = MeasureLegend(paneRect, paneSeries, density);
-            if (rows.Count == 0) return;
-
-            float boxW = box.Width;
-            float boxH = box.Height;
-            float bx   = box.Left;
-            float by   = box.Top;
-
-            // Reads as an overlay rather than a dialog parked on the chart: near-opaque so text
-            // stays legible over candles, but a hairline border instead of a heavy outline.
-            //
-            // Derived from the theme's dialog surface rather than a fixed near-black. On a
-            // lighter theme a hardcoded #101014 box reads as a hole punched in the chart.
-            // Let the chart show through. At near-full opacity this was a solid dark slab in the
-            // corner — the one element that still read as parked ON the chart rather than part of
-            // it. The border does the containing work instead, which is what an overlay is
-            // supposed to look like. Text stays legible because the fill is still the dominant
-            // layer and the ink is near-white.
-            //
-            // ...and it was not, so the fill is near-opaque again (LegendBackingAlpha). At 70%
-            // the chart showing through included every horizontal line behind the box, at 30%
-            // of its strength: in focus mode the dashed overbought level ran straight through
-            // "Wave Trend Fast" and the row read as struck through (Cody's 2026-10-15
-            // screenshots). Stopping the level lines at the box was the other fix and the
-            // narrower one — the Wave Trend lines, the histogram bars and the candles all cross
-            // the legend too, and none of them would stop.
-            var surface = _theme.Current.SurfaceSunken;
-            var bgRound = new SKRoundRect(new SKRect(bx, by, bx + boxW, by + boxH), 5 * density);
-            using (var bgPaint = new SKPaint { Color = surface.WithAlpha(LegendBackingAlpha), Style = SKPaintStyle.Fill })
-                canvas.DrawRoundRect(bgRound, bgPaint);
-            using (var borderPaint = new SKPaint { Color = _theme.Current.ChromeBorder.WithAlpha(140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 * density })
-                canvas.DrawRoundRect(bgRound, borderPaint);
-
-            float ey = by + pad;
-            foreach (var row in rows)
-            {
-                DrawLegendKey(canvas, row, bx + pad, ey + line / 2f, key, density);
-                canvas.DrawText(row.Label, bx + pad + key + pad, ey + line * 0.72f,
-                                SKTextAlign.Left, _textFont, _textPaint);
-                ey += line;
-            }
-        }
-
-        /// <summary>
-        /// Draws a row's key so it looks like the thing it stands for: a stroked stub (dashed when
-        /// the series is dashed) for lines, the real glyph for a marker, a filled chip for bars and
-        /// candles. A uniform coloured square for everything was the inconsistency — a dashed
-        /// resistance line and a diamond marker had identical keys, so the legend told you the
-        /// colour and nothing else.
-        /// </summary>
-        private void DrawLegendKey(SKCanvas canvas, LegendRow row, float x, float cy, float key, float density)
-        {
-            using var lease = SKPaintPool.Rent();
-            var paint = lease.Paint;
-            paint.IsAntialias = true;
-
-            switch (row.Glyph)
-            {
-                case LegendGlyph.Line:
-                    paint.Color = row.Colors[0];
-                    paint.Style = SKPaintStyle.Stroke;
-                    paint.StrokeWidth = Math.Max(2f * density, row.StrokeWidth * density);
-                    paint.StrokeCap = SKStrokeCap.Round;
-                    paint.PathEffect = row.Dash switch
-                    {
-                        DashStyle.Dash    => SKPathEffect.CreateDash(new[] { 4f * density, 3f * density }, 0),
-                        DashStyle.Dot     => SKPathEffect.CreateDash(new[] { 1.5f * density, 3f * density }, 0),
-                        DashStyle.DashDot => SKPathEffect.CreateDash(new[] { 5f * density, 2.5f * density, 1.5f * density, 2.5f * density }, 0),
-                        _                 => null,
-                    };
-                    canvas.DrawLine(x, cy, x + key, cy, paint);
-                    paint.PathEffect?.Dispose();
-                    paint.PathEffect = null;
-                    break;
-
-                case LegendGlyph.Marker:
-                    // Up to three chips, one per distinct colour in the family, so a collapsed row
-                    // does not claim a six-colour indicator is one colour.
-                    int n = Math.Min(row.Colors.Count, 3);
-                    float slot = key / n;
-                    float r = Math.Min(slot * 0.42f, 3.2f * density);
-                    paint.Style = SKPaintStyle.Fill;
-                    for (int i = 0; i < n; i++)
-                    {
-                        paint.Color = row.Colors[i];
-                        DrawGlyph(canvas, row.MarkerShape, x + slot * i + slot / 2f, cy, r, paint);
-                    }
-                    break;
-
-                default:
-                    paint.Style = SKPaintStyle.Fill;
-                    if (row.Colors.Count >= 2)
-                    {
-                        // A miniature histogram: one column per colour, alternately rising from the
-                        // midline and hanging below it, so a bar series' key shows its up AND down
-                        // colours and reads as bars rather than as one more coloured square.
-                        int cols = Math.Min(row.Colors.Count, 3);
-                        float colGap = 1.5f * density;
-                        float colW = Math.Min(4.5f * density, (key - colGap * (cols - 1)) / cols);
-                        float colH = 5.5f * density;
-                        float left = x + (key - (cols * colW + (cols - 1) * colGap)) / 2f;
-                        for (int i = 0; i < cols; i++)
-                        {
-                            paint.Color = row.Colors[i];
-                            float colTop = i % 2 == 0 ? cy - colH : cy;
-                            canvas.DrawRect(SKRect.Create(left + i * (colW + colGap), colTop, colW, colH), paint);
-                        }
-                        break;
-                    }
-                    paint.Color = row.Colors[0];
-                    float h = 7f * density;
-                    canvas.DrawRect(SKRect.Create(x + (key - h) / 2f, cy - h / 2f, h, h), paint);
-                    break;
-            }
-        }
-
-        /// <summary>Miniature of a marker shape, so the key matches the chart at a glance.</summary>
-        private static void DrawGlyph(SKCanvas canvas, ComponentDisplayType shape, float cx, float cy, float r, SKPaint paint)
-        {
-            switch (shape)
-            {
-                case ComponentDisplayType.TriangleUp:
-                case ComponentDisplayType.Arrow:
-                    using (var path = new SKPath())
-                    {
-                        path.MoveTo(cx, cy - r); path.LineTo(cx - r, cy + r); path.LineTo(cx + r, cy + r); path.Close();
-                        canvas.DrawPath(path, paint);
-                    }
-                    break;
-                case ComponentDisplayType.TriangleDown:
-                    using (var path = new SKPath())
-                    {
-                        path.MoveTo(cx, cy + r); path.LineTo(cx - r, cy - r); path.LineTo(cx + r, cy - r); path.Close();
-                        canvas.DrawPath(path, paint);
-                    }
-                    break;
-                case ComponentDisplayType.Diamond:
-                    using (var path = new SKPath())
-                    {
-                        path.MoveTo(cx, cy - r); path.LineTo(cx + r, cy); path.LineTo(cx, cy + r); path.LineTo(cx - r, cy); path.Close();
-                        canvas.DrawPath(path, paint);
-                    }
-                    break;
-                case ComponentDisplayType.Square:
-                    canvas.DrawRect(SKRect.Create(cx - r, cy - r, r * 2f, r * 2f), paint);
-                    break;
-                case ComponentDisplayType.Cross:
-                    using (var stroke = new SKPaint { Color = paint.Color, Style = SKPaintStyle.Stroke, StrokeWidth = Math.Max(1.4f, r * 0.6f), IsAntialias = true, StrokeCap = SKStrokeCap.Round })
-                    {
-                        canvas.DrawLine(cx - r, cy - r, cx + r, cy + r, stroke);
-                        canvas.DrawLine(cx + r, cy - r, cx - r, cy + r, stroke);
-                    }
-                    break;
-                default:
-                    canvas.DrawCircle(cx, cy, r, paint);
-                    break;
-            }
-        }
-
-        /// <summary>
         /// The axis label that fits the strip: the full number where it fits, and the spoken
         /// short form (<c>120M</c>) where it does not.
         ///
         /// <para>
-        /// Not <see cref="Ellipsize"/>, and the difference matters: a truncated number is a
+        /// Not an ellipsis (the retired legend's Ellipsize), and the difference matters: a truncated number is a
         /// WRONG number. "120000000.00" cut to "1200000…" reads as a different quantity, where
         /// "120M" reads as the same one. Ellipsis is right for a name and never for a value.
         /// </para>
@@ -1281,263 +1277,11 @@ namespace AccessibleTrader.Core.Services
             return _textFont.MeasureText(compact) < _textFont.MeasureText(full) ? compact : full;
         }
 
-        /// <summary>Trims a label to fit a pixel budget, ending in an ellipsis when cut.</summary>
-        private string Ellipsize(string label, float maxPx)
-        {
-            if (_textFont.MeasureText(label) <= maxPx) return label;
-
-            for (int len = label.Length - 1; len > 0; len--)
-            {
-                string candidate = label[..len] + "…";
-                if (_textFont.MeasureText(candidate) <= maxPx) return candidate;
-            }
-            return "…";
-        }
-
-        /// <summary>
-        /// The indicator's name without its subtitle or its baked-in parameter values.
-        ///
-        /// <para>
-        /// A series is named <c>"{metadata name} {each parameter value}"</c>, so the collapsed
-        /// legend row read "Value Deviation (support / resistance zones) 240 5 2 2 1 — 6 marks"
-        /// and stretched the legend box across a third of the chart width. The subtitle in
-        /// parentheses and the trailing numbers are both noise in a one-line key.
-        /// </para>
-        ///
-        /// <para>
-        /// Trailing NUMERIC tokens only — a string parameter is usually the whole point of the
-        /// name ("Funding Rate BTC-USDT-SWAP") and is kept.
-        /// </para>
-        /// </summary>
-        internal static string ShortSeriesName(string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) return "";
-
-            string s = name;
-            int paren = s.IndexOf(" (", StringComparison.Ordinal);
-            if (paren > 0) s = s[..paren];
-
-            var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
-            while (parts.Count > 1 && double.TryParse(parts[^1],
-                       System.Globalization.NumberStyles.Any,
-                       System.Globalization.CultureInfo.InvariantCulture, out _))
-                parts.RemoveAt(parts.Count - 1);
-
-            return parts.Count > 0 ? string.Join(' ', parts) : name.Trim();
-        }
-
-        /// <summary>How a legend row draws its key, matching how the series draws on the chart.</summary>
-        internal enum LegendGlyph
-        {
-            /// <summary>A stroked stub, dashed to match the series.</summary>
-            Line,
-            /// <summary>The real marker shape, one chip per distinct colour in the family.</summary>
-            Marker,
-            /// <summary>A filled chip — candles, bars, histograms, areas.</summary>
-            Fill,
-        }
-
-        /// <summary>
-        /// One line of the legend. Carries enough to draw a key that looks like the thing it stands
-        /// for: a uniform coloured square for every row meant a dashed resistance line and a diamond
-        /// marker had identical keys, so the legend told you the colour and nothing else.
-        /// </summary>
-        /// <param name="Rank">0 = base data, 1 = continuous lines, 2 = markers, 3 = the overflow row.</param>
-        /// <param name="SeriesName">Owning indicator, used to disambiguate colliding labels.</param>
-        internal record LegendRow(
-            string Label,
-            LegendGlyph Glyph,
-            IReadOnlyList<SKColor> Colors,
-            int Rank,
-            string SeriesName,
-            ComponentDisplayType MarkerShape = ComponentDisplayType.Dot,
-            DashStyle Dash = DashStyle.Solid,
-            float StrokeWidth = 2f);
-
-        /// <summary>
-        /// Chooses which legend rows to show, in what order. Separated from drawing because this
-        /// is the part that can be WRONG — a legend that names the wrong things, or quietly names
-        /// only some of them, misleads without looking broken.
-        ///
-        /// <para>
-        /// Rules, all learned from one weekly BTC chart carrying Market Structure and Value
-        /// Deviation at once: size the row budget against the pane rather than a constant; rank
-        /// base data → lines → markers before truncating, so one marker-heavy indicator cannot
-        /// spend the whole budget and leave the candles unnamed; collapse a marker family to one
-        /// row; disambiguate labels that would otherwise read identically; and say how many rows
-        /// were dropped, because a legend showing a silent subset reads as a complete list of
-        /// what is on the chart.
-        /// </para>
-        /// </summary>
-        /// <param name="paneHeight">Pane height in device pixels; the row budget is derived from it.</param>
-        /// <param name="line">Row height in device pixels.</param>
-        /// <param name="pad">Box padding in device pixels.</param>
-        internal static List<LegendRow> BuildLegendRows(
-            List<ChartSeries> paneSeries, float paneHeight, float line, float pad,
-            ChartTheme? theme = null)
-        {
-            // Absolute ceiling regardless of how tall the pane is — past this the legend stops
-            // being a key and becomes a second chart.
-            const int HardMaxEntries = 9;
-
-            // Below this a legend row is worth less than the pixels it costs.
-            const int MinEntries = 3;
-
-            // Fraction of the pane the legend may occupy before it competes with the data.
-            const float MaxPaneFraction = 0.45f;
-
-            // A series contributing at least this many marker components collapses to one row.
-            const int CollapseMarkersAt = 3;
-
-            var entries = new List<LegendRow>();
-            if (paneSeries == null) return entries;
-
-            foreach (var s in paneSeries)
-            {
-                string shortName = ShortSeriesName(s.Name);
-
-                // Index of this series' first row, so the collapse below can only ever remove rows
-                // this series added. Matching on colour alone would let one indicator's collapse
-                // delete an earlier indicator's marker row whenever two colours happened to agree.
-                int seriesStart = entries.Count;
-                var markerColors = new List<SKColor>();
-                var markerShape = ComponentDisplayType.Dot;
-
-                foreach (var comp in s.Components)
-                {
-                    if (!comp.IsVisible || comp.DisplayType == ComponentDisplayType.Level) continue;
-
-                    SKColor color;
-                    IReadOnlyList<SKColor>? barColors = null;
-                    string label = comp.DisplayName ?? comp.Name;
-                    if (comp.DisplayType is ComponentDisplayType.Bar or ComponentDisplayType.Histogram)
-                    {
-                        // Directional bars paint by direction rather than by one static hex, so the
-                        // key shows BOTH colours, taken from the rule the bars are painted by. It
-                        // used to show one fixed green for every non-volume bar, so on Cipher B
-                        // "WT Histogram" and "Money Flow" had identical keys, and neither said
-                        // that half its bars are red (Cody's 2026-10-15 screenshots).
-                        barColors = LegendBarColors(comp, theme);
-                        color = barColors[0];
-                    }
-                    else if (!SKColor.TryParse(comp.ColorHex, out color))
-                        continue;
-
-                    if (IsMarker(comp.DisplayType))
-                    {
-                        if (markerColors.Count == 0) markerShape = comp.DisplayType;
-                        markerColors.Add(color);
-                        entries.Add(new LegendRow(label, LegendGlyph.Marker, new[] { color },
-                            Rank: 2, SeriesName: shortName, MarkerShape: comp.DisplayType));
-                    }
-                    else if (IsBaseData(comp.DisplayType))
-                    {
-                        entries.Add(new LegendRow(label, LegendGlyph.Fill, barColors ?? new[] { color },
-                            Rank: 0, SeriesName: shortName));
-                    }
-                    else
-                    {
-                        entries.Add(new LegendRow(label, LegendGlyph.Line, new[] { color },
-                            Rank: 1, SeriesName: shortName,
-                            Dash: comp.DashStyle, StrokeWidth: comp.Thickness));
-                    }
-                }
-
-                // Collapse this series' marker rows into one. Per series, so an indicator with only
-                // one or two marks keeps their real names. The key carries up to three of the
-                // family's distinct colours rather than pretending six marks are one colour.
-                //
-                // The count is of mark TYPES — marker components — not of marks on the chart. The
-                // row said "Market Structure — 4 marks" over a chart showing about forty (Cody's
-                // 2026-10-15 screenshots). Counting the drawn marks would need the viewport, which
-                // this pure function does not have, and the number would change on every pan.
-                if (markerColors.Count >= CollapseMarkersAt)
-                {
-                    for (int k = entries.Count - 1; k >= seriesStart; k--)
-                        if (entries[k].Rank == 2) entries.RemoveAt(k);
-
-                    entries.Add(new LegendRow($"{shortName} — {markerColors.Count} mark types",
-                        LegendGlyph.Marker, markerColors.Distinct().ToList(),
-                        Rank: 2, SeriesName: shortName, MarkerShape: markerShape));
-                }
-            }
-
-            if (entries.Count == 0) return entries;
-
-            // Two indicators can both call a component "Resistance". Side by side those rows read
-            // as a duplicate rather than as two different lines, so the owning indicator is named.
-            var collisions = entries.GroupBy(e => e.Label).Where(g => g.Count() > 1)
-                                    .Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
-            for (int i = 0; i < entries.Count; i++)
-                if (collisions.Contains(entries[i].Label) && !string.IsNullOrEmpty(entries[i].SeriesName))
-                    entries[i] = entries[i] with { Label = $"{entries[i].SeriesName} {entries[i].Label}" };
-
-            // How many rows actually fit in the space the legend is allowed to have.
-            int fits = (int)((paneHeight * MaxPaneFraction - pad * 2) / Math.Max(line, 1f));
-            // The three-row floor applies only when the pane can physically hold three rows. At
-            // eight panes a pane is about 55px and three rows plus padding is 63px, so the floor
-            // was drawing the legend out of the bottom of its own pane and across the next pane's
-            // divider — a key that covers the thing it is a key to. A pane that cannot hold even
-            // one row gets no legend; the object tree still names everything.
-            int holds = (int)((paneHeight - pad * 2) / Math.Max(line, 1f));
-            if (holds < 1) return new List<LegendRow>();
-            int maxEntries = Math.Clamp(fits, Math.Min(MinEntries, holds), HardMaxEntries);
-
-            // OrderBy is a documented stable sort, so within a rank the series order the user
-            // built is preserved.
-            var shown = entries.OrderBy(e => e.Rank).ToList();
-            int dropped = 0;
-            if (shown.Count > maxEntries && maxEntries == 1)
-            {
-                // One row only: name the leading entry and count the rest on the same row, rather
-                // than spend the whole legend on "+3 more" and name nothing.
-                int rest = shown.Count - 1;
-                shown = new List<LegendRow> { shown[0] with { Label = $"{shown[0].Label.Trim()} +{rest} more" } };
-            }
-            else if (shown.Count > maxEntries)
-            {
-                // One row is spent saying so, which is worth more than one more colour key:
-                // a legend showing a silent subset reads as a complete list of what is on the chart.
-                dropped = shown.Count - (maxEntries - 1);
-                shown = shown.Take(maxEntries - 1).ToList();
-            }
-
-            if (dropped > 0)
-                shown.Add(new LegendRow($"+{dropped} more (see the object tree)", LegendGlyph.Fill,
-                    new[] { theme?.TextMuted ?? new SKColor(150, 150, 158) }, Rank: 3, SeriesName: ""));
-
-            return shown;
-        }
-
-        /// <summary>
-        /// The colours a bar or histogram's legend key carries: its up and down colours, from
-        /// <see cref="StandardRenderers.DirectionalBarColors"/> — the rule the bars themselves
-        /// are painted by — or, for a component painted by explicit colour rules, those rules'
-        /// colours (up to three), since that is what its bars actually show.
-        /// </summary>
-        internal static IReadOnlyList<SKColor> LegendBarColors(ComponentConfig comp, ChartTheme? theme)
-        {
-            if (comp.ColorRules is { Count: > 0 })
-            {
-                var ruled = comp.ColorRules
-                    .Select(r => SKColor.TryParse(r.ColorHex, out var c) ? c.WithAlpha(200) : (SKColor?)null)
-                    .Where(c => c.HasValue).Select(c => c!.Value).Distinct().Take(3).ToList();
-                if (ruled.Count > 0) return ruled;
-            }
-            var (up, down) = StandardRenderers.DirectionalBarColors(theme, comp);
-            return new[] { up.WithAlpha(200), down.WithAlpha(200) };
-        }
-
         /// <summary>Discrete per-bar glyphs — the components that identify themselves by shape.</summary>
         internal static bool IsMarker(ComponentDisplayType t) => t is
             ComponentDisplayType.Dot or ComponentDisplayType.ZeroDot or ComponentDisplayType.GradientDot or
             ComponentDisplayType.Diamond or ComponentDisplayType.Square or ComponentDisplayType.Cross or
             ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or ComponentDisplayType.Arrow;
-
-        /// <summary>The chart's underlying data rather than something drawn over it.</summary>
-        internal static bool IsBaseData(ComponentDisplayType t) => t is
-            ComponentDisplayType.Candle or ComponentDisplayType.Wick or
-            ComponentDisplayType.Bar or ComponentDisplayType.Histogram;
 
         /// <summary>
         /// DELIBERATELY EMPTY, AND THAT IS THE FIX FOR A CRASH. Do not "restore" the two

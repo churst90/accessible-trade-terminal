@@ -1003,6 +1003,27 @@
                             Scales the interface text; browser zoom still works on top.
                         </span>
                     </div>
+
+                    @* Cody's 2026-10-17 decision: TradingView status line, whose Background setting
+                       this is. Default 96% (the old legend's 245 of 255). *@
+                    <div class="modal-row">
+                        <label for="s-status-backing">Status line background</label>
+                        <select id="s-status-backing"
+                                value="@_statusBacking"
+                                @onchange="OnStatusBackingChanged"
+                                aria-describedby="s-status-backing-hint">
+                            <option value="100">Solid</option>
+                            <option value="96">96% (default)</option>
+                            <option value="80">80%</option>
+                            <option value="60">60%</option>
+                        </select>
+                    </div>
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span id="s-status-backing-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            The strip behind the indicator names and values at the top of each chart pane.
+                            Below 96%, lines and candles behind the text show through it.
+                        </span>
+                    </div>
                 </fieldset>
 
                 @* The "Visual profile" Export/Import pair that sat here until 2026-09-13 exported the
@@ -1302,6 +1323,7 @@
         new("Hollow up-candles", "Appearance", "s-hollow-candles", "colorblind outline shape candle"),
         new("Toolbar captions", "Appearance", "s-toolbar-captions", "label text icon button caption chart height room space"),
         new("Text size", "Appearance", "s-ui-scale", "font zoom scale magnify low vision bigger"),
+        new("Status line background", "Appearance", "s-status-backing", "legend status line indicator values transparent opacity backing"),
         new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap reference"),
         new("License", "License", "tab-license", "tier supporter key gpl donate donation support cash app paypal"),
     };
@@ -1359,6 +1381,8 @@
     private bool _colorVisionSafe;
     private bool _hollowUpCandles;
     private int _uiScale = 100;
+    private int _statusBacking = 96;
+    private int _statusBackingInitial = 96;
     private string _selectedTheme   = Core.Services.ThemeService.DefaultTheme.ToString();
 
     // Single source of truth is the <Version> property in Directory.Build.props; it flows into the
@@ -1452,6 +1476,18 @@
     // with. The one gap that leaves is a crash with the dialog open, which would keep a preview
     // the user never accepted; that is worth the simplicity of not forking every appearance
     // service into preview and commit modes.
+
+    /// <summary>Applied immediately, like Text size, so the chart shows the choice while deciding.</summary>
+    private void OnStatusBackingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int pct)) return;
+        _statusBacking = Math.Clamp(pct, 50, 100);
+        App.StatusLineBackingOpacity = _statusBacking;
+        App.Save();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Status line background {_statusBacking} percent.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        EventBus.Publish(new RedrawEvent());
+    }
 
     /// <summary>Applied immediately so the effect is visible while deciding; see the note above.</summary>
     private void OnPatternVisualsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1924,6 +1960,7 @@
         _hollowUpCandles = App.HollowUpCandles;
         _toolbarCaptions = App.ShowToolbarCaptions;
         _uiScale         = App.UiScale;
+        _statusBacking   = App.StatusLineBackingOpacity;
         _speechEnabled        = Store.State.IsSpeechEnabled;
         _sonificationEnabled  = Store.State.IsSonificationEnabled;
         _panningGranularity   = Store.State.PanningGranularity;
@@ -1933,6 +1970,7 @@
         // ResetLocal too, and a baseline that drifted with the reverted values would make a
         // second Cancel a no-op against the wrong state.
         _uiScaleInitial            = _uiScale;
+        _statusBackingInitial      = _statusBacking;
         _showPatternVisualsInitial = _showPatternVisuals;
         _visualEarconsInitial      = _visualEarcons;
         _colorVisionSafeInitial    = _colorVisionSafe;
@@ -2027,6 +2065,12 @@
             _uiScale = _uiScaleInitial;
             App.UiScale = _uiScale;
             SafeSetUiScale(_uiScale);
+            changed = true;
+        }
+        if (_statusBacking != _statusBackingInitial)
+        {
+            _statusBacking = _statusBackingInitial;
+            App.StatusLineBackingOpacity = _statusBacking;
             changed = true;
         }
         if (_showPatternVisuals != _showPatternVisualsInitial)

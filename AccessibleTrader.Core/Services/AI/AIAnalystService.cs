@@ -68,7 +68,14 @@ public sealed class AIAnalystService : IAIAnalystService
         _apiKeyService = apiKeyService;
         _store         = store;
         _renderer      = new ChartRenderer(theme, styling, new PaneLayoutService(),
-                                           NullLogger<ChartRenderer>.Instance, appLogger);
+                                           NullLogger<ChartRenderer>.Instance, appLogger)
+        {
+            // Nothing overlays this snapshot, so the renderer paints the status lines into it
+            // itself: the image the model reads still names its lines and their readings
+            // (Cody's 2026-10-17 decision: TradingView status line; the live chart draws them as
+            // DOM text instead).
+            PaintsStatusLines = true,
+        };
         _providers     = providers;
         _eventBus      = eventBus;
         _logger        = logger;
@@ -309,7 +316,8 @@ public sealed class AIAnalystService : IAIAnalystService
                 state.IsLogScale,
                 density: 1.0f,
                 state.PaneHeightRatios,
-                state.RightMarginBars);
+                state.RightMarginBars,
+                identity: state.Identity);
 
             using var image = surface.Snapshot();
             using var data  = image.Encode(SKEncodedImageFormat.Png, 85);

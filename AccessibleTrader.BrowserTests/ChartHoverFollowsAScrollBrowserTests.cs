@@ -20,8 +20,12 @@ public sealed class ChartHoverFollowsAScrollBrowserTests
     private readonly TerminalBrowserFixture _fixture;
     public ChartHoverFollowsAScrollBrowserTests(TerminalBrowserFixture fixture) => _fixture = fixture;
 
+    // The floating readout box was retired on 2026-10-17 (Cody's decision: TradingView status
+    // line); what it said is now the date label on the time axis and the value label on the price
+    // axis, so the readout this test compares is those two labels' text together.
     private const string ReadoutJs =
-        "() => { const d = document.querySelector('#chart-interact-zone .chart-hover-readout'); return d ? d.innerText : null; }";
+        "() => { const z = document.querySelector('#chart-interact-zone'); const d = z && z.querySelector('.chart-hover-date'); " +
+        "const p = z && z.querySelector('.chart-hover-price'); return d ? d.innerText + ' | ' + (p ? p.innerText : '') : null; }";
 
     private static async Task<string?> WaitForReadoutAsync(TerminalPage t, Func<string?, bool> done, int timeoutMs = 4_000)
     {

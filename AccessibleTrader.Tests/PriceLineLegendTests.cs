@@ -159,36 +159,46 @@ public sealed class PriceLineLegendTests
     }
 
     /// <summary>
-    /// The property: every line drawn on the price pane has a row in that pane's legend, in the
-    /// colour it is drawn in. The Price series is the line in question; Candles stay unlisted
-    /// (they are the chart itself) and Volume lives in its own pane.
+    /// The property: every line drawn on the price pane has a status line naming it, its reading
+    /// in the colour it is drawn in. The Price series is the line in question; Candles stay
+    /// unlisted (the symbol line carries the bar) and Volume lives in its own pane.
+    ///
+    /// <para>Was ThePricePaneLegendNamesThePriceLine, against the boxed legend's rows; ported when
+    /// the legend was retired for the status lines (Cody's 2026-10-17 decision: TradingView status
+    /// line). Same property, new carrier.</para>
     /// </summary>
     [Fact]
-    public void ThePricePaneLegendNamesThePriceLine()
+    public void ThePricePaneStatusLinesNameThePriceLine()
     {
+        var bars = Bars();
         var mainSeries = new List<ChartSeries>
         {
             Core("CANDLES", CoreSeriesIds.Candles),
             Core("PRICE", CoreSeriesIds.Price),
         };
+        foreach (var s in mainSeries) Fill(s, bars);
 
-        var legendSeries = ChartRenderer.MainPaneLegendSeries(mainSeries);
-        var rows = ChartRenderer.BuildLegendRows(legendSeries, 400f, 17f, 6f);
+        var theme = new ThemeService(Substitute.For<ISettingsManager>()).Current;
+        var status = ChartStatusLine.Build("Main", ChartStatusLine.MainPaneSeries(mainSeries), 30,
+            new ChartStatusLine.Context(theme, ChartStatusLine.DefaultBackingAlpha, bars, null),
+            400f, 2000f, ChartStatusLine.LinePx, t => t.Length * 7f);
 
         var drawnLines = mainSeries
             .Where(s => s.IsVisible)
-            .SelectMany(s => s.Components)
-            .Where(c => c.IsVisible && c.IsEnabled != false
-                        && c.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.Area)
+            .SelectMany(s => s.Components.Select(c => (s, c)))
+            .Where(t => t.c.IsVisible && t.c.IsEnabled != false
+                        && t.c.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.Area)
             .ToList();
         Assert.NotEmpty(drawnLines);   // a vacuous pass would otherwise be possible
 
-        foreach (var c in drawnLines)
+        foreach (var (series, c) in drawnLines)
         {
             Assert.True(SKColor.TryParse(c.ColorHex, out var colour));
-            Assert.True(rows.Any(r => r.Colors.Contains(colour) && r.Label.Contains(c.DisplayName ?? c.Name)),
-                $"the price pane draws '{c.DisplayName}' in {c.ColorHex} and its legend has no row for it. " +
-                $"Rows: {string.Join(", ", rows.Select(r => r.Label))}");
+            var line = status.Lines.SingleOrDefault(l => l.SeriesId == series.Id);
+            Assert.True(line != null && line.Title.Contains("Price"),
+                $"the price pane draws '{c.DisplayName}' in {c.ColorHex} and no status line names it. " +
+                $"Lines: {string.Join(", ", status.Lines.Select(l => l.Title))}");
+            Assert.Contains(line!.Values, v => v.Color == colour.WithAlpha(255) && v.Text != "—");
         }
     }
 }

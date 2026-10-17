@@ -146,6 +146,14 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string ShowChartPatternVisuals = "appearance.showChartPatternVisuals";
 
+        /// <summary>
+        /// How opaque the backing behind the chart's status lines is, in percent (TradingView:
+        /// Chart settings, Status line, Background). Default 96, the legend's 245 of 255: below
+        /// that a line behind the text shows through, and at 70% it read as a strikethrough (Cody's
+        /// 2026-10-15 screenshots). Appearance only; nothing spoken depends on it.
+        /// </summary>
+        public const string StatusLineBackingOpacity = "appearance.statusLineBackingOpacity";
+
         // ── Viewport ─────────────────────────────────────────────────────────
         public const string PanningGranularity  = "viewport.panningGranularity";
 

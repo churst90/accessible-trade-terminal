@@ -96,13 +96,67 @@
              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; object-fit: fill;" />
     }
 
-    @* Hover crosshair + date/price readout for sighted and low-vision users.
-       The readout is REAL DOM TEXT (not baked into the chart PNG) so screen
-       magnifiers, user CSS, and browser zoom can get at it. aria-hidden — the
-       spoken equivalent is clicking the bar (standard navigation feedback) or
-       arrow keys; hover speech at mouse rates would be spam. Toggleable from
-       the chart right-click menu. pointer-events: none throughout so the
-       crosshair never steals mouse events from the interact zone. *@
+    @* STATUS LINES (Cody's 2026-10-17 decision: TradingView status line). Per pane, top left,
+       one line per indicator: its name, its inputs, and each visible plot's reading at the bar,
+       in the plot's colour; the price pane's first line names the chart and gives the bar's
+       O H L C. They replace the boxed legend the renderer painted into the image and the
+       floating hover readout box.
+       REAL DOM TEXT, not canvas pixels, so magnifiers, browser zoom, the app's text size and
+       user CSS reach it. aria-hidden, as the readout box was, by Cody's condition: it is a
+       VISUAL MIRROR of what the chart already speaks (Shift+F1 the chart, Page Up onto Candles
+       then Left/Right the bar's prices, Up/Down or Alt+Shift+D each plot's reading), so a blind
+       user never has to move focus to read it. pointer-events: none, so it never takes a click
+       from the chart. Above the hover crosshair (z-index 7 over its 6), as TradingView's status
+       line sits above its crosshair: the pointer's horizontal line drawn through the text reads
+       as a strikethrough, the 2026-10-15 complaint about the legend. The bar it reads:
+       ChartStatusLine.ActiveBar. *@
+    @if (BuildStatusPanes() is { Count: > 0 } statusPanes)
+    {
+        <div class="chart-status" aria-hidden="true"
+             style="position:absolute; inset:0; pointer-events:none; z-index:7; font-size:0.75rem; line-height:1.4167;">
+            @foreach (var pane in statusPanes)
+            {
+                <div class="chart-status-pane" data-pane="@pane.Status.PaneName"
+                     style="position:absolute; left:@(ChartStatusLine.PadPx.ToString(System.Globalization.CultureInfo.InvariantCulture))px; top:calc(@(Pct(pane.TopFraction)) + @(ChartStatusLine.PadPx.ToString(System.Globalization.CultureInfo.InvariantCulture))px);">
+                    @foreach (var line in pane.Status.Lines)
+                    {
+                        <div class="chart-status-line" data-kind="@line.Kind" data-series="@line.SeriesId"
+                             style="width:fit-content; white-space:nowrap; padding:0 4px; border-radius:3px; background:@_statusBacking; color:@_statusInk;">
+                            <span class="chart-status-title">@line.Title</span>
+                            @if (line.Inputs.Length > 0)
+                            {
+                                <span class="chart-status-inputs" style="opacity:0.78;">&nbsp;@line.Inputs</span>
+                            }
+                            @foreach (var v in line.Values)
+                            {
+                                <span class="chart-status-value">&nbsp;&nbsp;@if (v.Label.Length > 0)
+                                    {<span class="chart-status-label" style="opacity:0.78;">@v.Label&nbsp;</span>}@if (v.Chip)
+                                    {<span class="chart-status-chip" style="display:inline-block; width:0.6em; height:0.6em; margin-right:0.2em; background:@ChartStatusLine.Css(v.Color);"></span>}<span class="chart-status-reading" style="color:@(v.Chip ? _statusInk : ChartStatusLine.Css(v.Color));">@v.Text</span></span>
+                            }
+                            @if (line.HiddenValues > 0)
+                            {
+                                <span class="chart-status-more" style="opacity:0.78;">&nbsp;&nbsp;+@line.HiddenValues</span>
+                            }
+                            @if (line.Note.Length > 0)
+                            {
+                                <span class="chart-status-note" style="opacity:0.78;">&nbsp;&nbsp;@line.Note</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* Hover crosshair for sighted and low-vision users: a hairline at the hovered bar, a line at
+       the pointer, and — TradingView's model, replacing the floating readout box (2026-10-17) —
+       the bar's date as a label ON THE TIME AXIS at the hairline and the value at the pointer as
+       a label ON THE AXIS of the pane it is in. The bar's O H L C is in the price pane's status
+       line, which reads the hovered bar while the pointer leads (ChartHoverTracker.HoverLeads).
+       Real DOM text, aria-hidden: the spoken path for "what is this bar?" is clicking it (which
+       moves the keyboard cursor and fires the standard navigation feedback) or the arrow keys;
+       hover speech at mouse rates would be spam. Toggleable from the chart right-click menu.
+       pointer-events: none throughout so the crosshair never steals mouse events. *@
     @if (_hover != null)
     {
         <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none; z-index: 6;">
@@ -115,23 +169,18 @@
                treats as perceivable, and the Skia path already draws its crosshair wider. *@
             <div class="chart-hover-hairline" style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
             <div style="position:absolute; left:0; right:0; height:2px; background:var(--crosshair-color); top:@(Px(_hover.CursorY));"></div>
-            @* Placed by ChartHoverTracker.PlaceReadout: top of the plot, on the half AWAY from the
-               hairline, beside or under the price pane's legend when it is on the left. It was
-               fixed at top right (top:6px; right:72px) and covered the newest candles and their
-               highs in Cody's 2026-10-15 screenshots, focus mode included — the live edge is
-               where the pointer usually is. max-width keeps it in its own half (it wraps instead);
-               border-box so that cap includes the padding and border. *@
-            <div class="chart-hover-readout"
-                 style="position:absolute; top:@(Px(_hover.Readout.Top)); @(_hover.Readout.AtLeft ? "left" : "right"):@(Px(_hover.Readout.Inset));
-                        max-width:@(Px(_hover.Readout.MaxWidth)); box-sizing:border-box; background:rgba(18,18,18,0.92); color:#fff;
-                        border:1px solid var(--border-color); border-radius:4px; padding:4px 10px; font-size:0.85rem;
-                        font-variant-numeric: tabular-nums; text-align:right; line-height:1.5;">
-                <div>@_hover.DateText &nbsp; @_hover.PriceText</div>
-                <div style="color:#bbb;">@_hover.OhlcText</div>
-            </div>
+            @* The same dark badge, white type, as the Skia crosshair's own labels. *@
+            <div class="chart-hover-date"
+                 style="position:absolute; top:@(Px(_hover.PlotBottom + 2)); @HoverDatePlacement(_hover) white-space:nowrap;
+                        background:rgba(40,40,40,0.95); color:#fff; border-radius:3px; padding:1px 6px; font-size:0.75rem; font-variant-numeric: tabular-nums;">@_hover.DateText</div>
+            @if (_hover.PriceText != null)
+            {
+                <div class="chart-hover-price"
+                     style="position:absolute; top:@(Px(_hover.CursorY)); left:@(Px(_hover.PlotWidth + 2)); transform:translateY(-50%); white-space:nowrap;
+                            background:rgba(40,40,40,0.95); color:#fff; border-radius:3px; padding:1px 4px; font-size:0.75rem; font-variant-numeric: tabular-nums;">@_hover.PriceText</div>
+            }
         </div>
     }
-
     @* Pane divider drag handles — positioned by IPaneLayoutService fractions.
        Hidden from screen readers; keyboard users use Alt+Up/Down instead. *@
     @foreach (var divider in PaneLayout.Dividers)
@@ -239,6 +288,56 @@
 
     private static string Px(double v) =>
         v.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    private static string Pct(double fraction) =>
+        (fraction * 100).ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    // The status lines' backing and ink, set by BuildStatusPanes for the markup to use.
+    private string _statusBacking = "transparent";
+    private string _statusInk = "#ffffff";
+
+    /// <summary>
+    /// Each pane's status lines at the bar they read: the hovered bar while the pointer leads,
+    /// the keyboard cursor's otherwise (ChartStatusLine.ActiveBar). Sized against the chart
+    /// element's CSS size (from canvasRegion.js; the legacy 1280x720 render size until it
+    /// reports) and the app's text size, because DOM text grows with it and the canvas does not.
+    /// </summary>
+    private IReadOnlyList<ChartStatusLine.PlacedPane> BuildStatusPanes()
+    {
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0) return Array.Empty<ChartStatusLine.PlacedPane>();
+        var theme = ThemeService.Current;
+        byte alpha = (byte)Math.Round(Math.Clamp(App.StatusLineBackingOpacity, 50, 100) * 255 / 100.0);
+        _statusBacking = ChartStatusLine.CssBacking(theme, alpha);
+        _statusInk = ChartStatusLine.Css(ChartStatusLine.Ink(theme));
+        int bar = ChartStatusLine.ActiveBar(state.CurrentDataIndex, _hover?.BarIndex,
+            _hover != null && HoverTracker.HoverLeads, state.Data.Count);
+        var (w, h) = HoverTracker.ChartSize ?? (BrowserRenderWidth, BrowserRenderHeight);
+        try
+        {
+            return ChartStatusLine.BuildPanes(state, PaneLayout.Dividers, PaneLayout.AxisHeightFraction,
+                PaneLayout.AxisWidthFraction, bar, alpha, theme, w, h, App.UiScale / 100.0);
+        }
+        catch (Exception ex)
+        {
+            // A visual mirror must never take the chart down with it.
+            Logger.LogError(ex, "Status lines failed to build");
+            return Array.Empty<ChartStatusLine.PlacedPane>();
+        }
+    }
+
+    /// <summary>
+    /// The hover date label's horizontal placement: centred on the hairline by the browser
+    /// (translateX(-50%), so its real width decides), except near either end of the plot, where
+    /// it is pinned to that end instead of running off it. The width estimate decides only that.
+    /// </summary>
+    private static string HoverDatePlacement(ChartHoverInfo h)
+    {
+        double approx = h.DateText.Length * 7.5 + 12;
+        if (h.BarX - approx / 2 < 0) return "left:0px;";
+        if (h.BarX + approx / 2 > h.PlotWidth) return $"left:{Px(h.PlotWidth)}; transform:translateX(-100%);";
+        return $"left:{Px(h.BarX)}; transform:translateX(-50%);";
+    }
 
     private void OnHoverChanged()
     {

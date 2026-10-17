@@ -133,42 +133,47 @@ namespace AccessibleTrader.Tests
                          StandardRenderers.ClampMarkerExtent(1f, twoX));
         }
 
-        // ── Legend labels ────────────────────────────────────────────────
+        // ── Status line titles ───────────────────────────────────────────
+        //
+        // These pinned ChartRenderer.ShortSeriesName, the boxed legend's label rule, until the
+        // legend was retired on 2026-10-17 (Cody's decision: TradingView status line). The status
+        // line keeps the same title rule and shows what it used to strip as the line's inputs, so
+        // the cases are ported to ChartStatusLine.TitleAndInputs, inputs asserted too.
 
         [Theory]
-        // The two that caused it — series are named "{metadata name} {each parameter value}".
-        [InlineData("Value Deviation (support / resistance zones) 240 5 2 2 1", "Value Deviation")]
-        [InlineData("Market Structure (HH/HL/LH/LL) 5 1", "Market Structure")]
+        // The two that caused it.
+        [InlineData("Value Deviation (support / resistance zones) 240 5 2 2 1", "Value Deviation", "240 5 2 2 1")]
+        [InlineData("Market Structure (HH/HL/LH/LL) 5 1", "Market Structure", "5 1")]
         // No subtitle, just trailing parameters.
-        [InlineData("Bollinger Bands 20 2", "Bollinger Bands")]
+        [InlineData("Bollinger Bands 20 2", "Bollinger Bands", "20 2")]
         // Nothing to strip.
-        [InlineData("Candles", "Candles")]
-        [InlineData("Volume", "Volume")]
-        public void ShortSeriesName_drops_the_subtitle_and_the_parameter_values(string input, string expected)
+        [InlineData("Candles", "Candles", "")]
+        [InlineData("Volume", "Volume", "")]
+        public void TitleAndInputs_drops_the_subtitle_and_splits_off_the_parameter_values(string input, string title, string inputs)
         {
-            Assert.Equal(expected, ChartRenderer.ShortSeriesName(input));
+            Assert.Equal((title, inputs), ChartStatusLine.TitleAndInputs(input));
         }
 
         [Fact]
-        public void ShortSeriesName_keeps_a_string_parameter_because_it_is_usually_the_point()
+        public void TitleAndInputs_keeps_a_string_parameter_in_the_title_because_it_is_usually_the_point()
         {
             // "Funding Rate" alone would be useless with four of them on one chart.
-            Assert.Equal("Funding Rate BTC-USDT-SWAP",
-                ChartRenderer.ShortSeriesName("Funding Rate BTC-USDT-SWAP"));
+            Assert.Equal(("Funding Rate BTC-USDT-SWAP", ""),
+                ChartStatusLine.TitleAndInputs("Funding Rate BTC-USDT-SWAP"));
         }
 
         [Fact]
-        public void ShortSeriesName_never_strips_a_name_down_to_nothing()
+        public void TitleAndInputs_never_strips_a_name_down_to_nothing()
         {
             // A name that is entirely numeric has nothing to strip TO, so it is left as it is
-            // rather than becoming an empty legend row.
-            Assert.Equal("50", ChartRenderer.ShortSeriesName("50"));
-            Assert.Equal("", ChartRenderer.ShortSeriesName(""));
-            Assert.Equal("", ChartRenderer.ShortSeriesName(null));
+            // rather than becoming an empty status line.
+            Assert.Equal(("50", ""), ChartStatusLine.TitleAndInputs("50"));
+            Assert.Equal(("", ""), ChartStatusLine.TitleAndInputs(""));
+            Assert.Equal(("", ""), ChartStatusLine.TitleAndInputs(null));
         }
 
         [Fact]
-        public void The_collapsed_legend_row_uses_the_short_name()
+        public void The_collapsed_marker_line_uses_the_short_name()
         {
             var s = new ChartSeries();
             s.Config.Name = "Value Deviation (support / resistance zones) 240 5 2 2 1";
@@ -179,9 +184,13 @@ namespace AccessibleTrader.Tests
                     ColorHex = "#FFFFFF", IsVisible = true,
                 });
 
-            var rows = ChartRenderer.BuildLegendRows(new List<ChartSeries> { s }, 400f, 16f, 4f);
+            var theme = new ThemeService(Substitute.For<ISettingsManager>()).Current;
+            var line = ChartStatusLine.Build("Main", new[] { s }, 0,
+                new ChartStatusLine.Context(theme, ChartStatusLine.DefaultBackingAlpha, null, null),
+                400f, 2000f, 17f, t => t.Length * 7f).Lines.Single();
 
-            Assert.Equal("Value Deviation — 3 mark types", rows.Single().Label);
+            Assert.Equal("Value Deviation", line.Title);
+            Assert.Equal("3 mark types", line.Note);
         }
 
         // ── DrawRect geometry ────────────────────────────────────────────
