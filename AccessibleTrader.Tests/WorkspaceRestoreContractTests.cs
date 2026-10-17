@@ -100,6 +100,9 @@ public class WorkspaceRestoreContractTests
         "FreqMultiplier",
         "IsUserStyled",   // "I picked this colour by hand" — the flag that stops a theme
                           // change overwriting it. StandardRenderers.cs:328 reads it.
+        "UserBackgroundTint", // Properties → Background tint. The CHOICE only: BackgroundTint
+                          // itself is the indicator's and is rebuilt from metadata, so a new
+                          // provider default reaches every chart whose user never picked one.
     };
 
     // ── The gate: no property may be unclassified ────────────────────────────────

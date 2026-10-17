@@ -37,14 +37,11 @@ namespace AccessibleTrader.Core.Services
         private readonly ChartFormationLayer _formationLayer = new();
         private IReadOnlyList<Analysis.ChartPattern>? _frameFormations;
 
-        // Cross-pane Anchor Polarity hand-off. Set at the top of <see cref="Render"/>
-        // from the first CipherB-style series that exposes an "Anchor Polarity"
-        // component and consumed inside <see cref="RenderPane"/> when the "Main"
-        // pane renders. Using a per-frame field (not a layer parameter) avoids
-        // threading the value through every IRenderLayer contract for a feature
-        // that's only meaningful on the price pane.
-        private double[]? _crossPaneAnchorPolarity;
-        private double[]? _crossPaneTbdDistribution;
+        // The frame's whole series list, for the price-chart background tints: a component in
+        // ANY pane may tint the price chart (Rendering.BackgroundTintPainter), and RenderPane
+        // only sees its own pane's series. A per-frame field rather than a layer parameter, so the
+        // IRenderLayer contract is not widened for the one pane that needs it.
+        private IReadOnlyList<ChartSeries> _frameSeries = Array.Empty<ChartSeries>();
 
         /// <summary>
         /// One axis typeface for the process.
@@ -263,32 +260,11 @@ namespace AccessibleTrader.Core.Services
                 
                 canvas.Clear(_theme.Background);
 
-                // Find the first visible series exposing an "Anchor Polarity" component
-                // (Cipher B and friends). Cross-pane hand-off: the indicator is typically
-                // in its own sub-pane; this lets the Main pane tint its background with
-                // the HTF regime color so sighted users see bull/bear context while
-                // looking at price, not only while looking at the oscillator.
                 _frameFormations = formations;
-                //
-                // ONLY WHILE THAT COMPONENT IS SHOWN (Cody, 2026-10-17: "make the background tint like
-                // the real cipher b" — Market Cipher B paints nothing on the price chart). Anchor
-                // Polarity is hidden by default, so by default the price pane is clean; un-hiding it
-                // brings the tint back. The same rule as everywhere else: a hidden part draws nothing.
-                _crossPaneAnchorPolarity = seriesList
-                    .Where(s => s.IsVisible && s.Components.Any(c => c.Name == "Anchor Polarity" && c.IsVisible))
-                    .Select(s => s.GetComponentData("Anchor Polarity"))
-                    .FirstOrDefault(d => d != null && d.Length > 0);
-
-                // Cross-pane TBD distribution confidence tint. Sustained accumulator
-                // (TopBottomDetectorProvider.CompDistribution) → sustained visual cue:
-                // when distribution ≥ 0.5 the asset is statistically in a multi-bar
-                // distribution phase. Painted as a faint red overlay on the Main pane
-                // so traders see "topping conditions present" while looking at price,
-                // not only while looking at the oscillator pane.
-                _crossPaneTbdDistribution = seriesList
-                    .Where(s => s.IsVisible)
-                    .Select(s => s.GetComponentData("Distribution Confidence"))
-                    .FirstOrDefault(d => d != null && d.Length > 0);
+                // Background tints are declared per component now (BackgroundTintPainter), not
+                // found here by name: Cipher B's "Anchor Polarity" and Top/Bottom Detector's
+                // "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
+                _frameSeries = seriesList;
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();
                 // Every indicator pane is drawn. There used to be a scroll offset here —
@@ -488,15 +464,14 @@ namespace AccessibleTrader.Core.Services
             for (int li = 0; li < _layers.Count; li++)
             {
                 _layers[li].Render(ctx, nonProfileSeries);
-                // Anchor-regime tint is painted immediately after the BackgroundLayer
-                // (index 0) so it sits *under* the candle/data/overlay layers but
-                // *over* the pane fill. Only the "Main" pane takes the tint — the
-                // indicator pane that owns the Anchor Polarity component already has
-                // its own cloud fill (Cipher B "Anchor Fill").
-                if (li == 0 && paneName == "Main" && _crossPaneAnchorPolarity != null)
-                    RenderAnchorRegimeTint(ctx, _crossPaneAnchorPolarity);
-                if (li == 0 && paneName == "Main" && _crossPaneTbdDistribution != null)
-                    RenderTbdDistributionTint(ctx, _crossPaneTbdDistribution);
+                // Background tints are painted immediately after the BackgroundLayer (index 0),
+                // so they sit UNDER the grid, candle, data and overlay layers but OVER the pane
+                // fill: the price-chart tints of every series on the chart, then this pane's own.
+                if (li == 0)
+                {
+                    if (paneName == "Main") BackgroundTintPainter.PaintPriceChartTints(ctx, _frameSeries);
+                    BackgroundTintPainter.PaintPaneTints(ctx, series);
+                }
                 // The volume profile's bars go UNDER the candles, on the pane fill like the tints.
                 // They were painted after everything, and in Cody's 2026-10-15 screenshots the
                 // strip (20% of the pane, right-aligned) covered the newest three months of
@@ -536,76 +511,15 @@ namespace AccessibleTrader.Core.Services
                 // Subtle horizontal separator line at the top of the sub-pane strip
                 using (var sepPaint = new SKPaint { Color = new SKColor(80, 80, 80, 200), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke })
                     canvas.DrawLine(spRect.Left, spRect.Top, spRect.Right, spRect.Top, sepPaint);
-                foreach (var layer in _layers) layer.Render(spCtx, nonProfileSeries);
+                for (int li = 0; li < _layers.Count; li++)
+                {
+                    _layers[li].Render(spCtx, nonProfileSeries);
+                    // A sub-pane component's "this pane" tint fills its strip, at the same depth.
+                    if (li == 0) BackgroundTintPainter.PaintPaneTints(spCtx, series);
+                }
                 canvas.Restore();
 
                 subY += spHeight;
-            }
-        }
-
-        /// <summary>
-        /// Paints a per-bar regime tint across the main pane's background using
-        /// the cross-pane Anchor Polarity array. +1 bar = faint green, -1 bar =
-        /// faint red, 0 / NaN = transparent. Kept at very low alpha so the tint
-        /// whispers the HTF regime without drowning out candle colors — blind
-        /// users still get it via <see cref="Rendering.DataLayer"/>'s
-        /// sonification; this is the sighted-companion cue.
-        /// </summary>
-        private static void RenderAnchorRegimeTint(RenderContext ctx, double[] anchorPolarity)
-        {
-            const byte tintAlpha = 22; // whisper-quiet — adjust if overwhelming
-            var bullColor = new SKColor(0x26, 0xA6, 0x9A, tintAlpha);  // teal
-            var bearColor = new SKColor(0xEF, 0x53, 0x50, tintAlpha);  // soft red
-
-            float barWidth = ctx.Width / ctx.ViewportLength;
-            using var bullLease = new SKPaint { Color = bullColor, Style = SKPaintStyle.Fill, IsAntialias = false };
-            using var bearLease = new SKPaint { Color = bearColor, Style = SKPaintStyle.Fill, IsAntialias = false };
-
-            for (int i = 0; i < ctx.ViewportLength; i++)
-            {
-                int dataIdx = ctx.ViewportStart + i;
-                if (dataIdx >= anchorPolarity.Length) break;
-                double pol = anchorPolarity[dataIdx];
-                if (double.IsNaN(pol) || pol == 0) continue;
-
-                float x = i * barWidth;
-                var rect = new SKRect(x, ctx.Top, x + barWidth, ctx.Bottom);
-                ctx.Canvas.DrawRect(rect, pol > 0 ? bullLease : bearLease);
-            }
-        }
-
-        /// <summary>
-        /// Paints a red tint on bars where TBD distribution confidence ≥ 0.5.
-        /// The TBD distribution accumulator is a slow process — sustained values
-        /// indicate multi-bar topping conditions, mirroring the architectural
-        /// asymmetry that bottoms are events and tops are processes. Alpha scales
-        /// with confidence (0.5→0.20×, 1.0→1.00× of the cap) so the visual cue
-        /// strengthens as the distribution thesis builds.
-        /// </summary>
-        private static void RenderTbdDistributionTint(RenderContext ctx, double[] distribution)
-        {
-            const double Threshold = 0.5;
-            const byte MaxTintAlpha = 32; // a touch heavier than Anchor since it's a proper signal, not just regime
-            var baseColor = new SKColor(0xEF, 0x53, 0x50, 0); // soft red, alpha set per-bar
-
-            float barWidth = ctx.Width / ctx.ViewportLength;
-            using var paint = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = false };
-
-            for (int i = 0; i < ctx.ViewportLength; i++)
-            {
-                int dataIdx = ctx.ViewportStart + i;
-                if (dataIdx >= distribution.Length) break;
-                double dist = distribution[dataIdx];
-                if (double.IsNaN(dist) || dist < Threshold) continue;
-
-                // Map [0.5, 1.0] → [0.2, 1.0] of MaxTintAlpha, clamped above 1.0.
-                double scale = Math.Clamp((dist - Threshold) / (1.0 - Threshold), 0.0, 1.0);
-                byte alpha = (byte)(MaxTintAlpha * (0.2 + 0.8 * scale));
-                paint.Color = baseColor.WithAlpha(alpha);
-
-                float x = i * barWidth;
-                var rect = new SKRect(x, ctx.Top, x + barWidth, ctx.Bottom);
-                ctx.Canvas.DrawRect(rect, paint);
             }
         }
 

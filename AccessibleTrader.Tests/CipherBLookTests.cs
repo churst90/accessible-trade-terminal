@@ -211,28 +211,8 @@ public sealed class CipherBLookTests
         Assert.Equal(0, GreyOn(Y(20, t)));
     }
 
-    /// <summary>
-    /// Like Market Cipher B, the price pane carries no regime tint by default (Cody, 2026-10-17: "make
-    /// the background tint like the real cipher b"). The tint follows Anchor Polarity's visibility:
-    /// hidden — its default — the pane is pixel-for-pixel the pane with no polarity at all; shown,
-    /// the tint is back.
-    /// </summary>
-    [Fact]
-    public void The_price_pane_is_untinted_unless_anchor_polarity_is_shown()
-    {
-        var none = CipherB(new Dictionary<string, double>());
-        var hidden = CipherB(new Dictionary<string, double> { ["Anchor Polarity"] = 1 });
-        Assert.False(hidden.Components.Single(c => c.Name == "Anchor Polarity").IsVisible);   // the default
-        var shown = CipherB(new Dictionary<string, double> { ["Anchor Polarity"] = 1 });
-        shown.Components.Single(c => c.Name == "Anchor Polarity").IsVisible = true;
-
-        var (bNone, t) = Render(none);
-        var (bHidden, _) = Render(hidden);
-        var (bShown, _) = Render(shown);
-        int x = X(t), y = Y(90, t);
-        Assert.Equal(bNone.GetPixel(x, y), bHidden.GetPixel(x, y));
-        Assert.NotEqual(bNone.GetPixel(x, y), bShown.GetPixel(x, y));
-    }
+    // The stopgap's "untinted unless Anchor Polarity is shown" test lived here (2026-10-17). The
+    // tint is a component property now, independent of visibility; BackgroundTintTests covers it.
 
     private static bool Close(SKColor a, SKColor b) =>
         Math.Abs(a.Red - b.Red) < 24 && Math.Abs(a.Green - b.Green) < 24 && Math.Abs(a.Blue - b.Blue) < 24;

@@ -452,4 +452,76 @@ public class PropertiesModalTests
             a.Series.Single(s => s.Id == "cs").Components.Single(c => c.Name == "Body").PitchMapping
                 == PitchMapping.Value));
     }
+
+    // ── Background tint, 2026-10-17 ──────────────────────────────────────────────
+
+    /// <summary>A component that tints the price chart the way Top/Bottom Detector's Distribution
+    /// Confidence does: at or above 0.5, nothing below, deepening to 1.0.</summary>
+    private static ChartSeries TintingSeries()
+    {
+        var config = new SeriesConfig { Id = "tbd", Name = "Top/Bottom Detector", FriendlyName = "Top/Bottom Detector" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Distribution Confidence", DisplayName = "Distribution Confidence",
+            DisplayType = ComponentDisplayType.Oscillator, IsVisible = true,
+            BackgroundTint = BackgroundTint.PriceChart,
+            TintColorAboveHex = "#20EF5350", TintColorBelowHex = "#00000000",
+            TintMidline = 0.5, TintFullAt = 1.0,
+        });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = "tbd" });
+    }
+
+    /// <summary>
+    /// Appearance offers Background tint as a labelled select: the visible label is attached to
+    /// it, its accessible name keeps those words and adds the component, and a hint read through
+    /// aria-describedby says in words where it shades, on which side of which value, and that it
+    /// is visual only — so the choice never rests on a colour. It shows the tint in effect.
+    /// </summary>
+    [Fact]
+    public void BackgroundTint_is_a_labelled_select_with_a_spoken_hint()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, TintingSeries());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-appearance").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var select = cut.Find("select#app-distribution-confidence-tint");
+            Assert.Equal("Background tint", cut.Find("label[for='app-distribution-confidence-tint']").TextContent.Trim());
+            Assert.Equal("Background tint for Distribution Confidence", select.GetAttribute("aria-label"));
+            Assert.Equal("PriceChart", select.GetAttribute("value"));
+            Assert.Equal(new[] { "Off", "This pane", "Price chart" },
+                select.QuerySelectorAll("option").Select(o => o.TextContent.Trim()).ToArray());
+            Assert.Equal("app-distribution-confidence-tint-hint", select.GetAttribute("aria-describedby"));
+            var hint = cut.Find("#app-distribution-confidence-tint-hint").TextContent;
+            Assert.Contains("the price chart", hint);
+            Assert.Contains("at or above 0.5", hint);
+            Assert.Contains("deepening up to 1", hint);
+            Assert.Contains("Visual only", hint);
+        });
+    }
+
+    /// <summary>Choosing a tint records the USER's choice (UserBackgroundTint, which the workspace
+    /// keeps) and leaves the indicator's own default alone; the hint follows the choice.</summary>
+    [Fact]
+    public void Choosing_a_background_tint_is_saved_as_the_users_choice()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, TintingSeries());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-appearance").Click();
+
+        cut.WaitForElement("select#app-distribution-confidence-tint").Change("ThisPane");
+        cut.WaitForAssertion(() =>
+            Assert.Contains("this component's own pane", cut.Find("#app-distribution-confidence-tint-hint").TextContent));
+        cut.Find("select#app-distribution-confidence-tint").Change("Off");
+        cut.WaitForAssertion(() =>
+            Assert.StartsWith("Off", cut.Find("#app-distribution-confidence-tint-hint").TextContent.Trim()));
+        cut.Find("#props-save").Click();
+
+        h.WorkspaceStore.Received().Dispatch(Arg.Is<UpdateSeriesAction>(a =>
+            a.Series.Single(s => s.Id == "tbd").Components.Single().UserBackgroundTint == BackgroundTint.Off
+            && a.Series.Single(s => s.Id == "tbd").Components.Single().BackgroundTint == BackgroundTint.PriceChart));
+    }
 }

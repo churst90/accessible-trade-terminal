@@ -101,6 +101,47 @@ namespace AccessibleTrader.Sdk.Models
         public string ColorAboveComponent { get; set; } = "";
 
         /// <summary>
+        /// The INDICATOR's background tint for this component — rebuilt from
+        /// <see cref="IndicatorComponentMetadata.DefaultBackgroundTint"/> on every load, so a
+        /// provider's new default reaches charts that already exist. What is painted is
+        /// <see cref="BackgroundTintInEffect"/>: the user's <see cref="UserBackgroundTint"/> when
+        /// they have chosen one, else this. A tint is visual only and does not follow
+        /// <see cref="IsVisible"/>; see <see cref="Models.BackgroundTint"/>.
+        /// </summary>
+        public BackgroundTint BackgroundTint { get; set; } = BackgroundTint.Off;
+
+        /// <summary>
+        /// The USER's background tint choice from Properties → Appearance, or null when they have
+        /// never chosen (follow <see cref="BackgroundTint"/>). Kept with the workspace and restored
+        /// as saved — a choice, not a value, so "I picked Price chart" survives a provider later
+        /// changing its default, and "I never picked" keeps following it. A save from before the
+        /// field existed has no value and therefore follows the indicator.
+        /// </summary>
+        public BackgroundTint? UserBackgroundTint { get; set; }
+
+        /// <summary>Tint where the value is at or above <see cref="TintMidline"/>; empty = this
+        /// component's <see cref="ColorHex"/> at alpha 0x16. An alpha of 00 paints nothing. See
+        /// <see cref="IndicatorComponentMetadata.DefaultTintColorAboveHex"/>.</summary>
+        public string TintColorAboveHex { get; set; } = "";
+
+        /// <summary>Tint where the value is below <see cref="TintMidline"/>; empty =
+        /// <see cref="ColorHexSecondary"/> at alpha 0x16. An alpha of 00 paints nothing.</summary>
+        public string TintColorBelowHex { get; set; } = "";
+
+        /// <summary>The value dividing the two tint colours; null = <see cref="ColorBaseline"/>.</summary>
+        public double? TintMidline { get; set; }
+
+        /// <summary>Null = constant strength; set = the strength ramps from 20% of the colour's
+        /// alpha at the midline to 100% at this value. See
+        /// <see cref="IndicatorComponentMetadata.DefaultTintFullAt"/>.</summary>
+        public double? TintFullAt { get; set; }
+
+        /// <summary>The tint actually painted: the user's choice when there is one, else the
+        /// indicator's. A method, not a property, so the workspace file does not carry a third
+        /// copy of the answer.</summary>
+        public BackgroundTint BackgroundTintInEffect() => UserBackgroundTint ?? BackgroundTint;
+
+        /// <summary>
         /// Denominator used when <see cref="AmplitudeMapping.ReferenceDeviation"/> is active.
         /// Overrides the viewport-derived max deviation so components with a compressed value
         /// range (e.g. Money Flow at −100..−60) are not made artificially quiet by the large
@@ -251,6 +292,9 @@ namespace AccessibleTrader.Sdk.Models
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
                 FillColorHex = FillColorHex, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
+                BackgroundTint = BackgroundTint, UserBackgroundTint = UserBackgroundTint,
+                TintColorAboveHex = TintColorAboveHex, TintColorBelowHex = TintColorBelowHex,
+                TintMidline = TintMidline, TintFullAt = TintFullAt,
                 UpperComponentName = UpperComponentName, LowerComponentName = LowerComponentName,
                 NoiseAmount = NoiseAmount,
                 ColorBaseline = ColorBaseline,
