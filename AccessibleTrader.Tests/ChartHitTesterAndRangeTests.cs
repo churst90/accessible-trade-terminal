@@ -166,11 +166,20 @@ public sealed class ChartHitTesterAndRangeTests
         Assert.Equal("ema-1", h.Store.State.FocusedSeriesId);
     }
 
+    /// <summary>
+    /// A click near an indicator's line moves keyboard focus to it, so speech follows what the
+    /// user pointed at. Until 2026-10-17 this test proved nothing: adding a series focuses it
+    /// (SeriesReducer.AddSeries), so the EMA was already focused before the click and the
+    /// assertion held with click-to-focus removed entirely. Now focus starts on another series,
+    /// asserted, and only the click can move it to the EMA.
+    /// </summary>
     [Fact]
     public void Click_NearAnIndicatorLine_MovesKeyboardFocusToThatSeries()
     {
         var h = new Harness();
         h.AddOverlayLine("ema-1", "EMA 20", constantValue: 100.5);
+        h.AddOverlayLine("sma-1", "SMA 50", constantValue: 99.0);   // added last, so focused
+        Assert.Equal("sma-1", h.Store.State.FocusedSeriesId);
         var state = h.Store.State;
         float lineY = ChartMath.MapY(100.5, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
 
