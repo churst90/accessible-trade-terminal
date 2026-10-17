@@ -85,6 +85,13 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
     /// </summary>
     internal async Task<TerminalPage> NewPageAsync(bool resumeSession = false)
     {
+        // Deleting the slots was not enough on its own (2026-10-17, 1 mixed run in 4 locally):
+        // a closed tab saves AGAIN when Blazor finally drops its circuit about three minutes
+        // later (WebHostBrowserCircuitHandler.OnCircuitClosedAsync), so a slot could land in the
+        // middle of a later test. The setting is read by each new circuit's SettingsManager, and
+        // with it off a page neither saves its session nor resumes one — so only the pages that
+        // ask for a session are ever part of one.
+        SetResumeLastSession(resumeSession);
         if (!resumeSession) ForgetSessionSlots();
 
         if (_browser == null)
@@ -119,6 +126,20 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
             throw;
         }
         return terminal;
+    }
+
+    /// <summary>
+    /// Settings → Workspace → "Resume last session" for the NEXT circuit, written to the test
+    /// server's own settings.json (SettingsKeys.ResumeLastSession = "workspace.resumeLastSession").
+    /// </summary>
+    private void SetResumeLastSession(bool on)
+    {
+        string path = Path.Combine(DataRoot, "data", "AccessibleTrader", "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var doc = File.Exists(path) ? Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(path)) : new Newtonsoft.Json.Linq.JObject();
+        if (doc["workspace"] is not Newtonsoft.Json.Linq.JObject ws) doc["workspace"] = ws = new Newtonsoft.Json.Linq.JObject();
+        ws["resumeLastSession"] = on;
+        File.WriteAllText(path, doc.ToString());
     }
 
     /// <summary>The terminal's autosaved session slots, deleted so the next page starts blank.</summary>

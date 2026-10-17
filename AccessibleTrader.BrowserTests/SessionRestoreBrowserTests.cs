@@ -39,7 +39,7 @@ public sealed class SessionRestoreBrowserTests
         var before = SlotFiles();
         try
         {
-            var first = await _fixture.NewPageAsync();
+            var first = await _fixture.NewPageAsync(resumeSession: true);   // it must SAVE on close
             string ms, vp;
             try
             {
