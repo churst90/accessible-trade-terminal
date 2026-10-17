@@ -25,6 +25,9 @@ subscribes to). The one missing piece was a level that is not drawn.
   above stoch overbought, 80." Muted lines stay quiet (RSI and Stochastic start muted).
 - **Plugin guide**: level subscriptions, component midlines and undrawn levels documented (it never
   mentioned `SubscribedLevelNames`).
+- **`LevelConfig.Clone()` copies `IsDrawn`.** Caught by CI's `CloneCompletenessTests` on the first
+  push (missed by the targeted local runs): without it a restored chart would have painted the
+  undrawn 80/20 lines again.
 - Tests: `CipherBStochasticZonesTests` (zone word, live narration muted/unmuted, waves unaffected),
   `CipherBLookTests.The_lines_own_80_and_20_are_not_painted`; each seen red with its part undone.
 

@@ -205,6 +205,7 @@ namespace AccessibleTrader.Sdk.Models
                 Thickness       = Thickness,
                 DashStyle       = DashStyle,
                 IsVisible       = IsVisible,
+                IsDrawn         = IsDrawn,
                 PlayEarcon      = PlayEarcon,
                 EarconVolume    = EarconVolume,
                 ZoneNoiseAmount = ZoneNoiseAmount,
