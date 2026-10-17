@@ -117,6 +117,37 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-17 — Cody's answers to the 2026-10-16 questions: all DONE; see CHANGES).**
+> TradingView status lines (legend + hover box retired), Cipher B redrawn and re-fitted against real
+> Market Cipher B, DSS Bressert, Bulkowski breakout wording, #AARRGGBB colour bugs. Each has tests seen
+> red. **Unverified:** Windows / desktop head; every sound change (derived from code, not heard); S3–S5
+> being genuine MCB (S2 is certain); light themes beyond the contrast model; the screen reader really
+> skipping the status lines.
+>
+> **Open questions for Cody:**
+> - **Cipher B:** hide our extra signals by default to match MCB (red Overbought dot, divergences and
+>   their slanted lines, hidden divergences — they make sounds)? Drop the anchor-regime tint MCB does
+>   not paint on the price pane? Add MCB's dotted ±100 levels and white zero line (each level adds an
+>   earcon; white vanishes on light themes)? In MCB mode the gold dot keeps the gated rule, so gold can
+>   appear without a green dot — should gold require the green dot? Indicators ignore Heikin-Ashi mode
+>   (TradingView feeds MCB the HA candles) — the main source of the remaining ±1-bar offsets; changing
+>   it touches every indicator. SteelGray: slow-wave edge 2.1:1 and levels 2.3:1; on Paper and High
+>   Contrast Light the yellow VWAP and lime money flow are under 1.5:1 (as on MCB's own light theme).
+>   `StrategyBatteryCommand`'s Money Flow baseline (−80) is stale.
+> - **DSS Bressert:** defaults 13/8 (MetaTrader) vs 10/9 (TradingView) vs 10/3 (probably Bressert's
+>   own)? Visible second line Trigger (now) or MIT (MetaTrader)? Speak the DSS crossing its trigger on
+>   the bar close (Stochastic's %K/%D cross is not spoken either)? Keep `tools/dss_bressert_reference.py`?
+> - **No key speaks any indicator's detail sentence.** `GetDetailFact` exists on every provider and is
+>   tested, but Alt+Shift+D deliberately reads raw values and nothing else calls it — wire it to a key,
+>   or delete it?
+> - **Status lines:** speak the change from the previous close (then show it)? Keep "N mark types" (not
+>   spoken as a number)? The mouse-pointer value label is unspoken — acceptable? Plot names before
+>   every value make lines long (Cipher B shows "+2" at 1000px) — keep? Intraday time-axis label
+>   always shows the date while the arrows say it only on a day change — fine? Existing bug: a sibling
+>   rename updates only `FriendlyName`, so Page Up and Shift+F1 can disagree — fix separately?
+> - **Pattern busts:** Bulkowski's "busted pattern" rule (breaks out, moves ≤10%, closes beyond the
+>   other side) would end formation lines early and say "busted" — wanted?
+>
 > **START HERE (2026-10-16 — the eight 2026-10-15 chart visuals are DONE; see CHANGES).** Each has a
 > test seen red with its bug put back. Checked in rendered PNGs and (hover box) real Chromium at
 > 1000x610 and 1400x950. **Unverified:** Windows / desktop head, density above 1, log scale for the

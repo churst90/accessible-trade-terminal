@@ -878,18 +878,41 @@ and dragging is difficult for you. A sideways swipe on a trackpad pans the same 
 to the newest, live bar and announces it — the mouse twin of the Backslash key.
 
 **The crosshair.** As the pointer moves over the chart, a crosshair follows it: a
-vertical line snapped to the bar under the pointer, a horizontal line at the pointer's
-price, and a readout at the top of the chart showing the bar's date, the price at the pointer,
-and the bar's open/high/low/close. The readout sits on the half of the chart AWAY from the
-pointer — top left while you are on the newest bars, top right on older ones — and beside or
-under the price pane's legend, so it never covers the candles you are pointing at. The readout is real text on the page — not part of
-the chart image — so screen magnifiers, browser zoom, and custom styles all work on it.
-At the right edge, each pane's current value sits in a small badge on its axis, with a colour
-chip naming the line it belongs to (an oscillator pane reads its main line, or the component
-you are navigating, not a histogram behind it); the price pane's badge is the bar's close.
-It never speaks (that would be constant chatter as the mouse moves); the spoken
-equivalent is simply clicking the bar. You can turn the crosshair off and on from the
-chart's right-click menu.
+vertical line snapped to the bar under the pointer and a horizontal line at the pointer's
+height. The hovered bar's date appears as a label on the time axis, and the value at the
+pointer as a label on the axis of the pane the pointer is in — a price in the price pane, an
+RSI value in the RSI pane. The value at the pointer is not spoken: there is no keyboard
+equivalent of pointing at a height. The crosshair never speaks (that would be constant
+chatter as the mouse moves); the spoken equivalent is simply clicking the bar. You can turn
+the crosshair off and on from the chart's right-click menu.
+
+**The status lines.** Each pane has a small block of text in its top left corner, one line
+per indicator, the way TradingView shows it. A line gives the indicator's name, as Page Up
+and Page Down speak it, then each visible line or bar of it with its value at the bar you are
+on, printed in the colour it is drawn in. When a colour is too faint to read against the strip
+behind the text, the value is printed in plain text with a small square of that colour in
+front of it; the name is always there, so colour is never the only way to tell values apart.
+The price pane's first line names the chart (symbol, timeframe, provider) and gives the bar's
+open, high, low and close — on a Heikin Ashi chart, the Heikin Ashi candle's, the same ones
+the candles reading speaks. The values follow the keyboard cursor; when someone moves the
+mouse, they follow the bar under the pointer until the keyboard cursor moves again, and a mouse
+merely resting on the chart never takes over. When space runs out the block says so: "+2 more
+(see the object tree)", "+N" at the end of a long line, and "9 mark types" for an indicator
+made of many kinds of mark. A pane too short for one line shows none.
+
+The status lines are for sighted readers and magnifier users; screen readers do not read them,
+and nothing on them is new information. Shift+F1 speaks the symbol, provider and timeframe;
+Page Up onto Candles and then the arrows speak the bar's prices; Page Up and Page Down speak
+each indicator's name; Alt+Shift+D speaks every visible value at the bar; Alt+O lists
+everything on the chart. (The one thing TradingView adds there — the change from the previous
+close — is left out because nothing speaks it.)
+
+**Labels on the axes.** Each visible line or bar has a label on its pane's axis at its newest
+value, filled in its own colour; labels that would overlap are moved apart, and one with no
+room is left out rather than drawn over another. The value at the cursor bar sits in a badge on
+the axis, and the cursor bar's date in a label on the time axis. Settings → Appearance →
+**Status line background** sets how solid the strip behind the status-line text is (96% by
+default); lower, and the lines behind the text show through.
 
 **The right-click menu.** Right-click on open chart space (or press the Application
 key — or Shift+F10 — with the chart focused) for the chart menu: **Play from here**
@@ -1249,7 +1272,17 @@ own panes. **RSI** (relative strength index) compares recent gains to recent los
 100 scale: above 70 is called overbought, below 30 oversold, and 50 is neutral. Overbought does
 not mean "sell"; it means the last fourteen bars were mostly up, and strong trends stay
 overbought for weeks. **Stochastic** asks where the close sits inside the recent range, 0 to
-100, with 80 and 20 as its lines. **MACD** is the gap between a fast and a slow EMA, drawn as
+100, with 80 and 20 as its lines. **DSS Bressert** (Walter Bressert's double smoothed
+stochastic) asks the Stochastic's question, smooths the answer, then asks it again of the
+smoothed line and smooths once more: the same 0 to 100 scale and 80, 50 and 20 lines, but far
+calmer — it turns less often and later, and its turns usually mean it. It draws the **DSS** and a
+**Trigger** (a 5-bar average of it, following a bar or two behind; the DSS crossing it is the usual
+turn signal). Defaults are 13-bar ranges and 8-bar smoothing, MetaTrader's; TradingView's scripts
+use 10 and 9 and NinjaTrader 10 and 3 — match the platform you are comparing against and the
+lines agree. It sounds like the Stochastic: a clean tone that turns rough inside the zones, a
+click at each level, and with narration on, *"DSS Bressert: crossed above overbought, 80."* on the
+bar close. A strong trend pins it near 0 or 100 for a while; that is a trend, not a signal. The
+first 31 bars are silent while it warms up. **MACD** is the gap between a fast and a slow EMA, drawn as
 a line that swings about zero, a smoothed signal line, and a histogram of the difference
 between them; a cross of zero is the two averages crossing each other. **Rate of change** is
 simply the percent move over N bars.
@@ -1269,8 +1302,17 @@ hear which prices the market accepted (the point of control, where the most trad
 it passed through quickly.
 
 **Multi-signal and structure.** **Cipher B** combines a wave oscillator, money flow and
-divergence detection into one pane with eleven components and rare gold "triple confluence"
-dots. **Market Structure** labels swing highs and lows as higher or lower than the last and
+divergence detection into one pane, with rare gold "triple confluence" dots. It is drawn the way
+Market Cipher B draws it: the fast wave a light-blue area with the dark-blue slow wave in front of
+it, a yellow "VWAP" area (the fast wave minus the slow) over both, the money flow as a green area
+above zero and red below over that, and along the bottom a money-flow bar, green while money flows
+in and dark red while it flows out, carrying big green **buy dots** — one on every upward cross of
+the waves with the slow wave at −60 or lower. Small green and red dots on the slow wave mark every
+cross. A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100; they are the last two
+stops when you arrow through Cipher B's parts and start **muted**. The levels are plain grey lines,
+solid at ±60 and zero, dotted at ±53. Properties keeps the older behaviour within reach: "WT Slow
+Wave Smoothing" 4, "Money Flow Formula" Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers
+from before October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
 from value. All three are descriptive: they tell you where you are, not what to do.
 

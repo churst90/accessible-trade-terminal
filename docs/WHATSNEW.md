@@ -8,23 +8,25 @@
 
 ## Unreleased
 
+- **Cipher B looks like Market Cipher B.** Blue wave areas, a yellow VWAP, green and red money flow,
+  a money-flow bar along the bottom with big green buy dots, and Market Cipher's RSI and Stochastic
+  lines. Its numbers were matched against real Market Cipher charts: buy dots now land where Market
+  Cipher's do. Two new parts, RSI and Stochastic, are the last stops when you arrow through Cipher B,
+  and they start muted. Money Flow narration now really says bearish when money flows out.
+- **New indicator: DSS Bressert,** a calmer double-smoothed Stochastic with a trigger line. It sounds
+  like the Stochastic.
+- **Status lines like TradingView's** replace the chart's colour key and the box that followed the
+  mouse: each pane lists its indicators with their values at the bar, in their colours. They only
+  show what you can already hear from the chart.
+- **Formations say "downward breakout" and "upward breakout"** when a close goes through the line.
+- **Ichimoku's cloud is green and red again,** and My Data event markers are amber; both were drawn
+  in the wrong colours.
 - **The chart says more and hides less** (for a sighted helper or anyone using low vision):
-  - The hover box moves to the side of the chart away from the mouse, so it no longer sits on the
-    newest candles.
-  - Each pane's value badge on the right edge has a colour chip showing which line it belongs to, and
-    the price pane has a badge too. An oscillator's badge reads its main line, not a histogram behind it.
-  - Legend keys for histograms show both of their colours, and lines no longer show through the legend
-    text.
-  - Axis prices read like the hover box: `85,000`, not `85000.00`.
+  - Axis prices read like the status line: `85,000`, not `85000.00`.
   - Volume Profile is drawn under the candles instead of over the newest ones.
   - Formation lines are labelled with what they are ("trigger", "measured target") and stop where the
     formation broke or reached its target; wedges and triangles show their two sloping edges.
-  - The white line through the closes is the Price series, and the legend now names it.
-  - "4 marks" on a marker legend row now reads "4 mark types".
-- **The hover box names the candle under the mouse.** If you zoom, pan or step through bars with the
-  mouse resting on the chart, the date and prices in the hover box now follow the candle under it.
-  Before, they kept naming the candle that used to be there. Scrolling the page, resizing the window
-  and Alt+Z keep it on whatever is under the mouse; it hides only if the mouse ends up off the chart.
+  - The white line through the closes is the Price series, and the status line now names it.
 - **You hear what came back.** When the terminal resumes your last session it now names the chart
   you were on and its indicators, for example "BTCUSDT 1 day, with Cipher B and Market Structure", so
   you can tell straight away whether your layout is all there.

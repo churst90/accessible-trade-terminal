@@ -643,13 +643,15 @@ list must never pose as a complete one.
 Three rules that only reveal themselves when several indicators share one chart.
 Reviewing a feature alone will not surface any of them.
 
-- **The pane legend ranks before it truncates.** `ChartRenderer.BuildLegendRows` is
-  separated from the drawing call because choosing WHAT to name is the part that can be
-  wrong. Row budget is derived from pane height (45%, floor 3, ceiling 9); rows sort base
-  data → continuous lines → markers; a series with ≥3 marker components collapses to one
-  row; leftover rows are announced as "+N more". The collapse is scoped by the series'
-  start index, not by colour — matching on colour let one indicator's collapse delete an
-  earlier indicator's row whenever two colours agreed.
+- **The pane legend is a status line now (2026-10-17), and it still truncates honestly.**
+  The Skia key box (`BuildLegendRows`) was replaced by TradingView-style status lines:
+  `Core/Services/Rendering/ChartStatusLine.cs` builds one line per indicator (name, inputs,
+  each visible plot's value at the active bar in `ChartRenderer.ReadingColor`), and
+  `ChartArea.razor` draws them as aria-hidden DOM text. Line budget is 45% of the pane, at
+  most 9; overflow is counted ("+N more (see the object tree)", "+N" on a long line); a
+  series with ≥3 marker components lists only marks firing at the bar plus "N mark types".
+  **Rule: nothing may appear there that is not already spoken from the chart** (Cody,
+  2026-10-17) — `ChartStatusLineTests` pins the left-out change-from-previous-close.
 - **Marker shape families are owned per indicator.** Market Structure = squares and
   crosses. Value Deviation = triangle → dot → diamond, where the shape encodes the tier
   and therefore cannot be reassigned. A new marker indicator must not reuse another's

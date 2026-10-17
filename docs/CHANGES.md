@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### TradingView status lines; Cipher B redrawn as real Market Cipher B; DSS Bressert; breakout wording (2026-10-17)
+
+From Cody's answers to the 2026-10-16 questions. Each change has a test seen red with its bug put
+back. Checked in rendered PNGs and real Chromium; **not looked at on Windows or the desktop head,
+and none of the sound changes has been heard.**
+
+- **TradingView status lines replace the legend and the hover box** (Cody: "yes, the TradingView
+  method — but anything shown must already be spoken"). `ChartStatusLine` builds one line per
+  indicator per pane — name, inputs, each visible plot's value at the active bar in its own colour
+  (ink plus a colour chip when the colour is under 4.5:1 on the backing) — and `ChartArea.razor`
+  draws them as aria-hidden DOM text. The price pane's first line is symbol · timeframe · venue and
+  O H L C (Heikin Ashi candles as drawn, as speech gives them). Values follow the keyboard cursor;
+  the hovered bar wins only while the mouse moved more recently. The floating hover box is retired:
+  its date is a label on the time axis, its price a label on the price axis (now in the scale of the
+  pane under the pointer — over RSI it used to map the price range onto that pane), its OHLC the
+  status line. Every plot's newest value is a filled label on its axis, stacked around the crosshair
+  badge, kept inside its pane, and dropped rather than overprinted; the badge itself is clamped to
+  its pane. New setting Settings → Appearance → "Status line background" (96%). **Speech parity:**
+  every field maps to a key that already speaks it (Shift+F1, Page Up/Down, arrows on Candles,
+  Alt+Shift+D, Alt+O); TradingView's change-from-previous-close is left out because nothing speaks
+  it, pinned by `ChartStatusLineTests`. Not spoken and shown anyway: the "N mark types" count and
+  the mouse-pointer value label. Found on the way: at 175% text the price pane's block ran 18px past
+  its pane (a still chart never re-counted its lines). Tests: `ChartStatusLineTests`,
+  `StatusLineInChartAreaTests`, `StatusLineBrowserTests`; `PaneLegendTests`,
+  `HoverReadoutPlacementTests` and its browser test retired with what they tested.
+- **Cipher B is drawn and computed like real Market Cipher B.** Compared against dated MCB
+  TradingView charts — vBzsjpDu (legend "MarketCipher B 2.2.6", BTCUSD 1D Bitstamp HA, certain),
+  37mQbQzO, AiASKFgl, LfGIzkND (probably MCB) — and the vendor's product image, digitised column by
+  column and recreated with ours on the same bars.
+  - *Look:* WT1 a light-blue #90CAF9 area, WT2 a #0D47A1 area in front of it, the "VWAP" (our WT
+    Histogram) a yellow #FFEB3B area over both — it was green/red columns near-identical to Money
+    Flow, the 2026-10-16 complaint — Money Flow a lime/red area at 50%, a money-flow bar along the
+    bottom with MCB's big green buy dots, plain grey levels (±60 and 0 solid, ±53 dotted; the
+    red/green zone shading is gone and saved charts drop it on load), and MCB's magenta "RSI" (a
+    40-bar stochastic smoothed over 3) and red/green "Stochastic" (80-bar) lines. A new paint-order
+    property draws the VWAP over the waves **without changing the keyboard order** (pinned). The
+    renderer now honours an 8-digit colour's alpha on fills (no built-in used 8 digits there before).
+  - *Bug:* the cross dots were written #RRGGBBAA; Skia reads #AARRGGBB, so the bull dot drew faint
+    pale green and the bear dot grey. Same mistake fixed in Ichimoku's Kumo (pinkish/purple instead
+    of green/red) and My Data event markers (purple instead of amber) — `CloudFillColourTests`,
+    `MyDataEventsProviderTests`.
+  - *Numbers (old behaviour kept behind each parameter):* slow wave a 3-bar average (`WTSignalPeriod`
+    3, was 4: MCB's crosses land on our exact bar 164/182 times vs 121/182); Money Flow
+    `MoneyFlowMode` MCB = 180 × SMA60 of Heikin-Ashi body/range, linear (error vs MCB 27–39 → 6–7.5;
+    30-minute sign flips 25 → 6 against MCB's 4); buy dot `BuyDotMode` MCB = every upward cross with
+    the slow wave at −60 or lower (`BuyDotLevel`), matching all 11 of MCB's big green dots within 2
+    bars, 6 on the same bar (the old gated rule matched 3). The gold dot keeps the gated rule.
+  - *Bug:* Money Flow's narration and alert thresholds were −70/−90, left from when the wave sat near
+    −80; since it moved to zero it read "bullish" almost always and never "bearish". Now ±5.
+  - **Heard differently** (derived, not heard): two new navigation stops at the end, "RSI" and
+    "Stochastic", muted by default; Oversold Crossover fires more often (1 → 8, 1 → 3, 1 → 4 in the
+    screenshot windows); crosses and the dots built on them shift; the WT Histogram is ~0.7× as large
+    and Money Flow ~±40, so their grit is quieter. **StrategyLab:** any strategy reading Cipher B's
+    crosses, dots, divergences, gold, WT Histogram or Money Flow changes; old numbers come back with
+    `--set CIPHER_B.WTSignalPeriod=4 --set CIPHER_B.MoneyFlowMode=Legacy --set CIPHER_B.BuyDotMode=Gated`.
+    `StrategyBatteryCommand`'s −80 Money Flow baseline is stale (not fixed). Tests: `CipherBLookTests`,
+    `CipherBMcbFormulaTests`, `CipherBPaletteTests`.
+- **DSS Bressert** (Cody: "I want to create this indicator"), `DssBressertProvider`, code
+  `DSS_BRESSERT`. stoch1 = %K of price over P; MIT = EMA(stoch1, E); stoch2 = %K of MIT over MIT's own
+  P-bar range; DSS = EMA(stoch2, E); Trigger = EMA(DSS, T) — the form MetaTrader, the TradingView
+  scripts, NinjaTrader 7, ProRealTime, TC2000 and Infront share (not Blau's 1991 TASC DSS). Defaults
+  13/8/5 (MetaTrader; TradingView 10/9, NinjaTrader 10/3 — probably Bressert's own, unconfirmed).
+  Levels 80/50/20 with the Stochastic's sound contract; MIT computed but hidden ("Smoothed %K").
+  EMAs seed from the first input as Pine does; a flat window holds the line. Agrees with a Python
+  port of the TradingView script to 2.3e-13 over 5,416 BTC daily bars, and with MT4/MT5 from bar 200
+  (their seeds differ early). Registered in both heads (`HostParityTests`) and StrategyLab's host;
+  not in the default feature pack. Reference ports in `tools/dss_bressert_reference.py`. Its detail
+  sentence ("Overbought at DSS 85.0, rising. Trigger 82.0. DSS crossed above trigger.") is built and
+  tested but, like every indicator's `GetDetailFact`, **no key speaks it** — Alt+Shift+D reads raw
+  values by design.
+- **Chart-pattern outcomes use Bulkowski's words** (Cody: "change the language as you found").
+  Outcome speech: "Double top confirmed here: downward breakout, closed below the neckline at
+  42,100…", "Range, upward breakout here: closed above the top at 110…". Line labels: "…, downward
+  breakout" once it broke, "…, confirms on a downward breakout" while forming, "…, held" when it
+  expired. Forming speech still names no direction (the narrator's no-forecast rule). Tests:
+  `OutcomesAreSpokenAsBreakoutsAndFormingShapesNeverAre`, `TheTriggerLabelUsesBreakoutTerms…`.
+
 ### Eight chart visuals from Cody's 2026-10-15 screenshots (2026-10-16)
 
 The IMMEDIATE FIXES filed from the two BTCUSDT 1d screenshots, all eight. Each fix has a test that
