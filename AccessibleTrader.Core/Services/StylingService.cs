@@ -82,7 +82,7 @@ namespace AccessibleTrader.Core.Services
 
         public ComponentDisplayType GetDisplayType(string indicatorCode, string componentName = "")
         {
-            // All custom providers (Cipher A/B/SR, SpiderLines, EmaFill) and Skender indicators
+            // All custom providers (Cipher A/B/SR, EmaFill) and Skender indicators
             // declare DisplayType in IndicatorComponentMetadata. The factory applies it directly.
             // This fallback path is only reached by the legacy CreateComponentConfig(code, name)
             // public method (used by non-metadata callers such as LevelConfig rendering).
@@ -119,7 +119,7 @@ namespace AccessibleTrader.Core.Services
 
         public string GetDefaultColor(string indicatorCode, string componentName = "", ComponentDisplayType displayType = ComponentDisplayType.Line)
         {
-            // All custom providers (Cipher A/B/SR, SpiderLines, EmaFill) declare colors in
+            // All custom providers (Cipher A/B/SR, EmaFill) declare colors in
             // IndicatorComponentMetadata.DefaultColorHex — the factory applies them directly.
             // This method provides role/type-based fallbacks for Skender reflection-generated indicators.
 

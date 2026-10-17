@@ -46,9 +46,9 @@ public record StopSource(
     int LookbackBars = 20,
     double FixedPrice = 0.0,
     double BufferTicks = 0.0,
-    // Indicator code for BelowComponent (e.g. "SPIDER_LINES", "ICHIMOKU", "EMA").
+    // Indicator code for BelowComponent (e.g. "Ema", "ICHIMOKU").
     string IndicatorCode = "",
-    // Component name within the indicator (e.g. "EMA 20", "Kijun-sen").
+    // Component name within the indicator (e.g. "Ema", "Kijun-sen").
     string ComponentName = ""
 );
 
@@ -96,9 +96,9 @@ public record TpLadderRung(
     double FixedPrice = 0.0,
     double FibLevel = 1.618,
     double ClosePortion = 0.34,
-    // Indicator code for AtComponent (e.g. "SPIDER_LINES", "ICHIMOKU").
+    // Indicator code for AtComponent (e.g. "Ema", "ICHIMOKU").
     string IndicatorCode = "",
-    // Component name within the indicator (e.g. "EMA 50", "Senkou Span A").
+    // Component name within the indicator (e.g. "Ema", "Senkou Span A").
     string ComponentName = ""
 );
 

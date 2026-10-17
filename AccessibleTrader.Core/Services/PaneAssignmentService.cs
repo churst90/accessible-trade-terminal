@@ -98,7 +98,7 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
                  or "KAMA" or "MAMA" or "SMMA" or "ZLEMA" or "BB" or "KC" or "DONCHIAN"
                  or "PARABOLICSAR" or "SAR" or "VWAP" or "SUPERTREND" or "ALLIGATOR"
                  or "PIVOTPOINTS" or "CHANDELIER" or "CHANDELIEREXIT" or "PSAR"
-                 or "EMA_FILL" or "MA_CLOUD" or "SPIDER_LINES" or "ICHIMOKU")
+                 or "EMA_FILL" or "MA_CLOUD" or "ICHIMOKU")
             return "Main";
 
         // Cipher B suite renders in its own dedicated oscillator pane
@@ -160,8 +160,8 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
             c.Contains("adl") || c.Contains("eom") || c.Contains("vwap"))
             return "Volume";
 
-        // EMA Fill, Spider Lines, and Ichimoku overlays on the main price pane
-        if (c == "ema_fill" || c == "spider_lines" || c == "ichimoku") return "Overlays";
+        // EMA Fill and Ichimoku overlays on the main price pane
+        if (c == "ema_fill" || c == "ichimoku") return "Overlays";
 
         // Multi-signal suites
         if (c == "cipher_b" || c == "cipherb") return "Multi-Signal";

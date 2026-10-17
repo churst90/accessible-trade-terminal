@@ -103,7 +103,6 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, CipherAProvider>();
         services.AddSingleton<IIndicatorProvider, CipherSrProvider>();
         services.AddSingleton<IIndicatorProvider, MACloudProvider>();
-        services.AddSingleton<IIndicatorProvider, SpiderLinesProvider>();
         services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
         services.AddSingleton<IIndicatorProvider, CipherCProvider>();
         services.AddSingleton<IIndicatorProvider, CipherSProvider>();
