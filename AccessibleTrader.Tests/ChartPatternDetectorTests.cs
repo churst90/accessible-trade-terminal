@@ -680,6 +680,36 @@ public class ChartPatternDetectorTests
     /// A pattern still live at the right-hand edge has no outcome yet, and inventing one would be
     /// the feature's worst possible failure mode.
     /// </summary>
+    /// <summary>
+    /// Bulkowski's "downward breakout" / "upward breakout" (Cody, 2026-10-17) on every sentence
+    /// that reports a close through the line — and on none that describes a shape still forming,
+    /// where naming a breakout direction would be the forecast the narrator refuses to make.
+    /// </summary>
+    [Fact]
+    public void OutcomesAreSpokenAsBreakoutsAndFormingShapesNeverAre()
+    {
+        var forming = new ChartPattern(ChartPatternKind.DoubleTop, ChartPatternState.Forming,
+            10, 40, 45, 42100, DateTime.Today, DateTime.Today, BreaksBelow: true,
+            MeasuredTarget: 39400);   // with a target, so the forming sentence has its "if it breaks" clause
+        var down = forming with { State = ChartPatternState.Completed, CompletedAtIndex = 60 };
+        var up = new ChartPattern(ChartPatternKind.DoubleBottom, ChartPatternState.Completed,
+            10, 40, 45, 100, DateTime.Today, DateTime.Today, CompletedAtIndex: 60, BreaksBelow: false);
+        var range = new ChartPattern(ChartPatternKind.Rectangle, ChartPatternState.Completed,
+            10, 40, 45, 110, DateTime.Today, DateTime.Today, CompletedAtIndex: 60, BreaksBelow: false,
+            SecondaryLevel: 100);
+
+        Assert.Contains("downward breakout", ChartPatternNarrator.Describe(down, Fmt));
+        Assert.Contains("downward breakout", ChartPatternNarrator.DescribeResolution(down, Fmt));
+        Assert.Contains("upward breakout", ChartPatternNarrator.Describe(up, Fmt));
+        Assert.Contains("upward breakout", ChartPatternNarrator.DescribeResolution(up, Fmt));
+        Assert.Contains("upward breakout", ChartPatternNarrator.Describe(range, Fmt));
+        Assert.Contains("upward breakout", ChartPatternNarrator.DescribeResolution(range, Fmt));
+
+        Assert.DoesNotContain("breakout", ChartPatternNarrator.Describe(forming, Fmt));
+        Assert.DoesNotContain("breakout", ChartPatternNarrator.Describe(
+            range with { State = ChartPatternState.Forming, CompletedAtIndex = null }, Fmt));
+    }
+
     [Fact]
     public void ResolutionSpeaksOnlyOnceAnOutcomeExists()
     {

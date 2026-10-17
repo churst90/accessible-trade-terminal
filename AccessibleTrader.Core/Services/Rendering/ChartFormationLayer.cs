@@ -226,7 +226,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         // (ChartPatternNarrator.TriggerName: neckline, trigger, flag edge, top), and its price,
         // and the target says "measured" as the speech does. Internal so the tests read these.
 
-        /// <summary>"rising wedge trigger 74,508.12, break below" — the solid line.</summary>
+        /// <summary>"rising wedge trigger 74,508.12, downward breakout" — the solid line.</summary>
         internal static string TriggerLabel(ChartPattern p)
         {
             string name = ChartPatternNarrator.Name(p.Kind);
@@ -243,9 +243,16 @@ namespace AccessibleTrader.Core.Services.Rendering
             // A range has not chosen a side — naming one would invent a direction the shape does
             // not have (the speech makes the same refusal). Everything else confirms on one side
             // of its line, and the side is what turns a flat line into "the breakdown level".
-            return p.Kind == ChartPatternKind.Rectangle
-                ? text
-                : $"{text}, break {(p.BreaksBelow ? "below" : "above")}";
+            // Worded in Bulkowski's terms (Cody, 2026-10-17): "downward breakout" once a close went
+            // through, "confirms on a downward breakout" while it has not — the label must not say
+            // a break happened that has not — and "held" when it aged out unbroken.
+            if (p.Kind == ChartPatternKind.Rectangle) return text;
+            return p.State switch
+            {
+                ChartPatternState.Completed => $"{text}, {ChartPatternNarrator.BreakoutName(p)}",
+                ChartPatternState.Expired   => $"{text}, held",
+                _                           => $"{text}, confirms on a {ChartPatternNarrator.BreakoutName(p)}",
+            };
         }
 
         /// <summary>"range bottom 61,200.00" — a range's second solid line.</summary>

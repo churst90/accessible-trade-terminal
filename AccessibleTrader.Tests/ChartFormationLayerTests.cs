@@ -427,7 +427,7 @@ public class ChartFormationLayerTests : IDisposable
         Assert.Contains("rising wedge", label);
         Assert.Contains("trigger", label);        // the speech's word for a wedge's level
         Assert.Contains("74,508.12", label);
-        Assert.Contains("below", label);
+        Assert.Contains("downward breakout", label);   // the side, in Bulkowski's words
 
         // Seen on the first render of the real BTC daily: "bear flag flag edge 59,485.04".
         string flag = ChartFormationLayer.TriggerLabel(P(kind: ChartPatternKind.BearFlag, trigger: 59_485.04));
@@ -438,6 +438,28 @@ public class ChartFormationLayerTests : IDisposable
         var range = P(kind: ChartPatternKind.Rectangle, trigger: 110, secondary: 90, target: null);
         Assert.DoesNotContain("below", ChartFormationLayer.TriggerLabel(range));
         Assert.DoesNotContain("above", ChartFormationLayer.TriggerLabel(range));
+    }
+
+    /// <summary>
+    /// Bulkowski's words, at Cody's direction (2026-10-17): "downward breakout" / "upward
+    /// breakout", not "break below". And the label must never say a breakout happened before a
+    /// close went through — a forming wedge "confirms on" one; an expired one "held".
+    /// </summary>
+    [Fact]
+    public void TheTriggerLabelUsesBreakoutTermsAndOnlyClaimsABreakoutThatHappened()
+    {
+        var forming = P(kind: ChartPatternKind.RisingWedge, trigger: 74_912);
+        var broken  = P(kind: ChartPatternKind.RisingWedge, trigger: 74_912, state: ChartPatternState.Completed);
+        var held    = P(kind: ChartPatternKind.RisingWedge, trigger: 74_912, state: ChartPatternState.Expired);
+        var upward  = P(kind: ChartPatternKind.FallingWedge, trigger: 50, state: ChartPatternState.Completed) with { BreaksBelow = false };
+
+        Assert.EndsWith(", downward breakout", ChartFormationLayer.TriggerLabel(broken));
+        Assert.EndsWith(", upward breakout", ChartFormationLayer.TriggerLabel(upward));
+        Assert.Contains("confirms on a downward breakout", ChartFormationLayer.TriggerLabel(forming));
+        Assert.EndsWith(", held", ChartFormationLayer.TriggerLabel(held));
+        Assert.DoesNotContain("breakout", ChartFormationLayer.TriggerLabel(held));
+        foreach (var p in new[] { forming, broken, held, upward })
+            Assert.DoesNotContain("break below", ChartFormationLayer.TriggerLabel(p));
     }
 
     [Fact]

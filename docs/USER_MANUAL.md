@@ -1450,7 +1450,7 @@ exception and has two.
 | What you hear | What it means |
 | --- | --- |
 | "**Possible** double top **forming**, neckline 42,100, measured target 39,400 if it breaks." | The shape is there, the neckline has not been touched through yet, and the outcome is still open. This is the only state you can act on in advance. |
-| "Double top **confirmed** here: **closed below** the neckline at 42,100." | A bar closed through the trigger. The pattern did what it is defined to do. |
+| "Double top **confirmed** here: **downward breakout**, closed below the neckline at 42,100." | A bar closed through the trigger. The pattern did what it is defined to do. "Downward breakout" and "upward breakout" are Thomas Bulkowski's terms (*Encyclopedia of Chart Patterns*), and they are only ever said about a close that happened — never as a forecast for a shape still forming. |
 | "Double top ends here **without confirming** — the neckline at 42,100 **held**." | The shape aged out. Price came to the line and the line won. |
 
 The wording is deliberately literal. You will never hear the word "completed", because it
@@ -1465,7 +1465,7 @@ edge you just crossed:
 
 - On its **first bar**: "**Start of** possible double top forming… Spans 22 bars." The
   outcome has not happened yet, and the neckline is the number to remember.
-- On the bar where it **resolved**: "**End of** double top: price closed below the
+- On the bar where it **resolved**: "**End of** double top, downward breakout: price closed below the
   neckline…", or when reached going forward, "Double top **confirmed here**…" / "…**ends
   here** without confirming."
 - Between those points: **silence.** It has already been described and nothing has changed.
@@ -1535,7 +1535,7 @@ A range is announced with **both** boundaries — "Possible range forming, top 1
 100. Height 10." — and no target, because a range that has not broken has not chosen a
 direction and projecting one would be inventing an opinion the shape does not hold.
 
-When it goes, you hear which way: "Range breaks here: closed above the top at 110, measured
+When it goes, you hear which way: "Range, upward breakout here: closed above the top at 110, measured
 target 120." Until then the two numbers are the whole content: the conventional readings —
 buy the bottom, sell the top, or wait for the break — all need the same two prices, and the
 terminal gives them to you without choosing between them.
@@ -1610,7 +1610,8 @@ understand where you are, and get your edge somewhere you have tested.
 **Settings → Appearance → Draw chart formations.** Off by default. It shades each formation's span,
 draws the trigger level solid, and draws the conventional measured target faint and dashed. A
 triangle or wedge is also drawn as its two sloping edges across the formation. Each line is labelled
-with what it is — "rising wedge trigger 74,912.00, break below", "measured target 60,367.00" — and
+with what it is — "rising wedge trigger 74,912.00, downward breakout" (while it is still forming,
+"…confirms on a downward breakout"; if it expired, "…held"), "measured target 60,367.00" — and
 it stops where it stopped mattering: the trigger at the bar that closed through it (or the bar the
 formation expired), the target at the first bar that reached it. Only a formation still forming runs
 to the right edge.

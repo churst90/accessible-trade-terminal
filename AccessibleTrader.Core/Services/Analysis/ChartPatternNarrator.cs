@@ -45,6 +45,16 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// </summary>
     public static class ChartPatternNarrator
     {
+        /// <summary>
+        /// "downward breakout" / "upward breakout" — Bulkowski's terms (Encyclopedia of Chart
+        /// Patterns; thepatternsite.com), adopted at Cody's direction on 2026-10-17 in place of
+        /// "break below" on the drawn lines. Only ever said about a break that HAPPENED (a close
+        /// through the line), never as a forecast for a forming shape — the no-direction rule
+        /// above is untouched: it names what price did, as "closed below" already did.
+        /// </summary>
+        public static string BreakoutName(ChartPattern p) =>
+            p.BreaksBelow ? "downward breakout" : "upward breakout";
+
         public static string Name(ChartPatternKind kind) => kind switch
         {
             ChartPatternKind.DoubleTop => "double top",
@@ -103,7 +113,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                     ChartPatternState.Forming =>
                         $"Possible range forming, top {top}, bottom {low}. Height {formatPrice(p.TriggerLevel - bottom)}.",
                     ChartPatternState.Completed =>
-                        $"Range broken: price closed {side} the {(p.BreaksBelow ? "bottom" : "top")} "
+                        $"Range, {BreakoutName(p)}: price closed {side} the {(p.BreaksBelow ? "bottom" : "top")} "
                         + $"at {(p.BreaksBelow ? low : top)}{Target(p, formatPrice)}.",
                     ChartPatternState.Expired =>
                         $"Range still intact — price held between {low} and {top}.",
@@ -119,7 +129,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                 // Never the bare word "completed": name the side and the level so confirmation
                 // cannot be mistaken for a good outcome.
                 ChartPatternState.Completed =>
-                    $"{Capitalize(name)}: price closed {side} the {role} at {level}{Target(p, formatPrice)}.",
+                    $"{Capitalize(name)}, {BreakoutName(p)}: price closed {side} the {role} at {level}{Target(p, formatPrice)}.",
 
                 ChartPatternState.Expired =>
                     $"{Capitalize(name)} did not confirm — the {role} at {level} held.",
@@ -246,7 +256,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return p.State switch
                 {
                     ChartPatternState.Completed =>
-                        $"Range breaks {place}: closed {(p.BreaksBelow ? "below the bottom" : "above the top")} "
+                        $"Range, {BreakoutName(p)} {place}: closed {(p.BreaksBelow ? "below the bottom" : "above the top")} "
                         + $"at {formatPrice(p.BreaksBelow ? bottom : p.TriggerLevel)}{Target(p, formatPrice)}.",
                     ChartPatternState.Expired =>
                         $"Range ends {place} still intact — price held between {formatPrice(bottom)} and {level}.",
@@ -257,7 +267,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             return p.State switch
             {
                 ChartPatternState.Completed =>
-                    $"{Capitalize(name)} confirmed {place}: closed {(p.BreaksBelow ? "below" : "above")} "
+                    $"{Capitalize(name)} confirmed {place}: {BreakoutName(p)}, closed {(p.BreaksBelow ? "below" : "above")} "
                     + $"the {role} at {level}{Target(p, formatPrice)}.",
 
                 ChartPatternState.Expired =>

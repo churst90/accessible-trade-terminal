@@ -13,7 +13,7 @@ with `StrategyLab pattern-speech`.
 | State | Means | Spoken as |
 |---|---|---|
 | **Forming** | The structure is there, the confirming level has not been reached, and the verdict is genuinely not in yet | "Possible double top forming, neckline 42,100, measured target 39,400 if it breaks." |
-| **Confirmed** | A bar *closed* through the trigger | "Double top confirmed here: closed **below** the neckline at 42,100." |
+| **Confirmed** | A bar *closed* through the trigger | "Double top confirmed here: **downward breakout**, closed **below** the neckline at 42,100." (Bulkowski's "downward/upward breakout", 2026-10-17; only ever about a close that happened) |
 | **Expired** | The structure aged out without price ever closing through | "Double top ends here without confirming — the neckline at 42,100 **held**." |
 
 **The word "completed" is banned, and a test enforces it.** It was ambiguous in exactly the way that
@@ -37,7 +37,7 @@ A formation is a **region**, not a point. The announcement is **edge-triggered**
 pattern's whole life, not once per bar:
 
 - **The first knowable bar** → "*Start of* possible double top forming…"
-- **The resolution bar** → "*End of* double top: price closed below…" / "confirmed here…" / "…ends
+- **The resolution bar** → "*End of* double top, downward breakout: price closed below…" / "confirmed here…" / "…ends
   here without confirming."
 - **Everything in between** → silence.
 
@@ -128,7 +128,7 @@ rather than `private`) instead of requiring the whole navigation stack to be sto
 it went unchecked for so long. See `ChartPatternPinNarrationTests`.
 
 When **nothing** is live at the cursor, `Alt+Shift+D` names the last formation that finished and how
-— *"No formation here. Most recent, 20 bars ago: double top: price closed below the neckline at
+— *"No formation here. Most recent, 20 bars ago: double top, downward breakout: price closed below the neckline at
 42,100."* A formation drops out of the live window the moment it resolves, which is right for
 navigation but left the detail key saying "no chart formation here" twenty bars after a neckline
 broke. That broken level is usually still the most relevant price on the screen and the pattern is
@@ -148,7 +148,7 @@ A range is the only kind carrying a `SecondaryLevel`, and it needs its own resol
 
 ```
 Forming    "Possible range forming, top 110, bottom 100. Height 10."
-Broken     "Range breaks here: closed above the top at 110, measured target 120."
+Broken     "Range, upward breakout here: closed above the top at 110, measured target 120."
 Expired    "Range ends here still intact — price held between 100 and 110."
 ```
 
