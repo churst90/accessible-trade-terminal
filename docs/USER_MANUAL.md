@@ -903,7 +903,11 @@ the candles reading speaks. The values follow the keyboard cursor; when someone 
 mouse, they follow the bar under the pointer until the keyboard cursor moves again, and a mouse
 merely resting on the chart never takes over. When space runs out the block says so: "+2 more
 (see the object tree)", "+N" at the end of a long line, and "9 mark types" for an indicator
-made of many kinds of mark. A pane too short for one line shows none.
+made of many kinds of mark. A pane too short for one line shows none. Each pane's chart starts
+below its status lines — the pane keeps a strip at its top exactly as tall as the lines shown, so
+no candle, line or level is ever drawn under the text; the strip grows with Settings → Appearance →
+Text size, and a pane that shows no line keeps its full height (a pane too short to keep a usable
+chart under its lines shows fewer of them).
 
 The status lines are for sighted readers and magnifier users; screen readers do not read them,
 and nothing on them is new information. Shift+F1 speaks the symbol, provider and timeframe;
@@ -1401,7 +1405,13 @@ confirmation, and Ctrl+Z brings it back — the candles themselves cannot be rem
 
 To change how an indicator calculates or sounds, focus it and press P (or Shift+F12)
 for its properties dialog. It has five tabs: **General** for the calculation parameters
-— periods, smoothing, thresholds; **Appearance** for colours and line styles;
+— periods, smoothing, thresholds; **Appearance** for colours and line styles, and each
+component's **Background tint** — Off, This pane or Price chart — which shades the background
+behind each bar by whether that component's value is at or above its midline (the hint under it
+says where and at which value; it is for sighted viewers only, nothing is spoken or sounded, and it
+works even when the line itself is hidden: Top/Bottom Detector tints the price chart red where
+Distribution Confidence is 0.5 or more, and Cipher B's Anchor Polarity can tint but is off by
+default, like Market Cipher);
 **Levels** for every reference level, its value, colour, which crossings to report, and
 a Remove button on the ones you added; **Sonification** for the sound patch each
 component plays, with a bullish/bearish or above/below-midline pair where the component

@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Labels inside the chart, status lines never over the data, tint as a property, strips and dividers that agree (2026-10-17, night)
+
+From Cody's look at the deployed BTCUSDT 1d chart: "fix the 2 label problems and make the background
+tint like the real cipher b... address the status line as well", then "shouldn't this, if tinting is
+all it does, be a property in the indicator properties?", then "can you fix the items you just found
+too?". Each change has tests seen red with its part undone; checked in headless Chromium screenshots
+of the seeded chart, **not yet on Windows or by a sighted reviewer**.
+
+- **Formation labels.** "confirms on **an** upward breakout" (it read "a upward"). A label near the
+  right edge slides left to stay inside the pane instead of running under the price axis, and one
+  longer than the pane is shortened with "…" rather than cut mid-word (`ChartFormationLayer.FitInPane`).
+- **Each pane's plot starts below its status lines.** The TradingView-style status lines are DOM text
+  over the canvas; Cipher B's 0–100 RSI and Stochastic and the waves' peaks ran behind them. Every pane
+  now reserves a strip at its top exactly as tall as the block shown there (one computation,
+  `ChartStatusLine.BandMetrics`/`BandHeight`, published as `IPaneLayoutService.StatusBands`, honouring
+  Text size), and every value↔pixel mapper — renderer layers, axis labels, badges, crosshair, hover,
+  hit-testing, drawing anchors, the AI snapshot — uses the plot below it. A pane keeps at least 40% of
+  its height and 20 px of plot; below that it shows fewer status lines ("+N more") or none. Sound is
+  unchanged (it works on values). Panes are about 25 px shorter per status line at 100% text.
+- **Background tint is a property any component can have** — `BackgroundTint` Off / This pane / Price
+  chart in Properties → Appearance (labelled select with a hint in words), declared by providers
+  (`DefaultBackgroundTint`, `DefaultTintColorAboveHex`, `DefaultTintColorBelowHex`, `DefaultTintMidline`,
+  `DefaultTintFullAt`), the user's choice kept in `UserBackgroundTint`. One painter
+  (`Rendering/BackgroundTintPainter`) replaces the two tints the renderer used to find BY NAME. Cipher B's
+  Anchor Polarity defaults to **Off** — real Market Cipher B paints nothing on the price chart — and can
+  be set to tint the price chart or its pane while the line stays hidden; Top/Bottom Detector's red
+  topping band is unchanged, byte for byte. Replaces the evening's stopgap (tint only while Anchor Polarity
+  was shown). Open: tint colours are not editable in the dialog; Save as Defaults excludes the tint; two
+  tints now stack; Anchor Polarity at exactly 0 takes the above colour.
+- **Sub-pane strips agree.** Loukas Cycles' FY strip was drawn on its own range while its axis labels,
+  crosshair badge, hover value and hit-testing used the pane's range stretched over both areas (labels
+  ~25 px off, hover read 45.68 for 35, clicks missed). One shared layout (`ChartRenderer.SubPaneLayout`,
+  published as `IPaneLayoutService.SubPaneStrips`) now feeds them all; strips get their own scale; strip
+  ratios over 70% share the 70%; price-pane strips get their real range (were −1…1).
+- **Dragging a pane divider follows the mouse.** The drag assumed a 600 px chart, so a divider moved about
+  half as far as the mouse in a small window and further in a tall one. It now uses the chart's measured
+  height and starts from the pane's height as drawn (proven in real Chromium at 1000x610 and 1400x950).
+  Still as before: a drag registers only while the pointer is over the chart.
+- **A click-to-focus test that could not fail** now starts with focus on another series.
+
 ### Restored charts' levels follow the indicator, except where you changed them (2026-10-17, late night)
 
 Cody, after the 80/20 push: "ctrl left/right only jumps between midline crosses and it does so even if

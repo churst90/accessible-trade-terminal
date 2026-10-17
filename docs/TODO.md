@@ -117,6 +117,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-17 night — labels, status band, background tint, strips, dividers: DONE; see CHANGES).**
+> **Open questions for Cody:** tint colours editable in Properties (native picker has no alpha)? Tint in
+> "Save as Defaults"? Two tinting components stack — right? Anchor Polarity at exactly 0 takes the above
+> colour. Status-band plot floor 40% / 20 px — right? Should the price pane collapse overlay status lines
+> sooner? A divider drag registers only while the pointer is over the chart, and a mouseup outside leaves it
+> armed (pre-existing). Seen once: `TradingDashboardDecouplingTests.The_orders_tab_is_not_filtered_by_the_focused_chart_symbol`
+> failed then passed 3/3 alone — watch for a flake.
+>
 > **START HERE (2026-10-17 pm — Cody's Cipher B report: all DONE; see CHANGES).** Bars pitched by
 > their own sign, Alt+Shift+D reads the whole ladder, DSS states its state, areas stop at the last
 > bar (and clouds' latest run is drawn), Adaptive OB/OS removed. **Unverified by ear.**

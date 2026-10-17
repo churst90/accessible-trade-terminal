@@ -8,6 +8,12 @@
 
 ## Unreleased
 
+- **Status lines never cover the chart.** Each pane draws below its status lines, so Cipher B's RSI and
+  Stochastic, and the tops of the waves, are no longer hidden behind the text.
+- **Background tint is your choice, on any indicator.** Properties → Appearance → Background tint: Off,
+  This pane or Price chart. Cipher B's price-chart shading is off by default, like Market Cipher B.
+- **Formation labels read right and stay on the chart** ("confirms on an upward breakout"), and dragging a
+  pane divider now follows the mouse at any window size.
 - **Charts you already had pick up indicator improvements.** A saved chart now gets new levels an
   indicator has gained and its improved defaults, while anything you changed yourself in Properties stays
   as you set it. This is what brings Cipher B's RSI and Stochastic 80/20 and its louder ±53 texture to an

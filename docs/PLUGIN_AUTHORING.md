@@ -461,6 +461,11 @@ nullable — `null` means "defer to the global role/type-based default."
 |---|---|---|
 | `DefaultColorHex` | `string?` | Primary color (bullish / positive side). Hex string: `"#RRGGBB"` or `"#AARRGGBB"`. |
 | `DefaultColorHexSecondary` | `string?` | Secondary color (bearish / negative side) for polarity-colored components. |
+| `DefaultBackgroundTint` | `BackgroundTint?` | Shade the background behind each bar from this component's value: `ThisPane` (its own pane or sub-pane strip) or `PriceChart`. Null = `Off`. Visual only. Independent of `IsVisible`, so a hidden data component can tint. The user's choice in Properties overrides it per chart and is kept; charts whose user never chose follow this value, so changing it reaches existing charts. `BackgroundTint` is an append-only enum (its ordinal is stored). |
+| `DefaultTintColorAboveHex` | `string?` | Tint where the value is ≥ the tint midline. `#AARRGGBB`; the alpha is the strength (0x16–0x20 is subtle); alpha `00` paints nothing. Null = `DefaultColorHex` at alpha 0x16. |
+| `DefaultTintColorBelowHex` | `string?` | Tint below the midline. Null = `DefaultColorHexSecondary` at 0x16; `#00000000` = nothing below. |
+| `DefaultTintMidline` | `double?` | The value dividing the two tint colours. Null = `ColorBaseline` (where the bar and polarity colours split). |
+| `DefaultTintFullAt` | `double?` | Null = constant strength. Set = the alpha ramps from 20% at the midline to 100% at this value. Top/Bottom Detector: midline 0.5, full at 1.0. |
 | `DefaultThickness` | `float?` | Stroke / shape size in logical pixels. |
 | `DefaultDashStyle` | `DashStyle?` | Line dash pattern: `Solid`, `Dash`, `Dot`, or `DashDot`. |
 | `ColorBaseline` | `double?` | Value at which directional bar / histogram coloring switches. Default `0`. Set to `50` for MFI (midpoint of 0–100). Set to `-80` for a histogram anchored at −80. |
