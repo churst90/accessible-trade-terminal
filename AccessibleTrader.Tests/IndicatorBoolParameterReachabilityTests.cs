@@ -111,15 +111,9 @@ namespace AccessibleTrader.Tests
             return diff;
         }
 
-        [Fact]
-        public void CipherSrAdaptiveBreakCanBeTurnedOff()
-        {
-            var bars = Series(400, seed: 11);
-            var (off, on) = RunBothWays(new CipherSrProvider(), "CIPHER_SR", "AdaptiveBreak", bars);
-
-            Assert.True(DifferingValues(off, on) > 0,
-                "AdaptiveBreak made no difference to any component — the provider never saw the flag");
-        }
+        // CipherSrAdaptiveBreakCanBeTurnedOff was here until 2026-10-17, when Cipher SR was rebuilt to
+        // Market Cipher SR's design: a level is held until replaced, so there is no break and no
+        // Adaptive Break switch. Its settings are pinned by CipherSrSpeechTests.EveryDeclaredSettingChangesTheOutput.
 
         [Fact]
         public void CipherSAdaptiveSmoothingCanBeTurnedOn()

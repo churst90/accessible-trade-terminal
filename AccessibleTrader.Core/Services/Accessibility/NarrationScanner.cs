@@ -91,7 +91,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         ///
         /// <para>
         /// The close at the last bar the level existed (<see cref="_lastZoneClose"/>) is not
-        /// enough: Cipher SR's break needs a close CONVINCINGLY through the level, so price often
+        /// enough: a break that needs a close CONVINCINGLY through the level (Cipher SR's, until the
+        /// 2026-10-17 Market Cipher SR rebuild removed breaks; any zone line can still go empty), so price often
         /// closes a little past it first, and the bar before the break is then already on the far
         /// side. On Cody's BTC daily chart 14 of the 55 real breaks were named the wrong way round
         /// — "Resistance at 84,398 broken" about the support price had just fallen through

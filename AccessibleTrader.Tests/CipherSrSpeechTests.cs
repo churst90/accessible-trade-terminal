@@ -33,6 +33,12 @@ namespace AccessibleTrader.Tests;
 /// a break and only a break. The renderer reads the same array to lift the pen, so the picture
 /// is unchanged.
 /// </para>
+///
+/// <para>
+/// Since the Market Cipher SR rebuild later the same day (CipherSrMarketCipherFidelityTests), a
+/// level is held until replaced — never broken — and the pivot dots these tests once read are
+/// retired; the zone lines and what the narrator says about them are what is measured here.
+/// </para>
 /// </summary>
 public sealed class CipherSrSpeechTests
 {
@@ -121,7 +127,7 @@ public sealed class CipherSrSpeechTests
                 Role = ComponentRole.Level, IsVisible = true, IsZoneLine = true,
             });
 
-        var keys = r.Keys.Where(k => k != CipherSrProvider.CompResistance && k != CipherSrProvider.CompSupport).ToList();
+        var keys = r.Keys.ToList();
 
         WorkspaceState StateAt(int count)
         {
@@ -214,9 +220,12 @@ public sealed class CipherSrSpeechTests
             "close through on that bar — the level was replaced by a newer pivot, not broken. First few:\n  " +
             string.Join("\n  ", false_.Take(8)));
 
-        // Vacuity: real breaks must still be announced. The provider's own rule found 55 over
-        // this history in the Python port; anything near zero means breaks were silenced.
-        Assert.True(broken >= 40, $"only {broken} breaks were announced over 15 years of BTC daily");
+        // No vacuity floor on the count since 2026-10-17: Cipher SR now holds a level through closes
+        // beyond it, as Market Cipher SR does, so it is never "broken" and this history says it 0
+        // times; price crossing a level is announced as a cross. (Under the break rule it had, 55
+        // real breaks were heard here.) The test it guards against still bites: a line that goes
+        // empty when a level is replaced is announced as broken without a close through it — and
+        // OnRealBtcDaily_EveryReplacementIsAnnouncedAsNewLevelReplacingOld proves the scan runs.
     }
 
     /// <summary>
@@ -246,6 +255,12 @@ public sealed class CipherSrSpeechTests
                 bool heard = said.Any(s => s.Bar == b && NewClause.Matches(s.Text).Any(m =>
                     m.Groups[2].Value == newP && m.Groups[3].Value == oldP));
                 if (!heard) missing.Add($"{bars[b].Date:yyyy-MM-dd} {word} {oldP} -> {newP} said: " + string.Join(" / ", said.Where(s => Math.Abs(s.Bar - b) <= 1).Select(s => s.Bar + ":" + s.Text)));
+                // And the provider RECORDS it, on that bar, as the old level: the renderer lifts the
+                // pen there, and the narrator reads the record first (its fallback, a changed value,
+                // only covers bars that closed between two scans).
+                var rec = Get(r, line + CipherSrProvider.ReplacedSuffix);
+                if (b >= rec.Length || rec[b] != z[b - 1])
+                    missing.Add($"{bars[b].Date:yyyy-MM-dd} {word} {oldP} -> {newP}: not recorded in {line}{CipherSrProvider.ReplacedSuffix}");
             }
         }
 
@@ -287,214 +302,112 @@ public sealed class CipherSrSpeechTests
             string.Join("\n  ", gaps.Take(8)));
     }
 
-    // ── The pivot dot's own sentence ────────────────────────────────────────────────
-
-    private static readonly Regex Tested = new(@"tested (once|(\d+) times)", RegexOptions.Compiled);
-
-    private static int SpokenTouches(string speech)
-    {
-        var m = Tested.Match(speech);
-        if (!m.Success) return 0;
-        return m.Groups[1].Value == "once" ? 1 : int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
-    }
-
-    private static Dictionary<string, double[]> SpeechData(Dictionary<string, double[]> r, double liveClose)
-    {
-        var d = new Dictionary<string, double[]>(r, StringComparer.OrdinalIgnoreCase) { ["__live_close"] = new[] { liveClose } };
-        return d;
-    }
-
     /// <summary>
-    /// <b>A pivot dot's "tested N times" is the count of ITS level.</b>
-    ///
-    /// <para>
-    /// The level a dot marks becomes live PivotBars bars after the dot, so between the dot and
-    /// that bar the touch array still counts the PREVIOUS level. The dot's speech read forward
-    /// from the dot to the first empty value, which was the old level's last bar — so 13 dots on
-    /// BTC daily spoke the old level's count and none ever spoke their own.
-    /// </para>
-    ///
-    /// <para>
-    /// Expected value, from the price line and the touch array alone: the touch count on the
-    /// last bar the zone line carried this dot's price, starting from the first bar after the
-    /// dot on which it did.
-    /// </para>
+    /// <b>A break is named for the side the level was born on.</b> A support that price closed a
+    /// little under (inside a break threshold) before it went is still a SUPPORT that broke: named
+    /// from the close on the bar before the break, 14 of the 55 real breaks on Cody's BTC daily chart
+    /// were called the wrong side. Cipher SR no longer breaks levels, so the real history no longer
+    /// reaches the case; this is the shape, through the same narrator.
     /// </summary>
     [Fact]
-    public void OnRealBtcDaily_APivotDotSpeaksTheTestCountOfItsOwnLevel()
+    public void ABreakIsNamedForTheSideTheLevelWasBornOn()
     {
-        var bars = BtcDaily();
-        var r = Compute(bars);
-        var data = SpeechData(r, bars[^1].Close);
-        var wrong = new List<string>();
-        int withOwnTests = 0;
-
-        foreach (var (dotName, lineName, touchName) in new[]
-                 {
-                     (CipherSrProvider.CompResistance, CipherSrProvider.CompResistanceLine, "Resistance_touches"),
-                     (CipherSrProvider.CompSupport, CipherSrProvider.CompSupportLine, "Support_touches"),
-                 })
+        var t = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        double[] closes = { 110, 110, 110, 104.9, 100, 100, 100 };
+        var bars = closes.Select((c, i) => new Ohlcv(t.AddDays(i), c, c + 1, c - 1, c, 1000)).ToList();
+        var r = new Dictionary<string, double[]>
         {
-            var dots = Get(r, dotName); var line = Get(r, lineName); var touches = Get(r, touchName);
-            for (int p = 0; p < dots.Length; p++)
-            {
-                if (double.IsNaN(dots[p])) continue;
-                int start = -1;
-                for (int j = p + 1; j < line.Length; j++) if (line[j] == dots[p]) { start = j; break; }
-                int expected = 0;
-                if (start >= 0)
-                {
-                    int end = start;
-                    while (end + 1 < line.Length && line[end + 1] == dots[p]) end++;
-                    expected = double.IsNaN(touches[end]) ? 0 : (int)touches[end];
-                }
-                if (expected > 0) withOwnTests++;
+            [CipherSrProvider.CompSupportLine] = new[] { 105.0, 105, 105, 105, double.NaN, double.NaN, double.NaN },
+            [CipherSrProvider.CompResistanceLine] = Enumerable.Repeat(double.NaN, closes.Length).ToArray(),
+        };
+        var said = NarrateWholeHistory(bars, r);
 
-                string speech = Provider.GetComponentSpeech(dotName, dots[p], bars[p], data, p) ?? "";
-                int spoken = SpokenTouches(speech);
-                if (spoken != expected)
-                    wrong.Add($"{dotName} dot {bars[p].Date:yyyy-MM-dd} at {dots[p]:F2}: says tested {spoken}, its level was tested {expected} — \"{speech}\"");
-            }
-        }
-
-        Assert.True(withOwnTests >= 5, $"only {withOwnTests} dots whose own level was ever tested — the fixture does not reach the case");
-        Assert.True(wrong.Count == 0, $"{wrong.Count} pivot dots speak another level's test count:\n  " + string.Join("\n  ", wrong.Take(8)));
-    }
-
-    /// <summary>
-    /// <b>A pivot dot says which side of the level price is ON, not which side it was born on.</b>
-    /// The side was chosen from the dot's type ("price X% below" for every resistance), so an old
-    /// resistance price has since risen far above was read as being 30% overhead. Every dot on
-    /// the real chart is read against the last close, and the side spoken must be the side price
-    /// is on. The level is spoken through the shared price formatter, like every other price.
-    /// </summary>
-    [Fact]
-    public void OnRealBtcDaily_APivotDotSpeaksTheSidePriceIsActuallyOn()
-    {
-        var bars = BtcDaily();
-        var r = Compute(bars);
-        double live = bars[^1].Close;
-        var data = SpeechData(r, live);
-        var wrong = new List<string>();
-        int bothSides = 0;
-        bool sawAbove = false, sawBelow = false;
-
-        foreach (var dotName in new[] { CipherSrProvider.CompResistance, CipherSrProvider.CompSupport })
-        {
-            var dots = Get(r, dotName);
-            for (int p = 0; p < dots.Length; p++)
-            {
-                double v = dots[p];
-                if (double.IsNaN(v) || Math.Abs(live - v) / live < 0.001) continue;
-                string speech = Provider.GetComponentSpeech(dotName, v, bars[p], data, p) ?? "";
-                bool priceBelow = live < v;
-                string want = priceBelow ? "below" : "above", not = priceBelow ? "above" : "below";
-                if (priceBelow) sawBelow = true; else sawAbove = true;
-                if (!speech.Contains(want, StringComparison.Ordinal) || speech.Contains(not, StringComparison.Ordinal)
-                    || !speech.StartsWith(SpeechPriceFormatter.FormatPrice(v), StringComparison.Ordinal))
-                    wrong.Add($"{dotName} {bars[p].Date:yyyy-MM-dd} at {SpeechPriceFormatter.FormatPrice(v)}, price {SpeechPriceFormatter.FormatPrice(live)}: \"{speech}\"");
-                bothSides++;
-            }
-        }
-
-        Assert.True(sawAbove && sawBelow && bothSides > 50, "the fixture must have dots on both sides of the last close");
-        Assert.True(wrong.Count == 0, $"{wrong.Count} pivot dots say the wrong side of price (or skip the price formatter):\n  " +
-            string.Join("\n  ", wrong.Take(8)));
+        Assert.Contains(said, s => s.Text.Contains("Support at 105.00 broken", StringComparison.Ordinal));
+        Assert.DoesNotContain(said, s => s.Text.Contains("Resistance at 105.00 broken", StringComparison.Ordinal));
     }
 
     // ── Settings ─────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// <b>The warm-up Cipher SR declares covers the warm-up it has.</b>
-    ///
-    /// <para>
-    /// With Auto-Scale on (the default, and Cody's setting) the pivot window grows with the bar's
-    /// position, reaching 15 bars each side only at bar 374. The declared stability window was
-    /// computed from PivotBars (5) as if Auto-Scale were off: 60 bars. The headless alert chart
-    /// fetches that many bars plus a margin, so its pivots were found with a window of 2 to 3 and
-    /// disagreed with the chart's.
-    /// </para>
-    ///
-    /// <para>
-    /// The property: the pivots found on the last bars of a long history are the same pivots
-    /// found from only the declared window of bars before them.
-    /// </para>
+    /// <b>The warm-up Cipher SR declares covers the warm-up its levels have.</b> The levels taken
+    /// on the last bars of a long history are the levels taken from only the declared window of
+    /// bars before them. (Until 2026-10-17 Auto-Scale made a pivot window depend on a bar's position
+    /// in the history and the declared window was 40 bars against a real 375.)
     /// </summary>
     [Fact]
-    public void TheDeclaredWarmUpReproducesTheLongHistorysPivots_WithAutoScaleOn()
+    public void TheDeclaredWarmUpReproducesTheLongHistorysLevels()
     {
         var all = BtcDaily().TakeLast(1500).ToList();
         var pars = CodysSettings();
         int window = Provider.GetStabilityWindow("CIPHER_SR", pars);
-        const int Compare = 60;
+        const int Compare = 200;
         var full = Compute(all, pars);
         var tail = all.Skip(all.Count - (window + Compare)).ToList();
         var part = Compute(tail, pars);
         int offset = all.Count - tail.Count;
 
         var diffs = new List<string>();
-        foreach (var dot in new[] { CipherSrProvider.CompResistance, CipherSrProvider.CompSupport })
+        int levelsTaken = 0;
+        foreach (var name in new[] { CipherSrProvider.CompResistanceLine, CipherSrProvider.CompSupportLine })
         {
-            var a = Get(full, dot); var b = Get(part, dot);
-            // The last 15 bars cannot have a confirmed pivot either way.
-            for (int i = tail.Count - Compare; i < tail.Count - 15; i++)
+            var a = Get(full, name); var b = Get(part, name);
+            for (int i = tail.Count - Compare; i < tail.Count; i++)
             {
-                double x = a[offset + i], y = b[i];
-                if (double.IsNaN(x) != double.IsNaN(y) || (!double.IsNaN(x) && x != y))
-                    diffs.Add($"{dot} {tail[i].Date:yyyy-MM-dd}: full history {x:F2}, last {tail.Count} bars {y:F2}");
+                // A level taken on this bar: a value different from the bar before.
+                bool takenFull = !double.IsNaN(a[offset + i]) && a[offset + i] != a[offset + i - 1];
+                bool takenPart = !double.IsNaN(b[i]) && b[i] != b[i - 1];
+                if (takenFull) levelsTaken++;
+                if (takenFull != takenPart || (takenFull && a[offset + i] != b[i]))
+                    diffs.Add($"{name} {tail[i].Date:yyyy-MM-dd}: full history {a[offset + i]:F2}, last {tail.Count} bars {b[i]:F2}");
             }
         }
+        Assert.True(levelsTaken > 5, $"only {levelsTaken} levels taken in the compared bars");
         Assert.True(diffs.Count == 0,
-            $"GetStabilityWindow said {window} bars, but {diffs.Count} pivots in the last {Compare} bars differ " +
+            $"GetStabilityWindow said {window} bars, but {diffs.Count} levels taken in the last {Compare} bars differ " +
             "when computed from only that many bars:\n  " + string.Join("\n  ", diffs.Take(6)));
     }
 
     /// <summary>
-    /// <b>The settings dialog tells the truth about the two pivot-window settings.</b> Auto-Scale
-    /// used to be described as "from loaded bar count", a rule that was replaced on 2026-08-21;
-    /// and Pivot Bars said nothing about doing nothing while Auto-Scale is on, which is Cody's
-    /// setting — his dialog shows 5 and the window is 15.
+    /// <b>Every setting moves something.</b> A knob that moves nothing is a lie the dialog tells:
+    /// Pivot Bars did nothing while Auto-Scale was on, which was Cody's setting. Each declared
+    /// parameter, set away from its default, changes some component on an intraday chart.
     /// </summary>
     [Fact]
-    public void ThePivotWindowSettingsDescribeTheRuleTheProviderUses()
+    public void EveryDeclaredSettingChangesTheOutput()
     {
+        var bars = CipherSrMarketCipherFidelityTests.Csv("coinbase_BTC_USD_15m_2022-01-20_31.csv");
         var meta = Provider.GetIndicators().Single(m => m.Code == "CIPHER_SR");
-        string auto = meta.Parameters.Single(p => p.Name == "AutoScale").Description;
-        string pivot = meta.Parameters.Single(p => p.Name == "PivotBars").Description;
-
-        Assert.DoesNotContain("loaded bar count", auto, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ignored", pivot, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Auto-Scale", pivot, StringComparison.OrdinalIgnoreCase);
+        var baseline = Compute(bars, new Dictionary<string, object>());
+        var dead = new List<string>();
+        foreach (var p in meta.Parameters)
+        {
+            double def = Convert.ToDouble(p.DefaultValue, CultureInfo.InvariantCulture);
+            double other = def + 2;
+            var moved = Compute(bars, new Dictionary<string, object> { [p.Name] = other });
+            bool differs = baseline.Keys.Any(k => moved.TryGetValue(k, out var m)
+                && baseline[k].Zip(m).Any(z => !(double.IsNaN(z.First) && double.IsNaN(z.Second)) && z.First != z.Second));
+            if (!differs) dead.Add($"{p.Name} ({def} -> {other})");
+        }
+        Assert.True(meta.Parameters.Count >= 3, "Cipher SR declares fewer settings than Market Cipher SR's three");
+        Assert.True(dead.Count == 0, "settings that change nothing: " + string.Join(", ", dead));
     }
 
     /// <summary>
-    /// <b>The detail sentence names the level the zone line carries — the most recent confirmed
-    /// one — and never a pivot that cannot be known yet.</b> It preferred the DOT's value when
-    /// there was one on the bar, and a dot sits on its pivot bar, PivotBars bars before anything
-    /// could know it was a pivot. It also called the level "nearest", which it is not: it is the
-    /// most recent swing, and the nearest level above price is often an older one.
+    /// <b>The detail sentence names the levels the zone lines carry, as the most recent ones, with
+    /// their age</b> — not "nearest", which they are not: the nearest level above price is often an
+    /// older one.
     /// </summary>
     [Fact]
-    public void TheDetailSentenceNamesTheConfirmedLevelNotAnUnconfirmedPivot()
+    public void TheDetailSentenceNamesTheHeldLevelsAndTheirAge()
     {
         var bars = BtcDaily();
         var r = Compute(bars);
-        var dots = Get(r, CipherSrProvider.CompResistance);
-        var line = Get(r, CipherSrProvider.CompResistanceLine);
-        var bad = new List<string>();
-        int checkedCount = 0;
-        for (int p = 400; p < dots.Length; p++)
-        {
-            if (double.IsNaN(dots[p]) || line[p] == dots[p]) continue;
-            checkedCount++;
-            string fact = Provider.GetDetailFact("CIPHER_SR",
-                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars), r, p, CodysSettings());
-            if (fact.Contains(SpeechPriceFormatter.FormatPrice(dots[p]), StringComparison.Ordinal)
-                || fact.Contains("Nearest", StringComparison.OrdinalIgnoreCase))
-                bad.Add($"{bars[p].Date:yyyy-MM-dd}: \"{fact}\" (unconfirmed pivot {SpeechPriceFormatter.FormatPrice(dots[p])})");
-        }
-        Assert.True(checkedCount > 10, "no unconfirmed pivots to check");
-        Assert.True(bad.Count == 0, $"{bad.Count} detail sentences name a pivot not yet confirmed, or call the level nearest:\n  " +
-            string.Join("\n  ", bad.Take(5)));
+        int last = bars.Count - 1;
+        string fact = Provider.GetDetailFact("CIPHER_SR",
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars), r, last, CodysSettings());
+
+        Assert.Contains($"Most recent resistance: {SpeechPriceFormatter.FormatPrice(Get(r, CipherSrProvider.CompResistanceLine)[last])}, held", fact);
+        Assert.Contains($"Most recent support: {SpeechPriceFormatter.FormatPrice(Get(r, CipherSrProvider.CompSupportLine)[last])}, held", fact);
+        Assert.DoesNotContain("Nearest", fact, StringComparison.OrdinalIgnoreCase);
     }
 }

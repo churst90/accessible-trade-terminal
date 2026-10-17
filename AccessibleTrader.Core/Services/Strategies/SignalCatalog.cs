@@ -56,6 +56,10 @@ namespace AccessibleTrader.Core.Services.Strategies
             // See CipherBProvider.ThresholdObKey.
             ["CIPHER_B.Adaptive OB"] = "Cipher B's Adaptive OB was removed on 2026-10-17; compare Wave Trend Fast with your overbought level (53 by default) instead",
             ["CIPHER_B.Adaptive OS"] = "Cipher B's Adaptive OS was removed on 2026-10-17; compare Wave Trend Fast with your oversold level (-53 by default) instead",
+            // Cipher SR rebuilt to draw what Market Cipher SR draws (CipherSrProvider). Its pivot-bar
+            // dots were look-ahead (drawn before the pivot could be known) and MCSR has no such marker.
+            ["CIPHER_SR.Resistance"] = "Cipher SR's Resistance pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Resistance Zone, the held resistance level, instead",
+            ["CIPHER_SR.Support"] = "Cipher SR's Support pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Support Zone, the held support level, instead",
         };
 
         /// <inheritdoc/>
