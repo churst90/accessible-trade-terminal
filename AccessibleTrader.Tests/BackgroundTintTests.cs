@@ -353,6 +353,40 @@ public sealed class BackgroundTintTests
         }
     }
 
+    /// <summary>A component drawn in a SUB-PANE strip (Loukas Cycles has one) shades that strip
+    /// when set to This pane — not the main area of the pane above it.</summary>
+    [Fact]
+    public void This_pane_means_the_strip_a_sub_pane_component_is_drawn_in()
+    {
+        static ChartSeries Strip(BackgroundTint tint)
+        {
+            var config = new SeriesConfig { Id = "strip", Name = "Strip", IndicatorCode = "STRIPTEST", Pane = "Pane_Strip" };
+            config.Components.Add(new ComponentConfig { Name = "line", DisplayType = ComponentDisplayType.Line, ColorHex = "#FFFFFF", IsVisible = true });
+            config.Components.Add(new ComponentConfig
+            {
+                Name = "phase", DisplayType = ComponentDisplayType.Line, ColorHex = "#FFFFFF", IsVisible = false,
+                SubPaneName = "strip", SubPaneHeightRatio = 0.30f,
+                BackgroundTint = tint, TintColorAboveHex = "#30FF00FF", TintColorBelowHex = "#00000000",
+            });
+            var s = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "strip" });
+            s.Data.ComponentData["line"] = AllNaN;
+            s.Data.ComponentData["phase"] = Enumerable.Repeat(0.5, N).ToArray();
+            return s;
+        }
+
+        using var f = Render(Candles(), Strip(BackgroundTint.ThisPane));
+        using var reference = Render(Candles(), Strip(BackgroundTint.Off));
+        var (top, bottom) = f.Rows("Pane_Strip");
+        int h = bottom - top;
+        Untouched(f, reference, (top, top + (int)(h * 0.65)), "the pane's main area");
+        var stripRows = (bottom - (int)(h * 0.25), bottom - 2);
+        foreach (int bar in new[] { 3, 20, 36 })
+        {
+            double share = TintedShare(f, reference, bar, stripRows, SKColor.Parse("#30FF00FF"));
+            Assert.True(share > 0.8, $"bar {bar}: only {share:P0} of the strip is shaded");
+        }
+    }
+
     // ── Restore ─────────────────────────────────────────────────────────────────────
 
     private static ChartSeries Restore(SeriesConfig saved, IIndicatorProvider provider, string code)
