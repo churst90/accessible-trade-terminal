@@ -332,7 +332,7 @@ namespace AccessibleTrader.Core.Services
                 // screenshot, invisible to every test. The block is measured at the keyboard
                 // cursor's bar; a hovered bar's readings can be a little wider or narrower.
                 using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * density);
-                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity);
+                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, isHeikinAshi);
                 PaneStatus? mainStatus = crossIndex >= 0
                     ? BuildStatus("Main", mainOverlaySeries, viewportStart + crossIndex, statusCtx, mainPaneRect, density, statusFont)
                     : null;

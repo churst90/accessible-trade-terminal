@@ -125,6 +125,24 @@ public sealed class ChartStatusLineTests
         Assert.Equal(new[] { "O", "H", "L", "C" }, first.Values.Select(v => v.Label));
     }
 
+    /// <summary>
+    /// <b>On a Heikin Ashi chart the line gives the candle as drawn</b> — what the candles' spoken
+    /// reading gives (NavigationFeedbackManager reads <see cref="ChartMath.BarAsDrawn"/>), not the
+    /// raw bar under it. Printing the raw bar would show four numbers the ear never hears.
+    /// </summary>
+    [Fact]
+    public void On_a_Heikin_Ashi_chart_the_symbol_line_gives_the_candle_as_drawn_as_speech_does()
+    {
+        var bars = Bars();
+        var ctx = new ChartStatusLine.Context(Theme, ChartStatusLine.DefaultBackingAlpha, bars, Btc, IsHeikinAshi: true);
+        var ha = ChartMath.BarAsDrawn(bars, 20, isHeikinAshi: true);
+        Assert.NotEqual(bars[20].Open, ha.Open);   // vacuity: HA differs from raw here
+
+        var first = Build("Main", Array.Empty<ChartSeries>(), 20, ctx).Lines[0];
+        Assert.Equal(new[] { ha.Open, ha.High, ha.Low, ha.Close }.Select(ChartStatusLine.FormatReading),
+            first.Values.Select(v => v.Text));
+    }
+
     /// <summary>The O H L C take the bar's direction colour, by the rule the candles are painted with.</summary>
     [Fact]
     public void The_symbol_lines_prices_are_in_the_candles_direction_colour()

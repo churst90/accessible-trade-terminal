@@ -155,8 +155,9 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <param name="BackingAlpha">The backing's opacity, which the readings' contrast is measured on.</param>
         /// <param name="Bars">The chart's bars (absolute indices), for the symbol line's O H L C.</param>
         /// <param name="Identity">The chart's symbol, timeframe and provider, for the symbol line; null leaves the line off.</param>
+        /// <param name="IsHeikinAshi">The candles are drawn Heikin Ashi: the symbol line gives the bar AS DRAWN, as speech does.</param>
         public sealed record Context(
-            ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity);
+            ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity, bool IsHeikinAshi = false);
 
         /// <summary>
         /// A pane's status block at bar <paramref name="absIndex"/> (an index into the chart's
@@ -180,7 +181,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             var backing = Backing(ctx.Theme, ctx.BackingAlpha);
 
             if (paneName == "Main" && ctx.Identity is { } id && ctx.Bars is { Count: > 0 } chartBars && absIndex < chartBars.Count)
-                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing), maxWidth, gap, measure));
+                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi), maxWidth, gap, measure));
 
             foreach (var s in paneSeries)
             {
@@ -229,7 +230,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float plotWidth = (float)(cssWidth * (1 - Math.Clamp(axisWidthFraction, 0f, 0.9f)));
             double plotBottom = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
 
-            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity);
+            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi);
             using var font = new SKFont(StatusTypeface, FontPx * scale);
             // DOM text is laid out by the browser's own font, not this one: measure a little wide
             // so a line the model says fits does not overflow its pane in the page.
@@ -274,7 +275,9 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>
         /// The price pane's first line: "BTCUSDT · 1d · Bitstamp", then the bar's O H L C in its
-        /// direction colour. The OHLC is the raw bar, as speech gives it, on a Heikin Ashi chart too.
+        /// direction colour. The bar AS DRAWN (<see cref="ChartMath.BarAsDrawn"/>): on a Heikin Ashi
+        /// chart the HA candle, because that is what the candles' spoken reading gives
+        /// (NavigationFeedbackManager reads BarAsDrawn) and what is on screen.
         ///
         /// <para>
         /// <b>No change from the previous close</b>, which TradingView shows here. Cody's condition
@@ -284,9 +287,10 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// onto Candles, then Left/Right) speaks the four prices.
         /// </para>
         /// </summary>
-        internal static StatusLine SymbolLine(ChartIdentity id, IReadOnlyList<Ohlcv> bars, int i, ChartTheme theme, SKColor backing)
+        internal static StatusLine SymbolLine(ChartIdentity id, IReadOnlyList<Ohlcv> bars, int i, ChartTheme theme, SKColor backing,
+            bool isHeikinAshi = false)
         {
-            var bar = bars[i];
+            var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
             var (bull, bear) = StandardRenderers.ApplyColorVision(theme, theme.CandleBullishBody, theme.CandleBearishBody);
             var dir = bar.Close >= bar.Open ? bull : bear;
             var values = new List<StatusValue>
