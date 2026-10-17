@@ -28,7 +28,7 @@ namespace AccessibleTrader.Tests;
 ///         (Bitstamp, 2020-05-22 to 2020-10-28). Pine and this provider seed their EMAs alike and
 ///         agree on every published bar; MetaTrader seeds at 0 or 50, disagrees by up to 32 points
 ///         on the first published bar, and agrees with both to 1e-11 by the last. The Python is
-///         in the report that came with this change (scratchpad/dss_ref/dss_ref.py), the
+///         in tools/dss_bressert_reference.py, and the
 ///         numbers are pasted here.</item>
 /// </list>
 /// <para>
