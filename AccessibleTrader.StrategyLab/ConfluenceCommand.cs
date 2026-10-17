@@ -35,9 +35,10 @@ public static class ConfluenceCommand
 
     public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations,
         string bullComponent = CipherBProvider.CompBlue, string bearComponent = CipherBProvider.CompRed,
-        double srGateAtr = 0.5)
+        double srGateAtr = 0.5, int srLag = -1)
     {
-        Console.WriteLine($"Signal pair: bull='{bullComponent}'  bear='{bearComponent}'  SR gate={srGateAtr} ATR");
+        Console.WriteLine($"Signal pair: bull='{bullComponent}'  bear='{bearComponent}'  SR gate={srGateAtr} ATR" +
+                          $"  SR lag={(srLag < 0 ? "auto clamp(n/25, 2, 15)" : srLag.ToString())}");
         var services = LabHost.Build().Services;
         var engine = services.GetRequiredService<AccessibleTrader.Core.Services.Indicators.IIndicatorEngine>();
         var analyzer = new SwingStructureAnalyzer();
@@ -86,7 +87,13 @@ public static class ConfluenceCommand
             // NOTE: this affects backtests only. Live, the provider simply cannot see the future
             // bars, so no pivot is emitted early. Any BACKTEST that leafs on Cipher SR zones
             // without this correction is optimistic.
-            int srPivotBars = Math.Clamp(bars.Count / 25, 2, 15);
+            //
+            // 2026-10-17: the rebuilt Cipher SR's zone lines are causal (a pivot with one bar on the
+            // right, placed on the bar it is confirmed — declared Causal and covered by
+            // IndicatorCausalityTests), so for it this shift is an EXTRA delay, not a correction.
+            // `--sr-lag 0` reads the new lines as they are; the default keeps the old shift so a
+            // re-run of a pre-rebuild build reproduces.
+            int srPivotBars = srLag >= 0 ? srLag : Math.Clamp(bars.Count / 25, 2, 15);
             var srSupport = ShiftRight(Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompSupportLine), srPivotBars);
             var srResistance = ShiftRight(Exact(cipherSr, AccessibleTrader.Core.Services.Indicators.CipherSrProvider.CompResistanceLine), srPivotBars);
 

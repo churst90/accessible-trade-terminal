@@ -93,7 +93,8 @@ try
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var cf) ? cf : 5000,
             GetFlag(args.Skip(1).ToArray(), "--bull") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompBlue,
             GetFlag(args.Skip(1).ToArray(), "--bear") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompRed,
-            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--srgate"), out var sg2) ? sg2 : 0.5),
+            double.TryParse(GetFlag(args.Skip(1).ToArray(), "--srgate"), out var sg2) ? sg2 : 0.5,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--sr-lag"), out var srl) ? srl : -1),
         "favourability" => await FavourabilityCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             GetFlag(args.Skip(1).ToArray(), "--only"),
