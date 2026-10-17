@@ -110,18 +110,34 @@ public sealed class BackgroundTintTests
         return s;
     }
 
-    private sealed record Frame(SKBitmap Bmp, float PlotWidth, float PlotBottom, IReadOnlyList<(string Pane, float Top)> Panes) : IDisposable
+    private sealed record Frame(SKBitmap Bmp, float PlotWidth, float PlotBottom, IReadOnlyList<(string Pane, float Top)> Panes,
+        IReadOnlyDictionary<string, float> Bands) : IDisposable
     {
         public void Dispose() => Bmp.Dispose();
 
-        /// <summary>The rows of a pane: the price pane is everything above the first divider.</summary>
-        public (int Top, int Bottom) Rows(string pane)
+        /// <summary>The whole pane, status band included: the price pane is everything above the
+        /// first divider.</summary>
+        private (int Top, int Bottom) Whole(string pane)
         {
             if (pane == "Main") return (0, (int)(Panes.Count > 0 ? Panes[0].Top : PlotBottom));
             int i = Panes.ToList().FindIndex(p => p.Pane == pane);
             Assert.True(i >= 0, $"no pane named {pane} in this frame");
             float bottom = i + 1 < Panes.Count ? Panes[i + 1].Top : PlotBottom;
             return ((int)Math.Ceiling(Panes[i].Top), (int)bottom);
+        }
+
+        /// <summary>The pane's status band: the rows above its plot that its status lines sit in.</summary>
+        public (int Top, int Bottom) Band(string pane)
+        {
+            var (top, _) = Whole(pane);
+            return (top, top + (int)Math.Floor(Bands.TryGetValue(pane, out var b) ? b : 0f));
+        }
+
+        /// <summary>The pane's PLOT: below its status band, which a tint never paints.</summary>
+        public (int Top, int Bottom) Rows(string pane)
+        {
+            var (top, bottom) = Whole(pane);
+            return (top + (int)Math.Ceiling(Bands.TryGetValue(pane, out var b) ? b : 0f), bottom);
         }
 
         /// <summary>The pixel columns strictly inside bar <paramref name="bar"/>'s slot.</summary>
@@ -145,9 +161,12 @@ public sealed class BackgroundTintTests
                 {
                     ["Pane_TBD"] = (0, 1.3), ["Pane_CIPHER_B"] = (-100, 100), ["Pane_Macd"] = (-10, 10),
                 },
-                rightMarginBars: 0);
+                rightMarginBars: 0,
+                // A symbol, so the price pane has a status line and therefore a status band.
+                identity: new ChartIdentity("Spot", "Bitstamp", "BTCUSDT", "1d"));
         return new Frame(bmp, W - themes.Current.AxisWidth, H - themes.Current.AxisHeight,
-            layout.Dividers.Select(d => (d.BelowPaneName, d.DividerFraction * H)).ToList());
+            layout.Dividers.Select(d => (d.BelowPaneName, d.DividerFraction * H)).ToList(),
+            layout.StatusBands.ToDictionary(kv => kv.Key, kv => kv.Value.HeightFraction * H));
     }
 
     /// <summary>What Skia paints for <paramref name="tint"/> over <paramref name="under"/> — the
@@ -191,6 +210,18 @@ public sealed class BackgroundTintTests
         for (int x = 0; x < (int)frame.PlotWidth; x++)
             if (frame.Bmp.GetPixel(x, y) != reference.Bmp.GetPixel(x, y)) differing++;
         Assert.True(differing == 0, $"{what}: {differing} pixels differ from the frame with no tint.");
+    }
+
+    /// <summary>
+    /// A tint is painted in the PLOT, like the data — never in the status band above it, where the
+    /// pane's status lines are read (2026-10-17: each pane's plot starts below its status-line
+    /// block). The band must exist for this to mean anything.
+    /// </summary>
+    private static void StatusBandIsClear(Frame f, Frame reference, string pane)
+    {
+        var band = f.Band(pane);
+        Assert.True(band.Bottom - band.Top >= 8, $"{pane} has a {band.Bottom - band.Top}px status band — the check is vacuous");
+        Untouched(f, reference, band, pane + " status band");
     }
 
     /// <summary>The upper part of the price pane, where no candle reaches (prices 130 down to ~112).</summary>
@@ -251,6 +282,7 @@ public sealed class BackgroundTintTests
             Assert.True(share > 0.8, $"bar {bar} (polarity {Polarity[bar]}): only {share:P0} of the price pane is {want} over the background");
         }
         Untouched(f, reference, f.Rows("Pane_CIPHER_B"), "Cipher B pane (the tint went to the price chart)");
+        StatusBandIsClear(f, reference, "Main");
     }
 
     /// <summary>Set to This pane, the shading moves to Cipher B's own pane and the price chart is clean.</summary>
@@ -260,6 +292,7 @@ public sealed class BackgroundTintTests
         using var f = Render(Candles(), CipherB(Polarity, BackgroundTint.ThisPane));
         using var reference = Render(Candles(), CipherB(Polarity));
         Untouched(f, reference, f.Rows("Main"), "price pane");
+        StatusBandIsClear(f, reference, "Pane_CIPHER_B");
         var rows = MiddleRows(f, "Pane_CIPHER_B");
         foreach (int bar in new[] { 2, 7, 12, 17 })
         {
@@ -311,6 +344,7 @@ public sealed class BackgroundTintTests
         }
         Assert.True(tintedBars >= 15, $"only {tintedBars} bars were at or above 0.5 — the fixture no longer tests the ramp");
         Untouched(f, reference, f.Rows("Pane_TBD"), "Top/Bottom Detector pane");
+        StatusBandIsClear(f, reference, "Main");
     }
 
     /// <summary>A hidden SERIES paints nothing, tint or no tint (the old code's rule too).</summary>

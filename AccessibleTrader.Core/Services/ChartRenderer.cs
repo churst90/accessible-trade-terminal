@@ -498,6 +498,8 @@ namespace AccessibleTrader.Core.Services
                 // Background tints are painted immediately after the BackgroundLayer (index 0),
                 // so they sit UNDER the grid, candle, data and overlay layers but OVER the pane
                 // fill: the price-chart tints of every series on the chart, then this pane's own.
+                // They span ctx.PaneRect — the PLOT, like the data — never the status band above
+                // it, even though the clip is still the whole frame at this point.
                 if (li == 0)
                 {
                     if (paneName == "Main") BackgroundTintPainter.PaintPriceChartTints(ctx, _frameSeries);
