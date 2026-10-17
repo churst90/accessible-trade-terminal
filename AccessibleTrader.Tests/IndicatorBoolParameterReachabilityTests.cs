@@ -18,7 +18,8 @@ namespace AccessibleTrader.Tests
     /// <c>string</c> and nothing else, so a <c>double</c> — the only type it can ever be given —
     /// fell straight through to the hardcoded default. Cipher SR's Adaptive Break could not be
     /// turned off, Cipher S's Adaptive Smoothing could not be turned on, and Spider Lines' Fast
-    /// Mode did nothing: three checkboxes the dialog rendered as working knobs.
+    /// Mode did nothing: three checkboxes the dialog rendered as working knobs. (Spider Lines was
+    /// removed on 2026-10-17, and its test with it; the other two are pinned below.)
     /// </para>
     ///
     /// <para>
@@ -129,18 +130,6 @@ namespace AccessibleTrader.Tests
 
             Assert.True(DifferingValues(off, on) > 0,
                 "AdaptiveSmoothing made no difference to any component — the provider never saw the flag");
-        }
-
-        [Fact]
-        public void SpiderLinesFastModeCanBeTurnedOn()
-        {
-            var bars = Series(500, seed: 13);
-            var (off, on) = RunBothWays(new SpiderLinesProvider(), "SPIDER_LINES", "FastMode", bars);
-
-            // Fast Mode swaps every line from EMA to HMA. If the flag were dropped, both runs
-            // would be EMA and identical to the last decimal.
-            Assert.True(DifferingValues(off, on) > 0,
-                "FastMode made no difference — every line is still an EMA");
         }
 
         [Theory]

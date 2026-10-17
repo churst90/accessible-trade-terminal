@@ -352,6 +352,13 @@ public class ConfigurableStrategy : BaseStrategy
                 _eventBus.Publish(new FeedbackRequestEvent(
                     FeedbackType.Error,
                     $"Strategy '{_spec.Name}' has a condition that can never be true: {retired}. Edit the strategy to replace it."));
+            // A stop or target placed on a REMOVED indicator (Spider Lines, 2026-10-17) reads
+            // nothing: the resolver gets NaN and the plan is refused on every bar, with no word
+            // of why. Said once, beside the condition check, for the same reason.
+            if (publishEvents && RetiredRiskReason(_spec.Risk) is { } risk)
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Error,
+                    $"Strategy '{_spec.Name}' {risk}. Edit the strategy to replace it."));
         }
 
         // Live warmup gate — mirror of the backtester's `i < warmupBars` drop. Indicators
@@ -675,6 +682,21 @@ public class ConfigurableStrategy : BaseStrategy
             default:
                 return null;
         }
+    }
+
+    /// <summary>What the risk plan reads from a removed indicator, as a predicate for
+    /// "Strategy 'X' …", or null when it reads none.</summary>
+    private static string? RetiredRiskReason(RiskPlan? risk)
+    {
+        if (risk == null) return null;
+        if (risk.Stop?.Kind == StopSourceKind.BelowComponent
+            && Core.Services.Indicators.RetiredIndicators.SignalReason($"{risk.Stop.IndicatorCode}.{risk.Stop.ComponentName}") is { } stopWhy)
+            return $"has a stop that can never be placed: {stopWhy}";
+        foreach (var rung in risk.TpLadder ?? Array.Empty<TpLadderRung>())
+            if (rung.Kind == TargetSourceKind.AtComponent
+                && Core.Services.Indicators.RetiredIndicators.SignalReason($"{rung.IndicatorCode}.{rung.ComponentName}") is { } tpWhy)
+                return $"has a profit target that can never be placed: {tpWhy}";
+        return null;
     }
 
     private static ConditionLeaf? FindLeaf(ConditionNode node, string id)

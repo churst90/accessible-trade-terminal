@@ -129,6 +129,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// watched, and silence must never read as coverage.</summary>
         public IReadOnlyList<string> MissingIndicators { get; }
 
+        /// <summary>Indicator codes the saved tab NARRATES that were removed from the app
+        /// (<see cref="Indicators.RetiredIndicators"/>, e.g. Spider Lines on 2026-10-17). Not built —
+        /// there is no provider — and not "missing" either: missing means "not loaded here", and
+        /// this one is not coming back. The monitor says so once. An alert on one is not listed
+        /// here; the evaluator says that per alert.</summary>
+        public IReadOnlyList<string> RemovedIndicators { get; }
+
         /// <summary>How many bars the first fetch (and a catch-up after a long gap) should ask for.</summary>
         public int BarsNeeded { get; }
 
@@ -147,7 +154,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IIndicatorContextAnalyzer analyzer,
             ILogger? logger,
             IProfileService? profiles = null,
-            IReadOnlyList<string>? missingIndicators = null)
+            IReadOnlyList<string>? missingIndicators = null,
+            IReadOnlyList<string>? removedIndicators = null)
         {
             _identity = identity;
             _engine = engine;
@@ -158,6 +166,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _template = template.ToList();
             _scanner = new NarrationScanner(analyzer);
             MissingIndicators = missingIndicators ?? Array.Empty<string>();
+            RemovedIndicators = removedIndicators ?? Array.Empty<string>();
             BarsNeeded = ComputeBarsNeeded();
         }
 

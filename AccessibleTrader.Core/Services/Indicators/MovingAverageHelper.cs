@@ -4,7 +4,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
     /// Shared moving average calculations. Replaces the duplicate Ema/Sma/Wma helpers
-    /// scattered across CipherA, CipherC, EmaFill, and SpiderLines providers.
+    /// scattered across CipherA, CipherC, EmaFill and (since removed) Spider Lines providers.
     /// All methods return NaN for bars within the warmup window.
     /// </summary>
     public static class MovingAverageHelper

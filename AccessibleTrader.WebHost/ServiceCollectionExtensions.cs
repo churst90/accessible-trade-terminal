@@ -329,7 +329,6 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, CipherAProvider>();
             services.AddScoped<IIndicatorProvider, CipherSrProvider>();
             services.AddScoped<IIndicatorProvider, MACloudProvider>();
-            services.AddScoped<IIndicatorProvider, SpiderLinesProvider>();
             services.AddScoped<IIndicatorProvider, IchimokuProvider>();
             services.AddScoped<IIndicatorProvider, CipherCProvider>();
             services.AddScoped<IIndicatorProvider, CipherSProvider>();

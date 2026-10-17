@@ -150,7 +150,11 @@
             // Restore the full workspace (all tabs, series, display toggles).
             WorkspaceInit.RestoreWorkspace(config);
 
-            EventBus.Publish(new AnnouncementEvent($"Workspace loaded: {name}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            // An indicator the restore left off (removed from the app since this was saved) is
+            // said on the same sentence, once, so nothing interrupts it.
+            string notice = WorkspaceInit.LastRestoreNotice ?? "";
+            string loaded = string.IsNullOrWhiteSpace(notice) ? $"Workspace loaded: {name}" : $"Workspace loaded: {name}. {notice}";
+            EventBus.Publish(new AnnouncementEvent(loaded, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             Close();
         }
         catch (Exception ex)
