@@ -590,6 +590,29 @@ public sealed class ChartStatusLineTests
     }
 
     /// <summary>
+    /// The same three labels at the TOP of the range: pushed apart downwards, none above the
+    /// strip. (The labels mid-range can be stacked from either end; at an edge only the pass that
+    /// works away from that edge keeps them on the strip.)
+    /// </summary>
+    [Theory]
+    [InlineData(99.9, 100.0, 99.8)]
+    [InlineData(0.1, 0.0, 0.2)]
+    public void Axis_labels_crowded_at_an_edge_are_stacked_onto_the_strip(double a, double b, double c)
+    {
+        var labels = new List<ChartRenderer.ScaleLabel>
+        {
+            new(a, SKColors.Red, 0, "a", "A"), new(b, SKColors.Green, 0, "b", "B"), new(c, SKColors.Blue, 0, "c", "C"),
+        };
+        const float h = 16f;
+        var placed = ChartRenderer.StackScaleLabels(labels, new SKRect(0, 0, 60, 200), 0, 100, false, h);
+        var ys = placed.Select(p => p.Y).OrderBy(y => y).ToList();
+        Assert.Equal(3, ys.Count);
+        for (int i = 1; i < ys.Count; i++)
+            Assert.True(ys[i] - ys[i - 1] >= h - 0.01f, $"labels overlap: {string.Join(", ", ys)}");
+        Assert.All(ys, y => Assert.InRange(y, h / 2f, 200 - h / 2f));
+    }
+
+    /// <summary>
     /// <b>The keyboard cursor's date is a label on the time axis</b>, centred on the crosshair —
     /// the date used to be in the hover readout box only, so only for the mouse. Pinned as the
     /// badge's dark backing under the crosshair in the axis strip, and absent with no cursor.

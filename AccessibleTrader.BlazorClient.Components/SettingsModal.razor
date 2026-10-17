@@ -1550,6 +1550,9 @@
         catch { /* JS bridge may be absent in tests */ }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Text size {_uiScale} percent.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        // The chart's status lines are DOM text sized in rem and budgeted against the text size;
+        // a still chart has no frame to re-count them by, so ask for one (2026-10-17).
+        EventBus.Publish(new RedrawEvent());
     }
 
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -2138,6 +2141,7 @@
         {
             try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", scale); }
             catch { /* JS bridge may be absent in tests */ }
+            EventBus.Publish(new RedrawEvent());   // re-count the status lines; see OnUiScaleChanged
         });
 
     /// <summary>

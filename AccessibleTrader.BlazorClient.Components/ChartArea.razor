@@ -376,7 +376,12 @@
     /// <summary>The chart element's rect from canvasRegion.js; a real change re-maps the hover readout to the still pointer.</summary>
     [JSInvokable]
     public void OnChartGeometryChanged(double left, double top, double width, double height)
-        => HoverTracker.OnChartGeometryChanged(left, top, width, height);
+    {
+        HoverTracker.OnChartGeometryChanged(left, top, width, height);
+        // The status lines are budgeted against the chart's CSS size (BuildStatusPanes), so a
+        // resize re-counts them even when no new frame follows.
+        InvokeAsync(StateHasChanged);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

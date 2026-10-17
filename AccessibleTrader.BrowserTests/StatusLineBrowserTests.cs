@@ -48,7 +48,7 @@ public sealed class StatusLineBrowserTests
             const lines = [...p.querySelectorAll('.chart-status-line')];
             const right = Math.max(...lines.map(l => l.getBoundingClientRect().right));
             const nextCut = cuts.find(c => c > r.top + 2);
-            return { pane: p.dataset.pane, top: r.top, bottom: r.bottom, right,
+            return { pane: p.dataset.pane, top: r.top, bottom: r.bottom, right, lineHeights: lines.map(l => Math.round(l.getBoundingClientRect().height)).join(','),
                      limit: nextCut ?? z.bottom, lines: lines.map(l => l.innerText.replace(/\u00a0/g, ' ')),
                      hidden: lines.every(l => l.closest('[aria-hidden=""true""]') !== null) };
         });
@@ -56,7 +56,7 @@ public sealed class StatusLineBrowserTests
     }";
 
     private sealed record Box(double Left, double Top, double Right, double Bottom);
-    private sealed record PaneBlock(string Pane, double Top, double Bottom, double Right, double Limit, string[] Lines, bool Hidden);
+    private sealed record PaneBlock(string Pane, double Top, double Bottom, double Right, double Limit, string[] Lines, bool Hidden, string LineHeights);
     private sealed record Measure(Box Zone, PaneBlock[] Panes);
 
     private static async Task<Measure> MeasureAsync(TerminalPage t)
@@ -89,7 +89,7 @@ public sealed class StatusLineBrowserTests
             Assert.True(p.Hidden, $"{when}: a status line in pane {p.Pane} is not inside an aria-hidden ancestor — " +
                 "it would be read as page text, which Cody's condition rules out (it is a visual mirror).");
             Assert.True(p.Bottom <= p.Limit + 1,
-                $"{when}: pane {p.Pane}'s status block runs to y {p.Bottom:F0}, past its pane's bottom {p.Limit:F0}: " +
+                $"{when}: pane {p.Pane}'s status block (from y {p.Top:F0}, line heights {p.LineHeights}) runs to y {p.Bottom:F0}, past its pane's bottom {p.Limit:F0} (chart {m.Zone.Top:F0}–{m.Zone.Bottom:F0}): " +
                 string.Join(" / ", p.Lines));
             // The price axis is about 60 px; a line must stay in the plot.
             Assert.True(p.Right <= m.Zone.Right - 50,
@@ -131,6 +131,24 @@ public sealed class StatusLineBrowserTests
         var eight = await MeasureAsync(t);
         AssertBlocksFit(eight, $"{width}x{height} eight panes");
         await t.Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(outDir, $"statusline_{width}x{height}_eight.png") });
+
+        // DOM text grows with Settings > Appearance > Text size and the canvas does not, so the
+        // line budget is counted in it. At 175% a status line is about 30 px: an eight-pane
+        // pane holds none and the price pane one or two, and every block must still fit. Text
+        // size is a live preview; the dialog is measured through (it covers the chart, the DOM
+        // geometry is unaffected) and then cancelled, which reverts it.
+        await t.PressAsync("F12");
+        Assert.True(await t.WaitForDialogAsync(), "Settings did not open.");
+        Assert.True(await t.ClickTopDialogTabAsync("Appearance"), "Settings has no Appearance tab.");
+        await t.Page.SelectOptionAsync("#s-ui-scale", "175");
+        await t.Page.WaitForTimeoutAsync(900);
+        var big = await MeasureAsync(t);
+        Assert.Contains(big.Panes, p => p.Pane == "Main");
+        AssertBlocksFit(big, $"{width}x{height} eight panes at 175% text");
+        await t.Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(outDir, $"statusline_{width}x{height}_eight_text175.png") });
+        await t.Page.SelectOptionAsync("#s-ui-scale", "100");
+        await t.PressAsync("Escape");
+        await t.WaitForNoDialogAsync();
     }
 
     private const string HoverJs = @"() => {
