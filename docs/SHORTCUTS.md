@@ -88,7 +88,7 @@ see the move has no way to detect.
 | Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses its **midline** — zero on a zero-centred reading, 50 on a bounded one. Recognised by the line's role, so all four spellings providers use for it (Zero, Midpoint, Midline, Neutral) are reached |
 | Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone. A level you have hidden is not a target |
 | Band-labelled line (ADX 20/25/50, Choppiness 38.2/61.8) | Next bar where the reading crosses a band edge; the announcement names the band entered ("strong trend") |
-| Moving average overlay (EMA, SMA, WMA, Spider Lines etc.) | Next bar where price (close) crosses the focused MA line |
+| Moving average overlay (EMA, SMA, WMA, DEMA, TEMA, HMA etc.) | Next bar where price (close) crosses the focused MA line |
 | Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
 | No focus / unknown | Next trendline crossing (fallback) |
 
@@ -265,7 +265,7 @@ utterance per bar** so nothing can cut anything else off:
 2. **Signals**, from the series you flagged with `N` and only those — and, when you played one
    series or one component rather than the whole chart, only the ones inside what you played: a marker
    signal printing on the bar just reached, introduced by the component that fired it, never by the
-   series — *"Triple confluence buy, strong confirmation."* At most two per bar, the rarest first. A
+   series — *"Gold dot, waves turning up from oversold."* At most two per bar, the rarest first. A
    line crossing one of its own declared levels is discrete in the same way and is spoken too — as the
    band entered (*"strong trend"*) or *"crossed above overbought"*. Never a running reading, never
    oscillator zone commentary, and volume profiles say nothing during playback.

@@ -274,6 +274,13 @@ All modals focus the `h2` heading on open (`tabindex="-1"` on `h2`, `focusElemen
 - **Accessibility First:** Every visual change must have a corresponding speech fact or audio earcon via `AccessibilityFeedbackCoordinator`. No exceptions.
 - **Surgical Updates:** When modifying services, maintain existing interfaces to avoid breaking SDK contracts. New providers and indicators should require zero changes to Core.
 - **No Business Logic in Blazor:** Razor components and `BlazorClient` services are drivers and presenters only. All logic belongs in `Core` orchestrators.
+- **Changing a built-in indicator reaches saved charts only through these paths (2026-10-17):**
+  - *Components* are rebuilt from metadata on restore, so a renamed or removed component disappears from a saved chart by itself; a strategy leaf or alert that names it must be listed in `SignalCatalog.Retired` (id → why, and what to use instead), or it is false forever without a word.
+  - *Visibility* follows a changed default unless the user changed it: `ComponentConfig.ProviderIsVisible` / `CloudFillConfig.ProviderIsVisible` record the default each flag was saved against, resolved by `ProviderDefaultVisibility.Resolve` (`IndicatorModelFactory` layer 2; fills in `WorkspaceInitializer.MigrateSeriesConfig`). For saves older than the record, add the old default to `RetiredComponentDefault` / `RetiredCloudFillDefault` — only when it is known from history.
+  - *Levels* heal the same way through `LevelConfig.ProviderDefaults` (`SeriesManagementService.HealSavedLevels`).
+  - *A whole indicator* that is removed goes in `RetiredIndicators` (code, name, date, why, instead): restore leaves it off and says so once, and the catalog, strategies, alerts and the background monitor all read it. Before this, restore rebuilt an unknown code verbatim as a provider-less series that never drew or spoke.
+  - Test any of these on a RESTORED chart (Cody's real saves are committed fixtures: `Fixtures/CodysCipherBSave.cs`, `Fixtures/codys_cipher_sr_series_2026-10-17.json`), not only a fresh one.
+- **Provider speech data is keyed by DisplayName.** `ProviderSpeechStrategy` hands `GetComponentSpeech` the series' arrays under each component's `DisplayName ?? Name` (case-insensitive) plus companions under their raw keys; Cipher B's dots lost their "Wave Trend" clause by looking sibling data up by `Name` (fixed 2026-10-17). Read both, as `CipherBProvider.SpeechValue` does.
 
 ---
 
@@ -384,13 +391,15 @@ edge.
   retroactively: `SwingStructureAnalyzer` used to delete an earlier pivot when a more extreme one
   appeared, so the same bar described a structure that a longer load denied.
 - **The chart/strategy split that makes this liveable.** A marker belongs on the bar it describes
-  even though that bar was not knowable until later, so Cipher SR's dots, Swing Structure's
-  `SwingHigh`/`SwingLow` and Ichimoku's Chikou stay exactly where they are on the chart and in
-  navigation speech, declared `Lookahead`, while the causal form of the same information — the
-  confirmation-gated zone lines, `LastSwingHigh`, `StructureState` — is what strategies get. When
+  even though that bar was not knowable until later, so Swing Structure's `SwingHigh`/`SwingLow`
+  and Ichimoku's Chikou stay exactly where they are on the chart and in navigation speech, declared
+  `Lookahead`, while the causal form of the same information — `LastSwingHigh`, `StructureState`,
+  Cipher SR's zone lines — is what strategies get. (Cipher SR's own look-ahead pivot dots were
+  retired on 2026-10-17 when it was rebuilt to Market Cipher SR, which draws no such marker.) When
   the marker itself should move to its confirmation bar instead,
-  `IndicatorMath.ShiftMarkersForward` is the shared implementation (Cipher A and Cipher B both call
-  it).
+  `IndicatorMath.ShiftMarkersForward` is the shared implementation (Cipher B calls it; the rebuilt
+  Cipher A's symbols are all crossings, stamped on the bar of the cross). Cipher B's MCB gold dot
+  is stamped two bars after the slow-wave bottom it marks, the first bar that bottom is knowable.
 
 ### Why ConditionEvaluator doesn't AND short-circuit
 
@@ -632,7 +641,8 @@ list must never pose as a complete one.
 - **Bool indicator parameters were silently dropped app-wide.** `FormatParam` writes
   `"true"`, and `IndicatorModelFactory` required `double.TryParse`. Fixed with
   `TryParseParamValue`, which accepts bools first. This had been quietly disabling
-  Cipher SR's AdaptiveBreak and Cipher B's UseAnchorSuppression as well.
+  Cipher SR's AdaptiveBreak (a setting removed in the 2026-10-17 rebuild) and Cipher B's
+  UseAnchorSuppression as well.
 - **`CipherSrLevelProvider` had a 15-bar lookahead** relative to the provider it mirrors.
   Backtest-only; live was unaffected because live never has the future bars. Correcting
   it turned +0.739R at p=0.0002 into −0.095R at p=0.23 — a reminder that a spectacular

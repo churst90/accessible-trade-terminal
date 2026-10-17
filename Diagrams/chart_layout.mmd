@@ -31,7 +31,7 @@ flowchart TD
     subgraph INSIDE["Inside a series"]
         COMP["COMPONENT — a value on every bar<br/>ComponentConfig · ComponentDisplayType (append-only enum)<br/>Line · Histogram · Oscillator · Dot · Arrow · Cloud …<br/>Up / Down walk them; Ctrl+Up / Ctrl+Down walk the strip across series"]
         LEVEL["LEVEL — a CONSTANT with a value, a meaning and an owner<br/>LevelConfig: Value · LevelRole (Neutral / Overbought / Oversold) ·<br/>AboveLabel / BelowLabel band names (ADX 25 = strong trend) ·<br/>IsUserDefined (yours, removable) vs declared (the indicator's, restorable)<br/>Crossings sound, narrate, and are Ctrl+Left / Ctrl+Right targets — unless hidden"]
-        ZONE["ZONE — a region, not a line<br/>ZoneBandConfig: a shaded band (visual only, never navigated)<br/>Zone LINES (IsZoneLine: Cipher SR pivots, Spider Lines) are levels that speak support / resistance<br/>Value zones: Value Deviation marks where price turned away from value"]
+        ZONE["ZONE — a region, not a line<br/>ZoneBandConfig: a shaded band (visual only, never navigated)<br/>Zone LINES (IsZoneLine: Cipher SR resistance and support zones) are levels that speak support / resistance<br/>Value zones: Value Deviation marks where price turned away from value"]
     end
     CB --> COMP
     RSI --> LEVEL

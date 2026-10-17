@@ -117,6 +117,88 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-17 late night — the Market Cipher pass: formation label contrast, Cipher B stock
+> defaults and the gold/Buy dot, Cipher A and Cipher SR rebuilt from real Market Cipher charts, Spider
+> Lines removed: DONE; see CHANGES).** Each change has tests seen red. **Unverified:** every sound and
+> narration change (none heard by Cody); Windows / desktop head; light themes for Cipher A's pale ribbon
+> lines; low-vision viewing of the formation labels.
+>
+> **In progress (separate branch):** a StrategyLab re-run of every Cipher-based strategy on the new
+> indicators. No results yet; the gold-dot pinning question below waits on it.
+>
+> **Open questions for Cody — Cipher B:**
+> - **Gold dot: keep it on "stock MCB" Cipher B?** It is shown by default with VuManChu's gold rule, but
+>   no evidence was found that real Market Cipher B has a gold dot at all (about 100 MCB chart images
+>   scanned, none; one guide says it does not exist). Agent's recommendation: hide it by default.
+> - **Pin the lab and catalogue strategies that read the gold dot to `GoldDotMode=Confluence`?** They now
+>   fire about 10× less often (the three bull-pulse strategies, the battery's `*-gold` cells, MlExport's
+>   `sig_gold`). Pending the re-run above. A strategy leaf cannot choose the gold rule itself (leaf
+>   parameters are numeric), so a higher timeframe and the backtester always get the default rule.
+> - Gold's colour stays #FFD700 (VuManChu uses #E2A400) and it is drawn over the buy dot when both fall on
+>   one bar — fine?
+> - **Ctrl+Alt+Shift+K** shows every hidden component, including the anchor waves and Anchor Polarity,
+>   which have always been hidden and will start sounding. Should show-all leave a provider's
+>   always-hidden internals alone?
+> - Hidden components are still keyboard stops (9 of Cipher B's 18 now, each "Hidden. …") and alerts on
+>   them still fire and speak — wanted, or should hidden stops be skippable / hidden mean silent there?
+> - A saved cloud fill's colours and sound are still restored verbatim (only its visibility now follows
+>   the indicator). Close it the way visibility and levels were closed?
+> - "Save as Defaults" stores visibility per component, so after using it on Cipher B no later default
+>   change reaches you (by design — say if not).
+>
+> **Open questions for Cody — Cipher A** (the agent's proposed default in brackets):
+> 1. **Three built-in pulse strategies** (Faber-Pulse Long, Capitulation Buy, Bare Bull Pulse Long) OR in
+>    the retired `CIPHER_A.Buy Signal`, which duplicates their `CIPHER_B.Oversold Crossover` leaf; run
+>    live, each says once that the condition can never be true. [Remove the leaf.] Found while writing
+>    these docs: the same OR also holds `CIPHER_SR.Support`, the Cipher SR pivot dot retired the same
+>    night, so those strategies now rest on the Buy dot and the much rarer gold dot alone.
+>    `StrategyBatteryCommand` cells on `CIPHER_A.Buy/Sell Signal`, `Exhaustion`, `Manipulation` and
+>    `CIPHER_SR.Support/Resistance` score as never firing.
+> 2. **Ribbon sound:** all eight lines muted, or keep one audible (EMA 33)? [Keep all muted.]
+> 3. **Ribbon narration:** with Cipher A narrating, price crossing any of the eight lines is announced
+>    ("Price crossed above EMA 5 at …"), several per sentence on a choppy day. Turn that off and narrate
+>    only the symbols? [Off — not built; today it is on.]
+> 4. **Heikin-Ashi:** indicators read the raw candles on a Heikin-Ashi chart; TradingView feeds Market
+>    Cipher A (and B) the Heikin-Ashi ones, the main source of one-candle offsets. Unconfirmed what MC
+>    does on a regular-candle chart. [Keep raw candles.]
+> 5. **The ribbon fill:** Market Cipher A draws a translucent fill between EMA 5 and EMA 33. [Add it as a
+>    fill you can turn off.]
+> - [ ] **Build the Cipher A ribbon fill** (EMA 5 to EMA 33, a cloud fill the user can hide) if Cody agrees
+>   with 5.
+> - [ ] **Cipher B should call `WaveTrendMath`** — Cipher A's copy is line-for-line Cipher B's, pinned
+>   equal by a test, but there are two copies.
+> - Least certain parts of the fit: the Yellow Diamond rule (best fit among those tried, precision
+>   checkable on two charts), the Yellow X's 22% (tuned on the SLP chart that was meant as a hold-out),
+>   EMA 29/33 pinned by one chart, which Market Cipher A version (2.1.2; a 2023 chart uses a newer
+>   palette). More legend-bearing charts would firm these up.
+>
+> **Open questions for Cody — Cipher SR:**
+> - **Listen to Cipher SR on a 1D chart and decide.** Its narration over BTC daily goes from 255
+>   utterances (after the speech fixes) to about 1,915 — a new level about every 5.5 days per side.
+>   Keep Pivot Left Bars 3, default it higher on daily charts (less faithful: 5/10/15 give 807/580/473
+>   replacements against 986), or speak only replacements on 1D?
+> - **The acceptance rule is unknown.** No single feature separated MCSR's 17 accepted levels from the
+>   251 pivots it skipped; ours matches 68.6% of dot bars fitted and 62.5% held out. More frames with
+>   legends (Coinbase or Binance intraday) would help.
+> - **Resolution:** MCSR computes on 15-minute bars whatever the chart; ours uses the chart's bars, so a
+>   1-hour chart gets 1-hour pivots. Give the provider lower-timeframe data?
+> - The range is the running day's value, not MCSR's repainted whole day (a deliberate causality choice).
+> - **Your saved ±0.3% bands** still restore from your file and are drawn around the dot runs; new charts
+>   get none. Strip them?
+> - Sessions are UTC days, not exchange sessions, for stocks too.
+> - Its detail sentence ("Most recent resistance: …, held …") and Cipher A's ("Ribbon blue, all eight
+>   lines bullish.") are built and tested but, like every `GetDetailFact`, no key speaks them (the
+>   2026-10-17 question about wiring detail sentences applies). Cipher A's report said Alt+Shift+D
+>   speaks it; it does not.
+>
+> **Open questions — formations and Spider Lines:**
+> - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative
+>   is to call them decorative and leave them faint. Needs a sighted or low-vision look. Indicator lines,
+>   background tints and volume-profile bins under a label were not part of the contrast worst case.
+> - Spider Lines: build a real Market Cipher-style spider-lines drawing tool (diagonal support and
+>   resistance on the log chart) some day? Not verified: the Load Workspace dialog's removal sentence is
+>   tested only through the notice it reads, and the background monitor's announcement not end to end.
+>
 > **START HERE (2026-10-17 night — labels, status band, background tint, strips, dividers: DONE; see CHANGES).**
 > **Open questions for Cody:** tint colours editable in Properties (native picker has no alpha)? Tint in
 > "Save as Defaults"? Two tinting components stack — right? Anchor Polarity at exactly 0 takes the above

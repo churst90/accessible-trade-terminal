@@ -637,10 +637,12 @@ of those things: no ping, no chirp, no jump target.
 - the shaded overbought and oversold **bands** behind an oscillator, which are visual only and
   never spoken or navigated, though the noise texture you hear inside them is the audible
   version of the same idea;
-- **zone lines**, which Cipher SR and Spider Lines carry forward from past turning points as
-  support and resistance. These are levels with a side, and they get the full vocabulary:
-  "support at 61,200 broken", "price tested resistance at 64,000, tested 3 times",
-  "approaching support at 61,200";
+- **zone lines**, which Cipher SR carries forward from past turning points as support and
+  resistance. These are levels with a side, and they get the full vocabulary: "new resistance at
+  64000.00, replacing 62500.00", "price tested resistance at 64000.00, tested 3 times",
+  "approaching support at 61200.00", "price crossed above Resistance Zone at 64000.00". A zone line
+  that simply ends is announced as broken ("support at 61200.00 broken"); Cipher SR's never end,
+  because it holds each level until a newer one replaces it;
 - **value zones** from the Value Deviation indicator: bars where price turned back toward
   value, tiered by how far out it was, marked with a glyph and a pitch per tier.
 
@@ -740,7 +742,7 @@ controls:
   deliberately: one flat list of every signal in the app runs to several hundred
   entries and is miserable to move through by ear.
 - **Component** — which of that indicator's outputs, for example Cipher B's Buy
-  signal or RSI's Value line.
+  dot or RSI's Value line.
 - **Condition** — what has to be true. The choices offered depend on what kind
   of component you picked, and that gating matters: a marker component has no
   value on bars where it did not fire, so "is above 30" would be false forever
@@ -753,7 +755,7 @@ controls:
   somewhere sensible inside the component's own range rather than at zero.
 
 Under each row, a plain-language sentence restates the whole filter — "Cipher B
-— Buy fired within 3 bars." — so you can check a row in one read instead of
+— Buy dot fired within 3 bars." — so you can check a row in one read instead of
 tabbing back through five controls.
 
 **Combine filters** decides the logic. *All must be true* is a strict AND. *Any
@@ -1085,7 +1087,7 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   two seconds apart at whatever speed you are playing, so speeding up makes them coarser
   rather than more frequent.
 - **Signals, on the series you asked for.** A marker signal printing on the bar the tones
-  have just reached is spoken — *"Triple confluence buy, strong confirmation."* This is the same
+  have just reached is spoken — *"Gold dot, waves turning up from oversold."* This is the same
   flag as live auto-narration, and there are three questions behind what you hear: **N picks what
   MAY speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
   Space and the whole chart may speak; Shift+Space on one series and only that series does.
@@ -1098,10 +1100,10 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   as markers, so a line that whipsaws across its level is treated as the routine thing it is.
 - **When several fire at once, the rarest is the one you hear.** Two clauses is the ceiling for
   one bar, and what falls off the end is the marker that fires most often on the chart in front
-  of you. That matters on an indicator like Cipher B, whose gold Triple Confluence dot can only
-  print on a bar that is *also* an oversold crossover and *also* a WaveTrend cross: all three
-  fire together, and the one you added the indicator for is the one that prints twice in four
-  hundred bars. The rare one leads the sentence too, because at ten bars a second the first
+  of you. That matters on an indicator like Cipher B, where a WaveTrend cross dot prints every
+  dozen bars and the gold dot three times in fifteen years of daily Bitcoin, within a bar or two of
+  a cross and a buy dot: the one you are waiting for is the one that must not fall off the end.
+  The rare one leads the sentence too, because at ten bars a second the first
   clause is the one that lands before the next bar sounds.
 - **A formation resolving.** If you have "Describe chart patterns" on, a chart formation
   whose story ends on the bar being played is spoken there, in the same words the arrow keys
@@ -1318,24 +1320,50 @@ turns the question sideways: instead of volume per bar, volume per price level, 
 hear which prices the market accepted (the point of control, where the most traded) and which
 it passed through quickly.
 
-**Multi-signal and structure.** **Cipher B** combines a wave oscillator, money flow and
-divergence detection into one pane, with rare gold "triple confluence" dots. It is drawn the way
-Market Cipher B draws it: the fast wave a light-blue area with the dark-blue slow wave in front of
-it, a yellow "VWAP" area (the fast wave minus the slow) over both, the money flow as a green area
-above zero and red below over that, and along the bottom a money-flow bar, green while money flows
-in and dark red while it flows out, carrying big green **buy dots** — one on every upward cross of
-the waves with the slow wave at −60 or lower. Small green and red dots on the slow wave mark every
-cross. A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale
-(drawn in the top half of the pane, as Market Cipher draws them); they are the last two stops when you
-arrow through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20,
-click as they cross those, say "overbought" or "oversold" when you land on them there, and with
-narration on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" —
-their own extremes, heard but not drawn. The levels are plain grey lines,
-solid at ±60 and zero, dotted at ±53; the waves turn rough past ±53 and rougher past ±60. Properties keeps the older behaviour within reach: "WT Slow
-Wave Smoothing" 4, "Money Flow Formula" Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers
-from before October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
+**Multi-signal and structure.** **Cipher B** combines a wave oscillator and money flow into one
+pane. It is drawn the way Market Cipher B draws it: the fast wave a light-blue area with the
+dark-blue slow wave in front of it, a yellow "VWAP" area (the fast wave minus the slow) over both,
+the money flow as a green area above zero and red below over that, and along the bottom a
+money-flow bar, green while money flows in and dark red while it flows out. Small green and red
+dots on the slow wave mark every cross. Two dots sit in the money-flow bar:
+
+- the big green **Buy dot**, on every upward cross of the waves with the slow wave at −60 or lower.
+  Narration says "Buy dot, waves crossed up from oversold";
+- the **Gold dot**, much rarer: three times in fifteen years of daily Bitcoin. The slow wave makes a
+  second bottom at −65 or lower that is higher than the one before, while price makes a lower low;
+  the earlier bottom must have been at −75 or lower with RSI under 30 there. The dot appears two bars
+  after the second bottom, as soon as that bottom is certain, and narration says "Gold dot, waves
+  turning up from oversold". This is the gold dot of the free VuManChu Cipher B; Market Cipher B's
+  own material describes none, and the open code's own advice is not to buy on it alone. "Gold Dot
+  Rule" Confluence in Properties brings back the stricter-gated gold dot Cipher B used before
+  October 2026.
+
+A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale (drawn in
+the top half of the pane, as Market Cipher draws them); they are the last two stops when you arrow
+through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20, click
+as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
+on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
+extremes, heard but not drawn. The levels are plain grey lines, solid at ±60 and zero, dotted at ±53;
+the waves turn rough past ±53 and rougher past ±60. Money Flow is spoken by its side and its number,
+"buying pressure, 18.0" or "selling pressure, 12.4".
+
+**What Cipher B hides.** Its own extra signals, which Market Cipher B does not show, are computed
+but hidden, and hidden means silent — no bell, no narration, nothing in Alt+Shift+D or the status
+line: the red Overbought Crossover, the regular and hidden divergences with their slanted lines,
+the anchor waves and Anchor Polarity, and the Anchor Fill cloud. You still meet them when you move
+through Cipher B's parts with Ctrl+Up and Ctrl+Down, each announced "Hidden" first, and alerts and
+strategies built on them still fire. To show one, land on it and press H, or tick Visible in
+Properties; Ctrl+Alt+Shift+K shows every hidden component on the chart at once; the Anchor Fill is
+under Properties, Appearance, Cloud Fills. A chart saved before these defaults changed takes them
+when it opens, except for anything you showed or hid yourself, which stays as you set it.
+
+Properties keeps the older behaviour within reach: "WT Slow Wave Smoothing" 4, "Money Flow Formula"
+Legacy, "Buy Dot Rule" Gated and "Gold Dot Rule" Confluence reproduce Cipher B's numbers from before
+October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
-from value. All three are descriptive: they tell you where you are, not what to do.
+from value. All three are descriptive: they tell you where you are, not what to do. Cipher A and
+Cipher SR, Market Cipher's price-chart companions, are described under "Adding and tuning
+indicators" below.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
@@ -1418,7 +1446,9 @@ component plays, with a bullish/bearish or above/below-midline pair where the co
 has two sides, and the zone texture; and **Speech** for how the series reads. A "Save as
 Defaults" option stores your preferences so the next indicator of that type starts
 already configured the way you like, and "Reset to Defaults" restores the indicator's
-own settings while leaving your levels alone.
+own settings while leaving your levels alone. Tab and the arrow keys move through the dialog and
+your screen reader reads every label and value; components are named there as speech names them
+("Buy dot", "Wave Trend Fast").
 
 **Positioning indicators — who actually holds what.** Two 1.6.0 additions read
 official positioning data instead of price. **COT Positioning** (Positioning
@@ -1432,11 +1462,49 @@ individual stocks, load the **FINRA** analytics provider and chart
 `{TICKER}_SHORTVOL` — the share of each day's volume that was sold short, a daily
 crowding gauge for any US equity. Both sources are free and need no key.
 
-**A note on Cipher A.** As of 1.6.0 Cipher A is retired from the Add Indicator
-dialog: its engine is the same WaveTrend as Cipher B, so it added no independent
-information. Saved workspaces and strategies that use it keep working exactly as
-before — it is hidden from the menu, not removed from the terminal. Tab and the arrow keys move through the dialog and your screen reader reads
-every label and value.
+**Cipher A** (Multi-Signal, on the price chart) is Market Cipher A, rebuilt in October 2026 by
+measuring real Market Cipher A charts. Its **ribbon** is eight moving averages of the close: EMA 5,
+11, 15, 18, 21, 25, 29 and 33. Each line is blue while it is above the next longer one and grey once
+it falls below; the longest, EMA 33, is blue while it is below EMA 29. A fully blue ribbon is an
+uptrend in order, and grey spreading from the short lines is a trend turning. Landing on a line tells
+you its value, its colour and why — "Blue, bullish: above EMA 11". The eight lines start **muted**;
+press M on one to hear it. Its **seven symbols** come first when you move through its parts, each
+with its own sound, and landing on one says what made it:
+
+- **Green Dot** — EMA 11 crosses above EMA 33.
+- **Blue Triangle** — EMA 5 crosses above EMA 25 while EMA 29 is still below EMA 33: an early turn.
+- **Yellow Diamond** — Wave Trend is above its slow wave and EMA 5 leads the ribbon: bullish
+  continuation. It repeats on candle after candle in a strong trend, so it is the quietest sound.
+- **Red X** — EMA 5 crosses below EMA 11.
+- **Red Diamond** — Wave Trend crosses down; the same cross as Cipher B's small red dot.
+- **Blood Diamond** — a Red Diamond and a Red X on the same candle.
+- **Yellow X** — a Red Diamond deep in the oversold zone (slow wave at −40 or lower) with price in
+  the bottom 22% of its last 80 candles: a bearish warning, not a buy.
+
+With narration on, each symbol is announced ("Green dot, bullish", "Yellow X, bearish warning"), and
+because the ribbon lines are price lines, price crossing one is announced too. A chart or strategy
+saved with the old Cipher A (before October 2026) still opens; its old Buy and Sell signals,
+divergences, Manipulation and Exhaustion are gone, and a strategy or alert that used one tells you
+so once, with what to use instead.
+
+**Cipher SR** (Overlays, on the price chart) is Market Cipher SR's levels, built for the hourly chart
+and below. **Purple dots** (Resistance Zone) mark a resistance level: the high of a bar the next bar
+did not beat, taken only when that bar's volume was above its 6-bar average. **Yellow dots** (Support
+Zone) are the same for lows. Each level is held until a newer one replaces it — price closing
+through it does not end it, you hear "Price crossed above Resistance Zone at …" — and when a new one
+takes over you hear "New resistance at …, replacing …". Arrow onto a zone line to hear its price,
+which side of it price is on, how long it has held and how often price has tested it: "97939.00,
+price below, held 152 days, tested 2 times". **Range High, Range Low and Range Mid** are today's
+range so far and **VWAP** today's volume-weighted average price, both on UTC days; all four are
+drawn but silent by default, and empty on daily and longer charts. Its settings are Pivot Left Bars
+(3), VolumeMA (6) and H/L Pivot Days Back (1). Market Cipher SR works from 15-minute bars whatever the
+chart; ours uses the chart's own bars, so on a daily chart a new level arrives about every five or
+six days per side, and narration has a lot more to say than it did.
+
+**Spider Lines was removed** on 2026-10-17. It was eight exponential moving averages (8 to 200)
+under a misleading name, unrelated to Market Cipher's spider lines, which are diagonal support and
+resistance lines. A saved chart that had it opens without it and says so once; a strategy or alert
+that used it says once that it cannot fire. Add an EMA at each length you want instead.
 
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
 Heikin-Ashi candles, and Alt+L to a logarithmic price scale; both are explained in the
@@ -1677,13 +1745,19 @@ understand where you are, and get your edge somewhere you have tested.
 #### Seeing them, if that helps
 
 **Settings → Appearance → Draw chart formations.** Off by default. It shades each formation's span,
-draws the trigger level solid, and draws the conventional measured target faint and dashed. A
+draws the trigger level solid, and draws the conventional measured target lighter and dashed. A
 triangle or wedge is also drawn as its two sloping edges across the formation. Each line is labelled
 with what it is — "rising wedge trigger 74,912.00, downward breakout" (while it is still forming,
 "…confirms on a downward breakout"; if it expired, "…held"), "measured target 60,367.00" — and
 it stops where it stopped mattering: the trigger at the bar that closed through it (or the bar the
 formation expired), the target at the first bar that reached it. Only a formation still forming runs
 to the right edge.
+
+Where the formation starts and ends is marked by dotted upright lines. Each label sits on a solid
+backing and goes wherever along its line, above or below, it covers the least of the candles; with
+nothing in the way it stays just above the start of its line. The labels and lines are coloured from
+your theme's accent, lightened (or darkened on a light theme) only as far as needed for the text to
+reach 4.5:1 and every line 3:1 against the chart, on every theme including ones you build.
 
 The audience is anyone who is not listening: a low-vision user, a sighted trading partner, a
 screenshot in a bug report. If you are working by ear you already have everything the drawing shows,
@@ -1692,8 +1766,9 @@ in more detail.
 The two levels are drawn with deliberately different weight, and the reason is the same reason the
 wording is careful. Speech can hedge — *"measured target 39,400 **if it breaks**"* — but a bold line
 at 39,400 simply says *target*. So the trigger is solid, because it is a real price where the
-formation really does confirm; the measured target is faint, dashed and labelled, because it is a
-convention nobody here has tested. **The visual weight is the disclaimer.**
+formation really does confirm; the measured target is lighter, thinner, dashed and labelled, because
+it is a convention nobody here has tested — though never so faint that it cannot be seen. **The visual
+weight is the disclaimer.**
 
 At most three formations are drawn at once, for the same reason the spoken readout describes one and
 counts the rest: five overlapping shapes hide the price they are describing.
@@ -2331,20 +2406,20 @@ needs the chart focused.)
 
 **N follows your cursor, exactly like H and M.** With the cursor on a series it switches the
 whole series; with the cursor on a *component* — Ctrl+Up and Ctrl+Down move between them — it
-picks out that one component. That matters on an indicator like Cipher B, which prints eleven
-components: switching the series on and leaving it there gives you all of them, and pressing N
-on the divergence line narrows narration to just that. Press N on it again and you are back to
+picks out that one component. That matters on an indicator like Cipher B, which has eighteen
+components: switching the series on and leaving it there gives you every one that is shown, and
+pressing N on the Buy dot narrows narration to just that. Press N on it again and you are back to
 the whole series. So the rule is: **no component picked out means all of them**, and the series
 switch is always the master — a component flagged on a series that is not narrating says
 nothing yet, and the confirmation tells you so rather than leaving you waiting. The
-confirmation on a component names the component and nothing else — *"Triple Confluence Buy,
+confirmation on a component names the component and nothing else — *"Gold dot,
 narrating"* — because the cursor is already on it and the series was named when you arrived.
 When you want everything back to a known state, **Ctrl+Alt+Shift+O** switches narration off
 on every series and clears every component selection, the way Ctrl+Alt+Shift+K and U undo
 every hide and every mute.
 
 **Where these words land in the sentence.** Moving onto a series or component that is switched
-off says so **first** — *"Hidden and muted. Cipher B. 11 components…"* — and that it is
+off says so **first** — *"Hidden and muted. Cipher B. 18 components…"* — and that it is
 narrating **last**: *"…64,900. Narrating."* The two halves are not the same kind of fact.
 Hidden and muted explain a *silence*, and anything that interrupts an utterance takes its end,
 so the half you must not lose goes in front; narrating is an addition, everything else about the
@@ -2355,8 +2430,8 @@ readout that guarantees a second wrong guess.
 **What an overlay narrates, and when.** Flag a moving average with N and what you get is its
 **crosses, on the bar close**: *"Price crossed above EMA 9 at 64,900."* An overlay gets crosses
 and nothing else — no "support broken", no "tested twice" — because those belong to a level,
-which has a side and can cease to exist, and a moving average has neither. Cipher SR's pivots
-and Spider Lines' fibonacci EMAs are declared levels and do get the fuller vocabulary. And none
+which has a side and can cease to exist, and a moving average has neither. Cipher SR's zone
+lines are declared levels and do get the fuller vocabulary. And none
 of it is spoken during playback; see the playback section above for why.
 
 **What an oscillator narrates, and when.** Its **levels** — the thresholds the indicator was
@@ -2373,11 +2448,11 @@ has:
 
 | What the indicator has | What you hear, and when | In playback? |
 |---|---|---|
-| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Triple confluence buy, strong confirmation."* | **Yes** — this is the only thing playback speaks |
+| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Gold dot, waves turning up from oversold."* | **Yes** — this is the only thing playback speaks |
 | **A price-space line** — EMA, SMA, VWAP, Bollinger, Keltner, Donchian, Ichimoku's lines, pivots | *"Price crossed above EMA 9 at 64,900."* on the bar close | No |
 | **A declared level** — most oscillators: Stochastic, CCI, MFI, ADX, ROC, %R, TRIX, CMO, Chop, PPO, StochRSI | *"crossed above overbought, 80."* on the bar close | No |
 | **Its own zone wording** — RSI, MACD, Vortex, Cipher B's waves | The indicator's own phrase: *"RSI overbought."*, *"MACD bullish crossover."* | No |
-| **A declared level line** — Cipher SR's pivots, Spider Lines | Broken, tested, approached, and crossed — the full support/resistance vocabulary | No |
+| **A declared level line** — Cipher SR's Resistance Zone and Support Zone | A new level replacing the old one, tested, approached, crossed (and broken, for a zone line that ends) — the full support/resistance vocabulary | No |
 | **A cloud** — Ichimoku's Kumo, MA Cloud, Cipher B's anchor fill | *"Price entered the Kumo."*, exited, crossed | No |
 
 Four kinds of thing stay silent however you flag them, and it is deliberate: your **drawings**
@@ -2392,9 +2467,9 @@ silence.
 **What a signal sounds like.** A narrated signal is introduced by the *component* that fired
 it, never by the series: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series
 narrate, so the series name tells you nothing you did not already know; which of Cipher B's
-eleven markers just printed is the fact you are waiting for. Where a signal's own wording
-already says which component it is — *"Bullish divergence"*, *"Triple confluence buy, strong
-confirmation"* — nothing is put in front of it. The same rule holds during playback.
+nine markers just printed is the fact you are waiting for. Where a signal's own wording
+already says which component it is — *"Bullish divergence"*, *"Gold dot, waves turning up from
+oversold"* — nothing is put in front of it. The same rule holds during playback.
 
 **The date, only when it changes.** Arrowing along an hour chart reads the time alone — *"14:00.
 Close 64,900."*, *"15:00. …"* — and names the day when the bars you are reading cross into a new
@@ -2409,7 +2484,7 @@ the question.
 
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
 then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
-engulfing. New bar: Open 64,910. Triple confluence buy, strong confirmation. RSI 14: RSI
+engulfing. New bar: Open 64,910. Gold dot, waves turning up from oversold. RSI 14: RSI
 overbought."* The closing bar is named by its own stamp — the time of day on an intraday chart,
 the date on a daily or weekly one — so a run of them in the journal reads back as a record rather
 than a column of prices. Up to

@@ -8,6 +8,28 @@
 
 ## Unreleased
 
+- **Cipher B's big green dot is now the "Buy dot", and the gold dot is back** with a much rarer rule:
+  three on daily Bitcoin in its whole history. It is the gold dot from the free VuManChu Cipher B;
+  we found no sign that Market Cipher B itself has one. "Gold Dot Rule: Confluence" in Properties
+  brings back the old one. Properties now names every indicator's parts the way speech does.
+- **Cipher B shows what Market Cipher B shows.** The red sell dot, the divergences and the anchor
+  cloud are hidden, so they make no sound. They still work for alerts and strategies; press H on one
+  to bring it back. Charts you already had follow these defaults too, unless you changed one yourself.
+- **Cipher B's dots say the wave trend again** when you land on them, and Money Flow says "buying
+  pressure, 18.0" instead of a percentage it never was.
+- **Cipher A is back, rebuilt to match real Market Cipher A:** an eight-line moving-average ribbon
+  that turns from blue to grey as a trend weakens, and Market Cipher A's seven symbols, from the
+  Green Dot to the Yellow X, each with its own sound. The ribbon lines start muted. Old Cipher A
+  strategies and alerts tell you which parts went and what to use instead.
+- **Cipher SR draws Market Cipher SR's levels:** one resistance and one support, held as runs of
+  dots until a newer level replaces them. You now hear "New resistance at …, replacing …" where it
+  used to say a level was "broken" when price never went through it. Landing on a level tells you
+  how long it has held. Range lines and VWAP are new and silent by default. On a daily chart expect
+  much more Cipher SR narration than before.
+- **Spider Lines is gone.** It was eight moving averages under a misleading name. A chart that had it
+  opens without it and says so once; add EMAs at the lengths you want instead.
+- **Formation labels are easier to read** on every theme and move off the candles where they can.
+
 - **Status lines never cover the chart.** Each pane draws below its status lines, so Cipher B's RSI and
   Stochastic, and the tops of the waves, are no longer hidden behind the text.
 - **Background tint is your choice, on any indicator.** Properties → Appearance → Background tint: Off,

@@ -404,11 +404,11 @@ nullable — `null` means "defer to the global role/type-based default."
 
 | Field | Type | Description |
 |---|---|---|
-| `Name` | `string` | **Internal key.** Must match exactly the key passed to `IIndicatorResultBuffer.GetComponentSpan()` or `SetValue()` in your `Calculate()`. This is the primary source of key-mismatch bugs. |
-| `DisplayName` | `string?` | User-facing label shown in the UI, spoken in navigation. Defaults to `Name` when null. |
+| `Name` | `string` | **Internal key.** Must match exactly the key passed to `IIndicatorResultBuffer.GetComponentSpan()` or `SetValue()` in your `Calculate()`. This is the primary source of key-mismatch bugs. **Keep it stable once released:** saved charts, alerts and strategy leaves (`{CODE}.{Name}`) reference it. Change what users hear and see through `DisplayName` instead — Cipher B's gold dot is still `Name = "Triple Confluence Buy"`, displayed as "Gold dot". A removed component's strategy leaves and alerts can never fire; built-in providers list theirs in `SignalCatalog.Retired` so each says why once, which an external plugin cannot do yet. |
+| `DisplayName` | `string?` | User-facing label: spoken in navigation and narration, shown on the status line, in Properties (component pickers, legends and field labels, since 2026-10-17) and in the alert and strategy pickers. Defaults to `Name` when null. Also the key your sibling data arrives under in `GetComponentSpeech` (see "The `allComponentData` dictionary"). |
 | `Role` | `ComponentRole` | Semantic role — drives default sonification routing (see table below). |
 | `DisplayType` | `ComponentDisplayType` | How the component renders visually (see table below). |
-| `IsVisible` | `bool` | Default visibility. `false` = component is hidden until the user enables it. Default: `true`. |
+| `IsVisible` | `bool` | Default visibility. `false` = component is hidden until the user enables it. Hidden means silent: not drawn, sonified, narrated, read by Alt+Shift+D or shown on the status line, though still a Ctrl+Up/Down stop and still a strategy and alert input. Default: `true`. Changing it later reaches saved charts: each saved flag records the default it was saved against (`ComponentConfig.ProviderIsVisible`, set for you), and a flag still equal to that baseline takes your new default on restore while one the user changed is kept. |
 | `DataMapping` | `string?` | For price-series components mapped to OHLCV fields (`"Open"`, `"High"`, `"Low"`, `"Close"`, `"Volume"`). Leave null for all calculated indicator components. |
 
 #### ComponentRole values
@@ -473,6 +473,9 @@ nullable — `null` means "defer to the global role/type-based default."
 | `DefaultIsAreaFill` | `bool?` | Whether to shade the region between the line and its reference level. Null defers to StylingService. |
 | `DefaultUsePolarityColoring` | `bool?` | Whether color flips above/below the reference level. Null defers to StylingService. |
 | `DefaultColorRules` | `List<ColorRule>?` | Per-bar conditional color rules. Applied in order — first matching rule wins. Null or empty = use `DefaultColorHex` for all bars (no conditional coloring). Rules are copied into `ComponentConfig.ColorRules` by `IndicatorModelFactory` at component creation time. |
+| `DefaultColorAboveComponent` | `string?` | A two-colour line coloured against ANOTHER component of the same series (its `Name`) instead of a constant: `DefaultColorHex` where this value is at or below that component, `DefaultColorHexSecondary` where it is above. Cipher A's ribbon uses it (each EMA blue above the next-longer one; the last line swaps its two colours to be blue below the one before). Null = not used. |
+| `DefaultDrawOrder` | `int?` | Paint order within the series, lower first. Null = 0. Only the drawing order: keyboard order, speech, sound and the status line keep the declared order. Cipher A paints its ribbon at −1, under its symbols; Cipher B paints its VWAP over the waves. |
+| `DefaultFillColorHex` | `string?` | The colour an area fill is painted in when it differs from its edge line. An 8-digit `#AARRGGBB` carries its opacity, used as-is. Null = the line's colour. |
 
 #### Declaring DefaultColorRules
 
@@ -551,6 +554,7 @@ All audio fields are nullable; null means "use the profile / display-type defaul
 | `DefaultPlaybackLayer` | `PlaybackLayer?` | Volume tier during multi-series playback (see below). |
 | `DefaultSoundPatchId` | `string?` | Named patch from `SoundPatchRegistry`. Overrides individual waveform/envelope fields. Available patches: `"bell"`, `"crystal_bell"`, `"dual_tone_bell"`, `"triangle_bell"`, `"sine_bell"`. Null = use per-field settings. |
 | `DefaultTriggerBoundaryClick` | `bool?` | When true, a transient click earcon fires each time the value crosses any visible reference level line. |
+| `DefaultIsMuted` | `bool?` | Start muted: drawn, navigable and spoken on request, but not sonified and not auto-narrated until the user unmutes it (M). Null = false. For plots that match a reference look but should not add a voice — Cipher A's eight ribbon lines, Cipher SR's Range and VWAP lines, Cipher B's RSI and Stochastic. |
 
 #### AmplitudeMapping values
 
@@ -598,7 +602,7 @@ All audio fields are nullable; null means "use the profile / display-type defaul
 |---|---|---|
 | `DefaultReferenceLevel` | `double?` | The component's MIDLINE. Drives the above/below split of the waveform, the bright/warm timbre and the above/below sound patch (one rule since 2026-10-17 — the timbre used to split at the middle of the pane's visible range), the polarity coloring boundary, and the `TriggerBoundaryClick` threshold. When null, the engine uses `0.0` for `Oscillator` and `ZeroArea` display types, otherwise null. |
 | `DefaultTriggerBoundaryClick` | `bool?` | See Audio section above. |
-| `DefaultIsZoneLine` | `bool` | When true, `NavigationFeedbackManager` plays a quiet 100ms proximity tone on audio slot 2 whenever the navigated bar's price range (High/Low) overlaps this component's value within 0.5% tolerance. Intended for carry-forward S/R lines (Resistance Zone, Support Zone). Propagated to `ComponentConfig.IsZoneLine`. Default: `false`. |
+| `DefaultIsZoneLine` | `bool` | When true, `NavigationFeedbackManager` plays a quiet 100ms proximity tone on audio slot 2 whenever the navigated bar's price range (High/Low) overlaps this component's value within 0.5% tolerance, and the narrator gives the line the support/resistance vocabulary (tested, approaching, crossed, broken). Intended for carry-forward S/R lines (Resistance Zone, Support Zone). Propagated to `ComponentConfig.IsZoneLine`. Default: `false`. **A zone line's value going from a number to NaN is announced as a break** ("Resistance at X broken"), so never blank the line to separate two levels: keep a value on every bar a level is live and publish a `{Name}_replaced` companion instead (see Companion Arrays). |
 
 ---
 
@@ -781,6 +785,18 @@ declared for it. It exists purely for `GetComponentSpeech` to read:
 ```csharp
 buffer.GetComponentSpan("Resistance_touches") // accessed in GetComponentSpeech, not in metadata
 ```
+
+**Zone-line companions** (since 2026-10-17; `CipherSrProvider` is the reference). For a zone line
+named `"Resistance Zone"`:
+
+| Companion | Holds | Read by |
+|---|---|---|
+| `Resistance Zone_replaced` | The OLD level on the bar a newer level takes over; NaN on every other bar | The narrator says "New resistance at Y, replacing X." and restarts the line's cross, approach and touch state; the line renderer lifts the pen there so the two levels are not joined |
+| `Resistance Zone_since` | On every bar of a level's life, when it became live (Unix seconds, UTC) | Handed to `GetComponentSpeech`, so the provider can say how long the level has held |
+| `Resistance_touches` | How many times price has tested the level (the zone name without " Zone") | The narrator's "tested N times" and the provider's speech |
+
+Companion keys ending `_color`, `_touches`, `_replaced` or `_since` are never treated as undeclared
+components (`IndicatorOrchestrator`).
 
 ### RequiresFullRecalcOnTick
 
@@ -1007,14 +1023,20 @@ return componentName switch
 
 ### The `allComponentData` dictionary
 
-Keyed by component **`Name`** (the internal key). Contains the full data arrays for
-every component in this series, including companion arrays that were written to the
-buffer but have no corresponding `IndicatorComponentMetadata` entry.
+Keyed by each component's **`DisplayName`**, falling back to `Name` when there is no
+`DisplayName` (case-insensitive), so a sibling that declares a `DisplayName` is NOT found under its
+`Name`. Companion arrays are added under their raw keys: `{Name}_color` for gradient components,
+`{Name}_touches`, and for zone lines `{Name}_since`, `{Name}_replaced` and
+`{Name without " Zone"}_touches`; plus `__live_close` (below). Other companions you wrote are not
+included. This guide said "keyed by Name" until 2026-10-17, and Cipher B followed it: every one of its
+dots silently dropped its "Wave Trend" clause because its fast wave is displayed as "Wave Trend
+Fast". Look a sibling up by both:
 
 ```csharp
-// Reading a sibling component's value:
-double wt1Value = allComponentData.TryGetValue("Wave Trend", out var arr) && dataIndex < arr.Length
-    ? arr[dataIndex] : double.NaN;
+// Reading a sibling component's value — DisplayName first, then Name:
+double[]? arr = allComponentData.TryGetValue("Wave Trend Fast", out var a1) ? a1
+              : allComponentData.TryGetValue("Wave Trend", out var a2) ? a2 : null;
+double wt1Value = arr != null && dataIndex < arr.Length ? arr[dataIndex] : double.NaN;
 
 // Reading a companion touch-count array:
 double touches = allComponentData.TryGetValue("Resistance_touches", out var tc) && dataIndex < tc.Length
@@ -1069,12 +1091,15 @@ public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
 
     return componentName switch
     {
-        "Resistance" => $"{value:F2}, price {distancePct:F1}% below",
-        "Support"    => $"{value:F2}, price {distancePct:F1}% above",
+        "Resistance Zone" => $"{value:F2}, price {distancePct:F1}% below",
+        "Support Zone"    => $"{value:F2}, price {distancePct:F1}% above",
         _ => null
     };
 }
 ```
+
+(The real `CipherSrProvider` also reads `"Resistance Zone_since"` and `"Resistance_touches"` and says
+"97939.00, price below, held 152 days, tested 2 times".)
 
 ---
 
