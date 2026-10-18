@@ -117,12 +117,29 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-18 — the cycle school: stage 1 DONE (method, design, pre-registration); see
+> CHANGES).** `docs/CAMEL_METHOD.md`, `docs/CYCLE_LOW_INDICATOR_DESIGN.md` and
+> `docs/CYCLE_SCHOOL_PREREG.md` are committed; nothing was computed. What is left:
+> - [ ] **Stage 2: build and run the 56 pre-registered tests** exactly as written, results into a new
+>   `docs/CYCLE_SCHOOL_FINDINGS.md` with an `edges.json` record. Do not edit the pre-registration.
+> - [ ] Before using COT in the score: confirm which CFTC report each `xs_cftc_*` file came from. The
+>   downloader parses the disaggregated report, which does not normally carry S&P, Nasdaq or Bitcoin
+>   futures (those are in Traders in Financial Futures).
+> - [ ] **Questions for Cody (nothing applied):** the "90+ metrics" claim for the CF indicator is in
+>   no public source the lab holds; where did it come from? Fetch the four public Camel dailies that
+>   were not obtained (29 Aug, 8 Sep, 25 Sep, 16 Oct) and any Bob Loukas material once the other
+>   download finishes? Any of the missing data in the design note's section 7 worth a separate,
+>   dated pre-registration (HY spreads before 2023, FedWatch history, a daily S&P 500 before 1993,
+>   put/call after 2019)?
+> - If these tests come out better than the Market Cipher ones, Cody plans to look at the CF /
+>   Cipher C clone next (his note, 2026-10-18).
+>
 > **START HERE (2026-10-18 — macro, Fed, liquidity and sentiment data: FETCHED, point in time; see
 > CHANGES and `docs/MACRO_DATA.md`).** The data for the Camel macro and cycle tests is in
 > `strategy-lab-data/macro/`, and the manifest is `AccessibleTrader.StrategyLab/Data/MACRO_MANIFEST.json`.
 > No study has used it yet. What is left:
-> - [ ] **Write the Camel macro and cycle pre-registration** against this inventory before any outcome
->   is computed.
+> - [x] **Write the Camel macro and cycle pre-registration** against this inventory before any outcome
+>   is computed. Done 2026-10-18: `docs/CYCLE_SCHOOL_PREREG.md`.
 >   - Credit: use Moody's BAA10Y, AAA10Y or BAA, not the ICE high-yield spread, which exists only
 >     from 2023-10-17.
 >   - Curve: T10Y2Y and T10Y3M.

@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The cycle school: Camel's method written up, our own cycle-low indicator designed, tests pre-registered (2026-10-18)
+
+Stage 1 of 2. Documents only: no code, and **no forward return, outcome, hit rate or event count
+was computed** for any rule. A later agent runs the tests.
+
+- **`docs/CAMEL_METHOD.md`**: Camel Finance's method in his own words, with a timestamped link for
+  every claim and a tag on each (testable now, needs data we lack, not testable). It covers how he
+  calls a low in real time (window first, price gates said in advance, early confirmations, a
+  sentiment check, then his indicator confirms late), the checklist and how its required count
+  changed by date, the higher-high close as the veto, invalidation, timing windows, translation,
+  and the macro framework: "tell that to the bond market", bonds as the truth against headline data,
+  payroll revisions, the NBER lag, liquidity, the alarm gate, contrarian sentiment.
+  - Found while writing it: the "90+ metrics" claim for his indicator is in **none** of the public
+    sources the lab holds (67 transcripts, the vendor's pages, the sales page). It is treated as
+    unverified. "Bracketing cross" is the lab's phrase, not his.
+  - No Bob Loukas material exists in the corpus (the one item was a 404); Loukas appears only as
+    Camel quotes him.
+- **`docs/CYCLE_LOW_INDICATOR_DESIGN.md`**: a from-scratch indicator with the CF indicator's outputs
+  (pending, confirmed, cancelled, updated, a grade) and no fitted weights. Seven metric families
+  (price at several lengths, breadth, volatility, positioning, sentiment, on-chain, macro and
+  liquidity), each metric an expanding-window percentile, equal-weighted within and then across
+  families into a 0 to 100 capitulation score. Every metric names its file, its sign, its known-from
+  rule and a staleness limit. It says plainly that most inputs measure "price fell a lot" and that
+  two or three families are really independent.
+- **`docs/CYCLE_SCHOOL_PREREG.md`**: 56 tests in six families with Holm inside each, all numbers
+  frozen. (a) Camel's checklist against lows confirmed later by one fixed rule, against chance, random
+  swing lows and shuffled-bar surrogates; (b) the capitulation score against chance and against its
+  own price-only version; (c) six macro theses (strong jobs print with falling yields, hot CPI with
+  falling yields, downward revisions, short yields leading the Fed, the alarm gate; the NBER lag as a
+  descriptive table); (d) trading versions that cannot rescue a failed detector. Development era to
+  2022, held-out 2023 on, and a plain "no edge" definition with the reframings it forbids. Cycle
+  lengths are never scored, because the lab showed they come from the detector.
+- **`docs/CAMEL_TRACK_RECORD.md`** (the August 2026 ledger) is now committed. It had been gitignored
+  as personal notes; Cody asked for research material to be committed, so the ignore line is gone.
+
 ### Setup grader round 2, the Market Cipher school: pre-registered, not run (2026-10-18)
 
 `docs/SETUP_GRADER_ROUND2_MC_PREREG.md`, stage 1 of 2, committed before any setup was counted or any
