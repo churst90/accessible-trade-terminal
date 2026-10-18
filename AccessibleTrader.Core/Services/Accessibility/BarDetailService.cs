@@ -461,7 +461,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// The components read are the ones the status line prints (ChartStatusLine.SeriesLine):
         /// visible and enabled, with a reading of their own (<see cref="ChartStatusLine.HasReading"/> —
         /// lines, oscillators, areas, bars, histograms; not a constant level, a cloud fill or a
-        /// candle colouring) or a marker. A marker is read by NAME and only when it fires at this
+        /// candle colouring) and a value somewhere on the chart
+        /// (<see cref="ChartStatusLine.NoDataAnywhere"/>), or a marker. A marker is read by NAME and only when it fires at this
         /// bar — a mark is there or it is not, and those marks are the signal events the manual
         /// promises. A NaN reading (warm-up, a plot with nothing at this bar) is skipped, and a
         /// series with nothing to say at the bar is left out entirely rather than read as a bare
@@ -477,8 +478,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private static string LadderReading(ChartSeries s, int index)
         {
+            // Plots with no value on any bar of this chart are left out as the status line leaves
+            // them out (ChartStatusLine.NoDataAnywhere) — and so do not count towards labelling.
+            var empty = ChartStatusLine.NoDataAnywhere(s);
             bool labelled = s.Components.Count(c => c.IsVisible && c.IsEnabled
-                && !ChartRenderer.IsMarker(c.DisplayType) && ChartStatusLine.HasReading(c.DisplayType)) > 1;
+                && !ChartRenderer.IsMarker(c.DisplayType) && ChartStatusLine.HasReading(c.DisplayType)
+                && !empty.Contains(c.Name)) > 1;
 
             var parts = new List<string>();
             foreach (var comp in s.Components)
@@ -486,6 +491,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!comp.IsVisible || !comp.IsEnabled) continue;
                 bool marker = ChartRenderer.IsMarker(comp.DisplayType);
                 if (!marker && !ChartStatusLine.HasReading(comp.DisplayType)) continue;
+                if (!marker && empty.Contains(comp.Name)) continue;
 
                 var data = s.GetComponentData(comp.Name);
                 double v = data != null && index >= 0 && index < data.Length ? data[index] : double.NaN;

@@ -308,6 +308,24 @@
                                             Visible
                                         </label>
                                     </div>
+                                    @* VALUE LABEL ON THE AXIS, 2026-10-18 (Cipher A's ribbon: eight
+                                       labels near price stacked the axis and pushed every tag off
+                                       its line). Offered only where the component is a line or bar
+                                       plot, the kinds that carry one. Checking or unchecking it
+                                       records the USER's choice (UserShowAxisLabel); never touching
+                                       it follows the indicator's default. *@
+                                    @if (AccessibleTrader.Core.Services.ChartRenderer.CanHaveAxisLabel(comp))
+                                    {
+                                        <div class="modal-row">
+                                            <label for="@(cid)-axis-label">
+                                                <input id="@(cid)-axis-label" type="checkbox"
+                                                       aria-label="Value label on the axis for @CompLabel(comp)"
+                                                       checked="@comp.ShowAxisLabelInEffect()"
+                                                       @onchange="e => comp.UserShowAxisLabel = (bool)(e.Value ?? true)" />
+                                                Value label on the axis
+                                            </label>
+                                        </div>
+                                    }
                                     @* BACKGROUND TINT, 2026-10-17 (Cody: "shading/tinting should be
                                        something any indicator can do"). Its own switch, not the
                                        Visible box's: a hidden data line such as Cipher B's Anchor

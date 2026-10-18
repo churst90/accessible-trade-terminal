@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cody's BTCUSDT 1D screenshot: the price axis carries one ribbon tag; empty plots leave the status line; what the blue bands and orange crosses are (2026-10-18)
+
+Each change has tests seen red with its part undone (13 sabotages, all red). Checked on his own
+chart: his newest saved session (`__last-session__782c…`, copied read-only; the four indicator
+series committed as `Fixtures/codys_btc_1d_series_2026-10-18.json`) restored through
+`MigrateSeriesConfig` + `MaterializeSaved` and drawn by the real renderer on the Bitstamp BTC daily
+fixture, and in scratch on the same history extended to 2026-10-18 from Bitstamp's public API.
+**Not seen on Windows, not seen or heard by Cody.**
+
+- **Cipher A's ribbon puts only EMA 5's value on the price axis.** About 13 tags were stacked on the
+  axis (eight ribbon lines, Cipher SR's levels, the close), and the stacking pushed tags off their
+  lines: on his chart at 1400x900, Resistance 84,254 sat 48 px from its line, Support 79,694 64 px,
+  EMA 5 78 px. Now Resistance and Support sit on their lines (0 px) and EMA 5 is 14 px off, beside
+  the close badge. The lines are still drawn, spoken and sounded.
+  - **New for every indicator** (plugin authors too): `IndicatorComponentMetadata.DefaultShowAxisLabel`
+    (null = true), `ComponentConfig.ShowAxisLabel` (the indicator's, rebuilt from metadata on every
+    load) and `ComponentConfig.UserShowAxisLabel` (the user's choice, null = never chose, restored
+    with the workspace), read through `ShowAxisLabelInEffect()` by `ChartRenderer.ScaleLabelsFor`.
+    The same split as the background tint, so a saved chart follows the new default unless its user
+    chose (his saved Cipher A, which predates the field, gets the new default; a user's on/off
+    survives a save and a second restore). `Clone()` copies both.
+  - **Properties → Appearance → "Value label on the axis"**, a checkbox per line or bar plot (not on
+    markers), labelled "Value label on the axis for EMA 11" etc. for a screen reader's form list.
+  - `DeclaredKnobObservabilityTests`' pixel channel now includes the axis labels, so the two fields
+    are observed rather than exempted.
+- **A plot with no value anywhere on the chart leaves the status line.** Cipher SR's line read
+  "Range High — Range Low — Range Mid — VWAP —" on every bar of a daily chart, where those four (per
+  UTC session) are never computed. `ChartStatusLine.NoDataAnywhere` names the plots with no finite
+  value on any bar; the status line leaves them out, and Alt+Shift+D's ladder (which already skipped
+  NaN readings, so it never said them) no longer counts them when deciding whether to name each
+  reading. A plot with values elsewhere still shows "—" at a bar without one (warm-up). The same
+  series switched to a 15-minute chart shows all four again. A series not computed yet keeps its
+  dashes; a series whose every plot is empty keeps its name and inputs.
+  - **Not changed:** Ctrl+Up/Down still stops on those plots (Cody: stepping must not skip hidden
+    parts, and these are the same kind of stop); landing there says "no data". The series' spoken
+    component count is unchanged for the same reason.
+- **Identified, nothing changed:** the darker blue bands between dotted vertical blue lines are
+  **chart formation spans** (`ChartFormationLayer`, Settings → Appearance → "Draw chart formations",
+  on in his settings): on his history the descending triangle (15 Jun – 6 Jul) and symmetrical
+  triangle (1 Jul – 9 Aug, completed) and the ascending triangle still forming (15 Sep – 2 Oct). The
+  orange crosses are **Market Structure's Break of Structure** marks (#FFB300 amber crosses), on
+  21 Sep (at the broken swing high, 82,281) and 8 Oct (82,555), drawn at the broken level on the bar
+  that broke it; removing Market Structure from the render removes them. Cipher A's Red X is red
+  (#FF5252) and fired on 10 Sep and 8 Oct.
+- Tests: `CodysBtcChartTests` (5: his chart's axis before and after, his restored Cipher A and a
+  user's choice kept, the fleet's only opt-outs, his Cipher SR's status line on daily and after a
+  switch to 15-minute), `BarDetailReadsEverythingTests.APlotWithNoValueAnywhere…`, two
+  `PropertiesModalTests`, `WorkspaceRestoreContractTests` (UserShowAxisLabel user-owned). A first
+  draft that dropped an all-empty series' line entirely was caught by three existing tests
+  (`CipherSrZoneLineRenderTests`, `CrosshairBadgeAndLegendKeyTests`, `ChartStatusLineTests`) — the
+  status band changes height — and is not what shipped.
+- **Recommended, not done:** a limit on how far any tag may be stacked from its own value (TODO).
+
 ### The setup grader for the Cipher B Buy dot: run as pre-registered (2026-10-18)
 
 Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:

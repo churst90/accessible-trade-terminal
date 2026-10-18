@@ -155,6 +155,30 @@ namespace AccessibleTrader.Sdk.Models
         public BackgroundTint BackgroundTintInEffect() => UserBackgroundTint ?? BackgroundTint;
 
         /// <summary>
+        /// The INDICATOR's choice of whether this component's newest value is a label on its
+        /// pane's value axis — rebuilt from
+        /// <see cref="IndicatorComponentMetadata.DefaultShowAxisLabel"/> on every load, so a
+        /// provider's new default reaches charts that already exist (Cipher A's ribbon,
+        /// 2026-10-18). What is drawn is <see cref="ShowAxisLabelInEffect"/>: the user's
+        /// <see cref="UserShowAxisLabel"/> when they have chosen, else this. Axis label only — the
+        /// line itself, its speech, sound and status-line reading are untouched.
+        /// </summary>
+        public bool ShowAxisLabel { get; set; } = true;
+
+        /// <summary>
+        /// The USER's choice from Properties → Appearance → "Value label on the axis", or null when
+        /// they have never chosen (follow <see cref="ShowAxisLabel"/>). Kept with the workspace and
+        /// restored as saved, the same split as <see cref="UserBackgroundTint"/>: "I turned it
+        /// on" survives a provider later changing its default, and "I never chose" keeps
+        /// following it. A save from before the field existed has no value and follows the indicator.
+        /// </summary>
+        public bool? UserShowAxisLabel { get; set; }
+
+        /// <summary>Whether the axis label is drawn: the user's choice when there is one, else the
+        /// indicator's. A method, so the workspace file does not carry a third copy.</summary>
+        public bool ShowAxisLabelInEffect() => UserShowAxisLabel ?? ShowAxisLabel;
+
+        /// <summary>
         /// Denominator used when <see cref="AmplitudeMapping.ReferenceDeviation"/> is active.
         /// Overrides the viewport-derived max deviation so components with a compressed value
         /// range (e.g. Money Flow at −100..−60) are not made artificially quiet by the large
@@ -322,6 +346,7 @@ namespace AccessibleTrader.Sdk.Models
                 BackgroundTint = BackgroundTint, UserBackgroundTint = UserBackgroundTint,
                 TintColorAboveHex = TintColorAboveHex, TintColorBelowHex = TintColorBelowHex,
                 TintMidline = TintMidline, TintFullAt = TintFullAt,
+                ShowAxisLabel = ShowAxisLabel, UserShowAxisLabel = UserShowAxisLabel,
                 UpperComponentName = UpperComponentName, LowerComponentName = LowerComponentName,
                 NoiseAmount = NoiseAmount,
                 ColorBaseline = ColorBaseline,

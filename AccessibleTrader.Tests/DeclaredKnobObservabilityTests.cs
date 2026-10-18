@@ -326,7 +326,13 @@ public sealed class DeclaredKnobObservabilityTests
         // hash of "did the frame change at all" is not — it only ever answers the question this
         // file asks.
         var bytes = bmp.GetPixelSpan().ToArray();
-        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+        // The value labels the pane's axis carries (ChartRenderer.ScaleLabelsFor), which the full
+        // renderer paints beside the plot — outside the rectangle this channel hands DataLayer.
+        // Without them ShowAxisLabel / UserShowAxisLabel would be read by a painter this channel
+        // never calls and report as unread.
+        string axis = string.Join("|", ChartRenderer.ScaleLabelsFor(new[] { series }, TheBars.Count, Themes().Current)
+            .Select(l => $"{l.Component}:{l.Value:R}:{l.Fill}"));
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)) + "/" + axis;
     }
 
     // ── Channel 2: the sonification point ────────────────────────────────────
@@ -447,6 +453,9 @@ public sealed class DeclaredKnobObservabilityTests
             return current;
         }
 
+        // UserShowAxisLabel is a CHOICE (null = never chose, follow ShowAxisLabel, true by
+        // default): "chose true" would read exactly as the default and as unread.
+        if (t == typeof(bool) && prop.Name == "UserShowAxisLabel" && current is null) return false;
         if (t == typeof(bool)) return !(bool)(current ?? false);
         if (t == typeof(int)) return (int)(current ?? 0) + 500;
 

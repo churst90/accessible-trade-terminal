@@ -147,6 +147,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                     DefaultColorHexSecondary = last ? Grey : BlueLadder[k],
                     DefaultThickness = k == 0 ? 2.0f : 1.5f,
                     DefaultIsMuted = true,
+                    // Only EMA 5 puts its value on the price axis (Cody, 2026-10-18). Eight labels
+                    // within a few percent of price, with Cipher SR's levels and the close, stacked
+                    // about 13 tags up the axis and pushed some ~100 px from their own lines (the
+                    // 84,254 resistance tag among them). The lines are still drawn and spoken; the
+                    // user can turn a label back on in Properties → Appearance.
+                    DefaultShowAxisLabel = k == 0,
                     DefaultPlaybackLayer = PlaybackLayer.Background,
                     DefaultUsePolarityColoring = false,
                     // Painted under the symbols; keyboard order is unchanged.

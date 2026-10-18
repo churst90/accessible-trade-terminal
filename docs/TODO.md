@@ -117,6 +117,26 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-18 — Cody's BTCUSDT 1D screenshot: axis tags and empty status-line plots DONE;
+> see CHANGES).** Cipher A's ribbon labels only EMA 5 on the price axis (new per-component
+> `ShowAxisLabel` / `UserShowAxisLabel`, Properties → Appearance → "Value label on the axis"); plots
+> with no value anywhere on the chart are left out of the status line and the ladder's labelling.
+> Not seen on Windows, not seen by Cody. **Open, nothing applied:**
+> - [ ] **General tag drift rule (recommendation, Cody's call).** `StackScaleLabels` has no limit on
+>   how far a tag may sit from its own value: it places tags greedily, then re-deals the spots taken
+>   in value order, so in a crowd a tag can land several label-heights off its line (measured on his
+>   chart before the fix: Resistance 84,254 48 px off, Support 79,694 64 px, EMA 5 78 px, at
+>   1400x900). Suggested: a tag that cannot be placed within about 1.5 label heights of its value
+>   is left out (the strip already leaves out a tag with no room at all), and the value-order re-deal
+>   is skipped where it would push a tag past that limit; the crosshair badge and the plot navigation
+>   is on keep priority. `CodysBtcChartTests.Drift` measures it.
+> - [ ] Ctrl+Up/Down still stops on a plot with no value on this chart (Cipher SR's Range/VWAP on a
+>   daily chart), as it stops on hidden parts (Cody: stepping must not skip). Landing there says "no
+>   data"; "no data on this timeframe" would say why. Not changed.
+> - [ ] "Save as Defaults" does not carry the axis-label choice (nor the background tint).
+> - [ ] `ScaleLabelsFor` does not check `ComponentConfig.IsDrawn`, so an undrawn LINE would still get
+>   an axis label. No built-in has one today (DBSI's undrawn parts are markers or hidden).
+
 > **START HERE (2026-10-18 — setup grader for the Cipher B Buy dot: DONE, No edge; see CHANGES and
 > `docs/SETUP_GRADER_FINDINGS.md`).** Grade A had 0 (crypto) and 2 (equities) development-era dots, so
 > the pre-registered headline tests were not testable. **Questions for Cody (nothing applied):**

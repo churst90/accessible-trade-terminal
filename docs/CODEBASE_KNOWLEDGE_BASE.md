@@ -278,6 +278,7 @@ All modals focus the `h2` heading on open (`tabindex="-1"` on `h2`, `focusElemen
   - *Components* are rebuilt from metadata on restore, so a renamed or removed component disappears from a saved chart by itself; a strategy leaf or alert that names it must be listed in `SignalCatalog.Retired` (id → why, and what to use instead), or it is false forever without a word.
   - *Visibility* follows a changed default unless the user changed it: `ComponentConfig.ProviderIsVisible` / `CloudFillConfig.ProviderIsVisible` record the default each flag was saved against, resolved by `ProviderDefaultVisibility.Resolve` (`IndicatorModelFactory` layer 2; fills in `WorkspaceInitializer.MigrateSeriesConfig`). For saves older than the record, add the old default to `RetiredComponentDefault` / `RetiredCloudFillDefault` — only when it is known from history.
   - *Levels* heal the same way through `LevelConfig.ProviderDefaults` (`SeriesManagementService.HealSavedLevels`).
+  - *Per-component visual switches the user can override* use the simpler split instead: the provider's value is rebuilt from metadata on every load and the user's choice is a separate nullable field restored in layer 2 (`BackgroundTint` / `UserBackgroundTint`; `ShowAxisLabel` / `UserShowAxisLabel`, 2026-10-18). Null = never chose, so a changed default reaches every chart whose user never touched it, with no "saved against" record and no ambiguity about a user who changed it back.
   - *A whole indicator* that is removed goes in `RetiredIndicators` (code, name, date, why, instead): restore leaves it off and says so once, and the catalog, strategies, alerts and the background monitor all read it. Before this, restore rebuilt an unknown code verbatim as a provider-less series that never drew or spoke.
   - Test any of these on a RESTORED chart (Cody's real saves are committed fixtures: `Fixtures/CodysCipherBSave.cs`, `Fixtures/codys_cipher_sr_series_2026-10-17.json`), not only a fresh one.
 - **Provider speech data is keyed by DisplayName.** `ProviderSpeechStrategy` hands `GetComponentSpeech` the series' arrays under each component's `DisplayName ?? Name` (case-insensitive) plus companions under their raw keys; Cipher B's dots lost their "Wave Trend" clause by looking sibling data up by `Name` (fixed 2026-10-17). Read both, as `CipherBProvider.SpeechValue` does.
@@ -660,6 +661,9 @@ Reviewing a feature alone will not surface any of them.
   `ChartArea.razor` draws them as aria-hidden DOM text. Line budget is 45% of the pane, at
   most 9; overflow is counted ("+N more (see the object tree)", "+N" on a long line); a
   series with ≥3 marker components lists only marks firing at the bar plus "N mark types".
+  A plot with no finite value on ANY bar of the chart is left out (`ChartStatusLine.NoDataAnywhere`,
+  2026-10-18 — Cipher SR's session plots on a daily chart); Alt+Shift+D's ladder uses the same set.
+  Axis value labels honour `ComponentConfig.ShowAxisLabelInEffect()` (Cipher A labels only EMA 5).
   **Rule: nothing may appear there that is not already spoken from the chart** (Cody,
   2026-10-17) — `ChartStatusLineTests` pins the left-out change-from-previous-close.
 - **Marker shape families are owned per indicator.** Market Structure = squares and

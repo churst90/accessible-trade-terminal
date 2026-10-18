@@ -221,6 +221,10 @@ namespace AccessibleTrader.Core.Services
                     // Only the choice: BackgroundTint itself came from metadata above, so a
                     // provider's new default reaches every chart whose user never picked one.
                     fresh.UserBackgroundTint = saved.UserBackgroundTint;
+                    // The user's axis-label choice, the same split: ShowAxisLabel came from
+                    // metadata above, so a provider's new default (Cipher A's ribbon, 2026-10-18)
+                    // reaches every chart whose user never chose; null = never chose.
+                    fresh.UserShowAxisLabel = saved.UserShowAxisLabel;
                 }
             }
 
@@ -410,6 +414,9 @@ namespace AccessibleTrader.Core.Services
                 TintColorBelowHex  = meta.DefaultTintColorBelowHex ?? string.Empty,
                 TintMidline        = meta.DefaultTintMidline,
                 TintFullAt         = meta.DefaultTintFullAt,
+                // Whether the newest value is a label on the axis — the indicator's, rebuilt on
+                // every load; the user's own choice is UserShowAxisLabel, restored in layer 2.
+                ShowAxisLabel      = meta.DefaultShowAxisLabel ?? true,
                 IsMuted            = meta.DefaultIsMuted ?? false,
                 UsePolarityColoring = meta.DefaultUsePolarityColoring ?? _stylingService.GetUsePolarityColoring(indicatorCode, meta.Name, type),
 

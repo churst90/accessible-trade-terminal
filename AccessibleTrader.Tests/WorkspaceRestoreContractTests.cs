@@ -103,6 +103,9 @@ public class WorkspaceRestoreContractTests
         "UserBackgroundTint", // Properties → Background tint. The CHOICE only: BackgroundTint
                           // itself is the indicator's and is rebuilt from metadata, so a new
                           // provider default reaches every chart whose user never picked one.
+        "UserShowAxisLabel", // Properties → Value label on the axis. The CHOICE only, as the
+                          // tint: ShowAxisLabel is the indicator's, rebuilt from metadata, so
+                          // Cipher A's ribbon default (2026-10-18) reaches saved charts.
     };
 
     // ── The gate: no property may be unclassified ────────────────────────────────
