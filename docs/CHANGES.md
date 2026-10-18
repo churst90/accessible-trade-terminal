@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Setup grader round 3, Market Cipher with Cipher SR location: pre-registered, not run (2026-10-18)
+
+`docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`, stage 1 of 2, committed before any setup was counted, any
+Cipher SR value computed or any outcome seen. Round 2's method is kept exactly. The one new variable is
+location: is the Buy dot (or the trigger wave) at the current Cipher SR support? Casper and Geo say
+they put Market Cipher away until price is at a key level, and Cipher SR is Market Cipher's own level
+tool. Quotes with timestamps are from Casper, Geo, Crypto Face, the official tutorial and Gainium.
+
+- **The location rule:** the bar's low within 0.5 ATR above the support that was live at the previous
+  bar's close, and the close above it. A wick through the level still counts if the close reclaims it.
+  On the bar a support is replaced, the old level is the one tested. The 0.5 ATR band is the one the
+  lab's earlier Cipher SR test used; no source gives a number, and it is frozen.
+- **Primary class:** crypto 4h with a daily environment, where our Cipher SR is closest to the real
+  one. Crypto daily and equities daily are secondary. 1h was not added (only KAS and TAO have it, the
+  assets of the unreplicated 1h result).
+- **Headline tests:** setups at support against setups away from it; at-support dots and triggers
+  against random bars that are also at support in the same environment; and at-support random bars
+  against all random bars. Also an older-level split, a placebo-level gate (ledger row 20), and Cipher
+  SR's resistance as an exit, beside round 2's divergence exit, which is labelled as already seen.
+- **Across rounds:** this is the third Market Cipher round on the same data. Verdicts use one Holm over
+  all 119 pre-registered tests of rounds 1 to 3 (39, 51 and 29). "Supported" also needs the held-out era
+  (2023 on) to agree in sign, keep half the size, reach p 0.10 by itself and have 30 events. The
+  pre-registration says that the primary class was chosen after round 2's results were known.
+- Not run. Stage 2 is in `docs/TODO.md`.
+
 ### Setup grader round 2, the Market Cipher school: run as pre-registered, No edge (2026-10-18)
 
 `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`. A new lab command, `setup-grader-mc2`, built and run as

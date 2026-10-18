@@ -117,6 +117,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location:
+> PRE-REGISTERED, not run; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`).** Nothing was
+> computed or counted. What is left:
+> - [ ] **Stage 2 (a different agent): build `setup-grader-mc3` and run it exactly as written.** First
+>   the harness and its 7 sabotage-proven tests, then the round-2 plumbing check and the counts-only
+>   stage, written into the findings before any outcome. Verdicts use the cross-round Holm over all
+>   119 tests of rounds 1 to 3. Results go in `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`, with an
+>   `edges.json` record. Do not build in the main checkout.
+
 > **Open (Cody, 2026-10-18: "don't rename yet"):** Cipher B's hidden "Anchor Wave" components are OUR 5×-period
 > WaveTrend (a higher-timeframe proxy feeding the Gated dot and Anchor Polarity), not the Market Cipher traders'
 > anchor wave (the first deep wave past −60, read off the main waves; the trigger wave is the next higher-low cross
