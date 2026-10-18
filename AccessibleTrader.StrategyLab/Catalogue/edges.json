@@ -2179,6 +2179,161 @@
         "command": "setup-grader-mc2 --snapshots <absolute path to strategy-lab-data>",
         "implemented": true
       }
+    },
+    {
+      "id": "camel-low-checklist",
+      "title": "Camel Finance's real-time low-calling checklist",
+      "family": "cycle",
+      "claim": "After a daily swing low inside Camel's cycle window, a call made once at least 3 of {close above SMA 10, a DSS Bressert cross up from below 20, a trendline break, a thrust or engulfing candle} hold finds lows that a fixed rule (20-bar low, 3xATR rally) later confirms, better than chance, random swing lows and shuffled prices.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities",
+          "commodities"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 15,
+        "notes": "Pre-registered in docs/CYCLE_SCHOOL_PREREG.md (1fe9d986, addendum 13d1e80a) before any result. Development era before 2023, held-out 2023+. Crypto BTC and ETH; equities SPY, QQQ, DIA, IWM; gold GLD (recorded as commodities). Classes never pooled."
+      },
+      "effect": {
+        "measure": "precision-minus-shuffled-bar-surrogate",
+        "value": null,
+        "unit": "share of calls",
+        "n": 734,
+        "p": null,
+        "notes": "No edge in all three classes. Precision 0.402 crypto (112 calls), 0.539 equities (508), 0.553 gold (114) beats chance timing (0.196/0.284/0.299) and random swing lows (0.253/0.338/0.322), Holm p 0.0009 everywhere, but NOT the same checklist on 200 shuffled-bar surrogates (mean 0.502/0.536/0.522; A3 p 0.98/0.48/0.24): the definitions alone produce its precision on a random walk, because a call that needs SMA, trendline and thrust has already seen the rally that confirms the low. Hits come a median 3-5 bars after the low and 2-5 bars before the fixed rule confirms it. Held-out excess over random swing lows positive in all classes; 75-126% kept at 25% noise. Secondary: the window adds about +0.04 precision (Holm p 0.011 equities, 0.013 gold); the 80% rule holds 74% vs a 63% survival-matched null in equities (Holm 0.0015), crypto and gold not testable. The trade version (D2) did not pass Holm in any class. variantsTried 77 across the whole cycle school (56 registered tests, 6 fallback tests, 15 descriptive variants), 4 full runs of which 2 were bug fixes that changed no verdict.",
+        "variantsTried": 77
+      },
+      "controls": [
+        "circular-shift-chance-timing-10000",
+        "random-swing-lows-10000",
+        "shuffled-bar-surrogates-200",
+        "year-block-bootstrap",
+        "holm-within-each-family",
+        "held-out-era-2023-plus",
+        "noise-injection-25pct-3-seeds"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "camel-cycle-counts",
+          "note": "Same school: cycle lengths came from the swing detector; here the checklist's precision comes from its definitions."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "cycle-school --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
+    },
+    {
+      "id": "capitulation-score-added-data",
+      "title": "A broad capitulation score (sentiment, positioning, on-chain, macro) versus price alone",
+      "family": "cycle",
+      "claim": "An equal-weighted score of expanding percentiles from seven families (price, breadth, volatility, positioning, sentiment, on-chain, macro) alerts before later-confirmed lows better than chance, and better than the same alert built from its price family alone.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities",
+          "commodities"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 20,
+        "notes": "Design frozen in docs/CYCLE_LOW_INDICATOR_DESIGN.md; tests in docs/CYCLE_SCHOOL_PREREG.md. Positioning uses the release-stamped CFTC TFF files fetched 2026-10-18; labour data JOLTS and temporary help added as M10-M12 before any outcome. Gold had 12 development alerts: not testable."
+      },
+      "effect": {
+        "measure": "alert-precision-full-minus-price-only",
+        "value": -0.118,
+        "unit": "share of alerts (equities)",
+        "n": 81,
+        "p": 0.92,
+        "notes": "The alerts beat chance (crypto 0.655 vs 0.311, 29 alerts, Suggestive; equities 0.790 vs 0.454, 81 alerts; Holm 0.0015) but price alone does as well or better (crypto 0.696, -0.040, p 0.67; equities 0.908, -0.118, p 0.92). ALERT beat ALERT_P on 1 of 6 assets. Verdict in the prereg's words: the score finds lows only as well as its price part; the added data adds nothing detectable. Leaving out positioning or macro RAISES alert precision in every class. Effective number of families 3.0-3.5. The 'low due' rule adds nothing (B5). Held-out equities: 0.82 vs chance 0.39 but below price alone 0.92. Trade version D1 did not pass Holm.",
+        "variantsTried": 77
+      },
+      "controls": [
+        "circular-shift-chance-timing-10000",
+        "price-only-version-of-itself",
+        "year-block-bootstrap",
+        "holm-within-each-family",
+        "held-out-era-2023-plus",
+        "noise-injection-25pct-3-seeds"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "sentiment-orthogonal",
+          "note": "Ledger row 18 said sentiment is redundant with an oscillator buy at a bottom; here sentiment, positioning and macro add nothing to the price family."
+        },
+        {
+          "id": "onchain-valuation-timing",
+          "note": "On-chain valuation was exposure to the bottom, not timing; here it does not improve the alert."
+        },
+        {
+          "id": "cot-positioning",
+          "note": "COT positioning was a null before; the release-stamped TFF version does not help the alert either."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "cycle-school --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
+    },
+    {
+      "id": "camel-macro-theses",
+      "title": "Camel's macro theses: bonds against headline data, revisions, short yields lead the Fed, the alarm gate",
+      "family": "event",
+      "claim": "A strong payrolls first print with the 2-year yield falling, or a hot CPI with the 10-year falling, or a run of downward payroll revisions, is followed by weaker markets; short-dated yields predict FOMC decisions better than persistence; a failed cycle plus a breakdown plus a credit or curve alarm marks deeper drawdowns.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "equities",
+          "crypto",
+          "bonds"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 60,
+        "notes": "Tests C1-SPY, C1-BTC, C2, C3, C5, C6 of docs/CYCLE_SCHOOL_PREREG.md, first prints and revisions from ALFRED vintages, NBER dates from the announcement table, BAA10Y (investment grade) in place of ICE high yield."
+      },
+      "effect": {
+        "measure": "event-group-difference",
+        "value": -0.0506,
+        "unit": "SPY 120-bar max drawdown (C3, the strongest)",
+        "n": 359,
+        "p": 0.0085,
+        "notes": "No thesis has support after Holm. C3 (downward revisions -> deeper SPY drawdowns) is 5 points deeper, raw p 0.0085, Holm 0.051, held-out difference about zero. C1-SPY p 0.21, C1-BTC 0.36, C2 0.31 (held-out sign opposite), C5 0.24 (the 3-month bill 84.6% right vs 81.3% for persistence; the 2-year only 46.7%). C6 not testable (19 gate days < 20). C4 descriptive: SPY was 9-45% above its prior-year low at every NBER peak announcement.",
+        "variantsTried": 77
+      },
+      "controls": [
+        "label-permutation-within-decade-10000",
+        "circular-shift-of-release-labels",
+        "exact-mcnemar-vs-persistence",
+        "holm-within-each-family",
+        "held-out-era-2023-plus"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "macro-release-dates",
+          "note": "Macro release days were a null for same-day returns; the conditional theses here are nulls too."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "cycle-school --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }

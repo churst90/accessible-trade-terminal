@@ -21,7 +21,8 @@ Common flags: `--snapshots` (dir), `--only <substr>` (filename filter), `--tf`, 
 
 Research commands relevant to strategy work: `cross` (Trading Cross z-momentum), `gate`
 (conditioner vs 200-MA vs random), `polarity` (revert-vs-trend by asset), `crowding` (funding+OI),
-`confluence` (structure as context), `poc-dev`, `respect`, `battery`, `walk-windows`.
+`confluence` (structure as context), `poc-dev`, `respect`, `battery`, `walk-windows`,
+`cycle-school` (the cycle-school pre-registration; run `--counts-only` first).
 
 ## Data
 
@@ -34,7 +35,8 @@ Never commit it; the repo's `.git` is already heavy with historical build artifa
   CoinMetrics on-chain, Alternative.me Fear & Greed
 - `macro/<source>/` — macro, Fed, credit, liquidity and sentiment CSVs from `macro-fetch`
   (FRED/ALFRED vintages, NBER announcement dates, AAII, Cboe put/call to 2019, BTC on-chain from
-  2010). Not loaded by the cross-series cache: read them with `MacroPointInTime` and honour
+  2010, JOLTS and temporary help vintages, CFTC TFF and disaggregated COT chosen by contract code
+  and stamped at the release). Not loaded by the cross-series cache: read them with `MacroPointInTime` and honour
   `known_from` / `realtime_start`. See `docs/MACRO_DATA.md` for the traps (ICE spreads only from
   2023-10, the 2025 shutdown gaps, USREC rewritten after the fact).
 

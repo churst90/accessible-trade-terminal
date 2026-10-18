@@ -13,12 +13,16 @@ from-scratch cycle-low indicator. Before this the lab had FRED release DATES onl
   how `known_from` was set, and notes. It also lists what was not fetched and why, and the
   first-print cross-checks.
 - **Command:** `StrategyLab macro-fetch [--snapshots ../strategy-lab-data] [--out <dir>]
-  [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain]`. Code in
+  [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain,labour,cftc]`. Code in
   `AccessibleTrader.StrategyLab/Macro/`. The point-in-time logic is `MacroPointInTime.cs`, and its
   tests are `MacroPointInTimeTests` (23).
 - **Size:** 31 MB in 332 files: 111 raw files (13 MB), 111 sidecars, 109 normalized CSVs (17.5 MB)
   and the manifest. Every raw file was retrieved on 2026-10-18 between 12:44 and 13:21 UTC.
 - **No keys and no accounts.** Every source is public and keyless.
+- **Second fetch, 2026-10-18 14:3x UTC** (`--only labour,cftc`, for the cycle school): 37 raw files
+  and 19 normalized CSVs, listed in the two sections "Labour leading data" and "CFTC positioning"
+  below. A hash of every file in `strategy-lab-data` before and after showed no existing file
+  changed except `MACRO_MANIFEST.json`, which now lists 276 files.
 
 ## Nothing already on disk is ever touched
 
@@ -76,6 +80,83 @@ published, so early rows show today's revised figures. Use the `_vintages` file 
 **Cross-check:** ALFRED's own "initial release only" file was downloaded for each series and compared
 with the first prints derived from the real-time history. All twelve agree row for row: 560, 857,
 798, 907, 650, 357, 314, 1197, 139, 337, 84 and 145 periods, with no value or date different.
+
+### Labour leading data (ALFRED; point in time, exact; added 2026-10-18)
+
+The leading labour series Camel shows instead of the headline (`docs/CAMEL_METHOD.md` 7.3). Same
+three files per series as above, from source `labour` of `macro-fetch`.
+
+| Series | What | Observations | Vintages from |
+|---|---|---|---|
+| JTSQUR | JOLTS quits rate (%) | 2000-12 → 2026-08 | 2010-08-11 |
+| JTSJOL | JOLTS job openings (thousands) | 2000-12 → 2026-08 | 2010-08-11 |
+| TEMPHELPS | Temporary help services jobs (thousands) | 1990-01 → 2026-09 | 2011-01-07 |
+
+ALFRED's first-print cross-check agreed row for row: 194, 194 and 189 periods. **Before the first
+vintage nothing is known** (trap 4): these series cannot be read as known-then before 2010-08 (JOLTS)
+and 2011-01 (temporary help), although their observations start earlier.
+
+### CFTC positioning (release-stamped, by contract code; added 2026-10-18)
+
+Folder `macro/cftc/`, source `cftc` of `macro-fetch`. Raw: the CFTC's annual history archives (the
+Traders in Financial Futures report, `fin_fut_txt_2006_2016.zip` and `fut_fin_txt_2017.zip` to
+`_2026.zip`, and the disaggregated report the same way), plus the six CFTC pages the release dates
+come from (the special-announcements page, the release schedule, and press releases 6745-13,
+7864-19, 9138-25 and 9147-25).
+
+Each normalized file is `date,value,known_from`, where `date` is the report (as-of) Tuesday and
+`value` is a trader group's net position as a percentage of open interest, (long − short) ÷ open
+interest × 100, futures only, spreads left out:
+
+| File | Contract (code) | Group |
+|---|---|---|
+| `tff_sp500_emini_*` | E-mini S&P 500 (13874A) | lev_funds, asset_mgr, dealer |
+| `tff_nasdaq100_mini_*` | Nasdaq-100 mini (209742) | lev_funds, asset_mgr, dealer |
+| `tff_bitcoin_cme_*` | CME Bitcoin (133741) | lev_funds, asset_mgr, dealer |
+| `disagg_gold_comex_*` | COMEX gold (088691) | managed_money |
+
+S&P, Nasdaq and gold have 1,062 weeks from 2006-06-13; CME Bitcoin 445 weeks from 2018-04-10 (the
+TFF report shows a market only once 20 traders are reportable). All end 2026-10-13.
+
+**`known_from` is the release, never the report date** (`CftcReleaseCalendar.cs`):
+
+- normally the Friday after the Tuesday, 3:30 pm Eastern;
+- the next business day when a federal holiday falls on that week's Wednesday, Thursday or Friday
+  (this reproduces every starred date on the 2013, 2019 and 2026 schedules);
+- the CFTC's announced dates for the 2013, 2018-19 and 2025 shutdowns and the 2023 ION incident.
+  Where an announcement gave only a week or a cadence, the latest date it allows is used. For the
+  2025 shutdown, two catch-up tables were published (18 Nov and 9 Dec); the later date of the two is
+  used for each report;
+- **never before the history was posted.** The TFF report began in 2010 and its history back to
+  June 2006 was first posted on 2010-12-03, so every TFF value dated before then is known only from
+  that day. The disaggregated history was completed on 2010-05-07 and is floored there.
+
+### What the older `xs_cftc_*` files actually hold (checked 2026-10-18)
+
+`macro-fetch --only cftc` compares every `xs_cftc_*.json` in `strategy-lab-data` with the archives
+and records the best-matching report, contract and trader group in the manifest's `checks`. The
+files were only read.
+
+| File | What it is | Match |
+|---|---|---|
+| `sp500_cot` | TFF leveraged funds, E-mini S&P 500 (13874A), stamped report + 3 days | 1048 of 1048 |
+| `nasdaq_cot` | TFF leveraged funds, Nasdaq-100 mini (209742), stamped report + 3 | 1048 of 1048 |
+| `e_mini_sp_500_cot` and `e_mini_sp_500___chicago_cot` | TFF leveraged funds, 13874A, report-dated | all |
+| `bitcoin_cot` | **a mixture**: Cboe bitcoin (1330E1) 73 weeks, CME (133741) 356, CME micro (133742) 24 | 453 of 453 across the three |
+| `bitcoin___chicago_mercantile_exchange_cot` | CME 393 weeks, micro 24 | 417 of 417 across the two |
+| `gold_cot` and `gold___commodity_exchange_cot` | disaggregated managed money, COMEX gold (088691), report-dated | all |
+| `euro_fx_cot` | TFF leveraged funds, Euro FX (099741) | 711 of 711 |
+| `light_sweet_wti_cot` | disaggregated managed money, ICE WTI (067411), not NYMEX's contract | 431 of 431 |
+| `wti_cot` | **a mixture**: ICE WTI (067411) 345 weeks, a WCS Houston/WTI spread swap (06739C) about 234, NYMEX WTI calendar swaps (06765A) about 64, and other WTI spreads; never NYMEX's benchmark WTI contract (067651) | 711 of 711 across them |
+
+So the note in `CYCLE_LOW_INDICATOR_DESIGN.md` 5.4 was half right. The S&P, Nasdaq and Bitcoin
+files are TFF leveraged-fund data, not the disaggregated report: the `cftc-cot` downloader reads both
+reports. But the substring match ("BITCOIN", "WTI") let several contracts into one file, and the
+first row of each week won. Two further faults affect every one of these files:
+
+- the S&P and Nasdaq files start in 2006 with values nobody could see until 2010-12-03;
+- every file ignores holiday, shutdown and ION delays (the "+3 days" rule served the 2019 backlog up
+  to five weeks early).
 
 ### Market rates, spreads and policy (FRED latest values; `known_from` from the schedule)
 
@@ -275,6 +356,10 @@ issued its first memo in 1979.
 - **Google Trends** has no keyless route that keeps to Google's terms.
 - **Paid on-chain metrics** (SOPR, NUPL, realized cap, exchange flows) need a Glassnode, CryptoQuant
   or CoinMetrics key.
+- **Exact CFTC release dates before the current year** are not published as a list (the schedule page
+  shows only the current year). The release rule plus the announced exceptions stand in for them.
+  The Wayback Machine's copies of the 2013 and 2019 schedules were read to check the holiday rule;
+  they were not saved.
 
 ## ALFRED request limits, for the next fetch
 

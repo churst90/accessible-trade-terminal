@@ -203,6 +203,12 @@ Pick the ones that apply. Each has changed a verdict here.
   `strategy-lab-data/events_fomc.json`. (`docs/FOMC_FINDINGS.md`)
 - **The asset-class polarity has now been measured five independent ways** — POC deviation, Value
   Deviation, the Trading Cross, volume, and cycle translation. It is the most robust finding here.
+- **A low-calling checklist must beat SHUFFLED prices, not just random swing lows.** Camel's
+  checklist (swing low + SMA 10, DSS cross, trendline break, thrust) beats chance and random swing
+  lows in every class, and scores the same on shuffled-bar surrogates: items that need price to have
+  rallied already pre-select the lows a "confirmed by a rally" rule rewards. A capitulation score with
+  sentiment, positioning, on-chain and macro data did no better than its price family alone, and no
+  Camel macro thesis survived Holm. (`docs/CYCLE_SCHOOL_FINDINGS.md`)
 - **Failed outright:** all four Cosasverdes claims; Cipher SR proximity (lookahead artifact).
 
 ## Hypothesis generation from hindsight

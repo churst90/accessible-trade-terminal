@@ -58,6 +58,13 @@ try
             GetFlag(args.Skip(1).ToArray(), "--out"),
             GetFlag(args.Skip(1).ToArray(), "--manifest"),
             GetFlag(args.Skip(1).ToArray(), "--only")),
+        "cycle-school" => await AccessibleTrader.StrategyLab.CycleSchool.CycleSchoolCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            args.Contains("--counts-only"),
+            GetFlag(args.Skip(1).ToArray(), "--out") ?? "../reports/cycle-school",
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--draws"), out var csd) ? csd : 10_000,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--surrogates"), out var css) ? css : 200,
+            int.TryParse(GetFlag(args.Skip(1).ToArray(), "--trade-draws"), out var cst) ? cst : 1_000),
         "macro-xls-dump" => AccessibleTrader.StrategyLab.Macro.MacroFetchCommand.DumpXls(
             args.Length > 1 ? args[1] : throw new ArgumentException("macro-xls-dump <file.xls> [--rows 20]"),
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--rows"), out var mxr) ? mxr : 20),
@@ -332,7 +339,8 @@ static int PrintUsage()
     Console.WriteLine("Usage:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000 [--out strategy-lab-data]");
     Console.WriteLine("  StrategyLab xs-snapshot [--out strategy-lab-data] [--points 3000]   # funding/OI/FNG");
-    Console.WriteLine("  StrategyLab macro-fetch [--snapshots ../strategy-lab-data] [--out <dir>] [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain]");
+    Console.WriteLine("  StrategyLab cycle-school [--snapshots ../strategy-lab-data] [--counts-only] [--out ../reports/cycle-school] [--draws 10000] [--surrogates 200] [--trade-draws 1000]");
+    Console.WriteLine("  StrategyLab macro-fetch [--snapshots ../strategy-lab-data] [--out <dir>] [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain,labour,cftc]");
     Console.WriteLine("                   # keyless macro/Fed/credit/sentiment data + ALFRED vintages into <snapshots>/macro; never overwrites (docs/MACRO_DATA.md)");
     Console.WriteLine("  StrategyLab run  --snapshot <path> --spec <id> [--start yyyy-mm-dd] [--end yyyy-mm-dd] [--warmup 200] [--no-reverse]");
     Console.WriteLine("                   [--spread 0.04] [--funding 0.01] [--funding-hours 8] [--borrow 5]   (percentages; all default to 0 = not modelled)");

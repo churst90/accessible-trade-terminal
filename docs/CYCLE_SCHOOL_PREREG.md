@@ -1,5 +1,7 @@
 # The cycle school: pre-registration
 
+> **Results (2026-10-18):** `docs/CYCLE_SCHOOL_FINDINGS.md`. Nothing below was changed after them.
+
 Written 2026-10-18, before any result existed. This is stage 1 of 2. Stage 2 (a different agent)
 builds and runs what is written here. **This file was committed before any forward return, hit
 rate, outcome or event count was computed for any rule in it. The commit time is the proof.**
@@ -620,3 +622,114 @@ The null **cannot be reframed afterwards** by any of these:
 - **Results go in** a new `docs/CYCLE_SCHOOL_FINDINGS.md`, with an `edges.json` record
   (`EdgeRegistryTests` requires one for every findings document). **Do not edit this
   pre-registration after results exist**, except to add a dated pointer to the findings at the top.
+
+## Addendum (2026-10-18, before any outcome)
+
+Written by stage 2 after fetching the extra data Cody asked for ("any extra data we don't have in
+terms of Fed and macro, fetch that before running the tests") and **before any reference low,
+call, alert, event count, forward return or test statistic had been computed for any rule in this
+file**. Nothing above is changed. This addendum only says which new series fill which slot the
+design note already has, and what the COT check found.
+
+### A.1 What was fetched
+
+`StrategyLab macro-fetch --only labour,cftc` on 2026-10-18 (details and file list in
+`docs/MACRO_DATA.md`, sections "Labour leading data" and "CFTC positioning"):
+
+- **JOLTS quits rate (JTSQUR), JOLTS job openings (JTSJOL) and temporary help services jobs
+  (TEMPHELPS)**, with their full ALFRED vintage history. Vintages start 2010-08-11 for both JOLTS
+  series and 2011-01-07 for temporary help. Nothing is known before a series' first vintage.
+- **The CFTC Traders in Financial Futures report** for the E-mini S&P 500 (contract code 13874A), the
+  Nasdaq-100 mini (209742) and CME Bitcoin (133741), and **the disaggregated report** for COMEX gold
+  (088691), from the CFTC's annual archives. Each value is a trader group's net position as a
+  percentage of open interest, stamped `known_from` = its release (normally the Friday; later for
+  holidays, the 2013, 2018-19 and 2025 shutdowns and the 2023 ION incident, from the CFTC's own
+  announcements), and never earlier than the day the report's history was first posted (2010-12-03
+  for TFF, 2010-05-07 for the disaggregated report).
+
+Not fetched, as instructed: Cboe put/call after 2019, and anything needing a key or a login.
+
+What I saw while doing this: the vintage start dates above, the first and last report dates of the
+CFTC series, and the values of the old `xs_cftc_*` files only as far as matching them number for
+number against the archives (A.2). No price, return or outcome was looked at.
+
+### A.2 What the existing COT files contain
+
+The design note (5.4) asked stage 2 to confirm which report each `xs_cftc_*` file came from. Each
+file was matched value by value against every contract and trader group in both archives:
+
+- `xs_cftc_sp500_cot_1w.json`: TFF leveraged funds, E-mini S&P 500 (13874A), all 1,048 weeks,
+  stamped report date + 3 days. **Confirmed**, with two faults: it starts in 2006, but TFF values
+  before 2010-12-03 were not public then; and "+3 days" ignores holiday and shutdown delays.
+- `xs_cftc_nasdaq_cot_1w.json`: TFF leveraged funds, Nasdaq-100 mini (209742), all 1,048 weeks.
+  **Confirmed**, with the same two faults.
+- `xs_cftc_bitcoin_cot_1w.json`: **not one contract**. 73 weeks are Cboe's bitcoin future (1330E1,
+  2017-12 to 2019-05), 356 are CME Bitcoin (133741) and 24 are CME's micro contract (133742). The
+  downloader matched the name "BITCOIN" and kept the first matching row each week. Under the design
+  note's rule ("if a file cannot be confirmed, Q3 is undefined for that asset") this file is unusable.
+- `xs_cftc_gold_cot_1w.json`: disaggregated managed money, COMEX gold (088691), all 711 weeks,
+  report-dated (the lab cache moves it to report + 3). **Confirmed.**
+
+So the S&P, Nasdaq and Bitcoin files are TFF data, not the disaggregated report the design note
+feared; the problem is the Bitcoin mixture and the release stamping.
+
+### A.3 Where the new series go (only slots the design note already has)
+
+**Positioning, metric Q3** (design note 5.4). Same metric, same sign (−), same staleness (21 days),
+same weekly warm-up (104 values). Only the file changes, and every asset reads the same kind of
+file, stamped by the same release rule:
+
+| Asset | Q3 now reads | Group |
+|---|---|---|
+| SPY, DIA, IWM | `macro/cftc/tff_sp500_emini_lev_funds_net_pct_oi.csv` | leveraged funds |
+| QQQ | `macro/cftc/tff_nasdaq100_mini_lev_funds_net_pct_oi.csv` | leveraged funds |
+| BTC | `macro/cftc/tff_bitcoin_cme_lev_funds_net_pct_oi.csv` | leveraged funds |
+| GLD | `macro/cftc/disagg_gold_comex_managed_money_net_pct_oi.csv` | managed money |
+| ETH | none (unchanged: the design gives ETH no Q3) | |
+
+Reasons, all decided before any outcome:
+
+- For SPY, QQQ and gold the values are identical to the confirmed old files week for week; only
+  `known_from` changes, to the real release and the history floor. That removes look-ahead (up to
+  five weeks in the 2019 backlog, and 2006 to 2010 values that nobody could see then).
+- For BTC the old file fails the design's confirmation rule; the new file is CME Bitcoin only, the
+  contract the design meant. Its first week is 2018-04-10 (the CFTC shows a market only once 20
+  traders are reportable), not 2017-12.
+- Leveraged funds is the TFF report's speculator group and is what the confirmed old files already
+  held, so the metric means what it meant when frozen.
+- Consequences, stated now: Q3 for the equity ETFs starts from 2010-12-03 rather than 2006; Q3 for
+  gold starts from 2010-05-07 rather than 2013-01 (the same values, a longer history); BTC's Q3 is
+  newly defined. The asset-manager and dealer files were fetched but enter nothing, because the
+  design has no slot for them.
+- The release is at 3:30 pm Eastern, before the US equity close, so the normal rule (`known_from` on
+  or before the bar's date) holds for equity bars too; the H.4.1 exception does not apply.
+
+**Macro and liquidity, metrics M10 to M12** (design note 5.7, the family's labour metrics M7 to M9).
+Each copies M9 exactly ("mean of the last 3 monthly changes, as published that day", read through
+`MacroPointInTime.AsOf` from the `_vintages.csv` file, sign −, staleness 75 days, monthly warm-up of
+36 values, `realtime_start` as known-from), so no new length, sign rule or threshold is introduced:
+
+| Id | Series | Sign | File |
+|---|---|---|---|
+| M10 | temporary help services jobs (TEMPHELPS) | − | `macro/alfred/TEMPHELPS_vintages.csv` |
+| M11 | JOLTS quits rate (JTSQUR) | − | `macro/alfred/JTSQUR_vintages.csv` |
+| M12 | JOLTS job openings (JTSJOL) | − | `macro/alfred/JTSJOL_vintages.csv` |
+
+Falling temporary help, quits and openings are the labour weakness Camel reads as leading (CAMEL_METHOD
+7.3), so lower is more washed out, the same orientation as payrolls. They join family M, which every
+asset has; the number of families, the equal weights across families and the "at least 3 families"
+rule are unchanged. Like every metric, each is undefined until its own 36 releases exist (from about
+2013-08 for JOLTS and 2014-01 for temporary help) and when its newest value is older than 75 days.
+
+### A.4 What does not change
+
+- **No new test, no new threshold, no new family, and the count stays at 56.** No slot in this file
+  was marked "pending data", so none is added.
+- The macro tests C1 to C6 are unchanged; none of them uses the new series.
+- The 2025 shutdown, USREC, ICE-spread and NFCI traps (`docs/MACRO_DATA.md`) are handled as section
+  6 and the design note already say.
+- **Most literal readings for the build, fixed now:**
+  - a vintaged monthly metric "enters at its own cadence" with one value per ALFRED vintage date (each
+    release), computed from `AsOf` that day; its age for staleness is the bar's date minus the first
+    release date of the newest period it uses;
+  - a weekly COT value is one value per report week, entering on its `known_from`.

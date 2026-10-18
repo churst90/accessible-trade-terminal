@@ -1,0 +1,800 @@
+{
+  "counts": [
+    {
+      "class": "crypto",
+      "era": "Dev",
+      "reference_lows_GD": 78,
+      "reference_lows_GW": 14,
+      "calls_A-P": 112,
+      "excluded_A-P": 0,
+      "calls_A-V1": 182,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 60,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 156,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 171,
+      "excluded_A-NW": 0,
+      "calls_A7": 9,
+      "excluded_A7": 0,
+      "calls_ALERT": 29,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 23,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 45,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 45,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 43,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 41,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 22,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 21,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "crypto",
+      "era": "Held",
+      "reference_lows_GD": 41,
+      "reference_lows_GW": 5,
+      "calls_A-P": 44,
+      "excluded_A-P": 1,
+      "calls_A-V1": 63,
+      "excluded_A-V1": 2,
+      "calls_A-V2": 21,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 52,
+      "excluded_A-F2": 2,
+      "calls_A-NW": 85,
+      "excluded_A-NW": 1,
+      "calls_A7": 13,
+      "excluded_A7": 0,
+      "calls_ALERT": 9,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 10,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 14,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 11,
+      "excluded_ALERT90": 2,
+      "calls_ALERT_P90": 13,
+      "excluded_ALERT_P90": 1,
+      "calls_ALERT_W": 6,
+      "excluded_ALERT_W": 4,
+      "calls_CONF": 5,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 2,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "equity",
+      "era": "Dev",
+      "reference_lows_GD": 464,
+      "reference_lows_GW": 66,
+      "calls_A-P": 508,
+      "excluded_A-P": 0,
+      "calls_A-V1": 813,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 319,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 690,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 766,
+      "excluded_A-NW": 0,
+      "calls_A7": 134,
+      "excluded_A7": 0,
+      "calls_ALERT": 81,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 65,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 110,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 146,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 121,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 81,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 65,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 115,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "equity",
+      "era": "Held",
+      "reference_lows_GD": 53,
+      "reference_lows_GW": 9,
+      "calls_A-P": 65,
+      "excluded_A-P": 0,
+      "calls_A-V1": 121,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 31,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 100,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 95,
+      "excluded_A-NW": 0,
+      "calls_A7": 18,
+      "excluded_A7": 0,
+      "calls_ALERT": 17,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 13,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 21,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 34,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 18,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 11,
+      "excluded_ALERT_W": 3,
+      "calls_CONF": 26,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 20,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "gold",
+      "era": "Dev",
+      "reference_lows_GD": 86,
+      "reference_lows_GW": 12,
+      "calls_A-P": 114,
+      "excluded_A-P": 0,
+      "calls_A-V1": 209,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 93,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 165,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 132,
+      "excluded_A-NW": 0,
+      "calls_A7": 17,
+      "excluded_A7": 0,
+      "calls_ALERT": 12,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 16,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 16,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 23,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 27,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 15,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 10,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 23,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "gold",
+      "era": "Held",
+      "reference_lows_GD": 13,
+      "reference_lows_GW": 1,
+      "calls_A-P": 22,
+      "excluded_A-P": 0,
+      "calls_A-V1": 39,
+      "excluded_A-V1": 1,
+      "calls_A-V2": 15,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 31,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 24,
+      "excluded_A-NW": 0,
+      "calls_A7": 2,
+      "excluded_A7": 0,
+      "calls_ALERT": 0,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 0,
+      "excluded_ALERT_P": 2,
+      "calls_ALERT_ND": 1,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 2,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 3,
+      "excluded_ALERT_P90": 2,
+      "calls_ALERT_W": 1,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 0,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 3,
+      "excluded_CONF_P": 0
+    }
+  ],
+  "per_asset_counts": [
+    {
+      "asset": "BTC",
+      "first_bar": "2011-08-18",
+      "last_bar": "2026-06-14",
+      "bars": 5415,
+      "GD_dev": 54,
+      "GW_dev": 10,
+      "AP_dev": 74,
+      "ALERT_dev": 23,
+      "CONF_dev": 17,
+      "A7_dev": 5
+    },
+    {
+      "asset": "ETH",
+      "first_bar": "2017-08-16",
+      "last_bar": "2026-06-14",
+      "bars": 3225,
+      "GD_dev": 24,
+      "GW_dev": 4,
+      "AP_dev": 38,
+      "ALERT_dev": 6,
+      "CONF_dev": 5,
+      "A7_dev": 4
+    },
+    {
+      "asset": "SPY",
+      "first_bar": "1993-01-29",
+      "last_bar": "2026-07-24",
+      "bars": 8428,
+      "GD_dev": 142,
+      "GW_dev": 17,
+      "AP_dev": 144,
+      "ALERT_dev": 29,
+      "CONF_dev": 18,
+      "A7_dev": 35
+    },
+    {
+      "asset": "QQQ",
+      "first_bar": "1999-03-10",
+      "last_bar": "2026-07-24",
+      "bars": 6886,
+      "GD_dev": 102,
+      "GW_dev": 16,
+      "AP_dev": 128,
+      "ALERT_dev": 19,
+      "CONF_dev": 15,
+      "A7_dev": 30
+    },
+    {
+      "asset": "DIA",
+      "first_bar": "1998-01-20",
+      "last_bar": "2026-07-24",
+      "bars": 7172,
+      "GD_dev": 123,
+      "GW_dev": 17,
+      "AP_dev": 116,
+      "ALERT_dev": 21,
+      "CONF_dev": 23,
+      "A7_dev": 38
+    },
+    {
+      "asset": "IWM",
+      "first_bar": "2000-05-26",
+      "last_bar": "2026-07-24",
+      "bars": 6578,
+      "GD_dev": 97,
+      "GW_dev": 16,
+      "AP_dev": 120,
+      "ALERT_dev": 12,
+      "CONF_dev": 9,
+      "A7_dev": 31
+    },
+    {
+      "asset": "GLD",
+      "first_bar": "2004-11-18",
+      "last_bar": "2026-07-24",
+      "bars": 5453,
+      "GD_dev": 86,
+      "GW_dev": 12,
+      "AP_dev": 114,
+      "ALERT_dev": 12,
+      "CONF_dev": 10,
+      "A7_dev": 17
+    }
+  ],
+  "macro_counts": [
+    {
+      "Id": "C1-SPY",
+      "dev_thesis_group": 64,
+      "dev_other_group": 101,
+      "held_thesis_group": 3,
+      "held_other_group": 11,
+      "testable": true
+    },
+    {
+      "Id": "C1-BTC",
+      "dev_thesis_group": 21,
+      "dev_other_group": 38,
+      "held_thesis_group": 3,
+      "held_other_group": 11,
+      "testable": true
+    },
+    {
+      "Id": "C2",
+      "dev_thesis_group": 141,
+      "dev_other_group": 135,
+      "held_thesis_group": 8,
+      "held_other_group": 17,
+      "testable": true
+    },
+    {
+      "Id": "C3",
+      "dev_thesis_group": 77,
+      "dev_other_group": 282,
+      "held_thesis_group": 30,
+      "held_other_group": 12,
+      "testable": true
+    },
+    {
+      "Id": "C5",
+      "dev_thesis_group": 182,
+      "dev_other_group": 182,
+      "held_thesis_group": 41,
+      "held_other_group": 41,
+      "testable": true
+    },
+    {
+      "Id": "C6",
+      "dev_thesis_group": 19,
+      "dev_other_group": 38,
+      "held_thesis_group": 2,
+      "held_other_group": 5,
+      "testable": false
+    }
+  ],
+  "trade_counts": [
+    {
+      "test": "D1",
+      "class": "crypto",
+      "taken": 22,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "crypto",
+      "taken": 112,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D1",
+      "class": "equity",
+      "taken": 65,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "equity",
+      "taken": 508,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D1",
+      "class": "gold",
+      "taken": 10,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "gold",
+      "taken": 114,
+      "skipped": 0,
+      "past": 0
+    }
+  ],
+  "a8_counts": {
+    "crypto": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0
+    },
+    "equity": {
+      "Candidates": 116,
+      "In": 66,
+      "Unresolved": 0
+    },
+    "gold": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0
+    }
+  },
+  "b7_counts": {
+    "crypto": {
+      "G_W": 10,
+      "other_G_D": 28
+    },
+    "equity": {
+      "G_W": 66,
+      "other_G_D": 398
+    }
+  },
+  "fallback_checklist_classes": [],
+  "fallback_alert_classes": [
+    "crypto",
+    "gold"
+  ],
+  "inputs": [
+    {
+      "File": "bitstamp_ADA_USDT_1d.json",
+      "Sha256Before": "90e77f8054f512cceb96eb718887dc506141f0b30facc9f3645520dcc11ea9ff",
+      "Sha256After": "90e77f8054f512cceb96eb718887dc506141f0b30facc9f3645520dcc11ea9ff",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_BCH_USDT_1d.json",
+      "Sha256Before": "7f7ba6e6e1668054ef80f3d80724d06c023a9129b263ad9a8042e563683b2b35",
+      "Sha256After": "7f7ba6e6e1668054ef80f3d80724d06c023a9129b263ad9a8042e563683b2b35",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_BTC_USDT_1d.json",
+      "Sha256Before": "7e4df0795b9ffe098e964736d15d680a4c18d8cc82f3c2fd7bf4ade484efcf0f",
+      "Sha256After": "7e4df0795b9ffe098e964736d15d680a4c18d8cc82f3c2fd7bf4ade484efcf0f",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_DOGE_USDT_1d.json",
+      "Sha256Before": "05bec010f7f7ff1a136ecb6607fb308c296f304cb2d3f24b85ead52d06396783",
+      "Sha256After": "05bec010f7f7ff1a136ecb6607fb308c296f304cb2d3f24b85ead52d06396783",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_ETH_USDT_1d.json",
+      "Sha256Before": "b26e92b295239c07e6b0e7c3738b025b2004b5d2805c7840bf272916aab1844e",
+      "Sha256After": "b26e92b295239c07e6b0e7c3738b025b2004b5d2805c7840bf272916aab1844e",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_LTC_USDT_1d.json",
+      "Sha256Before": "12e2b09a7b162482e2486030ededb222413077d107de71d02f1f504447b4d932",
+      "Sha256After": "12e2b09a7b162482e2486030ededb222413077d107de71d02f1f504447b4d932",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_SOL_USDT_1d.json",
+      "Sha256Before": "9ba5831ba6ba1e2cba552ac20e22555a17513314a61dd3ab0dc40d77bdd41fdf",
+      "Sha256After": "9ba5831ba6ba1e2cba552ac20e22555a17513314a61dd3ab0dc40d77bdd41fdf",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_XRP_USDT_1d.json",
+      "Sha256Before": "0ff6f1e1f7a43644b506379f994550706e93f19bd9dc47a8920b6888ce59214f",
+      "Sha256After": "0ff6f1e1f7a43644b506379f994550706e93f19bd9dc47a8920b6888ce59214f",
+      "Unchanged": true
+    },
+    {
+      "File": "events_fomc.json",
+      "Sha256Before": "d12a056f8c46e442427d5b5f7b45e003f256bd59d6e45c1eb595604c22e39a44",
+      "Sha256After": "d12a056f8c46e442427d5b5f7b45e003f256bd59d6e45c1eb595604c22e39a44",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/aaii/aaii_bull_minus_bear.csv",
+      "Sha256Before": "f6dbf2486e4af928e875a5f265ddef209f650827f2392e3748905fdddc090bda",
+      "Sha256After": "f6dbf2486e4af928e875a5f265ddef209f650827f2392e3748905fdddc090bda",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/CPIAUCSL_vintages.csv",
+      "Sha256Before": "79b4da2b91f27acbd9f32f1e9955bcaed60a304f2490f509ed4a6b0adabf7d2c",
+      "Sha256After": "79b4da2b91f27acbd9f32f1e9955bcaed60a304f2490f509ed4a6b0adabf7d2c",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/ICSA_vintages.csv",
+      "Sha256Before": "8025b74a6e9954e6b59678d3e5223b97f87fbe2ac4c452007b035eb5e8f877e5",
+      "Sha256After": "8025b74a6e9954e6b59678d3e5223b97f87fbe2ac4c452007b035eb5e8f877e5",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/JTSJOL_vintages.csv",
+      "Sha256Before": "f2878c1137ce4adf983fd64386499cc382c15b226a2f332c0e35de5d2381b882",
+      "Sha256After": "f2878c1137ce4adf983fd64386499cc382c15b226a2f332c0e35de5d2381b882",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/JTSQUR_vintages.csv",
+      "Sha256Before": "cdb60707af1eda281f059884385e0c0b8d101d2b4208626fdcdc6861238191a3",
+      "Sha256After": "cdb60707af1eda281f059884385e0c0b8d101d2b4208626fdcdc6861238191a3",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/PAYEMS_vintages.csv",
+      "Sha256Before": "e9a88a890798adc33e0921393c795c099c903115a66c327cda397db9dd10197e",
+      "Sha256After": "e9a88a890798adc33e0921393c795c099c903115a66c327cda397db9dd10197e",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/SAHMREALTIME_vintages.csv",
+      "Sha256Before": "9be825227afce6b6bd39cf82c888ff6d78221a781e10dcba277fe01dd7469324",
+      "Sha256After": "9be825227afce6b6bd39cf82c888ff6d78221a781e10dcba277fe01dd7469324",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/TEMPHELPS_vintages.csv",
+      "Sha256Before": "94f1c91c6063225f7fffefdee3d617f66ea5c809a8ffd3a019ae406ee8e8f1ee",
+      "Sha256After": "94f1c91c6063225f7fffefdee3d617f66ea5c809a8ffd3a019ae406ee8e8f1ee",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/UMCSENT_vintages.csv",
+      "Sha256Before": "9f0975bb320cede0b888f76a6f6f16ec0281728dbb8931e20518abb41c9585f7",
+      "Sha256After": "9f0975bb320cede0b888f76a6f6f16ec0281728dbb8931e20518abb41c9585f7",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/UNRATE_vintages.csv",
+      "Sha256Before": "7073bf45dcc223388d226976e2ee405d240054a20ab6e1b5fa7753bf21a4b21f",
+      "Sha256After": "7073bf45dcc223388d226976e2ee405d240054a20ab6e1b5fa7753bf21a4b21f",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cboe/cboe_equity_pc_stitched.csv",
+      "Sha256Before": "980c523b93779423161ee11bc076a9248933db5a729496b65b647ff068557594",
+      "Sha256After": "980c523b93779423161ee11bc076a9248933db5a729496b65b647ff068557594",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/disagg_gold_comex_managed_money_net_pct_oi.csv",
+      "Sha256Before": "f1e618847470efffb3f26dcc26ae2d41373d7680270edcc05d4a3b0c24117b85",
+      "Sha256After": "f1e618847470efffb3f26dcc26ae2d41373d7680270edcc05d4a3b0c24117b85",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_bitcoin_cme_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "3c1ff17d854751a4867b4cddff9a6bbee5934d29ec5169a4cc0d533d4950a7fe",
+      "Sha256After": "3c1ff17d854751a4867b4cddff9a6bbee5934d29ec5169a4cc0d533d4950a7fe",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_nasdaq100_mini_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "d1e3f66ed7bb3d8d65847b5f20aaf46f195c242464861722c1b95179013038ec",
+      "Sha256After": "d1e3f66ed7bb3d8d65847b5f20aaf46f195c242464861722c1b95179013038ec",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_sp500_emini_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "efad7011ee8e38b2d49b1800f5a96ae8a58609110bdd4d74e0c825463f378b0f",
+      "Sha256After": "efad7011ee8e38b2d49b1800f5a96ae8a58609110bdd4d74e0c825463f378b0f",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_capmvrvcur.csv",
+      "Sha256Before": "ef1f9e004775586a3625bd050dbffb54e200ba9ba8436ad6d95b96bb568602e2",
+      "Sha256After": "ef1f9e004775586a3625bd050dbffb54e200ba9ba8436ad6d95b96bb568602e2",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_hashrate.csv",
+      "Sha256Before": "1e180de9db100ab55634eea30cc84dc09de177aab6d67867ca5158314d166541",
+      "Sha256After": "1e180de9db100ab55634eea30cc84dc09de177aab6d67867ca5158314d166541",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_isstotusd.csv",
+      "Sha256Before": "29bb323b98f7d1f17203eec200803f5855e2cf4c8203ba1a53740f35a09223cc",
+      "Sha256After": "29bb323b98f7d1f17203eec200803f5855e2cf4c8203ba1a53740f35a09223cc",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/BAA10Y.csv",
+      "Sha256Before": "3408184f4e76b70f798f22caaed89709a80c3a83e51779930c66564904991e26",
+      "Sha256After": "3408184f4e76b70f798f22caaed89709a80c3a83e51779930c66564904991e26",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTAR.csv",
+      "Sha256Before": "f40e7f6fdf1966f17e97ece835a535ef41c4400627510094f0dc515480fc6ec9",
+      "Sha256After": "f40e7f6fdf1966f17e97ece835a535ef41c4400627510094f0dc515480fc6ec9",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTARL.csv",
+      "Sha256Before": "695dcd2fa8f34e3a053a0ec82472412c4e9720b9000083b502613f92ccf42eda",
+      "Sha256After": "695dcd2fa8f34e3a053a0ec82472412c4e9720b9000083b502613f92ccf42eda",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTARU.csv",
+      "Sha256Before": "cfa3f316d45bf87616e819ee5bc7c17476f2d353822b1cccbc791185275cae86",
+      "Sha256After": "cfa3f316d45bf87616e819ee5bc7c17476f2d353822b1cccbc791185275cae86",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS10.csv",
+      "Sha256Before": "eb84bd40b990161326601150ea04ee383cbde4b78efa66d100bfd99463b078e2",
+      "Sha256After": "eb84bd40b990161326601150ea04ee383cbde4b78efa66d100bfd99463b078e2",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS2.csv",
+      "Sha256Before": "7b5759b4d00f871afbdccc80bc270498e7ae318effd03186fd12be8d523cf6ae",
+      "Sha256After": "7b5759b4d00f871afbdccc80bc270498e7ae318effd03186fd12be8d523cf6ae",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS3MO.csv",
+      "Sha256Before": "5151ab9bf7dbe48b0046061cf4494dbd0d2da862ac1fc59b7bd5ea23ec0eb231",
+      "Sha256After": "5151ab9bf7dbe48b0046061cf4494dbd0d2da862ac1fc59b7bd5ea23ec0eb231",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DTWEXBGS.csv",
+      "Sha256Before": "62a038d11fee4c34274f1c29d6334d8f73c0ca07abd71f619ea44e616dfe60b1",
+      "Sha256After": "62a038d11fee4c34274f1c29d6334d8f73c0ca07abd71f619ea44e616dfe60b1",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DTWEXM.csv",
+      "Sha256Before": "97d617554686e50cf5ef21b96703a650770f2868e66f95c3fe38fad12bcef31d",
+      "Sha256After": "97d617554686e50cf5ef21b96703a650770f2868e66f95c3fe38fad12bcef31d",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/RRPONTSYD.csv",
+      "Sha256Before": "2f59523cbcac593de6ba6fba7c7f576b54d947fabcf5d70c5fc5c63d27c66968",
+      "Sha256After": "2f59523cbcac593de6ba6fba7c7f576b54d947fabcf5d70c5fc5c63d27c66968",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/T10Y3M.csv",
+      "Sha256Before": "815a806652e7345603985e1b11e2a98f47f32861ae97a69ea6f2dcb914a85901",
+      "Sha256After": "815a806652e7345603985e1b11e2a98f47f32861ae97a69ea6f2dcb914a85901",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/VIXCLS.csv",
+      "Sha256Before": "bbad422b973d5e4264fc96b6769002ec8cc6d7a3efe2bc7a577bf5325961ed1d",
+      "Sha256After": "bbad422b973d5e4264fc96b6769002ec8cc6d7a3efe2bc7a577bf5325961ed1d",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/WALCL.csv",
+      "Sha256Before": "a37ca7574cc0f72358b58262edbe041bbe678a86416d76547cd49bff40b07208",
+      "Sha256After": "a37ca7574cc0f72358b58262edbe041bbe678a86416d76547cd49bff40b07208",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/WTREGEN.csv",
+      "Sha256Before": "57ca9a2445bdc8d29511ab897bd120edf2c6e3f54775a1b33e20b194e3d6f668",
+      "Sha256After": "57ca9a2445bdc8d29511ab897bd120edf2c6e3f54775a1b33e20b194e3d6f668",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/nber/nber_turning_points.csv",
+      "Sha256Before": "d42496f61645412a9643f63f53cc0cb46dd2ddac07871e3c97aad98fedf05844",
+      "Sha256After": "d42496f61645412a9643f63f53cc0cb46dd2ddac07871e3c97aad98fedf05844",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_alternativeme_fng_index_1d.json",
+      "Sha256Before": "f8380b7529229bf2dde128eaaa88c8b801fe99337af05c430c6237a3b7a8250d",
+      "Sha256After": "f8380b7529229bf2dde128eaaa88c8b801fe99337af05c430c6237a3b7a8250d",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_btcusdt_funding_8h.json",
+      "Sha256Before": "e91eee37d8e14644e4921380ea14683ab7ce11d99f2fa8582c10dea0345de502",
+      "Sha256After": "e91eee37d8e14644e4921380ea14683ab7ce11d99f2fa8582c10dea0345de502",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_btcusdt_oi_1d.json",
+      "Sha256Before": "b1fa13bb6523f325de0d203cdc03c0ce5201b8a6157c1fe6aa59b7443096ff94",
+      "Sha256After": "b1fa13bb6523f325de0d203cdc03c0ce5201b8a6157c1fe6aa59b7443096ff94",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_ethusdt_funding_8h.json",
+      "Sha256Before": "eb2c54724d6daa5233fd6f11bb67f969faf464fa74d66895aa571fd16921db11",
+      "Sha256After": "eb2c54724d6daa5233fd6f11bb67f969faf464fa74d66895aa571fd16921db11",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_ethusdt_oi_1d.json",
+      "Sha256Before": "c2615e468ba9a6647dca0d54a6da8434e006d0581e3a9584c90131de51a3d8a5",
+      "Sha256After": "c2615e468ba9a6647dca0d54a6da8434e006d0581e3a9584c90131de51a3d8a5",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_coinmetrics_eth_capmvrvcur_1d.json",
+      "Sha256Before": "75d218962c91b57c992e67b570cbfe0225e46d37b97d6fb10cff4a57a62aff67",
+      "Sha256After": "75d218962c91b57c992e67b570cbfe0225e46d37b97d6fb10cff4a57a62aff67",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_DIA_1d.json",
+      "Sha256Before": "62392f10dc023ee201e0b5ed62bf228fe06dc9598ada5e521e009facc6fda224",
+      "Sha256After": "62392f10dc023ee201e0b5ed62bf228fe06dc9598ada5e521e009facc6fda224",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_GLD_1d.json",
+      "Sha256Before": "666ced0ce16931e2dace19cc921eb3666ceaf31b62ffe015348fd0d3b37095be",
+      "Sha256After": "666ced0ce16931e2dace19cc921eb3666ceaf31b62ffe015348fd0d3b37095be",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_IWM_1d.json",
+      "Sha256Before": "e79308e83f7452baaa32a1af42d0bdeaf7f48ba445f52f29751af4ad3404ac5c",
+      "Sha256After": "e79308e83f7452baaa32a1af42d0bdeaf7f48ba445f52f29751af4ad3404ac5c",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_QQQ_1d.json",
+      "Sha256Before": "62e92e6c591b9f888d9626ef95ec23d4deb09788bf78eb511f7395fe72f5cf68",
+      "Sha256After": "62e92e6c591b9f888d9626ef95ec23d4deb09788bf78eb511f7395fe72f5cf68",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_SPY_1d.json",
+      "Sha256Before": "9e4a2182278103ab6762515d452ab74e177b1380b9e0e8fcfd40fea889d16693",
+      "Sha256After": "9e4a2182278103ab6762515d452ab74e177b1380b9e0e8fcfd40fea889d16693",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_TLT_1d.json",
+      "Sha256Before": "9c10892e8015ab36068280e8f0592d0e8de19e1140b2870ae1b32405b0ade1a5",
+      "Sha256After": "9c10892e8015ab36068280e8f0592d0e8de19e1140b2870ae1b32405b0ade1a5",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLB_1d.json",
+      "Sha256Before": "f8062fd8a92906ae63f411f25745f0485f08f939ec37a06361b8721973833f66",
+      "Sha256After": "f8062fd8a92906ae63f411f25745f0485f08f939ec37a06361b8721973833f66",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLE_1d.json",
+      "Sha256Before": "b5b4e9f9f19010e7973ee2ef4c3fb45483384d90c61768439632a914b9e76a1f",
+      "Sha256After": "b5b4e9f9f19010e7973ee2ef4c3fb45483384d90c61768439632a914b9e76a1f",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLF_1d.json",
+      "Sha256Before": "6d23ab3d549411c72f5ff364669d7ccd46897796abdedfd1bf79821548143c7f",
+      "Sha256After": "6d23ab3d549411c72f5ff364669d7ccd46897796abdedfd1bf79821548143c7f",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLI_1d.json",
+      "Sha256Before": "0c2353a8ddb74cf4278c9246988f872c133e79ea8183420c09a23bb383fec24e",
+      "Sha256After": "0c2353a8ddb74cf4278c9246988f872c133e79ea8183420c09a23bb383fec24e",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLK_1d.json",
+      "Sha256Before": "1e02620002ac3064e2103f34285bfd3ae30bdc9a09f10b9f8b91fde8b96e03e0",
+      "Sha256After": "1e02620002ac3064e2103f34285bfd3ae30bdc9a09f10b9f8b91fde8b96e03e0",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLP_1d.json",
+      "Sha256Before": "c063840e9e21be74ab4cee7cf2002e690746b5214624fb0341637610f1e7671a",
+      "Sha256After": "c063840e9e21be74ab4cee7cf2002e690746b5214624fb0341637610f1e7671a",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLU_1d.json",
+      "Sha256Before": "ebf13843424dbb8de6ef00fb3139ca856c24562cc2caf2bf8a439f3484f6e40a",
+      "Sha256After": "ebf13843424dbb8de6ef00fb3139ca856c24562cc2caf2bf8a439f3484f6e40a",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLV_1d.json",
+      "Sha256Before": "90484cec945d1d62c5651ca450200f34da2761a736e33fc760529fa9f2f9b616",
+      "Sha256After": "90484cec945d1d62c5651ca450200f34da2761a736e33fc760529fa9f2f9b616",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLY_1d.json",
+      "Sha256Before": "1ac1b5ba8a96498ff2002208b0452d14f970588d8619d843a12baf8d18345f98",
+      "Sha256After": "1ac1b5ba8a96498ff2002208b0452d14f970588d8619d843a12baf8d18345f98",
+      "Unchanged": true
+    }
+  ]
+}
