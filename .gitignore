@@ -118,8 +118,8 @@ dist/
 # Local research video corpus (multi-GB tutorial captures, never committed)
 /video content/
 
-# Personal research notes on a YouTube trader's calls — not part of the product.
-docs/CAMEL_TRACK_RECORD.md
+# docs/CAMEL_TRACK_RECORD.md used to be ignored here as personal notes. Cody asked on 2026-10-18
+# for research material to be committed, so it is tracked now (see docs/CAMEL_METHOD.md).
 scratchpad/__pycache__/
 scripts/__pycache__/
 # Vendored third-party binaries, not committed.
