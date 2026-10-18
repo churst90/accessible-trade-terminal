@@ -4,6 +4,72 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Macro, Fed, liquidity and sentiment data for the lab, point in time (2026-10-18)
+
+Groundwork for the tests of Camel Finance's macro and cycle method and of a from-scratch cycle-low
+indicator. Until now the lab had FRED release dates and no macro values. `docs/MACRO_DATA.md` lists
+every series, how each is dated, the traps, and what could not be fetched.
+
+- **New lab command `macro-fetch`** (`AccessibleTrader.StrategyLab/Macro/`). It writes to
+  `strategy-lab-data/macro/<source>/`: raw files, a `.meta.json` for each one (URL, request, time,
+  sha256), and normalized CSVs. The manifest is `AccessibleTrader.StrategyLab/Data/MACRO_MANIFEST.json`.
+  - It never overwrites. A raw file on disk is reused after its sha256 is checked, and a normalized
+    file is rewritten only when the new bytes are identical.
+  - Nothing outside `macro/` was written.
+  - It needs no keys. FRED values come from ALFRED's graph CSV. Vintages come from ALFRED's own
+    download form, and the FRED API was not used.
+- **Fetched** (31 MB, 332 files, retrieved 2026-10-18):
+  - **ALFRED full vintage history** for PAYEMS, UNRATE, ICSA, CPIAUCSL, CPILFESL, PCEPILFE, INDPRO,
+    GDPC1, M2SL, UMCSENT, SAHMREALTIME and USREC. Each has its vintages, its first releases, and the
+    latest value with the day that value was published.
+  - **35 FRED series:**
+    - the curve and real yields;
+    - fed funds and the target, and the target range;
+    - ICE and Moody's credit spreads;
+    - the broad and major-currency dollar;
+    - WALCL, reserves, the TGA and reverse repo;
+    - VIX, NFCI, ANFCI and STLFSI4;
+    - USRECD.
+  - **NBER's 69 turning points**, each with the day it was announced. All 12 since 1980 matched.
+  - **AAII weekly sentiment**, 1987 to 2026.
+  - **Cboe put/call archives**, 1995 to 2019-10-04.
+  - **CoinMetrics BTC from 2010**, which adds the 2011 and 2015 lows that the existing 2015-start files
+    miss.
+  - **Blockchain.com**: miners' revenue, difficulty and hash rate.
+- **Point in time:**
+  - Revised series are read as of a day from their vintages. `MacroPointInTime.AsOf` never serves a
+    value before the day it was published.
+  - Every other series carries a `known_from` date. For ten weekly and monthly series, that date comes
+    from ALFRED's real release dates. For market closes, it comes from the publisher's schedule.
+  - The first prints derived from the vintages were checked against ALFRED's own "initial release
+    only" file for all twelve vintaged series. They agree row for row.
+- **Tests:** `MacroPointInTimeTests` (23). They cover:
+  - a vintage invisible before its release;
+  - a revision taking over only from its own day;
+  - a withdrawn value not being served;
+  - the first print, not the revised number;
+  - back-fills not counted as first prints;
+  - slices of a long vintage list merging back exactly;
+  - each schedule rule never earlier than the publisher;
+  - a skipped holiday release;
+  - the two NBER pages.
+
+  Five deliberate breaks, made in four builds, each turned the relevant tests red. The file was restored
+  byte-identical after each build.
+- **Caveats and traps found** (details in MACRO_DATA.md):
+  - **ICE high-yield and IG spreads exist only from 2023-10-17** (licence). Camel's credit gate needs
+    the Moody's Baa substitute, which is investment grade, not high yield.
+  - **The 2025 shutdown broke the release schedules.** September payrolls were printed 2025-11-20,
+    October payrolls had no release of their own, and October 2025 CPI does not exist.
+  - **USREC is rewritten after the fact.** FRED flagged every month after the Feb 2020 peak as
+    recession until the trough was announced, then flipped 14 months back to 0.
+  - **NFCI and STLFSI4 are revised every week.** ALFRED returned HTTP 504 on NFCI's initial-release
+    file.
+  - **Cboe has no CSV after 2019.**
+  - **Google Trends and paid on-chain metrics were not fetched.**
+  - **Not done:** no study has used the data yet, and the lab's cross-series cache does not load it.
+    A study reads the CSVs directly.
+
 ### The setup grader for the Cipher B Buy dot: run as pre-registered (2026-10-18)
 
 Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:

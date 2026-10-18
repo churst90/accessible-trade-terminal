@@ -117,6 +117,28 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-18 — macro, Fed, liquidity and sentiment data: FETCHED, point in time; see
+> CHANGES and `docs/MACRO_DATA.md`).** The data for the Camel macro and cycle tests is in
+> `strategy-lab-data/macro/`, and the manifest is `AccessibleTrader.StrategyLab/Data/MACRO_MANIFEST.json`.
+> No study has used it yet. What is left:
+> - [ ] **Write the Camel macro and cycle pre-registration** against this inventory before any outcome
+>   is computed.
+>   - Credit: use Moody's BAA10Y, AAA10Y or BAA, not the ICE high-yield spread, which exists only
+>     from 2023-10-17.
+>   - Curve: T10Y2Y and T10Y3M.
+>   - Headline data: read from the `_vintages` files through `MacroPointInTime.AsOf`, never the latest
+>     values.
+>   - Recession dating: `nber_turning_points.csv`, not USREC.
+> - [ ] **Decide on Cboe put/call after 2019-10-04.** It exists only as one HTML page per day, about
+>   1,770 pages. Scrape them politely, use Cboe DataShop, or go without?
+> - [ ] **Decide on NFCI as-known-then values.** ALFRED returned HTTP 504 on the initial-release file.
+>   Retry another day at a small slice size, or treat NFCI as revised context only.
+> - [ ] Optional: a loader that registers the macro CSVs in the cross-series cache, so indicators can
+>   read them. Only if a study needs it. It must keep `known_from`; the cache aligns by timestamp.
+> - **Unverified:** the schedule rules for daily market closes (DGS*, DFF, VIXCLS) against the
+>   publishers' real posting times. Only ALFRED's release-date lists were probed: daily series in 2005
+>   were posted weekly.
+
 > **START HERE (2026-10-18 — setup grader for the Cipher B Buy dot: DONE, No edge; see CHANGES and
 > `docs/SETUP_GRADER_FINDINGS.md`).** Grade A had 0 (crypto) and 2 (equities) development-era dots, so
 > the pre-registered headline tests were not testable. **Questions for Cody (nothing applied):**
