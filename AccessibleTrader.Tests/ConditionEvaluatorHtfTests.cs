@@ -11,10 +11,11 @@ namespace AccessibleTrader.Tests
     /// Tier 2 coverage for <see cref="ConditionEvaluator"/>'s multi-timeframe path.
     /// Targets two invariants:
     ///
-    /// 1) <c>HtfLastClosedIndexExclusive</c> (private static binary search) must return the
-    ///    count-exclusive index of the most recent HTF bar strictly earlier than the main-TF
-    ///    bar's Date — i.e. `bars[0..result]` is the slice of already-closed HTF bars. Tested
-    ///    via reflection to pin edge cases (empty / before-all / after-all / perfect alignment).
+    /// 1) <c>HtfLastClosedIndexExclusive</c> (private static binary search) must return how many
+    ///    HTF bars had ENDED by the main-TF bar's open — `bars[0..result]` is the slice of
+    ///    already-closed HTF bars. Until 2026-10-18 it counted bars that had merely OPENED before
+    ///    the main bar (a look-ahead; see the weekly and monthly tests below). Tested via
+    ///    reflection to pin edge cases (empty / before-all / after-all / perfect alignment).
     ///
     /// 2) The per-(leafId, timeframe) warning dedup initialised 2026-04-23 (Week 4) replaces
     ///    a process-wide static bool. Each distinct missing-HTF leaf must surface its
@@ -26,13 +27,13 @@ namespace AccessibleTrader.Tests
     {
         // ── Reflection access to the private static binary-search helper ─────
 
-        private static int InvokeHtfLastClosedIndexExclusive(IReadOnlyList<Ohlcv> htfBars, DateTime mainBarDate)
+        private static int InvokeHtfLastClosedIndexExclusive(IReadOnlyList<Ohlcv> htfBars, DateTime mainBarDate, string htfTimeframe = "1d")
         {
             var method = typeof(ConditionEvaluator).GetMethod(
                 "HtfLastClosedIndexExclusive",
                 BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new MissingMethodException("HtfLastClosedIndexExclusive not found.");
-            return (int)method.Invoke(null, new object[] { htfBars, mainBarDate })!;
+            return (int)method.Invoke(null, new object?[] { htfBars, htfTimeframe, mainBarDate })!;
         }
 
         // ── Binary-search edge cases ──────────────────────────────────────────
@@ -74,10 +75,9 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void HtfLastClosedIndex_PerfectAlignment_ExcludesEqualDateBar()
         {
-            // Strictly-less semantics: an HTF bar whose open-time equals the main-TF bar's
-            // time has not yet closed and must not be visible to the strategy. So when
-            // mainBarDate == bars[2].Date the result is 2 — the slice bars[0..2] covers
-            // only bar0 and bar1.
+            // An HTF bar whose open-time equals the main-TF bar's time has not yet closed and
+            // must not be visible to the strategy; the one before it ended exactly then and is.
+            // So when mainBarDate == bars[2].Date the result is 2 — bar0 and bar1.
             var bars = new List<Ohlcv>
             {
                 new Ohlcv(new DateTime(2026, 04, 20), 1, 1, 1, 1, 0),
@@ -89,7 +89,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void HtfLastClosedIndex_MainBarBetweenHtfBars_ReturnsUpperBound()
+        public void HtfLastClosedIndex_MainBarInsideAnHtfBar_ExcludesTheBarStillForming()
         {
             var bars = new List<Ohlcv>
             {
@@ -98,10 +98,11 @@ namespace AccessibleTrader.Tests
                 new Ohlcv(new DateTime(2026, 04, 22, 00, 00, 00), 1, 1, 1, 1, 0),
                 new Ohlcv(new DateTime(2026, 04, 23, 00, 00, 00), 1, 1, 1, 1, 0),
             };
-            // Main bar at 21:12:00 is strictly after bars[1]=04/21 00:00 and strictly
-            // before bars[2]=04/22 00:00, so the slice must include bar0 + bar1 only.
+            // Main bar at 04/21 12:00 sits INSIDE the daily bar that opened 04/21 00:00 and ends
+            // 04/22 00:00. That bar is still forming, so only bar0 has closed. This test pinned 2
+            // until 2026-10-18 — the look-ahead itself: the forming bar counted as closed.
             int idx = InvokeHtfLastClosedIndexExclusive(bars, new DateTime(2026, 04, 21, 12, 00, 00));
-            Assert.Equal(2, idx);
+            Assert.Equal(1, idx);
         }
 
         // ── Behavioural coverage: HTF routing + warning dedup ─────────────────
@@ -267,6 +268,62 @@ namespace AccessibleTrader.Tests
             };
             var result = eval.Evaluate(leaf, history, StubState());
             Assert.True(result.OverallTrue);
+        }
+
+        // ── A higher-timeframe bar is closed when it has ENDED, not when it has opened ──
+        //
+        // Defect demonstrated 2026-10-18 (recorded "found, NOT fixed" on 2026-10-09). The clip
+        // counted an HTF bar as closed once its open time was before the chart bar's, so on a
+        // Wednesday daily bar a weekly leaf read the week that opened on Monday — and that bar,
+        // in a backtest, holds the week's FINAL close, high and low. Every HTF leaf in a backtest
+        // saw up to one HTF bar of the future; an alert read the forming week as if it had closed.
+
+        [Fact]
+        public void Evaluate_WeeklyLeaf_MidWeek_DoesNotSeeTheWeekStillForming()
+        {
+            // Week of Mon 13 Apr closed at 100; week of Mon 20 Apr will close at 500. On Wednesday
+            // 22 Apr only the 13 Apr week has ended, so "weekly close > 300" is false.
+            var catalog = new StubCatalog();
+            var mtf = new StubMtf();
+            mtf.CachedBars[("binance", "BTC/USDT", "1w")] = new List<Ohlcv>
+            {
+                new Ohlcv(new DateTime(2026, 04, 13), 100, 100, 100, 100, 0),
+                new Ohlcv(new DateTime(2026, 04, 20), 500, 500, 500, 500, 0),
+            };
+            var eval = new ConditionEvaluator(catalog, mtf, levels: null);
+            var leaf = new ConditionLeaf("wk", "CANDLES.body", LeafOperator.GreaterThan, Value: 300, Timeframe: "1w");
+
+            var wednesday = new List<Ohlcv> { new Ohlcv(new DateTime(2026, 04, 22), 1, 1, 1, 1, 0) };
+            Assert.False(eval.Evaluate(leaf, wednesday, StubState()).OverallTrue,
+                "a Wednesday must not see the close of the week that ends the following Monday");
+
+            // The week of 20 Apr ends at Mon 27 Apr 00:00; the chart bar opening then may read it.
+            var nextMonday = new List<Ohlcv> { new Ohlcv(new DateTime(2026, 04, 27), 1, 1, 1, 1, 0) };
+            Assert.True(eval.Evaluate(leaf, nextMonday, StubState()).OverallTrue,
+                $"the week of 20 Apr has closed by 27 Apr; degradation: {eval.LastDegradation}");
+        }
+
+        [Fact]
+        public void Evaluate_MonthlyLeaf_OnTheLastDayOfA31DayMonth_DoesNotSeeThatMonth()
+        {
+            // A month bar ends on the calendar, not 30 days after it opens: on 31 March the March
+            // bar is still forming.
+            var catalog = new StubCatalog();
+            var mtf = new StubMtf();
+            mtf.CachedBars[("binance", "BTC/USDT", "1M")] = new List<Ohlcv>
+            {
+                new Ohlcv(new DateTime(2026, 02, 01), 100, 100, 100, 100, 0),
+                new Ohlcv(new DateTime(2026, 03, 01), 500, 500, 500, 500, 0),
+            };
+            var eval = new ConditionEvaluator(catalog, mtf, levels: null);
+            var leaf = new ConditionLeaf("mo", "CANDLES.body", LeafOperator.GreaterThan, Value: 300, Timeframe: "1M");
+
+            var march31 = new List<Ohlcv> { new Ohlcv(new DateTime(2026, 03, 31), 1, 1, 1, 1, 0) };
+            Assert.False(eval.Evaluate(leaf, march31, StubState()).OverallTrue);
+
+            var april1 = new List<Ohlcv> { new Ohlcv(new DateTime(2026, 04, 01), 1, 1, 1, 1, 0) };
+            Assert.True(eval.Evaluate(leaf, april1, StubState()).OverallTrue,
+                $"March has closed by 1 April; degradation: {eval.LastDegradation}");
         }
 
         // ── Stubs ────────────────────────────────────────────────────────────

@@ -35,8 +35,8 @@ namespace AccessibleTrader.Plugins.Cftc
     /// Positions are as-of Tuesday but only PUBLISHED Friday ~15:30 ET. Bars are
     /// therefore stamped at the release date (report Tuesday + 3 days), so a daily
     /// backtest can only see a value from the Friday it became public knowledge.
-    /// The StrategyLab's CftcCotProvider stamps at the report date instead — when
-    /// comparing results, expect this provider to lag it by three calendar days.
+    /// The StrategyLab's cftc-cot downloader wrote report dates until 2026-10-18; the lab's
+    /// snapshot cache now moves those to the release date on load, so both agree.
     /// </summary>
     public class CftcProvider : BaseMarketDataProvider
     {

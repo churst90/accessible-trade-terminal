@@ -32,6 +32,66 @@ Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:
   only because of tiny opening gaps. Noise injection was not run, because there was no grade A to
   measure. Survivor snapshots.
 
+### Three lab defects verified and fixed: R after a stop move, higher-timeframe look-ahead, COT dated early (2026-10-18)
+
+All three came from the setup-grader pre-registration's lab notes (`docs/SETUP_GRADER_PREREG.md`
+section 2.2). Each was shown with a test that failed on the old code, then fixed, then the test was
+seen red again by putting the bug back.
+
+- **R after a breakeven or ATR-trail move (real).** Every exit row the backtester wrote carried the
+  stop as it was at that moment. After take-profit 1 moved it to breakeven, later rows had zero risk
+  and were dropped from Average R and from the bootstrap; a trailed runner was dropped from Average R
+  and divided by the trail's distance in the bootstrap. R was also averaged per exit row, not per
+  position. On a 2R/4R ladder, a position that reached 4R scored +2R, and one that took TP1 then came
+  back to breakeven also scored +2R (it is +1R). Fixed: rows now carry the stop the position opened
+  with (what `BacktestTrade.StopPrice` was always documented to be), and R is one number per
+  position: the share-weighted sum of its exits divided by the initial risk. Average R, the bootstrap
+  CI (`BootstrapCi.ExtractRs`) and the Lab tab's survivor gate now use the same list. Trade counts,
+  P&L, win rate and profit factor do not change. `BacktestRAccountingTests` (5 tests).
+  - Measured on every catalogue spec with breakeven or trail after TP1 and a two-rung ladder, BTC and
+    ETH daily, whole sample, battery costs (mean R old -> new, same trade counts): v23 BTC +0.618 ->
+    +0.956 (CI low -0.01 -> +0.16), v23 ETH +0.060 -> +0.233, v23r BTC +0.353 -> +0.695, v23r ETH
+    -0.408 -> -0.210, Bare Bull Pulse BTC +0.536 -> +0.573, ETH -0.017 -> +0.041, Faber-Pulse BTC
+    +0.347 -> +0.529, ETH +0.100 -> +0.100, v24 (trail) BTC +0.573 -> +0.932, ETH +0.263 -> +0.354 (CI
+    low +0.07 -> -0.29). Longs mostly rise (the 4R rung was never counted); shorts and some pulse
+    specs fall (TP1-then-breakeven was counted as a full 2R or 1.5R). The CI widens nearly everywhere.
+  - Caveat: R uses fill prices (slippage in, commission out), as before. An entry that filled through
+    its own stop has no defined R and is left out, as Average R always did; the bootstrap used to keep
+    it with the absolute distance.
+- **Higher-timeframe look-ahead (real; recorded "found, NOT fixed" on 2026-10-09).** A higher-
+  timeframe bar counted as closed once it had OPENED before the chart bar, so on a Wednesday a weekly
+  leaf read the week that opened on Monday, which in a backtest is that week's final close. Fixed in
+  `ConditionEvaluator`: a bar counts once its period has ENDED by the chart bar's open (calendar months
+  walked properly). That is the rule the line-cross code already described and the one the chart's
+  higher-timeframe moving averages already use, so the chart path needed no change. This path drives
+  strategies (live and in-app backtests), advanced alert trees, the background monitor and the
+  screener. The lab is not affected: it passes no timeframe service, and no catalogue spec has an HTF
+  leaf. Two tests pinned the old behaviour and were changed: `HtfLastClosedIndex_MainBarBetweenHtfBars`
+  (now `..._MainBarInsideAnHtfBar_ExcludesTheBarStillForming`, expects 1 not 2) and
+  `Daily_close_crosses_the_weekly_sma_read_as_a_step_as_of_each_bar` (its fixture only crossed because
+  Tuesday read the forming week; moved a week later). New weekly and 31-day-month tests.
+  - Measured on Bitstamp BTC daily against its weekly bars: a "weekly candle is green" gate gives a
+    different answer on 44.9% of days and "weekly close above its 10-week SMA" on 13.9%. With the old
+    rule the 5-day forward return when the green-week gate is on is +2.18%; with the fixed rule +0.82%.
+    Example: Wednesday 3 Jan 2024 read the week of 1 Jan (open 42,258, final close 43,944, green); it
+    now reads the week of 25 Dec (close 42,258, red).
+  - Caveat: the rule is conservative by up to one chart bar (a weekly bar that ends at Sunday's close
+    becomes visible on Monday's daily bar). Intraday HTF leaves (4h on a 1h chart) lag the same way.
+- **COT dated early (real, lab only).** The app's CFTC plugin already stamps each value at its Friday
+  release. The lab's `cftc-cot` downloader stamped the Tuesday report date, and the lab cache served it
+  as is, so lab COT reads (CFTC_COT, and COT_POSITIONING on BTC, gold and the euro) saw each week's
+  positioning three days early. Fixed: the cache moves a CFTC point stamped Monday or Tuesday to three
+  days later as it loads it (the files on disk are not rewritten), and the downloader now writes
+  release dates. Files already on release dates (sp500_cot, nasdaq_cot) are left alone.
+  `CotReleaseDateTests` (4 tests).
+  - Measured: the COT_POSITIONING z-score changes on 57.8% of gold days and 42.9% of BTC days; the
+    "z below 1.5" gate flips on 189 gold days and 129 BTC days. v23c, the only catalogue spec with a COT
+    gate, gives identical trades before and after on XAU, SPY, QQQ and BTC daily. SPY and QQQ are
+    unchanged (their files were already release-dated).
+  - Caveat: a Friday stamp at 00:00 UTC is before the 15:30 ET release; fine for daily bars judged at
+    their close, up to about 20 hours early for intraday bars (same as the app's plugin). `events`
+    already applied its own six-day lag and is unchanged.
+
 ### The Cipher strategy research re-run on the new Cipher A, B and SR (2026-10-17, night)
 
 Every StrategyLab result that used a Cipher indicator was re-run after Cipher A was rebuilt, Cipher B

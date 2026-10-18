@@ -128,6 +128,29 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   cannot be re-tuned): a counts-only dry run before freezing it, and a body-pivot rule that says what
 >   happens when a week opens at the previous close (MEXC KAS/TAO never get a trend as written).
 
+> **START HERE (2026-10-18 — three lab defects verified and fixed: R after a stop move, HTF
+> look-ahead, COT dated early; see CHANGES).** What is left:
+> - [ ] **Re-record every engine R figure on a two-rung ladder with breakeven or trail.** R is now one
+>   number per position against the initial stop; trade counts, P&L, win rate and profit factor did not
+>   move. Stale: CatalogueProvenance's recorded ER and rolling-window figures for every catalogue spec
+>   with a two-rung ladder (bare-bull-pulse, faber-pulse, pulse-v2, pulse-reversal, capitulation-buy,
+>   v13, v14, v15, v18, v22, v22r, v23, v23r, v23rf, v23p, v23h long and short, v23a, v23or, v23c, v24);
+>   `edges.json`; the STRATEGY_CATALOGUE findings and the spec-variants numbers in
+>   `reports/cipher_strategies_rerun_REPORT.md`; and anything from `battery`, `combo`, `combo-sweep`,
+>   `diagnostic`, `rolling-window`, `walk-windows`, `spec-variants` or `run` (the battery's own cells use
+>   1.5R/3R with breakeven). Not affected: commands with their own R harness (`cipher-a-battery`'s
+>   RHarness, `exits`, `gate`, `confluence`, `polarity` and the like). Quick view of the size: CHANGES
+>   lists ten old -> new pairs; v23 BTC now clears CI > 0 on the whole sample, v24 ETH no longer does.
+> - [ ] Re-run the COT battery cells (`battery` v5a-v5h, BTC CFTC_COT) and `cipher-a-battery`'s COT gate
+>   on gold and BTC: their inputs moved three days later. v23c was re-run and did not change.
+> - [ ] Optional: re-download the COT snapshots with the fixed `cftc-cot` so the files themselves carry
+>   release dates (the cache already corrects the old ones on load).
+> - [ ] `docs/SETUP_GRADER_PREREG.md` section 2.2 still lists the HTF and R caveats; it is a frozen
+>   pre-registration, so it was not edited. Stage 2 may now use engine R (it matches the per-position
+>   definition there) but must still build its own weekly bars: the lab still passes no timeframe service.
+> - **Unverified:** the HTF fix in the running app (tested in the evaluator, not through a live alert or
+>   the browser); R figures for the 4h snapshots and for v23c on XAU/SPY/QQQ were not re-measured.
+
 > **START HERE (2026-10-17 night — Cipher strategy re-run on the new Cipher A/B/SR: DONE; see CHANGES
 > and `reports/cipher_strategies_rerun_REPORT.md`).** SR and the gold dot were finished after they
 > merged mid-run, so nothing is pending on them. **Decisions for Cody (nothing applied):**
@@ -415,8 +438,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    for HTF leaves (today the period comes only from an instance on the chart)?
 >
 > **Found, NOT fixed (each changes strategy/backtest results — Cody decides):**
-> - `HtfLastClosedIndexExclusive` treats the still-forming higher-timeframe bar as closed: LOOK-AHEAD in
->   backtests that use HTF leaves.
+> - ~~`HtfLastClosedIndexExclusive` treats the still-forming higher-timeframe bar as closed: LOOK-AHEAD in
+>   backtests that use HTF leaves.~~ **FIXED 2026-10-18** (a bar counts once its period has ended by the
+>   chart bar's open; see CHANGES).
 > - With no MTF service (StrategyLab passes none), HTF leaves read the chart timeframe instead of refusing.
 >
 > **Unverified:** Oanda alignment parameters (no key); Polygon weeks starting Sunday (handled either way);

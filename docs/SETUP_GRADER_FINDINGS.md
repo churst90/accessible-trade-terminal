@@ -297,10 +297,11 @@ aab4c5b1).
 
 ## Runs and variants counted
 
-- **Runs of the command:** 4. Two counts-only runs (plumbing; they print counts and exclusions and no
-  outcome). Two full runs: the second only stopped the verdict block from printing two numbers for
+- **Runs of the command:** 5. Two counts-only runs (plumbing; they print counts and exclusions and no
+  outcome). Three full runs: the second only stopped the verdict block from printing two numbers for
   grades below 15 (equities' 2 grade A dots and crypto's 4 grade B dots), which section 7.4 says
-  must show the count only. Every other line of the two full runs is identical.
+  must show the count only; every other line of the first two full runs is identical. The third was
+  made after merging main's engine fixes (6e145723) and its output is byte-identical to the second.
 - **One diagnostic** read the weekly bars to count pivots per asset (no outcome), which found
   deviation 2.
 - **Pre-registered tests:** 35. Computed: 14 (P3 crypto, P2 and P3 equities, S1 in both classes,

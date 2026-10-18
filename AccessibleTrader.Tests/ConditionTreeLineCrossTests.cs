@@ -266,9 +266,12 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Daily_close_crosses_the_weekly_sma_read_as_a_step_as_of_each_bar()
         {
-            // Weekly SMA 50: 100 through the week of T0-7, 200 from the week opening T0. The day
-            // before T0 sees 100; the day after sees 200. Close 150 -> 180 is therefore a cross
-            // BELOW the weekly line — and would be no cross at all if both bars read the latest 200.
+            // Weekly SMA 50: 50 for the week of T0-14, 100 for T0-7, 200 for the week of T0. A
+            // chart bar reads the last week that has ENDED by its open: Sunday T0+6 sees the T0-7
+            // week (100; the T0 week ends at T0+7), Tuesday T0+8 sees the T0 week (200). Close
+            // 150 -> 180 is therefore a cross BELOW the weekly line — and would be no cross at all
+            // if both bars read the latest 200. Until 2026-10-18 this fixture used T0-1 and T0+1,
+            // which only crossed because Tuesday T0+1 read the T0 week while it was still forming.
             var mtf = new Mtf();
             mtf.Bars["1w"] = new List<Ohlcv>
             {
@@ -280,8 +283,8 @@ namespace AccessibleTrader.Tests
             var eval = new ConditionEvaluator(new Catalog(), mtf);
             var bars = new List<Ohlcv>
             {
-                new(T0.AddDays(-1), 150, 151, 149, 150, 1),
-                new(T0.AddDays(1), 180, 181, 179, 180, 1),
+                new(T0.AddDays(6), 150, 151, 149, 150, 1),
+                new(T0.AddDays(8), 180, 181, 179, 180, 1),
             };
             var state = State(bars);
 
