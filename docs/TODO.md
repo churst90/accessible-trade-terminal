@@ -117,6 +117,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **Open (Cody, 2026-10-18: "don't rename yet"):** Cipher B's hidden "Anchor Wave" components are OUR 5×-period
+> WaveTrend (a higher-timeframe proxy feeding the Gated dot and Anchor Polarity), not the Market Cipher traders'
+> anchor wave (the first deep wave past −60, read off the main waves; the trigger wave is the next higher-low cross
+> below zero). Not a maths bug — the round-2 tests read anchor/trigger from the main waves. Later: rename the
+> DisplayName (e.g. "Slow Regime Wave"; Name stays for saves), and consider narrated anchor/trigger-wave markers
+> if round 2 shows the trigger wave adds anything.
+>
 > **START HERE (2026-10-18 — the cycle school: stage 1 DONE (method, design, pre-registration); see
 > CHANGES).** `docs/CAMEL_METHOD.md`, `docs/CYCLE_LOW_INDICATOR_DESIGN.md` and
 > `docs/CYCLE_SCHOOL_PREREG.md` are committed; nothing was computed. What is left:
