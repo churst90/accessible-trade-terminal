@@ -51,7 +51,19 @@ namespace AccessibleTrader.StrategyLab;
 /// end at the close of bar i+60 / i+20. The random-exit control keeps the variant's INITIAL stop
 /// (targets and the trail are the exit being tested). Its p is the literal share of 1,000 books
 /// with mean R at least the variant's.</item>
+/// <item>The (a1) pivot rule is applied exactly as written (strictly greater body tops, strictly
+/// lower body bottoms). Found on the counts-only run, before any outcome: when a week opens at the
+/// previous week's close, as MEXC's KAS and TAO do on 99% of weeks, a strict body pivot is
+/// arithmetically impossible (week j+1's body top includes week j's close), so those two assets
+/// never get a weekly trend and all their dots are excluded as "context undefined". Bitstamp's
+/// weeks open a fraction of a percent away from the prior close, which is what lets its pivots
+/// exist at all. Reported, not patched: patching would change a frozen rule.</item>
 /// <item>Holm uses the full pre-registered family size even if a member is untestable.</item>
+/// <item>Section 7.4's minimums gate every test whose population is a grade: below 15 the test
+/// is "not testable" and only its count is printed (no statistic is computed), 15-29 is flagged
+/// Suggestive only. The exits use the same minimum on their pooled A+B population; the macro tests
+/// need each state group non-empty. When grade A is below 15 the noise runs are not made, since
+/// there is no ExA to retain. Descriptive grade rows below 15 print the count only.</item>
 /// <item>"Suggestive" is read as: criterion 3 holds, P1 and P4 each have raw p &lt; 0.05, grade A
 /// has at least 15 triggers, the held-out signs do not fail where they are checkable, and the
 /// class is not Supported or Fragile. Section 8's no-edge
@@ -69,6 +81,9 @@ public static class SetupGraderCommand
 {
     private const int Draws = 10_000, PlaceboDraws = 200, ExitDraws = 1_000, Block = 20;
     private const double Alpha = 0.05;
+    /// <summary>Section 7.4: below 15 a grade's tests are "not testable" (count only); 15-29 are
+    /// Suggestive only; 30 is confirmatory; the held-out sign check needs 10.</summary>
+    private const int MinTestable = 15, MinConfirm = 30, MinHeld = 10;
 
     private static readonly string[] CryptoDaily =
     {
@@ -251,7 +266,14 @@ public static class SetupGraderCommand
         var retained = new double[2];
         for (int c = 0; c < 2; c++)
         {
-            double clean = Ex(Dev(classes[c], r => r.Long).Where(e => e.G == SetupGrade.A));
+            var cleanA = Dev(classes[c], r => r.Long).Where(e => e.G == SetupGrade.A).ToList();
+            double clean = Ex(cleanA);
+            if (cleanA.Count < MinTestable)
+            {
+                retained[c] = double.NaN;
+                Console.WriteLine($"  noise {clsNames[c]}: not testable — {cleanA.Count} grade A triggers in the development era (< {MinTestable}); the noise runs were not made.");
+                continue;
+            }
             var noisy = new List<double>();
             for (int seed = 0; seed <= 2; seed++)
             {
@@ -460,7 +482,8 @@ public static class SetupGraderCommand
             }
         }
         var row = new TestRow { Id = id, What = what, N = total };
-        if (total == 0) { row.Note = "no triggers"; return row; }
+        if (total < MinTestable) { row.Note = $"not testable: {total} triggers (< {MinTestable}); count only"; return row; }
+        if (total < MinConfirm) row.Note = "Suggestive only (15-29 triggers)";
         row.Stat = obsSum / total;
         var nullSum = new double[Draws];
         foreach (var grp in strata.GroupBy(x => x.Asset).OrderBy(g => g.Key, StringComparer.Ordinal))
@@ -510,11 +533,17 @@ public static class SetupGraderCommand
     private static TestRow OrderTest(string id, string what, List<AssetRun> cls, Func<AssetRun, List<Ev>> side,
         Func<Ev, bool> first, Func<Ev, bool> second)
     {
+        int nf = Dev(cls, side).Count(first), ns = Dev(cls, side).Count(second);
+        if (nf < MinTestable || ns < MinTestable)
+            return new TestRow { Id = id, What = what, N = nf, N2 = ns,
+                Note = $"not testable: a grade has fewer than {MinTestable} triggers ({nf} vs {ns}); counts only" };
         var groups = cls.Select(a => (a.Label,
                 F: side(a).Where(e => e.Era == 0 && first(e)).Select(e => e.Ex).ToArray(),
                 S: side(a).Where(e => e.Era == 0 && second(e)).Select(e => e.Ex).ToArray()))
             .ToList();
-        return LabelPerm(id, what, groups);
+        var row = LabelPerm(id, what, groups);
+        if (nf < MinConfirm || ns < MinConfirm) row.Note = "Suggestive only (a grade has 15-29 triggers)";
+        return row;
     }
 
     internal static TestRow LabelPerm(string id, string what, List<(string Asset, double[] F, double[] S)> groups)
@@ -572,7 +601,7 @@ public static class SetupGraderCommand
     {
         var real = Dev(cls, r => r.Long).Where(e => e.G == SetupGrade.A).ToList();
         var row = new TestRow { Id = id, What = $"{cn}: real-level ExA beats 200 placebo-level draws", N = real.Count };
-        if (real.Count == 0) { row.Note = "no grade A"; return row; }
+        if (real.Count < MinTestable) { row.Note = $"not testable: {real.Count} grade A triggers (< {MinTestable}); count only"; return row; }
         row.Stat = Ex(real);
         var rngs = cls.ToDictionary(a => a.Label, a => new Random(StableSeed.From($"setup-grader|{id}|{a.Label}")));
         var placebo = new double[PlaceboDraws];
@@ -702,6 +731,16 @@ public static class SetupGraderCommand
         Console.WriteLine($"══════ EXITS — {cn}: {entries.Count} A+B long entries (development era) ══════");
         Console.WriteLine($"{"variant",-8} {"n",5} {"mean R",8} {"A only",8} {"ATR u",8} {"hold",6} {"rand R",8} {"rand ATR",9} {"ratio",7} {"p",7} {"open",5}");
         var rows = new List<TestRow>();
+        if (entries.Count < MinTestable)
+        {
+            // Section 7.4's minimum, applied to the pooled A+B population the exits are run on.
+            foreach (var v in new[] { "X1", "X2", "X3", "X4", "X5" })
+                rows.Add(new TestRow { Id = $"{v}-{cn}", What = $"{cn}: {v} mean R beats its random-exit control", N = entries.Count,
+                    Note = $"not testable: {entries.Count} A+B entries (< {MinTestable}); count only" });
+            Console.WriteLine($"  not testable: {entries.Count} entries (< {MinTestable}).");
+            Console.WriteLine();
+            return rows;
+        }
         foreach (var v in new[] { "X1", "X2", "X3", "X4", "X5" })
         {
             double StopOf(AssetRun a, Ev e) => v == "X1"
@@ -762,6 +801,24 @@ public static class SetupGraderCommand
         }
         foreach (int era in new[] { 0, 1 })
         {
+            // Context-grade shares over every bar with a defined context, and over the Buy dots
+            // with all inputs defined (counts only; no outcome).
+            long g = 0, nu = 0, bd = 0, und = 0;
+            foreach (var a in cls)
+                for (int i = 0; i < a.CgL.Length; i++)
+                {
+                    if (a.Era[i] != era) continue;
+                    if (a.CgL[i] == SetupGraderCore.Good) g++; else if (a.CgL[i] == SetupGraderCore.Neutral) nu++;
+                    else if (a.CgL[i] == SetupGraderCore.Bad) bd++; else und++;
+                }
+            long def = Math.Max(1, g + nu + bd);
+            var dots = cls.SelectMany(a => a.Long).Where(e => e.Era == era).ToList();
+            Console.WriteLine($"  {(era == 0 ? "DEV" : "HELD")} long CG over all bars: Good {100.0 * g / def:0.0}%  Neutral {100.0 * nu / def:0.0}%  Bad {100.0 * bd / def:0.0}%  (undefined {und} bars); " +
+                              $"Buy dots: Good {dots.Count(e => e.In.Cg == SetupGraderCore.Good)}, Neutral {dots.Count(e => e.In.Cg == SetupGraderCore.Neutral)}, Bad {dots.Count(e => e.In.Cg == SetupGraderCore.Bad)}; " +
+                              $"Good dots with Location {dots.Count(e => e.In.Cg == SetupGraderCore.Good && e.In.Loc)}, with >=2 confirmations {dots.Count(e => e.In.Cg == SetupGraderCore.Good && e.In.Confirmations >= 2)}, Good and not vetoed {dots.Count(e => e.In.Cg == SetupGraderCore.Good && e.G != SetupGrade.V)}");
+        }
+        foreach (int era in new[] { 0, 1 })
+        {
             var l = cls.SelectMany(a => a.Long).Where(e => e.Era == era).ToList();
             var s = cls.SelectMany(a => a.Short).Where(e => e.Era == era).ToList();
             var r = cls.SelectMany(a => a.Red).Where(e => e.Era == era).ToList();
@@ -783,17 +840,20 @@ public static class SetupGraderCommand
     {
         Console.WriteLine($"══════ DESCRIPTIVE — {cn} (net R; gross beside it; Ex = excess over the CG-matched random entry) ══════");
         Console.WriteLine($"{"row",-30} {"era",-5} {"n",5} {"meanR",8} {"Ex",8} {"meanRg",8} {"ExG",8} {"ctl",8}");
-        void Line(string name, string era, List<Ev> l) =>
+        void Line(string name, string era, List<Ev> l, bool grade = true)
+        {
+            if (grade && l.Count < MinTestable) { Console.WriteLine($"{name,-30} {era,-5} {l.Count,5}   (fewer than {MinTestable}: count only)"); return; }
             Console.WriteLine($"{name,-30} {era,-5} {l.Count,5} {MeanR(l),8:+0.000;-0.000} {Ex(l),8:+0.000;-0.000} " +
                               $"{(l.Count == 0 ? double.NaN : l.Average(e => e.Rg)),8:+0.000;-0.000} {ExG(l),8:+0.000;-0.000} " +
                               $"{(l.Count == 0 ? double.NaN : l.Average(e => e.Ctl)),8:+0.000;-0.000}");
+        }
         foreach (var (eraName, era) in new[] { ("dev", 0), ("held", 1) })
         {
             var l = cls.SelectMany(a => a.Long).Where(e => e.Era == era).ToList();
             foreach (var g in new[] { SetupGrade.A, SetupGrade.B, SetupGrade.C, SetupGrade.V })
                 Line($"long grade {g}", eraName, l.Where(e => e.G == g).ToList());
-            Line("R1 all Buy dots (ungraded)", eraName, l);
-            Line("R0 Buy dot + close > SMA200", eraName, l.Where(e => e.AboveSma).ToList());
+            Line("R1 all Buy dots (ungraded)", eraName, l, false);
+            Line("R0 Buy dot + close > SMA200", eraName, l.Where(e => e.AboveSma).ToList(), false);
             var s = cls.SelectMany(a => a.Short).Where(e => e.Era == era).ToList();
             foreach (var g in new[] { SetupGrade.A, SetupGrade.B, SetupGrade.C, SetupGrade.V })
                 Line($"mirror short grade {g}", eraName, s.Where(e => e.G == g).ToList());
@@ -802,11 +862,13 @@ public static class SetupGraderCommand
                 Line($"shipped red dot grade {g} (alt)", eraName, r.Where(e => e.G == g).ToList());
         }
         Console.WriteLine("  per-asset ExA, development era, assets with >= 3 grade A triggers (breadth list):");
+        int listed = 0;
         foreach (var a in cls)
         {
             var l = a.Long.Where(e => e.Era == 0 && e.G == SetupGrade.A).ToList();
-            if (l.Count >= 3) Console.WriteLine($"    {a.Label,-6} n={l.Count,3} ExA {Ex(l):+0.000;-0.000}");
+            if (l.Count >= 3) { Console.WriteLine($"    {a.Label,-6} n={l.Count,3} ExA {Ex(l):+0.000;-0.000}"); listed++; }
         }
+        if (listed == 0) Console.WriteLine("    none: no asset has 3 grade A triggers in the development era.");
         Console.WriteLine();
     }
 
@@ -823,7 +885,7 @@ public static class SetupGraderCommand
         var p4 = primary.First(t => t.Id == $"P4-{cn}");
         bool c1 = p1.Sig, c2 = p4.Sig;
         bool c3 = MeanR(A) > MeanR(B) && MeanR(B) > MeanR(C) && Ex(A) > Ex(B) && Ex(B) > Ex(C);
-        bool heldCheckable = hA.Count >= 10 && hC.Count >= 10;
+        bool heldCheckable = hA.Count >= MinHeld && hC.Count >= MinHeld;
         bool c4 = heldCheckable && Ex(hA) > 0 && Ex(hA) - Ex(hC) > 0;
         var breadth = cls.Select(a => a.Long.Where(e => e.Era == 0 && e.G == SetupGrade.A).ToList()).Where(l => l.Count >= 3).ToList();
         int pos = breadth.Count(l => Ex(l) > 0);
@@ -833,7 +895,8 @@ public static class SetupGraderCommand
         string countState = A.Count >= 30 ? "confirmatory" : A.Count >= 15 ? "Suggestive only (15-29)" : "not testable (<15)";
 
         string label;
-        if (c1 && c2 && c3 && c4 && c5 && c6 && conf && heldCheckable) label = "Supported";
+        if (A.Count < MinTestable) label = $"No edge (grade A not testable: {A.Count} triggers, fewer than {MinTestable})";
+        else if (c1 && c2 && c3 && c4 && c5 && c6 && conf && heldCheckable) label = "Supported";
         else if (c1 && c2 && c3 && c4 && c5 && !c6 && conf && heldCheckable) label = "Fragile";
         else if (c3 && A.Count >= 15 && p1.P < 0.05 && p4.P < 0.05 && !(heldCheckable && !c4)) label = "Suggestive";
         else label = "No edge";
