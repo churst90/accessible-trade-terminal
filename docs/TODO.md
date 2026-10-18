@@ -117,14 +117,23 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (2026-10-18 — the cycle school: stage 1 DONE (method, design, pre-registration); see
-> CHANGES).** `docs/CAMEL_METHOD.md`, `docs/CYCLE_LOW_INDICATOR_DESIGN.md` and
-> `docs/CYCLE_SCHOOL_PREREG.md` are committed; nothing was computed. What is left:
-> - [ ] **Stage 2: build and run the 56 pre-registered tests** exactly as written, results into a new
->   `docs/CYCLE_SCHOOL_FINDINGS.md` with an `edges.json` record. Do not edit the pre-registration.
-> - [ ] Before using COT in the score: confirm which CFTC report each `xs_cftc_*` file came from. The
->   downloader parses the disaggregated report, which does not normally carry S&P, Nasdaq or Bitcoin
->   futures (those are in Traders in Financial Futures).
+> **START HERE (2026-10-18 — the cycle school: stage 2 DONE, results in
+> `docs/CYCLE_SCHOOL_FINDINGS.md`; see CHANGES).** Camel's checklist: no edge (shuffled prices
+> score the same). The capitulation score: no edge from the added data. Macro theses: no support.
+> Trading: no edge. What is left:
+> - [x] **Stage 2: build and run the 56 pre-registered tests.** Done 2026-10-18 (`cycle-school`).
+> - [x] Confirm which CFTC report each `xs_cftc_*` file came from. Done: `sp500_cot`, `nasdaq_cot`
+>   and `gold_cot` are what they claim; `bitcoin_cot` and `wti_cot` mix contracts. See
+>   `docs/MACRO_DATA.md`.
+> - [ ] **Decide (Cody):** fix the old `cftc-cot` downloader to choose contracts by code and stamp
+>   the release (as `macro-fetch --only cftc` now does), or retire it? Any study that used
+>   `bitcoin_cot` or `wti_cot` read a mixture of contracts; the old S&P and Nasdaq files hold
+>   2006-2010 values that were not public until 2010-12-03. Nothing was changed in them.
+> - [ ] **Unverified:** the CFTC release dates before 2026 are a holiday rule plus the CFTC's
+>   announced exceptions, not a published list. The 2019 backlog cadence is from press release
+>   7864-19 (one Tuesday and one Friday each week from 2019-02-01); the exact dates were not found.
+> - [ ] If the design is ever revised (a new pre-registration): drop the "low due" rule (B5 found it
+>   adds nothing), and note that leaving out positioning or macro raised alert precision.
 > - [ ] **Questions for Cody (nothing applied):** the "90+ metrics" claim for the CF indicator is in
 >   no public source the lab holds; where did it come from? Fetch the four public Camel dailies that
 >   were not obtained (29 Aug, 8 Sep, 25 Sep, 16 Oct) and any Bob Loukas material once the other

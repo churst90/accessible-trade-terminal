@@ -1,5 +1,7 @@
 # The cycle school: pre-registration
 
+> **Results (2026-10-18):** `docs/CYCLE_SCHOOL_FINDINGS.md`. Nothing below was changed after them.
+
 Written 2026-10-18, before any result existed. This is stage 1 of 2. Stage 2 (a different agent)
 builds and runs what is written here. **This file was committed before any forward return, hit
 rate, outcome or event count was computed for any rule in it. The commit time is the proof.**

@@ -1,0 +1,5414 @@
+{
+  "counts": [
+    {
+      "class": "crypto",
+      "era": "Dev",
+      "reference_lows_GD": 78,
+      "reference_lows_GW": 14,
+      "calls_A-P": 112,
+      "excluded_A-P": 0,
+      "calls_A-V1": 182,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 60,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 156,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 171,
+      "excluded_A-NW": 0,
+      "calls_A7": 9,
+      "excluded_A7": 0,
+      "calls_ALERT": 29,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 23,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 45,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 45,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 43,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 41,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 22,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 21,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "crypto",
+      "era": "Held",
+      "reference_lows_GD": 41,
+      "reference_lows_GW": 5,
+      "calls_A-P": 44,
+      "excluded_A-P": 1,
+      "calls_A-V1": 63,
+      "excluded_A-V1": 2,
+      "calls_A-V2": 21,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 52,
+      "excluded_A-F2": 2,
+      "calls_A-NW": 85,
+      "excluded_A-NW": 1,
+      "calls_A7": 13,
+      "excluded_A7": 0,
+      "calls_ALERT": 9,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 10,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 14,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 11,
+      "excluded_ALERT90": 2,
+      "calls_ALERT_P90": 13,
+      "excluded_ALERT_P90": 1,
+      "calls_ALERT_W": 6,
+      "excluded_ALERT_W": 4,
+      "calls_CONF": 5,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 2,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "equity",
+      "era": "Dev",
+      "reference_lows_GD": 464,
+      "reference_lows_GW": 66,
+      "calls_A-P": 508,
+      "excluded_A-P": 0,
+      "calls_A-V1": 813,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 319,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 690,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 766,
+      "excluded_A-NW": 0,
+      "calls_A7": 134,
+      "excluded_A7": 0,
+      "calls_ALERT": 81,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 65,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 110,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 146,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 121,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 81,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 65,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 115,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "equity",
+      "era": "Held",
+      "reference_lows_GD": 53,
+      "reference_lows_GW": 9,
+      "calls_A-P": 65,
+      "excluded_A-P": 0,
+      "calls_A-V1": 121,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 31,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 100,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 95,
+      "excluded_A-NW": 0,
+      "calls_A7": 18,
+      "excluded_A7": 0,
+      "calls_ALERT": 17,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 13,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 21,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 34,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 18,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 11,
+      "excluded_ALERT_W": 3,
+      "calls_CONF": 26,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 20,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "gold",
+      "era": "Dev",
+      "reference_lows_GD": 86,
+      "reference_lows_GW": 12,
+      "calls_A-P": 114,
+      "excluded_A-P": 0,
+      "calls_A-V1": 209,
+      "excluded_A-V1": 0,
+      "calls_A-V2": 93,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 165,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 132,
+      "excluded_A-NW": 0,
+      "calls_A7": 17,
+      "excluded_A7": 0,
+      "calls_ALERT": 12,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 16,
+      "excluded_ALERT_P": 0,
+      "calls_ALERT_ND": 16,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 23,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 27,
+      "excluded_ALERT_P90": 0,
+      "calls_ALERT_W": 15,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 10,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 23,
+      "excluded_CONF_P": 0
+    },
+    {
+      "class": "gold",
+      "era": "Held",
+      "reference_lows_GD": 13,
+      "reference_lows_GW": 1,
+      "calls_A-P": 22,
+      "excluded_A-P": 0,
+      "calls_A-V1": 39,
+      "excluded_A-V1": 1,
+      "calls_A-V2": 15,
+      "excluded_A-V2": 0,
+      "calls_A-F2": 31,
+      "excluded_A-F2": 0,
+      "calls_A-NW": 24,
+      "excluded_A-NW": 0,
+      "calls_A7": 2,
+      "excluded_A7": 0,
+      "calls_ALERT": 0,
+      "excluded_ALERT": 0,
+      "calls_ALERT_P": 0,
+      "excluded_ALERT_P": 2,
+      "calls_ALERT_ND": 1,
+      "excluded_ALERT_ND": 0,
+      "calls_ALERT90": 2,
+      "excluded_ALERT90": 0,
+      "calls_ALERT_P90": 3,
+      "excluded_ALERT_P90": 2,
+      "calls_ALERT_W": 1,
+      "excluded_ALERT_W": 0,
+      "calls_CONF": 0,
+      "excluded_CONF": 0,
+      "calls_CONF_P": 3,
+      "excluded_CONF_P": 0
+    }
+  ],
+  "per_asset_counts": [
+    {
+      "asset": "BTC",
+      "first_bar": "2011-08-18",
+      "last_bar": "2026-06-14",
+      "bars": 5415,
+      "GD_dev": 54,
+      "GW_dev": 10,
+      "AP_dev": 74,
+      "ALERT_dev": 23,
+      "CONF_dev": 17,
+      "A7_dev": 5
+    },
+    {
+      "asset": "ETH",
+      "first_bar": "2017-08-16",
+      "last_bar": "2026-06-14",
+      "bars": 3225,
+      "GD_dev": 24,
+      "GW_dev": 4,
+      "AP_dev": 38,
+      "ALERT_dev": 6,
+      "CONF_dev": 5,
+      "A7_dev": 4
+    },
+    {
+      "asset": "SPY",
+      "first_bar": "1993-01-29",
+      "last_bar": "2026-07-24",
+      "bars": 8428,
+      "GD_dev": 142,
+      "GW_dev": 17,
+      "AP_dev": 144,
+      "ALERT_dev": 29,
+      "CONF_dev": 18,
+      "A7_dev": 35
+    },
+    {
+      "asset": "QQQ",
+      "first_bar": "1999-03-10",
+      "last_bar": "2026-07-24",
+      "bars": 6886,
+      "GD_dev": 102,
+      "GW_dev": 16,
+      "AP_dev": 128,
+      "ALERT_dev": 19,
+      "CONF_dev": 15,
+      "A7_dev": 30
+    },
+    {
+      "asset": "DIA",
+      "first_bar": "1998-01-20",
+      "last_bar": "2026-07-24",
+      "bars": 7172,
+      "GD_dev": 123,
+      "GW_dev": 17,
+      "AP_dev": 116,
+      "ALERT_dev": 21,
+      "CONF_dev": 23,
+      "A7_dev": 38
+    },
+    {
+      "asset": "IWM",
+      "first_bar": "2000-05-26",
+      "last_bar": "2026-07-24",
+      "bars": 6578,
+      "GD_dev": 97,
+      "GW_dev": 16,
+      "AP_dev": 120,
+      "ALERT_dev": 12,
+      "CONF_dev": 9,
+      "A7_dev": 31
+    },
+    {
+      "asset": "GLD",
+      "first_bar": "2004-11-18",
+      "last_bar": "2026-07-24",
+      "bars": 5453,
+      "GD_dev": 86,
+      "GW_dev": 12,
+      "AP_dev": 114,
+      "ALERT_dev": 12,
+      "CONF_dev": 10,
+      "A7_dev": 17
+    }
+  ],
+  "macro_counts": [
+    {
+      "Id": "C1-SPY",
+      "dev_thesis_group": 64,
+      "dev_other_group": 101,
+      "held_thesis_group": 3,
+      "held_other_group": 9,
+      "testable": true
+    },
+    {
+      "Id": "C1-BTC",
+      "dev_thesis_group": 21,
+      "dev_other_group": 38,
+      "held_thesis_group": 3,
+      "held_other_group": 9,
+      "testable": true
+    },
+    {
+      "Id": "C2",
+      "dev_thesis_group": 141,
+      "dev_other_group": 135,
+      "held_thesis_group": 7,
+      "held_other_group": 16,
+      "testable": true
+    },
+    {
+      "Id": "C3",
+      "dev_thesis_group": 77,
+      "dev_other_group": 282,
+      "held_thesis_group": 24,
+      "held_other_group": 10,
+      "testable": true
+    },
+    {
+      "Id": "C5",
+      "dev_thesis_group": 182,
+      "dev_other_group": 182,
+      "held_thesis_group": 31,
+      "held_other_group": 31,
+      "testable": true
+    },
+    {
+      "Id": "C6",
+      "dev_thesis_group": 19,
+      "dev_other_group": 38,
+      "held_thesis_group": 2,
+      "held_other_group": 5,
+      "testable": false
+    }
+  ],
+  "trade_counts": [
+    {
+      "test": "D1",
+      "class": "crypto",
+      "taken": 22,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "crypto",
+      "taken": 112,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D1",
+      "class": "equity",
+      "taken": 65,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "equity",
+      "taken": 508,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D1",
+      "class": "gold",
+      "taken": 10,
+      "skipped": 0,
+      "past": 0
+    },
+    {
+      "test": "D2",
+      "class": "gold",
+      "taken": 114,
+      "skipped": 0,
+      "past": 0
+    }
+  ],
+  "a8_counts": {
+    "crypto": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0
+    },
+    "equity": {
+      "Candidates": 116,
+      "In": 66,
+      "Unresolved": 0
+    },
+    "gold": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0
+    }
+  },
+  "b7_counts": {
+    "crypto": {
+      "G_W": 10,
+      "other_G_D": 28
+    },
+    "equity": {
+      "G_W": 66,
+      "other_G_D": 398
+    }
+  },
+  "fallback_checklist_classes": [],
+  "fallback_alert_classes": [
+    "crypto",
+    "gold"
+  ],
+  "tests": [
+    {
+      "Id": "A1",
+      "Family": "A-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 112,
+      "Lows": 78,
+      "Observed": 0.4017857142857143,
+      "NullMean": 0.19580178571428586,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A2",
+      "Family": "A-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 112,
+      "Lows": 78,
+      "Observed": 0.4017857142857143,
+      "NullMean": 0.2532839285714288,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A3",
+      "Family": "A-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 112,
+      "Lows": 78,
+      "Observed": 0.4017857142857143,
+      "NullMean": 0.5835,
+      "P": 0.9800995024875622,
+      "PHolm": 0.9800995024875622,
+      "Note": "N3 mean 0.502, 95th percentile 0.584",
+      "Significant": false
+    },
+    {
+      "Id": "A4",
+      "Family": "A-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 182,
+      "Lows": 78,
+      "Observed": 0.34065934065934067,
+      "NullMean": 0.25335769230769295,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A5",
+      "Family": "A-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 60,
+      "Lows": 78,
+      "Observed": 0.4666666666666667,
+      "NullMean": 0.25271833333333255,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A6",
+      "Family": "A-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 112,
+      "Lows": 78,
+      "Observed": 0.03921261487050964,
+      "NullMean": 0.36257309941520466,
+      "P": 0.10898910108989102,
+      "PHolm": 0.5449455054494551,
+      "Note": "A-P 0.402 minus no-window 0.363 = +0.039; no-window calls 171",
+      "Significant": false
+    },
+    {
+      "Id": "A7",
+      "Family": "A-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 9,
+      "Lows": 14,
+      "Observed": 0.3333333333333333,
+      "NullMean": 0.3875555555555576,
+      "P": 0.7856214378562144,
+      "PHolm": "NaN",
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "A8",
+      "Family": "A-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 11,
+      "Lows": 19,
+      "Observed": 0.11809482383645076,
+      "NullMean": 0.7000869943453675,
+      "P": 0.0008999100089991,
+      "PHolm": "NaN",
+      "Note": "IN share 0.818 vs survival-matched null 0.700 (Camel's 80% is a reference, not the test)",
+      "Significant": false
+    },
+    {
+      "Id": "B1",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 29,
+      "Lows": 78,
+      "Observed": 0.6551724137931034,
+      "NullMean": 0.31096551724138444,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "B2",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 23,
+      "Lows": 78,
+      "Observed": -0.040479760119940034,
+      "NullMean": 0.6956521739130435,
+      "P": 0.6744325567443256,
+      "PHolm": 1.0,
+      "Note": "ALERT 0.655 minus ALERT_P 0.696 = -0.040; ALERT_P calls 23",
+      "Significant": false
+    },
+    {
+      "Id": "B3",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 29,
+      "Lows": 78,
+      "Observed": 7.0,
+      "NullMean": 6.5,
+      "P": 0.5000000000000004,
+      "PHolm": 1.0,
+      "Note": "lows hit by both: 14 (1 ties dropped); ALERT first on 7 of 13; read only if B1 passes",
+      "Significant": false
+    },
+    {
+      "Id": "B4",
+      "Family": "B-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 22,
+      "Lows": 78,
+      "Observed": 0.5909090909090909,
+      "NullMean": 0.5414409090909081,
+      "P": 0.39146085391460855,
+      "PHolm": 1.0,
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "B5",
+      "Family": "B-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 29,
+      "Lows": 78,
+      "Observed": 0.05517241379310345,
+      "NullMean": 0.6,
+      "P": 0.14338566143385661,
+      "PHolm": 0.8603139686031397,
+      "Note": "ALERT 0.655 minus no-due 0.600 = +0.055; no-due calls 45",
+      "Significant": false
+    },
+    {
+      "Id": "B6",
+      "Family": "B-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 41,
+      "Lows": 14,
+      "Observed": 0.6585365853658537,
+      "NullMean": 0.35587317073171704,
+      "P": 0.0096990300969903,
+      "PHolm": 0.0678932106789321,
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "B7",
+      "Family": "B-secondary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 10,
+      "Lows": 10,
+      "Observed": 0.2857142857142857,
+      "NullMean": "NaN",
+      "P": 0.0765923407659234,
+      "PHolm": "NaN",
+      "Note": "G_W lows 10, other G_D lows 28",
+      "Significant": false
+    },
+    {
+      "Id": "B1-90",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 45,
+      "Lows": 78,
+      "Observed": 0.6222222222222222,
+      "NullMean": 0.31049555555556063,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "Suggestive whatever its p (prereg 3.7)",
+      "Significant": true
+    },
+    {
+      "Id": "B2-90",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 45,
+      "Lows": 78,
+      "Observed": -0.00568475452196382,
+      "NullMean": "NaN",
+      "P": 0.5514448555144486,
+      "PHolm": 1.0,
+      "Note": "difference -0.006; Suggestive whatever its p",
+      "Significant": false
+    },
+    {
+      "Id": "B3-90",
+      "Family": "B-primary",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 45,
+      "Lows": 78,
+      "Observed": 10.0,
+      "NullMean": "NaN",
+      "P": 0.4072647094726561,
+      "PHolm": 1.0,
+      "Note": "pairs 18; Suggestive whatever its p",
+      "Significant": false
+    },
+    {
+      "Id": "A1",
+      "Family": "A-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 508,
+      "Lows": 464,
+      "Observed": 0.5393700787401575,
+      "NullMean": 0.2839706692913523,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A2",
+      "Family": "A-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 508,
+      "Lows": 464,
+      "Observed": 0.5393700787401575,
+      "NullMean": 0.3380301181102428,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A3",
+      "Family": "A-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 508,
+      "Lows": 464,
+      "Observed": 0.5393700787401575,
+      "NullMean": 0.5634589947089947,
+      "P": 0.47761194029850745,
+      "PHolm": 0.9552238805970149,
+      "Note": "N3 mean 0.536, 95th percentile 0.563",
+      "Significant": false
+    },
+    {
+      "Id": "A4",
+      "Family": "A-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 813,
+      "Lows": 464,
+      "Observed": 0.40836408364083643,
+      "NullMean": 0.3390993849938492,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A5",
+      "Family": "A-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 319,
+      "Lows": 464,
+      "Observed": 0.5360501567398119,
+      "NullMean": 0.3389517241379332,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A6",
+      "Family": "A-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 508,
+      "Lows": 464,
+      "Observed": 0.038064595711436944,
+      "NullMean": 0.5013054830287206,
+      "P": 0.0013998600139986002,
+      "PHolm": 0.011198880111988802,
+      "Note": "A-P 0.539 minus no-window 0.501 = +0.038; no-window calls 766",
+      "Significant": true
+    },
+    {
+      "Id": "A7",
+      "Family": "A-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 134,
+      "Lows": 66,
+      "Observed": 0.3656716417910448,
+      "NullMean": 0.2644798507462625,
+      "P": 0.00019998000199980003,
+      "PHolm": 0.0017998200179982003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A8",
+      "Family": "A-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 66,
+      "Lows": 116,
+      "Observed": 0.10878725698379177,
+      "NullMean": 0.6336369854404507,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "IN share 0.742 vs survival-matched null 0.634 (Camel's 80% is a reference, not the test)",
+      "Significant": true
+    },
+    {
+      "Id": "B1",
+      "Family": "B-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 81,
+      "Lows": 464,
+      "Observed": 0.7901234567901234,
+      "NullMean": 0.45397407407407,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "B2",
+      "Family": "B-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 65,
+      "Lows": 464,
+      "Observed": -0.11756885090218427,
+      "NullMean": 0.9076923076923077,
+      "P": 0.9184081591840816,
+      "PHolm": 1.0,
+      "Note": "ALERT 0.790 minus ALERT_P 0.908 = -0.118; ALERT_P calls 65",
+      "Significant": false
+    },
+    {
+      "Id": "B3",
+      "Family": "B-primary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 81,
+      "Lows": 464,
+      "Observed": 18.0,
+      "NullMean": 13.5,
+      "P": 0.06103906035423274,
+      "PHolm": 0.6714296638965601,
+      "Note": "lows hit by both: 32 (5 ties dropped); ALERT first on 18 of 27; read only if B1 passes",
+      "Significant": false
+    },
+    {
+      "Id": "B4",
+      "Family": "B-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 65,
+      "Lows": 464,
+      "Observed": 0.9230769230769231,
+      "NullMean": 0.5534892307692322,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0010998900109989002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "B5",
+      "Family": "B-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 81,
+      "Lows": 464,
+      "Observed": -0.01896745230078567,
+      "NullMean": 0.8090909090909091,
+      "P": 0.6175382461753824,
+      "PHolm": 1.0,
+      "Note": "ALERT 0.790 minus no-due 0.809 = -0.019; no-due calls 110",
+      "Significant": false
+    },
+    {
+      "Id": "B6",
+      "Family": "B-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 81,
+      "Lows": 66,
+      "Observed": 0.6666666666666666,
+      "NullMean": 0.3014938271604923,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0010998900109989002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "B7",
+      "Family": "B-secondary",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 66,
+      "Lows": 66,
+      "Observed": 0.28178772651134465,
+      "NullMean": "NaN",
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0010998900109989002,
+      "Note": "G_W lows 66, other G_D lows 398",
+      "Significant": true
+    },
+    {
+      "Id": "A1",
+      "Family": "A-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 114,
+      "Lows": 86,
+      "Observed": 0.5526315789473685,
+      "NullMean": 0.2985885964912321,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A2",
+      "Family": "A-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 114,
+      "Lows": 86,
+      "Observed": 0.5526315789473685,
+      "NullMean": 0.3219429824561478,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0008999100089991002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A3",
+      "Family": "A-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 114,
+      "Lows": 86,
+      "Observed": 0.5526315789473685,
+      "NullMean": 0.600252100840336,
+      "P": 0.23880597014925373,
+      "PHolm": 0.7164179104477612,
+      "Note": "N3 mean 0.522, 95th percentile 0.600",
+      "Significant": false
+    },
+    {
+      "Id": "A4",
+      "Family": "A-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 209,
+      "Lows": 86,
+      "Observed": 0.3684210526315789,
+      "NullMean": 0.32169569377987967,
+      "P": 0.0018998100189981002,
+      "PHolm": 0.013298670132986702,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A5",
+      "Family": "A-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 93,
+      "Lows": 86,
+      "Observed": 0.5161290322580645,
+      "NullMean": 0.32172258064520104,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "A6",
+      "Family": "A-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 114,
+      "Lows": 86,
+      "Observed": 0.037480063795853336,
+      "NullMean": 0.5151515151515151,
+      "P": 0.0018998100189981002,
+      "PHolm": 0.013298670132986702,
+      "Note": "A-P 0.553 minus no-window 0.515 = +0.037; no-window calls 132",
+      "Significant": true
+    },
+    {
+      "Id": "A7",
+      "Family": "A-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 17,
+      "Lows": 12,
+      "Observed": 0.35294117647058826,
+      "NullMean": 0.2541411764705761,
+      "P": 0.20837916208379162,
+      "PHolm": 0.8335166483351665,
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "A8",
+      "Family": "A-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 11,
+      "Lows": 19,
+      "Observed": 0.1321432734323249,
+      "NullMean": 0.6860385447494933,
+      "P": 0.0012998700129987,
+      "PHolm": "NaN",
+      "Note": "IN share 0.818 vs survival-matched null 0.686 (Camel's 80% is a reference, not the test)",
+      "Significant": false
+    },
+    {
+      "Id": "B1",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 12,
+      "Lows": 86,
+      "Observed": 0.9166666666666666,
+      "NullMean": 0.46719999999999956,
+      "P": 0.0030996900309969004,
+      "PHolm": "NaN",
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "B2",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 12,
+      "Lows": 86,
+      "Observed": -0.02083333333333337,
+      "NullMean": 0.9375,
+      "P": 0.6635336466353364,
+      "PHolm": "NaN",
+      "Note": "ALERT 0.917 minus ALERT_P 0.938 = -0.021; ALERT_P calls 16",
+      "Significant": false
+    },
+    {
+      "Id": "B3",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 12,
+      "Lows": 86,
+      "Observed": 2.0,
+      "NullMean": 3.0,
+      "P": 0.8906249999999999,
+      "PHolm": "NaN",
+      "Note": "lows hit by both: 7 (1 ties dropped); ALERT first on 2 of 6; read only if B1 passes",
+      "Significant": false
+    },
+    {
+      "Id": "B4",
+      "Family": "B-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 10,
+      "Lows": 86,
+      "Observed": 0.9,
+      "NullMean": 0.5234699999999979,
+      "P": 0.0160983901609839,
+      "PHolm": "NaN",
+      "Note": "",
+      "Significant": false
+    },
+    {
+      "Id": "B5",
+      "Family": "B-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 12,
+      "Lows": 86,
+      "Observed": -0.02083333333333337,
+      "NullMean": 0.9375,
+      "P": 1.0,
+      "PHolm": "NaN",
+      "Note": "ALERT 0.917 minus no-due 0.938 = -0.021; no-due calls 16",
+      "Significant": false
+    },
+    {
+      "Id": "B6",
+      "Family": "B-secondary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 15,
+      "Lows": 12,
+      "Observed": 0.7333333333333333,
+      "NullMean": 0.2989266666666772,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0010998900109989002,
+      "Note": "",
+      "Significant": true
+    },
+    {
+      "Id": "B1-90",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 23,
+      "Lows": 86,
+      "Observed": 0.8260869565217391,
+      "NullMean": 0.4686434782608649,
+      "P": 9.999000099990002E-05,
+      "PHolm": 0.0014998500149985003,
+      "Note": "Suggestive whatever its p (prereg 3.7)",
+      "Significant": true
+    },
+    {
+      "Id": "B2-90",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 23,
+      "Lows": 86,
+      "Observed": 0.011272141706924366,
+      "NullMean": "NaN",
+      "P": 0.44565543445655437,
+      "PHolm": 1.0,
+      "Note": "difference +0.011; Suggestive whatever its p",
+      "Significant": false
+    },
+    {
+      "Id": "B3-90",
+      "Family": "B-primary",
+      "Class": "gold",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 23,
+      "Lows": 86,
+      "Observed": 2.0,
+      "NullMean": "NaN",
+      "P": 0.9892578125000001,
+      "PHolm": 1.0,
+      "Note": "pairs 10; Suggestive whatever its p",
+      "Significant": false
+    },
+    {
+      "Id": "C1-SPY",
+      "Family": "C",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 64,
+      "Lows": 0,
+      "Observed": -0.0067134568965364905,
+      "NullMean": "NaN",
+      "P": 0.20707929207079293,
+      "PHolm": 1.0,
+      "Note": "mean 60-bar max drawdown, bonds disagree (strong print, 2-year yield down) minus agree (yield up); thesis: < 0",
+      "Significant": false
+    },
+    {
+      "Id": "C1-BTC",
+      "Family": "C",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 21,
+      "Lows": 0,
+      "Observed": -0.018475583508416243,
+      "NullMean": "NaN",
+      "P": 0.3618638136186381,
+      "PHolm": 1.0,
+      "Note": "mean 60-bar max drawdown, bonds disagree (strong print, 2-year yield down) minus agree (yield up); thesis: < 0",
+      "Significant": false
+    },
+    {
+      "Id": "C2",
+      "Family": "C",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 135,
+      "Lows": 0,
+      "Observed": -0.005894405043341336,
+      "NullMean": "NaN",
+      "P": 0.3077692230776922,
+      "PHolm": 1.0,
+      "Note": "mean change in DGS10 over the next 60 observations, hot CPI with the 10-year down minus hot CPI with it up; thesis: < 0",
+      "Significant": false
+    },
+    {
+      "Id": "C3",
+      "Family": "C",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 77,
+      "Lows": 0,
+      "Observed": -0.05057804155410964,
+      "NullMean": "NaN",
+      "P": 0.0084991500849915,
+      "PHolm": 0.050994900509949,
+      "Note": "mean 120-bar SPY max drawdown after a downward-revision signal minus other release days; thesis: < 0",
+      "Significant": false
+    },
+    {
+      "Id": "C5",
+      "Family": "C",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 182,
+      "Lows": 0,
+      "Observed": 0.03296703296703297,
+      "NullMean": "NaN",
+      "P": 0.23994383084916368,
+      "PHolm": 1.0,
+      "Note": "accuracy of DGS3MO pricing minus accuracy of 'same as the last scheduled meeting'; thesis: > 0 (exact McNemar)",
+      "Significant": false
+    },
+    {
+      "Id": "C6",
+      "Family": "C",
+      "Class": "equity",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 19,
+      "Lows": 0,
+      "Observed": -0.03454524016230408,
+      "NullMean": "NaN",
+      "P": "NaN",
+      "PHolm": "NaN",
+      "Note": "mean 60-bar SPY max drawdown on gate days (failed cycle + below SMA 50 + alarm) minus the same without the alarm; thesis: < 0. BAA is investment grade, not high yield",
+      "Significant": false
+    },
+    {
+      "Id": "D1",
+      "Family": "D",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "suggestive",
+      "Calls": 22,
+      "Lows": 78,
+      "Observed": 0.9449967816677188,
+      "NullMean": 0.06642833496026468,
+      "P": 0.03996003996003996,
+      "PHolm": 0.23976023976023975,
+      "Note": "net R +0.945 (gross +0.966) vs control +0.066; standard harness -0.149; CAP_P CONFIRMED +0.911 over 21",
+      "Significant": false
+    },
+    {
+      "Id": "D2",
+      "Family": "D",
+      "Class": "crypto",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 112,
+      "Lows": 78,
+      "Observed": 1.1728925930109086,
+      "NullMean": 0.540867417942941,
+      "P": 0.06893106893106893,
+      "PHolm": 0.34465534465534464,
+      "Note": "net R +1.173 (gross +1.199) vs control +0.541; standard harness +0.036",
+      "Significant": false
+    },
+    {
+      "Id": "D1",
+      "Family": "D",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 65,
+      "Lows": 464,
+      "Observed": 0.055323750126785115,
+      "NullMean": -0.04753452640753735,
+      "P": 0.16083916083916083,
+      "PHolm": 0.4825174825174825,
+      "Note": "net R +0.055 (gross +0.100) vs control -0.048; standard harness +0.059; CAP_P CONFIRMED -0.061 over 115",
+      "Significant": false
+    },
+    {
+      "Id": "D2",
+      "Family": "D",
+      "Class": "equity",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 508,
+      "Lows": 464,
+      "Observed": -0.024820489604340155,
+      "NullMean": -0.08818108568284427,
+      "P": 0.08791208791208792,
+      "PHolm": 0.3516483516483517,
+      "Note": "net R -0.025 (gross +0.060) vs control -0.088; standard harness -0.099",
+      "Significant": false
+    },
+    {
+      "Id": "D1",
+      "Family": "D",
+      "Class": "gold",
+      "Count": "",
+      "Status": "not testable",
+      "Calls": 10,
+      "Lows": 86,
+      "Observed": 0.3956135563477057,
+      "NullMean": 0.04031225202042309,
+      "P": 0.17282717282717283,
+      "PHolm": "NaN",
+      "Note": "net R +0.396 (gross +0.463) vs control +0.040; standard harness +0.520; CAP_P CONFIRMED -0.143 over 23",
+      "Significant": false
+    },
+    {
+      "Id": "D2",
+      "Family": "D",
+      "Class": "gold",
+      "Count": "",
+      "Status": "confirmatory",
+      "Calls": 114,
+      "Lows": 86,
+      "Observed": -0.014244467214275617,
+      "NullMean": -0.062034697626937835,
+      "P": 0.33266733266733267,
+      "PHolm": 0.6653346653346653,
+      "Note": "net R -0.014 (gross +0.093) vs control -0.062; standard harness +0.008",
+      "Significant": false
+    }
+  ],
+  "detail_dev": {
+    "A-P/crypto": {
+      "calls": 112,
+      "hits": 45,
+      "excluded": 0,
+      "precision": 0.4017857142857143,
+      "recall": 0.6153846153846154,
+      "lows_in_era": 78,
+      "median_lag": 5.0,
+      "median_lead": 5.0,
+      "share_lead_positive": 0.8666666666666667,
+      "false_alarms_per_year": 4.001267168083714,
+      "per_asset": {
+        "BTC": {
+          "Calls": 74,
+          "Hits": 29,
+          "precision": 0.3918918918918919
+        },
+        "ETH": {
+          "Calls": 38,
+          "Hits": 16,
+          "precision": 0.42105263157894735
+        }
+      },
+      "n1_mean": 0.19580178571428586,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": 0.2532839285714288,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "BTC": 0.25774729729729734,
+        "ETH": 0.24459210526315728
+      },
+      "n3_mean": 0.5017902552582929,
+      "n3_p95": 0.5835,
+      "n3_p": 0.9800995024875622
+    },
+    "A-V1/crypto": {
+      "calls": 182,
+      "hits": 62,
+      "excluded": 0,
+      "precision": 0.34065934065934067,
+      "recall": 0.7307692307692307,
+      "lows_in_era": 78,
+      "median_lag": 2.0,
+      "median_lead": 9.5,
+      "share_lead_positive": 0.9193548387096774,
+      "false_alarms_per_year": 7.166448659254414,
+      "per_asset": {
+        "BTC": {
+          "Calls": 122,
+          "Hits": 43,
+          "precision": 0.3524590163934426
+        },
+        "ETH": {
+          "Calls": 60,
+          "Hits": 19,
+          "precision": 0.31666666666666665
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.25335769230769295,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "BTC": 0.2578057377049151,
+        "ETH": 0.24431333333333283
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/crypto": {
+      "calls": 60,
+      "hits": 28,
+      "excluded": 0,
+      "precision": 0.4666666666666667,
+      "recall": 0.38461538461538464,
+      "lows_in_era": 78,
+      "median_lag": 5.5,
+      "median_lead": 3.0,
+      "share_lead_positive": 0.75,
+      "false_alarms_per_year": 1.9110529758011772,
+      "per_asset": {
+        "BTC": {
+          "Calls": 38,
+          "Hits": 18,
+          "precision": 0.47368421052631576
+        },
+        "ETH": {
+          "Calls": 22,
+          "Hits": 10,
+          "precision": 0.45454545454545453
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.25271833333333255,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "BTC": 0.2576736842105271,
+        "ETH": 0.24415909090909077
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-NW/crypto": {
+      "calls": 171,
+      "hits": 62,
+      "excluded": 0,
+      "precision": 0.36257309941520466,
+      "recall": 0.8461538461538461,
+      "lows_in_era": 78,
+      "median_lag": 4.0,
+      "median_lead": 7.0,
+      "share_lead_positive": 0.8709677419354839,
+      "false_alarms_per_year": 6.509524198822759,
+      "per_asset": {
+        "BTC": {
+          "Calls": 114,
+          "Hits": 40,
+          "precision": 0.3508771929824561
+        },
+        "ETH": {
+          "Calls": 57,
+          "Hits": 22,
+          "precision": 0.38596491228070173
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/crypto": {
+      "calls": 9,
+      "hits": 3,
+      "excluded": 0,
+      "precision": 0.3333333333333333,
+      "recall": 0.21428571428571427,
+      "lows_in_era": 14,
+      "median_lag": 53.0,
+      "median_lead": -1.0,
+      "share_lead_positive": 0.3333333333333333,
+      "false_alarms_per_year": 0.3583224329627207,
+      "per_asset": {
+        "BTC": {
+          "Calls": 5,
+          "Hits": 2,
+          "precision": 0.4
+        },
+        "ETH": {
+          "Calls": 4,
+          "Hits": 1,
+          "precision": 0.25
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.3875555555555576,
+      "n2_p": 0.7856214378562144,
+      "n2_per_asset_mean": {
+        "BTC": 0.4989399999999976,
+        "ETH": 0.248325
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/crypto": {
+      "calls": 29,
+      "hits": 19,
+      "excluded": 0,
+      "precision": 0.6551724137931034,
+      "recall": 0.24358974358974358,
+      "lows_in_era": 78,
+      "median_lag": -3.0,
+      "median_lead": 17.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.5972040549378679,
+      "per_asset": {
+        "BTC": {
+          "Calls": 23,
+          "Hits": 16,
+          "precision": 0.6956521739130435
+        },
+        "ETH": {
+          "Calls": 6,
+          "Hits": 3,
+          "precision": 0.5
+        }
+      },
+      "n1_mean": 0.31096551724138444,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/crypto": {
+      "calls": 23,
+      "hits": 16,
+      "excluded": 0,
+      "precision": 0.6956521739130435,
+      "recall": 0.20512820512820512,
+      "lows_in_era": 78,
+      "median_lag": -6.0,
+      "median_lead": 18.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.41804283845650747,
+      "per_asset": {
+        "BTC": {
+          "Calls": 18,
+          "Hits": 13,
+          "precision": 0.7222222222222222
+        },
+        "ETH": {
+          "Calls": 5,
+          "Hits": 3,
+          "precision": 0.6
+        }
+      },
+      "n1_mean": 0.30806521739131815,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONFIRMED/crypto": {
+      "calls": 22,
+      "hits": 13,
+      "excluded": 0,
+      "precision": 0.5909090909090909,
+      "recall": 0.16666666666666666,
+      "lows_in_era": 78,
+      "median_lag": 8.0,
+      "median_lead": 1.0,
+      "share_lead_positive": 0.6153846153846154,
+      "false_alarms_per_year": 0.537483649444081,
+      "per_asset": {
+        "BTC": {
+          "Calls": 17,
+          "Hits": 11,
+          "precision": 0.6470588235294118
+        },
+        "ETH": {
+          "Calls": 5,
+          "Hits": 2,
+          "precision": 0.4
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.5414409090909081,
+      "n2_p": 0.39146085391460855,
+      "n2_per_asset_mean": {
+        "BTC": 0.5583470588235532,
+        "ETH": 0.4839599999999964
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/crypto": {
+      "calls": 41,
+      "hits": 27,
+      "excluded": 0,
+      "precision": 0.6585365853658537,
+      "recall": 0.7857142857142857,
+      "lows_in_era": 14,
+      "median_lag": -15.0,
+      "median_lead": 93.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.8360856769130149,
+      "per_asset": {
+        "BTC": {
+          "Calls": 34,
+          "Hits": 23,
+          "precision": 0.6764705882352942
+        },
+        "ETH": {
+          "Calls": 7,
+          "Hits": 4,
+          "precision": 0.5714285714285714
+        }
+      },
+      "n1_mean": 0.35587317073171704,
+      "n1_p": 0.0096990300969903,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-P/equity": {
+      "calls": 508,
+      "hits": 274,
+      "excluded": 0,
+      "precision": 0.5393700787401575,
+      "recall": 0.5926724137931034,
+      "lows_in_era": 464,
+      "median_lag": 3.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.6861313868613139,
+      "false_alarms_per_year": 2.310833829016384,
+      "per_asset": {
+        "SPY": {
+          "Calls": 144,
+          "Hits": 80,
+          "precision": 0.5555555555555556
+        },
+        "QQQ": {
+          "Calls": 128,
+          "Hits": 63,
+          "precision": 0.4921875
+        },
+        "DIA": {
+          "Calls": 116,
+          "Hits": 68,
+          "precision": 0.5862068965517241
+        },
+        "IWM": {
+          "Calls": 120,
+          "Hits": 63,
+          "precision": 0.525
+        }
+      },
+      "n1_mean": 0.2839706692913523,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": 0.3380301181102428,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "SPY": 0.36470208333333193,
+        "QQQ": 0.3131375,
+        "DIA": 0.3565965517241354,
+        "IWM": 0.31462833333333257
+      },
+      "n3_mean": 0.536009816104039,
+      "n3_p95": 0.5634589947089947,
+      "n3_p": 0.47761194029850745
+    },
+    "A-V1/equity": {
+      "calls": 813,
+      "hits": 332,
+      "excluded": 0,
+      "precision": 0.40836408364083643,
+      "recall": 0.7133620689655172,
+      "lows_in_era": 464,
+      "median_lag": 2.0,
+      "median_lead": 3.0,
+      "share_lead_positive": 0.8855421686746988,
+      "false_alarms_per_year": 4.750047315200345,
+      "per_asset": {
+        "SPY": {
+          "Calls": 234,
+          "Hits": 96,
+          "precision": 0.41025641025641024
+        },
+        "QQQ": {
+          "Calls": 201,
+          "Hits": 75,
+          "precision": 0.373134328358209
+        },
+        "DIA": {
+          "Calls": 194,
+          "Hits": 85,
+          "precision": 0.4381443298969072
+        },
+        "IWM": {
+          "Calls": 184,
+          "Hits": 76,
+          "precision": 0.41304347826086957
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.3390993849938492,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "SPY": 0.36512606837606265,
+        "QQQ": 0.3136870646766136,
+        "DIA": 0.3571840206185465,
+        "IWM": 0.31469293478260785
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/equity": {
+      "calls": 319,
+      "hits": 171,
+      "excluded": 0,
+      "precision": 0.5360501567398119,
+      "recall": 0.3728448275862069,
+      "lows_in_era": 464,
+      "median_lag": 3.0,
+      "median_lead": 1.0,
+      "share_lead_positive": 0.6608187134502924,
+      "false_alarms_per_year": 1.4615530200616447,
+      "per_asset": {
+        "SPY": {
+          "Calls": 93,
+          "Hits": 53,
+          "precision": 0.5698924731182796
+        },
+        "QQQ": {
+          "Calls": 80,
+          "Hits": 41,
+          "precision": 0.5125
+        },
+        "DIA": {
+          "Calls": 73,
+          "Hits": 40,
+          "precision": 0.547945205479452
+        },
+        "IWM": {
+          "Calls": 73,
+          "Hits": 37,
+          "precision": 0.5068493150684932
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.3389517241379332,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "SPY": 0.36502150537639466,
+        "QQQ": 0.31357999999999964,
+        "DIA": 0.35773698630137635,
+        "IWM": 0.3147589041095968
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-NW/equity": {
+      "calls": 766,
+      "hits": 384,
+      "excluded": 0,
+      "precision": 0.5013054830287206,
+      "recall": 0.8211206896551724,
+      "lows_in_era": 464,
+      "median_lag": 3.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.6614583333333334,
+      "false_alarms_per_year": 3.7723868490780292,
+      "per_asset": {
+        "SPY": {
+          "Calls": 227,
+          "Hits": 119,
+          "precision": 0.5242290748898678
+        },
+        "QQQ": {
+          "Calls": 181,
+          "Hits": 83,
+          "precision": 0.4585635359116022
+        },
+        "DIA": {
+          "Calls": 186,
+          "Hits": 99,
+          "precision": 0.532258064516129
+        },
+        "IWM": {
+          "Calls": 172,
+          "Hits": 83,
+          "precision": 0.48255813953488375
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/equity": {
+      "calls": 134,
+      "hits": 49,
+      "excluded": 0,
+      "precision": 0.3656716417910448,
+      "recall": 0.7424242424242424,
+      "lows_in_era": 66,
+      "median_lag": 18.0,
+      "median_lead": 9.0,
+      "share_lead_positive": 0.8367346938775511,
+      "false_alarms_per_year": 0.8394054507110797,
+      "per_asset": {
+        "SPY": {
+          "Calls": 35,
+          "Hits": 12,
+          "precision": 0.34285714285714286
+        },
+        "QQQ": {
+          "Calls": 30,
+          "Hits": 12,
+          "precision": 0.4
+        },
+        "DIA": {
+          "Calls": 38,
+          "Hits": 12,
+          "precision": 0.3157894736842105
+        },
+        "IWM": {
+          "Calls": 31,
+          "Hits": 13,
+          "precision": 0.41935483870967744
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.2644798507462625,
+      "n2_p": 0.00019998000199980003,
+      "n2_per_asset_mean": {
+        "SPY": 0.24090285714284018,
+        "QQQ": 0.2661833333333377,
+        "DIA": 0.26072631578947353,
+        "IWM": 0.2940516129032522
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/equity": {
+      "calls": 81,
+      "hits": 64,
+      "excluded": 0,
+      "precision": 0.7901234567901234,
+      "recall": 0.1336206896551724,
+      "lows_in_era": 464,
+      "median_lag": -4.0,
+      "median_lead": 10.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.16788109014221594,
+      "per_asset": {
+        "SPY": {
+          "Calls": 29,
+          "Hits": 23,
+          "precision": 0.7931034482758621
+        },
+        "QQQ": {
+          "Calls": 19,
+          "Hits": 13,
+          "precision": 0.6842105263157895
+        },
+        "DIA": {
+          "Calls": 21,
+          "Hits": 17,
+          "precision": 0.8095238095238095
+        },
+        "IWM": {
+          "Calls": 12,
+          "Hits": 11,
+          "precision": 0.9166666666666666
+        }
+      },
+      "n1_mean": 0.45397407407407,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/equity": {
+      "calls": 65,
+      "hits": 59,
+      "excluded": 0,
+      "precision": 0.9076923076923077,
+      "recall": 0.1336206896551724,
+      "lows_in_era": 464,
+      "median_lag": -3.0,
+      "median_lead": 10.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.05925214946195857,
+      "per_asset": {
+        "SPY": {
+          "Calls": 24,
+          "Hits": 22,
+          "precision": 0.9166666666666666
+        },
+        "QQQ": {
+          "Calls": 8,
+          "Hits": 7,
+          "precision": 0.875
+        },
+        "DIA": {
+          "Calls": 16,
+          "Hits": 16,
+          "precision": 1.0
+        },
+        "IWM": {
+          "Calls": 17,
+          "Hits": 14,
+          "precision": 0.8235294117647058
+        }
+      },
+      "n1_mean": 0.4556707692307741,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONFIRMED/equity": {
+      "calls": 65,
+      "hits": 60,
+      "excluded": 0,
+      "precision": 0.9230769230769231,
+      "recall": 0.12931034482758622,
+      "lows_in_era": 464,
+      "median_lag": 7.0,
+      "median_lead": -1.0,
+      "share_lead_positive": 0.35,
+      "false_alarms_per_year": 0.04937679121829881,
+      "per_asset": {
+        "SPY": {
+          "Calls": 18,
+          "Hits": 16,
+          "precision": 0.8888888888888888
+        },
+        "QQQ": {
+          "Calls": 15,
+          "Hits": 14,
+          "precision": 0.9333333333333333
+        },
+        "DIA": {
+          "Calls": 23,
+          "Hits": 22,
+          "precision": 0.9565217391304348
+        },
+        "IWM": {
+          "Calls": 9,
+          "Hits": 8,
+          "precision": 0.8888888888888888
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.5534892307692322,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "SPY": 0.5846555555555915,
+        "QQQ": 0.5117200000000023,
+        "DIA": 0.5672086956521696,
+        "IWM": 0.5257111111111095
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/equity": {
+      "calls": 81,
+      "hits": 54,
+      "excluded": 0,
+      "precision": 0.6666666666666666,
+      "recall": 0.4393939393939394,
+      "lows_in_era": 66,
+      "median_lag": -17.5,
+      "median_lead": 46.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.26663467257881357,
+      "per_asset": {
+        "SPY": {
+          "Calls": 30,
+          "Hits": 17,
+          "precision": 0.5666666666666667
+        },
+        "QQQ": {
+          "Calls": 19,
+          "Hits": 15,
+          "precision": 0.7894736842105263
+        },
+        "DIA": {
+          "Calls": 22,
+          "Hits": 13,
+          "precision": 0.5909090909090909
+        },
+        "IWM": {
+          "Calls": 10,
+          "Hits": 9,
+          "precision": 0.9
+        }
+      },
+      "n1_mean": 0.3014938271604923,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-P/gold": {
+      "calls": 114,
+      "hits": 63,
+      "excluded": 0,
+      "precision": 0.5526315789473685,
+      "recall": 0.7325581395348837,
+      "lows_in_era": 86,
+      "median_lag": 3.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.7777777777777778,
+      "false_alarms_per_year": 2.8155607617896012,
+      "per_asset": {
+        "GLD": {
+          "Calls": 114,
+          "Hits": 63,
+          "precision": 0.5526315789473685
+        }
+      },
+      "n1_mean": 0.2985885964912321,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": 0.3219429824561478,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "GLD": 0.3219429824561478
+      },
+      "n3_mean": 0.5222637997532978,
+      "n3_p95": 0.600252100840336,
+      "n3_p": 0.23880597014925373
+    },
+    "A-V1/gold": {
+      "calls": 209,
+      "hits": 77,
+      "excluded": 0,
+      "precision": 0.3684210526315789,
+      "recall": 0.8953488372093024,
+      "lows_in_era": 86,
+      "median_lag": 2.0,
+      "median_lead": 5.0,
+      "share_lead_positive": 0.8961038961038961,
+      "false_alarms_per_year": 7.287333736396615,
+      "per_asset": {
+        "GLD": {
+          "Calls": 209,
+          "Hits": 77,
+          "precision": 0.3684210526315789
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.32169569377987967,
+      "n2_p": 0.0018998100189981002,
+      "n2_per_asset_mean": {
+        "GLD": 0.32169569377987967
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/gold": {
+      "calls": 93,
+      "hits": 48,
+      "excluded": 0,
+      "precision": 0.5161290322580645,
+      "recall": 0.5581395348837209,
+      "lows_in_era": 86,
+      "median_lag": 3.0,
+      "median_lead": 4.0,
+      "share_lead_positive": 0.8333333333333334,
+      "false_alarms_per_year": 2.4843183192261185,
+      "per_asset": {
+        "GLD": {
+          "Calls": 93,
+          "Hits": 48,
+          "precision": 0.5161290322580645
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.32172258064520104,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "GLD": 0.32172258064520104
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-NW/gold": {
+      "calls": 132,
+      "hits": 68,
+      "excluded": 0,
+      "precision": 0.5151515151515151,
+      "recall": 0.7906976744186046,
+      "lows_in_era": 86,
+      "median_lag": 3.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.75,
+      "false_alarms_per_year": 3.5332527206771465,
+      "per_asset": {
+        "GLD": {
+          "Calls": 132,
+          "Hits": 68,
+          "precision": 0.5151515151515151
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/gold": {
+      "calls": 17,
+      "hits": 6,
+      "excluded": 0,
+      "precision": 0.35294117647058826,
+      "recall": 0.5,
+      "lows_in_era": 12,
+      "median_lag": 26.0,
+      "median_lead": -1.5,
+      "share_lead_positive": 0.3333333333333333,
+      "false_alarms_per_year": 0.6072778113663846,
+      "per_asset": {
+        "GLD": {
+          "Calls": 17,
+          "Hits": 6,
+          "precision": 0.35294117647058826
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.2541411764705761,
+      "n2_p": 0.20837916208379162,
+      "n2_per_asset_mean": {
+        "GLD": 0.2541411764705761
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/gold": {
+      "calls": 12,
+      "hits": 11,
+      "excluded": 0,
+      "precision": 0.9166666666666666,
+      "recall": 0.12790697674418605,
+      "lows_in_era": 86,
+      "median_lag": -1.0,
+      "median_lead": 13.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.055207073760580413,
+      "per_asset": {
+        "GLD": {
+          "Calls": 12,
+          "Hits": 11,
+          "precision": 0.9166666666666666
+        }
+      },
+      "n1_mean": 0.46719999999999956,
+      "n1_p": 0.0030996900309969004,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/gold": {
+      "calls": 16,
+      "hits": 15,
+      "excluded": 0,
+      "precision": 0.9375,
+      "recall": 0.18604651162790697,
+      "lows_in_era": 86,
+      "median_lag": -5.0,
+      "median_lead": 11.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.055207073760580413,
+      "per_asset": {
+        "GLD": {
+          "Calls": 16,
+          "Hits": 15,
+          "precision": 0.9375
+        }
+      },
+      "n1_mean": 0.466475,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONFIRMED/gold": {
+      "calls": 10,
+      "hits": 9,
+      "excluded": 0,
+      "precision": 0.9,
+      "recall": 0.10465116279069768,
+      "lows_in_era": 86,
+      "median_lag": 9.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.7777777777777778,
+      "false_alarms_per_year": 0.055207073760580413,
+      "per_asset": {
+        "GLD": {
+          "Calls": 10,
+          "Hits": 9,
+          "precision": 0.9
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.5234699999999979,
+      "n2_p": 0.0160983901609839,
+      "n2_per_asset_mean": {
+        "GLD": 0.5234699999999979
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/gold": {
+      "calls": 15,
+      "hits": 11,
+      "excluded": 0,
+      "precision": 0.7333333333333333,
+      "recall": 0.4166666666666667,
+      "lows_in_era": 12,
+      "median_lag": -21.0,
+      "median_lead": 44.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.22082829504232165,
+      "per_asset": {
+        "GLD": {
+          "Calls": 15,
+          "Hits": 11,
+          "precision": 0.7333333333333333
+        }
+      },
+      "n1_mean": 0.2989266666666772,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    }
+  },
+  "held_out": {
+    "A-P/crypto": {
+      "calls": 44,
+      "hits": 19,
+      "excluded": 1,
+      "precision": 0.4318181818181818,
+      "recall": 0.4634146341463415,
+      "lows_in_era": 41,
+      "median_lag": 4.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.631578947368421,
+      "false_alarms_per_year": 3.6235119047619047,
+      "per_asset": {
+        "BTC": {
+          "Calls": 21,
+          "Hits": 10,
+          "precision": 0.47619047619047616
+        },
+        "ETH": {
+          "Calls": 23,
+          "Hits": 9,
+          "precision": 0.391304347826087
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.2900931818181808,
+      "n2_p": 0.012398760123987601,
+      "n2_per_asset_mean": {
+        "BTC": 0.33164285714285313,
+        "ETH": 0.25215652173915076
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/crypto": {
+      "calls": 9,
+      "hits": 5,
+      "excluded": 0,
+      "precision": 0.5555555555555556,
+      "recall": 0.12195121951219512,
+      "lows_in_era": 41,
+      "median_lag": -5.0,
+      "median_lead": 44.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.5797619047619047,
+      "per_asset": {
+        "BTC": {
+          "Calls": 5,
+          "Hits": 3,
+          "precision": 0.6
+        },
+        "ETH": {
+          "Calls": 4,
+          "Hits": 2,
+          "precision": 0.5
+        }
+      },
+      "n1_mean": 0.4327222222222233,
+      "n1_p": 0.33436656334366566,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/crypto": {
+      "calls": 10,
+      "hits": 5,
+      "excluded": 0,
+      "precision": 0.5,
+      "recall": 0.12195121951219512,
+      "lows_in_era": 41,
+      "median_lag": -5.0,
+      "median_lead": 43.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.7247023809523809,
+      "per_asset": {
+        "BTC": {
+          "Calls": 5,
+          "Hits": 3,
+          "precision": 0.6
+        },
+        "ETH": {
+          "Calls": 5,
+          "Hits": 2,
+          "precision": 0.4
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "D1/crypto": {
+      "N": 5,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 0.24337293627822137,
+      "MeanGross": 0.26727527465143414,
+      "ControlMean": 0.16552013799683266,
+      "P": 0.3386613386613387,
+      "StandardNet": -0.46385162555696535,
+      "CapPNet": 1.0275773083285018,
+      "CapPN": 2,
+      "ExitReasons": {
+        "sma10": 5
+      }
+    },
+    "D2/crypto": {
+      "N": 43,
+      "Skipped": 0,
+      "PastData": 2,
+      "ControlDraws": 1000,
+      "MeanNet": 0.1497319618414955,
+      "MeanGross": 0.1804759768688889,
+      "ControlMean": 0.1750649639606644,
+      "P": 0.5014985014985015,
+      "StandardNet": -0.09978828533951896,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "sma10": 40,
+        "stop": 3
+      }
+    },
+    "A-V1/crypto": {
+      "calls": 63,
+      "hits": 23,
+      "excluded": 2,
+      "precision": 0.36507936507936506,
+      "recall": 0.5365853658536586,
+      "lows_in_era": 41,
+      "median_lag": 2.0,
+      "median_lead": 3.0,
+      "share_lead_positive": 0.8260869565217391,
+      "false_alarms_per_year": 5.7976190476190474,
+      "per_asset": {
+        "BTC": {
+          "Calls": 29,
+          "Hits": 10,
+          "precision": 0.3448275862068966
+        },
+        "ETH": {
+          "Calls": 34,
+          "Hits": 13,
+          "precision": 0.38235294117647056
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/crypto": {
+      "calls": 21,
+      "hits": 8,
+      "excluded": 0,
+      "precision": 0.38095238095238093,
+      "recall": 0.1951219512195122,
+      "lows_in_era": 41,
+      "median_lag": 2.0,
+      "median_lead": 1.0,
+      "share_lead_positive": 0.5,
+      "false_alarms_per_year": 1.8842261904761906,
+      "per_asset": {
+        "BTC": {
+          "Calls": 9,
+          "Hits": 4,
+          "precision": 0.4444444444444444
+        },
+        "ETH": {
+          "Calls": 12,
+          "Hits": 4,
+          "precision": 0.3333333333333333
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONF/crypto": {
+      "calls": 5,
+      "hits": 3,
+      "excluded": 0,
+      "precision": 0.6,
+      "recall": 0.07317073170731707,
+      "lows_in_era": 41,
+      "median_lag": 7.0,
+      "median_lead": 8.0,
+      "share_lead_positive": 0.6666666666666666,
+      "false_alarms_per_year": 0.28988095238095235,
+      "per_asset": {
+        "BTC": {
+          "Calls": 3,
+          "Hits": 2,
+          "precision": 0.6666666666666666
+        },
+        "ETH": {
+          "Calls": 2,
+          "Hits": 1,
+          "precision": 0.5
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/crypto": {
+      "calls": 13,
+      "hits": 5,
+      "excluded": 0,
+      "precision": 0.38461538461538464,
+      "recall": 0.8,
+      "lows_in_era": 5,
+      "median_lag": 25.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.6,
+      "false_alarms_per_year": 1.1595238095238094,
+      "per_asset": {
+        "BTC": {
+          "Calls": 7,
+          "Hits": 3,
+          "precision": 0.42857142857142855
+        },
+        "ETH": {
+          "Calls": 6,
+          "Hits": 2,
+          "precision": 0.3333333333333333
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/crypto": {
+      "calls": 6,
+      "hits": 4,
+      "excluded": 4,
+      "precision": 0.6666666666666666,
+      "recall": 0.4,
+      "lows_in_era": 5,
+      "median_lag": -11.0,
+      "median_lead": 63.5,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.28988095238095235,
+      "per_asset": {
+        "BTC": {
+          "Calls": 6,
+          "Hits": 4,
+          "precision": 0.6666666666666666
+        },
+        "ETH": {
+          "Calls": 0,
+          "Hits": 0,
+          "precision": "NaN"
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-P/equity": {
+      "calls": 65,
+      "hits": 32,
+      "excluded": 0,
+      "precision": 0.49230769230769234,
+      "recall": 0.5849056603773585,
+      "lows_in_era": 53,
+      "median_lag": 4.0,
+      "median_lead": 1.0,
+      "share_lead_positive": 0.59375,
+      "false_alarms_per_year": 2.3215042372881354,
+      "per_asset": {
+        "SPY": {
+          "Calls": 11,
+          "Hits": 6,
+          "precision": 0.5454545454545454
+        },
+        "QQQ": {
+          "Calls": 20,
+          "Hits": 9,
+          "precision": 0.45
+        },
+        "DIA": {
+          "Calls": 16,
+          "Hits": 9,
+          "precision": 0.5625
+        },
+        "IWM": {
+          "Calls": 18,
+          "Hits": 8,
+          "precision": 0.4444444444444444
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.30721846153846605,
+      "n2_p": 9.999000099990002E-05,
+      "n2_per_asset_mean": {
+        "SPY": 0.4046818181818407,
+        "QQQ": 0.26127499999999887,
+        "DIA": 0.30539375,
+        "IWM": 0.3003277777777758
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/equity": {
+      "calls": 17,
+      "hits": 14,
+      "excluded": 0,
+      "precision": 0.8235294117647058,
+      "recall": 0.24528301886792453,
+      "lows_in_era": 53,
+      "median_lag": -5.0,
+      "median_lead": 11.5,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.21104583975346686,
+      "per_asset": {
+        "SPY": {
+          "Calls": 3,
+          "Hits": 2,
+          "precision": 0.6666666666666666
+        },
+        "QQQ": {
+          "Calls": 4,
+          "Hits": 3,
+          "precision": 0.75
+        },
+        "DIA": {
+          "Calls": 4,
+          "Hits": 3,
+          "precision": 0.75
+        },
+        "IWM": {
+          "Calls": 6,
+          "Hits": 6,
+          "precision": 1.0
+        }
+      },
+      "n1_mean": 0.38570000000001997,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/equity": {
+      "calls": 13,
+      "hits": 12,
+      "excluded": 0,
+      "precision": 0.9230769230769231,
+      "recall": 0.20754716981132076,
+      "lows_in_era": 53,
+      "median_lag": -3.0,
+      "median_lead": 9.5,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.07034861325115563,
+      "per_asset": {
+        "SPY": {
+          "Calls": 3,
+          "Hits": 3,
+          "precision": 1.0
+        },
+        "QQQ": {
+          "Calls": 3,
+          "Hits": 2,
+          "precision": 0.6666666666666666
+        },
+        "DIA": {
+          "Calls": 3,
+          "Hits": 3,
+          "precision": 1.0
+        },
+        "IWM": {
+          "Calls": 4,
+          "Hits": 4,
+          "precision": 1.0
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "D1/equity": {
+      "N": 26,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 0.31005214181649177,
+      "MeanGross": 0.36744434751259064,
+      "ControlMean": 0.24090662543775876,
+      "P": 0.3516483516483517,
+      "StandardNet": 0.35633281322785026,
+      "CapPNet": 0.258854784174351,
+      "CapPN": 20,
+      "ExitReasons": {
+        "stop": 2,
+        "sma10": 24
+      }
+    },
+    "D2/equity": {
+      "N": 59,
+      "Skipped": 0,
+      "PastData": 6,
+      "ControlDraws": 1000,
+      "MeanNet": 0.17093461775466534,
+      "MeanGross": 0.25935179967729965,
+      "ControlMean": 0.11186729286226571,
+      "P": 0.33666333666333664,
+      "StandardNet": -0.027537381110367784,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "stop": 6,
+        "sma10": 51,
+        "stop-gap": 2
+      }
+    },
+    "A-V1/equity": {
+      "calls": 121,
+      "hits": 42,
+      "excluded": 0,
+      "precision": 0.34710743801652894,
+      "recall": 0.7924528301886793,
+      "lows_in_era": 53,
+      "median_lag": 2.0,
+      "median_lead": 4.0,
+      "share_lead_positive": 0.8333333333333334,
+      "false_alarms_per_year": 5.557540446841294,
+      "per_asset": {
+        "SPY": {
+          "Calls": 25,
+          "Hits": 10,
+          "precision": 0.4
+        },
+        "QQQ": {
+          "Calls": 32,
+          "Hits": 9,
+          "precision": 0.28125
+        },
+        "DIA": {
+          "Calls": 30,
+          "Hits": 11,
+          "precision": 0.36666666666666664
+        },
+        "IWM": {
+          "Calls": 34,
+          "Hits": 12,
+          "precision": 0.35294117647058826
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/equity": {
+      "calls": 31,
+      "hits": 19,
+      "excluded": 0,
+      "precision": 0.6129032258064516,
+      "recall": 0.33962264150943394,
+      "lows_in_era": 53,
+      "median_lag": 4.0,
+      "median_lead": 1.0,
+      "share_lead_positive": 0.5263157894736842,
+      "false_alarms_per_year": 0.8441833590138674,
+      "per_asset": {
+        "SPY": {
+          "Calls": 5,
+          "Hits": 4,
+          "precision": 0.8
+        },
+        "QQQ": {
+          "Calls": 9,
+          "Hits": 6,
+          "precision": 0.6666666666666666
+        },
+        "DIA": {
+          "Calls": 5,
+          "Hits": 4,
+          "precision": 0.8
+        },
+        "IWM": {
+          "Calls": 12,
+          "Hits": 5,
+          "precision": 0.4166666666666667
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONF/equity": {
+      "calls": 26,
+      "hits": 24,
+      "excluded": 0,
+      "precision": 0.9230769230769231,
+      "recall": 0.39622641509433965,
+      "lows_in_era": 53,
+      "median_lag": 7.5,
+      "median_lead": -3.0,
+      "share_lead_positive": 0.125,
+      "false_alarms_per_year": 0.14069722650231126,
+      "per_asset": {
+        "SPY": {
+          "Calls": 6,
+          "Hits": 5,
+          "precision": 0.8333333333333334
+        },
+        "QQQ": {
+          "Calls": 7,
+          "Hits": 7,
+          "precision": 1.0
+        },
+        "DIA": {
+          "Calls": 8,
+          "Hits": 7,
+          "precision": 0.875
+        },
+        "IWM": {
+          "Calls": 5,
+          "Hits": 5,
+          "precision": 1.0
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/equity": {
+      "calls": 18,
+      "hits": 9,
+      "excluded": 0,
+      "precision": 0.5,
+      "recall": 1.0,
+      "lows_in_era": 9,
+      "median_lag": 13.0,
+      "median_lead": 2.0,
+      "share_lead_positive": 0.6666666666666666,
+      "false_alarms_per_year": 0.6331375192604006,
+      "per_asset": {
+        "SPY": {
+          "Calls": 4,
+          "Hits": 2,
+          "precision": 0.5
+        },
+        "QQQ": {
+          "Calls": 4,
+          "Hits": 2,
+          "precision": 0.5
+        },
+        "DIA": {
+          "Calls": 5,
+          "Hits": 3,
+          "precision": 0.6
+        },
+        "IWM": {
+          "Calls": 5,
+          "Hits": 2,
+          "precision": 0.4
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/equity": {
+      "calls": 11,
+      "hits": 10,
+      "excluded": 3,
+      "precision": 0.9090909090909091,
+      "recall": 0.5555555555555556,
+      "lows_in_era": 9,
+      "median_lag": -21.0,
+      "median_lead": 46.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.07034861325115563,
+      "per_asset": {
+        "SPY": {
+          "Calls": 2,
+          "Hits": 2,
+          "precision": 1.0
+        },
+        "QQQ": {
+          "Calls": 4,
+          "Hits": 3,
+          "precision": 0.75
+        },
+        "DIA": {
+          "Calls": 2,
+          "Hits": 2,
+          "precision": 1.0
+        },
+        "IWM": {
+          "Calls": 3,
+          "Hits": 3,
+          "precision": 1.0
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-P/gold": {
+      "calls": 22,
+      "hits": 9,
+      "excluded": 0,
+      "precision": 0.4090909090909091,
+      "recall": 0.6923076923076923,
+      "lows_in_era": 13,
+      "median_lag": 4.0,
+      "median_lead": 6.0,
+      "share_lead_positive": 0.7777777777777778,
+      "false_alarms_per_year": 3.658127889060092,
+      "per_asset": {
+        "GLD": {
+          "Calls": 22,
+          "Hits": 9,
+          "precision": 0.4090909090909091
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": 0.28096363636364413,
+      "n2_p": 0.0660933906609339,
+      "n2_per_asset_mean": {
+        "GLD": 0.28096363636364413
+      },
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT/gold": {
+      "calls": 0,
+      "hits": 0,
+      "excluded": 0,
+      "precision": "NaN",
+      "recall": 0.0,
+      "lows_in_era": 13,
+      "median_lag": "NaN",
+      "median_lead": "NaN",
+      "share_lead_positive": "NaN",
+      "false_alarms_per_year": 0.0,
+      "per_asset": {
+        "GLD": {
+          "Calls": 0,
+          "Hits": 0,
+          "precision": "NaN"
+        }
+      },
+      "n1_mean": 0.0,
+      "n1_p": 9.999000099990002E-05,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_P/gold": {
+      "calls": 0,
+      "hits": 0,
+      "excluded": 2,
+      "precision": "NaN",
+      "recall": 0.0,
+      "lows_in_era": 13,
+      "median_lag": "NaN",
+      "median_lead": "NaN",
+      "share_lead_positive": "NaN",
+      "false_alarms_per_year": 0.0,
+      "per_asset": {
+        "GLD": {
+          "Calls": 0,
+          "Hits": 0,
+          "precision": "NaN"
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "D1/gold": {
+      "N": 0,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": "NaN",
+      "MeanGross": "NaN",
+      "ControlMean": "NaN",
+      "P": "NaN",
+      "StandardNet": "NaN",
+      "CapPNet": 0.8413024215982681,
+      "CapPN": 2,
+      "ExitReasons": {}
+    },
+    "D2/gold": {
+      "N": 20,
+      "Skipped": 0,
+      "PastData": 2,
+      "ControlDraws": 1000,
+      "MeanNet": 0.515634146134268,
+      "MeanGross": 0.607254499877395,
+      "ControlMean": 0.5444568791303614,
+      "P": 0.4485514485514486,
+      "StandardNet": 0.2147740105922889,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "sma10": 20
+      }
+    },
+    "A-V1/gold": {
+      "calls": 39,
+      "hits": 13,
+      "excluded": 1,
+      "precision": 0.3333333333333333,
+      "recall": 0.9230769230769231,
+      "lows_in_era": 13,
+      "median_lag": 2.0,
+      "median_lead": 6.0,
+      "share_lead_positive": 0.9230769230769231,
+      "false_alarms_per_year": 7.316255778120184,
+      "per_asset": {
+        "GLD": {
+          "Calls": 39,
+          "Hits": 13,
+          "precision": 0.3333333333333333
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A-V2/gold": {
+      "calls": 15,
+      "hits": 9,
+      "excluded": 0,
+      "precision": 0.6,
+      "recall": 0.6923076923076923,
+      "lows_in_era": 13,
+      "median_lag": 3.0,
+      "median_lead": 6.0,
+      "share_lead_positive": 0.7777777777777778,
+      "false_alarms_per_year": 1.6883667180277349,
+      "per_asset": {
+        "GLD": {
+          "Calls": 15,
+          "Hits": 9,
+          "precision": 0.6
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "CONF/gold": {
+      "calls": 0,
+      "hits": 0,
+      "excluded": 0,
+      "precision": "NaN",
+      "recall": 0.0,
+      "lows_in_era": 13,
+      "median_lag": "NaN",
+      "median_lead": "NaN",
+      "share_lead_positive": "NaN",
+      "false_alarms_per_year": 0.0,
+      "per_asset": {
+        "GLD": {
+          "Calls": 0,
+          "Hits": 0,
+          "precision": "NaN"
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "A7/gold": {
+      "calls": 2,
+      "hits": 1,
+      "excluded": 0,
+      "precision": 0.5,
+      "recall": 1.0,
+      "lows_in_era": 1,
+      "median_lag": 11.0,
+      "median_lead": -5.0,
+      "share_lead_positive": 0.0,
+      "false_alarms_per_year": 0.2813944530046225,
+      "per_asset": {
+        "GLD": {
+          "Calls": 2,
+          "Hits": 1,
+          "precision": 0.5
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    },
+    "ALERT_W/gold": {
+      "calls": 1,
+      "hits": 1,
+      "excluded": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "lows_in_era": 1,
+      "median_lag": 2.0,
+      "median_lead": 4.0,
+      "share_lead_positive": 1.0,
+      "false_alarms_per_year": 0.0,
+      "per_asset": {
+        "GLD": {
+          "Calls": 1,
+          "Hits": 1,
+          "precision": 1.0
+        }
+      },
+      "n1_mean": null,
+      "n1_p": null,
+      "n2_mean": null,
+      "n2_p": null,
+      "n2_per_asset_mean": null,
+      "n3_mean": null,
+      "n3_p95": null,
+      "n3_p": null
+    }
+  },
+  "held_out_macro": {
+    "C1-SPY": {
+      "HeldA": 3,
+      "HeldB": 9,
+      "HeldDiff": -0.003329903258445628,
+      "sameSign": true
+    },
+    "C1-BTC": {
+      "HeldA": 3,
+      "HeldB": 9,
+      "HeldDiff": -0.015596574409372121,
+      "sameSign": true
+    },
+    "C2": {
+      "HeldA": 7,
+      "HeldB": 16,
+      "HeldDiff": 0.0955357142857143,
+      "sameSign": false
+    },
+    "C3": {
+      "HeldA": 24,
+      "HeldB": 10,
+      "HeldDiff": -0.0028576457524572343,
+      "sameSign": true
+    },
+    "C5": {
+      "HeldA": 31,
+      "HeldB": 31,
+      "HeldDiff": 0.06451612903225806,
+      "sameSign": true
+    },
+    "C6": {
+      "HeldA": 2,
+      "HeldB": 5,
+      "HeldDiff": -0.11539146203833349,
+      "sameSign": true
+    }
+  },
+  "macro": [
+    {
+      "Id": "C1-SPY",
+      "Statistic": "mean 60-bar max drawdown, bonds disagree (strong print, 2-year yield down) minus agree (yield up); thesis: < 0",
+      "DevA": 64,
+      "DevB": 101,
+      "HeldA": 3,
+      "HeldB": 9,
+      "DevDiff": -0.0067134568965364905,
+      "HeldDiff": -0.003329903258445628,
+      "P": 0.20707929207079293,
+      "Descriptive": {
+        "dgs2_60obs_change_disagree": 0.0152238805970149,
+        "dgs2_60obs_change_agree": 0.015090909090909072
+      },
+      "Testable": true,
+      "HeldCheckable": false
+    },
+    {
+      "Id": "C1-BTC",
+      "Statistic": "mean 60-bar max drawdown, bonds disagree (strong print, 2-year yield down) minus agree (yield up); thesis: < 0",
+      "DevA": 21,
+      "DevB": 38,
+      "HeldA": 3,
+      "HeldB": 9,
+      "DevDiff": -0.018475583508416243,
+      "HeldDiff": -0.015596574409372121,
+      "P": 0.3618638136186381,
+      "Descriptive": {
+        "dgs2_60obs_change_disagree": 0.007083333333333293,
+        "dgs2_60obs_change_agree": 0.01744680851063824
+      },
+      "Testable": true,
+      "HeldCheckable": false
+    },
+    {
+      "Id": "C2",
+      "Statistic": "mean change in DGS10 over the next 60 observations, hot CPI with the 10-year down minus hot CPI with it up; thesis: < 0",
+      "DevA": 141,
+      "DevB": 135,
+      "HeldA": 7,
+      "HeldB": 16,
+      "DevDiff": -0.005894405043341336,
+      "HeldDiff": 0.0955357142857143,
+      "P": 0.3077692230776922,
+      "Descriptive": {
+        "tlt_60bar_return_disagree": 0.015179276366807555,
+        "tlt_60bar_return_agree": 0.018902212588009046
+      },
+      "Testable": true,
+      "HeldCheckable": false
+    },
+    {
+      "Id": "C3",
+      "Statistic": "mean 120-bar SPY max drawdown after a downward-revision signal minus other release days; thesis: < 0",
+      "DevA": 77,
+      "DevB": 282,
+      "HeldA": 24,
+      "HeldB": 10,
+      "DevDiff": -0.05057804155410964,
+      "HeldDiff": -0.0028576457524572343,
+      "P": 0.0084991500849915,
+      "Descriptive": {
+        "nber_peak_within_12m_signal_days": 6,
+        "nber_peak_within_12m_other_days": 30
+      },
+      "Testable": true,
+      "HeldCheckable": true
+    },
+    {
+      "Id": "C5",
+      "Statistic": "accuracy of DGS3MO pricing minus accuracy of 'same as the last scheduled meeting'; thesis: > 0 (exact McNemar)",
+      "DevA": 182,
+      "DevB": 182,
+      "HeldA": 31,
+      "HeldB": 31,
+      "DevDiff": 0.03296703296703297,
+      "HeldDiff": 0.06451612903225806,
+      "P": 0.23994383084916368,
+      "Descriptive": {
+        "unscheduled_meetings": 24,
+        "scheduled_meetings_not_yet_decided_left_out": 10,
+        "dev_bond_right_prev_wrong": 28,
+        "dev_bond_wrong_prev_right": 22,
+        "dev_accuracy_bond": 0.8461538461538461,
+        "dev_accuracy_previous": 0.8131868131868132
+      },
+      "Testable": true,
+      "HeldCheckable": true
+    },
+    {
+      "Id": "C6",
+      "Statistic": "mean 60-bar SPY max drawdown on gate days (failed cycle + below SMA 50 + alarm) minus the same without the alarm; thesis: < 0. BAA is investment grade, not high yield",
+      "DevA": 19,
+      "DevB": 38,
+      "HeldA": 2,
+      "HeldB": 5,
+      "DevDiff": -0.03454524016230408,
+      "HeldDiff": -0.11539146203833349,
+      "P": "NaN",
+      "Descriptive": {
+        "reference_first_close_below_sma200_dev_mean_dd60": -0.05954398396344212,
+        "reference_first_close_below_sma200_dev_n": 56,
+        "gate_dev_mean_dd60": -0.11015745294048329,
+        "comparison_dev_mean_dd60": -0.07561221277817921
+      },
+      "Testable": false,
+      "HeldCheckable": false
+    }
+  ],
+  "c5_descriptive": [
+    {
+      "Id": "C5-DGS2",
+      "Statistic": "accuracy of DGS2 pricing minus accuracy of 'same as the last scheduled meeting'; thesis: > 0 (exact McNemar)",
+      "DevA": 182,
+      "DevB": 182,
+      "HeldA": 31,
+      "HeldB": 31,
+      "DevDiff": -0.34615384615384615,
+      "HeldDiff": -0.3870967741935484,
+      "P": 0.9999999999938141,
+      "Descriptive": {
+        "unscheduled_meetings": 24,
+        "scheduled_meetings_not_yet_decided_left_out": 10,
+        "dev_bond_right_prev_wrong": 17,
+        "dev_bond_wrong_prev_right": 80,
+        "dev_accuracy_bond": 0.46703296703296704,
+        "dev_accuracy_previous": 0.8131868131868132
+      },
+      "Testable": true,
+      "HeldCheckable": true
+    },
+    {
+      "Id": "C5-unscheduled",
+      "Statistic": "accuracy of DGS3MO pricing minus accuracy of 'same as the last scheduled meeting'; thesis: > 0 (exact McNemar)",
+      "DevA": 24,
+      "DevB": 24,
+      "HeldA": 0,
+      "HeldB": 0,
+      "DevDiff": 0.041666666666666664,
+      "HeldDiff": "NaN",
+      "P": 0.4999999999999999,
+      "Descriptive": {
+        "unscheduled_meetings": 24,
+        "scheduled_meetings_not_yet_decided_left_out": 10,
+        "dev_bond_right_prev_wrong": 4,
+        "dev_bond_wrong_prev_right": 3,
+        "dev_accuracy_bond": 0.7083333333333334,
+        "dev_accuracy_previous": 0.6666666666666666
+      },
+      "Testable": true,
+      "HeldCheckable": false
+    }
+  ],
+  "c4": [
+    {
+      "asset": "SPY",
+      "type": "peak",
+      "turning_point": "2001-03",
+      "announced": "2001-11-26",
+      "lag_days": 270,
+      "close_vs_low_365d_before": 0.1917146562490295,
+      "close_vs_low_365d_after": 0.48437903418896844
+    },
+    {
+      "asset": "SPY",
+      "type": "trough",
+      "turning_point": "2001-11",
+      "announced": "2003-07-17",
+      "lag_days": 623,
+      "close_vs_low_365d_before": 0.26120360978801527,
+      "close_vs_low_365d_after": 0.021572307307143435
+    },
+    {
+      "asset": "SPY",
+      "type": "peak",
+      "turning_point": "2007-12",
+      "announced": "2008-12-01",
+      "lag_days": 366,
+      "close_vs_low_365d_before": 0.08827042984081301,
+      "close_vs_low_365d_after": 0.2055498439956296
+    },
+    {
+      "asset": "GLD",
+      "type": "peak",
+      "turning_point": "2007-12",
+      "announced": "2008-12-01",
+      "lag_days": 366,
+      "close_vs_low_365d_before": 0.08071430751255582,
+      "close_vs_low_365d_after": 0.015163780645683023
+    },
+    {
+      "asset": "SPY",
+      "type": "trough",
+      "turning_point": "2009-06",
+      "announced": "2010-09-20",
+      "lag_days": 476,
+      "close_vs_low_365d_before": 0.11751470151523358,
+      "close_vs_low_365d_after": 0.017370362650410476
+    },
+    {
+      "asset": "GLD",
+      "type": "trough",
+      "turning_point": "2009-06",
+      "announced": "2010-09-20",
+      "lag_days": 476,
+      "close_vs_low_365d_before": 0.2873196159441447,
+      "close_vs_low_365d_after": -0.009046896042553598
+    },
+    {
+      "asset": "SPY",
+      "type": "peak",
+      "turning_point": "2020-02",
+      "announced": "2020-06-08",
+      "lag_days": 128,
+      "close_vs_low_365d_before": 0.4496524630231866,
+      "close_vs_low_365d_after": 0.07715389220424096
+    },
+    {
+      "asset": "GLD",
+      "type": "peak",
+      "turning_point": "2020-02",
+      "announced": "2020-06-08",
+      "lag_days": 128,
+      "close_vs_low_365d_before": 0.2759226779942676,
+      "close_vs_low_365d_after": 0.014159601560467694
+    },
+    {
+      "asset": "BTC",
+      "type": "peak",
+      "turning_point": "2020-02",
+      "announced": "2020-06-08",
+      "lag_days": 128,
+      "close_vs_low_365d_before": 1.0205838068269832,
+      "close_vs_low_365d_after": 0.08587792614298562
+    },
+    {
+      "asset": "SPY",
+      "type": "trough",
+      "turning_point": "2020-04",
+      "announced": "2021-07-19",
+      "lag_days": 474,
+      "close_vs_low_365d_before": 0.3243891634067537,
+      "close_vs_low_365d_after": 0.16156458272511154
+    },
+    {
+      "asset": "GLD",
+      "type": "trough",
+      "turning_point": "2020-04",
+      "announced": "2021-07-19",
+      "lag_days": 474,
+      "close_vs_low_365d_before": 0.07695723343989336,
+      "close_vs_low_365d_after": 0.066662514745637
+    },
+    {
+      "asset": "BTC",
+      "type": "trough",
+      "turning_point": "2020-04",
+      "announced": "2021-07-19",
+      "lag_days": 474,
+      "close_vs_low_365d_before": 2.3647503991844956,
+      "close_vs_low_365d_after": 0.6262918847062797
+    }
+  ],
+  "trades_dev": {
+    "D1/crypto": {
+      "N": 22,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 0.9449967816677188,
+      "MeanGross": 0.9660564815890834,
+      "ControlMean": 0.06642833496026468,
+      "P": 0.03996003996003996,
+      "StandardNet": -0.14917851588131237,
+      "CapPNet": 0.9111820310208671,
+      "CapPN": 21,
+      "ExitReasons": {
+        "sma10": 21,
+        "stop": 1
+      }
+    },
+    "D2/crypto": {
+      "N": 112,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 1.1728925930109086,
+      "MeanGross": 1.1989197426156455,
+      "ControlMean": 0.540867417942941,
+      "P": 0.06893106893106893,
+      "StandardNet": 0.036143798647669825,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "sma10": 97,
+        "time": 1,
+        "stop": 14
+      }
+    },
+    "D1/equity": {
+      "N": 65,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 0.055323750126785115,
+      "MeanGross": 0.10019769485885457,
+      "ControlMean": -0.04753452640753735,
+      "P": 0.16083916083916083,
+      "StandardNet": 0.05875249949814739,
+      "CapPNet": -0.06147009914654689,
+      "CapPN": 115,
+      "ExitReasons": {
+        "sma10": 63,
+        "stop": 2
+      }
+    },
+    "D2/equity": {
+      "N": 508,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": -0.024820489604340155,
+      "MeanGross": 0.06001349795303517,
+      "ControlMean": -0.08818108568284427,
+      "P": 0.08791208791208792,
+      "StandardNet": -0.09928853785417531,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "sma10": 413,
+        "stop": 88,
+        "stop-gap": 7
+      }
+    },
+    "D1/gold": {
+      "N": 10,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": 0.3956135563477057,
+      "MeanGross": 0.46320347663124206,
+      "ControlMean": 0.04031225202042309,
+      "P": 0.17282717282717283,
+      "StandardNet": 0.5199473349952826,
+      "CapPNet": -0.14332655716669446,
+      "CapPN": 23,
+      "ExitReasons": {
+        "sma10": 10
+      }
+    },
+    "D2/gold": {
+      "N": 114,
+      "Skipped": 0,
+      "PastData": 0,
+      "ControlDraws": 1000,
+      "MeanNet": -0.014244467214275617,
+      "MeanGross": 0.09332955082408659,
+      "ControlMean": -0.062034697626937835,
+      "P": 0.33266733266733267,
+      "StandardNet": 0.00771036399637687,
+      "CapPNet": "NaN",
+      "CapPN": 0,
+      "ExitReasons": {
+        "sma10": 94,
+        "stop": 15,
+        "stop-gap": 5
+      }
+    }
+  },
+  "noise": {
+    "clean_A2": {
+      "crypto": 0.14850178571428552,
+      "equity": 0.20133996062991472,
+      "gold": 0.2306885964912207
+    },
+    "clean_B2": {
+      "crypto": -0.040479760119940034,
+      "equity": -0.11756885090218427,
+      "gold": -0.02083333333333337
+    },
+    "clean_D": {
+      "D1/crypto": 0.8785684467074542,
+      "D2/crypto": 0.6320251750679676,
+      "D1/equity": 0.10285827653432247,
+      "D2/equity": 0.06336059607850411,
+      "D1/gold": 0.3553013043272826,
+      "D2/gold": 0.04779023041266222
+    },
+    "seeds": [
+      {
+        "A2/crypto": 0.1918621052631675,
+        "B2/crypto": -0.13949843260188088,
+        "D1/crypto": -0.4139147227817681,
+        "D2/crypto": 0.1486871652673516,
+        "A2/equity": 0.20429365384614717,
+        "B2/equity": -0.06746031746031744,
+        "D1/equity": 0.07346677658387703,
+        "D2/equity": 0.05283983760733437,
+        "A2/gold": 0.16609430894305244,
+        "B2/gold": -0.0888888888888889,
+        "D1/gold": 0.20775722395966514,
+        "D2/gold": -0.10573405549316359
+      },
+      {
+        "A2/crypto": 0.1544627272727198,
+        "B2/crypto": -0.014945652173913082,
+        "D1/crypto": -0.9250274610102109,
+        "D2/crypto": 0.1814885748503694,
+        "A2/equity": 0.19301627450976577,
+        "B2/equity": -0.0972151898734177,
+        "D1/equity": 0.024788126673043444,
+        "D2/equity": 0.03125583794945395,
+        "A2/gold": 0.16110762711863907,
+        "B2/gold": -0.059523809523809534,
+        "D1/gold": -0.5178428576232347,
+        "D2/gold": -0.06011769405803814
+      },
+      {
+        "A2/crypto": 0.21659387755101994,
+        "B2/crypto": -0.06060606060606066,
+        "D1/crypto": -0.3602308739187605,
+        "D2/crypto": 0.45446423018933285,
+        "A2/equity": 0.2122130681818169,
+        "B2/equity": -0.11295911295911298,
+        "D1/equity": 0.06597052002522022,
+        "D2/equity": 0.024388263554138312,
+        "A2/gold": 0.1902799999999935,
+        "B2/gold": -0.11111111111111116,
+        "D1/gold": -0.060142359974490786,
+        "D2/gold": 0.045489228315435615
+      }
+    ]
+  },
+  "verdicts": {
+    "a/crypto": "No edge",
+    "b/crypto": "No edge from the added data",
+    "a/equity": "No edge",
+    "b/equity": "No edge from the added data",
+    "a/gold": "No edge",
+    "b/gold": "Not testable",
+    "c/C1-SPY": "No support",
+    "c/C1-BTC": "No support",
+    "c/C2": "No support",
+    "c/C3": "No support",
+    "c/C5": "No support",
+    "c/C6": "Not testable",
+    "d/D1/crypto": "No edge (the detector failed)",
+    "d/D2/crypto": "No edge (the detector failed)",
+    "d/D1/equity": "No edge (the detector failed)",
+    "d/D2/equity": "No edge (the detector failed)",
+    "d/D1/gold": "No edge (the detector failed)",
+    "d/D2/gold": "No edge (the detector failed)"
+  },
+  "verdict_reasons": {
+    "a/crypto": [
+      "A1/A2/A3 significant after Holm: True/True/False",
+      "median lead over the confirmation 5.0 bars (> 0: True)",
+      "held-out: 44 calls, precision 0.432 vs N2 mean 0.290 (positive)",
+      "assets with precision above their N2 mean: 2 of 2",
+      "excess over N2 kept at 25% noise: 126 %"
+    ],
+    "b/crypto": [
+      "B1/B2 significant after Holm: True/False",
+      "held-out: 9 alerts, precision 0.556 vs N1 mean 0.433 and ALERT_P 0.500 (not checkable)",
+      "assets where ALERT beats ALERT_P: 0 of 2",
+      "B2 difference kept at 25% price noise: 177 %"
+    ],
+    "a/equity": [
+      "A1/A2/A3 significant after Holm: True/True/False",
+      "median lead over the confirmation 2.0 bars (> 0: True)",
+      "held-out: 65 calls, precision 0.492 vs N2 mean 0.307 (positive)",
+      "assets with precision above their N2 mean: 4 of 4",
+      "excess over N2 kept at 25% noise: 101 %"
+    ],
+    "b/equity": [
+      "B1/B2 significant after Holm: True/False",
+      "held-out: 17 alerts, precision 0.824 vs N1 mean 0.386 and ALERT_P 0.923 (not both above)",
+      "assets where ALERT beats ALERT_P: 1 of 4",
+      "B2 difference kept at 25% price noise: 79 %"
+    ],
+    "a/gold": [
+      "A1/A2/A3 significant after Holm: True/True/False",
+      "median lead over the confirmation 2.0 bars (> 0: True)",
+      "held-out: 22 calls, precision 0.409 vs N2 mean 0.281 (positive)",
+      "assets with precision above their N2 mean: 1 of 1",
+      "excess over N2 kept at 25% noise: 75 %"
+    ],
+    "b/gold": [
+      "B1/B2 significant after Holm: False/False",
+      "held-out: 0 alerts, precision NaN vs N1 mean 0.000 and ALERT_P NaN (not checkable)",
+      "assets where ALERT beats ALERT_P: 0 of 1",
+      "B2 difference kept at 25% price noise: 415 %"
+    ],
+    "c/C1-SPY": [
+      "dev -0.0067 (groups 64/101), p 0.2071, Holm 1.0000; held-out -0.0033 (groups 3/9), same sign True"
+    ],
+    "c/C1-BTC": [
+      "dev -0.0185 (groups 21/38), p 0.3619, Holm 1.0000; held-out -0.0156 (groups 3/9), same sign True"
+    ],
+    "c/C2": [
+      "dev -0.0059 (groups 141/135), p 0.3078, Holm 1.0000; held-out +0.0955 (groups 7/16), same sign False"
+    ],
+    "c/C3": [
+      "dev -0.0506 (groups 77/282), p 0.0085, Holm 0.0510; held-out -0.0029 (groups 24/10), same sign True"
+    ],
+    "c/C5": [
+      "dev +0.0330 (groups 182/182), p 0.2399, Holm 1.0000; held-out +0.0645 (groups 31/31), same sign True"
+    ],
+    "c/C6": [
+      "dev -0.0345 (groups 19/38), p NaN, Holm NaN; held-out -0.1154 (groups 2/5), same sign True"
+    ],
+    "d/D1/crypto": [
+      "detector verdict No edge from the added data; dev net R +0.945 vs control +0.066, p 0.0400, Holm 0.2398; held-out 5 trades net R +0.243 vs control +0.166; kept at noise -64 %"
+    ],
+    "d/D2/crypto": [
+      "detector verdict No edge; dev net R +1.173 vs control +0.541, p 0.0689, Holm 0.3447; held-out 43 trades net R +0.150 vs control +0.175; kept at noise 41 %"
+    ],
+    "d/D1/equity": [
+      "detector verdict No edge from the added data; dev net R +0.055 vs control -0.048, p 0.1608, Holm 0.4825; held-out 26 trades net R +0.310 vs control +0.241; kept at noise 53 %"
+    ],
+    "d/D2/equity": [
+      "detector verdict No edge; dev net R -0.025 vs control -0.088, p 0.0879, Holm 0.3516; held-out 59 trades net R +0.171 vs control +0.112; kept at noise 57 %"
+    ],
+    "d/D1/gold": [
+      "detector verdict Not testable; dev net R +0.396 vs control +0.040, p 0.1728, Holm NaN; held-out 0 trades net R NaN vs control NaN; kept at noise -35 %"
+    ],
+    "d/D2/gold": [
+      "detector verdict No edge; dev net R -0.014 vs control -0.062, p 0.3327, Holm 0.6653; held-out 20 trades net R +0.516 vs control +0.544; kept at noise -84 %"
+    ]
+  },
+  "descriptive": {
+    "family_timeline": {
+      "BTC": {
+        "P": {
+          "first": "2012-05-09",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.9362060664419837,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2018-06-22",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.39817043813192105,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "2012-05-15",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.9347616754935002,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2020-04-03",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.24145402022147328,
+          "metrics": [
+            "Q1",
+            "Q2",
+            "Q3"
+          ]
+        },
+        "S": {
+          "first": "2018-10-14",
+          "last": "2026-04-13",
+          "dev_share_defined": 0.37072701011073667,
+          "metrics": [
+            "S4"
+          ]
+        },
+        "C": {
+          "first": "2011-08-18",
+          "last": "2026-06-14",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "C1",
+            "C2",
+            "C3"
+          ]
+        },
+        "M": {
+          "first": "2011-08-18",
+          "last": "2026-06-14",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "ETH": {
+        "P": {
+          "first": "2018-05-08",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.865071283095723,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2018-06-22",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.8421588594704684,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "2018-05-14",
+          "last": "2026-06-14",
+          "dev_share_defined": 0.8620162932790224,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2020-09-14",
+          "last": "2026-04-12",
+          "dev_share_defined": 0.4271894093686354,
+          "metrics": [
+            "Q1",
+            "Q2"
+          ]
+        },
+        "S": {
+          "first": "2018-10-14",
+          "last": "2026-04-13",
+          "dev_share_defined": 0.7841140529531568,
+          "metrics": [
+            "S4"
+          ]
+        },
+        "C": {
+          "first": "2017-08-16",
+          "last": "2026-04-12",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "C1"
+          ]
+        },
+        "M": {
+          "first": "2017-08-16",
+          "last": "2026-06-14",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "SPY": {
+        "P": {
+          "first": "1994-02-15",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9648354564755839,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2000-03-16",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.7611464968152867,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "1994-02-24",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9640392781316348,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2010-12-03",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.4011411889596603,
+          "metrics": [
+            "Q3"
+          ]
+        },
+        "S": {
+          "first": "1993-01-29",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "M": {
+          "first": "1993-01-29",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "QQQ": {
+        "P": {
+          "first": "2000-03-27",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9557891224557892,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2000-03-16",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9569569569569569,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "2000-04-04",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9547881214547881,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2010-12-03",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.5043376710043377,
+          "metrics": [
+            "Q3"
+          ]
+        },
+        "S": {
+          "first": "1999-03-10",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "M": {
+          "first": "1999-03-10",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "DIA": {
+        "P": {
+          "first": "1999-02-08",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9578025477707006,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2000-03-16",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.913375796178344,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "1999-02-17",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9568471337579618,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2010-12-03",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.48136942675159233,
+          "metrics": [
+            "Q3"
+          ]
+        },
+        "S": {
+          "first": "1998-01-20",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "M": {
+          "first": "1998-01-20",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "IWM": {
+        "P": {
+          "first": "2001-06-15",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9533943017938797,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "B": {
+          "first": "2001-05-25",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.955856489623637,
+          "metrics": [
+            "B1",
+            "B2"
+          ]
+        },
+        "V": {
+          "first": "2001-06-25",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9523390784382695,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2010-12-03",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.5316567006683082,
+          "metrics": [
+            "Q3"
+          ]
+        },
+        "S": {
+          "first": "2000-05-26",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "S1",
+            "S2",
+            "S3"
+          ]
+        },
+        "M": {
+          "first": "2000-05-26",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      },
+      "GLD": {
+        "P": {
+          "first": "2005-12-07",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.9418987064240298,
+          "metrics": [
+            "P1",
+            "P2",
+            "P3",
+            "P5",
+            "P7",
+            "P4",
+            "P6"
+          ]
+        },
+        "V": {
+          "first": "2005-12-15",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.940583205437404,
+          "metrics": [
+            "V1",
+            "V2"
+          ]
+        },
+        "Q": {
+          "first": "2010-05-07",
+          "last": "2026-07-24",
+          "dev_share_defined": 0.6948037711028283,
+          "metrics": [
+            "Q3"
+          ]
+        },
+        "M": {
+          "first": "2004-11-18",
+          "last": "2026-07-24",
+          "dev_share_defined": 1.0,
+          "metrics": [
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8",
+            "M9",
+            "M10",
+            "M11",
+            "M12"
+          ]
+        }
+      }
+    },
+    "family_correlation": {
+      "BTC": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "C",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.706,
+            0.037,
+            0.426,
+            0.831,
+            0.555,
+            0.122
+          ],
+          [
+            0.706,
+            1.0,
+            0.092,
+            0.522,
+            0.736,
+            0.268,
+            -0.052
+          ],
+          [
+            0.037,
+            0.092,
+            1.0,
+            0.107,
+            0.03,
+            -0.235,
+            -0.043
+          ],
+          [
+            0.426,
+            0.522,
+            0.107,
+            1.0,
+            0.491,
+            0.253,
+            0.062
+          ],
+          [
+            0.831,
+            0.736,
+            0.03,
+            0.491,
+            1.0,
+            0.504,
+            0.138
+          ],
+          [
+            0.555,
+            0.268,
+            -0.235,
+            0.253,
+            0.504,
+            1.0,
+            0.412
+          ],
+          [
+            0.122,
+            -0.052,
+            -0.043,
+            0.062,
+            0.138,
+            0.412,
+            1.0
+          ]
+        ],
+        "effective_families": 3.543871901195453
+      },
+      "ETH": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "C",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.761,
+            0.079,
+            0.772,
+            0.827,
+            0.47,
+            0.026
+          ],
+          [
+            0.761,
+            1.0,
+            0.14,
+            0.65,
+            0.736,
+            0.225,
+            -0.052
+          ],
+          [
+            0.079,
+            0.14,
+            1.0,
+            0.023,
+            0.124,
+            -0.1,
+            -0.038
+          ],
+          [
+            0.772,
+            0.65,
+            0.023,
+            1.0,
+            0.772,
+            0.644,
+            0.333
+          ],
+          [
+            0.827,
+            0.736,
+            0.124,
+            0.772,
+            1.0,
+            0.321,
+            0.138
+          ],
+          [
+            0.47,
+            0.225,
+            -0.1,
+            0.644,
+            0.321,
+            1.0,
+            0.438
+          ],
+          [
+            0.026,
+            -0.052,
+            -0.038,
+            0.333,
+            0.138,
+            0.438,
+            1.0
+          ]
+        ],
+        "effective_families": 3.030308465001601
+      },
+      "SPY": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.694,
+            0.598,
+            0.032,
+            0.489,
+            0.483
+          ],
+          [
+            0.694,
+            1.0,
+            0.524,
+            -0.154,
+            0.398,
+            0.228
+          ],
+          [
+            0.598,
+            0.524,
+            1.0,
+            -0.028,
+            0.324,
+            0.372
+          ],
+          [
+            0.032,
+            -0.154,
+            -0.028,
+            1.0,
+            0.255,
+            0.089
+          ],
+          [
+            0.489,
+            0.398,
+            0.324,
+            0.255,
+            1.0,
+            0.297
+          ],
+          [
+            0.483,
+            0.228,
+            0.372,
+            0.089,
+            0.297,
+            1.0
+          ]
+        ],
+        "effective_families": 3.4435381087184473
+      },
+      "QQQ": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.629,
+            0.594,
+            0.17,
+            0.471,
+            0.377
+          ],
+          [
+            0.629,
+            1.0,
+            0.47,
+            0.084,
+            0.398,
+            0.228
+          ],
+          [
+            0.594,
+            0.47,
+            1.0,
+            0.201,
+            0.414,
+            0.349
+          ],
+          [
+            0.17,
+            0.084,
+            0.201,
+            1.0,
+            0.076,
+            0.257
+          ],
+          [
+            0.471,
+            0.398,
+            0.414,
+            0.076,
+            1.0,
+            0.38
+          ],
+          [
+            0.377,
+            0.228,
+            0.349,
+            0.257,
+            0.38,
+            1.0
+          ]
+        ],
+        "effective_families": 3.5092288803403253
+      },
+      "DIA": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.708,
+            0.607,
+            0.024,
+            0.52,
+            0.466
+          ],
+          [
+            0.708,
+            1.0,
+            0.521,
+            -0.154,
+            0.398,
+            0.228
+          ],
+          [
+            0.607,
+            0.521,
+            1.0,
+            -0.054,
+            0.458,
+            0.387
+          ],
+          [
+            0.024,
+            -0.154,
+            -0.054,
+            1.0,
+            0.255,
+            0.089
+          ],
+          [
+            0.52,
+            0.398,
+            0.458,
+            0.255,
+            1.0,
+            0.367
+          ],
+          [
+            0.466,
+            0.228,
+            0.387,
+            0.089,
+            0.367,
+            1.0
+          ]
+        ],
+        "effective_families": 3.3116758623998677
+      },
+      "IWM": {
+        "families": [
+          "P",
+          "B",
+          "V",
+          "Q",
+          "S",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.666,
+            0.567,
+            0.07,
+            0.628,
+            0.392
+          ],
+          [
+            0.666,
+            1.0,
+            0.445,
+            -0.15,
+            0.408,
+            0.217
+          ],
+          [
+            0.567,
+            0.445,
+            1.0,
+            -0.037,
+            0.52,
+            0.335
+          ],
+          [
+            0.07,
+            -0.15,
+            -0.037,
+            1.0,
+            0.255,
+            0.089
+          ],
+          [
+            0.628,
+            0.408,
+            0.52,
+            0.255,
+            1.0,
+            0.386
+          ],
+          [
+            0.392,
+            0.217,
+            0.335,
+            0.089,
+            0.386,
+            1.0
+          ]
+        ],
+        "effective_families": 3.3593153035976235
+      },
+      "GLD": {
+        "families": [
+          "P",
+          "V",
+          "Q",
+          "M"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.062,
+            0.573,
+            -0.106
+          ],
+          [
+            0.062,
+            1.0,
+            -0.002,
+            0.176
+          ],
+          [
+            0.573,
+            -0.002,
+            1.0,
+            0.002
+          ],
+          [
+            -0.106,
+            0.176,
+            0.002,
+            1.0
+          ]
+        ],
+        "effective_families": 3.3696797208664404
+      }
+    },
+    "cap_undefined": {
+      "BTC": {
+        "dev_bars": 4154,
+        "cap_undefined_fewer_than_3_families": 265,
+        "pctcap_undefined_warmup": 251
+      },
+      "ETH": {
+        "dev_bars": 1964,
+        "cap_undefined_fewer_than_3_families": 265,
+        "pctcap_undefined_warmup": 251
+      },
+      "SPY": {
+        "dev_bars": 7536,
+        "cap_undefined_fewer_than_3_families": 265,
+        "pctcap_undefined_warmup": 251
+      },
+      "QQQ": {
+        "dev_bars": 5994,
+        "cap_undefined_fewer_than_3_families": 258,
+        "pctcap_undefined_warmup": 251
+      },
+      "DIA": {
+        "dev_bars": 6280,
+        "cap_undefined_fewer_than_3_families": 265,
+        "pctcap_undefined_warmup": 251
+      },
+      "IWM": {
+        "dev_bars": 5686,
+        "cap_undefined_fewer_than_3_families": 251,
+        "pctcap_undefined_warmup": 251
+      },
+      "GLD": {
+        "dev_bars": 4561,
+        "cap_undefined_fewer_than_3_families": 271,
+        "pctcap_undefined_warmup": 251
+      }
+    },
+    "grade_at_confirmed": {
+      "BTC": {
+        "low": {
+          "n": 4,
+          "hits": 2,
+          "cancelled": 3
+        },
+        "mid": {
+          "n": 5,
+          "hits": 3,
+          "cancelled": 5
+        },
+        "high": {
+          "n": 8,
+          "hits": 6,
+          "cancelled": 6
+        }
+      },
+      "ETH": {
+        "low": {
+          "n": 3,
+          "hits": 1,
+          "cancelled": 3
+        },
+        "mid": {
+          "n": 2,
+          "hits": 1,
+          "cancelled": 2
+        }
+      },
+      "SPY": {
+        "mid": {
+          "n": 7,
+          "hits": 6,
+          "cancelled": 5
+        },
+        "low": {
+          "n": 6,
+          "hits": 6,
+          "cancelled": 5
+        },
+        "high": {
+          "n": 5,
+          "hits": 4,
+          "cancelled": 4
+        }
+      },
+      "QQQ": {
+        "high": {
+          "n": 3,
+          "hits": 3,
+          "cancelled": 2
+        },
+        "mid": {
+          "n": 6,
+          "hits": 5,
+          "cancelled": 5
+        },
+        "low": {
+          "n": 6,
+          "hits": 6,
+          "cancelled": 5
+        }
+      },
+      "DIA": {
+        "high": {
+          "n": 6,
+          "hits": 5,
+          "cancelled": 5
+        },
+        "mid": {
+          "n": 7,
+          "hits": 7,
+          "cancelled": 6
+        },
+        "low": {
+          "n": 10,
+          "hits": 10,
+          "cancelled": 8
+        }
+      },
+      "IWM": {
+        "mid": {
+          "n": 4,
+          "hits": 3,
+          "cancelled": 2
+        },
+        "high": {
+          "n": 2,
+          "hits": 2,
+          "cancelled": 1
+        },
+        "low": {
+          "n": 3,
+          "hits": 3,
+          "cancelled": 1
+        }
+      },
+      "GLD": {
+        "mid": {
+          "n": 6,
+          "hits": 6,
+          "cancelled": 4
+        },
+        "high": {
+          "n": 2,
+          "hits": 2,
+          "cancelled": 2
+        },
+        "low": {
+          "n": 2,
+          "hits": 1,
+          "cancelled": 2
+        }
+      }
+    },
+    "leave_one_family_out_alert": {
+      "without_P": {
+        "crypto": {
+          "Calls": 31,
+          "Hits": 18,
+          "precision": 0.5806451612903226
+        },
+        "equity": {
+          "Calls": 85,
+          "Hits": 63,
+          "precision": 0.7411764705882353
+        },
+        "gold": {
+          "Calls": 12,
+          "Hits": 9,
+          "precision": 0.75
+        }
+      },
+      "without_B": {
+        "crypto": {
+          "Calls": 29,
+          "Hits": 20,
+          "precision": 0.6896551724137931
+        },
+        "equity": {
+          "Calls": 73,
+          "Hits": 59,
+          "precision": 0.8082191780821918
+        },
+        "gold": {
+          "Calls": 12,
+          "Hits": 11,
+          "precision": 0.9166666666666666
+        }
+      },
+      "without_V": {
+        "crypto": {
+          "Calls": 33,
+          "Hits": 19,
+          "precision": 0.5757575757575758
+        },
+        "equity": {
+          "Calls": 90,
+          "Hits": 64,
+          "precision": 0.7111111111111111
+        },
+        "gold": {
+          "Calls": 15,
+          "Hits": 13,
+          "precision": 0.8666666666666667
+        }
+      },
+      "without_Q": {
+        "crypto": {
+          "Calls": 28,
+          "Hits": 21,
+          "precision": 0.75
+        },
+        "equity": {
+          "Calls": 89,
+          "Hits": 76,
+          "precision": 0.8539325842696629
+        },
+        "gold": {
+          "Calls": 12,
+          "Hits": 12,
+          "precision": 1.0
+        }
+      },
+      "without_S": {
+        "crypto": {
+          "Calls": 28,
+          "Hits": 20,
+          "precision": 0.7142857142857143
+        },
+        "equity": {
+          "Calls": 72,
+          "Hits": 62,
+          "precision": 0.8611111111111112
+        },
+        "gold": {
+          "Calls": 12,
+          "Hits": 11,
+          "precision": 0.9166666666666666
+        }
+      },
+      "without_C": {
+        "crypto": {
+          "Calls": 30,
+          "Hits": 19,
+          "precision": 0.6333333333333333
+        },
+        "equity": {
+          "Calls": 81,
+          "Hits": 64,
+          "precision": 0.7901234567901234
+        },
+        "gold": {
+          "Calls": 12,
+          "Hits": 11,
+          "precision": 0.9166666666666666
+        }
+      },
+      "without_M": {
+        "crypto": {
+          "Calls": 26,
+          "Hits": 19,
+          "precision": 0.7307692307692307
+        },
+        "equity": {
+          "Calls": 84,
+          "Hits": 66,
+          "precision": 0.7857142857142857
+        },
+        "gold": {
+          "Calls": 14,
+          "Hits": 13,
+          "precision": 0.9285714285714286
+        }
+      }
+    }
+  },
+  "a8": {
+    "crypto": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0,
+      "Share": 0.8181818181818182,
+      "NullRate": 0.7000869943453675,
+      "P": 0.0008999100089991
+    },
+    "equity": {
+      "Candidates": 116,
+      "In": 66,
+      "Unresolved": 0,
+      "Share": 0.7424242424242424,
+      "NullRate": 0.6336369854404507,
+      "P": 9.999000099990002E-05
+    },
+    "gold": {
+      "Candidates": 19,
+      "In": 11,
+      "Unresolved": 0,
+      "Share": 0.8181818181818182,
+      "NullRate": 0.6860385447494933,
+      "P": 0.0012998700129987
+    }
+  },
+  "inputs": [
+    {
+      "File": "bitstamp_ADA_USDT_1d.json",
+      "Sha256Before": "90e77f8054f512cceb96eb718887dc506141f0b30facc9f3645520dcc11ea9ff",
+      "Sha256After": "90e77f8054f512cceb96eb718887dc506141f0b30facc9f3645520dcc11ea9ff",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_BCH_USDT_1d.json",
+      "Sha256Before": "7f7ba6e6e1668054ef80f3d80724d06c023a9129b263ad9a8042e563683b2b35",
+      "Sha256After": "7f7ba6e6e1668054ef80f3d80724d06c023a9129b263ad9a8042e563683b2b35",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_BTC_USDT_1d.json",
+      "Sha256Before": "7e4df0795b9ffe098e964736d15d680a4c18d8cc82f3c2fd7bf4ade484efcf0f",
+      "Sha256After": "7e4df0795b9ffe098e964736d15d680a4c18d8cc82f3c2fd7bf4ade484efcf0f",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_DOGE_USDT_1d.json",
+      "Sha256Before": "05bec010f7f7ff1a136ecb6607fb308c296f304cb2d3f24b85ead52d06396783",
+      "Sha256After": "05bec010f7f7ff1a136ecb6607fb308c296f304cb2d3f24b85ead52d06396783",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_ETH_USDT_1d.json",
+      "Sha256Before": "b26e92b295239c07e6b0e7c3738b025b2004b5d2805c7840bf272916aab1844e",
+      "Sha256After": "b26e92b295239c07e6b0e7c3738b025b2004b5d2805c7840bf272916aab1844e",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_LTC_USDT_1d.json",
+      "Sha256Before": "12e2b09a7b162482e2486030ededb222413077d107de71d02f1f504447b4d932",
+      "Sha256After": "12e2b09a7b162482e2486030ededb222413077d107de71d02f1f504447b4d932",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_SOL_USDT_1d.json",
+      "Sha256Before": "9ba5831ba6ba1e2cba552ac20e22555a17513314a61dd3ab0dc40d77bdd41fdf",
+      "Sha256After": "9ba5831ba6ba1e2cba552ac20e22555a17513314a61dd3ab0dc40d77bdd41fdf",
+      "Unchanged": true
+    },
+    {
+      "File": "bitstamp_XRP_USDT_1d.json",
+      "Sha256Before": "0ff6f1e1f7a43644b506379f994550706e93f19bd9dc47a8920b6888ce59214f",
+      "Sha256After": "0ff6f1e1f7a43644b506379f994550706e93f19bd9dc47a8920b6888ce59214f",
+      "Unchanged": true
+    },
+    {
+      "File": "events_fomc.json",
+      "Sha256Before": "d12a056f8c46e442427d5b5f7b45e003f256bd59d6e45c1eb595604c22e39a44",
+      "Sha256After": "d12a056f8c46e442427d5b5f7b45e003f256bd59d6e45c1eb595604c22e39a44",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/aaii/aaii_bull_minus_bear.csv",
+      "Sha256Before": "f6dbf2486e4af928e875a5f265ddef209f650827f2392e3748905fdddc090bda",
+      "Sha256After": "f6dbf2486e4af928e875a5f265ddef209f650827f2392e3748905fdddc090bda",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/CPIAUCSL_vintages.csv",
+      "Sha256Before": "79b4da2b91f27acbd9f32f1e9955bcaed60a304f2490f509ed4a6b0adabf7d2c",
+      "Sha256After": "79b4da2b91f27acbd9f32f1e9955bcaed60a304f2490f509ed4a6b0adabf7d2c",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/ICSA_vintages.csv",
+      "Sha256Before": "8025b74a6e9954e6b59678d3e5223b97f87fbe2ac4c452007b035eb5e8f877e5",
+      "Sha256After": "8025b74a6e9954e6b59678d3e5223b97f87fbe2ac4c452007b035eb5e8f877e5",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/JTSJOL_vintages.csv",
+      "Sha256Before": "f2878c1137ce4adf983fd64386499cc382c15b226a2f332c0e35de5d2381b882",
+      "Sha256After": "f2878c1137ce4adf983fd64386499cc382c15b226a2f332c0e35de5d2381b882",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/JTSQUR_vintages.csv",
+      "Sha256Before": "cdb60707af1eda281f059884385e0c0b8d101d2b4208626fdcdc6861238191a3",
+      "Sha256After": "cdb60707af1eda281f059884385e0c0b8d101d2b4208626fdcdc6861238191a3",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/PAYEMS_vintages.csv",
+      "Sha256Before": "e9a88a890798adc33e0921393c795c099c903115a66c327cda397db9dd10197e",
+      "Sha256After": "e9a88a890798adc33e0921393c795c099c903115a66c327cda397db9dd10197e",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/SAHMREALTIME_vintages.csv",
+      "Sha256Before": "9be825227afce6b6bd39cf82c888ff6d78221a781e10dcba277fe01dd7469324",
+      "Sha256After": "9be825227afce6b6bd39cf82c888ff6d78221a781e10dcba277fe01dd7469324",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/TEMPHELPS_vintages.csv",
+      "Sha256Before": "94f1c91c6063225f7fffefdee3d617f66ea5c809a8ffd3a019ae406ee8e8f1ee",
+      "Sha256After": "94f1c91c6063225f7fffefdee3d617f66ea5c809a8ffd3a019ae406ee8e8f1ee",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/UMCSENT_vintages.csv",
+      "Sha256Before": "9f0975bb320cede0b888f76a6f6f16ec0281728dbb8931e20518abb41c9585f7",
+      "Sha256After": "9f0975bb320cede0b888f76a6f6f16ec0281728dbb8931e20518abb41c9585f7",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/alfred/UNRATE_vintages.csv",
+      "Sha256Before": "7073bf45dcc223388d226976e2ee405d240054a20ab6e1b5fa7753bf21a4b21f",
+      "Sha256After": "7073bf45dcc223388d226976e2ee405d240054a20ab6e1b5fa7753bf21a4b21f",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cboe/cboe_equity_pc_stitched.csv",
+      "Sha256Before": "980c523b93779423161ee11bc076a9248933db5a729496b65b647ff068557594",
+      "Sha256After": "980c523b93779423161ee11bc076a9248933db5a729496b65b647ff068557594",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/disagg_gold_comex_managed_money_net_pct_oi.csv",
+      "Sha256Before": "f1e618847470efffb3f26dcc26ae2d41373d7680270edcc05d4a3b0c24117b85",
+      "Sha256After": "f1e618847470efffb3f26dcc26ae2d41373d7680270edcc05d4a3b0c24117b85",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_bitcoin_cme_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "3c1ff17d854751a4867b4cddff9a6bbee5934d29ec5169a4cc0d533d4950a7fe",
+      "Sha256After": "3c1ff17d854751a4867b4cddff9a6bbee5934d29ec5169a4cc0d533d4950a7fe",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_nasdaq100_mini_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "d1e3f66ed7bb3d8d65847b5f20aaf46f195c242464861722c1b95179013038ec",
+      "Sha256After": "d1e3f66ed7bb3d8d65847b5f20aaf46f195c242464861722c1b95179013038ec",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/cftc/tff_sp500_emini_lev_funds_net_pct_oi.csv",
+      "Sha256Before": "efad7011ee8e38b2d49b1800f5a96ae8a58609110bdd4d74e0c825463f378b0f",
+      "Sha256After": "efad7011ee8e38b2d49b1800f5a96ae8a58609110bdd4d74e0c825463f378b0f",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_capmvrvcur.csv",
+      "Sha256Before": "ef1f9e004775586a3625bd050dbffb54e200ba9ba8436ad6d95b96bb568602e2",
+      "Sha256After": "ef1f9e004775586a3625bd050dbffb54e200ba9ba8436ad6d95b96bb568602e2",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_hashrate.csv",
+      "Sha256Before": "1e180de9db100ab55634eea30cc84dc09de177aab6d67867ca5158314d166541",
+      "Sha256After": "1e180de9db100ab55634eea30cc84dc09de177aab6d67867ca5158314d166541",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/coinmetrics/btc_isstotusd.csv",
+      "Sha256Before": "29bb323b98f7d1f17203eec200803f5855e2cf4c8203ba1a53740f35a09223cc",
+      "Sha256After": "29bb323b98f7d1f17203eec200803f5855e2cf4c8203ba1a53740f35a09223cc",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/BAA10Y.csv",
+      "Sha256Before": "3408184f4e76b70f798f22caaed89709a80c3a83e51779930c66564904991e26",
+      "Sha256After": "3408184f4e76b70f798f22caaed89709a80c3a83e51779930c66564904991e26",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTAR.csv",
+      "Sha256Before": "f40e7f6fdf1966f17e97ece835a535ef41c4400627510094f0dc515480fc6ec9",
+      "Sha256After": "f40e7f6fdf1966f17e97ece835a535ef41c4400627510094f0dc515480fc6ec9",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTARL.csv",
+      "Sha256Before": "695dcd2fa8f34e3a053a0ec82472412c4e9720b9000083b502613f92ccf42eda",
+      "Sha256After": "695dcd2fa8f34e3a053a0ec82472412c4e9720b9000083b502613f92ccf42eda",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DFEDTARU.csv",
+      "Sha256Before": "cfa3f316d45bf87616e819ee5bc7c17476f2d353822b1cccbc791185275cae86",
+      "Sha256After": "cfa3f316d45bf87616e819ee5bc7c17476f2d353822b1cccbc791185275cae86",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS10.csv",
+      "Sha256Before": "eb84bd40b990161326601150ea04ee383cbde4b78efa66d100bfd99463b078e2",
+      "Sha256After": "eb84bd40b990161326601150ea04ee383cbde4b78efa66d100bfd99463b078e2",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS2.csv",
+      "Sha256Before": "7b5759b4d00f871afbdccc80bc270498e7ae318effd03186fd12be8d523cf6ae",
+      "Sha256After": "7b5759b4d00f871afbdccc80bc270498e7ae318effd03186fd12be8d523cf6ae",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DGS3MO.csv",
+      "Sha256Before": "5151ab9bf7dbe48b0046061cf4494dbd0d2da862ac1fc59b7bd5ea23ec0eb231",
+      "Sha256After": "5151ab9bf7dbe48b0046061cf4494dbd0d2da862ac1fc59b7bd5ea23ec0eb231",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DTWEXBGS.csv",
+      "Sha256Before": "62a038d11fee4c34274f1c29d6334d8f73c0ca07abd71f619ea44e616dfe60b1",
+      "Sha256After": "62a038d11fee4c34274f1c29d6334d8f73c0ca07abd71f619ea44e616dfe60b1",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/DTWEXM.csv",
+      "Sha256Before": "97d617554686e50cf5ef21b96703a650770f2868e66f95c3fe38fad12bcef31d",
+      "Sha256After": "97d617554686e50cf5ef21b96703a650770f2868e66f95c3fe38fad12bcef31d",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/RRPONTSYD.csv",
+      "Sha256Before": "2f59523cbcac593de6ba6fba7c7f576b54d947fabcf5d70c5fc5c63d27c66968",
+      "Sha256After": "2f59523cbcac593de6ba6fba7c7f576b54d947fabcf5d70c5fc5c63d27c66968",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/T10Y3M.csv",
+      "Sha256Before": "815a806652e7345603985e1b11e2a98f47f32861ae97a69ea6f2dcb914a85901",
+      "Sha256After": "815a806652e7345603985e1b11e2a98f47f32861ae97a69ea6f2dcb914a85901",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/VIXCLS.csv",
+      "Sha256Before": "bbad422b973d5e4264fc96b6769002ec8cc6d7a3efe2bc7a577bf5325961ed1d",
+      "Sha256After": "bbad422b973d5e4264fc96b6769002ec8cc6d7a3efe2bc7a577bf5325961ed1d",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/WALCL.csv",
+      "Sha256Before": "a37ca7574cc0f72358b58262edbe041bbe678a86416d76547cd49bff40b07208",
+      "Sha256After": "a37ca7574cc0f72358b58262edbe041bbe678a86416d76547cd49bff40b07208",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/fred/WTREGEN.csv",
+      "Sha256Before": "57ca9a2445bdc8d29511ab897bd120edf2c6e3f54775a1b33e20b194e3d6f668",
+      "Sha256After": "57ca9a2445bdc8d29511ab897bd120edf2c6e3f54775a1b33e20b194e3d6f668",
+      "Unchanged": true
+    },
+    {
+      "File": "macro/nber/nber_turning_points.csv",
+      "Sha256Before": "d42496f61645412a9643f63f53cc0cb46dd2ddac07871e3c97aad98fedf05844",
+      "Sha256After": "d42496f61645412a9643f63f53cc0cb46dd2ddac07871e3c97aad98fedf05844",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_alternativeme_fng_index_1d.json",
+      "Sha256Before": "f8380b7529229bf2dde128eaaa88c8b801fe99337af05c430c6237a3b7a8250d",
+      "Sha256After": "f8380b7529229bf2dde128eaaa88c8b801fe99337af05c430c6237a3b7a8250d",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_btcusdt_funding_8h.json",
+      "Sha256Before": "e91eee37d8e14644e4921380ea14683ab7ce11d99f2fa8582c10dea0345de502",
+      "Sha256After": "e91eee37d8e14644e4921380ea14683ab7ce11d99f2fa8582c10dea0345de502",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_btcusdt_oi_1d.json",
+      "Sha256Before": "b1fa13bb6523f325de0d203cdc03c0ce5201b8a6157c1fe6aa59b7443096ff94",
+      "Sha256After": "b1fa13bb6523f325de0d203cdc03c0ce5201b8a6157c1fe6aa59b7443096ff94",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_ethusdt_funding_8h.json",
+      "Sha256Before": "eb2c54724d6daa5233fd6f11bb67f969faf464fa74d66895aa571fd16921db11",
+      "Sha256After": "eb2c54724d6daa5233fd6f11bb67f969faf464fa74d66895aa571fd16921db11",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_binancevision_ethusdt_oi_1d.json",
+      "Sha256Before": "c2615e468ba9a6647dca0d54a6da8434e006d0581e3a9584c90131de51a3d8a5",
+      "Sha256After": "c2615e468ba9a6647dca0d54a6da8434e006d0581e3a9584c90131de51a3d8a5",
+      "Unchanged": true
+    },
+    {
+      "File": "xs_coinmetrics_eth_capmvrvcur_1d.json",
+      "Sha256Before": "75d218962c91b57c992e67b570cbfe0225e46d37b97d6fb10cff4a57a62aff67",
+      "Sha256After": "75d218962c91b57c992e67b570cbfe0225e46d37b97d6fb10cff4a57a62aff67",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_DIA_1d.json",
+      "Sha256Before": "62392f10dc023ee201e0b5ed62bf228fe06dc9598ada5e521e009facc6fda224",
+      "Sha256After": "62392f10dc023ee201e0b5ed62bf228fe06dc9598ada5e521e009facc6fda224",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_GLD_1d.json",
+      "Sha256Before": "666ced0ce16931e2dace19cc921eb3666ceaf31b62ffe015348fd0d3b37095be",
+      "Sha256After": "666ced0ce16931e2dace19cc921eb3666ceaf31b62ffe015348fd0d3b37095be",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_IWM_1d.json",
+      "Sha256Before": "e79308e83f7452baaa32a1af42d0bdeaf7f48ba445f52f29751af4ad3404ac5c",
+      "Sha256After": "e79308e83f7452baaa32a1af42d0bdeaf7f48ba445f52f29751af4ad3404ac5c",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_QQQ_1d.json",
+      "Sha256Before": "62e92e6c591b9f888d9626ef95ec23d4deb09788bf78eb511f7395fe72f5cf68",
+      "Sha256After": "62e92e6c591b9f888d9626ef95ec23d4deb09788bf78eb511f7395fe72f5cf68",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_SPY_1d.json",
+      "Sha256Before": "9e4a2182278103ab6762515d452ab74e177b1380b9e0e8fcfd40fea889d16693",
+      "Sha256After": "9e4a2182278103ab6762515d452ab74e177b1380b9e0e8fcfd40fea889d16693",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_TLT_1d.json",
+      "Sha256Before": "9c10892e8015ab36068280e8f0592d0e8de19e1140b2870ae1b32405b0ade1a5",
+      "Sha256After": "9c10892e8015ab36068280e8f0592d0e8de19e1140b2870ae1b32405b0ade1a5",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLB_1d.json",
+      "Sha256Before": "f8062fd8a92906ae63f411f25745f0485f08f939ec37a06361b8721973833f66",
+      "Sha256After": "f8062fd8a92906ae63f411f25745f0485f08f939ec37a06361b8721973833f66",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLE_1d.json",
+      "Sha256Before": "b5b4e9f9f19010e7973ee2ef4c3fb45483384d90c61768439632a914b9e76a1f",
+      "Sha256After": "b5b4e9f9f19010e7973ee2ef4c3fb45483384d90c61768439632a914b9e76a1f",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLF_1d.json",
+      "Sha256Before": "6d23ab3d549411c72f5ff364669d7ccd46897796abdedfd1bf79821548143c7f",
+      "Sha256After": "6d23ab3d549411c72f5ff364669d7ccd46897796abdedfd1bf79821548143c7f",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLI_1d.json",
+      "Sha256Before": "0c2353a8ddb74cf4278c9246988f872c133e79ea8183420c09a23bb383fec24e",
+      "Sha256After": "0c2353a8ddb74cf4278c9246988f872c133e79ea8183420c09a23bb383fec24e",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLK_1d.json",
+      "Sha256Before": "1e02620002ac3064e2103f34285bfd3ae30bdc9a09f10b9f8b91fde8b96e03e0",
+      "Sha256After": "1e02620002ac3064e2103f34285bfd3ae30bdc9a09f10b9f8b91fde8b96e03e0",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLP_1d.json",
+      "Sha256Before": "c063840e9e21be74ab4cee7cf2002e690746b5214624fb0341637610f1e7671a",
+      "Sha256After": "c063840e9e21be74ab4cee7cf2002e690746b5214624fb0341637610f1e7671a",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLU_1d.json",
+      "Sha256Before": "ebf13843424dbb8de6ef00fb3139ca856c24562cc2caf2bf8a439f3484f6e40a",
+      "Sha256After": "ebf13843424dbb8de6ef00fb3139ca856c24562cc2caf2bf8a439f3484f6e40a",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLV_1d.json",
+      "Sha256Before": "90484cec945d1d62c5651ca450200f34da2761a736e33fc760529fa9f2f9b616",
+      "Sha256After": "90484cec945d1d62c5651ca450200f34da2761a736e33fc760529fa9f2f9b616",
+      "Unchanged": true
+    },
+    {
+      "File": "yahoo_XLY_1d.json",
+      "Sha256Before": "1ac1b5ba8a96498ff2002208b0452d14f970588d8619d843a12baf8d18345f98",
+      "Sha256After": "1ac1b5ba8a96498ff2002208b0452d14f970588d8619d843a12baf8d18345f98",
+      "Unchanged": true
+    }
+  ]
+}

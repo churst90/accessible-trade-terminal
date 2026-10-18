@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The cycle school, stage 2: the extra data fetched, the 56 pre-registered tests run (2026-10-18)
+
+Results in `docs/CYCLE_SCHOOL_FINDINGS.md`; three new `edges.json` records and ledger rows 30 to 32.
+
+- **Data first, before any outcome** (`macro-fetch --only labour,cftc`, new files only):
+  - JOLTS quits rate, JOLTS openings and temporary help services jobs, with full ALFRED vintages;
+  - the CFTC Traders in Financial Futures history for the E-mini S&P 500, the Nasdaq-100 mini and
+    CME Bitcoin, plus disaggregated COMEX gold. Contracts are chosen by CFTC code, and each value is
+    stamped at its release (`CftcReleaseCalendar`): the Friday, moved for holidays, the 2013, 2018-19
+    and 2025 shutdowns and the 2023 ION incident, and never before the history was first posted
+    (2010-12-03 for TFF).
+  - A dated addendum to `docs/CYCLE_SCHOOL_PREREG.md` put the new series into slots the design
+    already had (positioning Q3; macro M10 to M12, copying M9). It was committed before anything was
+    computed.
+- **What the old COT files held** (checked value by value): `sp500_cot`, `nasdaq_cot` and `gold_cot`
+  are what they claim. `bitcoin_cot` mixes Cboe, CME and CME micro contracts, and `wti_cot` mixes
+  ICE WTI with spread swaps, because the old downloader matched names. The S&P and Nasdaq files hold
+  2006-2010 values that were not public until 2010-12-03. Nothing was changed in them; the study
+  used the new files.
+- **`StrategyLab cycle-school`** builds the pre-registration literally, with `--counts-only` for the
+  pass that settles the fallbacks. Seven new causality tests (`CycleSchoolCausalityTests`), each
+  proven red by a sabotage and restored byte-identical.
+- **Results**:
+  - Camel's checklist: **no edge** in crypto, equities or gold. It beats chance and random swing
+    lows, but shuffled prices score the same: its items need the rally that confirms the low.
+  - The capitulation score: **no edge from the added data**. Its alerts find lows well, but price
+    alone does as well or better. Gold: not testable.
+  - Camel's macro theses: **no support** for any. The nearest, downward payroll revisions before
+    deeper drawdowns, missed Holm (0.051). The alarm gate: too few events.
+  - Trading: no edge, because no detector passed.
+- **Caveats.** Five runs: one counts-only, then four full runs. Two of them were bug fixes:
+  - a test with fewer than 15 lows had been marked not testable;
+  - C5 counted ten FOMC meetings that have not happened yet.
+
+  Neither changed a verdict, and both sets of numbers are in the findings. The last run added C5's
+  two pre-registered descriptive rows, which had been left out.
+
+  The held-out era was read by each full run with the same code. Gold and crypto are small classes.
+  C6 uses an investment-grade spread, not high yield.
+
 ### The cycle school: Camel's method written up, our own cycle-low indicator designed, tests pre-registered (2026-10-18)
 
 Stage 1 of 2. Documents only: no code, and **no forward return, outcome, hit rate or event count
