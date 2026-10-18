@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Setup grader round 2, the Market Cipher school: pre-registered, not run (2026-10-18)
+
+`docs/SETUP_GRADER_ROUND2_MC_PREREG.md`, stage 1 of 2, committed before any setup was counted or any
+outcome computed. Round 1 mixed Tim's weekly trend with a Market Cipher dot and graded the dot before
+any confirmation; this round uses Market Cipher B tools only and the sources' own words, with a quote
+and timestamp for every rule (Crypto Face, the official channels, Jayson Casper, Dylan Waves, Trader
+Geo, Trading Bureau, Gunslinger, Trade Pro, DaviddTech, Frankie Candles, Crypto Wolf, Gainium).
+
+- **Setups:** every MCB Buy dot (the anchor wave's dot) on daily crypto, daily equities and, as a
+  secondary class, 4h crypto; the environment is the weekly (or daily) Cipher B built from completed
+  bars only.
+- **Two entry policies on the same setups:** E0 at the next open after the dot; E1 at the trigger
+  wave (the next higher, sub-zero wave cross within 30 bars, with money flow turning up, void if a
+  wave goes as deep as the anchor). Dots that never confirm are no trade for E1, and their E0 outcome
+  is reported separately. Secondary waits: one candle for the cross to hold, and money flow crossing
+  into the green.
+- **Headline tests:** E0 and E1 each against a random bar in the same higher-timeframe context, and
+  waiting against not waiting per setup seen (no trade counts as zero).
+- **Grades** from the higher timeframe's money flow only: A "deep green" (above zero and at least its
+  two-year median size), B rising, C falling, V all three lines coming straight down (a two-sided
+  test, because round 1's crypto vetoes went the wrong way).
+- **Exits:** the lab's ladder against the school's own (opposite wave cross, money flow curving over
+  in the green, first bearish divergence), each against random exits, R per position.
+- Development era before 2023, held-out 2023 on for signs, 15 bps a side, noise retention, breadth,
+  minimums, Holm per family, 49 tests, a mandatory counts-only run first, and the "no edge" sentences
+  and forbidden reframings written in advance.
+- **Caveat:** nothing was counted, so the sample sizes under these rules are unknown. The noise test
+  needs a new perturbation that keeps each bar's open; the shared one sets open equal to close.
+
 ### Macro, Fed, liquidity and sentiment data for the lab, point in time (2026-10-18)
 
 Groundwork for the tests of Camel Finance's macro and cycle method and of a from-scratch cycle-low
