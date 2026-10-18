@@ -117,6 +117,20 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **Filed (Cody, 2026-10-18: "we'll get to the notes section later") — Journal NOTES.** Today's Journal is an
+> in-memory log (2,000 entries, lost on restart) of speech, alerts, signals and errors, with no user notes. Wanted:
+> a Notes tab (or its own Trade Journal window — Cody to choose) with a New note button and a chart shortcut;
+> context captured automatically (symbol, timeframe, date/time, price, the focused bar's Alt+Shift+D readout);
+> free text plus OPTIONAL plan fields (direction/observation, entry, invalidation "I'm wrong if", target, size or
+> risk %, conviction 1–5, thesis tag: Market Cipher / structure / cycle / macro / other); saved permanently, per
+> account on the hosted terminal; export CSV/Markdown; an accessible filterable list with edit/delete-confirm.
+> Phase 2: scoring (target vs invalidation hit first, per-tag stats), notes as narrated chart markers, "add a note
+> to this trade" on paper orders. Open: tab vs window, default fields, shortcut (check clashes).
+> **Also proposed, not started:** a pre-registered "survivors portfolio" study — equity dual momentum (top-tercile
+> 6–12 month momentum, only above the 200-day, else cash), crypto trend sleeve (vol-targeted, exit on trend flip, no
+> fixed targets), gold/bond trend as crash insurance — vs buy-and-hold and 60/40, walk-forward with a random-
+> parameter arm; and a separate pre-registration for the first-bearish-divergence exit (the one recurring lead).
+>
 > **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location: DONE, No
 > edge; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`).** Round 2's counts reproduced
 > exactly. Nothing passed the cross-round Holm over 119 tests or the placebo-level gate, in crypto 4h,
