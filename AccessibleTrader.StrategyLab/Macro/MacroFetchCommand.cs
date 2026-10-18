@@ -31,7 +31,7 @@ namespace AccessibleTrader.StrategyLab.Macro;
 /// and download form need none. Sources that need an account are listed as failures with the
 /// reason rather than worked around.</para>
 /// </summary>
-public static class MacroFetchCommand
+public static partial class MacroFetchCommand
 {
     private const string UserAgent = "AccessibleTrader-StrategyLab/1.0 (macro-fetch; research)";
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -98,6 +98,12 @@ public static class MacroFetchCommand
         // Recession flags: assigned by NBER months after the fact.
         new("USREC", "recession", "NBER recession flag, monthly. Vintaged: shows when FRED learned each turning point", ReleaseRule.Unknown, Vintaged: true),
         new("USRECD", "recession", "NBER recession flag, daily. NOT point in time: known_from left blank so it is never served", ReleaseRule.Unknown),
+        // Labour leading data Camel shows instead of the headline (CAMEL_METHOD 7.3). Added
+        // 2026-10-18 for the cycle school (CYCLE_SCHOOL_PREREG addendum), source "labour", so a
+        // run of it never re-processes the series above.
+        new("JTSQUR", "labour", "JOLTS quits rate, total nonfarm (percent)", ReleaseRule.Unknown, Vintaged: true),
+        new("JTSJOL", "labour", "JOLTS job openings, total nonfarm (thousands)", ReleaseRule.Unknown, Vintaged: true),
+        new("TEMPHELPS", "labour", "Temporary help services employment (thousands), from the payrolls release", ReleaseRule.Unknown, Vintaged: true),
     };
 
     private static readonly string[] CoinMetricsMetrics =
@@ -202,19 +208,21 @@ public static class MacroFetchCommand
         var macroRoot = Path.GetFullPath(outDir ?? Path.Combine(dataRoot, "macro"));
         Directory.CreateDirectory(macroRoot);
         var ctx = new Ctx { DataRoot = dataRoot, MacroRoot = macroRoot };
-        var sources = (only ?? "fred,alfred,nber,aaii,cboe,coinmetrics,blockchain")
+        var sources = (only ?? "fred,alfred,nber,aaii,cboe,coinmetrics,blockchain,labour,cftc")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Console.WriteLine($"macro-fetch → {macroRoot}");
         Console.WriteLine("Existing raw files are reused, never re-fetched; normalized files are only rewritten when identical.");
         if (sources.Contains("fred")) await FredLatest(ctx);
-        if (sources.Contains("alfred")) await AlfredVintages(ctx);
+        if (sources.Contains("alfred")) await AlfredVintages(ctx, labour: false);
+        if (sources.Contains("labour")) await AlfredVintages(ctx, labour: true);
         if (sources.Contains("nber")) await Nber(ctx);
         if (sources.Contains("aaii")) await Aaii(ctx);
         if (sources.Contains("cboe")) await Cboe(ctx);
         if (sources.Contains("coinmetrics")) await CoinMetrics(ctx);
         if (sources.Contains("blockchain")) await Blockchain(ctx);
+        if (sources.Contains("cftc")) await Cftc(ctx);
 
         WriteManifest(ctx, only, manifestCopy);
         Console.WriteLine();
@@ -598,11 +606,12 @@ public static class MacroFetchCommand
         parts.SelectMany(z => ParseInitial(ZipCsv(z, "initial_release_only.csv")))
              .GroupBy(r => r.Period).Select(g => g.OrderBy(r => r.Date).First()).OrderBy(r => r.Period).ToList();
 
-    private static async Task AlfredVintages(Ctx ctx)
+    private static async Task AlfredVintages(Ctx ctx, bool labour)
     {
         Console.WriteLine();
-        Console.WriteLine("== ALFRED real-time history (download form, keyless) ==");
-        foreach (var s in Fred.Where(f => f.Vintaged))
+        Console.WriteLine(labour ? "== ALFRED real-time history, labour leading series (download form, keyless) =="
+                                 : "== ALFRED real-time history (download form, keyless) ==");
+        foreach (var s in Fred.Where(f => f.Vintaged && (f.Group == "labour") == labour))
         {
             var form = await LoadAlfredForm(ctx, "alfred", "alfred/raw", s.Id);
             if (form == null) continue;

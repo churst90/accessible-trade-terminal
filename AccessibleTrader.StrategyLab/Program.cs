@@ -329,7 +329,7 @@ static int PrintUsage()
     Console.WriteLine("Usage:");
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000 [--out strategy-lab-data]");
     Console.WriteLine("  StrategyLab xs-snapshot [--out strategy-lab-data] [--points 3000]   # funding/OI/FNG");
-    Console.WriteLine("  StrategyLab macro-fetch [--snapshots ../strategy-lab-data] [--out <dir>] [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain]");
+    Console.WriteLine("  StrategyLab macro-fetch [--snapshots ../strategy-lab-data] [--out <dir>] [--manifest <copy.json>] [--only fred,alfred,nber,aaii,cboe,coinmetrics,blockchain,labour,cftc]");
     Console.WriteLine("                   # keyless macro/Fed/credit/sentiment data + ALFRED vintages into <snapshots>/macro; never overwrites (docs/MACRO_DATA.md)");
     Console.WriteLine("  StrategyLab run  --snapshot <path> --spec <id> [--start yyyy-mm-dd] [--end yyyy-mm-dd] [--warmup 200] [--no-reverse]");
     Console.WriteLine("                   [--spread 0.04] [--funding 0.01] [--funding-hours 8] [--borrow 5]   (percentages; all default to 0 = not modelled)");
