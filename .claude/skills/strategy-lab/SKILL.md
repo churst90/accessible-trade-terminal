@@ -32,6 +32,11 @@ Never commit it; the repo's `.git` is already heavy with historical build artifa
 - `twelvedata_*`, `yahoo_*` — equities, ETFs, metals, bonds (1d)
 - `xs_*` — cross-series feeds: Binance Vision funding (8h) and open interest (1d), CFTC COT (1w),
   CoinMetrics on-chain, Alternative.me Fear & Greed
+- `macro/<source>/` — macro, Fed, credit, liquidity and sentiment CSVs from `macro-fetch`
+  (FRED/ALFRED vintages, NBER announcement dates, AAII, Cboe put/call to 2019, BTC on-chain from
+  2010). Not loaded by the cross-series cache: read them with `MacroPointInTime` and honour
+  `known_from` / `realtime_start`. See `docs/MACRO_DATA.md` for the traps (ICE spreads only from
+  2023-10, the 2025 shutdown gaps, USREC rewritten after the fact).
 
 `SnapshotCommand.Load(path)` returns `SnapshotFile` with `Provider`, `Symbol`, `Timeframe`, `Bars`.
 Filter out `xs_*` when enumerating price files.
