@@ -1,5 +1,9 @@
 # Setup grader round 3, Market Cipher with Cipher SR location: pre-registration
 
+> **2026-10-18: run.** Results are in `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`: No edge in crypto
+> 4h, crypto daily and equities; nothing passed the cross-round Holm or the placebo gate. Nothing below
+> this line was edited after the results existed.
+
 Written 2026-10-18, before any round-3 result existed. This is stage 1 of 2. Stage 2 (a different
 agent) builds and runs what is written here. **This file was committed before any forward return,
 win rate, trade outcome, setup count or Cipher SR value was computed for any rule in it. The commit

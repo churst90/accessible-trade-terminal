@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Setup grader round 3, Market Cipher with Cipher SR location: run as pre-registered, No edge (2026-10-18)
+
+`docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`. A new lab command, `setup-grader-mc3`, was built and
+run as `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md` wrote it. The order is in the history: the harness
+first, then the counts-only stage, then the full run.
+
+- **Round 2 reproduced first, exactly:** 334 setups and 158 trigger trades in crypto 4h, 70 and 33 in
+  crypto daily, 1,423 and 721 in equities. Round 3 builds its setups by calling round 2's own code.
+- **Verdict: No edge in crypto 4h (the headline), crypto daily and equities.** No round-3 test passed
+  the cross-round Holm over all 119 tests of rounds 1 to 3, and none passed the placebo-level gate.
+  The pre-registration's required sentence applies: **across three pre-registered rounds, no Market
+  Cipher B entry rule tested in this lab has beaten a matched random entry.**
+- **Being at Cipher SR support did not help.**
+  - In crypto 4h, setups at support did worse than setups away from it: −0.225R for the dot and
+    −0.109R for the trigger.
+  - Random bars at support did worse than random bars in the same environment, in all three classes
+    (crypto 4h −0.095R over 5,197 bars).
+  - Lines 3 to 6 ATR from the real support did better than the real support in crypto.
+- **The dot or the trigger at support, against random bars also at support:**
+  - The crypto 4h trigger was +0.253R on 53 trades, with 95% kept under noise and a held-out
+    +0.143R. Its raw p was 0.091, so it does not pass even before correction. That is about the size
+    of round 2's crypto 4h trigger result: the location did not sharpen it.
+  - Everything else was within ±0.06R, apart from crypto daily's small samples.
+- **The support at a setup is almost always fresh:** its median age is 2 to 5 bars, and no crypto
+  trigger at support used a level older than its anchor wave.
+- **Suggestive only (leads, not edges):**
+  - older levels for the crypto 4h dot (+0.567R, 23 setups);
+  - the first-bearish-divergence exit (raw p 0.004 in crypto 4h). In equities this is round 2's
+    result, already seen.
+- **Exits:** Cipher SR's own exit, the next resistance, lost to random exits in 5 of 6 populations.
+- **Under one correction over three rounds, nothing from rounds 1 or 2 survives either:** round 1's
+  equity results move from Holm 0.011 and 0.029 to 0.17 and 0.28.
+- **New code:**
+  - `SetupGraderMc3Core.cs`: Cipher SR read at the previous bar's close, the location rule, the level's
+    age and pivot, the placebo levels, the XR exit, and the 20,000-draw tests.
+  - `SetupGraderMc3Command.cs`: the command.
+  - Rounds 1 and 2's files are untouched.
+- **Tests:** 8 new `SetupGraderMc3Tests`, each seen red with its defect put back.
+- **Recorded:** an edge record `market-cipher-sr-location` (Falsified, variantsTried 108) and ledger
+  row 31.
+- **Caveats:**
+  - **One reporting bug was fixed after the full run.** The held-out check compared the held-out
+    sign with zero, not with the development sign, so two negative tests printed "agrees". The rerun
+    changed only those labels, and no verdict.
+  - The descriptive block printed 48 outcome rows the plan did not ask for (splits by grade, and the
+    Cipher SR "tested" subset). They are counted as exploratory and not used.
+  - Everything here is about our replicas of Cipher SR and Cipher B.
+
 ### Setup grader round 3, Market Cipher with Cipher SR location: pre-registered, not run (2026-10-18)
 
 `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`, stage 1 of 2, committed before any setup was counted, any
@@ -27,7 +75,7 @@ tool. Quotes with timestamps are from Casper, Geo, Crypto Face, the official tut
   all 119 pre-registered tests of rounds 1 to 3 (39, 51 and 29). "Supported" also needs the held-out era
   (2023 on) to agree in sign, keep half the size, reach p 0.10 by itself and have 30 events. The
   pre-registration says that the primary class was chosen after round 2's results were known.
-- Not run. Stage 2 is in `docs/TODO.md`.
+- Run the same day: see the entry above and `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`.
 
 ### Setup grader round 2, the Market Cipher school: run as pre-registered, No edge (2026-10-18)
 

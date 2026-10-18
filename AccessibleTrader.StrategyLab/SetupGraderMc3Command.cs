@@ -788,12 +788,17 @@ public static class SetupGraderMc3Command
     // ── Verdicts ─────────────────────────────────────────────────────────────
 
     private static bool HeldCheckable(Row t) => t.HeldN >= MinHeld && !double.IsNaN(t.HeldP);
-    private static bool HeldAgrees(Row t) => HeldCheckable(t) && t.HeldStat > 0 && t.HeldStat >= 0.5 * t.Stat && t.HeldP <= HeldAlpha;
+    /// <summary>Criterion 3: the held-out statistic has the development statistic's sign (both positive:
+    /// every round-3 test is one-sided), at least half its size, and a held-out p at or below 0.10.
+    /// (Bug fixed after run 2: the sign was checked against zero only, so a negative development
+    /// statistic with a positive held-out one printed "agrees". No verdict depended on it.)</summary>
+    private static bool HeldAgrees(Row t) => HeldCheckable(t) && t.Stat > 0 && t.HeldStat > 0 && t.HeldStat >= 0.5 * t.Stat && t.HeldP <= HeldAlpha;
     private static string HeldText(Row t)
     {
         if (!HeldCheckable(t)) return $"not checkable ({t.HeldN} events; {MinHeld} needed)";
         if (HeldAgrees(t)) return "agrees";
         var why = new List<string>();
+        if (!(t.Stat > 0)) why.Add("development statistic not above 0");
         if (!(t.HeldStat > 0)) why.Add("sign");
         else if (t.HeldStat < 0.5 * t.Stat) why.Add("under half the size");
         if (!(t.HeldP <= HeldAlpha)) why.Add("p above 0.10");

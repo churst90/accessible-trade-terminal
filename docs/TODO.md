@@ -117,14 +117,23 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location:
-> PRE-REGISTERED, not run; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`).** Nothing was
-> computed or counted. What is left:
-> - [ ] **Stage 2 (a different agent): build `setup-grader-mc3` and run it exactly as written.** First
->   the harness and its 7 sabotage-proven tests, then the round-2 plumbing check and the counts-only
->   stage, written into the findings before any outcome. Verdicts use the cross-round Holm over all
->   119 tests of rounds 1 to 3. Results go in `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`, with an
->   `edges.json` record. Do not build in the main checkout.
+> **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location: DONE, No
+> edge; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`).** Round 2's counts reproduced
+> exactly. Nothing passed the cross-round Holm over 119 tests or the placebo-level gate, in crypto 4h,
+> crypto daily or equities. Across three pre-registered rounds, no Market Cipher B entry rule tested in
+> this lab has beaten a matched random entry. What is left:
+> - [ ] **Questions for Cody (nothing applied):**
+>   - The leads are all Suggestive or weaker. Any of them would need its own pre-registration on data
+>     this lab has not used:
+>     - older Cipher SR levels for the crypto 4h dot (+0.567R on 23 setups);
+>     - the first-bearish-divergence exit (raw p 0.004 in crypto 4h);
+>     - the crypto 4h trigger at support (+0.253R on 53 trades, raw p 0.091, 95% kept under noise).
+>
+>     Worth one, or close the Market Cipher programme here? A fourth round on the same assets and
+>     eras would start with the three-round budget already spent.
+>   - In crypto, random bars at Cipher SR support did worse than random bars near lines 3 to 6 ATR
+>     away. Is that worth a note in the Cipher SR speech or help text, or only in the ledger?
+> - [ ] Not pushed: the branch is committed locally. The full suite runs on GitHub Actions at the push.
 
 > **Open (Cody, 2026-10-18: "don't rename yet"):** Cipher B's hidden "Anchor Wave" components are OUR 5×-period
 > WaveTrend (a higher-timeframe proxy feeding the Gated dot and Anchor Polarity), not the Market Cipher traders'

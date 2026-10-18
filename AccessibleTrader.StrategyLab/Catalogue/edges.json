@@ -2179,6 +2179,64 @@
         "command": "setup-grader-mc2 --snapshots <absolute path to strategy-lab-data>",
         "implemented": true
       }
+    },
+    {
+      "id": "market-cipher-sr-location",
+      "title": "Market Cipher school, round 3: the Buy dot or the trigger wave at Cipher SR support",
+      "family": "confluence",
+      "claim": "Round 2's Market Cipher B setups (the Buy dot bought at the next open, E0, or the trigger-wave entry, E1, in a higher-timeframe money-flow environment) do better when the signal bar is at the current Cipher SR support (low within 0.5 ATR above the support live at the previous close, close above it): at-support setups beat setups away from support (L1), beat random bars that are also at support in the same environment (L2), and a random bar at support beats a random bar in the same environment (L3).",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "4h",
+        "horizonBars": 20,
+        "notes": "Pre-registered in docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc) before any result; harness committed (f8a2be88) before any count; counts-only stage committed (0353080e) before the full run. Primary class crypto 4h entries with a daily environment (7 assets; the development era is BTC, ETH, XRP); secondary crypto daily and equities daily (33 Yahoo series) with a weekly environment. Our Cipher SR replica (shipped defaults, on the chart's own bars) on our Cipher B replica. Development era before 2023, held-out 2023+. Longs only. Round 2's development-era counts reproduced exactly (334/158, 70/33, 1,423/721). The primary class was chosen knowing round 2's crypto 4h result."
+      },
+      "effect": {
+        "measure": "excess-R-over-location-matched-random-entry",
+        "value": 0.253,
+        "unit": "R",
+        "n": 53,
+        "p": 0.0906,
+        "notes": "No edge in all three classes: no round-3 test passed the cross-round Holm over 119 tests (rounds 1-3), and none passed the placebo-level gate (levels shifted 3-6 ATR, 1,000 draws). The value is L2-E1 crypto 4h, the trigger at support against random bars at support: +0.253R on 53 trades, raw p 0.091, held-out +0.143R on 92 (p 0.12), 95% kept under noise, cross-round Holm 1.00. Crypto 4h: L1 (at support minus away) -0.225R for the dot and -0.109R for the trigger; L2 dot +0.026R (p 0.32); L3 (random bars at support minus all random bars) -0.095R on 5,197 bars, and placebo lines did better than the real levels. Equities: L1 -0.003R and -0.040R, L2 +0.058R and +0.032R, L3 -0.004R on 29,243 bars. Crypto daily: L1 dot +0.448R (25 vs 45, p 0.089) reversed in the held-out era (-0.529R) and kept 6% under noise. Suggestive only: older levels beat newer ones for the crypto 4h dot (+0.567R, 23 vs 105, raw p 0.038, held-out not checkable); the first bearish divergence exit beat random exits for the crypto 4h dot (raw p 0.004, cross-round Holm 0.48) and, already seen in round 2, in equities. Cipher SR's resistance as an exit lost to random exits in 5 of 6 populations. The support at a setup is almost always fresh (median age 2-5 bars; no crypto trigger at support used a level older than its anchor wave). Under one correction over three rounds, no Market Cipher result of rounds 1-3 survives. variantsTried: 29 pre-registered tests (27 computable) + 30 pre-registered descriptive runs + 1 bug-fix rerun (a held-out label only; numbers identical) + 48 unregistered descriptive rows (exploratory, unused).",
+        "variantsTried": 108
+      },
+      "controls": [
+        "context-matched-averaged-random-entry",
+        "location-and-context-matched-random-entry",
+        "block-permutation-20-bar-blocks",
+        "placebo-levels-shifted-3-to-6-atr",
+        "cross-round-holm-119-tests",
+        "held-out-era-2023-plus",
+        "random-exit-control",
+        "noise-injection-gap-keeping-with-cipher-sr-rebuilt"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "market-cipher-dot-vs-trigger-wave",
+          "note": "Round 2, whose setups, contexts, entries and harness this round reuses unchanged. The trigger at support (+0.253R on 53) is about the size of round 2's crypto 4h trigger (+0.268R on 158); the location did not sharpen it."
+        },
+        {
+          "id": "cipherb-setup-grader-hierarchy",
+          "note": "Round 1. Its two Holm-significant equity results (raw p 0.0014 and 0.0024) do not survive the cross-round Holm (0.17 and 0.28)."
+        },
+        {
+          "id": "approach-momentum-conditions-rejection",
+          "note": "Ledger row 20: real levels hold about as often as random lines. Here random bars at Cipher SR support did worse than random bars near lines 3-6 ATR away, in crypto."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "setup-grader-mc3 --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }
