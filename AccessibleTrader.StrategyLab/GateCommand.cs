@@ -136,7 +136,7 @@ public static class GateCommand
         return 0;
     }
 
-    private static List<Ohlcv> Perturb(List<Ohlcv> bars, double alpha, int seed)
+    internal static List<Ohlcv> Perturb(List<Ohlcv> bars, double alpha, int seed)
     {
         double sum = 0, sumSq = 0; int n = 0;
         var rets = new double[bars.Count];

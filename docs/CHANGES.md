@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The setup grader for the Cipher B Buy dot: run as pre-registered (2026-10-18)
+
+Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:
+`docs/SETUP_GRADER_FINDINGS.md`; ALPHA_LEDGER row 29; `edges.json` record
+`cipherb-setup-grader-hierarchy` (Falsified).
+
+- **New lab command `setup-grader`** (`SetupGraderCommand.cs`, `SetupGraderCore.cs`). It builds its
+  own weekly bars from completed weeks only, computes R per position from the initial risk, and
+  writes the five exit variants and their random-exit controls itself, as the pre-registration
+  required. `--counts-only` stops before any outcome. The harness was committed before the first
+  outcome was computed.
+- **Tests:** `SetupGraderTests` (5): completed weeks only (crypto and an equity holiday week), R from
+  the initial risk after the stop moves to breakeven, a grade unchanged when later bars are removed,
+  and every trigger's random control drawn from bars in the same context grade. Each was seen red with
+  its defect put back. `GateCommand.Perturb` is now internal so the noise test could call it
+  unchanged.
+- **Finding: No edge in both classes.** Grade A almost never happens (0 crypto, 2 equities in the
+  development era), below the testable minimum, so the headline tests could not run. Buy dots fire in
+  good weekly context only 1 to 4% of the time, and money flow is almost never rising at the cross.
+  Where B and C can be compared (equities), B is below C. Two pre-registered side results passed Holm
+  in equities, both about the bare dot rather than the hierarchy: non-vetoed dots beat a random bar in
+  the same context (+0.115R), and vetoed dots do worse than those (by 0.125R). In crypto the vetoed
+  dots did better. No macro modifier and no exit beat its control.
+- **Caveats:** the strict weekly body-pivot rule can never fire when weeks open at the prior close,
+  so MEXC's KAS and TAO never get a trend (applied as written, not patched); Bitstamp pivots exist
+  only because of tiny opening gaps. Noise injection was not run, because there was no grade A to
+  measure. Survivor snapshots.
+
 ### Three lab defects verified and fixed: R after a stop move, higher-timeframe look-ahead, COT dated early (2026-10-18)
 
 All three came from the setup-grader pre-registration's lab notes (`docs/SETUP_GRADER_PREREG.md`

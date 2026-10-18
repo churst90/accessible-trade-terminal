@@ -67,6 +67,7 @@ agreement; full-sample ranking makes any extension metric look prescient.
 | 26 | **The ladder — always in the trend's direction** | **Falsified** | Loses at every rung width **with costs set to zero**, so it is the structure and not the churn. Long-only is 4× better in crypto and 7× in equities; the short side helps on 1 of 10 crypto names — the sixth symmetric-short failure here |
 | 27 | **Earnings surprise ranks forward returns** | **Null on the sample we could reach** | Quintiles non-monotone at 20/60/120 bars with Q2 best every time; the event itself is *below* an exposure-matched null at 60 and 120 bars. But the universe is 10 mega-caps — the most analyst-covered names there are, where drift is weakest by construction |
 | 28 | **ML confidence model on price features** | **Below the bar** (2026-10-17: export reproduced exactly; refitted Cipher B leaves every univariate AUC at 0.50-0.53; model not retrained — lightgbm not installed) | Pooled OOS AUC ~0.52 (stable, calibrated, not a coin flip — but under the 0.55 "build big" line). Asset-tuned models were *worse*. What predictive power exists lives in regime/vol features, not in signals |
+| 29 | **Grading the Cipher B Buy dot like a discretionary trader (2026-10-18)** — weekly trend and cycle context, weekly levels, confirmations, vetoes; grades A/B/C/V | **No edge** in crypto and equities, as pre-registered (`docs/SETUP_GRADER_PREREG.md`) | Grade A almost never happens: 0 (crypto) and 2 (equities) development-era dots, below the testable minimum of 15, so its tests could not run; where B and C compare (equities) B is below C. Buy dots fire in good weekly context only 1-4% of the time and money flow is almost never rising at the cross. Pre-registered side results (equities, Holm-significant, about the bare dot, not the hierarchy): non-vetoed grade C beats its context-matched random entry by +0.115R, and vetoed dots trail C by 0.125R; in crypto vetoed dots did better than C. No macro modifier and no exit variant beat its control. `docs/SETUP_GRADER_FINDINGS.md` |
 
 ---
 
@@ -151,7 +152,7 @@ lookahead · a test that shares the code's misunderstanding.
 `VOLUME_FINDINGS.md` · `EXIT_FINDINGS.md` · `FOMC_FINDINGS.md` · `MACRO_EVENT_FINDINGS.md` ·
 `ONCHAIN_FINDINGS.md` · `CROWDING_FINDINGS.md` · `POSITIONING_AND_EVENTS_FINDINGS.md` ·
 `TRADING_CROSS_FINDINGS.md` · `CYCLE_FINDINGS.md` · `CONFLUENCE_SENTIMENT_FINDINGS.md` ·
-`ML_CONFIDENCE_FINDINGS.md` · `ASSET_PROFILE_FINDINGS.md` · `FIB_GANN_FINDINGS.md`
+`ML_CONFIDENCE_FINDINGS.md` · `ASSET_PROFILE_FINDINGS.md` · `FIB_GANN_FINDINGS.md` · `SETUP_GRADER_FINDINGS.md`
 
 ---
 
