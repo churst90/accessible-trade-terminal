@@ -260,6 +260,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - **Resolution:** MCSR computes on 15-minute bars whatever the chart; ours uses the chart's bars, so a
 >   1-hour chart gets 1-hour pivots. Give the provider lower-timeframe data?
 > - The range is the running day's value, not MCSR's repainted whole day (a deliberate causality choice).
+> - **Decided 2026-10-18 (Cody: "do what is technically correct, don't make a change for the sake of it"):
+>   no auto-anchor.** Range High/Low/Mid and VWAP stay day-anchored and empty on daily and longer charts.
+>   Real MCSR is day-anchored on every chart (its VWAP from 15-minute bars); on a 1D chart its range is the
+>   candle itself, so a week anchor would be our invention, not fidelity. A weekly-anchored VWAP already
+>   exists as its own indicator (Anchored VWAP). The only faithful improvement is the lower-timeframe data
+>   question above, which would give a 1D chart the day's true VWAP.
 > - **Your saved ±0.3% bands** still restore from your file and are drawn around the dot runs; new charts
 >   get none. Strip them?
 > - Sessions are UTC days, not exchange sessions, for stocks too.
