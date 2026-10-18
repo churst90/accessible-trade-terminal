@@ -896,7 +896,11 @@ the crosshair off and on from the chart's right-click menu.
 **The status lines.** Each pane has a small block of text in its top left corner, one line
 per indicator, the way TradingView shows it. A line gives the indicator's name, as Page Up
 and Page Down speak it, then each visible line or bar of it with its value at the bar you are
-on, printed in the colour it is drawn in. When a colour is too faint to read against the strip
+on, printed in the colour it is drawn in. A line or bar that has no value anywhere on this chart is
+left out rather than shown as a dash on every bar — Cipher SR's Range High, Range Low, Range Mid
+and VWAP on a daily chart, where they are empty; switch the same chart to an hourly or shorter
+timeframe and they are back. (A line that has values elsewhere still shows "—" at a bar where it
+has none, such as its first bars.) When a colour is too faint to read against the strip
 behind the text, the value is printed in plain text with a small square of that colour in
 front of it; the name is always there, so colour is never the only way to tell values apart.
 The price pane's first line names the chart (symbol, timeframe, provider) and gives the bar's
@@ -920,7 +924,11 @@ close — is left out because nothing speaks it.)
 
 **Labels on the axes.** Each visible line or bar has a label on its pane's axis at its newest
 value, filled in its own colour; labels that would overlap are moved apart, and one with no
-room is left out rather than drawn over another. The value at the cursor bar sits in a badge on
+room is left out rather than drawn over another. An indicator can leave a line's label off by
+default where many lines sit close together: Cipher A labels only EMA 5 of its eight-line ribbon,
+because eight labels within a few percent of price pushed every label on the axis, Cipher SR's
+levels included, away from its own line. Properties → Appearance → **Value label on the axis**
+turns a line's label on or off; your choice is kept with the chart. The value at the cursor bar sits in a badge on
 the axis, and the cursor bar's date in a label on the time axis. Settings → Appearance →
 **Status line background** sets how solid the strip behind the status-line text is (96% by
 default); lower, and the lines behind the text show through.
@@ -1251,7 +1259,9 @@ close and volume (on a Heikin-Ashi chart, the Heikin-Ashi candle) — with the c
 pattern at that bar ("Bullish engulfing") and its body and wick percentages. After that, every
 other visible indicator, in the order its status line sits on screen: the price pane first,
 then each pane down the chart, each with its readings and any of its marks that fire on that
-bar. An indicator with nothing at that bar — Market Structure between its marks — says nothing.
+bar. An indicator with nothing at that bar — Market Structure between its marks — says nothing,
+and, as on the status line, a part with no value anywhere on the chart (Cipher SR's Range and VWAP
+lines on a daily chart) is not counted as one of its readings.
 Some indicators add their state in words after their numbers: DSS Bressert says whether it is
 overbought or oversold, rising or falling, and when it has just crossed its trigger ("DSS 85.00,
 Trigger 82.00, overbought, rising, crossed above trigger"). Chart formations come last. Hidden
@@ -1468,7 +1478,8 @@ measuring real Market Cipher A charts. Its **ribbon** is eight moving averages o
 it falls below; the longest, EMA 33, is blue while it is below EMA 29. A fully blue ribbon is an
 uptrend in order, and grey spreading from the short lines is a trend turning. Landing on a line tells
 you its value, its colour and why — "Blue, bullish: above EMA 11". The eight lines start **muted**;
-press M on one to hear it. Its **seven symbols** come first when you move through its parts, each
+press M on one to hear it. Only EMA 5 puts its value on the price axis; turn the others' labels on
+in Properties → Appearance → Value label on the axis. Its **seven symbols** come first when you move through its parts, each
 with its own sound, and landing on one says what made it:
 
 - **Green Dot** — EMA 11 crosses above EMA 33.
@@ -1496,7 +1507,8 @@ takes over you hear "New resistance at …, replacing …". Arrow onto a zone li
 which side of it price is on, how long it has held and how often price has tested it: "97939.00,
 price below, held 152 days, tested 2 times". **Range High, Range Low and Range Mid** are today's
 range so far and **VWAP** today's volume-weighted average price, both on UTC days; all four are
-drawn but silent by default, and empty on daily and longer charts. Its settings are Pivot Left Bars
+drawn but silent by default, and empty on daily and longer charts, where they are left out of the
+status line (landing on one with Ctrl+Up or Ctrl+Down still stops there and says "no data"). Its settings are Pivot Left Bars
 (3), VolumeMA (6) and H/L Pivot Days Back (1). Market Cipher SR works from 15-minute bars whatever the
 chart; ours uses the chart's own bars, so on a daily chart a new level arrives about every five or
 six days per side, and narration has a lot more to say than it did.

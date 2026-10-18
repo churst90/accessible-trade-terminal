@@ -206,6 +206,37 @@ namespace AccessibleTrader.Tests
             }
         }
 
+        /// <summary>
+        /// A plot with no value on any bar of the chart (Cipher SR's Range High/Low/Mid and VWAP on
+        /// a daily chart, Cody's 2026-10-18 screenshot) is left out of the status line, and the
+        /// ladder reads what the status line prints: the series is then a one-plot indicator in
+        /// both, its reading unlabelled — "Band: 5.00.", not "Band: Upper 5.00.".
+        /// </summary>
+        [Fact]
+        public void APlotWithNoValueAnywhereIsLeftOutOfTheLadderAsOfTheStatusLine()
+        {
+            var band = Series("band", "Band", "BAND", "Pane_BAND",
+                ("Upper", ComponentDisplayType.Line, At3(5)),
+                ("Session", ComponentDisplayType.Line, new[] { double.NaN, double.NaN, double.NaN, double.NaN }));
+
+            string said = Announce(Chart(focused: "rsi", Candles(), band, Rsi()));
+            Assert.Contains("Band: 5.00.", said);
+            Assert.DoesNotContain("Session", said);
+
+            var theme = DbsiChartHarness.Themes().Current;
+            var line = AccessibleTrader.Core.Services.Rendering.ChartStatusLine.SeriesLine(band, 3, theme,
+                AccessibleTrader.Core.Services.Rendering.ChartStatusLine.Backing(theme, 245))!;
+            Assert.Equal(new[] { ("", "5.00") }, line.Values.Select(v => (v.Label, v.Text)));
+
+            // With a value on one bar the plot is on the chart, and both keep it labelled; the
+            // status line keeps its dash where it has none.
+            band.Data.ComponentData["Session"] = new[] { 2d, double.NaN, double.NaN, double.NaN };
+            Assert.Contains("Band: Upper 5.00.", Announce(Chart(focused: "rsi", Candles(), band, Rsi())));
+            line = AccessibleTrader.Core.Services.Rendering.ChartStatusLine.SeriesLine(band, 3, theme,
+                AccessibleTrader.Core.Services.Rendering.ChartStatusLine.Backing(theme, 245))!;
+            Assert.Equal(new[] { ("Upper", "5.00"), ("Session", "—") }, line.Values.Select(v => (v.Label, v.Text)));
+        }
+
         private static ChartSeries Dss() =>
             Series("dss", "DSS Bressert", AccessibleTrader.Core.Services.Indicators.DssBressertProvider.Code, "Pane_DSS_BRESSERT",
                 ("DSS", ComponentDisplayType.Oscillator, new[] { 70d, 75d, 78d, 85d }),

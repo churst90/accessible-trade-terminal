@@ -44,6 +44,14 @@ namespace AccessibleTrader.Core.Services
         private IReadOnlyList<ChartSeries> _frameSeries = Array.Empty<ChartSeries>();
 
         /// <summary>
+        /// The price pane's axis value labels as the last frame placed them, with the strip and
+        /// scale they were placed on — so a test can measure how far each label sits from its own
+        /// value (Cipher A's ribbon pushed tags ~100 px off their lines, 2026-10-18). Read-only
+        /// diagnostics; nothing in the app reads it.
+        /// </summary>
+        internal (SKRect Axis, double Min, double Max, bool Log, IReadOnlyList<ScaleLabel> Labels) LastMainScale { get; private set; }
+
+        /// <summary>
         /// One axis typeface for the process.
         ///
         /// <para>
@@ -361,6 +369,7 @@ namespace AccessibleTrader.Core.Services
                 // part the values are mapped into.
                 var mainScale = PlaceScaleLabels(ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current),
                     mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
+                LastMainScale = (mainAxisPlotRect, mainMin, mainMax, isLogScale, mainScale);
                 RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
                 RenderScaleLabels(canvas, mainAxisPlotRect, mainScale, mainMax - mainMin, density);
                 RenderStripAxes(canvas, "Main", mainStrips, mainAxisRect.Left, mainAxisRect.Right, mainSeries, paneRanges, isLogScale, data.Count, density);
@@ -693,7 +702,8 @@ namespace AccessibleTrader.Core.Services
         /// the cursor and the crosshair badge marks it on the axis. Replaces the 4x3 px swatch
         /// ticks this axis had (lines and areas only: a colour with no number). Never a hidden,
         /// disabled or sub-pane component — the crosshair badge's rule (<see cref="ReadingTier"/>):
-        /// a sub-pane strip's values are on that strip's range, not this axis.
+        /// a sub-pane strip's values are on that strip's range, not this axis — and never one whose
+        /// axis label is switched off (<see cref="ComponentConfig.ShowAxisLabelInEffect"/>).
         /// </summary>
         /// <param name="subPane">A sub-pane strip's name: its components' labels instead, for the strip's own axis.</param>
         internal static List<ScaleLabel> ScaleLabelsFor(IReadOnlyList<ChartSeries> paneSeries, int barCount, ChartTheme theme, string? subPane = null)
@@ -706,6 +716,11 @@ namespace AccessibleTrader.Core.Services
                 {
                     int tier = ReadingTier(comp, subPane);
                     if (tier is not (0 or 1)) continue;
+                    // The component's own switch (ComponentConfig.ShowAxisLabel, the user's choice
+                    // first): off for a line in a crowd, such as Cipher A's ribbon, whose eight
+                    // labels within a few percent of price stacked the axis and pushed every tag
+                    // away from its line (Cody's BTCUSDT 1D screenshot, 2026-10-18).
+                    if (!comp.ShowAxisLabelInEffect()) continue;
                     var data = s.GetComponentData(comp.Name);
                     if (data == null || data.Length == 0) continue;
                     // Walk back from the newest bar to a value: some indicators end in NaN
@@ -1069,6 +1084,20 @@ namespace AccessibleTrader.Core.Services
         {
             if (!comp.IsVisible || !comp.IsEnabled) return -1;
             if (!string.Equals(comp.SubPaneName ?? "", subPane ?? "", StringComparison.Ordinal)) return -1;
+            return TypeTier(comp);
+        }
+
+        /// <summary>
+        /// Whether a component is of a kind that carries a value label on its axis at all — a line
+        /// or a bar plot (<see cref="ScaleLabelsFor"/>'s tiers 0 and 1) — whatever its visibility
+        /// and its <see cref="ComponentConfig.ShowAxisLabel"/> switch. The Properties dialog offers
+        /// the switch only where it does something.
+        /// </summary>
+        public static bool CanHaveAxisLabel(ComponentConfig comp) => TypeTier(comp) is 0 or 1;
+
+        /// <summary><see cref="ReadingTier"/> by kind alone.</summary>
+        private static int TypeTier(ComponentConfig comp)
+        {
             return comp.DisplayType switch
             {
                 ComponentDisplayType.Line or ComponentDisplayType.Oscillator or ComponentDisplayType.Area

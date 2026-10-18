@@ -524,4 +524,61 @@ public class PropertiesModalTests
             a.Series.Single(s => s.Id == "tbd").Components.Single().UserBackgroundTint == BackgroundTint.Off
             && a.Series.Single(s => s.Id == "tbd").Components.Single().BackgroundTint == BackgroundTint.PriceChart));
     }
+
+    /// <summary>A ribbon-like series: two lines (one labelled on the axis by its indicator, one not)
+    /// and a marker, which carries no axis label and so is offered no switch.</summary>
+    private static ChartSeries RibbonSeries()
+    {
+        var config = new SeriesConfig { Id = "ca", Name = "Cipher A", FriendlyName = "Cipher A" };
+        config.Components.Add(new ComponentConfig { Name = "EMA 5", DisplayName = "EMA 5", DisplayType = ComponentDisplayType.Line, IsVisible = true });
+        config.Components.Add(new ComponentConfig { Name = "EMA 11", DisplayName = "EMA 11", DisplayType = ComponentDisplayType.Line, IsVisible = true, ShowAxisLabel = false });
+        config.Components.Add(new ComponentConfig { Name = "Green Dot", DisplayName = "Green Dot", DisplayType = ComponentDisplayType.Dot, IsVisible = true });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = "ca" });
+    }
+
+    /// <summary>
+    /// Properties → Appearance → "Value label on the axis" (2026-10-18): a checkbox per line,
+    /// named with its component for a screen reader's form-field list, checked as the label is
+    /// drawn (the indicator's default until the user chooses); not offered on a marker.
+    /// </summary>
+    [Fact]
+    public void Value_label_on_the_axis_is_offered_per_line_with_its_component_in_its_name()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, RibbonSeries());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-appearance").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var five = cut.Find("input#app-ema-5-axis-label");
+            Assert.Equal("checkbox", five.GetAttribute("type"));
+            Assert.Equal("Value label on the axis for EMA 5", five.GetAttribute("aria-label"));
+            Assert.Equal("Value label on the axis", cut.Find("label[for='app-ema-5-axis-label']").TextContent.Trim());
+            Assert.True(five.HasAttribute("checked"));
+            Assert.False(cut.Find("input#app-ema-11-axis-label").HasAttribute("checked"));
+            Assert.Empty(cut.FindAll("input#app-green-dot-axis-label"));
+        });
+    }
+
+    /// <summary>Ticking the box records the USER's choice (UserShowAxisLabel, which the workspace
+    /// keeps) and leaves the indicator's own default alone.</summary>
+    [Fact]
+    public void Choosing_the_axis_label_is_saved_as_the_users_choice()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, RibbonSeries());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-appearance").Click();
+
+        cut.WaitForElement("input#app-ema-11-axis-label").Change(true);
+        cut.WaitForElement("input#app-ema-5-axis-label").Change(false);
+        cut.Find("#props-save").Click();
+
+        h.WorkspaceStore.Received().Dispatch(Arg.Is<UpdateSeriesAction>(a =>
+            a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "EMA 11").UserShowAxisLabel == true
+            && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "EMA 11").ShowAxisLabel == false
+            && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "EMA 5").UserShowAxisLabel == false
+            && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "Green Dot").UserShowAxisLabel == null));
+    }
 }

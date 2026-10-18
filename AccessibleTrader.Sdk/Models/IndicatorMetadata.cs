@@ -235,6 +235,20 @@ namespace AccessibleTrader.Sdk.Models
         public bool? DefaultIsMuted { get; set; }
 
         /// <summary>
+        /// Whether this component's newest value is printed as a label on its pane's value axis
+        /// (TradingView's "labels on the price scale"). Null = true. Declare false for a line that
+        /// is one of a crowd near the same values — Cipher A's ribbon of eight EMAs within a few
+        /// percent of price — whose labels would stack along the axis and push every tag, its
+        /// own and its neighbours', away from the line it names. The line is still drawn, spoken
+        /// and sounded; only the axis label is left off. The user can turn it back on per chart
+        /// in Properties → Appearance → "Value label on the axis", and that choice is kept across
+        /// restarts; a chart whose user never changed it follows this declaration, so changing
+        /// the default here reaches charts that already exist.
+        /// Propagated to <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.ShowAxisLabel"/>.
+        /// </summary>
+        public bool? DefaultShowAxisLabel { get; set; }
+
+        /// <summary>
         /// A two-colour line coloured by its relation to ANOTHER component of the same series
         /// instead of to a constant: <see cref="DefaultColorHex"/> where this value is at or below
         /// the named component's value, <see cref="DefaultColorHexSecondary"/> where it is above.

@@ -388,20 +388,32 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>
         /// One indicator's line, or null when it has nothing to show (no visible plot with a
-        /// reading kind, and no marker).
+        /// reading kind, and no marker). A plot with no value on any bar of the chart
+        /// (<see cref="NoDataAnywhere"/>) is left out of the line; a series left with no plot
+        /// at all by that keeps its name and inputs.
         /// </summary>
         internal static StatusLine? SeriesLine(ChartSeries s, int absIndex, ChartTheme theme, SKColor backing,
             IReadOnlyList<Ohlcv>? bars = null)
         {
             var valued = new List<ComponentConfig>();
             var markers = new List<ComponentConfig>();
+            var empty = NoDataAnywhere(s);
+            bool leftOut = false;
             foreach (var comp in s.Components)
             {
                 if (!comp.IsVisible || !comp.IsEnabled) continue;
                 if (ChartRenderer.IsMarker(comp.DisplayType)) markers.Add(comp);
-                else if (HasReading(comp.DisplayType)) valued.Add(comp);
+                else if (HasReading(comp.DisplayType))
+                {
+                    // A plot with no value on any bar of this chart is left out, not printed as
+                    // "—" on every bar: Cipher SR's Range High/Low/Mid and VWAP on a daily chart.
+                    if (empty.Contains(comp.Name)) leftOut = true;
+                    else valued.Add(comp);
+                }
             }
-            if (valued.Count == 0 && markers.Count == 0) return null;
+            // A series whose every plot is empty here keeps its line, name and inputs only: the
+            // line is also the chart's key to what is on it, and the indicator IS on the chart.
+            if (valued.Count == 0 && markers.Count == 0 && !leftOut) return null;
 
             bool collapse = markers.Count >= CollapseMarkersAt;
             // A one-plot indicator is named by its line: "RSI 14  55.23", not "RSI 14  RSI 55.23".
@@ -452,6 +464,55 @@ namespace AccessibleTrader.Core.Services.Rendering
             var (title, inputs) = TitleAndInputs(s.Name);
             string note = collapse ? $"{markers.Count} mark types" : "";
             return new StatusLine(StatusLineKind.Indicator, title, inputs, values, Note: note, SeriesId: s.Id);
+        }
+
+        /// <summary>
+        /// The plots (line and bar kinds, <see cref="HasReading"/>) of <paramref name="s"/> that have no finite value on ANY bar of the
+        /// chart — left out of the status line and of Alt+Shift+D's ladder
+        /// (<c>BarDetailService.LadderReading</c>), which read the same components.
+        ///
+        /// <para>
+        /// <b>Cody's BTCUSDT 1D screenshot, 2026-10-18:</b> Cipher SR's line read "Range High —
+        /// Range Low — Range Mid — VWAP —" on every bar. Those four are per UTC session, which on a
+        /// daily chart is one bar, so the provider writes nothing for them there; a dash in every
+        /// position said four things were on the chart that are not. A plot that has values
+        /// elsewhere still keeps its "—" at a bar without one (warm-up, a gap), so the readings do
+        /// not shuffle along the line as the cursor moves. Switching the same chart to an intraday
+        /// timeframe recomputes the data, and they come back.
+        /// </para>
+        ///
+        /// <para>
+        /// A series with no data at all yet (not computed) leaves nothing out: its dashes say it
+        /// is loading, and it is not known yet which plots will be empty. Infinity counts as no
+        /// value, as it is never drawn. Navigation (Ctrl+Up/Down) still stops on these components,
+        /// as it stops on hidden ones (Cody: stepping must not skip parts); landing there says
+        /// "no data".
+        /// </para>
+        /// </summary>
+        public static IReadOnlySet<string> NoDataAnywhere(ChartSeries s)
+        {
+            var none = new HashSet<string>(StringComparer.Ordinal);
+            bool computed = false;
+            foreach (var comp in s.Components)
+            {
+                var data = s.GetComponentData(comp.Name);
+                if (data is { Length: > 0 }) computed = true;
+                // Only the plots a status line could print are scanned (it runs every frame); a
+                // marker is listed only where it fires anyway.
+                if (!HasReading(comp.DisplayType) || ChartRenderer.IsMarker(comp.DisplayType)) continue;
+                if (!HasAnyValue(data)) none.Add(comp.Name);
+            }
+            return computed ? none : EmptySet;
+        }
+
+        private static readonly IReadOnlySet<string> EmptySet = new HashSet<string>();
+
+        private static bool HasAnyValue(double[]? data)
+        {
+            if (data == null) return false;
+            foreach (double v in data)
+                if (double.IsFinite(v)) return true;
+            return false;
         }
 
         /// <summary>
