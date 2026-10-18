@@ -459,6 +459,13 @@ public static class CycleSchoolCommand
         report["held_out"] = held;
         report["held_out_macro"] = heldMacro;
         report["macro"] = macro;
+        // Pre-registered descriptive rows of C5 (not tests): the 2-year yield in place of the
+        // 3-month bill, and the unscheduled meetings on their own.
+        report["c5_descriptive"] = new[]
+        {
+            CycleSchoolMacro.C5(io, false, "macro/fred/DGS2.csv", "C5-DGS2"),
+            CycleSchoolMacro.C5(io, false, "macro/fred/DGS3MO.csv", "C5-unscheduled", unscheduled: true),
+        };
         report["c4"] = CycleSchoolMacro.C4(new() { ["SPY"] = spyRun.B, ["GLD"] = assets.First(a => a.Name == "GLD").Bars, ["BTC"] = btcBars }, nber);
         report["trades_dev"] = trades;
         report["noise"] = new { clean_A2 = cleanA2, clean_B2 = cleanB2, clean_D = cleanD, seeds = noisy };
@@ -500,10 +507,12 @@ public static class CycleSchoolCommand
 
     private static int LowsGD(List<AssetRun> cr) => cr.Sum(r => r.GD.Count(l => r.EraOf(l.Low) == Era.Dev));
 
-    /// <summary>Prereg 3.7: at least 30 calls and 30 lows confirmatory; 15 to 29 suggestive; below
-    /// 15 not testable.</summary>
+    /// <summary>Prereg 3.7: at least 30 calls and 30 lows confirmatory; 15 to 29 calls suggestive;
+    /// below 15 calls not testable. Fewer than 30 lows only stops a test being confirmatory: the
+    /// not-testable rule is on calls alone. (Run 2 also called a test with under 15 lows not
+    /// testable; that was not the prereg's rule and run 3 fixed it. Both runs are reported.)</summary>
     public static string CountStatus(int calls, int lows) =>
-        calls < 15 || lows < 15 ? "not testable" : calls < 30 || lows < 30 ? "suggestive" : "confirmatory";
+        calls < 15 ? "not testable" : calls < 30 || lows < 30 ? "suggestive" : "confirmatory";
 
     private static TestRow Row(string id, string fam, string c, EraStats s, int lows, double nullMean, double p, string note = "") => new()
     {

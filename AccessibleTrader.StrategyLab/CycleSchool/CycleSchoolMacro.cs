@@ -266,7 +266,7 @@ public static class CycleSchoolMacro
 
     // ── C5 ───────────────────────────────────────────────────────────────────
 
-    public static MacroResult C5(CycleSchoolInputs io, bool countsOnly, string yieldFile = "macro/fred/DGS3MO.csv", string id = "C5")
+    public static MacroResult C5(CycleSchoolInputs io, bool countsOnly, string yieldFile = "macro/fred/DGS3MO.csv", string id = "C5", bool unscheduled = false)
     {
         var target = CycleSchoolScore.PolicyTarget(io);
         var y = io.Known(yieldFile);
@@ -277,14 +277,24 @@ public static class CycleSchoolMacro
             double a = T(d.AddDays(1)) - T(d.AddDays(-1));
             return double.IsNaN(a) ? int.MinValue : Math.Abs(a) < 1e-9 ? 0 : Math.Sign(a);
         }
-        var sched = meetings.Where(m => m.Scheduled).Select(m => m.Date).ToList();
+        // events_fomc.json lists scheduled meetings into 2027. A meeting whose day after is past the
+        // last target observation has no decision yet; it is left out (run 3 counted those as holds).
+        var lastTarget = target[^1].Date;
+        var sched = meetings.Where(m => m.Scheduled && m.Date.AddDays(1) <= lastTarget).Select(m => m.Date).ToList();
+        int future = meetings.Count(m => m.Scheduled && m.Date.AddDays(1) > lastTarget);
+        // Each event and the scheduled meeting before it ("the same decision as the previous
+        // scheduled meeting"). Unscheduled meetings are the descriptive side table only.
+        var events = unscheduled
+            ? meetings.Where(m => !m.Scheduled && m.Date.AddDays(1) <= lastTarget)
+                .Select(m => (D: m.Date, Prev: sched.Where(s => s < m.Date).DefaultIfEmpty(DateOnly.MinValue).Max()))
+                .Where(e => e.Prev != DateOnly.MinValue).ToList()
+            : Enumerable.Range(1, Math.Max(0, sched.Count - 1)).Select(i => (D: sched[i], Prev: sched[i - 1])).ToList();
         int devB = 0, devC = 0, devN = 0, devBondRight = 0, devPrevRight = 0;
         int heldN = 0, heldBondRight = 0, heldPrevRight = 0;
-        for (int i = 1; i < sched.Count; i++)
+        foreach (var (d, prevDate) in events)
         {
-            var d = sched[i];
             if (d.Year < 2000) continue;
-            int dec = Decision(d), prev = Decision(sched[i - 1]);
+            int dec = Decision(d), prev = Decision(prevDate);
             if (dec == int.MinValue || prev == int.MinValue) continue;
             var yb = CycleSchoolInputs.OnOrBefore(y, d.AddDays(-1));
             if (yb is null) continue;
@@ -313,6 +323,7 @@ public static class CycleSchoolMacro
             DevA = devN, DevB = devN, HeldA = heldN, HeldB = heldN,
         };
         res.Descriptive["unscheduled_meetings"] = meetings.Count(m => !m.Scheduled);
+        res.Descriptive["scheduled_meetings_not_yet_decided_left_out"] = future;
         if (!countsOnly)
         {
             res.DevDiff = devN == 0 ? double.NaN : (double)(devBondRight - devPrevRight) / devN;
