@@ -236,7 +236,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // otherwise read htfData[^1] (the final HTF value in the entire cached series).
                 var htfBars = _mtf.GetCachedBars(prov, sym, leaf.Timeframe);
                 int htfEndExclusive = htfBars.Count > 0 && history.Count > 0
-                    ? HtfLastClosedIndexExclusive(htfBars, history[^1].Date)
+                    ? HtfLastClosedIndexExclusive(htfBars, leaf.Timeframe, history[^1].Date)
                     : htfBars.Count;
 
                 // The line the leaf names, on its timeframe — and ONLY that line. Until 2026-10 an
@@ -616,22 +616,39 @@ namespace AccessibleTrader.Core.Services.Strategies
         }
 
         /// <summary>
-        /// Binary-search the HTF bar list for the most recent bar whose Date is strictly less than
-        /// the current main-TF bar time, and return count-exclusive (i.e. "bars[0..result]" is the
-        /// slice of closed HTF bars available at main-TF time <paramref name="mainBarDate"/>).
-        /// Strictly less than — an HTF bar whose open-time equals the main-TF bar's time has not
-        /// yet closed and must not be visible to the strategy.
+        /// How many HTF bars had CLOSED by the time the chart bar opening at
+        /// <paramref name="mainBarDate"/> opened: <c>bars[0..result]</c> is the slice a leaf may
+        /// read. A bar has closed when its period has ENDED (<see cref="TimeframeUtility.GetPeriodEnd"/>
+        /// of its open time, which walks the calendar for months) at or before the chart bar's open.
+        ///
+        /// <para>Until 2026-10-18 the test was "opened before the chart bar", so on a Wednesday a
+        /// weekly leaf read the week that opened on Monday. In a backtest that bar holds the week's
+        /// FINAL close, high and low: up to one HTF bar of look-ahead in every HTF leaf, and in an
+        /// alert the forming week read as if it had closed. "Closed by the chart bar's open" is the
+        /// rule the HTF line-cross summary below already stated, and the one
+        /// <c>MaRespectRanker</c>'s higher-timeframe averages use (the bucket before this one).</para>
+        ///
+        /// <para>A timeframe the calendar cannot read falls back to the next HTF bar's open as the
+        /// end, and treats the newest bar as still forming, never as closed.</para>
         /// </summary>
-        private static int HtfLastClosedIndexExclusive(IReadOnlyList<Ohlcv> htfBars, DateTime mainBarDate)
+        private static int HtfLastClosedIndexExclusive(IReadOnlyList<Ohlcv> htfBars, string? htfTimeframe, DateTime mainBarDate)
         {
             int lo = 0, hi = htfBars.Count;
             while (lo < hi)
             {
                 int mid = (lo + hi) >> 1;
-                if (htfBars[mid].Date < mainBarDate) lo = mid + 1;
+                if (HtfBarEnd(htfBars, mid, htfTimeframe) <= mainBarDate) lo = mid + 1;
                 else hi = mid;
             }
             return lo;
+        }
+
+        private static DateTime HtfBarEnd(IReadOnlyList<Ohlcv> htfBars, int index, string? htfTimeframe)
+        {
+            var start = htfBars[index].Date;
+            var end = string.IsNullOrEmpty(htfTimeframe) ? start : TimeframeUtility.GetPeriodEnd(start, htfTimeframe);
+            if (end > start) return end;
+            return index + 1 < htfBars.Count ? htfBars[index + 1].Date : DateTime.MaxValue;
         }
 
         // ── Which series a line is ──────────────────────────────────────────────
@@ -777,9 +794,9 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         /// <summary>The value an HTF line had as of a chart bar that opened at <paramref name="asOf"/> —
         /// its last bar closed by then, by the same rule as <see cref="HtfLastClosedIndexExclusive"/>.</summary>
-        private static double HtfValueAsOf(double[] data, IReadOnlyList<Ohlcv> htfBars, DateTime asOf)
+        private static double HtfValueAsOf(double[] data, IReadOnlyList<Ohlcv> htfBars, string htfTimeframe, DateTime asOf)
         {
-            int n = Math.Min(HtfLastClosedIndexExclusive(htfBars, asOf), data.Length);
+            int n = Math.Min(HtfLastClosedIndexExclusive(htfBars, htfTimeframe, asOf), data.Length);
             return n > 0 ? data[n - 1] : double.NaN;
         }
 
@@ -1004,8 +1021,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 return false;
             }
 
-            double otherCur  = HtfValueAsOf(other, htfBars, history[primaryIdx].Date);
-            double otherPrev = HtfValueAsOf(other, htfBars, history[primaryIdx - 1].Date);
+            double otherCur  = HtfValueAsOf(other, htfBars, tf, history[primaryIdx].Date);
+            double otherPrev = HtfValueAsOf(other, htfBars, tf, history[primaryIdx - 1].Date);
             return Crossed(prev, cur, otherPrev, otherCur, above);
         }
 
