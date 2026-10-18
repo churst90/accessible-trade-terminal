@@ -1,0 +1,6 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/use-cases-1.3/enhancing-long-term-investment-strategies.md).
+# ENHANCING LONG-TERM INVESTMENT STRATEGIES:
+### **Example (Hypothetical):**
+Imagine an investor with a long-term focus on equities, seeking to buy during market corrections. They used the CF Cycle Trading Indicator to identify Yearly Cycle Lows (YCL) on major indices like the S\&P 500. By tracking these YCLs, the investor aimed to time their purchases during significant market downturns.
+### **Outcome:**
+In this hypothetical scenario, the investor aligned their investment strategy with the timing of YCLs, potentially buying during market lows and benefiting from future gains as the market recovered. While this use case is based on common cycle theory and the potential utility of the indicator, it remains a theoretical example. Investment outcomes will depend on many factors, and this indicator should be used as one of several tools in your decision-making process.

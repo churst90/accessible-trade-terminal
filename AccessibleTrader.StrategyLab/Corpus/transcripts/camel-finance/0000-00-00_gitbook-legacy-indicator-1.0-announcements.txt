@@ -1,0 +1,18 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/announcements.md).
+# Announcements
+### 📢 Product & Indicator Updates — All in One Place
+The Camel Finance Community Hub is more than just a chatroom — it’s your central hub for staying connected to everything new and essential.
+Support Team Updates
+Inside the Updates & Announcements section, you’ll find a clearly organised feed of all key developments:
+* 🛠️ Product Improvements
+* 📊 Indicator Updates
+* 📣 Official Announcements
+No more searching through social media or digging through emails — everything is archived and accessible in one place. Whether it’s a new feature rollout, a bug fix, or a change to the indicator’s logic, you’ll find it here first.
+#### Why it Matters:
+* ✅ Stay ahead of key updates that could impact your trading
+* 🧠 Understand new features with short, clearly written notes
+* 🔁 Review past changelogs anytime for reference
+* 🔗 Direct links to walkthroughs, guides, and visuals
+With this streamlined update system, you’re always one step ahead — equipped with the latest tools, features, and refinements as they’re released.
+> 💬 Bonus: Got questions about a new feature? Jump straight into the Members Chat and get answers from the team or community in real-time.
+***

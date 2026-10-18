@@ -1,0 +1,11 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/cycle-top-translations.md).
+# CYCLE TOP TRANSLATIONS:
+### **🤓 Automated LTR/MTR/RTR Signals:**
+The CF Cycle Trading Indicator also excels in identifying and classifying cycle tops. It distinguishes between Left-Translated Cycles (LTR), Right-Translated Cycles (RTR), and Mid-Translated Cycles (MTR), providing traders with critical insights into potential market turns. By understanding where these cycle tops fall, traders can better anticipate market shifts and adjust their strategies accordingly.
+🎯 This level of precision is crucial for traders who rely on timing their entries and exits based on cyclical patterns. The indicator automatically displays these predictions, allowing traders to focus on strategy rather than getting bogged down in the details of cycle analysis.
+### 🔴 **Left-Translated Cycles (LTR):**
+Left-Translated Cycles (LTR) occur when the cycle tops form earlier within the cycle. This pattern often indicates a bearish market trend. The CF Cycle Trading Indicator identifies LTRs, giving traders a signal to prepare for potential downturns. Recognising LTRs early allows traders to adjust their positions to mitigate risk.
+### 🟡 **Mid-Translated Cycles (MTR):**
+Mid-Translated Cycles (MTR) are balanced cycles where the top forms around the middle of the cycle. These cycles can indicate market consolidation or transition periods. The CF Cycle Trading Indicator identifies MTRs, offering traders the chance to prepare for possible shifts in market dynamics.
+### 🟢 **Right-Translated Cycles (RTR):**
+Right-Translated Cycles (RTR) are cycles where the top occurs later, often indicating a bullish trend. Identifying RTRs is essential for traders looking to capitalise on upward momentum. The CF Cycle Trading Indicator detects RTRs, providing traders with the insights needed to ride the bullish wave to its peak.

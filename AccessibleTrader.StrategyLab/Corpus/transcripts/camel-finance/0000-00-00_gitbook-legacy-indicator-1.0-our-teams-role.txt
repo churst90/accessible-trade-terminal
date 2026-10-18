@@ -1,0 +1,5 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/our-teams-role.md).
+# Our Team's Role
+{% hint style="success" %}
+The purpose of our Product Support Team is to provide you with reliable and specialised assistance whenever you encounter challenges or have questions about our products. We understand the complexities of trading and the importance of having access to expert help, ensuring you can confidently navigate your trading journey with our tools.
+{% endhint %}

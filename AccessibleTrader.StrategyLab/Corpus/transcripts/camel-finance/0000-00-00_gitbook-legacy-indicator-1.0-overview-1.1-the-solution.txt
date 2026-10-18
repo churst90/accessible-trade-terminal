@@ -1,0 +1,6 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/overview-1.1/the-solution.md).
+# THE SOLUTION
+Recognising these challenges, [Camel Finance](https://www.youtube.com/@camelfinance) and [Variance Technologies](http://variancetechnologies.co.uk) developed the **CF Cycle Trading Indicator**
+A tool designed to eliminate the complexities of manual cycle analysis and provide traders with an automated, accurate, and user-friendly solution.
+💡 The CF Cycle Trading Indicator simplifies the identification of cycle lows (DCL, WCL, YCL) and cycle top translations (LTR, RTR, MTR) across multiple assets and timeframes. It allows traders to instantly adjust their cycle low setups, ensuring they stay on top of market movements without the need for hours of manual calculation.
+⏩ This not only speeds up the educational process for new traders but also enhances the efficiency and accuracy of experienced traders. It enables them to focus on making informed trading decisions rather than getting bogged down in the minutiae of cycle counting.

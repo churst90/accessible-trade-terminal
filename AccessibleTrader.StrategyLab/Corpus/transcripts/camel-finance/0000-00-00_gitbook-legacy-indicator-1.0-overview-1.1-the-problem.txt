@@ -1,0 +1,7 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/overview-1.1/the-problem.md).
+# THE PROBLEM
+Cycle trading is a powerful strategy that relies heavily on identifying and timing market cycles, particularly cycle lows and tops.
+📈 However, this process can be incredibly time-consuming and complex, especially for traders who are new to the concept or those managing multiple assets simultaneously.
+👨🏻‍💻 Traditional cycle traders often spend countless hours manually counting cycles, analysing past data, and pinpointing lows and tops to enhance the accuracy of their trading decisions.
+🔍 This intricate process demands a deep understanding of timing windows, cycle translations, and the overall market structure.
+😵‍💫 For many, especially beginners, this can be overwhelming and creates a significant barrier to entry.

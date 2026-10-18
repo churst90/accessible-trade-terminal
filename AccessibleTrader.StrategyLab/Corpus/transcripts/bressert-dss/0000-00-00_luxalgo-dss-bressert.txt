@@ -1,0 +1,53 @@
+On this pageTop indicators
+Top DSS Bressert indicator
+The top custom implementation, built on the original standard DSS Bressert formula.
+1 total
+From studying DSS Bressert to trading it: take the implementation below into Quant and backtest it instantly.
+Build a strategy in Quant
+DSS Bressert
+Indicator
+What is the DSS Bressert?
+The DSS Bressert, short for Double Smoothed Stochastic, is a momentum oscillator that applies the stochastic calculation twice with exponential smoothing in between. A raw Stochastic Oscillator locates the close within the recent high-low range; the DSS smooths that reading with an EMA, runs the stochastic normalization again on the smoothed series, and smooths once more. The result is a 0 to 100 oscillator that keeps the stochastic's fast turns at extremes while filtering much of its bar-to-bar noise.
+The indicator is commonly associated with William Blau, who published double-smoothing techniques for momentum indicators, and with cycle analyst Walter Bressert, whose name attaches to the popular variant; the exact lineage is muddied by decades of platform reimplementations, so attribution is best kept loose. What matters practically is the design goal shared by that lineage: preserve responsiveness at turning points while suppressing whipsaw, the perennial stochastic trade-off.
+Traders care because the double normalization produces an unusually crisp signature: the DSS tends to travel quickly between its extremes and pause there, making overbought/oversold visits and hooks easier to read than on a fast stochastic, with less lag than a heavily smoothed slow stochastic. In Bressert's own cycle-trading framework, the oscillator's oversold hooks were used to time entries within an identified dominant cycle, not as standalone signals.
+How it's calculated
+One widely used formulation applies stochastic normalization and EMA smoothing twice over the same lookback.
+raw = 100 * (close - lowest(low, n)) / (highest(high, n) - lowest(low, n))
+s1 = EMA(raw, m)
+dss_raw = 100 * (s1 - lowest(s1, n)) / (highest(s1, n) - lowest(s1, n))
+DSS = EMA(dss_raw, m)
+n: stochastic lookback period, commonly around 10 to 21
+m: EMA smoothing period, commonly around 3 to 9
+lowest(x, n): lowest value of x over the last n bars
+highest(x, n): highest value of x over the last n bars
+EMA(x, m): exponential moving average of x over m periods
+Implementations vary: some use separate lookbacks for the two stochastic passes, some smooth with SMAs, and some add a signal line (often an EMA of the DSS or a lagged copy). There is no single authoritative parameter set.
+Blau's related double-smoothed stochastic in his published work smooths numerator and denominator separately before dividing, which is a distinct construction that behaves similarly.
+How traders use it
+For overbought/oversold timing with less noise: traders act on hooks, where the DSS turns back from beyond 80 or below 20, treating them as cleaner than raw stochastic crossings.
+Within a cycle framework: in Bressert-style trading, an oversold DSS hook is only taken when a dominant cycle low is due and the higher timeframe points up, using the oscillator as the trigger rather than the thesis.
+With a signal line: variants that plot a companion line use crossovers as entries, read like a slow stochastic but with the double-smoothed base.
+For divergence work: the smoothed swings make regular divergences at extremes easier to see than on jittery fast stochastics.
+With the usual bounded-oscillator caveat: in strong trends the DSS pins at an extreme like any stochastic, and counter-trend hooks fail repeatedly until the trend regime breaks.
+DSS Bressert vs. other stochastic refinements
+Double Stochastic: Both apply the stochastic operator twice; the names are near-synonyms and platform usage overlaps heavily. DSS Bressert usually denotes the EMA-smoothed variant carrying Bressert's parameterization.
+Stochastic RSI: StochRSI runs the stochastic normalization on RSI values rather than on price, deliberately maximizing sensitivity. The DSS runs it on smoothed price-range readings, aiming for the opposite: fewer, cleaner swings.
+Stochastic Momentum Index: The SMI, another Blau design, measures the close relative to the midpoint of the range with double smoothing and oscillates around zero. The DSS keeps the classic 0 to 100 close-versus-range formulation.
+Related concepts · Stochastics
+Stochastic Oscillator6Double Stochastic1Stochastic Momentum Index1Adaptive Stochastic1Premier Stochastic1Stochastic Pop1
+Concept family
+Momentum & Oscillators
+85 concepts mapped · 85 in the Library
+DSS Bressert FAQ
+Who invented the DSS Bressert?
+The double-smoothed stochastic idea is usually credited to William Blau's published double-smoothing work, and the popular variant carries Walter Bressert's name from his cycle-trading methodology. Platform implementations have blurred the exact history, so firm attribution beyond that is not warranted.
+How is DSS Bressert different from a slow stochastic?
+A slow stochastic smooths the stochastic output once with moving averages. The DSS re-normalizes the smoothed series through the stochastic formula a second time, which restores fast movement near extremes that plain smoothing removes.
+What are typical settings?
+There is no canonical set. Lookbacks near 10 to 21 with EMA smoothing near 3 to 9 are common defaults, and traders tune them to the cycle length they are trading.
+Can the DSS be used alone as a system?
+It was not designed that way. In Bressert's framework it times entries inside a separately identified cycle and trend context, and used standalone it inherits every weakness of bounded oscillators in trends.
+Turn DSS Bressert into a trading strategy.
+Take the implementation from this page into Quant, then build on it, backtest it on real data, and keep refining it in conversation.
+Build with Quant
+Previous conceptDouble StochasticNext conceptDynamic Momentum Index

@@ -1,0 +1,25 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/cycle-arcs.md).
+# Cycle Arcs
+Visualise Market Rhythm with Precision
+Cycle Arcs bring time-based clarity to your charts by visually mapping the expected rhythm and flow of market cycles. These arcs help you spot symmetry, timing windows, and potential shifts — at a glance.
+***
+#### 🛠️ Customise to Fit Your Style
+Inside the Cycle Arcs Settings Box, you’ll find:
+* ✅ Switch On/Off – Easily toggle the arcs on or off to reduce clutter when not needed.
+* ↕️ UP/DOWN – Shift arc position vertically for better alignment with price.
+* 🎯 HEIGHT – Control the arc’s curve depth — taller arcs = more visual impact.
+* 📏 WIDTH – Adjust how wide the arc stretches across candles.
+* 👁️ VISIBILITY – Make arcs bold or faint with an easy opacity slider.
+* 🎨 COLOUR – Match your preferred chart theme with full colour control.
+***
+#### 🧠 Why Use Cycle Arcs?
+These arcs aren’t just for aesthetics — they give traders an edge by:
+* Revealing cycle rhythm and timing at a glance
+* Highlighting symmetry in price action
+* Helping you anticipate when the next key move may occur
+* Supporting entry/exit decisions when used with confirmation signals
+***
+Ready to see them in action?
+Let’s take a look at how Cycle Arcs appear live on the chart 👇
+{% embed url="" %}
+***

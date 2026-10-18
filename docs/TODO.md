@@ -131,6 +131,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > fixed targets), gold/bond trend as crash insurance — vs buy-and-hold and 60/40, walk-forward with a random-
 > parameter arm; and a separate pre-registration for the first-bearish-divergence exit (the one recurring lead).
 >
+> **StrategyLab corpus (2026-10-18): built; see CHANGES and `AccessibleTrader.StrategyLab/Corpus/`.**
+> - [ ] Re-score the dated calls in `Corpus/rules/*.md` against prices (Camel Finance's 358 first,
+>   then Cosasverdes, Crypto Face, Jason Casper, Bressert), each scoring rule written down first.
+> - [x] ~~Round-2 "wait for confirmation after the dot" pre-registration~~: run as round 2, with SR location added in round 3
+>   (No edge; see `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`). A new round would need rules the corpus
+>   states that rounds 1-3 did not use (Jason Casper's lower-timeframe trigger, Gunslinger's 12m-then-3H).
+> - [ ] Fold the 35 later educator transcripts (Trader Geo's 93-minute tutorial among them) and the
+>   2026-10-16 Camel daily into their rules files; write `rules/bob-loukas.md` when Cody wants it.
+>
 > **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location: DONE, No
 > edge; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`).** Round 2's counts reproduced
 > exactly. Nothing passed the cross-round Holm over 119 tests or the placebo-level gate, in crypto 4h,
@@ -167,15 +176,6 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] If the design is ever revised (a new pre-registration): drop the "low due" rule (B5 found it
 >   adds nothing), and note that leaving out positioning or macro raised alert precision.
 >
-> **START HERE (2026-10-18 — setup grader round 3, Market Cipher with Cipher SR location:
-> PRE-REGISTERED, not run; see CHANGES and `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`).** Nothing was
-> computed or counted. What is left:
-> - [ ] **Stage 2 (a different agent): build `setup-grader-mc3` and run it exactly as written.** First
->   the harness and its 7 sabotage-proven tests, then the round-2 plumbing check and the counts-only
->   stage, written into the findings before any outcome. Verdicts use the cross-round Holm over all
->   119 tests of rounds 1 to 3. Results go in `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`, with an
->   `edges.json` record. Do not build in the main checkout.
-
 > **Open (Cody, 2026-10-18: "don't rename yet"):** Cipher B's hidden "Anchor Wave" components are OUR 5×-period
 > WaveTrend (a higher-timeframe proxy feeding the Gated dot and Anchor Polarity), not the Market Cipher traders'
 > anchor wave (the first deep wave past −60, read off the main waves; the trigger wave is the next higher-low cross

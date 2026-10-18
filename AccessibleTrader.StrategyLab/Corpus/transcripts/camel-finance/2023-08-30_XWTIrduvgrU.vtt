@@ -1,0 +1,656 @@
+WEBVTT
+
+00:00.000 --> 00:05.540
+all right hello and welcome to camel finance i'm your boy camel and today i want to be giving you
+
+00:05.540 --> 00:12.040
+a quick cycles masterclass a introduction to cycles how they work and therefore if you've
+
+00:12.040 --> 00:15.340
+seen me if you've been on the channel before you've probably seen me use them i know i often
+
+00:15.340 --> 00:20.100
+get a lot of questions saying is there some way i could do a video to explain these and show you
+
+00:20.100 --> 00:24.740
+exactly how they work with all the rules so that is what today's video is i first of all have to
+
+00:24.740 --> 00:30.220
+acknowledge that i by no means claim to have invented this system or discovered the system
+
+00:30.220 --> 00:36.260
+i think it's no secret that i got this from bob lucas i often reference bob and his charts in my
+
+00:36.260 --> 00:40.920
+youtube videos so i got this from bob lucas i'm by no means claiming to have discovered it or invented
+
+00:40.920 --> 00:45.780
+it and i believe although don't quote me on this that he got it from charles nena so charles nena
+
+00:45.780 --> 00:51.280
+developed this cycle system or a cycle system at least that he used at one of the big four banks i
+
+00:51.280 --> 00:56.280
+think it was goldman it might have been jp morgan but either way if you want to go and take a deep
+
+00:56.280 --> 01:00.640
+dive and find out a bit more about these cycles afterwards then you can look up charles nena and
+
+01:00.640 --> 01:05.080
+of course bob lucas so we're going to get into this i'm going to go through all of the rules all of the
+
+01:05.080 --> 01:10.020
+systems everything you need to know for how these cycles work and how i use them in my trading strategy
+
+01:10.020 --> 01:15.520
+i think it's important to point out right off the bat that this is just an edge okay it's not a holy
+
+01:15.520 --> 01:21.060
+grail it's the same with any trading system so do not be irresponsible as a trader or an investor
+
+01:21.060 --> 01:25.920
+do not spot a cycle low after you watch this video and go all in or think oh there's a cycle
+
+01:25.920 --> 01:31.620
+low 25x leverage okay all the same rules apply making the money is relatively easy in trading
+
+01:31.620 --> 01:37.300
+keeping it is however the most difficult part so just because you spot a cycle low after this
+
+01:37.300 --> 01:43.280
+don't be going all in on any trades remember you cannot afford as a trader to be taking 10 20
+
+01:43.280 --> 01:48.940
+chunks out of your account if you have to suffer a stop loss a stop loss should be sized so that
+
+01:48.940 --> 01:53.300
+even if you get stopped out it does not harm you it does not take a chunk out of your account and
+
+01:53.300 --> 01:57.780
+this is the number one thing that most traders get wrong so be sure to always size your trades
+
+01:57.780 --> 02:02.560
+appropriately make sure you're not taking large chunks out of your account the key to trading and
+
+02:02.560 --> 02:08.260
+to being able to do this successfully is to always keep the stops small always make sure when you're
+
+02:08.260 --> 02:12.760
+wrong you're wrong in a small way and when you're right you're right in a big way so don't be looking at
+
+02:12.760 --> 02:17.900
+these cycles and saying okay 25x leverage all in okay don't be doing that be responsible remember
+
+02:17.900 --> 02:21.660
+you're against yourself ultimately everyone likes to think they're against market everyone likes to
+
+02:21.660 --> 02:27.540
+think they're against other traders and against wall street but in trading you must master yourself you
+
+02:27.540 --> 02:33.200
+must make sure your stops are kept to a small size one to two percent of your overall account and
+
+02:33.200 --> 02:37.300
+that keeps you in the game once you've been kept in the game long enough you will notice that you are
+
+02:37.300 --> 02:43.520
+finally the trader you have always dreamt of being so the first thing i want to point out is for bitcoin
+
+02:43.520 --> 02:48.580
+and the s&p 500 which is the cycles that i tend to use the most i don't tend to apply cycles to a
+
+02:48.580 --> 02:53.340
+bunch of other asset classes although they do exist in many many other asset classes but for bitcoin
+
+02:53.340 --> 02:59.480
+and the s&p bitcoin undergoes a 60 day cycle the s&p a 40 day cycle there is a tolerance of 10%
+
+02:59.480 --> 03:05.840
+which gives us obviously six and four days respectively therefore the range for a daily cycle for
+
+03:05.840 --> 03:14.400
+bitcoin measured low to low is 54 to 66 days and 36 to 44 days for the s&p 500 once we chain three four
+
+03:14.400 --> 03:20.100
+five daily cycles together we get a weekly cycle which is just the same thing but on a weekly chart
+
+03:20.100 --> 03:26.120
+and as you can see here the weekly cycle range for bitcoin is 24 to 28 and 22 to 26 weeks for the s&p
+
+03:26.120 --> 03:31.680
+500 take a screenshot of this write it down do whatever you got to do memorize it you'll need this
+
+03:31.680 --> 03:35.920
+if you're going to use this system for bitcoin and the s&p 500 i need to make a quick note here
+
+03:35.920 --> 03:42.420
+that larger cycles exist outside of this so like i said we got three four five daily cycles that form
+
+03:42.420 --> 03:48.580
+a weekly cycle and then multiple weekly cycles chained together do give us bigger cycles so the best
+
+03:48.580 --> 03:53.080
+example of this that most people are probably aware of is bitcoin's four-year cycle and the s&p 500
+
+03:53.080 --> 03:59.220
+also undergoes a four-year cycle as well a fractalization does occur where we get these small daily cycles
+
+03:59.220 --> 04:02.720
+chain a bunch of those together and we get the weekly cycles and chain a bunch of the weekly
+
+04:02.720 --> 04:08.140
+cycles together and we do get larger cycles bigger macro cycles existing so i've got a little terms
+
+04:08.140 --> 04:12.040
+table here for you i'm just going to quickly go through this but ultimately i think this mostly
+
+04:12.040 --> 04:15.560
+is going to serve as like a key or a point of reference in case you need to at some point come
+
+04:15.560 --> 04:20.400
+back and see what these abbreviations mean but we have a daily cycle low which you'll see later as
+
+04:20.400 --> 04:24.900
+dcl this is simply the lowest point in a daily cycle and it serves as an anchor point for the daily
+
+04:24.900 --> 04:31.260
+cycles which of course are measured low to low a half cycle low or hcl shows up halfway through the
+
+04:31.260 --> 04:36.320
+daily cycle and it could be above or below the daily cycle low if it's above that indicates the
+
+04:36.320 --> 04:41.560
+cycle is bullish and if it is bearish then we would expect the half cycle low to form below the daily
+
+04:41.560 --> 04:46.020
+cycle low again if any of this seems confusing just stick around it will all become clear in just a
+
+04:46.020 --> 04:51.440
+moment so the weekly cycle low or wcl is the lowest low within the weekly cycle the weekly cycle is
+
+04:51.440 --> 04:56.100
+comprised of multiple daily cycles combined as i said usually three to five daily cycles will make
+
+04:56.100 --> 05:00.580
+up a weekly cycle and then we have left translated and right translated again i'm going to go into
+
+05:00.580 --> 05:05.080
+this in more detail in just a minute if it's a left translated cycle it just means the top for that
+
+05:05.080 --> 05:10.640
+daily cycle has come in at the left of the midpoint of the cycle so if it's a 40 day cycle low to low for
+
+05:10.640 --> 05:16.660
+the s&p the midpoint is of course 20 days if the top of that cycle comes in to the left hand side
+
+05:16.660 --> 05:23.500
+then we would call this a left translated cycle and if the top was to come in past day 20 on a 40 day
+
+05:23.500 --> 05:28.900
+s&p 500 cycle then we would refer to that cycle as right translated simply meaning the cycle top has
+
+05:28.900 --> 05:33.960
+come in to the right hand side of the midpoint of the daily cycle so the cycle lows are measured low
+
+05:33.960 --> 05:40.380
+to low and that is on a daily time frame the cycle lows will form inside of their timing band 80% of the
+
+05:40.380 --> 05:46.320
+time and of course 20% therefore will be forming outside of the timing band the cycle lows work best in
+
+05:46.320 --> 05:52.000
+trending markets but they can be used in any market so i've knocked up a schematic for you here as you
+
+05:52.000 --> 05:58.000
+can see at the bottom we've got a weekly cycle and a daily cycle low just here where my cursor is so a
+
+05:58.000 --> 06:05.180
+weekly cycle is made up of one two three four daily cycles and that gives us the bigger weekly cycle as
+
+06:05.180 --> 06:10.440
+i said so you chain a few of these daily cycle lows together and we get a weekly cycle you'll also
+
+06:10.440 --> 06:15.860
+notice in a bullish cycle we form the weekly and the daily cycle low we rally up into a half cycle low
+
+06:15.860 --> 06:21.320
+then we get a high that drops into the daily cycle low we go again again another daily cycle broken
+
+06:21.320 --> 06:27.380
+up by a half cycle low another daily cycle broken by a half cycle low and then typically what you
+
+06:27.380 --> 06:33.180
+will get in a weekly cycle is the first few cycles right translate followed by the last cycle in the
+
+06:33.180 --> 06:37.760
+weekly cycle forming left translated meaning the peak has come early and then we spend the rest of
+
+06:37.760 --> 06:42.820
+the portion of the cycle in a decline into that weekly and daily cycle low before we could
+
+06:42.820 --> 06:47.380
+potentially go again in a bearish cycle we will typically see the weekly cycle low again note
+
+06:47.380 --> 06:52.420
+the weekly cycle low here and here the weekly cycle low is again comprised of one daily cycle
+
+06:52.420 --> 06:59.060
+two three four daily cycles making up the weekly cycle when it's bearish it means typically most of
+
+06:59.060 --> 07:02.940
+them are going to be left translated again i'll show you this in more detail in just a minute but
+
+07:02.940 --> 07:08.500
+you'll notice we rally up half cycle low daily cycle low again another daily cycle low but this time
+
+07:08.500 --> 07:15.380
+notice how the peak comes before the half cycle low before the midpoint so this is left translated and
+
+07:15.380 --> 07:20.020
+then that tells us that we're likely going to be declining again another daily cycle this time
+
+07:20.020 --> 07:24.220
+broken up with a half cycle low and again before we have a chance of coming out of the weekly cycle
+
+07:24.220 --> 07:29.200
+low and building another base or resolving to the upside so the key take home here is that in a
+
+07:29.200 --> 07:34.220
+bullish cycle surprise surprise we make higher highs and higher lows if i go back one slide you'll be
+
+07:34.220 --> 07:39.140
+able to see this so in a bullish cycle you'll notice all the daily cycle lows are higher and
+
+07:39.140 --> 07:44.020
+higher the highs are also higher highs and therefore we have an uptrend versus in a bearish
+
+07:44.020 --> 07:51.120
+cycle where we have a succession of lower highs and lower lows on the way down so the next thing you
+
+07:51.120 --> 07:55.040
+need to know is the cycle translation so the translation as i already kind of said refers to
+
+07:55.040 --> 07:59.760
+the point at which the high of the cycle occurs if the cycle high comes to the left of the midpoint
+
+07:59.760 --> 08:04.380
+it is termed left translated and if the cycle high comes to the right of the midpoint it's termed
+
+08:04.380 --> 08:09.380
+right translated if the peak is perfectly timed in the middle it's considered neutral or leaning
+
+08:09.380 --> 08:15.040
+towards a bullish cycle so here i've got a little bit of the s&p 500 from a few years ago you can see
+
+08:15.040 --> 08:22.120
+here the green arrows denote the daily cycles right and from this low to this low was 38 days from this
+
+08:22.120 --> 08:29.100
+low to this one 36 from this low to this low 40 days and from this low to this low 44 days so what i've
+
+08:29.100 --> 08:33.700
+done is added a blue vertical line to show you the midpoint of every single one of these cycles that's
+
+08:33.700 --> 08:39.240
+all these vertical lines show and what you'll notice is we come out of the daily cycle low the peak
+
+08:39.240 --> 08:44.600
+comes to the right hand side of the midpoint meaning this is a right translated cycle and then we find
+
+08:44.600 --> 08:51.120
+the daily cycle low and we go again notice again in this 36 day cycle we get the peak forming on the
+
+08:51.120 --> 08:55.020
+right hand side of the middle of the cycle the midpoint and therefore this is another right
+
+08:55.020 --> 09:00.140
+translated cycle before finding that daily cycle low again this time we had a 40 day cycle low
+
+09:00.140 --> 09:05.100
+broken up perfectly by that half cycle low in the middle and as you can see the peak came to the
+
+09:05.100 --> 09:10.100
+right hand side of the midpoint again another right translated cycle and it's the same deal here isn't
+
+09:10.100 --> 09:15.460
+it a 44 day cycle this time broken up by a half cycle low with a high on the right hand side of the
+
+09:15.460 --> 09:21.380
+midpoint meaning this was another right translated daily cycle so all the while we see highs come in
+
+09:21.380 --> 09:26.060
+on the right hand side all the while we get right translated cycles it tells us that the market is
+
+09:26.060 --> 09:30.120
+leaning bullish and we should be continuing to expect further upside until the market shows us
+
+09:30.120 --> 09:34.640
+something different the inverse is of course true and that's where left translated cycles come in so
+
+09:34.640 --> 09:41.460
+you can see here same deal right 36 days low to low 36 days low to low 42 there and a 42 there
+
+09:41.460 --> 09:47.560
+again the blue vertical lines denote the midpoint of each of the cycles so what you'll notice is right off
+
+09:47.560 --> 09:52.240
+the bat we get a right translated cycle the peak comes to the right hand side of the midpoint
+
+09:52.240 --> 09:58.120
+then we find a daily cycle low and we rally up however from this point on you'll notice the cycle
+
+09:58.120 --> 10:03.300
+top comes into the left hand side of the midpoint so this here is a left translated cycle it's the same
+
+10:03.300 --> 10:08.140
+deal again 42 day cycle here the peak comes into the left hand side of the midpoint so we have another
+
+10:08.140 --> 10:12.560
+left translated cycle which tells us to be open to seeing further downside and of course that's what
+
+10:12.560 --> 10:19.420
+we get the same is seen here between this last 42 day cycle measured low to low we get the peak show
+
+10:19.420 --> 10:23.920
+up on the left hand side of the midpoint another left translated cycle tells us to be open to seeing
+
+10:23.920 --> 10:29.180
+further downside so the translation of the cycle is a big tell for the direction of the market if we can
+
+10:29.180 --> 10:33.820
+continue to see peaks showing up on the right hand side of that midpoint then we can continue to expect
+
+10:33.820 --> 10:40.400
+the higher highs and higher lows in an uptrend versus if we start to see left translated cycles and cycle
+
+10:40.400 --> 10:44.460
+lows that come down and take out the prior cycle low that tells us that we are likely going to enter
+
+10:44.460 --> 10:49.340
+a downtrend and therefore there is a bearish implication to the cycles so the next thing we
+
+10:49.340 --> 10:54.960
+need to know is how to identify and confirm the cycle lows so i like to use a swing low pattern or a
+
+10:54.960 --> 10:58.980
+trend line break you will see me do this if you've been on the channel before you could also use a cross
+
+10:58.980 --> 11:03.860
+above the 10 moving average i think that's what bob lucas likes to use or you can choose your own
+
+11:03.860 --> 11:08.580
+remember there's a million ways to make a million dollars you can do whatever you want it is important to
+
+11:08.580 --> 11:13.180
+make sure we have a cycle low confirmed because sometimes cycles will extend significantly beyond
+
+11:13.180 --> 11:18.060
+the timing window so you again you don't just want to be measuring 40 days for the s&p 500
+
+11:18.060 --> 11:24.000
+finding a day 40 and going yeah okay all in there 25x leverage you don't want to be doing that okay you
+
+11:24.000 --> 11:28.120
+always want to make sure you've got some kind of confirmation a swing low a trend line break a moving
+
+11:28.120 --> 11:34.260
+average cross something to give you some level of confidence that was indeed a cycle low because
+
+11:34.260 --> 11:38.040
+occasionally particularly in very bearish conditions the cycle lows will extend
+
+11:38.040 --> 11:44.060
+significantly past their expected timing window cycle highs i tend not to pay too much attention to
+
+11:44.060 --> 11:49.100
+they're unreliable and inconsistent compared with the cycle lows the cycle lows you'll notice are very
+
+11:49.100 --> 11:54.020
+very consistent versus cycle highs of course they can form anywhere whether it's left translated mid or
+
+11:54.020 --> 12:00.060
+right translated so picking cycle highs is a lot harder to do things you can look for however are the
+
+12:00.060 --> 12:04.560
+opposite of the confirmation signals so you could look for a swing high pattern trend line breakdowns
+
+12:04.560 --> 12:08.580
+crosses back below the 10 moving average you can also use the timing band so if we know we've had
+
+12:08.580 --> 12:15.660
+a 40 day cycle for the s&p 500 and we've got a straight up rally that goes all the way to day 35 day 36
+
+12:15.660 --> 12:20.440
+then you could say well we're expecting a pull back into the daily cycle low and hop out of your position
+
+12:20.440 --> 12:25.460
+based on the timing band and wait for the next daily cycle low to show up or of course you can choose
+
+12:25.460 --> 12:30.660
+and develop your own thing whichever suits you best for me personally i find it's typically best to allow the
+
+12:30.660 --> 12:35.660
+weekly cycle to largely unfold and look for a key loss of support or a technical breakdown again if
+
+12:35.660 --> 12:38.900
+you've been on the channel before you will have seen me do this and so the last couple of things to
+
+12:38.900 --> 12:44.240
+point out here are cycle failures a cycle failure occurs when the price breaks below the previous
+
+12:44.240 --> 12:48.540
+cycle low so if we come down and find a daily cycle low and we rally up a little bit and then roll over
+
+12:48.540 --> 12:54.920
+and undercut that daily cycle low that counts as a failed cycle a failure of a cycle indicates bearish
+
+12:54.920 --> 13:00.520
+price action is to come and further downside is to be expected until at least the next daily cycle
+
+13:00.520 --> 13:05.680
+low shows up weekly and yearly cycle lows these bigger cycles typically end with a failure of a
+
+13:05.680 --> 13:11.120
+daily and weekly cycle low so again if i hop back to this part you can see our weekly cycle comprised of
+
+13:11.120 --> 13:16.880
+one two three four daily cycles you'll notice we get right translated daily cycle a right translated
+
+13:16.880 --> 13:22.740
+daily cycle a right translated daily cycle then a left translated one that fails and undercuts
+
+13:22.740 --> 13:27.640
+the daily cycle low on its way back down to that weekly cycle so this would be very very typical to
+
+13:27.640 --> 13:34.000
+expect after three of these daily cycles to expect a kind of a blow off top a mini blow off top and a
+
+13:34.000 --> 13:38.320
+cycle failure thereafter so because of this it's always important to zoom out and understand the
+
+13:38.320 --> 13:43.820
+context of the larger cycles and the last thing to point out is occasionally bear traps will show up
+
+13:43.820 --> 13:49.020
+in the form of what's known as a cycle inversion so an inversion will force the half cycle low into
+
+13:49.020 --> 13:54.120
+becoming a daily cycle low and usually this comes after intense flushing of price at the end of a
+
+13:54.120 --> 14:00.000
+weekly cycle inversions indicate seller exhaustion and trend reversal of course if we exhaust all the
+
+14:00.000 --> 14:05.720
+sellers into that half cycle low and then that becomes a forced daily cycle low then it speaks to
+
+14:05.720 --> 14:11.940
+all the sellers being done a capitulative move to the half cycle low and we then have to try to catch
+
+14:11.940 --> 14:17.620
+the reversal out of that half cycle low they're very very rare and i've put here they're difficult to spot
+
+14:17.620 --> 14:22.080
+because one tends to be waiting for the daily cycle low and of course if we only get to the half cycle
+
+14:22.080 --> 14:25.880
+low the expectation will be well we're only halfway there there's probably more to come
+
+14:25.880 --> 14:30.760
+so it's very important to pay attention to trendline breaks or swing lows or 10ma crosses
+
+14:30.760 --> 14:35.660
+whatever you're going to use it's important to follow price because if the market does make one of
+
+14:35.660 --> 14:40.360
+these inversions and quickly reverse you want to be able to capitalize on it and that's why it's always
+
+14:40.360 --> 14:44.800
+important to have something like a trendline break as you align in the sand where you say okay if we break
+
+14:44.800 --> 14:50.140
+out of here then something different is going on these are very rare but inversions do show up from
+
+14:50.140 --> 14:54.640
+time to time and so with all that said that's pretty much it there honestly isn't a great deal
+
+14:54.640 --> 14:59.140
+more to talk about it's quite a simple system like i said you might have to go back and just make a note
+
+14:59.140 --> 15:03.560
+of the rules you will need to know the number of days and the timing windows but the best way to
+
+15:03.560 --> 15:08.600
+understand this is to practice it on a paper trading system or go back and just add the cycle lows in and
+
+15:08.600 --> 15:13.000
+count the days you'll notice i've been doing this for a long time we get the daily cycle lows we measure
+
+15:13.000 --> 15:20.660
+it out 42 ish days here's another one at 45 days here's another one here at 38 days or 37 days
+
+15:20.660 --> 15:25.820
+there's another one there 36 ish and we're now expecting to see another one show up any day now
+
+15:25.820 --> 15:33.060
+because we are getting into that timing window of 36 to 44 days so we should be about to find another
+
+15:33.060 --> 15:37.100
+one as i've been talking about it really is as simple as that you can see here i've got my trendline
+
+15:37.100 --> 15:41.060
+this is my line in the sand if we can form a swing low pattern then we can potentially buy there
+
+15:41.060 --> 15:45.380
+and if we can break out this downward slope in red resistance line then we can say with confidence
+
+15:45.380 --> 15:49.880
+it's time to get long like i said at the start it's important to manage the risk it's important
+
+15:49.880 --> 15:54.440
+not to go all in on one of these trades it's important to be responsible at all times but i
+
+15:54.440 --> 16:00.060
+think what you'll find is these cycles are very reliable for the s&p and for bitcoin they also do
+
+16:00.060 --> 16:05.900
+give you a nice edge a nice area to manage risk around for example if we get a swing low out of here
+
+16:05.900 --> 16:10.280
+and a trendline break then wherever that low forms we mark that as the daily cycle and that becomes
+
+16:10.280 --> 16:15.120
+the line in the sand we do not want to see cycle failure out of here because if we do then we know
+
+16:15.120 --> 16:20.580
+that will tell us that we are going to be trending down into the next 40 day cycle and therefore we
+
+16:20.580 --> 16:26.300
+should expect bearish price action going forward these blue arrows denote the weekly cycles so you can
+
+16:26.300 --> 16:33.120
+see we've got one two three daily cycles into that weekly cycle looking for one two three more daily
+
+16:33.120 --> 16:38.240
+cycles into the next weekly cycle so that is it that is all the rules it really is quite a simple
+
+16:38.240 --> 16:43.080
+system you just have to apply practicing it a little bit like i said you'll need to know these
+
+16:43.080 --> 16:47.840
+you'll need to know the days and the timing windows remember the cycles are measured low to low and will
+
+16:47.840 --> 16:52.560
+form inside of that timing window 80 percent of the time if we're looking to the long side then we want
+
+16:52.560 --> 16:57.340
+to see higher highs and higher lows split up by these half cycle lows and we know that after we've seen
+
+16:57.340 --> 17:02.900
+one two three maybe four daily cycles it's time to start expecting a left translated
+
+17:02.900 --> 17:08.260
+cycle and a decline into a weekly cycle low if you're bearish biased then you are looking for all
+
+17:08.260 --> 17:12.420
+your cycles to left translate meaning they top before the midpoint as i said and then roll over
+
+17:12.420 --> 17:17.600
+and expecting new lows all the way down into that weekly cycle low as i showed here and as you probably
+
+17:17.600 --> 17:22.040
+have seen before if you've been on the channel these cycles are very consistent so again so long as you
+
+17:22.040 --> 17:25.980
+can manage your risk so long as you can control your stop size so long as you can draw a trend line
+
+17:25.980 --> 17:30.200
+break or look for a swing low pattern to show up then you have a nice area to manage the risk
+
+17:30.200 --> 17:35.280
+around and all you can do is respect the cycle and see what the market will give like i also said
+
+17:35.280 --> 17:40.660
+already cycle failure is a thing to look out for when we are in a chart like this for example we do
+
+17:40.660 --> 17:46.620
+not want to see a cycle low show up here for example break out and then roll over and take out wherever
+
+17:46.620 --> 17:51.240
+that cycle low forms that will be a failed cycle it tells us that more downside is coming and we will
+
+17:51.240 --> 17:56.800
+therefore have to be dealing with further downside price action at least into the next daily cycle and
+
+17:56.800 --> 18:01.060
+possibly beyond that given where we are in the weekly cycle which you can see from here we got
+
+18:01.060 --> 18:06.660
+this weekly cycle low we should be expecting to see hopefully that right translated cycle pattern show up
+
+18:06.660 --> 18:12.060
+like this now of course if instead what happens out of this current weekly cycle low is we get a quick
+
+18:12.060 --> 18:17.680
+move up that then starts to have multiple cycles that fail one after the other then that will tell us
+
+18:17.680 --> 18:23.380
+that the top is probably in and we have a significant number of daily cycles ahead into that next weekly
+
+18:23.380 --> 18:29.680
+cycle decline possibly going to enter a big downtrend so the cycles give us a very nice context they give
+
+18:29.680 --> 18:34.020
+us a contextual awareness and as ever the best way forward is to take it one day at a time and see what
+
+18:34.020 --> 18:37.700
+the market will give so i hope you found that valuable i hope you found that useful it's quite a simple
+
+18:37.700 --> 18:42.260
+set of rules and practice makes perfect as with anything just remember if you're going to practice use a paper
+
+18:42.260 --> 18:46.900
+account or at least ensure that you're trading responsibly let me know if you have any questions
+
+18:46.900 --> 18:49.780
+and in the meantime take care from me all the best cheers bye
+

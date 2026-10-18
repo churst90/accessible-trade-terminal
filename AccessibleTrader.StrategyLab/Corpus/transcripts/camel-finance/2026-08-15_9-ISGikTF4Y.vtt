@@ -1,0 +1,1079 @@
+WEBVTT
+
+00:00.000 --> 00:27.760
+This video and all other videos on this channel are for entertainment purposes only.
+
+00:27.760 --> 00:29.840
+The content of this video and all other videos on this channel are the opinions of the creator only
+
+00:29.840 --> 00:31.960
+and do not constitute legal, trading, investment or financial advice of any kind.
+
+00:32.120 --> 00:34.080
+Investing carries a high level of risk and the majority of retail clients lose money.
+
+00:34.220 --> 00:36.420
+Do not invest in capital unless you understand the risks and you are prepared to lose it all.
+
+00:36.780 --> 00:39.240
+All right, hello and welcome to Camel Finance.
+
+00:39.320 --> 00:43.540
+I'm your boy Camel and this is going to be a weekend deep dive with a slight difference.
+
+00:43.600 --> 00:49.340
+I'm going to attempt today to interrogate or attack this base case and ask a bunch of questions.
+
+00:49.440 --> 00:50.700
+So I've got those questions written here.
+
+00:51.000 --> 00:52.880
+I want to work through these components and ask,
+
+00:53.160 --> 00:56.160
+has each of these components changed at all since it was first proposed?
+
+00:56.160 --> 00:57.420
+And if they have, how?
+
+00:57.800 --> 00:59.280
+I want to ask if this is acceptable.
+
+00:59.580 --> 01:00.340
+Is it still working?
+
+01:00.480 --> 01:03.400
+Has it enabled us to adapt to new data as it's presented?
+
+01:03.740 --> 01:05.140
+And I think this is the important part.
+
+01:05.240 --> 01:08.240
+I want to ask myself if more changes seem likely to follow.
+
+01:08.460 --> 01:09.280
+If so, how?
+
+01:09.440 --> 01:12.000
+And even more important still for each of these components,
+
+01:12.220 --> 01:14.460
+I want to ask, where is hard invalidation?
+
+01:14.500 --> 01:17.180
+I actually want to set some hard invalidations because I kind of know already,
+
+01:17.440 --> 01:18.720
+but I want to make that public.
+
+01:18.940 --> 01:22.180
+I want to make sure we've got some hard lines in the sand where we can say,
+
+01:22.180 --> 01:27.280
+okay, if we get to this point or if this happens, then we are going to have to accept this is wrong.
+
+01:27.460 --> 01:31.420
+So first of all, the base case for the stock market was that at the lows we're too bearish.
+
+01:31.480 --> 01:35.020
+We'd have this blow off top to all-time highs, come tumbling down in a global bear market and
+
+01:35.020 --> 01:36.860
+recession and head into a four-year cycle low.
+
+01:37.100 --> 01:38.540
+So let's start the interrogation here.
+
+01:38.620 --> 01:40.640
+Has this at all changed since it was first proposed?
+
+01:40.800 --> 01:42.540
+It has certainly in a couple of ways.
+
+01:42.680 --> 01:46.680
+First of all, I was largely expecting the top to be in by now already.
+
+01:46.860 --> 01:48.520
+The four-year cycle lows don't really move.
+
+01:48.520 --> 01:53.000
+They are plus or minus one weekly cycle, but I was thinking the top would come in sooner than it
+
+01:53.000 --> 01:57.860
+has. So the answer to the first question is yes, it has changed slightly because we are still
+
+01:57.860 --> 02:02.560
+trending up and thus, how have we changed? How has this whole thing changed? Well, we have just
+
+02:02.560 --> 02:06.880
+continued to buy the cycle lows and say long and strong and wrong. Okay. That's been a meme on this
+
+02:06.880 --> 02:10.780
+channel for a little while now. And at least for the stock market component, I think we can just
+
+02:10.780 --> 02:14.980
+kind of tick this one off and say, is this acceptable and working? Yes, this certainly is. Okay. Now,
+
+02:14.980 --> 02:19.240
+don't get me wrong. We are going to interrogate this hypothesis harder than this. Okay. But for
+
+02:19.240 --> 02:24.020
+the stocks, I think it's pretty easy and safe to say we thought it would top sooner. It didn't,
+
+02:24.200 --> 02:28.940
+but we didn't get dogmatic. We didn't short. We didn't angrily doubt and stay sidelined. Instead,
+
+02:29.080 --> 02:32.700
+we just kept buying the dips and saying long and strong and wrong. So is this acceptable and working?
+
+02:32.860 --> 02:38.420
+Yes, I think so. Now, do more changes seem likely? Yes, I think they do. So I'm going to go into that
+
+02:38.420 --> 02:43.400
+in just a moment. And we're also going to set a hard invalidation for what's to come. So before I can get
+
+02:43.400 --> 02:47.600
+into the change, we also need to state the second idea on this channel for the stocks,
+
+02:47.680 --> 02:51.600
+which was that whenever we see the high, it will likely remain the high as we experience a lost
+
+02:51.600 --> 02:57.220
+decade. So I'm calling for essentially a repeat of this to occur somewhere around here. Now,
+
+02:57.340 --> 03:02.560
+do more changes seem likely? I have to be honest, the more time goes on, the more this blow off top
+
+03:02.560 --> 03:07.020
+develops and the closer we get to this four year low without even having the first whiff of a decline
+
+03:07.020 --> 03:12.800
+yet makes me think that this is going to be late. Okay. So is it wrong or am I just early
+
+03:12.800 --> 03:17.580
+on my idea in trading is the same thing? Okay. You can't say, well, I'll be right eventually. No,
+
+03:17.640 --> 03:22.700
+you're either right or you're not. Okay. Early and wrong is the same thing. So the more time goes
+
+03:22.700 --> 03:28.460
+on, the more I'm thinking we might actually get this whole lost decade thing occur after a snapback.
+
+03:28.580 --> 03:32.560
+So I'm thinking, let's say the high comes in now, we set off hard and fast into a four year low,
+
+03:32.680 --> 03:37.500
+then have a new rally to new highs. And then maybe we get the lost decade later in the year.
+
+03:37.620 --> 03:42.380
+I'm starting to entertain this more and more. I don't think we need to invalidate the current setup
+
+03:42.380 --> 03:47.280
+and pivot to that as the base case. But when I asked myself the question, do I think it's entirely
+
+03:47.280 --> 03:52.160
+possible that we could just have a snap down into a four year low, another blow off top to new highs
+
+03:52.160 --> 03:57.440
+and then enter a lost decade later in life? Yeah, I do think that's entirely possible. So now we can
+
+03:57.440 --> 04:02.380
+set some hard invalidations for this. First of all, just in case anyone doesn't know the S&P has got a
+
+04:02.380 --> 04:07.800
+four year cycle, just like Bitcoin's got a four year cycle and gold has an eight year cycle in which
+
+04:07.800 --> 04:13.020
+it's right around due a half cycle low in its eight year cycle. Now at the moment, this is the
+
+04:13.020 --> 04:17.540
+first invalidation to set is where is the four year cycle low outside of the window? Well, it should
+
+04:17.540 --> 04:22.420
+be the end of this year plus or minus a weekly cycle. Okay, so that essentially says it should
+
+04:22.420 --> 04:27.480
+be somewhere between October and April of next year if it's going to be legal qualifying and inside
+
+04:27.480 --> 04:32.100
+of the window. Occasionally cycles fall early or late, but I would be thinking I have got my count
+
+04:32.100 --> 04:38.020
+wrong on the higher time frame somewhere if we get past April of next year and we have not seen
+
+04:38.020 --> 04:43.780
+a four year cycle low on the chart. So I'm going to set April of next year as hard invalidation and
+
+04:43.780 --> 04:50.260
+start to really have to seriously entertain recounting my major four year lows for the stocks if we
+
+04:50.260 --> 04:55.760
+haven't seen a major four year low by April of next year. And then how do we set invalidation on the
+
+04:55.760 --> 05:01.240
+lost decade idea? Well, unfortunately, the only way we could invalidate this is we will have to see
+
+05:01.240 --> 05:05.860
+new highs after said four year cycle low. It's really as simple as if the high is here and then
+
+05:05.860 --> 05:10.780
+we have a four year cycle low decline and then we get a range. Okay, with no new high set, this is
+
+05:10.780 --> 05:15.220
+still very much the base case. Of course, the inverse is true. If we get a blow off top, a four
+
+05:15.220 --> 05:19.920
+year cycle low decline and then come up and make new highs, then this is of course wrong. This is hard
+
+05:19.920 --> 05:24.180
+invalidated at new highs. Doesn't really change how we'll be handling this. We'll still be getting long
+
+05:24.180 --> 05:28.200
+out of the four year cycle low and we'll still be looking to catch whatever upside there is, but we'll just
+
+05:28.200 --> 05:32.960
+be mindful that we may not exceed the highs. If of course we do exceed the highs, then I think we'll
+
+05:32.960 --> 05:37.740
+just look for that lost decade to occur later in the cycle. And again, the reason I've been asking
+
+05:37.740 --> 05:44.220
+myself lately, do more changes seem likely, is I think that almost fits with the whole 2030 reset
+
+05:44.220 --> 05:50.540
+stuff, tokenized assets, but I think it almost fits that better. And I do wonder if we finally get the
+
+05:50.540 --> 05:55.500
+four year cycle low followed by left translation. We didn't get it for Bitcoin this cycle, which is cycle
+
+05:55.500 --> 05:59.840
+four. And cycle theory says where you don't get it in cycle four, you tend to get it in cycle five.
+
+05:59.940 --> 06:05.460
+So I do wonder if this whole thing was the right idea, but early, which again is the same as being
+
+06:05.460 --> 06:09.080
+wrong. But frankly, I don't care about being right or wrong. What I care about is finding some lows to
+
+06:09.080 --> 06:14.300
+manage my risk around and staying on trend until something breaks. So I hope that's clear. But now I
+
+06:14.300 --> 06:18.680
+think we just stick with the base case until some invalidation occurs. If we get to April without a
+
+06:18.680 --> 06:22.980
+four year low in stocks, then I think we've got the count wrong probably. Once that four year low is in
+
+06:22.980 --> 06:27.220
+and hopefully we can get long out of the lows as we typically do, then it would be a case of long and
+
+06:27.220 --> 06:31.680
+strong and see what the market has to offer. Of course, being mindful for a lower high. The moment
+
+06:31.680 --> 06:36.120
+a higher high is observed in the stocks, then I will say the lost decade is invalidated. There's
+
+06:36.120 --> 06:40.700
+always caveats. We always have to be flexible because let's say we get the high, the low for the
+
+06:40.700 --> 06:45.000
+four year low, and then we come up here and just peak above it and then reject heavily. Okay. Then we
+
+06:45.000 --> 06:49.680
+might have to say, okay, well, this is clearly a range, but I'm talking about invalidation being set as a
+
+06:49.680 --> 06:53.640
+continued trend of higher highs and higher lows above the prior highs. So that should be nice and
+
+06:53.640 --> 06:58.260
+straightforward for this bit. So let's keep going. Bitcoin, same set of questions. Has it changed
+
+06:58.260 --> 07:02.900
+since it was first proposed? Yes, it has. The initial proposition was that it would left translate
+
+07:02.900 --> 07:07.380
+because it was its fourth four year cycle. And in a bullish cycle, we tend to go one, two, three,
+
+07:07.480 --> 07:11.360
+right trans, and then a left trans and have an extended bear market decline. As I said earlier,
+
+07:11.480 --> 07:15.840
+where this doesn't occur in cycle four, you do tend to see it in cycle five. And thus it is going to be
+
+07:15.840 --> 07:20.280
+my base case that we left translate in the next cycle. We have very clear invalidation. If it forms
+
+07:20.280 --> 07:25.460
+an all time high after the midpoint of the cycle measured low to low, then we can simply invalidate
+
+07:25.460 --> 07:30.780
+it the same way as we did this time. So has it changed? How? Yes. We invalidated left translation
+
+07:30.780 --> 07:35.760
+after it made a new high post the midpoint. And is this acceptable working? Yes. The four year cycle
+
+07:35.760 --> 07:40.220
+has continued to do what it's done. We managed to extract a lot of gains out of the crypto derivatives
+
+07:40.220 --> 07:47.080
+and the stocks. We managed to hedge short from just below 80k, locking in something like a 314%
+
+07:47.080 --> 07:52.020
+gain from the four year cycle low to the hedge on the short. And most importantly, the cycle still
+
+07:52.020 --> 07:56.220
+seem well and truly in control. I do think in the interest of objectivity, it's important to point
+
+07:56.220 --> 08:01.020
+out that we were also too bullish coming out of this weekly cycle. Okay. I was ready for one final blow
+
+08:01.020 --> 08:04.940
+off top here. And of course we didn't get it. Instead, what we got is this essentially. So again,
+
+08:04.940 --> 08:09.440
+has it changed? Yes, it's changed twice. First for left translation to right translation,
+
+08:09.440 --> 08:14.780
+and then from expecting one final high to, okay, the four year cycle has topped. Do more changes
+
+08:14.780 --> 08:19.540
+seem likely? I'm going to say no, not at this current moment in time. I don't really see any
+
+08:19.540 --> 08:24.360
+reason or any evidence here based on the price action that this is not a standard four year cycle
+
+08:24.360 --> 08:29.040
+decline. We are just one or two weeks away now from entering the window where we would expect left
+
+08:29.040 --> 08:33.800
+translation in the weekly cycle to occur. And thus a final leg down into the upcoming weekly and
+
+08:33.800 --> 08:39.000
+four year cycle low for Bitcoin, completing the four year cycle measured low to low sometime
+
+08:39.000 --> 08:45.140
+late December or even early 2027. So unless some things change drastically from here,
+
+08:45.220 --> 08:50.140
+then I think this looks pretty much like what's going on. And of course we will cover the short
+
+08:50.140 --> 08:54.280
+that's hedged from just below 80k into this four year low, I hope. And roughly speaking,
+
+08:54.340 --> 08:59.000
+double the stack. I hope something like that. So do more changes seem likely? No, I don't think so.
+
+08:59.000 --> 09:03.900
+If so, how? And where is hard invalidation? Well, hard invalidation can only really occur from here
+
+09:03.900 --> 09:10.400
+in two ways. The first is that we have to, in the next week or so, start to climb significantly higher.
+
+09:10.580 --> 09:15.240
+If we do and we blast through this, then we have to accept that this is an early four year cycle low
+
+09:15.240 --> 09:20.400
+and this is likely not coming. And thus we would have to start to build exposure and expect a
+
+09:20.400 --> 09:24.280
+continuation of a new four year cycle to begin from here. The other way this could invalidate,
+
+09:24.340 --> 09:28.760
+I suppose, is it could find a four year cycle low and then fail. But I don't think that's likely.
+
+09:28.760 --> 09:33.180
+That would be really easy for us to spot and identify because four year cycle lows become
+
+09:33.180 --> 09:37.840
+invalidation. If we have a four year cycle low and it's in and confirmed, then price has no business
+
+09:37.840 --> 09:42.660
+trading below that low if it's going to remain in bullish structure. So nice, simple if-then
+
+09:42.660 --> 09:48.060
+conditions. Whether this thing goes sideways in here or down or sideways first and then down,
+
+09:48.200 --> 09:51.780
+so long as we have enough time elapsed here to reset the cycle and enter the window,
+
+09:52.020 --> 09:56.260
+followed by the resumption of a new bull market, then all is right with the world here. So plenty of
+
+09:56.260 --> 10:00.660
+changes as new data presented, plenty of adaptations. But again, you can very easily
+
+10:00.660 --> 10:05.080
+use these hard invalidations and these difficult questions to ask yourself to be able to deal with
+
+10:05.080 --> 10:09.260
+whatever the market throws at you. The next part of this is inflation. Okay. The idea was that
+
+10:09.260 --> 10:13.420
+anything you do up here shows up in here with a bit of a lag. And thus I've been saying that we
+
+10:13.420 --> 10:17.920
+ought to see disinflation followed by a short period of asset price deflation sometime in here.
+
+10:18.000 --> 10:22.820
+So has this changed since it was first proposed? No, not at all. So we don't have to worry about this
+
+10:22.820 --> 10:27.320
+and we don't have to worry about this. Do more changes seem likely? Possible, I think. The reason
+
+10:27.320 --> 10:32.480
+I say this is my good friend E here has posted an updated look on this chart and it does start to
+
+10:32.480 --> 10:36.180
+look like potentially the bottom here has corresponded to the bottom here and we are
+
+10:36.180 --> 10:40.680
+turning up. I think we can still make a number of cases to say that this is a short-term wobble.
+
+10:40.820 --> 10:44.520
+I'm going to also attack the other side of this argument in just a moment. If I was going to defend
+
+10:44.520 --> 10:49.600
+this point, I would say that we got a big breakout in oil and that dragged the CPI up for a few months
+
+10:49.600 --> 10:54.380
+as expected. I would say then we managed to point out the top of oil and expect this to continue and
+
+10:54.380 --> 10:59.940
+so far this is well and truly in play. Since then we have seen the headline CPI significantly higher
+
+10:59.940 --> 11:05.240
+than other metrics such as truflation which continues to trend to lower highs and lower lows
+
+11:05.240 --> 11:10.760
+and the gap between the officially reported data and truflation continues to be extremely wide. This
+
+11:10.760 --> 11:16.080
+continued to confirm at the most recent CPI print where we saw that headline number drop from 4.2 to
+
+11:16.080 --> 11:21.120
+three and a half so again it seems to be continuing to move towards a disinflationary trend. We also
+
+11:21.120 --> 11:27.060
+saw the one-year inflation swaps drop. PCE came in cooler than expected. The trimmed mean for PCE
+
+11:27.060 --> 11:31.880
+continues to be heavily disinflationary and then this week we got cold PPI significantly below the
+
+11:31.880 --> 11:36.760
+forecast and expectations. Again it does look a lot to me like this is that short-term wobble that we
+
+11:36.760 --> 11:41.900
+were talking about seeing off the back of the oil spike because of the whole Iran situation and now
+
+11:41.900 --> 11:47.120
+that is mostly over now the oil continues to trend down we are starting to see this continue to the
+
+11:47.120 --> 11:52.160
+downside. So that's how I defend this. Now do more changes seem likely? Let's play the advocate here
+
+11:52.160 --> 11:56.200
+and the advocate is that something like this is about to occur next. We've already left behind the
+
+11:56.200 --> 12:01.020
+bottom here we are basing okay in a ball flag rather than continuation down like I was just talking
+
+12:01.020 --> 12:06.860
+about we are maybe ball flagging here ready for another leg higher. If so we would be able to spot this
+
+12:06.860 --> 12:11.680
+on this chart because this will do something like this and then continue up right now if we start to
+
+12:11.680 --> 12:17.660
+see this present I will be the first here to say that is three consecutive higher high prints okay I'm
+
+12:17.660 --> 12:22.580
+changing my idea this is clearly invalidated. So that's what I'm going to set as my hard invalidation
+
+12:22.580 --> 12:27.320
+we get three higher high prints here and I have to invalidate this. I don't think we've got any
+
+12:27.320 --> 12:32.580
+business seeing three higher high prints and then still saying disinflation and deflation is coming but
+
+12:32.580 --> 12:36.620
+at the moment I don't really think we have to entertain that so long as the upcoming prints
+
+12:36.620 --> 12:42.440
+continue to move lower and so long as oil which is currently here's July and here's 80 bucks we're
+
+12:42.440 --> 12:46.520
+in August now aren't we time flies I mean we're somewhere in this neighborhood maybe slightly higher
+
+12:46.520 --> 12:51.520
+I think if we do this we won't be far from where we are and so long as this continues to occur into
+
+12:51.520 --> 12:55.420
+its four-year low again I don't think anything is wrong with this call and I don't think we really
+
+12:55.420 --> 13:00.380
+need to do much pivoting but if this was to start to push higher and admittedly the energy stocks and
+
+13:00.380 --> 13:05.060
+ETFs they are starting to broaden out and break out as well now so maybe if we could get this again
+
+13:05.060 --> 13:09.860
+we could come back and invalidate this whole inflation idea but for now there has been a lot
+
+13:09.860 --> 13:14.280
+of chatter and that chatter so far just continues to get embarrassed time and time and time again
+
+13:14.280 --> 13:19.920
+okay this is still heavily disinflationary so I can set the invalidation as I said the more changes
+
+13:19.920 --> 13:25.380
+seem likely I would say only if the energy sector can continue to rip or we get re-ignition of
+
+13:25.380 --> 13:30.560
+Iran fears that kind of thing but the cycles actually do not permit that at all so I think
+
+13:30.560 --> 13:35.680
+the inflation component of this call is probably one of the most robust the next part of this
+
+13:35.680 --> 13:41.300
+hypothesis and this is actually I went into this thinking I was gonna have some bad news to say
+
+13:41.300 --> 13:45.700
+about this right and thinking I was gonna have to show you guys like maybe this is actually getting
+
+13:45.700 --> 13:51.000
+better that's what the narrative and the chatter in the market has kind of done to my psyche right
+
+13:51.000 --> 13:55.460
+I was thinking to myself yeah this is starting to slip away as well right one of the big reasons I
+
+13:55.460 --> 14:00.780
+wanted to interrogate this this week was because I always want to be early to spot when things are
+
+14:00.780 --> 14:05.340
+starting to turn against me but as I'm about to show you this data is also extremely robust and in
+
+14:05.340 --> 14:09.780
+line with what we've been saying on this channel so the idea was if we're going to have this global
+
+14:09.780 --> 14:14.040
+bear market and recession as we decline into these four-year lows we are also going to see labor
+
+14:14.040 --> 14:18.920
+market deterioration which is consistent with what you see during recessionary periods it's also true
+
+14:18.920 --> 14:24.420
+that pretty much everywhere you look we have been in a consistently deteriorative state for the labor
+
+14:24.420 --> 14:29.520
+market despite the rhetoric out there and the news outlets the mainstream media the fed the government
+
+14:29.520 --> 14:34.880
+trying to tell everyone that the jobs market is strong and resilient and robust now I got up-to-date
+
+14:34.880 --> 14:39.480
+data because a lot of people were complaining that some of the data was a few months old or whatever
+
+14:39.480 --> 14:45.680
+but look at this okay this is construction quits right clearly in a massive decline just like we see
+
+14:45.680 --> 14:50.220
+usually during recessionary periods and what have we been saying on this channel first of all we've
+
+14:50.220 --> 14:55.780
+been saying that they will likely go back the nber this is and paint a recessionary bar over the data
+
+14:55.780 --> 14:59.820
+well after the fact just like they historically do they don't go back and paint this bar here
+
+14:59.820 --> 15:06.280
+until somewhere in this neighborhood okay and then his total private quits looks recessionary as does
+
+15:06.280 --> 15:11.520
+quits total non-farm looks recessionary just like the other times here's all employees temporary help
+
+15:11.520 --> 15:15.920
+services all employees total non-farm okay again at the hard right edge this looks very recessionary
+
+15:15.920 --> 15:21.840
+this looks at least like consistent and persistent labor market deterioration and it also looks like
+
+15:21.840 --> 15:27.080
+the type of declines we see when the nber goes back and officially dates recessions same for the
+
+15:27.080 --> 15:31.760
+hiring rate recessionary look and all of this off the back of them consistently and persistently
+
+15:31.760 --> 15:36.860
+revising the jobs data down they revised over two million jobs out of the initially reported data
+
+15:36.860 --> 15:40.900
+over the last three years here is the unemployment rate again people look at the hard right edge here
+
+15:40.900 --> 15:46.180
+and say we've had a couple of months of slightly colder prints here and that we are going to see
+
+15:46.180 --> 15:50.720
+re-acceleration in the economy and that this is not going to be a recessionary look but at the moment
+
+15:50.720 --> 15:54.840
+it just doesn't look like that to me now if we come back here and apply this stuff okay has this
+
+15:54.840 --> 16:00.100
+changed since it was first proposed absolutely not not in one way shape or form i have been suggesting
+
+16:00.100 --> 16:04.300
+we would see labor market deterioration and based on all of those charts i've shown you you have to be
+
+16:04.300 --> 16:10.740
+insane to think that any of that looks stronger or robust okay every single one of these charts and i've
+
+16:10.740 --> 16:16.360
+grabbed more for you this week are trending down so this is absolutely still in play still acceptable
+
+16:16.360 --> 16:21.860
+still working do more changes seem likely well there are sniffs and whiffs of this that's a weird
+
+16:21.860 --> 16:27.760
+thing to say because very short term yes the unemployment rate has ticked down by a few basis
+
+16:27.760 --> 16:32.740
+points fractions of a percent as has the unemployment rate for 16 to 24 year olds again trending up looking
+
+16:32.740 --> 16:38.300
+pretty deteriorative and then we get a few softened prints okay not enough to say okay we're swerving a
+
+16:38.300 --> 16:43.280
+recession not yet at least but at least short term mild signs of improvement and we can see the same
+
+16:43.280 --> 16:48.540
+thing in u6 again we had a peak back in november and since then we've been kind of nudging down and
+
+16:48.540 --> 16:53.480
+the same is true of this real-time sam recession rule indicator which again has been looking like
+
+16:53.480 --> 16:59.340
+it's softening here so maybe we could start to see this continue to happen hopefully it does because
+
+16:59.340 --> 17:02.860
+obviously i'm not cheering on a recession and for people to lose their jobs but when i come back here
+
+17:02.860 --> 17:08.560
+and say do more changes seem likely at the moment i would argue no now if more changes were going to
+
+17:08.560 --> 17:12.900
+be needed and we're going to be observed what would they look like well they would look like pretty much
+
+17:12.900 --> 17:17.900
+every single one of these charts turning up okay and that would be the same for this this would have
+
+17:17.900 --> 17:23.540
+to continue to base here or turn higher same deal here this would have to continue to do this i'm sure
+
+17:23.540 --> 17:27.980
+you get the point right this would have to continue to do this and where is hard invalidation well
+
+17:27.980 --> 17:33.280
+hard invalidation i think we can use the same as the stocks and the invalidation ideas i think if
+
+17:33.280 --> 17:38.740
+we get to the upcoming four-year cycle low window sometime between now and april for the stocks we
+
+17:38.740 --> 17:43.780
+see a resumption of a new ball market and all of this is coupled with true breakdowns and trend
+
+17:43.780 --> 17:48.980
+reversals here okay this is the unemployment rate at least going sideways okay certainly absent of a
+
+17:48.980 --> 17:53.020
+spike and preferably turning down a little bit we would see the same in all of these right these would
+
+17:53.020 --> 17:57.080
+start to look more like this all of these as i said would have to turn back up again and start to
+
+17:57.080 --> 18:02.500
+trend higher if we can get that consistently for i'm going to say three to six months then i think
+
+18:02.500 --> 18:06.680
+we can say happy days right particularly if in combination with the stock market finding a four
+
+18:06.680 --> 18:11.660
+year low and entering a new ball market then maybe we can at best say this was a stealth recession
+
+18:11.660 --> 18:16.720
+okay and somehow it occurred with the stock market continuing to rip i know the stock market is not the
+
+18:16.720 --> 18:20.600
+economy but that would be the only thing i could really conclude here of course that would be entirely
+
+18:20.600 --> 18:25.500
+dependent on whether or not the nber goes back and dates this but it would look a bit out of place if
+
+18:25.500 --> 18:29.040
+they didn't now that's up to them at the end of the day but i think we're going to need to see at least
+
+18:29.040 --> 18:33.600
+three to six months of improvement from today coupled with the stock market not entering a
+
+18:33.600 --> 18:38.600
+new ball market before we could actually entertain invalidating this whole setup but the interest
+
+18:38.600 --> 18:42.680
+rates let's work our way through this has this changed since it was first proposed yes it has
+
+18:42.680 --> 18:47.480
+changed in the sense that it's taken a lot longer than anticipated and i was thinking we would get
+
+18:47.480 --> 18:52.940
+the fed funds rate look like this essentially okay so hiking the rates they paused and then they cut in
+
+18:52.940 --> 18:58.340
+fact what they look like is kind of like this and i was not anticipating the pauses for the amount of
+
+18:58.340 --> 19:03.860
+time we have been paused in between but other than the amount of time it has taken to see the rates
+
+19:03.860 --> 19:09.140
+move down it hasn't really changed okay the idea was that once they paused they would then start
+
+19:09.140 --> 19:14.100
+cutting and unless we see rate hikes i don't think that's going to change i know there's a lot of rate
+
+19:14.100 --> 19:19.900
+hike chatter out there but we say this every time and every time they do indeed reprice this way and we are
+
+19:19.900 --> 19:25.120
+still absent of a rate hike here so is this acceptable and working well yeah it's just taking longer
+
+19:25.120 --> 19:31.980
+than anticipated do more changes seem likely yes and no i would say based on the 10 year treasury yield
+
+19:31.980 --> 19:37.040
+if this thing is to break out above the top i would say yes changes are going to be needed and we are
+
+19:37.040 --> 19:41.420
+actually going to start to hike rates because the rates are set in aggregate by the bond market so if the
+
+19:41.420 --> 19:45.940
+treasury yield moves up like this then we will be seeing more hikes that's just how rates work
+
+19:45.940 --> 19:50.340
+do i personally think this is likely no my call is still that we will see the yields roll over and
+
+19:50.340 --> 19:54.760
+we will continue this cutting cycle but again i want to set a hard invalidation here i think i've
+
+19:54.760 --> 19:59.500
+made this one pretty clear a bunch of times if indeed we do break out of the top of this range and start
+
+19:59.500 --> 20:05.040
+to have a serious markup here in interest rates then again we will probably be seeing more rate hikes put
+
+20:05.040 --> 20:10.640
+on the table and thus that is our invalidation so our invalidation here for this call would simply be
+
+20:10.640 --> 20:16.180
+treasury yields continuing to break out bonds continuing to break down and i'm going to say
+
+20:16.180 --> 20:21.000
+anything more than two rate hikes is absolutely hard invalidation i don't even think we should
+
+20:21.000 --> 20:25.460
+be seeing one rate hike from here but i think we always have to allow ourselves enough room right
+
+20:25.460 --> 20:30.580
+what if they do one rate hike and then the market goes no no no forces the four year cycle and then
+
+20:30.580 --> 20:34.620
+they start panic cutting right you can never just say oh that's one hike it changes everything
+
+20:34.620 --> 20:40.680
+so my hard invalidation would be two to three rate hikes and most importantly the yields breaking
+
+20:40.680 --> 20:45.480
+out of that base but now though it does seem like pretty much it is going according to plan albeit
+
+20:45.480 --> 20:50.920
+significantly slower than anticipated and then of course gdp if we're going to enter a recession you
+
+20:50.920 --> 20:55.420
+expect the textbook definition of a recession which is two consecutive quarters of negative gdp growth
+
+20:55.420 --> 21:00.200
+and it certainly seems like at the moment we are nudging towards this right not only are the gdp
+
+21:00.200 --> 21:06.520
+results nudging downwards but they're also quietly revising those numbers down after the fact so has
+
+21:06.520 --> 21:11.440
+that changed since it was first proposed no other than perhaps taking longer than expected and again
+
+21:11.440 --> 21:16.340
+that's a big theme with this entire hypothesis do more changes seem likely not to me although
+
+21:16.340 --> 21:21.920
+admittedly there are a lot of people out there chatting about re-acceleration in the economy or a
+
+21:21.920 --> 21:27.600
+five-year cycle or whatever the idea is the business cycle but where is hard invalidation for this
+
+21:27.600 --> 21:32.640
+well hard invalidation would have to be that we do not continue to trend down and i think we'll set
+
+21:32.640 --> 21:37.080
+the cutoff point for this after we've seen the four-year cycle low so if we have not entered a
+
+21:37.080 --> 21:41.800
+technical recession in the u.s by that kind of april time frame then i'm going to assume that we are
+
+21:41.800 --> 21:45.580
+wrong about the recession and that the base case is going to have to be that we're going to run this
+
+21:45.580 --> 21:51.080
+thing hotter for longer and so i'm kind of thinking for bitcoin right we've done pretty much this i think
+
+21:51.080 --> 21:55.540
+so long as we get these four-year cycles in and confirmed then the base case is going to be left
+
+21:55.540 --> 22:00.560
+translation and then this okay and i actually think that would fit perfectly with us getting some
+
+22:00.560 --> 22:05.280
+kind of hard and fast decline into the four-year low here followed by perhaps a blow-off top that
+
+22:05.280 --> 22:09.020
+hops around the same time as bitcoin's left translation and then we enter that lost decade
+
+22:09.020 --> 22:13.860
+i do wonder if this is going to be the adaptation we need to make but i've clearly stated the
+
+22:13.860 --> 22:18.380
+invalidations the whole way along here so hopefully you can save this video somewhere and come back and
+
+22:18.380 --> 22:22.840
+reference it from time to time the rest of this hypothesis is just checking for alarm signals so this
+
+22:22.840 --> 22:27.600
+isn't really a base case with invalidation this is just quite simply if this thing breaks out and it's
+
+22:27.600 --> 22:31.440
+coupled with stock market breakdowns that tends to tell you it's time to be defensive and all the
+
+22:31.440 --> 22:36.020
+while these are subdued and not breaking out then you tend to be in a buy the dip environment same is
+
+22:36.020 --> 22:40.540
+true the yield curves right when these things break out it tends to be synonymous with things like the
+
+22:40.540 --> 22:46.420
+c19 the gfc and the dot-com bubble burst but when they are relatively subdued and trading in a range
+
+22:46.420 --> 22:52.180
+since all the way back in april of 2025 like they are at the moment then again it just tells you that
+
+22:52.180 --> 22:56.180
+we're in a buy the dip environment no matter how bearish some people are no matter how insane
+
+22:56.180 --> 23:02.440
+valuations seem no matter how much risk there seems to be and whatever else okay when this is not
+
+23:02.440 --> 23:07.780
+acceleratively sweeping to the upside and when this is not blowing out we are indeed in one of those
+
+23:07.780 --> 23:12.760
+crazy buy the dip environments it's just how this tends to work and we can see that when we head into
+
+23:12.760 --> 23:17.660
+the charts and the ta and the live positions at the end as always because the stocks are breaking out
+
+23:17.660 --> 23:22.680
+of a ball flag or attempting to into the close of this week we got exposure to this move via the
+
+23:22.680 --> 23:27.740
+us 100 here again level three members notified in real time as always with the exact levels for entry
+
+23:27.740 --> 23:32.180
+and stop loss we also managed to get some exposure via the dow jones again pushing into profit i think
+
+23:32.180 --> 23:37.220
+this ball flag hopefully breaks this week the russell 2k is already leading this move and continues to push
+
+23:37.220 --> 23:42.340
+again another position here we also got some semiconductor exposure here in the longer term account from
+
+23:42.340 --> 23:47.620
+before this breakout occurred so hopefully that can continue to as we kind of touched on earlier oil continues
+
+23:47.620 --> 23:52.200
+to be in this kind of topping pattern heading down for a four-year low so we'll patiently sit here and wait for
+
+23:52.200 --> 23:57.260
+that to complete gold and silver continue to sit at their critical inflection point at the top of this
+
+23:57.260 --> 24:02.240
+trend line so we are probably going to head down for this daily cycle low any day now the real question is
+
+24:02.240 --> 24:07.720
+does it form a shallow higher low and start to invalidate this and break out if so then we'll be getting
+
+24:07.720 --> 24:12.080
+some exposure here and managing risk around that higher low or hopefully what it can do here is
+
+24:12.080 --> 24:16.420
+upset all the people that long this breakout and do something more like this to complete my yellow
+
+24:16.420 --> 24:21.620
+squiggle and instead of invert the weekly cycle back here we will have just a regular six monthly
+
+24:21.620 --> 24:26.400
+weekly cycle with the half cycle low and the eight-year cycle reset and it will be right with the world so
+
+24:26.400 --> 24:31.400
+we get to see this week i would think what happens going forward and then of course we'll just use that
+
+24:31.400 --> 24:36.540
+new data as it presents to position across the board here it going again it just looks very much like
+
+24:36.540 --> 24:39.920
+it's doing the yellow squiggle it looks like the hedge is going to continue to pay us and that we'll
+
+24:39.920 --> 24:45.740
+be able to hop out of that hedge and into the spot bitcoin market once we get down there i expect there
+
+24:45.740 --> 24:49.900
+to be a lot of people trying to force a bottom into october but based on the profile of daily and
+
+24:49.900 --> 24:54.320
+weekly cycles i just don't really think october is a likely bottom for the four-year cycle guys i think
+
+24:54.320 --> 24:59.160
+the issue people are going to have here is they just look left and say well it was about 12 months from
+
+24:59.160 --> 25:03.380
+top to bottom and if we go 12 months from here to here that means you buy in october but that's actually not
+
+25:03.380 --> 25:08.680
+how cycles work okay we have to use this russian nesting doll effect of dailies inside of weeklies
+
+25:08.680 --> 25:13.580
+inside of the four-year cycles and if you do that what you find is we're much more likely to bottom
+
+25:13.580 --> 25:19.700
+very late december or very early 27 than we are in october so it'll be interesting to see if we get
+
+25:19.700 --> 25:27.080
+to october that cycle fails and then you will see widespread narrative of there is no four-year cycle or
+
+25:27.080 --> 25:33.040
+the four-year cycle is dead or whatever the idea is but realistically if we are to put in the four-year
+
+25:33.040 --> 25:37.900
+cycle load on a balance of probabilities you would actually expect it to be between december and maybe
+
+25:37.900 --> 25:42.660
+early february so that should be a pretty interesting setup and i don't think many people outside of the
+
+25:42.660 --> 25:47.860
+camel crew will be able to catch this move properly if this is to occur so that will be an interesting time
+
+25:47.860 --> 25:53.120
+for us for sure the last two things to look at i suppose are the yields right which are still kind of
+
+25:53.120 --> 25:58.060
+chopping in this range still refusing to break out of the top and invalidate this setup but also
+
+25:58.060 --> 26:03.720
+refusing to move lower for now we are a few weeks closer to the expected top in the weekly cycle so i
+
+26:03.720 --> 26:08.860
+do expect a significant decline in the next sort of five weeks but for now it may just be a bit more
+
+26:08.860 --> 26:13.900
+headache and a bit more chopping games i do think the dixie is seeking a weekly cycle here once that
+
+26:13.900 --> 26:18.820
+weekly cycles in it better hold and move to new higher highs otherwise we're gonna have to invalidate
+
+26:18.820 --> 26:24.280
+the yellow squiggle here and look for something more like this so something like this weekly cycle
+
+26:24.280 --> 26:30.060
+low okay and then if it fails it's probably gonna go significantly lower for a lot longer but i think
+
+26:30.060 --> 26:34.560
+based on where we are in the cycles i think based on its typical cycle behavior then this is gonna
+
+26:34.560 --> 26:39.200
+resolve to something like this followed by a higher high so time will tell there i hope you found this
+
+26:39.200 --> 26:42.760
+useful i hope this was a bit more entertaining than the standard sort of deep dive if you're a level
+
+26:42.760 --> 26:46.460
+three member do look out for the members video i'm gonna post for you guys shortly remember you've only got
+
+26:46.460 --> 26:50.460
+one week as well to claim 50% off the lifetime package on the indicator and website and you still
+
+26:50.460 --> 26:55.220
+can try it for two weeks for free before you buy it if you haven't migrated your account do head over
+
+26:55.220 --> 27:01.840
+to cftrading.co.uk follow the four brief on-screen instructions and you can claim a free month for the
+
+27:01.840 --> 27:06.680
+hassle subscribe if you want to continue to follow this hypothesis along i'll be back on monday until then
+
+27:06.680 --> 27:08.000
+all the best from me cheers bye
+
+27:08.000 --> 27:11.760
+he's the man to see
+
+27:11.760 --> 27:15.560
+rocking the markets with his contrarian street
+
+27:15.560 --> 27:19.300
+trades like a pro no fear no shame
+
+27:19.300 --> 27:22.760
+sticking to his guns in his money game
+
+27:22.760 --> 27:26.300
+he's a badass oh yes indeed
+
+27:26.300 --> 27:29.940
+gamble finance got the markets key
+
+27:29.940 --> 27:31.580
+taking a stormy
+
+27:31.580 --> 27:33.840
+on a bumpy ride
+
+27:33.840 --> 27:35.860
+casting those emotions
+
+27:36.680 --> 27:37.740
+on anasser
+
+27:37.740 --> 27:40.320
+and
+
+27:40.320 --> 27:41.920
+on
+
+27:41.920 --> 27:43.440
+on
+
+27:43.440 --> 27:47.600
+in
+
+27:47.600 --> 27:49.520
+on
+
+27:49.520 --> 27:51.280
+you
+
+27:51.280 --> 27:54.680
+the
+

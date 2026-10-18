@@ -1,0 +1,19 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/visual-customisation.md).
+# VISUAL CUSTOMISATION:
+The CF Cycle Trading Indicator offers extensive customisation options to ensure it aligns perfectly with each trader's unique preferences. This flexibility allows users to tailor the indicator's appearance and functionality to match their specific trading style and needs.
+### 🖍️ **Color Adjustments:**
+**Customisable Colours:**
+Users can tailor the display colours of all icons and text on the chart. This includes cycle lows, cycle tops, and other key markers, enabling a personalised visual style that fits seamlessly with other indicators or personal preferences. Whether you prefer a vibrant colour scheme to stand out or a muted palette for a cleaner look, the choice is yours.
+### **🔠 Icon and Text Size:**
+**Adjustable Sizes:**
+All icons and text on the chart are fully adjustable in size. Whether you need larger icons for better visibility or smaller ones to keep the chart clean, you can modify them to your liking. This feature ensures that the indicator remains clear and readable, regardless of your screen size or resolution.
+### **🔍 Icon Detail Level:**
+**Simplified or Detailed Icons:**
+The indicator offers options to simplify or enhance the detail level of each icon. For users who are already familiar with concepts like WCL and only need the color, the indicator can display a simplified version. Alternatively, for those who prefer more information at a glance, the icons can be made more detailed, including letters, colors, and other relevant markers.
+**Toggle Between Options:**
+Traders can toggle between different levels of icon detail, ranging from minimal (just the letter) to full detail (letters, colours, and additional markers). This flexibility ensures that the chart is as informative or as streamlined as you prefer.
+### **👁️ Visibility Settings:**
+**Control What You See:**
+The indicator allows you to adjust the visibility of various elements to reduce clutter or highlight specific aspects. Whether you want to focus solely on cycle lows or see everything the indicator has to offer, you can customise what appears on your chart.
+**Streamlined or Comprehensive Views:**
+This feature is particularly useful for traders who prefer a streamlined view or those who want a comprehensive display of all available data. By toggling visibility settings, you can ensure that your charts remain clear and focused on what matters most to your trading strategy.

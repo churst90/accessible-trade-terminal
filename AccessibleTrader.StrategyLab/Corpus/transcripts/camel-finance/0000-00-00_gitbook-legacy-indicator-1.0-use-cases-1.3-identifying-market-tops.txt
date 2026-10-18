@@ -1,0 +1,6 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/use-cases-1.3/identifying-market-tops.md).
+# IDENTIFYING MARKET TOPS:
+### **Example (Hypothetical):**
+In a situation where a trader suspected a significant market downturn was on the horizon, they used the CF Cycle Trading Indicator to identify a Left-Translated Cycle (LTR). This type of cycle often signals that a market top is forming earlier within the cycle, suggesting that a decline may soon follow.
+### **Outcome:**
+Based on this insight, the trader decided to exit their long positions earlier than they normally would. This hypothetical decision allowed them to preserve potential profits and avoid losses as the market began to decline. While this scenario is based on common cycle theory, it's important to remember that the CF Cycle Trading Indicator is a tool to assist with decision-making, and outcomes will vary based on individual trading strategies and market conditions.

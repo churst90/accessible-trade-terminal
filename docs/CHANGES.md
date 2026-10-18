@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### StrategyLab research corpus: trader transcripts and extracted rules (2026-10-18)
+
+`AccessibleTrader.StrategyLab/Corpus/` (data and scripts, no app code): 315 manifest records, 297
+obtained (234 videos, 69.6 hours, plus 63 public web pages; about 800,000 words). The full
+transcripts are committed in `Corpus/transcripts/<source>/` (text with `[mm:ss]` markers plus the
+VTT; never audio or video), with `manifest.json` (school, method, sha256, words, access per item),
+`rules/<source>.md` per source (method in its own terms, the complete method in order, dated calls,
+candidate rules the setup grader does not use) and `rules/SCHOOLS.md` (structure / market-cipher /
+cycle, never blended). The scripts in `Corpus/scripts/` rebuild everything; a mirror is in the
+gitignored `strategy-lab-data/corpus/`. Caveats: YouTube's caption endpoint answered HTTP 429 for
+most of the run, so 135 items are Whisper large-v3-turbo transcripts and 98 are YouTube ASR (one
+manual track); ASR mangles tickers and indicator names. 16 Camel Finance members-only videos were
+never requested, one Market Cipher video is unavailable and one TradingView page 404'd; all are in
+the manifest as not obtained. Bob Loukas has transcripts but no rules file (deferred), and 35
+educator videos plus the 2026-10-16 Camel daily arrived after their rules files were written.
+Dated calls are recorded but not yet scored against prices (TODO).
 ### Setup grader round 3, Market Cipher with Cipher SR location: run as pre-registered, No edge (2026-10-18)
 
 `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`. A new lab command, `setup-grader-mc3`, was built and

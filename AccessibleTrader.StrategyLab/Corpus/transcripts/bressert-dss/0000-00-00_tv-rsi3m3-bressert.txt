@@ -1,0 +1,131 @@
+Search
+EN
+Get started
+OPEN-SOURCE SCRIPT
+Updated Apr 12, 2025
+RSI3M3+ v.1.8
+ChartSource codeMore
+Add to favorites
+Use on chart
+76914
+13 933
+Mar 30, 2025
+RSI3M3+ v.1.8 Indicator
+This script is an advanced trading indicator based on Walter J. Bressert's cycle analysis methodology, combined with an RSI (Relative Strength Index) variation. Let me break it down and explain how it works.
+Core Concepts
+The RSI3M3+ indicator combines:
+A short-term RSI (3-period)
+A 3-period moving average to smooth the RSI
+Bressert's cycle analysis principles to identify optimal trading points
+RSI3M3+ Indicator VisualizationImage Walter J. Bressert's Cycle Analysis Concepts
+Walter Bressert was a pioneer in cycle analysis trading who believed markets move in cyclical patterns that can be measured and predicted. His key principles integrated into this indicator include:
+Trading Cycles: Markets move in cycles with measurable time spans from low to low
+Timing Bands: Projected periods when the next cyclical low or high is anticipated
+Oscillator Use: Using oscillators like RSI to confirm cycle position
+Entry/Exit Rules: Specific rules for trade entry and exit based on cycle position
+Key Parameters in the Script
+Basic RSI Parameters
+Required bars: Minimum number of bars needed (default: 20)
+Overbought region: RSI level considered overbought (default: 70)
+Oversold region: RSI level considered oversold (default: 30)
+Bressert-Specific Parameters
+Cycle Detection Length: Lookback period for cycle identification (default: 30)
+Minimum/Maximum Cycle Length: Expected cycle duration in days (default: 15-30)
+Buy Line: Lower threshold for buy signals (default: 40)
+Sell Line: Upper threshold for sell signals (default: 60)
+How the Indicator Works
+RSI3M3 Calculation:
+Calculates a 3-period RSI (sRSI)
+Smooths it with a 3-period moving average (sMA)
+Cycle Detection:
+Identifies bottoms: When the RSI is below the buy line (40) and starting to turn up
+Identifies tops: When the RSI is above the sell line (60) and starting to turn down
+Records these points to calculate cycle lengths
+Timing Bands:
+Projects when the next cycle bottom or top should occur
+Creates visual bands on the chart showing these expected time windows
+Signal Generation:
+Buy signals occur when the RSI turns up from below the oversold level (30)
+Sell signals occur when the RSI turns down from above the overbought level (70)
+Enhanced by Bressert's specific timing rules
+Bressert's Five Trading Rules (Implemented in the Script)
+Cycle Timing: The low must be 15-30 market days from the previous Trading Cycle bottom
+Prior Top Validation: A Trading Cycle high must have occurred with the oscillator above 60
+Oscillator Behavior: The oscillator must drop below 40 and turn up
+Entry Trigger: Entry is triggered by a rise above the price high of the upturn day
+Protective Stop: Place stop slightly below the Trading Cycle low (implemented as 99% of bottom price)
+How to Use the Indicator
+Reading the Chart
+Main Plot Area:
+Green line: 3-period RSI
+Red line: 3-period moving average of the RSI
+Horizontal bands: Oversold (30) and Overbought (70) regions
+Dotted lines: Buy line (40) and Sell line (60)
+Yellow vertical bands: Projected timing windows for next cycle bottom
+Signals:
+Green up arrows: Buy signals
+Red down arrows: Sell signals
+Trading Strategy
+For Buy Signals:
+Wait for the RSI to drop below the buy line (40)
+Look for an upturn in the RSI from below this level
+Enter the trade when price rises above the high of the upturn day
+Place a protective stop at 99% of the Trading Cycle low
+For Sell Signals:
+Wait for the RSI to rise above the sell line (60)
+Look for a downturn in the RSI from above this level
+Consider exiting or taking profits when a sell signal appears
+Alternative exit: When price moves below the low of the downturn day
+Cycle Timing Enhancement:
+Pay attention to the yellow timing bands
+Signals occurring within these bands have higher probability of success
+Signals outside these bands may be less reliable
+Practical Tips for Using RSI3M3+
+Timeframe Selection:
+The indicator works best on daily charts for intermediate-term trading
+Can be used on weekly charts for longer-term position trading
+On intraday charts, adjust cycle lengths accordingly
+Market Applicability:
+Works well in trending markets with clear cyclical behavior
+Less effective in choppy, non-trending markets
+Consider additional indicators for trend confirmation
+Parameter Adjustment:
+Different markets may have different natural cycle lengths
+You may need to adjust the min/max cycle length parameters
+Higher volatility markets may need wider overbought/oversold levels
+Trade Management:
+Enter trades when all Bressert's conditions are met
+Use the protective stop as defined (99% of cycle low)
+Consider taking partial profits at the projected cycle high timing
+Advanced Techniques
+Multiple Timeframe Analysis:
+Confirm signals with the same indicator on higher timeframes
+Enter in the direction of the larger cycle when smaller and larger cycles align
+Divergence Detection:
+Look for price making new lows while RSI makes higher lows (bullish)
+Look for price making new highs while RSI makes lower highs (bearish)
+Confluence with Price Action:
+Combine with support/resistance levels
+Use with candlestick patterns for confirmation
+Consider volume confirmation of cycle turns
+This RSI3M3+ indicator combines the responsiveness of a short-term RSI with the predictive power of Bressert's cycle analysis, offering traders a sophisticated tool for identifying high-probability trading opportunities based on market cycles and momentum shifts.
+THANK YOU FOR PREVIOUS CODER THAT EFFORT TO CREATE THE EARLIER VERSION THAT MAKE WALTER J BRESSERT CONCEPT IN TRADINGVIEW ADutchTourist
+Apr 12, 2025
+Release Notes
+added RSI trend state and RSI to price
+Open-source script
+In true TradingView spirit, the creator of this script has made it open-source, so that traders can review and verify its functionality. Kudos to the author! While you can use it for free, remember that republishing the code is subject to our House Rules.
+kromut76
+Follow
+Following
+Centered OscillatorsCycleseducational
+Disclaimer
+The information and publications are not meant to be, and do not constitute, financial, investment, trading, or other types of advice or recommendations supplied or endorsed by TradingView. Read more in the Terms of Use.
+Centered OscillatorsCycleseducational
+Open-source script
+In true TradingView spirit, the creator of this script has made it open-source, so that traders can review and verify its functionality. Kudos to the author! While you can use it for free, remember that republishing the code is subject to our House Rules.
+kromut76
+Follow
+Following
+Disclaimer
+The information and publications are not meant to be, and do not constitute, financial, investment, trading, or other types of advice or recommendations supplied or endorsed by TradingView. Read more in the Terms of Use.

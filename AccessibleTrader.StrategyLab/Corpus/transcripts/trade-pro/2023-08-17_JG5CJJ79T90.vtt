@@ -1,0 +1,851 @@
+WEBVTT
+
+00:00.000 --> 00:02.840
+Welcome, I just backtested this divergent strategy
+
+00:02.840 --> 00:04.760
+and the results are very impressive,
+
+00:05.080 --> 00:09.720
+76% win rate using a one to 1.5 risk to reward ratio,
+
+00:09.880 --> 00:12.940
+which is the best that I have personally tested
+
+00:12.940 --> 00:14.160
+on the channel so far.
+
+00:14.300 --> 00:15.620
+So I wanted to make a video,
+
+00:15.760 --> 00:18.840
+hopefully it helps someone create their own trading system
+
+00:18.840 --> 00:19.980
+that they can utilize.
+
+00:20.180 --> 00:23.000
+So let's talk about the strategy, the rules to it,
+
+00:23.160 --> 00:24.780
+stop loss placement, take profit target,
+
+00:24.900 --> 00:25.840
+things along those lines.
+
+00:25.980 --> 00:28.240
+And then I'll show the results of the backtesting
+
+00:28.240 --> 00:29.100
+that I've done so far.
+
+00:29.100 --> 00:31.220
+I've only backtested 51 trades so far.
+
+00:31.300 --> 00:34.280
+So that 76% win rate figure is based on
+
+00:34.280 --> 00:36.460
+that small sample of 51 trades.
+
+00:36.460 --> 00:38.860
+That was due to limitations of price data
+
+00:38.860 --> 00:40.260
+available on TradingView,
+
+00:40.520 --> 00:42.360
+although I'm gonna put it on the bar replay feature
+
+00:42.360 --> 00:43.400
+and double up on that.
+
+00:43.700 --> 00:44.940
+So we'll see in the future,
+
+00:45.080 --> 00:46.680
+but let's talk about the strategy,
+
+00:46.860 --> 00:49.320
+indicator, entry rules, everything like that.
+
+00:49.500 --> 00:51.400
+Before getting into the exact strategy rules,
+
+00:51.500 --> 00:53.260
+a quick shout out to my affiliates.
+
+00:53.580 --> 00:56.780
+First, we have a cryptocurrency exchange by Bit.
+
+00:56.840 --> 00:58.180
+If you're interested in trading crypto,
+
+00:58.180 --> 01:00.120
+check out my affiliate link in the description.
+
+01:00.360 --> 01:01.620
+There's also BitGet exchange,
+
+01:01.740 --> 01:02.880
+also for trading cryptocurrency.
+
+01:03.200 --> 01:05.360
+This one does not require KYC.
+
+01:05.620 --> 01:08.780
+So you are able to use this in the United States
+
+01:08.780 --> 01:10.660
+if you can't use Bybit.
+
+01:10.900 --> 01:13.660
+Now, both of these have a great track record of safety
+
+01:13.660 --> 01:15.660
+and have never been hacked.
+
+01:15.860 --> 01:19.720
+So great choices and safe exchanges to use.
+
+01:19.820 --> 01:22.100
+Now, let's get into the strategy rules,
+
+01:22.180 --> 01:23.820
+starting with the indicator itself.
+
+01:23.820 --> 01:25.940
+The one and only indicator being used
+
+01:25.940 --> 01:28.880
+for the strategy is called Market Liberator B.
+
+01:29.040 --> 01:31.720
+There are two other indicators very similar to this one.
+
+01:32.040 --> 01:36.140
+One is called the Vumanchu Cypher B plus divergences
+
+01:36.140 --> 01:38.540
+can be found for free in the indicator library.
+
+01:38.720 --> 01:42.260
+It's called Vumanchu Cypher B plus divergences
+
+01:42.260 --> 01:43.400
+here in the public library.
+
+01:43.840 --> 01:47.240
+There's another one out there called the Market Cypher B,
+
+01:47.240 --> 01:48.660
+which is very expensive.
+
+01:49.400 --> 01:52.300
+So I'd recommend going with one of these free options,
+
+01:52.420 --> 01:53.280
+Market Liberator B.
+
+01:53.700 --> 01:56.920
+I believe it was a small donation of any amount
+
+01:56.920 --> 01:58.120
+to get access to it.
+
+01:58.420 --> 02:00.700
+It was a long time ago that I got access to it.
+
+02:00.760 --> 02:01.980
+So I don't quite remember,
+
+02:02.080 --> 02:03.180
+but you can look it up online
+
+02:03.180 --> 02:05.080
+if you want the Market Liberator B
+
+02:05.080 --> 02:09.320
+or the Vumanchu free one in TradingView.
+
+02:09.320 --> 02:12.740
+So I am in no way affiliated
+
+02:12.740 --> 02:15.240
+with any of these indicators whatsoever.
+
+02:15.540 --> 02:19.080
+So use the free ones by all means.
+
+02:19.320 --> 02:22.680
+I'm not promoting these by any stretch of the imagination.
+
+02:22.940 --> 02:23.120
+Okay.
+
+02:23.260 --> 02:26.340
+I just am making a strategy with this indicator
+
+02:26.340 --> 02:28.680
+because it's a popular one
+
+02:28.680 --> 02:31.000
+and people are interested in this indicator.
+
+02:31.160 --> 02:31.320
+Okay.
+
+02:31.860 --> 02:34.140
+So let's get into the strategy rules here.
+
+02:34.620 --> 02:37.400
+So this is a regular divergence strategy.
+
+02:37.580 --> 02:39.020
+So what's a regular divergence?
+
+02:39.020 --> 02:40.320
+Well, there's two types.
+
+02:40.500 --> 02:42.520
+One is a regular bearish divergence
+
+02:42.520 --> 02:44.340
+and one is a regular bullish divergence.
+
+02:44.780 --> 02:46.880
+Regular bearish divergence would be
+
+02:46.880 --> 02:49.320
+when price is making a higher high,
+
+02:49.580 --> 02:52.180
+but an indicator is making a lower high.
+
+02:52.280 --> 02:53.800
+So we have an instance of that right here.
+
+02:54.040 --> 02:56.680
+We can see price makes a higher high right here,
+
+02:56.820 --> 02:59.000
+but our indicator, these blue waves,
+
+02:59.660 --> 03:01.140
+make a lower high.
+
+03:01.320 --> 03:01.500
+Okay.
+
+03:01.740 --> 03:03.020
+It's a regular bearish divergence.
+
+03:03.680 --> 03:05.960
+And then this green wave as well,
+
+03:05.960 --> 03:09.460
+we can see lower highs on this green wave,
+
+03:09.460 --> 03:12.980
+but each time price actually makes a higher high.
+
+03:13.040 --> 03:15.200
+So that's a regular bearish divergence.
+
+03:15.200 --> 03:16.220
+We have it here as well.
+
+03:16.660 --> 03:18.840
+So from this high here,
+
+03:18.960 --> 03:19.480
+this high here,
+
+03:19.560 --> 03:20.040
+this high here,
+
+03:20.100 --> 03:22.120
+we're getting higher highs on price,
+
+03:22.120 --> 03:24.480
+but lower highs on this green wave,
+
+03:24.580 --> 03:26.300
+lower high on this blue wave here.
+
+03:26.300 --> 03:26.860
+Okay.
+
+03:26.860 --> 03:28.620
+So that's a regular bearish divergence.
+
+03:29.440 --> 03:31.860
+And the rules for this strategy
+
+03:31.860 --> 03:34.760
+for entering a short position are first,
+
+03:34.900 --> 03:39.140
+we do need to see that we have the blue waves
+
+03:39.140 --> 03:41.880
+come up into the overbought territory.
+
+03:42.120 --> 03:42.280
+Okay.
+
+03:42.900 --> 03:45.040
+So above this upper line here,
+
+03:45.700 --> 03:49.160
+and that's the 60 level overbought territory,
+
+03:49.280 --> 03:49.760
+blue waves.
+
+03:49.940 --> 03:52.860
+Next thing we need to see is green waves,
+
+03:53.160 --> 03:54.360
+regular bearish divergence.
+
+03:54.360 --> 03:54.760
+Okay.
+
+03:54.820 --> 03:56.420
+So price makes higher high,
+
+03:56.900 --> 03:58.300
+but at the same time,
+
+03:58.360 --> 04:01.360
+we get green wave making a lower high.
+
+04:01.440 --> 04:02.240
+So we can see that here,
+
+04:02.420 --> 04:03.920
+lower highs on green waves.
+
+04:04.960 --> 04:06.800
+And that is confirmed.
+
+04:07.000 --> 04:08.560
+So once we have that,
+
+04:08.720 --> 04:11.060
+we're looking for a lower high cross down
+
+04:11.060 --> 04:13.480
+on our blue waves.
+
+04:13.640 --> 04:13.920
+Okay.
+
+04:14.440 --> 04:15.880
+So we get that right here,
+
+04:16.120 --> 04:17.640
+lower high cross down on the blue waves.
+
+04:18.080 --> 04:19.420
+That's our entry signal.
+
+04:19.560 --> 04:19.900
+Okay.
+
+04:20.620 --> 04:21.360
+Right here.
+
+04:21.820 --> 04:23.380
+Here's our cross down on this candle.
+
+04:23.380 --> 04:26.240
+Risk reward ratio is one to 1.5.
+
+04:26.420 --> 04:29.640
+Stop loss is placed at the high before the cross down.
+
+04:30.440 --> 04:31.860
+And that is the setup.
+
+04:32.040 --> 04:32.180
+Okay.
+
+04:32.260 --> 04:33.400
+So let's go to our next one.
+
+04:34.360 --> 04:34.940
+Next one,
+
+04:35.000 --> 04:38.020
+we see we get blue waves overbought territory.
+
+04:38.420 --> 04:40.600
+Now we're going to be looking for higher high on price,
+
+04:40.680 --> 04:41.860
+but lower high on blue waves.
+
+04:42.200 --> 04:42.960
+So you can see,
+
+04:43.020 --> 04:43.860
+we get that right here.
+
+04:44.920 --> 04:45.580
+Take a look.
+
+04:45.580 --> 04:48.120
+Green wave lower high,
+
+04:48.120 --> 04:50.640
+higher high on price.
+
+04:50.640 --> 04:51.320
+Okay.
+
+04:52.320 --> 04:55.340
+Now we're looking for a lower high cross down on the blue waves.
+
+04:55.880 --> 04:56.600
+Right here.
+
+04:56.720 --> 04:57.200
+We get it.
+
+04:57.280 --> 04:59.560
+So this is our entry right here on this candle.
+
+04:59.920 --> 05:02.620
+Stop loss placed to the high before the cross down.
+
+05:02.680 --> 05:03.400
+Right.
+
+05:03.400 --> 05:06.680
+Highest point of this.
+
+05:07.040 --> 05:07.260
+Okay.
+
+05:08.040 --> 05:12.740
+And then one to 1.5 versus toward ratio.
+
+05:12.960 --> 05:13.240
+Okay.
+
+05:13.900 --> 05:14.940
+Now let's move on.
+
+05:15.300 --> 05:16.440
+We have a buy setup.
+
+05:16.560 --> 05:20.640
+So now we're going to be looking for regular bullish divergence,
+
+05:20.800 --> 05:21.680
+not bearish divergence,
+
+05:21.820 --> 05:22.380
+bullish divergence.
+
+05:22.380 --> 05:24.300
+So what's a regular bullish divergence.
+
+05:24.300 --> 05:27.380
+It's when we have lower low on price action,
+
+05:27.500 --> 05:28.660
+but at the same time,
+
+05:28.720 --> 05:30.600
+a higher low on our indicator.
+
+05:30.840 --> 05:32.440
+So same thing,
+
+05:32.620 --> 05:33.620
+but the opposite.
+
+05:33.860 --> 05:37.900
+First thing we need to see is blue wave has gone into the oversold territory.
+
+05:37.900 --> 05:38.220
+Okay.
+
+05:38.220 --> 05:39.720
+So we get that a lot here.
+
+05:39.760 --> 05:42.180
+So that's valid on this move down.
+
+05:42.940 --> 05:48.940
+And then we're looking for our higher low on our red money flow wave,
+
+05:48.940 --> 05:51.660
+but a lower low on price.
+
+05:51.660 --> 05:54.680
+So first time we get that is here,
+
+05:54.820 --> 05:56.020
+this push down right here,
+
+05:56.020 --> 05:58.740
+this creates a lower low on price,
+
+05:58.740 --> 06:00.820
+but at the same time,
+
+06:00.820 --> 06:04.200
+there's a higher low here on our red wave.
+
+06:04.320 --> 06:04.720
+Okay.
+
+06:05.200 --> 06:07.080
+It's the first time it happens on this push down.
+
+06:07.740 --> 06:12.160
+Now we're looking for our higher low cross up on our blue waves.
+
+06:12.160 --> 06:16.320
+So zoom in here,
+
+06:17.600 --> 06:19.000
+cross up,
+
+06:19.500 --> 06:20.420
+higher low,
+
+06:20.420 --> 06:21.920
+cross up right here.
+
+06:22.440 --> 06:23.580
+So that's our entry.
+
+06:23.580 --> 06:24.040
+Okay.
+
+06:24.040 --> 06:29.040
+Entry candle stop loss goes to the low before this push up,
+
+06:29.040 --> 06:30.340
+right?
+
+06:31.220 --> 06:33.160
+One to 1.5 or stored ratio.
+
+06:33.360 --> 06:33.680
+Okay.
+
+06:34.200 --> 06:35.760
+Let's move on to the next setup.
+
+06:35.760 --> 06:38.540
+So our next valid setup.
+
+06:38.540 --> 06:42.000
+So another bullish regular divergence.
+
+06:42.000 --> 06:43.120
+Um,
+
+06:43.120 --> 06:45.060
+so we're looking at this coming down.
+
+06:45.060 --> 06:48.980
+We have our blue wave has gone over sold.
+
+06:48.980 --> 06:57.080
+And then we're looking for a higher low regular bullish divergence on the red money flow wave.
+
+06:57.080 --> 07:01.700
+So we're looking for a higher low cross up on the blue waves.
+
+07:01.700 --> 07:05.700
+And then we're looking for a higher low cross up on the blue waves.
+
+07:05.700 --> 07:14.320
+So here blue wave comes up comes down higher low cross up that's our entry.
+
+07:14.320 --> 07:22.360
+One to one or one to 1.5 versus toward ratio stop loss at the lows here hits profit target.
+
+07:22.360 --> 07:23.600
+And then we get another setup.
+
+07:23.600 --> 07:24.360
+Okay.
+
+07:24.360 --> 07:25.300
+Here's our next one.
+
+07:25.300 --> 07:28.280
+Lower low on price,
+
+07:28.280 --> 07:28.740
+right?
+
+07:28.740 --> 07:31.420
+We have oversold on our blue wave.
+
+07:31.420 --> 07:35.680
+Then we're looking for a higher low on the red waves at the same time.
+
+07:35.680 --> 07:37.360
+Price makes lower low here.
+
+07:37.360 --> 07:38.680
+Very clear.
+
+07:40.120 --> 07:45.980
+Here's our higher low cross up on the blue waves after we have those other factors in place.
+
+07:46.540 --> 07:48.120
+And then when that's our entry candle.
+
+07:48.940 --> 07:49.380
+Okay.
+
+07:49.720 --> 07:54.660
+Close of this confirmed cross up stop loss to the lows.
+
+07:56.080 --> 07:59.560
+One to 1.5 versus toward ratio profit targets hit over here.
+
+07:59.560 --> 08:02.480
+And then we actually have another one,
+
+08:02.480 --> 08:03.460
+a short set up here.
+
+08:03.460 --> 08:04.360
+So again,
+
+08:04.360 --> 08:09.160
+looking for regular bearish divergence this time for a short set up.
+
+08:09.940 --> 08:11.560
+So higher high on price.
+
+08:12.340 --> 08:16.040
+We have the blue waves have gone overbought here,
+
+08:16.040 --> 08:17.200
+right?
+
+08:18.160 --> 08:23.120
+We have a lower high on green money flow wave here.
+
+08:23.860 --> 08:25.000
+At the same time,
+
+08:25.060 --> 08:26.240
+price makes a higher high.
+
+08:26.820 --> 08:29.080
+So we're looking for a lower high cross down.
+
+08:29.080 --> 08:30.340
+Once we have all those factors,
+
+08:31.000 --> 08:33.040
+here's our lower high cross down on the blue waves.
+
+08:35.320 --> 08:39.480
+This candle stop loss to the high one to 1.5 versus toward ratio.
+
+08:40.360 --> 08:41.020
+There it is.
+
+08:41.380 --> 08:42.840
+Let's move on to our next setup.
+
+08:43.640 --> 08:45.160
+Here's another buy setup.
+
+08:45.160 --> 08:47.000
+So price comes down.
+
+08:47.000 --> 08:50.520
+We're looking for regular bullish divergence with the red wave.
+
+08:51.080 --> 08:51.460
+Okay.
+
+08:51.460 --> 08:53.380
+So coming down,
+
+08:53.380 --> 08:56.200
+we'll wait for a lower low.
+
+08:56.200 --> 08:57.880
+Here's a lower low right here.
+
+08:57.880 --> 09:02.660
+And we do have a higher low on our red wave here.
+
+09:03.620 --> 09:07.860
+But we don't get a higher low cross up on the blue wave till over here.
+
+09:08.740 --> 09:09.080
+Okay.
+
+09:09.080 --> 09:14.120
+And that actually happens right here on this candle.
+
+09:14.120 --> 09:18.080
+We actually get a lower low in between there.
+
+09:18.080 --> 09:19.440
+So this lower low,
+
+09:19.440 --> 09:23.040
+we have to make sure that that also has the regular bullish divergence,
+
+09:23.040 --> 09:23.600
+which it does.
+
+09:24.480 --> 09:26.880
+So lower low on price again,
+
+09:26.880 --> 09:30.560
+but making sure we still have the regular bullish divergence on the red waves,
+
+09:30.560 --> 09:32.240
+which we do higher low on red waves,
+
+09:32.240 --> 09:33.280
+lower low on price.
+
+09:33.280 --> 09:37.600
+And then we get our higher low cross up right here with our blue waves.
+
+09:38.320 --> 09:39.200
+So that's the entry.
+
+09:41.040 --> 09:43.600
+Then profit target is hit way over here.
+
+09:44.400 --> 09:45.920
+Quite a wide stop loss on that one.
+
+09:47.840 --> 09:50.640
+It's another entry right here in between there.
+
+09:51.520 --> 09:52.800
+So we get lower low on price.
+
+09:52.800 --> 09:54.480
+We're looking for regular bullish divergence,
+
+09:54.480 --> 09:55.040
+red wave.
+
+09:57.440 --> 09:58.080
+We have it.
+
+09:59.520 --> 10:01.440
+Makes higher low on the red waves.
+
+10:01.440 --> 10:04.320
+Make sure that our blue wave had gone into the oversold.
+
+10:05.040 --> 10:08.000
+Then we're looking for a higher low cross up on the blue wave.
+
+10:08.800 --> 10:09.040
+Okay.
+
+10:09.600 --> 10:11.440
+See it very clear.
+
+10:11.440 --> 10:14.160
+Here's our higher low cross up right here on this red candle.
+
+10:15.840 --> 10:20.080
+It's the entry one to 1.5 or stored ratio stop loss to the lows.
+
+10:20.640 --> 10:22.160
+Now that's the strategy.
+
+10:22.160 --> 10:23.280
+Pretty simple.
+
+10:23.280 --> 10:25.280
+Now let's get into the back testing.
+
+10:25.280 --> 10:27.360
+I'll just fast forward through that and go over the results.
+
+10:31.440 --> 10:44.560
+All right.
+
+10:44.560 --> 10:48.320
+Here are the results from 51 back tested trades.
+
+10:48.320 --> 10:52.080
+This one on Bitcoin against the US dollar using a 1 to 1.5
+
+10:52.080 --> 10:57.280
+versus to award ratio on a 15 minute time frame, which took three and a half months of price data.
+
+10:57.280 --> 11:00.000
+So 39 of those were winning trades.
+
+11:00.000 --> 11:00.960
+12 were losses.
+
+11:00.960 --> 11:06.320
+The win rate being 76% from that small sample of back tested trades.
+
+11:06.960 --> 11:09.840
+The most losses in a row was three and the most wins in a row was eight.
+
+11:09.840 --> 11:12.560
+The gain on the account 46.5%.
+
+11:12.560 --> 11:16.720
+And imagine for 100, you can essentially double all of these numbers.
+
+11:17.360 --> 11:21.680
+And that assumes a risk of 1% of the account equity per trade, also not compounding.
+
+11:21.680 --> 11:29.040
+So I don't want to put this on the strategy ranking spreadsheet because it's not a full 100 trades like all the other ones that I've tested.
+
+11:29.600 --> 11:31.200
+So it's not really a fair comparison.
+
+11:31.840 --> 11:36.320
+Although you can get a rough estimate if you double up on all of these figures.
+
+11:36.720 --> 11:38.880
+So, you know, it is what it is.
+
+11:38.880 --> 11:44.240
+I'm going to have to do a larger sample of back testing, get some more price data going to see the full results.
+
+11:45.040 --> 11:48.320
+And then we can put it on that strategy ranking spreadsheet.
+
+11:48.320 --> 11:49.760
+But here are the results for now.
+
+11:49.760 --> 11:51.840
+And thank you guys so much for watching.
+
+11:51.840 --> 11:58.080
+Don't forget, if you're interested in trading cryptocurrency, check out Bybit and BitGetExchange in the description.
+
+11:58.080 --> 11:59.120
+My affiliate links for those.
+
+11:59.120 --> 12:01.680
+And I appreciate you guys watching.
+
+12:01.680 --> 12:02.960
+Have a fantastic day.
+

@@ -1,0 +1,293 @@
+WEBVTT
+
+00:00.000 --> 00:04.640
+today we're going to be testing the vumanchu swing version 2 so let's get straight to it
+
+00:08.640 --> 00:13.760
+hey trader devs my name is david and welcome back to the channel where i go through trading
+
+00:13.760 --> 00:18.480
+strategies that i find on youtube and on the web i then code them to debunk the bad ones and find
+
+00:18.480 --> 00:24.320
+the good ones as i said i'm where today we're going to be looking at a trading strategy which
+
+00:24.320 --> 00:30.560
+is a swing trading strategy by vumanchu uh a strategy that uses a channel that he actually
+
+00:30.560 --> 00:35.520
+promotes on his discord channel uh the reason we're going to be doing this is that somebody
+
+00:35.520 --> 00:41.360
+suggested it to me on the on my discord that you can find the links below in the description
+
+00:41.360 --> 00:46.800
+and i got a bit interested into the strategy and found something on trading view so i thought we'd
+
+00:46.800 --> 00:53.760
+go out and test it okay as always if you'd like to add my strategies to your trading view you can
+
+00:53.760 --> 00:58.240
+find them all on trading view after a slight problem this week i've actually decided to make
+
+00:58.240 --> 01:04.320
+all of my trading view strategies private so that i don't have to waste my time going through the
+
+01:04.320 --> 01:11.360
+moderation periods and for waiting etc for a way for uh trading view so if you'd like to add my
+
+01:11.360 --> 01:16.320
+indicators which are still free uh you literally have to go to the website which is down in the
+
+01:16.320 --> 01:22.160
+description which is which is www.trader.dev you can find all that information down below so i guess the
+
+01:22.160 --> 01:26.240
+best thing now is to get to my computer and let's start coding and have a look at this strategy
+
+01:27.040 --> 01:31.040
+but if i can ask you if for a couple of seconds of your time if you do enjoy the video please don't
+
+01:31.040 --> 01:35.520
+forget to give me a big thumbs up it helps me to get a bit more known in the community and also if
+
+01:35.520 --> 01:41.440
+you want to see more videos of me uh and these strategies that's not me the strategies don't forget
+
+01:41.440 --> 01:47.600
+to subscribe okay let's get over to my computer okay here we are on my computer and giving credit where
+
+01:47.600 --> 01:53.200
+credit is due here is a rooman choose page on training for you if you want to find it you just
+
+01:53.200 --> 01:59.200
+have to literally search rooman chew on the trading view he has a couple of uh uh indicators that he's
+
+01:59.200 --> 02:04.960
+actually made made but he's mostly known for or i believe that he's mostly known for is the market
+
+02:04.960 --> 02:12.000
+cypher b uh decrypted the code that he did a market cypher b was an indicator which was made by crypto
+
+02:12.000 --> 02:18.000
+face and here which is a premium one and he actually decrypted it and made a free open source version
+
+02:18.000 --> 02:23.280
+he actually got the code from mainly from reddit and from other places and he stuck it all together
+
+02:23.280 --> 02:32.160
+and made an indicator which pretty much gives you the same example as and as market cypher b okay so
+
+02:32.160 --> 02:38.400
+what we're going to be looking at today is his premium indicator which is the market view manchu swing
+
+02:38.400 --> 02:46.560
+version two and this is one that he actually sells for about i think it's 0.01 of a bitcoin so quite
+
+02:46.560 --> 02:53.120
+expensive for a year uh and we're going to be decrypting that today so the reason i did this was
+
+02:53.120 --> 02:58.800
+because i was actually looking for the results of this on the page and somebody on my discord told me
+
+02:58.800 --> 03:04.640
+that it was a good indicator and i don't like always i like always say if it's a good indicator you should
+
+03:04.640 --> 03:10.240
+pay for it especially if it's an original indicator but this one i went through down all the way down
+
+03:10.240 --> 03:19.040
+to the uh the comments and the first thing that i saw was don't buy this yep uh simply search for
+
+03:20.080 --> 03:27.840
+range filter and put it at settings 9 and 1.9 it's a copy of another indicator and snapped on over
+
+03:27.840 --> 03:34.160
+two to four hundred dollar charge which i think is a lot more than that now okay so that is what i did
+
+03:34.160 --> 03:39.200
+i'm gonna go away and see if i can find that indicator which of course you know me i did and
+
+03:39.200 --> 03:43.360
+we're gonna have a look at that one now okay so i found the one that they were talking about and as
+
+03:43.360 --> 03:50.080
+you can see it looks a damn sight like it so it's this indicator here when you put the two together
+
+03:50.080 --> 03:57.440
+it actually seems to give exactly the same entries and the exactly same exits uh this was inspired by the
+
+03:57.440 --> 04:04.880
+qqe which we looked at in another video and uh we've got the code here so i'm gonna go and copy
+
+04:04.880 --> 04:11.280
+all of that code into a strategy so that we can back test it to see if it's any good right let's get
+
+04:11.280 --> 04:17.760
+over to trading view and have a look at the strategy itself right okay here we are on the strategy
+
+04:18.720 --> 04:24.320
+and as i said which is based on the qee i just put that there just to show you if i remove that now
+
+04:24.320 --> 04:31.440
+all we have is our red and green and cloud here and this i literally went over to indicators at the
+
+04:31.440 --> 04:39.040
+top here and clicked indicators and i literally went and searched for range filter dw now i'm going to
+
+04:39.040 --> 04:44.640
+convert this into a strategy so let's have a look at the strategy and how it works so the idea is is
+
+04:44.640 --> 04:50.160
+okay so the idea of this indicator is like many channel indicators when we cross over the top into
+
+04:50.160 --> 04:55.280
+the green area and we actually even break above the green cloud we're going to be taking a long
+
+04:55.280 --> 05:00.480
+and when we're in the shorts we're going to be going into the red area and so when we're below
+
+05:00.480 --> 05:05.440
+that red area i'm closing below it we're actually going to be taking a short so let's get back to the
+
+05:05.440 --> 05:10.160
+computer and have a look at that now back at the chart i've actually just put the dark thing back on
+
+05:10.160 --> 05:15.280
+because it was glaring my eyes out while i was trying to do the video so anyway right so we're looking
+
+05:15.280 --> 05:21.680
+for a long position here so if i go here the first one that jumps out to my eyes is here this one here
+
+05:21.680 --> 05:29.520
+as we climb above the green uh cloud here as you can see we're going to actually enter around there
+
+05:29.520 --> 05:35.440
+now we don't have a stop loss in the strategy it literally is we're following the trend until
+
+05:36.160 --> 05:43.200
+we come below the red and close a candle below the red so this one would actually go all the way
+
+05:44.000 --> 05:50.720
+from this candle all the way up here and then come back down and we would actually exit here where
+
+05:50.720 --> 06:01.040
+we'd enter a short so this would have been a win of this is roughly speaking here roughly about 3.2 to
+
+06:01.040 --> 06:09.520
+3.5 percent and then the other way around as this comes outside of the uh cloud here we would have added
+
+06:09.520 --> 06:18.640
+a short position here so we would have converted our uh our long into a short no stop loss and we're
+
+06:18.640 --> 06:24.080
+literally going to be following it all the way down until we come back outside of the cloud over here
+
+06:24.720 --> 06:31.200
+now i'm sure there is better ways of finding an exit uh but let's have a look so we come out of it
+
+06:31.200 --> 06:36.080
+here we come all the way down we come all the way down here and then we come all the way back up where we
+
+06:36.080 --> 06:46.160
+would have exited here so we would have made roughly speaking about 3.8 percent now the exit
+
+06:46.160 --> 06:53.280
+indicator doesn't look great to me but the entries seem quite good so let's back test this with code
+
+06:53.280 --> 06:56.800
+to see how it works right first thing i'm going to do is going to have a look at the code here we're
+
+06:56.800 --> 07:02.720
+going to copy and paste that code as always into my indicator and we're going to create a uh our own
+
+07:02.720 --> 07:08.400
+uh back testing so we can back test it and you'll be able to download that on trading view so you
+
+07:08.400 --> 07:12.480
+can back test it and use it with bots etc as always right let's get started
+
+07:17.280 --> 07:23.920
+right here we are back at the indicator okay i've literally done as uh i said it didn't take me very
+
+07:23.920 --> 07:30.320
+long because it was uh one indicator only so we're just looking at this indicator uh in for entries and
+
+07:30.320 --> 07:36.960
+exits so right okay as i said earlier as price comes above the green area we're going to take
+
+07:36.960 --> 07:43.200
+a buy position as it and follow all the way up until it goes into the red area and then when it's
+
+07:43.200 --> 07:51.920
+red we're going to do exactly the opposite excuse me right okay so that is what we've done now what i
+
+07:51.920 --> 07:57.520
+guess what the best thing to do is have a look at the actual uh back test results because i think
+
+07:57.520 --> 08:03.120
+they're actually quite impressive drum roll please let's have a look at the back testing results okay
+
+08:03.120 --> 08:10.960
+as expected they're quite good as you can see we have a 45.2 profitable percent profitable so i reckon
+
+08:10.960 --> 08:16.240
+that we could probably do better than that uh with maybe some confluence with other indicators but it
+
+08:16.240 --> 08:26.400
+certainly is good we have a quite a large max drawdown of 21.91 which could i reckon also be improved by
+
+08:26.400 --> 08:34.800
+adding something either the adx to filter out bad trades or something like that average trade is 6.84
+
+08:35.920 --> 08:45.680
+and we've closed 177 trades and the net profit is 1211.55 percent on the account which is absolutely
+
+08:45.680 --> 08:51.760
+amazing so if there let's have a look very quickly at the list of trades to see that when that was since
+
+08:51.760 --> 09:02.320
+so that was 2019 so it's uh just over two years almost no just two years so uh still a very good
+
+09:02.320 --> 09:11.120
+percentage for two years 1100 and 1211 in two years who could complain i mean very good and that's only
+
+09:11.120 --> 09:17.280
+on bitcoin as i said earlier you could actually use it on other uh other currencies if we chucked it over
+
+09:17.280 --> 09:26.160
+across to ethereum what would that give us that give us a further 200 and a 41 uh win rate now he
+
+09:26.160 --> 09:31.280
+actually suggests that we put this on the 15 minute i'm actually on the one hour so let's have a look
+
+09:31.280 --> 09:38.160
+at the 15 minute that's actually taking us down to 39.87 but maybe if we play around with the settings
+
+09:38.160 --> 09:44.960
+we could get that better as well okay at first view this seems to be quite a good strategy who can
+
+09:44.960 --> 09:51.680
+complain about 1200 in two years so if it's if it really is true it could be quite good i'm going
+
+09:51.680 --> 09:57.840
+to continue uh testing this strategy in my discord i will also update you if it's good in my youtube
+
+09:57.840 --> 10:06.560
+stories you can also join me uh in discord where i do live coding and live trading every day from 9am
+
+10:06.560 --> 10:13.280
+until midday the link to my patreon is down in the description where you can join me okay i hope you
+
+10:13.280 --> 10:17.760
+enjoyed this if you did please don't forget to give me a big thumbs up and don't forget to subscribe
+
+10:17.760 --> 10:22.720
+if you want to add the indicator to your trading view the link is also down in the description
+
+10:22.720 --> 10:28.000
+and without further ado i'm going to wish you a lovely day and say keep safe and keep coding have a
+
+10:28.000 --> 10:40.720
+good day goodbye
+

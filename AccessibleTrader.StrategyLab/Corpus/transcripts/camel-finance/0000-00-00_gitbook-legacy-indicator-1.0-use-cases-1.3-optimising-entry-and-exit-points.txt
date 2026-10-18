@@ -1,0 +1,6 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/use-cases-1.3/optimising-entry-and-exit-points.md).
+# OPTIMISING ENTRY AND EXIT POINTS:
+### **Example (Hypothetical):**
+A swing trader, aiming to improve their trading performance, customized the CF Cycle Trading Indicator to focus on detecting Weekly Cycle Lows (WCL) across multiple assets. By combining the signals from the indicator with other technical analysis tools, they were able to refine their entry and exit points.
+### **Outcome:**
+In this hypothetical scenario, the trader used the indicator's WCL signals to enter positions closer to market lows and exit near highs, leading to improved performance. This example illustrates how the CF Cycle Trading Indicator can be integrated into a broader trading strategy. However, please note that this is a theoretical use case, and the actual effectiveness of the indicator will depend on various factors, including market conditions and individual trading decisions.

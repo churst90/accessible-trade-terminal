@@ -1,0 +1,177 @@
+TC2000 Help Site
+Help articles for TC2000 software, EasyScan stock & option screener, charting, trading functions, technical indicators, company fundamentals, formula writing and troubleshooting.
+Double Smoothed Stochastic Bressert
+The DSS Bressert indicator was developed by Walter Bressert. It is smoother than a regular stochastic indicator but can be interpreted in generally the same way with 30 considered oversold and 70 considered overbought.
+The calculations start with a normal raw stochastic. This stochastic is smoothed by an exponential moving averages before another raw stochastic is taken of the result. Then a second exponential moving average of the same period is applied to this second stochastic.
+Custom PCF Formula
+/// <desc>Smoother than a regular stochastic indicator but can be interpreted in generally the same way with 30 considered oversold and 70 considered overbought.</desc>
+/// <tag>DSS Bressert</tag>
+param #StocPeriod = 14 /// <desc></desc>
+param #kPeriod = 5 /// <desc></desc>
+param #dPeriod = 1 /// <desc>Set to 1 if you want the %k.</desc>
+100 * XAVG(XAVG((XAVG(STOC#StocPeriod, #kPeriod) - MIN(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod)) / (MAX(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod) - MIN(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod)), #kPeriod), #dPeriod)
+Click to copy
+Edit steps:
+Plot style--choose display style (default is Line)
+Plot color--user choice (grey selected for example)
+Period--choose period for indicator (correct for this indicator, 1)
+Average Type--choose average type (default is Simple)
+Formula:
+Green text preceded by /// is description and not used in calculation
+param #StocPeriod = lets you set the lookback period for the Stochastic (14 is default)
+param #kPeriod = set smoothing value for %k of Stochastic (5 is default)
+param #dPeriod = set smoothing value for %d of Stochastic (1 is default)
+Formula: 100 * XAVG(XAVG((XAVG(STOC#StocPeriod, #kPeriod) - MIN(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod)) / (MAX(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod) - MIN(XAVG(STOC#StocPeriod, #kPeriod), #StocPeriod)), #kPeriod), #dPeriod)
+Line style--choose display style for indicator (solid, dotted, dashed)
+Line width--select from different widths for line
+Conditional Colors--set color of indicator based on conditions created (none in default)
+Plot opacity--select display opacity for indicator
+Data source--choose data on which indicator is calculated (Main Chart is default)
+Label--name to be displayed in the indicator pane
+Add %d Plot.
+Click indicator name in plot pane. Select Add Plot Here
+Enter "moving" in type to Search and select Moving Average - Exponential from the list
+An exponential moving average is added to the plot. Click the EMA name in the pane and select Edit
+Set EMA period to 5 (and adjust any other settings as desired)
+To display horizontal lines on chart, click the indicator name in the plot and choose Horizontal Line
+Create a Green line at the 70 value and a red line at the 30 value.
+To set the correct scaling method for the plot, click the indicator name in the plot and choose Scaling
+Select Scale Method: 0 to100
+Prev:
+Double Exponential Moving Average
+Next:
+Ease of Movement
+Topics
+Basics
+8
+How to create and save an Indicator (PCF) Formula
+How to create and save a Condition (PCF) Formula
+How to access your Boolean (True/False) Conditions
+Introduction To Functions
+Navigating the PCF Functions, Parameters, and Constants Menu
+Parameters and Constants
+Using Comments in the PCF Editor
+Bubbling Up Parameters
+Designing your own PCFs
+4
+How to Design Basic Indicator Formulas (PCFs)
+How to design more complex Indicator Formulas
+How to design your own Condition Formulas
+How to use Net and Percent Difference in Formulas
+PCF Syntax
+8
+Personal Criteria Formula Syntax Table
+Built-in Indicators Table
+Mathematical Operators and Functions Table
+Boolean Relational Operators and Functions Table
+Boolean Logical Operators Truth Table
+Inline IF and converting conditions to indicators
+Trigonometric Functions Table
+Hyperbolic Functions Table
+Types of PCF Indicators
+5
+Custom PCF Indicator
+Custom PCF % True Indicator
+Custom PCF Channel Indicator
+Custom PCF Cumulative Indicator
+How To Create a Custom PCF Child Indicator
+Indicator Formula Templates
+67
+Indicator Formula Template Table
+Acceleration Bands
+Aroon & Aroon Oscillator
+Average Daily Range (ADR)
+Average True Range (ATR)
+Balance of Power® (BOP)
+Bollinger %b
+Bollinger Bands®
+Bollinger Bandwidth
+Chaikin Money Flow
+Chaikin Oscillator
+Chande Momentum Oscillator
+Commodity Channel Index
+ConnorsRSI
+Coppock Curve
+Derivative Oscillator
+Directional Movement +DI -DI ADX
+Detrended Price Oscillator
+Dollar Volume
+Donchian Channels
+Double Exponential Moving Average
+Double Smoothed Stochastic Bressert
+Ease of Movement
+Elder Force Index
+Elder Ray Bull & Bear Power
+Elliott Wave Oscillator
+Envelope Channels
+Exponential Moving Average Function
+Fisher Transform
+Heiken-Ashi Candles (HA)
+Historical Volatility
+Historical Volatility Ratio
+Kaufman Efficiency Ratio
+Keltner Channels
+Linear Regression Line & Moving Linear Regression
+MACD & MACD Histogram
+Mass Index
+Momentum
+Money Flow Index
+MoneyStream®
+Moving Average
+On Balance Volume
+Percent Volume Oscillator (PVO)
+Pivot Points
+Price Percent Oscillator & Histogram
+Rate of Change & Rate of Change Percent
+RSI & Wilder's RSI
+R-Squared (R^2)
+SMI Ergodic Indicator and Oscillator
+Standard Deviation
+Stochastic Oscillator
+Stochastic Momentum Index (SMI)
+Tilson T3 Moving Average
+Time Segmented Volume®
+Triple Exponential Moving Average (TEMA)
+Time Series Forecast
+TRIX
+True Strength Index
+Twiggs Money Flow
+VWAP & Moving VWAP
+Volume Weighted Moving Average
+Williams Acceleration/Deceleration
+Williams Accumulation/Distribution
+Williams Alligator
+Williams Awesome Oscillator
+William's %R
+Worden Stochastics
+Condition Formula Templates
+1
+Condition Formula Template Table
+Candlestick Patterns
+23
+Basic Candle Formulas Table
+Bullish Candlestick Patterns Formulas Table
+Bearish Candlestick Patterns Formulas Table
+Pre-Built Candlestick Pattern Formulas
+Black Candle
+Black Closing Marubozu Candle
+Black Marubozu Candle
+Black Opening Marubozu Candle
+Closing Marubozu Candle
+Doji Candle
+Long Candle
+Long Black Candle
+Long White Candle
+Marubozu Candle
+Opening Marubozu Candle
+Short Candle
+Short Black Candle
+Short White Candle
+True Doji Candle
+White Candle
+White Closing Marubozu Candle
+White Marubozu Candle
+White Opening Marubozu Candle
+Print Article
+TC2000 platform & data subscriptions are offered by TC2000 Software Company ("TCS"). Securities brokerage services are offered by TC2000 Brokerage, Inc. ("TCB"), a registered broker dealer, member FINRA/SIPC. TCS and TCB are separate companies affiliated through common ownership.
+TC2000.com | 1-800-776-4940 | PO Box 1139 | Wilmington, NC 28402 | [email protected] | [email protected]

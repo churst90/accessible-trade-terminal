@@ -1,0 +1,18 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0.md).
+# CF CYCLE TRADING INDICATOR - 1.0
+## INTRODUCTION
+Welcome to the CF Cycle Trading Indicator Deep-dive!
+👨‍💻 This section is your gateway to mastering the CF Cycle Trading Indicator, a powerful tool designed to simplify and enhance your cycle trading strategies.
+We've organised everything into easy-to-navigate sections, so be sure to click on all the arrows to dive deeper into the features, benefits, and practical applications of this innovative product.
+Explore each section to uncover how this indicator can transform your trading experience, save time, and help you make more informed decisions.
+Happy exploring 👇
+## WHAT YOU WILL FIND IN THIS DEEP-DIVE
+Press The Arrow On Each Section To Find Out More!
+Overview
+A broad understanding of the purpose of the CF Cycle Trading Indicator and why proper setup is crucial.
+Features Deep-dive
+A detailed exploration of the indicator's core functionalities, including cycle detection, top translations, and multi-asset compatibility.
+Use Cases
+Hypothetical scenarios that illustrate how the indicator can be applied in real-world trading situations to optimise your strategies.
+Summary
+A recap of the CF Cycle Trading Indicator’s benefits and utility, ensuring you have a solid understanding of its value before moving on to the next chapter.

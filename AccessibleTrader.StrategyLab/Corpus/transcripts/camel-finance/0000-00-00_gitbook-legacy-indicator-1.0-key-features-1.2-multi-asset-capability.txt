@@ -1,0 +1,9 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/multi-asset-capability.md).
+# MULTI-ASSET CAPABILITY:
+### 🌍 **Versatility Across Assets:**
+Whether you're trading stocks, commodities, or cryptocurrencies, the CF Cycle Trading Indicator works seamlessly across a wide range of asset classes. Currently, the indicator supports the following assets and timeframes:
+Check out what assets work with our indicator below!
+**CF Cycle Trading Indicator Supported Assets:**
+This versatility ensures that you can apply your cycle trading strategy to any of these markets, enhancing your ability to capitalise on opportunities wherever they arise. Additionally, more assets will be added in the future, further expanding the tool's utility and reach across various markets.
+### **🖥️ Timeframes:**
+The indicator is optimised for use on the daily timeframe, where it has been perfected to provide the most accurate cycle analysis. While it remains adaptable to various trading styles and timeframes, its precision on the daily chart ensures that traders can rely on it for both short-term cycles and longer-term trends, making it a versatile tool for any trading strategy.

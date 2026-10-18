@@ -1,0 +1,22 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/indicator-training-and-support.md).
+# Indicator Training & Support
+### What is included
+Your subscription includes guided resources to help you set up, understand, and use the indicator properly.
+These materials are built to make the indicator easier to apply from day one.
+### Included with your subscription
+* Setup help for TradingView access and chart installation
+* Quick start guidance to get the indicator running fast
+* Walkthroughs for adjusting settings, colours, and visibility
+* Clear explanations of the main features and chart signals
+* Troubleshooting help for common access or display issues
+* Extra support options if you need more help
+### Why it helps
+These resources are here to help you:
+* set the indicator up correctly
+* understand what each feature is showing
+* adjust the chart to fit your style
+* fix common issues quickly
+* use the indicator with more confidence and consistency
+### More than the script
+The subscription includes more than indicator access.
+It also gives you the guidance needed to use the tool properly and get more value from it.

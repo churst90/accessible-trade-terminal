@@ -1,0 +1,24 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/cycle-translation.md).
+# Cycle Translation
+Spot Cycle Tops. Understand Market Strength. Anticipate the Next Move.
+Cycle Translation helps you understand how each market cycle unfolded — giving powerful insights into trend direction, exhaustion, and reversal zones. Whether you’re swing trading or managing long-term positions, knowing whether a cycle topped early, mid, or late can drastically sharpen your decision-making.
+This feature breaks cycles into three clear types:
+* 🟥 Left-Translated Cycles (LTR) – Bearish bias, cycle tops early
+* 🟧 Mid-Translated Cycles (MTR) – Neutral balance, tops mid-cycle
+* 🟩 Right-Translated Cycles (RTR) – Bullish bias, cycle tops late
+***
+#### ⚙️ Cycle Translation Settings Box
+Full Customisation, Maximum Clarity
+* Toggle Display: Turn cycle tops on/off to focus on key reversals
+* Icon Colour Coding:
+* 🔴 Left-Translated = Early top (potential weakness ahead)
+* 🟠 Mid-Translated = Balanced cycle
+* 🟢 Right-Translated = Late top (strong cycle momentum)
+* Size Adjustments: Scale icons for optimal visibility on any chart style
+***
+#### 📊 Real Chart Examples
+Here’s how each cycle type appears on live charts:
+***
+Cycle Translation is the context layer that brings it all together. By looking at how each past cycle behaved, you gain the foresight to navigate the next one with confidence.
+Pair it with Future Cycle Low Range (FCLR) and Confluence Signals to build a complete, probability-weighted strategy.
+***

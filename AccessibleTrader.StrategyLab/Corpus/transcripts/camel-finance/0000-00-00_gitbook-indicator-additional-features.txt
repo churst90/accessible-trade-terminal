@@ -1,0 +1,27 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features.md).
+# Additional Features
+These additional features expand the indicator beyond core cycle detection.
+They add alerts, chart context, macro awareness, and asset-specific tuning to help traders work with more precision and flexibility.
+### Browse Additional Features
+TitleOpen
+Alerts
+Real-time TradingView alerts for key cycle events, confirmations, and updates.Alerts
+Cycle Arcs
+Visual timing arcs that help map cycle rhythm, symmetry, and potential turning zones.Cycle Arcs
+SMA
+A built-in moving average for trend direction, momentum context, and confirmation.SMA
+Cycle Count Number
+Shows the number of bars between cycle lows to help track duration and symmetry.Cycle Count Number
+US Macro Data
+Displays key US economic data directly on the chart for added macro context.US Macro Data
+Cycle Low Windows
+Tracks how mature current daily and weekly cycles are to improve timing awareness.Cycle Low Windows
+Asset Cycle Count
+Shows expected cycle ranges for fine-tuned assets to keep timing in sync.Asset Cycle Count
+Finetuned Asset Detection
+Auto-detects supported assets and timeframes so the indicator runs in the right conditions.Finetuned Asset Detection
+Finetuned Asset Selection
+Lets you apply pre-optimised cycle templates for stronger asset-specific analysis.Finetuned Asset Selection
+Asset Count Adjustment
+Fine-tune cycle settings manually to better match specific assets or trading styles.Asset Count Adjustment
+Together, these tools turn the indicator into a more complete trading toolkit.

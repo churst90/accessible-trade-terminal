@@ -1,0 +1,25 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/cycle-count-number.md).
+# Cycle Count Number
+Quantify the Rhythm. Track Cycle Duration with Precision.
+This feature allows you to visually display the number of bars between each Daily Cycle Low (DCL) and Weekly Cycle Low (WCL) — giving you a quick read on how long each cycle has lasted.
+It’s perfect for traders who want to:
+✅ Spot irregularities
+✅ Validate cycle symmetry
+✅ Fine-tune timing windows
+***
+#### ⏱ What It Shows
+* 🟢 DCL Number
+Displays the number of days between each Daily Cycle Low, helping you monitor short-term cycle duration across assets.
+* 🔵 WCL Number
+Displays the number of weeks between each Weekly Cycle Low, offering a clear view of medium-term rhythm.
+{% embed url="" %}
+***
+#### ⚙️ Settings Box Overview
+You can customise this feature in a few simple ways:
+* Toggle ON/OFF
+Turn the count labels on or off at any time.
+* Choose Colour Per Cycle Type
+Adjust colours to match your chart theme and distinguish between DCL and WCL counts.
+* Precision Across Timeframes
+Automatically adapts to your selected chart timeframe — showing days on the daily chart, and weeks on the weekly chart.
+***

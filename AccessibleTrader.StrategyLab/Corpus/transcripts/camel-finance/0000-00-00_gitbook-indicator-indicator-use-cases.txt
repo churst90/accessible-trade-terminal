@@ -1,0 +1,16 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/indicator-use-cases.md).
+# Indicator Use Cases
+**Important Notice**
+The following examples are provided for educational purposes only and are intended to illustrate how the CF Cycle Trading Indicator can be used as part of a broader analytical framework. They do not constitute financial advice, investment recommendations, or a guarantee of any outcome. All trading involves risk, and past performance is not indicative of future results. You are solely responsible for your own trading decisions.
+***
+**Identifying Market Tops**
+Left-Translated Cycles (LTR) occur when a cycle peaks earlier than the midpoint, which cycle analysts often associate with weakening market structure. Traders who use cycle analysis may monitor for LTR patterns as one signal among many when reviewing their overall market positioning. The CF Cycle Trading Indicator is designed to help identify these patterns — how a trader responds to that information is always a matter of individual judgement and strategy.
+***
+**Optimising Entry and Exit Points**
+Weekly Cycle Lows (WCL) mark recurring points of potential support within a broader cycle structure. Some traders combine WCL signals from the indicator with other technical analysis tools as part of their broader decision-making process. The indicator is designed to surface these cycle points clearly — it does not provide buy or sell signals, and should always be used alongside your own analysis.
+***
+**Managing Risk in Volatile Markets**
+In volatile markets, tracking Daily Cycle Lows (DCL) and Weekly Cycle Lows (WCL) can help traders maintain awareness of where they are within a cycle. Some traders use this context when reviewing position sizing or stop placement. The indicator surfaces these cycle points to support your analysis — risk management decisions remain entirely with the individual trader.
+***
+**Understanding Long-Term Cycle Structure**
+Yearly Cycle Lows (YCL) represent significant points within longer-term market cycles, often studied by traders and investors looking to understand broader market timing. The CF Cycle Trading Indicator can help identify these points across major indices and assets. This information is intended as one input within a wider analytical framework — not as investment advice or a timing signal.
