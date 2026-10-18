@@ -114,8 +114,10 @@ public sealed class CftcCotProvider : IIndicatorProvider
         Console.WriteLine($"  [CFTC_COT] {ticks.Count} weekly COT rows loaded for {symbolKey}");
 
         // Forward-fill weekly COT onto daily bars. COT publishes every Friday for the prior
-        // Tuesday's positions, so the value is "stale by Tuesday" — we use it from the file's
-        // own timestamp (the Tuesday-of-record) onward, ensuring no lookahead.
+        // Tuesday's positions. The ticks arrive stamped at the Friday RELEASE: the downloader
+        // writes release dates, and SnapshottingCrossSeriesCache moves the older report-dated
+        // files' points (until 2026-10-18 this comment said the Tuesday stamp was "no lookahead";
+        // it was three days of it).
         int tickIdx = 0;
         var hist = new List<double>(n);
         for (int i = 0; i < n; i++)

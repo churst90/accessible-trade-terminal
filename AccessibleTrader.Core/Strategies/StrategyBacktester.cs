@@ -265,6 +265,13 @@ public class StrategyBacktester : IStrategyBacktester
         double openRemainingQty = 0;
         DateTime openTime = default;
         double? openStop = null;
+        // The stop the position was OPENED with. `openStop` moves (breakeven, ATR trail) and is
+        // what the exit checks test against; this one never moves, and it is what every exit
+        // row's StopPrice carries, because R is measured against the risk taken at entry. Until
+        // 2026-10-18 the rows carried `openStop`, so after a breakeven move every later row had
+        // zero risk and was dropped from Average R, and a trailed runner was divided by the
+        // trail's distance — a 2R/4R ladder that reached 4R scored +2R.
+        double? openInitialStop = null;
         int openBarIndex = 0;
         // TP ladder queues — popped as each rung hits. Mirrors so prices and portions advance together.
         var openTpPrices    = new Queue<double>();
@@ -444,7 +451,7 @@ public class StrategyBacktester : IStrategyBacktester
                         openTime, openEntryPrice, openSide.Value, openRemainingQty,
                         bar.Date, exitPrice, pnl,
                         stopMovedToBreakeven ? "Breakeven stop" : "Stop hit",
-                        StopPrice:   openStop,
+                        StopPrice:   openInitialStop,
                         BarsInTrade: i - openBarIndex,
                         FeatureSnapshot: openFeatureSnapshot,
                         PositionId: positionId));
@@ -499,7 +506,7 @@ public class StrategyBacktester : IStrategyBacktester
                     openTime, openEntryPrice, openSide.Value, closeQty,
                     bar.Date, fillPx, pnl,
                     $"TP rung hit at {tpPrice:F4}",
-                    StopPrice:   openStop,
+                    StopPrice:   openInitialStop,
                     BarsInTrade: i - openBarIndex,
                     FeatureSnapshot: openFeatureSnapshot,
                     PositionId: positionId));
@@ -592,7 +599,7 @@ public class StrategyBacktester : IStrategyBacktester
                         openTime, openEntryPrice, openSide.Value, openRemainingQty,
                         data[i + 1].Date, fillPrice, pnl,
                         $"Reversed by {signal.Rationale}",
-                        StopPrice:   openStop,
+                        StopPrice:   openInitialStop,
                         BarsInTrade: (i + 1) - openBarIndex,
                         FeatureSnapshot: openFeatureSnapshot,
                         PositionId: positionId));
@@ -611,6 +618,7 @@ public class StrategyBacktester : IStrategyBacktester
                 openRemainingQty = qty;
                 openTime = data[i + 1].Date;
                 openStop = signal.StopLoss;
+                openInitialStop = signal.StopLoss;
                 openBarIndex = i + 1;
                 stopMovedToBreakeven = false;
                 openStopAdjust = signal.StopAdjust;
@@ -672,7 +680,7 @@ public class StrategyBacktester : IStrategyBacktester
             trades.Add(new BacktestTrade(
                 openTime, openEntryPrice, openSide.Value, openRemainingQty,
                 lastBar.Date, fillPrice, pnl, "End of data",
-                StopPrice:   openStop,
+                StopPrice:   openInitialStop,
                 BarsInTrade: (data.Count - 1) - openBarIndex,
                 FeatureSnapshot: openFeatureSnapshot,
                 PositionId: positionId));
@@ -733,15 +741,11 @@ public class StrategyBacktester : IStrategyBacktester
         // R-multiple metrics — only meaningful when stops were provided in the entry signals.
         // ConfigurableStrategy emits StopLoss; the legacy built-in strategies (SMA cross, RSI,
         // BB) do not — for those the R fields will be NaN, which the modal renders as "—".
-        var rMultiples = new List<double>();
-        foreach (var t in trades)
-        {
-            if (!t.StopPrice.HasValue || !t.ExitPrice.HasValue) continue;
-            double riskPerUnit = t.Side == OrderSide.Buy ? t.EntryPrice - t.StopPrice.Value : t.StopPrice.Value - t.EntryPrice;
-            if (riskPerUnit <= 0) continue;
-            double rewardPerUnit = t.Side == OrderSide.Buy ? t.ExitPrice.Value - t.EntryPrice : t.EntryPrice - t.ExitPrice.Value;
-            rMultiples.Add(rewardPerUnit / riskPerUnit);
-        }
+        //
+        // One R per POSITION, the same list the bootstrap CI resamples (BootstrapCi.ExtractRs):
+        // the quantity-weighted sum of its exits over the initial risk. Averaging exit ROWS
+        // counted a two-rung ladder twice and a one-row loser once.
+        var rMultiples = Services.Strategies.BootstrapCi.ExtractRs(trades);
         double avgR       = rMultiples.Count > 0 ? rMultiples.Average() : double.NaN;
         double expectancy = avgR; // expectancy in R per trade is the same statistic
 

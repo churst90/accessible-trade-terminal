@@ -208,9 +208,10 @@ public sealed class SnapshottingCrossSeriesCache : ICrossSeriesCache
                 var json = File.ReadAllText(path);
                 var snap = JsonConvert.DeserializeObject<CrossSeriesSnapshot>(json);
                 if (snap == null || snap.Points.Count == 0) continue;
+                bool cftc = string.Equals(snap.Provider, "CFTC", StringComparison.OrdinalIgnoreCase);
                 var list = snap.Points
-                    .Select(p => (p.Ts, p.Value))
-                    .OrderBy(p => p.Ts)
+                    .Select(p => (cftc ? CftcReleaseTs(p.Ts) : p.Ts, p.Value))
+                    .OrderBy(p => p.Item1)
                     .ToList();
                 _byKey[snap.CacheKey] = list;
             }
@@ -220,6 +221,21 @@ public sealed class SnapshottingCrossSeriesCache : ICrossSeriesCache
                 // result for that cache key when an indicator asks for it.
             }
         }
+    }
+
+    /// <summary>CFTC positions are as of Tuesday and published that Friday (Thursday after a
+    /// Monday report in a holiday week): three days later. The app's CFTC plugin stamps the
+    /// release date; the lab's <c>cftc-cot</c> downloader stamped the REPORT date until
+    /// 2026-10-18, and every snapshot it wrote still carries it. A report date is a Monday or a
+    /// Tuesday, and a release stamp (report + 3 days, Thursday or Friday) never is, so a point
+    /// stamped Monday or Tuesday (UTC) is moved to its release and any other is left alone. Without this every lab
+    /// COT read saw each week's positioning three days before it was public.</summary>
+    internal static long CftcReleaseTs(long ts)
+    {
+        var d = DateTimeOffset.FromUnixTimeMilliseconds(ts).UtcDateTime;
+        return d.DayOfWeek is DayOfWeek.Monday or DayOfWeek.Tuesday
+            ? ts + (long)TimeSpan.FromDays(CftcCotCommand.ReleaseLagDays).TotalMilliseconds
+            : ts;
     }
 
     public IReadOnlyList<(long Ts, double Value)> GetOrFetch(CrossSeriesRequest request)

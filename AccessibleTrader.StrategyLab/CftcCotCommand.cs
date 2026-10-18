@@ -33,6 +33,9 @@ namespace AccessibleTrader.StrategyLab;
 /// </summary>
 public static class CftcCotCommand
 {
+    /// <summary>Report (Tuesday) to release (Friday): the same lag the app's CFTC plugin stamps.</summary>
+    public const int ReleaseLagDays = 3;
+
     // CFTC publishes COT data in two parallel reports with different schemas:
     //   • Disaggregated (commodities — gold, oil, ag, metals): "Managed Money" column
     //   • Traders in Financial Futures (TFF — equity index, currencies, rates, BTC):
@@ -193,7 +196,11 @@ public static class CftcCotCommand
                                 && oi > 0)
                             {
                                 double netPctOi = (mmL - mmS) / oi * 100.0;
-                                long ts = new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+                                // Stamped at the RELEASE date (report + 3 days), as the app's CFTC
+                                // plugin does: the value was not public until then. Until 2026-10-18
+                                // this wrote the report date; SnapshottingCrossSeriesCache moves
+                                // those older files' points as it loads them.
+                                long ts = new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Utc).AddDays(ReleaseLagDays)).ToUnixTimeMilliseconds();
                                 if (!accumulators[filter].ContainsKey(ts))
                                 {
                                     accumulators[filter][ts] = netPctOi;

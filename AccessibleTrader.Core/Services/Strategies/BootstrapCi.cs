@@ -41,15 +41,64 @@ public static class BootstrapCi
         return t.Side == OrderSide.Sell ? -raw : raw;
     }
 
+    /// <summary>
+    /// One R per POSITION, in the order positions first appear. Rows sharing a non-zero
+    /// <see cref="BacktestTrade.PositionId"/> are the exits of one entry and are scored together by
+    /// <see cref="PositionR"/>; a row with PositionId 0 (hand-built, or from before the field
+    /// existed) is scored on its own by <see cref="TradeR"/>, exactly as it always was.
+    ///
+    /// <para>Until 2026-10-18 this returned one R per exit ROW. A take-profit ladder emits a row
+    /// per rung, so a two-rung winner was two samples and a whole-position loser one, and the
+    /// rungs after a breakeven move carried a zero-risk stop and fell out entirely.</para>
+    /// </summary>
     public static List<double> ExtractRs(IReadOnlyList<BacktestTrade> trades)
     {
         var rs = new List<double>(trades.Count);
+        var groups = new Dictionary<int, List<BacktestTrade>>();
+        var order = new List<object>(trades.Count);   // a row (PositionId 0) or a group key
         foreach (var t in trades)
         {
-            var r = TradeR(t);
+            if (t.PositionId == 0) { order.Add(t); continue; }
+            if (!groups.TryGetValue(t.PositionId, out var g))
+            {
+                groups[t.PositionId] = g = new List<BacktestTrade>();
+                order.Add(t.PositionId);
+            }
+            g.Add(t);
+        }
+        foreach (var item in order)
+        {
+            var r = item is BacktestTrade row ? TradeR(row) : PositionR(groups[(int)item]);
             if (!double.IsNaN(r) && !double.IsInfinity(r)) rs.Add(r);
         }
         return rs;
+    }
+
+    /// <summary>
+    /// The R of one position from its exit rows: Σ quantity × (exit − entry) ÷ (Σ quantity ×
+    /// (entry − initial stop)), sign-flipped for shorts — i.e. Σ portion × (exit − entry) ÷ initial
+    /// risk, the definition <c>docs/SETUP_GRADER_PREREG.md</c> §2.2 sets. The stop is the rows'
+    /// <see cref="BacktestTrade.StopPrice"/>, which the backtester stamps with the stop the position
+    /// was OPENED with. NaN when the position is still open, has no stop, or its stop is not on the
+    /// losing side of the entry (an entry that filled through its own stop has no defined risk).
+    /// </summary>
+    public static double PositionR(IReadOnlyList<BacktestTrade> rows)
+    {
+        if (rows.Count == 0) return double.NaN;
+        var first = rows[0];
+        if (first.StopPrice is not double stop) return double.NaN;
+        double risk = first.Side == OrderSide.Sell ? stop - first.EntryPrice : first.EntryPrice - stop;
+        if (!(risk > 0) || double.IsInfinity(risk)) return double.NaN;
+
+        double qty = 0, gain = 0;
+        foreach (var t in rows)
+        {
+            if (t.ExitPrice is not double exit) return double.NaN;
+            double perUnit = first.Side == OrderSide.Sell ? first.EntryPrice - exit : exit - first.EntryPrice;
+            gain += t.Quantity * perUnit;
+            qty += t.Quantity;
+        }
+        return qty > 0 ? gain / (qty * risk) : double.NaN;
     }
 
     /// <summary>
