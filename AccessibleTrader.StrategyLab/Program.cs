@@ -297,6 +297,9 @@ try
         "cipher-a-battery" => await CipherABatteryCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--permutations"), out var cab) ? cab : 2000),
+        "setup-grader" => await SetupGraderCommand.RunAsync(
+            GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
+            HasFlag(args.Skip(1).ToArray(), "--counts-only")),
         "spec-variants" => await SpecVariantsCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             all: HasFlag(args.Skip(1).ToArray(), "--all")),
@@ -323,6 +326,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
+    Console.WriteLine("  StrategyLab setup-grader --snapshots <dir> [--counts-only]   # pre-registered (docs/SETUP_GRADER_PREREG.md)");
     Console.WriteLine("  Any command: --cipherb old  computes Cipher B as before 2026-10-17 (WTSignalPeriod 4, Legacy money flow, Gated buy dot, Confluence gold)");
     Console.WriteLine("               --cipherb-gold old|new  sets the gold dot alone (default: follows --cipherb)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
