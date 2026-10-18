@@ -183,17 +183,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] `ScaleLabelsFor` does not check `ComponentConfig.IsDrawn`, so an undrawn LINE would still get
 >   an axis label. No built-in has one today (DBSI's undrawn parts are markers or hidden).
 
-> **START HERE (2026-10-18 — setup grader round 2, Market Cipher school only: PRE-REGISTERED, not
-> run; see `docs/SETUP_GRADER_ROUND2_MC_PREREG.md`).** Committed before any count or outcome existed.
-> It tests the Buy dot entered at the next open (E0) against waiting for the trigger wave with money
-> flow turning up (E1), on the same setups, each against a random bar in the same weekly (or daily)
-> money-flow context; plus grades by higher-timeframe money flow and the school's own exits.
-> - [ ] Stage 2: build `setup-grader-mc`, run `--counts-only` first and record the counts, then the
->   full run; write `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md` with an `edges.json` record.
-> - [ ] The pre-registration needs a gap-keeping noise function: `GateCommand.Perturb` sets every
->   open equal to the close. Add a new one; do not edit the shared one.
-> - **Unverified:** no setup has been counted under the round-2 rules, so whether grade A or the
->   crypto daily E1 sample reaches 30 is unknown until the counts-only run.
+> **START HERE (2026-10-18 — setup grader round 2, Market Cipher school: DONE, No edge; see CHANGES
+> and `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`).** Neither the Buy dot at the next open nor the
+> trigger-wave entry beat a random bar in the same weekly money-flow context, in crypto or equities,
+> and waiting did not beat buying the dot. Crypto grade A was not testable (12 dots).
+> - [ ] **Question for Cody (nothing applied):** in equities, the first bearish divergence exit beat
+>   random exits for both entries (Holm 0.008). It was a side test, against the ledger's prior. Should
+>   it get its own pre-registration, on entries other than the Buy dot?
+> - [ ] Not pushed: the branch is committed locally. The full suite runs on GitHub Actions at the push.
 
 > **START HERE (2026-10-18 — setup grader for the Cipher B Buy dot: DONE, No edge; see CHANGES and
 > `docs/SETUP_GRADER_FINDINGS.md`).** Grade A had 0 (crypto) and 2 (equities) development-era dots, so

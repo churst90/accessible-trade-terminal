@@ -1,5 +1,8 @@
 # Setup grader round 2, the Market Cipher school: pre-registration
 
+> **2026-10-18: run.** Results are in `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`: No edge in crypto and
+> equities. Nothing below this line was edited after the results existed.
+
 Written 2026-10-18, before any round-2 result existed. This is stage 1 of 2. Stage 2 (a different
 agent) builds and runs what is written here. **This file was committed before any forward return,
 win rate, trade outcome or setup count was computed for any rule in it. The commit time is the

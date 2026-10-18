@@ -501,10 +501,14 @@ internal static class SetupGraderCore
     /// sum over exits of portion x (exit - entry) / (entry - initial stop). The engine's per-row R,
     /// which divides by the stop in force at each exit, is not used (section 2.2).
     /// </summary>
-    public static ExitResult Ladder(SeriesInputs s, int i, double stop0)
+    public static ExitResult Ladder(SeriesInputs s, int i, double stop0) => Ladder(s.Bars, s.Atr, i, stop0);
+
+    /// <summary>The same ladder on any bar series and its ATR(14). Round 2's harness
+    /// (<c>SetupGraderMc2Command</c>) calls this, so both rounds book exits identically.</summary>
+    public static ExitResult Ladder(IReadOnlyList<Ohlcv> b, double[] atrs, int i, double stop0)
     {
-        var b = s.Bars; int e = i + 1, n = b.Count;
-        double entry = b[e].Open, risk = entry - stop0, atr = s.Atr[i];
+        int e = i + 1, n = b.Count;
+        double entry = b[e].Open, risk = entry - stop0, atr = atrs[i];
         double t1 = entry + 2 * risk, t2 = entry + 4 * risk;
         double stop = stop0, rem = 1.0, pnl = 0;
         bool tp1 = false;
@@ -535,10 +539,14 @@ internal static class SetupGraderCore
 
     /// <summary>X3, X4, X5 and every random-exit control: one stop, an optional rule exit at a
     /// bar's close, and a cap bar whose close ends the trade.</summary>
-    public static ExitResult StopAndRule(SeriesInputs s, int i, double stop, bool[]? exitAt, int capBar)
+    public static ExitResult StopAndRule(SeriesInputs s, int i, double stop, bool[]? exitAt, int capBar) =>
+        StopAndRule(s.Bars, s.Atr, i, stop, exitAt, capBar);
+
+    /// <summary>The same stop-and-rule exit on any bar series and its ATR(14).</summary>
+    public static ExitResult StopAndRule(IReadOnlyList<Ohlcv> b, double[] atrs, int i, double stop, bool[]? exitAt, int capBar)
     {
-        var b = s.Bars; int e = i + 1, n = b.Count;
-        double entry = b[e].Open, risk = entry - stop, atr = s.Atr[i];
+        int e = i + 1, n = b.Count;
+        double entry = b[e].Open, risk = entry - stop, atr = atrs[i];
         int last = Math.Min(capBar, n - 1);
         for (int k = e; k <= last; k++)
         {

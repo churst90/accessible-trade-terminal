@@ -546,7 +546,11 @@ public static class SetupGraderCommand
         return row;
     }
 
-    internal static TestRow LabelPerm(string id, string what, List<(string Asset, double[] F, double[] S)> groups)
+    /// <param name="seedPrefix">Round 2 (<c>setup-grader-mc</c>) passes its own prefix, because its
+    /// pre-registration's section 6.5 fixes the seeds; round 1's default is unchanged.</param>
+    /// <param name="twoSided">p = (1 + draws with |null| at or above |observed|) / (1 + draws).</param>
+    internal static TestRow LabelPerm(string id, string what, List<(string Asset, double[] F, double[] S)> groups,
+        string seedPrefix = "setup-grader", bool twoSided = false)
     {
         int nf = groups.Sum(g => g.F.Length), ns = groups.Sum(g => g.S.Length);
         var row = new TestRow { Id = id, What = what, N = nf, N2 = ns };
@@ -560,7 +564,7 @@ public static class SetupGraderCommand
             if (g.F.Length + g.S.Length == 0) continue;
             var pool = g.F.Concat(g.S).ToArray();
             int k = g.F.Length;
-            var rng = new Random(StableSeed.From($"setup-grader|{id}|{g.Asset}"));
+            var rng = new Random(StableSeed.From($"{seedPrefix}|{id}|{g.Asset}"));
             for (int d = 0; d < Draws; d++)
             {
                 double s = 0;
@@ -575,18 +579,21 @@ public static class SetupGraderCommand
         }
         int ge = 0;
         for (int d = 0; d < Draws; d++)
-            if (nullF[d] / nf - (total - nullF[d]) / ns >= row.Stat - 1e-12) ge++;
+        {
+            double v = nullF[d] / nf - (total - nullF[d]) / ns;
+            if (twoSided ? Math.Abs(v) >= Math.Abs(row.Stat) - 1e-12 : v >= row.Stat - 1e-12) ge++;
+        }
         row.P = (1.0 + ge) / (1.0 + Draws);
         return row;
     }
 
-    private static void ApplyHolm(List<TestRow> fam)
+    internal static void ApplyHolm(List<TestRow> fam)
     {
         var adj = SetupGraderCore.Holm(fam.Select(t => t.P).ToList());
         for (int k = 0; k < fam.Count; k++) fam[k].PHolm = adj[k];
     }
 
-    private static void PrintFamily(string title, List<TestRow> fam)
+    internal static void PrintFamily(string title, List<TestRow> fam)
     {
         Console.WriteLine($"══════ {title} ══════");
         Console.WriteLine($"{"id",-14} {"n",5} {"n2",5} {"stat",8} {"p raw",8} {"p Holm",8}  sig  test");

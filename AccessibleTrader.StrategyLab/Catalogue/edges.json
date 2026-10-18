@@ -2126,6 +2126,59 @@
         "command": "setup-grader --snapshots <absolute path to strategy-lab-data>",
         "implemented": true
       }
+    },
+    {
+      "id": "market-cipher-dot-vs-trigger-wave",
+      "title": "Market Cipher school, round 2: Buy dot at the next open against waiting for the trigger wave, graded by weekly money flow",
+      "family": "confluence",
+      "claim": "A Market Cipher B Buy dot bought at the next open (E0), or the trigger-wave entry after it (the next higher, sub-zero wave cross within 30 bars with money flow turning up, void if a wave goes as deep as the anchor; E1), beats a random bar in the same higher-timeframe money-flow context; waiting beats not waiting per setup; and grade A (weekly money flow deep green) beats grade C.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 20,
+        "notes": "Pre-registered in docs/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d) before any result; harness committed (dcebe57c) before any count; counts-only stage committed (cf0e0386) before the full run. Market Cipher B tools only, our replica. Daily entries with a weekly environment built from completed weeks; crypto 4h with a daily environment as a secondary class. Development era before 2023, held-out 2023+ for signs. Crypto: 10 assets, of which 5 (BTC, ETH, LTC, XRP, BCH) have development-era setups; equities: 33 Yahoo series. Longs only."
+      },
+      "effect": {
+        "measure": "excess-R-over-context-matched-random-entry",
+        "value": 0.081,
+        "unit": "R",
+        "n": 721,
+        "p": 0.0626,
+        "notes": "No edge in both classes for all three questions and for the grades. Development era, net of 15 bps a side, non-vetoed setups. Crypto: dot entry -0.086R excess (70 trades, p 0.72), trigger entry +0.398R (33, p 0.067, Holm 0.376, 32% kept under noise), waiting per setup +0.274R (p 0.075; held-out sign flipped). Equities: dot entry +0.053R (1,423, p 0.095, Holm 0.376, 44% kept) - a near-replication of round 1's +0.115R with a different context and veto, which did not replicate; trigger entry +0.081R (721, p 0.063, Holm 0.376, 27% kept); waiting -0.012R. Grades: crypto grade A had 12 development-era dots (not testable); equities grade A beat C by +0.062R with the dot entry (p 0.27) and trailed it by 0.088R with the trigger entry, and the grades did not order A > B > C. The veto (weekly money flow, fast wave and RSI each down two weeks running), two-sided: crypto vetoed dots did better by +0.455R (Holm 0.92, held-out about zero), equities worse by 0.053R (p 0.27); neither significant. Crypto 4h: trigger entry +0.268R (raw p 0.014, Holm 0.274). Exits: in equities the first bearish divergence beat random exits for both entries (Holm 0.008) and the lab ladder did for the dot entry (Holm 0.042); in crypto no exit did; an exit result does not rescue the entries. variantsTried: 49 pre-registered tests (43 computable) + 2 A-union-B fallback tests + 29 pre-registered descriptive runs (counts-only, 6 noise rebuilds, 18 section-3.4 rows, 4 X5 rows); no variant beyond the budget.",
+        "variantsTried": 80
+      },
+      "controls": [
+        "context-matched-averaged-random-entry",
+        "block-permutation-20-bar-blocks",
+        "cluster-sign-flip-per-setup",
+        "holm-within-each-family",
+        "held-out-era-2023-plus",
+        "random-exit-control",
+        "noise-injection-gap-keeping"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "cipherb-setup-grader-hierarchy",
+          "note": "Round 1. P1 equities here is a near-replication of round 1's non-vetoed grade C dot (+0.115R, Holm 0.011); under round 2's weekly money-flow context and veto it read +0.053R and did not pass."
+        },
+        {
+          "id": "dip-buy-above-200ma",
+          "note": "The cheap dip filter (Fragile). Both are buy-the-dip entries in equities; neither survives noise injection."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "setup-grader-mc2 --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }
