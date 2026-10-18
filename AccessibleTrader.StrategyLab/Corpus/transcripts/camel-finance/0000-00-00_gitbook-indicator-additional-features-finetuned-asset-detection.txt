@@ -1,0 +1,28 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/finetuned-asset-detection.md).
+# Finetuned Asset Detection
+Smart Auto-Detection for Optimised Performance
+To help you get the most accurate readings and eliminate confusion, the CF Cycle Trading Indicator comes equipped with an intelligent Asset & Timeframe Detection Module — ensuring your chart is properly configured for precision cycle analysis.
+***
+#### ✅ What It Does
+This tool automatically checks your chart setup in real time:
+* ✅ Detects if you’re on one of the 16 officially fine-tuned assets (like BTC, SPX, or XAU/USD)
+* ✅ Verifies that you’re using the Daily (1D) timeframe — required for full indicator functionality
+* 🟢 Green “Finetuned Asset Detected” badge appears when both conditions are met
+* 🟡 Yellow/Red warning alerts you if you’re using an unsupported asset or timeframe
+* 📋 Optional display of the full supported asset list, helping you stay aligned
+No guesswork. No misconfigurations. Just confirmation that you’re on the right path.
+Still confused? Here is a summary of all the Table Nuances…
+👇
+👇
+👇
+👇
+👇
+#### ⚙️ Why It Matters
+This small but powerful feature prevents:
+* ❌ Unexpected signal issues
+* ❌ Confusion over missing or delayed cycle lows
+* ❌ Misaligned cycle timing due to unsupported setups
+It also ensures you’re always operating with the full force of the indicator’s optimised logic — exactly how it was designed to function.
+***
+Clarity-first trading. The way it should be.
+***

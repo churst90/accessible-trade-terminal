@@ -1,0 +1,18 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator.md).
+# CF Cycle Trading Indicator
+Explore the full indicator, its features, support resources, and member tools
+## CF Cycle Trading Indicator
+Explore the full CF Cycle Trading Indicator and the resources built around it.
+From core cycle tools to training, support, and advanced features, this section shows what is included and how it all fits together.
+### Browse The Indicator
+TitleOpen
+Introduction
+Start with the overview of what the indicator does and who it is built for.Introduction
+Indicator Training & Support
+See what is included to help members set up and use the indicator properly.Indicator Training & Support
+Core Features
+The main cycle tools for lows, translation, timing ranges, and structure.Core Features
+Additional Features
+Extra tools that add chart context, macro awareness, alerts, and asset tuning.Additional Features
+Indicator Use Cases
+Examples of how the indicator can support timing, structure, and market analysis.Indicator Use Cases

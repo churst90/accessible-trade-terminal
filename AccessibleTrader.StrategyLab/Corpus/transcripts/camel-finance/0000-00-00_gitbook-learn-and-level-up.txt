@@ -1,0 +1,42 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/learn-and-level-up.md).
+# Learn & Level-Up
+Courses and Learning Resources That Help Members Understand the Framework Behind the Product
+## Learn & Level-Up
+The **Learn & Level-Up** section is the education side of **CF Trading**.
+It gives members a structured path to understand cycle trading, improve chart skills, and build stronger market context around the indicator.
+{% hint style="info" %}
+This section is built to teach the logic behind the signals, not just how to click buttons.
+{% endhint %}
+### What Is Included
+Members get access to course content covering:
+* Cycle Trading Fundamentals
+* Trendline Analysis
+* Macro and Seasonal Cycles
+* Key U.S. Economic Indicators
+* Hyperwave Theory
+* TradingView Setup and Workflow
+### Cycle Trading Fundamentals
+This is the foundation of the learning library.
+It covers the core ideas behind cycle trading, including daily, weekly, and yearly cycles, key terminology, confirmation signals, failures, inversions, timing windows, and risk management.
+It is designed to help members understand how cycle structure works before applying it in live charts.
+### Trendline Analysis
+This module focuses on how to draw and use trendlines properly.
+It shows how trendlines support cycle analysis, how breakouts can confirm shifts in structure, and how to use them in real trading conditions with more consistency.
+### Macro and Seasonal Cycles
+This section expands beyond chart structure and into the larger forces that influence markets.
+It covers how macro conditions and seasonal patterns affect assets such as Bitcoin, gold, oil, and equities, helping members align technical setups with broader market context.
+### Key U.S. Economic Indicators
+This module explains the economic data that often drives major moves in risk assets.
+Members learn how to understand CPI, PPI, jobs data, unemployment, and other important releases so they can read the macro backdrop with more confidence.
+### Hyperwave Theory
+This course explores the structure of parabolic moves and major market extremes.
+It helps members recognise Hyperwave phases, understand market psychology during those phases, and compare that framework with other tools such as cycle theory and trend analysis.
+### TradingView Guidebook
+This part of the library helps members use TradingView more effectively.
+It covers chart setup, indicators, alerts, layouts, multi-timeframe workflows, and the practical steps needed to make the platform work smoothly with the CF Cycle Trading Indicator.
+### Why It Matters
+The goal of **Learn & Level-Up** is to make members more capable, not just more informed.
+It gives traders the knowledge needed to understand the framework behind the product, apply it with more confidence, and keep improving over time.
+{% hint style="success" %}
+This section turns the indicator from a tool you can access into a framework you can actually understand and use.
+{% endhint %}

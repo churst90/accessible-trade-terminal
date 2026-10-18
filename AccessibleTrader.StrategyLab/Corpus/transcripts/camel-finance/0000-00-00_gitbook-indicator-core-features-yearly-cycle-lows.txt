@@ -1,0 +1,26 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/yearly-cycle-lows.md).
+# Yearly Cycle Lows
+Unlock the Bigger Picture — Track Major Market Turning Points
+The Yearly Cycle Low (YCL) is one of the most powerful features of the CF Cycle Trading Indicator. Designed to highlight major structural shifts across yearly timeframes, YCLs give traders the macro context needed for portfolio-level decisions, long-term entries, and broader trend awareness.
+***
+#### ⚙️ YCL Settings Overview
+Inside the YCL Settings Box, you have full control over how these high-impact signals appear on your chart:
+📍 Icon Display
+* Toggle YCL markers on/off to spot where major market cycles have historically reversed
+* Customize size and colour (gold/yellow recommended) to clearly differentiate YCLs from Daily and Weekly cycles
+* Great for zoomed-out views on indices, commodities, or crypto majors
+📏 Line Display
+* Adjust line style, thickness, and opacity to reflect long-term importance
+* Highlight zones of multi-year accumulation or trend shifts with ease
+* Keep your short-term charts clean while still maintaining macro awareness
+***
+#### 💼 Why YCLs Matter for Serious Traders
+YCLs are ideal for:
+* Long-term investors looking for deep-cycle reversals
+* Swing traders needing to anchor positions to macro structure
+* Trend followers spotting early signs of momentum shift
+These aren’t frequent signals — but when they hit, they often mark the beginning of huge moves.
+***
+#### 🧠 Strategic Advantage
+By combining Daily, Weekly, and Yearly Cycle Lows on one chart, you get a multi-timeframe map of where high-probability reversals are forming. YCLs act as your long-range radar — confirming conviction when shorter cycles align or warning of potential bigger shifts ahead.
+***

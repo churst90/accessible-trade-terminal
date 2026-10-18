@@ -1,0 +1,6 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/use-cases-1.3/managing-risk-in-volatile-markets.md).
+# MANAGING RISK IN VOLATILE MARKETS:
+### **Example (Hypothetical):**
+Consider a trader dealing in highly volatile assets, such as cryptocurrencies. To manage the risks associated with sudden market swings, they monitored Daily Cycle Lows (DCL) and Weekly Cycle Lows (WCL) using the CF Cycle Trading Indicator. By staying alert to these critical points, the trader could anticipate potential periods of increased volatility.
+### **Outcome:**
+In this hypothetical scenario, when the indicator signaled an approaching WCL along with a DCL, the trader adjusted their positions, such as tightening stop-loss orders and reducing exposure. This helped them mitigate potential losses during a sharp market downturn. While this example demonstrates how the indicator can be used for risk management, it's important to recognise that this is a theoretical application, and actual results will vary.

@@ -1,0 +1,20 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features.md).
+# Core Features
+The core features are what give the CF Cycle Trading Indicator its edge.
+These are the tools that help traders track cycle lows, read structure, and anticipate key turning points with more precision.
+### Browse Core Features
+TitleOpen
+Daily Cycle Lows
+Short-term cycle low signals for timing, structure, and reversal awareness.Daily Cycle Lows
+Weekly Cycle Lows
+Medium-term cycle structure to help track broader reversals with more context.Weekly Cycle Lows
+Yearly Cycle Lows
+Longer-term cycle turning points that add macro context to your chart.Yearly Cycle Lows
+Future Cycle Low Range
+Projected timing windows for where the next cycle low may form.Future Cycle Low Range
+Cycle Translation
+Shows whether cycles are topping early, mid, or late to help read market strength.Cycle Translation
+Cycle Range Midpoint
+Highlights the centre of each cycle range for extra timing and structure context.Cycle Range Midpoint
+Each feature adds a different layer of timing, structure, and market context.
+Together, they turn the indicator into a more complete cycle trading system.

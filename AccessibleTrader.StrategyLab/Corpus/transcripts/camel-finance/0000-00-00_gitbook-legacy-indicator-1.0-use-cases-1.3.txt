@@ -1,0 +1,7 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/use-cases-1.3.md).
+# USE CASES 1.3
+Hypothetical Scenarios Illustrating the Indicator’s Real-World Applications
+{% hint style="danger" %}
+**Disclaimer:**
+These use cases are purely hypothetical scenarios intended to illustrate possible applications of the CF Cycle Trading Indicator based on common cycle theory. They are not guarantees of success, and the outcomes described are theoretical. Camel Finance is not responsible for any trading or investment decisions made based on the use of this indicator. It is essential to conduct your own research (DYOR) and consider all risks before making any financial decisions.
+{% endhint %}

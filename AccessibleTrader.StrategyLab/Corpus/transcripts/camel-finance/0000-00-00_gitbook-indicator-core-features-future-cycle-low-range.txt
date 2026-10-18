@@ -1,0 +1,26 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/future-cycle-low-range.md).
+# Future Cycle Low Range
+The main goal of detecting cycle lows is not just to identify where the market has turned in the past but to predict where it will likely turn in the future. This is where the CF Cycle Trading Indicator truly shines. By automatically calculating the cycle lows and breakouts, the indicator can project future low ranges with remarkable accuracy.
+📊 Based on cycle theory and historical timing windows, the indicator predicts that the next cycle lows will fall within a certain period, typically indicated by the blue and yellow bands on the chart. These bands represent the timing ranges where the next lows are expected to occur, and according to historical data, these lows fall within these ranges 70-80% of the time.
+📈 This automated system drastically simplifies the process for cycle traders and swing traders. Instead of manually calculating potential low points and cluttering their charts with lines and annotations, traders can rely on the indicator to display these timing ranges automatically. This not only saves time but also keeps the chart clean and easy to interpret, allowing traders to focus on making informed decisions.
+***
+#### **Daily Future Cycle Low Range**
+Range Box: This feature predicts the next likely range for the Daily Cycle Low.
+Customize the colour and transparency of the box to show the future DCL range without overwhelming the chart.
+**Important Note:** The Daily FCLR Bar only updates once the latest DCL is confirmed
+**Use Case**:
+By toggling this feature on, you can visualize future timing windows where the next cycle low may occur based on historical data. This helps traders plan for potential market shifts in advance.
+*Daily FCLR:*
+{% embed url="" %}
+#### **Weekly Future Cycle Low Range**
+Similarly, a range box is available for Weekly Cycle Lows, allowing traders to plan for medium-term cycle lows.
+**Use Case**:
+Helps predict where and when the next Weekly Cycle Low will likely fall, giving traders an edge in medium-term strategy planning.
+*Weekly FCLR:*
+{% embed url="" %}
+#### **Yearly Future Cycle Low Range**
+Provides a predictive range for the Yearly Cycle Lows.
+You can adjust the colour and visibility of this range box to forecast long-term shifts.
+**Use Case**:
+Long-term investors can plan their strategies around potential yearly cycle lows, ensuring better entry points for long-term holdings.
+*Yearly FCLR:*

@@ -1,0 +1,16 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/trendline-analysis.md).
+# Trendline Analysis
+#### 📐 Trendline Analysis — Master the Foundation of Price Structure
+\
+This 8-part series is dedicated to one of the most underrated yet powerful tools in a trader’s arsenal: trendlines. But this isn’t just “draw two points and hope for a bounce” technical analysis. In this module, Camel breaks down his personal methodology for drawing, interpreting, and applying trendlines as a core part of the CF Cycle Strategy.
+You’ll go from understanding the basics of trendline structure to applying them in complex real-world situations like the Yen Carry Trade unwind. You’ll also explore how trendlines interact with cycle theory, how to spot meaningful breakout types, and why linear vs log scale matters more than most traders realize.
+Camel shares his own rules for trendline validation—refined through years of live trading—plus multiple case studies to help you internalize these concepts through repetition and clarity.
+***
+**🔍 What You’ll Learn:**
+* How to draw trendlines that *actually* matter
+* Why trendlines behave differently across asset classes
+* How to confirm cycle shifts using breakouts
+* Real-world trade examples, including macro setups
+* Camel’s checklist for clean, actionable trendlines
+***
+This course segment isn’t just about drawing lines—it’s about seeing the underlying structure of market psychology through price movement. Whether you’re a beginner or an experienced trader, this deep dive will strengthen your foundation and sharpen your execution.

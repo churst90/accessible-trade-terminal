@@ -1,0 +1,929 @@
+WEBVTT
+
+00:00.000 --> 00:04.040
+here's how to set up a chart no time to waste let's dive in if you take the time to learn how
+
+00:04.040 --> 00:08.400
+to do this then you're not only going to understand my videos better but rather you'll
+
+00:08.400 --> 00:13.500
+also understand other price analysts videos as well and that will allow you to do better in
+
+00:13.500 --> 00:17.760
+crypto and be more profitable this is a very important step in your journey in crypto you're
+
+00:17.760 --> 00:22.240
+doing the right thing this is what we're going to cover we're going to start off with the easy stuff
+
+00:22.240 --> 00:26.980
+dark color theme and other basic settings with the candles and the chart
+
+00:26.980 --> 00:32.740
+dark color theme there are two ways to do it and this whole video i would strongly recommend
+
+00:32.740 --> 00:39.460
+setting it up on a mac or a laptop or a pc i'm not teaching you how to do this on the phone i really
+
+00:39.460 --> 00:44.540
+don't know how to do it for dark color theme all you really need to do is right click and hit color
+
+00:44.540 --> 00:50.800
+theme let me right click over here color theme dark check dark but my background is a gradient so now
+
+00:50.800 --> 00:56.900
+i'm going to either right click and click settings down here or you can simply click the wheel
+
+00:56.900 --> 01:02.980
+that's up here all the time within your trading view and go to appearance your background can be
+
+01:02.980 --> 01:09.300
+solid and you can pick black i kind of recommend that or some very dark gray perhaps one of the
+
+01:09.300 --> 01:13.940
+grays above the blue and the purple might work for you my eyes prefer dark you can know you can set up
+
+01:13.940 --> 01:18.820
+the way you want it now if you go with the dark color whether it's a solid or a gradient so the
+
+01:18.820 --> 01:23.780
+gradient colors you just pick two colors and it mixes it it's that simple you can play around with it
+
+01:23.780 --> 01:28.340
+i believe the second color goes towards the bottom and the first color goes towards the top it's
+
+01:28.340 --> 01:33.460
+really simple but here's the tricky thing with the appearance and how to get things right you see these
+
+01:33.460 --> 01:38.100
+lines behind it you see the lines that go this way and up and down you can barely see them you don't
+
+01:38.100 --> 01:44.980
+want them to be too distracting for example if i make my vertical lines white now that is really
+
+01:44.980 --> 01:50.020
+distracting you can't do much like that so there are two ways to make them not so white when you click
+
+01:50.020 --> 01:55.940
+the color itself options open up whether it's the color and the opacity down here so you can click
+
+01:55.940 --> 02:00.820
+white and move the opacity down to where you can barely see them or you can turn the opacity all
+
+02:00.820 --> 02:05.700
+the way up and turn it to a dark gray color that doesn't look that distracting but you can still see
+
+02:05.700 --> 02:09.940
+it and that's the way i did it there and just to show you that it's about the same thing this one
+
+02:09.940 --> 02:15.220
+i've chosen white and i have the opacity down and it looks almost the exact same as the other other
+
+02:15.220 --> 02:20.020
+color gray that i chose so there are two ways to do that so again i'm on settings within the
+
+02:20.020 --> 02:25.940
+appearance tab see how this blue selects different areas so within appearance uh here is what i have i
+
+02:25.940 --> 02:29.940
+really don't know what all these settings mean but i'm just going to show you what i have uh session
+
+02:29.940 --> 02:37.300
+breaks i do not have checked the scales text i have 12 watermark is the thing behind price that you can
+
+02:37.300 --> 02:43.940
+see right here see how it says btc that's the watermark also for the watermark you can do the same
+
+02:43.940 --> 02:48.100
+color trick that i showed you with the vertical lines either pick the color that you want that's
+
+02:48.100 --> 02:54.180
+not so distracting or pick white now you can see it very clearly but then turn down the gradient so
+
+02:54.180 --> 03:00.100
+it's not that distracting something to that effect so it's not totally in your way and it helps you
+
+03:00.100 --> 03:04.180
+remember what chart you're on but if you don't need a reminder you're not sharing with anybody else
+
+03:04.180 --> 03:09.540
+then you can just uncheck watermark navigation buttons and all these other settings in the appearance
+
+03:09.540 --> 03:14.900
+tab you can just look at what i have here pause it and try to make sure yours says the same now
+
+03:14.900 --> 03:20.020
+within settings once again so i'm still in settings go up to the wheel i'm going to pick symbol i'm just
+
+03:20.020 --> 03:25.300
+going to show you exactly what i have i'm not going to explain every single one i have unchecked the
+
+03:25.300 --> 03:30.900
+first box within symbol so i'm on the symbol tab within settings chart bars and previous clothes i have
+
+03:30.900 --> 03:36.580
+unchecked body borders wick last price i have checked and these are the colors i have and then the next one
+
+03:36.580 --> 03:41.860
+that i have checked is called pre post market price line and everything else is unchecked down here
+
+03:42.420 --> 03:48.180
+i have a pre post market hours background is black and i have mine set to new york down here those are
+
+03:48.180 --> 03:54.260
+the settings for symbol now for status line i have everything but one thing checked that's the indicator
+
+03:54.260 --> 03:59.540
+arguments that is nested under indicator titles so i have indicator titers but not indicator arguments
+
+03:59.540 --> 04:04.820
+there are only two selections within all these things that are checked for symbol you have a
+
+04:04.820 --> 04:09.860
+description ticker or ticker description i have simply chosen description and then background i
+
+04:09.860 --> 04:14.180
+have that checked and i have it somewhere in the middle so let's go to scales on this first part i
+
+04:14.180 --> 04:19.300
+have only three checked i have the first second and the fifth checked and then scroll down i have
+
+04:19.300 --> 04:26.020
+four in a row starting with no overlapping labels down to plus button two options at the bottom date
+
+04:26.020 --> 04:31.700
+format and scales placement scales placement i have set to auto and date format you can pick however you
+
+04:31.700 --> 04:35.620
+like to see dates so whatever looks makes the most sense to your brain press okay appearance
+
+04:35.620 --> 04:40.660
+we've already done trading i have the first one checked so you see how it says general up here
+
+04:40.660 --> 04:46.420
+and appearance down here so under general i only have the first one checked under appearance i have
+
+04:46.420 --> 04:51.700
+all of them checked and the two selections within those check marks are over here first one i have
+
+04:51.700 --> 04:56.580
+selected as money the second one i have selected as left so under appearance they're all checked with
+
+04:56.580 --> 05:02.420
+the two options being money and left for events i have the first three check that's how i have them
+
+05:02.420 --> 05:08.420
+set so let's move on to the next part logarithmic not linear this is actually pretty important
+
+05:09.940 --> 05:17.140
+so you see down here where my cursor is so my cursor is going to be down here but off the chart okay
+
+05:17.140 --> 05:24.100
+down here where this is i almost always use log chart for using five minute charts and things you know
+
+05:24.100 --> 05:28.660
+where you're really zoomed into price you can go ahead and take off log i just keep it on log because
+
+05:28.660 --> 05:34.500
+when you're zoomed in it's almost the exact same as linear so i permanently just have mine on log
+
+05:34.500 --> 05:39.140
+i do not have auto checked because when i scroll around and do stuff i don't like what it does to my
+
+05:39.140 --> 05:44.580
+chart so i prefer just log on it's really important though it makes a big difference within your analysis
+
+05:45.300 --> 05:48.500
+all right now let's set up our emas and emas
+
+05:48.500 --> 05:56.740
+we're going to concentrate our eyes up at this top part where it turns black but i can't draw on okay
+
+05:56.740 --> 06:01.620
+up above these arrows this is going to be a lot of our focus now right where my cursor is right here
+
+06:01.620 --> 06:09.940
+it has an fx button it looks so if it's hard to see for you it looks like this yours might say indicators
+
+06:11.220 --> 06:17.300
+and fx all at the same time but since i have so many time frames so you see like five minute three
+
+06:17.300 --> 06:24.180
+minute all that stuff it smashes it down and it abbreviates it indicators into fx but you should
+
+06:24.180 --> 06:29.380
+still see an fx somewhere so you're going to hit that and what you're going to type in here so all
+
+06:29.380 --> 06:34.020
+these stars you're not going to see unless you've already started things but once you bring something
+
+06:34.020 --> 06:39.380
+up before you click it hit the star button so that the next time you click fx it's already there
+
+06:39.380 --> 06:44.900
+so you're going to type in exactly what you see here until you see it pop up on your screen sometimes
+
+06:44.900 --> 06:48.820
+you have to type the whole thing sometimes you only have to type in four characters what you're
+
+06:48.820 --> 06:54.260
+looking for is it's made by unknown unicorn that's what you're looking for so you use so start typing
+
+06:54.260 --> 06:58.980
+in five exponential until it pops up on your screen again you might have to type the whole thing now
+
+06:58.980 --> 07:04.580
+before you click it hit star and when you do click it what happens is it'll show up at on your screen
+
+07:04.580 --> 07:08.740
+and it doesn't look like the settings i have it on but it'll look something like this to you
+
+07:08.740 --> 07:14.340
+and the way you change things is now you can see that the settings for this is up here so
+
+07:14.340 --> 07:20.100
+for example stochastics the way i use them they show up down here the settings button for stochastics
+
+07:20.100 --> 07:25.700
+is somewhere over on this in this direction but anything that stays in your chart and is not nested
+
+07:25.700 --> 07:31.300
+below it okay but things that are in your chart indicators you'll find the wheel the eyeball button
+
+07:31.300 --> 07:36.660
+up there for any indicator it has see how this is an eyeball here so when you do that see how they
+
+07:36.660 --> 07:40.580
+disappear reappear okay but the settings is where you're going to change everything and that's what
+
+07:40.580 --> 07:46.180
+we're going to do so you've clicked it you start it you've clicked it and now when you click fx it
+
+07:46.180 --> 07:50.900
+should show up automatically right there now okay so now we're going to go change the settings within
+
+07:50.900 --> 07:56.820
+the ema so now there are three tabs here input style visibility we're going to start with inputs okay
+
+07:56.820 --> 08:02.260
+so these are the inputs that i have for mine so there are five of each you can tell that even though
+
+08:02.260 --> 08:07.780
+there are ten things it's set of five and five so five emas so one two three four five and then
+
+08:07.780 --> 08:14.180
+the e drops off here and it's just ma they are different the ma's move a lot slower than the ema's
+
+08:14.180 --> 08:20.180
+because the ema's essentially they're tucked closer to price so you can essentially front run the signals
+
+08:20.180 --> 08:25.700
+on emas the numbers are slightly different for example the first one the first ema is 10 and first
+
+08:25.700 --> 08:32.100
+ema is 10 yes those are the same but the next one it changes for two and two it's 21 and 20 and again
+
+08:32.100 --> 08:38.740
+the reason is this 21 moves faster than the 20 so you start increasing the numbers to a certain point
+
+08:38.740 --> 08:46.020
+right there is one exception for the four i have the 100 ma but i use the 89 ema that's the only one
+
+08:46.020 --> 08:50.740
+that should be smaller and that's just because it's what more people look at and you can just pause this
+
+08:50.740 --> 08:56.180
+and type in the same numbers now i'm on the style tab in order to make any changes you have to have
+
+08:56.180 --> 09:00.660
+them all checked because if something's not checked you can't click this down here and we're
+
+09:00.660 --> 09:04.660
+going to be modifying stuff so you might want to make sure they're all checked click the first one
+
+09:04.660 --> 09:09.380
+and do something to the effect of and pick if you wanted the same color scheme as i have click red
+
+09:09.380 --> 09:16.180
+for both tens and take the opacity see this i'm scrolling this take the opacity all the way over
+
+09:16.180 --> 09:21.300
+and click the thickest button and you don't have to click okay because that'll force you out of the
+
+09:21.300 --> 09:27.620
+whole thing what you can do here is going back to the style tab click red or click the the color
+
+09:27.620 --> 09:33.620
+click the first red bring the opacity over click that and then just click somewhere off of the color
+
+09:33.620 --> 09:40.260
+like up here and then go to the next 10 and do the same thing red thick but instead of all the way
+
+09:40.260 --> 09:45.940
+over you're gonna want your your opacity somewhere in the middle and i'll show you why here a little
+
+09:45.940 --> 09:52.900
+later next is yellow so again press yellow opacity all the way up and thickest line and click away
+
+09:52.900 --> 09:58.980
+but what not clicking okay so you don't click back in and then blue same deal pick a blue color opacity
+
+09:58.980 --> 10:03.300
+line i'm not going to walk you through that and then for the ma's i pick the same exact color for
+
+10:03.300 --> 10:08.820
+each so you see how the the second ema is the same color as the second ma but the only difference is
+
+10:08.820 --> 10:13.860
+the opacity is somewhere in the middle for the ma's and then when you press ok what you'll see is more
+
+10:13.860 --> 10:18.260
+like what i have here you'll have thicker lines and it'll look it'll look very similar to what i
+
+10:18.260 --> 10:24.100
+have open now i go in and to show you the difference here i will uncheck everything but the two red ones
+
+10:24.100 --> 10:33.220
+so ma1 and ema1 the reason why this is important is ma's crossing above ema's is a bearish sign
+
+10:33.220 --> 10:40.820
+particular to larger time frames and again very important to know particular to larger time frames
+
+10:40.820 --> 10:45.380
+all right don't be using signals on the one hour chart for this necessarily but you can see here
+
+10:45.380 --> 10:52.580
+is i can tell that the ma passed above the ema here that's a bear sign and it got the top exactly i mean
+
+10:52.580 --> 10:56.660
+you can see how good of a signal that is so i'm not going to go too far into detail on how to use
+
+10:56.660 --> 11:00.660
+everything because that's what my content is for but this is more of an educational video so you can
+
+11:00.660 --> 11:04.980
+see how this bearish cross it didn't get the top perfectly it was about a week off using things like
+
+11:04.980 --> 11:11.220
+the daily and the weekly to see when the same type of ma passes the ema of the same time frame like
+
+11:11.220 --> 11:16.900
+the 10 and the 10 or you can go to the 21 and the 20 to see what that looks like those crosses are
+
+11:16.900 --> 11:22.500
+pretty bearish usually and that doesn't mean go 25x leverage short or anything like that
+
+11:22.500 --> 11:26.740
+sometimes the move takes a while but i mean here you can see how the dull one so the dull one's the
+
+11:26.740 --> 11:31.940
+opacity that we drug to the middle so you can tell the difference but they're both yellow right
+
+11:31.940 --> 11:35.060
+so that's what we got going on there and that's why i changed the opacity
+
+11:36.180 --> 11:38.820
+now we're going to jump into number four the rsi
+
+11:41.300 --> 11:46.740
+you can do now to be less distracted you can hit the eyeball button or just totally i don't know if
+
+11:46.740 --> 11:51.940
+i would x out because if you hit x here once you go back in it'll reset your settings and at the end
+
+11:51.940 --> 11:56.100
+of this video i'm going to show you how to save them so don't hit x but maybe hit eyeball so we can
+
+11:56.100 --> 12:00.420
+kind of keep our eyes on the price here but it'll still be there just hit the eyeball and if you want
+
+12:00.420 --> 12:05.460
+you know all the emas back on you can do that at a later time so now we go back up to this fx button
+
+12:05.460 --> 12:11.860
+and remember for you it might say indicators now we're going to type in exactly what we see right
+
+12:11.860 --> 12:19.060
+here where my cursor is crown trading rsi plus ema plus control zones and the pluses do not have spaces
+
+12:19.060 --> 12:24.900
+so you start typing exactly what you see here until it pops up and you see it made by crypto hyphen crown
+
+12:24.900 --> 12:30.740
+crypto crown that is who made it it needs to be made by the same person so start typing that in
+
+12:30.740 --> 12:38.420
+and then when it pops up you know it might not pop up for you until right here for example i don't know
+
+12:38.420 --> 12:44.340
+but before you click it hit star and then click it and you'll see it show up at the bottom i'm going
+
+12:44.340 --> 12:50.020
+to undo mine because i'm going to show you what my settings are for this now you can see because this
+
+12:50.020 --> 12:56.340
+rsi is nested below the chart it's below the chart not in the chart therefore the settings and the
+
+12:56.340 --> 13:00.980
+eyeball are down here so i'm hovering over here until i can see the eyeball on the wheel i'm going
+
+13:00.980 --> 13:06.020
+to click the settings these are the settings that i have for this there are three tabs here inputs
+
+13:06.020 --> 13:13.140
+style visibility i'm going to go to inputs you just put 22 and 12. can you use different ones sure but
+
+13:13.140 --> 13:19.620
+that is within my analysis on a daily basis what i'm using so that's easy the second one style i have
+
+13:19.620 --> 13:26.100
+everything checked and you can just take a screenshot and take a look at how i have this set up and i
+
+13:26.100 --> 13:30.260
+will go into detail on these last two in a minute because those can get a little tricky and it's
+
+13:30.260 --> 13:34.020
+important to have these last two right something i went like a whole year without doing right these
+
+13:34.020 --> 13:38.900
+are the colors that i have and within the colors i have the uh i have thick lines and opacity almost
+
+13:38.900 --> 13:43.460
+all the way up and upper line i guess i have the opacity all the way up and thin but you can just kind
+
+13:43.460 --> 13:48.580
+of mess around with that and make you know draw the opacity up and if you want a line thicker go in
+
+13:48.580 --> 13:53.300
+and make the line thicker most of these i have the opacity all the way up and then take a look at
+
+13:53.300 --> 13:57.140
+these numbers on the side here you want to make sure these numbers are the same so the first number
+
+13:57.140 --> 14:03.060
+goes with upper line second one lower line so what that means is is this dotted thing here and the
+
+14:03.060 --> 14:08.020
+lower line is believe this guy right here so you want those numbers to be the same in order to expand
+
+14:08.020 --> 14:12.900
+this on a computer you just double click you double click this area it makes it bigger in the normal
+
+14:12.900 --> 14:18.500
+settings this green box is not very green it's especially if you change the background color
+
+14:18.500 --> 14:23.700
+like we did earlier you're going to need to increase the opacity of this section or else you're not
+
+14:23.700 --> 14:28.820
+going to be able to see it very well so i'm going to go to the settings or i'll unexpand it by double
+
+14:28.820 --> 14:34.420
+clicking again i will hit the wheel i will go down here and you can see that i've pitched just picked a
+
+14:34.420 --> 14:39.620
+green color and so look at the bottom of my chart as i move this see that it's way too green it's not
+
+14:39.620 --> 14:45.060
+green enough somewhere in the happy middle right there it looks good and again i'm not going to hit
+
+14:45.060 --> 14:49.380
+okay because that'll take me out i'll click somewhere up here to make that go away hit the
+
+14:49.380 --> 14:54.740
+red one for the red zone down here look it's way too red see how that turned way red so you know i
+
+14:54.740 --> 14:59.540
+have mine somewhere opacity around 30 something like that so you can still see the things go through it
+
+14:59.540 --> 15:04.020
+now we'll go to visibility these are the stock settings so you probably don't have to change any of
+
+15:04.020 --> 15:08.100
+this but as you go to yours just make sure it looks the same as mine and you could pause this do
+
+15:08.100 --> 15:17.140
+whatever you want number five stochastics go back up here to the fx or indicators tab click it and
+
+15:17.140 --> 15:22.900
+it's going to be just to cast stick it's the base stock one of trading view no one particular made it
+
+15:22.900 --> 15:28.580
+this one is for from trading view so it's the first one that just says stochastic and make sure you start
+
+15:28.580 --> 15:34.180
+it before you click it and when you click it it should show up at the bottom and again i would not x out
+
+15:34.180 --> 15:38.260
+of this rsi yet if you made the settings because we're going to save it here at the end so you might
+
+15:38.260 --> 15:43.140
+hit hide or or just leave it there whatever you want to do but we're going to focus down here on
+
+15:43.140 --> 15:48.500
+the stochastics i'm going to click the wheel here for the settings and i'm going to go to inputs there
+
+15:48.500 --> 15:55.700
+are four options and one check mark that i have the gaps checked i have it on chart time frame chart
+
+15:55.700 --> 16:01.540
+then the next three options i have 14 one and three again you can play with these settings if you have a
+
+16:01.540 --> 16:07.700
+a different preference going to the second tab style i have everything checked and within so the
+
+16:07.700 --> 16:12.820
+blue line that moves the fastest you can change the width of it and actually i might go ahead and
+
+16:12.820 --> 16:16.740
+change the width on mine so you can see the difference so look down here uh where my cursor
+
+16:16.740 --> 16:21.620
+is kind of see how the line so that's too much for me i mean maybe the second or the third one looks
+
+16:21.620 --> 16:26.340
+pretty good i typically just have it on the thin line but you know my eyes kind of like the second or
+
+16:26.340 --> 16:30.420
+third one a little bit better you can play around with it and then changing the opacity i would put
+
+16:30.420 --> 16:35.380
+the opacity all the way up if i were you and then the other two options here upper band you can play
+
+16:35.380 --> 16:40.820
+around with this as well these numbers create the line it's the line what counts and so i have it set
+
+16:40.820 --> 16:46.180
+as 80 and 20 the background you can play with that as well but this is the background that i got and i
+
+16:46.180 --> 16:51.780
+have precision to default last tab visibility these are the stock settings to my knowledge however you
+
+16:51.780 --> 16:56.020
+can double check that yours looks the same everything is checked and you can make sure the first
+
+16:56.020 --> 17:02.500
+column is all ones and the second column has all this in here number six bollinger bandwidth percentile
+
+17:02.500 --> 17:10.820
+or bbwp go back up and hit fx or indicators you're going to type in this what you see right here also
+
+17:10.820 --> 17:16.180
+made by the caretaker you're going to start typing in bollinger band width and it might pop up before you
+
+17:16.180 --> 17:23.300
+type all that but once you see it you want to star it so bollinger band width so you know however much you
+
+17:23.300 --> 17:27.220
+have to type until you see it it's made by the caretaker before you start make sure it's made by
+
+17:27.220 --> 17:32.740
+the same person hit the star button so here like you'll have to start just like that then you click
+
+17:32.740 --> 17:38.260
+it i believe i have the stock settings on here but again since it's nested below the chart i'm going to
+
+17:38.260 --> 17:43.700
+the wheel here and i'm going to go to inputs and i think this is the stock settings i don't believe i've
+
+17:43.700 --> 17:49.460
+changed anything so you can just look to see what i have on this first chart one thing to note the ma2
+
+17:49.460 --> 17:55.140
+type i don't have on there i've unchecked that but you can check that if you like to see that and
+
+17:55.140 --> 18:02.180
+these are all the other settings look back is 252 and and color type is spectrum spectrum is blue green
+
+18:02.180 --> 18:07.460
+red and you can play with these settings extreme high 98 extreme light extreme low too for example
+
+18:07.460 --> 18:13.380
+at the bottom so down to style i have everything checked and i believe the stock settings have thin
+
+18:13.380 --> 18:19.140
+lines and opacity put all the way up for these lines but note that these numbers here so i have 50 and
+
+18:19.140 --> 18:25.540
+100 under the tab of style visibility again just pause this video and make sure everything's
+
+18:25.540 --> 18:31.220
+checked first column is ones and the second column matches these numbers number seven switching time
+
+18:31.220 --> 18:39.380
+frames to see different candles this might be too basic for some of you however just know there is a
+
+18:39.380 --> 18:44.020
+way to see more time frames especially if you don't have the free version of trading view but even with
+
+18:44.020 --> 18:47.700
+the free version you can play around with this so see all my time frames up here where my cursor is
+
+18:47.700 --> 18:54.180
+moving there is an arrow next to it okay an arrow click that arrow and you might have to scroll down
+
+18:54.180 --> 18:59.940
+not as far as i do but you can add stuff if you wanted to add something like a seven day chart you
+
+18:59.940 --> 19:09.460
+would hit seven and click day and add and when you do that now seven days comes up but it's not starred
+
+19:09.460 --> 19:14.500
+so the star means it shows up here it goes from five day to week if i star it
+
+19:14.500 --> 19:19.620
+now seven days is up here between five days and week i don't want that on there i'm just going to
+
+19:19.620 --> 19:25.300
+take that off you don't have to use the same time frames as i do but if you do have a paid for version
+
+19:25.300 --> 19:30.900
+or just trading view allows you to do it i would strongly recommend using putting the 12 hour on
+
+19:30.900 --> 19:36.260
+there and the two day and starring them i would strongly recommend those two time frames because it
+
+19:36.260 --> 19:41.620
+helps you understand whale games better because whales are setting traps more on the normal time frames like
+
+19:41.620 --> 19:46.820
+the four hour in the daily and the weekly those more odd time frames in specific regard to candlestick
+
+19:46.820 --> 19:52.580
+formation and emas it allows you to anticipate those whale games a little bit more in my humble
+
+19:52.580 --> 19:58.180
+opinion whenever you switch the time frames these indicators down here will change the time frame so
+
+19:58.180 --> 20:02.100
+look at the indicators now they look totally different right so make sure you're switching time
+
+20:02.100 --> 20:05.540
+frames and all the indicators that you're using will give you totally different signals
+
+20:05.540 --> 20:11.780
+next i'm going to jump into saving template and how to get around the limitation of having
+
+20:11.780 --> 20:17.060
+three indicators only for the free version so essentially you can have nine and 12 different
+
+20:17.060 --> 20:22.180
+indicators but on one screen at any time you only have three but in order to see the other ones you
+
+20:22.180 --> 20:27.060
+just click one button and it automatically pulls different ones up so i'm going to show you how to do this
+
+20:27.060 --> 20:34.100
+real quick if you followed along here and you've set up your chart like mine well trading view told you
+
+20:34.100 --> 20:39.540
+that you have too many so if that is the case and you're like how do i keep following along again
+
+20:39.540 --> 20:44.340
+all you have to do is click the x and then you'll have to go back reset that one up and save the
+
+20:44.340 --> 20:50.260
+template with only three go back on this video reset that up and save a new template with bollinger band
+
+20:50.260 --> 20:54.980
+with percentile something to that effect but as you're saving your first template the way i do it for
+
+20:54.980 --> 21:02.020
+my first template i don't have bollinger band so now i only have emas rsi and stochastics that's three i
+
+21:02.020 --> 21:06.980
+only have three indicators and this is my ema standard my e button right here and i'm going to
+
+21:06.980 --> 21:11.860
+show you how to set that up you don't have any of this up here on yours but you do have this chart that
+
+21:11.860 --> 21:18.020
+has a squiggly line if that's too small what it looks like is it looks like bars like this like
+
+21:18.020 --> 21:26.020
+uneven bars with a squiggly line on top and that symbol might be next to the actual words indicators
+
+21:26.020 --> 21:30.420
+because you don't have so many things smashed in here so it's abbreviated it for me but you're going to
+
+21:30.420 --> 21:35.700
+want to click that symbol or the word indicator with the symbol and if you have set up the emas
+
+21:35.700 --> 21:41.060
+like i showed you in the rsi and the stokes if you have those three for example what you'll do is save
+
+21:41.060 --> 21:47.940
+indicator template type the name just like maybe put ema uh standard you know something like that
+
+21:47.940 --> 21:55.060
+and save and then if you do something to the effect of you exit out of one of them for example your emas
+
+21:55.060 --> 22:01.700
+so now that you've hit save now i can exit out if i went back to emas look they're totally changed see
+
+22:01.700 --> 22:06.260
+how it didn't get the settings but since i saved that template all i have to do is click that little
+
+22:06.260 --> 22:11.540
+button then when i hover over it it tells me the thing that i named i named mine ema standard it just
+
+22:11.540 --> 22:15.060
+picked the first letter try to make sure the way you label this it has a different starts with a
+
+22:15.060 --> 22:21.620
+different letter i click e and now my settings come back automatically and i have these three if you want
+
+22:21.620 --> 22:27.540
+to use something totally different for example on my on this one right here i have the bollinger band
+
+22:27.540 --> 22:33.140
+bbwp so if ever i'm looking at a chart and i wanted to on that same time so say i'm on the 12
+
+22:33.140 --> 22:39.060
+hour chart on bitcoin i'm in doing an analysis i want to use the bbwp all i have to do is come up
+
+22:39.060 --> 22:44.820
+here and click v and i actually get a smorgasbord of other stuff as well even though my eyes are only
+
+22:44.820 --> 22:51.380
+focused on this but it'll pull up how i saved it so on this one i have a couple of other indicators
+
+22:51.380 --> 22:55.220
+and i guess since we're doing this i might as well show you what those are because these are
+
+22:55.220 --> 23:00.260
+these indicators are really cool and you you might as well have them on one of your set templates so
+
+23:00.260 --> 23:04.820
+you don't have to go back and keep clicking and changing things right so save it as a template
+
+23:04.820 --> 23:10.100
+especially this volume profile sometimes people put really interesting settings for different type
+
+23:10.100 --> 23:15.860
+of volume profiles a lot of youtubers use them so let me show you what that is real quick i have i like
+
+23:15.860 --> 23:21.860
+the one i have on there but most youtubers simply use a visible range so this is what most youtubers
+
+23:21.860 --> 23:27.780
+use and you can go to the settings and you know look on reddit or google hey what what settings
+
+23:27.780 --> 23:34.900
+should i use the inputs is you can really change how it looks by doing something with the inputs the
+
+23:34.900 --> 23:40.900
+the volume the row size you can make it smaller bigger so i just use the base stock settings for it
+
+23:40.900 --> 23:45.700
+i think most youtubers do too but you can get fancy with it and if you don't like it going into
+
+23:45.700 --> 23:51.460
+your price like this you can use the settings to move it around but if you do that and you don't save
+
+23:51.460 --> 23:56.420
+it as a template the next time you open it you lost all the time you spent inside said putting in
+
+23:56.420 --> 24:02.660
+your settings so let's say that you've chosen that one you pick visible range and it is the stock
+
+24:02.660 --> 24:07.860
+setting of trading view so there is no name so just type in visible range until it pops up
+
+24:07.860 --> 24:16.820
+on your screen star it click it and then the next one i have on here is bollinger bands fibonacci ratios
+
+24:16.820 --> 24:24.740
+it's a really cool indicator i don't use it a ton but you can start typing that in bollinger bands fibonacci
+
+24:25.860 --> 24:33.300
+that one you want to star it it's by shizaru with about 5125 likes as at the time of this recording but
+
+24:33.300 --> 24:38.900
+it's by shizaru you star it then click it it should show up on your screen should see these squiggly
+
+24:38.900 --> 24:44.260
+lines right here and then if you don't have bbwp pulled up all you have to do since you've already
+
+24:44.260 --> 24:50.260
+started if you're following along go ahead and click bollinger band with percentile so now you have three
+
+24:50.260 --> 24:57.220
+indicators on your chart so i'm going to get rid of my rsi you have three indicators now you can go to
+
+24:57.220 --> 25:02.740
+save indicator templates this uh this signal here and remember it's the one that looks like a chart
+
+25:03.300 --> 25:08.580
+with a squiggly line over it to save the templates you're going to click that hit save indicator
+
+25:08.580 --> 25:15.620
+template name it something like bollinger bands whatever you want to do and you hit save and
+
+25:15.620 --> 25:20.180
+here's one thing that i forgot to mention and you can go in and mod and i'll show you how to modify this
+
+25:20.180 --> 25:24.500
+here in a minute so when you save your templates and i didn't say this the last time there are two
+
+25:24.500 --> 25:30.820
+options here it is important to leave them unchecked the remember symbol means anytime you click the
+
+25:30.820 --> 25:37.060
+template up here it will go back to bitcoin specifically so if you're looking at veracity
+
+25:37.060 --> 25:41.780
+or ethereum and you just wanted to look at the bollinger bands or the bbwp and you clicked your
+
+25:41.780 --> 25:48.020
+setting up here like the v for me it would go to bitcoin so you don't want that check remember interval
+
+25:48.020 --> 25:53.380
+the same situation but with the time frame it'll flip you back to the exact time frame in which you
+
+25:53.380 --> 25:59.140
+set it so i don't like either of them switch because whatever i have it on i want it to stay on that
+
+25:59.140 --> 26:03.380
+time frame so i can see the the bollinger bands or the volume profile on that time frame and i want
+
+26:03.380 --> 26:08.260
+it for that symbol therefore i don't want to check these so if you actually if you did check them for
+
+26:08.260 --> 26:15.060
+the last one i'll show you how to redo it so i would go to ema standard go here i would say save
+
+26:15.060 --> 26:22.100
+indicator template and if you have them checked like this uncheck them now you should have a drop down
+
+26:22.100 --> 26:28.500
+box here click it click the one that you accidentally had them checked and then save and if you do that the
+
+26:28.500 --> 26:34.020
+next little pop-up screen should say do you want to override this just click yes and then you're done
+
+26:34.020 --> 26:39.620
+and so now you technically have six different indicators on the free version you have three here
+
+26:39.620 --> 26:45.460
+under this template and if you save the volume one volume profile and all that now you have
+
+26:45.460 --> 26:50.900
+another three if you had another three types of indicators like macd whatever you like to use
+
+26:50.900 --> 26:55.300
+then you can save another template i put the time in to teach you this so at least before you get out
+
+26:55.300 --> 27:02.180
+of here hit that like button and leave me a quick comment such as hey this was great or if you have
+
+27:02.180 --> 27:07.220
+a question i wasn't clear about something let me know in the comment section because even if you're
+
+27:07.220 --> 27:13.140
+looking at this in 2024 let's say i haven't died yet hopefully knock on wood i'm still youtubing all that
+
+27:13.140 --> 27:18.660
+stuff it doesn't matter if the video is old i can still see your comment it comes up as fresh on my
+
+27:18.660 --> 27:24.580
+comment section so leave me a comment even if you're a future tillion coming to me not in the year 2021 or
+
+27:24.580 --> 27:30.660
+2022 i'm recording this in uh before christmas in 2021 leave me a comment if something's not clear
+
+27:30.660 --> 27:36.180
+you have a question don't expect an answer right away however do expect that i will try to answer
+
+27:36.180 --> 27:41.140
+your question and it won't be a waste of time to ask a question within the comment section but that
+
+27:41.140 --> 27:45.540
+would also help out the algo so if you don't have a question leave me a quick comment and if you're not
+
+27:45.540 --> 27:51.380
+subscribed hit subscribe and smash the bell because a lot of my content is time sensitive and that allows me
+
+27:51.380 --> 27:56.740
+to deliver time sensitive info for you so my twitter handle post us bear to this too is my handle it's
+
+27:56.740 --> 28:04.500
+my name with the number two afterward and at the time of this recording i conduct eight to ten video
+
+28:04.500 --> 28:09.540
+live chats a week within my discord where my community members turn on their microphone and or
+
+28:09.540 --> 28:15.300
+their camera sometimes and they ask me questions live during the hour slots and links to that are in
+
+28:15.300 --> 28:19.380
+the description section of my videos at the time you're watching this if you're coming in the future
+
+28:19.380 --> 28:23.700
+this link might not be the same that you're seeing by the blue arrow so what you'd want to do if you
+
+28:23.700 --> 28:28.260
+wanted to check that out is go to my recent videos and look at the link that i use there
+
+28:28.260 --> 28:33.620
+thanks for watching you just got timmified worldwide peace
+

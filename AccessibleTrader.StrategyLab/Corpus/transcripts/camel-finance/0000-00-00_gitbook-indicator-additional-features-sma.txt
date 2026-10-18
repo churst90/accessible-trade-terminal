@@ -1,0 +1,26 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/sma.md).
+# SMA
+Smooth Your View. Sharpen Your Strategy.
+The Simple Moving Average (SMA) is one of the most reliable tools in a trader’s arsenal. In the CF Cycle Trading Indicator, it adds clarity to market direction by filtering out noise and helping you track trend strength with ease.
+***
+#### 🔍 Why It Matters for Cycle Trading
+When paired with cycle lows and confluence signals, the SMA becomes more than a line — it becomes a guide for trend confirmation, momentum assessment, and entry/exit precision. Whether you’re swing trading or position building, the SMA helps identify where you are in the broader market rhythm.
+{% embed url="" %}
+***
+#### 🛠️ SMA Settings Box
+Here’s what you can customise:
+* ✅ SWITCH ON/OFF
+Turn the SMA line on or off depending on your charting needs.
+* \#️⃣ LENGTH
+Define how many candles the SMA averages. A longer period = smoother trend line.
+* 📊 SOURCE
+Choose which data point to base the SMA on — Close, Open, High, Low, etc.
+* ↔️ OFFSET
+Shift the SMA line forward or backward for clearer visual separation or strategy alignment.
+* 📏 WIDTH
+Change line thickness to make it bolder or more subtle.
+* 🎨 COLOUR
+Match your chart aesthetic or create contrast for better visibility.
+***
+Whether you’re using the SMA as a bias filter or a secondary confirmation layer, it’s built to adapt to your strategy — with no guesswork. Just plug it in, fine-tune, and trade with more confidence.
+***

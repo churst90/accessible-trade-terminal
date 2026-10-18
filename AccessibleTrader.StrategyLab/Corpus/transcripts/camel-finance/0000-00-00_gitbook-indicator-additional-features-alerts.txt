@@ -1,0 +1,37 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/alerts.md).
+# Alerts
+Stay Ahead of the Market with Real-Time Notifications
+Our alert system ensures you never miss a key market signal. Whether you’re tracking Daily or Weekly Cycle Lows, you’ll get real-time alerts on TradingView that align with the most critical moments for potential entries, exits, and trend shifts.
+***
+#### 📣 What You’ll Be Alerted About
+**🟢 Daily Cycle Low (DCL) Alerts**
+* ✅ New DCL: Get notified when a potential Daily Cycle Low is confirmed — ideal for timing swing entries.
+* ❌ Cancelled DCL: Stay updated if a previously confirmed DCL is broken or invalidated.
+* 🔄 Updated DCL: Be alerted when a new DCL replaces a failed one — the indicator auto-adjusts.
+* ⚠️ Pending DCL: For fine-tuned assets only — an early heads-up that a DCL may be forming soon.
+\
+*To gain a clearer understanding of these events, Click here to refer to the Daily Cycle Low breakdown section:*
+{% content-ref url="/pages/CVRnlsXz9UkvXTkoK63f" %}
+[Daily Cycle Lows](/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/daily-cycle-lows.md)
+{% endcontent-ref %}
+**🔵 Weekly Cycle Low (WCL) Alerts**
+* ✅ New WCL: These major pivot points help you time higher timeframe trades and trend shifts.
+* ⚠️ Pending WCL: Similar to DCL, this signals a potential upcoming WCL in fine-tuned assets.
+*To gain a clearer understanding of these events, Click here to refer to the Weekly Cycle Low breakdown section.*
+{% content-ref url="/pages/Bte8gTNbEwcUbfMwuL10" %}
+[Weekly Cycle Lows](/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/weekly-cycle-lows.md)
+{% endcontent-ref %}
+***
+#### ⚙️ Easy Setup on TradingView
+* Apply the indicator to any asset
+* Enable alerts directly through the TradingView alert icon
+* Choose how you want to be notified: in-app, email, sound, or webhook
+* Alerts come pre-loaded with asset, price, and timeframe — no setup required
+***
+#### 🔒 Designed for All Traders
+* Free TradingView Users: Set alerts manually for individual assets
+* Pro Users: Set alerts on multiple assets across timeframes for maximum coverage
+***
+#### 🧠 Why It Matters
+These alerts act like a personal trading assistant — notifying you only when real, high-probability signals emerge. Perfect for those who don’t want to sit at their charts all day but still want to trade with timing and confidence.
+***

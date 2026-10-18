@@ -1,0 +1,39 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/weekly-cycle-lows.md).
+# Weekly Cycle Lows
+Spot Longer-Term Reversals With More Confidence
+The Weekly Cycle Low (WCL) feature builds on the Daily Cycle Low foundation, offering a broader, more powerful view of market structure. By identifying medium-term cycle lows, WCLs give traders the clarity they need to align with higher timeframe momentum — perfect for swing traders, position traders, or anyone who wants to hold for longer moves with conviction.
+***
+#### ⚙️ WCL Settings Overview
+The WCL Settings Box is designed to help you tailor exactly how these critical levels appear and behave on your chart:
+🎯 Icon Display
+* Toggle Weekly Cycle Low icons on or off with ease
+* Customize colour and shape for clear visual distinction from Daily Cycle Lows
+* Quickly identify when longer-term reversals may be setting up
+📉 Line Display
+* Toggle line visibility to project where WCLs are expected
+* Adjust width and opacity to reflect your preference and chart layout
+* Thicker lines = higher support importance
+* Faded lines = clean but informative background signal
+***
+#### 🧠 WCL Confirmation Logic
+Markets aren’t perfect. Weekly Cycle Lows can sometimes shift or get invalidated based on new price action. That’s why the indicator includes logic to detect failed or repositioned WCLs in real time.
+❌ Cancelled WCL
+* Appears when price action breaks decisively below a previously confirmed WCL
+* Alerts you that a shift in structure has occurred
+* Helps you stay adaptive and informed, instead of trading outdated support levels
+These confirmation signals ensure you’re always trading what the market is doing now, not what it looked like yesterday.
+***
+🔍 In Practice: Using WCLs on the Chart
+With just a few clicks, you’ll see Weekly Cycle Lows automatically plotted on your chart — along with cancellations when cycle structure fails. This feature helps you:
+* Avoid false confidence in invalidated levels
+* Spot deeper cycle lows and better re-entry points
+* Understand broader trend behaviour when DCLs and WCLs stack or diverge
+{% embed url="" %}
+Visual clarity and automated signals allow you to take action without hesitation — or second-guessing your analysis.
+***
+#### ✅ Why WCLs Matter
+* Longer-term cycle clarity = stronger trade alignment
+* Auto-detected cancellations reduce risk from old signals
+* Ideal for mid-to-swing-term setups across any asset
+* Works seamlessly with Daily and Yearly Cycle Lows for full multi-timeframe structure
+***

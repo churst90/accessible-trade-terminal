@@ -1,0 +1,21 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/introduction.md).
+# Introduction
+### CF Cycle Trading Indicator
+The CF Cycle Trading Indicator is built to simplify cycle trading.
+It helps traders spot high-probability areas faster, reduce manual chart work, and bring more structure to decision-making.
+### What it does
+* Detects Daily, Weekly, and Yearly Cycle Lows across major markets
+* Classifies cycle tops as Left, Right, or Mid-Translated
+* Projects future timing windows for likely reversal zones
+* Gives you visual control over icons, lines, and chart display
+* Works across crypto, equities, forex, and commodities
+* Turns Camel Finance's manual process into a rules-based system
+### Who it helps
+#### For newer traders
+* Reduces complexity
+* Makes cycle structure easier to read
+* Gives visual confirmation with less guesswork
+#### For experienced traders
+* Improves entry and exit timing
+* Supports multi-asset analysis
+* Cuts down manual review in fast markets

@@ -1,0 +1,21 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/cycle-range-midpoint.md).
+# Cycle Range Midpoint
+Pinpoint the Heart of Each Market Cycle
+The Cycle Range Midpoint is a precision tool designed to help traders quickly identify the exact centre between two confirmed cycle lows — whether Daily (DCL), Weekly (WCL), or Yearly (YCL).
+***
+#### ⚙️ Cycle Range Midpoint Settings
+Tailor Your Chart, Highlight What Matters
+**🟡 Line Display**
+* Toggle Visibility: Instantly show or hide the midpoint line
+* Line Style: Choose between solid, dashed, or dotted for clear visual distinction
+* Full-Length Option: Stretch the midpoint across the entire chart to make key areas easier to monitor
+**🟠 Width and Thickness**
+* Fine-tune how prominent your midpoint appears — from subtle guidance to bold emphasis
+**🟣 Cycle Range Box**
+* Enable a shaded box around the midpoint to visualise the range between cycle lows
+* Ideal for spotting time symmetry, cycle rhythm, and internal structure
+**🔆 Visibility Slider**
+* Customise the opacity of both line and box
+* Want it subtle in the background? Dial it down.
+* Need high visual impact? Max it out.
+***

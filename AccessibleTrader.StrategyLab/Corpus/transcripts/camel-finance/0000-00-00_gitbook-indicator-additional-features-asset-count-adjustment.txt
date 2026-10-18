@@ -1,0 +1,30 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/asset-count-adjustment.md).
+# Asset Count Adjustment
+Precision Control for Custom Cycle Tuning
+The Asset Count Adjustment panel gives traders fine-grain control over how the indicator interprets market cycles — letting you fine-tune the engine behind the CF Cycle Trading Indicator to match your unique trading style or an asset’s specific behaviour.
+***
+#### ⚙️ Customisable Settings Overview
+Each adjustment below shapes how cycle lows are detected and confirmed:
+* 🔁 Cycle Length Adjustment Factor
+Adjusts the average length of a cycle. Increase to stretch out cycles for slower-moving assets, or decrease to catch shorter, faster cycles.
+* ⚡ Fast EMA Adjustment Factor
+Controls short-term sensitivity. A higher number means faster response to recent price action — perfect for fast-paced assets.
+* 🐢 Slow EMA Adjustment Factor
+Smooths the count over longer timeframes, filtering out noise and focusing on major directional shifts.
+* 📈 Overbought Filter (Uptrend Threshold)
+Determines how quickly an asset is marked as entering an uptrend. Lower values = quicker uptrend detection.
+* 📉 Oversold Filter (Downtrend Threshold)
+Determines how sensitive the system is to detecting downtrends. Higher values = slower, more conservative trend shifts.
+* ⏩ Faster Confirmation (Toggle)
+Enables quicker DCL confirmation for aggressive traders. Ideal for those looking to reduce lag on signals in fast-moving markets.
+***
+#### 🧠 How to Use These Settings
+These tools are especially useful when:
+* 🔧 You’re trading an unoptimised asset and need more control
+* 🛠️ You’ve selected a finetuned count and want to refine it further
+* 🧪 You want to experiment with shorter/longer cycles or match your personal market outlook
+You can also adjust these settings globally on default unoptimised assets to better suit the structure of what you’re viewing — without the need for coding or complex setup.
+This gives you the dials and sliders to shape your own cycle engine — designed for traders who want full control over the rhythm of their analysis.
+***
+➡️ [View the Indicator Finetuned Assets](https://www.tradingview.com/watchlists/182218276/)
+***

@@ -1,0 +1,10 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/summary-1.4/the-ultimate-tool-for-cycle-traders.md).
+# THE ULTIMATE TOOL FOR CYCLE TRADERS:
+The **CF Cycle Trading Indicator** is your key to mastering market cycles with precision and ease. Designed to streamline the complex process of cycle analysis, this tool is indispensable for both novice and experienced traders alike.
+* **🔄 Automated Cycle Detection:** Instantly identify Daily, Weekly, and Yearly Cycle Lows (DCL, WCL, YCL) with 70-80% accuracy, eliminating the need for manual calculations.
+* **🔍 Cycle Top Translations:** Accurately predict Left-Translated (LTR), Mid-Translated (MTR), and Right-Translated Cycles (RTR) to anticipate market turns and make informed trading decisions.
+* **🌍 Multi-Asset Compatibility:** Apply your strategy across a wide range of assets including stocks, commodities, and cryptocurrencies, with support for major indices like BTC, SPX, NDQ, and more.
+* **🎨 Customisation Options:** Tailor the indicator’s visual appearance to suit your trading style, including colour adjustments, icon sizes, and detailed or simplified views.
+### **❓ Why This Indicator is Essential:**
+* **🧠 For Beginners:** Simplifies the learning curve by providing clear, actionable insights into market cycles, helping you make better trading decisions faster.
+* **📦 For Experienced Traders:** Enhances your existing strategies by automating cycle analysis, reducing the risk of human error, and allowing you to focus on strategy execution.

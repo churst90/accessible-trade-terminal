@@ -1,0 +1,11 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/cycle-low-alerts.md).
+# CYCLE LOW ALERTS
+Never miss a cycle low again.
+Camel Finance’s custom Cycle Low Alert System gives you instant notifications the moment a Daily (🟢 DCL) or Weekly Cycle Low (🔵 WCL) is detected by the CF Cycle Trading Indicator. Whether you’re a swing trader watching for reversal zones or an investor managing multi-asset exposure, these alerts ensure you stay ahead of trend shifts in real time.
+✅ Key Benefits:
+• Precision-Timed Entries: Get alerted to powerful turning points backed by cycle theory—not noise.
+• Fully Customisable Delivery: Receive alerts via TradingView push, email, on-screen, webhook, or sound.
+• Watchlist Automation: Paid TradingView users can apply alerts across the entire CF Indicator Asset List.
+• Built-In Visual Cues: Toggle alerts on/off for WCL and DCL directly from the indicator interface.
+Set it once. Let the system watch the charts for you.
+Trade less. Miss less. Catch more. 🔁

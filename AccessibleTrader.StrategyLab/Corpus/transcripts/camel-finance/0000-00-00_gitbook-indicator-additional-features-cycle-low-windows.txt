@@ -1,0 +1,39 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/cycle-low-windows.md).
+# Cycle Low Windows
+Know Where You Are in the Cycle — at a Glance
+Timing is everything in cycle trading. The Cycle Low Windows Table gives you real-time insight into *how mature* the current cycle is — helping you anticipate potential turning points before they happen.
+By showing how many days or weeks have passed since the last confirmed or unconfirmed cycle low, this tool offers a powerful lens into cycle timing across both Daily and Weekly timeframes.
+***
+#### 🔍 What It Shows
+This table is divided into two practical insights:
+#### ✅ Confirmed Cycle Lows
+* Days Since Last DCL: Tracks how many daily bars have elapsed since the last confirmed Daily Cycle Low.
+* Weeks Since Last WCL: Tracks the time passed since the most recent confirmed Weekly Cycle Low.
+Great for spotting mature cycles that may be nearing exhaustion.
+***
+#### 🕓 Unconfirmed Cycle Lows
+* Tracks recent *potential* cycle lows that are currently awaiting confirmation.
+* If these lows later meet confirmation conditions, they’re automatically upgraded and marked with a ✅.
+Ideal for monitoring *early signs* of potential cycle shifts — but remember, these are provisional and should be used with confirmation logic or price action analysis.
+***
+#### 📊 How to Use It
+Pair the Cycle Low Windows Table with:
+* Future Cycle Low Range (FCLR): Anticipate when new lows are *likely* to form.
+* Cycle Count Numbers: Measure typical length and spot irregularities.
+* DCL/WCL Confirmation Signals: Confirm or reject what the timing is suggesting.
+This trio gives you *a near-complete cycle map*.
+***
+#### ⚙️ Customisation Options
+Found in the Cycle Low Windows tab under Tables:
+* Easily toggle this table on/off
+* Align it with your broader cycle-based workflow
+***
+#### 💡 Why It Matters
+This isn’t just a timer. It’s a cycle health check that gives traders a better read on:
+✅ Whether we’re early, mid, or late in the cycle
+✅ When to stay patient — or get ready to act
+✅ How to align entries with smarter timing and less guesswork
+***
+It’s not about predicting the future — it’s about reading the cycle properly.
+Cycle Low Windows makes that easier, faster, and more precise.
+***

@@ -1,0 +1,12 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-marker.md).
+# CF Cycle Marker
+Visualize Your Own Market Timing with Full Control
+The CF Custom Cycle Marker is a lightweight visual overlay designed for traders who want to define and experiment with their own market cycles. Whether you’re testing a theory, illustrating an idea, or manually syncing with price rhythms, this tool gives you a clean canvas to mark cycle lows and render custom sine waves.
+What it does:
+* 📍 Marks Custom Lows — Set manual cycle low anchors directly on the chart
+* 🌊 Plots Sine Waves — Create visual rhythm between selected cycle lows
+* 🧭 Flexible Cycle Spacing — Choose how many bars apart your cycles should stretch
+* ✨ Custom Toggles — Enable icons, sine waves, background shading, and even a camel logo 🐪
+* 🎨 Styling Freedom — Customize line width, color, fill opacity, and more
+> ⚠️ Note: This is a manual visual tool for stylized charting. For automated cycle low detection and live market reads, use the CF Cycle Trading Indicator.
+Use this tool to sketch, compare, or communicate cycles in a quick and elegant way — perfect for analysis sessions, screenshots, or strategy building.

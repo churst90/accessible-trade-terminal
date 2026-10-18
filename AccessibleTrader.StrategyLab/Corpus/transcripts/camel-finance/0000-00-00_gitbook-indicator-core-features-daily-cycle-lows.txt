@@ -1,0 +1,57 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/core-features/daily-cycle-lows.md).
+# Daily Cycle Lows
+### 🔍 Daily Cycle Lows (DCL)
+Pinpoint Precision. Reliable Entries. Visual Confidence.
+The Daily Cycle Low (DCL) system is at the core of the CF Cycle Trading Indicator — built to help traders identify the most reliable, high-probability turning points in the market.
+Whether you’re trading Bitcoin, the S\&P 500, or Gold, DCLs are your go-to anchor for positioning with confidence in trend reversals and fresh cycle legs.
+***
+#### ⚙️ Full Control With Customisable DCL Settings
+The DCL Settings Panel gives you complete control over how your Daily Cycle Lows are displayed and interpreted on your charts:
+**🎯 Icon Display**
+* Toggle DCL icons on or off with a single click
+* Choose your icon size, shape, and colour to suit your visual preferences
+* Instantly identify important turning points without clutter
+**📈 Line Display**
+* Adjust line thickness and opacity to highlight strength of the signal
+* Make your chart work for you — with cleaner, more focused visuals
+* Set visibility levels to reflect your comfort with confirmation clarity
+***
+#### 🌐 DCL Confluence – When Signals Align
+\
+Looking for stronger entries backed by multiple confirmations? DCL Confluence is your edge.
+Confluence is the combined weight of multiple technical signals that support the same Daily Cycle Low. It doesn’t guess — it cross-checks.
+What’s included:
+* ✅ Breakout Confirmation – Detects clean breakouts aligned with cycle low timing
+* 📊 Momentum Signals – Assesses internal strength of the move
+* 🔍 Supporting Indicators – Validates the price action with added context
+{% embed url="" %}
+Why it matters:
+* High Confluence = strong probability, prime for setups
+* Mid Confluence = moderate signal, proceed with caution
+* Low Confluence = possible noise, best avoided unless confirmed elsewhere
+💡 *Use confluence to build confidence. Combine it with confirmation signals for ultra-precise entries.*
+***
+#### 🧠 Smart Confirmation Logic – The DCL Signal System
+\
+Cycle trading isn’t always clean. That’s why the indicator doesn’t just guess — it adapts.
+Here’s how the system works:
+* ✅ Confirmed DCL: Shows a ✅ icon the moment all rules align. That’s your high-confidence trigger.
+* 🕓 Unconfirmed DCL: Shows a provisional 🕓 icon — low probability, not ready yet.
+* ❌ Cancelled DCL: This shows ❌ when a DCL breaks down post-trigger.
+* 🔄 Updated DCL: Shows 🔄 when a new low replaces an invalidated one. Tracks shifting market behaviour in real time.
+Every signal is mapped on the chart — so you’re never second-guessing what the market is doing or where you stand in the cycle.
+***
+#### 👁️ See It Live. Trade It Smarter.
+\
+The best way to understand cycle signals? See them in action.
+{% embed url="" %}
+Inside the indicator, you’ll find real-time signals mapped to your charts — allowing you to watch DCLs form, confirm, cancel, and reposition with full transparency. This transforms raw cycle theory into something intuitive and actionable.
+***
+#### ✅ Summary – Why DCLs Matter
+The DCL system gives traders:
+* Timely, visually intuitive signals
+* Confidence in entry points based on hard logic
+* The ability to adapt to real-time market shifts
+* Clarity across multiple assets and timeframes
+With DCLs, you don’t just *see* cycle lows — you understand and act on them with more precision than ever.
+***

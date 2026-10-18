@@ -1,0 +1,25 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/finetuned-asset-selection.md).
+# Finetuned Asset Selection
+Precision-Crafted Cycle Counts for Top Assets
+The Finetuned Asset Selection feature gives you access to pre-optimised cycle templates tailored to popular assets like BTC, SPX, and XAU/USD — making cycle detection more accurate right out of the box.
+***
+#### 📊 Why It Matters
+Each asset moves with its own rhythm. These curated templates are built using in-depth backtesting and refinement, designed to match each asset’s specific market behaviour. When applied, they enhance the reliability of Daily, Weekly, and Yearly Cycle Low detection.
+***
+#### 🔁 How It Works
+* Select a finetuned template from the dropdown list
+* The indicator applies that cycle count logic to your current chart
+* Great for analysing assets that haven’t been individually optimised — just borrow logic from one that has similar structure
+For example:
+Looking at a new altcoin? Try applying the BTC or ETH template for better cycle alignment.
+***
+#### 🧠 Smart Flexibility
+* Not asset-locked: You can apply any optimised template to any chart
+* Fast testing: Swap between count presets without needing to manually tweak all settings
+* Ideal for forward testing: Especially useful when your asset has limited data or irregular structure
+***
+#### 🛠️ Refine Even Further
+Once you’ve selected a template, go deeper with:
+👉 [Cycle Count Adjustment Settings](/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/asset-count-adjustment.md)
+This gives you full control to tweak and customise the count logic further, ensuring the indicator aligns with your unique view of the chart.
+***

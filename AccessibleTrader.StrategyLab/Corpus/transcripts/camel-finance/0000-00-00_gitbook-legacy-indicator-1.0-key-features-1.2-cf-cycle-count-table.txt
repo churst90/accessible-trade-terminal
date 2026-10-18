@@ -1,0 +1,18 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/cf-cycle-count-table.md).
+# CF CYCLE COUNT TABLE
+The Cycle Count Table is a compact, always-on-screen widget that gives traders instant insight into the expected cycle durations for 16 finetuned assets — from equities and commodities to cryptocurrencies.
+This dynamic table adapts to the chart you’re viewing and instantly displays that asset’s average Daily, Weekly, and Yearly cycle durations — all based on historical confluence research and proprietary tuning.
+**🧩 Key Features:**
+* 🔍 Auto Asset Detection: Instantly recognizes if you’re viewing one of the 16 supported assets (e.g. SPX, GOLD, BTCUSD) and loads that asset’s cycle timing data.
+* 📆 Cycle Range Breakdown: Clearly shows average cycle ranges in:
+* Days (Daily Cycle Range)
+* Weeks (Weekly Cycle Range)
+* Years (Yearly Cycle Range)
+* 🧠 Context-Aware: Helps traders interpret time-based setups more effectively by keeping expected durations visible at all times.
+* 🎯 Clean Interface: Data appears in a neatly formatted table at the bottom-right of your chart, with color-coded titles and readable fonts.
+* 🎨 Seamless Design: Styled to match CF’s visual framework — clean, modern, and unobtrusive.
+**⚙️ Use Cases:**
+* Quickly determine whether a swing low or high is arriving within expected timeframes.
+* Cross-check market rhythm without flipping through documentation or toggling overlays.
+* Stay aligned with pre-defined asset tuning ranges to reduce timing error in trades.
+> Ideal for traders who want fast, visual timing alignment without disrupting chart flow.

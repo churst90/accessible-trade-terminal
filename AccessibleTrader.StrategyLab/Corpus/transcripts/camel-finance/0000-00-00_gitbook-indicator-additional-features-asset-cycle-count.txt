@@ -1,0 +1,37 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/asset-cycle-count.md).
+# Asset Cycle Count
+Stay in Rhythm with Optimised Market Timing
+The Asset Cycle Count table is a smart timing reference built directly into your chart — offering you historical cycle expectations across Daily, Weekly, and Yearly ranges for 16 handpicked, fine-tuned assets.
+Rather than guessing how long a cycle *should* last, this tool gives you clarity — helping you trade with data-backed timing confidence.
+***
+#### ⚙️ How It Works
+✅ When the indicator detects you’re on one of the 16 officially optimised assets from the CF Tuned Asset Watchlist, the table automatically appears in the bottom-right of your chart.
+It shows:
+* 🕒 Daily Cycle Range (in days)
+* 📆 Weekly Cycle Range (in weeks)
+* 📅 Yearly Cycle Range (in years)
+These ranges are derived from historical behaviour, macro cycles, and rhythmical confluence — giving you a highly reliable timing reference.
+***
+#### 🔍 Why It Matters
+This isn’t a cycle detection tool — it’s a cycle expectation calibrator.
+Use it to:
+* Stay aligned with the typical rhythm of each asset
+* Avoid misjudging early or late entries
+* Spot potential cycle extensions or compressions
+* Cross-check your DCL/WCL counts against expected timeframes
+* Confirm your trades are backed by statistical timing, not gut feeling
+Whether you’re swing trading BTC, planning mid-term setups on SPX, or tracking gold’s yearly rotations — this simple widget keeps your timing in sync.
+***
+#### 🧠 Pro Tip
+Use the Asset Cycle Count table alongside the main CF Cycle Lows Indicator to:
+* Validate your bar counts
+* Support early reversal expectations
+* Manage timing with sharper precision
+This is your timing compass — subtle but powerful.
+***
+#### 🧰 Settings & Customisation
+Found in the Asset Cycle Count tab under Tables:
+***
+Real cycles. Real timing. No guesswork.
+The Asset Cycle Count is your quiet edge — always keeping you anchored in time.
+***

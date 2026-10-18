@@ -1,0 +1,10 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/summary-1.4/use-cases-hypothetical.md).
+# USE CASES (HYPOTHETICAL):
+1. **📉 Identifying Market Tops:**
+Exit positions early during a potential market downturn by identifying Left-Translated Cycles (LTR).
+2. **📊 Optimising Entry and Exit Points:**
+Refine your strategy by detecting Weekly Cycle Lows (WCL) for better-timed trades.
+3. **🎯 Managing Risk in Volatile Markets:**
+Anticipate periods of heightened volatility and adjust your positions accordingly.
+4. **📅 Enhancing Long-Term Investment Strategies:**
+Align your investment strategy with Yearly Cycle Lows (YCL) to capitalise on market corrections.

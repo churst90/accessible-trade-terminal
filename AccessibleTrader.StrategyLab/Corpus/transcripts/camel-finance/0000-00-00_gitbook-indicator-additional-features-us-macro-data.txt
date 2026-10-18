@@ -1,0 +1,28 @@
+> For the complete documentation index, see [llms.txt](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/us-macro-data.md).
+# US Macro Data
+Bridge the Gap Between Cycles and the Macro Landscape
+Trading isn’t just about technicals — understanding the broader economic backdrop gives your cycle analysis deeper context. The US Macro Data Table inside the CF Cycle Trading Indicator helps you quickly visualise how major US economic events are evolving — and how they might influence the larger market cycles.
+Whether you’re trading short-term moves or planning around longer-term cycle lows, this table gives you a clear macro pulse without needing to scroll through endless news.
+***
+#### 📊 What It Shows
+* Macroeconomic Indicators: Instantly view key data like CPI, Unemployment Rate, Fed Funds Rate, and more — directly within your chart environment.
+* Live Value Changes: See official release numbers, percentage changes from previous readings, and visual signals of macro shifts.
+* Bullish/Bearish Colour Coding: Red means a bearish shift vs. the previous release, green indicates bullish — helping you quickly interpret what matters.
+* CF Bullish Meter: A rough “sentiment dial” based on macro shifts. It’s not a signal — just a smart way to frame your bias.
+* Powell’s Tie 🎩: A fun twist only Camel Finance could pull off — showing Chairman Powell’s tie colour based on the macro tone. Lighten up your data dive with some market humor.
+***
+#### ⚙️ Macro Table Settings
+You’re in full control of how (and when) you view the macro table:
+* Toggle On/Off – Turn the macro panel on or off depending on your charting needs.
+* Customize Powell’s Tie – Choose your favourite emoji combo — because macro doesn’t have to be boring.
+* Text Size Control – Make the data bold and visible, or minimal and tucked away. Your layout, your choice.
+***
+#### 💼 Why It Matters
+Cycle trading thrives when timing aligns with macro momentum. This tool allows you to:
+✅ Quickly gauge whether macro conditions support or conflict with cycle setups.
+✅ Frame expectations ahead of key data releases.
+✅ Keep your trading grounded in the bigger picture — without information overload.
+***
+Let the market cycle speak — and let the data confirm the tone.
+The US Macro Table gives you a smarter lens on what’s driving the macro flow, integrated directly within your cycle-trading toolkit.
+***
