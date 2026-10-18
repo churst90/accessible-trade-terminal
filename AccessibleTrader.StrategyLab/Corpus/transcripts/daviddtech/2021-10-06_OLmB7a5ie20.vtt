@@ -1,0 +1,437 @@
+WEBVTT
+
+00:00.000 --> 00:03.560
+It's all about those divergences, so let's get straight to it.
+
+00:10.080 --> 00:12.560
+Hi TraderDevs, I hope you're all going extremely well.
+
+00:12.680 --> 00:22.560
+Welcome back to the channel where I go through YouTube and other websites to find trading strategies which I code to debunk the bad ones and find the good ones.
+
+00:23.000 --> 00:25.040
+Today we're going to be looking at divergences.
+
+00:25.040 --> 00:33.540
+This video was inspired by two people, one a member from my Discord channel, if you'd like to join the Discord channel you can find the links down in the description.
+
+00:34.180 --> 00:39.020
+And another YouTuber called, well the YouTube channel is called Moving Averages.
+
+00:39.240 --> 00:44.800
+So let's have a look at divergences, what they are, how we can code them, how we can test them and which ones are the best.
+
+00:44.880 --> 00:46.340
+Let's get straight over to my computer.
+
+00:47.040 --> 00:48.640
+Okay, here we are on my computer.
+
+00:48.860 --> 00:51.380
+As always we're going to give credit where credit is due.
+
+00:51.380 --> 01:00.880
+Here is the YouTube channel I was talking about that inspired me to do this video, The Moving Average, where he explains regular bullish divergences and bearish divergences.
+
+01:01.240 --> 01:05.680
+Goes through everything from A to Z, a 12-minute video, well worth watching if you have the time.
+
+01:06.140 --> 01:10.620
+Okay, what we're going to do is we're going to go over to our setup on trading view.
+
+01:10.960 --> 01:15.660
+We're going to explain very, very quickly in less detail the bullish divergences.
+
+01:15.820 --> 01:19.160
+We're going to code it, we're going to backtest it, find out which ones are the best, etc.
+
+01:19.160 --> 01:20.540
+So let's get over to trading view.
+
+01:20.700 --> 01:23.240
+Okay, here I have a trading view.
+
+01:23.400 --> 01:29.940
+I have actually marked out a couple of bullish divergences just so we can explain what they are and some bearish ones too.
+
+01:30.580 --> 01:39.800
+Okay, a bullish divergence is actually where the price movement is going down and inside the indicator we have the line actually going to the upside.
+
+01:39.800 --> 01:55.980
+So as you can see in general what happens here is the indicator here which is the RSI which all you have to do is literally go up the top here and type RSI and you will be able to find the RSI in the built-in strategies here relative strength index.
+
+01:55.980 --> 02:09.760
+And as we go down on the price here as you can see the RSI generally follows along and then we get to a point in the RSI where actually the RSI is going up and the price is actually continuing to go down.
+
+02:09.760 --> 02:17.140
+Which generally predicts a reversal in movement and it's where we would take a good entry point.
+
+02:17.280 --> 02:31.000
+So the idea is here we would have an entry point if we take a look at the reversal from the point after this we can see that this actually reversed by 14% before becoming a bearish divergence.
+
+02:31.000 --> 02:57.140
+Now bearish divergences work in the other way as price moves up we have a down movement in the RSI so here we can see that it was actually moving up with the price it got a bit slow down we actually had a small bearish divergence here we had another one here which actually predicted the top of the market before it dumped by drumroll please 9% so there you go.
+
+02:57.140 --> 03:04.460
+So as you can see bullish and bearish divergences are a fantastic tool for predicting reversals in the trend.
+
+03:04.460 --> 03:08.680
+They're also apparently very good at predicting thumbs ups on YouTube.
+
+03:09.260 --> 03:15.860
+Okay right okay so what we're going to do now is see how we can code that so we can get some more confluence and also do backtesting.
+
+03:16.160 --> 03:25.200
+I'm also going to add divergences to MACD to the MFI and to loads of other indicators because all these indicators actually have divergences as well.
+
+03:25.200 --> 03:33.400
+We're going to be able to backtest all of them and you'll be able to download all of these strategies for free or go to my Patreon page which is down in the description.
+
+03:33.680 --> 03:36.400
+Okay let's get to coding and let's have a look at how this works.
+
+03:36.860 --> 03:45.220
+Okay for those of you who know me well I actually already did do a MACD divergence indicator which was by David Tick.
+
+03:45.220 --> 03:52.520
+So if you go to MACD and write MACD David Tick normally you'll be able to find my divergence indicator which is here.
+
+03:54.040 --> 03:57.220
+So we actually already know how to code the divergences.
+
+03:57.900 --> 04:08.540
+It just literally looks for the pivot top and the pivot bottom and then works out whether between the two pivots it is higher, a higher high and a higher high or a higher high and a lower high.
+
+04:08.540 --> 04:13.160
+And then looks at price to see exactly the same to see if there's a divergence between the two.
+
+04:13.600 --> 04:16.780
+So I'm going to take this code here literally like this.
+
+04:16.860 --> 04:21.340
+Going to copy and paste all of this code into a boilerplate.
+
+04:21.580 --> 04:25.520
+And then I'm going to come back to you with some results on how this works.
+
+04:25.680 --> 04:28.320
+And that means that you'll be able to download it and test it for yourself.
+
+04:28.480 --> 04:29.480
+So let's give it a go.
+
+04:29.580 --> 04:29.820
+Right.
+
+04:30.020 --> 04:31.160
+Okay I'm going to start coding.
+
+04:31.160 --> 04:43.620
+Right here we are with our final product.
+
+04:43.800 --> 04:53.760
+For those of you who know my indicators they all pretty much look the same except we've done a recent update where we've added a load of new indicators.
+
+04:54.060 --> 04:59.780
+So you'll be able to download that tonight and be able to see all of the new features that I've added.
+
+04:59.780 --> 05:07.160
+Okay so what I've done as I said earlier there's not really much to show you other than that I've actually added lots of code.
+
+05:07.440 --> 05:11.180
+I've added an index from the whatever I've done here.
+
+05:11.300 --> 05:12.500
+I've added the MFI.
+
+05:12.760 --> 05:14.000
+I've added the RSI.
+
+05:14.340 --> 05:15.980
+I've added the VWAP.
+
+05:16.100 --> 05:18.160
+I've added some EMAs.
+
+05:18.340 --> 05:20.720
+Some DMAs.
+
+05:20.780 --> 05:26.480
+I've literally added everything that I can think of to come up with the absolutely best strategy on YouTube.
+
+05:26.480 --> 05:30.420
+For finding divergences and with lots of confluence.
+
+05:30.640 --> 05:32.780
+Okay so let's have a look a bit more into this.
+
+05:32.980 --> 05:33.760
+Right okay.
+
+05:34.000 --> 05:38.480
+So if we go into the settings of the strategy at the moment this is a bit of a mess.
+
+05:38.680 --> 05:42.280
+But it will be better when I've actually released it this week for everybody.
+
+05:42.860 --> 05:45.880
+There's absolutely tons of wonderful settings here.
+
+05:45.980 --> 05:48.100
+Now we can set our fixed prices here.
+
+05:48.100 --> 05:57.420
+All of the exit strategies are now at the top because I'm going to be distributing a copy of the optimizer on the discord.
+
+05:57.820 --> 06:02.360
+And the optimizer actually helps us find the best profit and loss scenario.
+
+06:02.700 --> 06:05.520
+I have also added the ATR trading stop here.
+
+06:05.960 --> 06:10.280
+And then we're just going to keep going down because all of this is just part of the wonderful new strategy.
+
+06:10.280 --> 06:15.960
+We've got 3x profit which means that we can take it at three different parts of the trade.
+
+06:16.240 --> 06:18.840
+And we're going to go down and we've got our EMAs here.
+
+06:19.080 --> 06:22.760
+We also have an ADX and the RSI the MFI.
+
+06:23.080 --> 06:26.920
+And if we go down we can find the information about the strategy itself.
+
+06:27.280 --> 06:29.000
+Okay so we have the MACD settings.
+
+06:29.460 --> 06:31.780
+The KST settings.
+
+06:32.040 --> 06:34.640
+The Surgastic RSI settings.
+
+06:35.300 --> 06:36.340
+And a load more.
+
+06:36.340 --> 06:40.060
+Right okay so now we can actually choose from all of these here.
+
+06:40.560 --> 06:47.940
+So the idea of this strategy actually is to offer as many possibilities as possible to find the best strategy on the best time frame with the best pair.
+
+06:48.480 --> 06:57.480
+So you'll be able to get divergences maybe from the MFI on a 15 minute time frame which would work on 15 minutes but maybe not on an hour.
+
+06:57.480 --> 07:05.000
+So the idea is that we have an open possibility to create the best divergence strategies for your needs.
+
+07:05.000 --> 07:09.420
+Okay so I'm going to go and look at some of the backtest results with you.
+
+07:09.660 --> 07:13.240
+And then as I said I'll upload this to TradingView so you can download it.
+
+07:13.380 --> 07:13.540
+Okay.
+
+07:14.220 --> 07:15.040
+Okay right.
+
+07:15.160 --> 07:18.540
+Okay let's have a look at the actual settings themselves.
+
+07:18.880 --> 07:25.880
+As you can see out of the box we have a not too bad a strategy in place already with a 63.79 win rate.
+
+07:25.880 --> 07:34.000
+58 trades closed since March I believe that's right and a 30.9 percent net profit.
+
+07:34.200 --> 07:40.760
+Right okay if I go to the settings cog up here we can go all the way down to the bottom and see what which divergences we're using.
+
+07:41.000 --> 07:44.740
+There's absolutely tons of settings in here that you can change to make this even better.
+
+07:44.920 --> 07:48.960
+But we're going to start here where we're looking at the divergences themselves and what line we're using.
+
+07:48.960 --> 07:53.720
+Currently I'm using the MACD which as you can see I've added here.
+
+07:53.880 --> 07:57.840
+The MACD uses this blue line here to find divergences.
+
+07:58.040 --> 07:59.960
+So for instance we look at this one here.
+
+08:00.560 --> 08:07.420
+As you can see the divergence of the line the blue line is higher than the creating a higher low.
+
+08:07.680 --> 08:09.720
+And this is creating a lower low.
+
+08:10.040 --> 08:12.040
+So we would have got in just here.
+
+08:12.740 --> 08:15.040
+Now there's other settings as well as I said earlier.
+
+08:15.040 --> 08:19.060
+We have I scroll all the way down here it gets quite far we have wait for the crossover.
+
+08:19.600 --> 08:25.200
+So what happens here is if we click on here we actually wait for the divergence to happen as it happens.
+
+08:25.360 --> 08:29.860
+And then we wait for the actual blue line to cross over the orange line before we actually get in.
+
+08:29.980 --> 08:34.340
+Just for a bit more confluence to make sure that we are actually getting in at the right price.
+
+08:34.460 --> 08:36.760
+This can be limited to a certain number of candles.
+
+08:36.900 --> 08:39.840
+So imagine that we have a bullish divergence at the top here.
+
+08:39.840 --> 08:44.900
+And the crossover doesn't happen until I don't know three weeks later.
+
+08:45.420 --> 08:49.660
+And but we don't want to take this one into account because the time has now passed.
+
+08:49.760 --> 08:52.920
+So we can max the range out to it's currently at 22.
+
+08:53.080 --> 08:55.100
+So that's 15 minutes time 22 candles.
+
+08:55.380 --> 08:58.460
+Okay let's have a look at some other settings.
+
+08:58.700 --> 09:01.560
+Now what we can do is remove the wait for cross.
+
+09:01.660 --> 09:06.080
+And we can maybe use the RSI and see if that gives us better results.
+
+09:06.080 --> 09:09.440
+Okay there's 61 trades now and we've got 59%.
+
+09:09.440 --> 09:13.820
+We have 19.2% net profit.
+
+09:14.360 --> 09:20.040
+Okay now we can also improve that by going back up to the RSI settings up here.
+
+09:20.280 --> 09:27.380
+And we can also add the RSI enable RSI here and not allow it to take positions under Saturn levels.
+
+09:27.540 --> 09:34.060
+So for instance we could limit it to 40 as being the oversold and 60 as being the overbought.
+
+09:34.060 --> 09:37.780
+That means that the divergences would have to happen in that range.
+
+09:37.940 --> 09:41.420
+Which as you can see has taken up our percentage profitable.
+
+09:41.920 --> 09:44.040
+Okay now that is good.
+
+09:44.140 --> 09:46.720
+But we can also use the crossover.
+
+09:46.940 --> 09:50.340
+Which means we'll wait until the crossover of the 50 line.
+
+09:50.820 --> 09:56.940
+Now this is more in line with what our friend from the moving average says here.
+
+09:57.440 --> 10:01.980
+The uses the actual 50 line not the oversold and overbought levels.
+
+10:01.980 --> 10:07.260
+Now as clicking on that as you can see it didn't actually work out as well as we would have liked to.
+
+10:07.380 --> 10:10.500
+But that's maybe just because we're on the time frame or something like that.
+
+10:10.760 --> 10:18.660
+We also have the stochastic RSI, the money flow index, the known sure thing indicator.
+
+10:18.920 --> 10:21.080
+And we also have the MACD histogram.
+
+10:21.700 --> 10:25.380
+Now all of these can be played with and to find the perfect solution.
+
+10:25.380 --> 10:30.880
+But as I said earlier just with the MACD clicking here we have quite good results.
+
+10:31.020 --> 10:34.300
+That's actually gone down a bit because I've been playing with the settings.
+
+10:35.080 --> 10:40.080
+But 63% just those default settings is quite good.
+
+10:40.240 --> 10:45.120
+So as you can see by playing with the settings you'll probably find a strategy that suits you best.
+
+10:45.280 --> 10:51.560
+Maybe change the time frames and also change the line that you're going to be using for the divergence.
+
+10:51.560 --> 10:55.680
+I hope this helps you find your perfect strategy using divergences.
+
+10:55.820 --> 11:00.780
+Like I said they're a fantastic tool for trend reversal and they're finding a perfect entry.
+
+11:00.920 --> 11:04.380
+Especially if you're looking for something with a smaller stop loss etc.
+
+11:04.820 --> 11:08.600
+Anyway I'm going to be continuing to optimize this in the Discord.
+
+11:08.940 --> 11:09.680
+Come and join me.
+
+11:09.760 --> 11:12.280
+We can chat about the strategies together.
+
+11:12.280 --> 11:17.160
+I would also do another video a bit more about my daily strategy that I do.
+
+11:17.300 --> 11:21.760
+Which I actually use this strategy myself plus the ABC indicator.
+
+11:22.260 --> 11:25.540
+I'm going to do a couple of live trading sessions on YouTube.
+
+11:25.980 --> 11:27.600
+So I hope you will join me.
+
+11:28.080 --> 11:30.500
+Just hit that subscribe button over in the corner.
+
+11:30.720 --> 11:33.640
+And you will be notified when I add new videos.
+
+11:34.060 --> 11:36.380
+Okay guys and girls I hope you had a good day.
+
+11:36.380 --> 11:42.300
+I will be back with this strategy with more settings and more optimizations at the end of the week on Friday.
+
+11:42.460 --> 11:45.000
+Have a good day and don't forget to keep safe and keep coding.
+
+11:45.100 --> 11:45.680
+Have a good day now.
+
+11:45.740 --> 11:46.020
+Goodbye.
+

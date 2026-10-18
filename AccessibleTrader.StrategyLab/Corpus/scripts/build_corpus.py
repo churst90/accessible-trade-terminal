@@ -79,6 +79,8 @@ def main():
     ap.add_argument("--mirror")
     ap.add_argument("--channel-slugs", help="JSON {channel name: source slug} for items logged as 'auto'")
     ap.add_argument("--listings", nargs="*", default=[], help="yt_list.py outputs, to title refused items")
+    ap.add_argument("--keep", nargs="*", default=["cosasverdes-channel"],
+                    help="folders under transcripts/ that other tools own: never pruned")
     a = ap.parse_args()
 
     recs = {}
@@ -191,13 +193,16 @@ def main():
                         json.dump({k: info.get(k) for k in TRIM}, g, indent=1)
         manifest.append(m)
 
-    # transcripts/ is fully generated: drop files no record wrote (e.g. after a source was renamed).
-    for root, _, files in os.walk(tdir):
+    # transcripts/ is generated: drop files no record wrote (e.g. after a source was renamed), except
+    # in the --keep folders, which another tool writes with its own manifest.
+    for root, dirs, files in os.walk(tdir):
+        if root == tdir:
+            dirs[:] = [d for d in dirs if d not in a.keep]
         for fn in files:
             if os.path.join(root, fn) not in written:
                 os.remove(os.path.join(root, fn))
     for d in os.listdir(tdir):
-        if not os.listdir(os.path.join(tdir, d)):
+        if d not in a.keep and os.path.isdir(os.path.join(tdir, d)) and not os.listdir(os.path.join(tdir, d)):
             os.rmdir(os.path.join(tdir, d))
 
     with open(os.path.join(a.corpus, "manifest.json"), "w", encoding="utf-8") as g:

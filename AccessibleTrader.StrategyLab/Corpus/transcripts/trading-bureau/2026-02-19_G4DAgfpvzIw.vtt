@@ -1,0 +1,230 @@
+WEBVTT
+
+00:00.000 --> 00:03.820
+What's up guys, it's Jordan Crypt here from CoinBureau Trading and today we're getting into
+
+00:03.820 --> 00:09.900
+some advanced market cipher. We're going to be looking at understanding VWAP curves so you can
+
+00:09.900 --> 00:16.060
+catch perfect price reversals and understand the strength of the reversal according to the curve.
+
+00:16.240 --> 00:20.800
+This is advanced so please make sure that you have watched the other market cipher tutorials
+
+00:20.800 --> 00:26.840
+including the setup video, the intro to market cipher and the divergence and trigger wave
+
+00:26.840 --> 00:32.000
+strategy videos. I have put them all in a playlist and that link is in the description. If you're
+
+00:32.000 --> 00:37.440
+new to the channel subscribe and let's get into it. Most of you should be fairly familiar with the
+
+00:37.440 --> 00:42.660
+way that the market cipher indicator looks if you have watched the previous tutorials. Today we're
+
+00:42.660 --> 00:48.860
+going to be focusing on this yellow section of the indicator. This is your VWAP also known on this
+
+00:48.860 --> 00:54.780
+indicator as your fast wave trend. It is a very powerful algorithm using your volume weighted
+
+00:54.780 --> 00:59.840
+average price. You don't need to understand the maths behind this but you do need to understand
+
+00:59.840 --> 01:06.020
+the nuances when it comes to using it so that you are finding your best reversals and best entries.
+
+01:06.460 --> 01:11.760
+It is one of three levels of confluence in the trigger wave and divergence strategies but it's
+
+01:11.760 --> 01:16.820
+important to also understand the fine details when it comes to this level of confluence. And what we're
+
+01:16.820 --> 01:22.760
+going to be speaking about today is the shape of the VWAP curve. The first thing to understand about
+
+01:22.760 --> 01:30.140
+VWAP is that we're looking for when the VWAP crosses over the zero line. That is when we get our price
+
+01:30.140 --> 01:36.280
+reversals. And that is the purpose of this facet of this indicator. You can see directly on the charts
+
+01:36.280 --> 01:41.760
+that whenever the VWAP does cross that is when price tends to reverse.
+
+01:45.040 --> 01:49.800
+We're going to be going into a little bit more detail today and this is really where you can move
+
+01:49.800 --> 01:55.440
+from being a beginner or an intermediate trader into being a professional trader. So in basic terms
+
+01:55.440 --> 02:02.060
+the important thing to understand here is the curve of this VWAP and the shape of that curve. We can see
+
+02:02.060 --> 02:08.980
+that on this cross the VWAP's curve was pointing towards the zero line and that's the important thing
+
+02:08.980 --> 02:15.160
+to understand. Let me draw this out for you on a blank piece of chart. If we are looking for a reversal
+
+02:15.160 --> 02:22.960
+for a long trade and this is our zero line. We're wanting our VWAP to be curving towards that zero
+
+02:22.960 --> 02:28.960
+line or the cross. If the VWAP is coming up to the zero line but it is curving away from it
+
+02:28.960 --> 02:35.220
+this is a sign of a much weaker reversal. A lot of people get confused here but it's actually quite
+
+02:35.220 --> 02:41.940
+simple. If the VWAP curve is pointing towards the direction of the zero line that's your stronger
+
+02:41.940 --> 02:47.300
+reversal. If the VWAP curve is pointing away from the zero line but still going to cross
+
+02:47.300 --> 02:53.760
+that is your weaker reversal. And the same thing with shorts. If your VWAP curve is pointing down
+
+02:53.760 --> 02:59.900
+towards the zero line you're looking at a stronger reversal. If the curve is pointing away from that
+
+02:59.900 --> 03:04.640
+line but still going to cross you're looking at a weaker reversal. It's always best to start
+
+03:04.640 --> 03:09.820
+understanding these strategies on the higher time frames. So let's look at some examples of strong
+
+03:09.820 --> 03:16.020
+and weak reversals on this daily time frame. First let's look at a long trade with a strong
+
+03:16.020 --> 03:23.100
+VWAP curve and a nice reversal. Here on the 28th of September 2025 we can see that we got a nice
+
+03:23.100 --> 03:29.140
+trigger wave green dot at the 45 line. Please watch the trigger wave tutorial to understand why this is
+
+03:29.140 --> 03:36.560
+so important. And here we can clearly see that the VWAP was curving towards the zero line. Money flow was
+
+03:36.560 --> 03:42.660
+also pointing up which is our third level of confluence. And price reflected a very nice reversal
+
+03:42.660 --> 03:50.000
+of 15% up on spot. And we knew this was going to be a strong reversal and a strong trade because of
+
+03:50.000 --> 03:56.280
+the VWAP curve shape. Another strong example here was just before the 10th of October dip. We did get
+
+03:56.280 --> 04:02.740
+our bearish divergence and our VWAP crossing down with our money flow pointing down. This was an awesome
+
+04:02.740 --> 04:08.980
+signal that allowed a lot of market cipher traders to get into that massive liquidation dump and
+
+04:08.980 --> 04:14.320
+actually make money when most people were losing. And we can see something very interesting happened
+
+04:14.320 --> 04:20.480
+on the VWAP. At first it looked like the VWAP was starting to curve away from the line. But then when
+
+04:20.480 --> 04:26.980
+it got towards its cross we saw that the VWAP started curving directly downwards towards the line
+
+04:26.980 --> 04:33.620
+indicating a strong reversal. And according to the divergence strategy once that VWAP did cross
+
+04:33.620 --> 04:40.000
+we waited for the money flow to start pointing down. And once that happened we received our beautiful
+
+04:40.000 --> 04:47.060
+trade of around 18% down on spot. Let's now have a look at an example of a weaker curve which gave a
+
+04:47.060 --> 04:54.400
+reversal. Here on the 8th of November 2025 we received a green dot trigger wave below the 45 line
+
+04:54.400 --> 05:01.740
+and our VWAP crossed but our money flow was coming down. This was the first sign for us that this is
+
+05:01.740 --> 05:06.640
+not an ideal trigger wave and not really a very profitable trade to take. The other sign that this
+
+05:06.640 --> 05:14.060
+was a weak reversal was the shape of the VWAP. Here we can see that the VWAP curve was curving away from
+
+05:14.060 --> 05:20.680
+the zero line. And that sign along with money flow pointing down were very nice warning signs of a
+
+05:20.680 --> 05:26.400
+smaller reversal than we would like to see on these higher time frames. Here is another example of a
+
+05:26.400 --> 05:32.120
+weaker reversal on the higher time frame where we did receive a bearish divergence. Money flow was
+
+05:32.120 --> 05:39.060
+pointing downwards at the time but the VWAP was curving away from the zero line as it crossed. And
+
+05:39.060 --> 05:45.320
+here we can see at that reversal there was a lot of volatility with some drawdown and not a very strong
+
+05:45.320 --> 05:51.200
+reversal. If you spend some time studying the charts and looking for VWAP crosses you will find where the
+
+05:51.200 --> 05:57.140
+curve is pointing away from the line you get your small reversals and where your curve is pointing
+
+05:57.140 --> 06:01.940
+towards the line you get your much stronger reversals. And of course you need to be using
+
+06:01.940 --> 06:07.700
+this VWAP in confluence with your money flow and your wave trend or your trigger wave and your
+
+06:07.700 --> 06:13.380
+divergence strategies. Let's now look at some practical trade examples on the higher and lower
+
+06:13.380 --> 06:20.520
+time frames. Here in August of 2025 we saw a red trigger wave dot print around the 45 line. We saw
+
+06:20.520 --> 06:26.600
+that our money flow was coming down and our VWAP did cross. If we open up our VWAP and look at the shape
+
+06:26.600 --> 06:34.100
+of the curve I hope you can all clearly see that it is curving towards the zero line. This is a sign of a
+
+06:34.100 --> 06:40.680
+nice strong reversal and from that trigger wave dot we managed to reach a price target of around 10%
+
+06:40.680 --> 06:46.380
+with no drawdown. Please do practice these strategies on higher time frames first but for those traders
+
+06:46.380 --> 06:52.040
+who are at a higher level on the market cipher here is an example on the one hour time frame where we
+
+06:52.040 --> 06:58.500
+can see a nice green dot trigger wave printed bar down below the 45 line. Our money flow was turning
+
+06:58.500 --> 07:05.120
+around and our VWAP crossed. But if we look a little bit closer we can see that the curve of the VWAP was
+
+07:05.120 --> 07:10.540
+curving away from the zero line at the cross. And this was some nice insight for us that this was a
+
+07:10.540 --> 07:15.940
+bit of a weaker reversal. Here on this same time frame just a little bit further forward in time
+
+07:15.940 --> 07:21.040
+we can see another green trigger wave print below the 45 line. Money flow turning around
+
+07:21.040 --> 07:28.460
+and VWAP crossing but our VWAP had a nice curve towards the zero line. And in this case we got a much
+
+07:28.460 --> 07:35.120
+nicer long trade. Very important to make sure you've watched all the tutorials and please be sure to
+
+07:35.120 --> 07:40.960
+practice and backtest these strategies on demo trading before you move into using real capital
+
+07:40.960 --> 07:47.320
+and start with the higher time frames first before you move into the noisier higher risk lower time frames.
+

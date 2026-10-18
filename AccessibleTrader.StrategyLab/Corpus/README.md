@@ -18,6 +18,23 @@ not been tested yet, and several of the ideas behind them have already failed in
 
 `0000-00-00` in a file name means the source gives no publish date (the local tutorials).
 
+`transcripts/cosasverdes-channel/` (when present) is written by a separate tool with its own
+manifest; `build_corpus.py` never prunes it (`--keep`).
+
+## Coverage (build of 2026-10-18)
+
+315 records, 297 obtained (234 videos, 69.6 hours; 63 web pages): about 800,000 words in all. By
+school: cycle 155 obtained, market-cipher 117, structure 25, other 0. Not obtained: 15 Camel Finance
+members-only videos and one public-playlist video titled "Members only" (never requested), one
+Market Cipher video YouTube reports unavailable, and one TradingView page that returned 404.
+
+Rules files exist for every source except Bob Loukas: his 8 transcripts are here, but his rules
+file was deferred (Cody, 2026-10-18). The educator rules files were written from the first 20
+educator transcripts; 35 educator videos fetched later are in `transcripts/` but not yet folded into
+their rules files (among them Trader Geo's 93-minute tutorial `DYW_M-hoOn8`, which
+`rules/trader-geo.md` still lists as not obtained), and the 2026-10-16 Camel daily
+(`l0Dg-rb1u98`) arrived after `rules/camel-finance.md` was written.
+
 ## Schools: never blended
 
 The sources are different schools of trading, and each rules file describes one trader's own
@@ -28,7 +45,7 @@ of one school share and where they disagree, with no cross-school combination.
 |---|---|
 | `structure` | Cosasverdes (Tim): trend structure from candle bodies, horizontals, level reactions, weekly moving-average phase |
 | `market-cipher` | Crypto Face, Market Cipher official channels, Jason (Jayson) Casper, and the Market Cipher educators (Trader Geo, Trade Pro, DaviddTech, Trading Bureau, Dylan Waves, Gunslinger Trades, Frankie Candles, AlexOCrypto, Chart Wis, the DBSI reviewers, Gainium) |
-| `cycle` | Camel Finance, Bob Loukas, and the DSS Bressert / Walter Bressert cycle material |
+| `cycle` | Camel Finance, Bob Loukas (transcripts only so far), the DSS Bressert / Walter Bressert cycle material, and the FXStreet DSS columns (`likesmoney`) |
 
 The `school` field in the manifest carries the same split.
 

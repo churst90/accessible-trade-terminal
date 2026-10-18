@@ -1,6 +1,6 @@
 # Crypto Face: extracted rules
 
-Source slug `cryptoface`, school **market-cipher**. Channel: Crypto Face (YouTube), the creator of Market Cipher. 16 transcripts read in full, dated 2019-06-08 to 2026-10-14. Material: tool tutorials and education (2019-2023), one 2.5-hour live stream around a weekly Cipher B green dot (2022-02-07), and short market-update / live-call videos (2025-11 to 2026-10). All public. Most are YouTube ASR, four are Whisper; no speaker labels, so speaker attribution inside the multi-person live stream is inferred from context and marked where uncertain.
+Source slug `cryptoface`, school **market-cipher**. Channel: Crypto Face (YouTube), the creator of Market Cipher. 16 transcripts read in full, dated 2019-06-08 to 2026-10-14. Material: tool tutorials and education (2019-2023), one 2.5-hour live stream around a weekly Cipher B green dot (2022-02-07), and short market-update / live-call videos (2025-11 to 2026-10). All public. Eleven are YouTube ASR and five are Whisper (per `manifest.json`); neither has speaker labels, so speaker attribution inside the multi-person live stream is inferred from context and marked where uncertain.
 
 Guests and other voices (attributed separately, never blended into Crypto Face's own rules):
 - **Tutorial narration** in "Intro to Market Cipher" (2019-06-17): Crypto Face plays the official Market Cipher tutorial video made by his brother and comments on it. Narrated definitions are marked "(narration)"; his own comments are his.

@@ -139,6 +139,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - **Not done, by the pre-registered rule:** the A + B + DBSI suite test. Neither Cipher A nor
 >   Cipher B NEW cleared the bar (family-wise null, both halves, 50% kept under 25% noise).
 >
+> **StrategyLab corpus (2026-10-18): built; see CHANGES and `AccessibleTrader.StrategyLab/Corpus/`.**
+> - [ ] Re-score the dated calls in `Corpus/rules/*.md` against prices (Camel Finance's 358 first,
+>   then Cosasverdes, Crypto Face, Jason Casper, Bressert), each scoring rule written down first.
+> - [ ] Round-2 setup-grader pre-registration ("wait for confirmation after the dot"), from the
+>   anchor/trigger-wave/Money Flow rules at the top of `rules/cryptoface.md`, `rules/market-cipher.md`,
+>   `rules/jason-casper.md` and `rules/SCHOOLS.md`. The frozen stage-2 test is not touched.
+> - [ ] Fold the 35 later educator transcripts (Trader Geo's 93-minute tutorial among them) and the
+>   2026-10-16 Camel daily into their rules files; write `rules/bob-loukas.md` when Cody wants it.
+>
 > **START HERE (2026-10-17 late night — the Market Cipher pass: formation label contrast, Cipher B stock
 > defaults and the gold/Buy dot, Cipher A and Cipher SR rebuilt from real Market Cipher charts, Spider
 > Lines removed, Dual Band Strength (DBSI-style) added: DONE; see CHANGES).** Each change has tests seen
