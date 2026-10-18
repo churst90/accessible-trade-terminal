@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Setup grader round 2, the Market Cipher school: run as pre-registered, No edge (2026-10-18)
+
+`docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`. A new lab command, `setup-grader-mc2`, built and run as
+`docs/SETUP_GRADER_ROUND2_MC_PREREG.md` wrote it. The order is in the history: the harness first,
+then the counts-only stage, then the full run.
+
+- **Verdict: No edge in crypto and equities** for all three questions:
+  - the Buy dot bought at the next open;
+  - waiting for the trigger wave with money flow turning up;
+  - waiting against not waiting.
+
+  The grades also show no edge. None of the six headline tests reached p < 0.05, even before Holm.
+- **The largest numbers were the trigger-wave entries,** and both fall apart under noise:
+  - crypto: +0.398R over the matched random bar on 33 trades (p 0.067), 32% kept under noise;
+  - equities: +0.081R on 721 trades (p 0.063), 27% kept.
+- **Waiting against buying the dot,** per setup seen: +0.274R in crypto, with the held-out sign
+  flipped; −0.012R in equities.
+- **Equities' dot entry is a near-replication of round 1:** +0.053R here (p 0.095) against round 1's
+  +0.115R, under a different context and veto. It did not replicate.
+- **Grades:** crypto grade A ("deep green" weekly money flow) had 12 development-era dots, so it
+  was not testable. The equity grades did not order A > B > C.
+- **The veto, tested both ways:** in crypto, vetoed dots did better (as in round 1); in equities,
+  worse. Neither is significant, and both held-out signs disagree.
+- **Exits:** in equities, the first bearish divergence beat random exits for both entries (Holm
+  0.008), and the lab ladder did for the dot entry. That goes against the ledger's prior. It does not
+  rescue the entries. Crypto showed nothing.
+- **New code:**
+  - `SetupGraderMc2Core.cs`: the anchor and trigger waves, the void rule, the weekly context, the
+    school's stop, and a noise function that keeps each bar's opening gap. `GateCommand.Perturb` is
+    untouched.
+  - `SetupGraderMc2Command.cs`: the command.
+  - Round 1's `Ladder`, `StopAndRule` and `LabelPerm` gained overloads and options. Round 1's
+    behaviour is unchanged.
+- **Tests:** 8 new `SetupGraderMc2Tests`, each seen red with its defect put back.
+- **Recorded:** an edge record `market-cipher-dot-vs-trigger-wave` (Falsified, variantsTried 80) and
+  ledger row 30.
+- **Caveats:**
+  - Development-era crypto is five assets.
+  - One sabotage (a thickness window reading one week ahead) changed nothing on the synthetic series,
+    so the truncation test could not show it. Other look-ahead sabotages turned it red.
+  - Everything here is about our replica of Market Cipher B.
+
 ### Setup grader round 2, the Market Cipher school: pre-registered, not run (2026-10-18)
 
 `docs/SETUP_GRADER_ROUND2_MC_PREREG.md`, stage 1 of 2, committed before any setup was counted or any
