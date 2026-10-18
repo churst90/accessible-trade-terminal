@@ -905,7 +905,9 @@ public static class SetupGraderCommand
         Console.WriteLine($"  {cn}: grade A dev n={A.Count} ({countState}), B {B.Count}, C {C.Count}; held-out A {hA.Count}, C {hC.Count}");
         Console.WriteLine($"    1 P1 Holm-significant: {c1} (p {p1.P:0.0000}, Holm {p1.PHolm:0.0000}, ExA {p1.Stat:+0.000;-0.000})");
         Console.WriteLine($"    2 P4 Holm-significant: {c2} (p {p4.P:0.0000}, Holm {p4.PHolm:0.0000}, ExA-ExC {p4.Stat:+0.000;-0.000})");
-        Console.WriteLine($"    3 A > B > C in mean net R and Ex: {c3} (R {MeanR(A):+0.000;-0.000} / {MeanR(B):+0.000;-0.000} / {MeanR(C):+0.000;-0.000}; Ex {Ex(A):+0.000;-0.000} / {Ex(B):+0.000;-0.000} / {Ex(C):+0.000;-0.000})");
+        // A grade below the testable minimum prints its count only (section 7.4), here as everywhere.
+        string Q(List<Ev> g, Func<List<Ev>, double> f) => g.Count < MinTestable ? $"n={g.Count}" : f(g).ToString("+0.000;-0.000");
+        Console.WriteLine($"    3 A > B > C in mean net R and Ex: {(A.Count < MinTestable || B.Count < MinTestable ? "not testable" : c3.ToString())} (R {Q(A, l => MeanR(l))} / {Q(B, l => MeanR(l))} / {Q(C, l => MeanR(l))}; Ex {Q(A, l => Ex(l))} / {Q(B, l => Ex(l))} / {Q(C, l => Ex(l))})");
         Console.WriteLine($"    4 held-out ExA > 0 and ExA-ExC > 0: {(heldCheckable ? c4.ToString() : "not checkable")} (ExA {Ex(hA):+0.000;-0.000}, ExA-ExC {Ex(hA) - Ex(hC):+0.000;-0.000})");
         Console.WriteLine($"    5 ExA > 0 on more than half the breadth list: {c5} ({pos} of {breadth.Count})");
         Console.WriteLine($"    6 retained >= 50% at 25% noise: {c6} ({100 * retained:0}%)");

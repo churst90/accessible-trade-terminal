@@ -2075,6 +2075,57 @@
         "command": "absorption --quintiles --by-class --vs trailing-volume",
         "implemented": false
       }
+    },
+    {
+      "id": "cipherb-setup-grader-hierarchy",
+      "title": "Discretionary setup grading (context, location, confirmations, vetoes) for the Cipher B Buy dot",
+      "family": "confluence",
+      "claim": "Grading each Cipher B Buy dot by a discretionary hierarchy - weekly body-pivot trend and Bitcoin's weekly EMA10/EMA21/SMA10 cycle phase as context, weekly swing levels or the weekly EMA10 within 1 ATR as location, divergence and rising daily and weekly money flow as confirmations, three vetoes - orders the dots A > B > C, and grade A beats random bars in the same context.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "1d",
+        "horizonBars": 20,
+        "notes": "Pre-registered in docs/SETUP_GRADER_PREREG.md (0597d7de) before any result. Development era before 2023, held-out 2023+. Crypto: 10 assets (Bitstamp 8, MEXC KAS and TAO); equities: 33 Yahoo series. Crypto 4h was a secondary test."
+      },
+      "effect": {
+        "measure": "excess-R-over-context-matched-random-entry",
+        "value": null,
+        "unit": "R",
+        "n": 2,
+        "p": null,
+        "notes": "No edge in both classes, because grade A almost never happens: 0 development-era grade A dots in crypto and 2 in equities, below the pre-registered testable minimum of 15, so P1 (ExA > 0) and P4 (ExA - ExC > 0) could not run. Buy dots fire in good weekly context only 4% (crypto) and 1% (equities) of the time, and at a deep oversold cross the money flow is almost never rising, so the 2-of-3 confirmation rule fails. Where B and C can be compared (equities) B is below C. Two pre-registered results passed Holm in equities, both about the bare dot with vetoes, not the hierarchy: grade C beats its context-matched random entry (+0.115R, Holm p 0.011) and vetoed dots do worse than grade C (by 0.125R, Holm p 0.029); in crypto vetoed dots did better than C on the point estimate. No macro modifier (SPY above its 200-day, TLT 126-day return, BTC funding crowding) changed the dot's value. No exit variant beat its random-exit control. The strict body-pivot rule cannot fire on MEXC's KAS and TAO (weeks open at the prior close). variantsTried: 35 pre-registered tests (14 computable) plus 2 A-union-B fallback tests; no variant beyond the budget.",
+        "variantsTried": 37
+      },
+      "controls": [
+        "context-matched-averaged-random-entry",
+        "block-permutation-20-bar-blocks",
+        "holm-within-each-family",
+        "held-out-era-2023-plus",
+        "random-exit-control"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-18",
+      "lastMeasured": "2026-10-18",
+      "source": "docs/SETUP_GRADER_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "dip-buy-above-200ma",
+          "note": "The cheap alternative the grade had to beat (reference row R0). With a context-matched control the dip filter reads +0.161R in equities, development era; grade A was not testable."
+        },
+        {
+          "id": "cipher-confluence",
+          "note": "Same lesson from the other side: stacking price-derived conditions on the Cipher B dot leaves almost no events, and what remains does not order."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "setup-grader --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }

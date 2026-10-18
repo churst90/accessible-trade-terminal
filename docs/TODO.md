@@ -117,6 +117,17 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-18 — setup grader for the Cipher B Buy dot: DONE, No edge; see CHANGES and
+> `docs/SETUP_GRADER_FINDINGS.md`).** Grade A had 0 (crypto) and 2 (equities) development-era dots, so
+> the pre-registered headline tests were not testable. **Questions for Cody (nothing applied):**
+> - [ ] The equities side results (non-vetoed dots +0.115R over a random bar in the same context;
+>   vetoed dots 0.125R worse) passed Holm but are about the bare dot plus vetoes, not the hierarchy.
+>   Worth a fresh, separately pre-registered test with noise injection, or let it go? It overlaps the
+>   Fragile dip filter (ledger row 8).
+> - [ ] If the grading idea is to be tried again, it needs a new dated pre-registration (the old one
+>   cannot be re-tuned): a counts-only dry run before freezing it, and a body-pivot rule that says what
+>   happens when a week opens at the previous close (MEXC KAS/TAO never get a trend as written).
+
 > **START HERE (2026-10-17 night — Cipher strategy re-run on the new Cipher A/B/SR: DONE; see CHANGES
 > and `reports/cipher_strategies_rerun_REPORT.md`).** SR and the gold dot were finished after they
 > merged mid-run, so nothing is pending on them. **Decisions for Cody (nothing applied):**

@@ -1,5 +1,9 @@
 # Setup grader for the Cipher B Buy dot: pre-registration
 
+> **2026-10-18: results are in `docs/SETUP_GRADER_FINDINGS.md`.** Verdict: No edge in both classes;
+> grade A had 0 (crypto) and 2 (equities) development-era triggers, so its tests were not testable.
+> Nothing below this line was edited after results existed.
+
 Written 2026-10-18, before any result existed. This is stage 1 of 2. Stage 2 (a different agent)
 builds and runs what is written here. **This file was committed before any forward return, win rate
 or trade outcome was computed for any rule in it. The commit time is the proof.** No backtest was
