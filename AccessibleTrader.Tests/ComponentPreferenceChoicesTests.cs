@@ -6,6 +6,12 @@ using NSubstitute;
 
 namespace AccessibleTrader.Tests;
 
+/// <summary>
+/// "Save as Defaults" stores the axis-label and background-tint CHOICES with the indicator type's
+/// defaults, and a new chart takes them only where it has no choice of its own: a choice made on one
+/// chart is more specific than a type-wide default (Cody, 2026-10-19). Null means "never chose", so a
+/// default saved from an untouched component leaves the indicator's own value in force.
+/// </summary>
 public sealed class ComponentPreferenceChoicesTests
 {
     private const string IndicatorCode = "PREFERENCE_CHOICES";
@@ -61,12 +67,9 @@ public sealed class ComponentPreferenceChoicesTests
             "{\"Components\":[{\"Name\":\"Line\",\"ColorHex\":\"#123456\"}],\"Levels\":[]}");
 
         var loaded = Assert.Single(service.GetPreferences(IndicatorCode)!);
-        var axisChoice = typeof(ComponentPreference).GetProperty(nameof(ComponentConfig.UserShowAxisLabel));
-        var tintChoice = typeof(ComponentPreference).GetProperty(nameof(ComponentConfig.UserBackgroundTint));
-        Assert.NotNull(axisChoice);
-        Assert.NotNull(tintChoice);
-        Assert.Null(axisChoice!.GetValue(loaded));
-        Assert.Null(tintChoice!.GetValue(loaded));
+        Assert.Equal("#123456", loaded.ColorHex);
+        Assert.Null(loaded.UserShowAxisLabel);
+        Assert.Null(loaded.UserBackgroundTint);
     }
 
     private static ChartSeries CreateSeries(ComponentPreference[] preferences, params string[] components) =>
@@ -98,18 +101,6 @@ public sealed class ComponentPreferenceChoicesTests
     }
 
     private static ComponentPreference Preference(string name, bool? axisLabel = null,
-        BackgroundTint? backgroundTint = null)
-    {
-        var preference = new ComponentPreference { Name = name };
-        SetIfPresent(preference, nameof(ComponentConfig.UserShowAxisLabel), axisLabel);
-        SetIfPresent(preference, nameof(ComponentConfig.UserBackgroundTint), backgroundTint);
-        return preference;
-    }
-
-    private static void SetIfPresent(ComponentPreference preference, string propertyName, object? value)
-    {
-        // Keep this regression test buildable before the two new preference properties exist.
-        if (value is not null)
-            typeof(ComponentPreference).GetProperty(propertyName)?.SetValue(preference, value);
-    }
+        BackgroundTint? backgroundTint = null) =>
+        new() { Name = name, UserShowAxisLabel = axisLabel, UserBackgroundTint = backgroundTint };
 }

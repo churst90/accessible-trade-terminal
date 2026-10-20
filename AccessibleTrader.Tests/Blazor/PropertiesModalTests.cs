@@ -604,10 +604,11 @@ public class PropertiesModalTests
         return new ChartSeries(config, new SeriesDataBuffer { SeriesId = id });
     }
 
-    // Reflection keeps the pre-fix Save as Defaults test compilable before these fields are added.
-    private static object? PreferenceValue(ComponentPreference preference, string propertyName) =>
-        typeof(ComponentPreference).GetProperty(propertyName)?.GetValue(preference);
-
+    /// <summary>
+    /// Save as Defaults carries the two user choices (axis label, background tint) as they are, so a
+    /// component the user never chose for stays null in the saved default and keeps following its
+    /// indicator.
+    /// </summary>
     [Fact]
     public void Save_as_defaults_copies_both_choices_and_keeps_unset_choices_null()
     {
@@ -625,11 +626,11 @@ public class PropertiesModalTests
 
         h.IndicatorPreferences.Received(1).SavePreferences("PREFERENCE_CHOICES", Arg.Any<List<ComponentPreference>>());
         var chosen = Assert.Single(saved!, p => p.Name == "Chosen");
-        Assert.Equal(false, PreferenceValue(chosen, nameof(ComponentConfig.UserShowAxisLabel)));
-        Assert.Equal(BackgroundTint.PriceChart, PreferenceValue(chosen, nameof(ComponentConfig.UserBackgroundTint)));
+        Assert.False(chosen.UserShowAxisLabel);
+        Assert.Equal(BackgroundTint.PriceChart, chosen.UserBackgroundTint);
 
         var untouched = Assert.Single(saved!, p => p.Name == "Untouched");
-        Assert.Null(PreferenceValue(untouched, nameof(ComponentConfig.UserShowAxisLabel)));
-        Assert.Null(PreferenceValue(untouched, nameof(ComponentConfig.UserBackgroundTint)));
+        Assert.Null(untouched.UserShowAxisLabel);
+        Assert.Null(untouched.UserBackgroundTint);
     }
 }

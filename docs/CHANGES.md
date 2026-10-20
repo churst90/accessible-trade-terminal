@@ -22,6 +22,12 @@ never made. `ComponentPreferenceChoicesTests` (4 passed), `PropertiesModalTests`
 `IndicatorPrefsPerUserIsolationTests` (3 passed) cover fresh defaults, chart-choice precedence, old
 JSON with no new keys, and per-user storage. The dialog markup and focus behavior are unchanged.
 
+Caveats: the old-JSON test is a pin, not a regression test (it could only fail before the fix because
+the two fields did not exist yet). The three fixes were written by GPT 6 Luna in the OpenCode sandbox
+from a handoff and reviewed by Claude, who checked every test count it reported against its session
+log, replaced its by-name (reflection) property access in the new tests with plain code, and saw the
+cleaned-up tests go red again with each fix taken out.
+
 ### StrategyLab research corpus: trader transcripts and extracted rules (2026-10-18)
 
 `AccessibleTrader.StrategyLab/Corpus/` (data and scripts, no app code): 315 manifest records, 297
