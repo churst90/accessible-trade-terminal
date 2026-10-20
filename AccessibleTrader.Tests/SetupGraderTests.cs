@@ -159,12 +159,12 @@ namespace AccessibleTrader.Tests
         private static IIndicatorEngine Engine() => LabHost.Build().Services.GetRequiredService<IIndicatorEngine>();
 
         [Fact]
-        public void AGradeAtBarTIsIdenticalWhenTheBarsAfterTAreRemoved()
+        public async Task AGradeAtBarTIsIdenticalWhenTheBarsAfterTAreRemoved()
         {
             var engine = Engine();
             var bars = Walk();
             var cfg = GraderSeriesConfig.DailyCrypto;
-            var full = SetupGraderCore.BuildAsync(engine, "T", bars, cfg, null).Result;
+            var full = await SetupGraderCore.BuildAsync(engine, "T", bars, cfg, null);
 
             // Every Buy dot and mirror trigger the full series can grade, plus a sample of plain bars.
             var ts = Enumerable.Range(0, bars.Count)
@@ -175,7 +175,7 @@ namespace AccessibleTrader.Tests
             var gradesSeen = new HashSet<SetupGrade>();
             foreach (int t in ts)
             {
-                var cut = SetupGraderCore.BuildAsync(engine, "T", bars.Take(t + 1).ToList(), cfg, null).Result;
+                var cut = await SetupGraderCore.BuildAsync(engine, "T", bars.Take(t + 1).ToList(), cfg, null);
                 Assert.Equal(full.BuyOnset[t], cut.BuyOnset[t]);
                 Assert.Equal(full.ShortTrig[t], cut.ShortTrig[t]);
                 foreach (bool isLong in new[] { true, false })
@@ -201,9 +201,9 @@ namespace AccessibleTrader.Tests
         // ── (d) the matched control shares the context grade ──────────────────
 
         [Fact]
-        public void EveryTriggersMatchedRandomControlComesFromBarsWithTheSameContextGrade()
+        public async Task EveryTriggersMatchedRandomControlComesFromBarsWithTheSameContextGrade()
         {
-            var s = SetupGraderCore.BuildAsync(Engine(), "T", Walk(), GraderSeriesConfig.DailyCrypto, null).Result;
+            var s = await SetupGraderCore.BuildAsync(Engine(), "T", Walk(), GraderSeriesConfig.DailyCrypto, null);
             var run = SetupGraderCommand.BuildRun("T", "crypto", s);
 
             var evs = run.Long.Concat(run.Short).ToList();

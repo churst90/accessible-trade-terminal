@@ -141,7 +141,7 @@ public sealed class StartupFailureIsReachableTests
         await Assert.ThrowsAnyAsync<Exception>(() => first);
         await Assert.ThrowsAnyAsync<Exception>(() => second);
 
-        Assert.Single(journal.Entries.Where(e => e.Kind == JournalEntryKind.Error));
+        Assert.Single(journal.Entries, e => e.Kind == JournalEntryKind.Error);
     }
 }
 

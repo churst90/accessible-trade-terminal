@@ -348,9 +348,9 @@ namespace AccessibleTrader.Tests
 
         private static void SwapHttp(object provider, FakeHttpMessageHandler handler)
         {
-            var target = Assert.Single(provider.GetType()
-                .GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .Where(f => f.FieldType == typeof(HttpClient) && f.Name is "_httpClient" or "_http"));
+            var target = Assert.Single(
+                provider.GetType().GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance),
+                f => f.FieldType == typeof(HttpClient) && f.Name is "_httpClient" or "_http");
             target.SetValue(provider, new HttpClient(handler));
         }
 

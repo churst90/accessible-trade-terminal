@@ -189,7 +189,7 @@ namespace AccessibleTrader.Tests
             Assert.Contains("<WithdrawModal", guarded.Groups[1].Value);
 
             // And <WithdrawModal /> appears nowhere else — one gated instantiation, not two.
-            Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(layout, "<WithdrawModal").Count);
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(layout, "<WithdrawModal"));
 
             // The gate the layout reads is the injected policy, which falls back to the shipped
             // (closed) value — so a host that forgets to register it cannot open the dialog.

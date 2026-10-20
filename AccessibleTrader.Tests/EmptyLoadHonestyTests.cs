@@ -62,7 +62,7 @@ namespace AccessibleTrader.Tests
             store.Dispatch(new SetIdentityAction(Id("ETH/USD")));
 
             Assert.Equal("ETH/USD", store.State.Identity.Symbol);
-            Assert.Equal(0, store.State.Data.Count);
+            Assert.Empty(store.State.Data);
             // The cursor and viewport pointed into bars that no longer exist.
             Assert.Equal(0, store.State.CurrentDataIndex);
             Assert.Equal(0, store.State.ViewportStartIndex);
@@ -149,7 +149,7 @@ namespace AccessibleTrader.Tests
 
             await orch.LoadChartAsync();
 
-            Assert.Equal(0, store.State.Data.Count);
+            Assert.Empty(store.State.Data);
             Assert.NotEqual(InitializationStatus.Ready, store.State.InitStatus);
             Assert.Equal(InitializationStatus.Error, store.State.InitStatus);
         }

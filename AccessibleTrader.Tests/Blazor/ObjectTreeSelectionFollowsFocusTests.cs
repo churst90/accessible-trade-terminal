@@ -112,7 +112,7 @@ public class ObjectTreeSelectionFollowsFocusTests
     }
 
     [Fact]
-    public void Tabbing_onto_a_rows_buttons_does_not_select()
+    public async Task Tabbing_onto_a_rows_buttons_does_not_select()
     {
         // The trigger is @onfocus on the treeitems, not @onfocusin on the row: focusin bubbles
         // from the Hide/Mute/Delete buttons Tab visits on its way out, and a user tabbing to
@@ -134,7 +134,7 @@ public class ObjectTreeSelectionFollowsFocusTests
         // assertion below fails.
         foreach (var name in new[] { "Hide Candles", "Mute Candles" })
         {
-            try { cut.InvokeAsync(() => cut.Find($"button[aria-label='{name}']").FocusIn()).GetAwaiter().GetResult(); }
+            try { await cut.InvokeAsync(() => cut.Find($"button[aria-label='{name}']").FocusIn()); }
             catch (MissingEventHandlerException) { /* nothing listens above the button — correct */ }
         }
 

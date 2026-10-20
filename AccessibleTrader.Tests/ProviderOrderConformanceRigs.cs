@@ -634,7 +634,9 @@ namespace AccessibleTrader.Tests.OrderConformance
                 string type = o["type"]?.ToString() ?? "";
                 double units = Num(o["units"]?.ToString()) ?? double.NaN;
                 bool triggered = type is "STOP" or "MARKET_IF_TOUCHED";
-                return new WireOrder(x.Req.RequestUri.Host, o["instrument"]!.ToString(), units < 0 ? "sell" : "buy",
+                // Posts() filtered by AbsolutePath above, so every selected request has a URI.
+                var requestUri = x.Req.RequestUri!;
+                return new WireOrder(requestUri.Host, o["instrument"]!.ToString(), units < 0 ? "sell" : "buy",
                     Math.Abs(units), type,
                     IsMarket: type == "MARKET", IsStop: type == "STOP",
                     Trigger: triggered ? Num(o["price"]?.ToString()) : null,

@@ -27,12 +27,12 @@ public class CustomScriptsPersistenceTests
             bus => bus.Publish(new OpenCustomScriptsEvent()));
 
     [Fact]
-    public void CreatingAScript_WritesItToSettings()
+    public async Task CreatingAScript_WritesItToSettings()
     {
         using var h = new BlazorTestHarness();
         var cut = Open(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='New script']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='New script']").Click());
 
         // The name of the key matters less than that SOMETHING was written and then flushed:
         // a SetSetting with no SaveSettings behind it is the same lost work one layer down.

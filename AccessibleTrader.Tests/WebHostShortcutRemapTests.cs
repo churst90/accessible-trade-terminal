@@ -89,8 +89,8 @@ namespace AccessibleTrader.Tests
             Assert.Equal(SystemCommand.None, sm.GetCommand("T", shift: true, ctrl: true, alt: false));
             Assert.Equal(SystemCommand.None, sm.GetCommand("D", shift: true, ctrl: true, alt: false));
 
-            Assert.Empty(sm.CurrentProfile.Shortcuts.Where(
-                s => s.Ctrl && s.Shift && !s.Alt && s.Key.Length == 1 && char.IsLetter(s.Key[0])));
+            Assert.DoesNotContain(sm.CurrentProfile.Shortcuts,
+                s => s.Ctrl && s.Shift && !s.Alt && s.Key.Length == 1 && char.IsLetter(s.Key[0]));
         }
 
         [Fact]

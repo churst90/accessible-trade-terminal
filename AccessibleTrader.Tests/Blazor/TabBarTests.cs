@@ -22,7 +22,7 @@ public sealed class TabBarTests
             new VolumeStateService());
 
     [Fact]
-    public void New_tab_appears_in_the_bar_without_a_click()
+    public async Task New_tab_appears_in_the_bar_without_a_click()
     {
         using var ctx = new TestContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -34,17 +34,17 @@ public sealed class TabBarTests
         Assert.Single(cut.FindAll("button[role='tab']"));
 
         // Dispatch from outside the component — no DOM event on the bar.
-        cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));
+        await cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));
 
-        // The bar re-renders on the state stream, so wait for it: InvokeAsync returns a
-        // Task this test does not await, and asserting synchronously is the race that took
-        // five other bUnit tests red on CI while passing locally every run (2026-08-24).
+        // The bar re-renders on the state stream, so wait for it: completing the dispatcher
+        // action does not complete the stream's render, and asserting synchronously is the race
+        // that took five other bUnit tests red on CI while passing locally every run (2026-08-24).
         cut.WaitForAssertion(() =>
             Assert.Equal(2, cut.FindAll("button[role='tab']").Count));
     }
 
     [Fact]
-    public void Close_is_a_named_button_beside_the_tab_never_nested_inside_it()
+    public async Task Close_is_a_named_button_beside_the_tab_never_nested_inside_it()
     {
         // Two regressions guarded at once. (1) The close control was once a <button> nested
         // inside the role="tab" button — invalid HTML the parser hoists out, corrupting the
@@ -62,7 +62,7 @@ public sealed class TabBarTests
         // Blocking so the assertions below are a real claim rather than a read of a DOM that
         // has not re-rendered yet — the same race that took five bUnit tests red on CI while
         // passing locally (2026-08-24).
-        cut.InvokeAsync(() => store.Dispatch(new AddTabAction())).GetAwaiter().GetResult();   // 2 tabs → closable
+        await cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));   // 2 tabs → closable
 
         Assert.Empty(cut.FindAll("button[role='tab'] button"));       // never nested
         Assert.Empty(cut.FindAll("button[role='tab'] .tab-close"));   // not even as a span
@@ -77,7 +77,7 @@ public sealed class TabBarTests
     }
 
     [Fact]
-    public void Clicking_a_tabs_close_button_closes_that_tab_not_the_active_one()
+    public async Task Clicking_a_tabs_close_button_closes_that_tab_not_the_active_one()
     {
         using var ctx = new TestContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -86,8 +86,8 @@ public sealed class TabBarTests
         ctx.Services.AddSingleton<IEventBus>(new EventBus());
 
         var cut = ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TabBar>();
-        cut.InvokeAsync(() => store.Dispatch(new AddTabAction())).GetAwaiter().GetResult();
-        cut.InvokeAsync(() => store.Dispatch(new AddTabAction())).GetAwaiter().GetResult();   // 3 tabs, active = 2
+        await cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));
+        await cut.InvokeAsync(() => store.Dispatch(new AddTabAction()));   // 3 tabs, active = 2
         Assert.Equal(3, store.State.TabCount);
 
         // Close tab 1 (index 0) while tab 3 is active.

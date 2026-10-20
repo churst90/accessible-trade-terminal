@@ -11152,7 +11152,8 @@ closed the indicator-provider half and missed the paths below.
   The number shown to the user, and `LabWindowResult.MaxDrawdown`, is realised-trade drawdown, not
   equity drawdown. Fix: mark to market per bar. CONFIRMED. MEDIUM.
   Done 2026-10-19, see CHANGES.
-- [ ] **The backtest equity curve and Sharpe are realised-only.** Drawdown is now marked to market per bar (see the item above), but `equityCurve` gets a point only at fills, so `ComputeSharpe` and any drawn equity curve still miss open-position swings.
+- [x] **The backtest equity curve and Sharpe are realised-only.** Drawdown is now marked to market per bar (see the item above), but `equityCurve` gets a point only at fills, so `ComputeSharpe` and any drawn equity curve still miss open-position swings.
+  Done 2026-10-20, see CHANGES.
 - [ ] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
   directory on every single backtest run, unconditionally, with no opt-out and no cleanup.** Called
   from the main `Run` path at `:498`. `LabRunner.CompareAsync` runs two backtests per spec across the

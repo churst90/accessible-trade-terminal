@@ -149,7 +149,7 @@ namespace AccessibleTrader.Tests
 
         private static bool SaidInvalidSymbol(SpyEventBus bus) =>
             bus.Log.OfType<FeedbackRequestEvent>()
-               .Any(f => f.Message.Contains("Invalid symbol", StringComparison.Ordinal));
+               .Any(f => f.Message?.Contains("Invalid symbol", StringComparison.Ordinal) == true);
 
         // ── The defect ───────────────────────────────────────────────────────────
 

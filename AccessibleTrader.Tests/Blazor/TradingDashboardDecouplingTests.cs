@@ -120,8 +120,8 @@ public class TradingDashboardDecouplingTests
         WaitForAccountRead(h);
         SelectTab(cut, "orders");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(
-            cut.FindAll("button").Where(b => b.TextContent.Contains("Cancel order"))));
+        cut.WaitForAssertion(() => Assert.Contains(
+            cut.FindAll("button"), b => b.TextContent.Contains("Cancel order")));
         cut.FindAll("button").First(b => b.TextContent.Contains("Cancel order")).Click();
 
         cut.WaitForAssertion(() =>
@@ -230,14 +230,14 @@ public class TradingDashboardDecouplingTests
 
         cut.WaitForAssertion(() =>
         {
-            var close = Assert.Single(Labels(cut).Where(l => l.StartsWith("Close position", StringComparison.Ordinal)));
+            var close = Assert.Single(Labels(cut), l => l.StartsWith("Close position", StringComparison.Ordinal));
             Assert.Contains("ETHUSDT", close);
         });
 
         SelectTab(cut, "orders");
         cut.WaitForAssertion(() =>
         {
-            var cancel = Assert.Single(Labels(cut).Where(l => l.StartsWith("Cancel order", StringComparison.Ordinal)));
+            var cancel = Assert.Single(Labels(cut), l => l.StartsWith("Cancel order", StringComparison.Ordinal));
             Assert.Contains("BTC/USD", cancel);
         });
     }

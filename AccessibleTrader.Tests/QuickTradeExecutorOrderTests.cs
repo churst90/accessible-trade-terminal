@@ -63,9 +63,9 @@ public class QuickTradeExecutorOrderTests
             throw new TimeoutException("the executor never reached the order service");
         }
 
-        public string[] Errors() =>
+        public string?[] Errors() =>
             Bus.Log.OfType<FeedbackRequestEvent>()
-               .Where(f => f.Type == FeedbackType.Error).Select(f => f.Message).ToArray();
+                .Where(f => f.Type == FeedbackType.Error).Select(f => f.Message).ToArray();
 
         public void Dispose() => _executor.Dispose();
     }
@@ -131,6 +131,7 @@ public class QuickTradeExecutorOrderTests
         while (rig.Errors().Length == 0 && DateTime.UtcNow < deadline) Thread.Sleep(5);
 
         var error = Assert.Single(rig.Errors());
+        Assert.NotNull(error);
         Assert.Contains("Not placed", error);
     }
 
@@ -152,6 +153,7 @@ public class QuickTradeExecutorOrderTests
         while (rig.Errors().Length == 0 && DateTime.UtcNow < deadline) Thread.Sleep(5);
 
         var said = Assert.Single(rig.Errors());
+        Assert.NotNull(said);
         Assert.Contains("Check your open orders", said);
         Assert.Contains("abc123", said);
     }
