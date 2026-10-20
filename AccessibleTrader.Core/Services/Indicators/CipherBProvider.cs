@@ -455,7 +455,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // Drawn because Market Cipher B draws them; muted (DefaultIsMuted) so they add no
                     // voice to the chart Cody already hears — they are navigable and speak their value
                     // on request like any component. Appended LAST so no existing navigation stop
-                    // moves. Formulas and evidence at SmoothedStochastic's call site.
+                    // moves. Formulas and evidence at WaveTrendMath.SmoothedStochastic's call site.
                     new() { Name = CompMcbRsi,        DisplayName = "RSI", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             DefaultColorHex = "#E600E6", DefaultThickness = 1.0f,   // MCB's label colour, exact
                             DefaultIsMuted = true,
@@ -785,7 +785,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // ── Wave Trend ────────────────────────────────────────────────────
-            var wt1 = WaveTrendFast(hlc3, wt1Period, wt2Period);
             // The slow wave is a WTSignalPeriod-bar SMA of the fast one: 3 since 2026-10-17, 4
             // before. Against four Market Cipher B screenshots (BTC 1D Bitstamp HA x2, BTCUSDT 1D
             // Binance, BTCUSDT 30m Binance), SMA3 put the WT crosses on the very bar of MCB's cross
@@ -793,7 +792,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // MCB's slow-wave body better on all four (RMSE 6.5/8.2/6.2/3.8 vs 7.2/8.6/7.6/5.9)
             // and made MCB's VWAP equal WT1 − WT2 at slope 1.00–1.06 instead of 0.69–0.74.
             // WTSignalPeriod = 4 restores every cross, dot and divergence of the old default.
-            var wt2 = IndicatorMath.Sma(wt1, wtSignalPeriod);
+            var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wt1Period, wt2Period, wtSignalPeriod);
 
             // WT Histogram = WT1 − WT2 (MCB's "VWAP")
             var wtHist = new double[n];
@@ -801,8 +800,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 wtHist[i] = (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i])) ? double.NaN : wt1[i] - wt2[i];
 
             // ── Anchor Waves: the same WaveTrend on AnchorMultiplier× the periods ──────────
-            var    wt1Anc  = WaveTrendFast(hlc3, wt1Period * anchorMult, wt2Period * anchorMult);
-            var    wt2Anc  = IndicatorMath.Sma(wt1Anc, AnchorSlowWavePeriod);
+            var (wt1Anc, wt2Anc) = WaveTrendMath.Compute(
+                hlc3, wt1Period * anchorMult, wt2Period * anchorMult, AnchorSlowWavePeriod);
 
             // Anchor polarity: +1 if fast > slow, -1 if fast < slow, 0 if equal, NaN in warm-up
             var ancPol = new double[n];
@@ -899,8 +898,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // bars: the magenta line is a 40-bar stochastic of hlc3 smoothed by SMA3 (RMSE 2.1
             // points over 309 bars) and the red/green one an 80-bar stochastic smoothed by SMA3
             // (RMSE 1.2 over 397 bars). Neither is an RSI — the best true RSI was off by 12 points.
-            var mcbRsi   = SmoothedStochastic(hlc3, high, low, McbRsiLength, McbLineSmoothing);
-            var mcbStoch = SmoothedStochastic(hlc3, high, low, McbStochLength, McbLineSmoothing);
+            var mcbRsi   = WaveTrendMath.SmoothedStochastic(hlc3, high, low, McbRsiLength, McbLineSmoothing);
+            var mcbStoch = WaveTrendMath.SmoothedStochastic(hlc3, high, low, McbStochLength, McbLineSmoothing);
 
             // ── ATR + ADX (for Gold gating) ───────────────────────────────────
             var atr = IndicatorMath.Atr(data, atrPeriod);
@@ -1558,13 +1557,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−92..−100).</summary>
         internal const double McbBuyDotY = -96.0;
 
-        /// <summary>
-        /// Lambert's CCI constant: the channel index is (hlc3 − EMA) / (0.015 × mean deviation), which
-        /// puts about 70–80% of values inside ±100. The WaveTrend levels (±53 / ±60) are calibrated
-        /// against it — the two are a matched pair, so neither changes alone.
-        /// </summary>
-        private const double WaveTrendCciScale = 0.015;
-
         /// <summary>The anchor pair's slow wave: a 4-bar SMA, the main pair's pre-2026-10-17 period.
         /// Deliberately NOT <c>WTSignalPeriod</c>: the anchor is ours (no MCB evidence to fit), and
         /// Anchor Polarity and the anchor suppression of the gated dots are measured on SMA4.</summary>
@@ -1586,26 +1578,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>The shallow divergence detector counts a cross "near or in" the zone when the fast
         /// wave is within this many points of the OB / OS threshold.</summary>
         private const double ShallowCrossZoneMargin = 10.0;
-
-        /// <summary>
-        /// The fast WaveTrend line (LazyBear's WT1): an EMA(<paramref name="averageLength"/>) of the
-        /// channel index of <paramref name="src"/> over <paramref name="channelLength"/> bars. Used
-        /// for the main pair and, on multiplied periods, the anchor pair. NaN through the warm-up and
-        /// where the mean deviation is zero (a flat run), never a division by zero.
-        /// </summary>
-        private static double[] WaveTrendFast(double[] src, int channelLength, int averageLength)
-        {
-            int n = src.Length;
-            var esa     = IndicatorMath.Ema(src, channelLength);
-            var absDiff = new double[n];
-            for (int i = 0; i < n; i++)
-                absDiff[i] = double.IsNaN(esa[i]) ? double.NaN : Math.Abs(src[i] - esa[i]);
-            var d  = IndicatorMath.Ema(absDiff, channelLength);
-            var ci = new double[n];
-            for (int i = 0; i < n; i++)
-                ci[i] = (double.IsNaN(d[i]) || d[i] < 1e-10) ? double.NaN : (src[i] - esa[i]) / (WaveTrendCciScale * d[i]);
-            return IndicatorMath.Ema(ci, averageLength);
-        }
 
         // ── The gold dot (GoldDotMode = MCB) ─────────────────────────────────────
 
@@ -1727,24 +1699,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         // ── Buffer / parameter helpers ────────────────────────────────────────
-
-        /// <summary>
-        /// %K of a stochastic of <paramref name="src"/> against the highest high and lowest low of
-        /// <paramref name="length"/> bars, smoothed by an SMA of <paramref name="smooth"/>. 0–100.
-        /// </summary>
-        internal static double[] SmoothedStochastic(double[] src, double[] high, double[] low, int length, int smooth)
-        {
-            int n = src.Length;
-            var k = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                if (i < length - 1) { k[i] = double.NaN; continue; }
-                double hh = double.MinValue, ll = double.MaxValue;
-                for (int j = i - length + 1; j <= i; j++) { if (high[j] > hh) hh = high[j]; if (low[j] < ll) ll = low[j]; }
-                k[i] = hh - ll < 1e-12 ? 50.0 : 100.0 * (src[i] - ll) / (hh - ll);
-            }
-            return IndicatorMath.Sma(k, smooth);
-        }
 
         private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)
         {

@@ -714,6 +714,7 @@ namespace AccessibleTrader.Core.Services
                 if (s.IsDrawing || !s.IsVisible) continue;
                 foreach (var comp in s.Components)
                 {
+                    if (!comp.IsDrawn) continue; // It remains heard, but has nothing on the axis to label.
                     int tier = ReadingTier(comp, subPane);
                     if (tier is not (0 or 1)) continue;
                     // The component's own switch (ComponentConfig.ShowAxisLabel, the user's choice

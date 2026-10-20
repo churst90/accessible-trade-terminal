@@ -238,9 +238,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] Ctrl+Up/Down still stops on a plot with no value on this chart (Cipher SR's Range/VWAP on a
 >   daily chart), as it stops on hidden parts (Cody: stepping must not skip). Landing there says "no
 >   data"; "no data on this timeframe" would say why. Not changed.
-> - [ ] "Save as Defaults" does not carry the axis-label choice (nor the background tint).
-> - [ ] `ScaleLabelsFor` does not check `ComponentConfig.IsDrawn`, so an undrawn LINE would still get
->   an axis label. No built-in has one today (DBSI's undrawn parts are markers or hidden).
+> - [x] "Save as Defaults" does not carry the axis-label choice (nor the background tint). Done 2026-10-19, see CHANGES.
+> - [x] `ScaleLabelsFor` does not check `ComponentConfig.IsDrawn`, so an undrawn LINE would still get
+>   an axis label. No built-in has one today (DBSI's undrawn parts are markers or hidden). Done 2026-10-19, see CHANGES.
 
 > **START HERE (2026-10-18 — setup grader round 2, Market Cipher school: DONE, No edge; see CHANGES
 > and `docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`).** Neither the Buy dot at the next open nor the
@@ -356,8 +356,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    fill you can turn off.]
 > - [ ] **Build the Cipher A ribbon fill** (EMA 5 to EMA 33, a cloud fill the user can hide) if Cody agrees
 >   with 5.
-> - [ ] **Cipher B should call `WaveTrendMath`** — Cipher A's copy is line-for-line Cipher B's, pinned
->   equal by a test, but there are two copies.
+> - [x] **Cipher B should call `WaveTrendMath`** — Cipher A's copy is line-for-line Cipher B's, pinned
+>   equal by a test, but there are two copies. Done 2026-10-19, see CHANGES.
 > - Least certain parts of the fit: the Yellow Diamond rule (best fit among those tried, precision
 >   checkable on two charts), the Yellow X's 22% (tuned on the SLP chart that was meant as a hold-out),
 >   EMA 29/33 pinned by one chart, which Market Cipher A version (2.1.2; a 2023 chart uses a newer
@@ -441,7 +441,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > **START HERE (2026-10-17 night — labels, status band, background tint, strips, dividers: DONE; see CHANGES).**
 > **Open questions for Cody:** tint colours editable in Properties (native picker has no alpha)? Tint in
-> "Save as Defaults"? Two tinting components stack — right? Anchor Polarity at exactly 0 takes the above
+> "Save as Defaults"? (Cody 2026-10-19: yes, the choice; done.) Two tinting components stack — right? Anchor Polarity at exactly 0 takes the above
 > colour. Status-band plot floor 40% / 20 px — right? Should the price pane collapse overlay status lines
 > sooner? A divider drag registers only while the pointer is over the chart, and a mouseup outside leaves it
 > armed (pre-existing). Seen once: `TradingDashboardDecouplingTests.The_orders_tab_is_not_filtered_by_the_focused_chart_symbol`

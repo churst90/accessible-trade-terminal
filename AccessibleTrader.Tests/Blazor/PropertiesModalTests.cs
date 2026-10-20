@@ -4,6 +4,7 @@
 
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using Bunit;
 using NSubstitute;
@@ -580,5 +581,56 @@ public class PropertiesModalTests
             && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "EMA 11").ShowAxisLabel == false
             && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "EMA 5").UserShowAxisLabel == false
             && a.Series.Single(s => s.Id == "ca").Components.Single(c => c.Name == "Green Dot").UserShowAxisLabel == null));
+    }
+
+    private static ChartSeries SeriesWithPreferenceChoices()
+    {
+        const string id = "preference-choices";
+        var config = new SeriesConfig
+        {
+            Id = id,
+            Name = "Preference choices",
+            FriendlyName = "Preference choices",
+            IndicatorCode = "PREFERENCE_CHOICES",
+        };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Chosen",
+            DisplayType = ComponentDisplayType.Line,
+            UserShowAxisLabel = false,
+            UserBackgroundTint = BackgroundTint.PriceChart,
+        });
+        config.Components.Add(new ComponentConfig { Name = "Untouched", DisplayType = ComponentDisplayType.Line });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = id });
+    }
+
+    /// <summary>
+    /// Save as Defaults carries the two user choices (axis label, background tint) as they are, so a
+    /// component the user never chose for stays null in the saved default and keeps following its
+    /// indicator.
+    /// </summary>
+    [Fact]
+    public void Save_as_defaults_copies_both_choices_and_keeps_unset_choices_null()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, SeriesWithPreferenceChoices());
+        var cut = OpenProperties(h);
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("button"),
+            b => b.TextContent.Trim() == "Save as Defaults"));
+
+        List<ComponentPreference>? saved = null;
+        h.IndicatorPreferences
+            .When(s => s.SavePreferences(Arg.Any<string>(), Arg.Any<List<ComponentPreference>>()))
+            .Do(call => saved = call.ArgAt<List<ComponentPreference>>(1));
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Save as Defaults").Click();
+
+        h.IndicatorPreferences.Received(1).SavePreferences("PREFERENCE_CHOICES", Arg.Any<List<ComponentPreference>>());
+        var chosen = Assert.Single(saved!, p => p.Name == "Chosen");
+        Assert.False(chosen.UserShowAxisLabel);
+        Assert.Equal(BackgroundTint.PriceChart, chosen.UserBackgroundTint);
+
+        var untouched = Assert.Single(saved!, p => p.Name == "Untouched");
+        Assert.Null(untouched.UserShowAxisLabel);
+        Assert.Null(untouched.UserBackgroundTint);
     }
 }

@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Three small chart fixes: Cipher B uses WaveTrendMath, undrawn lines get no axis label, Save as Defaults keeps two choices (2026-10-19)
+
+`CipherBProvider` now uses `WaveTrendMath` for its main and anchor waves and MCB stochastic lines.
+`CipherBWaveTrendParityTests` preserves every output-array fingerprint on the fixed BTC bar fixture
+for defaults, `WTSignalPeriod=4`, and `AnchorMultiplier=2`. `CipherAProviderTests` (21 passed) and
+the `FullyQualifiedName~CipherB` run (190 passed) also passed.
+
+`ChartRenderer.ScaleLabelsFor` skips components with `IsDrawn=false` for axis labels while leaving
+their reading and speech path intact. `An_undrawn_line_has_no_axis_label` failed before the renderer
+change; `ChartStatusLineTests` (55 passed), `CodysBtcChartTests` (5 passed), and
+`DeclaredKnobObservabilityTests` (2 passed) passed afterward.
+
+`SaveAsDefaults` now carries `UserShowAxisLabel` and `UserBackgroundTint`, including null for choices
+never made. `ComponentPreferenceChoicesTests` (4 passed), `PropertiesModalTests` (27 passed, including
+`Save_as_defaults_copies_both_choices_and_keeps_unset_choices_null`), and
+`IndicatorPrefsPerUserIsolationTests` (3 passed) cover fresh defaults, chart-choice precedence, old
+JSON with no new keys, and per-user storage. The dialog markup and focus behavior are unchanged.
+
+Caveats: the old-JSON test is a pin, not a regression test (it could only fail before the fix because
+the two fields did not exist yet). The three fixes were written by GPT 6 Luna in the OpenCode sandbox
+from a handoff and reviewed by Claude, who checked every test count it reported against its session
+log, replaced its by-name (reflection) property access in the new tests with plain code, and saw the
+cleaned-up tests go red again with each fix taken out.
+
 ### StrategyLab research corpus: trader transcripts and extracted rules (2026-10-18)
 
 `AccessibleTrader.StrategyLab/Corpus/` (data and scripts, no app code): 315 manifest records, 297

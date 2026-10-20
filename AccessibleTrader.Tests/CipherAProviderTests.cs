@@ -30,8 +30,8 @@ namespace AccessibleTrader.Tests;
 /// raw candles (<see cref="CipherAGoldenData.RawEvents"/>, <see cref="CipherAGoldenData.RawValues"/>).</item>
 /// </list>
 /// <para>Then: an old saved Cipher A restores as the new one, a strategy or alert naming a removed
-/// component is told why, and Red Diamond is exactly Cipher B's wave cross down (the WaveTrend
-/// arithmetic is a copy until the two are merged — <see cref="WaveTrendMath"/>).</para>
+/// component is told why, and Red Diamond is exactly Cipher B's wave cross down; both providers use
+/// the single <see cref="WaveTrendMath"/> implementation.</para>
 /// </summary>
 public sealed class CipherAProviderTests
 {
@@ -244,9 +244,8 @@ public sealed class CipherAProviderTests
 
     /// <summary>
     /// A Red Diamond (or a Blood Diamond, which is a Red Diamond on a Red X candle) is drawn on
-    /// exactly the candles where Cipher B draws its wave-cross-down dot: both read MCB's fitted
-    /// WaveTrend. The arithmetic is copied into <see cref="WaveTrendMath"/>, so this is what notices
-    /// one copy changing without the other.
+    /// exactly the candles where Cipher B draws its wave-cross-down dot: both read the shared
+    /// <see cref="WaveTrendMath"/> calculation, and this pins the providers' cross-down events.
     /// </summary>
     [Fact]
     public void Red_and_blood_diamonds_are_Cipher_B_wave_crosses_down()
