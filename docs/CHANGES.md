@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Strategy scripts' RSI helper is Wilder's RSI, the one the chart shows (2026-10-20)
+
+`BaseStrategy.Rsi` used a plain mean of the last period gains and losses, so a strategy script
+calling `Rsi(history, 14)` could disagree with the Wilder RSI drawn on the chart. `BaseStrategy`'s
+SMA and Bollinger helpers already matched the strategy indicator cache, including Bollinger's
+population standard deviation. All three helpers now call the cache's shared computations, and
+`BaseStrategy.Rsi` returns Wilder's RSI. The old `data[count - count + i]` expression is already gone
+from executable cache code; the EMA starts at `data[0]` and then reads `data[i]`.
+
+`BaseStrategyHelperParityTests` first failed its three RSI periods against the old Cutler formula,
+while its SMA, Bollinger, short-history and vacuity checks passed (4 passed, 3 failed). After the
+fix, all 7 passed. Putting the Cutler body back into `BaseStrategy.Rsi` made the same 3 parity cases
+fail; after restoring the fix, rebuilding and rerunning the class passed all 7. The filtered
+regression run passed 200 tests across `BaseStrategyHelperParityTests`,
+`StrategyIndicatorCacheParityTests`, `StrategyIndicatorCacheBacktestTests` and the tests that mention
+`RoslynScripting` or `BaseStrategy`.
+
+Caveat: a script strategy that calls `Rsi()` gets different numbers from now on. Built-in and
+catalogue strategies, StrategyLab results and the cache are unchanged.
+
 ### The backtest's "bars evaluated" no longer counts the final bar (2026-10-20)
 
 `RunAsync` previously counted the final bar as evaluated even though the signal loop stops one bar

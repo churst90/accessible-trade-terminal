@@ -11224,13 +11224,15 @@ closed the indicator-provider half and missed the paths below.
   because a strategy that silently never fires is indistinguishable from a market with no
   signals, which in this app is a worse failure than one bar sized off the notional. Hosts with
   no account attached (the StrategyLab batteries) pass nothing and are unchanged.
-- [ ] **Three verbatim copies of SMA/RSI/Bollinger, and the RSI in all of them is not the standard one.**
+- [x] **Three verbatim copies of SMA/RSI/Bollinger, and the RSI in all of them is not the standard one.**
   `BaseStrategy.cs:245-253/256-274/277-291` and `StrategyIndicatorCache.cs:86-93/109-125/127-141` are
   line-for-line the same three functions. Both RSI implementations use a *simple* mean of the last
   `period` gains and losses, not Wilder's smoothing — so a strategy's "RSI 14" and the chart's RSI 14
   are different numbers, and a `LessThan 30` leaf fires on different bars than the chart the user is
   reading. Note also `StrategyIndicatorCache.cs:102`'s `data[count - count + i]`, which is `data[i]`
   written the long way. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES (the cache half was already done; `data[count - count + i]` was already
+  gone from executable code).
 - [x] **`StrategyBacktester.ComputeSharpe` annualises the evenly spaced per-bar returns by bars per
   year.** The equity curve now has one point per bar, so `returns.Count / years` is bars per year;
   the risk-free rate remains zero. Done 2026-10-20: the curve is per bar since the equity-curve

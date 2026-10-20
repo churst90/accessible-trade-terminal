@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -294,52 +295,16 @@ public abstract class BaseStrategy : ITradingStrategy
 
     // ── Helpers for subclasses ───────────────────────────────────────────────
 
-    /// <summary>Computes a simple moving average over the last <paramref name="period"/> closes.</summary>
-    protected static double Sma(IReadOnlyList<Ohlcv> history, int period)
-    {
-        int count = history.Count;
-        if (count < period) return double.NaN;
-        double sum = 0;
-        for (int i = count - period; i < count; i++)
-            sum += history[i].Close;
-        return sum / period;
-    }
+    /// <summary>Computes the simple moving average shared with the strategy indicator cache.</summary>
+    protected static double Sma(IReadOnlyList<Ohlcv> history, int period) =>
+        StrategyIndicatorCache.ComputeSma(history, period);
 
-    /// <summary>Computes RSI(n) from the last n+1 closes.</summary>
-    protected static double Rsi(IReadOnlyList<Ohlcv> history, int period)
-    {
-        int count = history.Count;
-        if (count < period + 1) return double.NaN;
+    /// <summary>Computes Wilder's RSI, the same number the chart's RSI shows.</summary>
+    protected static double Rsi(IReadOnlyList<Ohlcv> history, int period) =>
+        StrategyIndicatorCache.ComputeRsi(history, period);
 
-        double gain = 0, loss = 0;
-        for (int i = count - period; i < count; i++)
-        {
-            double change = history[i].Close - history[i - 1].Close;
-            if (change > 0) gain += change;
-            else loss -= change;
-        }
-
-        double avgGain = gain / period;
-        double avgLoss = loss / period;
-        if (avgLoss == 0) return 100.0;
-        double rs = avgGain / avgLoss;
-        return 100.0 - (100.0 / (1.0 + rs));
-    }
-
-    /// <summary>Computes Bollinger Bands (middle, upper, lower) from the last <paramref name="period"/> closes.</summary>
-    protected static (double Middle, double Upper, double Lower) BollingerBands(IReadOnlyList<Ohlcv> history, int period, double deviations)
-    {
-        int count = history.Count;
-        if (count < period) return (double.NaN, double.NaN, double.NaN);
-
-        double middle = Sma(history, period);
-        double variance = 0;
-        for (int i = count - period; i < count; i++)
-        {
-            double diff = history[i].Close - middle;
-            variance += diff * diff;
-        }
-        double stdDev = Math.Sqrt(variance / period);
-        return (middle, middle + deviations * stdDev, middle - deviations * stdDev);
-    }
+    /// <summary>Computes Bollinger Bands shared with the strategy indicator cache.</summary>
+    protected static (double Middle, double Upper, double Lower) BollingerBands(
+        IReadOnlyList<Ohlcv> history, int period, double deviations) =>
+        StrategyIndicatorCache.ComputeBollingerBands(history, period, deviations);
 }
