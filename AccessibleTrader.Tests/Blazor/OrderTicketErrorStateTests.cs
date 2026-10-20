@@ -131,7 +131,7 @@ public sealed class OrderTicketErrorStateTests
 
         await h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
 
-        var refusal = Assert.Single(spoken.Where(e => e.Type == FeedbackType.Boundary));
+        var refusal = Assert.Single(spoken, e => e.Type == FeedbackType.Boundary);
         Assert.Contains("quantity above zero", refusal.Message);
         Assert.Equal(SpeechChannel.Critical, refusal.Channel);
     }

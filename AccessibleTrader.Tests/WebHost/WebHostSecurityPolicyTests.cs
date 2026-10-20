@@ -52,7 +52,7 @@ public class WebHostSecurityPolicyTests
         // one and forgets the other (new script-src, connect-src, etc.).
         string strictNormalized = SecurityHeadersPolicy.ContentSecurityPolicy
             .Replace("frame-ancestors 'none'", "frame-ancestors 'self'");
-        Assert.Equal(strictNormalized, SecurityHeadersPolicy.DemoContentSecurityPolicy);
+        Assert.Equal(SecurityHeadersPolicy.DemoContentSecurityPolicy, strictNormalized);
     }
 
     [Fact]

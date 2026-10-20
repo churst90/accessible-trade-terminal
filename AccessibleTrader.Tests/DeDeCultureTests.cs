@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task TheCultureFlowsAcrossAwaits()
         {
-            await Task.Delay(1).ConfigureAwait(false);
+            await Task.Delay(1);
             Assert.Equal(ExpectedCulture, CultureInfo.CurrentCulture.Name);
         }
     }

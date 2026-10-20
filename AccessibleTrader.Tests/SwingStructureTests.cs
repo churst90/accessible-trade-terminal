@@ -301,14 +301,14 @@ namespace AccessibleTrader.Tests
 
             // Positive control: one strictly-highest bar in its window IS a pivot.
             var peak = Analyze(FromHighs(10, 11, 12, 13, 15, 13, 12, 11, 10, 9), opts);
-            var high = Assert.Single(peak.Swings.Where(s => s.IsHigh));
+            var high = Assert.Single(peak.Swings, s => s.IsHigh);
             Assert.Equal(15, high.Price);
             Assert.Equal(4, high.BarIndex);
 
             // The same series with the peak held for two bars. Neither bar is strictly higher
             // than the other, so neither is a pivot.
             var plateau = Analyze(FromHighs(10, 11, 12, 13, 15, 15, 13, 12, 11, 10), opts);
-            Assert.Empty(plateau.Swings.Where(s => s.IsHigh));
+            Assert.DoesNotContain(plateau.Swings, s => s.IsHigh);
         }
 
         /// <summary>
@@ -336,8 +336,8 @@ namespace AccessibleTrader.Tests
             var shallow = Analyze(ZigZag(new[] { 100d, 130d, 129.5d, 160d }), opts);
             var deep = Analyze(ZigZag(new[] { 100d, 130d, 115d, 160d }), opts);
 
-            Assert.Empty(shallow.Swings.Where(s => !s.IsHigh));
-            var low = Assert.Single(deep.Swings.Where(s => !s.IsHigh));
+            Assert.DoesNotContain(shallow.Swings, s => !s.IsHigh);
+            var low = Assert.Single(deep.Swings, s => !s.IsHigh);
             Assert.InRange(low.Price, 114, 116);
         }
 

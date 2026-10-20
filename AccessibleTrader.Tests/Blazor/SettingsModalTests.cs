@@ -587,8 +587,8 @@ public class SettingsModalTests
         // passed alone and failed in the full collection.
         string msg = "";
         cut.WaitForAssertion(() =>
-            msg = Assert.Single(spoken.Where(f =>
-                f.Message?.StartsWith("Reset the paper account?", StringComparison.Ordinal) == true)).Message!);
+            msg = Assert.Single(spoken,
+                f => f.Message?.StartsWith("Reset the paper account?", StringComparison.Ordinal) == true).Message!);
         Assert.Contains("cannot be undone", msg, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("position", msg, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("history", msg, StringComparison.OrdinalIgnoreCase);
@@ -712,8 +712,8 @@ public class SettingsModalTests
 
         string msg = "";
         cut.WaitForAssertion(() =>
-            msg = Assert.Single(spoken.Where(f =>
-                f.Message?.StartsWith("Warning:", StringComparison.Ordinal) == true)).Message!);
+            msg = Assert.Single(spoken,
+                f => f.Message?.StartsWith("Warning:", StringComparison.Ordinal) == true).Message!);
 
         Assert.Contains("factory defaults", msg, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("cannot be undone", msg, StringComparison.OrdinalIgnoreCase);
