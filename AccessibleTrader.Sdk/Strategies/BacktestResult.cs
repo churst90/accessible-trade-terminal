@@ -40,7 +40,7 @@ public record BacktestTrade(
 );
 
 /// <param name="WarmupBars">Bars at the start of the input that were fed-only (no signals taken).</param>
-/// <param name="EvaluatedBars">Bars actually evaluated for signals (TotalBars - WarmupBars).</param>
+/// <param name="EvaluatedBars">Bars evaluated for signals after warmup (max(0, TotalBars - WarmupBars - 1)); the final bar is reserved for closing an open position.</param>
 /// <param name="AverageR">Mean reward/risk multiple actually achieved across closed trades that
 /// had a known stop. NaN if no trades had stops.</param>
 /// <param name="Expectancy">Average R per trade (same as AverageR — kept as a separate field

@@ -741,7 +741,7 @@ public class StrategyBacktester : IStrategyBacktester
             GrossLoss: grossLoss
         );
 
-        int evaluatedBars = Math.Max(0, data.Count - warmupBars);
+        int evaluatedBars = Math.Max(0, data.Count - 1 - warmupBars);
 
         // R-multiple metrics — only meaningful when stops were provided in the entry signals.
         // ConfigurableStrategy emits StopLoss; the legacy built-in strategies (SMA cross, RSI,

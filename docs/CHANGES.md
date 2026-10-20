@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The backtest's "bars evaluated" no longer counts the final bar (2026-10-20)
+
+`RunAsync` previously counted the final bar as evaluated even though the signal loop stops one bar
+early and reserves the last bar for closing an open position. The count now excludes that bar, so
+the spoken summary changes from `3 warmup bars, 7 bars evaluated` to `3 warmup bars, 6 bars
+evaluated` for a 10-bar run with 3 warmup bars. The Strategy dialog's "Bars used" line still
+accounts for the full window and now labels the final bar as close-out when at least one bar was
+evaluated; runs with no evaluated bars keep the existing form.
+
+`BacktestEvaluatedBarsTests` first failed with 7 instead of 6, then passed after the fix. Filtered
+regressions passed: `BacktestEvaluatedBarsTests` (1), `StrategyModalTests` (10),
+`StrategyBacktesterTests` (12), `BacktestEquityCurveTests` (4), and `BacktestDrawdownTests` (7).
+
 ### Backtests no longer write a CSV to the temp folder unless asked (2026-10-20)
 
 Every trade-producing backtest previously exported its log and feature snapshots to the system

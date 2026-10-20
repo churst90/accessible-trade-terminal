@@ -11252,10 +11252,10 @@ closed the indicator-provider half and missed the paths below.
   trades.Count == 0 || trades[^1].EntryTime != openTime)` — `openSide` was assigned at `:416` eleven
   lines above and cannot be null. Dead disjunct; the guard's actual intent (don't double-append an
   equity point for the reversal) is carried by the third clause alone. CONFIRMED. LOW.
-- [ ] **`StrategyBacktester.cs:524` reports `evaluatedBars = data.Count - warmupBars`, one more than
-  were actually evaluated.** The loop is `for (i = 0; i < data.Count - 1; i++)` (`:179`), so
-  `data.Count - 1 - warmupBars` bars are evaluated. The number is spoken to the user at `:563`.
-  CONFIRMED. LOW.
+- [x] **`StrategyBacktester` previously reported `evaluatedBars = data.Count - warmupBars`, one more
+  than were actually evaluated.** The signal loop stops before the final bar and drops signals during
+  warmup, so the correct count is `max(0, data.Count - 1 - warmupBars)`. Date filtering slices
+  `data` before this same loop, so the rule also holds for filtered runs. Done 2026-10-20, see CHANGES.
 - [ ] **(amends TODO:2084/2092)** Add two more copies to the hand-rolled-ATR census:
   `StrategyBacktester.cs:339-349` (trail) and `RiskPlanResolver.cs:379-393` (stop), both simple-mean
   rather than Wilder. CONFIRMED. LOW.

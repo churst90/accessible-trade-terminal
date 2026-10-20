@@ -481,7 +481,14 @@
                             <div><strong>Total P&amp;L:</strong> @PriceFormatter.FormatPnL(m.TotalPnL)</div>
                             <div><strong>Max Drawdown:</strong> @m.MaxDrawdown.ToString("P2")</div>
                             <div><strong>Sharpe Ratio:</strong> @(double.IsNaN(m.SharpeRatio) ? "—" : m.SharpeRatio.ToString("F2"))</div>
-                            <div><strong>Bars used:</strong> @(_btResult.WarmupBars + _btResult.EvaluatedBars) total (@_btResult.WarmupBars warmup + @_btResult.EvaluatedBars evaluated)</div>
+                            @if (_btResult.EvaluatedBars > 0)
+                            {
+                                <div><strong>Bars used:</strong> @(_btResult.WarmupBars + _btResult.EvaluatedBars + 1) total (@_btResult.WarmupBars warmup + @_btResult.EvaluatedBars evaluated + 1 close-out)</div>
+                            }
+                            else
+                            {
+                                <div><strong>Bars used:</strong> @(_btResult.WarmupBars + _btResult.EvaluatedBars) total (@_btResult.WarmupBars warmup + @_btResult.EvaluatedBars evaluated)</div>
+                            }
                         </div>
                         @if (_btResult.Trades.Any())
                         {
