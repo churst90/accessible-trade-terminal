@@ -57,6 +57,14 @@ the Debug build failed with xUnit2013 as an error. Restoring the file from `.sab
 again succeeded. Debug and Release `--no-incremental` builds both succeed with 0 code warnings and
 only the two NU1902 lines.
 
+**CI caught one miss after the push (4bf3a6d8):** `BunitAsyncSettleGuardTests` reads the test
+sources, and accepted `await` only at the start of a line, so the newly awaited
+`try { await cut.InvokeAsync(...); }` in `ObjectTreeSelectionFollowsFocusTests` read as a discarded
+Task. Neither Luna's run nor Claude's review ran that source-scanning guard. The guard now matches
+an `await` before the call anywhere on the line. Proved: making that line `try { cut.InvokeAsync(...); }`
+again turned the guard red (it named line 137); restored, it passed. With warnings as errors, the
+same sabotage also fails the build with CS4014, a second net for a discarded call in an async test.
+
 Caveat: **NU1902 remains a warning on purpose.** The AngleSharp advisory is documented in
 `AccessibleTrader.Tests.csproj`; the patched AngleSharp version breaks bUnit.
 
