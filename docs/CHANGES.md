@@ -21,6 +21,43 @@ only the final point made `EquityCurve_HasOnePointPerBar_ForLadderedPosition` an
 Caveat: **Sharpe ratios will change (up or down) and are not comparable with older results; the
 curve now has one point per bar, so a long backtest returns a longer `EquityCurve`.**
 
+### The test project builds with no code warnings, and new ones are errors (2026-10-20)
+
+The Debug `--no-incremental` baseline had 140 code warnings in `AccessibleTrader.Tests` plus two
+`NU1902` lines. The warning counts were: xUnit1031 ×58, ASP0006 ×36, xUnit2013 ×13, CS8602 ×10,
+xUnit2031 ×9, xUnit2029 ×3, CS8601 ×3, CS8619 ×2, CS8604 ×2, xUnit2030 ×1, xUnit2000 ×1,
+xUnit1030 ×1, and CS8603 ×1. Before editing, the warning-list filtered run passed 775 tests with
+0 failures and 0 skips; the same 41-class filter passed the same 775 tests afterward.
+
+- **xUnit1031 (58):** converted the flagged test methods to `async Task` and awaited blocking task
+  operations and bUnit dispatcher calls. `SettledEventDispatchTests.Fired_from_inside_the_dispatcher_it_runs_inline_rather_than_deadlocking`
+  intentionally keeps its bounded `done.Wait(TimeSpan.FromSeconds(10))` deadlock check; its single
+  line is surrounded by `#pragma warning disable/restore xUnit1031` with a reason comment.
+- **ASP0006 (36):** replaced incrementing render-tree sequence variables with literal source-order
+  sequence numbers in `FormControlNameSweepTests` and `SettledEventDispatchTests`. The event helper
+  uses the same literal numbers each time, as it renders the same source shape for each event.
+- **xUnit2013 (13):** replaced collection count checks for zero or one with `Assert.Empty` or
+  `Assert.Single`, preserving each asserted count.
+- **xUnit2031 (9), xUnit2029 (3), and xUnit2030 (1):** used the filtered `Assert.Single`,
+  `Assert.DoesNotContain`, and `Assert.Contains` overloads respectively.
+- **xUnit2000 (1):** put the expected policy constant first. **xUnit1030 (1):** removed
+  `ConfigureAwait(false)` from the test method.
+- **Nullable warnings (18):** used null-safe speech predicates and `Assert.NotNull` at the point
+  tests consume optional messages; the OANDA rig documents that its URI is present because its path
+  filter reads it; metadata fixtures use the model's display-name and cloud-name defaults; and
+  nullable result annotations now match their event data. In `SpokenWordingFixTests`, empty heatmap
+  bin lists represent the two bars with no snapshot, matching the non-null heatmap collection type.
+
+`AccessibleTrader.Tests.csproj` now enables `TreatWarningsAsErrors` and excludes only package
+advisories NU1901–NU1904 from errors. The guard was tested by restoring
+`Assert.Equal(1, feed.Bars.Count)` in `KeyedFeedsTests.Refresh_with_empty_result_keeps_the_old_buffer`:
+the Debug build failed with xUnit2013 as an error. Restoring the file from `.sabotage/` and building
+again succeeded. Debug and Release `--no-incremental` builds both succeed with 0 code warnings and
+only the two NU1902 lines.
+
+Caveat: **NU1902 remains a warning on purpose.** The AngleSharp advisory is documented in
+`AccessibleTrader.Tests.csproj`; the patched AngleSharp version breaks bUnit.
+
 ### Backtest max drawdown is marked to market every bar (2026-10-19)
 
 `StrategyBacktester` previously sampled `MaxDrawdown` only when trades were realised, missing open-position swings and the final-bar close. It now samples marked-to-market account equity at every visited bar close, including accrued carry, and after the end-of-data close. `BacktestDrawdownTests` covers a recovering open loss, a loss on the final bar, an open gain given back, short-side marking, no position, and the spoken summary. Removing the per-bar mark makes the recovering-long, marked-peak-giveback, adverse-short and spoken-summary tests fail; removing only the end-of-data sample makes the final-bar-loss and marked-peak-giveback tests fail; dropping the accrued carry from the mark makes `Carry_owed_on_an_open_position_is_drawdown` fail (funding owed while flat, closed at a realised gain).
