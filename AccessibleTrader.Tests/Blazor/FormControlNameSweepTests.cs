@@ -272,30 +272,29 @@ public class FormControlNameSweepTests
         using var h = new BlazorTestHarness();
         var cut = h.Ctx.Render(builder =>
         {
-            int s = 0;
-            builder.OpenElement(s++, "fieldset");
-            builder.OpenElement(s++, "legend"); builder.AddContent(s++, "Component: Body"); builder.CloseElement();
+            builder.OpenElement(0, "fieldset");
+            builder.OpenElement(1, "legend"); builder.AddContent(2, "Component: Body"); builder.CloseElement();
 
             // Unnamed: the audit's idiom, and a control with nothing beside it at all.
-            builder.OpenElement(s++, "label"); builder.AddContent(s++, "Bullish Color"); builder.CloseElement();
-            builder.OpenElement(s++, "input"); builder.AddAttribute(s++, "type", "color"); builder.CloseElement();
-            builder.OpenElement(s++, "select"); builder.CloseElement();
+            builder.OpenElement(3, "label"); builder.AddContent(4, "Bullish Color"); builder.CloseElement();
+            builder.OpenElement(5, "input"); builder.AddAttribute(6, "type", "color"); builder.CloseElement();
+            builder.OpenElement(7, "select"); builder.CloseElement();
             // Placeholder-only is unnamed too — it vanishes once the field has content.
-            builder.OpenElement(s++, "textarea"); builder.AddAttribute(s++, "placeholder", "Paste here"); builder.CloseElement();
+            builder.OpenElement(8, "textarea"); builder.AddAttribute(9, "placeholder", "Paste here"); builder.CloseElement();
 
             // Named, one per route.
-            builder.OpenElement(s++, "label"); builder.AddAttribute(s++, "for", "n1"); builder.AddContent(s++, "Volume"); builder.CloseElement();
-            builder.OpenElement(s++, "input"); builder.AddAttribute(s++, "id", "n1"); builder.AddAttribute(s++, "type", "range"); builder.CloseElement();
-            builder.OpenElement(s++, "label");
-            builder.OpenElement(s++, "input"); builder.AddAttribute(s++, "type", "checkbox"); builder.CloseElement();
-            builder.AddContent(s++, "Visible");
+            builder.OpenElement(10, "label"); builder.AddAttribute(11, "for", "n1"); builder.AddContent(12, "Volume"); builder.CloseElement();
+            builder.OpenElement(13, "input"); builder.AddAttribute(14, "id", "n1"); builder.AddAttribute(15, "type", "range"); builder.CloseElement();
+            builder.OpenElement(16, "label");
+            builder.OpenElement(17, "input"); builder.AddAttribute(18, "type", "checkbox"); builder.CloseElement();
+            builder.AddContent(19, "Visible");
             builder.CloseElement();
-            builder.OpenElement(s++, "select"); builder.AddAttribute(s++, "aria-label", "Dash style for Body"); builder.CloseElement();
-            builder.OpenElement(s++, "span"); builder.AddAttribute(s++, "id", "n2"); builder.AddContent(s++, "Base frequency"); builder.CloseElement();
-            builder.OpenElement(s++, "input"); builder.AddAttribute(s++, "type", "number"); builder.AddAttribute(s++, "aria-labelledby", "n2"); builder.CloseElement();
+            builder.OpenElement(20, "select"); builder.AddAttribute(21, "aria-label", "Dash style for Body"); builder.CloseElement();
+            builder.OpenElement(22, "span"); builder.AddAttribute(23, "id", "n2"); builder.AddContent(24, "Base frequency"); builder.CloseElement();
+            builder.OpenElement(25, "input"); builder.AddAttribute(26, "type", "number"); builder.AddAttribute(27, "aria-labelledby", "n2"); builder.CloseElement();
             // A label whose `for` points nowhere names nothing.
-            builder.OpenElement(s++, "label"); builder.AddAttribute(s++, "for", "gone"); builder.AddContent(s++, "Thickness"); builder.CloseElement();
-            builder.OpenElement(s++, "input"); builder.AddAttribute(s++, "type", "range"); builder.CloseElement();
+            builder.OpenElement(28, "label"); builder.AddAttribute(29, "for", "gone"); builder.AddContent(30, "Thickness"); builder.CloseElement();
+            builder.OpenElement(31, "input"); builder.AddAttribute(32, "type", "range"); builder.CloseElement();
             builder.CloseElement();
         });
 

@@ -21,14 +21,14 @@ namespace AccessibleTrader.Tests
 
             protected override void BuildRenderTree(RenderTreeBuilder b)
             {
-                Element(b, 0, "button", "click", "onclick");
-                Element(b, 10, "input", "change", "onchange");
-                Element(b, 20, "input", "input", "oninput");
-                Element(b, 30, "div", "keydown", "onkeydown");
-                Element(b, 40, "input", "blur", "onblur");
-                Element(b, 50, "input", "focus", "onfocus");
-                Element(b, 60, "div", "focusin", "onfocusin");
-                Element(b, 70, "details", "toggle", "ontoggle");
+                Element(b, "button", "click", "onclick");
+                Element(b, "input", "change", "onchange");
+                Element(b, "input", "input", "oninput");
+                Element(b, "div", "keydown", "onkeydown");
+                Element(b, "input", "blur", "onblur");
+                Element(b, "input", "focus", "onfocus");
+                Element(b, "div", "focusin", "onfocusin");
+                Element(b, "details", "toggle", "ontoggle");
 
                 b.OpenElement(80, "button");
                 b.AddAttribute(81, "id", "parked");
@@ -41,11 +41,11 @@ namespace AccessibleTrader.Tests
                 b.CloseElement();
             }
 
-            private void Element(RenderTreeBuilder b, int seq, string tag, string id, string eventName)
+            private void Element(RenderTreeBuilder b, string tag, string id, string eventName)
             {
-                b.OpenElement(seq, tag);
-                b.AddAttribute(seq + 1, "id", id);
-                b.AddAttribute(seq + 2, eventName, EventCallback.Factory.Create<EventArgs>(this, () => Log.Enqueue(id)));
+                b.OpenElement(0, tag);
+                b.AddAttribute(1, "id", id);
+                b.AddAttribute(2, eventName, EventCallback.Factory.Create<EventArgs>(this, () => Log.Enqueue(id)));
                 b.CloseElement();
             }
         }
