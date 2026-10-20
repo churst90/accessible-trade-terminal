@@ -303,6 +303,13 @@ public class StrategyBacktester : IStrategyBacktester
             return taken;
         }
 
+        void SampleDrawdown(double value)
+        {
+            if (value > peakEquity) peakEquity = value;
+            double drawdown = peakEquity > 0 ? (peakEquity - value) / peakEquity : 0;
+            if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+        }
+
         // v11 diagnostic: feature snapshot captured at the entry decision bar of the open
         // position. Persists across the open-position lifecycle so every BacktestTrade row
         // produced from this position (initial fill, TP rungs, stop, end-of-data close)
@@ -443,9 +450,7 @@ public class StrategyBacktester : IStrategyBacktester
                         : (openEntryPrice - exitPrice) * openRemainingQty - commission - carry;
 
                     equity += pnl;
-                    if (equity > peakEquity) peakEquity = equity;
-                    double dd2 = peakEquity > 0 ? (peakEquity - equity) / peakEquity : 0;
-                    if (dd2 > maxDrawdown) maxDrawdown = dd2;
+                    SampleDrawdown(equity);
 
                     trades.Add(new BacktestTrade(
                         openTime, openEntryPrice, openSide.Value, openRemainingQty,
@@ -498,9 +503,7 @@ public class StrategyBacktester : IStrategyBacktester
                     : (openEntryPrice - fillPx) * closeQty - commission - carry;
 
                 equity += pnl;
-                if (equity > peakEquity) peakEquity = equity;
-                double dd3 = peakEquity > 0 ? (peakEquity - equity) / peakEquity : 0;
-                if (dd3 > maxDrawdown) maxDrawdown = dd3;
+                SampleDrawdown(equity);
 
                 trades.Add(new BacktestTrade(
                     openTime, openEntryPrice, openSide.Value, closeQty,
@@ -544,6 +547,16 @@ public class StrategyBacktester : IStrategyBacktester
                 // ManagedExitRules so the live trail sits exactly where this one does.
                 openStop = ManagedExitRules.AtrTrailStop(
                     data, i, openTrailAtrPeriod, openTrailAtrMultiple, openSide.Value, openStop.Value);
+            }
+
+            // Drawdown belongs to the account, not just its closed trades. This samples at the
+            // bar close, so an intrabar move that recovers before the close is not counted.
+            if (openSide.HasValue)
+            {
+                double unrealised = openSide.Value == OrderSide.Buy
+                    ? (bar.Close - openEntryPrice) * openRemainingQty - openCarryCost
+                    : (openEntryPrice - bar.Close) * openRemainingQty - openCarryCost;
+                SampleDrawdown(equity + unrealised);
             }
 
             // ── STRATEGY EVALUATION ───────────────────────────────────────────
@@ -591,9 +604,7 @@ public class StrategyBacktester : IStrategyBacktester
                         : (openEntryPrice - fillPrice) * openRemainingQty - closeCommission - closeCarry;
 
                     equity += pnl;
-                    if (equity > peakEquity) peakEquity = equity;
-                    double dd = peakEquity > 0 ? (peakEquity - equity) / peakEquity : 0;
-                    if (dd > maxDrawdown) maxDrawdown = dd;
+                    SampleDrawdown(equity);
 
                     trades.Add(new BacktestTrade(
                         openTime, openEntryPrice, openSide.Value, openRemainingQty,
@@ -676,6 +687,7 @@ public class StrategyBacktester : IStrategyBacktester
                 : (openEntryPrice - fillPrice) * openRemainingQty - commission - carry;
 
             equity += pnl;
+            SampleDrawdown(equity);
 
             trades.Add(new BacktestTrade(
                 openTime, openEntryPrice, openSide.Value, openRemainingQty,
