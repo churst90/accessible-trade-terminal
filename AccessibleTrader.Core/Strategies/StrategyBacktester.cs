@@ -693,11 +693,11 @@ public class StrategyBacktester : IStrategyBacktester
 
         equityCurve.Add((data[^1].Date, equity));
 
-        // v11 diagnostic: dump the trade log + feature snapshots to a CSV in %TEMP% so we
-        // can open it in Excel and find which features discriminate winners from losers.
-        // Best-effort — failures here must not break the backtest result. Path is logged
-        // to Debug output so the user can find the file after the run.
-        TryWriteDiagnosticCsv(trades);
+        // Opt-in export for StrategyLab's `run` command: write the trade log and feature
+        // snapshots only when that console tool requests them. A write failure must not
+        // prevent the backtest result from returning.
+        if (config.DiagnosticCsvDirectory is { } diagnosticCsvDirectory)
+            TryWriteDiagnosticCsv(trades, diagnosticCsvDirectory);
 
         // ── Metrics are per POSITION, not per exit row ────────────────────────
         //
@@ -922,16 +922,16 @@ public class StrategyBacktester : IStrategyBacktester
     }
 
     /// <summary>
-    /// v11 diagnostic: write the trade log + per-trade feature snapshots to a CSV in
-    /// %TEMP%. Best-effort — exceptions are swallowed (with a Debug log) so the backtest
-    /// result still returns even if the disk write fails. Path is logged to Debug output
-    /// and to the Console so the user can find the file after the run.
+    /// Opt-in export for StrategyLab's <c>run</c> command: write the trade log and per-trade
+    /// feature snapshots to the requested directory. Best-effort — exceptions are swallowed
+    /// and reported to Debug and the console error stream so a disk failure does not prevent
+    /// the backtest result from returning.
     ///
     /// CSV layout: a fixed prefix of trade columns (entry/exit/PnL/etc) followed by one
     /// column per unique feature key found across all trades' snapshots. Trades that
     /// don't have a feature key get an empty cell for it.
     /// </summary>
-    private static void TryWriteDiagnosticCsv(IReadOnlyList<BacktestTrade> trades)
+    private static void TryWriteDiagnosticCsv(IReadOnlyList<BacktestTrade> trades, string directory)
     {
         if (trades == null || trades.Count == 0) return;
 
@@ -947,14 +947,30 @@ public class StrategyBacktester : IStrategyBacktester
                 foreach (var k in t.FeatureSnapshot.Keys) featureKeys.Add(k);
             }
 
-            // UTC with explicit "Z" suffix so exports from traders in different
-            // timezones sort and compare cleanly. Local time produced ambiguous
-            // filenames that could collide across machines on the same trade
-            // desk.
+            // UTC with explicit "Z" suffix keeps exported names comparable across timezones.
             string filename = $"accessible-trader-backtest-{DateTime.UtcNow:yyyyMMdd-HHmmss}Z.csv";
-            string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), filename);
+            System.IO.Directory.CreateDirectory(directory);
 
-            using var writer = new System.IO.StreamWriter(path);
+            string stem = System.IO.Path.GetFileNameWithoutExtension(filename);
+            string path;
+            System.IO.FileStream stream;
+            for (int suffix = 1; ; suffix++)
+            {
+                string candidate = suffix == 1 ? filename : $"{stem}-{suffix}.csv";
+                path = System.IO.Path.Combine(directory, candidate);
+                try
+                {
+                    stream = new System.IO.FileStream(
+                        path, System.IO.FileMode.CreateNew, System.IO.FileAccess.Write, System.IO.FileShare.None);
+                    break;
+                }
+                catch (System.IO.IOException) when (System.IO.File.Exists(path))
+                {
+                    // Another run already owns this timestamp; try the next suffix.
+                }
+            }
+
+            using var writer = new System.IO.StreamWriter(stream);
 
             // Header
             var header = new System.Text.StringBuilder();
@@ -1012,7 +1028,10 @@ public class StrategyBacktester : IStrategyBacktester
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Backtest CSV] Failed to write diagnostic CSV: {ex.Message}");
+            string message = $"[Backtest CSV] Failed to write diagnostic CSV: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine(message);
+            try { Console.Error.WriteLine(message); }
+            catch { /* A broken error stream must not fail the backtest either. */ }
         }
     }
 

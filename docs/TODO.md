@@ -9795,12 +9795,13 @@ instead of hundreds of anonymous ones.
 that nothing ever said no. It carries its own vacuity check, because a source scan that finds no
 files reports zero offenders and passes.
 
-- [ ] **Backtest CSV exports also accumulate in the system temp path** — 474 of them here.
+- [x] **Backtest CSV exports also accumulate in the system temp path** — 474 of them here.
   `StrategyBacktester.cs:713` writes `accessible-trader-backtest-<stamp>Z.csv` to
   `Path.GetTempPath()` and nothing ever removes it. That is production behaviour, not a test leak,
   and it may well be the right place to put a file the user is about to download — but nothing
   prunes it, so a heavy StrategyLab user grows an unbounded pile. Decide: prune on startup, write
   to the user's data directory, or leave it and say so.
+  Done 2026-10-20, see CHANGES.
 
 ---
 
@@ -11154,7 +11155,7 @@ closed the indicator-provider half and missed the paths below.
   Done 2026-10-19, see CHANGES.
 - [x] **The backtest equity curve and Sharpe are realised-only.** Drawdown is now marked to market per bar (see the item above), but `equityCurve` gets a point only at fills, so `ComputeSharpe` and any drawn equity curve still miss open-position swings.
   Done 2026-10-20, see CHANGES.
-- [ ] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
+- [x] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
   directory on every single backtest run, unconditionally, with no opt-out and no cleanup.** Called
   from the main `Run` path at `:498`. `LabRunner.CompareAsync` runs two backtests per spec across the
   whole library; a 40-spec battery leaves 80 files. The filename is timestamped to the second (`:686`),
@@ -11162,6 +11163,7 @@ closed the indicator-provider half and missed the paths below.
   log plus every indicator value to a world-readable temp path, and exceptions are swallowed to
   `Debug.WriteLine` (`:745-748`), invisible in Release. Labelled "v11 diagnostic" throughout — it
   should be behind a `BacktestConfig` flag defaulting off. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES.
 - [ ] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
   backtester uses gates the live engine, so live is never looser than the simulation" — is false.**
   Live uses `_warmupAnalyzer.RecommendedWarmup(spec)`, which is `max(stability windows, floor 50) ×

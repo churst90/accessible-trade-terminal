@@ -80,6 +80,9 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// Default 0. This is the term whose absence most distorted this repo's research corpus: it
 /// grows with hold time, so it is worst exactly on the swing strategies the catalogue favours.
 /// </param>
+/// <param name="DiagnosticCsvDirectory">
+/// Directory for the optional trade-level diagnostic CSV. Null (the default) disables the export.
+/// </param>
 public record BacktestConfig(
     double StartingCapital = 10000.0,
     double CommissionRate = 0.001,      // 0.1% per trade
@@ -93,5 +96,6 @@ public record BacktestConfig(
     double SpreadPercent = 0.0,
     double FundingRatePerInterval = 0.0,
     double FundingIntervalHours = 8.0,
-    double BorrowRateAnnual = 0.0
+    double BorrowRateAnnual = 0.0,
+    string? DiagnosticCsvDirectory = null
 );
