@@ -40,8 +40,10 @@ xUnit1030 ×1, and CS8603 ×1. Before editing, the warning-list filtered run pas
   `Assert.Single`, preserving each asserted count.
 - **xUnit2031 (9), xUnit2029 (3), and xUnit2030 (1):** used the filtered `Assert.Single`,
   `Assert.DoesNotContain`, and `Assert.Contains` overloads respectively.
-- **xUnit2000 (1):** put the expected policy constant first. **xUnit1030 (1):** removed
-  `ConfigureAwait(false)` from the test method.
+- **xUnit2000 (1):** put the expected policy constant first. **xUnit1030 (1):** the de-DE canary's
+  `ConfigureAwait(false)` is deliberate (it resumes on a pool thread, so only the async flow can
+  carry the culture there), so it is kept under a reasoned `#pragma` instead. Luna had removed it;
+  Claude restored it at review, as removing it would have weakened the canary.
 - **Nullable warnings (18):** used null-safe speech predicates and `Assert.NotNull` at the point
   tests consume optional messages; the OANDA rig documents that its URI is present because its path
   filter reads it; metadata fixtures use the model's display-name and cloud-name defaults; and

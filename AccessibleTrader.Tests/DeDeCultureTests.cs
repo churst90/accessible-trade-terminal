@@ -24,7 +24,11 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task TheCultureFlowsAcrossAwaits()
         {
-            await Task.Delay(1);
+            // ConfigureAwait(false) is the point: it resumes on a pool thread outside xUnit's
+            // context, so only the async flow can carry the culture there.
+#pragma warning disable xUnit1030
+            await Task.Delay(1).ConfigureAwait(false);
+#pragma warning restore xUnit1030
             Assert.Equal(ExpectedCulture, CultureInfo.CurrentCulture.Name);
         }
     }
