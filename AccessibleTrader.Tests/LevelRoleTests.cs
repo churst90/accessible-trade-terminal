@@ -202,7 +202,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(3, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("Midpoint", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("Midpoint", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(1, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("verbought", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("verbought", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     [Fact]
@@ -242,7 +242,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(3, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("Neutral", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("Neutral", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     [Fact]
@@ -268,7 +268,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(3, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("Midpoint", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("Midpoint", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     // ── A2e survivors: what the campaign found nothing was asserting ────────────
@@ -292,7 +292,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(1, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("Midpoint", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("Midpoint", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavLeftJump);
 
         Assert.Equal(3, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("verbought", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("verbought", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class LevelRoleTests
         engine.HandleCrossJump(SystemCommand.NavRightJump);
 
         Assert.Equal(0, store.State.CurrentDataIndex);
-        Assert.Contains(spoken, f => f.Message.Contains("No points of interest", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spoken, f => f.Message?.Contains("No points of interest", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     // ── Scaffolding ─────────────────────────────────────────────────────────────

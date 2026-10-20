@@ -140,7 +140,7 @@ public class MinimizeToTraySettingTests
         using var h = new BlazorTestHarness();
         PretendWindowsDesktop(h);
         var cut = OpenSettings(h);
-        var spokenLines = new List<string>();
+        var spokenLines = new List<string?>();
         h.EventBus.Subscribe<FeedbackRequestEvent>(e => spokenLines.Add(e.Message));
 
         // ChangeAsync, awaited — never the sync Change(). The modal opens through a fire-and-forget
@@ -151,6 +151,7 @@ public class MinimizeToTraySettingTests
         await cut.Find("input#s-minimize-to-tray").ChangeAsync(new ChangeEventArgs { Value = true });
 
         var spoken = spokenLines.Last();
+        Assert.NotNull(spoken);
         Assert.Contains("Minimize to tray on", spoken);
         Assert.Contains("keeps running", spoken);
         // There is always a way out that does not need the window, and the user is told it.
@@ -165,12 +166,13 @@ public class MinimizeToTraySettingTests
         h.SettingsManager.GetSetting(DesktopWindowSettings.MinimizeToTrayKey)
             .Returns(JToken.FromObject(true));
         var cut = OpenSettings(h);
-        var spokenLines = new List<string>();
+        var spokenLines = new List<string?>();
         h.EventBus.Subscribe<FeedbackRequestEvent>(e => spokenLines.Add(e.Message));
 
         await cut.Find("input#s-minimize-to-tray").ChangeAsync(new ChangeEventArgs { Value = false });
 
         var spoken = spokenLines.Last();
+        Assert.NotNull(spoken);
         Assert.Contains("Minimize to tray off", spoken);
         Assert.Contains("quits", spoken);
     }

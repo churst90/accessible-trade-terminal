@@ -60,7 +60,9 @@ public class MonitoringStatusSentenceTests
         rig.Service.AnnounceStatus();
         var said = rig.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message).ToList();
         Assert.NotEmpty(said);
-        return said[^1];
+        var last = said[^1];
+        Assert.NotNull(last);
+        return last;
     }
 
     /// <summary>

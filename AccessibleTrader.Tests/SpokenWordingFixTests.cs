@@ -181,10 +181,10 @@ namespace AccessibleTrader.Tests
             var cfg = new SeriesConfig { Id = "book", Name = "Order Book", IndicatorCode = "HEATMAP", Pane = "Main" };
             cfg.Components.Add(new ComponentConfig { Name = "Liquidity", DisplayName = "Liquidity", IsVisible = true });
             var buf = new SeriesDataBuffer { SeriesId = "book" };
-            buf.HeatmapData = new List<List<ProfileBin>?>
+            buf.HeatmapData = new List<List<ProfileBin>>
             {
-                null,
-                null,
+                new(),
+                new(),
                 new() { Bin(100, 101, 500, isPoc: true) },
             };
             var series = new ChartSeries(cfg, buf);

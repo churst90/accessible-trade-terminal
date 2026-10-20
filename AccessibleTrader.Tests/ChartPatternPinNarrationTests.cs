@@ -331,7 +331,7 @@ public sealed class ChartPatternPinNarrationTests
 
         h.Bus.Log.Clear();
         h.Navigator.ClearFocus();
-        Assert.Contains(h.Bus.Log.OfType<FeedbackRequestEvent>(), e => e.Message.Contains("cleared"));
+        Assert.Contains(h.Bus.Log.OfType<FeedbackRequestEvent>(), e => e.Message?.Contains("cleared") == true);
         Assert.False(h.Focus.IsPinned(key));
 
         // Released: the container's break at 115 is reachable again.

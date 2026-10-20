@@ -177,13 +177,13 @@ public sealed class NarrationRouteContractTests
             bool rising = index++ % 2 == 0;
             cfg.Components.Add(new ComponentConfig
             {
-                Name = c.Name, DisplayName = c.DisplayName, DisplayType = c.DisplayType,
+                Name = c.Name, DisplayName = c.DisplayName ?? c.Name, DisplayType = c.DisplayType,
                 Role = c.Role, SubPaneName = c.SubPaneName,
                 IsVisible = c.IsVisible, IsMuted = false,
                 IsZoneLine = c.DefaultIsZoneLine,
                 SignalSpeechTemplate = c.DefaultSignalSpeechTemplate,
-                UpperComponentName = c.UpperComponentName,
-                LowerComponentName = c.LowerComponentName,
+                UpperComponentName = c.UpperComponentName ?? string.Empty,
+                LowerComponentName = c.LowerComponentName ?? string.Empty,
             });
 
             double from = mainPane ? (rising ? 110.0 : 90.0) : (rising ? level - 10 : level + 10);
