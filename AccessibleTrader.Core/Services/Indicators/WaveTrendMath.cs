@@ -4,20 +4,20 @@ namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
     /// LazyBear's WaveTrend and the range stochastic, as fitted to Market Cipher B on 2026-10-17
-    /// (hlc3 source, channel 9, average 12, slow wave = SMA 3 of the fast wave).
+    /// (hlc3 source, channel 9, average 12, slow wave = SMA 3 of the fast wave). Cipher A and Cipher B
+    /// use this single implementation so their WaveTrend arithmetic cannot drift apart.
     ///
-    /// <para><b>A copy, not yet a move.</b> The arithmetic is the same as
-    /// <c>CipherBProvider.Calculate</c>'s WaveTrend block and <c>CipherBProvider.SmoothedStochastic</c>,
-    /// line for line. Cipher B was being changed by another branch on the day Cipher A was rebuilt,
-    /// so Cipher B was not edited to call this; once both branches are merged Cipher B should call
-    /// these two methods and its private copies go. Until then a change to one must be made to both
-    /// (CipherAProviderTests pins that Cipher A's Red Diamond is exactly Cipher B's cross-down dot).</para>
+    /// <para>Lambert's CCI constant is 0.015, which puts about 70–80% of channel-index values inside
+    /// ±100. The WaveTrend levels (±53 / ±60) are calibrated against it, so neither changes alone.</para>
     /// </summary>
     public static class WaveTrendMath
     {
         /// <summary>
-        /// The fast wave (WT1) and the slow wave (WT2) of <paramref name="src"/>.
-        /// NaN during warm-up and wherever the channel deviation is zero.
+        /// The fast wave (WT1) and the slow wave (WT2) of <paramref name="src"/>. WT1 is an
+        /// <paramref name="average"/>-bar EMA of Lambert's channel index, using an
+        /// <paramref name="channel"/>-bar EMA and mean deviation; WT2 is a signal-period SMA of WT1.
+        /// NaN during warm-up and wherever the channel deviation is zero. Cipher B also uses this
+        /// method for its multiplied-period anchor pair.
         /// </summary>
         public static (double[] Wt1, double[] Wt2) Compute(double[] src, int channel, int average, int signal)
         {
