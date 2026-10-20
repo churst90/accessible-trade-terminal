@@ -183,7 +183,7 @@ namespace AccessibleTrader.Tests
 
                 provider.LastOnBar!(new Ohlcv(H10, 100, 101, 99, 100, 5));
                 var feed = hub.TryGetFeed(Id())!;
-                Assert.Equal(1, feed.Bars.Count);
+                Assert.Single(feed.Bars);
                 Assert.Equal(100, feed.Bars[0].Close);
 
                 // Idempotent: second start is a no-op, not a second socket.

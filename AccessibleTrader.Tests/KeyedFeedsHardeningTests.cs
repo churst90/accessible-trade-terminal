@@ -60,7 +60,7 @@ namespace AccessibleTrader.Tests
 
             await hub.StartFocusedLiveAsync();
             await Task.Delay(100);
-            Assert.Equal(1, feed.Bars.Count); // stale ticks drained, not merged
+            Assert.Single(feed.Bars); // stale ticks drained, not merged
 
             orch.PushTick(Id(symbol: "ETH/USD"), Bar(1, close: 111)); // genuinely new tick
             await WaitUntil(() => feed.Bars.Count == 2);
@@ -83,7 +83,7 @@ namespace AccessibleTrader.Tests
 
             orch.PushTick(Id(), Bar(1));
             await Task.Delay(200);
-            Assert.Equal(1, feed.Bars.Count); // a leaked pump would have applied it
+            Assert.Single(feed.Bars); // a leaked pump would have applied it
         }
 
         // ── F1: eviction + disposal safety ───────────────────────────────────

@@ -235,7 +235,7 @@ public sealed class DrawingSpeechContractTests
         foreach (var s in router.Said) _out.WriteLine(s);
         Assert.StartsWith($"Fibonacci retracement 1. {series.Components.Count} components. ", router.Said[0]);
         Assert.Contains("hidden", router.Said[0], StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(1, Regex.Matches(router.Said[2], "23.6").Count);   // once, in its own sentence
+        Assert.Single(Regex.Matches(router.Said[2], "23.6"));   // once, in its own sentence
     }
 
     /// <summary>

@@ -79,7 +79,7 @@ namespace AccessibleTrader.Tests
             // Give the pump every chance to get it wrong.
             await Task.Delay(150);
 
-            Assert.Equal(1, eth.Bars.Count);
+            Assert.Single(eth.Bars);
             Assert.Equal(3_000, eth.Bars[^1].Close);   // NOT 50,100
 
             // …and the correctly-addressed tick still lands, so the guard is not

@@ -292,7 +292,7 @@ public class WorkspaceProjectionTests
         var back = RoundTrip(WorkspaceState.Initial);
 
         Assert.Empty(back.ActiveSeries);
-        Assert.Equal(0, back.Data.Count);
+        Assert.Empty(back.Data);
         Assert.Equal(ChartIdentity.Empty, back.Identity);
         Assert.Null(back.FocusedSeriesId);
         Assert.Null(back.PendingDrawingTool);

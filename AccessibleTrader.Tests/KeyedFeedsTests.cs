@@ -112,7 +112,7 @@ namespace AccessibleTrader.Tests
 
             Assert.False(await feed.RefreshAsync()); // second fetch dequeues nothing → empty
 
-            Assert.Equal(1, feed.Bars.Count);
+            Assert.Single(feed.Bars);
         }
 
         [Fact]
@@ -138,7 +138,7 @@ namespace AccessibleTrader.Tests
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => feed.RefreshAsync(cts.Token));
-            Assert.Equal(1, feed.Bars.Count); // stale load never landed
+            Assert.Single(feed.Bars); // stale load never landed
         }
 
         // ── ChartFeed: snapshot restore + gap-fill ───────────────────────────
@@ -181,7 +181,7 @@ namespace AccessibleTrader.Tests
             feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0) }));
 
             Assert.False(await feed.GapFillAsync());
-            Assert.Equal(1, feed.Bars.Count);
+            Assert.Single(feed.Bars);
         }
 
         // ── ChartFeed: prepend ───────────────────────────────────────────────

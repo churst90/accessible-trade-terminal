@@ -707,7 +707,7 @@ public class ChartPatternPositionTests
 
         // A bar holding a completely different formation: the pin does not apply here…
         var elsewhere = new List<ChartPattern> { P(kind: ChartPatternKind.BearFlag, start: 300, end: 320, known: 325) };
-        Assert.Equal(1, focus.Apply("chart", elsewhere).Count);
+        Assert.Single(focus.Apply("chart", elsewhere));
 
         // …and is still in force when we come back.
         Assert.True(focus.IsPinned("chart"));
