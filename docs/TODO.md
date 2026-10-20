@@ -11231,24 +11231,18 @@ closed the indicator-provider half and missed the paths below.
   are different numbers, and a `LessThan 30` leaf fires on different bars than the chart the user is
   reading. Note also `StrategyIndicatorCache.cs:102`'s `data[count - count + i]`, which is `data[i]`
   written the long way. CONFIRMED. MEDIUM.
-- [ ] **`StrategyBacktester.ComputeSharpe:588-618` annualises irregularly-spaced, event-driven returns
-  by their average count per year.** The equity curve is appended at trade events (`:246`, `:299`,
-  `:411`, `:465`, `:491`), so `returns` is a sequence of per-trade returns at wildly varying intervals,
-  and `periodsPerYear = returns.Count / years` (`:616`) treats them as uniform. A strategy taking 40
-  trades in one month and none for eleven gets the same annualisation factor as one trading evenly. The
-  comment (`:608-613`) presents this as the fix for a hardcoded √252, which it is — but the result is
-  not a Sharpe ratio in the sense any external tool means, and the risk-free rate is implicitly zero.
-  `BacktestMathFixTests.cs:43,56,73` pin the arithmetic, not its validity. CONFIRMED. MEDIUM.
+- [x] **`StrategyBacktester.ComputeSharpe` annualises the evenly spaced per-bar returns by bars per
+  year.** The equity curve now has one point per bar, so `returns.Count / years` is bars per year;
+  the risk-free rate remains zero. Done 2026-10-20: the curve is per bar since the equity-curve
+  change; the risk-free rate is still zero, now said in the comment.
 - [x] **Stale comments describing code that no longer exists.** `StrategyBacktester.cs` now says
   ConfigurableStrategy carries its resolved stop while scripts and other `ITradingStrategy`
   implementations may omit `StopLoss`; `ConditionEvaluator.cs` documents the pre-warmed HTF path,
   closed-bar clip, and the active-TF fallback when no MTF service is supplied. The
   `VolumeProfileLevelProvider.cs` caveat already described the cache fix and was left unchanged.
   Done 2026-10-20, see CHANGES.
-- [ ] **`StrategyBacktester.cs:462` has a permanently-false condition.** `if (!openSide.HasValue ||
-  trades.Count == 0 || trades[^1].EntryTime != openTime)` — `openSide` was assigned at `:416` eleven
-  lines above and cannot be null. Dead disjunct; the guard's actual intent (don't double-append an
-  equity point for the reversal) is carried by the third clause alone. CONFIRMED. LOW.
+- [x] **The permanently-false per-fill equity-curve guard no longer applies.** No longer applies
+  (2026-10-20): the code went with the equity-curve change.
 - [x] **`StrategyBacktester` previously reported `evaluatedBars = data.Count - warmupBars`, one more
   than were actually evaluated.** The signal loop stops before the final bar and drops signals during
   warmup, so the correct count is `max(0, data.Count - 1 - warmupBars)`. Date filtering slices

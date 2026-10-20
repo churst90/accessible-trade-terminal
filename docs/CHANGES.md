@@ -27,6 +27,7 @@ regressions passed: `BacktestEvaluatedBarsTests` (1), `StrategyModalTests` (10),
   when no MTF service is supplied.
 - `VolumeProfileLevelProvider.cs`: confirmed its existing caveat already documents the closed cache
   fix; no source change was needed.
+- `ComputeSharpe` uses the per-bar curve with zero risk-free rate; the old permanently-false per-fill guard no longer applies after the same curve change.
 
 ### Backtests no longer write a CSV to the temp folder unless asked (2026-10-20)
 

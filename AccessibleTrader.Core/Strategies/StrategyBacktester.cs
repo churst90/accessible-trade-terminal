@@ -828,6 +828,7 @@ public class StrategyBacktester : IStrategyBacktester
         // weekly ones. periodsPerYear = how many bars actually occurred
         // per year of backtest span; √(that) is the correct annualisation for the
         // return series we actually measured.
+        // The risk-free rate is assumed to be zero.
         double years = (curve[^1].Date - curve[0].Date).TotalDays / 365.25;
         if (years <= 0) return 0.0;
         double periodsPerYear = returns.Count / years;
