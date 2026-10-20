@@ -81,7 +81,10 @@ namespace AccessibleTrader.Tests
                     callSites++;
 
                     // Settled at the call itself: awaited, returned, blocked on, or captured.
-                    if (trimmed.StartsWith("await ") || trimmed.StartsWith("return ")) continue;
+                    // `await` is matched before the call, not at the line start: `try { await
+                    // cut.InvokeAsync(...); }` settles as surely as a bare await (2026-10-20).
+                    if (Regex.IsMatch(line, @"\bawait\s+(?:[A-Za-z_][\w\.]*\.)?InvokeAsync\s*\(")) continue;
+                    if (trimmed.StartsWith("return ")) continue;
                     if (line.Contains("GetAwaiter().GetResult()")) continue;
                     if (Regex.IsMatch(line, @"=\s*[A-Za-z_][\w\.]*\.InvokeAsync")) continue;
 
