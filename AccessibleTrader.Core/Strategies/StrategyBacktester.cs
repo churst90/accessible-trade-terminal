@@ -461,8 +461,6 @@ public class StrategyBacktester : IStrategyBacktester
                         FeatureSnapshot: openFeatureSnapshot,
                         PositionId: positionId));
 
-                    equityCurve.Add((bar.Date, equity));
-
                     openSide = null;
                     openRemainingQty = 0;
                     openTpPrices.Clear();
@@ -515,8 +513,6 @@ public class StrategyBacktester : IStrategyBacktester
                     PositionId: positionId));
 
                 openRemainingQty -= closeQty;
-                equityCurve.Add((bar.Date, equity));
-
                 // Adjust stop after the first TP rung clears based on the signal's StopAdjust mode.
                 if (!stopMovedToBreakeven)
                 {
@@ -549,15 +545,19 @@ public class StrategyBacktester : IStrategyBacktester
                     data, i, openTrailAtrPeriod, openTrailAtrMultiple, openSide.Value, openStop.Value);
             }
 
-            // Drawdown belongs to the account, not just its closed trades. This samples at the
-            // bar close, so an intrabar move that recovers before the close is not counted.
+            // Drawdown and the equity curve belong to the account, not just its closed trades.
+            // Mark once at the bar close so an intrabar move that recovers before the close is not counted.
+            double markedEquity = equity;
             if (openSide.HasValue)
             {
                 double unrealised = openSide.Value == OrderSide.Buy
                     ? (bar.Close - openEntryPrice) * openRemainingQty - openCarryCost
                     : (openEntryPrice - bar.Close) * openRemainingQty - openCarryCost;
-                SampleDrawdown(equity + unrealised);
+                markedEquity += unrealised;
             }
+            SampleDrawdown(markedEquity);
+            if (i >= 1)
+                equityCurve.Add((bar.Date, markedEquity));
 
             // ── STRATEGY EVALUATION ───────────────────────────────────────────
             var signal = strategy.OnBar(bar, historyBuffer, liveState);
@@ -614,8 +614,6 @@ public class StrategyBacktester : IStrategyBacktester
                         BarsInTrade: (i + 1) - openBarIndex,
                         FeatureSnapshot: openFeatureSnapshot,
                         PositionId: positionId));
-
-                    equityCurve.Add((data[i + 1].Date, equity));
                 }
 
                 // Open new position (whether reversing or opening fresh). The entry is charged
@@ -656,11 +654,6 @@ public class StrategyBacktester : IStrategyBacktester
                 openTpPrices = ladderPrices;
                 openTpPortions = ladderPortions;
 
-                if (!openSide.HasValue || trades.Count == 0 ||
-                    trades[trades.Count - 1].EntryTime != openTime)
-                {
-                    equityCurve.Add((data[i + 1].Date, equity));
-                }
             }
         }
 
@@ -696,9 +689,9 @@ public class StrategyBacktester : IStrategyBacktester
                 BarsInTrade: (data.Count - 1) - openBarIndex,
                 FeatureSnapshot: openFeatureSnapshot,
                 PositionId: positionId));
-
-            equityCurve.Add((lastBar.Date, equity));
         }
+
+        equityCurve.Add((data[^1].Date, equity));
 
         // v11 diagnostic: dump the trade log + feature snapshots to a CSV in %TEMP% so we
         // can open it in Excel and find which features discriminate winners from losers.
@@ -728,7 +721,7 @@ public class StrategyBacktester : IStrategyBacktester
         double totalPnL = equity - config.StartingCapital;
         double totalReturn = config.StartingCapital > 0 ? totalPnL / config.StartingCapital * 100.0 : 0.0;
 
-        // Sharpe: (annualised return) / (annualised stddev of daily returns)
+        // Sharpe: (annualised return) / (annualised stddev of bar returns)
         double sharpe = ComputeSharpe(equityCurve);
 
         // Gross profit/loss feed both the profit factor below and position sizers
@@ -828,10 +821,10 @@ public class StrategyBacktester : IStrategyBacktester
 
         if (stdDev == 0) return 0.0;
 
-        // Annualise by the OBSERVED sampling frequency. The curve points land on trade
-        // events, not calendar days, and the bar interval varies by timeframe — the old
+        // Annualise by the OBSERVED sampling frequency. The curve now has one point per bar,
+        // so annualisation is by bars per year; the bar interval varies by timeframe — the old
         // hardcoded √252 understated intraday Sharpe by ~20× on 1m charts and overstated
-        // weekly ones. periodsPerYear = how many equity observations actually occurred
+        // weekly ones. periodsPerYear = how many bars actually occurred
         // per year of backtest span; √(that) is the correct annualisation for the
         // return series we actually measured.
         double years = (curve[^1].Date - curve[0].Date).TotalDays / 365.25;

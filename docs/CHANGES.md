@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Backtest equity curve and Sharpe are marked to market every bar (2026-10-20)
+
+`StrategyBacktester` previously added equity-curve points at fills, so open-position swings were
+missing from `EquityCurve` and `ComputeSharpe`. The curve now contains its starting point, one
+marked-to-market account value at every bar close, and the final equity at the last bar. The
+drawdown and curve use the same marked value; `ComputeSharpe` still uses observed sampling
+frequency, now bars per year. `BacktestEquityCurveTests` checks one point per bar across a laddered
+position, the $6,000 marked value for the 40% open-loss fixture, the last-bar final-equity point,
+and a lower Sharpe for an open swing with the same realised gain. Removing the per-bar point made
+`EquityCurve_HasOnePointPerBar_ForLadderedPosition`,
+`EquityCurve_ShowsAnOpenLossAtTheBarClose`, and `Sharpe_ReflectsAnOpenPositionSwing` fail; removing
+only the final point made `EquityCurve_HasOnePointPerBar_ForLadderedPosition` and
+`EquityCurve_EndsAtFinalEquityOnTheLastBar` and `Sharpe_ReflectsAnOpenPositionSwing` fail.
+
+Caveat: **Sharpe ratios will change (up or down) and are not comparable with older results; the
+curve now has one point per bar, so a long backtest returns a longer `EquityCurve`.**
+
 ### Backtest max drawdown is marked to market every bar (2026-10-19)
 
 `StrategyBacktester` previously sampled `MaxDrawdown` only when trades were realised, missing open-position swings and the final-bar close. It now samples marked-to-market account equity at every visited bar close, including accrued carry, and after the end-of-data close. `BacktestDrawdownTests` covers a recovering open loss, a loss on the final bar, an open gain given back, short-side marking, no position, and the spoken summary. Removing the per-bar mark makes the recovering-long, marked-peak-giveback, adverse-short and spoken-summary tests fail; removing only the end-of-data sample makes the final-bar-loss and marked-peak-giveback tests fail; dropping the accrued carry from the mark makes `Carry_owed_on_an_open_position_is_drawdown` fail (funding owed while flat, closed at a realised gain).
