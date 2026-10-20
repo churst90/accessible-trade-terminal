@@ -491,13 +491,13 @@ public class SettingsModalTests
     /// satisfied by a dialog that writes nothing at all.
     /// </summary>
     [Fact]
-    public void SettingsModal_Save_WritesThePendingPreferences_AndCloses()
+    public async Task SettingsModal_Save_WritesThePendingPreferences_AndCloses()
     {
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
         h.WorkspaceStore.ClearReceivedCalls();
 
-        cut.InvokeAsync(() => cut.Find("#settings-save").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#settings-save").Click());
 
         cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
         h.WorkspaceStore.Received().Dispatch(Arg.Any<UpdateSettingsAction>());
@@ -545,13 +545,13 @@ public class SettingsModalTests
     // it is a stack that Escape, the Tab trap and the MAUI canvas hide would all have to learn.
 
     [Fact]
-    public void SettingsModal_TheFirstClickOnResetPaperAccount_DestroysNothing()
+    public async Task SettingsModal_TheFirstClickOnResetPaperAccount_DestroysNothing()
     {
         using var h = new BlazorTestHarness();
         var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
 
         paper.DidNotReceive().ResetAccount();
         // And the question is on screen, in place of the button that asked it.
@@ -569,7 +569,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_ArmingTheReset_SpeaksWhatIsAtStakeBeforeWhichKeysAnswerIt()
+    public async Task SettingsModal_ArmingTheReset_SpeaksWhatIsAtStakeBeforeWhichKeysAnswerIt()
     {
         // The markup changed under a sighted user's eyes. For everyone else the announcement IS
         // that change, and a confirmation that only says "are you sure?" is not error prevention
@@ -579,7 +579,7 @@ public class SettingsModalTests
         h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
 
         // By CONTENT and behind a wait. ArmPaperReset renders, yields, and only then publishes,
         // and bUnit's Click() does not await that continuation — so both "which message" and
@@ -597,7 +597,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_ConfirmingTheReset_ActuallyResets()
+    public async Task SettingsModal_ConfirmingTheReset_ActuallyResets()
     {
         // Vacuity guard for the two above: a button that never resets anything would satisfy
         // both, and would be a worse defect than the one being fixed.
@@ -605,9 +605,9 @@ public class SettingsModalTests
         var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset-confirm").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset-confirm").Click());
 
         paper.Received(1).ResetAccount();
         // The row is back to its single-button form, which is where focus is sent.
@@ -615,7 +615,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_CancellingTheReset_KeepsTheAccountAndSaysSo()
+    public async Task SettingsModal_CancellingTheReset_KeepsTheAccountAndSaysSo()
     {
         using var h = new BlazorTestHarness();
         var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
@@ -623,9 +623,9 @@ public class SettingsModalTests
         h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-cancel")));
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset-cancel").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset-cancel").Click());
 
         paper.DidNotReceive().ResetAccount();
         // Behind a wait for the same reason as the arming test: CancelPaperReset renders, yields,
@@ -637,7 +637,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_EscapeWithTheResetArmed_BacksOutOfTheQuestionNotTheDialog()
+    public async Task SettingsModal_EscapeWithTheResetArmed_BacksOutOfTheQuestionNotTheDialog()
     {
         // Closing on that Escape would leave the user outside Settings with no word on what
         // happened to the account they were just asked about — and "no" is the answer they were
@@ -646,30 +646,30 @@ public class SettingsModalTests
         var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
-        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings")));
 
         paper.DidNotReceive().ResetAccount();
         cut.WaitForAssertion(() => Assert.NotEqual(string.Empty, cut.Markup.Trim()));
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
 
-        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings")));
         cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
     }
 
     [Fact]
-    public void SettingsModal_AnArmedQuestionDoesNotSurviveTheDialogClosing()
+    public async Task SettingsModal_AnArmedQuestionDoesNotSurviveTheDialogClosing()
     {
         // Otherwise the next visitor finds "Confirm reset" where "Reset paper account" belongs,
         // one keypress from erasing an account nobody asked them about.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
-        cut.InvokeAsync(() => cut.Find("#settings-close").Click()).GetAwaiter().GetResult();
-        cut.InvokeAsync(() => h.EventBus.Publish(new OpenSettingsEvent())).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#settings-close").Click());
+        await cut.InvokeAsync(() => h.EventBus.Publish(new OpenSettingsEvent()));
 
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
         Assert.Empty(cut.FindAll("#s-paper-reset-confirm"));
@@ -681,12 +681,12 @@ public class SettingsModalTests
     // that is specific to this one: the confirmation has to name what SURVIVES.
 
     [Fact]
-    public void SettingsModal_TheFirstClickOnFactoryReset_DestroysNothing()
+    public async Task SettingsModal_TheFirstClickOnFactoryReset_DestroysNothing()
     {
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click());
 
         h.TerminalReset.DidNotReceive().ResetEverything();
         cut.WaitForAssertion(() =>
@@ -698,7 +698,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_ArmingTheFactoryReset_SpeaksTheWarning_AndWhatIsKept()
+    public async Task SettingsModal_ArmingTheFactoryReset_SpeaksTheWarning_AndWhatIsKept()
     {
         // "All personalization will be lost" is the sentence a user is most likely to read as
         // "including my API keys". Being wrong about that in the frightening direction stops
@@ -708,7 +708,7 @@ public class SettingsModalTests
         h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click());
 
         string msg = "";
         cut.WaitForAssertion(() =>
@@ -723,7 +723,7 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_ConfirmingTheFactoryReset_ActuallyResets_AndCloses()
+    public async Task SettingsModal_ConfirmingTheFactoryReset_ActuallyResets_AndCloses()
     {
         // Vacuity guard for the two above, plus the close: every control in the dialog is now
         // showing a value that no longer exists, and leaving them on screen invites a Save that
@@ -731,25 +731,25 @@ public class SettingsModalTests
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-confirm")));
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset-confirm").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset-confirm").Click());
 
         h.TerminalReset.Received(1).ResetEverything();
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#settings-save")));
     }
 
     [Fact]
-    public void SettingsModal_CancellingTheFactoryReset_ResetsNothingAndSaysSo()
+    public async Task SettingsModal_CancellingTheFactoryReset_ResetsNothingAndSaysSo()
     {
         using var h = new BlazorTestHarness();
         var spoken = new List<FeedbackRequestEvent>();
         h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-cancel")));
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset-cancel").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset-cancel").Click());
 
         h.TerminalReset.DidNotReceive().ResetEverything();
         cut.WaitForAssertion(() =>
@@ -760,16 +760,16 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_EscapeWithTheFactoryResetArmed_BacksOutOfTheQuestionNotTheDialog()
+    public async Task SettingsModal_EscapeWithTheFactoryResetArmed_BacksOutOfTheQuestionNotTheDialog()
     {
         // The same rule the paper reset follows: "no" is the answer the user is reaching for,
         // and closing the dialog would leave them outside it with no word on what happened.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-confirm")));
-        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings")));
 
         h.TerminalReset.DidNotReceive().ResetEverything();
         cut.WaitForAssertion(() =>

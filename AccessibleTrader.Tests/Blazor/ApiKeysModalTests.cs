@@ -166,7 +166,7 @@ public class ApiKeysModalTests
     }
 
     [Fact]
-    public void EscapeWithARemovalArmed_BacksOutOfTheQuestion_NotTheDialog()
+    public async Task EscapeWithARemovalArmed_BacksOutOfTheQuestion_NotTheDialog()
     {
         // Escape is how a screen-reader user leaves things, and it arrives at a dialog that is
         // now asking a question. Closing the whole dialog on it would put the user outside with
@@ -179,7 +179,7 @@ public class ApiKeysModalTests
         cut.Find("button[aria-label='Remove Alpaca Paper']").Click();
         cut.WaitForElement("button#apikey-remove-confirm");
 
-        cut.InvokeAsync(() => bus.Publish(new CloseTopModalEvent("API keys"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => bus.Publish(new CloseTopModalEvent("API keys")));
 
         cut.WaitForAssertion(() =>
         {
@@ -192,12 +192,12 @@ public class ApiKeysModalTests
         });
 
         // Second Escape: nothing armed any more, so it closes as usual.
-        cut.InvokeAsync(() => bus.Publish(new CloseTopModalEvent("API keys"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => bus.Publish(new CloseTopModalEvent("API keys")));
         cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
     }
 
     [Fact]
-    public void ReopeningTheDialogDisarmsAPendingConfirmation()
+    public async Task ReopeningTheDialogDisarmsAPendingConfirmation()
     {
         // Belt and braces on top of the Escape path: whatever left a confirmation armed, the
         // next visit must not open with "Confirm remove" on screen for a decision the user was
@@ -209,7 +209,7 @@ public class ApiKeysModalTests
         cut.Find("button[aria-label='Remove Alpaca Paper']").Click();
         cut.WaitForElement("button#apikey-remove-confirm");
 
-        cut.InvokeAsync(() => bus.Publish(new OpenApiKeysEvent())).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => bus.Publish(new OpenApiKeysEvent()));
 
         cut.WaitForAssertion(() =>
         {

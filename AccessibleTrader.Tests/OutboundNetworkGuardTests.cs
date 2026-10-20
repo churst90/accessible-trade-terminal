@@ -97,14 +97,14 @@ public class OutboundNetworkGuardTests
     }
 
     [Fact]
-    public void TheResolverUsesThatRule_AndNotACopyOfIt()
+    public async Task TheResolverUsesThatRule_AndNotACopyOfIt()
     {
         // A pure function tested in isolation says nothing about whether the caller reads it —
         // the "scan guard checks presence, not path" trap. localhost resolves offline to
         // loopback, so this drives the real resolver down the same rule.
         Assert.False(OutboundNetworkGuard.AllPublic(new[] { IPAddress.Loopback }));
-        var ex = Assert.ThrowsAsync<HttpRequestException>(
-            () => OutboundNetworkGuard.ResolvePublicOrThrowAsync("localhost")).GetAwaiter().GetResult();
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(
+            () => OutboundNetworkGuard.ResolvePublicOrThrowAsync("localhost"));
         Assert.Contains("public internet", ex.Message);
     }
 

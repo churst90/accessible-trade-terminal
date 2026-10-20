@@ -46,7 +46,7 @@ public class ModalEscapeCloseTests
     }
 
     [Fact]
-    public void SaveWorkspaceModal_IgnoresCloseEventForOtherModal()
+    public async Task SaveWorkspaceModal_IgnoresCloseEventForOtherModal()
     {
         // Stacked-modal safety: only the topmost (named) modal may close.
         using var h = new BlazorTestHarness();
@@ -59,7 +59,7 @@ public class ModalEscapeCloseTests
         // name must not close this dialog). A wait would pass instantly on the dialog that
         // is still there and prove nothing about whether the close lands a moment later.
         // Settling the dispatch first makes "still open" a real claim.
-        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Help"))).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Help")));
 
         Assert.NotEmpty(cut.FindAll("[role='dialog']"));
     }

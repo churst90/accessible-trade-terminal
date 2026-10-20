@@ -92,7 +92,7 @@ namespace AccessibleTrader.Tests
 
         [Theory]
         [MemberData(nameof(Shapes))]
-        public void A_trigger_fired_while_the_renderer_is_busy_has_run_its_handler_when_it_returns(string shape)
+        public async Task A_trigger_fired_while_the_renderer_is_busy_has_run_its_handler_when_it_returns(string shape)
         {
             using var ctx = new TestContext();
             var cut = ctx.RenderComponent<Probe>();
@@ -107,7 +107,7 @@ namespace AccessibleTrader.Tests
             fire(cut);
 
             Assert.Contains(id, cut.Instance.Log);
-            hold.GetAwaiter().GetResult();
+            await hold;
         }
 
         [Fact]
@@ -121,7 +121,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Control_bUnits_own_trigger_under_the_same_hold_returns_before_its_handler_runs()
+        public async Task Control_bUnits_own_trigger_under_the_same_hold_returns_before_its_handler_runs()
         {
             // Without this the theory above could pass because the hold does not actually hold,
             // and then it proves nothing. bUnit's raw trigger, called by its full name so it
@@ -136,7 +136,7 @@ namespace AccessibleTrader.Tests
             Assert.Empty(cut.Instance.Log);
 
             release.Set();
-            hold.GetAwaiter().GetResult();
+            await hold;
             cut.WaitForAssertion(() => Assert.Contains("click", cut.Instance.Log));
         }
 
@@ -165,7 +165,9 @@ namespace AccessibleTrader.Tests
 
             var done = cut.InvokeAsync(() => cut.Find("#click").Click());
 
+#pragma warning disable xUnit1031 // This bounded wait is the deadlock guard under test.
             Assert.True(done.Wait(TimeSpan.FromSeconds(10)), "Click() inside InvokeAsync deadlocked.");
+#pragma warning restore xUnit1031
             Assert.Contains("click", cut.Instance.Log);
         }
     }

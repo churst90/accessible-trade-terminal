@@ -462,7 +462,7 @@ public sealed class ChartHoverStillMouseTests
     }
 
     [Fact]
-    public void ChartArea_hands_the_chart_rect_to_the_tracker_and_the_readout_follows_a_scroll()
+    public async Task ChartArea_hands_the_chart_rect_to_the_tracker_and_the_readout_follows_a_scroll()
     {
         // The wire from canvasRegion.js: ChartArea's [JSInvokable] OnChartGeometryChanged.
         var bars = new List<Ohlcv>();
@@ -482,14 +482,14 @@ public sealed class ChartHoverStillMouseTests
         var input = harness.Ctx.Services.GetRequiredService<BlazorInputService>();
         var tracker = harness.Ctx.Services.GetRequiredService<ChartHoverTracker>();
 
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(Left0, Top0, W, H)).GetAwaiter().GetResult();
-        cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(Left0, Top0, W, H));
+        await cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H));
         var shown = tracker.Current;
         Assert.NotNull(shown);
         cut.WaitForAssertion(() => Assert.Contains(shown!.DateText, cut.Markup));
 
         // Scrolled sideways by 200px: the pointer is over another bar now, and the markup says so.
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, Top0, W, H)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, Top0, W, H));
         var remapped = tracker.Current;
         Assert.NotNull(remapped);
         Assert.NotEqual(shown!.DateText, remapped!.DateText);
@@ -500,7 +500,7 @@ public sealed class ChartHoverStillMouseTests
         });
 
         // Scrolled so the chart is below the pointer: nothing is named.
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, 800, W, H)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, 800, W, H));
         Assert.Null(tracker.Current);
         cut.WaitForAssertion(() => Assert.DoesNotContain(remapped.DateText, cut.Markup));
     }

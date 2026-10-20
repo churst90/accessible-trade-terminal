@@ -59,11 +59,11 @@ public class AlertDeliverySettingsTests
     /// this repository has spent two flakes learning that (2026-09-03).
     /// </para>
     /// </summary>
-    private static IRenderedComponent<AccessibleTrader.BlazorClient.Components.AlertsModal>
+    private static async Task<IRenderedComponent<AccessibleTrader.BlazorClient.Components.AlertsModal>>
         OpenDeliveryPanel(BlazorTestHarness h)
     {
         var cut = OpenAlerts(h);
-        cut.InvokeAsync(() => cut.Find("button#alerts-delivery-open").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button#alerts-delivery-open").Click());
         cut.WaitForAssertion(() => cut.Find("#alerts-delivery-title"));
         return cut;
     }
@@ -86,11 +86,11 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void DeliverySettingsButton_ShowsTheChannelsAndHidesTheAlertList()
+    public async Task DeliverySettingsButton_ShowsTheChannelsAndHidesTheAlertList()
     {
         using var h = new BlazorTestHarness();
 
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
         Assert.Single(cut.FindAll("#s-email-host"));
         Assert.Single(cut.FindAll("#s-tg-token"));
@@ -106,11 +106,11 @@ public class AlertDeliverySettingsTests
     /// <see cref="WithNoNotificationTool_TheControlsRemain_AndSayWhatWillHappenInstead"/>.
     /// </summary>
     [Fact]
-    public void TheNotificationPanel_IsAbsent_WhereThereIsNoBrowserClosedHalf()
+    public async Task TheNotificationPanel_IsAbsent_WhereThereIsNoBrowserClosedHalf()
     {
         using var h = new BlazorTestHarness();
         h.Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(AccessibleTrader.Core.Services.HostMode.Hosted));
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
         Assert.Empty(cut.FindAll("#s-notify-unseen"));
         Assert.Empty(cut.FindAll("#s-bg-bar-floor"));
     }
@@ -125,12 +125,12 @@ public class AlertDeliverySettingsTests
     /// this file runs at HostMode.Full, so until this one the hosted shape was unpinned.
     /// </summary>
     [Fact]
-    public void OnTheHostedTerminal_OnlyTheBackgroundPanelsAreGone()
+    public async Task OnTheHostedTerminal_OnlyTheBackgroundPanelsAreGone()
     {
         using var h = new BlazorTestHarness();
         h.Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(AccessibleTrader.Core.Services.HostMode.Hosted));
         h.DesktopNotifier.IsAvailable.Returns(true);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
         Assert.Empty(cut.FindAll("#s-notify-unseen"));
         Assert.Empty(cut.FindAll("#s-bg-bar-floor"));
@@ -147,12 +147,12 @@ public class AlertDeliverySettingsTests
     /// how the thirty-ninth pass's "broken" bar closes turned out to be switched-off ones.
     /// </summary>
     [Fact]
-    public void TheNotificationSwitch_IsPresentAndOnByDefault_WhereAToastCanBeDelivered()
+    public async Task TheNotificationSwitch_IsPresentAndOnByDefault_WhereAToastCanBeDelivered()
     {
         using var h = new BlazorTestHarness();
         h.DesktopNotifier.IsAvailable.Returns(true);
         h.DesktopNotifier.Describe().Returns("notify-send");
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
         Assert.Single(cut.FindAll("#s-notify-unseen"));
         Assert.NotNull(cut.Find("#s-notify-unseen").GetAttribute("checked"));
@@ -167,11 +167,11 @@ public class AlertDeliverySettingsTests
     /// (<c>DesktopAnnouncement.Present</c> speaks exactly where nothing reads a toast).
     /// </summary>
     [Fact]
-    public void WithNoNotificationTool_TheControlsRemain_AndSayWhatWillHappenInstead()
+    public async Task WithNoNotificationTool_TheControlsRemain_AndSayWhatWillHappenInstead()
     {
         using var h = new BlazorTestHarness();
         h.DesktopNotifier.IsAvailable.Returns(false);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
         Assert.Single(cut.FindAll("#s-notify-unseen"));
         Assert.Single(cut.FindAll("#s-speak-bg-bars"));
@@ -180,14 +180,14 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void TickingTheNotificationSwitch_WritesItsKeyImmediately()
+    public async Task TickingTheNotificationSwitch_WritesItsKeyImmediately()
     {
         // Same commit rule as the SMTP fields: no Save button, and Escape cannot lose it.
         using var h = new BlazorTestHarness();
         h.DesktopNotifier.IsAvailable.Returns(true);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-notify-unseen").Change(false)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-notify-unseen").Change(false));
 
         cut.WaitForAssertion(() =>
         {
@@ -198,12 +198,12 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void BackToAlerts_ReturnsToTheList()
+    public async Task BackToAlerts_ReturnsToTheList()
     {
         using var h = new BlazorTestHarness();
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button#alerts-delivery-back").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button#alerts-delivery-back").Click());
 
         cut.WaitForAssertion(() =>
         {
@@ -213,14 +213,14 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void TheDeliveryPanelHeadingIsFocusable()
+    public async Task TheDeliveryPanelHeadingIsFocusable()
     {
         // It is where focus goes on the way in, and an element with no tabindex silently
         // refuses focus — which would leave a screen-reader user in the delivery panel with
         // the dialog still saying "Alerts" and nothing announcing the change of view.
         using var h = new BlazorTestHarness();
 
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
         Assert.Equal("-1", cut.Find("#alerts-delivery-title").GetAttribute("tabindex"));
     }
@@ -228,16 +228,16 @@ public class AlertDeliverySettingsTests
     // ── Persistence: write-on-commit, not save-on-close ──────────────────────
 
     [Fact]
-    public void EditingAField_PersistsImmediately()
+    public async Task EditingAField_PersistsImmediately()
     {
         // The behaviour change the move makes, and the reason for it: the Settings dialog
         // wrote these on Close, and Escape — how a keyboard user leaves a dialog, and how
         // ModalBase closes one — never called Close. A typed SMTP password was discarded with
         // nothing said about it.
         using var h = new BlazorTestHarness();
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-email-host").Change("smtp.example.com")).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("#s-email-host").Change("smtp.example.com"));
 
         cut.WaitForAssertion(() =>
         {
@@ -248,13 +248,13 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void NothingIsPersistedBeforeAnEditIsMade()
+    public async Task NothingIsPersistedBeforeAnEditIsMade()
     {
         // The vacuity check on the case above: a component that wrote everything through on
         // render would pass it without the edit mattering.
         using var h = new BlazorTestHarness();
 
-        OpenDeliveryPanel(h);
+        await OpenDeliveryPanel(h);
 
         h.SettingsManager.DidNotReceive().SetSetting("alerts.email.host", Arg.Any<JToken>());
     }
@@ -262,26 +262,26 @@ public class AlertDeliverySettingsTests
     // ── Test sends (moved from SettingsModalTests) ───────────────────────────
 
     [Fact]
-    public void SendTestEmail_NoChannelRegistered_ReportsError()
+    public async Task SendTestEmail_NoChannelRegistered_ReportsError()
     {
         using var h = new BlazorTestHarness();
         // Default harness has no IAlertChannel registered.
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click());
 
         cut.WaitForAssertion(() => Assert.Contains("Channel not registered", cut.Markup));
     }
 
     [Fact]
-    public void SendTestEmail_ChannelMisconfigured_ReportsMissingFields()
+    public async Task SendTestEmail_ChannelMisconfigured_ReportsMissingFields()
     {
         using var h = new BlazorTestHarness();
         var email = new StubAlertChannel("email", "Email") { IsConfigured = false };
         h.OverrideAlertChannels(email);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click());
 
         cut.WaitForAssertion(() =>
         {
@@ -291,14 +291,14 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void SendTestEmail_ChannelConfigured_InvokesSendAsync()
+    public async Task SendTestEmail_ChannelConfigured_InvokesSendAsync()
     {
         using var h = new BlazorTestHarness();
         var email = new StubAlertChannel("email", "Email");
         h.OverrideAlertChannels(email);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click());
 
         cut.WaitForAssertion(() =>
         {
@@ -309,7 +309,7 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void SendTestEmail_ChannelThrows_ReportsErrorMessage()
+    public async Task SendTestEmail_ChannelThrows_ReportsErrorMessage()
     {
         using var h = new BlazorTestHarness();
         var email = new StubAlertChannel("email", "Email")
@@ -317,9 +317,9 @@ public class AlertDeliverySettingsTests
             ThrowOnSend = new InvalidOperationException("SMTP refused"),
         };
         h.OverrideAlertChannels(email);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click());
 
         cut.WaitForAssertion(() =>
         {
@@ -329,15 +329,15 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void SendTestTelegram_RoutesToTelegramChannel()
+    public async Task SendTestTelegram_RoutesToTelegramChannel()
     {
         using var h = new BlazorTestHarness();
         var email    = new StubAlertChannel("email",    "Email");
         var telegram = new StubAlertChannel("telegram", "Telegram");
         h.OverrideAlertChannels(email, telegram);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test Telegram alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test Telegram alert']").Click());
 
         cut.WaitForAssertion(() =>
         {
@@ -347,16 +347,16 @@ public class AlertDeliverySettingsTests
     }
 
     [Fact]
-    public void TestSend_PersistsBeforeSending()
+    public async Task TestSend_PersistsBeforeSending()
     {
         // A test send is a claim about the configuration on screen, so the configuration on
         // screen is what has to be on disk when the channel reads it.
         using var h = new BlazorTestHarness();
         var email = new StubAlertChannel("email", "Email");
         h.OverrideAlertChannels(email);
-        var cut = OpenDeliveryPanel(h);
+        var cut = await OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click()).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => cut.Find("button[aria-label='Send test email alert']").Click());
 
         cut.WaitForAssertion(() =>
         {

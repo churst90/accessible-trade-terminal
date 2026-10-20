@@ -891,7 +891,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Every_leg_AttachProtectiveLegs_can_emit_is_reduce_only()
+        public async Task Every_leg_AttachProtectiveLegs_can_emit_is_reduce_only()
         {
             // **The structural one.** Instance tests catch the legs that exist today;
             // this catches the leg somebody adds next year. It reaches into the open
@@ -903,15 +903,15 @@ namespace AccessibleTrader.Tests
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
 
             // Branch 1 + 3: plain stop and plain target.
-            paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0,
-                StopLoss: 90, TakeProfit: 110)).GetAwaiter().GetResult();
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0,
+                StopLoss: 90, TakeProfit: 110));
 
             // Branch 2 + 4: trailing stop and trailing target (the trailing stop
             // branch is an `else` of the plain one, so it needs its own entry — and
             // the same symbol, since only this one has a live price).
-            paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0,
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0,
                 TrailStopMode: TrailMode.Percent, TrailStopValue: 5,
-                TrailTpMode: TrailMode.Percent, TrailTpValue: 10)).GetAwaiter().GetResult();
+                TrailTpMode: TrailMode.Percent, TrailTpValue: 10));
 
             var open = OpenOrdersOf(paper);
             Assert.Equal(4, open.Count);   // all four branches fired; adjust only if a branch is added

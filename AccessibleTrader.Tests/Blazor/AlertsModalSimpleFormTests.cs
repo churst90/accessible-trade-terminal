@@ -190,7 +190,7 @@ public class AlertsModalSimpleFormTests
     }
 
     [Fact]
-    public void A_typed_value_survives_every_change_and_a_reopen_until_an_alert_is_added_with_it()
+    public async Task A_typed_value_survives_every_change_and_a_reopen_until_an_alert_is_added_with_it()
     {
         // The review's finding 4: the user types 70, goes back up to correct the component, and
         // the 70 was silently replaced by the reading. A typed number is the user's; the hint
@@ -209,7 +209,7 @@ public class AlertsModalSimpleFormTests
             Assert.Equal("Current value 61.25.", cut.Find("#alert-threshold-hint").TextContent.Trim());
         });
 
-        cut.InvokeAsync(() => bus.Publish(new OpenAlertsEvent())).GetAwaiter().GetResult();   // reopen
+        await cut.InvokeAsync(() => bus.Publish(new OpenAlertsEvent()));   // reopen
         cut.WaitForAssertion(() => Assert.Equal("65000", cut.Find("input#alert-threshold").GetAttribute("value")));
 
         // Added with it: the next alert starts from the live reading again.
@@ -474,7 +474,7 @@ public class AlertsModalSimpleFormTests
     }
 
     [Fact]
-    public void Reopening_after_the_chosen_indicator_left_the_chart_says_so()
+    public async Task Reopening_after_the_chosen_indicator_left_the_chart_says_so()
     {
         var (ctx, _, bus) = BuildContext(out var store);
         var heard = Listen(bus);
@@ -484,7 +484,7 @@ public class AlertsModalSimpleFormTests
 
         var before = store.State;
         store.State.Returns(before with { ActiveSeries = before.ActiveSeries.RemoveAll(s => s.Id == "sma-50") });
-        cut.InvokeAsync(() => bus.Publish(new OpenAlertsEvent())).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => bus.Publish(new OpenAlertsEvent()));
 
         cut.WaitForAssertion(() =>
         {

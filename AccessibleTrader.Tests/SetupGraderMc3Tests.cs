@@ -223,12 +223,12 @@ namespace AccessibleTrader.Tests
         // ── 5. The noise rebuild recomputes Cipher SR on the noisy bars ──────
 
         [Fact]
-        public void TheNoiseRebuildRecomputesCipherSrOnTheNoisyBars()
+        public async Task TheNoiseRebuildRecomputesCipherSrOnTheNoisyBars()
         {
             var engine = Engine();
             var snaps = new List<(string Label, string Symbol, List<Ohlcv> Bars)> { ("T", "T", Walk(1600, 11)), ("U", "U", Walk(1600, 12)) };
-            var clean = Mc3.BuildClass3(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto).Result;
-            var noisy = Mc3.NoisyClass(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto, 1).Result;
+            var clean = await Mc3.BuildClass3(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto);
+            var noisy = await Mc3.NoisyClass(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto, 1);
             for (int k = 0; k < snaps.Count; k++)
             {
                 var nb = noisy[k].S.Bars;
@@ -321,12 +321,12 @@ namespace AccessibleTrader.Tests
         // ── 8. Round 3 reproduces round 2's populations through round 2's code ─
 
         [Fact]
-        public void RoundThreeReproducesRoundTwosCountsThroughRoundTwosOwnCode()
+        public async Task RoundThreeReproducesRoundTwosCountsThroughRoundTwosOwnCode()
         {
             var engine = Engine();
             var snaps = new List<(string Label, string Symbol, List<Ohlcv> Bars)> { ("T", "T", Walk(2400, 7)), ("U", "U", Walk(2000, 21)) };
-            var r3 = Mc3.BuildClass3(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto).Result;
-            var r2 = SetupGraderMc2Command.BuildClass(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto).Result;
+            var r3 = await Mc3.BuildClass3(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto);
+            var r2 = await SetupGraderMc2Command.BuildClass(engine, "crypto", snaps, GraderSeriesConfig.DailyCrypto);
             int setups = 0, e1 = 0, vetoed = 0;
             for (int k = 0; k < snaps.Count; k++)
             {
