@@ -573,6 +573,19 @@ public sealed class ChartStatusLineTests
         Assert.Equal(new[] { "Shown" }, labels.Select(l => l.Component));
     }
 
+    [Fact]
+    public void An_undrawn_line_has_no_axis_label()
+    {
+        var s = Series("rsi", "RSI", "Pane_0", 30,
+            new Comp("Drawn", ComponentDisplayType.Line, "#FF00FF", _ => 30),
+            new Comp("Undrawn", ComponentDisplayType.Line, "#00FF00", _ => 70));
+        s.Components.Single(c => c.Name == "Undrawn").IsDrawn = false;
+
+        var labels = ChartRenderer.ScaleLabelsFor(new[] { s }, 30, Theme);
+
+        Assert.Equal(new[] { "Drawn" }, labels.Select(l => l.Component));
+    }
+
     /// <summary>
     /// Labels whose values sit close together are stacked, not overprinted: TradingView's
     /// de-collision. Three lines a pixel apart become three labels a label-height apart, inside the
