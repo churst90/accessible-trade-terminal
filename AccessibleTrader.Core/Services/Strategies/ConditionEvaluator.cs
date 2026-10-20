@@ -213,15 +213,15 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             if (RefusedForCausality(desc)) return false;
 
-            // Multi-timeframe routing (Session B foundation):
-            // If the leaf has a Timeframe set and the MTF service is available, use HTF cached
-            // bars where applicable. Indicator-based HTF leaves require running the indicator
-            // engine on raw HTF bars — that wiring lands in a follow-up session along with
-            // pre-warm cache infrastructure (the evaluator runs sync per bar and cannot await).
-            // For now, HTF leaves fall through to active-TF data with a one-time warning so
-            // the strategy still produces meaningful results until full HTF indicator support
-            // ships. Price-based HTF comparisons (close > value, etc.) on the cached HTF bars
-            // are the supported subset for this session.
+            // A timeframe-qualified leaf uses the cache warmed before this synchronous read:
+            // ConfigurableStrategy.Initialize and alert PrepareTimeframes load the required HTF
+            // bars and indicator lines. Clip that cache to bars whose periods ended by the current
+            // chart bar's open, excluding the still-forming bar and all later values. Price and
+            // volume lines come from those bars; indicator lines come from the matching cached
+            // HTF calculation. A missing line returns false with LastDegradation; an indicator
+            // never falls through to the raw HTF close or active-timeframe data. The active-TF path
+            // below still applies when no MTF service is supplied. StrategyLab passes mtf: null, so
+            // its timeframe-qualified leaves continue to read the active-TF series.
             if (!string.IsNullOrEmpty(leaf.Timeframe) && _mtf != null)
             {
                 string prov = state.Identity.Provider ?? string.Empty;

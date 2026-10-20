@@ -49,6 +49,10 @@ namespace AccessibleTrader.Tests
         public static string NewPath(string prefix) =>
             Path.Combine(Root, prefix + Guid.NewGuid().ToString("N"));
 
+        /// <summary>Counts temp-folder backtest exports for the default-run regression test.</summary>
+        public static int CountBacktestDiagnosticCsvFiles() =>
+            Directory.EnumerateFiles(Path.GetTempPath(), "accessible-trader-backtest-*.csv").Count();
+
         private static void TryDelete(string dir)
         {
             try { Directory.Delete(dir, recursive: true); } catch { /* best effort at exit */ }

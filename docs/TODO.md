@@ -9795,12 +9795,13 @@ instead of hundreds of anonymous ones.
 that nothing ever said no. It carries its own vacuity check, because a source scan that finds no
 files reports zero offenders and passes.
 
-- [ ] **Backtest CSV exports also accumulate in the system temp path** — 474 of them here.
+- [x] **Backtest CSV exports also accumulate in the system temp path** — 474 of them here.
   `StrategyBacktester.cs:713` writes `accessible-trader-backtest-<stamp>Z.csv` to
   `Path.GetTempPath()` and nothing ever removes it. That is production behaviour, not a test leak,
   and it may well be the right place to put a file the user is about to download — but nothing
   prunes it, so a heavy StrategyLab user grows an unbounded pile. Decide: prune on startup, write
   to the user's data directory, or leave it and say so.
+  Done 2026-10-20, see CHANGES.
 
 ---
 
@@ -11154,7 +11155,7 @@ closed the indicator-provider half and missed the paths below.
   Done 2026-10-19, see CHANGES.
 - [x] **The backtest equity curve and Sharpe are realised-only.** Drawdown is now marked to market per bar (see the item above), but `equityCurve` gets a point only at fills, so `ComputeSharpe` and any drawn equity curve still miss open-position swings.
   Done 2026-10-20, see CHANGES.
-- [ ] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
+- [x] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
   directory on every single backtest run, unconditionally, with no opt-out and no cleanup.** Called
   from the main `Run` path at `:498`. `LabRunner.CompareAsync` runs two backtests per spec across the
   whole library; a 40-spec battery leaves 80 files. The filename is timestamped to the second (`:686`),
@@ -11162,6 +11163,7 @@ closed the indicator-provider half and missed the paths below.
   log plus every indicator value to a world-readable temp path, and exceptions are swallowed to
   `Debug.WriteLine` (`:745-748`), invisible in Release. Labelled "v11 diagnostic" throughout — it
   should be behind a `BacktestConfig` flag defaulting off. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES.
 - [ ] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
   backtester uses gates the live engine, so live is never looser than the simulation" — is false.**
   Live uses `_warmupAnalyzer.RecommendedWarmup(spec)`, which is `max(stability windows, floor 50) ×
@@ -11229,31 +11231,22 @@ closed the indicator-provider half and missed the paths below.
   are different numbers, and a `LessThan 30` leaf fires on different bars than the chart the user is
   reading. Note also `StrategyIndicatorCache.cs:102`'s `data[count - count + i]`, which is `data[i]`
   written the long way. CONFIRMED. MEDIUM.
-- [ ] **`StrategyBacktester.ComputeSharpe:588-618` annualises irregularly-spaced, event-driven returns
-  by their average count per year.** The equity curve is appended at trade events (`:246`, `:299`,
-  `:411`, `:465`, `:491`), so `returns` is a sequence of per-trade returns at wildly varying intervals,
-  and `periodsPerYear = returns.Count / years` (`:616`) treats them as uniform. A strategy taking 40
-  trades in one month and none for eleven gets the same annualisation factor as one trading evenly. The
-  comment (`:608-613`) presents this as the fix for a hardcoded √252, which it is — but the result is
-  not a Sharpe ratio in the sense any external tool means, and the risk-free rate is implicitly zero.
-  `BacktestMathFixTests.cs:43,56,73` pin the arithmetic, not its validity. CONFIRMED. MEDIUM.
-- [ ] **Stale comments describing code that no longer exists.** `StrategyBacktester.cs:527-528` — "the
-  legacy built-in strategies (SMA cross, RSI, BB) do not [emit StopLoss]": recounted, there are no such
-  classes; `Strategies/BuiltIn/` contains only `BaseStrategy.cs`, and the only `ITradingStrategy`
-  implementations outside tests are `ConfigurableStrategy` and the no-op `FixtureStrategy`.
-  `ConditionEvaluator.cs:15-17` — "Multi-timeframe leaves … currently fall through to the active-TF
-  series — Session B will plug the multi-timeframe data service in here": the MTF service has been
-  wired since `:200-251`. `VolumeProfileLevelProvider.cs:25-29` calls the future-leak "a known issue …
-  the most important pending S/R correctness item" when `IBacktestProfileCache` now covers the
-  `ReplayProfiles: true` path. CONFIRMED. LOW.
-- [ ] **`StrategyBacktester.cs:462` has a permanently-false condition.** `if (!openSide.HasValue ||
-  trades.Count == 0 || trades[^1].EntryTime != openTime)` — `openSide` was assigned at `:416` eleven
-  lines above and cannot be null. Dead disjunct; the guard's actual intent (don't double-append an
-  equity point for the reversal) is carried by the third clause alone. CONFIRMED. LOW.
-- [ ] **`StrategyBacktester.cs:524` reports `evaluatedBars = data.Count - warmupBars`, one more than
-  were actually evaluated.** The loop is `for (i = 0; i < data.Count - 1; i++)` (`:179`), so
-  `data.Count - 1 - warmupBars` bars are evaluated. The number is spoken to the user at `:563`.
-  CONFIRMED. LOW.
+- [x] **`StrategyBacktester.ComputeSharpe` annualises the evenly spaced per-bar returns by bars per
+  year.** The equity curve now has one point per bar, so `returns.Count / years` is bars per year;
+  the risk-free rate remains zero. Done 2026-10-20: the curve is per bar since the equity-curve
+  change; the risk-free rate is still zero, now said in the comment.
+- [x] **Stale comments describing code that no longer exists.** `StrategyBacktester.cs` now says
+  ConfigurableStrategy carries its resolved stop while scripts and other `ITradingStrategy`
+  implementations may omit `StopLoss`; `ConditionEvaluator.cs` documents the pre-warmed HTF path,
+  closed-bar clip, and the active-TF fallback when no MTF service is supplied. The
+  `VolumeProfileLevelProvider.cs` caveat already described the cache fix and was left unchanged.
+  Done 2026-10-20, see CHANGES.
+- [x] **The permanently-false per-fill equity-curve guard no longer applies.** No longer applies
+  (2026-10-20): the code went with the equity-curve change.
+- [x] **`StrategyBacktester` previously reported `evaluatedBars = data.Count - warmupBars`, one more
+  than were actually evaluated.** The signal loop stops before the final bar and drops signals during
+  warmup, so the correct count is `max(0, data.Count - 1 - warmupBars)`. Date filtering slices
+  `data` before this same loop, so the rule also holds for filtered runs. Done 2026-10-20, see CHANGES.
 - [ ] **(amends TODO:2084/2092)** Add two more copies to the hand-rolled-ATR census:
   `StrategyBacktester.cs:339-349` (trail) and `RiskPlanResolver.cs:379-393` (stop), both simple-mean
   rather than Wilder. CONFIRMED. LOW.

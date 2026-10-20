@@ -90,7 +90,8 @@ public static class RunCommand
             SpreadPercent: spread,
             FundingRatePerInterval: funding,
             FundingIntervalHours: fundingHours,
-            BorrowRateAnnual: borrow);
+            BorrowRateAnnual: borrow,
+            DiagnosticCsvDirectory: Path.GetTempPath());
 
         Console.WriteLine($"Backtest window: {(start?.ToString("yyyy-MM-dd") ?? "(start)")} → {(end?.ToString("yyyy-MM-dd") ?? "(end)")}");
         Console.WriteLine($"  warmup bars = {warmupBars}");
@@ -129,8 +130,8 @@ public static class RunCommand
         Console.WriteLine($"  Evaluated bars:{result.EvaluatedBars}");
         Console.WriteLine("────────────────────────────────────────────────────────");
 
-        // The backtester writes a per-trade CSV to %TEMP% with feature snapshots. Surface the
-        // newest one to the user — that's the diagnostic data we feed back into our analysis.
+        // The opt-in run export writes a per-trade CSV to %TEMP% with feature snapshots. Surface
+        // the newest one to the user — that's the diagnostic data we feed back into our analysis.
         TryReportLatestCsv();
         return 0;
     }

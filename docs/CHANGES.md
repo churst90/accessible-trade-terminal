@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The backtest's "bars evaluated" no longer counts the final bar (2026-10-20)
+
+`RunAsync` previously counted the final bar as evaluated even though the signal loop stops one bar
+early and reserves the last bar for closing an open position. The count now excludes that bar, so
+the spoken summary changes from `3 warmup bars, 7 bars evaluated` to `3 warmup bars, 6 bars
+evaluated` for a 10-bar run with 3 warmup bars. The Strategy dialog's "Bars used" line still
+accounts for the full window and now labels the final bar as close-out when at least one bar was
+evaluated; runs with no evaluated bars keep the existing form.
+
+`BacktestEvaluatedBarsTests` first failed with 7 instead of 6, then passed after the fix. Filtered
+regressions passed: `BacktestEvaluatedBarsTests` (1), `StrategyModalTests` (10),
+`StrategyBacktesterTests` (12), `BacktestEquityCurveTests` (4), and `BacktestDrawdownTests` (7).
+
+### Stale backtester and evaluator comments rewritten (2026-10-20)
+
+- `StrategyBacktester.cs`: replaced the removed SMA/RSI/Bollinger built-in claim with the current
+  stop behavior: ConfigurableStrategy carries its resolved stop, while scripts and other strategy
+  implementations may omit `StopLoss`.
+- `ConditionEvaluator.cs`: documented the pre-warmed HTF price/indicator cache, closed-bar clip,
+  false-with-degradation behavior for missing lines, and StrategyLab's remaining active-TF fallback
+  when no MTF service is supplied.
+- `VolumeProfileLevelProvider.cs`: confirmed its existing caveat already documents the closed cache
+  fix; no source change was needed.
+- `ComputeSharpe` uses the per-bar curve with zero risk-free rate; the old permanently-false per-fill guard no longer applies after the same curve change.
+
+### Backtests no longer write a CSV to the temp folder unless asked (2026-10-20)
+
+Every trade-producing backtest previously exported its log and feature snapshots to the system
+temp directory, including Strategy dialog and StrategyLab battery runs; second-resolution names
+could silently overwrite. Exports are now off by default. `BacktestConfig.DiagnosticCsvDirectory`
+opts in to an export in the requested directory, creates that directory as needed, and uses a
+`-2`, `-3`, ... suffix when a name is already taken. StrategyLab's `run` command still opts in to
+the system temp folder and reports its CSV per run; write failures go to Debug and stderr without
+failing the backtest.
+
+`BacktestDiagnosticCsvTests` covers no default export, requested-directory contents, and distinct
+files for back-to-back runs. Before the writer change, the requested-directory and repeated-run
+cases failed; the default-run case failed in its isolated run (the first class run collided with
+an existing same-second filename). After the change it passed all 3 tests. The two sabotage probes
+are making the writer unconditional and restoring overwrite-capable `new StreamWriter(path)`;
+they target the default-run and repeated-run assertions. Required filtered regressions also passed:
+`TestTempScanTests` (2), `BacktestDrawdownTests` (7), `BacktestEquityCurveTests` (4),
+`StrategyBacktesterTests` (12), `BacktestCostAndPositionTests` (10), `BacktestMathFixTests` (5),
+`LabRunnerTests` (5), and `StrategyIndicatorCacheBacktestTests` (3).
+
+Caveat: files already in the temp folder are left alone; StrategyLab's `run` still writes one per
+run, by design.
+
 ### Backtest equity curve and Sharpe are marked to market every bar (2026-10-20)
 
 `StrategyBacktester` previously added equity-curve points at fills, so open-position swings were
