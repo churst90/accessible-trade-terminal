@@ -98,14 +98,10 @@ public class ConfigurableStrategy : BaseStrategy
     // trigger was overridden.
     private volatile bool _autoPromotionNotified = false;
 
-    // Live warmup gate (2026-06-12 audit fix 4). The backtester drops signals during the
-    // first WarmupBars (computed by IBacktestWarmupAnalyzer from each referenced indicator's
-    // stability window), but the live engine had no equivalent — a strategy loaded onto a
-    // fresh chart with fewer bars than its slowest indicator needs (SMA-200, Cipher B's
-    // 500-bar percentile mode) evaluated unstable values and could fire phantom setups.
-    // The factory passes the same analyzer-computed bar count used by backtests; OnBar
-    // returns null until the chart history is at least that deep, with a one-time
-    // announcement so the user knows why nothing is firing.
+    // Live warmup gate. Factory-created strategies wait for at least the default backtest
+    // warmup, and longer when their referenced indicators need more history. A custom
+    // BacktestConfig warmup is per-run and is not stored with the spec. Directly constructed
+    // strategies with liveWarmupBars=0 retain the disabled-gate path.
     private readonly int _liveWarmupBars;
     private volatile bool _liveWarmupNotified = false;
 
@@ -362,10 +358,10 @@ public class ConfigurableStrategy : BaseStrategy
                     $"Strategy '{_spec.Name}' {risk}. Edit the strategy to replace it."));
         }
 
-        // Live warmup gate — mirror of the backtester's `i < warmupBars` drop. Indicators
-        // referenced by the spec need their stability window of history before their values
-        // mean anything; the backtest already refuses to trade inside that window, and live
-        // must not be looser than the simulation that validated the strategy.
+        // Factory-created live strategies carry at least the default backtest warmup, and
+        // the analyzer's larger recommendation when their indicators need more history. A
+        // custom BacktestConfig warmup is not stored with the spec and is unknown to live.
+        // Keep the direct-construction zero path: it disables this gate.
         if (!state.IsBacktesting && _liveWarmupBars > 0 && history.Count < _liveWarmupBars)
         {
             if (!_liveWarmupNotified)

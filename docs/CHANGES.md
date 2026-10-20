@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A live strategy waits for at least the default backtest's 200 bars (2026-10-20)
+
+The factory previously used only the analyzer recommendation for live warmup: 60 bars for a
+simple spec, or no gate when no analyzer was registered. A default backtest suppresses signals
+for its first 200 bars, so a validated strategy could start trading live sooner than its default
+backtest allowed. `BacktestConfig.DefaultWarmupBars` now supplies the unchanged 200-bar defaults
+in both `BacktestConfig` and the Strategy dialog. The factory uses the larger of that floor and
+the analyzer recommendation, including when an analyzer recommends more than 200; no analyzer
+means a recommendation of zero and the 200-bar floor still applies. Backtest-mode strategies
+still bypass the live gate, and the backtest's own warmup remains unchanged.
+
+`ConfigurableStrategyFactoryWarmupTests` first failed the 60-bar-analyzer and no-analyzer cases
+(2 failed, 2 passed). After the fix, all 4 passed. Restoring `?? 0` without the `Math.Max` made
+those same 2 tests fail; restoring the fix, rebuilding and rerunning passed all 4. The filtered
+regression run passed 102 tests across `ConfigurableStrategyFactoryWarmupTests`,
+`ConfigurableStrategyLiveWarmupTests`, `BacktestWarmupAnalyzerTests`, `SpiderLinesRemovalTests`,
+`StrategyBacktesterTests`, `StrategyModalTests`, `ModalFocusTargetContractTests`,
+`DisclosureHeadingSweepTests` and `ModalCatalogTests`.
+
+Caveats: on short histories (such as a new listing or a weekly chart), a live strategy now waits
+longer before its first signal and uses the existing warming-up announcement; its wording is
+unchanged. A custom `BacktestConfig.WarmupBars` is per-run and is not stored with the spec, so live
+does not know about that override. The backtest warmup and its results are unchanged.
+
+There is a one-bar boundary difference: the backtester adds bar `i` to history before `OnBar` and
+drops signals while `i < warmupBars`, so its first possible signal sees `warmupBars + 1` bars.
+Live allows evaluation at `history.Count == warmup` (`ConfigurableStrategyLiveWarmupTests.Live_WithSufficientHistory_Evaluates`
+pins 50 of 50). For the default 200, backtest first allows a signal at 201 bars while live allows
+one at 200; this is recorded for Cody, not changed here.
+
 ### Strategy scripts' RSI helper is Wilder's RSI, the one the chart shows (2026-10-20)
 
 `BaseStrategy.Rsi` used a plain mean of the last period gains and losses, so a strategy script

@@ -11164,7 +11164,7 @@ closed the indicator-provider half and missed the paths below.
   `Debug.WriteLine` (`:745-748`), invisible in Release. Labelled "v11 diagnostic" throughout — it
   should be behind a `BacktestConfig` flag defaulting off. CONFIRMED. MEDIUM.
   Done 2026-10-20, see CHANGES.
-- [ ] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
+- [x] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
   backtester uses gates the live engine, so live is never looser than the simulation" — is false.**
   Live uses `_warmupAnalyzer.RecommendedWarmup(spec)`, which is `max(stability windows, floor 50) ×
   1.2` (`BacktestWarmupAnalyzer.cs:30-41`) → 60 for a simple spec. The backtester uses
@@ -11172,6 +11172,12 @@ closed the indicator-provider half and missed the paths below.
   the modal field (`StrategyModal.razor:840`). Unless the user presses "Auto-detect", live is 3.3×
   looser than the run that validated the spec. When the analyzer is absent the gate is `?? 0` — no
   warmup at all. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES.
+  - [ ] **Live and backtest warmup differ by one bar at the boundary.** The backtester adds bar `i`
+    to history before `OnBar` and drops signals while `i < warmupBars`, so its first possible signal
+    sees `warmupBars + 1` bars. Live allows evaluation at `history.Count == warmup`
+    (`ConfigurableStrategyLiveWarmupTests.Live_WithSufficientHistory_Evaluates` pins 50 of 50).
+    Cody to decide whether to align them.
 - [ ] **`LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no
   log, no speech, no counter.** A provider that throws on malformed component data makes its levels
   vanish, and a `BelowSupport` stop then resolves to NaN and the resolver silently rejects the whole

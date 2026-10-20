@@ -911,7 +911,7 @@ public class MyStrategy : BaseStrategy
     private double _btCapital    = 10000.0;
     private double _btCommission = 0.001;
     private double _btSlippage   = 0.0005;
-    private int    _btWarmup     = 200;
+    private int    _btWarmup     = BacktestConfig.DefaultWarmupBars;
     // Spread, funding and borrow default to OFF. Every backtest number this app has ever shown
     // was computed without them, so switching them on has to be the user's explicit act rather
     // than a silent re-scoring of results they may have written down.

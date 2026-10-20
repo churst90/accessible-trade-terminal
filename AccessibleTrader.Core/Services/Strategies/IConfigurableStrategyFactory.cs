@@ -57,11 +57,12 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         public AccessibleTrader.Sdk.Strategies.ITradingStrategy Create(StrategySpec spec, string? instanceId = null)
         {
-            // The same analyzer-computed warmup the backtester uses gates the live
-            // engine, so live is never looser than the simulation that validated
-            // the spec. Without the analyzer (e.g. minimal test hosts) the gate is
-            // disabled rather than guessed.
-            int warmup = _warmupAnalyzer?.RecommendedWarmup(spec) ?? 0;
+            // Factory-created live strategies wait for at least the default backtest warmup,
+            // and longer when the analyzer says their indicators need more history. Without
+            // an analyzer its recommendation is zero, so the default floor still applies. A
+            // custom BacktestConfig warmup is per-run and is not stored with the spec.
+            int analyzerWarmup = _warmupAnalyzer?.RecommendedWarmup(spec) ?? 0;
+            int warmup = Math.Max(analyzerWarmup, BacktestConfig.DefaultWarmupBars);
 
             return new AccessibleTrader.Core.Strategies.ConfigurableStrategy(
                 spec,
