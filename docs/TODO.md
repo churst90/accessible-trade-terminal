@@ -11143,7 +11143,7 @@ closed the indicator-provider half and missed the paths below.
   now, but the terminal runs them on bar close, so the app has to be running. The old test
   `SetupSonifier_MultiRungLadder_EmitsRungCountAndManualWarning` was PINNING the false claim and was
   replaced with one asserting the count, the mechanism, and the absence of the old sentence.
-- [ ] **`StrategyBacktester.cs:472-492` omits the peak-equity and max-drawdown update on the
+- [x] **`StrategyBacktester.cs:472-492` omits the peak-equity and max-drawdown update on the
   end-of-data close, and drawdown is only ever sampled at trade events.** The final close does `equity
   += pnl` (`:481`) and never touches `peakEquity`/`maxDrawdown`, so a strategy whose worst loss is the
   open position at the end of the window reports a drawdown that excludes it. All four update sites
@@ -11151,6 +11151,8 @@ closed the indicator-provider half and missed the paths below.
   position that goes 40% against before recovering to a small win contributes zero to `MaxDrawdown`.
   The number shown to the user, and `LabWindowResult.MaxDrawdown`, is realised-trade drawdown, not
   equity drawdown. Fix: mark to market per bar. CONFIRMED. MEDIUM.
+  Done 2026-10-19, see CHANGES.
+- [ ] **The backtest equity curve and Sharpe are realised-only.** Drawdown is now marked to market per bar (see the item above), but `equityCurve` gets a point only at fills, so `ComputeSharpe` and any drawn equity curve still miss open-position swings.
 - [ ] **`StrategyBacktester.TryWriteDiagnosticCsv:498,666-749` writes a CSV to the system temp
   directory on every single backtest run, unconditionally, with no opt-out and no cleanup.** Called
   from the main `Run` path at `:498`. `LabRunner.CompareAsync` runs two backtests per spec across the

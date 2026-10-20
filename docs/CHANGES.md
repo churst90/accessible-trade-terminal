@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Backtest max drawdown is marked to market every bar (2026-10-19)
+
+`StrategyBacktester` previously sampled `MaxDrawdown` only when trades were realised, missing open-position swings and the final-bar close. It now samples marked-to-market account equity at every visited bar close, including accrued carry, and after the end-of-data close. `BacktestDrawdownTests` covers a recovering open loss, a loss on the final bar, an open gain given back, short-side marking, no position, and the spoken summary. Removing the per-bar mark makes the recovering-long, marked-peak-giveback, and adverse-short tests fail; removing only the end-of-data sample makes the final-bar-loss test fail.
+
+Caveats: **every backtest's max drawdown will now read the same or higher, so older results (StrategyLab catalogues, saved comparisons) are not comparable with new ones**; it is sampled at bar closes, not intrabar; the equity curve and Sharpe are still realised-only.
+
 ### Three small chart fixes: Cipher B uses WaveTrendMath, undrawn lines get no axis label, Save as Defaults keeps two choices (2026-10-19)
 
 `CipherBProvider` now uses `WaveTrendMath` for its main and anchor waves and MCB stochastic lines.
