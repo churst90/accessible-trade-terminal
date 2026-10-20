@@ -188,7 +188,8 @@ public class ConfigurableStrategy : BaseStrategy
 
         // Pre-warm HTF indicator computation cache for every (Timeframe, IndicatorCode) pair the
         // spec references. Fire-and-forget: the synchronous evaluator will read these on the hot
-        // path once the cache populates. Until then, HTF leaves fall through to active-TF.
+        // path once the cache populates. Until every task completes, OnBar's pre-warm gate
+        // (IsPrewarmComplete) skips live evaluation; HTF leaves never fall through to active-TF.
         if (_mtf == null)
         {
             // Check if the spec actually needs HTF data — warn if so, since results will silently degrade.

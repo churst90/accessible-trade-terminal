@@ -25,6 +25,9 @@ regressions passed: `BacktestEvaluatedBarsTests` (1), `StrategyModalTests` (10),
 - `ConditionEvaluator.cs`: documented the pre-warmed HTF price/indicator cache, closed-bar clip,
   false-with-degradation behavior for missing lines, and StrategyLab's remaining active-TF fallback
   when no MTF service is supplied.
+- `ConfigurableStrategy.cs` (found by the same pass, fixed at review): the pre-warm comment said
+  HTF leaves fall through to active-TF data until the cache populates; OnBar's pre-warm gate in
+  fact skips live evaluation until then.
 - `VolumeProfileLevelProvider.cs`: confirmed its existing caveat already documents the closed cache
   fix; no source change was needed.
 - `ComputeSharpe` uses the per-bar curve with zero risk-free rate; the old permanently-false per-fill guard no longer applies after the same curve change.
