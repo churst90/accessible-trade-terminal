@@ -17,6 +17,17 @@ evaluated; runs with no evaluated bars keep the existing form.
 regressions passed: `BacktestEvaluatedBarsTests` (1), `StrategyModalTests` (10),
 `StrategyBacktesterTests` (12), `BacktestEquityCurveTests` (4), and `BacktestDrawdownTests` (7).
 
+### Stale backtester and evaluator comments rewritten (2026-10-20)
+
+- `StrategyBacktester.cs`: replaced the removed SMA/RSI/Bollinger built-in claim with the current
+  stop behavior: ConfigurableStrategy carries its resolved stop, while scripts and other strategy
+  implementations may omit `StopLoss`.
+- `ConditionEvaluator.cs`: documented the pre-warmed HTF price/indicator cache, closed-bar clip,
+  false-with-degradation behavior for missing lines, and StrategyLab's remaining active-TF fallback
+  when no MTF service is supplied.
+- `VolumeProfileLevelProvider.cs`: confirmed its existing caveat already documents the closed cache
+  fix; no source change was needed.
+
 ### Backtests no longer write a CSV to the temp folder unless asked (2026-10-20)
 
 Every trade-producing backtest previously exported its log and feature snapshots to the system

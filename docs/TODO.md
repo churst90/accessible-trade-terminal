@@ -11239,15 +11239,12 @@ closed the indicator-provider half and missed the paths below.
   comment (`:608-613`) presents this as the fix for a hardcoded √252, which it is — but the result is
   not a Sharpe ratio in the sense any external tool means, and the risk-free rate is implicitly zero.
   `BacktestMathFixTests.cs:43,56,73` pin the arithmetic, not its validity. CONFIRMED. MEDIUM.
-- [ ] **Stale comments describing code that no longer exists.** `StrategyBacktester.cs:527-528` — "the
-  legacy built-in strategies (SMA cross, RSI, BB) do not [emit StopLoss]": recounted, there are no such
-  classes; `Strategies/BuiltIn/` contains only `BaseStrategy.cs`, and the only `ITradingStrategy`
-  implementations outside tests are `ConfigurableStrategy` and the no-op `FixtureStrategy`.
-  `ConditionEvaluator.cs:15-17` — "Multi-timeframe leaves … currently fall through to the active-TF
-  series — Session B will plug the multi-timeframe data service in here": the MTF service has been
-  wired since `:200-251`. `VolumeProfileLevelProvider.cs:25-29` calls the future-leak "a known issue …
-  the most important pending S/R correctness item" when `IBacktestProfileCache` now covers the
-  `ReplayProfiles: true` path. CONFIRMED. LOW.
+- [x] **Stale comments describing code that no longer exists.** `StrategyBacktester.cs` now says
+  ConfigurableStrategy carries its resolved stop while scripts and other `ITradingStrategy`
+  implementations may omit `StopLoss`; `ConditionEvaluator.cs` documents the pre-warmed HTF path,
+  closed-bar clip, and the active-TF fallback when no MTF service is supplied. The
+  `VolumeProfileLevelProvider.cs` caveat already described the cache fix and was left unchanged.
+  Done 2026-10-20, see CHANGES.
 - [ ] **`StrategyBacktester.cs:462` has a permanently-false condition.** `if (!openSide.HasValue ||
   trades.Count == 0 || trades[^1].EntryTime != openTime)` — `openSide` was assigned at `:416` eleven
   lines above and cannot be null. Dead disjunct; the guard's actual intent (don't double-append an

@@ -743,9 +743,10 @@ public class StrategyBacktester : IStrategyBacktester
 
         int evaluatedBars = Math.Max(0, data.Count - 1 - warmupBars);
 
-        // R-multiple metrics — only meaningful when stops were provided in the entry signals.
-        // ConfigurableStrategy emits StopLoss; the legacy built-in strategies (SMA cross, RSI,
-        // BB) do not — for those the R fields will be NaN, which the modal renders as "—".
+        // R-multiple metrics are meaningful only for entries with a StopLoss. ConfigurableStrategy
+        // carries its resolved risk-plan stop. Script strategies loaded by RoslynScriptingService
+        // (including BaseStrategy subclasses) and other ITradingStrategy implementations may omit
+        // the nullable StopLoss; when no trade has one, the R fields are NaN and the modal shows "—".
         //
         // One R per POSITION, the same list the bootstrap CI resamples (BootstrapCi.ExtractRs):
         // the quantity-weighted sum of its exits over the initial risk. Averaging exit ROWS
