@@ -123,6 +123,30 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Carry_owed_on_an_open_position_is_drawdown()
+        {
+            // A flat market at 100 with funding at 1% per daily settlement: the long owes $100 for
+            // each day it is held over (bars 2, 3 and 4), so marked equity at bar 4 is $9,700, a
+            // 3% drawdown. The final bar's rise to 110 closes it at +$1,000 less $410 of carry,
+            // a realised GAIN, so neither the trade nor a mark that ignored the carry sees it.
+            var bars = new List<Ohlcv>
+            {
+                Bar(0, 100, 100, 100, 100),
+                Bar(1, 100, 100, 100, 100), // entry at 100
+                Bar(2, 100, 100, 100, 100),
+                Bar(3, 100, 100, 100, 100),
+                Bar(4, 100, 100, 100, 100), // $300 of carry owed
+                Bar(5, 110, 110, 110, 110), // end of data at a gain
+            };
+            var config = Free() with { FundingRatePerInterval = 0.01, FundingIntervalHours = 24.0 };
+
+            var result = await new StrategyBacktester().RunAsync(
+                new EmitsAt(new() { [0] = Position(OrderSide.Buy) }), bars, config);
+
+            Assert.Equal(0.03, result.Metrics.MaxDrawdown, 9);
+        }
+
+        [Fact]
         public async Task No_position_means_no_drawdown()
         {
             // This pin is allowed to be green before the fix: no signal means no position or
