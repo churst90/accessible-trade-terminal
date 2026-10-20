@@ -238,6 +238,11 @@ namespace AccessibleTrader.Core.Services
                 {
                     var pref = prefs.FirstOrDefault(p => p.Name == fresh.Name);
                     if (pref == null) continue;
+                    // A choice saved on this chart is more specific than an indicator-type default.
+                    if (fresh.UserShowAxisLabel is null && pref.UserShowAxisLabel is not null)
+                        fresh.UserShowAxisLabel = pref.UserShowAxisLabel;
+                    if (fresh.UserBackgroundTint is null && pref.UserBackgroundTint is not null)
+                        fresh.UserBackgroundTint = pref.UserBackgroundTint;
                     if (pref.ColorHex          != null) fresh.ColorHex          = pref.ColorHex;
                     if (pref.ColorHexSecondary  != null) fresh.ColorHexSecondary  = pref.ColorHexSecondary;
                     if (pref.Thickness         != null) fresh.Thickness         = pref.Thickness.Value;
