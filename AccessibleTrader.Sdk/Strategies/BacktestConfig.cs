@@ -8,7 +8,7 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// strategy (so its indicators settle and indicator caches converge) but will NOT take
 /// signals from. Necessary because indicators like Ichimoku (~78), Cipher C (66 stability
 /// window), SMA(200), and Hull MA need many bars before their internal state is meaningful;
-/// signals emitted during warmup are unreliable and would skew metrics. Default 200 is a
+/// signals emitted during warmup are unreliable and would skew metrics. The default is a
 /// reasonable floor for the built-in strategies; the modal lets the user override per-run.
 /// </param>
 /// <param name="ReplayProfiles">
@@ -87,7 +87,7 @@ public record BacktestConfig(
     double StartingCapital = 10000.0,
     double CommissionRate = 0.001,      // 0.1% per trade
     double SlippagePercent = 0.0005,    // 0.05% slippage
-    int WarmupBars = 200,
+    int WarmupBars = BacktestConfig.DefaultWarmupBars,
     bool ReplayProfiles = true,
     IPositionSizer? PositionSizer = null,
     DateTime? StartDate = null,
@@ -98,4 +98,8 @@ public record BacktestConfig(
     double FundingIntervalHours = 8.0,
     double BorrowRateAnnual = 0.0,
     string? DiagnosticCsvDirectory = null
-);
+)
+{
+    /// <summary>The default backtest warmup and the minimum history for factory-created live strategies.</summary>
+    public const int DefaultWarmupBars = 200;
+}

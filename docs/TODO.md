@@ -11164,7 +11164,7 @@ closed the indicator-provider half and missed the paths below.
   `Debug.WriteLine` (`:745-748`), invisible in Release. Labelled "v11 diagnostic" throughout — it
   should be behind a `BacktestConfig` flag defaulting off. CONFIRMED. MEDIUM.
   Done 2026-10-20, see CHANGES.
-- [ ] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
+- [x] **`IConfigurableStrategyFactory.cs:48-52`'s comment — "The same analyzer-computed warmup the
   backtester uses gates the live engine, so live is never looser than the simulation" — is false.**
   Live uses `_warmupAnalyzer.RecommendedWarmup(spec)`, which is `max(stability windows, floor 50) ×
   1.2` (`BacktestWarmupAnalyzer.cs:30-41`) → 60 for a simple spec. The backtester uses
@@ -11172,6 +11172,12 @@ closed the indicator-provider half and missed the paths below.
   the modal field (`StrategyModal.razor:840`). Unless the user presses "Auto-detect", live is 3.3×
   looser than the run that validated the spec. When the analyzer is absent the gate is `?? 0` — no
   warmup at all. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES.
+  - [ ] **Live and backtest warmup differ by one bar at the boundary.** The backtester adds bar `i`
+    to history before `OnBar` and drops signals while `i < warmupBars`, so its first possible signal
+    sees `warmupBars + 1` bars. Live allows evaluation at `history.Count == warmup`
+    (`ConfigurableStrategyLiveWarmupTests.Live_WithSufficientHistory_Evaluates` pins 50 of 50).
+    Cody to decide whether to align them.
 - [ ] **`LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no
   log, no speech, no counter.** A provider that throws on malformed component data makes its levels
   vanish, and a `BelowSupport` stop then resolves to NaN and the resolver silently rejects the whole
@@ -11224,13 +11230,15 @@ closed the indicator-provider half and missed the paths below.
   because a strategy that silently never fires is indistinguishable from a market with no
   signals, which in this app is a worse failure than one bar sized off the notional. Hosts with
   no account attached (the StrategyLab batteries) pass nothing and are unchanged.
-- [ ] **Three verbatim copies of SMA/RSI/Bollinger, and the RSI in all of them is not the standard one.**
+- [x] **Three verbatim copies of SMA/RSI/Bollinger, and the RSI in all of them is not the standard one.**
   `BaseStrategy.cs:245-253/256-274/277-291` and `StrategyIndicatorCache.cs:86-93/109-125/127-141` are
   line-for-line the same three functions. Both RSI implementations use a *simple* mean of the last
   `period` gains and losses, not Wilder's smoothing — so a strategy's "RSI 14" and the chart's RSI 14
   are different numbers, and a `LessThan 30` leaf fires on different bars than the chart the user is
   reading. Note also `StrategyIndicatorCache.cs:102`'s `data[count - count + i]`, which is `data[i]`
   written the long way. CONFIRMED. MEDIUM.
+  Done 2026-10-20, see CHANGES (the cache half was already done; `data[count - count + i]` was already
+  gone from executable code).
 - [x] **`StrategyBacktester.ComputeSharpe` annualises the evenly spaced per-bar returns by bars per
   year.** The equity curve now has one point per bar, so `returns.Count / years` is bars per year;
   the risk-free rate remains zero. Done 2026-10-20: the curve is per bar since the equity-curve

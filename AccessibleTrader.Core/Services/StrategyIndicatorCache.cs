@@ -142,7 +142,7 @@ namespace AccessibleTrader.Core.Services
         // closes array plus a full result array per call, which in a 5,000-bar backtest is
         // 5,000 of each. The parity test, not shared code, is what keeps them honest.
 
-        private static double ComputeSma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
+        internal static double ComputeSma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
             int count = data.Count;
             if (count < period) return double.NaN;
@@ -194,7 +194,7 @@ namespace AccessibleTrader.Core.Services
         /// window. That is the same O(n) the EMA above already costs.
         /// </para>
         /// </summary>
-        private static double ComputeRsi(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
+        internal static double ComputeRsi(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
             int count = data.Count;
             if (count < period + 1) return double.NaN;
@@ -222,7 +222,7 @@ namespace AccessibleTrader.Core.Services
             return avgLoss < 1e-10 ? 100.0 : 100.0 - 100.0 / (1.0 + avgGain / avgLoss);
         }
 
-        private static (double Middle, double Upper, double Lower) ComputeBollingerBands(
+        internal static (double Middle, double Upper, double Lower) ComputeBollingerBands(
             IReadOnlyList<Sdk.Models.Ohlcv> data, int period, double deviations)
         {
             int count = data.Count;
