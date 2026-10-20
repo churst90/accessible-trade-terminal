@@ -9,8 +9,9 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// signals from. Necessary because indicators like Ichimoku (~78), Cipher C (66 stability
 /// window), SMA(200), and Hull MA need many bars before their internal state is meaningful;
 /// signals emitted during warmup are unreliable and would skew metrics. The default,
-/// <see cref="DefaultWarmupBars"/> (200), is also the least history a factory-created live
-/// strategy waits for; the Strategy dialog lets the user override it per run.
+/// <see cref="DefaultWarmupBars"/> (200), is also the least warmup a factory-created live
+/// strategy waits out; like a backtest, it first evaluates the bar after the warmup (201 bars of
+/// history). The Strategy dialog lets the user override it per run.
 /// </param>
 /// <param name="ReplayProfiles">
 /// When true and one or more VPVR / VPFR / TPO indicator series are loaded on the workspace,

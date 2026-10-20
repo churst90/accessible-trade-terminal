@@ -60,7 +60,9 @@ namespace AccessibleTrader.Core.Services.Strategies
             // Factory-created live strategies wait for at least the default backtest warmup,
             // and longer when the analyzer says their indicators need more history. Without
             // an analyzer its recommendation is zero, so the default floor still applies. A
-            // custom BacktestConfig warmup is per-run and is not stored with the spec.
+            // custom BacktestConfig warmup is per-run and is not stored with the spec. As in a
+            // backtest, the warmup bars are fed-only: the strategy first evaluates once history
+            // holds warmup + 1 bars (201 by default).
             int analyzerWarmup = _warmupAnalyzer?.RecommendedWarmup(spec) ?? 0;
             int warmup = Math.Max(analyzerWarmup, BacktestConfig.DefaultWarmupBars);
 

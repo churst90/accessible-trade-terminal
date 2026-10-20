@@ -8,57 +8,58 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// Strategies created for live use must wait for at least the default backtest warmup,
-/// and for longer when their indicators need more history.
+/// and for longer when their indicators need more history. Like the backtest, the warmup
+/// bars are fed-only: the first evaluation needs warmup + 1 bars (201 by default).
 /// </summary>
 public sealed class ConfigurableStrategyFactoryWarmupTests
 {
     [Fact]
-    public void AnalyzerRecommendationOfSixtyStillRequiresTwoHundredBars()
+    public void AnalyzerRecommendationOfSixtyStillRequiresTwoHundredAndOneBars()
     {
         var evaluator = new CountingEvaluator();
         var strategy = Factory(evaluator, recommendedWarmup: 60).Create(BuildSpec(), "warmup-60");
         var state = LiveState();
-        var history = Bars(199);
+        var history = Bars(200);
         strategy.Initialize(history, state, new Dictionary<string, object>());
 
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(0, evaluator.EvaluateCalls);
 
-        history = Bars(200);
+        history = Bars(201);
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(1, evaluator.EvaluateCalls);
     }
 
     [Fact]
-    public void AnalyzerRecommendationAboveDefaultIsRespected()
+    public void AnalyzerRecommendationAboveDefaultIsRespectedPlusTheEvaluatedBar()
     {
         var evaluator = new CountingEvaluator();
         var strategy = Factory(evaluator, recommendedWarmup: 240).Create(BuildSpec(), "warmup-240");
         var state = LiveState();
-        var history = Bars(239);
+        var history = Bars(240);
         strategy.Initialize(history, state, new Dictionary<string, object>());
 
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(0, evaluator.EvaluateCalls);
 
-        history = Bars(240);
+        history = Bars(241);
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(1, evaluator.EvaluateCalls);
     }
 
     [Fact]
-    public void NoAnalyzerStillRequiresTwoHundredBars()
+    public void NoAnalyzerStillRequiresTwoHundredAndOneBars()
     {
         var evaluator = new CountingEvaluator();
         var strategy = Factory(evaluator).Create(BuildSpec(), "warmup-no-analyzer");
         var state = LiveState();
-        var history = Bars(199);
+        var history = Bars(200);
         strategy.Initialize(history, state, new Dictionary<string, object>());
 
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(0, evaluator.EvaluateCalls);
 
-        history = Bars(200);
+        history = Bars(201);
         strategy.OnBar(history[^1], history, state);
         Assert.Equal(1, evaluator.EvaluateCalls);
     }

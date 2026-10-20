@@ -99,9 +99,10 @@ public class ConfigurableStrategy : BaseStrategy
     private volatile bool _autoPromotionNotified = false;
 
     // Live warmup gate. Factory-created strategies wait for at least the default backtest
-    // warmup, and longer when their referenced indicators need more history. A custom
-    // BacktestConfig warmup is per-run and is not stored with the spec. Directly constructed
-    // strategies with liveWarmupBars=0 retain the disabled-gate path.
+    // warmup plus the bar being evaluated, as the backtest does, and longer when their
+    // referenced indicators need more history. A custom BacktestConfig warmup is per-run and
+    // is not stored with the spec. Directly constructed strategies with liveWarmupBars=0
+    // retain the disabled-gate path.
     private readonly int _liveWarmupBars;
     private volatile bool _liveWarmupNotified = false;
 
@@ -362,7 +363,11 @@ public class ConfigurableStrategy : BaseStrategy
         // the analyzer's larger recommendation when their indicators need more history. A
         // custom BacktestConfig warmup is not stored with the spec and is unknown to live.
         // Keep the direct-construction zero path: it disables this gate.
-        if (!state.IsBacktesting && _liveWarmupBars > 0 && history.Count < _liveWarmupBars)
+        // The backtester feeds its warmup bars without taking signals and first evaluates the
+        // bar after them, when history holds warmup + 1 bars; live waits for the same count
+        // (201 for the default 200), and the announcement counts toward that number.
+        int barsToEvaluate = _liveWarmupBars + 1;
+        if (!state.IsBacktesting && _liveWarmupBars > 0 && history.Count < barsToEvaluate)
         {
             if (!_liveWarmupNotified)
             {
@@ -371,7 +376,7 @@ public class ConfigurableStrategy : BaseStrategy
                     _eventBus.Publish(new FeedbackRequestEvent(
                         FeedbackType.Info,
                         $"Strategy '{_spec.Name}': indicators warming up — {history.Count} of " +
-                        $"{_liveWarmupBars} bars loaded. Signals begin once warm.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
+                        $"{barsToEvaluate} bars loaded. Signals begin once warm.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
             }
             return null;
         }

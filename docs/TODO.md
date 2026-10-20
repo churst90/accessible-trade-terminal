@@ -11173,11 +11173,13 @@ closed the indicator-provider half and missed the paths below.
   looser than the run that validated the spec. When the analyzer is absent the gate is `?? 0` — no
   warmup at all. CONFIRMED. MEDIUM.
   Done 2026-10-20, see CHANGES.
-  - [ ] **Live and backtest warmup differ by one bar at the boundary.** The backtester adds bar `i`
+  - [x] **Live and backtest warmup differ by one bar at the boundary.** The backtester adds bar `i`
     to history before `OnBar` and drops signals while `i < warmupBars`, so its first possible signal
     sees `warmupBars + 1` bars. Live allows evaluation at `history.Count == warmup`
     (`ConfigurableStrategyLiveWarmupTests.Live_WithSufficientHistory_Evaluates` pins 50 of 50).
     Cody to decide whether to align them.
+    Done 2026-10-20 (Cody: live moves to the backtest's count, 201 bars for the default 200), see
+    CHANGES.
 - [ ] **`LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no
   log, no speech, no counter.** A provider that throws on malformed component data makes its levels
   vanish, and a `BelowSupport` stop then resolves to NaN and the resolver silently rejects the whole

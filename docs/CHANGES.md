@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A live strategy first evaluates on the same bar count as its backtest: 201 by default (2026-10-20)
+
+A backtest feeds its warmup bars without taking signals and first evaluates the bar after them, so
+its first possible signal sees warmup + 1 bars of history. The live gate allowed evaluation at
+exactly the warmup count, one bar earlier. Live now waits for warmup + 1 bars too: 201 for the
+default 200 (Cody's decision; moving the backtest instead would have shifted every backtest
+result by a bar). The warming-up announcement counts toward the same number, for example
+"10 of 201 bars loaded", so it never says "200 of 200" while the strategy is still waiting.
+
+`ConfigurableStrategyLiveWarmupTests` now pins 50 of 50 not evaluating and 51 evaluating, the
+announcement's "10 of 51", and a parity test that runs the real backtester with warmup 5 and
+the live gate with warmup 5 and asserts both first evaluate at 6 bars.
+`ConfigurableStrategyFactoryWarmupTests` moved to 200/201 and 240/241. Six of those tests failed
+before the change (the parity one with 6 expected, 5 actual) and all 11 passed after it.
+
+Caveat: a live strategy now starts one bar later than before. A directly constructed strategy
+with a warmup of 0 still has no gate.
+
 ### A live strategy waits for at least the default backtest's 200 bars (2026-10-20)
 
 The factory previously used only the analyzer recommendation for live warmup: 60 bars for a
