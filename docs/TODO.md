@@ -146,6 +146,18 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   whether it still happens with the heartbeat fix. The next run (heartbeat fix in) still froze on
 >   DIA; its log shows only the 401s fixed in CHANGES' top entry and no DIA-specific error, so the
 >   freeze is most likely in the browser, which the server log cannot see.
+>   **Not reproduced offline (2026-10-21, 11:10 run):** the browser harness resumed Cody's own DIA
+>   and SPY tabs (same four series, same saved viewports, including DIA's 110+100 view past its 199
+>   bars) on My Data copies of the same bars. Tab switches took 90-210 ms, arrow keys repainted in
+>   about 100 ms on both, and there were no browser long tasks. So it is not the bars, the
+>   indicators or the view; it lives on the live Alpaca path. What that run's log does show: (a) two
+>   app pages were open (two circuits, each ~518 s, closed by the two Ctrl+F4 presses), each with its
+>   own provider instances; (b) each fresh DIA fetch rewrote all 199 stored DIA rows one UPDATE at a
+>   time (twice in the run; SPY/GLD fetches changed nothing), so the stored DIA bars and the fetched
+>   ones disagree; cause not found; (c) the Alpaca stream sat silent for a minute while on DIA
+>   ("connected but quiet"). If "freezes" means the live price stops moving, (c) fits: the stream
+>   subscribes to minute bars on IEX, which only arrive in minutes that had an IEX trade. Asked Cody
+>   which it is: keys and speech stop, or the price stops updating.
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.
