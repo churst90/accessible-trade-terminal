@@ -148,8 +148,8 @@ namespace AccessibleTrader.Plugins.Alpaca
                 : "https://paper-api.alpaca.markets/v2";
 
             // NOTE: phase 4 Track B removed the DefaultRequestHeaders injection
-            // that used to live here. Headers are now applied per-request via
-            // ApplyAlpacaHeadersAsync which does a sign-time credential
+            // that used to live here. Headers are now put on each request by
+            // SendAlpacaAsync, which does a sign-time credential
             // checkout. Configure still populates _apiKey / _apiSecret so the
             // no-host-bridge fallback path (unit tests / CLI) continues to work.
         }
@@ -173,17 +173,29 @@ namespace AccessibleTrader.Plugins.Alpaca
             return (_apiKey!, _apiSecret!);
         }
 
-        // Applies APCA-API-KEY-ID / APCA-API-SECRET-KEY headers to the shared
-        // _httpClient from a fresh checkout. The rate limiter serializes REST
-        // calls so DefaultRequestHeaders mutation is safe within the current
-        // usage pattern.
-        private async Task ApplyAlpacaHeadersAsync()
+        /// <summary>
+        /// Sends one request with the key on the REQUEST, not on the shared client. The old
+        /// ApplyAlpacaHeadersAsync removed and re-added the client's default headers before every
+        /// call, assuming the rate limiter ran calls one at a time; it only caps them per minute.
+        /// When the DIA, SPY and TLT monitors fetched together, a request went out inside another's
+        /// remove-then-add window with no key, and Alpaca answered with an HTML "401 Authorization
+        /// Required" page (Cody's Camel cycles workspace, 2026-10-21).
+        /// </summary>
+        private async Task<HttpResponseMessage> SendAlpacaAsync(HttpMethod method, string url, HttpContent? content = null)
         {
             var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
-            _httpClient.DefaultRequestHeaders.Remove("APCA-API-KEY-ID");
-            _httpClient.DefaultRequestHeaders.Remove("APCA-API-SECRET-KEY");
-            _httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKey);
-            _httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecret);
+            using var req = new HttpRequestMessage(method, url) { Content = content };
+            req.Headers.Add("APCA-API-KEY-ID", apiKey);
+            req.Headers.Add("APCA-API-SECRET-KEY", apiSecret);
+            return await _httpClient.SendAsync(req).ConfigureAwait(false);
+        }
+
+        /// <summary><see cref="SendAlpacaAsync"/> for a GET whose failure status throws, as GetStringAsync did.</summary>
+        private async Task<string> GetAlpacaStringAsync(string url)
+        {
+            using var response = await SendAlpacaAsync(HttpMethod.Get, url).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
@@ -191,8 +203,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
-                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                var response = await _httpClient.GetAsync($"{_tradingBaseUrl}/account");
+                var response = await SendAlpacaAsync(HttpMethod.Get, $"{_tradingBaseUrl}/account");
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
                 var body = await response.Content.ReadAsStringAsync();
@@ -544,13 +555,12 @@ namespace AccessibleTrader.Plugins.Alpaca
                     // a chart or a study asks for in one call.
                     for (int page = 0; page < 20; page++)
                     {
-                        await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                         // GetAsync, not GetStringAsync: Alpaca states its refusals in the BODY of a
                         // 4xx ({"message":"subscription does not permit querying recent SIP data"}),
                         // and GetStringAsync threw on the status before the body was read. So the SIP
                         // downgrade below never ran against the real API, and every refusal surfaced
                         // as a bare "400 (Bad Request)" — or, with no one listening, as an empty chart.
-                        using var httpResponse = await _httpClient.GetAsync(BuildUrl(pageToken)).ConfigureAwait(false);
+                        using var httpResponse = await SendAlpacaAsync(HttpMethod.Get, BuildUrl(pageToken)).ConfigureAwait(false);
                         var response = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                         int status = (int)httpResponse.StatusCode;
                         // Throttling and server faults stay exceptions — they belong to the
@@ -645,12 +655,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         ? "https://api.alpaca.markets/v2/assets?asset_class=crypto&status=active"
                         : "https://api.alpaca.markets/v2/assets?asset_class=us_equity&status=active&tradable=true";
 
-                    var (apiKey, apiSecret) = await CheckoutAlpacaCredentialsAsync().ConfigureAwait(false);
-                    var req = new HttpRequestMessage(HttpMethod.Get, url);
-                    req.Headers.Add("APCA-API-KEY-ID",     apiKey);
-                    req.Headers.Add("APCA-API-SECRET-KEY", apiSecret);
-
-                    var response = await _httpClient.SendAsync(req);
+                    using var response = await SendAlpacaAsync(HttpMethod.Get, url);
                     response.EnsureSuccessStatusCode();
 
                     var json   = await response.Content.ReadAsStringAsync();
@@ -689,7 +694,6 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     if (isCrypto)
                     {
                         // v1beta3 requires the SLASHED pair in both the query and the response
@@ -697,7 +701,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         // concatenated spelling for both, so a crypto order book was empty
                         // whenever it was reached at all.
                         string url = $"{CryptoDataUrl}/us/orderbooks?symbols={Uri.EscapeDataString(cryptoSymbol)}";
-                        var response = await _httpClient.GetStringAsync(url);
+                        var response = await GetAlpacaStringAsync(url);
                         var json = JObject.Parse(response);
                         var book = json["orderbooks"]?[cryptoSymbol];
                         if (book == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
@@ -720,7 +724,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         while (true)
                         {
                             string url = $"{StockDataUrl}/stocks/{cleanSymbol}/quotes/latest?feed={_stockFeed}";
-                            using var httpResponse = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                            using var httpResponse = await SendAlpacaAsync(HttpMethod.Get, url).ConfigureAwait(false);
                             var body = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                             int status = (int)httpResponse.StatusCode;
                             if (status is 408 or 429 || status >= 500) httpResponse.EnsureSuccessStatusCode();
@@ -794,8 +798,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             // a transient 502 read as "account flat" and overwrote the snapshot.
             return await _rateLimiter.ExecuteAsync(async () =>
             {
-                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/account");
+                var response = await GetAlpacaStringAsync($"{_tradingBaseUrl}/account");
                 var json = JObject.Parse(response);
                 double equity      = json["equity"]?.Value<double>() ?? 0;
                 double cash        = json["cash"]?.Value<double>() ?? 0;
@@ -817,8 +820,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             // a transient 502 read as "account flat" and overwrote the snapshot.
             return await _rateLimiter.ExecuteAsync(async () =>
             {
-                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                var response = await _httpClient.GetStringAsync($"{_tradingBaseUrl}/positions");
+                var response = await GetAlpacaStringAsync($"{_tradingBaseUrl}/positions");
                 var arr = JArray.Parse(response);
                 return arr.Select(p => new Position(
                     p["symbol"]?.ToString() ?? "",
@@ -844,8 +846,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             // on a fresh provider and 401'd, and raced other signed calls.
             var response = await _rateLimiter.ExecuteAsync(async () =>
             {
-                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                return await _httpClient.GetStringAsync(
+                return await GetAlpacaStringAsync(
                     $"{_tradingBaseUrl}/account/activities?activity_types=FILL&page_size={Math.Clamp(limit, 1, 100)}");
             }).ConfigureAwait(false);
             var arr = JArray.Parse(response);
@@ -880,8 +881,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 string url = $"{_tradingBaseUrl}/orders?status=open";
                 if (!string.IsNullOrEmpty(symbol)) url += $"&symbols={symbol}";
-                await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await GetAlpacaStringAsync(url);
                 var arr = JArray.Parse(response);
                 return arr.Select(o => new OpenOrder(
                     o["id"]?.ToString() ?? "",
@@ -968,8 +968,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                         body["client_order_id"] = signal.ClientOid;
 
                     var content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    var response = await _httpClient.PostAsync($"{_tradingBaseUrl}/orders", content);
+                    var response = await SendAlpacaAsync(HttpMethod.Post, $"{_tradingBaseUrl}/orders", content);
                     var responseStr = await response.Content.ReadAsStringAsync();
                     if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{responseStr}";
                     var json = JObject.Parse(responseStr);
@@ -1031,8 +1030,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 var response = await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                    return await _httpClient.DeleteAsync($"{_tradingBaseUrl}/orders/{orderId}");
+                    return await SendAlpacaAsync(HttpMethod.Delete, $"{_tradingBaseUrl}/orders/{orderId}");
                 });
                 return response.IsSuccessStatusCode;
             }

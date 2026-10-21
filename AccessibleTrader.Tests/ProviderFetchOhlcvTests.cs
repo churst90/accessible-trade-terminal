@@ -1290,6 +1290,38 @@ public class ProviderFetchOhlcvTests
             }
 
             [Fact]
+            public async Task TheKey_RidesOnEachRequest_NotOnTheSharedClient()
+            {
+                // The key was put on the shared client by remove-then-add before every call. The
+                // DIA, SPY and TLT monitors fetched together, one request went out inside
+                // another's window with no key, and Alpaca answered with an HTML 401 page.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                int sent = 0, keyless = 0;
+                var handler = new FakeHttpMessageHandler().Add(HttpMethod.Get, @"/bars", req =>
+                {
+                    Interlocked.Increment(ref sent);
+                    if (!req.Headers.Contains("APCA-API-KEY-ID") || !req.Headers.Contains("APCA-API-SECRET-KEY"))
+                        Interlocked.Increment(ref keyless);
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("""{"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}""")
+                    };
+                });
+                var provider = NewConfigured(handler);
+
+                await Task.WhenAll(new[] { "DIA", "SPY", "TLT", "GLD" }.Select(sym =>
+                    Task.Run(() => provider.FetchOhlcvAsync(new MarketDataRequest("Stock", sym, "1d", 100)))));
+
+                Assert.Equal(4, sent);
+                Assert.Equal(0, keyless);
+                // The property, not the timing: nothing a concurrent call can remove is shared.
+                foreach (var f in provider.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                                          .Where(f => f.FieldType == typeof(HttpClient)))
+                    Assert.False(((HttpClient)f.GetValue(provider)!).DefaultRequestHeaders.Contains("APCA-API-KEY-ID"),
+                        $"{f.Name} carries the key for every caller");
+            }
+
+            [Fact]
             public void TheStreams_SendNoTextHeartbeat()
             {
                 // Alpaca has no client ping message. The SDK's default "ping" text every 30 s came

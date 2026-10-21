@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alpaca's key travels on each request, so tabs loading together no longer get 401 (2026-10-21)
+
+With the stream fixed, Cody's DIA, SPY and TLT tabs each reported "Alpaca data error: HTTP 401"
+followed by an HTML "401 Authorization Required" page. Every Alpaca call removed the key headers
+from the shared HTTP client and added them back, on the belief that the rate limiter ran calls one
+at a time. It only caps them per minute. When the background monitors fetched several tabs at
+once, a request could leave inside another call's remove-then-add window carrying no key. Every
+Alpaca request now carries the key on the request itself; the shared client holds none.
+
+Test, seen failing with the old shared headers put back (2 listed with de-DE, README 9192 → 9194):
+four tabs fetched at once all carry the key, and no HTTP client the provider holds has it as a
+default header. The 257 Alpaca, provider fetch, conformance and websocket tests passed.
+
+Caveat: not yet run live.
+
 ### Alpaca's streams no longer send a "ping" Alpaca cannot read (2026-10-21)
 
 Once the stream connected, Cody's DIA tab reported "Alpaca data stream refused (400 invalid

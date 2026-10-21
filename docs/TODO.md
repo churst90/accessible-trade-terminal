@@ -143,7 +143,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   SPY's, which works. Orca restarted at about 10:22, during the first fixed build's run, whose log
 >   has rotated away; the later run's log shows no server-side exception on DIA. Needed: when it
 >   freezes (on arrival, or about 30 s later when the "invalid syntax" error was announced) and
->   whether it still happens with the heartbeat fix.
+>   whether it still happens with the heartbeat fix. The next run (heartbeat fix in) still froze on
+>   DIA; its log shows only the 401s fixed in CHANGES' top entry and no DIA-specific error, so the
+>   freeze is most likely in the browser, which the server log cannot see.
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.
