@@ -168,10 +168,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "rebuilt from screen grabs). Green triangles under daily cycle lows, blue under weekly, gold under " +
                     "yearly, each low's length in days, a square when a low is confirmed, crosses when one is cancelled " +
                     "or a cycle fails, translated-top triangles, CF's yellow arcs and a tint over the daily timing " +
-                    "window. Ranges are CF's for the S&P, gold and Ethereum, Camel's for Bitcoin, and estimated for " +
-                    "the other twelve of CF's sixteen assets. Fitted to CF's own SPX labels: 18 of 25 lows within two " +
-                    "bars; held out on gold, the Dow and Bitcoin, 8 of 13 within four days. Lows are drawn on the low's " +
-                    "bar but known only when confirmed, a median of nine bars later. A map of the method, not an edge.",
+                    "window. Ranges are CF's for the S&P, gold, Ethereum, Coinbase, MicroStrategy, Marathon Digital, " +
+                    "Riot Platforms and gold miners, Camel's for Bitcoin, and estimated for the other seven of CF's " +
+                    "sixteen assets. Fitted to CF's own SPX labels: 18 of 25 lows within two bars; held out on gold, " +
+                    "the Dow and Bitcoin, 8 of 13 within four days. Lows are drawn on the low's bar but known only when " +
+                    "confirmed, a median of nine bars later. A map of the method, not an edge.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",

@@ -516,6 +516,18 @@ The docs are marketing copy. Every number in them is the vendor's claim and none
 | **US Macro Data table** | CPI, unemployment rate, Fed funds and more, with a red/green change versus the previous release. Also a "CF Bullish Meter" ("not a signal"), and "Powell's Tie". | He shows the separate website macro dashboard on air. | [CF docs: US Macro Data](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/us-macro-data.md), [Another Record Close !!, 2026-08-08, 05:57](https://youtu.be/vSroUWCVwtU?t=357) |
 | **Alerts** | TradingView alerts for ✅ New, ❌ Cancelled, 🔄 Updated and ⚠️ Pending DCL, and for ✅ New and ⚠️ Pending WCL. **There are no YCL alerts.** Pro users can alert across watchlists. | n/a | [CF docs: Alerts](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/alerts.md), [CF docs 1.0: Cycle Low Alerts](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/archive-not-visible/legacy-archive/cf-cycle-trading-indicator-1.0/key-features-1.2/cycle-low-alerts.md) |
 
+The August 2025 reviewer-video frames, read by eye, add these CF table readings: COIN 40–90 days,
+24–42 weeks and 4 years (`strategy-lab-data/cf-frames2/frames/76LvfFq1e9M/5.jpg`); MSTR 40–90,
+24–42 and 4 (`strategy-lab-data/cf-frames2/frames/76LvfFq1e9M/200.jpg`,
+`strategy-lab-data/cf-frames2/frames/m3u0zvEi65I/5.jpg`); MARA 36–44, 22–26 and 4
+(`strategy-lab-data/cf-frames2/frames/76LvfFq1e9M/250.jpg`); RIOT 36–44, 22–26 and 4
+(`strategy-lab-data/cf-frames2/frames/76LvfFq1e9M/300.jpg`); GDX 22–28, 22–26 and 8
+(`strategy-lab-data/cf-frames2/frames/76LvfFq1e9M/400.jpg`); and GOLD 22–28, 20–28 and 8
+(`strategy-lab-data/cf-frames2/frames/HhZgHv6dhtM/40.jpg`,
+`strategy-lab-data/cf-frames2/frames/Jexw-gt4jzA/100.jpg`). SILVER, GDXJ and SILJ
+remain estimates copied from gold's new weekly and yearly values. Treating the four crypto-stock
+daily ranges as trading days is an inference from the TradingView charts.
+
 ### Engine inputs and settings: the closest the docs come to a formula
 
 The "Asset Count Adjustment" panel lists six settings and describes each one in words only. None has a default or a range stated. [CF docs: Asset Count Adjustment](https://camelfinance.gitbook.io/camel-finance-features-deep-dive/cf-cycle-trading-indicator/additional-features/asset-count-adjustment.md)

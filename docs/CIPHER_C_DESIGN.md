@@ -37,10 +37,24 @@ lists the assets it is tuned for:
 | Crypto | BTCUSD, ETHUSD |
 | Crypto equities | COIN, MSTR, MARA, RIOT |
 
-Only three of CF's cycle-range tables were ever readable on screen: SPX, gold and Ethereum. Bitcoin's
-ranges are the ones Camel states on his streams (54–66 days). The other twelve presets in
-`CipherCEngine.Presets` are estimates from the nearest of those, and each says so when spoken
-("estimated, not CF's").
+CF's own cycle-range table has now been read for eight of the sixteen: SPX, GOLD, ETH, COIN, MSTR,
+MARA, RIOT and GDX. SPX, gold and Ethereum came from the earlier screens. The other five, and a newer
+gold table, were read by eye from reviewer videos of August 2025 (frames under
+`strategy-lab-data/cf-frames2/frames/`, gitignored: `76LvfFq1e9M/5.jpg` COIN, `76LvfFq1e9M/200.jpg`
+and `m3u0zvEi65I/5.jpg` MSTR, `76LvfFq1e9M/250.jpg` MARA, `76LvfFq1e9M/300.jpg` RIOT,
+`76LvfFq1e9M/400.jpg` GDX, `HhZgHv6dhtM/40.jpg` and `Jexw-gt4jzA/100.jpg` gold).
+
+Replacing the estimates did not make the lows agree better with CF's marks on those stocks. On
+Coinbase, MicroStrategy, Marathon and Riot, using the Python prototype of the detector, the old
+ranges found 9 of 21 of CF's daily lows within four days and CF's ranges find 8 of 21. Most of
+those 21 dates were read off the chart by pixel spacing, graded guesses, so the sample cannot tell
+the two apart. The numbers are used because they are CF's, not because they fit better.
+
+Bitcoin's ranges are the ones Camel states on his streams (54–66 days). For COIN, MSTR, MARA and
+RIOT, treating the daily values as trading days follows the TradingView stock-bar context; that is
+an inference, not an explicit CF statement. The other seven presets in `CipherCEngine.Presets` are
+estimates from the nearest of those: NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. Each says so when
+spoken ("estimated, not CF's").
 
 ## 3. What CF draws, and how many parts it has
 
@@ -122,7 +136,9 @@ trading days. (This was inverted while building and caught by a test; see CHANGE
   look-ahead, so no strategy can use them. The events (Confirmed, Cancelled, Updated, Failed, Pending,
   DCL Day, the window flags) are decided on their own bar; a test checks that cutting the history
   short never changes them.
-- **Twelve of sixteen presets are estimated.**
+- **Seven of sixteen presets are estimated:** NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. The five
+  newly read stock/miner tables and the updated gold table are now marked as CF's own; the stock
+  daily-values-as-trading-days reading is an inference from the TradingView charts.
 - **Not built:** CF's future FCLR boxes to the right of the last bar (the chart has no future bars to
   draw on), the D/W letters and camel stacking, the "49D" suffix (the count is a number), confluence
   that upgrades from LOW to MID to HIGH over the following bars (ours is fixed at confirmation), the

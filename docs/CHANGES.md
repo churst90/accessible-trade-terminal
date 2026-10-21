@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### CF cycle ranges added for five assets and gold updated (2026-10-21)
+
+Cipher C now uses CF's own cycle-range tables for COIN, MSTR, MARA, RIOT and GDX, read by eye from
+reviewer videos from August 2025, and the newer gold table. The evidence is in the checked frames
+under `strategy-lab-data/cf-frames2/`: COIN `frames/76LvfFq1e9M/5.jpg`; MSTR
+`frames/76LvfFq1e9M/200.jpg` and `frames/m3u0zvEi65I/5.jpg`; MARA
+`frames/76LvfFq1e9M/250.jpg`; RIOT `frames/76LvfFq1e9M/300.jpg`; GDX
+`frames/76LvfFq1e9M/400.jpg`; and GOLD `frames/HhZgHv6dhtM/40.jpg` and
+`frames/Jexw-gt4jzA/100.jpg`.
+
+- **COIN and MSTR:** 40-90 daily trading days, 24-42 weeks, 4 years.
+- **MARA and RIOT:** 36-44 daily trading days, 22-26 weeks, 4 years.
+- **GDX:** 22-28 daily trading days, 22-26 weeks, 8 years.
+- **GOLD:** 22-28 days, 20-28 weeks, 8 years; the old 16-20 weeks and 7-9 years could not be
+  traced to a source, so this newer table wins.
+
+The COIN, MSTR, MARA and RIOT daily values are marked as trading days because CF runs on
+TradingView bars. That is an inference from the charts, not an explicit CF statement. SILVER, GDXJ
+and SILJ remain estimated, using gold's new 20-28 weekly range and 8-year yearly value. The other
+remaining estimated presets are NDQ, DJI, DXY and USOIL, for seven estimated presets in total.
+
+The new ranges do not make the lows agree better with CF's marks on those stocks: on Coinbase,
+MicroStrategy, Marathon and Riot the Python prototype of the detector found 9 of 21 of CF's daily
+lows within four days with the old estimates and 8 of 21 with CF's ranges. Most of the 21 dates are
+pixel-read guesses, so that cannot separate the two; the numbers are used because they are CF's.
+CF's settings panel at its defaults shows the adjustment switch off and all three factors at 0.
+Tests: the six read presets are pinned value by value; the calendar-to-trading-day conversion test
+now runs on IBIT (the Bitcoin preset) since Coinbase is no longer calendar days; a Coinbase weekday
+chart's window is 40 to 90. Not heard by ear.
+
 ### Cipher C rebuilt as cycle lows after Camel Finance's CF Cycle Trading Indicator; Loukas retired (2026-10-21)
 
 Cody: "Cipher c needs to be designed as close to the cf indicator as possible from any and all

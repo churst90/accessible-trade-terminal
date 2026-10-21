@@ -65,9 +65,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>
         /// The sixteen assets CF says it is fine-tuned for (its own watchlist on cftrading.co.uk:
         /// SPX, DXY, NDQ, DJI, GOLD, SILVER, USOIL, GDX, GDXJ, SILJ, ETHUSD, BTCUSD, COIN, MSTR,
-        /// MARA, RIOT). Only three of its range tables were ever visible on screen — SPX, gold and
-        /// Ethereum; Bitcoin's ranges are what Camel says on his streams. The rest are estimates
-        /// from the nearest of those and say so.
+        /// MARA, RIOT). Eight of its range tables are now CF's own: SPX, GOLD and Ethereum, plus
+        /// COIN, MSTR, MARA, RIOT and GDX read off reviewer videos from August 2025. Bitcoin's
+        /// ranges are what Camel says on his streams. The other seven are estimates from the nearest
+        /// of those and say so.
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
@@ -75,18 +76,20 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 3.5, 4.5, false, Estimated),
             new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 3.5, 4.5, false, Estimated),
             new CyclePreset("DXY",    "Dollar index", 15, 25, 15, 20, 2.5, 3.5, false, Estimated),
-            new CyclePreset("GOLD",   "Gold",        22, 28, 16, 20, 7,   9,   false, FromCf),
-            new CyclePreset("SILVER", "Silver",      22, 28, 16, 20, 7,   9,   false, Estimated),
+            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf),
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, Estimated),
             new CyclePreset("USOIL",  "Crude oil",   30, 45, 18, 26, 3,   4,   false, Estimated),
-            new CyclePreset("GDX",    "Gold miners", 22, 28, 16, 20, 7,   9,   false, Estimated),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 16, 20, 7, 9, false, Estimated),
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 16, 20, 7, 9, false, Estimated),
+            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 20, 28, 8, 8, false, Estimated),
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 20, 28, 8, 8, false, Estimated),
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 3.5, 4.5, true,  FromCf),
             new CyclePreset("BTC",    "Bitcoin",     54, 66, 28, 32, 3.5, 4.5, true,  FromCamel),
-            new CyclePreset("COIN",   "Coinbase",    54, 66, 28, 32, 3.5, 4.5, true,  Estimated),
-            new CyclePreset("MSTR",   "MicroStrategy", 54, 66, 28, 32, 3.5, 4.5, true, Estimated),
-            new CyclePreset("MARA",   "Marathon Digital", 54, 66, 28, 32, 3.5, 4.5, true, Estimated),
-            new CyclePreset("RIOT",   "Riot Platforms", 54, 66, 28, 32, 3.5, 4.5, true, Estimated),
+            // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
+            // that interpretation is an inference from the stock charts, not an explicit CF note.
+            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf),
+            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf),
+            new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf),
+            new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf),
         };
 
         /// <summary>Other names each preset's asset trades under: index, ETF, future, CFD, spot pair.</summary>

@@ -130,22 +130,23 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] The D/W letter stacks and the "49D" suffix (ours is a plain number).
 > - [ ] A yearly cycle low has never been seen on CF's screens; ours is unchecked against it. Same for
 >   any weekly chart with CF on it.
-> - [ ] Twelve of the sixteen presets are estimates. Read more of Camel's videos for DXY, oil, silver,
->   the miners and the crypto stocks' ranges if he says them.
+> - [x] Twelve of the sixteen presets were estimates. The five newly read crypto-stock/miner tables
+>   and the updated gold table are now in `CipherCEngine.Presets` with their CF source.
 >   **2026-10-21, five reviewer videos (August 2025) read by Luna:** CF's own range table was on
 >   screen for five of the twelve, and Claude checked the frames for COIN, MARA and GDX by eye.
 >   - COIN and MSTR: 40–90 days, 24–42 weeks, 4 years. Our estimate was 54–66 days and 28–32 weeks.
 >   - MARA and RIOT: 36–44 days, 22–26 weeks, 4 years. Our estimate was 54–66 days and 28–32 weeks.
 >   - GDX: 22–28 days, 22–26 weeks, 8 years. Our estimate was 22–28 days, 16–20 weeks and 7–9 years.
->   - Gold's table there reads 20–28 weeks and 8 years. Our `FromCf` gold preset says 16–20 weeks and
->     7–9 years. Find where 16–20 came from, or take the newer table.
->   - Still not seen: DXY, NDQ, SILVER, USOIL, GDXJ, SILJ, ETHUSD.
+>   - Gold's newer table reads 20–28 weeks and 8 years. The old 16–20 weeks and 7–9 years could not
+>     be traced to a source, so the newer table now wins.
+>   - [ ] Still estimated: NDQ, DJI, DXY, SILVER, USOIL, GDXJ, SILJ.
 >   - The settings panel at CF's defaults: the adjustment switch is off and all three factors are 0.
 >     So the "2" on the vendor's docs page was an example, not the default. SMA is 10 on close.
 >   - Notes in `strategy-lab-data/cf-frames2/REPORT.md` (gitignored). Its band dates are pixel
 >     guesses and some are wrong: MSTR's band copies COIN's dates.
 >   - One video, d_edR8UTW2Q, was unavailable.
->   - The presets are NOT changed yet.
+>   - The presets now use the readings above; the stock daily-values-as-trading-days interpretation
+>     is an inference from TradingView's stock bars.
 > - [ ] Re-test the retired Pulse Reversal Long on `CIPHER_C.DCL Confirmed` before reviving it.
 > - [ ] Drawing the window tint as CF's band is: only the past part is drawn.
 

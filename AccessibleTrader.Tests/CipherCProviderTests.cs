@@ -300,18 +300,28 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// A preset's days are the chart's days: Coinbase's ranges are Bitcoin's calendar days, so on
-    /// Coinbase's weekday-only chart 54 calendar days are 54 × 5/7 ≈ 38.6 trading days.
+    /// A preset's days are the chart's days: Bitcoin's ranges are calendar days, so on a weekday-only
+    /// chart 54 calendar days are 54 × 5/7 ≈ 38.6 trading days.
     /// </summary>
     [Fact]
     public void A_calendar_day_preset_on_a_weekday_chart_is_converted_to_trading_days()
     {
         var bars = Weekdays(800, new DateTime(2022, 1, 3));
-        var r = Run(bars, "COIN");
+        var r = Run(bars, "IBIT");
         Assert.Equal(38.6, r[CipherCProvider.CompDclWindowStart][^1]);
         Assert.Equal(47.1, r[CipherCProvider.CompDclWindowEnd][^1]);
         var spx = Run(bars, "SPY");
         Assert.Equal(36.0, spx[CipherCProvider.CompDclWindowStart][^1]);
+    }
+
+    /// <summary>COIN's CF ranges are already in trading days on a weekday chart.</summary>
+    [Fact]
+    public void A_COINS_daily_window_is_its_CF_trading_day_range_on_a_weekday_chart()
+    {
+        var bars = Weekdays(800, new DateTime(2022, 1, 3));
+        var r = Run(bars, "COIN");
+        Assert.Equal(40.0, r[CipherCProvider.CompDclWindowStart][^1]);
+        Assert.Equal(90.0, r[CipherCProvider.CompDclWindowEnd][^1]);
     }
 
     // ── 5. The sixteen assets ───────────────────────────────────────────────────────
@@ -343,6 +353,27 @@ public sealed class CipherCProviderTests
         Assert.Equal(("GOLD", true), Key(CipherCEngine.Resolve("GOLD", "AAPL", tradesEveryDay: false)));
         Assert.Equal(("ETH", true), Key(CipherCEngine.Resolve("", "ETH/USD", tradesEveryDay: true)));
         static (string, bool) Key((CyclePreset P, bool F) r) => (r.P.Key, r.F);
+    }
+
+    [Theory]
+    [InlineData("COIN", 40, 90, 24, 42, 4, 4, false)]
+    [InlineData("MSTR", 40, 90, 24, 42, 4, 4, false)]
+    [InlineData("MARA", 36, 44, 22, 26, 4, 4, false)]
+    [InlineData("RIOT", 36, 44, 22, 26, 4, 4, false)]
+    [InlineData("GDX", 22, 28, 22, 26, 8, 8, false)]
+    [InlineData("GOLD", 22, 28, 20, 28, 8, 8, false)]
+    public void CF_read_presets_have_the_recorded_ranges(string key, double dailyMin, double dailyMax,
+        double weeklyMin, double weeklyMax, double yearlyMin, double yearlyMax, bool calendarDays)
+    {
+        var p = CipherCEngine.Preset(key);
+        Assert.Equal(dailyMin, p.DailyMin);
+        Assert.Equal(dailyMax, p.DailyMax);
+        Assert.Equal(weeklyMin, p.WeeklyMin);
+        Assert.Equal(weeklyMax, p.WeeklyMax);
+        Assert.Equal(yearlyMin, p.YearlyMin);
+        Assert.Equal(yearlyMax, p.YearlyMax);
+        Assert.Equal(calendarDays, p.CalendarDays);
+        Assert.Equal("CF's published ranges", p.Source);
     }
 
     /// <summary>The preset is said with where its numbers came from; an asset CF does not tune says so.</summary>
