@@ -96,7 +96,10 @@ median of nine bars after the low.
 **Held out.** On CF's own labels it was never fitted to, it finds 8 of 13 within four days: gold 3 of
 7, the Dow 3 of 4, Bitcoin 2 of 2 (4 February and 29 March 2026, now pinned by a test). Those labels
 were read off video frames by pixel spacing and are ±1–3 days themselves. Most misses are half-cycle
-lows CF marks and this does not.
+lows CF marks and this does not. It also marks 6 lows CF does not show in those stretches (gold 3,
+the Dow 2, Bitcoin 1); some are near misses 5–14 days from a CF label, some may be off the left
+edge of the frame CF's labels were read from. Bitcoin's July and August 2026 labels are after the
+test data ends.
 
 ## 5. Bars, timeframes and tiers
 
@@ -113,7 +116,8 @@ trading days. (This was inverted while building and caught by a test; see CHANGE
 
 - **Not an edge.** Camel's checklist showed none against shuffled prices in this project's tests
   (`docs/CYCLE_SCHOOL_FINDINGS.md`). CF's own SPX counts fall inside its stated 36–44 day window only
-  about 22% of the time (22–64 days, median 46). The indicator follows the method; it does not prove it.
+  5 times in 23 (22%), counting trading days: 22–64, median 43, and 17 of 23 within 30–50. Counted
+  in calendar days, 1 in 23. The indicator follows the method; it does not prove it.
 - **The lows are drawn on their own bar and known only later**, as CF's are. They are declared
   look-ahead, so no strategy can use them. The events (Confirmed, Cancelled, Updated, Failed, Pending,
   DCL Day, the window flags) are decided on their own bar; a test checks that cutting the history

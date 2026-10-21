@@ -43,7 +43,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para>
     /// <b>What it is not.</b> Not an edge. Camel's own checklist showed none against shuffled
     /// prices in this project's tests, and CF's own SPX counts fall inside its stated 36–44 day
-    /// window only about 22% of the time (22–64 days, median 46). The indicator follows the method;
+    /// window only 5 times in 23 (22–64 trading days, median 43; 17 of 23 fall in 30–50). The indicator follows the method;
     /// it does not prove it.
     /// </para>
     /// </summary>
