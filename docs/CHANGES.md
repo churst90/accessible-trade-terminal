@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alpaca's live stream says why it was refused, and moves to IEX when SIP is not in the plan (2026-10-21)
+
+With the stream address fixed, Cody's Camel cycles tabs connected and were then closed by Alpaca:
+"closed the WebSocket connection without completing the close handshake", two or three times per
+tab. Alpaca sends its reason as a `{"T":"error","code":...,"msg":...}` frame just before it
+closes, and the handler dropped every frame that was not a bar. Error frames are now handled:
+
+- **409 "insufficient subscription" on the SIP stream** moves every stock read to IEX once (the
+  same downgrade, now one shared method, that the bar fetch already did), says so, and reconnects
+  on `/v2/iex`.
+- **Every other refusal is reported with its code and reason**, for example 406 "connection
+  limit exceeded; another app or window is already streaming with this key".
+
+The stock order book (the latest quote) also failed on every Alpaca tab, logged only as
+"HttpRequestException". It now asks on the bars' feed (`?feed=sip|iex`), reads the refusal,
+downgrades to IEX on a SIP refusal and retries; other failures carry their message.
+
+Tests, each seen failing with its fix removed (6 listed, README 9180 → 9186): a 409 frame moves
+the stream to IEX and says so; a 406 frame is reported with its reason and leaves the feed alone;
+a quote refused on SIP is retried on IEX (all three also run under de-DE). The 192 Alpaca and
+provider fetch tests passed.
+
+Caveat: which refusal Cody's account actually gets is not known yet. A free (Basic) Alpaca plan
+streams IEX only, which would be the 409, but the next log will say. The fix has not been run live.
+
 ### The Camel cycles workspace loads: five defects behind "chart render failed" and Alpaca's one candle (2026-10-21)
 
 Cody loaded the new "Camel cycles" workspace and every tab said "chart render failed"; the Alpaca

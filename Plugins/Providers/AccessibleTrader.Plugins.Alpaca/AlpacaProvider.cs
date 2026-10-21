@@ -264,7 +264,64 @@ namespace AccessibleTrader.Plugins.Alpaca
                 await StartTradeStreamAsync();
         }
 
-        private void HandleDataMessage(string msg)
+        /// <summary>
+        /// When <paramref name="refusal"/> is Alpaca refusing the SIP feed, moves every stock read
+        /// (bars, quotes, the live stream) to IEX, once, and says so. Falling back silently would
+        /// leave the user looking at one venue's 2% of volume believing it was the market.
+        /// </summary>
+        /// <returns>True when the feed was just downgraded and the caller should retry.</returns>
+        private bool TryDowngradeToIex(string? refusal)
+        {
+            if (_stockFeed != "sip" || _feedDowngraded || string.IsNullOrEmpty(refusal)) return false;
+            if (!(refusal.Contains("subscription", StringComparison.OrdinalIgnoreCase)
+                  || refusal.Contains("not authorized", StringComparison.OrdinalIgnoreCase)
+                  || refusal.Contains("permission", StringComparison.OrdinalIgnoreCase)))
+                return false;
+            _stockFeed = "iex";
+            _feedDowngraded = true;
+            _errorStream.OnNext(
+                "Alpaca: this account is not entitled to the SIP consolidated feed. " +
+                "Falling back to IEX, which carries a single venue's volume and only " +
+                "reaches 2022.");
+            return true;
+        }
+
+        /// <summary>
+        /// An <c>{"T":"error"}</c> frame on the market-data stream: Alpaca's reason for refusing
+        /// the connection, sent just before it closes it. These were dropped, so the log said only
+        /// "closed the WebSocket connection without completing the close handshake" (Cody's Camel
+        /// cycles workspace, 2026-10-21). 409 "insufficient subscription" on the SIP stream moves
+        /// the stream to IEX and reconnects; every other refusal is reported with its code.
+        /// </summary>
+        private void HandleStreamError(int code, string text)
+        {
+            bool stockStream = !(_currentMarket ?? "").Contains("Crypto", StringComparison.OrdinalIgnoreCase);
+            if (stockStream && code == 409 && TryDowngradeToIex(text))
+            {
+                var (market, symbol, timeframe) = (_currentMarket, _currentSymbol, _currentTimeframe);
+                if (string.IsNullOrEmpty(symbol) || market == null || timeframe == null) return;
+                _currentSymbol = null;  // force SetSubscriptionAsync past its "already subscribed" check
+                _ = Task.Run(async () =>
+                {
+                    try { await SetSubscriptionAsync(market, symbol!, timeframe).ConfigureAwait(false); }
+                    catch (Exception ex) { _errorStream.OnNext($"Alpaca data: reconnecting on IEX failed: {ex.Message}"); }
+                });
+                return;
+            }
+
+            string why = code switch
+            {
+                402 => "authentication failed; check the Alpaca API key",
+                404 => "authentication timed out",
+                405 => "symbol limit exceeded",
+                406 => "connection limit exceeded; another app or window is already streaming with this key",
+                409 => "insufficient subscription for this feed",
+                _   => text,
+            };
+            _errorStream.OnNext($"Alpaca data stream refused ({code} {text}): {why}");
+        }
+
+        internal void HandleDataMessage(string msg)
         {
             try
             {
@@ -272,6 +329,11 @@ namespace AccessibleTrader.Plugins.Alpaca
                 foreach (var item in arr)
                 {
                     string? ev = item["T"]?.ToString();
+                    if (ev == "error")
+                    {
+                        HandleStreamError(item["code"]?.Value<int>() ?? 0, item["msg"]?.ToString() ?? "");
+                        continue;
+                    }
                     if (ev == "b")
                     {
                         var bar = new Ohlcv(
@@ -474,18 +536,8 @@ namespace AccessibleTrader.Plugins.Alpaca
                             // Not entitled to SIP: downgrade once, tell the user which feed they are
                             // now on, and retry. Falling back silently would leave them looking at
                             // one venue's 2% of volume believing it was the market.
-                            if (!isCrypto && _stockFeed == "sip" && !_feedDowngraded
-                                && !string.IsNullOrEmpty(msg)
-                                && (msg!.Contains("subscription", StringComparison.OrdinalIgnoreCase)
-                                 || msg.Contains("not authorized", StringComparison.OrdinalIgnoreCase)
-                                 || msg.Contains("permission", StringComparison.OrdinalIgnoreCase)))
+                            if (!isCrypto && TryDowngradeToIex(msg))
                             {
-                                _stockFeed = "iex";
-                                _feedDowngraded = true;
-                                _errorStream.OnNext(
-                                    "Alpaca: this account is not entitled to the SIP consolidated feed. " +
-                                    "Falling back to IEX, which carries a single venue's volume and only " +
-                                    "reaches 2022.");
                                 page--;                     // retry this page on the new feed
                                 continue;
                             }
@@ -624,9 +676,25 @@ namespace AccessibleTrader.Plugins.Alpaca
                     else
                     {
                         // Stock: use latest quote (NBBO) as a 1-level order book
-                        string url = $"{StockDataUrl}/stocks/{cleanSymbol}/quotes/latest";
-                        var response = await _httpClient.GetStringAsync(url);
-                        var json = JObject.Parse(response);
+                        // On the bars' feed, refusal read: with no feed Alpaca answers from SIP,
+                        // which an IEX-only account is refused with a 403 the log only ever
+                        // called "HttpRequestException" (Cody's Camel cycles workspace, 2026-10-21).
+                        JObject json;
+                        while (true)
+                        {
+                            string url = $"{StockDataUrl}/stocks/{cleanSymbol}/quotes/latest?feed={_stockFeed}";
+                            using var httpResponse = await _httpClient.GetAsync(url).ConfigureAwait(false);
+                            var body = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            int status = (int)httpResponse.StatusCode;
+                            if (status is 408 or 429 || status >= 500) httpResponse.EnsureSuccessStatusCode();
+                            try { json = JObject.Parse(body); }
+                            catch (Newtonsoft.Json.JsonReaderException) { json = new JObject(); }
+                            if (httpResponse.IsSuccessStatusCode) break;
+                            var refusal = json["message"]?.ToString();
+                            if (TryDowngradeToIex(refusal)) continue;
+                            throw new InvalidOperationException(
+                                $"HTTP {status}: {(string.IsNullOrWhiteSpace(refusal) ? (body.Length > 200 ? body[..200] : body) : refusal)}");
+                        }
                         var quote = json["quote"];
                         if (quote == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
 
@@ -645,7 +713,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             {
                 // SAY SO — an empty ladder and a dead endpoint are the same picture for a user
                 // who cannot see that the panel is blank rather than quiet.
-                _errorStream.OnNext($"Alpaca order book unavailable for {symbol}: {ex.GetType().Name}");
+                _errorStream.OnNext($"Alpaca order book unavailable for {symbol}: {ex.GetType().Name}: {ex.Message}");
                 return (new(), new());
             }
         }

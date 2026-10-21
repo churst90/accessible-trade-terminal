@@ -131,6 +131,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] The session file already saved the DIA tab as Crypto Alpaca AAVE/USD, and dropped the Loukas
 >   `EnableFourYearCycle` string parameter. The fix stops new damage but does not repair a saved tab:
 >   reload the "Camel cycles" workspace itself. Why the string parameter was dropped is not yet known.
+> - [ ] The Alpaca live stream was then refused and closed on every stock tab; its reason is now
+>   logged and a 409 moves it to IEX (see CHANGES, second entry). Read the reason on the next load:
+>   409 should fix itself, while 402 (key) or 406 (another connection on this key) need Cody.
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.

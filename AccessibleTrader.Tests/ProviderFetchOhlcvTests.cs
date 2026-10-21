@@ -1230,6 +1230,51 @@ public class ProviderFetchOhlcvTests
             }
 
             [Fact]
+            public void AStreamRefusingSip_MovesTheStreamToIex_AndSaysSo()
+            {
+                // Alpaca sends {"T":"error","code":409} and closes. The frame was dropped, so the
+                // log said only "closed without completing the close handshake", over and over.
+                var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+                provider.Configure(new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s" });
+                var notices = new List<string>();
+                using var sub = provider.ErrorStream.Subscribe(notices.Add);
+
+                provider.HandleDataMessage("""[{"T":"error","code":409,"msg":"insufficient subscription"}]""");
+
+                Assert.Equal("wss://stream.data.alpaca.markets/v2/iex", provider.StreamUrlFor("Stock|Spot"));
+                Assert.Contains(notices, n => n.Contains("IEX"));
+            }
+
+            [Fact]
+            public void AnyOtherStreamRefusal_IsReportedWithItsReason()
+            {
+                var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+                provider.Configure(new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s" });
+                var notices = new List<string>();
+                using var sub = provider.ErrorStream.Subscribe(notices.Add);
+
+                provider.HandleDataMessage("""[{"T":"error","code":406,"msg":"connection limit exceeded"}]""");
+
+                Assert.Contains(notices, n => n.Contains("406") && n.Contains("connection limit exceeded"));
+                Assert.Equal("wss://stream.data.alpaca.markets/v2/sip", provider.StreamUrlFor("Stock|Spot"));
+            }
+
+            [Fact]
+            public async Task AQuoteRefusedOnSip_IsRetriedOnIex()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler()
+                    .Add(HttpMethod.Get, @"quotes/latest\?feed=sip", """{"message":"subscription does not permit querying recent SIP data"}""", HttpStatusCode.Forbidden)
+                    .Add(HttpMethod.Get, @"quotes/latest\?feed=iex", """{"symbol":"DIA","quote":{"bp":420.1,"bs":3,"ap":420.3,"as":2}}""");
+                var provider = NewConfigured(handler);
+
+                var (bids, asks) = await provider.GetOrderBookAsync("DIA");
+
+                Assert.Equal(420.1, Assert.Single(bids).Price);
+                Assert.Equal(420.3, Assert.Single(asks).Price);
+            }
+
+            [Fact]
             public async Task ConfiguredFeedOverride_IsNotSecondGuessed()
             {
                 using var _ = new Fakes.FakeApiKeyCheckout().Install();
