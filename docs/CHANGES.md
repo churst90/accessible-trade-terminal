@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alpaca's live stream reaches IEX and subscribes only after the login is confirmed (2026-10-21)
+
+The previous fix did not hold on Cody's IEX-only plan. His log showed the stream refused with 409
+"insufficient subscription", then 401 "not authenticated", over and over. Two defects:
+
+- **The stream stayed on SIP.** The chart's bar fetch hit the SIP refusal first and moved the
+  feed to IEX. The stream had already been opened on `/v2/sip` a moment earlier, so its 409 found
+  the feed already downgraded, was only reported, and the reconnect loop retried SIP. A 409 now
+  also reconnects whenever the open stream's address is not the feed's current one.
+- **The subscribe was sent on a timer.** It went out half a second after the auth whether or not
+  the auth had been accepted, and Alpaca answered it with 401. The subscribe is now sent when
+  Alpaca replies "authenticated", and only then.
+
+Tests, each seen failing with its fix removed (4 listed, README 9186 → 9190): no subscribe is sent
+for "connected" or an error frame, one is sent for "authenticated"; a 409 on a SIP stream after the
+bar fetch already moved to IEX is not reported as a refusal (both also run under de-DE). The 206
+Alpaca, provider fetch and websocket tests passed.
+
+Caveat: not yet run live with Cody's key.
+
 ### Alpaca's live stream says why it was refused, and moves to IEX when SIP is not in the plan (2026-10-21)
 
 With the stream address fixed, Cody's Camel cycles tabs connected and were then closed by Alpaca:

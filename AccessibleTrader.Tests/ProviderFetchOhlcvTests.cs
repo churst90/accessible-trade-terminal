@@ -1246,6 +1246,50 @@ public class ProviderFetchOhlcvTests
             }
 
             [Fact]
+            public void TheStreamSubscribes_OnlyOnceAlpacaConfirmsTheAuth()
+            {
+                // A fixed half-second wait sent the subscribe after a REFUSED auth too, and Alpaca
+                // answered it with 401 "not authenticated" — on Cody's live key, which was fine.
+                var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+                var sent = new List<string>();
+                Func<string, Task> send = t => { sent.Add(t); return Task.CompletedTask; };
+
+                provider.HandleDataMessage("""[{"T":"success","msg":"connected"}]""", send, "DIA");
+                provider.HandleDataMessage("""[{"T":"error","code":409,"msg":"insufficient subscription"}]""", send, "DIA");
+                Assert.Empty(sent);
+
+                provider.HandleDataMessage("""[{"T":"success","msg":"authenticated"}]""", send, "DIA");
+                var frame = Newtonsoft.Json.Linq.JObject.Parse(Assert.Single(sent));
+                Assert.Equal("subscribe", (string?)frame["action"]);
+                Assert.Equal("DIA", (string?)frame["bars"]![0]);
+            }
+
+            [Fact]
+            public async Task AStreamLeftOnSip_AfterTheBarsMovedToIex_IsMovedNotReported()
+            {
+                // The bar fetch downgrades first; the stream was opened on /v2/sip a moment before.
+                // Its 409 then found the feed already downgraded, was only reported, and the
+                // reconnect loop retried SIP indefinitely.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler()
+                    .Add(HttpMethod.Get, @"feed=sip", """{"message":"subscription does not permit querying recent SIP data"}""", HttpStatusCode.Forbidden)
+                    .Add(HttpMethod.Get, @"feed=iex", """{"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}""");
+                var provider = NewConfigured(handler);
+                var t = provider.GetType();
+                const BindingFlags F = BindingFlags.NonPublic | BindingFlags.Instance;
+                t.GetField("_dataWsUrl", F)!.SetValue(provider, "wss://stream.data.alpaca.markets/v2/sip");
+                t.GetField("_currentMarket", F)!.SetValue(provider, "Stock|Spot");
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "DIA", "1d", 100));
+                Assert.Equal("wss://stream.data.alpaca.markets/v2/iex", provider.StreamUrlFor("Stock|Spot"));
+
+                var notices = new List<string>();
+                using var sub = provider.ErrorStream.Subscribe(notices.Add);
+                provider.HandleDataMessage("""[{"T":"error","code":409,"msg":"insufficient subscription"}]""");
+
+                Assert.DoesNotContain(notices, n => n.Contains("refused"));
+            }
+
+            [Fact]
             public void AnyOtherStreamRefusal_IsReportedWithItsReason()
             {
                 var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();

@@ -61,6 +61,9 @@ namespace AccessibleTrader.Plugins.Alpaca
 
         // Live data WebSocket
         private ReconnectingWebSocket? _dataWs;
+        /// <summary>The URL <see cref="_dataWs"/> was opened on — compared with the current feed's
+        /// so a stream left on SIP after a downgrade elsewhere is moved, not retried forever.</summary>
+        private string? _dataWsUrl;
 
         // Trading update WebSocket
         private ReconnectingWebSocket? _tradeWs;
@@ -233,7 +236,12 @@ namespace AccessibleTrader.Plugins.Alpaca
             // Crypto streams key bars by the slashed pair (BTC/USD), same as REST.
             var cleanSymbol = isCrypto ? ToAlpacaCryptoSymbol(symbol) : CleanSymbol(symbol);
 
-            _dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+            // The subscribe is sent when Alpaca answers the auth with "authenticated" (see
+            // HandleDataMessage), not after a fixed half second: a refused auth (409 on a feed the
+            // plan does not include) was followed by a subscribe anyway, which Alpaca answered
+            // with a misleading 401 "not authenticated" (Cody's live key, 2026-10-21).
+            ReconnectingWebSocket? dataWs = null;
+            dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
                     try
@@ -245,17 +253,14 @@ namespace AccessibleTrader.Plugins.Alpaca
                     catch (Exception ex)
                     {
                         _errorStream.OnNext($"Alpaca data WS auth failed: {ex.Message}");
-                        return;
                     }
-                    // Small delay to allow auth to process
-                    await Task.Delay(500);
-                    var sub = new JObject { ["action"] = "subscribe", ["bars"] = new JArray { cleanSymbol } };
-                    await ws.SendAsync(sub.ToString());
                 })
-                .OnMessage(HandleDataMessage)
+                .OnMessage(m => HandleDataMessage(m, text => dataWs!.SendAsync(text), cleanSymbol))
                 .OnError(err => _errorStream.OnNext($"Alpaca data: {err}"))
                 .OnDisconnected(() => _connectionStateStream.OnNext(ConnectionState.Disconnected));
 
+            _dataWs = dataWs;
+            _dataWsUrl = wsUrl;
             await _dataWs.ConnectAsync();
             _connectionStateStream.OnNext(ConnectionState.Connected);
 
@@ -296,7 +301,10 @@ namespace AccessibleTrader.Plugins.Alpaca
         private void HandleStreamError(int code, string text)
         {
             bool stockStream = !(_currentMarket ?? "").Contains("Crypto", StringComparison.OrdinalIgnoreCase);
-            if (stockStream && code == 409 && TryDowngradeToIex(text))
+            // The REST fetch may have downgraded already, in which case this call does not — but
+            // the stream is still on the SIP URL it was opened on, and its reconnect loop would
+            // retry that URL forever. Move it whenever its URL is not the current feed's.
+            if (stockStream && code == 409 && (TryDowngradeToIex(text) || IsStreamOnStaleFeed))
             {
                 var (market, symbol, timeframe) = (_currentMarket, _currentSymbol, _currentTimeframe);
                 if (string.IsNullOrEmpty(symbol) || market == null || timeframe == null) return;
@@ -321,7 +329,21 @@ namespace AccessibleTrader.Plugins.Alpaca
             _errorStream.OnNext($"Alpaca data stream refused ({code} {text}): {why}");
         }
 
-        internal void HandleDataMessage(string msg)
+        private async Task SendSubscribeAsync(Func<string, Task> send, string frame)
+        {
+            try { await send(frame).ConfigureAwait(false); }
+            catch (Exception ex) { _errorStream.OnNext($"Alpaca data: subscribe failed: {ex.Message}"); }
+        }
+
+        /// <summary>True when the open data stream's URL is not the one the current feed calls for.</summary>
+        private bool IsStreamOnStaleFeed
+            => _dataWsUrl != null && _currentMarket != null && _dataWsUrl != StreamUrlFor(_currentMarket);
+
+        internal void HandleDataMessage(string msg) => HandleDataMessage(msg, null, null);
+
+        /// <param name="send">Writes to the stream the frame came from; null in tests that only read.</param>
+        /// <param name="barsSymbol">The symbol subscribed once Alpaca confirms the auth.</param>
+        internal void HandleDataMessage(string msg, Func<string, Task>? send, string? barsSymbol)
         {
             try
             {
@@ -329,6 +351,12 @@ namespace AccessibleTrader.Plugins.Alpaca
                 foreach (var item in arr)
                 {
                     string? ev = item["T"]?.ToString();
+                    if (ev == "success" && item["msg"]?.ToString() == "authenticated" && send != null && barsSymbol != null)
+                    {
+                        var sub = new JObject { ["action"] = "subscribe", ["bars"] = new JArray { barsSymbol } };
+                        _ = SendSubscribeAsync(send, sub.ToString());
+                        continue;
+                    }
                     if (ev == "error")
                     {
                         HandleStreamError(item["code"]?.Value<int>() ?? 0, item["msg"]?.ToString() ?? "");
