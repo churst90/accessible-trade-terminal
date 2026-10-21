@@ -219,6 +219,15 @@ namespace AccessibleTrader.Plugins.Alpaca
                 ? "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
                 : $"wss://stream.data.alpaca.markets/v2/{_stockFeed}";
 
+        /// <summary>
+        /// A socket to one of Alpaca's streams, with the text heartbeat off (negative interval, as
+        /// Tradier). Alpaca defines no client ping message: the SDK's default "ping" every 30 s was
+        /// answered with error 400 "invalid syntax", reported as a refusal on every working stream
+        /// (Cody's DIA tab, 2026-10-21). The socket's own protocol-level keepalive still runs.
+        /// </summary>
+        internal static ReconnectingWebSocket NewStream(string url)
+            => new(url, heartbeatInterval: TimeSpan.FromMilliseconds(-1));
+
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
             if (_currentSymbol == symbol && _currentTimeframe == timeframe && _dataWs?.IsConnected == true) return;
@@ -241,7 +250,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             // plan does not include) was followed by a subscribe anyway, which Alpaca answered
             // with a misleading 401 "not authenticated" (Cody's live key, 2026-10-21).
             ReconnectingWebSocket? dataWs = null;
-            dataWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+            dataWs = NewStream(wsUrl)
                 .OnConnected(async ws =>
                 {
                     try
@@ -389,7 +398,7 @@ namespace AccessibleTrader.Plugins.Alpaca
                 ? "wss://paper-api.alpaca.markets/stream"
                 : "wss://api.alpaca.markets/stream";
 
-            _tradeWs = new ReconnectingWebSocket(wsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+            _tradeWs = NewStream(wsUrl)
                 .OnConnected(async ws =>
                 {
                     _tradeStreamListening = false;

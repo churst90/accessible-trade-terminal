@@ -1290,6 +1290,17 @@ public class ProviderFetchOhlcvTests
             }
 
             [Fact]
+            public void TheStreams_SendNoTextHeartbeat()
+            {
+                // Alpaca has no client ping message. The SDK's default "ping" text every 30 s came
+                // back as error 400 "invalid syntax" on every working stream (Cody's DIA tab).
+                using var ws = AccessibleTrader.Plugins.Alpaca.AlpacaProvider.NewStream("wss://stream.data.alpaca.markets/v2/iex");
+                var interval = (TimeSpan)typeof(AccessibleTrader.Sdk.Services.ReconnectingWebSocket)
+                    .GetField("_heartbeatInterval", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(ws)!;
+                Assert.True(interval <= TimeSpan.Zero, $"heartbeat runs every {interval}");
+            }
+
+            [Fact]
             public void AnyOtherStreamRefusal_IsReportedWithItsReason()
             {
                 var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();

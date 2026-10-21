@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alpaca's streams no longer send a "ping" Alpaca cannot read (2026-10-21)
+
+Once the stream connected, Cody's DIA tab reported "Alpaca data stream refused (400 invalid
+syntax)". The shared websocket class sends the text "ping" every 30 seconds to keep a connection
+alive. Alpaca defines no such message and answers it with error 400. Both Alpaca streams (market
+data and trading) now turn that text heartbeat off, as Tradier's already did; the connection's own
+protocol-level keepalive still runs.
+
+Test, seen failing with the fix removed (2 listed with de-DE, README 9190 → 9192): Alpaca's stream
+sockets have no text heartbeat. The 208 Alpaca, provider fetch and websocket tests passed.
+
+Caveat: not yet run live. The DIA tab's freeze and Orca crash are NOT explained by this (see TODO).
+
 ### Alpaca's live stream reaches IEX and subscribes only after the login is confirmed (2026-10-21)
 
 The previous fix did not hold on Cody's IEX-only plan. His log showed the stream refused with 409

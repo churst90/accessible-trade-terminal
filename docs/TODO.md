@@ -135,7 +135,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   and then 401 "not authenticated". Both are fixed on the branch (see CHANGES, first entry: the
 >   stream moves to IEX even when the bar fetch downgraded first; the subscribe waits for Alpaca's
 >   "authenticated"). Not yet run live: confirm on the next load that the stock tabs stream with no
->   refusal lines.
+>   refusal lines. The next run then showed 400 "invalid syntax": the SDK's text "ping" heartbeat,
+>   now off for Alpaca (CHANGES). Other providers still send "ping" (Bitstamp, Polygon, Kraken,
+>   IBKR, Binance user stream); whether any of them objects is not checked.
+> - [ ] The DIA 1d tab "freezes" and Orca crashed on it (Cody, 2026-10-21). Not explained: DIA's
+>   bars in the database are clean (199 bars, no zero or inverted legs) and its saved settings match
+>   SPY's, which works. Orca restarted at about 10:22, during the first fixed build's run, whose log
+>   has rotated away; the later run's log shows no server-side exception on DIA. Needed: when it
+>   freezes (on arrival, or about 30 s later when the "invalid syntax" error was announced) and
+>   whether it still happens with the heartbeat fix.
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.
