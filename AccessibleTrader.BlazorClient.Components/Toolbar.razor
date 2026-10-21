@@ -298,6 +298,22 @@
             </select>
         }
 
+        @* A list too long to render whole (Alpaca's US stocks: 14,402) is searched instead.
+           Rendering it whole put fourteen thousand options into the accessibility tree at once
+           and the screen reader went silent until it caught up. See SymbolChoices. *@
+        @if (AccessibleTrader.Core.Services.SymbolChoices.NeedsFind(MarketOrchestrator.AvailableSymbols.Count))
+        {
+            <label for="symbol-find">Find symbol:</label>
+            <input id="symbol-find"
+                   type="search"
+                   autocomplete="off"
+                   spellcheck="false"
+                   aria-describedby="symbol-find-help"
+                   style="width: 8ch;"
+                   value="@_symbolFind"
+                   @oninput="OnSymbolFindInput" />
+            <span id="symbol-find-help" class="visually-hidden">@SymbolFindHelp</span>
+        }
         <label for="symbol-select">Symbol:</label>
         @* max-width so a long ticker — an options contract, or the API-key sentinel — cannot
            widen the control enough to reflow the toolbar rows. The full value is still in the
@@ -309,7 +325,8 @@
                 style="max-width: 22ch;"
                 @onchange="OnSymbolChanged"
                 value="@MarketOrchestrator.SelectedSymbol">
-            @foreach (var s in MarketOrchestrator.AvailableSymbols)
+            @foreach (var s in AccessibleTrader.Core.Services.SymbolChoices.Shown(
+                                   MarketOrchestrator.AvailableSymbols, MarketOrchestrator.SelectedSymbol, _symbolFind))
             {
                 <option value="@s" selected="@(s == MarketOrchestrator.SelectedSymbol)">@s</option>
             }
@@ -762,6 +779,25 @@
             _loadError = "Failed to load symbols for selected type.";
             Logger.LogError(ex, "SubType change failed.");
             await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Find box for a long symbol list ─────────────────────────────────
+    private string _symbolFind = "";
+
+    private void OnSymbolFindInput(ChangeEventArgs e) => _symbolFind = e.Value?.ToString() ?? "";
+
+    private string SymbolFindHelp
+    {
+        get
+        {
+            var all = MarketOrchestrator.AvailableSymbols;
+            if (string.IsNullOrWhiteSpace(_symbolFind))
+                return $"{all.Count:N0} symbols. Type part of one, then go to the Symbol list to choose from the matches.";
+            int n = AccessibleTrader.Core.Services.SymbolChoices.MatchCount(all, _symbolFind);
+            return n > AccessibleTrader.Core.Services.SymbolChoices.MatchLimit
+                ? $"{n:N0} matches; the Symbol list holds the first {AccessibleTrader.Core.Services.SymbolChoices.MatchLimit}."
+                : $"{n:N0} {(n == 1 ? "match" : "matches")} in the Symbol list.";
         }
     }
 

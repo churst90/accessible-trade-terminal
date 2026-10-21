@@ -70,6 +70,47 @@ namespace AccessibleTrader.Tests
                 Arg.Is<MarketDataRequest>(r => r.Symbol == "ETH/USD" && r.Timeframe == "1h"));
         }
 
+        /// <summary>
+        /// A weekly background tab on a provider with no weekly bars. Bitstamp's steps stop at 3
+        /// days; the raw fetch sent step=604800 and got a 400 each time the background monitor
+        /// started (Camel cycles workspace, 2026-10-21). Through the fetcher it asks for days and
+        /// builds the weeks, as the chart does.
+        /// </summary>
+        [Fact]
+        public async Task OtherIdentity_OnATimeframeTheProviderLacks_AsksForTheBaseAndResamples()
+        {
+            var weekly = new ChartIdentity("Crypto|Spot", "Bitstamp", "BTCUSDT", "1w");
+            var store = Substitute.For<IWorkspaceStore>();
+            store.State.Returns(WorkspaceState.Initial with { Identity = Focused });
+
+            var provider = Substitute.For<AccessibleTrader.Sdk.Plugins.IMarketDataProvider>();
+            provider.NativelySupportedTimeframes.Returns(new List<string> { "1m", "1h", "1d", "3d" });
+            provider.MaxBarsPerRequest.Returns(1000);
+
+            // 70 daily bars from a Monday: ten whole weeks.
+            var days = Enumerable.Range(0, 70)
+                .Select(i => new Ohlcv(new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc).AddDays(i),
+                    100 + i, 101 + i, 99 + i, 100 + i, 1000))
+                .ToList();
+            var data = Substitute.For<IDataService>();
+            data.GetProviderAsync("Bitstamp").Returns(provider);
+            data.FetchOhlcvAsync("Bitstamp", Arg.Any<MarketDataRequest>(), Arg.Any<CancellationToken>())
+                .Returns(ci => ((MarketDataRequest)ci[1]).Timeframe == "1d"
+                    ? (days, new List<(long, double)>())
+                    : throw new HttpRequestException("400 BadRequest"));
+
+            var fetcher = new HistoricalDataFetcher(data, new ResamplerService(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<HistoricalDataFetcher>.Instance);
+            var feeds = new MarketFeeds(store, data, hub: null, fetcher: fetcher);
+
+            var bars = await feeds.GetBarsAsync(weekly, 400);
+
+            await data.DidNotReceive().FetchOhlcvAsync("Bitstamp",
+                Arg.Is<MarketDataRequest>(r => r.Timeframe == "1w"), Arg.Any<CancellationToken>());
+            Assert.Equal(10, bars.Count);
+            Assert.All(bars.Zip(bars.Skip(1)), p => Assert.Equal(TimeSpan.FromDays(7), p.Second.Date - p.First.Date));
+        }
+
         [Fact]
         public async Task NullFetchResult_ReturnsEmpty_NeverNull()
         {

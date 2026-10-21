@@ -68,6 +68,27 @@ public class WebHostServiceLifetimeTests
         Assert.NotNull(provider.GetRequiredService<AccessibleTrader.WebHost.Services.PluginHostApiKeyBridge>());
     }
 
+    /// <summary>
+    /// The background tabs' bar source is built WITH the fetcher, so a timeframe the provider
+    /// lacks (Bitstamp 1w) is pivoted rather than sent raw and refused. Optional on the
+    /// constructor, so a container that cannot supply it would build without it in silence.
+    /// </summary>
+    [Fact]
+    public void MarketFeeds_IsBuiltWithTheTimeframePivotingFetcher()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddSingleton(new DemoPolicy(isDemo: false));   // Program.cs registers it
+        services.AddAccessibleTraderWebHostServices();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var circuit = provider.CreateScope();
+
+        var feeds = circuit.ServiceProvider.GetRequiredService<AccessibleTrader.Core.Services.Workspace.IMarketFeeds>();
+
+        Assert.True(Assert.IsType<AccessibleTrader.Core.Services.Workspace.MarketFeeds>(feeds).PivotsTimeframes);
+    }
+
     [Fact]
     public void TwoCircuits_GetIndependentState()
     {

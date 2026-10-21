@@ -36,14 +36,21 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IWorkspaceStore _store;
         private readonly IDataService _dataService;
         private readonly Services.Feeds.IMarketFeedHub? _hub;
+        private readonly HistoricalDataFetcher? _fetcher;
 
         public MarketFeeds(IWorkspaceStore store, IDataService dataService,
-            Services.Feeds.IMarketFeedHub? hub = null)
+            Services.Feeds.IMarketFeedHub? hub = null,
+            HistoricalDataFetcher? fetcher = null)
         {
             _store = store;
             _dataService = dataService;
             _hub = hub;
+            _fetcher = fetcher;
         }
+
+        /// <summary>True when fetches go through the timeframe-pivoting fetcher — which the
+        /// hosts' containers must supply, or weekly tabs on Bitstamp 400 again.</summary>
+        internal bool PivotsTimeframes => _fetcher != null;
 
         public bool IsLive(ChartIdentity identity)
             => identity == _store.State.Identity
@@ -72,6 +79,21 @@ namespace AccessibleTrader.Core.Services.Workspace
             }
 
             ct.ThrowIfCancellationRequested();
+
+            // Through the fetcher when there is one: it asks a provider that has no native bar
+            // for this timeframe for a smaller one and builds the bars from it, which is how the
+            // chart itself loads them. The raw call below sent the timeframe as-is, so a weekly
+            // background tab on Bitstamp (steps up to 3 days only) asked for step=604800 and got
+            // a 400 every time the monitor started — heard as an error on each tab switch in the
+            // Camel cycles workspace, 2026-10-21.
+            if (_fetcher != null)
+            {
+                var fetched = await _fetcher.FetchOhlcvAsync(
+                    identity.Market, identity.Provider, identity.Symbol, identity.Timeframe,
+                    limit: maxBars, ct: ct).ConfigureAwait(false);
+                return (IReadOnlyList<Ohlcv>?)fetched ?? Array.Empty<Ohlcv>();
+            }
+
             var (bars, _) = await _dataService.FetchOhlcvAsync(
                 identity.Provider,
                 new MarketDataRequest(identity.Market, identity.Symbol, identity.Timeframe, maxBars))

@@ -158,6 +158,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   ("connected but quiet"). If "freezes" means the live price stops moving, (c) fits: the stream
 >   subscribes to minute bars on IEX, which only arrive in minutes that had an IEX trade. Asked Cody
 >   which it is: keys and speech stop, or the price stops updating.
+>   **Cause found (2026-10-21, afternoon):** Cody: speech stops (Orca keeps running, just goes
+>   silent). Arriving on DIA, the first Alpaca stock tab, rebuilt the toolbar's Symbol dropdown with
+>   Alpaca's 14,402 US stock symbols. Fixed on the branch: lists over 1,000 get a Find symbol box
+>   and the dropdown holds at most 200 matches (CHANGES). Close this item when Cody has heard DIA
+>   with Orca and it stays talking.
+> - [ ] `LocalBackgroundMonitor.FetchAsync` (WebHost alert poll) asks the provider for the watch's
+>   timeframe raw, with no pivot to a native base timeframe. A 1w alert on Bitstamp would get the
+>   same 400 the background tabs got (fixed in `MarketFeeds`, CHANGES). Not seen in a log yet.
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.

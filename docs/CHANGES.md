@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Weekly background tabs on Bitstamp no longer get a 400 on every tab switch (2026-10-21)
+
+Each time the background monitor started for the BTCUSDT 1w tab, an error tone and "Bitstamp
+FetchOhlcvAsync failed for BTCUSDT: 400 BadRequest" followed. Bitstamp's bars stop at 3 days; the
+chart asks for days and builds the weeks, but the background tabs' bar source (`MarketFeeds`)
+sent the timeframe as-is, so Bitstamp was asked for 604,800-second bars and refused (its reply is
+"Not a valid choice" for the step). `MarketFeeds` now fetches through the same
+`HistoricalDataFetcher` the chart uses, in both hosts.
+
+Tests, each seen failing with the fix taken out: a 1w background tab on a provider whose largest
+bar is 3d asks for days and gets ten weekly bars from seventy days; the web host's container
+builds `MarketFeeds` with the fetcher (it is optional on the constructor, so a container without
+it would have built silently).
+
+Caveat: the WebHost's own `LocalBackgroundMonitor` alert poll still fetches raw from the provider
+and would do the same for a 1w alert on Bitstamp; not changed (TODO).
+
+### Alpaca's US stock list no longer silences the screen reader (2026-10-21)
+
+Cody: "when I switch to the DIA tab speech and I think keyboard freezes ... it just stops
+talking." DIA was the first Alpaca stock tab after two Bitstamp tabs, so arriving on it rebuilt the
+toolbar's Symbol dropdown with Alpaca's whole tradable US stock list: 14,402 symbols, counted from
+the app's own symbol cache (Bitstamp's is 256, Alpaca's crypto list 73). One option each, every one
+an accessibility node, all added at once; the screen reader stopped until it had read the flood of
+changes. The offline harness had missed it because its My Data market holds two symbols.
+
+A symbol list of up to 1,000 renders whole, as before. A longer one is searched: a **Find symbol**
+box appears before the Symbol dropdown, and the dropdown holds the chart's own symbol plus at most
+200 matches for what was typed (an exact match first, then symbols starting with the text, then
+symbols containing it). The box's description says how many symbols or matches there are.
+
+Tests, each seen failing with the matching part undone: with 14,402 symbols the dropdown holds at
+most 201 options and still shows DIA as selected; typing "spy" gives DIA, SPY, SPYG, SPYV, XSPY in
+that order and "4 matches"; a 256-symbol list renders whole with no Find box (seen failing with the
+limit at 100). Label-in-name, toolbar and dialog accessibility sweeps pass (144).
+
+Caveats: not yet heard with Orca. That the option flood is what silenced Orca is inferred from the
+size and the timing (only the first stock tab, only on arrival); the harness has no screen reader
+to show it. The `accessibility-lead` review agent the hook asks for is not registered, so this UI
+change had no separate accessibility review.
+
 ### Alpaca's key travels on each request, so tabs loading together no longer get 401 (2026-10-21)
 
 With the stream fixed, Cody's DIA, SPY and TLT tabs each reported "Alpaca data error: HTTP 401"
