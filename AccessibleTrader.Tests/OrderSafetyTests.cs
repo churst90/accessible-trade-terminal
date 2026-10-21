@@ -372,5 +372,19 @@ namespace AccessibleTrader.Tests
                 ErrorSeverity.High,
                 Arg.Any<ErrorCategory>());
         }
+
+        // The Trading dashboard omits sandbox keys by asking whether the venue HAS a sandbox: a
+        // Paper-labelled key on a venue without one (Kraken, Bitstamp) is real money and stays
+        // listed. The answer must be the venue's own, not a constant.
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task HasPracticeEnvironment_AnswersWithTheVenuesOwnFlag(bool venueHasSandbox)
+        {
+            var (svc, tp, _, _) = BuildService();
+            tp.HasPracticeEnvironment.Returns(venueHasSandbox);
+
+            Assert.Equal(venueHasSandbox, await svc.HasPracticeEnvironmentAsync("Kraken"));
+        }
     }
 }

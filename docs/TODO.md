@@ -166,6 +166,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] `LocalBackgroundMonitor.FetchAsync` (WebHost alert poll) asks the provider for the watch's
 >   timeframe raw, with no pivot to a native base timeframe. A 1w alert on Bitstamp would get the
 >   same 400 the background tabs got (fixed in `MarketFeeds`, CHANGES). Not seen in a log yet.
+> - [ ] `FileCacheService` puts its cache under `Environment.SpecialFolder.InternetCache`, which is
+>   empty on Linux, so the symbol cache lands relative to the server's working directory: on Cody's
+>   machine `accessible-trade-terminal/AccessibleTrader/DataCache/`, inside the checkout (gitignored).
+>   Found 2026-10-21 while counting Alpaca's 14,402 symbols. It should go under XDG cache
+>   (`~/.cache`).
 > - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
 >   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
 >   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.

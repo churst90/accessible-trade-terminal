@@ -1216,6 +1216,13 @@ namespace AccessibleTrader.Core.Services
             return tp != null;
         }
 
+        public async Task<bool> HasPracticeEnvironmentAsync(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName)) return true;
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            return tp?.HasPracticeEnvironment ?? true;
+        }
+
         public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string providerName, string symbol, int depth = 10)
         {
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);

@@ -393,7 +393,68 @@ public class TradingDashboardDecouplingTests
         var cut = Open(h);
 
         cut.WaitForAssertion(() =>
-            Assert.Contains("No trading account is connected", cut.Markup, StringComparison.Ordinal));
+            Assert.Contains("No live trading account is connected", cut.Markup, StringComparison.Ordinal));
+    }
+
+    // ── Balances: every live account, sandboxes left out (Cody, 2026-10-21) ──────
+
+    private static ApiKeyConfig PaperKey(string provider) =>
+        new(provider, "sandbox", "key", "secret", Environment: "Paper", IsActive: true);
+
+    [Fact]
+    public void An_account_holding_nothing_still_has_a_balances_row()
+    {
+        // Cody turned paper trading off and saw Gemini and Kraken but not Alpaca, whose live
+        // key was active. Rows were filtered to non-zero holdings, so an empty account left
+        // no trace — the same as one never connected.
+        using var h = Harness(keys: new[] { Key("kraken"), Key("alpaca") });
+        h.OrderService.GetBalancesAsync("kraken").Returns(
+            ProviderResult<List<Balance>>.Ok(new List<Balance> { new("BTC", 0.5, 0) }));
+        h.OrderService.GetBalancesAsync("alpaca").Returns(
+            ProviderResult<List<Balance>>.Ok(new List<Balance> { new("USD", 0, 0) }));
+
+        var cut = Open(h);
+        WaitForAccountRead(h);
+        SelectTab(cut, "balances");
+
+        cut.WaitForAssertion(() =>
+        {
+            var rows = cut.FindAll("table.mini-table tbody tr")
+                .Select(r => r.QuerySelectorAll("td").Select(td => td.TextContent.Trim()).ToList())
+                .ToList();
+            Assert.Contains(rows, c => c.Count == 7 && c[0] == "BTC" && c[1] == "kraken");
+            Assert.Contains(rows, c => c.Count == 7 && c[0] == "No funds" && c[1] == "alpaca");
+        });
+    }
+
+    [Fact]
+    public void A_sandbox_key_is_not_listed()
+    {
+        // A Paper key on a venue that has a practice environment is a sandbox key: its
+        // balances are play money and do not belong beside real ones.
+        using var h = Harness(keys: new[] { Key("kraken"), PaperKey("gemini") });
+        h.OrderService.HasPracticeEnvironmentAsync("gemini").Returns(true);
+
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        h.OrderService.Received().GetBalancesAsync("kraken");
+        h.OrderService.DidNotReceive().GetBalancesAsync("gemini");
+        h.OrderService.DidNotReceive().GetPositionsAsync("gemini");
+    }
+
+    [Fact]
+    public void A_Paper_labelled_key_on_a_venue_with_no_sandbox_is_listed_because_it_is_real_money()
+    {
+        // Kraken spot has no practice environment, so a key marked Paper there signs
+        // against the real account. Hiding it would hide real funds.
+        using var h = Harness(keys: new[] { PaperKey("kraken") });
+        h.OrderService.HasPracticeEnvironmentAsync("kraken").Returns(false);
+
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        h.OrderService.Received().GetBalancesAsync("kraken");
     }
 
     [Fact]

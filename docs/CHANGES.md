@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Trading dashboard lists every live account, including empty ones, and no sandbox keys (2026-10-21)
+
+Cody, with paper trading off: "I only see gemini and kraken in the balances tab ... the trading
+dashboard should show all balances for which I have live api keys active for, sandbox ones should
+be omitted." Two things were wrong.
+
+- **An account holding nothing had no row.** Balances listed only non-zero holdings, so a connected
+  account with an empty or all-zero balance (likely Alpaca's) vanished. Each account without
+  holdings now gets one row: "No funds" with its name, or "Not read" when its balances could not be
+  fetched (the reason stays in the tab's note).
+- **Sandbox keys were listed.** Every active key counted, whatever its environment. Now a key not
+  marked Live is skipped when the venue has a sandbox (Gemini, Alpaca, Binance testnet...). On a
+  venue with no sandbox (Kraken, Bitstamp, Coinbase, MEXC, Kraken Futures, IBKR, Schwab) a key
+  labelled Paper still reaches the real account, so it stays listed; hiding it would hide real
+  money. The order service gained `HasPracticeEnvironmentAsync` for this (the venue's own flag).
+
+The "no accounts" note now reads "No live trading account is connected ... Sandbox keys are not
+listed."
+
+Tests, each seen failing with its part undone: an account holding nothing still gets a row; a
+Paper key on a venue with a sandbox is never asked for balances or positions; a Paper key on a venue
+without one is; `HasPracticeEnvironmentAsync` returns the venue's flag, not a constant.
+
+Caveats: not run against Cody's live keys. If a live account is still missing, the likely cause is
+its key being labelled Paper in API Keys on a venue that has a sandbox. The `accessibility-lead`
+review agent is not registered, so the new rows had no separate accessibility review.
+
 ### Weekly background tabs on Bitstamp no longer get a 400 on every tab switch (2026-10-21)
 
 Each time the background monitor started for the BTCUSDT 1w tab, an error tone and "Bitstamp

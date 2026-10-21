@@ -535,13 +535,28 @@
                                                     </td>
                                                 </tr>
                                             }
-                                            @if (!_balances.Any(r => r.Balance.Free > 0 || r.Balance.Locked > 0))
+                                            @* Every connected account has a row, holding nothing or not: an
+                                               account that vanished when empty read the same as an account
+                                               that was never connected (Cody, 2026-10-21: Alpaca, live key
+                                               active, was simply absent). *@
+                                            @foreach (var acct in _accounts.Where(a => !HasHoldings(a)))
+                                            {
+                                                bool unread = _balancesNoteBySlug.GetValueOrDefault(acct.Slug) is not null;
+                                                <tr @key="@($"{acct.Slug}:none")">
+                                                    <td>@(unread ? "Not read" : "No funds")</td>
+                                                    <td>@acct.DisplayName</td>
+                                                    <td>@(unread ? "—" : "0")</td>
+                                                    <td>@(unread ? "—" : "0")</td>
+                                                    <td>—</td><td>—</td><td>—</td>
+                                                </tr>
+                                            }
+                                            @if (_accounts.Count == 0)
                                             {
                                                 <tr><td colspan="7">@(_balancesNote ?? "No balances.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
-                                    @TabNote(_balancesNote, _balances.Any(r => r.Balance.Free > 0 || r.Balance.Locked > 0))
+                                    @TabNote(_balancesNote, _accounts.Count > 0)
                                     @foreach (var acct in _accounts)
                                     {
                                         var snap = PortfolioFor(acct);
@@ -906,6 +921,10 @@
     /// "your position is gone".
     /// </summary>
     private string? _balancesNote, _positionsNote, _openOrdersNote, _fillsNote;
+    private Dictionary<string, string?> _balancesNoteBySlug = new();
+
+    private bool HasHoldings(TradingAccount account) =>
+        _balances.Any(r => r.Account.Slug == account.Slug && (r.Balance.Free > 0 || r.Balance.Locked > 0));
 
     /// <summary>Valuation per account slug. One venue's holdings summed into another's
     /// would be a total the user cannot act on in either place.</summary>
@@ -1484,6 +1503,16 @@
         {
             if (!await OrderService.SupportsTradingAsync(provider)) continue;
 
+            // Live accounts only (Cody, 2026-10-21: "sandbox ones should be omitted"). A key
+            // marked Paper is a sandbox key only where the venue HAS a sandbox; on the venues
+            // that have none (Kraken spot, Bitstamp, Coinbase, …) a Paper-labelled key signs
+            // against the real account, so its balances are real money and stay listed — the
+            // same question GeneralOrderService asks before refusing such a key's orders.
+            var activeKey = usable.First(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase));
+            if (!AccessibleTrader.Sdk.Plugins.ProviderConfigKeys.IsLive(activeKey.Environment)
+                && await OrderService.HasPracticeEnvironmentAsync(provider))
+                continue;
+
             // The nickname only earns its place when there is more than one key for
             // this venue; otherwise "Kraken (main)" is a longer way to say "Kraken"
             // in a column that is read on every row.
@@ -1521,8 +1550,8 @@
             // that does not say it is empty because nothing is connected.
             _balances = new(); _positions = new(); _openOrders = new(); _fills = new();
             _portfolios = new(); _accountCaps = new();
-            const string none = "No trading account is connected. Add an API key in the API keys "
-                              + "modal, or turn on paper trading in Settings.";
+            const string none = "No live trading account is connected. Add a Live API key in the API keys "
+                              + "modal, or turn on paper trading in Settings. Sandbox keys are not listed.";
             _balancesNote = _positionsNote = _openOrdersNote = _fillsNote = none;
             StateHasChanged();
             return;
@@ -1542,6 +1571,7 @@
         _accountCaps = loaded.ToDictionary(a => a.Account.Slug, a => a.Caps);
 
         _balancesNote   = CombineNotes(loaded.Select(a => (a.Account, a.BalancesNote)));
+        _balancesNoteBySlug = loaded.ToDictionary(a => a.Account.Slug, a => a.BalancesNote);
         _positionsNote  = CombineNotes(loaded.Select(a => (a.Account, a.PositionsNote)));
         _openOrdersNote = CombineNotes(loaded.Select(a => (a.Account, a.OrdersNote)));
         _fillsNote      = CombineNotes(loaded.Select(a => (a.Account, a.FillsNote)));

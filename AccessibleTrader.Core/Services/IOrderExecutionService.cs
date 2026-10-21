@@ -121,6 +121,14 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         Task<bool> SupportsTradingAsync(string provider);
 
+        /// <summary>
+        /// Whether the venue has a practice environment at all (sandbox, testnet, demo) — see
+        /// <see cref="Sdk.Plugins.ITradingProvider.HasPracticeEnvironment"/>. On a venue without
+        /// one, a key labelled Paper signs against the real account. Defaults to true, the
+        /// answer for most venues and the one the trading provider itself defaults to.
+        /// </summary>
+        Task<bool> HasPracticeEnvironmentAsync(string provider) => Task.FromResult(true);
+
         /// <summary>Returns the current order book depth for <paramref name="symbol"/>.</summary>
         Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string provider, string symbol, int depth = 10);
 
