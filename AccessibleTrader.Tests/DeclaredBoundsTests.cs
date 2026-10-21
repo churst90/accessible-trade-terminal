@@ -50,7 +50,7 @@ public sealed class DeclaredBoundsTests
         new object[] { "ConnorsRsi", 0.0, 100.0 }, new object[] { "Aroon", -100.0, 100.0 },
         new object[] { "CIPHER_B", -100.0, 100.0 }, new object[] { "FEAR_GREED", 0.0, 100.0 },
         // 2026-09-12: three more that are bounded by construction and were not saying so.
-        new object[] { "Cmf", -1.0, 1.0 },          new object[] { "CIPHER_C", -100.0, 100.0 },
+        new object[] { "Cmf", -1.0, 1.0 },
         new object[] { "PULSE", 0.0, 100.0 },
         // 2026-10-17: a stochastic of a stochastic is a stochastic — 0 to 100 by construction.
         new object[] { "DSS_BRESSERT", 0.0, 100.0 },

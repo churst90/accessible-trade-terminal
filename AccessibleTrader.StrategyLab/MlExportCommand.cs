@@ -35,8 +35,11 @@ public static class MlExportCommand
         ("CIPHER_B", "Money Flow Wave",  "mfw"),
         ("CIPHER_B", "Anchor Wave",      "anchor"),
         ("CIPHER_B", "Anchor Wave 2",    "anchor2"),
-        ("CIPHER_C", "Cycle Sine",       "c_sine"),
-        ("CIPHER_C", "Lead Sine",        "c_lead"),
+        // Cipher C was an oscillator with a Cycle Sine and a Lead Sine until 2026-10-21; it is now
+        // the CF-style cycle-low indicator and its causal continuous outputs are the day count
+        // since the last confirmed daily cycle low and whether that count is in the timing window.
+        ("CIPHER_C", "DCL Day",          "c_dcl_day"),
+        ("CIPHER_C", "In DCL Window",    "c_in_window"),
         ("HURST",    "Hurst",            "hurst"),
         ("VOL_REGIME", "VolRatio",       "vol_ratio"),
         ("VOL_REGIME", "VolPercentile",  "vol_pct"),

@@ -77,15 +77,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "CI (BTC H2 CI low -0.01) and was never run against a random-entry null.",
                 Source: "StrategyLab walk"),
 
-            [StrategyCatalogue.PulseReversalLongId] = new(
-                StrategyEvidenceLevel.WalkForward,
-                TestedOn: "ETH daily, split-half walk-forward (2026-04)",
-                Controls: "walk-forward; bootstrap CI (H2 only)",
-                Verdict: "H2 passed strict CI (+1.03R, 12 trades); H1 point-positive but wide. One asset, " +
-                         "one timeframe, 21 trades in total — the sample is small enough that the H1/H2 " +
-                         "difference is not distinguishable from noise.",
-                Source: "StrategyLab walk"),
-
             // ── Cipher B + regime gates ─────────────────────────────────────────────────
             [StrategyCatalogue.LongV13BlueDotSma200Id] = new(
                 StrategyEvidenceLevel.WalkForward,
@@ -327,6 +318,20 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                 Verdict: "Negative expectancy on both timeframes — adding the regime gate did not rescue " +
                          "the short side, which is the useful part of the result.",
                 Source: "StrategyLab run")),
+
+            // Retired because its signal is gone, not because it failed: the verdict is the one it
+            // carried while live, so its evidence stays at walk-forward.
+            new("builtin.long.pulse-reversal", "Pulse Reversal Long (cycle-aware)", "2026-10-21", new(
+                StrategyEvidenceLevel.WalkForward,
+                TestedOn: "ETH daily, split-half walk-forward (2026-04)",
+                Controls: "walk-forward; bootstrap CI (H2 only)",
+                Verdict: "Retired when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's " +
+                         "CF: its trigger, the oscillator Cipher C's Bottom Single/Double/Triple markers, no " +
+                         "longer exists, so the spec cannot fire. While live: H2 passed strict CI (+1.03R, 12 " +
+                         "trades); H1 point-positive but wide. One asset, one timeframe, 21 trades in total — " +
+                         "the H1/H2 difference was not distinguishable from noise. Not re-tested on the new " +
+                         "Cipher C's DCL Confirmed.",
+                Source: "StrategyLab walk")),
         };
 
         /// <summary>Every retired spec, newest housekeeping first in file order.</summary>

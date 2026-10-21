@@ -1,4 +1,4 @@
-using System.Text;
+using System.Globalization;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -6,848 +6,569 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// Cipher C — Adaptive cycle oscillator combining Ehlers-style cycle detection,
-    /// Fisher Transform normalization, Hull RSI confluence confirmation, and cycle
-    /// failure detection for trend-continuation signals.
+    /// <b>Cipher C — cycle lows, after Camel Finance's CF Cycle Trading Indicator.</b> Rebuilt
+    /// 2026-10-21 (Cody: "Cipher c needs to be designed as close to the cf indicator as possible
+    /// from any and all screen grabs"). The previous Cipher C was an Ehlers cyber-cycle oscillator
+    /// in its own pane; its ten components are retired in <see cref="Strategies.SignalCatalog"/>.
+    /// It also replaces Loukas Cycle Detection, which is kept working but no longer offered.
     ///
-    /// Oscillator pane (single pane, no price-chart overlay):
+    /// <para>
+    /// <b>What is drawn, and what CF draws.</b> CF is closed source; everything here comes from
+    /// 86 vendor images and 405 frames of Camel's videos (strategy-lab-data/cf-frames/REPORT.md,
+    /// summarised in docs/CIPHER_C_DESIGN.md). On the price chart:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>A green triangle under each daily cycle low, a bigger blue one under each weekly
+    /// cycle low and a bigger gold one under each yearly low — CF's green D / blue W stacks.
+    /// Drawn on the LOW's bar, so they are known only once confirmed (look-ahead, like CF's).</item>
+    /// <item>The cycle's length in days over each daily low ("49" — CF prints "49D"), counted
+    /// inclusively as CF does.</item>
+    /// <item>A square on the bar a low is CONFIRMED (CF's check mark), a grey dot when one is
+    /// pending (CF's circular arrows), a red cross when price closes under a low too soon after
+    /// it and cancels it (CF's red X), and an orange cross when price closes under a low after
+    /// that, which is a failed cycle.</item>
+    /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
+    /// bearish), orange in the middle, green late (right translated, bullish).</item>
+    /// <item>CF's yellow low-to-low arcs, in a strip along the bottom of the price pane.</item>
+    /// <item>A soft green tint behind the bars where the daily cycle was inside its timing window.</item>
+    /// <item>The 10-bar simple moving average Camel trades against (CF's yellow line).</item>
+    /// </list>
     ///
-    ///   Top tier (sell signals — 3 dots, red family, above the wave):
-    ///     Top Single   — Falling cross from OB zone, no RSI confirm (weak)
-    ///     Top Double   — Falling cross from OB zone + Hull RSI > 50 (confirmed)
-    ///     Top Triple   — Falling cross from DEEP OB (>60) + Hull RSI > 50 (strongest)
-    ///
-    ///   Cycle Sine     — Main oscillator: Fisher-transformed stochastic, blue
-    ///   Lead Sine      — Hull MA signal line (ghost white); crossovers drive all signals
-    ///   Cycle Fill     — Cloud between Sine and Lead (teal/coral, DefaultCloudFills)
-    ///
-    ///   Bottom tier (buy signals — 3 dots, cyan family, below the wave):
-    ///     Bottom Single  — Rising cross from OS zone, no RSI confirm (weak)
-    ///     Bottom Double  — Rising cross from OS zone + Hull RSI &lt; 50 (confirmed)
-    ///     Bottom Triple  — Rising cross from DEEP OS (&lt;-60) + Hull RSI &lt; 50 (strongest)
-    ///
-    ///   Failure signals (trend-continuation dots):
-    ///     Shallow Peak   — Falling cross without ever reaching OB → bear trend continuation (orange)
-    ///     Shallow Trough — Rising cross without ever reaching OS → bull trend continuation (lime)
-    ///
-    /// Signal logic:
-    ///   Every Sine/Lead crossover fires EXACTLY ONE signal (or none if in warmup).
-    ///   — If oscillator reached OB/OS since last opposite cross → success tier (Single/Double/Triple)
-    ///   — If oscillator never reached OB/OS → failure signal (Shallow Peak/Trough)
-    ///   Tier is determined by the MAX depth reached and Hull RSI confirmation:
-    ///     Triple: max depth beyond ±ExtremeLevel (60) AND Hull RSI confirms
-    ///     Double: max depth beyond ±OBLevel (75) AND Hull RSI confirms
-    ///     Single: max depth beyond ±OBLevel (75), no RSI confirm
-    ///
-    /// Math (Ehlers Cyber Cycle, v2):
-    ///   1. 4-bar weighted smooth: (P + 2P[1] + 2P[2] + P[3]) / 6  — minimal-lag pre-smooth
-    ///   2. Ehlers Cyber Cycle bandpass filter:
-    ///        alpha = 2 / (CyclePeriod + 1)
-    ///        a1    = 1 − 0.5×alpha,   a2 = 1 − alpha
-    ///        Cycle = a1²×(S−2S[1]+S[2]) + 2×a2×Cycle[1] − a2²×Cycle[2]
-    ///      Rejects the trend component, passes the dominant cycle band.
-    ///   3. Post-filter EMA(Cycle, SmoothPeriod) — optional smoothing (1 = raw)
-    ///   4. Stochastic(smoothCycle, CyclePeriod) → Fisher Transform × FisherScale → CycleSine
-    ///   5. HullMA(CycleSine, SignalPeriod)       — LeadSine signal line (lower lag than EMA)
-    ///   6. HullMA(RSI(close, CyclePeriod))       — Hull RSI for tier confirmation
-    ///
-    /// Reference levels: ±(OBLevel+15) (extreme), ±OBLevel (OB/OS), 0 (zero).
-    ///
-    /// Parameters:
-    ///   CyclePeriod  — Ehlers bandpass alpha, stochastic lookback, RSI period (default 10)
-    ///   SmoothPeriod — Post-filter EMA period (1 = raw cycle, most responsive) (default 3)
-    ///   SignalPeriod — Hull MA period for Lead Sine (default 3)
-    ///   OBLevel      — OB/OS threshold (default 75.0)
+    /// <para>
+    /// <b>Tiers follow the chart.</b> A tier runs only where its cycle spans at least six bars and
+    /// the bar is no longer than its unit, so a weekly chart has weekly and yearly lows and no
+    /// "daily cycle low" at all — the confusion Cody hit on Loukas's weekly chart. The detector,
+    /// the presets and its measured agreement with CF are in <see cref="CipherCEngine"/>.
+    /// </para>
     /// </summary>
     public class CipherCProvider : IIndicatorProvider
     {
+        public const string Code = "CIPHER_C";
         public string Name => "Cipher C";
 
-        // ── Component name constants ──────────────────────────────────────────
-        // Public so test code can reference them directly (mirrors CipherAProvider pattern).
-        public const string CompTopSingle     = "Top Single";
-        public const string CompTopDouble     = "Top Double";
-        public const string CompTopTriple     = "Top Triple";
-        public const string CompCycleSine     = "Cycle Sine";
-        public const string CompBottomSingle  = "Bottom Single";
-        public const string CompBottomDouble  = "Bottom Double";
-        public const string CompBottomTriple  = "Bottom Triple";
-        public const string CompLeadSine      = "Lead Sine";
-        public const string CompShallowPeak   = "Shallow Peak";
-        public const string CompShallowTrough = "Shallow Trough";
+        // ── Components ─────────────────────────────────────────────────────────
+        // DisplayName is the Name throughout: speech and navigation key on either.
+        public const string CompSma            = "SMA";
+        public const string CompYcl            = "YCL";
+        public const string CompWcl            = "WCL";
+        public const string CompDcl            = "DCL";
+        public const string CompDclCount       = "DCL Count";
+        public const string CompWclCount       = "WCL Count";
+        public const string CompDclConfirmed   = "DCL Confirmed";
+        public const string CompWclConfirmed   = "WCL Confirmed";
+        public const string CompYclConfirmed   = "YCL Confirmed";
+        public const string CompPending        = "Cycle Low Pending";
+        public const string CompCancelled      = "Cycle Low Cancelled";
+        public const string CompUpdated        = "Cycle Low Updated";
+        public const string CompFailed         = "Cycle Failed";
+        public const string CompLeftTop        = "Left Translated Top";
+        public const string CompMidTop         = "Mid Translated Top";
+        public const string CompRightTop       = "Right Translated Top";
+        public const string CompArc            = "Cycle Arc";
+        public const string CompInDclWindow    = "In DCL Window";
+        public const string CompInWclWindow    = "In WCL Window";
+        public const string CompDclDay         = "DCL Day";
+        public const string CompWclWeek        = "WCL Week";
+        public const string CompDclWindowStart = "DCL Window Start";
+        public const string CompDclWindowEnd   = "DCL Window End";
+        public const string CompWclWindowStart = "WCL Window Start";
+        public const string CompWclWindowEnd   = "WCL Window End";
+        public const string CompConfluence     = "Cycle Low Confluence";
+        public const string CompPreset         = "Asset Preset";
 
-        /// <summary>
-        /// Fisher(0.70) × 50 ≈ 43  — sits just inside the OB/OS zone at stoch ≈ 0.85/0.15.
-        /// Fisher(0.85) × 50 ≈ 55  — clears OB/OS convincingly.
-        /// Fisher(0.92) × 50 ≈ 71  — pushes into the extreme zone.
-        /// </summary>
-        private const double FisherScale  = 50.0;
-        // ExtremeLevel is now derived from OBLevel + 15 in Calculate() so it scales
-        // with user edits. The Triple tier fires when the cycle reaches OBLevel + 15,
-        // e.g. default OBLevel=75 → extreme at 90 (raw Fisher ~1.8, stoch ~95th pct).
+        public const string ArcStrip = "Cycle Arcs";
+
+        // ── Parameters ─────────────────────────────────────────────────────────
+        public const string ParamPreset     = "Preset";
+        public const string ParamDailyMin   = "DailyMinDays";
+        public const string ParamDailyMax   = "DailyMaxDays";
+        public const string ParamWeeklyMin  = "WeeklyMinWeeks";
+        public const string ParamWeeklyMax  = "WeeklyMaxWeeks";
+        public const string ParamYearlyMin  = "YearlyMinYears";
+        public const string ParamYearlyMax  = "YearlyMaxYears";
+        public const string ParamSma        = "SmaLength";
+        public const string ParamOverbought = "Overbought";
+        public const string ParamOversold   = "Oversold";
+
+        public const int DefaultSma = 10;
+        public const double DefaultOverbought = 75, DefaultOversold = 10;
+
+        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B";
+
+        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string patch, double freq, int order) => new()
+        {
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUp, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
+            DefaultColorHex = hex, DefaultThickness = size, DefaultDrawOrder = order,
+            DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Midground,
+            DefaultSoundPatchId = patch, DefaultBaseFrequency = freq, DefaultDecayMs = 400,
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultSignalSpeechTemplate = $"{tier} cycle low.",
+        };
+
+        private static IndicatorComponentMetadata Event(string name, ComponentDisplayType shape, MarkerAnchor anchor, string hex,
+            float size, string patch, double freq, PlaybackLayer layer, string speech, bool visible = true) => new()
+        {
+            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Causal, DefaultMarkerAnchor = anchor,
+            DefaultColorHex = hex, DefaultThickness = size, IsVisible = visible,
+            DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = layer,
+            DefaultSoundPatchId = patch, DefaultBaseFrequency = freq, DefaultDecayMs = 300,
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultSignalSpeechTemplate = speech,
+        };
+
+        private static IndicatorComponentMetadata Top(string name, string hex, string speech) => new()
+        {
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleDown, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar,
+            DefaultColorHex = hex, DefaultThickness = 3f,
+            DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Background,
+            DefaultSoundPatchId = "triangle_bell", DefaultBaseFrequency = 520, DefaultDecayMs = 200,
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultSignalSpeechTemplate = speech,
+        };
+
+        /// <summary>A number carried for speech and strategies, not drawn and not sounded.</summary>
+        private static IndicatorComponentMetadata Hidden(string name, ComponentCausality causality = ComponentCausality.Causal) => new()
+        {
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+            Causality = causality, IsVisible = false, DefaultIsMuted = true, DefaultColorHex = "#9E9E9E",
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultPlaybackLayer = PlaybackLayer.Background,
+        };
+
+        private static IndicatorComponentMetadata Window(string name, string tintHex, BackgroundTint tint) => new()
+        {
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Causal, IsVisible = false, DefaultIsMuted = true, DefaultColorHex = "#9E9E9E",
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultPlaybackLayer = PlaybackLayer.Background,
+            // 1 inside the window, 0 outside: the whole 0x18 alpha at 1, nothing at 0.
+            DefaultBackgroundTint = tint, DefaultTintColorAboveHex = tintHex, DefaultTintColorBelowHex = "#00000000",
+            DefaultTintMidline = 0.5, DefaultTintFullAt = 1.0,
+        };
+
+        private static readonly string PresetKeys = string.Join(", ", CipherCEngine.Presets.Select(p => p.Key));
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
             new IndicatorMetadata
             {
-                Code        = "CIPHER_C",
+                Code = Code,
+                Name = "Cipher C",
+                Category = "Cycles",
+                DefaultPane = "Main",
                 Causality = ComponentCausality.Causal,
-                Name        = "Cipher C",
-                Category    = "Cycles",
-                DefaultPane = "Pane_CIPHER_C",
-                // The cycle sine is Fisher-normalised into ±100 and the lead sine is explicitly
-                // clamped to ±100 for display (see Calculate, "leadSineDisplay"). The dots ride
-                // those two lines. Declaring it pins the pitch of a cycle peak across zooms.
-                RangeMin = -100, RangeMax = 100,
-                Description = "Micro-cycle CONTEXT and cycle-failure detector — not an entry engine. " +
-                              "Measures position within the 2-6 week swing (Ehlers cyber-cycle bandpass, " +
-                              "Fisher-normalized, Hull RSI tiers). Cross-asset testing 2026-07: its " +
-                              "top/bottom dots are weak standalone entries (negative on FX) — take entries " +
-                              "from Cipher B and use C for WHERE you are in the swing. Its distinctive " +
-                              "value is the Shallow Peak / Shallow Trough FAILED-CYCLE detection " +
-                              "(ADX-gated): an up-cycle that never reaches overbought inside a downtrend " +
-                              "is the classic cycle-failure short context. Daily/weekly timeframes.",
-                RequiresFullRecalcOnTick = false,
-
-                Components = new List<IndicatorComponentMetadata>
-                {
-                    // ════════════════════════════════════════════════════════
-                    // TOP TIER — three sell-signal dots, red family
-                    // Ordered strongest→weakest so navigation encounters the
-                    // most significant signal first when multiple fire.
-                    // ════════════════════════════════════════════════════════
-
-                    // Top Triple: deep OB extreme + Hull RSI confirms.
-                    // dual_tone_bell at 380 Hz — simultaneous golden chord (matching
-                    // Cipher B's Triple Confluence gold dot in character).
-                    // Deep red (#FF1744), large (7px) — unmistakable, rare.
-                    new() { Name = CompTopTriple,
-                            DisplayName = "Top Triple",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF1744",
-                            DefaultThickness = 7.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "dual_tone_bell",
-                            DefaultDecayMs = 500,
-                            DefaultBaseFrequency = 380.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle top triple, strong sell confirmation",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // Top Double: OB zone reached + Hull RSI confirms.
-                    // detuned_pair_bell: staggered metallic pair — distinct "warning" character.
-                    // Standard red (#FF4444), medium (5px).
-                    new() { Name = CompTopDouble,
-                            DisplayName = "Top Double",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF4444",
-                            DefaultThickness = 5.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "detuned_pair_bell",
-                            DefaultDecayMs = 280,
-                            DefaultBaseFrequency = 420.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle top double, confirmed sell",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // Top Single: OB zone only, no Hull RSI confirm.
-                    // triangle_bell: dry hollow ring — audibly "lighter" than the pair bell.
-                    // Light red (#FF6666), small (3px) — visually subordinate.
-                    // Background layer keeps it from competing with Double/Triple.
-                    new() { Name = CompTopSingle,
-                            DisplayName = "Top Single",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF6666",
-                            DefaultThickness = 3.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 180,
-                            DefaultBaseFrequency = 420.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle top single",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // ════════════════════════════════════════════════════════
-                    // CYCLE SINE — main oscillator
-                    // ════════════════════════════════════════════════════════
-
-                    // Fisher-transformed stochastic oscillator, normalised to ≈±50.
-                    // Above zero — triangle: angular "cresting" character at cycle peaks.
-                    // Below zero — sine: smooth rounded "trough" character.
-                    // Pink noise (0.15) adds oscillator "breath" texture matching Cipher B.
-                    // TriggerBoundaryClick = true — earcon fires on zero-crossing.
-                    new() { Name = CompCycleSine,
-                            DisplayName = "Cycle Sine",
-                            DisplayType = ComponentDisplayType.Oscillator,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#3D9BFF",
-                            DefaultThickness = 2.0f,
-                            DefaultWaveform = "sine",
-                            DefaultAboveWaveform = "triangle",
-                            DefaultBelowWaveform = "sine",
-                            DefaultReferenceLevel = 0.0,
-                            DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.Value,
-                            DefaultNoiseAmount = 0.15f,
-                            DefaultTriggerBoundaryClick = true,
-                            DefaultPlaybackLayer = PlaybackLayer.Midground,
-                            DefaultIsAreaFill = false,
-                            DefaultUsePolarityColoring = false,
-                            SpeechTemplate = "Cycle sine. {value:F1}.",
-                            IsVisible = true },
-
-                    // ════════════════════════════════════════════════════════
-                    // BOTTOM TIER — three buy-signal dots, cyan family
-                    // Ordered weakest→strongest so the last navigated component
-                    // in a bottom cluster is the strongest signal (matching how
-                    // Cipher B places the gold dot last in its dot sequence).
-                    // ════════════════════════════════════════════════════════
-
-                    // Bottom Single: OS zone only, no Hull RSI confirm.
-                    // triangle_bell: dry hollow ring, low pitch.
-                    // Light cyan (#66E8FF), small (3px), Background.
-                    new() { Name = CompBottomSingle,
-                            DisplayName = "Bottom Single",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#66E8FF",
-                            DefaultThickness = 3.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 180,
-                            DefaultBaseFrequency = 280.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle bottom single",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // Bottom Double: OS zone + Hull RSI confirms.
-                    // sine_bell: clean pure resonant tone — "arrival" quality.
-                    // Standard cyan (#00E5FF), medium (5px), Foreground.
-                    new() { Name = CompBottomDouble,
-                            DisplayName = "Bottom Double",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00E5FF",
-                            DefaultThickness = 5.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "sine_bell",
-                            DefaultDecayMs = 350,
-                            DefaultBaseFrequency = 280.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle bottom double, confirmed buy",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // Bottom Triple: deep OS extreme + Hull RSI confirms.
-                    // dual_tone_bell at 320 Hz — deep golden chord for maximum resonance.
-                    // Deep teal (#00B8D4), large (7px) — visually the anchor of a bottom.
-                    new() { Name = CompBottomTriple,
-                            DisplayName = "Bottom Triple",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#00B8D4",
-                            DefaultThickness = 7.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "dual_tone_bell",
-                            DefaultDecayMs = 500,
-                            DefaultBaseFrequency = 320.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Cycle bottom triple, strong buy confirmation",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // ════════════════════════════════════════════════════════
-                    // LEAD SINE — Hull MA signal line, phase reference
-                    // ════════════════════════════════════════════════════════
-
-                    // HullMA(CycleSine, SignalPeriod): lower lag than EMA; crossovers drive all dots.
-                    // Ghost white at ~30% opacity. Color is #4DFFFFFF in SkiaSharp AARRGGBB format:
-                    //   AA = 0x4D ≈ 30% opacity, RR/GG/BB = 0xFF = white.
-                    // NOTE: #FFFFFF4D would be parsed as AA=FF (opaque) + BB=4D → yellow.
-                    //   Always use AARRGGBB for semi-transparent component colors.
-                    // FreqMultiplier = 1.2 — pitch 20% higher for subtle "leading" feel.
-                    // TriggerBoundaryClick = false — suppress duplicate zero-crossing earcon.
-                    // Background layer: context cue, does not compete with Sine or dot bells.
-                    new() { Name = CompLeadSine,
-                            DisplayName = "Lead Sine",
-                            DisplayType = ComponentDisplayType.Oscillator,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#4DFFFFFF",
-                            DefaultThickness = 1.5f,
-                            DefaultWaveform = "triangle",
-                            DefaultAboveWaveform = "triangle",
-                            DefaultBelowWaveform = "sine",
-                            DefaultReferenceLevel = 0.0,
-                            DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPitchMapping = PitchMapping.Value,
-                            DefaultFreqMultiplier = 1.2,
-                            DefaultNoiseAmount = 0.10f,
-                            DefaultTriggerBoundaryClick = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultIsAreaFill = false,
-                            DefaultUsePolarityColoring = false,
-                            SpeechTemplate = "Lead sine. {value:F1}.",
-                            IsVisible = true },
-
-                    // ════════════════════════════════════════════════════════
-                    // FAILURE SIGNALS — trend continuation
-                    // Fire when a crossover occurs WITHOUT the oscillator having
-                    // reached OB/OS — the cycle failed to complete its swing.
-                    // ════════════════════════════════════════════════════════
-
-                    // Shallow Peak (bear): falling cross, never reached OB.
-                    // = Up-cycle failed → bear trend continuing.
-                    // Orange (#FF8C00): visually reads as a caution/continuation marker,
-                    // distinct from the red sell family. Matches Cipher B's Hidden Bear
-                    // color family for conceptual consistency (hidden/structural signals).
-                    // triangle_bell at 260 Hz: slightly lower than Bottom Single (280 Hz) —
-                    // the pitch communicates "sinking further" in the bear trend.
-                    // Midground layer: not as urgent as Foreground bells, but more prominent
-                    // than Background — these are secondary trend signals, not primary entries.
-                    new() { Name = CompShallowPeak,
-                            DisplayName = "Shallow Peak",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#FF8C00",
-                            DefaultThickness = 5.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Midground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 220,
-                            DefaultBaseFrequency = 260.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Shallow peak, bear trend continuation",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-
-                    // Shallow Trough (bull): rising cross, never reached OS.
-                    // = Down-cycle failed → bull trend continuing.
-                    // Lime (#AAFF00): visually reads as a growth/continuation marker,
-                    // distinct from the cyan buy family. The bright yellow-green is
-                    // unmistakable against the dark pane background.
-                    // triangle_bell at 480 Hz: higher than Top Single (420 Hz) — the pitch
-                    // communicates "bouncing back up" while the dry triangle timbre keeps
-                    // it clearly separate from sine_bell/dual_tone_bell buy signals.
-                    new() { Name = CompShallowTrough,
-                            DisplayName = "Shallow Trough",
-                            DisplayType = ComponentDisplayType.Dot,
-                            Role = ComponentRole.Signal,
-                            DefaultColorHex = "#AAFF00",
-                            DefaultThickness = 5.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Midground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 220,
-                            DefaultBaseFrequency = 480.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Shallow trough, bull trend continuation",
-                            DefaultUsePolarityColoring = false,
-                            IsVisible = true },
-                },
-
-                DefaultCloudFills = new List<CloudFillConfig>
-                {
-                    // Cycle Fill: semi-transparent channel between CycleSine and LeadSine.
-                    // Bullish (Sine > Lead): #3000E5FF — cyan at ~19% opacity (AARRGGBB).
-                    // Bearish (Lead > Sine): #30FF4444 — coral at ~19% opacity.
-                    //
-                    // Visual-only (Sonification = null). Both CycleSine and LeadSine are
-                    // oscillator components that already sonify independently; a third
-                    // cloud voice would duplicate that information. Rule per the
-                    // CloudSonificationConfig XML docs: sonify clouds only when they
-                    // carry a regime signal the boundaries do not individually convey.
-                    new()
-                    {
-                        UpperComponentName = CompCycleSine,
-                        LowerComponentName = CompLeadSine,
-                        BullishColorHex    = "#3000E5FF",
-                        BearishColorHex    = "#30FF4444",
-                        DisplayName        = "Cycle Fill",
-                        IsVisible          = true,
-                        Sonification       = null
-                    }
-                },
-
+                // The confirm/cancel state machine and the tier's moving windows are re-decided
+                // from the whole history; a cheap last-bar update would miss a cancellation.
+                RequiresFullRecalcOnTick = true,
+                Description =
+                    "Cycle lows on the price chart, after Camel Finance's CF Cycle Trading Indicator (closed source; " +
+                    "rebuilt from screen grabs). Green triangles under daily cycle lows, blue under weekly, gold under " +
+                    "yearly, each low's length in days, a square when a low is confirmed, crosses when one is cancelled " +
+                    "or a cycle fails, translated-top triangles, CF's yellow arcs and a tint over the daily timing " +
+                    "window. Ranges are CF's for the S&P, gold and Ethereum, Camel's for Bitcoin, and estimated for " +
+                    "the other twelve of CF's sixteen assets. Fitted to CF's own SPX labels: 18 of 25 lows within two " +
+                    "bars; held out on gold, the Dow and Bitcoin, 8 of 13 within four days. Lows are drawn on the low's " +
+                    "bar but known only when confirmed, a median of nine bars later. A map of the method, not an edge.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
-                    new() { Name = "CyclePeriod",  DisplayName = "Cycle Period",
-                            DataType = typeof(int), DefaultValue = 10.0,
-                            Description = "Ehlers Cyber Cycle bandpass alpha, stochastic normalization lookback, " +
-                                          "and RSI period. Lower = faster cycle, more signals; higher = smoother, fewer." },
-                    new() { Name = "SmoothPeriod", DisplayName = "Smooth Period",
-                            DataType = typeof(int), DefaultValue = 3.0,
-                            Description = "Post-filter EMA smoothing on cycle output (1 = raw cycle, most responsive). " +
-                                          "Increase to reduce noise after the bandpass filter." },
-                    new() { Name = "SignalPeriod", DisplayName = "Signal Period",
-                            DataType = typeof(int), DefaultValue = 3.0,
-                            Description = "Hull MA period for the Lead Sine signal line (lower lag than EMA). " +
-                                          "Crossovers between Cycle Sine and Lead Sine drive all signals." },
-                    new() { Name = "OBLevel",      DisplayName = "OB/OS Level",
-                            DataType = typeof(double), DefaultValue = 75.0,
-                            Description = "Overbought/oversold threshold. Standard Fisher Transform OB/OS " +
-                                          "is raw ±1.5, which equals ±75 at our scale. " +
-                                          "Triple tier fires at OBLevel + 15 (default 90). " +
-                                          "Lower for more signals; raise for fewer, higher-confidence signals." },
-                }
+                    new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
+                            Description = $"Whose cycle ranges to use. Auto reads the chart's symbol (SPY, ES and ^GSPC are the S&P; GLD and XAUUSD gold; and so on). Or type one of: {PresetKeys}." },
+                    new() { Name = ParamDailyMin, DisplayName = "Daily cycle shortest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                            Description = "0 = the preset's. In the chart's own days: calendar days for crypto, trading days for stocks." },
+                    new() { Name = ParamDailyMax, DisplayName = "Daily cycle longest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                            Description = "0 = the preset's." },
+                    new() { Name = ParamWeeklyMin, DisplayName = "Weekly cycle shortest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                            Description = "0 = the preset's." },
+                    new() { Name = ParamWeeklyMax, DisplayName = "Weekly cycle longest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                            Description = "0 = the preset's." },
+                    new() { Name = ParamYearlyMin, DisplayName = "Yearly cycle shortest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
+                            Description = "0 = the preset's." },
+                    new() { Name = ParamYearlyMax, DisplayName = "Yearly cycle longest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
+                            Description = "0 = the preset's." },
+                    new() { Name = ParamSma, DisplayName = "Moving average length", DataType = typeof(int), DefaultValue = (double)DefaultSma, MinValue = 2, Step = 1,
+                            Description = "The simple moving average drawn on price. Camel uses 10." },
+                    new() { Name = ParamOverbought, DisplayName = "Confirm level", DataType = typeof(double), DefaultValue = DefaultOverbought, MinValue = 1, MaxValue = 99, Step = 1,
+                            Description = "CF's 'overbought', 75. A low is confirmed when the hidden cycle line climbs through this after reaching the oversold level." },
+                    new() { Name = ParamOversold, DisplayName = "Arm level", DataType = typeof(double), DefaultValue = DefaultOversold, MinValue = 0, MaxValue = 99, Step = 1,
+                            Description = "CF's 'oversold', 10. The hidden cycle line must reach this before the next low can be confirmed." },
+                },
+                Components = new List<IndicatorComponentMetadata>
+                {
+                    new() { Name = CompSma, DisplayName = CompSma, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Median,
+                            Causality = ComponentCausality.Causal, DefaultColorHex = SmaHex, DefaultThickness = 1.5f,
+                            DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
+
+                    // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
+                    Low(CompYcl, YclHex, 6f,   "Yearly", "dual_tone_bell", 196, 0),
+                    Low(CompWcl, WclHex, 4.5f, "Weekly", "dual_tone_bell", 262, 1),
+                    Low(CompDcl, DclHex, 3f,   "Daily",  "sine_bell",      330, 2),
+
+                    new() { Name = CompDclCount, DisplayName = CompDclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
+                            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = DclHex,
+                            DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultPlaybackLayer = PlaybackLayer.Background },
+                    // Hidden by default: on a daily chart it would print on top of the daily count.
+                    new() { Name = CompWclCount, DisplayName = CompWclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
+                            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = WclHex,
+                            IsVisible = false, DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultPlaybackLayer = PlaybackLayer.Background },
+
+                    Event(CompDclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Foreground,
+                          "Daily cycle low confirmed. Close {price}."),
+                    Event(CompWclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, WclHex, 4f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
+                          "Weekly cycle low confirmed. Close {price}."),
+                    Event(CompYclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, YclHex, 5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
+                          "Yearly cycle low confirmed. Close {price}."),
+                    Event(CompPending, ComponentDisplayType.Dot, MarkerAnchor.AboveBar, "#9E9E9E", 2.5f, "triangle_bell", 440, PlaybackLayer.Background,
+                          "Cycle low pending."),
+                    Event(CompCancelled, ComponentDisplayType.Cross, MarkerAnchor.BelowBar, "#FF1744", 3f, "triangle_bell", 220, PlaybackLayer.Midground,
+                          "Cycle low cancelled, price closed under it. Close {price}."),
+                    Event(CompUpdated, ComponentDisplayType.Square, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Background,
+                          "Cycle low moved to the new low.", visible: false),
+                    Event(CompFailed, ComponentDisplayType.Cross, MarkerAnchor.AboveBar, "#FF6D00", 3f, "triangle_bell", 175, PlaybackLayer.Midground,
+                          "Cycle failed, price closed under the cycle low. Close {price}."),
+
+                    Top(CompLeftTop,  "#FF5252", "Left translated top, bearish."),
+                    Top(CompMidTop,   "#FFA726", "Mid translated top."),
+                    Top(CompRightTop, "#66BB6A", "Right translated top, bullish."),
+
+                    Window(CompInDclWindow, "#1800E676", BackgroundTint.PriceChart),
+                    Window(CompInWclWindow, "#182979FF", BackgroundTint.Off),
+                    Hidden(CompDclDay),
+                    Hidden(CompWclWeek),
+                    // The window bounds and the preset describe the chart, not a bar: they come
+                    // from the bar clock (measured from the loaded bars — whether any fall on a
+                    // weekend) and the symbol. Fewer than seven days of a crypto chart read as a
+                    // stock's until a weekend arrives, so their value on bar 0 can change as later
+                    // bars load. No tier can run on that little history, so nothing is decided on
+                    // them; they are declared Lookahead so no strategy leaf is offered either.
+                    Hidden(CompDclWindowStart, ComponentCausality.Lookahead),
+                    Hidden(CompDclWindowEnd, ComponentCausality.Lookahead),
+                    Hidden(CompWclWindowStart, ComponentCausality.Lookahead),
+                    Hidden(CompWclWindowEnd, ComponentCausality.Lookahead),
+                    Hidden(CompConfluence),
+                    Hidden(CompPreset, ComponentCausality.Lookahead),
+
+                    // Last: the model factory puts a strip's components after the price pane's, so
+                    // declaring it here keeps the declared order the order the keyboard walks.
+                    new() { Name = CompArc, DisplayName = CompArc, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                            Causality = ComponentCausality.Lookahead, SubPaneName = ArcStrip, SubPaneHeightRatio = 0.12f,
+                            DefaultColorHex = SmaHex, DefaultThickness = 1.5f, DefaultUsePolarityColoring = false, DefaultIsAreaFill = false,
+                            // A picture of where in the cycle each bar sits; its pitch would repeat the counts.
+                            DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultPlaybackLayer = PlaybackLayer.Background },
+                },
             }
         };
 
-        // ── Calculation ───────────────────────────────────────────────────────
+        // ── Calculation ────────────────────────────────────────────────────────
 
-        public void Calculate(
-            string code,
-            ReadOnlySpan<Ohlcv> data,
-            Dictionary<string, object> parameters,
-            IIndicatorResultBuffer buffer)
+        /// <summary>Everything one run decides, by component name. Public for the tests and the lab.</summary>
+        public static Dictionary<string, double[]> Compute(ReadOnlySpan<Ohlcv> data, Dictionary<string, object>? parameters)
         {
-            if (!code.Equals("CIPHER_C", StringComparison.OrdinalIgnoreCase)) return;
             int n = data.Length;
-            if (n < 20) return;
+            var o = new Dictionary<string, double[]>();
+            foreach (var c in new[] { CompSma, CompYcl, CompWcl, CompDcl, CompDclCount, CompWclCount, CompDclConfirmed, CompWclConfirmed,
+                                      CompYclConfirmed, CompPending, CompCancelled, CompUpdated, CompFailed, CompLeftTop, CompMidTop,
+                                      CompRightTop, CompArc, CompInDclWindow, CompInWclWindow, CompDclDay, CompWclWeek,
+                                      CompDclWindowStart, CompDclWindowEnd, CompWclWindowStart, CompWclWindowEnd, CompConfluence, CompPreset })
+                o[c] = CipherCEngine.Nan(n);
+            if (n == 0) return o;
 
-            int    cyclePeriod  = GetInt(parameters, "CyclePeriod",  10);
-            int    smoothPeriod = GetInt(parameters, "SmoothPeriod", 3);
-            int    signalPeriod = GetInt(parameters, "SignalPeriod", 3);
-            double obLevel      = GetDbl(parameters, "OBLevel",      75.0);
-            double extremeLevel = obLevel + 15.0;  // Triple tier threshold
+            var p = parameters ?? new Dictionary<string, object>();
+            var clock = CipherCEngine.MeasureBars(data);
+            var (preset, fineTuned) = CipherCEngine.Resolve(Str(p, ParamPreset), Str(p, "__symbol"), clock.TradesEveryDay);
+            double ob = Dbl(p, ParamOverbought, DefaultOverbought), os = Dbl(p, ParamOversold, DefaultOversold);
 
-            // ── Source ───────────────────────────────────────────────────────
-            var close = new double[n];
-            for (int i = 0; i < n; i++) close[i] = data[i].Close;
+            // The preset's days are converted to the chart's own: a trading-day range on a chart
+            // that trades every day grows by 7/5, and the other way shrinks.
+            double dayScale = (clock.TradesEveryDay ? 7.0 : 5.0) / (preset.CalendarDays ? 7.0 : 5.0);
+            double dMin = Override(p, ParamDailyMin, preset.DailyMin * dayScale), dMax = Override(p, ParamDailyMax, preset.DailyMax * dayScale);
+            double wMin = Override(p, ParamWeeklyMin, preset.WeeklyMin), wMax = Override(p, ParamWeeklyMax, preset.WeeklyMax);
+            double yMin = Override(p, ParamYearlyMin, preset.YearlyMin), yMax = Override(p, ParamYearlyMax, preset.YearlyMax);
 
-            // ── Step 1: Ehlers 4-bar weighted smooth ─────────────────────────
-            // (P + 2P[1] + 2P[2] + P[3]) / 6 — fixed minimal-lag pre-smooth.
-            // Needs 4 bars; bars 0-2 default to close (no prior context).
-            var smooth4 = new double[n];
+            var dTier = CipherCEngine.Tier(dMin, dMax, 1, clock);
+            var wTier = CipherCEngine.Tier(wMin * clock.DaysPerWeek, wMax * clock.DaysPerWeek, clock.DaysPerWeek, clock);
+            var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
+            var d = CipherCEngine.Detect(data, dTier, ob, os);
+            var w = CipherCEngine.Detect(data, wTier, ob, os);
+            var y = CipherCEngine.Detect(data, yTier, ob, os);
+
+            var close = new double[n]; var high = new double[n]; var low = new double[n];
+            for (int i = 0; i < n; i++) { close[i] = data[i].Close; high[i] = data[i].High; low[i] = data[i].Low; }
+
+            // The moving average.
+            int smaLen = Math.Max(2, Int(p, ParamSma, DefaultSma));
+            var sma = o[CompSma];
+            double sum = 0;
             for (int i = 0; i < n; i++)
             {
-                if (i < 3)
-                {
-                    smooth4[i] = close[i];
-                }
-                else
-                {
-                    smooth4[i] = (close[i] + 2.0 * close[i-1] + 2.0 * close[i-2] + close[i-3]) / 6.0;
-                }
+                sum += close[i];
+                if (i >= smaLen) sum -= close[i - smaLen];
+                if (i >= smaLen - 1) sma[i] = sum / smaLen;
             }
 
-            // ── Step 2: Ehlers Cyber Cycle bandpass filter ───────────────────
-            // Rejects the trend component; passes only the dominant cycle band.
-            //   alpha = 2 / (CyclePeriod + 1)
-            //   Cycle[i] = (1-0.5α)²(S-2S[1]+S[2]) + 2(1-α)Cycle[1] - (1-α)²Cycle[2]
-            // Warm-up: when Cycle[i-1] or [i-2] is NaN, seed with first-difference.
-            double alpha = 2.0 / (cyclePeriod + 1.0);
-            double a1    = 1.0 - 0.5 * alpha;
-            double a2    = 1.0 - alpha;
-            var cycle = IndicatorMath.NanArray(n);
-            for (int i = 2; i < n; i++)
+            // Where the lows are. A weekly low is one of the daily lows near it, a yearly low one
+            // of the weekly (or daily) ones — CF's stacks always sit on one another.
+            var dLows = new List<int>(d.Lows);
+            var wLows = dTier.Active ? CipherCEngine.SnapTo(w.Lows, dLows, (int)Math.Round(dTier.MinBars / 2), data) : new List<int>(w.Lows);
+            var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, (int)Math.Round(wTier.MinBars / 2), data)
+                      : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, (int)Math.Round(dTier.MinBars / 2), data) : y.Lows;
+            // And a higher low with no lower one near it is a lower low as well: a weekly cycle
+            // low IS a daily cycle low. The daily detector misses one when it comes inside the
+            // minimum gap and only its wick undercuts the last low, so nothing cancelled that one
+            // — Bitcoin's 5 August 2024 crash (low 49,577, close near 54,000, 31 days after the
+            // 5 July low). CF draws a D under every W; so does this.
+            if (wTier.Active) foreach (int i in yLows) AddLow(wLows, i);
+            if (dTier.Active) { foreach (int i in wLows) AddLow(dLows, i); foreach (int i in yLows) AddLow(dLows, i); }
+            foreach (int i in dLows) o[CompDcl][i] = low[i];
+            foreach (int i in wLows) o[CompWcl][i] = low[i];
+            foreach (int i in yLows) o[CompYcl][i] = low[i];
+
+            // CF's count under each low: the cycle that ended there, in days, counting both ends.
+            for (int k = 1; k < dLows.Count; k++)
+                o[CompDclCount][dLows[k]] = Math.Round((dLows[k] - dLows[k - 1]) / clock.BarsPerDay) + 1;
+            double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
+            for (int k = 1; k < wLows.Count; k++)
+                o[CompWclCount][wLows[k]] = Math.Round((wLows[k] - wLows[k - 1]) / barsPerWeek);
+
+            Copy(d.Confirmed, o[CompDclConfirmed]);
+            Copy(w.Confirmed, o[CompWclConfirmed]);
+            Copy(y.Confirmed, o[CompYclConfirmed]);
+
+            // The events, the arcs, the tops and the confluence belong to the shortest tier that runs.
+            var (lowest, lowestTier, lowestLows) = dTier.Active ? (d, dTier, dLows) : wTier.Active ? (w, wTier, wLows) : (y, yTier, yLows);
+            Copy(lowest.Pending, o[CompPending]);
+            Copy(lowest.Cancelled, o[CompCancelled]);
+            Copy(lowest.Updated, o[CompUpdated]);
+            Copy(lowest.Failed, o[CompFailed]);
+
+            for (int k = 1; k < lowestLows.Count; k++)
             {
-                double c1 = double.IsNaN(cycle[i-1]) ? smooth4[i-1] - smooth4[i-2] : cycle[i-1];
-                double c2 = double.IsNaN(cycle[i-2]) ? smooth4[i-2] - (i >= 3 ? smooth4[i-3] : smooth4[i-2]) : cycle[i-2];
-                cycle[i] = a1 * a1 * (smooth4[i] - 2.0 * smooth4[i-1] + smooth4[i-2])
-                         + 2.0 * a2 * c1
-                         - a2  * a2 * c2;
+                int a = lowestLows[k - 1], b = lowestLows[k];
+                for (int i = a; i <= b; i++) o[CompArc][i] = Math.Sin(Math.PI * (i - a) / (b - a));
+                int top = a;
+                for (int i = a + 1; i < b; i++) if (high[i] > high[top]) top = i;
+                if (top == a) continue;
+                double ratio = (double)(top - a) / (b - a);
+                string comp = ratio < 0.45 ? CompLeftTop : ratio > 0.55 ? CompRightTop : CompMidTop;
+                o[comp][top] = high[top];
             }
-
-            // ── Step 3: Post-filter EMA (optional smoothing) ─────────────────
-            // smoothPeriod = 1 → raw cycle (most responsive).
-            // smoothPeriod > 1 → EMA further reduces noise after the bandpass.
-            var smoothCycle = smoothPeriod > 1 ? IndicatorMath.Ema(cycle, smoothPeriod) : cycle;
-
-            // ── Step 4: Stochastic + Fisher Transform → CycleSine ────────────
-            var cycleSine = IndicatorMath.NanArray(n);
-            for (int i = cyclePeriod - 1; i < n; i++)
+            if (lowestLows.Count > 0)
             {
-                if (double.IsNaN(smoothCycle[i])) continue;
-                double highest = double.MinValue, lowest = double.MaxValue;
-                bool hasNan = false;
-                for (int j = i - cyclePeriod + 1; j <= i; j++)
-                {
-                    if (double.IsNaN(smoothCycle[j])) { hasNan = true; break; }
-                    if (smoothCycle[j] > highest) highest = smoothCycle[j];
-                    if (smoothCycle[j] < lowest)  lowest  = smoothCycle[j];
-                }
-                if (hasNan) continue;
-                double range = highest - lowest;
-                double stoch = range > 1e-10 ? (smoothCycle[i] - lowest) / range : 0.5;
-                double value = Math.Max(-0.999, Math.Min(0.999, 2.0 * stoch - 1.0));
-                double raw = 0.5 * Math.Log((1.0 + value) / (1.0 - value)) * FisherScale;
-                cycleSine[i] = Math.Max(-100.0, Math.Min(100.0, raw));
+                // The live arc ends in the middle of the window the next low is due in, as CF's does.
+                int a = lowestLows[^1], due = Math.Max(1, (int)Math.Round(lowestTier.MeanBars));
+                for (int i = a; i < n && i <= a + due; i++) o[CompArc][i] = Math.Sin(Math.PI * (i - a) / due);
             }
 
-            // ── ADX for Shallow Peak/Trough gating ───────────────────────────
-            // Shallow continuation signals (cycle crosses back without reaching OB/OS)
-            // are only meaningful in range-bound regimes — in a strong trend, every
-            // counter-swing fails to reach the opposite extreme, producing constant
-            // shallow noise. Gate by ADX: only fire Shallow in low-ADX (range-bound) regimes.
-            var adxSeries = IndicatorMath.Adx(data, Math.Max(7, cyclePeriod));
-
-            // ── Step 5: Lead Sine — Hull MA (lower lag than EMA) ─────────────
-            // Hull MA's de-lagging formula (2×WMA(n/2) − WMA(n)) can overshoot
-            // the bounds of its input. We keep two versions:
-            //   leadSine        — unclamped, used for crossover detection so that
-            //                     Hull MA's deliberate overshoot (its lead mechanism)
-            //                     is preserved for accurate signal timing.
-            //   leadSineDisplay — clamped to ±100, written to the buffer for visual
-            //                     rendering so the line never exceeds the oscillator
-            //                     boundary on screen.
-            var leadSine = HullMa(cycleSine, Math.Max(2, signalPeriod));
-            var leadSineDisplay = (double[])leadSine.Clone();
-            for (int i = 0; i < n; i++)
-                if (!double.IsNaN(leadSineDisplay[i]))
-                    leadSineDisplay[i] = Math.Max(-100.0, Math.Min(100.0, leadSineDisplay[i]));
-
-            // ── Step 6: Hull RSI ──────────────────────────────────────────────
-            var rsi     = IndicatorMath.Rsi(close, cyclePeriod);
-            var hullRsi = HullMa(rsi, Math.Max(2, cyclePeriod / 2));
-
-            // ── Step 7: Signal classification ────────────────────────────────
-            //
-            // Every Sine/Lead crossover fires EXACTLY ONE output component.
-            // State tracks: has OB/OS been touched since the last opposite crossover?
-            //   reachedOB = true → the up-swing DID reach OB → top tier signals eligible
-            //   reachedOB = false → the up-swing FAILED to reach OB → Shallow Peak fires
-            //   (same logic inverted for reachedOS / bottom tier / Shallow Trough)
-            //
-            // maxSine / minSine track the peak/trough depth of the current half-cycle,
-            // used to classify Single vs Double vs Triple without relying on the single
-            // sp value (which may be retreating from the peak at crossover time).
-            //
-            // Warmup guard: signals are suppressed for the first stabilityStart bars.
-            // The Ehlers bandpass filter's recursive seed values produce artificially
-            // extreme cycleSine readings in the first ~2 cycles (transient response).
-            // Running the state machine through warmup is intentional — it ensures
-            // reachedOB/reachedOS/maxSine/minSine reflect actual market behaviour
-            // from bar 1. However, state is RESET at stabilityStart so that transient
-            // extremes accumulated during warmup do not inflate the depth classification
-            // of the first real post-warmup signal.
-
-            int stabilityStart = cyclePeriod * 4 + signalPeriod * 2 + 20;
-
-            var topTriple     = IndicatorMath.NanArray(n);
-            var topDouble     = IndicatorMath.NanArray(n);
-            var topSingle     = IndicatorMath.NanArray(n);
-            var bottomSingle  = IndicatorMath.NanArray(n);
-            var bottomDouble  = IndicatorMath.NanArray(n);
-            var bottomTriple  = IndicatorMath.NanArray(n);
-            var shallowPeak   = IndicatorMath.NanArray(n);
-            var shallowTrough = IndicatorMath.NanArray(n);
-
-            bool   reachedOB = true;              // assume prior up-cycle completed
-            bool   reachedOS = true;              // assume prior down-cycle completed
-            double maxSine   = double.MinValue;   // peak since last rising cross
-            double minSine   = double.MaxValue;   // trough since last falling cross
-
-            for (int i = 1; i < n; i++)
+            // Confluence on each confirming bar: was the cycle that ended a normal length, is the
+            // close above the moving average, and has it closed above the low bar's high.
+            for (int t = 0; t < n; t++)
             {
-                double s  = cycleSine[i];
-                double sp = cycleSine[i - 1];
-                double l  = leadSine[i];
-                double lp = leadSine[i - 1];
-                double hr = hullRsi[i];
-                if (double.IsNaN(s) || double.IsNaN(sp) ||
-                    double.IsNaN(l) || double.IsNaN(lp)) continue;
-
-                // At the stability boundary, reset depth-tracking state so warmup
-                // transients (artificially extreme bandpass values) do not contaminate
-                // the depth classification of the first real post-warmup signal.
-                if (i == stabilityStart)
-                {
-                    reachedOB = true;
-                    reachedOS = true;
-                    maxSine   = s;
-                    minSine   = s;
-                }
-
-                // Continuously track extremes for the current half-cycle
-                if (s > maxSine) maxSine = s;
-                if (s < minSine) minSine = s;
-                if (s >  obLevel) reachedOB = true;
-                if (s < -obLevel) reachedOS = true;
-
-                bool risingCross  = sp <= lp && s > l;
-                bool fallingCross = sp >= lp && s < l;
-                bool hullBearish  = !double.IsNaN(hr) && hr > 50.0;
-                bool hullBullish  = !double.IsNaN(hr) && hr < 50.0;
-
-                // Range-bound gate: ADX < 20 means no dominant trend, so shallow
-                // counter-swing signals are informative. ADX ≥ 20 suppresses them.
-                bool rangeBound = double.IsNaN(adxSeries[i]) || adxSeries[i] < 20.0;
-
-                if (risingCross)
-                {
-                    // Only emit signals after the Ehlers bandpass filter has settled.
-                    if (i >= stabilityStart)
-                    {
-                        if (!reachedOS)
-                        {
-                            // Down-cycle never reached OS → bear trend failed → bull continuation
-                            if (rangeBound)
-                                shallowTrough[i] = s;
-                        }
-                        else
-                        {
-                            // Down-cycle completed; classify by depth (minSine) + Hull RSI
-                            bool deep = minSine < -extremeLevel;
-                            if (deep && hullBullish)  bottomTriple[i] = s;
-                            else if (hullBullish)     bottomDouble[i] = s;
-                            else                      bottomSingle[i] = s;
-                        }
-                    }
-                    // Reset state for the new up-swing regardless of warmup
-                    reachedOB = false;
-                    reachedOS = false;
-                    maxSine   = s;
-                    minSine   = s;
-                }
-
-                if (fallingCross)
-                {
-                    // Only emit signals after the Ehlers bandpass filter has settled.
-                    if (i >= stabilityStart)
-                    {
-                        if (!reachedOB)
-                        {
-                            // Up-cycle never reached OB → bull trend failed → bear continuation
-                            if (rangeBound)
-                                shallowPeak[i] = s;
-                        }
-                        else
-                        {
-                            // Up-cycle completed; classify by depth (maxSine) + Hull RSI
-                            bool deep = maxSine > extremeLevel;
-                            if (deep && hullBearish)  topTriple[i] = s;
-                            else if (hullBearish)     topDouble[i] = s;
-                            else                      topSingle[i] = s;
-                        }
-                    }
-                    // Reset state for the new down-swing regardless of warmup
-                    reachedOB = false;
-                    reachedOS = false;
-                    maxSine   = s;
-                    minSine   = s;
-                }
+                if (double.IsNaN(lowest.Confirmed[t])) continue;
+                int c = FindLow(lowest, t);
+                if (c < 0) continue;
+                int prev = PreviousLow(lowest, t, c);
+                int score = 0;
+                if (prev >= 0 && c - prev >= lowestTier.MinBars - 0.5 && c - prev <= lowestTier.MaxBars + 0.5) score++;
+                if (!double.IsNaN(sma[t]) && close[t] > sma[t]) score++;
+                if (close[t] > high[c]) score++;
+                o[CompConfluence][t] = Math.Max(1, score);
             }
 
-            // ── Write to buffer ───────────────────────────────────────────────
-            WriteToBuffer(buffer, CompTopTriple,     topTriple,     n);
-            WriteToBuffer(buffer, CompTopDouble,     topDouble,     n);
-            WriteToBuffer(buffer, CompTopSingle,     topSingle,     n);
-            WriteToBuffer(buffer, CompCycleSine,     cycleSine,     n);
-            WriteToBuffer(buffer, CompBottomSingle,  bottomSingle,  n);
-            WriteToBuffer(buffer, CompBottomDouble,  bottomDouble,  n);
-            WriteToBuffer(buffer, CompBottomTriple,  bottomTriple,  n);
-            WriteToBuffer(buffer, CompLeadSine,      leadSineDisplay, n);
-            WriteToBuffer(buffer, CompShallowPeak,   shallowPeak,   n);
-            WriteToBuffer(buffer, CompShallowTrough, shallowTrough, n);
+            // Day and week counts, and whether the bar is in the timing window — known on the bar.
+            WriteCounts(d, dTier, clock.BarsPerDay, dMin, dMax, o[CompDclDay], o[CompInDclWindow], o[CompDclWindowStart], o[CompDclWindowEnd], n);
+            WriteCounts(w, wTier, barsPerWeek, wMin, wMax, o[CompWclWeek], o[CompInWclWindow], o[CompWclWindowStart], o[CompWclWindowEnd], n);
+
+            int presetIndex = IndexOf(preset);
+            Array.Fill(o[CompPreset], fineTuned ? presetIndex : -1 - presetIndex);
+            return o;
         }
 
-        public void UpdateLast(
-            string code,
-            ReadOnlySpan<Ohlcv> data,
-            Dictionary<string, object> parameters,
-            IIndicatorResultBuffer buffer)
+        private static void AddLow(List<int> lows, int i)
+        {
+            int at = lows.BinarySearch(i);
+            if (at < 0) lows.Insert(~at, i);
+        }
+
+        private static void WriteCounts(CipherCEngine.TierRun run, CipherCEngine.TierBars tier, double barsPerUnit,
+            double min, double max, double[] count, double[] inWindow, double[] start, double[] end, int n)
+        {
+            if (!tier.Active) return;
+            Array.Fill(start, Math.Round(min, 1));
+            Array.Fill(end, Math.Round(max, 1));
+            for (int t = 0; t < n; t++)
+            {
+                int last = run.LastLowAt[t];
+                if (last < 0) continue;
+                double units = Math.Floor((t - last) / barsPerUnit + 1e-9) + 1;
+                count[t] = units;
+                inWindow[t] = units >= min && units <= max ? 1 : 0;
+            }
+        }
+
+        /// <summary>The low a confirmation on bar <paramref name="t"/> confirmed: the one LastLowAt names from then on.</summary>
+        private static int FindLow(CipherCEngine.TierRun run, int t) => run.LastLowAt[t];
+
+        /// <summary>The low before <paramref name="c"/> as it stood on the bar before the confirmation.</summary>
+        private static int PreviousLow(CipherCEngine.TierRun run, int t, int c)
+        {
+            int before = t > 0 ? run.LastLowAt[t - 1] : -1;
+            return before >= 0 && before < c ? before : -1;
+        }
+
+        private static int IndexOf(CyclePreset preset)
+        {
+            for (int i = 0; i < CipherCEngine.Presets.Count; i++) if (CipherCEngine.Presets[i].Key == preset.Key) return i;
+            return 0;
+        }
+
+        public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
+        {
+            if (!code.Equals(Code, StringComparison.OrdinalIgnoreCase)) return;
+            foreach (var (name, values) in Compute(data, parameters))
+            {
+                var span = buffer.GetComponentSpan(name);
+                int len = Math.Min(span.Length, values.Length);
+                for (int i = 0; i < len; i++) span[i] = values[i];
+            }
+        }
+
+        public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
-        public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
-        {
-            int cyclePeriod  = GetInt(parameters, "CyclePeriod",  10);
-            int signalPeriod = GetInt(parameters, "SignalPeriod", 3);
-            // Ehlers bandpass needs ~2× the old warmup; Hull MA on Lead Sine adds signalPeriod×2.
-            // Default: 10*4 + 3*2 + 20 = 66 bars.
-            return cyclePeriod * 4 + signalPeriod * 2 + 20;
-        }
+        /// <summary>
+        /// The daily detector's settling time on a daily chart with the widest preset (Bitcoin's 66
+        /// days): its slow average is a cycle long and it starts after two of them.
+        /// </summary>
+        public int GetStabilityWindow(string code, Dictionary<string, object> parameters) => 132;
 
-        public string GetDetailFact(
-            string code,
-            ReadOnlySpan<Ohlcv> data,
-            IReadOnlyDictionary<string, double[]> results,
-            int index,
-            Dictionary<string, object> parameters)
-        {
-            if (!code.Equals("CIPHER_C", StringComparison.OrdinalIgnoreCase) || index < 0)
-                return string.Empty;
+        public List<LevelDescriptor> GetDefaultLevels(string code) => new();
 
-            double obLevel   = GetDbl(parameters, "OBLevel", 75.0);
-            double extreme   = obLevel + 15.0;
-            double sineVal   = GetVal(results, CompCycleSine,     index);
-            double leadVal   = GetVal(results, CompLeadSine,      index);
-
-            // Dot values — only one fires per bar
-            double tTriple   = GetVal(results, CompTopTriple,     index);
-            double tDouble   = GetVal(results, CompTopDouble,     index);
-            double tSingle   = GetVal(results, CompTopSingle,     index);
-            double bTriple   = GetVal(results, CompBottomTriple,  index);
-            double bDouble   = GetVal(results, CompBottomDouble,  index);
-            double bSingle   = GetVal(results, CompBottomSingle,  index);
-            double sPeak     = GetVal(results, CompShallowPeak,   index);
-            double sTrough   = GetVal(results, CompShallowTrough, index);
-
-            var sb = new StringBuilder();
-
-            // Sentence 1: current cycle position and zone
-            if (!double.IsNaN(sineVal))
-            {
-                string zone = sineVal >  extreme  ? ", extreme overbought"
-                            : sineVal >  obLevel  ? ", overbought"
-                            : sineVal < -extreme  ? ", extreme oversold"
-                            : sineVal < -obLevel  ? ", oversold"
-                            :                       "";
-                string dir  = sineVal >= 0 ? "above zero" : "below zero";
-                sb.Append($"Cycle sine {dir}{zone} at {sineVal:F1}. ");
-            }
-
-            // Sentence 2: phase relationship
-            if (!double.IsNaN(sineVal) && !double.IsNaN(leadVal))
-            {
-                sb.Append(sineVal > leadVal
-                    ? "Rising phase, sine above lead. "
-                    : "Falling phase, sine below lead. ");
-            }
-
-            // Sentence 3: any active signal at this bar
-            if      (!double.IsNaN(tTriple))  sb.Append("Top triple, strong sell confirmation. ");
-            else if (!double.IsNaN(tDouble))  sb.Append("Top double, confirmed sell. ");
-            else if (!double.IsNaN(tSingle))  sb.Append("Top single. ");
-            if      (!double.IsNaN(bTriple))  sb.Append("Bottom triple, strong buy confirmation. ");
-            else if (!double.IsNaN(bDouble))  sb.Append("Bottom double, confirmed buy. ");
-            else if (!double.IsNaN(bSingle))  sb.Append("Bottom single. ");
-            if (!double.IsNaN(sPeak))   sb.Append("Shallow peak, bear trend continuation. ");
-            if (!double.IsNaN(sTrough)) sb.Append("Shallow trough, bull trend continuation. ");
-
-            return sb.Length > 0 ? sb.ToString().TrimEnd() : string.Empty;
-        }
+        // ── Speech ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Provides contextual speech for the two oscillator line components (Cycle Sine and
-        /// Lead Sine). Dot signal components return null so their <c>DefaultSignalSpeechTemplate</c>
-        /// handles the non-NaN case and the generic formatter handles the NaN (no-signal) case.
-        ///
-        /// NOTE: OB/OS thresholds are hardcoded to the default 75/90 because the interface does
-        /// not carry the parameters dictionary. If the user changes <c>OBLevel</c>, the speech
-        /// zone labels will still reference ±75/±90. This matches the same limitation on
-        /// <see cref="GetDefaultLevels"/>.
+        /// The cycle's state on a bar in words — where the daily and weekly cycles are against
+        /// their timing windows, and a confirmation's confluence. Read by Alt+Shift+D after the
+        /// drawn components (<see cref="Accessibility.BarDetailService"/>) and by the detail fact.
         /// </summary>
+        public static IReadOnlyList<string> StateWords(Func<string, double[]?> component, int index)
+        {
+            var words = new List<string>();
+            double At(string name) => component(name) is { } a && index >= 0 && index < a.Length ? a[index] : double.NaN;
+
+            string? daily = WindowWords("daily cycle", "day", "days", At(CompDclDay), At(CompDclWindowStart), At(CompDclWindowEnd));
+            if (daily != null) words.Add(daily);
+            string? weekly = WindowWords("weekly cycle", "week", "weeks", At(CompWclWeek), At(CompWclWindowStart), At(CompWclWindowEnd));
+            if (weekly != null) words.Add(weekly);
+
+            double conf = At(CompConfluence);
+            if (!double.IsNaN(conf))
+                words.Add($"cycle low confirmed, {ConfluenceWord(conf)} confluence");
+            if (!double.IsNaN(At(CompCancelled))) words.Add("cycle low cancelled");
+            if (!double.IsNaN(At(CompFailed))) words.Add("cycle failed");
+            return words;
+        }
+
+        internal static string? WindowWords(string cycle, string unit, string units, double count, double start, double end)
+        {
+            if (double.IsNaN(start)) return null;          // the tier does not run on this chart
+            if (double.IsNaN(count)) return $"no {cycle} low confirmed yet";
+            string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+            string Units(double v) => Math.Abs(v - 1) < 1e-9 ? unit : units;
+            string head = $"{cycle} {unit} {Num(count)}";
+            if (count < start)
+            {
+                double inN = Math.Ceiling(start - count);
+                return $"{head}, its window opens in {Num(inN)} {Units(inN)}";
+            }
+            if (count <= end)
+            {
+                double left = Math.Floor(end - count);
+                return left < 1 ? $"{head}, the last {unit} of its window" : $"{head}, in its window, {Num(left)} {Units(left)} left";
+            }
+            double past = Math.Ceiling(count - end);
+            return $"{head}, {Num(past)} {Units(past)} past its window";
+        }
+
+        public static string ConfluenceWord(double score) => score >= 3 ? "high" : score >= 2 ? "mid" : "low";
+
+        /// <summary>The preset a chart used, in words, from the value of <see cref="CompPreset"/>.</summary>
+        public static string PresetWords(double value, DateTime barDate)
+        {
+            if (double.IsNaN(value)) return "no preset";
+            bool fineTuned = value >= 0;
+            int index = fineTuned ? (int)value : -1 - (int)value;
+            if (index < 0 || index >= CipherCEngine.Presets.Count) return "no preset";
+            var preset = CipherCEngine.Presets[index];
+            string text = fineTuned
+                ? $"{preset.Name} ranges, {preset.Source}"
+                : $"not one of CF's sixteen assets, so {preset.Name}'s ranges";
+            text += $": daily {Num(preset.DailyMin)} to {Num(preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}, " +
+                    $"weekly {Num(preset.WeeklyMin)} to {Num(preset.WeeklyMax)} weeks, yearly {Num(preset.YearlyMin)} to {Num(preset.YearlyMax)} years";
+            if (preset.Key == "BTC" && fineTuned)
+            {
+                var halving = CipherCEngine.HalvingPhase(barDate);
+                if (halving != null) text += $". {halving}";
+            }
+            return text;
+        }
+
+        private static string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
+            if (double.IsNaN(value)) return null;
+            double At(string name) => allComponentData.TryGetValue(name, out var a) && dataIndex >= 0 && dataIndex < a.Length ? a[dataIndex] : double.NaN;
             return componentName switch
             {
-                CompCycleSine => BuildCycleSineSpeech(value, allComponentData, dataIndex),
-                CompLeadSine  => BuildLeadSineSpeech(value, allComponentData, dataIndex),
-                _             => null, // dots: fall through to DefaultSignalSpeechTemplate / generic
+                CompDclCount => $"{Num(value)} day cycle",
+                CompWclCount => $"{Num(value)} week cycle",
+                CompConfluence => $"{ConfluenceWord(value)} confluence",
+                CompDclDay => WindowWords("daily cycle", "day", "days", value, At(CompDclWindowStart), At(CompDclWindowEnd)),
+                CompWclWeek => WindowWords("weekly cycle", "week", "weeks", value, At(CompWclWindowStart), At(CompWclWindowEnd)),
+                CompInDclWindow => value >= 0.5 ? "in the daily timing window" : "outside the daily timing window",
+                CompInWclWindow => value >= 0.5 ? "in the weekly timing window" : "outside the weekly timing window",
+                CompArc => value >= 0.995 ? "mid-cycle" : $"{Math.Round(value * 100)} percent of the arc",
+                CompPreset => PresetWords(value, bar.Date),
+                _ => null,
             };
         }
 
-        private static string BuildCycleSineSpeech(double value,
-            IReadOnlyDictionary<string, double[]> data, int idx)
+        public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data, IReadOnlyDictionary<string, double[]> results,
+            int index, Dictionary<string, object> parameters)
         {
-            if (double.IsNaN(value)) return "no data";
-
-            // Zone label — hardcoded to default thresholds (75 OB, 90 extreme).
-            string zone = value >  90.0 ? "extreme overbought"
-                        : value >  75.0 ? "overbought"
-                        : value < -90.0 ? "extreme oversold"
-                        : value < -75.0 ? "oversold"
-                        :                 "neutral";
-
-            // Phase relative to Lead Sine.
-            double lead     = GetVal(data, CompLeadSine, idx);
-            string phase    = double.IsNaN(lead) ? "" :
-                              value > lead ? "Rising phase." : "Falling phase.";
-
-            return $"{zone}, {value:F1}. {phase}".TrimEnd();
+            if (!code.Equals(Code, StringComparison.OrdinalIgnoreCase) || index < 0) return string.Empty;
+            var words = new List<string>(StateWords(name => results.TryGetValue(name, out var a) ? a : null, index));
+            if (results.TryGetValue(CompPreset, out var preset) && index < preset.Length && index < data.Length)
+                words.Add(PresetWords(preset[index], data[index].Date));
+            if (words.Count == 0) return "Calculating...";
+            return string.Join(" ", words.Select(w => char.ToUpperInvariant(w[0]) + w[1..] + "."));
         }
 
-        private static string BuildLeadSineSpeech(double value,
-            IReadOnlyDictionary<string, double[]> data, int idx)
+        // ── Parameters ─────────────────────────────────────────────────────────
+
+        private static void Copy(double[] from, double[] to) => Array.Copy(from, to, Math.Min(from.Length, to.Length));
+
+        private static string? Str(Dictionary<string, object> p, string k) => p.TryGetValue(k, out var v) ? v?.ToString() : null;
+
+        private static double Dbl(Dictionary<string, object> p, string k, double def)
         {
-            if (double.IsNaN(value)) return "no data";
-
-            double sine  = GetVal(data, CompCycleSine, idx);
-            string rel   = double.IsNaN(sine) ? "" :
-                           sine > value ? "Sine above, rising phase." : "Sine below, falling phase.";
-
-            return $"{value:F1}. {rel}".TrimEnd();
+            if (!p.TryGetValue(k, out var v) || v == null) return def;
+            try { return Convert.ToDouble(v, CultureInfo.InvariantCulture); } catch { return def; }
         }
 
-        public List<LevelDescriptor> GetDefaultLevels(string code)
+        private static int Int(Dictionary<string, object> p, string k, int def) => (int)Math.Round(Dbl(p, k, def));
+
+        /// <summary>A range setting: 0 (or nonsense) keeps the preset's value.</summary>
+        private static double Override(Dictionary<string, object> p, string k, double preset)
         {
-            if (!code.Equals("CIPHER_C", StringComparison.OrdinalIgnoreCase)) return new();
-            return new()
-            {
-                // Reference lines calibrated to Fisher Transform scale (×50):
-                //   ±90 = raw ±1.8 = stoch ~95th pct → Triple tier extreme
-                //   ±75 = raw ±1.5 = stoch ~92nd pct → standard OB/OS (default OBLevel)
-                //   0   = zero crossing
-                new("Extreme OB",  90.0, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
-                new("Overbought",  75.0, "#FF6666", DashStyle.Dash,
-                    PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
-                new("Zero",         0.0, "#666666", DashStyle.Dash,
-                    PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -75.0, "#66BB66", DashStyle.Dash,
-                    PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.10f, ZoneNoiseType: "white"),
-                new("Extreme OS", -90.0, "#22FF22", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
-            };
+            double v = Dbl(p, k, 0);
+            return v > 0 && !double.IsNaN(v) ? v : preset;
         }
-
-        // ── Helpers ────────────────────────────────────────────────────────────
-
-        /// <summary>Hull MA = WMA(2×WMA(n/2) − WMA(n), √n). Lower lag than EMA/SMA.</summary>
-        private static double[] HullMa(double[] src, int period)
-        {
-            if (period < 2) period = 2;
-            int halfPeriod = Math.Max(2, period / 2);
-            int sqrtPeriod = Math.Max(2, (int)Math.Round(Math.Sqrt(period)));
-            var wmaHalf = MovingAverageHelper.Wma(src, halfPeriod);
-            var wmaFull = MovingAverageHelper.Wma(src, period);
-            var diff    = new double[src.Length];
-            for (int i = 0; i < src.Length; i++)
-                diff[i] = double.IsNaN(wmaHalf[i]) || double.IsNaN(wmaFull[i])
-                    ? double.NaN : 2.0 * wmaHalf[i] - wmaFull[i];
-            return MovingAverageHelper.Wma(diff, sqrtPeriod);
-        }
-
-        private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)
-        {
-            var span = buffer.GetComponentSpan(name);
-            int len  = Math.Min(span.Length, n);
-            for (int i = 0; i < len; i++) span[i] = data[i];
-        }
-
-        private static double GetVal(IReadOnlyDictionary<string, double[]> r, string key, int idx)
-        {
-            if (!r.TryGetValue(key, out var arr) || arr == null || idx >= arr.Length) return double.NaN;
-            return arr[idx];
-        }
-
-        private static int    GetInt(Dictionary<string, object> p, string k, int    def) =>
-            p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
-        private static double GetDbl(Dictionary<string, object> p, string k, double def) =>
-            p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
     }
 }

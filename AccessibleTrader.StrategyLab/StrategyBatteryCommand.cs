@@ -195,6 +195,11 @@ public static class StrategyBatteryCommand
                 Lt("c8c-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),
                 BullEntryPulse("c8c"))));
 
+        // CIPHER_C cells below (Bottom/Top Single/Double/Triple) are a historical record of the
+        // oscillator Cipher C. It was rebuilt on 2026-10-21 as a cycle-low indicator after Camel
+        // Finance's CF Cycle Trading Indicator, and those ids now resolve to retired signals: a
+        // re-run evaluates them false and reports the removal, it does not re-test them. Their
+        // nearest new counterpart is "CIPHER_C.DCL Confirmed".
         // 8d. KITCHEN SINK bull pulse — original 4 markers PLUS Cipher C bottoms PLUS Loukas
         // DCL/ICL Confirmed. Tests whether the orthogonal cycle indicators (which read
         // completely different math from Cipher A/B) add edge or just dilute it.

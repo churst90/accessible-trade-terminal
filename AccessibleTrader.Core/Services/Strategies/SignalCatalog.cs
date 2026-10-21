@@ -74,6 +74,19 @@ namespace AccessibleTrader.Core.Services.Strategies
             // dots were look-ahead (drawn before the pivot could be known) and MCSR has no such marker.
             ["CIPHER_SR.Resistance"] = "Cipher SR's Resistance pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Resistance Zone, the held resistance level, instead",
             ["CIPHER_SR.Support"] = "Cipher SR's Support pivot dot was removed on 2026-10-17 (it was drawn before the pivot could be known, and Market Cipher SR has no such marker); use Support Zone, the held support level, instead",
+
+            // 2026-10-21: Cipher C rebuilt after CF's Cycle Trading Indicator (CipherCProvider). Its old
+            // Ehlers-oscillator components went; each message names the nearest thing that still exists.
+            ["CIPHER_C.Top Single"] = "Cipher C's Top Single was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no replacement for its cycle-top dots; the nearest is Left Translated Top, drawn over an early cycle top",
+            ["CIPHER_C.Top Double"] = "Cipher C's Top Double was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no replacement for its cycle-top dots; the nearest is Left Translated Top, drawn over an early cycle top",
+            ["CIPHER_C.Top Triple"] = "Cipher C's Top Triple was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no replacement for its cycle-top dots; the nearest is Left Translated Top, drawn over an early cycle top",
+            ["CIPHER_C.Bottom Single"] = "Cipher C's Bottom Single was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; use DCL Confirmed, the bar a daily cycle low is confirmed",
+            ["CIPHER_C.Bottom Double"] = "Cipher C's Bottom Double was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; use DCL Confirmed, the bar a daily cycle low is confirmed",
+            ["CIPHER_C.Bottom Triple"] = "Cipher C's Bottom Triple was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; use DCL Confirmed, the bar a daily cycle low is confirmed, or Cycle Low Confluence for its strength",
+            ["CIPHER_C.Cycle Sine"] = "Cipher C's Cycle Sine was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no oscillator any more; use DCL Day for where the cycle is, or In DCL Window",
+            ["CIPHER_C.Lead Sine"] = "Cipher C's Lead Sine was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no oscillator any more; use DCL Day for where the cycle is, or In DCL Window",
+            ["CIPHER_C.Shallow Peak"] = "Cipher C's Shallow Peak was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; use Cycle Failed, a close under the cycle low after it was confirmed",
+            ["CIPHER_C.Shallow Trough"] = "Cipher C's Shallow Trough was removed on 2026-10-21 when Cipher C was rebuilt as a cycle-low indicator after Camel Finance's CF Cycle Trading Indicator; there is no replacement for the old bull-continuation dot; the nearest is Cycle Low Confluence",
         };
 
         /// <inheritdoc/>

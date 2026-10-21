@@ -231,15 +231,10 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         // BTC to lift expectancy further (validated combo).
         public const string PulseLongV2Id = "builtin.long.pulse-v2";
 
-        // Pulse Reversal Long — first cycle-aware Pulse strategy. Fires when CycleState
-        // is in stage 1 (accumulation: price below SMA200, slope flat or rising) AND a
-        // Cipher_C cycle bottom marker fired within the last 5 bars. ETH daily walk-forward:
-        // H1 9 trades +0.25R CIlo -0.59 (point-positive, fails CI), H2 12 trades +1.03R
-        // CIlo +0.32 — FIRST Pulse-related cell to pass strict CI on ETH H2 in any version.
-        // Fundamentally different mechanic from PulseLongV2: PulseLongV2 is a stage-2
-        // markup trend-follower; this is a stage-1 capitulation reversal. Use both, in
-        // their respective stages, not one or the other.
-        public const string PulseReversalLongId = "builtin.long.pulse-reversal";
+        // Pulse Reversal Long: RETIRED 2026-10-21. Its trigger was the oscillator Cipher C's
+        // Bottom Single/Double/Triple markers, which went when Cipher C was rebuilt as a cycle-low
+        // indicator after Camel Finance's CF; the spec cannot fire as written. The ETH walk-forward
+        // verdict is kept in CatalogueProvenance.Retired.
         public const string FaberPulseLongId    = "builtin.long.faber-pulse";
         public const string BareBullPulseLongId = "builtin.long.bare-bull-pulse";
         public const string CapitulationBuyId   = "builtin.long.capitulation-buy";
@@ -278,7 +273,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
             yield return BuildFaberPulseLong();
             yield return BuildBareBullPulseLong();
             yield return BuildPulseLongV2();
-            yield return BuildPulseReversalLong();
             yield return BuildV13BlueDotSma200();
             yield return BuildV14HiddenBullSma200();
             yield return BuildV15BlueDotBullDiv();
@@ -585,112 +579,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                     "expectancy to +0.49/+0.87R (validated combo). Parameters are daily-tuned; " +
                     "users on 4h/1h should load PulseProvider.Presets.CryptoFourHour. " +
                     "REQUIRES: Pulse indicator loaded on the chart.",
-                Side: OrderSide.Buy,
-                Conditions: root,
-                Risk: risk,
-                ExecutionMode: StrategyExecutionMode.Suggestion,
-                CreatedUtc: DateTime.UtcNow,
-                UpdatedUtc: DateTime.UtcNow,
-                IsAutoActivate: false);
-        }
-
-        // Pulse Reversal Long — fires on (CycleState ∈ [0.5, 1.5] = stage 1 accumulation)
-        // AND (any Cipher_C bottom marker fired within last 5 bars). The cycle-state filter
-        // is the contextual gate that makes Cipher_C bottom signals actionable — Cipher_C
-        // bottoms fire across all market conditions but are only true capitulation reversals
-        // when price is below SMA200 with a flat-or-rising slope. The combination produced
-        // ETH daily H2 12 trades +1.03R CIlo +0.32 (passes strict CI, first ever Pulse-
-        // related cell to pass H2 on ETH). REQUIRES: Cipher_C and Pulse loaded on the chart.
-        private static StrategySpec BuildPulseReversalLong()
-        {
-            // Stage 1 = CycleState in [0.5, 1.5]. Use two leaves bracketing the value.
-            var stage1Lo = new ConditionLeaf(
-                Id: "pulse-rev-cs-lo",
-                SignalDescriptorId: "PULSE.CycleState",
-                Operator: LeafOperator.GreaterThan,
-                Value: 0.5,
-                Score: 1.0);
-
-            var stage1Hi = new ConditionLeaf(
-                Id: "pulse-rev-cs-hi",
-                SignalDescriptorId: "PULSE.CycleState",
-                Operator: LeafOperator.LessThan,
-                Value: 1.5,
-                Score: 1.0);
-
-            // OR group of Cipher_C bottom markers — single, double, or triple bottom
-            // (triple is highest conviction; we accept any of the three within 5 bars).
-            var cipherBot = new ConditionGroup(
-                Id: "pulse-rev-cb",
-                Logic: LogicOperator.Or,
-                Children: new List<ConditionNode>
-                {
-                    new ConditionLeaf(
-                        Id: "pulse-rev-cb-s",
-                        SignalDescriptorId: "CIPHER_C.Bottom Single",
-                        Operator: LeafOperator.FiredWithin,
-                        WithinNBars: 5,
-                        Score: 1.0),
-                    new ConditionLeaf(
-                        Id: "pulse-rev-cb-d",
-                        SignalDescriptorId: "CIPHER_C.Bottom Double",
-                        Operator: LeafOperator.FiredWithin,
-                        WithinNBars: 5,
-                        Score: 1.0),
-                    new ConditionLeaf(
-                        Id: "pulse-rev-cb-t",
-                        SignalDescriptorId: "CIPHER_C.Bottom Triple",
-                        Operator: LeafOperator.FiredWithin,
-                        WithinNBars: 5,
-                        Score: 1.0),
-                });
-
-            var root = new ConditionGroup(
-                Id: "pulse-rev-root",
-                Logic: LogicOperator.And,
-                Children: new List<ConditionNode> { stage1Lo, stage1Hi, cipherBot });
-
-            // Same risk plan as Pulse Long V2 / v11 / v12 family. ATR×2 stop fits both
-            // trend-following and reversal contexts on daily crypto — drawdowns from a
-            // missed reversal are similar in magnitude to drawdowns from a failed pullback.
-            var stop = new StopSource(Kind: StopSourceKind.AtrMultiple, AtrPeriod: 14, AtrMultiple: 2.0);
-            var tpLadder = new List<TpLadderRung>
-            {
-                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 1.5, ClosePortion: 0.50),
-                new TpLadderRung(Kind: TargetSourceKind.RiskRewardMultiple, Multiple: 3.0, ClosePortion: 0.50),
-            };
-            var sizing = new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005);
-            var entry  = new EntryTrigger(EntryTriggerKind.Immediate);
-
-            var risk = new RiskPlan(
-                Stop: stop, TpLadder: tpLadder, Sizing: sizing, Entry: entry,
-                MinRewardRiskRatio: 1.5,
-                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
-                NotionalEquity: 10000.0);
-
-            return new StrategySpec(
-                Id: PulseReversalLongId,
-                Name: "Pulse Reversal Long (cycle-aware)",
-                Description:
-                    "Cycle-aware capitulation reversal long. Fires when CycleState is in " +
-                    "stage 1 (accumulation: price below SMA200, slope flat or rising) AND " +
-                    "any Cipher_C bottom marker (Single, Double, or Triple) fired within " +
-                    "the last 5 bars. Fundamentally different from PulseLongV2 — that's a " +
-                    "stage-2 markup trend-follower, this is a stage-1 capitulation reversal. " +
-                    "Walk-forward results (10bps commission + 5bps slippage included): " +
-                    "ETH daily H1 9 trades +0.248R (Sharpe 4.16), H2 12 trades +1.030R " +
-                    "(Sharpe 10.28, CIlo +0.32 — passes strict CI on H2, the first ever " +
-                    "Pulse-related cell to do so on ETH H2). H1 fails CI (CIlo -0.59) so " +
-                    "this is not a full strict-CI walk-forward survivor, but H2 is the " +
-                    "harder/more recent regime, which is the one that matters most for " +
-                    "live paper trading. BTC daily H1 10 trades +0.065R, H2 10 trades " +
-                    "+0.228R — point-positive both halves, lower magnitude than ETH. " +
-                    "ETH daily is the primary asset for this strategy; BTC daily is a " +
-                    "secondary diversification target. Pairs well with PulseLongV2 — that " +
-                    "runs in stage 2 markup, this runs in stage 1 accumulation, so they " +
-                    "complement across the cycle rather than competing for setups. " +
-                    "REQUIRES: Pulse AND Cipher_C loaded on the chart. Risk plan: ATR(14)×2 " +
-                    "stop, 1.5R/3R TP ladder, BE after TP1, 0.5% risk per trade.",
                 Side: OrderSide.Buy,
                 Conditions: root,
                 Risk: risk,

@@ -399,6 +399,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 foreach (var w in Indicators.DbsiStyleProvider.StateWords(series.GetComponentData, index))
                     yield return w;
             }
+            else if (code == Indicators.CipherCProvider.Code)
+            {
+                // Where the daily and weekly cycles are against their timing windows — carried in
+                // hidden components, which this read does not reach on its own.
+                foreach (var w in Indicators.CipherCProvider.StateWords(series.GetComponentData, index))
+                    yield return w;
+            }
         }
 
         private static double? LevelNamed(ChartSeries series, string name) =>

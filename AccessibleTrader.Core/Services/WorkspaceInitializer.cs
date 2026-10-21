@@ -726,7 +726,18 @@ namespace AccessibleTrader.Core.Services
             // answer — so the saved string is the metadata's answer AS IT STOOD WHEN THE FILE WAS
             // WRITTEN, and re-deriving it here is how a saved workspace heals without being
             // re-built by hand. A drawing or core series never reaches this line (meta is null).
+            string savedPane = config.Pane;
             config.Pane = PaneAssignmentService.PaneFor(meta);
+
+            // A series that moves OFF an oscillator pane ONTO the price pane leaves its levels
+            // behind. They were constants on the oscillator's own scale — the old Cipher C's
+            // ±75 and ±90 (rebuilt on 2026-10-21 as a cycle-low overlay on the candles) — and
+            // on a price pane a level at 90 is a price of 90: it pins the y-axis near zero and
+            // crushes the candles, the zero-level case above in another form. A level the user
+            // placed by hand was on that same oscillator scale, so it goes too.
+            if (config.Levels.Count > 0 && !Input.ReferenceLevelPlacement.IsPricePane(savedPane)
+                && Input.ReferenceLevelPlacement.IsPricePane(config.Pane))
+                config.Levels.Clear();
 
             // THE DIRECTIONAL PITCH PAIR IS DERIVED, NOT RESTORED — the same rule as the pane, for
             // the same reason: no dialog writes BullishFrequency/BearishFrequency, so the saved

@@ -79,7 +79,7 @@ Two things every rolling-window figure in `CatalogueProvenance` should be read w
 - **The Cipher B refit moves the green-dot specs most.** As written, pre-refit to new, whole sample on
   the recorded asset: v13 BTC +0.454R to +0.222R; v23a BTC +0.776R to +0.504R; v23c QQQ +1.036R to
   +0.658R (9 to 7 trades) and gold −0.124R to −0.289R; v24 ETH −0.006R to +0.263R; v23r BTC 4h +0.461R
-  to +0.534R. v14, v18 and pulse-reversal are unchanged. All on single assets and tens of trades.
+  to +0.534R. v14, v18 and pulse-reversal are unchanged. (Pulse-reversal was retired on 2026-10-21 with the old Cipher C it read; see `CatalogueProvenance`'s retired list.) All on single assets and tens of trades.
 
 `StrategyLab spec-variants --all [--cipherb old]` re-measures the whole catalogue.
 

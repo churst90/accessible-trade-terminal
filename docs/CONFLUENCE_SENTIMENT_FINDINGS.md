@@ -1,5 +1,10 @@
 # Confluence & Sentiment Findings (round 13, 2026-06-12)
 
+> **2026-10-21: the Cipher C in this file is the OLD one** (an Ehlers cyber-cycle oscillator, its
+> `Bottom` signals). It was replaced by a cycle-low indicator after Camel Finance's CF indicator
+> (`docs/CIPHER_C_DESIGN.md`); `CIPHER_C.Bottom(any)` and the other old signals are retired and no
+> longer compute. Nothing below has been re-run on the new Cipher C.
+>
 > **RE-RUN 2026-10-17 (new Cipher A/B).** Three things, in order of importance.
 >
 > 1. **These numbers reproduce only at the build they were recorded on.** The lab built at 45672f51

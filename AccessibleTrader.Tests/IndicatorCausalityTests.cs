@@ -600,10 +600,22 @@ namespace AccessibleTrader.Tests
             // series here. Its causality is pinned on 1400-bar probes, prefix by prefix and on the
             // bar each dot is first known: CipherBGoldDotTests.A_gold_dot_is_on_the_bar_it_is_first_known_and_never_moves.
             "CIPHER_B.Triple Confluence Buy",
-            "CIPHER_C.Bottom Double",
-            "CIPHER_C.Shallow Peak",
-            "CIPHER_C.Shallow Trough",
-            "CIPHER_C.Top Double",
+            // Cipher C's events need a cycle low, and the shortest cycle on these 400 hourly bars
+            // is the daily one at 54 days × 24 = 1,296 bars. Their causality is pinned on fifteen
+            // years of Bitstamp BTC daily, prefix by prefix:
+            // CipherCProviderTests.The_events_on_a_bar_do_not_change_when_later_bars_arrive.
+            "CIPHER_C.Cycle Failed",
+            "CIPHER_C.Cycle Low Cancelled",
+            "CIPHER_C.Cycle Low Confluence",
+            "CIPHER_C.Cycle Low Pending",
+            "CIPHER_C.Cycle Low Updated",
+            "CIPHER_C.DCL Confirmed",
+            "CIPHER_C.DCL Day",
+            "CIPHER_C.In DCL Window",
+            "CIPHER_C.In WCL Window",
+            "CIPHER_C.WCL Confirmed",
+            "CIPHER_C.WCL Week",
+            "CIPHER_C.YCL Confirmed",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",

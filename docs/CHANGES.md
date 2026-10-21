@@ -4,6 +4,79 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C rebuilt as cycle lows after Camel Finance's CF Cycle Trading Indicator; Loukas retired (2026-10-21)
+
+Cody: "Cipher c needs to be designed as close to the cf indicator as possible from any and all
+screen grabs you can get from it… loukas indicator retire it unless it does something our new
+cipher c won't. I want one robust cycle detection indicator." The old Cipher C (an Ehlers
+cyber-cycle oscillator in its own pane) is gone. The design, the evidence and the measured fit are
+in `docs/CIPHER_C_DESIGN.md`.
+
+- **What it draws, on the price pane:** a green triangle under each daily cycle low, a bigger blue
+  one under each weekly low and a gold one under each yearly low; the cycle's length in days over
+  each daily low; a square on the bar a low is confirmed, a grey dot when one is pending, a red cross
+  when it is cancelled and an orange cross when a cycle fails; left, mid and right translated tops;
+  CF's yellow low-to-low arcs in a strip along the bottom; a green tint while the daily cycle is in
+  its window; the 10-bar SMA. Alt+Shift+D on a bar says, for example, "Daily cycle day 40, in its
+  window, 4 days left", and on a confirming bar "Cycle low confirmed, mid confluence".
+- **The sixteen assets CF is tuned for** (its own TradingView watchlist): SPX, DXY, NDQ, DJI, GOLD,
+  SILVER, USOIL, GDX, GDXJ, SILJ, BTCUSD, ETHUSD, COIN, MSTR, MARA, RIOT. Each has a preset, chosen
+  from the chart's symbol (SPY, ES, XAUUSD, BTC/USD and other aliases included). Any other symbol
+  gets Bitcoin's ranges if it trades every day and the S&P's if not, and says it is not one CF tunes.
+- **The detector** is a Schaff Trend Cycle with CF's own settings-screen thresholds (overbought 75,
+  oversold 10), its lengths taken from the asset's cycle range, fitted on 25 SPX lows CF labelled:
+  18 of 25 found within two bars. On 13 CF labels it never saw, 8 within four days, including both
+  of Bitcoin's 2026 lows.
+- **Tiers follow the timeframe:** a weekly chart has weekly and yearly lows and never says "daily
+  cycle low" (what Cody heard from Loukas on a weekly chart).
+- **Loukas Cycle Detection is retired:** still computed on saved charts, no longer offered. Every
+  part has a Cipher C counterpart (its ICL is the weekly low; DC Overdue is DCL Day past the window
+  end; its four-year phase is spoken in the Bitcoin preset words).
+- **Old Cipher C signals are retired** in the signal catalogue. A strategy or alert on one of the ten
+  (Top/Bottom Single/Double/Triple, Shallow Peak/Trough and so on) says it was removed on 2026-10-21
+  and names the nearest new part. A saved chart with the old Cipher C restores as the new one, on the
+  price pane, without the old ±75 and ±90 levels.
+- **StrategyLab:** Pulse Reversal Long (built on the old Cipher C bottoms) moved to the catalogue's
+  retired list; the ML export reads DCL Day and In DCL Window instead of the old bandpass.
+
+Two defects were found by the new tests while building, and fixed before commit:
+
+- A weekly stock chart's bar clock was inverted (5/7 instead of 7/5 days per bar), so the weekly
+  tier on SPY counted its window in the wrong unit.
+- A series moving from an oscillator pane to the price pane kept its old levels: the old Cipher C's
+  ±75 and ±90 would have been drawn as prices. Now cleared on that move only (`WorkspaceInitializer`).
+
+Tests (66 in `CipherCProviderTests`): the events on a bar never change when later bars arrive (four
+cuts of 15 years of Bitstamp BTC; every causal component is checked to have fired at least once);
+both CF Bitcoin labels; every low is its bar's low and confirmed later; cancel and fail rules; the
+counts; a weekly low is a daily low; weekly crypto and weekly stock charts; 13 symbol-to-preset
+cases; restore of a pre-rebuild save; the Alt+Shift+D words; the retired signals. Seen failing with
+each part undone: the 7/5 clock, the level clearing, the weekly-to-daily merge, a retired signal
+entry, a window bound declared causal, and a confirmation stamped on the low's bar instead.
+
+Caveats:
+- Nothing has been heard by ear. The sounds and speech are new and untried with Orca.
+- The lows are drawn on their own bar and are known only once confirmed (a median of nine bars on
+  SPX daily), like CF's. They are declared look-ahead, so strategies cannot use them; they can use
+  the events.
+- Twelve of the sixteen presets are estimates; only SPX, gold and Ethereum ranges were ever readable
+  on CF's screens, and Bitcoin's are Camel's spoken ones.
+- Not built: the future FCLR boxes right of the last bar, the D/W letter stacks, the "49D" suffix,
+  confluence that upgrades over later bars, the macro table and the Bullish Meter. Our confluence
+  scoring is our own (CF does not publish its three parts).
+- CF's own SPX counts fall inside its stated window only about 22% of the time. This follows the
+  method; it does not show the method works (`docs/CYCLE_SCHOOL_FINDINGS.md`).
+- No weekly chart with CF on it and no yearly cycle low was ever seen, so the weekly and yearly
+  tiers on a weekly chart are not compared to CF at all.
+- The bar clock is measured from the last 500 bars. Under seven days of a crypto chart it reads as a
+  stock's; nothing can be drawn on so little history, but the window bounds and preset are declared
+  look-ahead because of it.
+- The yearly tier needs about 2,000 daily bars; an hourly chart runs the daily tier only with 54+
+  days of bars (1,296 hourly bars for Bitcoin).
+- Pulse Reversal Long has not been re-tested on the new DCL Confirmed.
+- The accessibility-lead review agent the repo's hook asks for is not registered here, so no
+  accessibility review was run.
+
 ### The Trading dashboard lists every live account, including empty ones, and no sandbox keys (2026-10-21)
 
 Cody, with paper trading off: "I only see gemini and kraken in the balances tab ... the trading

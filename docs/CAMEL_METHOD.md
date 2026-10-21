@@ -499,8 +499,8 @@ partly opinion.
 
 The vendor calls it the **CF Cycle Trading Indicator**, a TradingView script built "between Camel
 Finance and the developers at Variance Technologies". "Cipher C" appears in neither the videos nor
-the vendor's pages; it is the lab's own name for the clone target, and the lab's existing
-`CipherCProvider` is an unrelated Ehlers cycle oscillator.
+the vendor's pages; it is the lab's own name for the clone target. (On 2026-10-21 `CipherCProvider` was rebuilt as that clone;
+it had been an unrelated Ehlers cycle oscillator. See `docs/CIPHER_C_DESIGN.md`.)
 
 **What it outputs**, per the vendor's docs (rules file, section "What his indicator computes"):
 

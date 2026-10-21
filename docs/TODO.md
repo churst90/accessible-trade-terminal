@@ -117,6 +117,24 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-21 — Cipher C rebuilt as cycle lows after CF's Cycle Trading Indicator;
+> Loukas retired; committed on branch `cipher-c-cf-cycles` (off `camel-render-alpaca-fixes`), NOT
+> pushed; see CHANGES and `docs/CIPHER_C_DESIGN.md`).** What is left:
+> - [ ] Cody to hear it with Orca: a daily Bitcoin and an SPX chart, a weekly chart (no "daily cycle
+>   low" should be said), Alt+Shift+D on a confirming bar. Nothing has been heard yet.
+> - [ ] Merge (both branches), push (the full suite runs there), restart the server: Cody's go-ahead.
+> - [ ] CF's future cycle low range (FCLR) boxes to the right of the last bar: the chart has no future
+>   bars to draw on. Needs a way to draw past the last bar, or a spoken "next low due between … and …".
+> - [ ] Confluence that upgrades LOW → MID → HIGH over the bars after a low, as CF's demo shows. Ours is
+>   fixed on the confirming bar.
+> - [ ] The D/W letter stacks and the "49D" suffix (ours is a plain number).
+> - [ ] A yearly cycle low has never been seen on CF's screens; ours is unchecked against it. Same for
+>   any weekly chart with CF on it.
+> - [ ] Twelve of the sixteen presets are estimates. Read more of Camel's videos for DXY, oil, silver,
+>   the miners and the crypto stocks' ranges if he says them.
+> - [ ] Re-test the retired Pulse Reversal Long on `CIPHER_C.DCL Confirmed` before reviving it.
+> - [ ] Drawing the window tint as CF's band is: only the past part is drawn.
+
 > **START HERE (2026-10-21 — the Camel cycles workspace broke on load: five defects FIXED on branch
 > `camel-render-alpaca-fixes`, committed locally; see CHANGES).** "Chart render failed" on every tab (a
 > short Loukas strip), Alpaca stock tabs opening on one candle the arrows could not leave (no `start`

@@ -89,14 +89,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// ends. The 2028 entry is an estimate based on average inter-halving spacing —
         /// it will be replaced with the actual date when the halving is confirmed.
         /// </summary>
-        private static readonly DateTime[] BtcHalvings =
-        {
-            new DateTime(2012, 11, 28, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2016,  7,  9, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2020,  5, 11, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2024,  4, 19, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2028,  4, 20, 0, 0, 0, DateTimeKind.Utc), // estimated
-        };
+        private static readonly DateTime[] BtcHalvings = CipherCEngine.BtcHalvings;
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -107,7 +100,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Name        = "Loukas Cycle Detection",
                 Category    = "Cycles",
                 DefaultPane = "Pane_LOUKAS",
-                Description = "Count-based layered cycle tracker: Daily Cycle, Intermediate Cycle, " +
+                // Retired 2026-10-21 in favour of the rebuilt Cipher C, which does everything this
+                // did per tier and per asset. Kept working for saved charts, strategies and the lab.
+                IsDeprecated = true,
+                Description = "Retired: use Cipher C, which now finds daily, weekly and yearly cycle lows per asset. " +
+                              "Count-based layered cycle tracker: Daily Cycle, Intermediate Cycle, " +
                               "and (BTC charts only) Four-Year Cycle phase. Pivot-anchored, timing-band " +
                               "aware, no momentum math. Pairs with Cipher C for count + turn " +
                               "confirmation setups. The default [35, 90] bar DC window was validated " +
