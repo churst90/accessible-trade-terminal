@@ -19,6 +19,11 @@ namespace AccessibleTrader.Plugins.Alpaca
         private string? _apiSecret;
         private const string StockDataUrl = "https://data.alpaca.markets/v2";
         private const string CryptoDataUrl = "https://data.alpaca.markets/v1beta3/crypto";
+
+        /// <summary>The start sent with <c>sort=desc</c> when a request names none: older than
+        /// any history Alpaca holds (SIP reaches 2016, crypto later), so the newest-N read is
+        /// never cut short by it.</summary>
+        internal const string NewestFirstStart = "2015-01-01T00:00:00Z";
         private string _tradingBaseUrl = "https://paper-api.alpaca.markets/v2";
 
         /// <summary>
@@ -199,6 +204,18 @@ namespace AccessibleTrader.Plugins.Alpaca
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// The market-data stream a market's bars come from. The stock stream's path IS the feed —
+        /// <c>/v2/sip</c> or <c>/v2/iex</c>; <c>/v2/stocks</c> does not exist, and every stock
+        /// tab's live stream failed its handshake with a 404 (Cody's Camel cycles workspace,
+        /// 2026-10-21). It follows the REST feed, so an account downgraded to IEX there is not
+        /// sent to a SIP stream it cannot authorise.
+        /// </summary>
+        internal string StreamUrlFor(string market)
+            => market.Contains("Crypto", StringComparison.OrdinalIgnoreCase)
+                ? "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
+                : $"wss://stream.data.alpaca.markets/v2/{_stockFeed}";
+
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)
         {
             if (_currentSymbol == symbol && _currentTimeframe == timeframe && _dataWs?.IsConnected == true) return;
@@ -211,9 +228,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (_dataWs != null) { await _dataWs.DisconnectAsync(); _dataWs.Dispose(); }
 
             bool isCrypto = market.Contains("Crypto", StringComparison.OrdinalIgnoreCase);
-            string wsUrl = isCrypto
-                ? "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
-                : "wss://stream.data.alpaca.markets/v2/stocks";
+            string wsUrl = StreamUrlFor(market);
 
             // Crypto streams key bars by the slashed pair (BTC/USD), same as REST.
             var cleanSymbol = isCrypto ? ToAlpacaCryptoSymbol(symbol) : CleanSymbol(symbol);
@@ -403,7 +418,13 @@ namespace AccessibleTrader.Plugins.Alpaca
                     ? $"{CryptoDataUrl}/us/bars?symbols={Uri.EscapeDataString(cryptoSym)}&timeframe={timeframe}"
                     : $"{StockDataUrl}/stocks/{stockSym}/bars?timeframe={timeframe}&feed={_stockFeed}&adjustment=all";
                 u += $"&limit={Math.Min(limit, 10000)}";
+                // An omitted start is NOT "the newest N bars": Alpaca defaults it to the beginning
+                // of the CURRENT DAY. A chart's initial load sends no Since, so every daily tab got
+                // today's one bar — a lone candle the arrow keys could not leave (Cody's Camel
+                // workspace, 2026-10-21). Newest-N is an early start read newest-first; the bars
+                // are put back in ascending order below.
                 if (request.Since.HasValue) u += $"&start={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}";
+                else u += $"&start={NewestFirstStart}&sort=desc";
                 if (request.Until.HasValue) u += $"&end={DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}";
                 if (!string.IsNullOrEmpty(pageToken)) u += $"&page_token={Uri.EscapeDataString(pageToken!)}";
                 return u;
@@ -425,13 +446,30 @@ namespace AccessibleTrader.Plugins.Alpaca
                     for (int page = 0; page < 20; page++)
                     {
                         await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
-                        var response = await _httpClient.GetStringAsync(BuildUrl(pageToken));
-                        var json = JObject.Parse(response);
-                        JArray? bars = isCrypto ? json["bars"]?[cryptoSym] as JArray : json["bars"] as JArray;
+                        // GetAsync, not GetStringAsync: Alpaca states its refusals in the BODY of a
+                        // 4xx ({"message":"subscription does not permit querying recent SIP data"}),
+                        // and GetStringAsync threw on the status before the body was read. So the SIP
+                        // downgrade below never ran against the real API, and every refusal surfaced
+                        // as a bare "400 (Bad Request)" — or, with no one listening, as an empty chart.
+                        using var httpResponse = await _httpClient.GetAsync(BuildUrl(pageToken)).ConfigureAwait(false);
+                        var response = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        int status = (int)httpResponse.StatusCode;
+                        // Throttling and server faults stay exceptions — they belong to the
+                        // pipeline's retry and circuit breaker (see TransportFailure).
+                        if (status is 408 or 429 || status >= 500) httpResponse.EnsureSuccessStatusCode();
+
+                        JObject json;
+                        try { json = JObject.Parse(response); }
+                        catch (Newtonsoft.Json.JsonReaderException) { json = new JObject(); }
+                        JArray? bars = httpResponse.IsSuccessStatusCode
+                            ? (isCrypto ? json["bars"]?[cryptoSym] as JArray : json["bars"] as JArray)
+                            : null;
 
                         if (bars == null)
                         {
                             var msg = json["message"]?.ToString();
+                            if (!httpResponse.IsSuccessStatusCode)
+                                msg = $"HTTP {status}: {(string.IsNullOrWhiteSpace(msg) ? (response.Length > 200 ? response[..200] : response) : msg)}";
 
                             // Not entitled to SIP: downgrade once, tell the user which feed they are
                             // now on, and retry. Falling back silently would leave them looking at
@@ -474,7 +512,9 @@ namespace AccessibleTrader.Plugins.Alpaca
                         if (string.IsNullOrEmpty(pageToken) || ohlcvList.Count >= limit) break;
                     }
 
+                    // Newest-first pages are put back in time order; the newest `limit` are kept.
                     ohlcvList = ohlcvList.OrderBy(x => x.Date).ToList();
+                    if (!request.Since.HasValue && ohlcvList.Count > limit) ohlcvList = ohlcvList.Skip(ohlcvList.Count - limit).ToList();
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
             }

@@ -117,6 +117,24 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-21 — the Camel cycles workspace broke on load: five defects FIXED on branch
+> `camel-render-alpaca-fixes`, committed locally; see CHANGES).** "Chart render failed" on every tab (a
+> short Loukas strip), Alpaca stock tabs opening on one candle the arrows could not leave (no `start`
+> sent), Alpaca's 4xx reasons never read, the stock live stream 404ing (`/v2/stocks`), and a tab switch
+> that turned the DIA tab into Crypto AAVE/USD. What is left:
+> - [ ] Not pushed, not deployed, and Cody's running server is still on the old build. Merge, push
+>   (the full suite runs there), restart the local server: each needs Cody's go-ahead.
+> - [ ] The GLD 1d tab's "400 (Bad Request)": the reason is unknown because the body was never read.
+>   With the fix the error line carries Alpaca's message; read it on the next load.
+> - [ ] One Bitstamp "400 BadRequest" for BTCUSDT from the MarketFeedHub live subscription. Every
+>   parameter probe of the same request returned 200; not reproduced.
+> - [ ] The session file already saved the DIA tab as Crypto Alpaca AAVE/USD, and dropped the Loukas
+>   `EnableFourYearCycle` string parameter. The fix stops new damage but does not repair a saved tab:
+>   reload the "Camel cycles" workspace itself. Why the string parameter was dropped is not yet known.
+> - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with
+>   Cody's key. Both behaviours (no start = today only; early start + `sort=desc` = newest N) were
+>   verified by curl on Alpaca's keyless CRYPTO bars endpoint, not on the stock one.
+>
 > **Filed (Cody, 2026-10-18: "we'll get to the notes section later") — Journal NOTES.** Today's Journal is an
 > in-memory log (2,000 entries, lost on restart) of speech, alerts, signals and errors, with no user notes. Wanted:
 > a Notes tab (or its own Trade Journal window — Cody to choose) with a New note button and a chart shortcut;

@@ -103,6 +103,35 @@ public sealed class SubPaneStripTests
     // ── The axis ─────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// A strip too short for one axis label draws none, and the frame survives. The label band
+    /// (one text line below the strip's top, three pixels above its bottom) inverts once the strip
+    /// is shorter than that, and <c>Math.Clamp</c> throws on an inverted band: the Camel cycles
+    /// workspace's Loukas tabs failed every frame with "'770.375' cannot be greater than 764"
+    /// (Cody, 2026-10-21). Render swallows and logs the exception, so the logger is the witness;
+    /// every canvas height from a phone-landscape sliver up is tried, so the test does not depend
+    /// on which height the layout happens to make too short.
+    /// </summary>
+    [Fact]
+    public void A_strip_too_short_for_a_label_does_not_fail_the_frame()
+    {
+        var failures = new List<int>();
+        for (int h = 80; h <= 400; h += 4)
+        {
+            var appLogger = Substitute.For<IAppLogger>();
+            var renderer = new ChartRenderer(Themes(),
+                new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
+                new PaneLayoutService(), NullLogger<ChartRenderer>.Instance, appLogger);
+            using var bmp = new SKBitmap(W, h);
+            using (var canvas = new SKCanvas(bmp))
+                renderer.Render(canvas, W, h, Bars(), new[] { Cycles() }, -1, 0, N, (95, 110), Ranges,
+                    rightMarginBars: 0, identity: new ChartIdentity("Spot", "Bitstamp", "BTCUSDT", "1d"));
+            if (appLogger.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(IAppLogger.LogError)))
+                failures.Add(h);
+        }
+        Assert.True(failures.Count == 0, $"Render failed at canvas heights {string.Join(", ", failures)}");
+    }
+
+    /// <summary>
     /// Each plot's newest-value label sits on the row its line is drawn on: the pane's line on the
     /// pane's axis, mapped over the area above the strip; the strip's line on the strip's part of
     /// the axis, mapped over the strip on the strip's range.

@@ -1131,6 +1131,104 @@ public class ProviderFetchOhlcvTests
                 Assert.All(handler.Captured, r => Assert.DoesNotContain("feed=sip", r.RequestUri!.ToString()));
             }
 
+            // ── The Camel cycles workspace (2026-10-21) ──────────────────────
+            // Every Alpaca stock tab opened on ONE candle the arrows could not leave, the live
+            // stream 404'd, and the 400s the API sent back never said why.
+
+            [Fact]
+            public async Task AnInitialLoad_AsksForTheNewestBars_NotJustToday()
+            {
+                // An omitted start is the beginning of the CURRENT DAY to Alpaca, so a request
+                // with no Since got today's one bar. Newest-N is an early start read newest-first.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[
+                      {"t":"2026-01-03T00:00:00Z","o":3,"h":3,"l":3,"c":3,"v":3},
+                      {"t":"2026-01-02T00:00:00Z","o":2,"h":2,"l":2,"c":2,"v":2},
+                      {"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}
+                    ],"next_page_token":null}
+                    """);
+                var provider = NewConfigured(handler);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "DIA", "1d", 2));
+
+                var url = handler.Captured.Single().RequestUri!.ToString();
+                Assert.Contains("start=" + AccessibleTrader.Plugins.Alpaca.AlpacaProvider.NewestFirstStart, Uri.UnescapeDataString(url));
+                Assert.Contains("sort=desc", url);
+                // Newest-first on the wire, oldest-first to the chart; the newest `limit` kept.
+                Assert.Equal(new[] { 2d, 3d }, result.Ohlcv.Select(b => b.Open));
+            }
+
+            [Fact]
+            public async Task ARequestFromADate_ReadsForwardFromIt()
+            {
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks", """
+                    {"bars":[{"t":"2026-01-01T00:00:00Z","o":1,"h":1,"l":1,"c":1,"v":1}],"next_page_token":null}
+                    """);
+                var provider = NewConfigured(handler);
+                long since = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+                await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "DIA", "1d", 100) { Since = since });
+
+                var url = Uri.UnescapeDataString(handler.Captured.Single().RequestUri!.ToString());
+                Assert.Contains("start=2026-01-01T00:00:00Z", url);
+                Assert.DoesNotContain("sort=desc", url);
+            }
+
+            [Fact]
+            public async Task ASipRefusalSentAsA403_StillDowngradesToIex()
+            {
+                // The real API refuses SIP with a 403. GetStringAsync threw on it before the body
+                // was read, so the downgrade below only ever ran against a 200 that no server sends.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler()
+                    .Add(HttpMethod.Get, @"feed=sip", """{"message":"subscription does not permit querying recent SIP data"}""", HttpStatusCode.Forbidden)
+                    .Add(HttpMethod.Get, @"feed=iex", """
+                        {"bars":[{"t":"2026-01-01T00:00:00Z","o":10,"h":11,"l":9,"c":10.5,"v":100}],"next_page_token":null}
+                        """);
+                var provider = NewConfigured(handler);
+                string? notice = null;
+                using var sub = provider.ErrorStream.Subscribe(e => notice = e);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "SPY", "1d", 100));
+
+                Assert.Single(result.Ohlcv);
+                Assert.Contains("IEX", notice!);
+            }
+
+            [Fact]
+            public async Task ARefusal_SaysWhatAlpacaSaid()
+            {
+                // "400 (Bad Request)" was all the log ever said about GLD. The body names the reason.
+                using var _ = new Fakes.FakeApiKeyCheckout().Install();
+                var handler = new FakeHttpMessageHandler().Get(@"alpaca\.markets.*stocks",
+                    """{"message":"invalid start"}""", HttpStatusCode.BadRequest);
+                var provider = NewConfigured(handler);
+                var notices = new List<string>();
+                using var sub = provider.ErrorStream.Subscribe(notices.Add);
+
+                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Stock", "GLD", "1d", 100));
+
+                Assert.Empty(result.Ohlcv);
+                Assert.Contains(notices, n => n.Contains("400") && n.Contains("invalid start") && n.Contains("GLD"));
+            }
+
+            [Theory]
+            [InlineData("Stock|Spot", null, "wss://stream.data.alpaca.markets/v2/sip")]
+            [InlineData("Stock", "iex", "wss://stream.data.alpaca.markets/v2/iex")]
+            [InlineData("Crypto|Spot", null, "wss://stream.data.alpaca.markets/v1beta3/crypto/us")]
+            public void TheLiveStream_IsTheFeedsOwnPath(string market, string? feed, string expected)
+            {
+                // "/v2/stocks" does not exist; every stock tab's stream failed its handshake with a 404.
+                var provider = new AccessibleTrader.Plugins.Alpaca.AlpacaProvider();
+                var cfg = new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s" };
+                if (feed != null) cfg["Feed"] = feed;
+                provider.Configure(cfg);
+
+                Assert.Equal(expected, provider.StreamUrlFor(market));
+            }
+
             [Fact]
             public async Task ConfiguredFeedOverride_IsNotSecondGuessed()
             {

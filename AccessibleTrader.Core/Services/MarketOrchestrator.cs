@@ -382,11 +382,16 @@ namespace AccessibleTrader.Core.Services
         /// Aligns the top-level market and the dependent option lists with a tab's identity.
         ///
         /// <para>
-        /// <see cref="ChartIdentity"/> carries the provider, symbol, timeframe and sub-type, but
-        /// NOT the top-level market ("Crypto" / "Stock" / …) — so that one has to be recovered
-        /// from the provider. The current market is kept when the provider supports it, which
-        /// avoids yanking the user between Crypto and Futures when both would be valid; otherwise
-        /// the provider's first supported market wins.
+        /// The tab's own category wins when the identity carries one (a composite
+        /// <c>"Stock|Spot"</c>) and the provider supports it. Only an identity without one — a bare
+        /// sub-type, from before composites — falls back to keeping the current market when the
+        /// provider supports it, and then to the provider's first.
+        /// </para>
+        /// <para>
+        /// The tab's category used to be ignored outright: switching from a Crypto tab to an
+        /// Alpaca DIA tab kept "Crypto" because Alpaca supports Crypto too, the symbol list
+        /// reloaded as Alpaca's crypto pairs, and the DIA tab was saved back as AAVE/USD
+        /// (Cody, 2026-10-21, the Camel cycles workspace).
         /// </para>
         /// </summary>
         private async Task SyncMarketToProviderAsync(ChartIdentity identity)
@@ -401,7 +406,11 @@ namespace AccessibleTrader.Core.Services
             if (markets == null || markets.Count == 0) return;
 
             var names = markets.Select(m => m.ToString()).ToList();
-            if (!names.Any(m => string.Equals(m, _selectedMarket, StringComparison.OrdinalIgnoreCase)))
+            var tabCategory = names.FirstOrDefault(m =>
+                string.Equals(m, Sdk.Models.MarketKey.Category(identity.Market), StringComparison.OrdinalIgnoreCase));
+            if (tabCategory != null)
+                _selectedMarket = tabCategory;
+            else if (!names.Any(m => string.Equals(m, _selectedMarket, StringComparison.OrdinalIgnoreCase)))
                 _selectedMarket = names[0];
 
             // Repopulate the option lists so the dropdowns can actually display the new values.

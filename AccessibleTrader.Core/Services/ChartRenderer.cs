@@ -653,6 +653,14 @@ namespace AccessibleTrader.Core.Services
 
             float minLabelSpacing = _textFont.Size + (4 * density);
             float lastTextY = float.MaxValue;
+            // A strip shorter than one label has no room for any: the band a label may sit in is
+            // inverted, and Math.Clamp THROWS on an inverted band rather than picking a side. A
+            // 5-line status block over a short sub-pane strip (Loukas cycles under a price pane)
+            // did exactly that, and the exception failed the whole frame — "chart render failed"
+            // on every tab carrying one (Cody, 2026-10-21, the Camel cycles workspace).
+            float labelTop = rect.Top + _textFont.Size + (6 * density);
+            float labelBottom = rect.Bottom - (3 * density);
+            if (labelBottom < labelTop) return;
 
             double firstLine = Math.Ceiling(min / niceStep) * niceStep;
             int safety = 0;
@@ -664,9 +672,7 @@ namespace AccessibleTrader.Core.Services
                 // can move a top label down by most of a line height, and it used to do so after
                 // the check had already passed: on a log-scale price pane "120.00" cleared
                 // "115.00" by 23px on the gridline and then landed 9px above it on the page.
-                float textY = Math.Clamp(y + (4 * density),
-                    rect.Top + _textFont.Size + (6 * density),
-                    rect.Bottom - (3 * density));
+                float textY = Math.Clamp(y + (4 * density), labelTop, labelBottom);
                 if (Math.Abs(textY - lastTextY) < minLabelSpacing) continue;
                 if (avoidTextYs != null && avoidTextYs.Any(a => Math.Abs(textY - a) < minLabelSpacing)) continue;
                 lastTextY = textY;

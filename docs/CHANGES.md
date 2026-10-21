@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Camel cycles workspace loads: five defects behind "chart render failed" and Alpaca's one candle (2026-10-21)
+
+Cody loaded the new "Camel cycles" workspace and every tab said "chart render failed"; the Alpaca
+stock tabs that did draw held one candle the arrow keys could not leave. The server log showed four
+separate faults, and the saved session showed a fifth.
+
+- **A sub-pane strip shorter than one axis label failed the whole frame.** `RenderYAxis` clamps
+  each label between one text line below the strip's top and 3 px above its bottom. On a short
+  Loukas cycles strip under a five-line status block that band inverts, and `Math.Clamp` throws
+  rather than picking a side ("'770.375' cannot be greater than 764"). A strip with no room now
+  draws no labels; the other clamps in the file were already guarded.
+- **Alpaca sent no `start`, and an omitted start is the beginning of today.** Every initial load
+  (no `Since`) returned at most today's bar. It now asks for an early start read newest-first
+  (`sort=desc`), puts the bars back in time order and keeps the newest `limit`. A request with a
+  `Since` still reads forward from it.
+- **Alpaca's refusals were never read.** `GetStringAsync` threw on any 4xx before the body was
+  parsed, so the log said only "400 (Bad Request)", and the SIP-to-IEX downgrade, which reads the
+  refusal message, could not run against the real API (it sends a 403). The body is now read on
+  every status; 408, 429 and 5xx still throw for the pipeline's retry, and other refusals are
+  reported with Alpaca's message ("HTTP 400: ...").
+- **The stock live stream URL did not exist.** `/v2/stocks` 404s; the path is the feed, `/v2/sip`
+  or `/v2/iex`, and it now follows the REST feed, including after a downgrade.
+- **Switching tabs kept the previous tab's market.** The toolbar sync kept the current market
+  whenever the provider supported it, and Alpaca supports Crypto too. Switching from a Crypto tab
+  to the DIA tab loaded Alpaca's crypto symbols, DIA was not among them, and the tab was saved back
+  as Crypto AAVE/USD. A composite identity's own category (`"Stock|Spot"`) now wins; an identity
+  without one keeps the old behaviour.
+
+Tests, each seen failing with its defect put back and passing with the fix (17 listed, README
+9163 → 9180): `SubPaneStripTests.A_strip_too_short_for_a_label_does_not_fail_the_frame` (renders at
+every canvas height from 80 to 400 px), `TabKeepsItsMarketTests` (2), and in the Alpaca fetch tests
+an initial load's `start`/`sort=desc` and newest-`limit` order, a dated request reading forward, a
+403 SIP refusal still downgrading, a 400's message reaching the error stream, and the stream URL
+per feed (each also runs under de-DE). A filtered run of 1,832 provider, renderer, orchestrator
+and market tests passed.
+
+Caveats: not yet run live with Cody's Alpaca key, and not pushed. The fix does not repair a
+session file that already saved the DIA tab as AAVE/USD. Why GLD got a 400 is still unknown: the
+next load will log Alpaca's reason.
+
 ### A live strategy first evaluates on the same bar count as its backtest: 201 by default (2026-10-20)
 
 A backtest feeds its warmup bars without taking signals and first evaluates the bar after them, so
