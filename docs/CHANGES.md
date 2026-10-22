@@ -26,7 +26,7 @@ The DCL and WCL count labels print `49D` / `24W`; their spoken readings remain t
 - **Red-first:** the 14 new/changed cases in `CipherCProviderTests`, `MarkerSizingTests` and
   `ValueLabelRenderingTests` were run before implementation: 14 expected failures, 210 passed. After
   implementation the focused filter passed 230/230; the wider filter passed 1,920/1,920 and the
-  source-reading classes passed 865/865. `CipherCProviderTests` now has 84 passing cases.
+  source-reading classes passed 867/867. `CipherCProviderTests` now has 84 passing cases.
 - **Sabotage:** drawing `CheckBox` without its check turned 2 cases red; dropping `MarkerText` in
   value-label layout turned 2 red; omitting the factory's metadata copy turned 2 red. Each file was
   restored from `strategy-lab-data/sab/`, verified clean with `git diff --quiet`, rebuilt, and the
