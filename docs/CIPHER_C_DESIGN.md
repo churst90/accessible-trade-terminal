@@ -64,15 +64,15 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 
 | # | CF | Cipher C |
 |---|---|---|
-| 1 | Green ▲ / "D" ring / camel under each daily cycle low | Green triangle under the low (DCL) |
-| 2 | Blue stack under each weekly cycle low, one row under the D | Bigger blue triangle (WCL) |
-| 3 | Yearly cycle low (described in the docs, never seen) | Bigger gold triangle (YCL) |
-| 4 | ✅ on the bar a low is confirmed | Square above the bar (DCL / WCL / YCL Confirmed) |
-| 5 | 🔄 pending | Grey dot (Cycle Low Pending) |
+| 1 | Green ▲ / "D" ring / camel under each daily cycle low | Green triangle with a D ring under the low (DCL) |
+| 2 | Blue stack under each weekly cycle low, one row under the D | Bigger blue triangle with a W ring (WCL) |
+| 3 | Yearly cycle low (described in the docs, never seen) | Bigger gold triangle with a Y ring (YCL) |
+| 4 | ✅ on the bar a low is confirmed | Green rounded check box above the bar (DCL / WCL / YCL Confirmed) |
+| 5 | 🔄 pending | Grey-blue rounded refresh box (Cycle Low Pending) |
 | 6 | ❌ cancelled, in a green box | Red cross (Cycle Low Cancelled); the next low is Cycle Low Updated |
 | 7 | Live confirmation marker above price | Same square as 4 |
 | 8 | LOW / MID / HIGH confluence text | Cycle Low Confluence (1, 2, 3), spoken as low/mid/high |
-| 9 | Cycle count "49D" | DCL Count / WCL Count over the low, in days or weeks |
+| 9 | Cycle count "49D" | DCL / WCL count over the low with a D / W suffix (for example, 49D / 24W) |
 | 10 | Green daily Future Cycle Low Range band | Green tint while the daily cycle is in its window (past only) |
 | 11 | Blue weekly FCLR band | In WCL Window (not drawn) |
 | 12 | Yellow low-to-low arcs | Cycle Arc: a mustard wave of equal humps under the candles, troughs under the lows |
@@ -153,9 +153,8 @@ trading days. (This was inverted while building and caught by a test; see CHANGE
   newly read stock/miner tables and the updated gold table are now marked as CF's own; the stock
   daily-values-as-trading-days reading is an inference from the TradingView charts.
 - **Not built:** CF's future FCLR boxes to the right of the last bar (the chart has no future bars to
-  draw on), the D/W letters and camel stacking, the "49D" suffix (the count is a number), confluence
-  that upgrades from LOW to MID to HIGH over the following bars (ours is fixed at confirmation), the
-  US macro table and the Bullish Meter.
+  draw on), the camel emoji in the D/W/Y low stacks, confluence that upgrades from LOW to MID to HIGH
+  over the following bars (ours is fixed at confirmation), the US macro table and the Bullish Meter.
 - **Confluence is ours, not CF's.** CF names three parts (breakout, momentum, supporting indicators)
   without definitions. Cipher C gives one point each on the confirming bar for: the cycle that just
   ended was inside its normal length, the close is above the 10 SMA, and the close is above the low

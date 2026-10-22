@@ -127,7 +127,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   bars to draw on. Needs a way to draw past the last bar, or a spoken "next low due between … and …".
 > - [ ] Confluence that upgrades LOW → MID → HIGH over the bars after a low, as CF's demo shows. Ours is
 >   fixed on the confirming bar.
-> - [ ] The D/W letter stacks and the "49D" suffix (ours is a plain number).
+> - [x] The D/W/Y letter rings and the 49D / 24W count suffixes are built (2026-10-21).
 > - [ ] A yearly cycle low has never been seen on CF's screens; ours is unchecked against it. Same for
 >   any weekly chart with CF on it.
 > - [x] Twelve of the sixteen presets were estimates. The five newly read crypto-stock/miner tables
@@ -151,9 +151,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   - [x] The Cycle Arc is on the price chart as CF draws it: equal humps under the candles, troughs
 >     under the lows (2026-10-21). [ ] Cody to look: does the pane still give the candles enough room?
 >     CF lets the user set arc height and position; ours are fixed (a quarter of the median swing).
->   - [ ] More of CF's look, not built: a check mark for Confirmed (ours is a square), circular arrows
->     for Pending (a grey dot), the cancelled cross in a green box, the "49D" suffix and D/W letters.
->     Each needs a new marker shape in the renderer, speech and tactile paths.
+>   - [ ] More of CF's look, not built:
+>     - [x] Green check mark for Confirmed.
+>     - [x] Grey-blue refresh mark for Pending.
+>     - [x] D/W/Y letters in the low rings.
+>     - [x] "49D" / "24W" suffixes on the cycle counts.
+>     - [ ] The cancelled low's green box around the original stack (ours is a red cross on the cancelling bar).
+>     - [ ] CF puts the check under the low's own stack once confirmed; ours sits above the confirming bar.
+>     - [ ] CF's LOW / MID / HIGH text under the stack; ours is spoken only.
+>     - [ ] The camel emoji.
 >     So the "2" on the vendor's docs page was an example, not the default. SMA is 10 on close.
 >   - Notes in `strategy-lab-data/cf-frames2/REPORT.md` (gitignored). Its band dates are pixel
 >     guesses and some are wrong: MSTR's band copies COIN's dates.
