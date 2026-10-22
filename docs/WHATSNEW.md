@@ -9,10 +9,13 @@
 ## Unreleased
 
 - **Heikin-Ashi now feeds your indicators, as on TradingView.** With Heikin-Ashi on (Alt+C), RSI,
-  MACD, moving averages, Cipher A, B and C, DBSI and your own indicators compute on the Heikin-Ashi
-  candles, and switching it recomputes them at once. Cipher B now puts its dots on the same bars as
-  Market Cipher B's Heikin-Ashi screenshots. Strategies still read the real prices, so they trade what
-  the backtester tested. Volume, profiles, the heatmap, drawings and price in alerts stay real too.
+  MACD, moving averages, Cipher A, B and C, Cipher DBSI and your own indicators compute on the Heikin-Ashi
+  candles, and switching it recomputes them at once. Cipher A and Cipher B now put their marks on the
+  same bars as Market Cipher's Heikin-Ashi screenshots. Every close you hear is the Heikin-Ashi close
+  too: the new-bar announcement, background tabs, toasts, price and candle-pattern alerts, price
+  crossing a line or a moving average, and the crossing chirp. Turn Heikin-Ashi off and they are the
+  real close again. Strategies still read the real prices, so they trade what the backtester tested. Volume, profiles, the heatmap, drawings, chart formations
+  and the close line stay real.
 - **Cipher B no longer has a gold dot.** Market Cipher B draws none; ours came from the free VuManChu
   Cipher B, so it is gone. Everything else Cipher B draws and says is exactly as before. A saved chart
   opens without it, and a strategy or alert built on it tells you it was removed.
@@ -26,7 +29,7 @@
   strategies and alerts tell you its old parts were removed.
 - **Loukas Cycle Detection is retired** in favour of the new Cipher C. Charts that have it keep
   working, but it is no longer in the indicator list.
-- **New indicator: Dual Band Strength (DBSI-style).** A bulls score under each candle and a bears score
+- **New indicator: Cipher DBSI.** A bulls score under each candle and a bears score
   over it, like Market Cipher DBSI, plus a 200-bar trend line. Land on a score to hear "Bulls 15, bears
   minus 5, bulls in control"; with narration on it tells you when control changes hands. It is our
   reconstruction: it names the side in control as DBSI does about 9 candles in 10, but its numbers are

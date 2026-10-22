@@ -168,6 +168,15 @@ namespace AccessibleTrader.Core.Services.Feeds
         {
             try
             {
+                // The close and open as the tab draws them: Heikin-Ashi on a Heikin-Ashi tab, as
+                // the focused chart says them.
+                if (IsHeikinAshiTab(feed.Identity) && feed.Bars is { Count: >= 2 } all
+                    && all[^1].Date == opened.Date && all[^2].Date == closed.Date)
+                {
+                    var drawn = ChartMath.BarsAsDrawn(all, all.Count - 1, 2, isHeikinAshi: true);
+                    if (drawn.Count == 2) (closed, opened) = (drawn[0], drawn[1]);
+                }
+
                 string sentence = BackgroundSentence(feed.Identity, closed, opened);
                 string? ladder = await LadderAsync(feed).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(ladder)) sentence = sentence + " " + ladder;
@@ -231,6 +240,18 @@ namespace AccessibleTrader.Core.Services.Feeds
             var observed = await chart.ObserveAsync(bars, isFullHistory: true, CancellationToken.None)
                                       .ConfigureAwait(false);
             return observed?.Narration;
+        }
+
+        /// <summary>Does the saved tab for <paramref name="identity"/> show Heikin-Ashi candles?
+        /// Whatever series it has — a tab with none still speaks its close.</summary>
+        private bool IsHeikinAshiTab(ChartIdentity identity)
+        {
+            try { return _store.State.TabSnapshots?.Any(s => s.Identity.Equals(identity) && s.IsHeikinAshi) ?? false; }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Could not read the candle type for {Symbol}.", identity.Symbol);
+                return false;
+            }
         }
 
         /// <summary>

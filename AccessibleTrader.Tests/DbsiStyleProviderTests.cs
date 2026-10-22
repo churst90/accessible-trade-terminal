@@ -69,6 +69,17 @@ public sealed class DbsiStyleProviderTests
         Assert.Equal(true, meta.Parameters.Single(p => p.Name == DbsiStyleProvider.ParamHeikinAshi).DefaultValue);
     }
 
+    /// <summary>Cody, 2026-10-22: "call dbsi cipher dbsi" — the name in the indicator list, on the series
+    /// and in speech, beside Cipher A, B and SR. The code stays DBSI_STYLE so saved workspaces still load.</summary>
+    [Fact]
+    public void It_is_called_Cipher_DBSI_and_keeps_its_code()
+    {
+        var provider = new DbsiStyleProvider();
+        Assert.Equal("Cipher DBSI", provider.Name);
+        Assert.Equal("Cipher DBSI", provider.GetIndicators()[0].Name);
+        Assert.Equal("DBSI_STYLE", provider.GetIndicators()[0].Code);
+    }
+
     // ── The trend line ───────────────────────────────────────────────────────────
 
     /// <summary>The 200 EMA, SMA-seeded (Pine's ta.ema): its first value is the mean of the first 200 closes.</summary>

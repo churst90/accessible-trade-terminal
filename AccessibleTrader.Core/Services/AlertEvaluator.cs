@@ -87,6 +87,7 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyDictionary<string, double> previousValues)
         {
             var results = new List<AlertFired>();
+            (newBar, previousBar) = AsDrawn(state, newBar, previousBar);
 
             foreach (var alert in alerts)
             {
@@ -111,6 +112,27 @@ namespace AccessibleTrader.Core.Services
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// The two bars as the chart draws them. On a Heikin-Ashi chart a price, candle or POC
+        /// alert reads the Heikin-Ashi close — what TradingView fires an alert made on such a
+        /// chart on, and what Cody asked for (2026-10-22: "if ha is on and a bar closes, speak
+        /// that close"). The bars are found in <c>state.Data</c> by date; a caller that handed
+        /// in bars the state does not hold gets them back unchanged.
+        /// </summary>
+        internal static (Ohlcv NewBar, Ohlcv PreviousBar) AsDrawn(WorkspaceState state, Ohlcv newBar, Ohlcv previousBar)
+        {
+            var data = state.Data;
+            if (!state.IsHeikinAshi || data == null || data.Count < 2) return (newBar, previousBar);
+            for (int i = data.Count - 1; i >= Math.Max(1, data.Count - 3); i--)
+            {
+                if (data[i].Date != newBar.Date) continue;
+                if (data[i - 1].Date != previousBar.Date) break;
+                var drawn = ChartMath.BarsAsDrawn(data, i, 2, isHeikinAshi: true);
+                return drawn.Count == 2 ? (drawn[1], drawn[0]) : (newBar, previousBar);
+            }
+            return (newBar, previousBar);
         }
 
         /// <summary>
@@ -359,7 +381,9 @@ namespace AccessibleTrader.Core.Services
             // detected on this path. An alert configured for any of them was silently dead: it
             // saved, it listed, it never fired. They are public API on AlertDefinition, so the UI
             // offering them was never the thing that made them reachable.
-            var data = state.Data;
+            // As drawn, like the two bars this was handed (AsDrawn): a Heikin-Ashi chart's
+            // pattern is the Heikin-Ashi candles' pattern, as the arrow keys name it.
+            var data = state.Data == null ? null : ChartMath.SeriesAsDrawn(state.Data, state.IsHeikinAshi);
             Ohlcv? twoBarsAgo = (data != null && data.Count >= 3) ? data[^3] : (Ohlcv?)null;
 
             var analysis = _patternAnalyzer.Analyze(current, previous, twoBarsAgo, data);

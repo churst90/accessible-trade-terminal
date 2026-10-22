@@ -495,6 +495,29 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// Every bar AS DRAWN: the Heikin-Ashi series when that mode is on, <paramref name="data"/>
+        /// itself otherwise. For a reader that walks many bars — a scan, a crossing search — and
+        /// would pay <see cref="BarAsDrawn"/>'s O(n) rebuild once per bar.
+        ///
+        /// <para>What reads this: everything that takes a bar's price AT A BAR CLOSE — the spoken
+        /// close and open, price alerts, price crossing an indicator or a drawn line, the
+        /// narration's price. On TradingView a Heikin-Ashi chart's close IS the Heikin-Ashi close
+        /// for all of those (alerts made on such a chart fire on it), and Cody asked for exactly
+        /// that (2026-10-22: "if ha is on and a bar closes, speak that close, simple as that. if
+        /// ha is off, speak the real close"). Orders, fills and P&amp;L never read this.</para>
+        ///
+        /// <para>Not cached: the bar buffer is mutated in place by the live feed, so a cache keyed
+        /// on the list would hand back yesterday's candles. One transform of a few thousand bars
+        /// per event is microseconds.</para>
+        /// </summary>
+        public static IReadOnlyList<Ohlcv> SeriesAsDrawn(IReadOnlyList<Ohlcv> data, bool isHeikinAshi)
+        {
+            // The single-bar guard of BarAsDrawn, for the same reason.
+            if (!isHeikinAshi || data.Count <= 1) return data;
+            return CalculateHeikinAshi(data as List<Ohlcv> ?? data.ToList());
+        }
+
+        /// <summary>
         /// Maps a cursor X pixel position to an absolute bar index in the loaded data.
         /// Inverse of the renderer's bar layout: 0 px = ViewportStartIndex, full width =
         /// start + length - 1. The result is NOT clamped to the data range — callers

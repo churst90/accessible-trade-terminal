@@ -398,16 +398,18 @@ namespace AccessibleTrader.Tests
 
         /// <summary>
         /// A background tab showing Heikin-Ashi narrates indicators computed on Heikin-Ashi
-        /// candles, as the tab itself draws them. After a hundred flat bars at 100, one bar opens
-        /// at 100, wicks to 300 and closes at 101. On the real bars the EMA 20 moves to about
-        /// 100.1, under the close: a cross. Its Heikin-Ashi close is (100+300+100+101)/4, about
-        /// 150, which lifts the Heikin-Ashi EMA to about 104.8, over the close: no cross. The
-        /// raw tab is the control that shows the bars do make a cross.
+        /// candles, crossed by the Heikin-Ashi close, as the tab itself draws them (Cody,
+        /// 2026-10-22: "if ha is on and a bar closes, speak that close"). After a hundred flat
+        /// bars at 100, one bar opens at 100, wicks to 300 and closes at 101. On the real bars the
+        /// close 101 crosses an EMA 20 that moves to about 100.1. Its Heikin-Ashi close is
+        /// (100+300+100+101)/4 = 150.25, which crosses a Heikin-Ashi EMA lifted to 104.79. Before
+        /// 2026-10-22 the raw close was held against the Heikin-Ashi EMA (101 under 104.79: no
+        /// cross) — a cross of two lines that are not on the same chart.
         /// </summary>
         [Theory]
-        [InlineData(false, true)]
-        [InlineData(true, false)]
-        public async Task ABackgroundHeikinAshiTab_narratesIndicatorsOnHeikinAshiCandles(bool heikinAshi, bool crosses)
+        [InlineData(false, "at 100.1")]
+        [InlineData(true, "at 104.79")]
+        public async Task ABackgroundHeikinAshiTab_narratesIndicatorsOnHeikinAshiCandles(bool heikinAshi, string crossedAt)
         {
             using var h = new Harness(withNarration: true);
             h.Hub.SetFocus(Id("BTC/USD"));
@@ -440,7 +442,14 @@ namespace AccessibleTrader.Tests
 
             string all;
             lock (h.Published) all = string.Join(" | ", h.Published.Select(e => e.Narration ?? ""));
-            Assert.True(crosses == all.Contains("crossed above EMA", StringComparison.Ordinal), $"heikinAshi={heikinAshi}: [{all}]");
+            Assert.True(all.Contains($"crossed above EMA 20 {crossedAt}", StringComparison.Ordinal), $"heikinAshi={heikinAshi}: [{all}]");
+
+            // And the close it says (and toasts) for the wick bar is the drawn one: 101 raw, 150.25 Heikin-Ashi.
+            BackgroundBarClosedEvent wick;
+            lock (h.Published) wick = h.Published.Single(e => e.ClosedBar.Date == T0.AddHours(101));
+            Assert.Equal(heikinAshi ? 150.25 : 101, wick.ClosedBar.Close, 9);
+            Assert.Contains($"close {(heikinAshi ? "150.25" : "101.00")}",
+                BackgroundBarAnnouncer.BackgroundSentence(eth, wick.ClosedBar, wick.NewBar), StringComparison.Ordinal);
         }
 
         /// <summary>A bar whose VOLUME moves, so a narrated volume pane has something to report.</summary>

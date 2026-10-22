@@ -59,6 +59,79 @@ namespace AccessibleTrader.Tests
         private static readonly IReadOnlyDictionary<string, double> NoPrev =
             new Dictionary<string, double>();
 
+        /// <summary>
+        /// Cody, 2026-10-22: with Heikin-Ashi on, the close at a bar close is the Heikin-Ashi close
+        /// — what TradingView fires an alert made on such a chart on. Ten flat bars at 100, then
+        /// one that closes at 110 off a 111 high: the raw close is 110, the Heikin-Ashi close
+        /// (100 + 111 + 99 + 110) / 4 = 105. A 107 alert crosses on the raw bar and not on the
+        /// drawn one; a 103 alert crosses on both, at the close the chart shows.
+        /// </summary>
+        [Theory]
+        [InlineData(false, 107.0, 110.0)]
+        [InlineData(true, 107.0, double.NaN)]
+        [InlineData(false, 103.0, 110.0)]
+        [InlineData(true, 103.0, 105.0)]
+        public void APriceAlert_ReadsTheCloseTheChartDraws(bool heikinAshi, double threshold, double firesAt)
+        {
+            var bars = Enumerable.Range(0, 10).Select(i => new Ohlcv(
+                    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(i), 100, 100, 100, 100, 1000))
+                .Append(new Ohlcv(new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc), 100, 111, 99, 110, 1000))
+                .ToList();
+            var state = WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(bars.ToArray()),
+                CurrentDataIndex = bars.Count - 1,
+                IsHeikinAshi = heikinAshi,
+            };
+
+            var fired = BuildEvaluator().EvaluateAlerts(
+                new[] { PriceCross(AlertCondition.CrossesAbove, threshold) }, state,
+                newBar: bars[^1], previousBar: bars[^2], NoPrev).ToList();
+
+            if (double.IsNaN(firesAt)) { Assert.Empty(fired); return; }
+            Assert.Equal(firesAt, Assert.Single(fired).TriggeringValue, 9);
+        }
+
+        /// <summary>
+        /// A candle-pattern alert on a Heikin-Ashi chart classifies the Heikin-Ashi candles — the
+        /// bar it is handed and the trailing context — as the arrow keys name them.
+        /// </summary>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void APatternAlert_ReadsTheCandlesTheChartDraws(bool heikinAshi)
+        {
+            var bars = Enumerable.Range(0, 10).Select(i => new Ohlcv(
+                    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(i), 100, 100, 100, 100, 1000))
+                .Append(new Ohlcv(new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc), 100, 111, 99, 110, 1000))
+                .ToList();
+            var state = WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(bars.ToArray()),
+                CurrentDataIndex = bars.Count - 1,
+                IsHeikinAshi = heikinAshi,
+            };
+            var pattern = Substitute.For<ISdkCandlePatternAnalyzer>();
+            Ohlcv seen = default;
+            IReadOnlyList<Ohlcv>? context = null;
+            pattern.Analyze(Arg.Any<Ohlcv>(), Arg.Any<Ohlcv?>(), Arg.Any<Ohlcv?>(), Arg.Any<IReadOnlyList<Ohlcv>?>())
+                // Only what it is handed matters here; the evaluator isolates the throw per alert.
+                .Returns<CandleAnalysis>(ci => { seen = ci.ArgAt<Ohlcv>(0); context = ci.ArgAt<IReadOnlyList<Ohlcv>?>(3); throw new InvalidOperationException("seen"); });
+            var alert = new AlertDefinition
+            {
+                Id = "p", Name = "Pattern", Target = AlertTarget.Candle, Condition = AlertCondition.PatternDetected,
+                Pattern = CandlePattern.BullishEngulfing, Delivery = AlertDelivery.Speech,
+            };
+
+            BuildEvaluator(pattern).EvaluateAlerts(new[] { alert }, state, bars[^1], bars[^2], NoPrev).ToList();
+
+            var drawn = heikinAshi ? ChartMath.CalculateHeikinAshi(bars) : bars;
+            Assert.Equal(drawn[^1], seen);
+            Assert.NotNull(context);
+            Assert.Equal(drawn[^1], context![^1]);
+            if (heikinAshi) Assert.NotEqual(bars[^1].Close, seen.Close);   // vacuity: the candles differ
+        }
+
         [Fact]
         public void CrossesAbove_Fires_WhenCloseCrossesThresholdUpward()
         {

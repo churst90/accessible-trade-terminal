@@ -199,7 +199,11 @@ namespace AccessibleTrader.Core.Services.Notifications
             if (_presence?.IsAppVisible ?? true) return;
             var state = _store.State;
             if (state.IsPlaying) return;
-            Send(NewBarTitle(state), NewBarBody(state, e.ClosedBar));
+            // The close as drawn — Heikin-Ashi on a Heikin-Ashi chart — as the live region says it.
+            var (closed, _) = AccessibilityFeedbackCoordinator.AsDrawn(state.Data,
+                AccessibilityFeedbackCoordinator.ClosedBarIndex(state.Data, e.ClosedBar),
+                e.ClosedBar, e.NewBar, state.IsHeikinAshi);
+            Send(NewBarTitle(state), NewBarBody(state, closed));
         }
 
         /// <summary>

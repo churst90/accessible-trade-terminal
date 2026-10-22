@@ -442,7 +442,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (comp.Role == ComponentRole.Volume
                 && state.Data != null && barIndex < state.Data.Count)
             {
-                var bar = state.Data[barIndex];
+                // As drawn, as the arrow keys read it (their bar is ChartMath.BarAsDrawn).
+                var bar = ChartMath.BarAsDrawn(state.Data, barIndex, state.IsHeikinAshi);
                 direction = bar.Close >= bar.Open ? ", up" : ", down";
             }
 
@@ -510,7 +511,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void ScanOverlayCrosses(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
-            double close = (double)state.Data[barIndex].Close;
+            double close = CloseAsDrawn(state, barIndex);
             if (close <= 0) return;
 
             var above = new List<string>();
@@ -628,7 +629,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var levels = ProfileLevels.Of(series.ProfileBins);
             if (levels.Poc is not double poc) return null;
-            double close = (double)state.Data[barIndex].Close;
+            double close = CloseAsDrawn(state, barIndex);
             if (close <= 0) return null;
 
             int side = levels.HasValueArea
@@ -886,7 +887,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (odata != null && idx < odata.Length && !double.IsNaN(odata[idx])
                         && state.Data != null && idx < state.Data.Count)
                     {
-                        double oClose = (double)state.Data[idx].Close;
+                        double oClose = CloseAsDrawn(state, idx);
                         if (oClose > 0) _lastPriceAboveOverlay[$"{series.Id}:{comp.Name}"] = oClose > odata[idx];
                     }
                 }
@@ -900,7 +901,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _inProximity[zoneKey] = false;
                         // Seed the cross direction so the first scan doesn't fire a false cross.
                         double seedClose = state.Data != null && idx < state.Data.Count
-                            ? (double)state.Data[idx].Close
+                            ? CloseAsDrawn(state, idx)
                             : double.NaN;
                         if (!double.IsNaN(seedClose) && seedClose > 0)
                         {
@@ -939,7 +940,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             int idx = state.CurrentDataIndex;
             if (state.Data == null || idx < 0 || idx >= state.Data.Count) return;
-            double close = (double)state.Data[idx].Close;
+            double close = CloseAsDrawn(state, idx);
 
             foreach (var comp in series.Components)
             {
@@ -964,7 +965,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void ScanZoneLines(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
-            double currentClose = (double)state.Data[barIndex].Close;
+            double currentClose = CloseAsDrawn(state, barIndex);
             if (currentClose <= 0) return;
 
             var bullishCrosses = new List<string>();
@@ -1136,7 +1137,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void ScanCloudTransitions(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
-            double close = (double)state.Data[barIndex].Close;
+            double close = CloseAsDrawn(state, barIndex);
             if (close <= 0 || double.IsNaN(close)) return;
 
             foreach (var comp in series.Components)
@@ -1277,6 +1278,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return ago switch { 0 => $"{where}, this bar", 1 => $"{where}, 1 bar ago", _ => $"{where}, {ago} bars ago" };
         }
 
+        /// <summary>
+        /// The close of the bar at <paramref name="barIndex"/> as the chart draws it: the
+        /// Heikin-Ashi close on a Heikin-Ashi chart. Every price this scanner compares with a line
+        /// or speaks reads this, so "price crossed above EMA 9" is about the candle on screen and
+        /// against the indicator computed on those same candles (Cody, 2026-10-22: "if ha is on
+        /// and a bar closes, speak that close").
+        /// </summary>
+        private static double CloseAsDrawn(WorkspaceState state, int barIndex)
+            => ChartMath.BarAsDrawn(state.Data!, barIndex, state.IsHeikinAshi).Close;
+
         private static string BarDateText(WorkspaceState state, int barIndex) =>
             state.Data != null && barIndex >= 0 && barIndex < state.Data.Count
                 ? PlaybackNarration.DateText(state.Data[barIndex].Date, PlaybackNarration.BarSeconds(state))
@@ -1289,7 +1300,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             WorkspaceState state, int barIndex)
         {
             string price = (state.Data != null && barIndex < state.Data.Count)
-                ? SpeechPriceFormatter.FormatPrice(state.Data[barIndex].Close)
+                ? SpeechPriceFormatter.FormatPrice(CloseAsDrawn(state, barIndex))
                 : SpeechPriceFormatter.FormatPrice(val);
             string valueStr = val.ToString("F1", CultureInfo.InvariantCulture);
 

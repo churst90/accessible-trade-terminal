@@ -9,8 +9,9 @@ namespace AccessibleTrader.Core.Services.Drawing
     /// Ctrl+Right (<c>IndicatorCrossingEngine</c>), so the key lands exactly where the chirp sounds.
     ///
     /// <para>
-    /// "Price" is the bar's raw close, which is what the trend-line stops have always used and what
-    /// the price line speaks. A horizontal line is crossed on the bar whose close is on the other
+    /// "Price" is the bar's close as drawn — the Heikin-Ashi close on a Heikin-Ashi chart, since
+    /// 2026-10-22, when Cody asked for the close TradingView uses there — so both callers hand in
+    /// <c>ChartMath.SeriesAsDrawn</c>. A horizontal line is crossed on the bar whose close is on the other
     /// side of it from the bar before (<see cref="LevelCross.Direction"/> — the reference level's
     /// rule). A vertical line has no price to cross; it is crossed when the cursor moves onto its
     /// bar or past it.

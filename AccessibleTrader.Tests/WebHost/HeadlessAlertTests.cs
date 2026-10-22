@@ -67,6 +67,35 @@ public sealed class HeadlessAlertTests : IDisposable
 
     // ── Indicator alerts ─────────────────────────────────────────────────────
 
+    /// <summary>
+    /// A price alert on a saved Heikin-Ashi tab reads the Heikin-Ashi close with the browser
+    /// closed, as the open chart's does (Cody, 2026-10-22: "do like trading view"). Hour 100 wicks
+    /// to 140 and closes at 100: raw, flat at 100, never above 105; Heikin-Ashi, 110, so it
+    /// crosses. With and without a saved series, because the two take different states (the
+    /// monitor's bare one and a headless chart's).
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, true)]
+    public async Task A_price_alert_on_a_Heikin_Ashi_tab_reads_the_Heikin_Ashi_close(bool heikinAshi, bool withChart, bool fires)
+    {
+        var alert = Alert("Over 105", AlertTarget.Price, AlertCondition.CrossesAbove, 105);
+        using var h = new HeadlessMonitorHarness(withChart ? new[] { SavedEma(9) } : Array.Empty<SeriesConfig>(),
+            alerts: new[] { alert },
+            barAt: hr => hr == 100 ? (100, 140, 100, 100) : (100, 100, 100, 100), heikinAshi: heikinAshi);
+        h.OnlyAlerts();
+
+        await h.PollAsync();
+        h.Nothing();
+        h.CloseABar();
+        await h.PollAsync();
+
+        if (fires) Assert.Contains("Over 105", h.Single(), StringComparison.Ordinal);
+        else h.Nothing();
+    }
+
     [Fact]
     public async Task An_indicator_alert_fires_headless_ONCE_when_the_indicator_crosses()
     {

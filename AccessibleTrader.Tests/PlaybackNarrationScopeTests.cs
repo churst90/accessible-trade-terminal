@@ -45,6 +45,30 @@ public class PlaybackNarrationScopeTests
         Assert.Contains("beta signal", spoken);
     }
 
+    /// <summary>
+    /// Cody, 2026-10-22: with Heikin-Ashi on, every close you hear is the Heikin-Ashi close.
+    /// Bar 5 opens and closes at 100 and wicks to 110, so its Heikin-Ashi close is
+    /// (100+110+100+100)/4 = 102.5; a playback signal's <c>{price}</c> says that on a
+    /// Heikin-Ashi chart and the real 100 otherwise.
+    /// </summary>
+    [Theory]
+    [InlineData(false, "alpha signal at 100.00")]
+    [InlineData(true, "alpha signal at 102.50")]
+    public void ASignalsPrice_IsTheCloseTheChartDraws(bool heikinAshi, string expected)
+    {
+        var start = new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        var bars = new TimeSeriesBuffer<Ohlcv>(Enumerable.Range(0, 20)
+            .Select(i => i == 5 ? new Ohlcv(start.AddDays(i), 100, 110, 100, 100, 1000)
+                                : new Ohlcv(start.AddDays(i), 100, 100, 100, 100, 1000)));
+        var state = TwoSeries() with { Data = bars, IsHeikinAshi = heikinAshi, PlaybackScope = PlaybackScope.Chart };
+        var plan = PlaybackPlan.Resolve(state, PlaybackScope.Chart);
+
+        string? spoken = PlaybackNarration.SignalsForStep(state, 5, plan);
+
+        Assert.NotNull(spoken);
+        Assert.Contains(expected, spoken);
+    }
+
     [Fact]
     public void SeriesScope_SaysNothingAboutTheSeriesYouDidNotPlay()
     {

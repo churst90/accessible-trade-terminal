@@ -575,7 +575,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string seriesName = SeriesName(series);
             string price = (state.Data != null && barIndex < state.Data.Count)
-                ? SpeechPriceFormatter.FormatPrice(state.Data[barIndex].Close)
+                ? SpeechPriceFormatter.FormatPrice(ChartMath.BarAsDrawn(state.Data, barIndex, state.IsHeikinAshi).Close)
                 : SpeechPriceFormatter.FormatPrice(value);
 
             string text = comp.SignalSpeechTemplate!

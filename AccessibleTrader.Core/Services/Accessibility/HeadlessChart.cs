@@ -348,6 +348,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 SymbolDisplayName = _identity.Symbol ?? "",
                 Data = new TimeSeriesBuffer<Ohlcv>(_bars),
                 ActiveSeries = computed.ToImmutable(),
+                // What the alerts and the narration's price read: the candle as drawn.
+                IsHeikinAshi = _heikinAshi,
                 CurrentDataIndex = _bars.Count - 1,
                 // The whole buffer is the "visible range" here: a visible-range profile (VPVR,
                 // TPO) is the profile of the last BarsNeeded bars, which is what a chart showing

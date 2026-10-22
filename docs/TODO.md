@@ -3,12 +3,14 @@
 >   Cipher B, an RSI and an EMA: every indicator should recompute at once, Cipher B's dots should
 >   land where Market Cipher B's do on the HA screenshots, and a strategy on the chart should keep
 >   trading as before. Open questions:
->   - Price against an indicator on an HA chart: an alert ("price crosses EMA"), the crossing engine
->     and the overlay-cross narration compare the REAL close with the HA indicator. TradingView
->     would compare the HA close. Which? (Real price is what an order fills at.)
+>   - [x] Price against an indicator on an HA chart — Cody 2026-10-22: "if ha is on and a bar closes,
+>     speak that close". Every close spoken, alerted on or crossed is the HA close now (CHANGES).
+>     Cody to hear: the new-bar close on HA and off, a "price crosses EMA" alert, Ctrl+Right to a
+>     crossing. Left raw: the close line focused; the hosted web version's server alerts.
 >   - A custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
 >     false in a strategy on an HA chart. Recompute it there, or refuse the strategy with a reason?
->   - Cipher A was fitted on raw bars. Refit it on the HA screenshots, as Cipher B was measured?
+>   - [x] Cipher A re-checked on HA (Cody: "retune cipher A"): it was already fitted on the HA
+>     screenshots; a grid search on HA picks the same rules (CHANGES). "Fitted on raw bars" was wrong.
 >   - A background tab's candle type is read when its monitor starts; switching it later waits for
 >     the next restart of that monitor.
 >   - Market Cipher B's S3 and S5 screenshots not re-measured on HA.
@@ -595,7 +597,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    only the symbols? [Off — not built; today it is on.]
 > 4. **Heikin-Ashi:** ~~indicators read the raw candles on a Heikin-Ashi chart~~ — answered 2026-10-22:
 >    Cody asked for what TradingView does, so indicators (Cipher A included) now compute on Heikin-Ashi
->    candles on a Heikin-Ashi chart. Cipher A was FITTED on raw bars; not refitted. See CHANGES.
+>    candles on a Heikin-Ashi chart. Cipher A was fitted on the HA screenshots, re-checked 2026-10-22.
 > 5. **The ribbon fill:** Market Cipher A draws a translucent fill between EMA 5 and EMA 33. [Add it as a
 >    fill you can turn off.]
 > - [ ] **Build the Cipher A ribbon fill** (EMA 5 to EMA 33, a cloud fill the user can hide) if Cody agrees

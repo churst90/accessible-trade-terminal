@@ -325,7 +325,12 @@ namespace AccessibleTrader.WebHost.Services
                 bool speakLadder = ladder != null && narrateKeys.Contains(WatchKey(watch));
 
                 if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
-                    AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1], speakLadder ? ladder : null);
+                {
+                    // The close and open as the chart draws them: Heikin-Ashi on a Heikin-Ashi
+                    // chart, as the browser says them.
+                    var drawn = ChartMath.BarsAsDrawn(bars, bars.Count - 1, 2, watch.HeikinAshi);
+                    AnnounceBarClose(watch, closed: drawn[0], opened: drawn[1], speakLadder ? ladder : null);
+                }
                 else if (speakLadder)
                     AnnounceNarration(watch, ladder!);
 
@@ -358,6 +363,8 @@ namespace AccessibleTrader.WebHost.Services
                 Identity = new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
                 SymbolDisplayName = watch.Symbol,
                 Data = new TimeSeriesBuffer<Ohlcv>(bars.ToList()),
+                // Price and candle alerts read the candle as drawn (AlertEvaluator).
+                IsHeikinAshi = watch.HeikinAshi,
                 CurrentDataIndex = bars.Count - 1,
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
@@ -667,9 +674,12 @@ namespace AccessibleTrader.WebHost.Services
                 .Select(g =>
                 {
                     var tab = SavedTabFor(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market);
+                    // The candle type is the chart's own tab's, indicators or not: a price alert on
+                    // a Heikin-Ashi tab with nothing else on it reads the Heikin-Ashi close.
+                    var chart = SavedChartTab(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market);
                     return new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market,
                                      (IReadOnlyList<SeriesConfig>?)tab?.Series ?? Array.Empty<SeriesConfig>(),
-                                     tab?.IsHeikinAshi ?? false);
+                                     (chart ?? tab)?.IsHeikinAshi ?? false);
                 })
                 .ToList();
 
@@ -695,6 +705,18 @@ namespace AccessibleTrader.WebHost.Services
 
         /// <summary>The saved tab <see cref="SavedSeriesFor(WorkspaceConfiguration?, string, string, string, string)"/>
         /// reads, or null when nothing with series is saved for the symbol.</summary>
+        /// <summary>The saved tab on exactly this chart (provider, symbol, timeframe, market), with
+        /// or without series — the one whose candle type the chart's alerts read.</summary>
+        internal static TabConfiguration? SavedChartTab(
+            WorkspaceConfiguration? session, string provider, string symbol, string timeframe, string market)
+        {
+            if (session?.Tabs == null) return null;
+            bool Same(string? x, string? y) => string.Equals(x?.Trim(), y?.Trim(), StringComparison.OrdinalIgnoreCase);
+            return session.Tabs.FirstOrDefault(t => Same(t.Provider, provider) && Same(t.Symbol, symbol)
+                && Same(string.IsNullOrWhiteSpace(t.Timeframe) ? "1h" : t.Timeframe, timeframe)
+                && Same(string.IsNullOrWhiteSpace(t.Market) ? "Spot" : t.Market, market));
+        }
+
         internal static TabConfiguration? SavedTabFor(
             WorkspaceConfiguration? session, string provider, string symbol, string timeframe, string market)
         {

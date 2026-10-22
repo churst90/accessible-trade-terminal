@@ -61,6 +61,10 @@ public sealed class LineDrawingCrossJumpTests
 
     private static (IndicatorCrossingEngine Engine, WorkspaceStore Store, List<FeedbackRequestEvent> Spoken) Build(
         TimeSeriesBuffer<Ohlcv> data, int cursor, string focusedId, params ChartSeries[] series)
+        => Build(data, cursor, focusedId, heikinAshi: false, series);
+
+    private static (IndicatorCrossingEngine Engine, WorkspaceStore Store, List<FeedbackRequestEvent> Spoken) Build(
+        TimeSeriesBuffer<Ohlcv> data, int cursor, string focusedId, bool heikinAshi, params ChartSeries[] series)
     {
         var bus = new EventBus();
         var store = new WorkspaceStore(bus, new MockViewportRangeCalculator(),
@@ -72,6 +76,7 @@ public sealed class LineDrawingCrossJumpTests
             FocusedSeriesId = focusedId,
             FocusedComponentIndex = 0,
             CurrentDataIndex = cursor,
+            IsHeikinAshi = heikinAshi,
         }));
         var spoken = new List<FeedbackRequestEvent>();
         bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
@@ -100,6 +105,59 @@ public sealed class LineDrawingCrossJumpTests
 
         Assert.Equal(5, store.State.CurrentDataIndex);
         Assert.Contains("below", spoken[^1].Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Cody, 2026-10-22: <i>"if ha is on and a bar closes, speak that close."</i> On a Heikin-Ashi
+    /// chart Ctrl+Right lands where the Heikin-Ashi close crosses the line (bar 2, 101.25), on a
+    /// standard chart where the raw close does (bar 3, 106) — the same bars the crossing chirp
+    /// sounds on (<see cref="LineDrawingCrossingEarconTests.WickBars"/>). The close line is drawn
+    /// raw, so on it the raw close, Heikin-Ashi or not.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, 3)]
+    [InlineData(true, false, 2)]
+    [InlineData(true, true, 3)]
+    public void OnAHeikinAshiChart_CtrlRight_StopsWhereTheDrawnCloseCrossesTheLine(bool heikinAshi, bool closeLine, int landsOn)
+    {
+        var bars = LineDrawingCrossingEarconTests.WickBars();
+        var data = new TimeSeriesBuffer<Ohlcv>(bars.Select((b, i) => b with { Date = T0.AddDays(i) }).ToList());
+        var config = new SeriesConfig { Id = CoreSeriesIds.Price, Name = "Price", FriendlyName = "Price line", Pane = "Main" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "close", DisplayName = "Close", DisplayType = ComponentDisplayType.Line, Role = ComponentRole.PriceAction, IsVisible = true,
+        });
+        var price = new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id });
+        var (engine, store, _) = Build(data, 0, closeLine ? CoreSeriesIds.Price : CoreSeriesIds.Candles, heikinAshi,
+            Candles(), price, Horizontal(100));
+
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+
+        Assert.Equal(landsOn, store.State.CurrentDataIndex);
+    }
+
+    /// <summary>
+    /// The same for a moving average in focus: Ctrl+Right walks to where price crosses it, and on a
+    /// Heikin-Ashi chart that is the Heikin-Ashi close (the average itself is computed on the
+    /// Heikin-Ashi candles there; this one is held at 100 so only the close is under test).
+    /// </summary>
+    [Theory]
+    [InlineData(false, 3)]
+    [InlineData(true, 2)]
+    public void OnAHeikinAshiChart_AFocusedAverage_IsCrossedByTheDrawnClose(bool heikinAshi, int landsOn)
+    {
+        var bars = LineDrawingCrossingEarconTests.WickBars();
+        var data = new TimeSeriesBuffer<Ohlcv>(bars.Select((b, i) => b with { Date = T0.AddDays(i) }).ToList());
+        var config = new SeriesConfig { Id = "ema", IndicatorCode = "EMA", Name = "EMA", FriendlyName = "EMA", Pane = "Main" };
+        config.Components.Add(new ComponentConfig { Name = "Ema", DisplayName = "EMA", DisplayType = ComponentDisplayType.Line, IsVisible = true });
+        var buffer = new SeriesDataBuffer { SeriesId = "ema" };
+        buffer.ComponentData["Ema"] = Enumerable.Repeat(100.0, data.Count).ToArray();
+        var (engine, store, spoken) = Build(data, 0, "ema", heikinAshi, Candles(), new ChartSeries(config, buffer));
+
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+
+        Assert.Equal(landsOn, store.State.CurrentDataIndex);
+        Assert.Contains("crosses above MA", spoken[^1].Message);
     }
 
     [Fact]

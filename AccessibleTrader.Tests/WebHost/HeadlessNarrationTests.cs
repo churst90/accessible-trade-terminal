@@ -85,6 +85,70 @@ public sealed class HeadlessNarrationTests : IDisposable
         Assert.Equal(one, toast.Text);
     }
 
+    /// <summary>
+    /// Cody, 2026-10-22: <i>"if ha is on and a bar closes, speak that close."</i> With the browser
+    /// closed too: a saved tab showing Heikin-Ashi says the Heikin-Ashi close and open. Hour 99
+    /// wicks to 140 and closes at 100, so its Heikin-Ashi close is (100+140+100+100)/4 = 110, and
+    /// the flat bar after it opens, Heikin-Ashi, at (100+110)/2 = 105. Run once with no saved
+    /// series (the monitor's bare state) and once with a narrated volume pane (a headless chart).
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, "close 100.00", "open 100.00")]
+    [InlineData(true, false, "close 110.00", "open 105.00")]
+    [InlineData(true, true, "close 110.00", "open 105.00")]
+    public async Task A_Heikin_Ashi_tab_says_the_Heikin_Ashi_close_with_the_browser_closed(
+        bool heikinAshi, bool withChart, string close, string open)
+    {
+        using var h = new HeadlessMonitorHarness(withChart ? new[] { SavedVolume() } : Array.Empty<SeriesConfig>(),
+            barAt: hr => hr == HeadlessMonitorHarness.StartHour ? (100, 140, 100, 100) : (100, 100, 100, 100),
+            heikinAshi: heikinAshi);
+        h.NewBarToasts(true);
+
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+
+        string one = h.Single();
+        Assert.Contains(close, one, StringComparison.Ordinal);
+        Assert.Contains(open, one, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The same with a narrated EMA on the tab: the headless chart's state carries the candle
+    /// type, so the crossing the ladder narrates is the Heikin-Ashi close crossing the
+    /// Heikin-Ashi EMA. Hour 99 closes flat (the scanner's first sighting of the EMA, which
+    /// seeds); hour 100 wicks to 140 and closes at 100, level with a flat EMA on the real bars,
+    /// so nothing crosses. On Heikin-Ashi it closes at 110, above an EMA 9 that moved a fifth of
+    /// the way, to 102.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task A_Heikin_Ashi_tab_narrates_the_Heikin_Ashi_close_crossing_its_EMA(bool heikinAshi, bool crosses)
+    {
+        var ema = new SeriesConfig
+        {
+            Id = "ema9", IndicatorCode = "Ema", Name = "EMA", FriendlyName = "EMA 9",
+            Pane = "Main", IsAutoNarrated = true, IsVisible = true,
+        };
+        ema.Parameters["lookbackPeriods"] = 9;
+        using var h = new HeadlessMonitorHarness(new[] { ema },
+            barAt: hr => hr == HeadlessMonitorHarness.StartHour + 1 ? (100, 140, 100, 100) : (100, 100, 100, 100),
+            heikinAshi: heikinAshi);
+        h.NewBarToasts(true);
+
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+
+        Assert.Equal(2, h.Presenter.Spoken.Count);
+        string last = h.Presenter.Spoken[^1];
+        if (crosses) Assert.Contains("Price crossed above EMA 9 at 102.00", last, StringComparison.Ordinal);
+        else Assert.DoesNotContain("crossed", last, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task With_the_new_bar_switch_off_the_ladder_still_speaks_led_by_the_symbol()
     {

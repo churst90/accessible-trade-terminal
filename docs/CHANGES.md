@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### With Heikin-Ashi on, every close you hear is the Heikin-Ashi close; DBSI is "Cipher DBSI" (2026-10-22)
+
+- Cody: "if ha is on and a bar closes, speak that close, simple as that. if ha is off, speak the
+  real close." That is what TradingView does: on a Heikin-Ashi chart `close` IS the Heikin-Ashi
+  close, for an alert and for a script. Until now the indicators had moved to Heikin-Ashi (entry
+  below) while every spoken price stayed real, so "price crosses EMA" compared a real close with a
+  Heikin-Ashi EMA.
+- **What says the Heikin-Ashi close and open now** (all through `ChartMath.BarAsDrawn`,
+  `BarsAsDrawn` or the new `SeriesAsDrawn`, which return the raw bars when Heikin-Ashi is off):
+  - the new-bar announcement (`AccessibilityFeedbackCoordinator`), the toast with the window hidden
+    (`DesktopNotificationService`), a background tab's sentence and the bar it publishes
+    (`BackgroundBarAnnouncer`), and the browser-closed sentence (`LocalBackgroundMonitor`);
+  - price and candle-pattern alerts (`AlertEvaluator`: the two closes a crossing compares, and the
+    three bars a pattern reads), in the session, on background tabs and with the browser closed
+    (`HeadlessChart` and the monitor's bare state carry the tab's candle type);
+  - price crossing a line or a moving average: the overlay and zone-line narration and every other
+    close the narration compares (`NarrationScanner.CloseAsDrawn`), Ctrl+Left/Right to the next
+    crossing (`IndicatorCrossingEngine`, both the drawing and the moving-average jumps), and the
+    crossing chirp (`LevelCrossingMonitor`);
+  - `{price}` in a narrated marker and in playback narration (`PlaybackNarration`).
+- **Stays raw:** with the close line itself focused (`CoreSeriesIds.Price`, which is always drawn
+  from the real closes), Ctrl+Left/Right and the chirp follow the line you hear, the real close.
+  Orders, fills, positions, P&L and the screener never use Heikin-Ashi.
+- **Found while building it:** a price alert on a saved Heikin-Ashi tab with no indicators read the
+  real close with the browser closed. The watch took its candle type from `SavedTabFor`, which skips
+  tabs with no series; it now reads `SavedChartTab`, the exact chart whatever it holds.
+- **Cipher DBSI.** Cody: "call dbsi cipher dbsi". The indicator's name is now "Cipher DBSI"
+  everywhere it is shown; its code stays `DBSI_STYLE`, so saved charts, alerts and strategies keep
+  working. It is still our score inspired by Market Cipher DBSI, not the vendor's formula.
+- **Cipher A, re-checked on Heikin-Ashi** (Cody: "retune cipher A and see how close you can get").
+  No change was needed: the fit was made on the Heikin-Ashi screenshots already, and a grid search on
+  Heikin-Ashi bars picks the same rules (Red Diamond WT hlc3 9/12/3, F1 0.91 against 0.81 for the
+  next; Blue Triangle 0.90; Green Dot EMA 11 x 33, 0.90). On the exact bar, Heikin-Ashi feed against
+  a raw feed: Green Dot 17/18 vs 11/18, Red X 49/50 vs 23/50, Blue Triangle 22/25 vs 17/25, Blood
+  Diamond 9/9 vs 4/9, Yellow Diamond 158/161 vs 143/161, Yellow X 24/28 vs 23/28, Red Diamond
+  recall 129/144 vs 111/144. The CHANGES entry below that said "Cipher A was fitted on raw bars" was
+  wrong.
+- **Caveats:**
+  - the hosted web version's server-side alert monitor (`HostedAlertMonitor`, browser closed) still
+    reads the real close: it has no saved tab to read a candle type from;
+  - the narration's individual close comparisons (profile, seeds, cloud and zone lines) are covered
+    through the one helper they share; only the overlay crossing and the marker price have their own
+    tests;
+  - not seen or heard in the app.
+- Tests: the new-bar sentence (`NewBarNarrationTests`), background tabs (`BackgroundBarAnnouncerTests`),
+  the toast (`DesktopNotificationServiceTests`), the browser closed (`HeadlessNarrationTests`, both
+  the bare state and a headless chart with a narrated EMA; `HeadlessAlertTests`), alerts
+  (`AlertEvaluatorTests`, price and pattern), the chirp and Ctrl+Left/Right with and without the close
+  line focused (`LineDrawingCrossingEarconTests`, `LineDrawingCrossJumpTests`), the marker and playback
+  `{price}` (`AutoNarrationTests`, `PlaybackNarrationScopeTests`) and the name (`DbsiStyleProviderTests`).
+  18 sabotages each turned their test red; two stayed green on the first run (the headless chart's
+  flag and playback's `{price}`, whose tests went through another path) and got tests of their own.
+
 ### On a Heikin-Ashi chart, indicators compute on the Heikin-Ashi candles; strategies stay on the real bars (2026-10-22)
 
 - Cody: "when hiken ashi is on, have indicators use those candles ... whatever tv does, that is what
@@ -30,9 +83,9 @@ All notable changes to this project will be documented in this file.
     up 36/36, down 36/40; S4 up 15/15, down 15/16. The four S2 cross-downs missing are missing on
     raw too. For scale, the VuManChu port scores 7.8/8.5 on the same charts (the digitising floor).
     S3 and S5 not re-measured.
-- **DBSI** applies Heikin-Ashi once on a Heikin-Ashi chart, whatever its own Heikin-Ashi setting says.
-- **Cipher A and Cipher C follow the chart.** Cipher A was fitted on raw bars and has not been
-  refitted on Heikin-Ashi. Value Deviation's zones sit at the Heikin-Ashi bar extreme on a Heikin-Ashi
+- **DBSI** (now "Cipher DBSI", entry above) applies Heikin-Ashi once on a Heikin-Ashi chart, whatever its own Heikin-Ashi setting says.
+- **Cipher A and Cipher C follow the chart.** (Cipher A was said here to be fitted on raw bars; it
+  was fitted on the Heikin-Ashi screenshots, see the entry above.) Value Deviation's zones sit at the Heikin-Ashi bar extreme on a Heikin-Ashi
   chart, as on TradingView.
 - **Stays on the real bars:** the candles' own readouts, volume, profiles, heatmap, drawings, chart
   formations, the screener and StrategyLab. **Strategies** recompute the chart's indicators on the
@@ -43,9 +96,8 @@ All notable changes to this project will be documented in this file.
   view drew candles that the readouts and indicators did not have. It now draws the tail of the whole
   series (`ChartMath.BarsAsDrawn`).
 - **Caveats:**
-  - price in an alert is the real price, so "price crosses EMA" on a Heikin-Ashi chart compares a
-    real close with a Heikin-Ashi EMA. The crossing engine and the overlay-cross narration do the
-    same. Question in TODO;
+  - ~~price in an alert is the real price~~ — answered the same day: every close is the Heikin-Ashi
+    close on a Heikin-Ashi chart (entry above);
   - a custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
     false in a strategy on a Heikin-Ashi chart;
   - a background tab's candle type is read when its monitor starts; switching it later takes effect

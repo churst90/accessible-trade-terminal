@@ -56,7 +56,11 @@ public sealed class NewBarNarrationTests
         Build(describePatterns, describeCandlePatterns: true, patterns);
 
     private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
-        bool describePatterns, bool describeCandlePatterns, params ChartPattern[] patterns)
+        bool describePatterns, bool describeCandlePatterns, params ChartPattern[] patterns) =>
+        Build(describePatterns, describeCandlePatterns, heikinAshi: false, patterns);
+
+    private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
+        bool describePatterns, bool describeCandlePatterns, bool heikinAshi, params ChartPattern[] patterns)
     {
         var store = new MockWorkspaceStore();
         var bus = new SpyEventBus();
@@ -94,6 +98,7 @@ public sealed class NewBarNarrationTests
             AnnounceNewBars = true,
             DescribeChartPatterns = describePatterns,
             DescribeCandlePatterns = describeCandlePatterns,
+            IsHeikinAshi = heikinAshi,
         });
         return (bus, spoken, analyzer);
     }
@@ -109,6 +114,35 @@ public sealed class NewBarNarrationTests
 
     private static void CloseBar(SpyEventBus bus) =>
         bus.Publish(new NewBarEvent(Bars[^2], Bars[^1]));   // bar 98 closed, bar 99 opened
+
+    /// <summary>
+    /// Cody, 2026-10-22: <i>"if ha is on and a bar closes, speak that close, simple as that. if ha
+    /// is off, speak the real close."</i> On a Heikin-Ashi chart the close is the Heikin-Ashi
+    /// close of the bar that closed and the open the Heikin-Ashi open of the bar that opened —
+    /// both differ from the raw ones on these bars (raw close 198.5, open 199).
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheCloseAndOpenSpoken_AreTheCandlesTheChartDraws(bool heikinAshi)
+    {
+        var (bus, spoken, _) = Build(describePatterns: false, describeCandlePatterns: false, heikinAshi);
+        CloseBar(bus);
+
+        var drawn = heikinAshi ? Core.Services.ChartMath.CalculateHeikinAshi(Bars) : Bars;
+        string close = SpeechPriceFormatter.FormatPrice(drawn[^2].Close);
+        string open = SpeechPriceFormatter.FormatPrice(drawn[^1].Open);
+        if (heikinAshi)
+        {
+            // Vacuity: on these bars the two candle types must say different numbers.
+            Assert.NotEqual(SpeechPriceFormatter.FormatPrice(Bars[^2].Close), close);
+            Assert.NotEqual(SpeechPriceFormatter.FormatPrice(Bars[^1].Open), open);
+        }
+        // Switching the chart to Heikin-Ashi says "Heikin-Ashi candles" first; the bar close is the other line.
+        string said = Assert.Single(spoken, s => s.StartsWith("Close ", StringComparison.Ordinal));
+        Assert.StartsWith($"Close {close}{ClosedBarStamp}.", said);
+        Assert.Contains($"New bar: Open {open}", said);
+    }
 
     /// <summary>
     /// How the announcement names the bar that closed. Daily bars here, so it is the date — the

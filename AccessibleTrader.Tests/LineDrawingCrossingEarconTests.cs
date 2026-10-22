@@ -117,6 +117,44 @@ public sealed class LineDrawingCrossingEarconTests
         Assert.True(chirp > Rising, "Price fell through the line, so the chirp should fall (start on the high note).");
     }
 
+    /// <summary>
+    /// Cody, 2026-10-22: <i>"if ha is on and a bar closes, speak that close."</i> On a Heikin-Ashi
+    /// chart the line is crossed where the drawn candle's close crosses it. Bar 2 wicks to 130 and
+    /// closes at 95: raw, still under 100; Heikin-Ashi, (90+130+90+95)/4 = 101.25, over it. Bar 3
+    /// closes raw at 106 (Heikin-Ashi 100.5). So the Heikin-Ashi chart chirps on bar 2 and not on
+    /// bar 3, the standard chart the other way round — and with the close line focused, which is
+    /// drawn from the raw close, the raw rule holds on the Heikin-Ashi chart too.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, 3)]
+    [InlineData(true, false, 2)]
+    [InlineData(true, true, 3)]
+    public void OnAHeikinAshiChart_TheLineIsCrossedByTheDrawnClose(bool heikinAshi, bool closeLineFocused, int chirpsOn)
+    {
+        var data = WickBars();
+        foreach (int bar in new[] { 2, 3 })
+        {
+            var (monitor, driver) = Build();
+            var state = At(bar, data, Candles(), Horizontal(100)) with
+            {
+                IsHeikinAshi = heikinAshi,
+                FocusedSeriesId = closeLineFocused ? CoreSeriesIds.Price : CoreSeriesIds.Candles,
+            };
+            monitor.OnBarNavigated(state);
+            Assert.True((bar == chirpsOn) == (Chirps(driver).Count == 1),
+                $"heikinAshi={heikinAshi} closeLine={closeLineFocused}: bar {bar} gave {Chirps(driver).Count} chirps");
+        }
+    }
+
+    /// <summary>Raw closes 90, 90, 95, 106 under 100 until bar 3; Heikin-Ashi closes 90, 90, 101.25, 100.5.</summary>
+    internal static TimeSeriesBuffer<Ohlcv> WickBars() => new(new List<Ohlcv>
+    {
+        new(T0.AddMinutes(0), 90, 90, 90, 90, 1),
+        new(T0.AddMinutes(1), 90, 90, 90, 90, 1),
+        new(T0.AddMinutes(2), 90, 130, 90, 95, 1),
+        new(T0.AddMinutes(3), 95, 106, 95, 106, 1),
+    });
+
     /// <summary>Arrowing BACK onto the crossing bar sounds it too — it is a fact about the bar, as
     /// it is for a reference level.</summary>
     [Fact]

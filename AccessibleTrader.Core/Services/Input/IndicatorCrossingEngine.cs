@@ -36,12 +36,17 @@ namespace AccessibleTrader.Core.Services.Input
         {
             var state    = _store.State;
             int current  = state.CurrentDataIndex;
-            var data     = state.Data;
-            int count    = data.Count;
             bool jumpRight = command == SystemCommand.NavRightJump;
 
             var focusedSeries = state.ActiveSeries
                 .FirstOrDefault(s => s.Id == state.FocusedSeriesId);
+
+            // The candles as drawn: on a Heikin-Ashi chart price crosses a line where the
+            // Heikin-Ashi close does, which is where the narration says it crossed. The close
+            // line is drawn from the raw close whatever the candles are, so on it the raw close.
+            var data     = ChartMath.SeriesAsDrawn(state.Data,
+                               state.IsHeikinAshi && focusedSeries?.Id != CoreSeriesIds.Price);
+            int count    = data.Count;
 
             // Focused-trendline shortcut: when the user has a specific drawn trendline selected,
             // Ctrl+L/R should only walk price-vs-THAT trendline crossings — not sweep every
@@ -434,8 +439,8 @@ namespace AccessibleTrader.Core.Services.Input
             var maData = focusedSeries.GetComponentData(primaryComp.Name);
             if (maData == null || maData.Length < 2) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
 
-            var rawData = state.Data;
-            int dataLen = Math.Min(maData.Length, rawData.Count);
+            var drawn = ChartMath.SeriesAsDrawn(state.Data, state.IsHeikinAshi);
+            int dataLen = Math.Min(maData.Length, drawn.Count);
             int found   = -1;
             string direction = string.Empty;
 
@@ -444,8 +449,8 @@ namespace AccessibleTrader.Core.Services.Input
                 for (int i = current + 1; i < dataLen; i++)
                 {
                     if (double.IsNaN(maData[i]) || double.IsNaN(maData[i - 1])) continue;
-                    bool wasAbove = (double)rawData[i - 1].Close >= maData[i - 1];
-                    bool isAbove  = (double)rawData[i].Close     >= maData[i];
+                    bool wasAbove = (double)drawn[i - 1].Close >= maData[i - 1];
+                    bool isAbove  = (double)drawn[i].Close     >= maData[i];
                     if (wasAbove != isAbove) { found = i; direction = isAbove ? "Price crosses above MA" : "Price crosses below MA"; break; }
                 }
             }
@@ -454,8 +459,8 @@ namespace AccessibleTrader.Core.Services.Input
                 for (int i = current - 1; i > 0; i--)
                 {
                     if (double.IsNaN(maData[i]) || double.IsNaN(maData[i - 1])) continue;
-                    bool wasAbove = (double)rawData[i - 1].Close >= maData[i - 1];
-                    bool isAbove  = (double)rawData[i].Close     >= maData[i];
+                    bool wasAbove = (double)drawn[i - 1].Close >= maData[i - 1];
+                    bool isAbove  = (double)drawn[i].Close     >= maData[i];
                     if (wasAbove != isAbove) { found = i; direction = isAbove ? "Price crosses above MA" : "Price crosses below MA"; break; }
                 }
             }

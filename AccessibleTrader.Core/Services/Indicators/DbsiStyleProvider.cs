@@ -6,8 +6,9 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// <b>Dual Band Strength (DBSI-style)</b> — a fast bull/bear strength score INSPIRED BY Market
-    /// Cipher DBSI. It is not DBSI: DBSI's formula is closed, and this one was reverse-fitted to it.
+    /// <b>Cipher DBSI</b> (the name Cody asked for on 2026-10-22; code <c>DBSI_STYLE</c>) — a fast
+    /// bull/bear strength score INSPIRED BY Market Cipher DBSI. It is not the vendor's DBSI: that
+    /// formula is closed, and this one was reverse-fitted to it.
     ///
     /// <para>
     /// <b>Where the formula comes from.</b> 143 candles' worth of DBSI numbers were read by eye
@@ -125,13 +126,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         internal const string BullHex = "#00E676", BearHex = "#FF5252", LiveHex = "#FFEB3B";
         internal const string TrendAboveHex = "#00C853", TrendBelowHex = "#FF1744";
 
-        public string Name => "Dual Band Strength (DBSI-style)";
+        public string Name => "Cipher DBSI";
 
         private static readonly List<IndicatorMetadata> _indicators = new()
         {
             new IndicatorMetadata
             {
-                Code = Code, Name = "Dual Band Strength (DBSI-style)", Category = "Trend",
+                Code = Code, Name = "Cipher DBSI", Category = "Trend",
                 DefaultPane = "Main",
                 Causality = ComponentCausality.Causal,
                 Description =

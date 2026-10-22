@@ -55,11 +55,11 @@ public class DesktopNotificationServiceTests
 
         /// <param name="notify">null leaves the key unset — which is the SHIPPED DEFAULT, and
         /// since 2026-09-11 that default is ON. A test that wants silence must say so.</param>
-        public Harness(bool? notify = null)
+        public Harness(bool? notify = null, IUserPresence? presence = null)
         {
             if (notify.HasValue)
                 Settings.GetSetting(SettingsKeys.NotifyUnseenEvents).Returns(JToken.FromObject(notify.Value));
-            _ = new DesktopNotificationService(Bus, Store, Settings, Notifier);
+            _ = new DesktopNotificationService(Bus, Store, Settings, Notifier, presence: presence);
         }
 
         /// <summary>Put a symbol on screen, so the subject rule has something to compare against.</summary>
@@ -186,6 +186,39 @@ public class DesktopNotificationServiceTests
         var (title, body) = Assert.Single(h.Notifier.Shown);
         Assert.Equal("ETH/USD 1h: bar closed", title);
         Assert.StartsWith("Close 105.50 at ", body);   // the time of day, on an intraday chart
+    }
+
+    /// <summary>
+    /// With the window hidden, the focused chart's bar close is toasted — and on a Heikin-Ashi
+    /// chart the close in it is the Heikin-Ashi close, the one the live region would have said
+    /// (Cody, 2026-10-22: "if ha is on and a bar closes, speak that close"). The closed bar wicks
+    /// 95 to 110 and closes at 105.5: Heikin-Ashi (100+110+95+105.5)/4 = 102.625, said "102.62".
+    /// </summary>
+    [Theory]
+    [InlineData(false, "Close 105.50 ")]
+    [InlineData(true, "Close 102.62 ")]
+    public void WithTheWindowHidden_TheFocusedClose_IsTheCandleTheChartDraws(bool heikinAshi, string starts)
+    {
+        var hidden = Substitute.For<IUserPresence>();
+        hidden.CanReachUser.Returns(true);
+        hidden.IsAppVisible.Returns(false);
+        var h = new Harness(notify: true, presence: hidden);
+        var t = new DateTime(2026, 9, 5, 12, 0, 0, DateTimeKind.Utc);
+        var flat = new Ohlcv(t, 100, 100, 100, 100, 1000);
+        var closed = Bar(t.AddHours(1));
+        var opened = Bar(t.AddHours(2));
+        h.Store.EmitState(WorkspaceState.Initial with
+        {
+            SymbolDisplayName = "BTC/USD",
+            Identity = WorkspaceState.Initial.Identity with { Symbol = "BTC/USD", Timeframe = "1h" },
+            Data = new TimeSeriesBuffer<Ohlcv>(new List<Ohlcv> { flat, closed, opened }),
+            IsHeikinAshi = heikinAshi,
+        });
+
+        h.Bus.Publish(new NewBarEvent(closed, opened));
+
+        var (_, body) = Assert.Single(h.Notifier.Shown);
+        Assert.StartsWith(starts, body);
     }
 
     [Fact]

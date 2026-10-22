@@ -677,14 +677,14 @@ with wicks on one side only, and choppy noise inside the trend is averaged away,
 the sequence of pitches is easier to follow with HA on.
 
 **Indicators compute on the candles the chart shows, as on TradingView.** With HA on, RSI,
-MACD, a moving average, Cipher A, B and C, DBSI and your own compiled indicators all read the
+MACD, a moving average, Cipher A, B and C, Cipher DBSI and your own compiled indicators all read the
 Heikin-Ashi open, high, low and close; the volume is unchanged. Switching HA on or off
 recomputes every indicator on the whole history. So an indicator reading on an HA chart is a
 reading of the smoothed candles, and a level it announces is a smoothed level, not a price
 anything traded at. A few indicators know what they read on an HA chart: Market Cipher B's
 "RSI" and "Stochastic" lines read the real bars and its money flow builds its own Heikin-Ashi
-from the chart's candles (both measured against Market Cipher B's own screenshots), and DBSI
-never applies Heikin-Ashi twice, whatever its own setting says.
+from the chart's candles (both measured against Market Cipher B's own screenshots), and Cipher
+DBSI never applies Heikin-Ashi twice, whatever its own setting says.
 
 The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
 So the terminal keeps these raw whatever the candles are doing:
@@ -693,16 +693,26 @@ So the terminal keeps these raw whatever the candles are doing:
   and in StrategyLab, so on an HA chart its indicators are recomputed on the real bars before
   it reads them, and its orders go out at real prices. TradingView runs a strategy on HA
   candles and warns that the results are not real; here they never are HA.
-- **Volume, the volume profiles, the heatmap, drawings and the screener are raw.** Price in an
-  alert is the real price too; an alert on an indicator reads the indicator as the chart shows it.
+- **Volume, the volume profiles, the heatmap, drawings and the screener are raw.** A drawing
+  sits at the price you put it at; it is the close that crosses it which follows the candles
+  (below).
 - **Chart formations, the close line and the title price are raw.** A neckline measured from a
   smoothed candle could not be put into an order, so formations are read from standard
   candles even while HA is displayed, and the terminal says so when you switch it on with
   formation description enabled.
 
-What does change with HA on is the candle you hear: the spoken open, high, low and close, the
-body and wick percentages, and the candle pattern named on the bar are all the smoothed
-candle's, because they are meant to describe the shape on screen. Use HA to hear the trend;
+What does change with HA on is every close you hear, as on TradingView, where an HA chart's
+alerts and crossings use the HA close. The spoken open, high, low and close, the body and wick
+percentages, and the candle pattern named on the bar are all the smoothed candle's. So is the
+close in the new-bar announcement ("Close 102.62 on April 9 2026. New bar: Open 101.80"), on a
+background tab, in a toast and with the browser closed. A price or candle-pattern alert fires on
+the HA close, and so does a price crossing: price crossing a moving average or a drawn line in
+narration, Ctrl+Left and Ctrl+Right, and the crossing chirp. The `{price}` in a signal's
+narration is the HA close too. Turn HA off (Alt+C) and all of these go back to the real close.
+Two exceptions: with the close line focused, which is always drawn from the real close,
+Ctrl+Left/Right and the chirp use the real close. And on the hosted web version, alerts the
+server checks while your browser is closed (delivered through your alert channels) still read
+the real close. Use HA to hear the trend;
 trust the levels as real.
 
 ---
@@ -1402,7 +1412,7 @@ Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers from before October
 gold dot). **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
 from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
-Cipher SR and Dual Band Strength (DBSI-style), our versions of Market Cipher's price-chart
+Cipher SR and Cipher DBSI, our versions of Market Cipher's price-chart
 companions, are described under "Adding and tuning indicators" below.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
@@ -1543,7 +1553,7 @@ status line (landing on one with Ctrl+Up or Ctrl+Down still stops there and says
 chart; ours uses the chart's own bars, so on a daily chart a new level arrives about every five or
 six days per side, and narration has a lot more to say than it did.
 
-**Dual Band Strength (DBSI-style)** (Trend, on the price chart) is a fast bull and bear strength
+**Cipher DBSI** (Trend, on the price chart) is a fast bull and bear strength
 score inspired by Market Cipher DBSI. Each candle gets two whole numbers: the bulls' score, printed
 under the candle in green, and the bears' score, printed over it in red. Bulls run from −4 to 16 and
 bears from −5 to 15; the higher number is the side in control, and on the newest candle that number

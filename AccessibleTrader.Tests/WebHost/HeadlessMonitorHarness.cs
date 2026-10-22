@@ -85,7 +85,7 @@ internal sealed class HeadlessMonitorHarness : IDisposable
     public HeadlessMonitorHarness(
         IReadOnlyList<SeriesConfig> savedSeries, string timeframe = "1h",
         IReadOnlyList<AlertDefinition>? alerts = null, Func<int, double>? priceAt = null, bool withTab = true,
-        bool settingsOnDisk = false)
+        bool settingsOnDisk = false, Func<int, (double O, double H, double L, double C)>? barAt = null, bool heikinAshi = false)
     {
         var provider = Substitute.For<IMarketDataProvider>();
         provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(ci =>
@@ -98,7 +98,8 @@ internal sealed class HeadlessMonitorHarness : IDisposable
             {
                 double v = h == newest ? 5 : (h >= 0 ? 1000.0 * (h + 1) : 1);
                 double p = priceAt?.Invoke(h) ?? 100;
-                bars.Add(new Ohlcv(T0.AddHours(h), p, p, p, p, v));
+                var (o, hi, lo, c) = barAt?.Invoke(h) ?? (p, p, p, p);
+                bars.Add(new Ohlcv(T0.AddHours(h), o, hi, lo, c, v));
             }
             return (bars, new List<(long, double)>());
         });
@@ -111,7 +112,11 @@ internal sealed class HeadlessMonitorHarness : IDisposable
             Tabs = withTab
                 ? new List<TabConfiguration>
                 {
-                    new() { Market = "Spot", Provider = "Bitstamp", Symbol = "BTC/USD", Timeframe = timeframe, Series = savedSeries.ToList() },
+                    new()
+                    {
+                        Market = "Spot", Provider = "Bitstamp", Symbol = "BTC/USD", Timeframe = timeframe, Series = savedSeries.ToList(),
+                        IsHeikinAshi = heikinAshi,
+                    },
                 }
                 : new List<TabConfiguration>(),
         };

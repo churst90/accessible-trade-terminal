@@ -637,8 +637,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string stamp = SpeechTimeFormatter.FormatBarClock(e.ClosedBar.Date, barSeconds);
             string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
 
-            string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{when}{patternSuffix}.";
-            string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
+            // The close and open AS DRAWN: on a Heikin-Ashi chart the Heikin-Ashi close of the bar
+            // that closed and the Heikin-Ashi open of the one that opened, as TradingView quotes
+            // them (Cody, 2026-10-22: "if ha is on and a bar closes, speak that close").
+            var (closedBar, newBar) = AsDrawn(data, closedIndex, e.ClosedBar, e.NewBar, state.IsHeikinAshi);
+            string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(closedBar.Close)}{when}{patternSuffix}.";
+            string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(newBar.Open)}";
 
             // A CHART pattern whose story ends on the bar that just closed — a neckline closed
             // through, or a triangle that aged out with its boundary intact — is the event a
@@ -781,6 +785,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// live edge backwards. Falls back to the last bar when the store has not appended the
         /// new one (a caller publishing the event ahead of the commit), and to -1 with no data.
         /// </summary>
+        /// <summary>
+        /// The bar that closed and the bar that opened as the chart draws them. Falls back to the
+        /// event's own bars when the closed bar is not the one before the newest — a bar close the
+        /// store has already moved past, where there is nothing to transform against.
+        /// </summary>
+        internal static (Ohlcv Closed, Ohlcv Opened) AsDrawn(
+            IReadOnlyList<Ohlcv>? data, int closedIndex, Ohlcv closed, Ohlcv opened, bool isHeikinAshi)
+        {
+            if (!isHeikinAshi || data == null || closedIndex < 0 || closedIndex + 1 >= data.Count
+                || data[closedIndex + 1].Date != opened.Date)
+                return (closed, opened);
+            var drawn = ChartMath.BarsAsDrawn(data, closedIndex + 1, 2, isHeikinAshi);
+            return drawn.Count == 2 ? (drawn[0], drawn[1]) : (closed, opened);
+        }
+
         internal static int ClosedBarIndex(IReadOnlyList<Ohlcv>? data, Ohlcv closed)
         {
             if (data == null || data.Count == 0) return -1;

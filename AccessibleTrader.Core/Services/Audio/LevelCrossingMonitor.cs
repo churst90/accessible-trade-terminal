@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Drawing;
 using AccessibleTrader.Sdk.Models;
 
@@ -182,12 +183,19 @@ namespace AccessibleTrader.Core.Services.Audio
         private void LineDrawingCrosses(WorkspaceState state, int from, int idx)
         {
             int direction = 0;
+            // The candles as drawn, built once and only if a horizontal line needs them: on a
+            // Heikin-Ashi chart the line is crossed where the Heikin-Ashi close crosses it, as
+            // Ctrl+Left/Right finds it (IndicatorCrossingEngine reads the same series) — and, as
+            // there, the raw close while the close line, which is drawn raw, has focus.
+            IReadOnlyList<Ohlcv>? drawn = null;
+            bool heikinAshi = state.IsHeikinAshi && state.FocusedSeriesId != CoreSeriesIds.Price;
             foreach (var series in state.ActiveSeries)
             {
                 if (!LineDrawingCrossings.IsCrossable(series) || series.IsMuted) continue;
 
                 if (LineDrawingCrossings.HorizontalPrice(series) is double price)
-                    direction = LineDrawingCrossings.HorizontalCrossAt(state.Data, idx, price);
+                    direction = LineDrawingCrossings.HorizontalCrossAt(
+                        drawn ??= ChartMath.SeriesAsDrawn(state.Data!, heikinAshi), idx, price);
                 else if (from >= 0
                          && LineDrawingCrossings.VerticalCrossed(from, idx, LineDrawingCrossings.VerticalBar(series, state.Data)))
                     direction = idx > from ? 1 : -1;

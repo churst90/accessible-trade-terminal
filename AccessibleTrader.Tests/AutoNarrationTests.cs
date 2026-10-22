@@ -198,8 +198,15 @@ namespace AccessibleTrader.Tests
 
         // ── 4. SignalSpeechTemplate token substitution ─────────────────────────
 
-        [Fact]
-        public void MarkerWithTemplate_UsesTemplateWithPriceToken()
+        /// <summary>
+        /// {price} is the close of the candle the chart draws: on a Heikin-Ashi chart the
+        /// Heikin-Ashi close, (100+110+95+105)/4 = 102.5 on these bars (Cody, 2026-10-22: "if ha
+        /// is on and a bar closes, speak that close").
+        /// </summary>
+        [Theory]
+        [InlineData(false, "at 105.00.")]
+        [InlineData(true, "at 102.50.")]
+        public void MarkerWithTemplate_UsesTemplateWithPriceToken(bool heikinAshi, string at)
         {
             var cfg = MakeDotConfig(signalTemplate: "{series}: {name} at {price}.");
             double[] d1 = { double.NaN };
@@ -211,19 +218,19 @@ namespace AccessibleTrader.Tests
             var router = new CapturingSpeechRouter();
             var svc = new AutoNarrationService(store, bus, router, new StubContextAnalyzer());
 
-            store.EmitState(BuildState(WithData(cfg, d1), 1));
+            store.EmitState(BuildState(WithData(cfg, d1), 1) with { IsHeikinAshi = heikinAshi });
             bus.Publish(new RedrawEvent()); // seed
 
-            store.EmitState(BuildState(WithData(cfg, d2), 2));
+            store.EmitState(BuildState(WithData(cfg, d2), 2) with { IsHeikinAshi = heikinAshi });
             bus.Publish(new RedrawEvent()); // scanIndex=0, skip
 
-            store.EmitState(BuildState(WithData(cfg, d3), 3));
+            store.EmitState(BuildState(WithData(cfg, d3), 3) with { IsHeikinAshi = heikinAshi });
             bus.Publish(new RedrawEvent()); // scanIndex=1, signal → announce
 
             Assert.Single(router.Spoken);
             Assert.Contains("Cipher B", router.Spoken[0]);
             Assert.Contains("Bull Signal", router.Spoken[0]);
-            Assert.Contains("105", router.Spoken[0]); // close price = 105
+            Assert.Contains(at, router.Spoken[0]); // raw close 105, Heikin-Ashi close 102.5
         }
 
         // ── 5. Oscillator zone entry announces on bar close ────────────────────
