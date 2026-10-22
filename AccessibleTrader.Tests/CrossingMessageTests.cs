@@ -52,6 +52,48 @@ public class CrossingMessageTests
         Assert.StartsWith("Candles ", msg);
     }
 
+    /// <summary>
+    /// A component with a value on every bar whose news is on a few (Cipher C's timing window,
+    /// a day count) is stepped by Ctrl+Left/Right through its <see cref="ComponentCompanions.Stops"/>
+    /// companion — the window opening and closing — not through crossings of its count.
+    /// </summary>
+    [Fact]
+    public void A_component_with_a_stops_companion_jumps_to_its_stops_and_says_when_there_are_none_left()
+    {
+        var (engine, bus, store) = Build();
+        var config = new SeriesConfig { Id = "cc", IndicatorCode = "CIPHER_C", Name = "Cipher C", FriendlyName = "Cipher C", Pane = "Main" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Daily Timing Window", DisplayName = "Daily Timing Window", DisplayType = ComponentDisplayType.Line,
+            Role = ComponentRole.Signal, IsVisible = true,
+        });
+        var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "cc" });
+        series.Data.ComponentData["Daily Timing Window"] = Enumerable.Range(1, 12).Select(i => (double)i).ToArray();
+        var stops = Enumerable.Repeat(double.NaN, 12).ToArray();
+        stops[4] = 1; stops[9] = 0;
+        series.Data.ComponentData["Daily Timing Window" + ComponentCompanions.Stops] = stops;
+        store.Dispatch(new UpdateSettingsAction(st => st with
+        {
+            Data = Bars(12),
+            ActiveSeries = ImmutableList.Create(series),
+            FocusedSeriesId = series.Id,
+            FocusedComponentIndex = 0,
+            CurrentDataIndex = 0,
+        }));
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+        Assert.Equal(4, store.State.CurrentDataIndex);
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+        Assert.Equal(9, store.State.CurrentDataIndex);
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+        Assert.Equal(9, store.State.CurrentDataIndex);
+        Assert.Equal("No more Daily Timing Window changes in this direction", spoken[^1].Message);
+        engine.HandleCrossJump(SystemCommand.NavLeftJump);
+        Assert.Equal(4, store.State.CurrentDataIndex);
+    }
+
     private static ChartSeries Candles()
     {
         var config = new SeriesConfig

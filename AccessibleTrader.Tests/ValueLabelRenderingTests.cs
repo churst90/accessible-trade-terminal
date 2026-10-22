@@ -431,6 +431,62 @@ public sealed class ValueLabelRenderingTests
         }
     }
 
+    // ── A label companion beside a marker (2026-10-22) ──────────────────────────────
+
+    /// <summary>
+    /// Cipher C's cycle length is no longer a hidden component of its own: it is the daily low's
+    /// <see cref="ComponentCompanions.Label"/> companion, printed with the low's letter (49D) on the
+    /// other side of the bar from its triangle — above the high, since the triangle is under the
+    /// low. Read from the real renderer's pixels against the same chart without the companion.
+    /// </summary>
+    [Fact]
+    public void A_label_companion_prints_49D_above_a_low_whose_triangle_is_below()
+    {
+        var bars = Bars();
+        const int at = 20;
+        ChartSeries Cc(bool label)
+        {
+            var meta = new CipherCProvider().GetIndicators()[0];
+            var factory = new IndicatorModelFactory(DbsiChartHarness.Styling(), new MockIndicatorPreferencesService());
+            var s = factory.CreateSeriesFromMetadata(meta, meta.Name, "Main", new List<(string, string)>(), null);
+            foreach (var c in s.Components) s.Data.ComponentData[c.Name] = Enumerable.Repeat(double.NaN, bars.Count).ToArray();
+            s.Data.ComponentData[CipherCProvider.CompDcl][at] = bars[at].Low;
+            if (label)
+            {
+                var l = Enumerable.Repeat(double.NaN, bars.Count).ToArray();
+                l[at] = 49;
+                s.Data.ComponentData[CipherCProvider.CompDcl + ComponentCompanions.Label] = l;
+            }
+            return s;
+        }
+        var with = Cc(label: true);
+        var dcl = with.Components.Single(c => c.Name == CipherCProvider.CompDcl);
+        Assert.Equal(MarkerAnchor.BelowBar, dcl.MarkerAnchor);
+        Assert.Equal(MarkerAnchor.AboveBar, ValueLabelRenderer.LabelAnchor(dcl));
+        Assert.True(ValueLabelRenderer.HasCompanionLabel(with, dcl));
+        Assert.False(ValueLabelRenderer.HasCompanionLabel(Cc(label: false), dcl));
+
+        var range = DbsiChartHarness.MainRange(bars, new[] { DbsiChartHarness.Candles() }, 0, bars.Count);
+        var f = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), with }, W, H, D, range: range);
+        var plain = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), Cc(label: false) }, W, H, D, range: range);
+        var ink = ValueLabelRenderer.Ink(f.Theme, SKColor.Parse(CipherCProvider.DclHex));
+        int x0 = (int)(f.X(at) - 2 * f.Slot), x1 = (int)(f.X(at) + 2 * f.Slot);
+        int high = (int)f.Y(bars[at].High);
+        int above = InkPixels(f.Bmp, ink, x0, x1, (int)f.PlotTop, high).Count;
+        Assert.True(above > 20, $"only {above} label pixels above the bar");
+        Assert.Empty(InkPixels(plain.Bmp, ink, x0, x1, (int)f.PlotTop, high));
+
+        // The layout says the same: one plate, "49D", wholly above the high.
+        using var surface = SKSurface.Create(new SKImageInfo(W, H));
+        var ctx = new RenderContext(surface.Canvas, new SKRect(0, f.PlotTop, W - f.Theme.AxisWidth * D, f.PlotBottom), bars,
+            ViewportStart: 0, ViewportLength: bars.Count, Min: range.Min, Max: range.Max, IsLogScale: false,
+            ItemWidth: f.Slot, Density: D, PaneName: "Main", LocalCursorIndex: -1, Theme: f.Theme);
+        var placed = Assert.Single(ValueLabelRenderer.Layout(ctx, with, dcl, out _));
+        Assert.Equal("49D", placed.Text);
+        Assert.True(placed.Plate.Bottom <= high, $"plate bottom {placed.Plate.Bottom} under the high at {high}");
+        Assert.Contains(ValueLabelRenderer.Plates(ctx, new[] { with }), p => p == placed.Plate);
+    }
+
     // ── The status line ──────────────────────────────────────────────────────────
 
     [Fact]
@@ -494,6 +550,29 @@ public sealed class ValueLabelRenderingTests
 
         Assert.True(foundSlotWhereOnlyThePlainNumberFits,
             "The suffix must contribute to width measurement so an over-wide label drops out.");
+    }
+
+    /// <summary>
+    /// A count (Cipher C's timing window: the cycle's day number) is printed and said as a whole
+    /// number, "47", not as a price, "47.00" — on the status line and in Alt+Shift+D's values.
+    /// </summary>
+    [Fact]
+    public void A_count_component_is_a_whole_number_on_the_status_line()
+    {
+        var bars = Bars(1);
+        var theme = DbsiChartHarness.Themes().Current;
+        var meta = new CipherCProvider().GetIndicators()[0];
+        var factory = new IndicatorModelFactory(DbsiChartHarness.Styling(), new MockIndicatorPreferencesService());
+        var s = factory.CreateSeriesFromMetadata(meta, meta.Name, "Main", new List<(string, string)>(), null);
+        foreach (var c in s.Components) s.Data.ComponentData[c.Name] = new[] { double.NaN };
+        s.Data.ComponentData[CipherCProvider.CompDailyWindow] = new[] { 47.0 };
+        s.Data.ComponentData[CipherCProvider.CompSma] = new[] { 47.0 };
+
+        var status = ChartStatusLine.SeriesLine(s, 0, theme, ChartStatusLine.Backing(theme, 245), bars);
+        Assert.NotNull(status);
+        var texts = status!.Values.Select(v => v.Text).ToList();
+        Assert.True(texts.Contains("47"), string.Join(" | ", texts));   // the day count
+        Assert.Contains("47.00", texts);    // the moving average, a price, beside it
     }
 
     /// <summary>"Bulls 12  Bears -3": whole numbers as whole numbers, each in its label's colour.</summary>

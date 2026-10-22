@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C cut from 28 components to 15, each one worth landing on (2026-10-22)
+
+- Cody: "Each component must hold value, simply hiding and muting it isn't what I want. hiding and
+  muting should be a user defined preferential function". Cipher C had thirteen hidden or muted
+  components that only held a number for another one. They are gone; each number is now a
+  **companion** (`ComponentCompanions`, Sdk): an array keyed `"{component}_{suffix}"` beside the
+  component, handed to its speech, with no keyboard stop or sound of its own. All fifteen that remain
+  are shown and heard by default. The parts and what each says are a table in
+  `docs/CIPHER_C_DESIGN.md` section 3.
+- The lows say their price, their cycle length and when they were confirmed ("Daily cycle low,
+  64955.00. A 52 day cycle. Confirmed 6 days later."). Confirmed carries the confluence (1 to 3) and
+  says the low and any cancelled low it replaces. Pending says the lowest low since the last cycle low;
+  Cancelled and Failed say the close and the low it went under, and how far back; the tops say their
+  high and which day of how long a cycle. One Daily and one Weekly Timing Window replace DCL Day, WCL
+  Week, In DCL/WCL Window and the four window-bound markers: the value is the day (week) of the cycle,
+  the price pane is tinted while inside the window, and Ctrl+Left/Right stops where it opens and closes.
+  The preset is said by Alt+Shift+D. The Cycle Arc wave and its Arc Position are gone (a picture with
+  nothing to navigate). Each removed name has a retired-signal message in `SignalCatalog`; a saved
+  chart with the 28 restores with the 15.
+- New for any indicator, read by the chart: a `_label` companion prints a number beside a marker on
+  the far side of the bar (49D above a low whose triangle is below); a `_tint` companion is what a
+  background tint is painted from, so a component can hold a count and tint by a state; a `_stops`
+  companion sets the bars Ctrl+Left/Right stops on. `IsCount` (IndicatorMetadata / ComponentConfig)
+  makes the status line and Alt+Shift+D say a whole number ("47", not "47.00").
+- Fixed on the way: the Confirmed, Cancelled and Failed templates said "Close {price}", and the
+  cross-series signal list fills `{price}` with the component's own value, so it spoke the confluence
+  score or the low as if it were the close. The templates no longer carry `{price}`.
+- Fixed on the way: "a 82 day cycle" and "yearly 4 to 4 years" (an/a by the number as said; a range
+  whose ends are equal is said once).
+- Tests: `CipherCProviderTests` (the 15 and their defaults, each one through the real speech path, the
+  companions through the real engine and mapper, causality including the causal companions, the
+  restore and retired names), `ValueLabelRenderingTests` (49D in pixels; a count on the status line),
+  `BackgroundTintTests` (tint from the `_tint` companion), `CrossingMessageTests` (stops). Nine
+  sabotages, one per wiring point, each turned its test red. Not heard in the app. Caveats: the yearly
+  low on Bitcoin is confirmed about 254 weeks after it (an engine behaviour, not changed here, see
+  TODO); landing on a Timing Window still says its shape, "Line", though nothing is drawn.
+
 ### Restored workspace tabs open with the history and zoom they had (2026-10-22)
 
 - Cody: "the workspace should load with all of the bars it had when it was closed last rather than

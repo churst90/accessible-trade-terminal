@@ -764,6 +764,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                 }
             }
+            // And every other array the provider wrote: a component's companions
+            // (ComponentCompanions — a cycle low's length, a confirmation's age) and the
+            // provider's own "__" keys, so a component's speech can say what its value means.
+            foreach (var kv in series.Data.ComponentData)
+                if (!compDataDict.ContainsKey(kv.Key)) compDataDict[kv.Key] = kv.Value;
             if (ctx.LiveClose is double live)
                 compDataDict["__live_close"] = new[] { live };
 

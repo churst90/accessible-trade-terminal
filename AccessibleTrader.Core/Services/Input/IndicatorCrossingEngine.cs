@@ -83,6 +83,15 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
 
+                // Case 2a: a component whose provider names its own stops — a value on every bar
+                // whose news is on a few (a cycle's timing window opening and closing).
+                var stops = focusedSeries.GetComponentData(focusedComp.Name + ComponentCompanions.Stops);
+                if (stops is { Length: > 0 })
+                {
+                    DoSparseSignalJump(focusedSeries, focusedComp, current, jumpRight, stops, "changes");
+                    return;
+                }
+
                 // Case 2: sparse marker → jump to nearest non-NaN signal
                 bool isSparseMarker = focusedComp.DisplayType == ComponentDisplayType.Dot
                                    || focusedComp.DisplayType == ComponentDisplayType.Diamond
@@ -231,9 +240,10 @@ namespace AccessibleTrader.Core.Services.Input
 
         // ── Per-type jump handlers ─────────────────────────────────────────────
 
-        private void DoSparseSignalJump(ChartSeries focusedSeries, ComponentConfig focusedComp, int current, bool jumpRight)
+        private void DoSparseSignalJump(ChartSeries focusedSeries, ComponentConfig focusedComp, int current, bool jumpRight,
+            double[]? stops = null, string noun = "signals")
         {
-            var compData = focusedSeries.GetComponentData(focusedComp.Name);
+            var compData = stops ?? focusedSeries.GetComponentData(focusedComp.Name);
             if (compData == null || compData.Length == 0)
             {
                 string compName = focusedComp.DisplayName ?? focusedComp.Name;
@@ -254,7 +264,7 @@ namespace AccessibleTrader.Core.Services.Input
             else
             {
                 string compName = focusedComp.DisplayName ?? focusedComp.Name;
-                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, $"No more {compName} signals in this direction"));
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, $"No more {compName} {noun} in this direction"));
             }
         }
 

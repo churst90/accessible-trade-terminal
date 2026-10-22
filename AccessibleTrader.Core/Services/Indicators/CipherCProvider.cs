@@ -1,4 +1,5 @@
 using System.Globalization;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -29,11 +30,24 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// is a failed cycle.</item>
     /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
     /// bearish), orange in the middle, green late (right translated, bullish).</item>
-    /// <item>CF's yellow low-to-low arcs, a wave of equal humps under the candles with its troughs under
-    /// the lows' marks.</item>
-    /// <item>A soft green tint behind the bars where the daily cycle was inside its timing window.</item>
+    /// <item>A soft green tint behind the bars where the daily cycle is inside its timing window
+    /// (blue for the weekly window on a chart with no daily cycle).</item>
     /// <item>The 10-bar simple moving average Camel trades against (CF's yellow line).</item>
     /// </list>
+    ///
+    /// <para>
+    /// <b>Every component holds something to hear (2026-10-22).</b> Cody: <i>"Each component must
+    /// hold value, simply hiding and muting it isn't what I want. hiding and muting should be a
+    /// user defined preferential function ... a component which is only visual isn't any use to a
+    /// screen reader."</i> Twenty-eight components became fifteen. Nothing is hidden or muted by
+    /// default. A number that only explains another component (a low's cycle length, a
+    /// confirmation's low and age, a window's bounds) is a companion array of that component
+    /// (<see cref="ComponentCompanions"/>) and is said WITH it, not a keyboard stop of its own. The
+    /// arcs went: on CF they are a picture of where the cycle is, which the timing window says in
+    /// words on every bar. The rule for what is navigable: a dated one-bar event is a component; a
+    /// state over a stretch of bars is one component with a value worth hearing on every bar (the
+    /// timing windows); a fact about the whole chart (the preset) is said by Alt+Shift+D.
+    /// </para>
     ///
     /// <para>
     /// <b>Tiers follow the chart.</b> A tier runs only where its cycle spans at least six bars and
@@ -49,34 +63,45 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // ── Components ─────────────────────────────────────────────────────────
         // DisplayName is the Name throughout: speech and navigation key on either.
-        public const string CompSma            = "SMA";
-        public const string CompYcl            = "YCL";
-        public const string CompWcl            = "WCL";
-        public const string CompDcl            = "DCL";
-        public const string CompDclCount       = "DCL Count";
-        public const string CompWclCount       = "WCL Count";
-        public const string CompDclConfirmed   = "DCL Confirmed";
-        public const string CompWclConfirmed   = "WCL Confirmed";
-        public const string CompYclConfirmed   = "YCL Confirmed";
-        public const string CompPending        = "Cycle Low Pending";
-        public const string CompCancelled      = "Cycle Low Cancelled";
-        public const string CompUpdated        = "Cycle Low Updated";
-        public const string CompFailed         = "Cycle Failed";
-        public const string CompLeftTop        = "Left Translated Top";
-        public const string CompMidTop         = "Mid Translated Top";
-        public const string CompRightTop       = "Right Translated Top";
-        public const string CompArc            = "Cycle Arc";
-        public const string CompArcPosition    = "Cycle Arc Position";
-        public const string CompInDclWindow    = "In DCL Window";
-        public const string CompInWclWindow    = "In WCL Window";
-        public const string CompDclDay         = "DCL Day";
-        public const string CompWclWeek        = "WCL Week";
-        public const string CompDclWindowStart = "DCL Window Start";
-        public const string CompDclWindowEnd   = "DCL Window End";
-        public const string CompWclWindowStart = "WCL Window Start";
-        public const string CompWclWindowEnd   = "WCL Window End";
-        public const string CompConfluence     = "Cycle Low Confluence";
-        public const string CompPreset         = "Asset Preset";
+        public const string CompSma           = "SMA";
+        public const string CompYcl           = "YCL";
+        public const string CompWcl           = "WCL";
+        public const string CompDcl           = "DCL";
+        public const string CompDclConfirmed  = "DCL Confirmed";
+        public const string CompWclConfirmed  = "WCL Confirmed";
+        public const string CompYclConfirmed  = "YCL Confirmed";
+        public const string CompPending       = "Cycle Low Pending";
+        public const string CompCancelled     = "Cycle Low Cancelled";
+        public const string CompFailed        = "Cycle Failed";
+        public const string CompLeftTop       = "Left Translated Top";
+        public const string CompMidTop        = "Mid Translated Top";
+        public const string CompRightTop      = "Right Translated Top";
+        public const string CompDailyWindow   = "Daily Timing Window";
+        public const string CompWeeklyWindow  = "Weekly Timing Window";
+
+        // ── Companions (see ComponentCompanions) ───────────────────────────────
+        /// <summary>A low's cycle length in its tier's unit: days counted inclusively (CF's 49D), weeks, or years.</summary>
+        public const string LengthSuffix = "_length";
+        /// <summary>A low: how long after it was confirmed — days for a daily low, weeks for the others.</summary>
+        public const string AfterSuffix = "_after";
+        /// <summary>A confirmation: the price of the low it confirmed.</summary>
+        public const string LowSuffix = "_low";
+        /// <summary>A confirmation, cancellation or failure: how long ago the low was — days for the daily tier, weeks for the others.</summary>
+        public const string AgoSuffix = "_ago";
+        /// <summary>A confirmation after a cancellation: the price of the cancelled low it replaces.</summary>
+        public const string ReplacedSuffix = "_replaced";
+        /// <summary>A pending low: the lowest low since the last cycle low, and how long ago.</summary>
+        public const string LowestSuffix = "_lowest", LowestAgoSuffix = "_lowestAgo";
+        /// <summary>A translated top: where in its cycle it came (day, week or year N).</summary>
+        public const string DaySuffix = "_day";
+        /// <summary>A timing window's bounds, in its count's unit.</summary>
+        public const string StartSuffix = "_start", EndSuffix = "_end";
+        /// <summary>A cancellation or failure that still stands (no low confirmed since): how long ago, per bar.</summary>
+        public const string SinceSuffix = "_since";
+        /// <summary>Which tier the pending, cancelled, failed and top events belong to: 1 daily, 2 weekly, 3 yearly.</summary>
+        public const string EventsTierKey = "__events_tier";
+        /// <summary>The preset: its index, or -1-index when the symbol had none and this is the fallback.</summary>
+        public const string PresetKey = "__preset";
 
         // ── Parameters ─────────────────────────────────────────────────────────
         public const string ParamPreset     = "Preset";
@@ -93,7 +118,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
 
-        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
+        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B";
 
         private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order) => new()
         {
@@ -106,12 +131,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultSignalSpeechTemplate = $"{tier} cycle low.",
         };
 
+        // No {price} in these templates: narration fills it with the bar's close, but the
+        // cross-series signal list on the candles fills it with the component's own value — the
+        // low's price for a cancellation, the confluence score for a confirmation.
         private static IndicatorComponentMetadata Event(string name, ComponentDisplayType shape, MarkerAnchor anchor, string hex,
-            float size, string patch, double freq, PlaybackLayer layer, string speech, bool visible = true) => new()
+            float size, string patch, double freq, PlaybackLayer layer, string speech, bool count = false) => new()
         {
-            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal,
+            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal, IsCount = count,
             Causality = ComponentCausality.Causal, DefaultMarkerAnchor = anchor,
-            DefaultColorHex = hex, DefaultThickness = size, IsVisible = visible,
+            DefaultColorHex = hex, DefaultThickness = size,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = layer,
             DefaultSoundPatchId = patch, DefaultBaseFrequency = freq, DefaultDecayMs = 300,
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
@@ -129,23 +157,21 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultSignalSpeechTemplate = speech,
         };
 
-        /// <summary>A number carried for speech and strategies, not drawn and not sounded.</summary>
-        private static IndicatorComponentMetadata Hidden(string name, ComponentCausality causality = ComponentCausality.Causal) => new()
+        /// <summary>
+        /// A timing window: its value is the cycle's day (or week) count on every bar, which is
+        /// what is heard; the tint is painted from its <see cref="ComponentCompanions.Tint"/>
+        /// companion (1 inside the window, 0 outside), and Ctrl+Left/Right stops where the window
+        /// opens and where it closes with no new low (<see cref="ComponentCompanions.Stops"/>).
+        /// Not drawn as a line: a day count is not a price.
+        /// </summary>
+        private static IndicatorComponentMetadata Window(string name, string tintHex) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-            Causality = causality, IsVisible = false, DefaultIsMuted = true, DefaultColorHex = "#9E9E9E",
+            Causality = ComponentCausality.Causal, DefaultIsDrawn = false, IsCount = true, DefaultColorHex = "#9E9E9E",
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
             DefaultPlaybackLayer = PlaybackLayer.Background,
-        };
-
-        private static IndicatorComponentMetadata Window(string name, string tintHex, BackgroundTint tint) => new()
-        {
-            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-            Causality = ComponentCausality.Causal, IsVisible = false, DefaultIsMuted = true, DefaultColorHex = "#9E9E9E",
-            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
-            DefaultPlaybackLayer = PlaybackLayer.Background,
-            // 1 inside the window, 0 outside: the whole 0x18 alpha at 1, nothing at 0.
-            DefaultBackgroundTint = tint, DefaultTintColorAboveHex = tintHex, DefaultTintColorBelowHex = "#00000000",
+            // The whole 0x18 alpha at 1, nothing at 0.
+            DefaultBackgroundTint = BackgroundTint.PriceChart, DefaultTintColorAboveHex = tintHex, DefaultTintColorBelowHex = "#00000000",
             DefaultTintMidline = 0.5, DefaultTintFullAt = 1.0,
         };
 
@@ -167,11 +193,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "Daily, weekly and yearly cycle lows on the price chart. Green triangles under daily cycle lows " +
                     "with a ringed D, blue with a W under weekly, gold with a Y under yearly, each low's length with " +
                     "its unit (49D, 24W), a green check box when a low is confirmed, a grey-blue refresh box while " +
-                    "one is pending, crosses when one is cancelled or a cycle fails, translated-top triangles, yellow " +
-                    "low-to-low arcs and a tint over the daily timing window. Cycle ranges are tuned for sixteen " +
-                    "assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver miners, Bitcoin, " +
-                    "Ethereum and four crypto stocks); seven of those are estimated. Lows are drawn on the low's bar " +
-                    "but known only when confirmed, a median of nine bars later. A map of cycle timing, not an edge.",
+                    "one is pending, crosses when one is cancelled or a cycle fails, translated-top triangles, and a " +
+                    "tint over the daily timing window, whose day count is read on every bar. Cycle ranges are tuned " +
+                    "for sixteen assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver " +
+                    "miners, Bitcoin, Ethereum and four crypto stocks); seven of those are estimated. Lows are drawn " +
+                    "on the low's bar but known only when confirmed, a median of nine bars later. A map of cycle " +
+                    "timing, not an edge.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
@@ -206,78 +233,53 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1),
                     Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2),
 
-                    new() { Name = CompDclCount, DisplayName = CompDclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead, MarkerText = "D", DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = DclHex,
-                            DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Background },
-                    // Hidden by default: on a daily chart it would print on top of the daily count.
-                    new() { Name = CompWclCount, DisplayName = CompWclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead, MarkerText = "W", DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = WclHex,
-                            IsVisible = false, DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Background },
-
+                    // Value: the confluence score, 1 to 3 (a normal-length cycle, a close over the
+                    // moving average, a close over the low bar's high), so a strategy can ask for
+                    // "DCL Confirmed at least 2".
                     Event(CompDclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 4.5f, "sine_bell", 392, PlaybackLayer.Foreground,
-                          "Daily cycle low confirmed. Close {price}."),
+                          "Daily cycle low confirmed.", count: true),
                     Event(CompWclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 5.5f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
-                          "Weekly cycle low confirmed. Close {price}."),
+                          "Weekly cycle low confirmed.", count: true),
                     Event(CompYclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 6.5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
-                          "Yearly cycle low confirmed. Close {price}."),
+                          "Yearly cycle low confirmed.", count: true),
+                    // Value: the close. The bar the hidden cycle line reached oversold.
                     Event(CompPending, ComponentDisplayType.RefreshBox, MarkerAnchor.AboveBar, "#78909C", 4f, "triangle_bell", 440, PlaybackLayer.Background,
                           "Cycle low pending."),
+                    // Value: the price of the low closed under. Warnings, not sell signals.
                     Event(CompCancelled, ComponentDisplayType.Cross, MarkerAnchor.BelowBar, "#FF1744", 3f, "triangle_bell", 220, PlaybackLayer.Midground,
-                          "Cycle low cancelled, price closed under it. Close {price}."),
-                    Event(CompUpdated, ComponentDisplayType.Square, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Background,
-                          "Cycle low moved to the new low.", visible: false),
+                          "Cycle low cancelled, price closed under it."),
                     Event(CompFailed, ComponentDisplayType.Cross, MarkerAnchor.AboveBar, "#FF6D00", 3f, "triangle_bell", 175, PlaybackLayer.Midground,
-                          "Cycle failed, price closed under the cycle low. Close {price}."),
+                          "Cycle failed, price closed under the cycle low."),
 
+                    // Value: the top's high.
                     Top(CompLeftTop,  "#FF5252", "Left translated top, bearish."),
                     Top(CompMidTop,   "#FFA726", "Mid translated top."),
                     Top(CompRightTop, "#66BB6A", "Right translated top, bullish."),
 
-                    Window(CompInDclWindow, "#1800E676", BackgroundTint.PriceChart),
-                    Window(CompInWclWindow, "#182979FF", BackgroundTint.Off),
-                    Hidden(CompDclDay),
-                    Hidden(CompWclWeek),
-                    // The window bounds and the preset describe the chart, not a bar: they come
-                    // from the bar clock (measured from the loaded bars — whether any fall on a
-                    // weekend) and the symbol. Fewer than seven days of a crypto chart read as a
-                    // stock's until a weekend arrives, so their value on bar 0 can change as later
-                    // bars load. No tier can run on that little history, so nothing is decided on
-                    // them; they are declared Lookahead so no strategy leaf is offered either.
-                    Hidden(CompDclWindowStart, ComponentCausality.Lookahead),
-                    Hidden(CompDclWindowEnd, ComponentCausality.Lookahead),
-                    Hidden(CompWclWindowStart, ComponentCausality.Lookahead),
-                    Hidden(CompWclWindowEnd, ComponentCausality.Lookahead),
-                    Hidden(CompConfluence),
-                    Hidden(CompPreset, ComponentCausality.Lookahead),
-                    // How far through its arc each bar is, 0 at a low and 1 at the crest: what the arc says.
-                    Hidden(CompArcPosition, ComponentCausality.Lookahead),
-
-                    // On the price pane, in price, under the candles, as CF draws them (mustard, thin).
-                    new() { Name = CompArc, DisplayName = CompArc, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead,
-                            DefaultColorHex = ArcHex, DefaultThickness = 1f, DefaultUsePolarityColoring = false, DefaultIsAreaFill = false,
-                            // A picture of where in the cycle each bar sits; its pitch would repeat the counts.
-                            DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultPlaybackLayer = PlaybackLayer.Background },
+                    Window(CompDailyWindow, "#1800E676"),
+                    Window(CompWeeklyWindow, "#182979FF"),
                 },
             }
         };
 
         // ── Calculation ────────────────────────────────────────────────────────
 
-        /// <summary>Everything one run decides, by component name. Public for the tests and the lab.</summary>
+        /// <summary>One tier's unit: what its counts and lengths are said in.</summary>
+        private readonly record struct Unit(string Tier, string Word, string Words, double Bars);
+
+        /// <summary>Everything one run decides, by component name and companion key. Public for the tests and the lab.</summary>
         public static Dictionary<string, double[]> Compute(ReadOnlySpan<Ohlcv> data, Dictionary<string, object>? parameters)
         {
             int n = data.Length;
             var o = new Dictionary<string, double[]>();
-            foreach (var c in new[] { CompSma, CompYcl, CompWcl, CompDcl, CompDclCount, CompWclCount, CompDclConfirmed, CompWclConfirmed,
-                                      CompYclConfirmed, CompPending, CompCancelled, CompUpdated, CompFailed, CompLeftTop, CompMidTop,
-                                      CompRightTop, CompArc, CompInDclWindow, CompInWclWindow, CompDclDay, CompWclWeek,
-                                      CompDclWindowStart, CompDclWindowEnd, CompWclWindowStart, CompWclWindowEnd, CompConfluence, CompPreset,
-                                      CompArcPosition })
-                o[c] = CipherCEngine.Nan(n);
+            double[] A(string key) => o.TryGetValue(key, out var a) ? a : o[key] = CipherCEngine.Nan(n);
+            foreach (var c in new[] { CompSma, CompYcl, CompWcl, CompDcl, CompDclConfirmed, CompWclConfirmed, CompYclConfirmed,
+                                      CompPending, CompCancelled, CompFailed, CompLeftTop, CompMidTop, CompRightTop,
+                                      CompDailyWindow, CompWeeklyWindow })
+                A(c);
+            // The tint companions always exist, so a window with no tint of its own paints nothing
+            // rather than falling back to tinting by its day count.
+            A(CompDailyWindow + ComponentCompanions.Tint); A(CompWeeklyWindow + ComponentCompanions.Tint);
             if (n == 0) return o;
 
             var p = parameters ?? new Dictionary<string, object>();
@@ -299,6 +301,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             var w = CipherCEngine.Detect(data, wTier, ob, os);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
 
+            double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
+            var day = new Unit("daily", "day", "days", clock.BarsPerDay);
+            var week = new Unit("weekly", "week", "weeks", barsPerWeek);
+            var year = new Unit("yearly", "year", "years", clock.BarsPerDay * clock.DaysPerYear);
+
             var close = new double[n]; var high = new double[n]; var low = new double[n];
             for (int i = 0; i < n; i++) { close[i] = data[i].Close; high[i] = data[i].High; low[i] = data[i].Low; }
 
@@ -315,95 +322,190 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // Where the lows are. A weekly low is one of the daily lows near it, a yearly low one
             // of the weekly (or daily) ones — CF's stacks always sit on one another.
+            int dReach = (int)Math.Round(dTier.MinBars / 2), wReach = (int)Math.Round(wTier.MinBars / 2);
+            var dConfirm = Confirmations(d, null, 0, data);
+            var wConfirm = Confirmations(w, dTier.Active ? d.Lows : null, dReach, data);
+            var yConfirm = Confirmations(y, wTier.Active ? w.Lows : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data);
             var dLows = new List<int>(d.Lows);
-            var wLows = dTier.Active ? CipherCEngine.SnapTo(w.Lows, dLows, (int)Math.Round(dTier.MinBars / 2), data) : new List<int>(w.Lows);
-            var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, (int)Math.Round(wTier.MinBars / 2), data)
-                      : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, (int)Math.Round(dTier.MinBars / 2), data) : y.Lows;
+            var wLows = dTier.Active ? CipherCEngine.SnapTo(w.Lows, dLows, dReach, data) : new List<int>(w.Lows);
+            var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, wReach, data)
+                      : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, dReach, data) : y.Lows;
             // And a higher low with no lower one near it is a lower low as well: a weekly cycle
             // low IS a daily cycle low. The daily detector misses one when it comes inside the
             // minimum gap and only its wick undercuts the last low, so nothing cancelled that one
             // — Bitcoin's 5 August 2024 crash (low 49,577, close near 54,000, 31 days after the
-            // 5 July low). CF draws a D under every W; so does this.
-            if (wTier.Active) foreach (int i in yLows) AddLow(wLows, i);
-            if (dTier.Active) { foreach (int i in wLows) AddLow(dLows, i); foreach (int i in yLows) AddLow(dLows, i); }
-            foreach (int i in dLows) o[CompDcl][i] = low[i];
-            foreach (int i in wLows) o[CompWcl][i] = low[i];
-            foreach (int i in yLows) o[CompYcl][i] = low[i];
+            // 5 July low). CF draws a D under every W; so does this. A low added this way was
+            // confirmed by the higher tier, so it takes that tier's confirmation.
+            if (wTier.Active) foreach (int i in yLows) { AddLow(wLows, i); wConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
+            if (dTier.Active)
+            {
+                foreach (int i in wLows) { AddLow(dLows, i); dConfirm.TryAdd(i, wConfirm.GetValueOrDefault(i, -1)); }
+                foreach (int i in yLows) { AddLow(dLows, i); dConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
+            }
 
-            // CF's count under each low: the cycle that ended there, in days, counting both ends.
-            for (int k = 1; k < dLows.Count; k++)
-                o[CompDclCount][dLows[k]] = Math.Round((dLows[k] - dLows[k - 1]) / clock.BarsPerDay) + 1;
-            double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
-            for (int k = 1; k < wLows.Count; k++)
-                o[CompWclCount][wLows[k]] = Math.Round((wLows[k] - wLows[k - 1]) / barsPerWeek);
+            // Each low: its price, its cycle's length (CF's count, drawn as the label), and how long
+            // after it was confirmed. The weekly label is drawn only where there is no daily one, so
+            // the two never print on top of each other.
+            WriteLows(o, CompDcl, dLows, dConfirm, low, day, day, label: true, LengthInDays(clock));
+            WriteLows(o, CompWcl, wLows, wConfirm, low, week, week, label: !dTier.Active, (a, b) => Math.Round((b - a) / barsPerWeek));
+            WriteLows(o, CompYcl, yLows, yConfirm, low, year, week, label: false, (a, b) => Math.Round((b - a) / year.Bars, 1));
 
-            Copy(d.Confirmed, o[CompDclConfirmed]);
-            Copy(w.Confirmed, o[CompWclConfirmed]);
-            Copy(y.Confirmed, o[CompYclConfirmed]);
+            // The confirmations: their confluence, the low, its age, and the low a confirmation
+            // after a cancellation replaces.
+            WriteConfirmed(o, CompDclConfirmed, d, dTier, day, sma, close, high, low);
+            WriteConfirmed(o, CompWclConfirmed, w, wTier, week, sma, close, high, low);
+            WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low);
 
-            // The events, the arcs, the tops and the confluence belong to the shortest tier that runs.
-            var (lowest, lowestTier, lowestLows) = dTier.Active ? (d, dTier, dLows) : wTier.Active ? (w, wTier, wLows) : (y, yTier, yLows);
+            // The events and the tops belong to the shortest tier that runs.
+            var (lowest, _, lowestLows, tierNo, unit, ago) =
+                dTier.Active ? (d, dTier, dLows, 1, day, day) : wTier.Active ? (w, wTier, wLows, 2, week, week) : (y, yTier, yLows, 3, year, week);
+            if (dTier.Active || wTier.Active || yTier.Active) Array.Fill(A(EventsTierKey), tierNo);
+
             Copy(lowest.Pending, o[CompPending]);
-            Copy(lowest.Cancelled, o[CompCancelled]);
-            Copy(lowest.Updated, o[CompUpdated]);
-            Copy(lowest.Failed, o[CompFailed]);
+            for (int t = 0; t < n; t++)
+            {
+                if (double.IsNaN(lowest.Pending[t])) continue;
+                int last = lowest.LastLowAt[t];
+                if (last < 0) continue;
+                int at = last + 1;
+                for (int i = last + 1; i <= t; i++) if (low[i] < low[at]) at = i;
+                if (at > t) continue;
+                A(CompPending + LowestSuffix)[t] = low[at];
+                A(CompPending + LowestAgoSuffix)[t] = Units(t - at, ago);
+            }
 
-            var arcPos = o[CompArcPosition];
-            var floor = ArcFloors(lowestLows, high, low, n, out double hump);
+            Copy(lowest.Cancelled, o[CompCancelled]);
+            Copy(lowest.Failed, o[CompFailed]);
+            double[] cancelledSince = A(CompCancelled + SinceSuffix), failedSince = A(CompFailed + SinceSuffix);
+            int cancelledAt = -1, failedAt = -1;
+            for (int t = 0; t < n; t++)
+            {
+                if (!double.IsNaN(lowest.Confirmed[t])) cancelledAt = failedAt = -1;
+                int under = lowest.ClosedUnder[t];
+                if (!double.IsNaN(lowest.Cancelled[t])) { cancelledAt = t; A(CompCancelled + AgoSuffix)[t] = Units(t - under, ago); }
+                if (!double.IsNaN(lowest.Failed[t])) { failedAt = t; A(CompFailed + AgoSuffix)[t] = Units(t - under, ago); }
+                if (cancelledAt >= 0) cancelledSince[t] = Units(t - cancelledAt, ago);
+                if (failedAt >= 0) failedSince[t] = Units(t - failedAt, ago);
+            }
+
+            // Each finished cycle's top: where it came in the cycle, and how long the cycle was.
+            var length = tierNo == 1 ? LengthInDays(clock) : tierNo == 2 ? (a, b) => Math.Round((b - a) / barsPerWeek) : (Func<int, int, double>)((a, b) => Math.Round((b - a) / year.Bars, 1));
             for (int k = 1; k < lowestLows.Count; k++)
             {
                 int a = lowestLows[k - 1], b = lowestLows[k];
-                for (int i = a; i <= b; i++) arcPos[i] = Math.Sin(Math.PI * (i - a) / (b - a));
-                DrawArc(o[CompArc], a, b, b - a, floor[k - 1], floor[k], hump);
                 int top = a;
                 for (int i = a + 1; i < b; i++) if (high[i] > high[top]) top = i;
                 if (top == a) continue;
                 double ratio = (double)(top - a) / (b - a);
                 string comp = ratio < 0.45 ? CompLeftTop : ratio > 0.55 ? CompRightTop : CompMidTop;
                 o[comp][top] = high[top];
-            }
-            if (lowestLows.Count > 0)
-            {
-                // The live arc ends in the middle of the window the next low is due in, as CF's does.
-                int a = lowestLows[^1], due = Math.Max(1, (int)Math.Round(lowestTier.MeanBars));
-                for (int i = a; i < n && i <= a + due; i++) arcPos[i] = Math.Sin(Math.PI * (i - a) / due);
-                DrawArc(o[CompArc], a, Math.Min(n - 1, a + due), due, floor[^1], floor[^1], hump);
+                A(comp + DaySuffix)[top] = Math.Floor((top - a) / unit.Bars + 1e-9) + 1;
+                A(comp + LengthSuffix)[top] = length(a, b);
             }
 
-            // Confluence on each confirming bar: was the cycle that ended a normal length, is the
-            // close above the moving average, and has it closed above the low bar's high.
-            for (int t = 0; t < n; t++)
-            {
-                if (double.IsNaN(lowest.Confirmed[t])) continue;
-                int c = FindLow(lowest, t);
-                if (c < 0) continue;
-                int prev = PreviousLow(lowest, t, c);
-                int score = 0;
-                if (prev >= 0 && c - prev >= lowestTier.MinBars - 0.5 && c - prev <= lowestTier.MaxBars + 0.5) score++;
-                if (!double.IsNaN(sma[t]) && close[t] > sma[t]) score++;
-                if (close[t] > high[c]) score++;
-                o[CompConfluence][t] = Math.Max(1, score);
-            }
-
-            // Day and week counts, and whether the bar is in the timing window — known on the bar.
-            WriteCounts(d, dTier, clock.BarsPerDay, dMin, dMax, o[CompDclDay], o[CompInDclWindow], o[CompDclWindowStart], o[CompDclWindowEnd], n);
-            WriteCounts(w, wTier, barsPerWeek, wMin, wMax, o[CompWclWeek], o[CompInWclWindow], o[CompWclWindowStart], o[CompWclWindowEnd], n);
+            // Day and week counts against the timing windows — known on the bar.
+            WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dMin, dMax, tint: true, n);
+            WriteWindow(o, CompWeeklyWindow, w, wTier, barsPerWeek, wMin, wMax, tint: !dTier.Active, n);
 
             int presetIndex = IndexOf(preset);
-            Array.Fill(o[CompPreset], fineTuned ? presetIndex : -1 - presetIndex);
+            Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
             return o;
         }
 
-        private static void AddLow(List<int> lows, int i)
+        /// <summary>CF's count: the cycle that ended at a low, in days, counting both ends.</summary>
+        private static Func<int, int, double> LengthInDays(CipherCEngine.BarClock clock) =>
+            (a, b) => Math.Round((b - a) / clock.BarsPerDay) + 1;
+
+        /// <summary>A span of bars in a unit: whole above ten, to a tenth below (an hourly chart's "2.4 days").</summary>
+        private static double Units(int bars, Unit unit)
         {
-            int at = lows.BinarySearch(i);
-            if (at < 0) lows.Insert(~at, i);
+            double v = bars / unit.Bars;
+            return v >= 10 ? Math.Round(v) : Math.Round(v, 1);
         }
 
-        private static void WriteCounts(CipherCEngine.TierRun run, CipherCEngine.TierBars tier, double barsPerUnit,
-            double min, double max, double[] count, double[] inWindow, double[] start, double[] end, int n)
+        /// <summary>
+        /// Each of a tier's lows, by bar, with the bar it was confirmed on. A tier whose lows are
+        /// snapped onto a lower tier's (<paramref name="lowerTier"/>) is keyed by the bar it snaps
+        /// to, as <see cref="CipherCEngine.SnapTo"/> moves it; two that snap to one bar keep the
+        /// earlier confirmation.
+        /// </summary>
+        private static Dictionary<int, int> Confirmations(CipherCEngine.TierRun run, IReadOnlyList<int>? lowerTier, int reach, ReadOnlySpan<Ohlcv> data)
+        {
+            var map = new Dictionary<int, int>();
+            for (int k = 0; k < run.Lows.Count; k++)
+            {
+                int at = lowerTier == null ? run.Lows[k] : CipherCEngine.SnapTo(new[] { run.Lows[k] }, lowerTier, reach, data)[0];
+                int when = run.ConfirmedAt[k];
+                if (!map.TryGetValue(at, out int had) || when < had) map[at] = when;
+            }
+            return map;
+        }
+
+        private static void WriteLows(Dictionary<string, double[]> o, string comp, List<int> lows, Dictionary<int, int> confirmedAt,
+            double[] low, Unit unit, Unit ago, bool label, Func<int, int, double> length)
+        {
+            int n = low.Length;
+            var values = o[comp];
+            double[] Companion(string suffix) => o.TryGetValue(comp + suffix, out var a) ? a : o[comp + suffix] = CipherCEngine.Nan(n);
+            for (int k = 0; k < lows.Count; k++)
+            {
+                int i = lows[k];
+                values[i] = low[i];
+                if (k > 0)
+                {
+                    double len = length(lows[k - 1], i);
+                    Companion(LengthSuffix)[i] = len;
+                    if (label) Companion(ComponentCompanions.Label)[i] = len;
+                }
+                if (confirmedAt.TryGetValue(i, out int at) && at > i)
+                    Companion(AfterSuffix)[i] = Units(at - i, ago);
+            }
+        }
+
+        private static void WriteConfirmed(Dictionary<string, double[]> o, string comp, CipherCEngine.TierRun run, CipherCEngine.TierBars tier,
+            Unit ago, double[] sma, double[] close, double[] high, double[] low)
+        {
+            int n = close.Length;
+            if (!tier.Active) return;
+            var values = o[comp];
+            double[] lowAt = CipherCEngine.Nan(n), age = CipherCEngine.Nan(n), replaced = CipherCEngine.Nan(n);
+            for (int t = 0; t < n; t++)
+            {
+                if (double.IsNaN(run.Confirmed[t])) continue;
+                // The low a confirmation on bar t confirmed is the one LastLowAt names from then on;
+                // the one before it is the low as it stood on the bar before.
+                int c = run.LastLowAt[t];
+                if (c < 0) continue;
+                int before = t > 0 ? run.LastLowAt[t - 1] : -1;
+                int prev = before >= 0 && before < c ? before : -1;
+                int score = 0;
+                if (prev >= 0 && c - prev >= tier.MinBars - 0.5 && c - prev <= tier.MaxBars + 0.5) score++;
+                if (!double.IsNaN(sma[t]) && close[t] > sma[t]) score++;
+                if (close[t] > high[c]) score++;
+                values[t] = Math.Max(1, score);
+                lowAt[t] = low[c];
+                age[t] = Units(t - c, ago);
+                replaced[t] = run.Updated[t];
+            }
+            o[comp + LowSuffix] = lowAt;
+            o[comp + AgoSuffix] = age;
+            o[comp + ReplacedSuffix] = replaced;
+        }
+
+        /// <summary>
+        /// A timing window: the count of the cycle's units since its last confirmed low (day 1 is
+        /// the low's own), whether that is inside the window, its bounds, and the bars where the
+        /// window opens or closes without a new low. <paramref name="tint"/> false leaves the tint
+        /// companion all NaN — the weekly window on a chart with a daily one, whose green tint it
+        /// would cover.
+        /// </summary>
+        private static void WriteWindow(Dictionary<string, double[]> o, string comp, CipherCEngine.TierRun run, CipherCEngine.TierBars tier,
+            double barsPerUnit, double min, double max, bool tint, int n)
         {
             if (!tier.Active) return;
+            var count = o[comp];
+            var inWindow = CipherCEngine.Nan(n);
+            var start = CipherCEngine.Nan(n); var end = CipherCEngine.Nan(n); var stops = CipherCEngine.Nan(n);
             Array.Fill(start, Math.Round(min, 1));
             Array.Fill(end, Math.Round(max, 1));
             for (int t = 0; t < n; t++)
@@ -413,17 +515,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                 double units = Math.Floor((t - last) / barsPerUnit + 1e-9) + 1;
                 count[t] = units;
                 inWindow[t] = units >= min && units <= max ? 1 : 0;
+                bool sameCycle = t > 0 && run.LastLowAt[t - 1] == last;
+                bool wasIn = t > 0 && inWindow[t - 1] == 1;
+                if (inWindow[t] == 1 && !(wasIn && sameCycle)) stops[t] = 1;          // opens
+                else if (inWindow[t] == 0 && wasIn && sameCycle) stops[t] = 0;       // closes with no new low
             }
+            o[comp + ComponentCompanions.Tint] = tint ? inWindow : CipherCEngine.Nan(n);
+            o[comp + StartSuffix] = start;
+            o[comp + EndSuffix] = end;
+            o[comp + ComponentCompanions.Stops] = stops;
         }
 
-        /// <summary>The low a confirmation on bar <paramref name="t"/> confirmed: the one LastLowAt names from then on.</summary>
-        private static int FindLow(CipherCEngine.TierRun run, int t) => run.LastLowAt[t];
-
-        /// <summary>The low before <paramref name="c"/> as it stood on the bar before the confirmation.</summary>
-        private static int PreviousLow(CipherCEngine.TierRun run, int t, int c)
+        private static void AddLow(List<int> lows, int i)
         {
-            int before = t > 0 ? run.LastLowAt[t - 1] : -1;
-            return before >= 0 && before < c ? before : -1;
+            int at = lows.BinarySearch(i);
+            if (at < 0) lows.Insert(~at, i);
         }
 
         private static int IndexOf(CyclePreset preset)
@@ -458,24 +564,39 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>
         /// The cycle's state on a bar in words — where the daily and weekly cycles are against
-        /// their timing windows, and a confirmation's confluence. Read by Alt+Shift+D after the
-        /// drawn components (<see cref="Accessibility.BarDetailService"/>) and by the detail fact.
+        /// their timing windows, a confirmation's confluence, and a cancellation or failure that
+        /// still stands. Read by Alt+Shift+D after the components' values
+        /// (<see cref="Accessibility.BarDetailService"/>) and by the detail fact. With
+        /// <paramref name="barDate"/>, the preset the chart uses is said last — a fact about the
+        /// whole chart, so it is said when the Cipher C is the series being read, not on the ladder.
         /// </summary>
-        public static IReadOnlyList<string> StateWords(Func<string, double[]?> component, int index)
+        public static IReadOnlyList<string> StateWords(Func<string, double[]?> component, int index, DateTime? barDate = null)
         {
             var words = new List<string>();
             double At(string name) => component(name) is { } a && index >= 0 && index < a.Length ? a[index] : double.NaN;
 
-            string? daily = WindowWords("daily cycle", "day", "days", At(CompDclDay), At(CompDclWindowStart), At(CompDclWindowEnd));
+            string? daily = WindowWords("daily cycle", "day", "days", At(CompDailyWindow), At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
             if (daily != null) words.Add(daily);
-            string? weekly = WindowWords("weekly cycle", "week", "weeks", At(CompWclWeek), At(CompWclWindowStart), At(CompWclWindowEnd));
+            string? weekly = WindowWords("weekly cycle", "week", "weeks", At(CompWeeklyWindow), At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
             if (weekly != null) words.Add(weekly);
 
-            double conf = At(CompConfluence);
-            if (!double.IsNaN(conf))
-                words.Add($"cycle low confirmed, {ConfluenceWord(conf)} confluence");
-            if (!double.IsNaN(At(CompCancelled))) words.Add("cycle low cancelled");
-            if (!double.IsNaN(At(CompFailed))) words.Add("cycle failed");
+            foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
+            {
+                double conf = At(comp);
+                if (!double.IsNaN(conf)) words.Add($"{tier} cycle low confirmed, {ConfluenceWord(conf)} confluence");
+            }
+
+            string events = TierWord(At(EventsTierKey));
+            (string unit, string units) = AgoUnit(At(EventsTierKey));
+            if (!double.IsNaN(At(CompCancelled))) words.Add($"{events} cycle low cancelled");
+            else if (At(CompCancelled + SinceSuffix) is var cs && !double.IsNaN(cs))
+                words.Add($"the last {events} cycle low was cancelled {Span(cs, unit, units)} ago");
+            if (!double.IsNaN(At(CompFailed))) words.Add($"{events} cycle failed");
+            else if (At(CompFailed + SinceSuffix) is var fs && !double.IsNaN(fs))
+                words.Add($"the {events} cycle failed {Span(fs, unit, units)} ago");
+
+            if (barDate is { } date && !double.IsNaN(At(PresetKey)))
+                words.Add(PresetWords(At(PresetKey), date));
             return words;
         }
 
@@ -483,7 +604,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             if (double.IsNaN(start)) return null;          // the tier does not run on this chart
             if (double.IsNaN(count)) return $"no {cycle} low confirmed yet";
-            string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
             string Units(double v) => Math.Abs(v - 1) < 1e-9 ? unit : units;
             string head = $"{cycle} {unit} {Num(count)}";
             if (count < start)
@@ -494,6 +614,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (count <= end)
             {
                 double left = Math.Floor(end - count);
+                // The first unit inside it: the bounds are said once, here.
+                if (count - start < 1)
+                    return $"{head}, its {Num(start)} to {Num(end)} {unit} window opens, {Num(left)} {Units(left)} left";
                 return left < 1 ? $"{head}, the last {unit} of its window" : $"{head}, in its window, {Num(left)} {Units(left)} left";
             }
             double past = Math.Ceiling(count - end);
@@ -502,7 +625,14 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public static string ConfluenceWord(double score) => score >= 3 ? "high" : score >= 2 ? "mid" : "low";
 
-        /// <summary>The preset a chart used, in words, from the value of <see cref="CompPreset"/>.</summary>
+        private static string TierWord(double tier) => tier switch { 2 => "weekly", 3 => "yearly", _ => "daily" };
+
+        /// <summary>What an age is counted in: days on the daily tier, weeks on the others.</summary>
+        private static (string, string) AgoUnit(double tier) => tier is 2 or 3 ? ("week", "weeks") : ("day", "days");
+
+        private static string Span(double v, string unit, string units) => $"{Num(v)} {(Math.Abs(v - 1) < 1e-9 ? unit : units)}";
+
+        /// <summary>The preset a chart used, in words, from the value of <see cref="PresetKey"/>.</summary>
         public static string PresetWords(double value, DateTime barDate)
         {
             if (double.IsNaN(value)) return "no preset";
@@ -513,8 +643,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             string text = fineTuned
                 ? $"{preset.Name} ranges, {preset.Source}"
                 : $"no preset for this symbol, so {preset.Name}'s ranges";
-            text += $": daily {Num(preset.DailyMin)} to {Num(preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}, " +
-                    $"weekly {Num(preset.WeeklyMin)} to {Num(preset.WeeklyMax)} weeks, yearly {Num(preset.YearlyMin)} to {Num(preset.YearlyMax)} years";
+            text += $": daily {Range(preset.DailyMin, preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}, " +
+                    $"weekly {Range(preset.WeeklyMin, preset.WeeklyMax)} weeks, yearly {Range(preset.YearlyMin, preset.YearlyMax)} years";
             if (preset.Key == "BTC" && fineTuned)
             {
                 var halving = CipherCEngine.HalvingPhase(barDate);
@@ -525,86 +655,117 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
 
+        /// <summary>"22 to 42", or "4" when a range is one value (Bitcoin's yearly cycle).</summary>
+        private static string Range(double min, double max) => min == max ? Num(min) : $"{Num(min)} to {Num(max)}";
+
+        /// <summary>"a 49 day cycle", "an 82 day cycle", "an 11 week cycle": the article for a number said aloud.</summary>
+        internal static string A(double v)
+        {
+            string whole = Math.Floor(Math.Abs(v)).ToString(CultureInfo.InvariantCulture);
+            bool vowel = whole.StartsWith('8')
+                      || (whole.Length % 3 == 2 && (whole.StartsWith("11", StringComparison.Ordinal) || whole.StartsWith("18", StringComparison.Ordinal)));
+            return vowel ? "an" : "a";
+        }
+
+        private static string Price(double v) => SpeechPriceFormatter.FormatPrice(v);
+
+        /// <summary>
+        /// What each component says on a bar where it has a value: the value, and what it means
+        /// from its companions. Navigation (arrows, Ctrl+Left/Right) reads this.
+        /// </summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
             if (double.IsNaN(value)) return null;
             double At(string name) => allComponentData.TryGetValue(name, out var a) && dataIndex >= 0 && dataIndex < a.Length ? a[dataIndex] : double.NaN;
-            return componentName switch
+            string tier = TierWord(At(EventsTierKey));
+            var (unit, units) = AgoUnit(At(EventsTierKey));
+            string Tier(string t) => char.ToUpperInvariant(t[0]) + t[1..];
+
+            switch (componentName)
             {
-                CompDclCount => $"{Num(value)} day cycle",
-                CompWclCount => $"{Num(value)} week cycle",
-                CompConfluence => $"{ConfluenceWord(value)} confluence",
-                CompDclDay => WindowWords("daily cycle", "day", "days", value, At(CompDclWindowStart), At(CompDclWindowEnd)),
-                CompWclWeek => WindowWords("weekly cycle", "week", "weeks", value, At(CompWclWindowStart), At(CompWclWindowEnd)),
-                CompInDclWindow => value >= 0.5 ? "in the daily timing window" : "outside the daily timing window",
-                CompInWclWindow => value >= 0.5 ? "in the weekly timing window" : "outside the weekly timing window",
-                CompArc or CompArcPosition => At(CompArcPosition) is var pos && double.IsNaN(pos) ? null
-                    : pos >= 0.995 ? "mid-cycle" : $"{Math.Round(pos * 100)} percent of the arc",
-                CompPreset => PresetWords(value, bar.Date),
-                _ => null,
-            };
+                case CompDcl: return LowWords("Daily", value, At(CompDcl + LengthSuffix), "day", At(CompDcl + AfterSuffix), "day", "days");
+                case CompWcl: return LowWords("Weekly", value, At(CompWcl + LengthSuffix), "week", At(CompWcl + AfterSuffix), "week", "weeks");
+                case CompYcl: return LowWords("Yearly", value, At(CompYcl + LengthSuffix), "year", At(CompYcl + AfterSuffix), "week", "weeks");
+
+                case CompDclConfirmed: case CompWclConfirmed: case CompYclConfirmed:
+                {
+                    string t = componentName == CompDclConfirmed ? "daily" : componentName == CompWclConfirmed ? "weekly" : "yearly";
+                    var (u, us) = componentName == CompDclConfirmed ? ("day", "days") : ("week", "weeks");
+                    string s = $"{Tier(t)} cycle low confirmed, {ConfluenceWord(value)} confluence";
+                    double lowPrice = At(componentName + LowSuffix), age = At(componentName + AgoSuffix);
+                    if (!double.IsNaN(lowPrice))
+                        s += $": the low of {Price(lowPrice)}" + (double.IsNaN(age) ? "" : $", {Span(age, u, us)} ago");
+                    s += ".";
+                    double replaced = At(componentName + ReplacedSuffix);
+                    if (!double.IsNaN(replaced)) s += $" It replaces the cancelled low of {Price(replaced)}.";
+                    foreach (var (other, ot) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
+                        if (other != componentName && !double.IsNaN(At(other))) s += $" The {ot} low is confirmed on this bar too.";
+                    return s;
+                }
+
+                case CompPending:
+                {
+                    string s = $"{Tier(tier)} cycle low pending, the cycle line reached oversold";
+                    double count = tier == "daily" ? At(CompDailyWindow) : tier == "weekly" ? At(CompWeeklyWindow) : double.NaN;
+                    string countUnit = tier == "weekly" ? "week" : "day";
+                    if (!double.IsNaN(count)) s += $" on {countUnit} {Num(count)}";
+                    s += ".";
+                    double lowest = At(CompPending + LowestSuffix), lowestAgo = At(CompPending + LowestAgoSuffix);
+                    if (!double.IsNaN(lowest))
+                        s += $" Lowest low since the last cycle low: {Price(lowest)}" +
+                             (double.IsNaN(lowestAgo) ? "." : lowestAgo == 0 ? ", this bar." : $", {Span(lowestAgo, unit, units)} ago.");
+                    return s;
+                }
+
+                case CompCancelled: case CompFailed:
+                {
+                    string what = componentName == CompCancelled ? $"{Tier(tier)} cycle low cancelled" : $"{Tier(tier)} cycle failed";
+                    string under = componentName == CompCancelled ? "the low" : "the cycle low";
+                    double age = At(componentName + AgoSuffix);
+                    return $"{what}: closed at {Price(bar.Close)}, under {under} of {Price(value)}" +
+                           (double.IsNaN(age) ? "." : $" from {Span(age, unit, units)} ago.");
+                }
+
+                case CompLeftTop: case CompMidTop: case CompRightTop:
+                {
+                    string what = componentName == CompLeftTop ? "Left translated top, bearish" : componentName == CompRightTop ? "Right translated top, bullish" : "Mid translated top";
+                    string topUnit = tier == "weekly" ? "week" : tier == "yearly" ? "year" : "day";
+                    double dayOf = At(componentName + DaySuffix), len = At(componentName + LengthSuffix);
+                    string s = $"{what}: high {Price(value)}";
+                    if (!double.IsNaN(dayOf) && !double.IsNaN(len)) s += $", {topUnit} {Num(dayOf)} of {A(len)} {Num(len)} {topUnit} cycle";
+                    return s + ".";
+                }
+
+                case CompDailyWindow:
+                    return WindowWords("daily cycle", "day", "days", value, At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
+                case CompWeeklyWindow:
+                    return WindowWords("weekly cycle", "week", "weeks", value, At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>"Daily cycle low, 61,234. A 49 day cycle. Confirmed 9 days later."</summary>
+        private static string LowWords(string tier, double price, double length, string lengthUnit, double after, string afterUnit, string afterUnits)
+        {
+            string s = $"{tier} cycle low, {Price(price)}.";
+            if (!double.IsNaN(length)) s += $" {(A(length) == "an" ? "An" : "A")} {Num(length)} {lengthUnit} cycle.";
+            if (!double.IsNaN(after)) s += $" Confirmed {Span(after, afterUnit, afterUnits)} later.";
+            return s;
         }
 
         public string GetDetailFact(string code, ReadOnlySpan<Ohlcv> data, IReadOnlyDictionary<string, double[]> results,
             int index, Dictionary<string, object> parameters)
         {
             if (!code.Equals(Code, StringComparison.OrdinalIgnoreCase) || index < 0) return string.Empty;
-            var words = new List<string>(StateWords(name => results.TryGetValue(name, out var a) ? a : null, index));
-            if (results.TryGetValue(CompPreset, out var preset) && index < preset.Length && index < data.Length)
-                words.Add(PresetWords(preset[index], data[index].Date));
+            DateTime? date = index < data.Length ? data[index].Date : null;
+            var words = StateWords(name => results.TryGetValue(name, out var a) ? a : null, index, date);
             if (words.Count == 0) return "Calculating...";
             return string.Join(" ", words.Select(w => char.ToUpperInvariant(w[0]) + w[1..] + "."));
         }
 
         // ── Parameters ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Where CF's arcs sit: a level wave under the candles, every hump the same height, its troughs
-        /// under the cycle lows' marks (the vendor's demo frames). The hump is a quarter of the median
-        /// cycle's swing (log of its high over its low), so it reads the same on any asset and timeframe
-        /// and does not squeeze the candles when the price pane fits it in. Each low's floor is one and a
-        /// quarter humps under the lowest low of the two cycles it joins, so every crest stays a quarter
-        /// hump under the candles. Returned in log price, one per low.
-        /// </summary>
-        private static double[] ArcFloors(List<int> lows, double[] high, double[] low, int n, out double hump)
-        {
-            var swings = new List<double>();
-            for (int k = 1; k < lows.Count; k++)
-            {
-                double hi = 0, lo = double.MaxValue;
-                for (int i = lows[k - 1]; i <= lows[k]; i++) { hi = Math.Max(hi, high[i]); lo = Math.Min(lo, low[i]); }
-                if (lo > 0) swings.Add(Math.Log(hi / lo));
-            }
-            swings.Sort();
-            hump = swings.Count > 0 ? 0.25 * swings[swings.Count / 2] : 0.05;
-            var floor = new double[lows.Count];
-            for (int k = 0; k < lows.Count; k++)
-            {
-                int from = k > 0 ? lows[k - 1] : lows[k], to = k + 1 < lows.Count ? lows[k + 1] : n - 1;
-                double lo = double.MaxValue;
-                for (int i = from; i <= to; i++) if (low[i] > 0) lo = Math.Min(lo, low[i]);
-                floor[k] = Math.Log(lo) - 1.25 * hump;
-            }
-            return floor;
-        }
-
-        /// <summary>
-        /// One of CF's arcs: from the floor at low <paramref name="a"/> to the floor at the far end,
-        /// <paramref name="span"/> bars later, rising a hump in the middle; rounded at both ends, as CF
-        /// draws them. The floor eases from one level to the next and is flat at each low, so the
-        /// trough stays on the low's bar. Drawn up to bar <paramref name="last"/>; the live arc's far end is in the future.
-        /// </summary>
-        private static void DrawArc(double[] arc, int a, int last, int span, double fa, double fb, double hump)
-        {
-            if (span <= 0) return;
-            for (int i = a; i <= last; i++)
-            {
-                double t = Math.Min(1, (double)(i - a) / span);
-                double level = fa + (fb - fa) * t * t * t * (10 - 15 * t + 6 * t * t);
-                arc[i] = Math.Exp(level + hump * 0.5 * (1 - Math.Cos(2 * Math.PI * t)));
-            }
-        }
 
         private static void Copy(double[] from, double[] to) => Array.Copy(from, to, Math.Min(from.Length, to.Length));
 

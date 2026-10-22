@@ -243,10 +243,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             public List<int> ConfirmedAt { get; } = new();
             /// <summary>Per bar: the newest confirmed low known ON that bar, or -1.</summary>
             public int[] LastLowAt = Array.Empty<int>();
-            /// <summary>Events, by the bar they happen on. The value is the price of the low concerned.</summary>
+            /// <summary>
+            /// Events, by the bar they happen on. Confirmed, Cancelled and Failed carry the price of
+            /// the low concerned; Pending the bar's close; Updated, on a confirmation that came after
+            /// a cancellation, the price of the low that was cancelled (the one this low replaces).
+            /// </summary>
             public double[] Confirmed = Array.Empty<double>(), Cancelled = Array.Empty<double>(),
                             Updated = Array.Empty<double>(), Pending = Array.Empty<double>(),
                             Failed = Array.Empty<double>();
+            /// <summary>Per bar: the low a cancellation or failure on that bar closed under, or -1.</summary>
+            public int[] ClosedUnder = Array.Empty<int>();
         }
 
         /// <summary>
@@ -259,6 +265,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var run = new TierRun
             {
                 LastLowAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(),
                 Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
             };
             if (!tier.Active || n == 0) return run;
@@ -276,6 +283,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var stc = SchaffTrendCycle(close, len, fast, slow);
 
             bool armed = false, cancelledSince = false;
+            double replaced = double.NaN;
             int last = -1, failedFor = -1;
             for (int t = slow * 2; t < n; t++)
             {
@@ -291,6 +299,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     if (t - last < minGap)
                     {
                         run.Cancelled[t] = low[last];
+                        run.ClosedUnder[t] = last;
+                        replaced = low[last];
                         run.Lows.RemoveAt(run.Lows.Count - 1);
                         run.ConfirmedAt.RemoveAt(run.ConfirmedAt.Count - 1);
                         last = run.Lows.Count > 0 ? run.Lows[^1] : -1;
@@ -299,6 +309,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     else if (failedFor != last)
                     {
                         run.Failed[t] = low[last];
+                        run.ClosedUnder[t] = last;
                         failedFor = last;
                     }
                 }
@@ -324,7 +335,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (stillLowest)
                         {
                             run.Confirmed[t] = low[c];
-                            if (cancelledSince) run.Updated[t] = low[c];
+                            if (cancelledSince) run.Updated[t] = replaced;
                             run.Lows.Add(c); run.ConfirmedAt.Add(t);
                             last = c; armed = false; cancelledSince = false;
                         }

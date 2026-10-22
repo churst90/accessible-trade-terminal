@@ -70,6 +70,17 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
+        /// <summary>
+        /// What a tint is painted from: the component's <see cref="ComponentCompanions.Tint"/>
+        /// companion when the provider wrote one (a timing window's in-or-out, while the component
+        /// itself holds the day count that is heard), else the component's own values.
+        /// </summary>
+        public static double[] TintSource(ChartSeries series, ComponentConfig comp)
+        {
+            var tint = series.GetComponentData(comp.Name + ComponentCompanions.Tint);
+            return tint is { Length: > 0 } ? tint : series.GetComponentData(comp.Name);
+        }
+
         /// <summary>The colour a tint side resolves to: the declared one, else the component's own
         /// colour at <see cref="BorrowedColourAlpha"/>. Unparseable = nothing.</summary>
         public static SKColor Resolve(string declared, string own)
@@ -81,7 +92,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         private static void Paint(RenderContext ctx, ChartSeries series, ComponentConfig comp)
         {
-            var values = series.GetComponentData(comp.Name);
+            var values = TintSource(series, comp);
             if (values == null || values.Length == 0 || ctx.ViewportLength <= 0) return;
 
             var above = Resolve(comp.TintColorAboveHex, comp.ColorHex);

@@ -373,7 +373,8 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>
         /// Validates that every key written to the buffer by a provider has a matching component Name.
-        /// Companion array keys (suffixed with "_color", "_touches", "_replaced" or "_since") are intentionally undeclared and
+        /// Companion array keys (suffixed with "_color", "_touches", "_replaced" or "_since", or any
+        /// "{component}_{suffix}" key — <see cref="ComponentCompanions"/>) are intentionally undeclared and
         /// are skipped. A warning is logged for any other unmatched key so plugin authors catch typos early.
         /// </summary>
         private void ValidateBufferKeys(ChartSeries series, Dictionary<string, double[]> results, IIndicatorProvider? provider)
@@ -392,7 +393,8 @@ namespace AccessibleTrader.Core.Services
                     key.EndsWith("_touches", StringComparison.Ordinal) ||
                     key.EndsWith("_replaced", StringComparison.Ordinal) ||
                     key.EndsWith("_since", StringComparison.Ordinal) ||
-                    key.StartsWith("__", StringComparison.Ordinal))
+                    key.StartsWith("__", StringComparison.Ordinal) ||
+                    (!knownNames.Contains(key) && ComponentCompanions.IsCompanionOf(key, knownNames)))
                     continue;
                 if (!knownNames.Contains(key))
                 {

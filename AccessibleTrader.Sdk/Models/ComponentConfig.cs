@@ -35,6 +35,11 @@ namespace AccessibleTrader.Sdk.Models
         /// the chart and in the status line. The suffix is visual only and is not spoken.
         /// </summary>
         public string? MarkerText { get; set; }
+        /// <summary>
+        /// The value is a count — a cycle's day number, a score — and is printed and said as a
+        /// whole number ("day 47"), not with a price's decimals ("47.00").
+        /// </summary>
+        public bool IsCount { get; set; }
         [ObservableProperty] private ComponentRole _role = ComponentRole.None;
         [ObservableProperty] private AmplitudeMapping _amplitudeMapping = AmplitudeMapping.None;
         [ObservableProperty] private PitchMapping _pitchMapping = PitchMapping.Value;
@@ -336,7 +341,7 @@ namespace AccessibleTrader.Sdk.Models
             return new ComponentConfig
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
-                MarkerAnchor = MarkerAnchor, MarkerText = MarkerText,
+                MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

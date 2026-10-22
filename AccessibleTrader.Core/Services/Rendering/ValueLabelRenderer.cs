@@ -154,6 +154,27 @@ namespace AccessibleTrader.Core.Services.Rendering
         public static SKColor PlateColour(ChartTheme theme) => theme.Background.WithAlpha(FormationInk.PlateAlpha);
 
         /// <summary>
+        /// Whether a component that is not itself a <see cref="ComponentDisplayType.ValueLabel"/>
+        /// carries a <see cref="ComponentCompanions.Label"/> companion to print beside its marker
+        /// (Cipher C's 49D over a daily cycle low).
+        /// </summary>
+        public static bool HasCompanionLabel(ChartSeries s, ComponentConfig comp) =>
+            comp.DisplayType != ComponentDisplayType.ValueLabel && s.GetComponentData(comp.Name + ComponentCompanions.Label) is { Length: > 0 };
+
+        /// <summary>The numbers printed: a ValueLabel's own values, any other component's label companion.</summary>
+        private static double[] LabelData(ChartSeries s, ComponentConfig comp) =>
+            comp.DisplayType == ComponentDisplayType.ValueLabel ? s.GetComponentData(comp.Name) : s.GetComponentData(comp.Name + ComponentCompanions.Label);
+
+        /// <summary>
+        /// Where they sit: a ValueLabel where it is anchored; a companion label on the other side of
+        /// the bar from its marker, so the two never cover each other (above the bar for a marker
+        /// drawn at its value).
+        /// </summary>
+        public static MarkerAnchor LabelAnchor(ComponentConfig comp) =>
+            comp.DisplayType == ComponentDisplayType.ValueLabel ? comp.MarkerAnchor
+            : comp.MarkerAnchor == MarkerAnchor.AboveBar ? MarkerAnchor.BelowBar : MarkerAnchor.AboveBar;
+
+        /// <summary>
         /// Lays out one component's labels for the frame, without drawing: what
         /// <see cref="Render"/> paints and what tests read. Empty when nothing is labelled, the
         /// component has no data, or the slot is too narrow (see the class comment).
@@ -162,7 +183,8 @@ namespace AccessibleTrader.Core.Services.Rendering
         {
             fontPx = 0f;
             var result = new List<PlacedLabel>();
-            var data = s.GetComponentData(comp.Name);
+            var data = LabelData(s, comp);
+            var anchor = LabelAnchor(comp);
             if (data == null || data.Length == 0 || ctx.Data == null || ctx.Data.Count == 0) return result;
 
             float slot = ctx.ItemWidth > 0 ? ctx.ItemWidth : ctx.Width / Math.Max(1, ctx.ViewportLength);
@@ -209,7 +231,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float plateH = textHeight + 2 * pad;
 
                 float top;
-                if (comp.MarkerAnchor == MarkerAnchor.Value)
+                if (anchor == MarkerAnchor.Value)
                 {
                     float y = ChartMath.MapY(data[abs], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                     top = y - plateH / 2f;
@@ -217,7 +239,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 else
                 {
                     var bar = ctx.Data[i];
-                    if (comp.MarkerAnchor == MarkerAnchor.BelowBar)
+                    if (anchor == MarkerAnchor.BelowBar)
                         top = ChartMath.MapY(bar.Low, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale) + gap;
                     else
                         top = ChartMath.MapY(bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale) - gap - plateH;
@@ -235,8 +257,8 @@ namespace AccessibleTrader.Core.Services.Rendering
         }
 
         /// <summary>
-        /// Every value-label plate the pane's visible, drawn ValueLabel components put on screen this
-        /// frame — what the formation layer keeps its own labels off.
+        /// Every value-label plate the pane's visible, drawn ValueLabel components (and components with
+        /// a label companion) put on screen this frame — what the formation layer keeps its own labels off.
         /// </summary>
         public static IReadOnlyList<SKRect> Plates(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
@@ -246,7 +268,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (!s.IsVisible) continue;
                 foreach (var c in s.Components)
                 {
-                    if (c.DisplayType != ComponentDisplayType.ValueLabel || !c.IsVisible || !c.IsEnabled || !c.IsDrawn) continue;
+                    if ((c.DisplayType != ComponentDisplayType.ValueLabel && !HasCompanionLabel(s, c)) || !c.IsVisible || !c.IsEnabled || !c.IsDrawn) continue;
                     if (!string.IsNullOrEmpty(c.SubPaneName)) continue;
                     foreach (var l in Layout(ctx, s, c, out _)) plates.Add(l.Plate);
                 }

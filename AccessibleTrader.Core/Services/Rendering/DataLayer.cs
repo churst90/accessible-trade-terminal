@@ -184,6 +184,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                                 // for forward compatibility (e.g. new types added by plugins).
                                 break;
                         }
+                        // A marker's printed number (Cipher C's 49D over a daily low), drawn
+                        // after the marker on the other side of the bar.
+                        if (ValueLabelRenderer.HasCompanionLabel(s, comp))
+                            ValueLabelRenderer.Render(ctx, s, comp);
                     }
                 }
 

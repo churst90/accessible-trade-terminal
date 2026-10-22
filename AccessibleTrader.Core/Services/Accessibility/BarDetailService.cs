@@ -116,7 +116,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else
             {
-                blocks.Add(Sentence(FocusedSeriesFact(series, idx)));
+                blocks.Add(Sentence(FocusedSeriesFact(series, idx, bar.Date)));
                 if (readCandle) blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
             }
 
@@ -319,7 +319,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// heard. Price-line primary series (analytics providers) land here too — a single-value
         /// point has no wicks, body or multi-bar pattern to describe.
         /// </summary>
-        private static string FocusedSeriesFact(ChartSeries series, int index)
+        private static string FocusedSeriesFact(ChartSeries series, int index, DateTime? barDate = null)
         {
             var sb = new StringBuilder();
 
@@ -349,13 +349,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // For ordinary magnitudes it reads identically to the old F2.
                 // A value label prints a NUMBER, often a whole one ("Bulls 15", "Bears minus 5"),
                 // and is said that way, not as a price with two decimals.
-                string said = comp.DisplayType == ComponentDisplayType.ValueLabel
+                string said = comp.DisplayType == ComponentDisplayType.ValueLabel || comp.IsCount
                     ? Rendering.ValueLabelRenderer.Spoken(val)
                     : SpeechPriceFormatter.FormatPrice(val);
                 sb.Append($"{comp.DisplayName ?? comp.Name} {said}, ");
             }
 
-            foreach (var fact in NarrativeFacts(series, index))
+            foreach (var fact in NarrativeFacts(series, index, barDate))
                 sb.Append(fact + ", ");
 
             return sb.ToString().TrimEnd(',', ' ');
@@ -368,7 +368,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// the required components or a NaN slice is in view. Read for the focused series and for
         /// every series on the ladder alike.
         /// </summary>
-        private static IEnumerable<string> NarrativeFacts(ChartSeries series, int index)
+        /// <param name="barDate">Given for the focused series only: facts about the whole chart
+        /// (Cipher C's cycle preset) are said there and not repeated on the ladder.</param>
+        private static IEnumerable<string> NarrativeFacts(ChartSeries series, int index, DateTime? barDate = null)
         {
             string code = (series.IndicatorCode ?? string.Empty).ToUpperInvariant();
             if (code == "BB" || code == "BOLLINGER" || code == "BOLLINGERBANDS")
@@ -401,9 +403,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else if (code == Indicators.CipherCProvider.Code)
             {
-                // Where the daily and weekly cycles are against their timing windows — carried in
-                // hidden components, which this read does not reach on its own.
-                foreach (var w in Indicators.CipherCProvider.StateWords(series.GetComponentData, index))
+                // Where the daily and weekly cycles are against their timing windows, a
+                // confirmation's confluence, a cancellation or failure that still stands, and (on
+                // the focused series) the preset — read from the components' companion arrays.
+                foreach (var w in Indicators.CipherCProvider.StateWords(series.GetComponentData, index, barDate))
                     yield return w;
             }
         }
@@ -509,7 +512,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 bool isVolume = comp.Role == ComponentRole.Volume || IsVolume(s);
                 string text = isVolume ? ChartStatusLine.FormatVolume(v)
-                    : comp.DisplayType == ComponentDisplayType.ValueLabel ? Rendering.ValueLabelRenderer.Spoken(v)
+                    : comp.DisplayType == ComponentDisplayType.ValueLabel || comp.IsCount ? Rendering.ValueLabelRenderer.Spoken(v)
                     : SpeechPriceFormatter.FormatPrice(v);
                 parts.Add(labelled ? $"{label} {text}" : text);
             }

@@ -25,6 +25,12 @@ namespace AccessibleTrader.Sdk.Models
         public string? MarkerText { get; set; }
 
         /// <summary>
+        /// The value is a count — a cycle's day number, a score — and is printed and said as a
+        /// whole number ("day 47"), not with a price's decimals ("47.00").
+        /// </summary>
+        public bool IsCount { get; set; }
+
+        /// <summary>
         /// Whether this component's value at a bar uses any later bar. Null = inherit the
         /// indicator's <see cref="IndicatorMetadata.Causality"/>, which is the normal case;
         /// set it only on the components that differ from their indicator.

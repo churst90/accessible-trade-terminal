@@ -240,6 +240,35 @@ public sealed class BackgroundTintTests
 
     private static readonly SKColor AnchorBull = SKColor.Parse("#1626A69A"), AnchorBear = SKColor.Parse("#16EF5350");
 
+    // ── Cipher C: a timing window tints from its companion ──────────────────────────
+
+    /// <summary>
+    /// Cipher C's Daily Timing Window holds the day count (1 to 40 here), which is what is heard,
+    /// and tints the price chart from its <see cref="ComponentCompanions.Tint"/> companion: green on
+    /// bars 20 to 29, inside the window, and nothing elsewhere. Tinted by its own value instead,
+    /// every bar from day 1 would be green.
+    /// </summary>
+    [Fact]
+    public void Cipher_C_tints_only_the_bars_inside_its_timing_window()
+    {
+        var count = Enumerable.Range(1, N).Select(i => (double)i).ToArray();
+        var inside = Enumerable.Range(0, N).Select(i => i is >= 20 and <= 29 ? 1.0 : 0.0).ToArray();
+        var series = FromProvider(new CipherCProvider(), CipherCProvider.Code, new() { [CipherCProvider.CompDailyWindow] = count });
+        series.Data.ComponentData[CipherCProvider.CompDailyWindow + ComponentCompanions.Tint] = inside;
+        var window = series.Components.Single(c => c.Name == CipherCProvider.CompDailyWindow);
+        Assert.Same(series.Data.ComponentData[CipherCProvider.CompDailyWindow + ComponentCompanions.Tint], BackgroundTintPainter.TintSource(series, window));
+
+        using var f = Render(Candles(), series);
+        using var reference = Render(Candles(), FromProvider(new CipherCProvider(), CipherCProvider.Code, new()));
+        var rows = OpenPriceRows(f);
+        var green = SKColor.Parse("#1800E676");
+        foreach (int bar in new[] { 20, 25, 29 })
+            Assert.True(TintedShare(f, reference, bar, rows, green) > 0.9, $"bar {bar}, inside the window, is not tinted");
+        foreach (int bar in new[] { 0, 10, 19, 30, 39 })
+            Assert.True(TintedShare(f, reference, bar, rows, green) < 0.01, $"bar {bar}, outside the window, is tinted");
+        StatusBandIsClear(f, reference, "Main");
+    }
+
     // ── Cipher B: Anchor Polarity ───────────────────────────────────────────────────
 
     /// <summary>

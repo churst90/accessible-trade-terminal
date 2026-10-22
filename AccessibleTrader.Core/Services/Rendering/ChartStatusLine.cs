@@ -457,7 +457,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 var color = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(v, s, comp, absIndex), theme, bar);
                 // Volume in the volume pane's own spoken form; everything else in Alt+Shift+D's.
                 bool isVolume = comp.Role == ComponentRole.Volume || s.Id.Equals("volume", StringComparison.OrdinalIgnoreCase);
-                string text = isVolume ? FormatVolume(v) : FormatReading(v);
+                string text = isVolume ? FormatVolume(v) : comp.IsCount ? ValueLabelRenderer.Text(v) : FormatReading(v);
                 values.Add(Value(labelled ? label : "", text, color, theme, backing));
             }
 

@@ -10,18 +10,23 @@
 >   this carry no depth, so they open with 200 bars (or back to their oldest drawing) until saved once.
 >   Untested: an older page that throws mid-way (the code keeps what it has; the test fake cannot
 >   throw), and the tab-switch path end to end (it reaches the same `RefreshDataAsync`).
-> - [ ] **Components with nothing to navigate** (Cody, 2026-10-22: "Each component must hold value ...
->   hiding and muting should be a user defined preferential function"). Cody said yes to the cleanup.
->   Cipher C plan sent to him (25 components to 15): the lows carry price and cycle length (counts
->   folded in); Confirmed carries confluence and the replaced low (Updated and Confluence folded in);
->   Pending, Cancelled and Failed speak what happened (Cancelled and Failed are navigable warnings,
->   not buy or sell signals); the three tops add day N; one Timing Window per tier replaces DCL Day,
->   In DCL Window and the window start/end markers; the preset becomes chart context (Alt+Shift+D and
->   the series summary); Cycle Arc and Arc Position go. Removed names get the retired-signal notice.
->   Heatmap and Profile: the bins live outside the component, so Ctrl+Left/Right says "No points of
->   interest" and Alt+Shift+D says nothing. Proposed (explain-first, NOT built): Profile jumps to
->   point-of-control crosses and value-area entries; Alt+Shift+D says where price sits; heatmap
->   jumps where the biggest liquidity level moved.
+> - [x] **Components with nothing to navigate: Cipher C done (2026-10-22, see CHANGES; NOT heard).**
+>   28 components to 15, the rest are companions said with the component they explain.
+> - [ ] **Cipher C, what is left from the cleanup** (Cody to hear the 15 first):
+>   - A Timing Window is a count with no line, but landing on it still says "Line" ("Daily Timing
+>     Window. Line. daily cycle day 79, …").
+>   - Alt+Shift+D says the window count and then the window words say it again ("Daily Timing Window
+>     79 … daily cycle day 79, 13 days past its window"). Question for Cody: keep the raw value (the
+>     speech-parity rule mirrors the status line) or drop it when the words carry it?
+>   - What a Timing Window should SOUND like: it is a day count on every bar. Question for Cody.
+>   - The yearly low on Bitcoin is confirmed about 254 weeks after it ("A 3.9 year cycle. Confirmed
+>     254 weeks later"). Engine behaviour, not changed; demonstrate whether the yearly confirmation
+>     rule is wrong before touching it.
+>   - The SMA has no Ctrl+Left/Right stop for price crossing it.
+> - [ ] **Heatmap and Profile, same problem (explain-first, NOT built; waiting for Cody).** The bins
+>   live outside the component, so Ctrl+Left/Right says "No points of interest" and Alt+Shift+D says
+>   nothing. Proposed: Profile jumps to point-of-control crosses and value-area entries; Alt+Shift+D
+>   says where price sits; heatmap jumps where the biggest liquidity level moved.
 
 # TODO — Accessible Trading Terminal
 
@@ -173,17 +178,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   label drawings ("Line top 13 Aug", "Cycle low 16 Sep", "Close above line 21 Sep", ...). Made by
 >   `WorkspaceDrawingTool` and read back; copying it into the Workspaces folder needs his OK.
 >   The lows for DIA (1 Oct) and BTC (15 Oct) are Claude's picks; SPY 16 Sep and gold 28 Sep are his.
-> - [ ] **A drawing anchored before the loaded history is drawn wrong until the chart scrolls back.**
->   Shown with the real calculator: gold's line from the 29 Jan 2026 top, on 120 bars (first bar
->   4 May), reads 385.63 at the newest bar instead of 405.68 — its start snaps to the first bar
->   (`DrawingCalculatorHelper.ResolveAnchorIndex`), and its label sits on 4 May. 200 bars load by
->   default, so a daily stock chart is wrong for anything before about 9 months back. Fix: on restore,
->   load older bars back to the earliest drawing anchor, or project the anchor into past bar space.
-> - [ ] Components with nothing to navigate (Cody, 2026-10-22: "only components with navigable
->   useful data on them ... for any indicator"). Cipher C: Cycle Arc (visual only, repeats Arc
->   Position, no Ctrl+Left/Right stops), the four window start/end markers (name only, no number),
->   Cycle Low Updated (hidden, silent), low markers (no price). Elsewhere: Profile, Liquidity heatmap.
->   No flag exists to keep a drawn-only thing out of Ctrl+Up/Down. Proposal sent to Cody; not built.
+> - [x] A drawing anchored before the loaded history: fixed for restored tabs 2026-10-22 (see the
+>   START HERE block at the top of this file).
+> - [x] Components with nothing to navigate: Cipher C done 2026-10-22; Profile and heatmap are in the
+>   START HERE block at the top of this file.
 
 > **START HERE (2026-10-21 — Cipher C rebuilt as cycle lows after CF's Cycle Trading Indicator;
 > Loukas retired; committed on branch `cipher-c-cf-cycles` (off `camel-render-alpaca-fixes`), NOT
