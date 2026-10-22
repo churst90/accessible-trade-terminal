@@ -22,7 +22,9 @@ namespace AccessibleTrader.Core.Services.Feeds
     /// </summary>
     public sealed class ChartFeed : IDisposable
     {
-        private const int MaxBarsInCache = 5000;
+        /// <summary>The most bars a feed holds. Public so the scrollback coordinator can say
+        /// the limit was reached rather than that the provider ran out.</summary>
+        public const int MaxBarsInCache = 5000;
         // Live appends stop growing the buffer beyond this floor: each append past it
         // sheds the oldest bar. Deliberately lower than MaxBarsInCache — deep
         // scrollback (up to 5000) is only reachable via explicit prepends, while a
@@ -89,7 +91,19 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// OperationCanceledException when superseded — the token is checked after the
         /// fetch so a stale load never lands.
         /// </summary>
-        public async Task<bool> RefreshAsync(CancellationToken ct = default)
+        public Task<bool> RefreshAsync(CancellationToken ct = default) => RefreshAsync(null, ct);
+
+        /// <summary>
+        /// Fresh load that also reaches back to <paramref name="historyFrom"/> — a restored
+        /// workspace tab reopening with the history it had (see <c>RestoredTabLoad</c>). The
+        /// live-edge 200 bars are fetched exactly as a fresh load fetches them; older pages
+        /// are then fetched before them, the way a scrollback prepend does, and the buffer is
+        /// replaced ONCE with the whole span, so the store sees one initial load and the
+        /// indicators compute once. Stops at the date, when the provider has nothing older,
+        /// or at <see cref="MaxBarsInCache"/>. A failed older page keeps what was loaded:
+        /// the live edge is never lost to missing scrollback.
+        /// </summary>
+        public async Task<bool> RefreshAsync(DateTime? historyFrom, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(Identity.Symbol)) return false;
 
@@ -111,10 +125,49 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             if (newData == null || !newData.Any()) return false;
 
+            if (historyFrom is { } from)
+                newData = await ExtendBackAsync(newData.ToList(), from, ct).ConfigureAwait(false);
+
             lock (_cacheLock) { _cache = new TimeSeriesBuffer<Ohlcv>(newData); }
             Touch();
             Updated?.Invoke(this, FeedUpdateKind.InitialLoad);
             return true;
+        }
+
+        /// <summary>Bars per older page — the same as a scrollback prepend, so pages a
+        /// prepend already stored are served from the local store (OhlcvStore).</summary>
+        private const int HistoryPageLimit = 200;
+
+        private async Task<List<Ohlcv>> ExtendBackAsync(List<Ohlcv> bars, DateTime from, CancellationToken ct)
+        {
+            while (bars.Count > 0 && bars[0].Date > from && bars.Count < MaxBarsInCache)
+            {
+                var first = bars[0].Date;
+                List<Ohlcv>? older;
+                try
+                {
+                    older = await _orchestrator.FetchOhlcvAsync(
+                        Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe,
+                        limit: Math.Min(HistoryPageLimit, MaxBarsInCache - bars.Count),
+                        until: new DateTimeOffset(first).ToUnixTimeMilliseconds() - 1, ct: ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ChartFeed: older history for {Symbol} stopped at {Date:o}; keeping {Count} bars.",
+                        Identity.Symbol, first, bars.Count);
+                    break;
+                }
+                ct.ThrowIfCancellationRequested();
+
+                var unique = older?.Where(o => o.Date < first).OrderBy(o => o.Date).ToList();
+                if (unique is not { Count: > 0 }) break; // the provider has nothing older
+                bars.InsertRange(0, unique);
+            }
+            if (bars.Count > MaxBarsInCache) bars.RemoveRange(0, bars.Count - MaxBarsInCache);
+            _logger.LogInformation("ChartFeed: {Symbol} opened with {Count} bars from {First:o} (asked for {From:o}).",
+                Identity.Symbol, bars.Count, bars.Count > 0 ? bars[0].Date : default, from);
+            return bars;
         }
 
         /// <summary>
@@ -255,6 +308,9 @@ namespace AccessibleTrader.Core.Services.Feeds
                 onStarted?.Invoke();
 
                 if (_cache.Count == 0) return 0;
+                // At the cap, older bars could only be kept by shedding the NEWEST ones, which
+                // removed the live edge while the count stayed the same. Nothing is fetched.
+                if (_cache.Count >= MaxBarsInCache) return 0;
                 var firstBar = _cache[0];
                 long since = new DateTimeOffset(firstBar.Date).ToUnixTimeMilliseconds();
 

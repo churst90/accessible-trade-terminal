@@ -66,11 +66,12 @@ public sealed class HistoryBackfillCoordinatorTests
     {
         public SpyEventBus Bus { get; } = new();
         public MockWorkspaceStore Store { get; } = new();
-        public BackfillingDataManager Data { get; } = new(300);
+        public BackfillingDataManager Data { get; }
         public List<string> Spoken { get; } = new();
 
-        public Harness()
+        public Harness(int bars = 300)
         {
+            Data = new(bars);
             Store.EmitState(WorkspaceState.Initial with { InitStatus = InitializationStatus.Ready });
             var speech = new CounterSpeechManager { OnSpeak = t => Spoken.Add(t) };
             var formatter = new SpeechFormatter();
@@ -104,6 +105,22 @@ public sealed class HistoryBackfillCoordinatorTests
         h.WalkLeftPastTheStart();
 
         Assert.Contains("No more history available.", h.Spoken);
+    }
+
+    /// <summary>
+    /// At the feed's 5,000-bar cap the prepend refuses (ChartFeed.PrependOlderAsync) and the
+    /// provider may well have more: saying it ran out would be false. A restored tab can open
+    /// at the cap since 2026-10-22, so this is one left arrow away.
+    /// </summary>
+    [Fact]
+    public void At_the_bar_cap_the_user_hears_the_limit_not_that_history_ran_out()
+    {
+        var h = new Harness(Core.Services.Feeds.ChartFeed.MaxBarsInCache) { Data = { BarsPerBackfill = 0 } };
+
+        h.WalkLeftPastTheStart();
+
+        Assert.Contains("History limit reached: 5,000 bars.", h.Spoken);
+        Assert.DoesNotContain("No more history available.", h.Spoken);
     }
 
     [Fact]

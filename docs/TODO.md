@@ -1,3 +1,28 @@
+> - [x] **A drawing anchored before the loaded history is drawn wrong until the chart scrolls back.**
+>   Shown with the real calculator: gold's line from the 29 Jan 2026 top, on 120 bars (first bar
+>   4 May), reads 385.63 at the newest bar instead of 405.68 — its start snaps to the first bar
+>   (`DrawingCalculatorHelper.ResolveAnchorIndex`). Fixed for restored tabs (2026-10-22, see CHANGES):
+>   a restored tab loads back to its oldest drawing anchor. Still wrong where the history cannot be
+>   reached (the provider has nothing that old, or it is past 5,000 bars); the calculator still snaps.
+> - [ ] **Restored tabs open with the history they had (2026-10-22, built, NOT tried in the app).**
+>   Cody to reopen a saved workspace after scrolling a tab back: the tab should open as deep as it
+>   was, at its saved zoom, and a new chart should still open with 200 bars. Workspaces saved before
+>   this carry no depth, so they open with 200 bars (or back to their oldest drawing) until saved once.
+>   Untested: an older page that throws mid-way (the code keeps what it has; the test fake cannot
+>   throw), and the tab-switch path end to end (it reaches the same `RefreshDataAsync`).
+> - [ ] **Components with nothing to navigate** (Cody, 2026-10-22: "Each component must hold value ...
+>   hiding and muting should be a user defined preferential function"). Cody said yes to the cleanup.
+>   Cipher C plan sent to him (25 components to 15): the lows carry price and cycle length (counts
+>   folded in); Confirmed carries confluence and the replaced low (Updated and Confluence folded in);
+>   Pending, Cancelled and Failed speak what happened (Cancelled and Failed are navigable warnings,
+>   not buy or sell signals); the three tops add day N; one Timing Window per tier replaces DCL Day,
+>   In DCL Window and the window start/end markers; the preset becomes chart context (Alt+Shift+D and
+>   the series summary); Cycle Arc and Arc Position go. Removed names get the retired-signal notice.
+>   Heatmap and Profile: the bins live outside the component, so Ctrl+Left/Right says "No points of
+>   interest" and Alt+Shift+D says nothing. Proposed (explain-first, NOT built): Profile jumps to
+>   point-of-control crosses and value-area entries; Alt+Shift+D says where price sits; heatmap
+>   jumps where the biggest liquidity level moved.
+
 # TODO — Accessible Trading Terminal
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.

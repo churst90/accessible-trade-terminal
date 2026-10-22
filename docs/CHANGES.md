@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Restored workspace tabs open with the history and zoom they had (2026-10-22)
+
+- Cody: "the workspace should load with all of the bars it had when it was closed last rather than
+  defaulting to 200, 200 is the default for new fresh charts". Each saved tab now records the date
+  of its first bar (`TabConfiguration.EarliestBarDate`; a date, not a count, so autosave does not
+  rewrite on every live bar). On restore the tab loads back to that date, or to its oldest drawing
+  anchor if that is older (`WorkspaceInitializer.HistoryFromForTab`), so a trend line drawn from a
+  top months back is drawn from its real start. Fresh charts and Load Chart still open with 200 bars.
+- How: the restore puts a `RestoredTabLoad` (the chart it belongs to and the date) on the tab's
+  state. `DataManager.RefreshDataAsync` reads it, `ChartFeed.RefreshAsync` fetches the usual live-edge
+  200 and then 200-bar older pages (the same pages scrollback stores locally) and replaces the buffer
+  once, so the indicators compute once. It stops at the date, when the provider has nothing older,
+  or at 5,000 bars, and a failed older page keeps what was loaded. A tab restored but never visited
+  keeps its depth when the workspace is saved again. A different symbol loaded first gets a fresh chart.
+- Fixed on the way: the restored zoom width was set and then reset to 100 by the fresh-load path,
+  so every restored tab opened 100 bars wide. A restored tab now keeps its zoom.
+- Fixed on the way: scrolling back at the 5,000-bar cap fetched 200 older bars and dropped the 200
+  newest to stay under it, losing the live edge, then said "No more history available". At the cap
+  nothing is fetched and it says "History limit reached: 5,000 bars."
+- Tests: `RestoredHistoryDepthTests` (real restore, store, DataManager and ChartFeed over a scripted
+  provider) and one in `HistoryBackfillCoordinatorTests`; each of the seven guards was shown to fail
+  with its fix removed. Not tried in the app. Caveats: a page that throws mid-way is not tested, and
+  workspaces saved before this carry no depth until saved once.
+
 ### Trend lines from the study written into a workspace as ordinary drawings (2026-10-22)
 
 - `WorkspaceDrawingTool` (test project) adds Trend line and Text label drawings to the tabs of a saved

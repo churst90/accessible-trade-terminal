@@ -23,6 +23,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // Pane layout
             ResizePaneAction a      => ResizePane(state, a.PaneName, a.Delta),
             SetPaneHeightRatiosAction a  => state with { PaneHeightRatios = a.Ratios },
+            SetRestoredLoadAction a      => state with { RestoredLoad = a.Load },
 
             _ => state
         };
@@ -67,7 +68,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             CoordinateEntryAnchor1Index: -1,
             PrimarySeriesId: s.PrimarySeriesId,
             CurrentDataShape: s.CurrentDataShape,
-            SymbolDisplayName: s.SymbolDisplayName
+            SymbolDisplayName: s.SymbolDisplayName,
+            RestoredLoad: s.RestoredLoad
         );
 
         /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.</summary>
@@ -98,7 +100,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             CoordinateEntryAnchor1Index = -1,
             PrimarySeriesId = snap.PrimarySeriesId,
             CurrentDataShape = snap.CurrentDataShape,
-            SymbolDisplayName = snap.SymbolDisplayName
+            SymbolDisplayName = snap.SymbolDisplayName,
+            RestoredLoad = snap.RestoredLoad
         };
 
         private static WorkspaceState AddTab(WorkspaceState state)

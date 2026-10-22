@@ -257,7 +257,8 @@ namespace AccessibleTrader.Core.Services
                 Series = state.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
                     ? new Dictionary<string, float>(state.PaneHeightRatios)
-                    : new()
+                    : new(),
+                EarliestBarDate = EarliestBarDate(state.Data, state.RestoredLoad, state.Identity)
             };
         }
 
@@ -276,9 +277,20 @@ namespace AccessibleTrader.Core.Services
                 Series = snap.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = snap.PaneHeightRatios != null
                     ? new Dictionary<string, float>(snap.PaneHeightRatios)
-                    : new()
+                    : new(),
+                EarliestBarDate = EarliestBarDate(snap.Data, snap.RestoredLoad, snap.Identity)
             };
         }
+
+        /// <summary>
+        /// The history depth to save for a tab: its first bar, or — for a restored tab whose
+        /// data has not loaded yet (never visited this session) — the depth it was restored
+        /// with, so saving again does not shrink it to 200 bars.
+        /// </summary>
+        private static DateTime? EarliestBarDate(TimeSeriesBuffer<Ohlcv> data, RestoredTabLoad? restored, ChartIdentity identity) =>
+            data.Count > 0 ? data[0].Date
+            : restored is { } r && r.Identity == identity ? r.HistoryFrom
+            : null;
 
         public WorkspaceConfiguration? LoadProfile(string name)
         {

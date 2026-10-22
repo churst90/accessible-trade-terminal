@@ -79,8 +79,30 @@ namespace AccessibleTrader.Sdk.Models
         // Resolved via IMarketDataProvider.GetSymbolDisplayName at load time.
         // Used to label the Price series on analytics tabs so speech/UI reads
         // "Fear and Greed Index" instead of generic "Price".
-        string SymbolDisplayName = ""
+        string SymbolDisplayName = "",
+        // ── How this tab opens when it was restored from a saved workspace ────
+        // Null for a tab the user opened. See RestoredTabLoad.
+        RestoredTabLoad? RestoredLoad = null
     );
+
+    /// <summary>
+    /// How a tab restored from a saved workspace should open, carried until its data first
+    /// loads. A restored tab that is never visited keeps it, so saving the workspace again
+    /// still knows how much history the tab is meant to have.
+    ///
+    /// <para>
+    /// <see cref="HistoryFrom"/> is the date its history should reach back to: the first bar
+    /// the tab had when it was saved, or an older drawing anchor. Null loads the usual 200
+    /// bars. Whatever it holds, a restored tab keeps its saved zoom width rather than the
+    /// fresh-chart default.
+    /// </para>
+    /// <para>
+    /// It carries the <see cref="Identity"/> it was restored with and applies only to that
+    /// chart, so a Load of a different symbol before the restored data arrives gets a fresh
+    /// chart rather than the old tab's depth.
+    /// </para>
+    /// </summary>
+    public sealed record RestoredTabLoad(ChartIdentity Identity, DateTime? HistoryFrom);
 
     public record WorkspaceState(
         ChartIdentity Identity,
@@ -235,7 +257,10 @@ namespace AccessibleTrader.Sdk.Models
         // subordinate to NarrateDuringPlayback, which remains the master switch.
         bool SpeakPlaybackLandmarks = true,
         /// <summary>Speak the date on every bar, rather than only when the day changes.</summary>
-        bool SpeakDateOnEveryBar = false
+        bool SpeakDateOnEveryBar = false,
+        // How the active tab opens if it was restored from a saved workspace and its data
+        // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
+        RestoredTabLoad? RestoredLoad = null
         // ScalePriceOnly (Alt+F, "fit price only") lived here from 2026-09-21 to 2026-09-23 and
         // was retired at Cody's decision: the price pane fits every VISIBLE Main-pane component,
         // always. A user who wants the price line's full pitch range back hides the band — a
@@ -466,6 +491,8 @@ namespace AccessibleTrader.Sdk.Models
     public record ResizePaneAction(string PaneName, float Delta) : WorkspaceAction;
     /// <summary>Bulk-sets pane height ratios (used when restoring a saved workspace).</summary>
     public record SetPaneHeightRatiosAction(ImmutableDictionary<string, float> Ratios) : WorkspaceAction;
+    /// <summary>Sets (or clears, with null) how the active tab opens. See <see cref="RestoredTabLoad"/>.</summary>
+    public record SetRestoredLoadAction(RestoredTabLoad? Load) : WorkspaceAction;
 
     // ── Coordinate Entry mode ──────────────────────────────────────────────────
     /// <summary>Activates Coordinate Entry mode for keyboard-first drawing anchor placement.</summary>

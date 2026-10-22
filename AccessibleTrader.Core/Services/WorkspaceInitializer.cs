@@ -532,6 +532,11 @@ namespace AccessibleTrader.Core.Services
                 // Restore this tab's saved zoom width before its snapshot is taken
                 // (before data loads — see RestoreViewportLength).
                 RestoreViewportLength(tab.ViewportLength);
+
+                // How much history the tab opens with, and that it keeps the zoom above:
+                // read by DataManager when this tab's data first loads.
+                if (!string.IsNullOrEmpty(tab.Symbol))
+                    _store.Dispatch(new SetRestoredLoadAction(new RestoredTabLoad(_store.State.Identity, HistoryFromForTab(tab))));
             }
 
             // Config tab 0 goes into the slot the store already has.
@@ -556,6 +561,27 @@ namespace AccessibleTrader.Core.Services
             // value analytics tabs), so we can't assume Candles exists — fall back to
             // Price, then to whatever the first active series is.
             SetPrimaryAndFocusFromRestore();
+        }
+
+        /// <summary>
+        /// How far back a restored tab's history should reach: the first bar it had when saved,
+        /// or the oldest anchor of any drawing on it, whichever is earlier. A drawing anchored
+        /// before the loaded history is otherwise drawn from the first loaded bar with the
+        /// wrong slope (DrawingCalculatorHelper snaps an early anchor to bar 0). Null when the
+        /// tab saved no depth and has no drawings: it opens with the usual 200 bars.
+        /// Retired indicators are skipped, as the restore skips them.
+        /// </summary>
+        public static DateTime? HistoryFromForTab(TabConfiguration tab)
+        {
+            DateTime? earliest = tab.EarliestBarDate;
+            foreach (var s in tab.Series ?? new())
+            {
+                if (s.Drawing is not { Type: not DrawingType.None } d) continue;
+                if (Indicators.RetiredIndicators.IsRetired(s.IndicatorCode)) continue;
+                foreach (var a in new[] { d.AnchorDate1, d.AnchorDate2, d.AnchorDate3 })
+                    if (a is { } date && (earliest is null || date < earliest)) earliest = date;
+            }
+            return earliest;
         }
 
         private void RestoreLegacySingleTab(WorkspaceConfiguration config, List<IndicatorMetadata> allMeta)

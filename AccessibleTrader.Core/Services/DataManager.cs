@@ -150,9 +150,19 @@ namespace AccessibleTrader.Core.Services
             var feed = _hub.FocusedFeed;
             if (feed == null || string.IsNullOrEmpty(feed.Identity.Symbol)) return;
 
+            // A tab restored from a saved workspace opens with the history it had and keeps its
+            // saved zoom (RestoredTabLoad). It applies only to the chart it was restored with:
+            // a different symbol loaded first is a fresh chart, and the stale record goes.
+            var restored = _store.State.RestoredLoad;
+            if (restored != null && restored.Identity != feed.Identity)
+            {
+                _store.Dispatch(new SetRestoredLoadAction(null));
+                restored = null;
+            }
+
             try
             {
-                if (!await feed.RefreshAsync(ct).ConfigureAwait(false))
+                if (!await feed.RefreshAsync(restored?.HistoryFrom, ct).ConfigureAwait(false))
                 {
                     // A bare `return` here was the silent half of the wrong-chart bug. Every
                     // door into it looks identical from the outside — an open circuit
@@ -172,7 +182,11 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: true))) return;
-                _store.Dispatch(new ZoomAction(100));
+                // A fresh chart opens at the default zoom. A restored tab already has its saved
+                // zoom (WorkspaceInitializer.RestoreViewportLength); resetting it here is what
+                // made every restored tab open at 100 bars wide whatever it was saved with.
+                if (restored == null) _store.Dispatch(new ZoomAction(100));
+                else _store.Dispatch(new SetRestoredLoadAction(null)); // consumed: a later Load is a fresh chart
                 _store.Dispatch(new NavigateAction(feed.Bars.Count - 1));
 
                 DataUpdated?.Invoke();

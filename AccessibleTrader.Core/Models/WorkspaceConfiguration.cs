@@ -20,6 +20,15 @@ namespace AccessibleTrader.Core.Models
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();
 
+        /// <summary>
+        /// The date of the first bar the tab held when it was saved, so it reopens with the
+        /// history it had rather than a fresh chart's 200 bars (Cody, 2026-10-22). A DATE and
+        /// not a bar count: the count grows with every live bar, which would rewrite the
+        /// autosave each bar, while the first bar only moves when older history is loaded.
+        /// Null in workspaces saved before this existed, and for a tab with no data; those
+        /// open with 200 bars, or back to their earliest drawing.
+        /// </summary>
+        public DateTime? EarliestBarDate { get; set; }
     }
 
     /// <summary>
