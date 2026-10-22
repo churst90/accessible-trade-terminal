@@ -153,7 +153,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >     CF lets the user set arc height and position; ours are fixed (a quarter of the median swing).
 >   - [ ] More of CF's look, not built: a check mark for Confirmed (ours is a square), circular arrows
 >     for Pending (a grey dot), the cancelled cross in a green box, the "49D" suffix and D/W letters.
->     Each needs a new marker shape in the renderer, speech and tactile paths.
+>     Each needs a new marker shape in the renderer, speech and tactile paths. (Luna is building the
+    check mark, refresh mark, D/W letters and "49D", 2026-10-21.) No camel emoji: Cody declined it.
+  - [x] No vendor name in what the user sees or hears (Cody, 2026-10-21: "not supposed to be
+    representative brand wise ... just cycles"). Research docs keep the provenance.
 >     So the "2" on the vendor's docs page was an example, not the default. SMA is 10 on close.
 >   - Notes in `strategy-lab-data/cf-frames2/REPORT.md` (gitignored). Its band dates are pixel
 >     guesses and some are wrong: MSTR's band copies COIN's dates.

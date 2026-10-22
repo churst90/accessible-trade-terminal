@@ -164,15 +164,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // from the whole history; a cheap last-bar update would miss a cancellation.
                 RequiresFullRecalcOnTick = true,
                 Description =
-                    "Cycle lows on the price chart, after Camel Finance's CF Cycle Trading Indicator (closed source; " +
-                    "rebuilt from screen grabs). Green triangles under daily cycle lows, blue under weekly, gold under " +
-                    "yearly, each low's length in days, a square when a low is confirmed, crosses when one is cancelled " +
-                    "or a cycle fails, translated-top triangles, CF's yellow arcs and a tint over the daily timing " +
-                    "window. Ranges are CF's for the S&P, gold, Ethereum, Coinbase, MicroStrategy, Marathon Digital, " +
-                    "Riot Platforms, gold miners and Bitcoin, and estimated for the other seven of CF's " +
-                    "sixteen assets. Fitted to CF's own SPX labels: 18 of 25 lows within two bars; held out on gold, " +
-                    "the Dow and Bitcoin, 8 of 13 within four days. Lows are drawn on the low's bar but known only when " +
-                    "confirmed, a median of nine bars later. A map of the method, not an edge.",
+                    "Daily, weekly and yearly cycle lows on the price chart. Green triangles under daily cycle lows, " +
+                    "blue under weekly, gold under yearly, each low's length in days, a square when a low is confirmed, " +
+                    "crosses when one is cancelled or a cycle fails, translated-top triangles, yellow low-to-low arcs " +
+                    "and a tint over the daily timing window. Cycle ranges are tuned for sixteen assets (the S&P, " +
+                    "Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver miners, Bitcoin, Ethereum and four " +
+                    "crypto stocks); seven of those are estimated. Lows are drawn on the low's bar but known only when " +
+                    "confirmed, a median of nine bars later. A map of cycle timing, not an edge.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
@@ -190,11 +188,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamYearlyMax, DisplayName = "Yearly cycle longest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
                             Description = "0 = the preset's." },
                     new() { Name = ParamSma, DisplayName = "Moving average length", DataType = typeof(int), DefaultValue = (double)DefaultSma, MinValue = 2, Step = 1,
-                            Description = "The simple moving average drawn on price. Camel uses 10." },
+                            Description = "The simple moving average drawn on price, 10 by default." },
                     new() { Name = ParamOverbought, DisplayName = "Confirm level", DataType = typeof(double), DefaultValue = DefaultOverbought, MinValue = 1, MaxValue = 99, Step = 1,
-                            Description = "CF's 'overbought', 75. A low is confirmed when the hidden cycle line climbs through this after reaching the oversold level." },
+                            Description = "75 by default. A low is confirmed when the hidden cycle line climbs through this after reaching the oversold level." },
                     new() { Name = ParamOversold, DisplayName = "Arm level", DataType = typeof(double), DefaultValue = DefaultOversold, MinValue = 0, MaxValue = 99, Step = 1,
-                            Description = "CF's 'oversold', 10. The hidden cycle line must reach this before the next low can be confirmed." },
+                            Description = "10 by default. The hidden cycle line must reach this before the next low can be confirmed." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -513,7 +511,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var preset = CipherCEngine.Presets[index];
             string text = fineTuned
                 ? $"{preset.Name} ranges, {preset.Source}"
-                : $"not one of CF's sixteen assets, so {preset.Name}'s ranges";
+                : $"no preset for this symbol, so {preset.Name}'s ranges";
             text += $": daily {Num(preset.DailyMin)} to {Num(preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}, " +
                     $"weekly {Num(preset.WeeklyMin)} to {Num(preset.WeeklyMax)} weeks, yearly {Num(preset.YearlyMin)} to {Num(preset.YearlyMax)} years";
             if (preset.Key == "BTC" && fineTuned)

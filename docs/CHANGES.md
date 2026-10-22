@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C names no vendor (2026-10-21)
+
+Cody: "this is not supposed to be representative brand wise so remove camel finance text or speech,
+just cycles." Cipher C's description, parameter help, spoken preset source and the retired-signal
+messages no longer name Camel Finance or CF. The preset is now spoken as "Gold ranges, tuned: ..." or
+"Dow Jones ranges, estimated: ...", and a symbol with no preset as "no preset for this symbol, so
+Bitcoin's ranges". WHATSNEW and the README feature line say the same. The camel emoji from CF's look is
+not being built. Code comments, `docs/CIPHER_C_DESIGN.md`, the cycle-school notes and the research
+corpus keep the provenance, since that is where the ranges came from. Tests:
+`The_preset_is_said_with_its_source` pins the new spoken words; the new
+`Nothing_the_user_reads_or_hears_names_a_vendor` checks the whole metadata and every preset's spoken
+words for "Camel" or "CF", and the retired-signal test checks its messages. Sabotaged four ways (a "Camel uses 10" parameter help,
+the old no-preset words, "estimated, not CF's", one retired message with the vendor clause): each
+turned 1 or 2 tests red, and back to green on restore.
+
 ### Cipher C's arcs are on the price chart, as CF draws them (2026-10-21)
 
 Cody, looking at the new Cipher C on his Bitcoin chart: "I simply want it to look like the original

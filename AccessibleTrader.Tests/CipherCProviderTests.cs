@@ -408,7 +408,7 @@ public sealed class CipherCProviderTests
         Assert.Equal(yearlyMin, p.YearlyMin);
         Assert.Equal(yearlyMax, p.YearlyMax);
         Assert.Equal(calendarDays, p.CalendarDays);
-        Assert.Equal("CF's published ranges", p.Source);
+        Assert.Equal("tuned", p.Source);
     }
 
     /// <summary>The preset is said with where its numbers came from; an asset CF does not tune says so.</summary>
@@ -416,15 +416,37 @@ public sealed class CipherCProviderTests
     public void The_preset_is_said_with_its_source()
     {
         var gold = CipherCProvider.PresetWords(4, new DateTime(2025, 1, 1));
-        Assert.StartsWith("Gold ranges, CF's published ranges: daily 22 to 28 trading days", gold);
+        Assert.StartsWith("Gold ranges, tuned: daily 22 to 28 trading days", gold);
         var dji = CipherCProvider.PresetWords(2, new DateTime(2025, 1, 1));
-        Assert.Contains("estimated, not CF's", dji);
+        Assert.Contains("Dow Jones ranges, estimated:", dji);
         var other = CipherCProvider.PresetWords(-1 - 11, new DateTime(2025, 1, 1));
-        Assert.StartsWith("not one of CF's sixteen assets, so Bitcoin's ranges", other);
+        Assert.StartsWith("no preset for this symbol, so Bitcoin's ranges", other);
         Assert.DoesNotContain("halving", other);
         var btc = CipherCProvider.PresetWords(11, new DateTime(2026, 6, 1));
         Assert.Contains("after the April 2024 halving", btc);
     }
+
+    /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No
+    /// vendor name in anything the user reads (the metadata: description, parameter help, component
+    /// names) or hears (every preset's spoken words, and the no-preset fallbacks).</summary>
+    [Fact]
+    public void Nothing_the_user_reads_or_hears_names_a_vendor()
+    {
+        var meta = Meta();
+        var text = string.Join("\n", new object[] { meta }.Concat(meta.Parameters).Concat(meta.Components)
+            .SelectMany(o => o.GetType().GetProperties().Where(pr => pr.PropertyType == typeof(string))
+                .Select(pr => (string?)pr.GetValue(o))));
+        Assert.Contains("cycle lows", text);
+        Assert.Contains("10 by default", text);
+        Assert.DoesNotMatch(Vendor, text);
+        for (int i = 0; i < CipherCEngine.Presets.Count; i++)
+        {
+            Assert.DoesNotMatch(Vendor, CipherCProvider.PresetWords(i, new DateTime(2025, 1, 1)));
+            Assert.DoesNotMatch(Vendor, CipherCProvider.PresetWords(-1 - i, new DateTime(2025, 1, 1)));
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex Vendor = new(@"\b(Camel|CF)\b");
 
     // ── 6. Speech ─────────────────────────────────────────────────────────────────
 
@@ -576,7 +598,8 @@ public sealed class CipherCProviderTests
         Assert.False(result.OverallTrue);
         Assert.NotNull(eval.LastDegradation);
         Assert.Contains("removed on 2026-10-21", eval.LastDegradation!);
-        Assert.Contains("CF Cycle Trading Indicator", eval.LastDegradation!);
+        Assert.Contains("rebuilt as a cycle-low indicator", eval.LastDegradation!);
+        Assert.DoesNotMatch(Vendor, eval.LastDegradation!);
 
         eval.Evaluate(new ConditionLeaf("b", "CIPHER_C.DCL Confirmed", LeafOperator.Fired), bars, state);
         Assert.Null(eval.LastDegradation);

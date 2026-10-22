@@ -8,13 +8,13 @@
 
 ## Unreleased
 
-- **Cipher C is now a cycle-low indicator, modelled on Camel Finance's CF Cycle Trading Indicator.**
+- **Cipher C is now a cycle-low indicator.**
   It marks daily, weekly and yearly cycle lows under the candles, says when a low is confirmed,
   pending, cancelled or failed, counts the days of each cycle, and on Alt+Shift+D tells you where you
-  are in the cycle: "Daily cycle day 40, in its window, 4 days left". It knows the sixteen assets CF
-  is tuned for (S&P, Nasdaq, Dow, dollar, gold, silver, oil, the miners, Bitcoin, Ethereum and the
+  are in the cycle: "Daily cycle day 40, in its window, 4 days left". It has cycle ranges tuned
+  for sixteen assets (S&P, Nasdaq, Dow, dollar, gold, silver, oil, the miners, Bitcoin, Ethereum and the
   crypto stocks), and on a weekly chart it talks about weekly cycles, not daily ones. A low is only
-  marked once it is confirmed, usually some days later, as on Camel's charts. Old Cipher C
+  marked once it is confirmed, usually some days later. Old Cipher C
   strategies and alerts tell you its old parts were removed.
 - **Loukas Cycle Detection is retired** in favour of the new Cipher C. Charts that have it keep
   working, but it is no longer in the indicator list.

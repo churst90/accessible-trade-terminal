@@ -58,8 +58,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // ── Presets ────────────────────────────────────────────────────────────────────
 
-        private const string FromCf     = "CF's published ranges";
-        private const string Estimated  = "estimated, not CF's";
+        // Said aloud after the preset's name. The indicator names no vendor (Cody, 2026-10-21).
+        private const string FromCf     = "tuned";
+        private const string Estimated  = "estimated";
 
         /// <summary>
         /// The sixteen assets CF says it is fine-tuned for (its own watchlist on cftrading.co.uk:
