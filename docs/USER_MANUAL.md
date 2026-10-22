@@ -949,6 +949,12 @@ own — Cipher C's cycle arc, drawn under the candles from low to low — and la
 shows (where each cycle bottomed, how long it ran) is already said by the cycle lows and the
 window. Properties → Appearance → **Draw the cycle arc** turns it off.
 
+A window makes no sound when you move onto it or along it with the arrow keys; you hear its
+count spoken. In playback it is a quiet, low rumble under the chart while it is open, and
+silence while it is closed, so you hear the window come and go as the playhead moves. With
+narration on (N), a new bar says when a window opens ("Daily timing window open, day 1.") and
+when it closes.
+
 **The right-click menu.** Right-click on open chart space (or press the Application
 key — or Shift+F10 — with the chart focused) for the chart menu: **Play from here**
 starts playback at the bar you clicked; **Jump to latest** returns to the live edge;
@@ -2553,6 +2559,15 @@ Shift+Space on one series narrates that series and nothing else on the chart. On
 knowing: switching the master back on can replay a signal up to twenty bars old, because a
 pivot takes that long to confirm; it is bounded, and a twenty-bar-old signal is usually still
 worth hearing.
+
+Some marks are painted in hindsight: a cycle low is drawn on the bar where the low was, but
+it is only found bars later, once price has turned. Narration says such a mark once, when the bar
+that found it closes, never in the middle of a bar, and names the date it is drawn on: "Right
+translated top, bullish, on March 17 2026." When the indicator confirms the low with a mark of
+its own (Cipher C's check box), you hear one sentence on the confirmation instead of two: "Daily
+cycle low confirmed, on March 29 2026 at 64,955, 6 bars ago." There is no twenty-bar limit on
+these, however late the low is found. Turning narration on does not read out the ones already
+on the chart.
 
 Auto-narration is one of a small family of "let the terminal keep you posted" features
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"

@@ -32,6 +32,16 @@ namespace AccessibleTrader.Sdk.Models
         public string? PathName { get; set; }
 
         /// <summary>
+        /// For a <see cref="ComponentCausality.Lookahead"/> marker (a low painted on the bar it
+        /// happened on, found later): the causal component that marks the bar it was confirmed on.
+        /// New-bar narration then says the two as one sentence when the confirmation closes —
+        /// "Daily cycle low confirmed, on Tuesday, October 13, 2026 at 412.30, 9 bars ago" — and
+        /// never says the mark before it is confirmed. Null = the mark is said, with its date,
+        /// on the first bar close it is found.
+        /// </summary>
+        public string? ConfirmedBy { get; set; }
+
+        /// <summary>
         /// The value is a count — a cycle's day number, a score — and is printed and said as a
         /// whole number ("day 47"), not with a price's decimals ("47.00").
         /// </summary>

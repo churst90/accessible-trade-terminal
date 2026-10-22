@@ -2,8 +2,12 @@ using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Tests.Mocks;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace AccessibleTrader.Tests;
 
@@ -207,5 +211,190 @@ public sealed class WindowComponentTests
             ColorRules = new List<ColorRule> { new() { Condition = ColorCondition.AboveLevel, Level = 70, ColorHex = "#FF0000" } },
         }));
         Assert.False(StandardRenderers.CanHaveAreaFill(new ComponentConfig { DisplayType = ComponentDisplayType.Histogram, ColorSource = ColorSource.PriceAction }));
+    }
+
+    // ── What a window says on a bar close ──────────────────────────────────────────
+
+    /// <summary>
+    /// Cody, 2026-10-22: a window opening or closing belongs on the new-bar narration ladder. It
+    /// opens with its speech template, {value} its count said as a whole number; it closes with
+    /// its name. Nothing on a bar where it neither opens nor closes, and nothing on an
+    /// intra-bar tick.
+    /// </summary>
+    [Fact]
+    public void A_window_says_when_it_opens_and_closes_on_a_bar_close()
+    {
+        var (series, comp) = Window(OpenOn((3, 6)));
+        comp.IsCount = true;
+        comp.SignalSpeechTemplate = "Season open, day {value}.";
+        series.Config.IsAutoNarrated = true;
+
+        var said = ScanEachBarClose(series);
+        Assert.Equal(new[] { 3, 7 }, said.Keys);
+        Assert.Contains("Season open, day 4.", said[3]);
+        Assert.Contains("Season closed.", said[7]);
+
+        var scanner = new NarrationScanner(new IndicatorContextAnalyzer());
+        scanner.Seed(series, NarrationState(series, 2));
+        Assert.Null(scanner.ScanAll(new[] { series }, NarrationState(series, 5), 3, isBarClose: false));
+    }
+
+    /// <summary>
+    /// With a <see cref="ComponentCompanions.Stops"/> companion, the stops are what is said:
+    /// Cipher C's stops leave out a window ended by a new low, which the low's confirmation says.
+    /// A hidden window says nothing.
+    /// </summary>
+    [Fact]
+    public void A_window_with_stops_says_its_stops_and_a_hidden_window_says_nothing()
+    {
+        var (series, comp) = Window(OpenOn((3, 6)));
+        series.Config.IsAutoNarrated = true;
+        var stops = Enumerable.Repeat(double.NaN, N).ToArray();
+        stops[3] = 1;                       // opens on 3; closed on 7 by a new low: no stop
+        series.Data.ComponentData["Season" + ComponentCompanions.Stops] = stops;
+
+        var said = ScanEachBarClose(series);
+        Assert.Equal(new[] { 3 }, said.Keys);
+        Assert.Contains("Season open.", said[3]);
+
+        comp.IsVisible = false;
+        Assert.Empty(ScanEachBarClose(series));
+    }
+
+    private static Dictionary<int, string> ScanEachBarClose(ChartSeries series)
+    {
+        var scanner = new NarrationScanner(new IndicatorContextAnalyzer());
+        scanner.Seed(series, NarrationState(series, 1));
+        var said = new Dictionary<int, string>();
+        for (int closed = 1; closed < N - 1; closed++)
+            if (scanner.ScanAll(new[] { series }, NarrationState(series, closed + 2), closed, isBarClose: true) is { } text)
+                said[closed] = text;
+        return said;
+    }
+
+    private static WorkspaceState NarrationState(ChartSeries series, int bars)
+    {
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        return WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(Enumerable.Range(0, bars).Select(i => new Ohlcv(start.AddDays(i), 95, 101, 91, 96, 1000))),
+            ActiveSeries = ImmutableList.Create(series),
+            CurrentDataIndex = bars - 1,
+            InitStatus = InitializationStatus.Ready, DataStatus = DataStatus.Ready, IsSpeechEnabled = true,
+        };
+    }
+
+    // ── What a window sounds like ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Cody, 2026-10-22: "I don't think manual left/right should sonify anything". Arrowing onto
+    /// and along a window plays nothing — its count is spoken — while the same bars on a line
+    /// do play, so the harness can hear.
+    /// </summary>
+    [Fact]
+    public void The_arrow_keys_play_nothing_on_a_window()
+    {
+        int Voices(ComponentDisplayType type)
+        {
+            var (series, comp) = Window(OpenOn((0, N - 1)));
+            comp.DisplayType = type;
+            var driver = Substitute.For<IAudioDriver>();
+            var sonifier = new NavigationSonifier(driver, new DefaultSonificationStrategy(new SoundPatchRegistry()), new SoundPatchRegistry());
+            for (int i = 2; i < 6; i++)
+                sonifier.SyncNavigationSlots(SoundState(series) with { FocusedSeriesId = series.Id, FocusedComponentIndex = 0, CurrentDataIndex = i });
+            return driver.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IAudioDriver.SetVoice));
+        }
+
+        Assert.True(Voices(ComponentDisplayType.Line) > 0, "a line played nothing either — the harness cannot hear");
+        Assert.Equal(0, Voices(ComponentDisplayType.Window));
+    }
+
+    /// <summary>
+    /// In playback a window is a texture under the chart while it is open — a 110 Hz hum with
+    /// brown noise on it, at half the component's background level — and silent while it is
+    /// closed. Its start and stop are the edge cue.
+    /// </summary>
+    [Fact]
+    public async Task In_playback_a_window_is_a_quiet_texture_only_while_it_is_open()
+    {
+        // A value on every bar, open where the tint companion says (Cipher C's shape), so "open"
+        // is the window's rule and not merely "has a value".
+        var (series, comp) = Window(Enumerable.Repeat(96.0, N).ToArray());
+        comp.TintMidline = 0.5;
+        series.Data.ComponentData["Season" + ComponentCompanions.Tint] =
+            Enumerable.Range(0, N).Select(i => i is >= 3 and <= 6 ? 1.0 : 0.0).ToArray();
+        comp.Volume = 1f;
+        comp.PlaybackLayer = PlaybackLayer.Background;
+        var line = new ComponentConfig
+        {
+            Name = "line", DisplayName = "line", DisplayType = ComponentDisplayType.Line, IsVisible = true, Volume = 1f,
+            PlaybackLayer = PlaybackLayer.Background, PitchMapping = PitchMapping.Value, BaseFrequency = 440, EnvelopeType = "Sustain",
+        };
+        series.Config.Components.Add(line);
+        series.Data.ComponentData["line"] = Enumerable.Repeat(96.0, N).ToArray();
+
+        var driver = new VoiceSpy();
+        var store = new MockWorkspaceStore();
+        store.EmitState(SoundState(series) with { PlaybackSpeed = 50f });
+        var sequencer = new AudioSequencer(driver, new DefaultSonificationStrategy(new SoundPatchRegistry()),
+            store, new SoundPatchRegistry(), NullLogger<AudioSequencer>.Instance);
+        var bars = store.State.Data.ToList();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await sequencer.StartPlaybackAsync(series, bars, 0, cts.Token);
+
+        int windowSlot = 32;           // the window is the first component, so the first playback slot
+        var texture = driver.Set.Where(v => v.Slot == windowSlot).ToList();
+        Assert.Equal(new[] { 3, 4, 5, 6 }, texture.Select(v => v.P.DataIndex));
+        Assert.All(texture, v =>
+        {
+            Assert.Equal(AudioSequencer.WindowTextureHz, v.P.Frequency);
+            Assert.Equal("brown", v.P.NoiseType);
+            Assert.True(v.P.NoiseAmount > 0);
+            Assert.True(v.P.Continuous);
+        });
+        Assert.Contains(windowSlot, driver.Stopped);
+
+        float lineVol = driver.Set.Where(v => v.Slot != windowSlot && v.P.DataIndex == 4).Max(v => v.P.Volume);
+        Assert.Equal(AudioSequencer.WindowTextureGain, texture.Single(v => v.P.DataIndex == 4).P.Volume / lineVol, 2);
+    }
+
+    private static WorkspaceState SoundState(ChartSeries series)
+    {
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        return WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(Enumerable.Range(0, N).Select(i => new Ohlcv(start.AddDays(i), 95, 101, 91, 96, 1000))),
+            ActiveSeries = ImmutableList.Create(series),
+            ViewportStartIndex = 0, ViewportLength = N,
+            ViewportRange = (90, 102),
+            PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Main", (90, 102)),
+            ChartVolume = 1f, PlaybackSpeed = 1f, IsSonificationEnabled = true,
+        };
+    }
+
+    private sealed class VoiceSpy : IAudioDriver
+    {
+        public List<(int Slot, VoiceParams P)> Set { get; } = new();
+        public List<int> Stopped { get; } = new();
+        public int SampleRate => 44100;
+        public int Channels => 2;
+        public event Action<int>? PointReached { add { } remove { } }
+        public void SetVoice(int slot, double frequency, float volume, float pan, string waveform,
+            bool continuous, double durationSeconds = 0.2, int dataIndex = -1, string envelope = "Sustain",
+            bool click = false, float noiseAmount = 0f, string noiseType = "pink", float squareMix = 0f,
+            float sawMix = 0f, float triangleMix = 0f, float subSawMix = 0f) =>
+            Record(slot, new VoiceParams
+            {
+                Frequency = frequency, Volume = volume, Pan = pan, Waveform = waveform, Continuous = continuous,
+                DurationSeconds = durationSeconds, DataIndex = dataIndex, Envelope = envelope, Click = click,
+                NoiseAmount = noiseAmount, NoiseType = noiseType,
+            });
+        private void Record(int slot, VoiceParams p) { lock (Set) Set.Add((slot, p)); }
+        public void StopVoice(int slot) { lock (Stopped) Stopped.Add(slot); }
+        public void StopAll() { }
+        public void Reset() { }
+        public void SetMasterGain(float gain) { }
+        public void Pause() { }
+        public void Resume() { }
     }
 }

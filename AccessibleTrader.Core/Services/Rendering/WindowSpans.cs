@@ -31,6 +31,20 @@ namespace AccessibleTrader.Core.Services.Rendering
             return open;
         }
 
+        /// <summary>
+        /// Whether the window is open on one bar — <see cref="OpenMask"/> at <paramref name="index"/>
+        /// without building the whole mask (playback asks once per bar).
+        /// </summary>
+        public static bool IsOpenAt(ChartSeries series, ComponentConfig comp, int index)
+        {
+            if (index < 0) return false;
+            var tint = series.GetComponentData(comp.Name + ComponentCompanions.Tint);
+            if (tint is { Length: > 0 })
+                return index < tint.Length && !double.IsNaN(tint[index]) && tint[index] >= (comp.TintMidline ?? comp.ColorBaseline);
+            var values = series.GetComponentData(comp.Name);
+            return index < values.Length && !double.IsNaN(values[index]);
+        }
+
         /// <summary>Whether the component has a <see cref="ComponentCompanions.Path"/> with anything in it.</summary>
         public static bool HasPath(ChartSeries? series, ComponentConfig comp) =>
             series?.GetComponentData(comp.Name + ComponentCompanions.Path) is { Length: > 0 } path

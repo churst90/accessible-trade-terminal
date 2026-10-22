@@ -383,6 +383,12 @@ edge.
   series and requires every `Causal` component to agree on the shared prefix, sweeping k over
   eleven lengths and three synthetic series. Sweeping matters more than the value of k: a marker
   only disagrees within the last few bars of a prefix.
+- **Narration reads it too (2026-10-22).** `IndicatorModelFactory` sets
+  `ComponentConfig.IsHindsight` on every `Lookahead` component. `NarrationScanner` says such a mark
+  on a bar close only, with no 20-bar window (seeded with the last mark painted, so history is not
+  read out), and with its date. When the mark names a `ConfirmedBy` component that is shown and
+  narrated, the mark is silent and the confirmation says it, finding it through the
+  confirmation's `_confirms` companion (bars back). Script indicators never get `IsHindsight`.
 - **What it actually catches.** Look-ahead proper is only half of it. Any parameter derived from
   `data.Length` fails the same test — Cipher SR scaled its pivot window by the total loaded bar
   count, Value Deviation capped its profile at a third of the series, Pulse blanked a whole

@@ -1,5 +1,7 @@
 using System.Globalization;
 using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Core.Services.Input;
+using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Models;
 
@@ -283,6 +285,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!IsMarkerDisplayType(comp.DisplayType)) continue;
                 if (comp.UsesGradientSpeech) continue;
 
+                // A mark painted in hindsight (a low drawn on the bar it happened, found bars
+                // later) is spoken on a bar close only: an intra-bar tick can paint it and the
+                // next tick take it away. One its indicator confirms with another component is
+                // said with that confirmation, when the confirmation's bar closes — never before.
+                if (comp.IsHindsight && !isBarClose) continue;
+                if (comp.IsHindsight && SpokenConfirmation(series, comp) != null) continue;
+
                 string markerKey = $"{series.Id}:{comp.Name}";
                 if (!_announcedMarkers.TryGetValue(markerKey, out var announced))
                 {
@@ -294,7 +303,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int pivotLowerBound = _lastSeenPivotIndex.TryGetValue(pivotKey, out int lsp)
                     ? lsp + 1
                     : fromIndex;
-                int effectiveScanFrom = Math.Max(pivotLowerBound, toIndex - PivotConfirmWindow);
+                // A hindsight mark can be found any number of bars after the bar it is painted
+                // on, so it has no 20-bar window: it is scanned from the last one seen (seeded
+                // with the last one painted when narration was switched on — SeedZoneLineState
+                // records it for every marker).
+                int effectiveScanFrom = comp.IsHindsight
+                    ? pivotLowerBound
+                    : Math.Max(pivotLowerBound, toIndex - PivotConfirmWindow);
                 if (effectiveScanFrom > toIndex) continue;
 
                 var data = series.GetComponentData(comp.Name);
@@ -307,6 +322,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (double.IsNaN(val)) continue;
 
                     string msg = BuildMarkerMessage(series, comp, val, state, barIndex);
+                    if (!string.IsNullOrEmpty(msg) && comp.IsHindsight && barIndex < toIndex)
+                        msg = $"{msg.TrimEnd().TrimEnd('.')}, on {BarDateText(state, barIndex)}.";
+                    if (!string.IsNullOrEmpty(msg) && ConfirmedMark(series, comp, barIndex, state) is { } mark)
+                        msg = $"{msg.TrimEnd().TrimEnd('.')}, {mark}.";
                     if (!string.IsNullOrEmpty(msg))
                     {
                         utterance.Add(ScanUtterance.TierSignal, series.FriendlyName, markerKey, msg,
@@ -337,6 +356,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // 1e. The indicator crossing one of its OWN declared levels (RSI 70, MACD zero).
             ScanLevelCrosses(series, toIndex, utterance);
+
+            // 1e′. A timing window opening or closing on the bar that closed.
+            ScanWindowEdges(series, toIndex, utterance);
 
             // 1f. The reading itself, for a series with nothing signal-shaped to say. A volume
             // pane under N used to set a flag nothing acted on; now the closed bar's value is the
@@ -1163,6 +1185,102 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _lastCloudPosition[cloudKey] = position;
             }
         }
+
+        // ── Windows ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// A <see cref="ComponentDisplayType.Window"/> that opened or closed on the bar that just
+        /// closed (Cody, 2026-10-22): "Daily timing window open, day 38." / "Daily Timing Window
+        /// closed." The bars are its <see cref="ComponentCompanions.Stops"/> companion when it has
+        /// one — Cipher C's stops leave out a window ended by a new low, which its confirmation
+        /// says — else where it is open (<see cref="WindowSpans"/>), the shading's own answer.
+        /// The opening sentence is the component's speech template, {value} its count.
+        /// Ranked with crosses, under signals.
+        /// </summary>
+        private static void ScanWindowEdges(ChartSeries series, int toIndex, ScanUtterance utterance)
+        {
+            foreach (var comp in series.Components)
+            {
+                if (comp.DisplayType != ComponentDisplayType.Window) continue;
+                if (!comp.IsVisible || comp.IsMuted || !SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
+
+                double edge;
+                var stops = series.GetComponentData(comp.Name + ComponentCompanions.Stops);
+                if (stops.Length > 0)
+                    edge = toIndex < stops.Length ? stops[toIndex] : double.NaN;
+                else
+                {
+                    bool open = WindowSpans.IsOpenAt(series, comp, toIndex);
+                    bool was = WindowSpans.IsOpenAt(series, comp, toIndex - 1);
+                    edge = open && !was ? 1 : !open && was ? 0 : double.NaN;
+                }
+                if (double.IsNaN(edge)) continue;
+
+                string name = SignalClauseSpeech.ComponentName(comp);
+                string text;
+                if (edge == 1)
+                {
+                    var values = series.GetComponentData(comp.Name);
+                    double v = toIndex < values.Length ? values[toIndex] : double.NaN;
+                    string count = double.IsNaN(v) ? "" : comp.IsCount ? ValueLabelRenderer.Spoken(v) : v.ToString("0.##", CultureInfo.InvariantCulture);
+                    text = !string.IsNullOrEmpty(comp.SignalSpeechTemplate)
+                        ? comp.SignalSpeechTemplate.Replace("{value}", count).Replace("{name}", name).Replace("{series}", series.FriendlyName)
+                        : $"{name} open.";
+                }
+                else text = $"{name} closed.";
+                utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:{comp.Name}:window", text, componentName: name);
+            }
+        }
+
+        // ── Hindsight marks ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The component that speaks <paramref name="hindsight"/>'s confirmation, when there is
+        /// one the user hears: declared (<see cref="ComponentConfig.ConfirmedBy"/>), on this
+        /// series, shown, unmuted and narrated. Null = the mark is spoken by itself.
+        /// </summary>
+        private static ComponentConfig? SpokenConfirmation(ChartSeries series, ComponentConfig hindsight)
+        {
+            if (string.IsNullOrEmpty(hindsight.ConfirmedBy)) return null;
+            var c = series.Components.FirstOrDefault(x => x.Name == hindsight.ConfirmedBy);
+            return c is { IsVisible: true, IsMuted: false } && IsMarkerDisplayType(c.DisplayType)
+                   && SeriesNarrationScope.ComponentNarrates(series, c) ? c : null;
+        }
+
+        /// <summary>
+        /// When <paramref name="confirmation"/> confirms a hindsight mark: where the mark is —
+        /// "on Tuesday, October 13, 2026 at 412.30, 9 bars ago". The bar is the one the
+        /// confirmation's <see cref="ComponentCompanions.Confirms"/> companion names; without
+        /// one, the latest bar at or before the confirmation the mark is painted on. Null when it
+        /// confirms nothing or no mark is found.
+        /// </summary>
+        private static string? ConfirmedMark(ChartSeries series, ComponentConfig confirmation, int confirmedAt, WorkspaceState state)
+        {
+            var mark = series.Components.FirstOrDefault(x => x.IsHindsight && x.ConfirmedBy == confirmation.Name);
+            if (mark == null) return null;
+            var data = series.GetComponentData(mark.Name);
+            int at;
+            if (series.Data.ComponentData.TryGetValue(confirmation.Name + ComponentCompanions.Confirms, out var back)
+                && confirmedAt < back.Length && !double.IsNaN(back[confirmedAt]))
+                at = confirmedAt - (int)Math.Round(back[confirmedAt]);
+            else
+            {
+                at = Math.Min(confirmedAt, data.Length - 1);
+                while (at >= 0 && double.IsNaN(data[at])) at--;
+            }
+            if (at < 0 || at > confirmedAt) return null;
+            string where = $"on {BarDateText(state, at)}";
+            if (ReferenceLevelPlacement.IsPricePane(series.Pane) && string.IsNullOrEmpty(mark.SubPaneName)
+                && at < data.Length && !double.IsNaN(data[at]))
+                where += $" at {SpeechPriceFormatter.FormatPrice(data[at])}";
+            int ago = confirmedAt - at;
+            return ago switch { 0 => $"{where}, this bar", 1 => $"{where}, 1 bar ago", _ => $"{where}, {ago} bars ago" };
+        }
+
+        private static string BarDateText(WorkspaceState state, int barIndex) =>
+            state.Data != null && barIndex >= 0 && barIndex < state.Data.Count
+                ? PlaybackNarration.DateText(state.Data[barIndex].Date, PlaybackNarration.BarSeconds(state))
+                : $"bar {barIndex + 1}";
 
         // ── Message builders ─────────────────────────────────────────────────────
 

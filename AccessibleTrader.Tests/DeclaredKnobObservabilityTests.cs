@@ -131,6 +131,12 @@ public sealed class DeclaredKnobObservabilityTests
             + "TactileCanvasCoordinator.MapOhlcvField (the Braille channel). The first two run "
             + "before these channels see anything, and the third is a FIFTH output this sweep does "
             + "not model. Worth revisiting if the tactile canvas ever becomes a channel here.",
+
+        ["ConfirmedBy"] =
+            "Read only by NarrationScanner on a bar close: a hindsight mark is said with the "
+            + "component it names, as one sentence. New-bar narration is a scan across bars, not a "
+            + "single bar's picture, sound or reading, so none of these channels can see it; "
+            + "HindsightNarrationTests pins it (and its removal was shown to turn them red).",
     };
 
     // ── The channels ────────────────────────────────────────────────────────

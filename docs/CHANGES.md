@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A window is heard in playback, said on new bars; a low found in hindsight is said once, with its date (2026-10-22)
+
+- Cody: "I don't think manual left/right should sonify anything, but, during chart playback I
+  should hear a slight texturing under the chart ... surely that should be added to the narration
+  ladder on new bar closes. also on new bar closes if an indicator picks a low in hind sight, that
+  should be announced ... cycle low confirmed on previous date". Then: "Yes please do all 4."
+- **Left/Right on a window plays nothing** (`NavigationSonifier` mutes every navigation voice when
+  the focused component is a `Window`). Landing on it still speaks its count.
+- **In playback a window is a quiet texture under the chart while it is open**: 110 Hz with brown
+  noise (`AudioSequencer.PlayWindowTexture`), at half the background layer's level, panned with
+  the playhead, silent on closed bars. Same in multi-series playback. Open is
+  `WindowSpans.IsOpenAt`, the same rule as the shading. The Window profile's tone went from 330 Hz
+  to 110 Hz to match. **Not heard; the level and colour are a first guess to tune by ear.**
+- **New-bar narration says a window opening and closing** ("Daily timing window open, day 1.",
+  "Weekly Timing Window closed."), at the crossing tier, from its `_stops` companion when it has
+  one, or from where it turns open or closed. Cipher C's two windows declare the opening sentence
+  (`DefaultSignalSpeechTemplate` with `{value}`); a window with none says "{name} open."
+- **A mark painted in hindsight is said once, on a bar close, with its date.** A component whose
+  causality is `Lookahead` (Cipher C's lows and tops; Ichimoku, swing structure and the zero-cross
+  pivots declare it too) is now `ComponentConfig.IsHindsight`, set by the factory. For those:
+  - never on an intra-bar tick (a tick can paint the mark and the next take it away);
+  - no 20-bar limit: a low found 30 bars late is still said. Turning narration on seeds the last
+    mark already painted, so the history is not read out;
+  - said with the date of the bar it is painted on: "Right translated top, bullish, on March 17 2026."
+- **A low its indicator confirms is said once, with its confirmation**: a hindsight component
+  that names another as `ConfirmedBy` (new, `IndicatorComponentMetadata` and `ComponentConfig`)
+  is silent while that one is shown and narrated, and the confirmation says where the low is. On
+  real Bitcoin daily bars: "Daily cycle low confirmed, on March 29 2026 at 64955.00, 6 bars ago."
+  With the confirmation hidden, the low is said by itself, with its date.
+- **`_confirms`** (`ComponentCompanions.Confirms`, new): on a confirmation bar, how many bars back
+  the mark it confirms is drawn. Cipher C writes it for all three tiers. Without it, narration
+  falls back to the latest mark at or before the confirmation, which **was wrong on 44 of 133
+  Bitcoin confirmations** looked at over the whole history (that low was cancelled later, or a
+  weekly or yearly low was moved onto a daily one). Cipher C's own confirmation speech (`_low`,
+  `_ago`) now names the low where it is drawn too: a weekly or yearly confirmation used to give
+  the price of the unmoved low.
+- **Fixed on the way:** `WorkspaceProjectionTests` was red on this branch since 60256450 added
+  `WorkspaceState.RestoredLoad`; it is declared host-side (not carried to scripts).
+- Caveats: none of this has been heard in the app. A component of a script indicator is never a
+  hindsight mark (scripts do not declare causality). Indicators still compute with the forming
+  bar, so a hindsight mark can appear and vanish during a bar; narration now waits for the close,
+  the chart still shows it.
+
 ### Windows, fill under the line, and the cycle arc as a drawing (2026-10-22)
 
 - Cody: "Move forward with window type, area fill in appearance, and if the arc is more akin to

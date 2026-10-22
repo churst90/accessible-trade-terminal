@@ -33,6 +33,11 @@ namespace AccessibleTrader.Sdk.Models
     /// named by the component's <c>PathName</c> when the user lands on the component, and the
     /// user turns it off in Properties → Appearance. It counts toward the pane's fitted range,
     /// so it is not cut off.</item>
+    /// <item><see cref="Confirms"/>: on a bar where a component confirms a mark painted in
+    /// hindsight (the component another one names as its <c>ConfirmedBy</c>), how many bars back
+    /// that mark is painted. New-bar narration names the mark's date and price from it — the
+    /// latest mark painted before the confirmation is not always the one it confirmed (that one
+    /// may have been cancelled since, or the mark moved onto a lower tier's).</item>
     /// </list>
     /// </summary>
     public static class ComponentCompanions
@@ -41,6 +46,7 @@ namespace AccessibleTrader.Sdk.Models
         public const string Tint = "_tint";
         public const string Stops = "_stops";
         public const string Path = "_path";
+        public const string Confirms = "_confirms";
 
         /// <summary>Whether <paramref name="key"/> is a companion of one of <paramref name="componentNames"/>.</summary>
         public static bool IsCompanionOf(string key, IEnumerable<string> componentNames)

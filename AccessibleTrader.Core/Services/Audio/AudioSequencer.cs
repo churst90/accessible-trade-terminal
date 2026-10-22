@@ -2,6 +2,7 @@ using System.Reactive;
 using System.Reactive.Subjects;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;
+using AccessibleTrader.Core.Services.Rendering;
 
 namespace AccessibleTrader.Core.Services.Audio
 {
@@ -261,6 +262,16 @@ namespace AccessibleTrader.Core.Services.Audio
                 return;
             }
 
+            // A timing window is a texture under the chart while it is open — a low hum with
+            // brown noise on it, quieter than any line — and nothing while it is closed. Its
+            // start and stop are the edge cue (Cody, 2026-10-22). Its value is a count, so the
+            // strategy's pitch is not used; the strategy gives the pan and the user's volume.
+            if (comp.DisplayType == ComponentDisplayType.Window)
+            {
+                PlayWindowTexture(series, comp, vp, data, i, state, effPanWidth);
+                return;
+            }
+
             // Sub-pane-aware range so components in a sub-pane use their own Y-range. A missing
             // key for an indicator pane falls back to that pane's EMPTY range, never to the price
             // range — see ViewportRangeCalculator.RangeFor.
@@ -365,6 +376,38 @@ namespace AccessibleTrader.Core.Services.Audio
                     }, TaskScheduler.Default);
                 }
             }
+        }
+
+        /// <summary>How far under the component's own volume a window's texture sits.</summary>
+        internal const float WindowTextureGain = 0.5f;
+
+        /// <summary>The texture's hum, an octave and a fifth under the 330 Hz the profile once droned at.</summary>
+        internal const double WindowTextureHz = 110;
+
+        /// <summary>Brown noise layered on the hum, so it reads as a texture rather than a note.</summary>
+        internal const float WindowTextureNoise = 0.8f;
+
+        private void PlayWindowTexture(ChartSeries series, ComponentConfig comp, VoicePlan vp, List<Ohlcv> data,
+            int i, WorkspaceState state, int effPanWidth)
+        {
+            var audioPt = WindowSpans.IsOpenAt(series, comp, i)
+                ? _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth,
+                    state.ViewportRange, state.ChartVolume)
+                : default;
+            if (audioPt.Volume <= 0)
+            {
+                foreach (int slot in vp.Slots) _audioDriver.StopVoice(slot);
+                return;
+            }
+            _audioDriver.SetVoice(vp.Slots[0], new VoiceParams
+            {
+                Frequency = WindowTextureHz,
+                Volume = audioPt.Volume * LayerVolume(comp.PlaybackLayer) * WindowTextureGain,
+                Pan = (float)audioPt.Pan, Waveform = "sine", Continuous = true,
+                DataIndex = i, Envelope = "Sustain",
+                NoiseAmount = WindowTextureNoise, NoiseType = "brown",
+            });
+            for (int k = 1; k < vp.Slots.Length; k++) _audioDriver.StopVoice(vp.Slots[k]);
         }
 
         /// <summary>

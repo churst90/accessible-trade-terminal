@@ -207,6 +207,15 @@ namespace AccessibleTrader.Core.Services.Audio
                 return;
             }
 
+            // A timing window makes no sound under the arrow keys (Cody, 2026-10-22): its count is
+            // spoken on landing, and a tone per bar would be a day counter in pitch. It is heard in
+            // playback, as a texture under the chart while it is open (AudioSequencer).
+            if (cloudComp != null && cloudComp.DisplayType == ComponentDisplayType.Window)
+            {
+                MuteAllNavigationSlots();
+                return;
+            }
+
             // Use the sub-pane range when the focused component lives in a sub-pane (e.g. MF Wave
             // in "Pane_CIPHER_B/MF"). Without this, raw MF values get normalised against the main
             // pane's ±100 WT range and clamp to two tones instead of a continuous pitch sweep.

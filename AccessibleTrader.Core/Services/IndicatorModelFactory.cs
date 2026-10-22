@@ -160,7 +160,7 @@ namespace AccessibleTrader.Core.Services
             //          This ensures new metadata defaults (colors, audio, shapes) are never
             //          silently overridden by a stale all-or-nothing workspace save.
             var sourceComponents = meta.Components
-                .Select(mc => CreateComponentConfigFromMeta(meta.Code, mc))
+                .Select(mc => CreateComponentConfigFromMeta(meta, mc))
                 .ToList();
 
             // Sort components so main-pane components appear first (SubPaneName == null/empty),
@@ -342,8 +342,9 @@ namespace AccessibleTrader.Core.Services
         /// Default* and audio hint fields over global role/type-based StylingService defaults.
         /// DataMapping, UpperComponentName, LowerComponentName, and IsVisible are applied from metadata.
         /// </summary>
-        private ComponentConfig CreateComponentConfigFromMeta(string indicatorCode, IndicatorComponentMetadata meta)
+        private ComponentConfig CreateComponentConfigFromMeta(IndicatorMetadata indicator, IndicatorComponentMetadata meta)
         {
+            string indicatorCode = indicator.Code;
             // DisplayType and Role are already set in metadata at provider discovery time.
             var type    = meta.DisplayType;
             var role    = meta.Role;
@@ -356,6 +357,8 @@ namespace AccessibleTrader.Core.Services
                 DisplayType  = type,
                 MarkerText   = meta.MarkerText,
                 PathName     = meta.PathName,
+                IsHindsight  = CausalityContract.Effective(indicator, meta) == ComponentCausality.Lookahead,
+                ConfirmedBy  = meta.ConfirmedBy,
                 IsCount      = meta.IsCount,
                 Role         = role,
                 DataMapping  = meta.DataMapping ?? string.Empty,

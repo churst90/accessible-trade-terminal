@@ -25,6 +25,16 @@
 >     254 weeks later"). Engine behaviour, not changed; demonstrate whether the yearly confirmation
 >     rule is wrong before touching it.
 >   - The SMA has no Ctrl+Left/Right stop for price crossing it.
+> - [ ] **Window sound, window and hindsight narration (2026-10-22, built, NOT heard; see CHANGES).**
+>   Cody to listen on Bitcoin daily with Cipher C: Left/Right on a timing window is silent; in
+>   playback, a low 110 Hz brown-noise texture while the window is open (level and colour are a
+>   first guess: say louder, quieter, brighter or darker); with N on Cipher C, new bars say "Daily
+>   timing window open, day 1." and "Daily cycle low confirmed, on {date} at {price}, N bars ago."
+>   Known gaps:
+>   - Script indicators never mark components as hindsight (they do not declare causality).
+>   - The forming bar is still in every indicator's computation, so the chart can show a hindsight
+>     mark mid-bar that is gone at the close; only the speech waits for the close.
+>   - Wording uses "bars ago", not "days ago", on every timeframe.
 > - [ ] **Window type, area fill in Appearance, the arc as the window's drawing (2026-10-22, built,
 >   NOT seen or heard in the app; see CHANGES).** Cody to check on Bitcoin daily with Cipher C:
 >   the green shading inside the daily window, the yellow arcs under the candles, "Window, with the

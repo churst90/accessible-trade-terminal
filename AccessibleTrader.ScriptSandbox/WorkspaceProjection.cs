@@ -125,6 +125,9 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.PaneRanges),
         nameof(WorkspaceState.PaneHeightRatios),
         nameof(WorkspaceState.TabSnapshots),
+        // How far back a restored tab loads its history, consumed by the next load and cleared.
+        // A loading instruction for the host's data manager; a strategy sees the bars it loaded.
+        nameof(WorkspaceState.RestoredLoad),
 
         // The two narration switches. AnnounceNewBars and DescribeChartPatterns ARE carried,
         // which makes this look inconsistent, so the reason is written down: those two predate

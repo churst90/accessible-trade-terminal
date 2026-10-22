@@ -39,6 +39,13 @@ namespace AccessibleTrader.Sdk.Models
         /// provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.PathName"/> on every
         /// load. Null = no path.</summary>
         public string? PathName { get; set; }
+        /// <summary>The marker is painted in hindsight — on the bar it happened, found later
+        /// (<see cref="ComponentCausality.Lookahead"/>). Provider-owned, rebuilt from the
+        /// indicator's declared causality on every load.</summary>
+        public bool IsHindsight { get; set; }
+        /// <summary>The causal component that confirms this hindsight marker; provider-owned,
+        /// rebuilt from <see cref="IndicatorComponentMetadata.ConfirmedBy"/> on every load.</summary>
+        public string? ConfirmedBy { get; set; }
         /// <summary>
         /// The USER's choice from Properties → Appearance → "Draw the {PathName}", or null when
         /// they have never chosen (draw it). The same split as <see cref="UserShowAxisLabel"/>.
@@ -364,7 +371,7 @@ namespace AccessibleTrader.Sdk.Models
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
-                PathName = PathName, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
+                PathName = PathName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

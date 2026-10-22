@@ -112,7 +112,7 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
 
         // 10. A window: its value is a count, so its pitch must not climb with it.
         if (displayType == ComponentDisplayType.Window)
-            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.None, 330, 1.0, false, "Sustain");
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.None, 110, 1.0, false, "Sustain");
 
         // 11. Default lines: smooth sine
         return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, false, "Sustain");

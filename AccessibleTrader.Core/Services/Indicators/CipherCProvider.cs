@@ -125,10 +125,10 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
 
-        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order) => new()
+        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order, string confirmedBy) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUpRing, MarkerText = markerText, Role = ComponentRole.Signal,
-            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
+            Causality = ComponentCausality.Lookahead, ConfirmedBy = confirmedBy, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
             DefaultColorHex = hex, DefaultThickness = size, DefaultDrawOrder = order,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Midground,
             DefaultSoundPatchId = patch, DefaultBaseFrequency = freq, DefaultDecayMs = 400,
@@ -171,11 +171,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// price. The lowest running tier's window also carries the cycle arc
         /// (<see cref="ComponentCompanions.Path"/>), drawn in its colour.
         /// </summary>
-        private static IndicatorComponentMetadata Window(string name, string tintHex) => new()
+        private static IndicatorComponentMetadata Window(string name, string tintHex, string openSpeech) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Window, Role = ComponentRole.Signal,
             Causality = ComponentCausality.Causal, IsCount = true, DefaultColorHex = ArcHex, DefaultThickness = 1f,
             PathName = "cycle arc",
+            // New-bar narration says this on the bar the window opens ({value} = the count).
+            DefaultSignalSpeechTemplate = openSpeech,
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
             DefaultPlaybackLayer = PlaybackLayer.Background,
             // The whole 0x18 alpha at 1, nothing at 0.
@@ -238,9 +240,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
 
                     // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
-                    Low(CompYcl, YclHex, 6f,   "Yearly", "Y", "dual_tone_bell", 196, 0),
-                    Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1),
-                    Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2),
+                    Low(CompYcl, YclHex, 6f,   "Yearly", "Y", "dual_tone_bell", 196, 0, CompYclConfirmed),
+                    Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1, CompWclConfirmed),
+                    Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2, CompDclConfirmed),
 
                     // Value: the confluence score, 1 to 3 (a normal-length cycle, a close over the
                     // moving average, a close over the low bar's high), so a strategy can ask for
@@ -265,8 +267,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Top(CompMidTop,   "#FFA726", "Mid translated top."),
                     Top(CompRightTop, "#66BB6A", "Right translated top, bullish."),
 
-                    Window(CompDailyWindow, "#1800E676"),
-                    Window(CompWeeklyWindow, "#182979FF"),
+                    Window(CompDailyWindow, "#1800E676", "Daily timing window open, day {value}."),
+                    Window(CompWeeklyWindow, "#182979FF", "Weekly timing window open, week {value}."),
                 },
             }
         };
@@ -338,6 +340,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var yConfirm = Confirmations(y, wTier.Active ? w.Lows : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data);
             var dLows = new List<int>(d.Lows);
             var wLows = dTier.Active ? CipherCEngine.SnapTo(w.Lows, dLows, dReach, data) : new List<int>(w.Lows);
+            var wDrawn = new List<int>(wLows);
             var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, wReach, data)
                       : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, dReach, data) : y.Lows;
             // And a higher low with no lower one near it is a lower low as well: a weekly cycle
@@ -362,9 +365,14 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // The confirmations: their confluence, the low, its age, and the low a confirmation
             // after a cancellation replaces.
-            WriteConfirmed(o, CompDclConfirmed, d, dTier, day, sma, close, high, low);
-            WriteConfirmed(o, CompWclConfirmed, w, wTier, week, sma, close, high, low);
-            WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low);
+            // A confirmation names the low as it is drawn: a weekly or yearly low moved onto a
+            // lower tier's, as the lists above were built (before the lower tiers took in the
+            // higher ones' lows).
+            WriteConfirmed(o, CompDclConfirmed, d, dTier, day, sma, close, high, low, DrawnAt(d, null, 0, data));
+            WriteConfirmed(o, CompWclConfirmed, w, wTier, week, sma, close, high, low,
+                DrawnAt(w, dTier.Active ? d.Lows : null, dReach, data));
+            WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low,
+                DrawnAt(y, wTier.Active ? wDrawn : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data));
 
             // The events and the tops belong to the shortest tier that runs.
             var (lowest, lowestTier, lowestLows, tierNo, unit, ago) =
@@ -481,13 +489,24 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
         }
 
+        /// <summary>Where each low a tier's run confirmed is drawn: on the lower tier's low it is moved to, as <see cref="CipherCEngine.SnapTo"/> moves it.</summary>
+        private static Dictionary<int, int> DrawnAt(CipherCEngine.TierRun run, IReadOnlyList<int>? lowerTier, int reach, ReadOnlySpan<Ohlcv> data)
+        {
+            var map = new Dictionary<int, int>();
+            foreach (int c in run.LastLowAt)
+                if (c >= 0 && !map.ContainsKey(c))
+                    map[c] = lowerTier == null ? c : CipherCEngine.SnapTo(new[] { c }, lowerTier, reach, data)[0];
+            return map;
+        }
+
         private static void WriteConfirmed(Dictionary<string, double[]> o, string comp, CipherCEngine.TierRun run, CipherCEngine.TierBars tier,
-            Unit ago, double[] sma, double[] close, double[] high, double[] low)
+            Unit ago, double[] sma, double[] close, double[] high, double[] low, Dictionary<int, int> drawnAt)
         {
             int n = close.Length;
             if (!tier.Active) return;
             var values = o[comp];
-            double[] lowAt = CipherCEngine.Nan(n), age = CipherCEngine.Nan(n), replaced = CipherCEngine.Nan(n);
+            double[] lowAt = CipherCEngine.Nan(n), age = CipherCEngine.Nan(n), replaced = CipherCEngine.Nan(n),
+                     confirms = CipherCEngine.Nan(n);
             for (int t = 0; t < n; t++)
             {
                 if (double.IsNaN(run.Confirmed[t])) continue;
@@ -502,13 +521,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (!double.IsNaN(sma[t]) && close[t] > sma[t]) score++;
                 if (close[t] > high[c]) score++;
                 values[t] = Math.Max(1, score);
-                lowAt[t] = low[c];
-                age[t] = Units(t - c, ago);
+                // Where the low is drawn; never after the confirmation (a lower tier's low that
+                // comes later is not what this bar confirmed).
+                int drawn = drawnAt.GetValueOrDefault(c, c);
+                if (drawn > t) drawn = c;
+                lowAt[t] = low[drawn];
+                age[t] = Units(t - drawn, ago);
+                confirms[t] = t - drawn;
                 replaced[t] = run.Updated[t];
             }
             o[comp + LowSuffix] = lowAt;
             o[comp + AgoSuffix] = age;
             o[comp + ReplacedSuffix] = replaced;
+            o[comp + ComponentCompanions.Confirms] = confirms;
         }
 
         /// <summary>
