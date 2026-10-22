@@ -57,13 +57,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
-            if (series == null)
-            {
-                _eventBus.Publish(new FeedbackRequestEvent(
-                    FeedbackType.Error,
-                    "No series in focus to describe. Press Page Up or Page Down to pick one.", true));
-                return;
-            }
 
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             var bar = BarAsDrawn(state, idx);
@@ -81,25 +74,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // once — Cody's rule is that nothing the status line shows may be reachable only by
             // eye, and "the ladder" is that block, all panes, top to bottom.
             //
-            // The order:
+            // The order, the same whichever series has focus (Cody, 2026-10-22: "It should read
+            // all series/components ... from top to bottom starting with candles otherwise the
+            // reading order is changed every time you navigate to a different series"). Until
+            // then the focused series was read first and in a longer form of its own:
             //   1. the bar's date;
-            //   2. the FOCUSED series, exactly as before — a user who walked to an indicator
-            //      hears the thing they walked to first, not the candle they walked away from;
-            //   3. the candle as drawn (Heikin-Ashi aware): open, high, low, close, volume, then
-            //      its shape, pattern and wick percentages. When the candles ARE the focused
-            //      series this is step 2;
-            //   4. every OTHER visible series in the status line's order — the price pane's
-            //      overlays first, then the panes top to bottom as the renderer stacks them —
-            //      each by name with its readings and the marks that fire at this bar (those are
-            //      the "signal events on the bar across all indicators");
-            //   5. the chart formations, last, as before.
+            //   2. the candle as drawn (Heikin-Ashi aware): open, high, low, close, volume, then
+            //      its shape, pattern and wick percentages;
+            //   3. every visible series in the status line's order — the price pane's overlays
+            //      first, then the panes top to bottom as the renderer stacks them — each by name
+            //      with its readings and the marks that fire at this bar (those are the "signal
+            //      events on the bar across all indicators"). The focused series is read in its
+            //      place, in the same words as when it is not focused;
+            //   4. a focused series that is not on the chart (hidden), so the key still answers
+            //      for the thing the user walked to;
+            //   5. the chart formations, last.
             //
             // The trailing context the candle analyser needs is assembled by CandlePatternSpeech
             // from `state` itself. There used to be a 50-bar slice built here and handed down as
             // `recentData`; nothing in the method ever read it — it was allocated on every press
             // of the detail key and discarded, and it also predated the analyser knowing how to
             // find the classified bar inside a window.
-            bool focusedIsCandles = IsCandles(series);
+            bool focusedIsCandles = series != null && IsCandles(series);
             var candles = state.ActiveSeries.FirstOrDefault(IsCandles);
             var volume = state.ActiveSeries.FirstOrDefault(IsVolume);
 
@@ -107,23 +103,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // (a focused series is always read, hidden or not, exactly as before). Volume rides
             // with the candle when the Volume series is shown and not already the focused one.
             bool readCandle = focusedIsCandles || (candles != null && candles.IsVisible);
-            bool volumeWithCandle = readCandle && volume != null && volume.IsVisible && volume.Id != series.Id;
+            bool volumeWithCandle = readCandle && volume != null && volume.IsVisible;
 
             var blocks = new List<string>();
-            if (focusedIsCandles)
-            {
-                blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
-            }
-            else
-            {
-                blocks.Add(Sentence(FocusedSeriesFact(series, idx, bar.Date)));
-                if (readCandle) blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
-            }
+            if (readCandle) blocks.Add(CandleFact(state, bar, idx, volumeWithCandle));
 
-            blocks.AddRange(LadderFacts(state, series, idx, readCandle, volumeWithCandle));
+            blocks.AddRange(LadderFacts(state, idx, bar.Date, readCandle, volumeWithCandle));
+
+            // The focused series when the ladder did not read it: hidden, or a drawing.
+            if (series != null && !focusedIsCandles && (!series.IsVisible || series.IsDrawing))
+                blocks.Add(Sentence(FocusedSeriesFact(series, idx, bar.Date)));
 
             string formations = ChartFormationDetail(state, idx);
             if (!string.IsNullOrEmpty(formations)) blocks.Add(formations);
+
+            // Nothing shown and nothing focused: a bare date would sound like a broken key.
+            if (!blocks.Any(b => b.Length > 0))
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Error, "Nothing to describe at this bar: no series is shown on the chart.", true));
+                return;
+            }
 
             string detail = $"{SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state))}: "
                 + string.Join(" ", blocks.Where(b => b.Length > 0));
@@ -313,11 +313,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// The focused (non-candle) series: every visible component's raw value, then the
-        /// indicator's narrative facts. Unchanged by the 2026-10-17 rework apart from where it
-        /// sits: it is still read first, so the series the user navigated to is the first thing
-        /// heard. Price-line primary series (analytics providers) land here too — a single-value
-        /// point has no wicks, body or multi-bar pattern to describe.
+        /// A focused (non-candle) series the ladder does not read — hidden, or a drawing: every
+        /// visible component's raw value, then the indicator's narrative facts. Until 2026-10-22
+        /// every focused series was read this way, first; now a series on the chart is read in
+        /// its place on the ladder, in the ladder's words.
         /// </summary>
         private static string FocusedSeriesFact(ChartSeries series, int index, DateTime? barDate = null)
         {
@@ -368,8 +367,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// the required components or a NaN slice is in view. Read for the focused series and for
         /// every series on the ladder alike.
         /// </summary>
-        /// <param name="barDate">Given for the focused series only: facts about the whole chart
-        /// (Cipher C's cycle preset) are said there and not repeated on the ladder.</param>
+        /// <param name="barDate">The bar's date, for facts about the whole chart (Cipher C's cycle
+        /// preset). Given for every series since the ladder's order stopped depending on focus.</param>
         private static IEnumerable<string> NarrativeFacts(ChartSeries series, int index, DateTime? barDate = null)
         {
             string code = (series.IndicatorCode ?? string.Empty).ToUpperInvariant();
@@ -415,7 +414,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             series.Levels.FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase))?.Value;
 
         /// <summary>
-        /// THE LADDER: every other visible series at the bar, one sentence each, in the order the
+        /// THE LADDER: every visible series at the bar, one sentence each, in the order the
         /// status line stacks them — the price pane's lines (<see cref="ChartStatusLine.MainPaneSeries"/>)
         /// and then each indicator pane top to bottom.
         ///
@@ -435,14 +434,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </para>
         ///
         /// <para>
-        /// Skipped as already said: the focused series (step 2), and the candles, volume and the
-        /// close line when the candle block read them. The close line is skipped only on a
+        /// Skipped as already said: the candles, volume and the close line when the candle block
+        /// read them. The focused series is NOT skipped: it is read in its place. The close line is skipped only on a
         /// normal chart — on a Heikin-Ashi chart the candle block reads the HA close, and the
         /// Price line is the RAW close (ChartMath.BarAsDrawn), a different number.
         /// </para>
         /// </summary>
         private static IEnumerable<string> LadderFacts(
-            WorkspaceState state, ChartSeries focused, int index, bool candleRead, bool volumeRead)
+            WorkspaceState state, int index, DateTime barDate, bool candleRead, bool volumeRead)
         {
             var visible = state.ActiveSeries.Where(s => s.IsVisible && !s.IsDrawing).ToList();
             foreach (var pane in ChartPaneModel.Panes(visible))
@@ -452,12 +451,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     : pane.Series;
                 foreach (var s in paneSeries)
                 {
-                    if (s.Id == focused.Id) continue;
                     if (candleRead && IsCandles(s)) continue;
                     if (volumeRead && IsVolume(s)) continue;
                     if (candleRead && !state.IsHeikinAshi && IsPrice(s)) continue;
 
-                    string fact = LadderReading(s, index);
+                    string fact = LadderReading(s, index, barDate);
                     if (fact.Length > 0) yield return fact;
                 }
             }
@@ -486,7 +484,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// (<see cref="ChartSeries.Name"/>).
         /// </para>
         /// </summary>
-        private static string LadderReading(ChartSeries s, int index)
+        private static string LadderReading(ChartSeries s, int index, DateTime? barDate = null)
         {
             // Plots with no value on any bar of this chart are left out as the status line leaves
             // them out (ChartStatusLine.NoDataAnywhere) — and so do not count towards labelling.
@@ -517,7 +515,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 parts.Add(labelled ? $"{label} {text}" : text);
             }
 
-            parts.AddRange(NarrativeFacts(s, index));
+            parts.AddRange(NarrativeFacts(s, index, barDate));
             if (parts.Count == 0) return "";
 
             string name = !string.IsNullOrWhiteSpace(s.Name) ? s.Name.Trim()

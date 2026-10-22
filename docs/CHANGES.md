@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alt+Shift+D reads in one order, whichever series has focus (2026-10-22)
+
+- Cody: "with alt shift d it reads the current focused indicator first, then the candles and
+  everything. It should read all series/components ... from top to bottom starting with candles
+  otherwise the reading order is changed every time you navigate to a different series". It now
+  reads the date, the candle, then every visible series in the status line's order (price pane,
+  then the panes top to bottom), then the formations. The focused series is read in its place and
+  in the same words as when it is not focused; it used to come first, in a longer form of its own.
+  A focused series that is hidden (not on the ladder) is read after the others.
+- A chart with nothing shown now says "Nothing to describe at this bar: no series is shown on the
+  chart." (it said "No series in focus", which no longer decides anything here).
+- Cipher C's preset words are now said wherever Cipher C sits on the ladder, focused or not.
+- Lost: the focused series' longer form read every component with a value, including ones the
+  status line leaves out (a component with no reading of its own), and a gradient component's
+  colour value; the ladder reads what the status line prints. Not heard in the app.
+- Tests: `BarDetailReadsEverythingTests` checks the order and the exact words for four different
+  focuses, and a focused hidden series; putting the focused series back first turned it red.
+
 ### Cipher C cut from 28 components to 15, each one worth landing on (2026-10-22)
 
 - Cody: "Each component must hold value, simply hiding and muting it isn't what I want. hiding and

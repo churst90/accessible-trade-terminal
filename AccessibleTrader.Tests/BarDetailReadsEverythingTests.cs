@@ -18,8 +18,8 @@ namespace AccessibleTrader.Tests
     /// the focused series alone (for the candles not even the four prices) plus the formations.
     /// "The ladder" is the TradingView status line (ChartStatusLine): every visible indicator's
     /// reading in every pane, top to bottom — and Cody's rule is that nothing it prints may be
-    /// reachable only by eye. These pin the order (focused series, candle, the other series in
-    /// the status line's order, formations), what is left out (hidden), what is not (muted), and
+    /// reachable only by eye. These pin the order (candle, every series in the status line's
+    /// order whichever has focus, formations), what is left out (hidden), what is not (muted), and
     /// that a Heikin-Ashi chart reads the candle as drawn.
     /// </para>
     /// </summary>
@@ -27,32 +27,58 @@ namespace AccessibleTrader.Tests
     {
         // ── The order ──────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Cody, 2026-10-22: "It should read all series/components ... from top to bottom starting
+        /// with candles otherwise the reading order is changed every time you navigate to a
+        /// different series". Until then the focused series was read first, in a form of its own.
+        /// </summary>
         [Fact]
-        public void TheFocusedSeriesComesFirst_ThenTheCandle_ThenEveryOtherSeriesInPaneOrder_ThenTheFormations()
+        public void TheCandleComesFirst_ThenEverySeriesInPaneOrder_ThenTheFormations_WhicheverHasFocus()
         {
             // Declared OUT of pane order on purpose: the oscillator pane's series is declared
             // before the price pane's EMA, and RSI's pane after it. The renderer draws Main first
             // and the other panes in first-appearance order, so the ladder must read the EMA
-            // (Main) before "Osc" (its pane is first among the others), and RSI is the focused
-            // series, read before everything.
-            var state = Chart(
-                focused: "rsi",
-                Candles(), Volume(), Osc(), Price(), Ema(), Rsi());
+            // (Main), then "Osc" (its pane is first among the others), then RSI.
+            string? first = null;
+            foreach (var focus in new[] { "rsi", "osc", "ema", CoreSeriesIds.Candles })
+            {
+                var state = Chart(focused: focus, Candles(), Volume(), Osc(), Price(), Ema(), Rsi());
+                string said = Announce(state, withFormation: true);
 
-            string said = Announce(state, withFormation: true);
+                int candle    = IndexOf(said, "Open 110.00, high 121.00, low 107.00, close 119.00, volume 4,321.");
+                int shape     = IndexOf(said, "Body ");
+                int ema       = IndexOf(said, "EMA 20: 115.50.");
+                int osc       = IndexOf(said, "Osc 9: Fast 12.50, Slow -3.25, Buy.");
+                int rsi       = IndexOf(said, "RSI 14: 64.25.");
+                int formation = IndexOf(said, "formation here");
 
-            int focused   = IndexOf(said, "RSI 64.25");
-            int candle    = IndexOf(said, "Open 110.00, high 121.00, low 107.00, close 119.00, volume 4,321.");
-            int shape     = IndexOf(said, "Body ");
-            int ema       = IndexOf(said, "EMA 20: 115.50.");
-            int osc       = IndexOf(said, "Osc 9: Fast 12.50, Slow -3.25, Buy.");
-            int formation = IndexOf(said, "formation here");
+                Assert.Equal(0, candle - AfterTheDateAt(said));
+                Assert.True(candle < shape, $"the four prices before the shape: {said}");
+                Assert.True(shape < ema, $"the candle before the price pane's overlay: {said}");
+                Assert.True(ema < osc, $"the price pane before the indicator panes: {said}");
+                Assert.True(osc < rsi, $"the panes top to bottom, focused or not ({focus}): {said}");
+                Assert.True(rsi < formation, $"the formations last: {said}");
 
-            Assert.True(focused < candle, $"focused series before the candle: {said}");
-            Assert.True(candle < shape, $"the four prices before the shape: {said}");
-            Assert.True(shape < ema, $"the candle before the price pane's overlay: {said}");
-            Assert.True(ema < osc, $"the price pane before the indicator panes: {said}");
-            Assert.True(osc < formation, $"the formations last: {said}");
+                // Not just the order: the same words, whichever series has focus.
+                first ??= said;
+                Assert.Equal(first, said);
+            }
+        }
+
+        /// <summary>A hidden series the user walked to is still answered for, after the ladder.</summary>
+        [Fact]
+        public void AFocusedHiddenSeriesIsReadAfterTheLadder()
+        {
+            var rsi = Rsi();
+            rsi.IsVisible = false;
+            string said = Announce(Chart(focused: "rsi", Candles(), Ema(), rsi), withFormation: true);
+
+            Assert.True(IndexOf(said, "EMA 20: 115.50.") < IndexOf(said, "RSI 64.25"), said);
+            Assert.True(IndexOf(said, "RSI 64.25") < IndexOf(said, "formation here"), said);
+            // Not focused, hidden is hidden: it is not on the chart.
+            var hiddenRsi = Rsi();
+            hiddenRsi.IsVisible = false;
+            Assert.DoesNotContain("RSI", Announce(Chart(focused: "ema", Candles(), Ema(), hiddenRsi)));
         }
 
         [Fact]
@@ -251,6 +277,7 @@ namespace AccessibleTrader.Tests
             return i;
         }
 
+        private static int AfterTheDateAt(string said) => said.IndexOf(": ", StringComparison.Ordinal) + 2;
         private static string AfterTheDate(string said) => said[(said.IndexOf(": ", StringComparison.Ordinal) + 2)..];
 
         private static string Announce(WorkspaceState state, bool withFormation = false)

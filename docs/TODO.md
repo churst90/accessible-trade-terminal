@@ -23,10 +23,30 @@
 >     254 weeks later"). Engine behaviour, not changed; demonstrate whether the yearly confirmation
 >     rule is wrong before touching it.
 >   - The SMA has no Ctrl+Left/Right stop for price crossing it.
-> - [ ] **Heatmap and Profile, same problem (explain-first, NOT built; waiting for Cody).** The bins
->   live outside the component, so Ctrl+Left/Right says "No points of interest" and Alt+Shift+D says
->   nothing. Proposed: Profile jumps to point-of-control crosses and value-area entries; Alt+Shift+D
->   says where price sits; heatmap jumps where the biggest liquidity level moved.
+> - [ ] **Heatmap and Profile Ctrl+Left/Right: APPROVED by Cody 2026-10-22, not built.** The bins
+>   live outside the component (computed when drawn), so Ctrl+Left/Right says "No points of
+>   interest" and Alt+Shift+D says nothing. To build: Profile stops where price crosses the point of
+>   control and enters or leaves the value area; Alt+Shift+D says where price sits against them;
+>   heatmap stops where the biggest liquidity level moved.
+> - [ ] **Cody's 2026-10-22 design points, answered, waiting for his go:**
+>   - Component type from what it is: a component whose look is shading inside a window is a
+>     "Window" (a new append-only `ComponentDisplayType`, drawn as a tint, said as "window", never
+>     "Line"); a window type shades by default and the shading stays a user choice in Appearance.
+>   - Nothing out of reach: every drawn thing must at least be known to be there (named in the
+>     series summary or Alt+Shift+D) even when it has nothing to step through.
+>   - Area fill (Cipher B's waves and money flow, `IsAreaFill`) is set by the indicator and NOT
+>     offered in Properties; background tint and cloud fills are. Offer area fill in Appearance.
+>   - Yearly cycle low confirms 4.9 to 5.6 years late on Bitcoin (2015 low confirmed Aug 2020,
+>     2018 low Oct 2023) and the 2022 low is never marked: the yearly Schaff line is a 1,461-bar
+>     smoothing that cannot start until bar 2,922, and the search picks the lowest low in 6 years,
+>     which on a rising asset is the PREVIOUS cycle's. Proposed: a yearly low is a weekly cycle
+>     low, confirmed when the next weekly cycle low is confirmed higher (~7 to 9 months on Bitcoin).
+>     Worked by hand from the weekly lows, not built: it finds 2015, 2018 and 2022, and also marks
+>     June 2021 (confirmed Mar 2022 by the higher Jan 2022 low), cancelled when June 2022 closed
+>     under it. One asset, three lows: a sketch, not a result.
+>   - The arc: offer it back as a drawn shape of the Timing Window (look-ahead between known lows,
+>     projected from the expected length after the last one), described in the summary, not
+>     navigable; or as a cycle-phase oscillator if Cody wants a scale.
 
 # TODO — Accessible Trading Terminal
 

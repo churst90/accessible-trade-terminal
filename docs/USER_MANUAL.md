@@ -1253,13 +1253,13 @@ by the button's announced pressed state — whether history is currently hidden.
 ### Inspecting a single bar
 
 When one bar deserves a thorough look before you act on it, press Alt+Shift+D
-for a full point analysis. It starts with the bar's date and the series you are focused on, so
-an indicator you walked to is heard first. Then comes the candle as drawn — open, high, low,
-close and volume (on a Heikin-Ashi chart, the Heikin-Ashi candle) — with the candlestick
-pattern at that bar ("Bullish engulfing") and its body and wick percentages. After that, every
-other visible indicator, in the order its status line sits on screen: the price pane first,
-then each pane down the chart, each with its readings and any of its marks that fire on that
-bar. An indicator with nothing at that bar — Market Structure between its marks — says nothing,
+for a full point analysis. It reads in the same order whichever series you are focused on, so
+you always know where you are in it. It starts with the bar's date and the candle as drawn —
+open, high, low, close and volume (on a Heikin-Ashi chart, the Heikin-Ashi candle) — with the
+candlestick pattern at that bar ("Bullish engulfing") and its body and wick percentages. After
+that, every visible indicator, in the order its status line sits on screen: the price pane
+first, then each pane down the chart, each with its readings and any of its marks that fire on
+that bar. If the series you are focused on is hidden, it is read after the others. An indicator with nothing at that bar — Market Structure between its marks — says nothing,
 and, as on the status line, a part with no value anywhere on the chart (Cipher SR's Range and VWAP
 lines on a daily chart) is not counted as one of its readings.
 Some indicators add their state in words after their numbers: DSS Bressert says whether it is

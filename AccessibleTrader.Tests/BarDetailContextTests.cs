@@ -53,11 +53,12 @@ namespace AccessibleTrader.Tests
 
             svc.AnnounceDetails(state);
 
-            // Same correction as above: it named the silence as the expected behaviour.
-            // Naming the unresolved focus is what makes it actionable.
+            // Same correction as above: it named the silence as the expected behaviour. Since
+            // 2026-10-22 the reading no longer depends on focus, so what is named is that
+            // nothing is shown.
             var ev = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
             Assert.Equal(FeedbackType.Error, ev.Type);
-            Assert.Contains("No series in focus", ev.Message!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("no series is shown", ev.Message!, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -238,7 +239,8 @@ namespace AccessibleTrader.Tests
             svc.AnnounceDetails(state);
 
             var msg = LastAnnouncement(bus);
-            Assert.Contains("RSI 64.25", msg);
+            // In the ladder's words since 2026-10-22: the series by name, its one reading.
+            Assert.Contains("rsi: 64.25.", msg);
             Assert.DoesNotContain("Hidden", msg);
             Assert.DoesNotContain("NaNed",  msg);
         }
