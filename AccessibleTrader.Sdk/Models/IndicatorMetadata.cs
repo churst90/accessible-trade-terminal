@@ -250,6 +250,14 @@ namespace AccessibleTrader.Sdk.Models
         public string? DefaultFillColorHex { get; set; }
 
         /// <summary>
+        /// A histogram drawn as an area (<see cref="DefaultIsAreaFill"/>) also strokes its edge — the
+        /// value side, not the baseline — in the area's own colour, so the rim reads about half as
+        /// solid again as the body: Market Cipher B's money flow. Width is the component's thickness.
+        /// Null or false = no edge.
+        /// </summary>
+        public bool? DefaultAreaEdge { get; set; }
+
+        /// <summary>
         /// Paint order within the series: lower draws first. Null = 0. Only the DRAWING order —
         /// components keep their declared order everywhere else (keyboard navigation, speech,
         /// sonification, the status line). Lets an indicator put a wave behind a histogram it

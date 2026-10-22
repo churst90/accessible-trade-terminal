@@ -1041,14 +1041,14 @@ public sealed class CipherCProviderTests
     // ── 9. Loukas ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Loukas Cycles is retired in favour of Cipher C: it still works on charts that have it, but
-    /// is no longer offered, and its description says what replaced it.
+    /// Loukas Cycle Detection was removed on 2026-10-22 (Cody: "loukas is what we want to get rid
+    /// of"): Cipher C finds the same lows. Its code is retired, so a chart, strategy or alert that
+    /// named it says what to use instead (<c>LoukasRemovalTests</c>).
     /// </summary>
     [Fact]
     public void Loukas_cycles_is_retired_in_favour_of_Cipher_C()
     {
-        var m = new LoukasCyclesProvider().GetIndicators().Single();
-        Assert.True(m.IsDeprecated);
-        Assert.StartsWith("Retired: use Cipher C", m.Description);
+        Assert.True(RetiredIndicators.IsRetired("LOUKAS_CYCLES"));
+        Assert.Contains("add Cipher C instead", RetiredIndicators.Reason("LOUKAS_CYCLES"));
     }
 }

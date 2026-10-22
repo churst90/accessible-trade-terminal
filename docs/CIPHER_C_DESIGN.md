@@ -153,8 +153,8 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
   in `SignalCatalog`: a strategy or alert that used one says it was removed and names the nearest new
   part. A saved chart with the old Cipher C restores as the new one on the price pane, without the old
   ±75 and ±90 levels.
-- **Loukas Cycle Detection**, marked deprecated: it still computes on saved charts but is no longer
-  offered. Each of its parts has a counterpart: DCL Confirmed is DCL Confirmed; its intermediate cycle
+- **Loukas Cycle Detection**, deprecated here and removed on 2026-10-22 (Cody: "loukas is what we want
+  to get rid of"); saved charts, strategies and alerts say so through `RetiredIndicators`. Each of its parts has a counterpart: DCL Confirmed is DCL Confirmed; its intermediate cycle
   low (ICL) is Camel's weekly cycle low, WCL; DC Day Count and DC In Window are the Daily Timing
   Window's count and tint; DC Overdue is the window saying "days past its window"; its four-year phase is spoken in Cipher C's
   Bitcoin preset words ("Day N after the April 2024 halving, the … phase"). Cipher C also tiers by

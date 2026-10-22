@@ -14,7 +14,7 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// <b>A sub-pane strip is read where it is drawn</b> (Cody, 2026-10-17). A component with a
-/// <c>SubPaneName</c> — Loukas Cycles' "FY" day count and phase, 0–1460 days against the pane's
+/// <c>SubPaneName</c> — as Loukas Cycles' "FY" day count was (removed 2026-10-22) and phase, 0–1460 days against the pane's
 /// 0–70 — is drawn in a strip along the bottom of its pane, on its own range
 /// (<c>"Pane/Sub"</c> in PaneRanges), and the pane's other components are drawn in the area above
 /// it. Everything that turned a value into a row or a row back into a value assumed one range

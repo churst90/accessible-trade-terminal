@@ -495,7 +495,7 @@ public sealed class BackgroundTintTests
         }
     }
 
-    /// <summary>A component drawn in a SUB-PANE strip (Loukas Cycles has one) shades that strip
+    /// <summary>A component drawn in a SUB-PANE strip (Loukas Cycles had one) shades that strip
     /// when set to This pane — not the main area of the pane above it.</summary>
     [Fact]
     public void This_pane_means_the_strip_a_sub_pane_component_is_drawn_in()

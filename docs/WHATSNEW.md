@@ -33,8 +33,11 @@
   crypto stocks), and on a weekly chart it talks about weekly cycles, not daily ones. A low is only
   marked once it is confirmed, usually some days later. Old Cipher C
   strategies and alerts tell you its old parts were removed.
-- **Loukas Cycle Detection is retired** in favour of the new Cipher C. Charts that have it keep
-  working, but it is no longer in the indicator list.
+- **Loukas Cycle Detection is gone.** Cipher C finds the same cycle lows for each asset. A chart that
+  had it opens without it and says so once; a strategy or alert on it tells you which Cipher C signal
+  to use instead. The StrategyLab "Cycle Low Reversal" strategy, built on it, is retired too.
+- **Cipher B's money flow now has Market Cipher B's bright edge** along the top of each green hump and
+  the bottom of each red one.
 - **New indicator: Cipher DBSI.** A bulls score under each candle and a bears score
   over it, like Market Cipher DBSI, plus a 200-bar trend line. Land on a score to hear "Bulls 15, bears
   minus 5, bulls in control"; with narration on it tells you when control changes hands. It is our

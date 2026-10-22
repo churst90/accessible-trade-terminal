@@ -297,7 +297,6 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
             services.AddSingleton<IIndicatorProvider, CipherCProvider>();
             services.AddSingleton<IIndicatorProvider, CipherSProvider>();
-            services.AddSingleton<IIndicatorProvider, LoukasCyclesProvider>();
             // Shared cross-series cache backing FundingRate / OpenInterest / FearGreed /
             // CrowdingIndex. Single instance, holds all per-key caches and in-flight tasks
             // so independent indicators that share a source don't double-fetch.

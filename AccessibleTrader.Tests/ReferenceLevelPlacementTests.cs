@@ -55,7 +55,6 @@ public class ReferenceLevelPlacementTests
     /// <summary>Oscillators keep the behaviour the command was written for.</summary>
     [Theory]
     [InlineData("Pane_CIPHER_B")]
-    [InlineData("Pane_LOUKAS_CYCLES")]
     [InlineData("Volume")]
     public void AnOscillatorPaneStillGetsItsZeroLine(string pane)
     {

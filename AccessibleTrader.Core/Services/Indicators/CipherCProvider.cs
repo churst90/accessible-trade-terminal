@@ -11,7 +11,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// 2026-10-21 (Cody: "Cipher c needs to be designed as close to the cf indicator as possible
     /// from any and all screen grabs"). The previous Cipher C was an Ehlers cyber-cycle oscillator
     /// in its own pane; its ten components are retired in <see cref="Strategies.SignalCatalog"/>.
-    /// It also replaces Loukas Cycle Detection, which is kept working but no longer offered.
+    /// It also replaces Loukas Cycle Detection, removed on 2026-10-22 (see <see cref="RetiredIndicators"/>).
     ///
     /// <para>
     /// <b>What is drawn, and what CF draws.</b> CF is closed source; everything here comes from

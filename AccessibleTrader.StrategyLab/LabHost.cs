@@ -106,7 +106,6 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, IchimokuProvider>();
         services.AddSingleton<IIndicatorProvider, CipherCProvider>();
         services.AddSingleton<IIndicatorProvider, CipherSProvider>();
-        services.AddSingleton<IIndicatorProvider, LoukasCyclesProvider>();
         services.AddSingleton<IIndicatorProvider, FundingRateProvider>();
         services.AddSingleton<IIndicatorProvider, CotPositioningProvider>();
         services.AddSingleton<IIndicatorProvider, OpenInterestProvider>();

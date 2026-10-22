@@ -123,9 +123,8 @@ public static class CipherABatteryCommand
         var p = new Dictionary<string, object> { ["__symbol"] = snap.Symbol };
         var a = await engine.CalculateAsync("CIPHER_A", bars, p, default);
         var b = await engine.CalculateAsync("CIPHER_B", bars, new Dictionary<string, object>(p), default);
-        Dictionary<string, double[]>? cot = null, loukas = null;
+        Dictionary<string, double[]>? cot = null;
         try { cot = await engine.CalculateAsync("COT_POSITIONING", bars, new Dictionary<string, object>(p), default); } catch { }
-        try { loukas = await engine.CalculateAsync("LOUKAS_CYCLES", bars, new Dictionary<string, object>(p), default); } catch { }
 
         bool[] Marker(Dictionary<string, double[]> d, string comp)
         {
@@ -217,7 +216,6 @@ public static class CipherABatteryCommand
         bool Known(double v) => !double.IsNaN(v);
         var cotZ = cot != null ? Arr(cot, "Positioning Z-Score") : null;
         bool hasCot = cotZ != null && cotZ.Count(Known) > 100;
-        var dcw = loukas != null ? Arr(loukas, LoukasCyclesProvider.CompDcInWindow) : null;
 
         // A gate is NaN-aware by construction: where its input is undefined the bar is excluded
         // (false on BOTH sides), never counted as the gate's "off" state.
@@ -235,8 +233,7 @@ public static class CipherABatteryCommand
                 Map(i => Known(sma200[i]) && close[i] > sma200[i] && Known(cotZ![i]) && cotZ[i] < 1.5),
                 Map(i => Known(sma200[i]) && close[i] < sma200[i] && Known(cotZ![i]) && cotZ[i] > -1.5)));
         }
-        if (dcw != null && dcw.Count(Known) > 0)
-            gates.Add(new("G6 DC window", Map(i => Known(dcw[i])), null));
+        // G6 (in a Loukas daily-cycle window) went with Loukas Cycle Detection, removed 2026-10-22.
 
         return new AssetData
         {

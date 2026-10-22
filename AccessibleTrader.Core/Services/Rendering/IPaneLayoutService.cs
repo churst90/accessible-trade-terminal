@@ -60,7 +60,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <summary>
         /// Each pane's SUB-PANE STRIPS, by pane name, top to bottom: the strips along the bottom of
         /// the pane's plot that components with a <c>SubPaneName</c> are drawn in, each on its own
-        /// range (<c>"Pane/Sub"</c> in PaneRanges) — Loukas Cycles' "FY". The pane's other
+        /// range (<c>"Pane/Sub"</c> in PaneRanges) — Loukas Cycles' "FY" was one (removed 2026-10-22). The pane's other
         /// components are drawn in the area above the first strip. A pane without strips is not
         /// listed. Empty until a frame has been drawn.
         ///

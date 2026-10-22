@@ -61,47 +61,8 @@ namespace AccessibleTrader.Tests
                                          && l.Operator == LeafOperator.GreaterThan);
         }
 
-        [Fact]
-        public void V24CycleLowReversal_WiresTheValidatedDesign()
-        {
-            // Pins the 2026-07-17 lab-validated configuration. Every one of these
-            // was iterated in the lab: the DCL-within-2 entry event, the widened
-            // 8-bar trigger windows (confirmation lag), the ABSENCE of the anchor
-            // gate (it deleted the good half), and the ATR stop (swing-low stops
-            // died to cycle-low retests).
-            var spec = Seed(StrategyCatalogue.LongV24CycleLowReversalId);
-            var leaves = Leaves(spec.Conditions).ToList();
-
-            var dcl = Assert.Single(leaves, l => l.SignalDescriptorId.StartsWith("LOUKAS_CYCLES."));
-            Assert.Equal($"LOUKAS_CYCLES.{LoukasCyclesProvider.CompDclConfirmed}", dcl.SignalDescriptorId);
-            Assert.Equal(LeafOperator.FiredWithin, dcl.Operator);
-            Assert.Equal(2, dcl.WithinNBars);
-
-            // The three v23 triggers, all widened to 8 bars for the confirmation lag.
-            foreach (var trig in leaves.Where(l => l.SignalDescriptorId.StartsWith("CIPHER_B.")))
-            {
-                Assert.Equal(LeafOperator.FiredWithin, trig.Operator);
-                Assert.Equal(8, trig.WithinNBars);
-            }
-            Assert.Equal(3, leaves.Count(l => l.SignalDescriptorId.StartsWith("CIPHER_B.")));
-
-            // The anchor-depth gate must NOT be present — it deleted H1 in the lab.
-            Assert.DoesNotContain(leaves, l => l.SignalDescriptorId.Contains("Anchor Wave"));
-
-            // ATR stop (not swing-low) + trail after TP1: the exit design the lab kept.
-            Assert.Equal(StopSourceKind.AtrMultiple, spec.Risk.Stop.Kind);
-            Assert.Equal(StopAdjustOnTp1.TrailByAtr, spec.Risk.StopAdjust);
-            Assert.Equal(AccessibleTrader.Sdk.Plugins.OrderSide.Buy, spec.Side); // never short cycle signals
-            Assert.False(spec.IsAutoActivate);
-        }
-
-        [Fact]
-        public void V24DclDescriptor_ResolvesAgainstTheIndicatorMetadata()
-        {
-            var provider = new LoukasCyclesProvider();
-            var components = provider.GetIndicators().SelectMany(m => m.Components).Select(c => c.Name).ToList();
-            Assert.Contains(LoukasCyclesProvider.CompDclConfirmed, components);
-        }
+        // The v24 Cycle Low Reversal spec's two tests went with it: retired 2026-10-22 with Loukas
+        // Cycle Detection, its entry event. Its verdict is in CatalogueProvenance's retired list.
 
         [Fact]
         public void CotZScoreDescriptor_ResolvesAgainstTheIndicatorMetadata()

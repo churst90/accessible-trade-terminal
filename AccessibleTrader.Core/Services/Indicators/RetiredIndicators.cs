@@ -16,6 +16,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Fibonacci-length EMAs plus a "Stacking Score", every EMA flagged as a zone line, and had
     /// nothing to do with Market Cipher's real spider lines (CryptoFace's diagonal support and
     /// resistance lines on the BTC log chart). "I'd just remove the indicator for now."</para>
+    ///
+    /// <para><b>LOUKAS_CYCLES</b> — deprecated 2026-10-21 when Cipher C was rebuilt to find cycle
+    /// lows per tier and per asset, removed 2026-10-22 on Cody's word: "loukas is what we want to
+    /// get rid of we don't need it." Its three cycle-low signals have a Cipher C counterpart; its
+    /// day counts and the four-year phase do not.</para>
     /// </summary>
     public static class RetiredIndicators
     {
@@ -36,6 +41,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                     && int.TryParse(component.AsSpan(4), out int length)
                         ? $"use an EMA with length {length} instead"
                         : null),
+            ["LOUKAS_CYCLES"] = new Entry(
+                Name: "Loukas Cycle Detection",
+                RetiredOn: "2026-10-22",
+                What: "Cipher C now finds daily, weekly and yearly cycle lows for each asset, which is what it did",
+                Instead: "add Cipher C",
+                InsteadFor: component => component switch
+                {
+                    "DCL Confirmed" => "use DCL Confirmed on Cipher C instead",
+                    // An intermediate cycle on a daily chart is the weekly cycle.
+                    "ICL Confirmed" => "use WCL Confirmed on Cipher C instead",
+                    "DC In Window" => "use Daily Timing Window on Cipher C instead",
+                    _ => null,
+                }),
         };
 
         /// <summary>Whether <paramref name="code"/> names an indicator that was removed.</summary>

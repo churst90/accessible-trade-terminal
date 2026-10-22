@@ -113,7 +113,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // status band and above its sub-pane strips on the pane's range — or, for a
                     // component with a SubPaneName, in its strip on the strip's own range. The
                     // strip's line used to be looked for on the pane's range over the whole
-                    // plot: Loukas Cycles' FY at 1000 days on a 0–70 scale, off the canvas.
+                    // plot: Loukas Cycles' FY (since removed) at 1000 days on a 0–70 scale, off the canvas.
                     if (ChartMath.PlotAreaPx(paneName, comp.SubPaneName, height, dividers, axisHeightFraction,
                             statusBands, subPaneStrips) is not { } area) continue;
                     var (min, max, isLog) = ChartMath.RangeFor(state, paneName, comp.SubPaneName);

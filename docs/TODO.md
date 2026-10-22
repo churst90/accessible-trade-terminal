@@ -1,3 +1,17 @@
+> - [ ] **Cipher B fidelity pass, Loukas removed (2026-10-22, built, NOT seen or heard; see CHANGES).**
+>   Cody to look at: Cipher B's money flow on Bitcoin daily with Heikin-Ashi on, next to Market Cipher B.
+>   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
+>   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
+>   Left open:
+>   - Cipher DBSI is still a few points off and cannot go above 16, where DBSI prints up to 25. A
+>     magnitude term could fix that, but it needs more DBSI reference screenshots to hold out. Cody: are
+>     there more?
+>   - Cipher B draws a few dots on crosses under 1 point that the digitiser did not find on MCB's
+>     screenshots (8 across S2 and S4, listed in CHANGES). Hidden by MCB, or lost under other marks?
+>   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
+>   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
+>   - No built-in indicator uses a sub-pane strip now that Loukas is gone; keep the mechanism for
+>     plugins or remove it?
 > - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars
 >   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with
 >   Cipher B, an RSI and an EMA: every indicator should recompute at once, Cipher B's dots should

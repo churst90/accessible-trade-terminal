@@ -201,7 +201,9 @@ public static class StrategyBatteryCommand
         // oscillator Cipher C. It was rebuilt on 2026-10-21 as a cycle-low indicator after Camel
         // Finance's CF Cycle Trading Indicator, and those ids now resolve to retired signals: a
         // re-run evaluates them false and reports the removal, it does not re-test them. Their
-        // nearest new counterpart is "CIPHER_C.DCL Confirmed".
+        // nearest new counterpart is "CIPHER_C.DCL Confirmed". The LOUKAS_CYCLES cells (8d, 8f, 8g,
+        // V6f) are kept the same way: Loukas Cycle Detection was removed on 2026-10-22, its ids are in
+        // RetiredIndicators, and a re-run reads them as removed (Cipher C's DCL/WCL Confirmed instead).
         // 8d. KITCHEN SINK bull pulse — original 4 markers PLUS Cipher C bottoms PLUS Loukas
         // DCL/ICL Confirmed. Tests whether the orthogonal cycle indicators (which read
         // completely different math from Cipher A/B) add edge or just dilute it.

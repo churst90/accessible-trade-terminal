@@ -255,9 +255,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // the WT Histogram's.
                     // Shape (2026-10-17): an AREA at MCB's ~50% (#80), painted OVER the VWAP and the
                     // waves as MCB paints it (DrawOrder 0, after their −1 and −2).
+                    // The two tones per side are compositing, not two areas: dark green over the
+                    // background, teal over the blue wave; deep red over the background, maroon over
+                    // the wave. Our fills measured within 6 per channel of MCB's in a render of the
+                    // same window (2026-10-22). What was missing is the rim: MCB strokes the area's
+                    // value edge in the same 50% colour, so the edge composites to about 75% over
+                    // ~2 px (measured 0.65-0.74) — the brighter outline along the top of the wave.
                     new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
                             DefaultColorHex = "#803FFF00", DefaultColorHexSecondary = "#80FF1100",
                             DefaultIsAreaFill = true,
+                            DefaultAreaEdge = true,
+                            DefaultThickness = 2f,
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
                             DefaultReferenceLevel = 0.0,

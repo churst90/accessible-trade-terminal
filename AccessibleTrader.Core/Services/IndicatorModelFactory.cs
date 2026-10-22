@@ -424,6 +424,7 @@ namespace AccessibleTrader.Core.Services
                 // StandardRenderers.IsFilled for the whole account.
                 IsAreaFill         = meta.DefaultIsAreaFill ?? false,
                 FillColorHex       = meta.DefaultFillColorHex ?? string.Empty,
+                AreaEdge           = meta.DefaultAreaEdge ?? false,
                 DrawOrder          = meta.DefaultDrawOrder ?? 0,
                 ColorAboveComponent = meta.DefaultColorAboveComponent ?? string.Empty,
                 // Background tint — the indicator's declaration, rebuilt on every load. The user's

@@ -573,7 +573,7 @@ namespace AccessibleTrader.Core.Services
         /// <b>Where a pane's sub-pane strips go, as a pure function</b> — the one layout the
         /// drawing, the axis, the crosshair badge and (through
         /// <see cref="IPaneLayoutService.SubPaneStrips"/>) every pointer mapping use (Cody,
-        /// 2026-10-17). A component with a <c>SubPaneName</c> (Loukas Cycles' "FY") is drawn in a
+        /// 2026-10-17). A component with a <c>SubPaneName</c> (Loukas Cycles' "FY" was one; no built-in indicator has one since its removal on 2026-10-22) is drawn in a
         /// strip along the bottom of the pane's plot, one strip per name in declaration order,
         /// each <c>SubPaneHeightRatio</c> of the plot (0.22 when unset, clamped 5–40%); the
         /// strips together take at most 70% and the pane's own components the area above.
@@ -660,7 +660,7 @@ namespace AccessibleTrader.Core.Services
             float lastTextY = float.MaxValue;
             // A strip shorter than one label has no room for any: the band a label may sit in is
             // inverted, and Math.Clamp THROWS on an inverted band rather than picking a side. A
-            // 5-line status block over a short sub-pane strip (Loukas cycles under a price pane)
+            // 5-line status block over a short sub-pane strip (Loukas cycles under a price pane, before its removal)
             // did exactly that, and the exception failed the whole frame — "chart render failed"
             // on every tab carrying one (Cody, 2026-10-21, the Camel cycles workspace).
             float labelTop = rect.Top + _textFont.Size + (6 * density);

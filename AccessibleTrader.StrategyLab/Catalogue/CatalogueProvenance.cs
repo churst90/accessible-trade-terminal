@@ -242,18 +242,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "Per-asset validity is real and narrow: do NOT use on BTC (every gate reduced the " +
                          "edge; CME positioning is basis-trade contaminated) or FX.",
                 Source: "StrategyLab gate battery; COT positioning study"),
-
-            [StrategyCatalogue.LongV24CycleLowReversalId] = new(
-                StrategyEvidenceLevel.WalkForward,
-                TestedOn: "BTC daily, both walk-forward halves (2026-07-17)",
-                Controls: "walk-forward; variant-by-variant ablation of gates and stops",
-                Verdict: "Positive in both halves after four rejected variants — but those four were " +
-                         "rejected ON these same halves, so the halves are not fully out of sample. The " +
-                         "ablation record is the useful part: the anchor-wave depth gate deleted the good " +
-                         "half, the structural swing-low stop got run over by cycle-low retests, and the " +
-                         "Cipher trigger improved the WEAKER half, which is why it stayed. Cycle detection " +
-                         "generally is a place this project has found artifacts before — treat with care.",
-                Source: "StrategyLab walk (Wave 4)"),
         };
 
         /// <summary>
@@ -332,6 +320,21 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "the H1/H2 difference was not distinguishable from noise. Not re-tested on the new " +
                          "Cipher C's DCL Confirmed.",
                 Source: "StrategyLab walk")),
+
+            // Retired because its signal is gone, as Pulse Reversal was: the verdict is the one it
+            // carried while live.
+            new("builtin.long.v24-cycle-low-reversal", "Cycle Low Reversal — DCL + Cipher B (Long, crypto daily) [v24]", "2026-10-22", new(
+                StrategyEvidenceLevel.WalkForward,
+                TestedOn: "BTC daily, both walk-forward halves (2026-07-17)",
+                Controls: "walk-forward; variant-by-variant ablation of gates and stops",
+                Verdict: "Retired with Loukas Cycle Detection, whose DCL Confirmed was its entry event (any v23 " +
+                         "Cipher B trigger within 8 bars of a confirmed daily cycle low within 2). While live: " +
+                         "positive in both halves after four rejected variants — but those four were rejected ON " +
+                         "these same halves, so the halves are not fully out of sample. The ablation record is " +
+                         "the useful part: the anchor-wave depth gate deleted the good half, the structural " +
+                         "swing-low stop got run over by cycle-low retests, and the Cipher trigger improved the " +
+                         "WEAKER half. Not re-tested on Cipher C's DCL Confirmed.",
+                Source: "StrategyLab walk (Wave 4)")),
         };
 
         /// <summary>Every retired spec, newest housekeeping first in file order.</summary>

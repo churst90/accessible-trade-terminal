@@ -20,8 +20,8 @@ namespace AccessibleTrader.Tests;
 /// 70,000, with all price action squashed into the top tenth of the pane.
 /// <c>ViewportRangeCalculator</c> expands the price range to cover any visible level on a main-pane
 /// series — right for a bounded metric, catastrophic for a level that is a bar count.
-/// <c>LoukasCyclesProvider</c> is the worked example, declaring "DC Floor" at <b>0.0</b>, "DC Window
-/// Open" at 35.0 and "DC Overdue" at 90.0: days into a cycle, not dollars.
+/// Loukas Cycle Detection (removed 2026-10-22) was the worked example, declaring "DC Floor" at
+/// <b>0.0</b>, "DC Window Open" at 35.0 and "DC Overdue" at 90.0: days into a cycle, not dollars.
 /// </para>
 ///
 /// <para>
@@ -106,23 +106,6 @@ public class MainPaneLevelUnitsTests
           + "constant in source cannot be a price, so the level is in the wrong units — and "
           + "ViewportRangeCalculator will stretch the price axis to reach it, squashing every candle "
           + "into a sliver of the pane:\n  " + string.Join("\n  ", offenders));
-    }
-
-    /// <summary>
-    /// The specific provider the screenshot led to. Its levels are bar counts, so it must not be on
-    /// the price pane — and if anyone ever moves it there, this says why that is wrong.
-    /// </summary>
-    [Fact]
-    public void TheCyclesIndicatorStaysOffThePricePane()
-    {
-        var cycles = Scan(out _, out _).Where(s => s.Provider.Contains("Loukas", StringComparison.OrdinalIgnoreCase)).ToList();
-        Assert.NotEmpty(cycles);
-
-        foreach (var s in cycles)
-            Assert.False(string.Equals(s.Pane, "Main", StringComparison.OrdinalIgnoreCase),
-                $"{s.Code} was assigned to the price pane, but its levels (\"DC Floor\" 0, \"DC Window Open\" 35, "
-              + "\"DC Overdue\" 90) are BAR COUNTS. On the price pane the zero level drags the y-axis to the "
-              + "origin and the chart becomes unreadable.");
     }
 
     /// <summary>

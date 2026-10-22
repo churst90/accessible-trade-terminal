@@ -4,6 +4,86 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's money flow strokes its edge as Market Cipher B does; Cipher B's dots, VWAP and "RSI" re-measured; Loukas Cycle Detection removed (2026-10-22)
+
+Cody: "please go out and see if you can tackle those items regarding cipher b, the vwap, missing dots,
+etc. … how do the red dots correspond to the real thing? … How does cipher dbsi now line up with the
+reference screenshots, still off? … any additional fine tuning you can do with cipher A … loukas is
+what we want to get rid of we don't need it. Please color match the money flow." Measured on the same
+two Heikin-Ashi screenshots as before (S2, 398 bars; S4, 148 bars; BTCUSD 1D Bitstamp). Nothing here has
+been seen or heard in the app.
+
+- **Money flow colour.** The fills already matched: each side's two tones are what the 50% fill
+  composites to over the background and over the other waves, within 6 per channel. What was missing
+  was the rim. Market Cipher B strokes the value edge of the area at 50% over its 50% fill, so the edge
+  composites to about 75% over roughly 2 px (measured 0.65–0.74 opacity against a body of 0.51).
+  - New `IndicatorMetadata.DefaultAreaEdge` / `ComponentConfig.AreaEdge`: a histogram area strokes its
+    value edge in the area's colour at the component's thickness. Never the baseline, never a line on
+    its own. Clone and the factory carry it.
+  - Cipher B's money flow sets it, at thickness 2: edge 0.68 against MCB's 0.68 on S4 (1.5 px gave
+    0.63), body 0.51 in both.
+  - Guards (`AreaFillEdgeTests`): the rim is at least 0.15 more opaque than the body and the baseline
+    rows are not; without the flag there is no rim; the factory-built money flow has it, and Clone keeps
+    it. The declared-knob sweep has a histogram-area cell, and it was red on `AreaEdge` before that cell.
+    Proven by sabotage: no edge, an edge along the baseline, the factory dropping the flag, Clone
+    dropping it — each red. Not guarded: the vertical sides at the start of a run.
+  - Left as it is: Market Cipher B's zero line is white and dotted; ours is grey and solid.
+- **Red and green dots, bar by bar.** The "missing" dots were the digitiser's, not ours.
+  - S4: red 16 of 16 and green 15 of 15 on the exact bar.
+  - S2 red: the digitiser found 40 and we draw 38; 32 are on the exact bar, 4 one bar early (S2 is
+    3.7 px a day, so a one-bar offset is within the digitiser's error). The three it found that we lack
+    are not dots: 2022-06-05 and 2022-06-12 are false detections (the real dots are on 06-03 and 06-09,
+    where ours are) and 2021-07-09 is a fragment at the left edge of the picture.
+  - S2 green: 36 found, 32 on the exact bar and 4 one bar early.
+  - **Not explained:** we draw a few dots the digitiser did not find: S2 red 2021-10-10 and 2022-05-05,
+    S2 green 2021-10-11, 10-15 and 11-29, S4 red 2021-12-14, S4 green 2021-10-11 and 10-15. Each is a
+    wave cross by less than 1 point. Either Market Cipher B hides a cross that small or the dot is lost
+    under the other marks in the picture; not settled.
+  - The earlier entry's "the four S2 cross-downs missing are missing on raw too" was wrong and is
+    struck through.
+- **VWAP was already right.** The r 0.78/0.82 reported earlier came from a digitiser that picked up the
+  red dots and the orange marks along with the VWAP. Re-digitised as the run joined to the zero line:
+  S4 r 0.993, RMSE 1.24, sign 88 of 88, scale 0.98; S2 r 0.947, RMSE 2.81, sign 301 of 301, scale 0.89
+  (a coarser picture). The corpus agrees: the dots print as the VWAP crosses zero, which is what a VWAP
+  of wave 1 minus wave 2 does. No change.
+- **"RSI" and "Stochastic RSI": heavily smoothed, and not a stock RSI.** CryptoFace's 2019
+  introduction to Market Cipher (`StrategyLab/Corpus/transcripts/cryptoface/2019-06-17_bxkm4Kjubqs.txt`)
+  calls the RSI "the heavily smoothed purple oscillator… oversold at 20… overbought at 80" and the
+  stochastic RSI a "heavily smoothed red and green line", smoothed "to distinguish the divergences". No
+  lengths are given anywhere in the corpus. Against 309 points of S2:
+  - ours (a 40-bar stochastic of hlc3, SMA 3) is 2.13 points off; SMA 2 is 2.55, SMA 4 4.18, a 45-bar
+    stochastic 5.4 or more;
+  - the best true RSI of any length 2–40, SMA or EMA 1–30, on the close, hlc3 or Heikin-Ashi close is
+    13.48 off (RSI 9 of the Heikin-Ashi close, EMA 5).
+  So the line Market Cipher B calls RSI is not an RSI, and ours stays.
+- **Cipher DBSI: unchanged since 2026-10-17, and still off.** Against the 144 numbers read off the
+  references: bulls r 0.89, RMSE 3.68, exact 13%, within 2 58%; bears r 0.92, RMSE 3.33, exact 18%,
+  within 2 52%; the side in control agrees 126 of 144. Ours cannot go above 16 (12 votes × 1.668 −
+  4.3), but DBSI printed 17–25 on 33 of the numbers, where ours said 12–16. Closing that needs a
+  magnitude term, and more reference screenshots to hold out; not attempted.
+- **Cipher A: nothing to tune.** It is registered in both versions of the app and not deprecated, and
+  it was already fitted on the Heikin-Ashi screenshots (entry below).
+- **Loukas Cycle Detection removed** (deprecated 2026-10-21). Cipher C finds the same lows per asset.
+  - `RetiredIndicators` has it: a saved chart opens without it and says once "Loukas Cycle Detection
+    was removed on 2026-10-22, so it was left off this chart: Cipher C now finds daily, weekly and
+    yearly cycle lows for each asset, which is what it did. To get the same lines back, add Cipher C."
+    A strategy or alert on one of its signals says once that it cannot be read and what to use: DCL
+    Confirmed on Cipher C for DCL Confirmed, WCL Confirmed for ICL Confirmed, the Daily Timing Window
+    for DC In Window, otherwise "add Cipher C". The day counts and the four-year phase have no
+    counterpart.
+  - The provider, its tests and its three registrations (desktop, web, StrategyLab) are gone. The
+    StrategyLab Cipher A battery lost its G6 gate (in a Loukas daily-cycle window); the strategy
+    battery keeps its four Loukas cells as a record, and they now resolve to removed signals.
+  - **The catalogue's v24 Cycle Low Reversal is retired with it**: its entry event was Loukas's DCL
+    Confirmed. Its verdict stays in `CatalogueProvenance`'s retired list (walk-forward, positive in both
+    halves, not re-tested on Cipher C's DCL Confirmed). Its two seed tests went with it.
+  - New `LoukasRemovalTests` (7): the resume notice, said once across two tabs; a strategy on each of
+    the three mapped signals and one unmapped one; an alert; and every Cipher C name the sentences give
+    is a component Cipher C declares. Proven by sabotage: un-retiring the code turns all 7 red, and
+    pointing ICL at a name Cipher C does not have turns 2 red.
+  - Comments that spoke of Loukas in the present tense now say it was removed. No built-in indicator
+    uses a sub-pane strip any more (Loukas's "FY" was the only one); the mechanism and its tests stay.
+
 ### A strategy can read its signals on Heikin-Ashi candles and trade real prices; backtests read the candles live does (2026-10-22)
 
 Cody asked: "is basing strategies on ha candles a thing people do? Is using indicator values based on ha
@@ -156,8 +236,8 @@ Tests (23 new):
     were 3.5/1.9 (S2), on the real bars 2.1/1.2. They are MCB's own lines, not a stock RSI or
     stochastic, which we already knew from the fit;
   - big green dots on the exact bar: 5/5 and 3/3, from 2/5 and 1/3. Cross dots within one bar: S2
-    up 36/36, down 36/40; S4 up 15/15, down 15/16. The four S2 cross-downs missing are missing on
-    raw too. For scale, the VuManChu port scores 7.8/8.5 on the same charts (the digitising floor).
+    up 36/36, down 36/40; S4 up 15/15, down 15/16. ~~The four S2 cross-downs missing are missing on
+    raw too.~~ Wrong, re-checked the same day: three of them were digitiser errors (entry above). For scale, the VuManChu port scores 7.8/8.5 on the same charts (the digitising floor).
     S3 and S5 not re-measured.
 - **DBSI** (now "Cipher DBSI", entry above) applies Heikin-Ashi once on a Heikin-Ashi chart, whatever its own Heikin-Ashi setting says.
 - **Cipher A and Cipher C follow the chart.** (Cipher A was said here to be fitted on raw bars; it

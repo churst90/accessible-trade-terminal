@@ -774,7 +774,9 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// A value-coloured histogram drawn as a filled area from its baseline (the component's
         /// <see cref="ComponentConfig.ReferenceLevel"/>, else 0): one polygon per run on one side of
         /// <see cref="ComponentConfig.ColorBaseline"/>, split where the value crosses it, so the
-        /// colour changes exactly at the crossing.
+        /// colour changes exactly at the crossing. With <see cref="ComponentConfig.AreaEdge"/> each
+        /// run's value edge is stroked again in the run's colour (Market Cipher B's money flow: a
+        /// 50% area whose rim composites to about 75%).
         /// </summary>
         private static void RenderHistogramArea(RenderContext ctx, ComponentConfig comp, double[] data, SKColor up, SKColor down)
         {
@@ -783,16 +785,25 @@ namespace AccessibleTrader.Core.Services.Rendering
             float yBase = Math.Clamp(ChartMath.MapY(baseValue, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale), ctx.Top, ctx.Bottom);
             using var upPaint = new SKPaint { Color = up, Style = SKPaintStyle.Fill, IsAntialias = true };
             using var downPaint = new SKPaint { Color = down, Style = SKPaintStyle.Fill, IsAntialias = true };
+            float edgeWidth = Math.Max(1f, comp.Thickness) * ctx.Density;
+            using var upEdge = new SKPaint { Color = up, Style = SKPaintStyle.Stroke, StrokeWidth = edgeWidth, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round };
+            using var downEdge = new SKPaint { Color = down, Style = SKPaintStyle.Stroke, StrokeWidth = edgeWidth, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round };
 
-            SKPath? path = null; bool runUp = false;
+            SKPath? path = null, edge = null; bool runUp = false;
             void Close(float x)
             {
                 if (path == null) return;
                 path.LineTo(x, yBase); path.Close();
                 ctx.Canvas.DrawPath(path, runUp ? upPaint : downPaint);
                 path.Dispose(); path = null;
+                if (edge != null) { ctx.Canvas.DrawPath(edge, runUp ? upEdge : downEdge); edge.Dispose(); edge = null; }
             }
-            void Open(float x, float y, bool isUp) { path = new SKPath(); path.MoveTo(x, yBase); path.LineTo(x, y); runUp = isUp; }
+            void Open(float x, float y, bool isUp)
+            {
+                path = new SKPath(); path.MoveTo(x, yBase); path.LineTo(x, y); runUp = isUp;
+                if (comp.AreaEdge) { edge = new SKPath(); edge.MoveTo(x, y); }
+            }
+            void To(float x, float y) { path!.LineTo(x, y); edge?.LineTo(x, y); }
 
             float? px = null; double pv = double.NaN;
             for (int i = 0; i < ctx.ViewportLength; i++)
@@ -810,10 +821,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                     double t = (split - pv) / (v - pv);
                     float xc = px.Value + (float)((x - px.Value) * t);
                     float yc = ChartMath.MapY(split, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    path!.LineTo(xc, yc); Close(xc);
-                    Open(xc, yc, isUp); path!.LineTo(x, y);
+                    To(xc, yc); Close(xc);
+                    Open(xc, yc, isUp); To(x, y);
                 }
-                else path!.LineTo(x, y);
+                else To(x, y);
                 px = x; pv = v;
             }
             if (px.HasValue) Close(px.Value);

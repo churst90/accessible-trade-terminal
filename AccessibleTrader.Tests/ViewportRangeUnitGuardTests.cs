@@ -16,7 +16,7 @@ namespace AccessibleTrader.Tests;
 /// main-pane series, which is right for a bounded metric — a Fear &amp; Greed chart showing 10–90
 /// should still draw its 0 and 100 zone lines. But a series whose <c>Pane</c> is unset falls back to
 /// "Main", and some indicators declare levels in their own units:
-/// <c>LoukasCyclesProvider</c> publishes "DC Floor" at <b>0.0</b>, "DC Window Open" at 35.0 and
+/// Loukas Cycle Detection (removed 2026-10-22) published "DC Floor" at <b>0.0</b>, "DC Window Open" at 35.0 and
 /// "DC Overdue" at 90.0 — bar counts, days into a cycle.
 /// </para>
 ///

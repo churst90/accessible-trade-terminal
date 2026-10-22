@@ -33,8 +33,8 @@ namespace AccessibleTrader.Core.Services
             // ── But a level must be in the same UNITS as the pane ────────────────
             //
             // A series whose Pane is unset falls back to "Main" above, and some indicators declare
-            // reference lines in their own units rather than in price. LoukasCyclesProvider is the
-            // worked example: it declares "DC Floor" at 0.0, "DC Window Open" at 35.0 and
+            // reference lines in their own units rather than in price. Loukas Cycle Detection (removed
+            // 2026-10-22) was the worked example: it declared "DC Floor" at 0.0, "DC Window Open" at 35.0 and
             // "DC Overdue" at 90.0 — those are BAR COUNTS, days into a cycle. Let one of those
             // expand a BTC chart and the price axis runs 0 to 70,000, compressing every candle into
             // the top tenth of the pane. Reported from a screenshot; the chart was unreadable and
@@ -99,7 +99,7 @@ namespace AccessibleTrader.Core.Services
             //   (2) MAIN AREA, not a sub-pane strip. A sub-pane is its own axis.
             //   (3) PLAUSIBLY A PRICE, by the same span-multiple guard the levels above use, and
             //       for the same reason — a series whose Pane is unset defaults to "Main", and
-            //       LoukasCyclesProvider's day-counts on a BTC chart is the worked example of
+            //       Loukas Cycle Detection's day-counts on a BTC chart (since removed) were the worked example of
             //       what that costs. A band 3 spans outside the candles is not a band.
             // The guard is measured against the ORIGINAL price span (priceMin/priceMax/dataSpan)
             // rather than the running one, so a chain of ever-wider components cannot walk the

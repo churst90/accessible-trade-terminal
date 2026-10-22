@@ -616,6 +616,8 @@ public sealed class DeclaredKnobObservabilityTests
         (ComponentDisplayType.ValueLabel, "value label", _ => { }),
         // A window, shaded as a window is by default, landing on which names its path (PathName).
         (ComponentDisplayType.Window, "window, shaded", c => c.BackgroundTint = BackgroundTint.ThisPane),
+        // A histogram drawn as an area, whose value edge AreaEdge strokes (Cipher B's money flow).
+        (ComponentDisplayType.Histogram, "histogram area", c => c.IsAreaFill = true),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

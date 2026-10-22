@@ -31,7 +31,6 @@ public static class WorkspaceFactory
         "CIPHER_B",
         "CIPHER_SR",
         "CIPHER_C",
-        "LOUKAS_CYCLES",
         "REGIME",       // real indicator (RegimeProvider), not a pseudo-indicator
         "BNVISION_FUNDING",
         "BNVISION_OI",

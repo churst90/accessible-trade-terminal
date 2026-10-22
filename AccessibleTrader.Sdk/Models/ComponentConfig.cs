@@ -134,6 +134,10 @@ namespace AccessibleTrader.Sdk.Models
         /// See <see cref="IndicatorComponentMetadata.DefaultFillColorHex"/>.</summary>
         public string FillColorHex { get; set; } = "";
 
+        /// <summary>A histogram area also strokes its value edge in its own colour. The indicator's
+        /// choice, rebuilt from <see cref="IndicatorComponentMetadata.DefaultAreaEdge"/> on every load.</summary>
+        public bool AreaEdge { get; set; }
+
         /// <summary>Paint order within the series (lower first). Drawing only — never navigation
         /// order. See <see cref="IndicatorComponentMetadata.DefaultDrawOrder"/>.</summary>
         public int DrawOrder { get; set; }
@@ -383,7 +387,7 @@ namespace AccessibleTrader.Sdk.Models
                 IsMuted = IsMuted, IsVisible = IsVisible, ProviderIsVisible = ProviderIsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
-                FillColorHex = FillColorHex, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
+                FillColorHex = FillColorHex, AreaEdge = AreaEdge, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
                 BackgroundTint = BackgroundTint, UserBackgroundTint = UserBackgroundTint,
                 TintColorAboveHex = TintColorAboveHex, TintColorBelowHex = TintColorBelowHex,
                 TintMidline = TintMidline, TintFullAt = TintFullAt,

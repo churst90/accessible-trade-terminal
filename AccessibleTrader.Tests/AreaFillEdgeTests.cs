@@ -112,6 +112,7 @@ public sealed class AreaFillEdgeTests
         new object[] { "legacy Area display type" },
         new object[] { "two-colour line area" },
         new object[] { "histogram area (Cipher B's VWAP and money flow)" },
+        new object[] { "histogram area with its edge stroked (Cipher B's money flow)" },
         new object[] { "ZeroArea" },
         new object[] { "cloud fill" },
         new object[] { "S/R zone band" },
@@ -150,6 +151,11 @@ public sealed class AreaFillEdgeTests
             case "histogram area (Cipher B's VWAP and money flow)":
             {
                 var c = Comp("v", ComponentDisplayType.Histogram); c.IsAreaFill = true;
+                cfg.Components.Add(c); buf.ComponentData["v"] = Values(-40); probe = -20; break;
+            }
+            case "histogram area with its edge stroked (Cipher B's money flow)":
+            {
+                var c = Comp("v", ComponentDisplayType.Histogram); c.IsAreaFill = true; c.AreaEdge = true;
                 cfg.Components.Add(c); buf.ComponentData["v"] = Values(-40); probe = -20; break;
             }
             case "ZeroArea":
@@ -260,5 +266,77 @@ public sealed class AreaFillEdgeTests
         // …and the waves are there, up to the newest bar.
         int x = (int)((Bars - 1 + 0.5f) * BarWidth(t)), y = Y(-20, t);
         Assert.True(a.GetPixel(x, y) != b.GetPixel(x, y), $"the waves are not drawn at the newest bar ({x},{y})");
+    }
+
+    // ── The money flow's rim ────────────────────────────────────────────────────────
+
+    /// <summary>How far a pixel has moved from the background toward <paramref name="c"/>, 0..1,
+    /// read on the channel where the two differ most.</summary>
+    private static double Toward(SKColor px, SKColor bg, SKColor c)
+    {
+        int Ch(SKColor k, int i) => i == 0 ? k.Red : i == 1 ? k.Green : k.Blue;
+        int best = Enumerable.Range(0, 3).MaxBy(i => Math.Abs(Ch(c, i) - Ch(bg, i)));
+        return (double)(Ch(px, best) - Ch(bg, best)) / (Ch(c, best) - Ch(bg, best));
+    }
+
+    /// <summary>
+    /// Market Cipher B's money flow is a 50% area whose value edge is stroked again in the same
+    /// 50% colour, so the rim composites to about 75% (measured 0.65-0.74 in an MCB 2.2.6 chart,
+    /// 2026-10-22). With <see cref="ComponentConfig.AreaEdge"/> the pixel row at the value is
+    /// clearly more solid than the body; at the baseline it is not (the edge is the value side
+    /// only); and without AreaEdge the value row is no more solid than the body.
+    /// </summary>
+    [Fact]
+    public void A_histogram_areas_edge_is_stroked_on_the_value_side_only()
+    {
+        var t = Themes();
+        var red = SKColor.Parse("#FF1100");
+        SKBitmap Draw(bool edge, bool empty)
+        {
+            var cfg = new SeriesConfig { Id = "k", Name = "mf", FriendlyName = "mf", Pane = "Main", IndicatorCode = "K", IsVisible = true };
+            var c = new ComponentConfig
+            {
+                Name = "v", DisplayName = "v", DisplayType = ComponentDisplayType.Histogram, IsVisible = true, IsEnabled = true,
+                ColorHex = "#803FFF00", ColorHexSecondary = "#80FF1100", Thickness = 2f, IsAreaFill = true, AreaEdge = edge,
+            };
+            cfg.Components.Add(c);
+            var buf = new SeriesDataBuffer { SeriesId = "k" };
+            buf.ComponentData["v"] = Enumerable.Range(0, Bars).Select(_ => empty ? double.NaN : -60.0).ToArray();
+            return Render(new ChartSeries(cfg, buf), t, empty);
+        }
+
+        using var bg = Draw(edge: false, empty: true);
+        using var plain = Draw(edge: false, empty: false);
+        using var rimmed = Draw(edge: true, empty: false);
+        int x = (int)(15.5f * BarWidth(t));
+        int yValue = Y(-60, t), yBody = Y(-30, t), yZero = Y(0, t);
+        double Rim(SKBitmap b) => Enumerable.Range(yValue - 1, 3).Max(y => Toward(b.GetPixel(x, y), bg.GetPixel(x, y), red));
+        double At(SKBitmap b, int y) => Toward(b.GetPixel(x, y), bg.GetPixel(x, y), red);
+
+        double body = At(rimmed, yBody);
+        Assert.InRange(body, 0.4, 0.6);
+        Assert.True(Rim(rimmed) >= body + 0.15,
+            $"the stroked edge at the value reads {Rim(rimmed):F2}, the body {body:F2}: no rim");
+        Assert.True(Rim(plain) <= At(plain, yBody) + 0.05,
+            $"without AreaEdge the value row reads {Rim(plain):F2} against a body of {At(plain, yBody):F2}");
+        // The rows just inside the baseline (the zero row itself is the area's anti-aliased border).
+        double baseline = Enumerable.Range(yZero + 1, 2).Max(y => At(rimmed, y));
+        Assert.True(baseline <= body + 0.05,
+            $"the baseline side reads {baseline:F2} against a body of {body:F2}: the edge is stroked on the baseline too");
+    }
+
+    /// <summary>Cipher B's money flow, as the factory builds it, carries the rim at MCB's width.</summary>
+    [Fact]
+    public void Cipher_Bs_money_flow_strokes_its_edge()
+    {
+        var factory = new IndicatorModelFactory(Styling(), new MockIndicatorPreferencesService());
+        var s = factory.CreateSeriesFromMetadata(new CipherBProvider().GetIndicators()[0], "Cipher B", "Main",
+            new List<(string, string)>(), null);
+        var mf = s.Components.Single(c => c.Name == CipherBProvider.CompMoneyFlowWave);
+        Assert.True(mf.IsAreaFill && mf.AreaEdge, "Cipher B's money flow is not an area with its edge stroked");
+        Assert.Equal(2f, mf.Thickness);
+        Assert.False(s.Components.Single(c => c.Name == CipherBProvider.CompWtHistogram).AreaEdge,
+            "the VWAP area has only a faint edge in MCB; it is not stroked");
+        Assert.True(mf.Clone().AreaEdge, "Clone drops AreaEdge");
     }
 }

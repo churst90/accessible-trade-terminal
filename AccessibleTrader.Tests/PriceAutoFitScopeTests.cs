@@ -167,7 +167,7 @@ public sealed class PriceAutoFitScopeTests
     /// <summary>
     /// The units guard, and it is the same one the reference levels above it use, for the same
     /// reason: a series whose <c>Pane</c> is unset falls back to "Main", and an indicator that
-    /// emits something other than a price — LoukasCyclesProvider's day counts are the worked
+    /// emits something other than a price — Loukas Cycle Detection's day counts (since removed) were the worked
     /// example — would otherwise run the price axis from 0 to 70,000 and compress every candle
     /// into a sliver. A component three visible spans outside the data is not a band.
     /// </summary>

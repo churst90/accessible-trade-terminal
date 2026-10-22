@@ -304,7 +304,7 @@ namespace AccessibleTrader.Tests
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
-            // here — VALUE_DEVIATION's twelve components, LOUKAS_CYCLES' IC counter, CIPHER_S's
+            // here — VALUE_DEVIATION's twelve components, LOUKAS_CYCLES' IC counter (the indicator since removed), CIPHER_S's
             // candle phase, and the TOP_BOTTOM_DETECTOR entry reclassified above — are the last
             // HIGH item of the 2026-08-27 severity pass.
         };
@@ -633,8 +633,6 @@ namespace AccessibleTrader.Tests
             "FUNDING_RATE.Sign Flip",
             "HEATMAP.Liquidity",
             "Hv.Hv",
-            "LOUKAS_CYCLES.FY Day Count",
-            "LOUKAS_CYCLES.FY Phase",
             "OPEN_INTEREST.OI Delta",
             "OPEN_INTEREST.OI Divergence",
             "OPEN_INTEREST.OI Spike",
