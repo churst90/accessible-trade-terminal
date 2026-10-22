@@ -59,16 +59,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Presets ────────────────────────────────────────────────────────────────────
 
         private const string FromCf     = "CF's published ranges";
-        private const string FromCamel  = "Camel's stated ranges";
         private const string Estimated  = "estimated, not CF's";
 
         /// <summary>
         /// The sixteen assets CF says it is fine-tuned for (its own watchlist on cftrading.co.uk:
         /// SPX, DXY, NDQ, DJI, GOLD, SILVER, USOIL, GDX, GDXJ, SILJ, ETHUSD, BTCUSD, COIN, MSTR,
-        /// MARA, RIOT). Eight of its range tables are now CF's own: SPX, GOLD and Ethereum, plus
-        /// COIN, MSTR, MARA, RIOT and GDX read off reviewer videos from August 2025. Bitcoin's
-        /// ranges are what Camel says on his streams. The other seven are estimates from the nearest
-        /// of those and say so.
+        /// MARA, RIOT). Nine of its range tables are now CF's own: SPX, GOLD and Ethereum, plus
+        /// COIN, MSTR, MARA, RIOT, GDX and Bitcoin read off reviewer videos from August 2025. The
+        /// other seven are estimates from the nearest of those and say so.
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
@@ -83,7 +81,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 20, 28, 8, 8, false, Estimated),
             new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 20, 28, 8, 8, false, Estimated),
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 3.5, 4.5, true,  FromCf),
-            new CyclePreset("BTC",    "Bitcoin",     54, 66, 28, 32, 3.5, 4.5, true,  FromCamel),
+            // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
+            // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
+            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
             new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf),

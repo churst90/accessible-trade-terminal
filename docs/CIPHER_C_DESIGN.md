@@ -37,8 +37,8 @@ lists the assets it is tuned for:
 | Crypto | BTCUSD, ETHUSD |
 | Crypto equities | COIN, MSTR, MARA, RIOT |
 
-CF's own cycle-range table has now been read for eight of the sixteen: SPX, GOLD, ETH, COIN, MSTR,
-MARA, RIOT and GDX. SPX, gold and Ethereum came from the earlier screens. The other five, and a newer
+CF's own cycle-range table has now been read for nine of the sixteen: SPX, GOLD, ETH, COIN, MSTR,
+MARA, RIOT, GDX and BTC. SPX, gold and Ethereum came from the earlier screens. The other five, and a newer
 gold table, were read by eye from reviewer videos of August 2025 (frames under
 `strategy-lab-data/cf-frames2/frames/`, gitignored: `76LvfFq1e9M/5.jpg` COIN, `76LvfFq1e9M/200.jpg`
 and `m3u0zvEi65I/5.jpg` MSTR, `76LvfFq1e9M/250.jpg` MARA, `76LvfFq1e9M/300.jpg` RIOT,
@@ -50,7 +50,9 @@ ranges found 9 of 21 of CF's daily lows within four days and CF's ranges find 8 
 those 21 dates were read off the chart by pixel spacing, graded guesses, so the sample cannot tell
 the two apart. The numbers are used because they are CF's, not because they fit better.
 
-Bitcoin's ranges are the ones Camel states on his streams (54–66 days). For COIN, MSTR, MARA and
+Bitcoin's table (54–66 days, 22–42 weeks, 4 years) was read from two more reviewer videos of 7–9
+August 2025 (`strategy-lab-data/cf-frames3/frames/s4EfttpMNXA/35.jpg`, `qVlnivWr2ho/0.jpg`). Camel
+says 28–32 weeks on his 2026 streams; Cipher C follows the indicator's table. For COIN, MSTR, MARA and
 RIOT, treating the daily values as trading days follows the TradingView stock-bar context; that is
 an inference, not an explicit CF statement. The other seven presets in `CipherCEngine.Presets` are
 estimates from the nearest of those: NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. Each says so when

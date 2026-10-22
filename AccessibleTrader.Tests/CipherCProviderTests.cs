@@ -362,6 +362,7 @@ public sealed class CipherCProviderTests
     [InlineData("RIOT", 36, 44, 22, 26, 4, 4, false)]
     [InlineData("GDX", 22, 28, 22, 26, 8, 8, false)]
     [InlineData("GOLD", 22, 28, 20, 28, 8, 8, false)]
+    [InlineData("BTC", 54, 66, 22, 42, 4, 4, true)]
     public void CF_read_presets_have_the_recorded_ranges(string key, double dailyMin, double dailyMax,
         double weeklyMin, double weeklyMax, double yearlyMin, double yearlyMax, bool calendarDays)
     {

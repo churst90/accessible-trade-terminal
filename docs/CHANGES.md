@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Bitcoin's cycle ranges are now CF's own table (2026-10-21)
+
+Two reviewer videos of 7 to 9 August 2025 show CF's "BTCUSD CYCLE COUNT" table on a Bitstamp daily
+chart: daily 54-66 days, weekly 22-42 weeks, yearly 4 years (`strategy-lab-data/cf-frames3/frames/`
+`s4EfttpMNXA/35.jpg` and `qVlnivWr2ho/0.jpg`, gitignored; read by OpenCode/Luna and checked by eye).
+Cipher C's Bitcoin preset was 54-66 days, 28-32 weeks and 3.5-4.5 years, from what Camel says on his
+2026 streams. It now uses the table and is marked as CF's, so nine of the sixteen presets are CF's.
+
+- **The weekly window is much wider (22-42 against 28-32).** The indicator is what Cipher C copies,
+  so the table wins over Camel's spoken band. The same table showed "Weeks Since Last WCL : 43",
+  already past its own 42.
+- **What still passes:** the pinned Bitcoin lows (4 February and 29 March 2026) and the 5 August 2024
+  weekly low. All 74 Cipher C tests and 578 in the wider indicator filter pass. A test row pins the
+  new preset; it was red before the change, and changing the weekly maximum to 41 or the source to
+  estimated each turned it red.
+- **What "Days since Last DCL" counts:** that table read 46 on a frame whose own clock says 7 August
+  2025, and 46 days back from 7 August is 22 June 2025, Bitcoin's swing low ($98,286). So the number
+  is bars from the low to the last bar. Across all 14 tables read so far that reading fits 5, but
+  most misses are frames whose last-bar date could not be pinned. Not yet used anywhere.
+- **Still estimated:** NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. Twelve more videos were searched
+  and none showed their tables.
+
 ### CF cycle ranges added for five assets and gold updated (2026-10-21)
 
 Cipher C now uses CF's own cycle-range tables for COIN, MSTR, MARA, RIOT and GDX, read by eye from

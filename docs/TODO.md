@@ -139,7 +139,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   - GDX: 22–28 days, 22–26 weeks, 8 years. Our estimate was 22–28 days, 16–20 weeks and 7–9 years.
 >   - Gold's newer table reads 20–28 weeks and 8 years. The old 16–20 weeks and 7–9 years could not
 >     be traced to a source, so the newer table now wins.
->   - [ ] Still estimated: NDQ, DJI, DXY, SILVER, USOIL, GDXJ, SILJ.
+>   - [x] Bitcoin's own CF table (two more reviewer videos, 7-9 Aug 2025): 54-66 days, 22-42 weeks,
+>     4 years, now in the preset (Camel's spoken 28-32 weeks was the old value).
+>   - [ ] Still estimated: NDQ, DJI, DXY, SILVER, USOIL, GDXJ, SILJ. Twelve more videos searched
+>     (`strategy-lab-data/cf-frames3/REPORT.md`), none showed these tables. Next: Camel's own streams
+>     on those assets, or ask a CF owner for screenshots.
+>   - [ ] "Days since Last DCL : N" is bars from the low to the last bar (Bitcoin: 46 on 7 Aug 2025 =
+>     the 22 June swing low exactly). It fits 5 of 14 tables; most misses could not pin the last bar.
+>     Use it to date more labels exactly once a frame's last bar is known (its own clock, or price).
 >   - The settings panel at CF's defaults: the adjustment switch is off and all three factors are 0.
 >     So the "2" on the vendor's docs page was an example, not the default. SMA is 10 on close.
 >   - Notes in `strategy-lab-data/cf-frames2/REPORT.md` (gitignored). Its band dates are pixel
