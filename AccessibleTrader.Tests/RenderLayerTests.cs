@@ -456,5 +456,102 @@ namespace AccessibleTrader.Tests
             Assert.True(NonSentinelCount(withText) > 0);
             Assert.Equal(0, NonSentinelCount(withoutText));
         }
+
+        // ── Text label placement (2026-10-21) ──────────────────────────────────
+        // Seen in the trend line study pictures: a label on one of the newest bars, or a long
+        // one, ran under the price axis and was cut off mid-word; two labels on one bar printed
+        // over each other; a check mark drew as an empty box.
+
+        private static ChartSeries TextLabel(string text, int bar, double price, int bars = 10)
+        {
+            var config = new SeriesConfig { Id = "lbl" + bar + text, Name = "lbl", Pane = "Main" };
+            var buffer = new SeriesDataBuffer { SeriesId = config.Id };
+            var label = new double[bars];
+            Array.Fill(label, double.NaN);
+            label[bar] = price;
+            buffer.ComponentData["Label"] = label;
+            return new ChartSeries(config, buffer) { Drawing = new DrawingData { Type = DrawingType.TextLabel, Text = text } };
+        }
+
+        private static List<OverlayLayer.PlacedTextLabel> Layout(params ChartSeries[] labels)
+        {
+            using var bmp = new SKBitmap(W, H);
+            using var canvas = new SKCanvas(bmp);
+            return OverlayLayer.LayoutTextLabels(Ctx(canvas, Bars(10), Theme().Current), labels);
+        }
+
+        private static readonly SKRect Pane = SKRect.Create(0, 0, W, H);
+
+        [Fact]
+        public void TextLabel_on_the_newest_bar_ends_at_the_pane_edge_instead_of_running_under_the_axis()
+        {
+            var placed = Assert.Single(Layout(TextLabel("newest bar", bar: 9, price: 110)));
+
+            Assert.Equal("newest bar", placed.Text);
+            Assert.True(placed.Box.Right <= Pane.Right, $"plate ends at {placed.Box.Right}, pane at {Pane.Right}");
+            Assert.True(placed.Box.Left < placed.AnchorX, "the plate slides left of its anchor to fit");
+            Assert.True(placed.Moved, "a slid plate is marked as moved, so its anchor gets a dot");
+        }
+
+        [Fact]
+        public void TextLabel_wider_than_the_pane_is_shortened_with_an_ellipsis_and_stays_inside()
+        {
+            var placed = Assert.Single(Layout(TextLabel(string.Concat(Enumerable.Repeat("very long words ", 10)), bar: 0, price: 110)));
+
+            Assert.EndsWith("\u2026", placed.Text);
+            Assert.True(placed.Box.Left >= Pane.Left && placed.Box.Right <= Pane.Right, $"plate {placed.Box}");
+        }
+
+        [Fact]
+        public void Two_TextLabels_on_one_bar_at_one_price_are_stacked_not_overprinted()
+        {
+            var placed = Layout(TextLabel("first", bar: 3, price: 110), TextLabel("second", bar: 3, price: 110));
+
+            Assert.Equal(2, placed.Count);
+            Assert.False(placed[0].Box.IntersectsWith(placed[1].Box), $"{placed[0].Box} overlaps {placed[1].Box}");
+            Assert.All(placed, p => Assert.True(Pane.Contains(p.Box), $"plate {p.Box} leaves the pane"));
+        }
+
+        [Theory]
+        [InlineData(131.0)] // above the scale: flipping below the anchor is still above the pane
+        [InlineData(129.5)] // at the top: flips below
+        [InlineData(90.2)]  // at the bottom
+        [InlineData(88.0)]  // below the scale
+        public void TextLabel_plate_stays_inside_the_pane_top_to_bottom(double price)
+        {
+            var placed = Assert.Single(Layout(TextLabel("edge", bar: 2, price: price)));
+
+            Assert.True(placed.Box.Top >= Pane.Top && placed.Box.Bottom <= Pane.Bottom, $"plate {placed.Box}");
+        }
+
+        [Fact]
+        public void TextLabels_are_not_drawn_in_a_strip_inside_the_price_pane()
+        {
+            // The overlay layer also runs for each strip stacked in the price pane, with the
+            // strip's own scale; the label's price means nothing there.
+            var theme = Theme();
+            using var strip = Render(c => new OverlayLayer().Render(
+                Ctx(c, Bars(10), theme.Current, subPaneFilter: "strip"), new[] { TextLabel("note", bar: 5, price: 110) }));
+            using var pane = Render(c => new OverlayLayer().Render(
+                Ctx(c, Bars(10), theme.Current), new[] { TextLabel("note", bar: 5, price: 110) }));
+
+            Assert.Equal(0, NonSentinelCount(strip));
+            Assert.True(NonSentinelCount(pane) > 0, "vacuity: the same label is drawn in the pane itself");
+        }
+
+        [Fact]
+        public void TextLabel_characters_the_label_face_lacks_come_from_a_face_that_has_them()
+        {
+            // Passes trivially where the default face has every character; on the machine this
+            // was written on it lacks the check mark, which the font manager finds elsewhere.
+            const string text = "ok \u2713 caf\u00e9 \u2191";
+            var runs = OverlayLayer.GlyphRuns(text);
+
+            Assert.Equal(text, string.Concat(runs.Select(r => r.Run)));
+            foreach (var (run, face) in runs)
+                foreach (var rune in run.EnumerateRunes())
+                    if (SKFontManager.Default.MatchCharacter(rune.Value) is { } any && any.ContainsGlyph(rune.Value))
+                        Assert.True(face.ContainsGlyph(rune.Value), $"U+{rune.Value:X4} drawn from {face.FamilyName}, which lacks it");
+        }
     }
 }

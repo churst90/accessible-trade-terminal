@@ -117,6 +117,26 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-21 — the hand-drawn trend line study, and text label placement fixed;
+> branch `cipher-c-cf-cycles`, NOT pushed; see CHANGES).** What is left:
+> - [ ] Cody to look at text labels in the app: one on the newest bar, two on one bar, a long one.
+>   Fixed and pictured offscreen only.
+> - [ ] A label's text in a script no installed font covers (Japanese on this machine) still shows
+>   empty boxes. Nothing to draw it with here; Windows usually has CJK fonts. Not checked there.
+> - [ ] Not checked: whether a label's colour set in Properties changes anything visible (the plate
+>   and text use theme colours).
+> - [ ] The trend line rule. One dated case separates the candidate rules: the Dow's 23 Jul 2026
+>   daily low, where Camel said it "peaked above the trend line yesterday" (27 Jul) and then had "a
+>   daily close above" (28 Jul). Only lines through the HIGH WICKS from the cycle top (7 Jul) fit both
+>   days: the upper tangent (through 16 Jul, -0.10%/bar) or top to the last lower high (22 Jul,
+>   -0.13%/bar). Lines through bodies or closes break a day early or poke a day late. Any slope from
+>   the top wick between -0.09% and -0.145%/bar fits. One case, not a rule. SPX Aug 2024 ("not yet"
+>   on 10 Aug) fits every valid candidate. The other dated statements are monthly or weekly, a
+>   replay with no date (QQQ), or a +12% day that breaks every line (MSTR 19 Aug 2026).
+>   Measuring his drawn lines from video frames (Luna, `strategy-lab-data/trendlines/`, Part 2)
+>   stopped at the OpenCode Go usage limit before `lines.csv`; Part 1 (88 statements, `rules.md`)
+>   is done. Resume Part 2 when usage resets, then score candidates on anchor and slope.
+
 > **START HERE (2026-10-21 — Cipher C rebuilt as cycle lows after CF's Cycle Trading Indicator;
 > Loukas retired; committed on branch `cipher-c-cf-cycles` (off `camel-render-alpaca-fixes`), NOT
 > pushed; see CHANGES and `docs/CIPHER_C_DESIGN.md`).** What is left:

@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Text labels stay whole, stack, and draw characters the default font lacks (2026-10-21)
+
+Found while drawing the trend line study's pictures with the real drawing tools: two labels on the
+newest bars were cut off under the price axis mid-word ("daily close above th"). A stress chart of
+nine labels (right edge, top, bottom, same bar, neighbours, long text, non-Latin text; dark at 1x and
+Paper at 2x) then showed four defects, all in `OverlayLayer.RenderTextLabels`:
+
+- **Cut off at the right edge:** the plate always started at the anchor and ran right. It now slides
+  left as far as needed to end at the pane's edge; a label wider than the pane is shortened with "…".
+- **Overprinted:** two labels on one bar at about one price printed over each other and neither
+  could be read. A label that would cover one already placed now moves just below it (above when
+  below has no room).
+- **Empty boxes for missing characters:** the default face has no check mark (and no CJK here).
+  Each character the face lacks now comes from whatever installed face the font manager finds.
+  Japanese still shows boxes on this machine because no installed font has it.
+- **Vertical:** the plate flipped below its anchor once and was never kept inside the pane; it is now
+  clamped top to bottom.
+- **Drawn in strips:** the overlay layer also runs for the strips stacked inside the price pane, with
+  the strip's own scale. A label's price could land inside the strip and be drawn a second time
+  there. Labels now skip strips. Found by reading the code; never seen on screen.
+- A plate that was slid or stacked no longer starts at its bar, so its anchor gets a small dot and a
+  line to the plate.
+
+Placement is the new `OverlayLayer.LayoutTextLabels`. Tests are in `RenderLayerTests`: the newest
+bar's label ends inside the pane, a too-wide label is shortened, two labels on one bar do not
+overlap, the plate stays inside at four prices, nothing is drawn in a strip, and characters come from
+a face that has them. Six sabotages each turned their test red and were restored green: no right
+clamp (2 red), no stacking (1), no vertical clamp (1), no strip guard (1), no fallback (1), no
+ellipsis (1). The fallback test passes trivially where the default face has every character, as it
+may on CI. Only pictured offscreen (`DrawingPictureTool`, below); Cody has not seen it in the app.
+
+`DrawingPictureTool` (tests): renders real bars plus drawings made the way the drawing tools make
+them (the real calculators, component configs and renderer) to PNG from a JSON spec. It does
+nothing unless `AT_DRAWING_SPEC` is set, so it never writes in CI.
+
 ### Cipher C's low markers carry letters, check marks and counts (2026-10-21)
 
 Cipher C now uses three append-only marker shapes to match the glyphs in Camel Finance's CF Cycle
