@@ -133,9 +133,32 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   the top wick between -0.09% and -0.145%/bar fits. One case, not a rule. SPX Aug 2024 ("not yet"
 >   on 10 Aug) fits every valid candidate. The other dated statements are monthly or weekly, a
 >   replay with no date (QQQ), or a +12% day that breaks every line (MSTR 19 Aug 2026).
->   Measuring his drawn lines from video frames (Luna, `strategy-lab-data/trendlines/`, Part 2)
->   stopped at the OpenCode Go usage limit before `lines.csv`; Part 1 (88 statements, `rules.md`)
->   is done. Resume Part 2 when usage resets, then score candidates on anchor and slope.
+>   **Part 2 done (2026-10-22, Claude; `strategy-lab-data/trendlines/REPORT.md`, `lines.csv`, 20
+>   lines).** Most start at the cycle TOP (the highest high since the previous cycle low) and run
+>   along the high wicks, on linear charts; the break is the first daily close above. The best rule
+>   is the TOP + wick tangent. Out of sample (3 lines read afterwards) 2 of 3 fit within 3.1 px; the
+>   third (gold, Aug 2026) runs through bodies and closes, like SMH. When a newer high pokes his line
+>   he redraws the tangent from the same top. "Skip the 2 bars after the top" (found after the fact)
+>   is still untested: the three new lines give the same line either way. [probable]
+> - [ ] The trend line is NOT part of CF as far as can be told: CF is hidden on every frame with a
+>   line, its settings are STC-style, and he lists "trendline break" and "the indicator picks the
+>   low" as separate checks. So the lines stay ordinary drawings, not part of Cipher C.
+> - [ ] Cody to open `strategy-lab-data/trendlines/Camel cycles trend lines.json`: a copy of his
+>   "Camel cycles" workspace with the rule lines on SPY, DIA, GLD and BTC as Trend line and Text
+>   label drawings ("Line top 13 Aug", "Cycle low 16 Sep", "Close above line 21 Sep", ...). Made by
+>   `WorkspaceDrawingTool` and read back; copying it into the Workspaces folder needs his OK.
+>   The lows for DIA (1 Oct) and BTC (15 Oct) are Claude's picks; SPY 16 Sep and gold 28 Sep are his.
+> - [ ] **A drawing anchored before the loaded history is drawn wrong until the chart scrolls back.**
+>   Shown with the real calculator: gold's line from the 29 Jan 2026 top, on 120 bars (first bar
+>   4 May), reads 385.63 at the newest bar instead of 405.68 — its start snaps to the first bar
+>   (`DrawingCalculatorHelper.ResolveAnchorIndex`), and its label sits on 4 May. 200 bars load by
+>   default, so a daily stock chart is wrong for anything before about 9 months back. Fix: on restore,
+>   load older bars back to the earliest drawing anchor, or project the anchor into past bar space.
+> - [ ] Components with nothing to navigate (Cody, 2026-10-22: "only components with navigable
+>   useful data on them ... for any indicator"). Cipher C: Cycle Arc (visual only, repeats Arc
+>   Position, no Ctrl+Left/Right stops), the four window start/end markers (name only, no number),
+>   Cycle Low Updated (hidden, silent), low markers (no price). Elsewhere: Profile, Liquidity heatmap.
+>   No flag exists to keep a drawn-only thing out of Ctrl+Up/Down. Proposal sent to Cody; not built.
 
 > **START HERE (2026-10-21 — Cipher C rebuilt as cycle lows after CF's Cycle Trading Indicator;
 > Loukas retired; committed on branch `cipher-c-cf-cycles` (off `camel-render-alpaca-fixes`), NOT

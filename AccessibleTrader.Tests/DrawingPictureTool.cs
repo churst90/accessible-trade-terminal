@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Rendering;
@@ -51,17 +52,72 @@ public sealed class DrawingPictureTool
 
     private static readonly string[] DateFormats = { "yyyy-MM-dd", "yyyy-MM-dd HH:mm" };
 
-    private static DateTime Date(JsonElement e) =>
+    internal static DateTime Date(JsonElement e) =>
         DateTime.SpecifyKind(DateTime.ParseExact(e.GetString()!, DateFormats, CultureInfo.InvariantCulture), DateTimeKind.Utc);
 
-    private static double? Num(JsonElement parent, string name) =>
+    internal static double? Num(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
 
-    private static string? Str(JsonElement parent, string name) =>
+    internal static string? Str(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    private static bool Flag(JsonElement parent, string name) =>
+    internal static bool Flag(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    /// <summary>One drawing from a spec entry, named and configured as the drawing tools do it
+    /// (<c>DrawingInteractionManager.CreateDrawingSeries</c>; a text label is renamed
+    /// "Label: text" once its text is typed). Shared with <see cref="WorkspaceDrawingTool"/>.</summary>
+    internal static (SeriesConfig Config, SeriesDataBuffer Buffer, DrawingData Drawing) BuildDrawing(
+        JsonElement d, int n, List<Ohlcv> bars, IndicatorModelFactory factory, DrawingService drawingService)
+    {
+        var type = Enum.Parse<DrawingType>(d.GetProperty("type").GetString()!);
+        var drawing = new DrawingData
+        {
+            Type = type,
+            AnchorDate1 = d.TryGetProperty("d1", out var d1) ? Date(d1) : null,
+            AnchorPrice1 = Num(d, "p1"),
+            AnchorDate2 = d.TryGetProperty("d2", out var d2) ? Date(d2) : null,
+            AnchorPrice2 = Num(d, "p2"),
+            Text = Str(d, "text") ?? "",
+            ExtendLeft = Flag(d, "extendLeft"),
+            ExtendRight = Flag(d, "extendRight"),
+        };
+        // The names the drawing tools give (DrawingInteractionManager).
+        string name = type switch
+        {
+            DrawingType.TextLabel => "Label",
+            DrawingType.HorizontalLine => "Horizontal",
+            DrawingType.VerticalLine => "Vertical",
+            _ => type.ToString(),
+        };
+        string id = Guid.NewGuid().ToString();
+        string spoken = type == DrawingType.TextLabel ? $"Label: {drawing.Text}"
+            : $"{DrawingInteractionManager.FriendlyName(type)} ({n})";
+        var config = new SeriesConfig { Id = id, Name = spoken, FriendlyName = $"{name} Drawing", Pane = "Main" };
+        var buffer = new SeriesDataBuffer { SeriesId = id };
+        foreach (var kvp in drawingService.CalculateDrawingData(drawing, bars))
+        {
+            var comp = factory.CreateComponentConfig(name, kvp.Key);
+            // What the user can set in Properties: colour and thickness.
+            if (Str(d, "color") is { } hex) { comp.ColorHex = hex; comp.IsUserStyled = true; }
+            if (Num(d, "thickness") is { } th) comp.Thickness = (float)th;
+            config.Components.Add(comp);
+            buffer.ComponentData[comp.Name] = kvp.Value;
+        }
+        return (config, buffer, drawing);
+    }
+
+    internal static DrawingService RealDrawingService()
+    {
+        var calcType = typeof(IDrawingCalculator);
+        return new DrawingService(typeof(DrawingService).Assembly.GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface && calcType.IsAssignableFrom(t))
+            .Select(t => (IDrawingCalculator)Activator.CreateInstance(t)!).ToList());
+    }
+
+    internal static List<Ohlcv> Bars(JsonElement parent) => parent.GetProperty("bars").EnumerateArray()
+        .Select(b => new Ohlcv(Date(b[0]), b[1].GetDouble(), b[2].GetDouble(), b[3].GetDouble(), b[4].GetDouble(), 0))
+        .ToList();
 
     private static void RenderChart(JsonElement chart)
     {
@@ -69,9 +125,7 @@ public sealed class DrawingPictureTool
         float density = (float)(Num(chart, "density") ?? 1.0);
         bool log = Flag(chart, "log");
 
-        var bars = chart.GetProperty("bars").EnumerateArray()
-            .Select(b => new Ohlcv(Date(b[0]), b[1].GetDouble(), b[2].GetDouble(), b[3].GetDouble(), b[4].GetDouble(), 0))
-            .ToList();
+        var bars = Bars(chart);
 
         var settings = Substitute.For<ISettingsManager>();
         settings.GetSetting(Arg.Any<string>(), Arg.Any<JToken?>()).Returns((JToken?)null);
@@ -80,10 +134,7 @@ public sealed class DrawingPictureTool
 
         var styling = new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
         var factory = new IndicatorModelFactory(styling, new MockIndicatorPreferencesService());
-        var calcType = typeof(IDrawingCalculator);
-        var drawingService = new DrawingService(typeof(DrawingService).Assembly.GetTypes()
-            .Where(t => !t.IsAbstract && !t.IsInterface && calcType.IsAssignableFrom(t))
-            .Select(t => (IDrawingCalculator)Activator.CreateInstance(t)!).ToList());
+        var drawingService = RealDrawingService();
 
         var price = new SeriesConfig { Id = CoreSeriesIds.Candles, Name = "Candles", Pane = "Main" };
         price.Components.Add(new ComponentConfig { Name = "body", DisplayType = ComponentDisplayType.Candle });
@@ -93,38 +144,7 @@ public sealed class DrawingPictureTool
         int n = 0;
         foreach (var d in chart.GetProperty("drawings").EnumerateArray())
         {
-            var type = Enum.Parse<DrawingType>(d.GetProperty("type").GetString()!);
-            var drawing = new DrawingData
-            {
-                Type = type,
-                AnchorDate1 = d.TryGetProperty("d1", out var d1) ? Date(d1) : null,
-                AnchorPrice1 = Num(d, "p1"),
-                AnchorDate2 = d.TryGetProperty("d2", out var d2) ? Date(d2) : null,
-                AnchorPrice2 = Num(d, "p2"),
-                Text = Str(d, "text") ?? "",
-                ExtendLeft = Flag(d, "extendLeft"),
-                ExtendRight = Flag(d, "extendRight"),
-            };
-            // The names the drawing tools give (DrawingInteractionManager).
-            string name = type switch
-            {
-                DrawingType.TextLabel => "Label",
-                DrawingType.HorizontalLine => "Horizontal",
-                DrawingType.VerticalLine => "Vertical",
-                _ => type.ToString(),
-            };
-            string id = $"drawing{++n}";
-            var config = new SeriesConfig { Id = id, Name = $"{name} ({n})", FriendlyName = $"{name} Drawing", Pane = "Main" };
-            var buffer = new SeriesDataBuffer { SeriesId = id };
-            foreach (var kvp in drawingService.CalculateDrawingData(drawing, bars))
-            {
-                var comp = factory.CreateComponentConfig(name, kvp.Key);
-                // What the user can set in Properties: colour and thickness.
-                if (Str(d, "color") is { } hex) { comp.ColorHex = hex; comp.IsUserStyled = true; }
-                if (Num(d, "thickness") is { } th) comp.Thickness = (float)th;
-                config.Components.Add(comp);
-                buffer.ComponentData[comp.Name] = kvp.Value;
-            }
+            var (config, buffer, drawing) = BuildDrawing(d, ++n, bars, factory, drawingService);
             series.Add(new ChartSeries(config, buffer) { Drawing = drawing });
         }
 

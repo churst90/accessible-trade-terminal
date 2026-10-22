@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Trend lines from the study written into a workspace as ordinary drawings (2026-10-22)
+
+- `WorkspaceDrawingTool` (test project) adds Trend line and Text label drawings to the tabs of a saved
+  workspace and writes it the way the app saves a profile. It runs only when `AT_WORKSPACE_SPEC`
+  names a spec, so it never writes in CI. It reads the file back, recomputes every drawing from its
+  saved anchors and writes the line's price at each anchor and at the newest bar to a report.
+- `DrawingPictureTool`'s drawing builder is shared with it. Drawings are named as the app names them:
+  "Trend line (n)", and "Label: text" for a text label (was "Label (n)").
+- Used to make `strategy-lab-data/trendlines/Camel cycles trend lines.json`. Caveat: the bars were
+  Yahoo's (SPY, DIA, GLD, BTC-USD), not Alpaca's or Bitstamp's; the anchors are dates and prices, so
+  the lines land on the same days, but a wick that differs between feeds can sit a little off the line.
+  Not opened in the app yet.
+
 ### Text labels stay whole, stack, and draw characters the default font lacks (2026-10-21)
 
 Found while drawing the trend line study's pictures with the real drawing tools: two labels on the
