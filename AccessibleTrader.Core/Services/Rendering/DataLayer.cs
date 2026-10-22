@@ -147,6 +147,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                             case ComponentDisplayType.TriangleUp:
                                 StandardRenderers.RenderTriangleUp(ctx, s, comp, paint);
                                 break;
+                            case ComponentDisplayType.TriangleUpRing:
+                                StandardRenderers.RenderTriangleUpRing(ctx, s, comp, paint);
+                                break;
                             case ComponentDisplayType.TriangleDown:
                                 StandardRenderers.RenderTriangleDown(ctx, s, comp, paint);
                                 break;
@@ -155,6 +158,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                                 break;
                             case ComponentDisplayType.Square:
                                 StandardRenderers.RenderSquare(ctx, s, comp, paint);
+                                break;
+                            case ComponentDisplayType.CheckBox:
+                                StandardRenderers.RenderCheckBox(ctx, s, comp, paint);
+                                break;
+                            case ComponentDisplayType.RefreshBox:
+                                StandardRenderers.RenderRefreshBox(ctx, s, comp, paint);
                                 break;
                             case ComponentDisplayType.Cross:
                                 StandardRenderers.RenderCross(ctx, s, comp, paint);

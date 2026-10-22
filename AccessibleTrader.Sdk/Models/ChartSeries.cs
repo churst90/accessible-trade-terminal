@@ -110,14 +110,16 @@ namespace AccessibleTrader.Sdk.Models
         CandleColor,
         /// <summary>
         /// The value printed as TEXT at each bar — a number on the candle, the way Market Cipher
-        /// DBSI prints its bull and bear scores. Added 2026-10-17, LAST, because the ordinal is
-        /// what a saved workspace stores (this enum is append-only).
+        /// DBSI prints its bull and bear scores. Added 2026-10-17 at ordinal 25; later shape
+        /// values are appended after it because the ordinal is what a saved workspace stores
+        /// (this enum is append-only).
         ///
         /// <para>Where: <see cref="MarkerAnchor.AboveBar"/> centres the text above the drawn bar's
         /// high, <see cref="MarkerAnchor.BelowBar"/> below its low (both a few pixels clear, on the
         /// candle as drawn — Heikin-Ashi when the chart is); <see cref="MarkerAnchor.Value"/> centres
         /// it on the value through the pane's axis. A bar-anchored label's value is not a position,
-        /// so it never stretches the axis.</para>
+        /// so it never stretches the axis. <see cref="ComponentConfig.MarkerText"/> appends a
+        /// visual-only suffix directly after the number (for example, <c>49D</c>).</para>
         ///
         /// <para>Colour: <see cref="ComponentConfig.ColorHex"/>, made legible on the theme (4.5:1
         /// on a backing plate). With <see cref="ComponentConfig.ColorAboveComponent"/> naming a
@@ -131,10 +133,17 @@ namespace AccessibleTrader.Sdk.Models
         /// altogether when a bar's slot is too narrow for the widest one at the smallest legible
         /// size — numbers printed over each other read as neither.</para>
         ///
-        /// <para>It has a reading (the status line and Alt+Shift+D print and say the number); it is
-        /// not a marker, so the narrator does not announce it on every bar.</para>
+        /// <para>It has a reading (the status line and Alt+Shift+D print and say the number; the
+        /// optional suffix is not spoken); it is not a marker, so the narrator does not announce it
+        /// on every bar.</para>
         /// </summary>
         ValueLabel,
+        /// <summary>Rounded filled square with a white check mark; used for confirmed events.</summary>
+        CheckBox,
+        /// <summary>Rounded filled square with white circular arrows; used for pending events.</summary>
+        RefreshBox,
+        /// <summary>Upward triangle with a lettered ring one marker-height beyond it.</summary>
+        TriangleUpRing,
     }
     
     /// <summary>

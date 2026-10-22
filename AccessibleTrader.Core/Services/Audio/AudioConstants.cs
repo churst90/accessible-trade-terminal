@@ -30,8 +30,11 @@ namespace AccessibleTrader.Core.Services.Audio
             ComponentDisplayType.Arrow,
             ComponentDisplayType.Diamond,
             ComponentDisplayType.TriangleUp,
+            ComponentDisplayType.TriangleUpRing,
             ComponentDisplayType.TriangleDown,
             ComponentDisplayType.Square,
+            ComponentDisplayType.CheckBox,
+            ComponentDisplayType.RefreshBox,
             ComponentDisplayType.Cross,
         };
 

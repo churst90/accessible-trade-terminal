@@ -18,6 +18,13 @@ namespace AccessibleTrader.Sdk.Models
         public string? DataMapping { get; set; }
 
         /// <summary>
+        /// Shape-specific text: the letter inside a <see cref="ComponentDisplayType.TriangleUpRing"/>;
+        /// for <see cref="ComponentDisplayType.ValueLabel"/>, a suffix printed after the number on
+        /// the chart and in the status line. The suffix is visual only and is not spoken.
+        /// </summary>
+        public string? MarkerText { get; set; }
+
+        /// <summary>
         /// Whether this component's value at a bar uses any later bar. Null = inherit the
         /// indicator's <see cref="IndicatorMetadata.Causality"/>, which is the normal case;
         /// set it only on the components that differ from their indicator.

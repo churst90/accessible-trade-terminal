@@ -1,6 +1,8 @@
+using System.Reflection;
 using AccessibleTrader.Core.Services;
 
 using AccessibleTrader.Core.Services.Rendering;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Theming;
 using NSubstitute;
@@ -29,11 +31,12 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class MarkerSizingTests
     {
-        private static RenderContext Context(SKCanvas canvas, int viewportLength, float width = 800f, float density = 1f) =>
+        private static RenderContext Context(SKCanvas canvas, int viewportLength, float width = 800f, float density = 1f,
+            IReadOnlyList<Ohlcv>? data = null) =>
             new(
                 Canvas: canvas,
                 PaneRect: new SKRect(0, 0, width, 400f),
-                Data: Array.Empty<Ohlcv>(),
+                Data: data ?? Array.Empty<Ohlcv>(),
                 ViewportStart: 0,
                 ViewportLength: viewportLength,
                 Min: 0,
@@ -49,6 +52,47 @@ namespace AccessibleTrader.Tests
         // from the real service so the test never drifts from ChartTheme's required members.
         private static readonly ChartTheme DefaultTheme =
             new ThemeService(Substitute.For<ISettingsManager>()).Current;
+
+        private static ComponentDisplayType Shape(string name) => Enum.Parse<ComponentDisplayType>(name);
+
+        private static void SetMarkerText(ComponentConfig component, string? text)
+        {
+            var property = typeof(ComponentConfig).GetProperty("MarkerText");
+            Assert.NotNull(property);
+            property!.SetValue(component, text);
+        }
+
+        private static void RenderNewShape(string name, RenderContext ctx, ChartSeries series, ComponentConfig component, SKPaint paint)
+        {
+            var renderer = typeof(StandardRenderers).GetMethod("Render" + name, BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(renderer);
+            renderer!.Invoke(null, new object?[] { ctx, series, component, paint });
+        }
+
+        private static int CountPixels(SKBitmap bitmap, Func<SKColor, bool> matches, int left, int top, int right, int bottom)
+        {
+            int count = 0;
+            for (int y = Math.Max(0, top); y < Math.Min(bitmap.Height, bottom); y++)
+                for (int x = Math.Max(0, left); x < Math.Min(bitmap.Width, right); x++)
+                    if (matches(bitmap.GetPixel(x, y))) count++;
+            return count;
+        }
+
+        private static (int MinY, int MaxY, int Count) InkBounds(SKBitmap bitmap, SKColor ink)
+        {
+            int minY = int.MaxValue, maxY = int.MinValue, count = 0;
+            for (int y = 0; y < bitmap.Height; y++)
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    var pixel = bitmap.GetPixel(x, y);
+                    if (Math.Abs(pixel.Red - ink.Red) > 35 || Math.Abs(pixel.Green - ink.Green) > 35 ||
+                        Math.Abs(pixel.Blue - ink.Blue) > 35 || pixel.Alpha == 0) continue;
+                    minY = Math.Min(minY, y);
+                    maxY = Math.Max(maxY, y);
+                    count++;
+                }
+            return (minY, maxY, count);
+        }
 
         // ── Size clamping ────────────────────────────────────────────────
 
@@ -285,6 +329,235 @@ namespace AccessibleTrader.Tests
             // been 16x16 and nearly seven bars wide.
             Assert.True(painted > 0, "The marker vanished — the floor is not doing its job.");
             Assert.True(painted <= 49, $"Square painted {painted} pixels at a 330-bar zoom; the clamp is not applied.");
+        }
+
+        [Fact]
+        public void New_marker_shape_ordinals_follow_ValueLabel_without_renumbering_it()
+        {
+            Assert.Equal(25, (int)ComponentDisplayType.ValueLabel);
+            Assert.Equal("ValueLabel", Enum.GetName(typeof(ComponentDisplayType), 25));
+            Assert.Equal("CheckBox", Enum.GetName(typeof(ComponentDisplayType), 26));
+            Assert.Equal("RefreshBox", Enum.GetName(typeof(ComponentDisplayType), 27));
+            Assert.Equal("TriangleUpRing", Enum.GetName(typeof(ComponentDisplayType), 28));
+        }
+
+        [Theory]
+        [InlineData(ThemeType.Blackout)]
+        [InlineData(ThemeType.Paper)]
+        public void CheckBox_has_component_colour_and_white_check_pixels_while_plain_Square_has_no_white(ThemeType themeType)
+        {
+            using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+            var theme = DbsiChartHarness.Themes(themeType).Current;
+            surface.Canvas.Clear(theme.Background);
+            var color = SKColor.Parse("#00A040");
+            var series = new ChartSeries();
+            var marks = new[]
+            {
+                new ComponentConfig { Name = "Check", DisplayName = "Check", DisplayType = Shape("CheckBox"), ColorHex = "#00A040", Thickness = 6f },
+                new ComponentConfig { Name = "Square", DisplayName = "Square", DisplayType = ComponentDisplayType.Square, ColorHex = "#00A040", Thickness = 6f },
+            };
+            foreach (var comp in marks)
+            {
+                var data = Enumerable.Repeat(double.NaN, 40).ToArray();
+                data[comp.Name == "Check" ? 10 : 30] = 50;
+                series.Data.ComponentData[comp.Name] = data;
+            }
+            using var paint = new SKPaint { Color = color, IsAntialias = true };
+            var ctx = Context(surface.Canvas, viewportLength: 40) with { Theme = theme };
+
+            RenderNewShape("CheckBox", ctx, series, marks[0], paint);
+            StandardRenderers.RenderSquare(ctx, series, marks[1], paint);
+
+            using var image = surface.Snapshot();
+            using var bitmap = SKBitmap.FromImage(image);
+            int checkGreen = CountPixels(bitmap, c => Math.Abs(c.Red - color.Red) < 20 && Math.Abs(c.Green - color.Green) < 20 && Math.Abs(c.Blue - color.Blue) < 20,
+                206, 196, 214, 204);
+            int checkWhite = CountPixels(bitmap, c => c.Red > 230 && c.Green > 230 && c.Blue > 230,
+                206, 196, 214, 204);
+            int squareWhite = CountPixels(bitmap, c => c.Red > 230 && c.Green > 230 && c.Blue > 230,
+                606, 196, 614, 204);
+
+            Assert.True(checkGreen > 0, "The rounded box must use the component colour.");
+            Assert.True(checkWhite > 0, "The check mark must stay white inside its coloured box.");
+            Assert.Equal(0, squareWhite);
+        }
+
+        [Theory]
+        [InlineData(ThemeType.Blackout)]
+        [InlineData(ThemeType.Paper)]
+        public void RefreshBox_has_component_colour_and_white_circular_arrow_pixels_inside_its_box(ThemeType themeType)
+        {
+            using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+            var theme = DbsiChartHarness.Themes(themeType).Current;
+            surface.Canvas.Clear(theme.Background);
+            var color = SKColor.Parse("#00A040");
+            var series = new ChartSeries();
+            var comp = new ComponentConfig
+            {
+                Name = "Refresh", DisplayName = "Refresh", DisplayType = Shape("RefreshBox"),
+                ColorHex = "#00A040", Thickness = 6f,
+            };
+            var data = Enumerable.Repeat(double.NaN, 40).ToArray();
+            data[20] = 50;
+            series.Data.ComponentData[comp.Name] = data;
+            using var paint = new SKPaint { Color = color, IsAntialias = true };
+
+            RenderNewShape("RefreshBox", Context(surface.Canvas, 40) with { Theme = theme }, series, comp, paint);
+
+            using var image = surface.Snapshot();
+            using var bitmap = SKBitmap.FromImage(image);
+            int green = CountPixels(bitmap, c => Math.Abs(c.Red - color.Red) < 20 && Math.Abs(c.Green - color.Green) < 20 && Math.Abs(c.Blue - color.Blue) < 20,
+                406, 196, 414, 204);
+            int white = CountPixels(bitmap, c => c.Red > 230 && c.Green > 230 && c.Blue > 230,
+                406, 196, 414, 204);
+
+            Assert.True(green > 0, "The rounded box must use the component colour.");
+            Assert.True(white > 0, "The refresh arrows must stay white inside their coloured box.");
+        }
+
+        [Theory]
+        [InlineData(MarkerAnchor.BelowBar)]
+        [InlineData(MarkerAnchor.AboveBar)]
+        public void TriangleUpRing_places_its_lettered_ring_one_marker_height_beyond_the_triangle(MarkerAnchor anchor)
+        {
+            var bars = Enumerable.Range(0, 40)
+                .Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 50, 55, 45, 50, 1000))
+                .ToList();
+            var values = Enumerable.Repeat(double.NaN, 40).ToArray();
+            values[20] = 50;
+            var color = SKColor.Parse("#00E676");
+            var ringComp = new ComponentConfig
+            {
+                Name = "Ring", DisplayName = "Ring", DisplayType = Shape("TriangleUpRing"),
+                MarkerAnchor = anchor, ColorHex = "#00E676", Thickness = 4f,
+            };
+            SetMarkerText(ringComp, "D");
+            var plainComp = new ComponentConfig
+            {
+                Name = "Triangle", DisplayName = "Triangle", DisplayType = ComponentDisplayType.TriangleUp,
+                MarkerAnchor = anchor, ColorHex = "#00E676", Thickness = 4f,
+            };
+            var ringSeries = new ChartSeries();
+            ringSeries.Data.ComponentData[ringComp.Name] = values;
+            var plainSeries = new ChartSeries();
+            plainSeries.Data.ComponentData[plainComp.Name] = values;
+
+            (int MinY, int MaxY, int Count) DrawBounds(bool withRing)
+            {
+                using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+                surface.Canvas.Clear(SKColors.Black);
+                var ctx = Context(surface.Canvas, 40, data: bars);
+                using var paint = new SKPaint { Color = color, IsAntialias = true };
+                if (withRing) RenderNewShape("TriangleUpRing", ctx, ringSeries, ringComp, paint);
+                else StandardRenderers.RenderTriangleUp(ctx, plainSeries, plainComp, paint);
+                using var image = surface.Snapshot();
+                using var bitmap = SKBitmap.FromImage(image);
+                return InkBounds(bitmap, color);
+            }
+
+            var composite = DrawBounds(withRing: true);
+            var triangle = DrawBounds(withRing: false);
+            using var ySurface = SKSurface.Create(new SKImageInfo(800, 400));
+            var ctxForY = Context(ySurface.Canvas, 40, data: bars);
+            float markerY = StandardRenderers.ResolveMarkerY(ctxForY, ringComp, 20, 50);
+            float markerHeight = StandardRenderers.ClampMarkerExtent(Math.Max(ringComp.Thickness * 3f, 6f), ctxForY);
+            Assert.True(composite.Count > triangle.Count, "The ring and letter must add visible ink.");
+            if (anchor == MarkerAnchor.BelowBar)
+            {
+                Assert.True(triangle.MaxY <= markerY + 1f, "A plain upward triangle has no ink beyond its base.");
+                Assert.True(composite.MaxY - triangle.MaxY >= markerHeight,
+                    $"The ring's far edge extends only {composite.MaxY - triangle.MaxY}px beyond the triangle; expected at least {markerHeight}px.");
+            }
+            else
+            {
+                Assert.True(triangle.MinY >= markerY - markerHeight - 1f, "A plain upward triangle has no ink above its tip.");
+                Assert.True(triangle.MinY - composite.MinY >= markerHeight,
+                    $"The ring's far edge extends only {triangle.MinY - composite.MinY}px beyond the triangle; expected at least {markerHeight}px.");
+            }
+        }
+
+        [Fact]
+        public void CF_shape_review_PNGs_are_written_only_when_requested()
+        {
+            string? directory = Environment.GetEnvironmentVariable("AT_CF_SHAPES_PNG_DIR");
+            if (string.IsNullOrWhiteSpace(directory)) return;
+
+            Directory.CreateDirectory(directory);
+            RenderReviewPng(directory, ThemeType.Blackout, "cf-shapes-blackout-2x.png");
+            RenderReviewPng(directory, ThemeType.Paper, "cf-shapes-paper-2x.png");
+        }
+
+        private static void RenderReviewPng(string directory, ThemeType themeType, string fileName)
+        {
+            const int width = 1600, height = 800, count = 40;
+            const float density = 2f;
+            var theme = DbsiChartHarness.Themes(themeType).Current;
+            var bars = Enumerable.Range(0, count)
+                .Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 48, 55, 45, 52, 1000))
+                .ToList();
+            using var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+            canvas.Clear(theme.Background);
+            var ctx = new RenderContext(canvas, new SKRect(0, 0, width, height), bars,
+                ViewportStart: 0, ViewportLength: count, Min: 0, Max: 100, IsLogScale: false,
+                ItemWidth: width / (float)count, Density: density, PaneName: "Main", LocalCursorIndex: 25, Theme: theme);
+
+            var candles = new ChartSeries();
+            candles.Components.Add(new ComponentConfig { Name = "body", DisplayType = ComponentDisplayType.Candle, Role = ComponentRole.Body });
+            using (var candlePaint = new SKPaint { Color = theme.CandleBullishBody, IsAntialias = true })
+                StandardRenderers.RenderCandles(ctx, candles, candlePaint);
+
+            var series = new ChartSeries();
+            ComponentConfig Add(string name, ComponentDisplayType shape, string color, MarkerAnchor anchor, int bar, double value,
+                float thickness = 3f, string? markerText = null)
+            {
+                var component = new ComponentConfig
+                {
+                    Name = name, DisplayName = name, DisplayType = shape, ColorHex = color,
+                    MarkerAnchor = anchor, Thickness = thickness, MarkerText = markerText,
+                };
+                series.Components.Add(component);
+                var data = Enumerable.Repeat(double.NaN, count).ToArray();
+                data[bar] = value;
+                series.Data.ComponentData[name] = data;
+                return component;
+            }
+
+            var check = Add("CheckBox", ComponentDisplayType.CheckBox, "#00E676", MarkerAnchor.Value, 5, 50);
+            var refresh = Add("RefreshBox", ComponentDisplayType.RefreshBox, "#78909C", MarkerAnchor.Value, 12, 50);
+            var ring = Add("TriangleUpRing", ComponentDisplayType.TriangleUpRing, "#00E676", MarkerAnchor.BelowBar, 19, 45, markerText: "D");
+            var stackRing = Add("DCL ring D", ComponentDisplayType.TriangleUpRing, "#00E676", MarkerAnchor.BelowBar, 25, 45, markerText: "D");
+            var countLabel = Add("DCL count 49D", ComponentDisplayType.ValueLabel, "#00E676", MarkerAnchor.AboveBar, 25, 49, markerText: "D");
+            // Cipher C's own sizes for the stack (CipherCProvider: confirmed 4.5, pending 4).
+            var confirmed = Add("DCL confirmed", ComponentDisplayType.CheckBox, "#00E676", MarkerAnchor.AboveBar, 31, 50, thickness: 4.5f);
+            var pending = Add("DCL pending", ComponentDisplayType.RefreshBox, "#78909C", MarkerAnchor.AboveBar, 36, 50, thickness: 4f);
+
+            using var paint = new SKPaint { IsAntialias = true };
+            paint.Color = SKColor.Parse(check.ColorHex);
+            StandardRenderers.RenderCheckBox(ctx, series, check, paint);
+            paint.Color = SKColor.Parse(refresh.ColorHex);
+            StandardRenderers.RenderRefreshBox(ctx, series, refresh, paint);
+            paint.Color = SKColor.Parse(ring.ColorHex);
+            StandardRenderers.RenderTriangleUpRing(ctx, series, ring, paint);
+            paint.Color = SKColor.Parse(stackRing.ColorHex);
+            StandardRenderers.RenderTriangleUpRing(ctx, series, stackRing, paint);
+            ValueLabelRenderer.Render(ctx, series, countLabel);
+            paint.Color = SKColor.Parse(confirmed.ColorHex);
+            StandardRenderers.RenderCheckBox(ctx, series, confirmed, paint);
+            paint.Color = SKColor.Parse(pending.ColorHex);
+            StandardRenderers.RenderRefreshBox(ctx, series, pending, paint);
+
+            SKColor titleColor = themeType == ThemeType.Paper ? SKColors.Black : SKColors.White;
+            using var titleFont = new SKFont(SKTypeface.Default, 16f * density);
+            using var titlePaint = new SKPaint { Color = titleColor, IsAntialias = true };
+            canvas.DrawText("CheckBox", 5 * 40f + 20f, 80f, SKTextAlign.Center, titleFont, titlePaint);
+            canvas.DrawText("RefreshBox", 12 * 40f + 20f, 80f, SKTextAlign.Center, titleFont, titlePaint);
+            canvas.DrawText("TriangleUpRing", 19 * 40f + 20f, 80f, SKTextAlign.Center, titleFont, titlePaint);
+            canvas.DrawText("DCL stack", 31 * 40f + 20f, 80f, SKTextAlign.Center, titleFont, titlePaint);
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(Path.Combine(directory, fileName), png.ToArray());
         }
     }
 }

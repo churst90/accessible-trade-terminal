@@ -67,12 +67,18 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// The text a value prints as: a whole number without decimals ("15", "-5"), anything else
         /// with the status line's decimals. ASCII minus, as TradingView prints it.
         /// </summary>
-        public static string Text(double v)
+        public static string Text(double v) => Text(v, markerText: null);
+
+        /// <summary>The displayed number with its optional visual-only suffix.</summary>
+        public static string Text(double v, string? markerText)
         {
             if (double.IsNaN(v) || double.IsInfinity(v)) return "";
+            string number;
             if (Math.Abs(v - Math.Round(v)) < 1e-9 && Math.Abs(v) < 1e15)
-                return ((long)Math.Round(v)).ToString(CultureInfo.InvariantCulture);
-            return ChartStatusLine.FormatReading(v);
+                number = ((long)Math.Round(v)).ToString(CultureInfo.InvariantCulture);
+            else
+                number = ChartStatusLine.FormatReading(v);
+            return number + (markerText ?? string.Empty);
         }
 
         /// <summary>
@@ -169,7 +175,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 int abs = ctx.ViewportStart + i;
                 if (abs < first || abs >= barCount) continue;
-                string t = Text(data[abs]);
+                string t = Text(data[abs], comp.MarkerText);
                 if (t.Length == 0) continue;
                 items.Add((i, abs, t));
             }

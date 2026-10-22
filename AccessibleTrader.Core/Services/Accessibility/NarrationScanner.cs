@@ -1272,7 +1272,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             ComponentDisplayType.Dot or ComponentDisplayType.Arrow
             or ComponentDisplayType.Diamond or ComponentDisplayType.TriangleUp
-            or ComponentDisplayType.TriangleDown or ComponentDisplayType.Square
+            or ComponentDisplayType.TriangleUpRing or ComponentDisplayType.TriangleDown
+            or ComponentDisplayType.Square or ComponentDisplayType.CheckBox or ComponentDisplayType.RefreshBox
             or ComponentDisplayType.Cross or ComponentDisplayType.ZeroDot => true,
             _ => false
         };

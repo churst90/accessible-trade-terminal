@@ -187,8 +187,11 @@ namespace AccessibleTrader.Tests
         [InlineData(ComponentDisplayType.Arrow)]
         [InlineData(ComponentDisplayType.Diamond)]
         [InlineData(ComponentDisplayType.TriangleUp)]
+        [InlineData(ComponentDisplayType.TriangleUpRing)]
         [InlineData(ComponentDisplayType.TriangleDown)]
         [InlineData(ComponentDisplayType.Square)]
+        [InlineData(ComponentDisplayType.CheckBox)]
+        [InlineData(ComponentDisplayType.RefreshBox)]
         [InlineData(ComponentDisplayType.Cross)]
         public async Task Cluster_FiresForEveryMarkerShape(ComponentDisplayType shape)
         {

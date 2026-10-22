@@ -29,6 +29,12 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private ComponentDisplayType _displayType = ComponentDisplayType.Line;
         /// <summary>Vertical anchoring for marker shapes. See <see cref="MarkerAnchor"/>.</summary>
         [ObservableProperty] private MarkerAnchor _markerAnchor = MarkerAnchor.Value;
+        /// <summary>
+        /// Shape-specific text: the letter inside a <see cref="ComponentDisplayType.TriangleUpRing"/>;
+        /// for <see cref="ComponentDisplayType.ValueLabel"/>, a suffix printed after the number on
+        /// the chart and in the status line. The suffix is visual only and is not spoken.
+        /// </summary>
+        public string? MarkerText { get; set; }
         [ObservableProperty] private ComponentRole _role = ComponentRole.None;
         [ObservableProperty] private AmplitudeMapping _amplitudeMapping = AmplitudeMapping.None;
         [ObservableProperty] private PitchMapping _pitchMapping = PitchMapping.Value;
@@ -330,7 +336,7 @@ namespace AccessibleTrader.Sdk.Models
             return new ComponentConfig
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
-                MarkerAnchor = MarkerAnchor,
+                MarkerAnchor = MarkerAnchor, MarkerText = MarkerText,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

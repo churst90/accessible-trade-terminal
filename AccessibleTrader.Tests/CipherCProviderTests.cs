@@ -48,6 +48,20 @@ public sealed class CipherCProviderTests
 
     private static IEnumerable<int> Marked(double[] a) => Enumerable.Range(0, a.Length).Where(i => !double.IsNaN(a[i]));
 
+    private static string? MarkerTextOf(object value)
+    {
+        var property = value.GetType().GetProperty("MarkerText");
+        Assert.NotNull(property);
+        return property!.GetValue(value) as string;
+    }
+
+    private static void SetMarkerText(object value, string? text)
+    {
+        var property = value.GetType().GetProperty("MarkerText");
+        Assert.NotNull(property);
+        property!.SetValue(value, text);
+    }
+
     // ── 1. What it is ─────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -63,6 +77,111 @@ public sealed class CipherCProviderTests
         Assert.Equal("Main", m.DefaultPane);
         Assert.False(m.IsDeprecated);
         Assert.Empty(Provider.GetDefaultLevels(CipherCProvider.Code));
+    }
+
+    [Fact]
+    public void CF_marker_metadata_declares_ring_letters_check_boxes_refresh_box_and_count_suffixes()
+    {
+        var components = Meta().Components.ToDictionary(c => c.Name);
+        var expected = new[]
+        {
+            (Name: CipherCProvider.CompDcl, Shape: "TriangleUpRing", Color: CipherCProvider.DclHex, Text: "D", Size: 3f, Anchor: MarkerAnchor.BelowBar, Sound: "sine_bell"),
+            (Name: CipherCProvider.CompWcl, Shape: "TriangleUpRing", Color: CipherCProvider.WclHex, Text: "W", Size: 4.5f, Anchor: MarkerAnchor.BelowBar, Sound: "dual_tone_bell"),
+            (Name: CipherCProvider.CompYcl, Shape: "TriangleUpRing", Color: CipherCProvider.YclHex, Text: "Y", Size: 6f, Anchor: MarkerAnchor.BelowBar, Sound: "dual_tone_bell"),
+            (Name: CipherCProvider.CompDclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 4.5f, Anchor: MarkerAnchor.AboveBar, Sound: "sine_bell"),
+            (Name: CipherCProvider.CompWclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 5.5f, Anchor: MarkerAnchor.AboveBar, Sound: "dual_tone_bell"),
+            (Name: CipherCProvider.CompYclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 6.5f, Anchor: MarkerAnchor.AboveBar, Sound: "dual_tone_bell"),
+            (Name: CipherCProvider.CompPending, Shape: "RefreshBox", Color: "#78909C", Text: (string?)null, Size: 4f, Anchor: MarkerAnchor.AboveBar, Sound: "triangle_bell"),
+        };
+        foreach (var row in expected)
+        {
+            var component = components[row.Name];
+            Assert.Equal(row.Shape, component.DisplayType.ToString());
+            Assert.Equal(row.Color, component.DefaultColorHex);
+            Assert.Equal(row.Text, MarkerTextOf(component));
+            Assert.Equal(row.Size, component.DefaultThickness);
+            Assert.Equal(row.Anchor, component.DefaultMarkerAnchor);
+            Assert.Equal(row.Sound, component.DefaultSoundPatchId);
+        }
+
+        foreach (var (name, text, color) in new[]
+        {
+            (CipherCProvider.CompDclCount, "D", CipherCProvider.DclHex),
+            (CipherCProvider.CompWclCount, "W", CipherCProvider.WclHex),
+        })
+        {
+            var component = components[name];
+            Assert.Equal(ComponentDisplayType.ValueLabel, component.DisplayType);
+            Assert.Equal(color, component.DefaultColorHex);
+            Assert.Equal(text, MarkerTextOf(component));
+        }
+    }
+
+    [Fact]
+    public void MarkerText_from_metadata_reaches_the_component_config()
+    {
+        var series = Factory.CreateSeriesFromMetadata(Meta(), "Cipher C", "Main",
+            new List<(string Name, string Value)>(), componentOverrides: null);
+
+        Assert.Equal("D", MarkerTextOf(series.Components.Single(c => c.Name == CipherCProvider.CompDcl)));
+        Assert.Equal("W", MarkerTextOf(series.Components.Single(c => c.Name == CipherCProvider.CompWclCount)));
+    }
+
+    [Fact]
+    public void MarkerText_survives_the_ComponentConfig_clone()
+    {
+        var component = new ComponentConfig { Name = "DCL", DisplayType = ComponentDisplayType.ValueLabel };
+        SetMarkerText(component, "D");
+
+        Assert.Equal("D", MarkerTextOf(component.Clone()));
+    }
+
+    [Fact]
+    public void Saved_chart_without_MarkerText_gets_current_metadata_letters_on_load()
+    {
+        var meta = Meta();
+        var saved = new SeriesConfig
+        {
+            Id = "cc-marker-text", Name = "Cipher C", IndicatorCode = CipherCProvider.Code,
+            Pane = "Main", Volume = 1f,
+        };
+        foreach (string name in new[]
+        {
+            CipherCProvider.CompDcl, CipherCProvider.CompWcl, CipherCProvider.CompYcl,
+            CipherCProvider.CompDclCount, CipherCProvider.CompWclCount,
+        })
+            saved.Components.Add(new ComponentConfig { Name = name, DisplayName = name, IsVisible = true, IsEnabled = true, Volume = 1f });
+
+        WorkspaceInitializer.MigrateSeriesConfig(saved, new List<IndicatorMetadata> { meta });
+        var loaded = SeriesManagementService.MaterializeSaved(saved, meta, Factory,
+            Array.Empty<IReadOnlyDictionary<string, object>>(), Engine(), new MockIndicatorPreferencesService());
+
+        Assert.Equal("D", MarkerTextOf(loaded.Components.Single(c => c.Name == CipherCProvider.CompDcl)));
+        Assert.Equal("W", MarkerTextOf(loaded.Components.Single(c => c.Name == CipherCProvider.CompWcl)));
+        Assert.Equal("Y", MarkerTextOf(loaded.Components.Single(c => c.Name == CipherCProvider.CompYcl)));
+        Assert.Equal("D", MarkerTextOf(loaded.Components.Single(c => c.Name == CipherCProvider.CompDclCount)));
+        Assert.Equal("W", MarkerTextOf(loaded.Components.Single(c => c.Name == CipherCProvider.CompWclCount)));
+    }
+
+    [Theory]
+    [InlineData("CheckBox", "check mark")]
+    [InlineData("RefreshBox", "refresh mark")]
+    [InlineData("TriangleUpRing", "lettered triangle")]
+    public void New_marker_shapes_have_spoken_shape_words(string shape, string words)
+    {
+        var displayType = Enum.Parse<ComponentDisplayType>(shape);
+        Assert.Equal(words, SpeechFormatter.FriendlyTypeName(displayType));
+    }
+
+    [Fact]
+    public void Cycle_count_speech_keeps_its_unit_words_without_the_visual_suffix()
+    {
+        var bar = new Ohlcv(new DateTime(2026, 1, 1), 50, 55, 45, 50, 1000);
+        var said = Provider.GetComponentSpeech(CipherCProvider.CompDclCount, 49, bar,
+            new Dictionary<string, double[]>(), dataIndex: 0);
+
+        Assert.Equal("49 day cycle", said);
+        Assert.DoesNotContain("D", said);
     }
 
     /// <summary>

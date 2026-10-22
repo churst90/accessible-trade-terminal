@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's low markers carry letters, check marks and counts (2026-10-21)
+
+Cipher C now uses three append-only marker shapes to match the glyphs in Camel Finance's CF Cycle
+Trading Indicator demo: lettered triangle rings for the cycle lows, white check marks in green rounded
+boxes for confirmations, and white circular arrows in grey-blue rounded boxes while a low is pending.
+The DCL and WCL count labels print `49D` / `24W`; their spoken readings remain the provider's existing
+"49 day cycle" / "24 week cycle" forms. White stays white on both dark and light chart themes.
+
+- **Metadata and saved charts:** D/W/Y ring letters, check/refresh shapes, colors and sizes are declared
+  by Cipher C metadata. `MarkerText` is copied to `ComponentConfig`, cloned and re-derived from current
+  metadata when a saved chart loads, so old saves acquire the visual annotations too. New ordinals are
+  appended after `ValueLabel` (25): `CheckBox` 26, `RefreshBox` 27, `TriangleUpRing` 28.
+- **Evidence:** CF's demo frames as summarized in `docs/CIPHER_C_DESIGN.md` section 3: the daily D
+  ring, weekly W stack, check mark, refresh arrows and `49D` count. The review PNGs are in
+  `strategy-lab-data/shapes/`. The owner has not yet seen these rendered markers or this change.
+- **Box size (Claude, after viewing the review PNGs):** at Luna's sizes (the old square's 3 / 4 / 5,
+  pending 2.5) the daily check box was 6 px across at 1x, smaller than the triangle it sits with, and
+  the refresh arrows read as a dot. Cipher C now draws them at 4.5 / 5.5 / 6.5 and pending 4: the check
+  and both arrows are legible and the box is about the triangle's size. The renderers' size rule is
+  unchanged (same as `Square`); only Cipher C's metadata and its pinned sizes in
+  `CF_marker_metadata_declares_ring_letters_check_boxes_refresh_box_and_count_suffixes` moved.
+- **Still not built:** a green cancellation box around the original low stack (ours
+  remains a red cross on the cancelling bar), CF's check beneath the original low stack (ours is above
+  the confirming bar), and LOW/MID/HIGH text under the stack (ours is spoken only). Future FCLR boxes
+  and later confluence upgrades remain open as well; see `docs/TODO.md`. The camel emoji is not
+  being built (Cody declined vendor branding).
+- **Red-first:** the 14 new/changed cases in `CipherCProviderTests`, `MarkerSizingTests` and
+  `ValueLabelRenderingTests` were run before implementation: 14 expected failures, 210 passed. After
+  implementation the focused filter passed 230/230; the wider filter passed 1,920/1,920 and the
+  source-reading classes passed 867/867. `CipherCProviderTests` now has 84 passing cases.
+- **Sabotage:** drawing `CheckBox` without its check turned 2 cases red; dropping `MarkerText` in
+  value-label layout turned 2 red; omitting the factory's metadata copy turned 2 red. Each file was
+  restored from `strategy-lab-data/sab/`, verified clean with `git diff --quiet`, rebuilt, and the
+  230-case focused filter returned green.
+
 ### Cipher C names no vendor (2026-10-21)
 
 Cody: "this is not supposed to be representative brand wise so remove camel finance text or speech,

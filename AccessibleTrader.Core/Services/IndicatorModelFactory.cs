@@ -346,6 +346,7 @@ namespace AccessibleTrader.Core.Services
                 Name         = meta.Name,
                 DisplayName  = meta.DisplayName ?? meta.Name,
                 DisplayType  = type,
+                MarkerText   = meta.MarkerText,
                 Role         = role,
                 DataMapping  = meta.DataMapping ?? string.Empty,
                 UpperComponentName = meta.UpperComponentName ?? string.Empty,

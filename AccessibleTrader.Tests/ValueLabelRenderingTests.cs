@@ -174,6 +174,13 @@ public sealed class ValueLabelRenderingTests
     private static SKColor BearInk(ChartTheme t) => ValueLabelRenderer.Ink(t, SKColor.Parse(DbsiStyleProvider.BearHex));
     private static SKColor LiveInk(ChartTheme t) => ValueLabelRenderer.Ink(t, SKColor.Parse(DbsiStyleProvider.LiveHex));
 
+    private static void SetMarkerText(ComponentConfig component, string? text)
+    {
+        var property = typeof(ComponentConfig).GetProperty("MarkerText");
+        Assert.NotNull(property);
+        property!.SetValue(component, text);
+    }
+
     // ── Placement ────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -425,6 +432,69 @@ public sealed class ValueLabelRenderingTests
     }
 
     // ── The status line ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MarkerText_suffix_prints_49D_in_layout_and_status_but_is_not_spoken()
+    {
+        var bars = Bars(1);
+        using var surface = SKSurface.Create(new SKImageInfo(400, 200));
+        var theme = DbsiChartHarness.Themes().Current;
+        var series = new ChartSeries();
+        series.Config.Name = "Cycle Count";
+        var comp = new ComponentConfig
+        {
+            Name = "DCL Count", DisplayName = "DCL Count", DisplayType = ComponentDisplayType.ValueLabel,
+            ColorHex = "#00E676", IsVisible = true,
+        };
+        SetMarkerText(comp, "D");
+        series.Components.Add(comp);
+        series.Data.ComponentData[comp.Name] = new[] { 49.0 };
+
+        var ctx = new RenderContext(surface.Canvas, new SKRect(0, 0, 400, 200), bars,
+            ViewportStart: 0, ViewportLength: 1, Min: 0, Max: 100, IsLogScale: false,
+            ItemWidth: 400f, Density: 1f, PaneName: "Main", LocalCursorIndex: 0, Theme: theme);
+        var layout = ValueLabelRenderer.Layout(ctx, series, comp, out _);
+        Assert.Equal("49D", Assert.Single(layout).Text);
+
+        var status = ChartStatusLine.SeriesLine(series, 0, theme, ChartStatusLine.Backing(theme, 245), bars);
+        Assert.NotNull(status);
+        Assert.Contains(status!.Values, value => value.Text == "49D");
+        Assert.Equal("49", ValueLabelRenderer.Spoken(49));
+        Assert.DoesNotContain("D", ValueLabelRenderer.Spoken(49));
+    }
+
+    [Fact]
+    public void MarkerText_suffix_is_included_when_value_labels_are_sized_to_the_bar_slot()
+    {
+        var bars = Bars(1);
+        using var surface = SKSurface.Create(new SKImageInfo(400, 200));
+        var theme = DbsiChartHarness.Themes().Current;
+        var series = new ChartSeries();
+        var plain = new ComponentConfig { Name = "Plain", DisplayType = ComponentDisplayType.ValueLabel };
+        var suffixed = new ComponentConfig { Name = "Suffixed", DisplayType = ComponentDisplayType.ValueLabel };
+        SetMarkerText(suffixed, "-A-VERY-WIDE-SUFFIX");
+        series.Data.ComponentData[plain.Name] = new[] { 49.0 };
+        series.Data.ComponentData[suffixed.Name] = new[] { 49.0 };
+        var ctx = new RenderContext(surface.Canvas, new SKRect(0, 0, 400, 200), bars,
+            ViewportStart: 0, ViewportLength: 1, Min: 0, Max: 100, IsLogScale: false,
+            ItemWidth: 1f, Density: 1f, PaneName: "Main", LocalCursorIndex: 0, Theme: theme);
+
+        bool foundSlotWhereOnlyThePlainNumberFits = false;
+        for (float slot = 1f; slot <= 160f; slot += 0.5f)
+        {
+            var sized = ctx with { ItemWidth = slot };
+            bool plainFits = ValueLabelRenderer.Layout(sized, series, plain, out _).Count == 1;
+            bool suffixFits = ValueLabelRenderer.Layout(sized, series, suffixed, out _).Count == 1;
+            if (plainFits && !suffixFits)
+            {
+                foundSlotWhereOnlyThePlainNumberFits = true;
+                break;
+            }
+        }
+
+        Assert.True(foundSlotWhereOnlyThePlainNumberFits,
+            "The suffix must contribute to width measurement so an over-wide label drops out.");
+    }
 
     /// <summary>"Bulls 12  Bears -3": whole numbers as whole numbers, each in its label's colour.</summary>
     [Fact]

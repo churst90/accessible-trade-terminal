@@ -528,6 +528,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ComponentDisplayType.TriangleDown => "triangle down",
             ComponentDisplayType.Diamond      => "diamond",
             ComponentDisplayType.Square       => "square",
+            ComponentDisplayType.CheckBox     => "check mark",
+            ComponentDisplayType.RefreshBox   => "refresh mark",
+            ComponentDisplayType.TriangleUpRing => "lettered triangle",
             ComponentDisplayType.Cross        => "cross",
             ComponentDisplayType.CandleColor  => "sentiment phase",
             ComponentDisplayType.ValueLabel   => "value label",
@@ -814,7 +817,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (dt is ComponentDisplayType.Dot or ComponentDisplayType.Diamond or
                        ComponentDisplayType.Arrow or ComponentDisplayType.Cross or
                        ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or
-                       ComponentDisplayType.Square)
+                       ComponentDisplayType.Square or ComponentDisplayType.CheckBox or
+                       ComponentDisplayType.RefreshBox or ComponentDisplayType.TriangleUpRing)
                 return (comp.DisplayName ?? comp.Name).Contains("Signal", StringComparison.OrdinalIgnoreCase)
                     ? "" : "Signal";
             return "";

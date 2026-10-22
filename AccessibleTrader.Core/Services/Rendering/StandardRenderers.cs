@@ -1199,6 +1199,84 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
+        private static readonly SKTypeface MarkerTextTypeface =
+            SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+            ?? SKTypeface.Default;
+
+        /// <summary>
+        /// Renders the upward triangle and a lettered circle one triangle-height beyond it, away
+        /// from the bar. The ring is empty when <see cref="ComponentConfig.MarkerText"/> is null.
+        /// </summary>
+        public static void RenderTriangleUpRing(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
+        {
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || data.Length == 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfBar = barWidth / 2f;
+            float triangleHeight = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            float ringRadius = triangleHeight * 0.45f;
+            float ringStroke = Math.Max(ctx.Density, triangleHeight * 0.065f);
+            using var textFont = string.IsNullOrEmpty(comp.MarkerText)
+                ? null
+                : new SKFont(MarkerTextTypeface, Math.Max(3f * ctx.Density, ringRadius * 1.4f));
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= data.Length) break;
+                double val = data[dataIdx];
+                if (double.IsNaN(val)) continue;
+
+                float x = i * barWidth + halfBar;
+                float y = ResolveMarkerY(ctx, comp, i, val);
+                var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
+
+                using (var triangle = new SKPath())
+                {
+                    triangle.MoveTo(x, y - triangleHeight);
+                    triangle.LineTo(x - triangleHeight / 2f, y);
+                    triangle.LineTo(x + triangleHeight / 2f, y);
+                    triangle.Close();
+                    using var triangleLease = SKPaintPool.Rent();
+                    var trianglePaint = triangleLease.Paint;
+                    trianglePaint.Color = color;
+                    trianglePaint.Style = SKPaintStyle.Fill;
+                    trianglePaint.IsAntialias = true;
+                    ctx.Canvas.DrawPath(triangle, trianglePaint);
+                }
+
+                // The ring's centre is one full triangle-height beyond the triangle's far edge.
+                // BelowBar goes down the screen; AboveBar goes up it. Value-anchored markers use
+                // the triangle's natural far side (below) because there is no bar to point away from.
+                float ringY = comp.MarkerAnchor == MarkerAnchor.AboveBar
+                    ? y - 2f * triangleHeight
+                    : y + triangleHeight;
+                using (var ringLease = SKPaintPool.Rent())
+                {
+                    var ringPaint = ringLease.Paint;
+                    ringPaint.Color = color;
+                    ringPaint.Style = SKPaintStyle.Stroke;
+                    ringPaint.StrokeWidth = ringStroke;
+                    ringPaint.StrokeCap = SKStrokeCap.Round;
+                    ringPaint.IsAntialias = true;
+                    ctx.Canvas.DrawCircle(x, ringY, ringRadius, ringPaint);
+                }
+
+                if (textFont != null)
+                {
+                    var metrics = textFont.Metrics;
+                    float baseline = ringY - (metrics.Ascent + metrics.Descent) / 2f;
+                    using var textLease = SKPaintPool.Rent();
+                    var textPaint = textLease.Paint;
+                    textPaint.Color = color;
+                    textPaint.Style = SKPaintStyle.Fill;
+                    textPaint.IsAntialias = true;
+                    ctx.Canvas.DrawText(comp.MarkerText, x, baseline, SKTextAlign.Center, textFont, textPaint);
+                }
+            }
+        }
+
         /// <summary>
         /// Renders a fixed downward-pointing triangle at each bar's value Y. Direction is always down,
         /// regardless of value sign — use when the indicator pre-determines bearish direction.
@@ -1303,6 +1381,127 @@ namespace AccessibleTrader.Core.Services.Rendering
                 var p = lease.Paint;
                 p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawRect(x - half, y - half, half * 2f, half * 2f, p);
+            }
+        }
+
+        /// <summary>Renders a component-coloured rounded square with a white check mark.</summary>
+        public static void RenderCheckBox(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
+        {
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || data.Length == 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfBar = barWidth / 2f;
+            float half = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float cornerRadius = Math.Min(half * 0.32f, 4f * ctx.Density);
+            float checkWidth = Math.Max(ctx.Density, half * 0.22f);
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= data.Length) break;
+                double val = data[dataIdx];
+                if (double.IsNaN(val)) continue;
+
+                float x = i * barWidth + halfBar;
+                float y = ResolveMarkerY(ctx, comp, i, val);
+                var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
+                var box = new SKRect(x - half, y - half, x + half, y + half);
+
+                using (var fillLease = SKPaintPool.Rent())
+                {
+                    var fillPaint = fillLease.Paint;
+                    fillPaint.Color = color;
+                    fillPaint.Style = SKPaintStyle.Fill;
+                    fillPaint.IsAntialias = true;
+                    ctx.Canvas.DrawRoundRect(box, cornerRadius, cornerRadius, fillPaint);
+                }
+
+                using var check = new SKPath();
+                check.MoveTo(x - half * 0.40f, y - half * 0.02f);
+                check.LineTo(x - half * 0.10f, y + half * 0.28f);
+                check.LineTo(x + half * 0.43f, y - half * 0.34f);
+                using var checkLease = SKPaintPool.Rent();
+                var checkPaint = checkLease.Paint;
+                checkPaint.Color = SKColors.White;
+                checkPaint.Style = SKPaintStyle.Stroke;
+                checkPaint.StrokeWidth = checkWidth;
+                checkPaint.StrokeCap = SKStrokeCap.Round;
+                checkPaint.StrokeJoin = SKStrokeJoin.Round;
+                checkPaint.IsAntialias = true;
+                ctx.Canvas.DrawPath(check, checkPaint);
+            }
+        }
+
+        /// <summary>Renders a component-coloured rounded square with two white circular arrows.</summary>
+        public static void RenderRefreshBox(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
+        {
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || data.Length == 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfBar = barWidth / 2f;
+            float half = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float cornerRadius = Math.Min(half * 0.32f, 4f * ctx.Density);
+            float orbitRadius = half * 0.50f;
+            float arrowWidth = Math.Max(ctx.Density, half * 0.20f);
+            float arrowHeadLength = half * 0.42f;
+            float arrowHeadHalfWidth = half * 0.22f;
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= data.Length) break;
+                double val = data[dataIdx];
+                if (double.IsNaN(val)) continue;
+
+                float x = i * barWidth + halfBar;
+                float y = ResolveMarkerY(ctx, comp, i, val);
+                var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
+                var box = new SKRect(x - half, y - half, x + half, y + half);
+                using (var fillLease = SKPaintPool.Rent())
+                {
+                    var fillPaint = fillLease.Paint;
+                    fillPaint.Color = color;
+                    fillPaint.Style = SKPaintStyle.Fill;
+                    fillPaint.IsAntialias = true;
+                    ctx.Canvas.DrawRoundRect(box, cornerRadius, cornerRadius, fillPaint);
+                }
+
+                using var arrowLease = SKPaintPool.Rent();
+                var arrowPaint = arrowLease.Paint;
+                arrowPaint.Color = SKColors.White;
+                arrowPaint.Style = SKPaintStyle.Stroke;
+                arrowPaint.StrokeWidth = arrowWidth;
+                arrowPaint.StrokeCap = SKStrokeCap.Round;
+                arrowPaint.StrokeJoin = SKStrokeJoin.Round;
+                arrowPaint.IsAntialias = true;
+
+                DrawCircularArrow(200f, 140f);
+                DrawCircularArrow(20f, 140f);
+
+                void DrawCircularArrow(float startDegrees, float sweepDegrees)
+                {
+                    var oval = new SKRect(x - orbitRadius, y - orbitRadius, x + orbitRadius, y + orbitRadius);
+                    using var arc = new SKPath();
+                    arc.ArcTo(oval, startDegrees, sweepDegrees, true);
+                    ctx.Canvas.DrawPath(arc, arrowPaint);
+
+                    float endAngle = (startDegrees + sweepDegrees) * MathF.PI / 180f;
+                    float endX = x + MathF.Cos(endAngle) * orbitRadius;
+                    float endY = y + MathF.Sin(endAngle) * orbitRadius;
+                    // Positive Skia arc angles travel clockwise on screen; this is the tangent at
+                    // the arc's end and therefore the direction the arrowhead points.
+                    float tangentX = -MathF.Sin(endAngle), tangentY = MathF.Cos(endAngle);
+                    float normalX = -tangentY, normalY = tangentX;
+                    float baseX = endX - tangentX * arrowHeadLength;
+                    float baseY = endY - tangentY * arrowHeadLength;
+                    using var head = new SKPath();
+                    head.MoveTo(baseX + normalX * arrowHeadHalfWidth, baseY + normalY * arrowHeadHalfWidth);
+                    head.LineTo(endX, endY);
+                    head.LineTo(baseX - normalX * arrowHeadHalfWidth, baseY - normalY * arrowHeadHalfWidth);
+                    ctx.Canvas.DrawPath(head, arrowPaint);
+                }
             }
         }
 

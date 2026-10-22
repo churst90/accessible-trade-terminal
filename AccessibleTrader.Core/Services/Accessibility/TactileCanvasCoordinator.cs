@@ -565,8 +565,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ComponentDisplayType.Area or ComponentDisplayType.Gradient or ComponentDisplayType.ZeroArea
                     => BuildFilledArea(values, state, cols, rows, baseline: renderComponent.ColorBaseline),
                 ComponentDisplayType.Dot or ComponentDisplayType.Diamond or ComponentDisplayType.Cross
-                or ComponentDisplayType.Square or ComponentDisplayType.Arrow or ComponentDisplayType.ZeroDot
-                or ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown
+                or ComponentDisplayType.Square or ComponentDisplayType.CheckBox or ComponentDisplayType.RefreshBox
+                or ComponentDisplayType.Arrow or ComponentDisplayType.ZeroDot
+                or ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleUpRing or ComponentDisplayType.TriangleDown
                 or ComponentDisplayType.GradientDot
                     => BuildMarkerDots(values, state, cols, rows),
                 _ => BuildLineCanvas(values, state, cols, rows),

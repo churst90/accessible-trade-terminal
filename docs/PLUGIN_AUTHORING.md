@@ -452,11 +452,15 @@ nullable — `null` means "defer to the global role/type-based default."
 | `Gradient` | Line with gradient fill to pane bottom (area-chart style). |
 | `Level` | Static horizontal line at a fixed Y value. |
 | `CandleColor` | Per-bar candle colour override: the value is a phase index (0–10) mapped to a sentiment colour that paints the candle body. Price pane only. |
-| `ValueLabel` | The value printed as text at its bar ("15", "-5"; other values with the status line's decimals). `MarkerAnchor.AboveBar` / `BelowBar` centre it a few px over the drawn bar's high / under its low (Heikin-Ashi bars when the chart is); `MarkerAnchor.Value` centres it on the value. Colour = the component colour, lifted per theme to 4.5:1 on a backing plate. With `ColorAboveComponent` naming a sibling, the newest bar's label is drawn in `ColorHexSecondary` when this value is above the sibling's there. A **series parameter named `labelBars`** (> 0) limits labels to the newest N bars; absent or 0 labels every bar (matched by name — declare it under exactly that name). The text shrinks to fit the bar slot (11 down to 7 px × density) and, if even 7 px does not fit, that component's labels are all left out. Has a reading (status line, Alt+Shift+D) but is not a marker, so it is not narrated per bar. A bar-anchored label never stretches the axis and has no crosshair reading. Formation labels treat its plates as covered ground. Added 2026-10-17 (Dual Band Strength). |
+| `ValueLabel` | The value printed as text at its bar ("15", "-5"; other values with the status line's decimals). `MarkerText`, when set, is appended visually after the number ("49D") on the chart and in the status line; it is not spoken. `MarkerAnchor.AboveBar` / `BelowBar` centre it a few px over the drawn bar's high / under its low (Heikin-Ashi bars when the chart is); `MarkerAnchor.Value` centres it on the value. Colour = the component colour, lifted per theme to 4.5:1 on a backing plate. With `ColorAboveComponent` naming a sibling, the newest bar's label is drawn in `ColorHexSecondary` when this value is above the sibling's there. A **series parameter named `labelBars`** (> 0) limits labels to the newest N bars; absent or 0 labels every bar (matched by name — declare it under exactly that name). The text shrinks to fit the bar slot (11 down to 7 px × density) and, if even 7 px does not fit, that component's labels are all left out. Has a reading (status line, Alt+Shift+D) but is not a marker, so it is not narrated per bar. A bar-anchored label never stretches the axis and has no crosshair reading. Formation labels treat its plates as covered ground. Added 2026-10-17 (Dual Band Strength). |
+| `CheckBox` | Component-coloured rounded square with a white check-mark stroke; same size rule as `Square`. Spoken as "check mark". |
+| `RefreshBox` | Component-coloured rounded square with two white circular arrows; same size rule as `Square`. Spoken as "refresh mark". |
+| `TriangleUpRing` | `TriangleUp` with a component-coloured ring one marker-height farther from the bar, with bold `MarkerText` (for example, "D") centred inside. Null `MarkerText` leaves the ring empty. Spoken as "lettered triangle". |
 | `Wick`, `Candle`, `Profile`, `Heatmap`, `Distribution` | Specialized internal types; not typically used by indicator plugins. |
 
 `ComponentDisplayType` is **append-only**: a saved workspace stores its ordinal, so new members go at
-the end (`CandleColor` is 24, `ValueLabel` 25) and none is ever reordered or removed.
+the end (`CandleColor` is 24, `ValueLabel` 25, `CheckBox` 26, `RefreshBox` 27, `TriangleUpRing` 28)
+and none is ever reordered or removed.
 
 ---
 
@@ -472,6 +476,7 @@ the end (`CandleColor` is 24, `ValueLabel` 25) and none is ever reordered or rem
 | `DefaultTintMidline` | `double?` | The value dividing the two tint colours. Null = `ColorBaseline` (where the bar and polarity colours split). |
 | `DefaultTintFullAt` | `double?` | Null = constant strength. Set = the alpha ramps from 20% at the midline to 100% at this value. Top/Bottom Detector: midline 0.5, full at 1.0. |
 | `DefaultThickness` | `float?` | Stroke / shape size in logical pixels. |
+| `MarkerText` | `string?` | Shape-specific text: the bold letter centred in a `TriangleUpRing`; for `ValueLabel`, a visual-only suffix printed after the number on the chart and in the status line (not spoken). Null leaves a ring empty and adds no suffix. |
 | `DefaultDashStyle` | `DashStyle?` | Line dash pattern: `Solid`, `Dash`, `Dot`, or `DashDot`. |
 | `ColorBaseline` | `double?` | Value at which directional bar / histogram coloring switches. Default `0`. Set to `50` for MFI (midpoint of 0–100). Set to `-80` for a histogram anchored at −80. |
 | `DefaultColorSource` | `ColorSource?` | `Value` = color by value sign vs baseline. `PriceAction` = color by candle direction. |
@@ -599,7 +604,7 @@ All audio fields are nullable; null means "use the profile / display-type defaul
 | Field | Type | Description |
 |---|---|---|
 | `SpeechTemplate` | `string?` | Template for continuous line/oscillator speech. Tokens: `{value}`, `{value:F1}`, `{value:F2}`, `{name}`, `{date}`. Used when no `GetComponentSpeech()` override is active. |
-| `DefaultSignalSpeechTemplate` | `string?` | Template for marker/dot components when a non-NaN signal IS present. Tokens: `{price}` (formats the value as an integer price), `{name}`. Returns empty string (no speech) when value IS NaN. Takes precedence over `SpeechTemplate` for Dot/Arrow/Diamond/Square/Cross/TriangleUp/TriangleDown/ZeroDot display types. |
+| `DefaultSignalSpeechTemplate` | `string?` | Template for marker/dot components when a non-NaN signal IS present. Tokens: `{price}` (formats the value as an integer price), `{name}`. Returns empty string (no speech) when value IS NaN. Takes precedence over `SpeechTemplate` for Dot/Arrow/Diamond/Square/CheckBox/RefreshBox/Cross/TriangleUp/TriangleUpRing/TriangleDown/ZeroDot display types. |
 | `UsesGradientSpeech` | `bool` | When true, navigation speech produces qualitative momentum language — "strong bullish momentum", "neutral momentum", etc. — rather than a raw numeric value. Intended for `GradientDot` components whose value is more meaningful as a direction + intensity description. Default: `false`. |
 
 ---
