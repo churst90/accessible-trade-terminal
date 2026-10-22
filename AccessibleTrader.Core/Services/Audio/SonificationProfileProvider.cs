@@ -95,10 +95,13 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (displayType == ComponentDisplayType.Level)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.None, 220, 1.0, false, "Sustain");
 
-        // 8. New marker shapes: transient ping, direction-mapped pitch (440 Hz up / 220 Hz down).
-        //    TriangleUp/Down have fixed visual direction; Diamond/Square/Cross are value-neutral markers.
+        // 8. Marker shapes: transient ping, direction-mapped pitch (440 Hz up / 220 Hz down).
+        //    TriangleUp/Down and TriangleUpRing have fixed visual direction; the square-family
+        //    glyphs, Diamond and Cross are value-neutral markers.
         if (displayType is ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown
-            or ComponentDisplayType.Diamond or ComponentDisplayType.Square or ComponentDisplayType.Cross)
+            or ComponentDisplayType.TriangleUpRing or ComponentDisplayType.Diamond
+            or ComponentDisplayType.Square or ComponentDisplayType.CheckBox or ComponentDisplayType.RefreshBox
+            or ComponentDisplayType.Cross)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Direction, 440, 1.0, false, "Ping");
 
         // 9. GradientDot: continuous momentum ribbon — smooth sustain, pitch tracks WT value.

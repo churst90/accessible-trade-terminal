@@ -18,15 +18,15 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// summarised in docs/CIPHER_C_DESIGN.md). On the price chart:
     /// </para>
     /// <list type="bullet">
-    /// <item>A green triangle under each daily cycle low, a bigger blue one under each weekly
-    /// cycle low and a bigger gold one under each yearly low — CF's green D / blue W stacks.
-    /// Drawn on the LOW's bar, so they are known only once confirmed (look-ahead, like CF's).</item>
-    /// <item>The cycle's length in days over each daily low ("49" — CF prints "49D"), counted
-    /// inclusively as CF does.</item>
-    /// <item>A square on the bar a low is CONFIRMED (CF's check mark), a grey dot when one is
-    /// pending (CF's circular arrows), a red cross when price closes under a low too soon after
-    /// it and cancels it (CF's red X), and an orange cross when price closes under a low after
-    /// that, which is a failed cycle.</item>
+    /// <item>A green triangle and D ring under each daily cycle low; a bigger blue triangle and W
+    /// ring under each weekly low; and a gold triangle and Y ring under each yearly low. Drawn on the
+    /// LOW's bar, so they are known only once confirmed (look-ahead, like CF's).</item>
+    /// <item>The cycle's length above each low, with CF's unit suffix: 49D for days and 24W for
+    /// weeks, counted inclusively as CF does. The suffix is printed, not spoken.</item>
+    /// <item>A green rounded check box on the bar a low is CONFIRMED, a grey-blue rounded refresh
+    /// box while one is pending, a red cross when price closes under a low too soon after it and
+    /// cancels it (CF's red X), and an orange cross when price closes under a low after that, which
+    /// is a failed cycle.</item>
     /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
     /// bearish), orange in the middle, green late (right translated, bullish).</item>
     /// <item>CF's yellow low-to-low arcs, a wave of equal humps under the candles with its troughs under
@@ -95,9 +95,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
 
-        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string patch, double freq, int order) => new()
+        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order) => new()
         {
-            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUp, Role = ComponentRole.Signal,
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUpRing, MarkerText = markerText, Role = ComponentRole.Signal,
             Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
             DefaultColorHex = hex, DefaultThickness = size, DefaultDrawOrder = order,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Midground,
@@ -165,9 +165,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 RequiresFullRecalcOnTick = true,
                 Description =
                     "Cycle lows on the price chart, after Camel Finance's CF Cycle Trading Indicator (closed source; " +
-                    "rebuilt from screen grabs). Green triangles under daily cycle lows, blue under weekly, gold under " +
-                    "yearly, each low's length in days, a square when a low is confirmed, crosses when one is cancelled " +
-                    "or a cycle fails, translated-top triangles, CF's yellow arcs and a tint over the daily timing " +
+                    "rebuilt from screen grabs). Green D-ringed triangles under daily lows, blue W-ringed triangles " +
+                    "under weekly lows, gold Y-ringed triangles under yearly lows, 49D / 24W cycle counts, a green " +
+                    "rounded check box when a low is confirmed, a grey-blue refresh box while pending, crosses when " +
+                    "one is cancelled or a cycle fails, translated-top triangles, CF's yellow arcs and a tint over " +
+                    "the daily timing " +
                     "window. Ranges are CF's for the S&P, gold, Ethereum, Coinbase, MicroStrategy, Marathon Digital, " +
                     "Riot Platforms, gold miners and Bitcoin, and estimated for the other seven of CF's " +
                     "sixteen assets. Fitted to CF's own SPX labels: 18 of 25 lows within two bars; held out on gold, " +
@@ -203,27 +205,27 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
 
                     // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
-                    Low(CompYcl, YclHex, 6f,   "Yearly", "dual_tone_bell", 196, 0),
-                    Low(CompWcl, WclHex, 4.5f, "Weekly", "dual_tone_bell", 262, 1),
-                    Low(CompDcl, DclHex, 3f,   "Daily",  "sine_bell",      330, 2),
+                    Low(CompYcl, YclHex, 6f,   "Yearly", "Y", "dual_tone_bell", 196, 0),
+                    Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1),
+                    Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2),
 
                     new() { Name = CompDclCount, DisplayName = CompDclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = DclHex,
+                            Causality = ComponentCausality.Lookahead, MarkerText = "D", DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = DclHex,
                             DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPlaybackLayer = PlaybackLayer.Background },
                     // Hidden by default: on a daily chart it would print on top of the daily count.
                     new() { Name = CompWclCount, DisplayName = CompWclCount, DisplayType = ComponentDisplayType.ValueLabel, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = WclHex,
+                            Causality = ComponentCausality.Lookahead, MarkerText = "W", DefaultMarkerAnchor = MarkerAnchor.AboveBar, DefaultColorHex = WclHex,
                             IsVisible = false, DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPlaybackLayer = PlaybackLayer.Background },
 
-                    Event(CompDclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Foreground,
+                    Event(CompDclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Foreground,
                           "Daily cycle low confirmed. Close {price}."),
-                    Event(CompWclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, WclHex, 4f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
+                    Event(CompWclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 4f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
                           "Weekly cycle low confirmed. Close {price}."),
-                    Event(CompYclConfirmed, ComponentDisplayType.Square, MarkerAnchor.AboveBar, YclHex, 5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
+                    Event(CompYclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
                           "Yearly cycle low confirmed. Close {price}."),
-                    Event(CompPending, ComponentDisplayType.Dot, MarkerAnchor.AboveBar, "#9E9E9E", 2.5f, "triangle_bell", 440, PlaybackLayer.Background,
+                    Event(CompPending, ComponentDisplayType.RefreshBox, MarkerAnchor.AboveBar, "#78909C", 2.5f, "triangle_bell", 440, PlaybackLayer.Background,
                           "Cycle low pending."),
                     Event(CompCancelled, ComponentDisplayType.Cross, MarkerAnchor.BelowBar, "#FF1744", 3f, "triangle_bell", 220, PlaybackLayer.Midground,
                           "Cycle low cancelled, price closed under it. Close {price}."),

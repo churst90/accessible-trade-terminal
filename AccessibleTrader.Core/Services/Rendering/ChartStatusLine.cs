@@ -450,7 +450,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 {
                     // The number as printed on the candle, in the colour it is printed in.
                     int count = data?.Length ?? 0;
-                    values.Add(Value(labelled ? label : "", ValueLabelRenderer.Text(v),
+                    values.Add(Value(labelled ? label : "", ValueLabelRenderer.Text(v, comp.MarkerText),
                         ValueLabelRenderer.RawColour(comp, s, absIndex, count), theme, backing));
                     continue;
                 }

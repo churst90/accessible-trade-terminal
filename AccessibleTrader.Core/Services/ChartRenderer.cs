@@ -1416,7 +1416,9 @@ namespace AccessibleTrader.Core.Services
         internal static bool IsMarker(ComponentDisplayType t) => t is
             ComponentDisplayType.Dot or ComponentDisplayType.ZeroDot or ComponentDisplayType.GradientDot or
             ComponentDisplayType.Diamond or ComponentDisplayType.Square or ComponentDisplayType.Cross or
-            ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or ComponentDisplayType.Arrow;
+            ComponentDisplayType.CheckBox or ComponentDisplayType.RefreshBox or
+            ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleUpRing or
+            ComponentDisplayType.TriangleDown or ComponentDisplayType.Arrow;
 
         /// <summary>
         /// DELIBERATELY EMPTY, AND THAT IS THE FIX FOR A CRASH. Do not "restore" the two

@@ -339,7 +339,9 @@ public sealed class ChartStatusLineTests
         {
             ComponentDisplayType.Dot, ComponentDisplayType.ZeroDot, ComponentDisplayType.GradientDot,
             ComponentDisplayType.Diamond, ComponentDisplayType.Square, ComponentDisplayType.Cross,
-            ComponentDisplayType.TriangleUp, ComponentDisplayType.TriangleDown, ComponentDisplayType.Arrow,
+            ComponentDisplayType.CheckBox, ComponentDisplayType.RefreshBox,
+            ComponentDisplayType.TriangleUp, ComponentDisplayType.TriangleUpRing,
+            ComponentDisplayType.TriangleDown, ComponentDisplayType.Arrow,
         })
             Assert.True(ChartRenderer.IsMarker(t), $"{t} is drawn as a glyph but is not classified as a marker.");
         foreach (var t in new[]

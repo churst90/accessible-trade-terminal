@@ -175,8 +175,11 @@ namespace AccessibleTrader.Core.Services
                 ComponentDisplayType.Dot          => 4.0f,
                 ComponentDisplayType.Diamond      => 4.0f,
                 ComponentDisplayType.TriangleUp   => 4.0f,
+                ComponentDisplayType.TriangleUpRing => 4.0f,
                 ComponentDisplayType.TriangleDown => 4.0f,
                 ComponentDisplayType.Square       => 4.0f,
+                ComponentDisplayType.CheckBox     => 4.0f,
+                ComponentDisplayType.RefreshBox   => 4.0f,
                 ComponentDisplayType.Cross        => 3.0f,
                 _                                 => 2.0f,
             };

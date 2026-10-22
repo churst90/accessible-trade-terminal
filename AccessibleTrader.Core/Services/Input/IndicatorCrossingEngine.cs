@@ -89,8 +89,11 @@ namespace AccessibleTrader.Core.Services.Input
                                    || focusedComp.DisplayType == ComponentDisplayType.Cross
                                    || focusedComp.DisplayType == ComponentDisplayType.Arrow
                                    || focusedComp.DisplayType == ComponentDisplayType.TriangleUp
+                                   || focusedComp.DisplayType == ComponentDisplayType.TriangleUpRing
                                    || focusedComp.DisplayType == ComponentDisplayType.TriangleDown
                                    || focusedComp.DisplayType == ComponentDisplayType.Square
+                                   || focusedComp.DisplayType == ComponentDisplayType.CheckBox
+                                   || focusedComp.DisplayType == ComponentDisplayType.RefreshBox
                                    || focusedComp.DisplayType == ComponentDisplayType.ZeroDot
                                    || focusedComp.DisplayType == ComponentDisplayType.GradientDot;
                 if (isSparseMarker)
