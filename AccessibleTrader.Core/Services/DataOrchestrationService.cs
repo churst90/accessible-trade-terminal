@@ -72,6 +72,16 @@ namespace AccessibleTrader.Core.Services
             _subscriptions.Add(_eventBus.AsObservable<IndicatorUpdatedEvent>()
                 .Subscribe(_ => OnDataUpdated(forceFull: true)));
 
+            // Heikin-Ashi on or off: every indicator computes on the candles the chart shows
+            // (IndicatorCandles), so every buffer now describes the other candle type. Nothing
+            // incremental can repair that. Skip(1): the store replays its current state on
+            // subscribe, and that is not a change.
+            _subscriptions.Add(_store.StateStream
+                .Select(s => s.IsHeikinAshi)
+                .DistinctUntilChanged()
+                .Skip(1)
+                .Subscribe(_ => OnDataUpdated(forceFull: true)));
+
             // Deferred full recalculation: when loading/resampling completes (DataStatus → Ready),
             // fire the single recalculation that was suppressed during the loading phase.
             _subscriptions.Add(_store.StateStream

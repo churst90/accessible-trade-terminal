@@ -98,6 +98,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public const int CatchUpLimit = 3;
 
         private readonly ChartIdentity _identity;
+        // The tab shows Heikin-Ashi candles: its indicators compute on them (IndicatorCandles).
+        private readonly bool _heikinAshi;
         private readonly IIndicatorEngine _engine;
         private readonly IIndicatorStateMapper _mapper;
         private readonly IIndicatorContextAnalyzer _analyzer;
@@ -155,9 +157,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ILogger? logger,
             IProfileService? profiles = null,
             IReadOnlyList<string>? missingIndicators = null,
-            IReadOnlyList<string>? removedIndicators = null)
+            IReadOnlyList<string>? removedIndicators = null,
+            bool heikinAshi = false)
         {
             _identity = identity;
+            _heikinAshi = heikinAshi;
             _engine = engine;
             _mapper = mapper;
             _analyzer = analyzer;
@@ -390,6 +394,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!string.IsNullOrEmpty(_identity.Symbol)) parameters["__symbol"] = _identity.Symbol;
                 if (!string.IsNullOrEmpty(_identity.Provider)) parameters["__provider"] = _identity.Provider;
                 if (!string.IsNullOrEmpty(_identity.Timeframe)) parameters["__timeframe"] = _identity.Timeframe;
+                // A tab showing Heikin-Ashi computes its indicators on Heikin-Ashi candles, as
+                // the open chart does, so its alerts and narration say what it shows.
+                IndicatorCandles.Stamp(parameters, _heikinAshi);
 
                 var (results, zoneBands) = await _engine
                     .CalculateWithBandsAsync(series.IndicatorCode, _bars, parameters, ct)

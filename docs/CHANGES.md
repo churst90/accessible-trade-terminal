@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### On a Heikin-Ashi chart, indicators compute on the Heikin-Ashi candles; strategies stay on the real bars (2026-10-22)
+
+- Cody: "when hiken ashi is on, have indicators use those candles ... whatever tv does, that is what
+  I want." TradingView hands an indicator on a Heikin-Ashi chart the Heikin-Ashi open, high, low and
+  close, with volume unchanged. Until now every indicator here read the raw bars.
+- **What changed:** `IndicatorCandles` (Core) stamps a hidden `__heikinAshi` parameter, and
+  `IndicatorService` swaps in Heikin-Ashi candles of the whole loaded history on every full, last-bar
+  and prepend calculation. Every path stamps it: the focused chart (`IndicatorOrchestrator`), custom
+  compiled indicators (`IndicatorEngine`), headless charts and background tabs (alerts and the
+  background new-bar ladder read the tab's saved candle type). Switching Heikin-Ashi on or off now
+  forces a full recalculation (`DataOrchestrationService`); before, nothing changed in the bars, so
+  nothing would have recomputed.
+- **Market Cipher B, measured against its own Heikin-Ashi screenshots** (S2, 398 bars; S4, 148 bars;
+  BTCUSD 1D Bitstamp). Heikin-Ashi everywhere was not what MCB does, so Cipher B builds its own
+  (`IComputesHeikinAshiItself`):
+  - waves and VWAP read Heikin-Ashi: slow wave RMSE 7.2/6.3 raw to 6.5/6.2, envelope 8.0/6.9 to
+    6.5/6.2;
+  - the money flow already took Heikin-Ashi of the bars it is given; on a Heikin-Ashi chart that is
+    Heikin-Ashi of Heikin-Ashi, and that fits best: 6.2/6.5 to 4.6/4.8, sign agreement 0.96/0.99;
+  - the "RSI" and "Stochastic" lines read the REAL bars on a Heikin-Ashi chart: on Heikin-Ashi they
+    were 3.5/1.9 (S2), on the real bars 2.1/1.2. They are MCB's own lines, not a stock RSI or
+    stochastic, which we already knew from the fit;
+  - big green dots on the exact bar: 5/5 and 3/3, from 2/5 and 1/3. Cross dots within one bar: S2
+    up 36/36, down 36/40; S4 up 15/15, down 15/16. The four S2 cross-downs missing are missing on
+    raw too. For scale, the VuManChu port scores 7.8/8.5 on the same charts (the digitising floor).
+    S3 and S5 not re-measured.
+- **DBSI** applies Heikin-Ashi once on a Heikin-Ashi chart, whatever its own Heikin-Ashi setting says.
+- **Cipher A and Cipher C follow the chart.** Cipher A was fitted on raw bars and has not been
+  refitted on Heikin-Ashi. Value Deviation's zones sit at the Heikin-Ashi bar extreme on a Heikin-Ashi
+  chart, as on TradingView.
+- **Stays on the real bars:** the candles' own readouts, volume, profiles, heatmap, drawings, chart
+  formations, the screener and StrategyLab. **Strategies** recompute the chart's indicators on the
+  real bars before reading them (`StrategyEngine` via `EvaluationSeries`; background tabs the same),
+  so a strategy trades what the backtester tested. TradingView runs strategies on Heikin-Ashi and
+  warns the results are not real; here they never are.
+- **Fixed on the way:** the renderer built Heikin-Ashi candles from the visible slice, so a panned
+  view drew candles that the readouts and indicators did not have. It now draws the tail of the whole
+  series (`ChartMath.BarsAsDrawn`).
+- **Caveats:**
+  - price in an alert is the real price, so "price crosses EMA" on a Heikin-Ashi chart compares a
+    real close with a Heikin-Ashi EMA. The crossing engine and the overlay-cross narration do the
+    same. Question in TODO;
+  - a custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
+    false in a strategy on a Heikin-Ashi chart;
+  - a background tab's candle type is read when its monitor starts; switching it later takes effect
+    at the next restart of that monitor;
+  - not seen or heard in the app.
+- Tests: `HeikinAshiIndicatorCandlesTests` (the swap on every path, Cipher B's split against MCB's
+  choices, DBSI once, strategies raw on Heikin-Ashi and untouched otherwise, headless and background
+  tabs, the panned candle in pixels), `HeikinAshiWatchTests` (WebHost watches carry the tab's candle
+  type), the toggle recalculation in `StaleIndicatorOnAssetChangeTests`, and a background tab's ladder
+  on Heikin-Ashi in `BackgroundBarAnnouncerTests` (whose harness now registers the moving averages,
+  as the WebHost does). 24 sabotages each turned their test red. 637 related tests pass locally; the
+  full suite runs on GitHub Actions.
+
 ### Cipher B's gold dot removed; its rule kept as a part nothing uses (2026-10-22)
 
 - Cody: "remove the gold dot from the cipher b indicator as it isn't faithful. Keep the gold dot as

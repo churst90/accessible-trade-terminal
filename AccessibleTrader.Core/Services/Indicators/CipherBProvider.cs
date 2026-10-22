@@ -43,7 +43,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// are MCB's own, not these); the red/green OB/OS zone shading; the Adaptive OB / Adaptive OS
     /// components (now the companion arrays <see cref="ThresholdObKey"/> / <see cref="ThresholdOsKey"/>).</para>
     /// </summary>
-    public class CipherBProvider : IIndicatorProvider
+    public class CipherBProvider : IIndicatorProvider, IComputesHeikinAshiItself
     {
         public string Name => "Cipher B";
 
@@ -713,6 +713,33 @@ namespace AccessibleTrader.Core.Services.Indicators
                 hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
             }
 
+            // On a Heikin-Ashi chart Market Cipher B reads Heikin-Ashi candles, as every
+            // TradingView indicator does, with one exception. Measured 2026-10-22 against the two
+            // digitised Heikin-Ashi MCB screenshots (BTCUSD 1D Bitstamp, S2 and S4):
+            //   waves, VWAP and dots on Heikin-Ashi: every big green dot and 47 of 51 / 47 of 56
+            //     cross dots on MCB's exact bar (raw bars: 3 of 8 big green dots);
+            //   money flow built from Heikin-Ashi candles OF the Heikin-Ashi candles (the script
+            //     builds its own, from whatever candles it is handed): RMSE 4.6 / 4.8 points with
+            //     the existing multiplier, against 6.2 / 6.5 built from the real bars;
+            //   the "RSI" and "Stochastic" lines on the REAL bars: RMSE 2.1 / 1.2 points, against
+            //     3.5 / 1.9 on Heikin-Ashi, and no length refit closes the gap (best 3.45 / 1.87).
+            // So this provider is handed the raw bars (IComputesHeikinAshiItself), keeps them for
+            // the two lines, and gives everything else — the money flow included — Heikin-Ashi.
+            double[] lineHigh = high, lineLow = low, lineHlc3 = hlc3;
+            if (IndicatorCandles.IsHeikinAshi(parameters))
+            {
+                var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
+                close = new double[n]; open = new double[n]; high = new double[n]; low = new double[n]; hlc3 = new double[n];
+                for (int i = 0; i < n; i++)
+                {
+                    close[i] = ha[i].Close;
+                    open[i]  = ha[i].Open;
+                    high[i]  = ha[i].High;
+                    low[i]   = ha[i].Low;
+                    hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
+                }
+            }
+
             // ── Wave Trend ────────────────────────────────────────────────────
             // The slow wave is a WTSignalPeriod-bar SMA of the fast one: 3 since 2026-10-17, 4
             // before. Against four Market Cipher B screenshots (BTC 1D Bitstamp HA x2, BTCUSDT 1D
@@ -741,7 +768,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // ── Money Flow ───────────────────────────────────────────────────
-            // clv = each raw candle's (close − open) / (high − low), in [−1, +1] (0 for a bar with no
+            // clv = each chart candle's (close − open) / (high − low), in [−1, +1] (0 for a bar with no
             // range). The Legacy money flow averages it.
             var clv = new double[n];
             for (int i = 0; i < n; i++)
@@ -770,8 +797,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 //   1.7–3x taller than MCB's (max 63–89 vs 38–43) and hid the VWAP under it.
                 // No constant offset: the fitted intercepts were −1.8, −6.1, −5.4 and +5.5, i.e.
                 // digitising noise around zero, not a shift MCB applies (VuManChu subtracts 2.5).
-                // The Heikin-Ashi candles are computed here from the raw bars whatever the chart
-                // shows; the rest of Cipher B reads raw bars.
+                // The Heikin-Ashi candles are computed here from the chart's candles, so on a
+                // Heikin-Ashi chart they are Heikin-Ashi of Heikin-Ashi, as MCB's are (see above).
                 var haClv = new double[n];
                 double haO = 0, haC = 0;
                 for (int i = 0; i < n; i++)
@@ -814,8 +841,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // bars: the magenta line is a 40-bar stochastic of hlc3 smoothed by SMA3 (RMSE 2.1
             // points over 309 bars) and the red/green one an 80-bar stochastic smoothed by SMA3
             // (RMSE 1.2 over 397 bars). Neither is an RSI — the best true RSI was off by 12 points.
-            var mcbRsi   = WaveTrendMath.SmoothedStochastic(hlc3, high, low, McbRsiLength, McbLineSmoothing);
-            var mcbStoch = WaveTrendMath.SmoothedStochastic(hlc3, high, low, McbStochLength, McbLineSmoothing);
+            // Both read the real bars, even on a Heikin-Ashi chart (see the source series above).
+            var mcbRsi   = WaveTrendMath.SmoothedStochastic(lineHlc3, lineHigh, lineLow, McbRsiLength, McbLineSmoothing);
+            var mcbStoch = WaveTrendMath.SmoothedStochastic(lineHlc3, lineHigh, lineLow, McbStochLength, McbLineSmoothing);
 
             // ── Adaptive OB/OS ───────────────────────────────────────────────
             // In Fixed mode, emit constant ±obLevel lines. In Percentile mode,

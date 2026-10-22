@@ -60,7 +60,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 var results = await Task.Run(() =>
                 {
-                    var span = data.ToArray().AsSpan();
+                    // A custom compiled indicator on a Heikin-Ashi chart reads Heikin-Ashi, as on TradingView.
+                    var span = IndicatorCandles.For(null, data, parameters).AsSpan();
                     var p = parameters.ToDictionary(
                         kv => kv.Key,
                         kv => kv.Value is double d ? d : double.TryParse(kv.Value?.ToString(), out double pv) ? pv : 0.0);
@@ -94,7 +95,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 return await Task.Run(() =>
                 {
-                    var span = data.ToArray().AsSpan();
+                    // A custom compiled indicator on a Heikin-Ashi chart reads Heikin-Ashi, as on TradingView.
+                    var span = IndicatorCandles.For(null, data, parameters).AsSpan();
                     var p = parameters.ToDictionary(
                         kv => kv.Key,
                         kv => kv.Value is double d ? d : double.TryParse(kv.Value?.ToString(), out double pv) ? pv : 0.0);

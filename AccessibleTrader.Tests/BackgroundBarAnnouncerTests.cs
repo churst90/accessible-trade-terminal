@@ -93,6 +93,7 @@ namespace AccessibleTrader.Tests
                 var services = new ServiceCollection();
                 services.AddLogging();
                 services.AddScoped<IIndicatorProvider, CoreIndicatorProvider>();
+                services.AddScoped<IIndicatorProvider, SkenderTrendProvider>();   // the moving averages
                 services.AddScoped<IIndicatorService, IndicatorService>();
                 services.AddScoped<ICustomIndicatorRegistry, CustomIndicatorRegistry>();
                 services.AddScoped<IIndicatorEngine, IndicatorEngine>();
@@ -111,7 +112,9 @@ namespace AccessibleTrader.Tests
 
             /// <summary>Put a tab in the workspace snapshot list with the series the user has on
             /// it — the source the ladder reads, and the same one the background monitors use.</summary>
-            public void SnapshotTab(ChartIdentity id, params SeriesConfig[] series)
+            public void SnapshotTab(ChartIdentity id, params SeriesConfig[] series) => SnapshotTab(id, false, series);
+
+            public void SnapshotTab(ChartIdentity id, bool heikinAshi, params SeriesConfig[] series)
             {
                 var s0 = WorkspaceState.Initial;
                 var snap = new TabSnapshot(
@@ -129,7 +132,7 @@ namespace AccessibleTrader.Tests
                     RightMarginBars: s0.RightMarginBars,
                     ViewportRange: s0.ViewportRange,
                     PaneRanges: s0.PaneRanges,
-                    IsHeikinAshi: false,
+                    IsHeikinAshi: heikinAshi,
                     IsLogScale: false,
                     LastInteractionContext: s0.LastInteractionContext,
                     PaneHeightRatios: s0.PaneHeightRatios,
@@ -391,6 +394,53 @@ namespace AccessibleTrader.Tests
             await Settle(h, atLeast: 2);
 
             Assert.All(h.Published, e => Assert.True(string.IsNullOrWhiteSpace(e.Narration)));
+        }
+
+        /// <summary>
+        /// A background tab showing Heikin-Ashi narrates indicators computed on Heikin-Ashi
+        /// candles, as the tab itself draws them. After a hundred flat bars at 100, one bar opens
+        /// at 100, wicks to 300 and closes at 101. On the real bars the EMA 20 moves to about
+        /// 100.1, under the close: a cross. Its Heikin-Ashi close is (100+300+100+101)/4, about
+        /// 150, which lifts the Heikin-Ashi EMA to about 104.8, over the close: no cross. The
+        /// raw tab is the control that shows the bars do make a cross.
+        /// </summary>
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task ABackgroundHeikinAshiTab_narratesIndicatorsOnHeikinAshiCandles(bool heikinAshi, bool crosses)
+        {
+            using var h = new Harness(withNarration: true);
+            h.Hub.SetFocus(Id("BTC/USD"));
+            var eth = Id("ETH/USD");
+            var ema = new SeriesConfig
+            {
+                Id = "ema-20", Name = "EMA", FriendlyName = "EMA", IndicatorCode = "Ema", Pane = "Main",
+                IsAutoNarrated = true, IsVisible = true,
+            };
+            ema.Parameters["lookbackPeriods"] = 20;
+            h.SnapshotTab(eth, heikinAshi, ema);
+            var feed = h.OpenBackgroundTab(eth);
+            h.SpeechOptIn(true);
+            feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(
+                Enumerable.Range(0, 100).Select(i => new Ohlcv(T0.AddHours(i), 100, 100, 100, 100, 1)).ToList()));
+
+            // The first close seeds the narrator; the wick bar comes after it.
+            var ticks = new[]
+            {
+                new Ohlcv(T0.AddHours(100), 100, 100, 100, 100, 1),
+                new Ohlcv(T0.AddHours(101), 100, 300, 100, 101, 1),
+                new Ohlcv(T0.AddHours(102), 101, 101, 101, 101, 1),
+                new Ohlcv(T0.AddHours(103), 101, 101, 101, 101, 1),
+            };
+            for (int i = 0; i < ticks.Length; i++)
+            {
+                Assert.True(feed.ApplyLiveTick(ticks[i]));
+                await Settle(h, atLeast: i + 1);
+            }
+
+            string all;
+            lock (h.Published) all = string.Join(" | ", h.Published.Select(e => e.Narration ?? ""));
+            Assert.True(crosses == all.Contains("crossed above EMA", StringComparison.Ordinal), $"heikinAshi={heikinAshi}: [{all}]");
         }
 
         /// <summary>A bar whose VOLUME moves, so a narrated volume pane has something to report.</summary>

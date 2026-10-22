@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Heikin-Ashi now feeds your indicators, as on TradingView.** With Heikin-Ashi on (Alt+C), RSI,
+  MACD, moving averages, Cipher A, B and C, DBSI and your own indicators compute on the Heikin-Ashi
+  candles, and switching it recomputes them at once. Cipher B now puts its dots on the same bars as
+  Market Cipher B's Heikin-Ashi screenshots. Strategies still read the real prices, so they trade what
+  the backtester tested. Volume, profiles, the heatmap, drawings and price in alerts stay real too.
 - **Cipher B no longer has a gold dot.** Market Cipher B draws none; ours came from the free VuManChu
   Cipher B, so it is gone. Everything else Cipher B draws and says is exactly as before. A saved chart
   opens without it, and a strategy or alert built on it tells you it was removed.

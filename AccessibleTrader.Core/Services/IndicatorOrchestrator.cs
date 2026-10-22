@@ -51,6 +51,9 @@ namespace AccessibleTrader.Core.Services
         {
             bool hasData = data != null && data.Any();
             var state = _store.State;
+            // On a Heikin-Ashi chart the indicators compute on Heikin-Ashi candles, as on
+            // TradingView: the stamp below tells the indicator service. See IndicatorCandles.
+            bool heikinAshi = state.IsHeikinAshi;
 
             foreach (var s in series)
             {
@@ -142,6 +145,7 @@ namespace AccessibleTrader.Core.Services
                             parameters["__provider"] = state.Identity.Provider;
                         if (!string.IsNullOrEmpty(state.Identity.Timeframe))
                             parameters["__timeframe"] = state.Identity.Timeframe;
+                        IndicatorCandles.Stamp(parameters, heikinAshi);
 
                         // ── Adaptive parameter detection ─────────────────────────────────────
                         // IAdaptiveIndicatorProvider (e.g. Cipher S) may inspect the loaded data
@@ -152,7 +156,7 @@ namespace AccessibleTrader.Core.Services
                         if (adaptiveProvider is IAdaptiveIndicatorProvider adaptive)
                         {
                             var suggested = adaptive.SuggestParameters(
-                                data.ToArray().AsSpan(),
+                                IndicatorCandles.For(adaptiveProvider, data, parameters).AsSpan(),
                                 state.Identity.Symbol,
                                 parameters,
                                 out string? message);
@@ -206,6 +210,7 @@ namespace AccessibleTrader.Core.Services
         public async Task RecalculateLastAsync(IReadOnlyList<Ohlcv> data, IEnumerable<ChartSeries> series, CancellationToken ct, List<OrderBookEntry>? lastBids = null, List<OrderBookEntry>? lastAsks = null)
         {
             if (data == null || !data.Any()) return;
+            bool heikinAshi = _store.State.IsHeikinAshi;
 
             foreach (var s in series)
             {
@@ -336,6 +341,7 @@ namespace AccessibleTrader.Core.Services
                             parameters["__provider"] = curState.Identity.Provider;
                         if (!string.IsNullOrEmpty(curState.Identity.Timeframe))
                             parameters["__timeframe"] = curState.Identity.Timeframe;
+                        IndicatorCandles.Stamp(parameters, heikinAshi);
 
                         var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
 
@@ -491,6 +497,14 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 var parameters = s.BuildParameterMap();
+                // The same hints the full recalculation stamps. This path (a prepend, or an
+                // indicator that rewrites history every tick) used to send none, so a per-asset
+                // provider recomputed here fetched for no symbol.
+                var state = _store.State;
+                if (!string.IsNullOrEmpty(state.Identity.Symbol)) parameters["__symbol"] = state.Identity.Symbol;
+                if (!string.IsNullOrEmpty(state.Identity.Provider)) parameters["__provider"] = state.Identity.Provider;
+                if (!string.IsNullOrEmpty(state.Identity.Timeframe)) parameters["__timeframe"] = state.Identity.Timeframe;
+                IndicatorCandles.Stamp(parameters, state.IsHeikinAshi);
                 var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                 var buffer = _mapper.MapResultsToBuffer(s, results, data.Count);
                 if (data.Count > 0) buffer.FirstBarDate = data[0].Date;

@@ -676,12 +676,25 @@ previous smoothed candle. The effect is that a trend becomes a run of same-colou
 with wicks on one side only, and choppy noise inside the trend is averaged away, which is why
 the sequence of pitches is easier to follow with HA on.
 
-The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
-So the terminal keeps two things raw whatever the candles are doing:
+**Indicators compute on the candles the chart shows, as on TradingView.** With HA on, RSI,
+MACD, a moving average, Cipher A, B and C, DBSI and your own compiled indicators all read the
+Heikin-Ashi open, high, low and close; the volume is unchanged. Switching HA on or off
+recomputes every indicator on the whole history. So an indicator reading on an HA chart is a
+reading of the smoothed candles, and a level it announces is a smoothed level, not a price
+anything traded at. A few indicators know what they read on an HA chart: Market Cipher B's
+"RSI" and "Stochastic" lines read the real bars and its money flow builds its own Heikin-Ashi
+from the chart's candles (both measured against Market Cipher B's own screenshots), and DBSI
+never applies Heikin-Ashi twice, whatever its own setting says.
 
-- **Every indicator computes on the raw bars.** RSI, MACD, a moving average, a volume profile:
-  all read the real open, high, low and close. Switching HA on does not change a single
-  indicator reading, and a level the indicator announces is a level in real prices.
+The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
+So the terminal keeps these raw whatever the candles are doing:
+
+- **Strategies read the real bars.** A strategy is tested on real prices, in the backtester
+  and in StrategyLab, so on an HA chart its indicators are recomputed on the real bars before
+  it reads them, and its orders go out at real prices. TradingView runs a strategy on HA
+  candles and warns that the results are not real; here they never are HA.
+- **Volume, the volume profiles, the heatmap, drawings and the screener are raw.** Price in an
+  alert is the real price too; an alert on an indicator reads the indicator as the chart shows it.
 - **Chart formations, the close line and the title price are raw.** A neckline measured from a
   smoothed candle could not be put into an order, so formations are read from standard
   candles even while HA is displayed, and the terminal says so when you switch it on with
@@ -1394,9 +1407,9 @@ companions, are described under "Adding and tuning indicators" below.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
-long moving average needs enough history to produce a value at all. Second, **every indicator
-reads the raw candles**, whatever Heikin-Ashi is doing to the picture; the section on
-Heikin-Ashi in the chart-layout chapter explains what that means.
+long moving average needs enough history to produce a value at all. Second, **on a Heikin-Ashi chart
+every indicator reads the Heikin-Ashi candles**, as on TradingView, while a strategy still reads
+the real bars; the section on Heikin-Ashi in the chart-layout chapter explains what that means.
 
 The glossary at the end of this manual defines each of these terms in a sentence.
 
@@ -1548,7 +1561,8 @@ DBSI does on about 9 candles in 10, but its numbers are often 2 to 4 points off 
 DBSI's 20s, so use it for direction and rough strength, not for DBSI's exact readings or its rare
 20-plus signals. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
-regular-candle chart, where DBSI reads the chart's own candles) and **Label the newest N bars** (25,
+regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the
+Heikin-Ashi candles either way, once) and **Label the newest N bars** (25,
 as DBSI; 0 labels every candle). The numbers disappear when the candles are too narrow to fit them;
 zoom in to bring them back.
 
@@ -1560,7 +1574,7 @@ that used it says once that it cannot fire. Add an EMA at each length you want i
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
 Heikin-Ashi candles, and Alt+L to a logarithmic price scale; both are explained in the
 chart-layout chapter, including the one thing to hold on to about Heikin-Ashi — every
-indicator keeps reading the raw candles.
+indicator then reads the Heikin-Ashi candles, and every strategy the real ones.
 
 ### Market structure
 

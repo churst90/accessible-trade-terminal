@@ -146,8 +146,8 @@ namespace AccessibleTrader.Core.Services.Workspace
                 var wanted = IsEnabled
                     ? tabs.Where(t => !string.IsNullOrWhiteSpace(t.Identity.Symbol))
                           .GroupBy(t => t.Identity) // coalesce duplicate identities → one monitor
-                          .ToDictionary(g => g.Key, g => (Name: g.First().SymbolDisplayName, Series: g.First().ActiveSeries))
-                    : new Dictionary<ChartIdentity, (string Name, ImmutableList<ChartSeries> Series)>();
+                          .ToDictionary(g => g.Key, g => (Name: g.First().SymbolDisplayName, Series: g.First().ActiveSeries, HeikinAshi: g.First().IsHeikinAshi))
+                    : new Dictionary<ChartIdentity, (string Name, ImmutableList<ChartSeries> Series, bool HeikinAshi)>();
 
                 // Exposure monitoring: any chart the paper account has a position or
                 // a resting order on, whether or not its tab is open and whether or
@@ -167,7 +167,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                     // the monitor exists to fetch bars, and bars are what the fill
                     // engine and P&L need.
                     var snap = tabs.FirstOrDefault(t => t.Identity.Equals(id));
-                    wanted[id] = (snap?.SymbolDisplayName ?? "", snap?.ActiveSeries ?? ImmutableList<ChartSeries>.Empty);
+                    wanted[id] = (snap?.SymbolDisplayName ?? "", snap?.ActiveSeries ?? ImmutableList<ChartSeries>.Empty, snap?.IsHeikinAshi ?? false);
                 }
 
                 if (wanted.Count == 0)
@@ -200,7 +200,8 @@ namespace AccessibleTrader.Core.Services.Workspace
                         _feeds, _indicators, _alerts, _alertEvaluator,
                         _strategyEngine, _eventBus, _logger,
                         PollInterval, barsToFetch: 400, positions: _positions,
-                        conditionEvaluator: _conditionEvaluator);
+                        conditionEvaluator: _conditionEvaluator,
+                        heikinAshi: snap.HeikinAshi);
                     monitor.Start();
                     _monitors[identity] = monitor;
                     _logger.LogInformation("Background monitor started: {Symbol} ({Timeframe})",

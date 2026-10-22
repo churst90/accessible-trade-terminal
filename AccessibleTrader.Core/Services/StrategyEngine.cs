@@ -23,6 +23,9 @@ namespace AccessibleTrader.Core.Services
         private readonly IDataManager _dataManager;
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
+        // Recomputes the chart's indicators on the real bars while the chart shows Heikin-Ashi
+        // (see StrategyStateFor). Null only in tests that build the engine by hand.
+        private readonly IIndicatorService? _indicators;
         private readonly Feeds.IMarketFeedHub? _feedHub;
         private readonly Strategies.IStrategyPositionManager? _positions;
         // Serializes ALL strategy evaluation — live bar-closes AND the
@@ -53,9 +56,11 @@ namespace AccessibleTrader.Core.Services
             IWorkspaceStore store,
             IStrategyIndicatorCache indicatorCache,
             Feeds.IMarketFeedHub? feedHub = null,
-            Strategies.IStrategyPositionManager? positions = null)
+            Strategies.IStrategyPositionManager? positions = null,
+            IIndicatorService? indicators = null)
         {
             _positions = positions;
+            _indicators = indicators;
             _eventBus       = eventBus;
             _orderService   = orderService;
             _logger         = logger;
@@ -180,6 +185,7 @@ namespace AccessibleTrader.Core.Services
 
         private void EvaluateBar(Sdk.Models.Ohlcv newBar, IReadOnlyList<Sdk.Models.Ohlcv> history, WorkspaceState state)
         {
+            WorkspaceState? strategyState = null;
             foreach (var active in _activeStrategies)
             {
                 if (active.IsPaused) continue;
@@ -200,7 +206,8 @@ namespace AccessibleTrader.Core.Services
                     // is a bar you were stopped out on, not one you reversed on.
                     RunManagedExits(active, newBar, history);
 
-                    var signal = active.Strategy.OnBar(newBar, history, state);
+                    strategyState ??= StrategyStateFor(state, history);
+                    var signal = active.Strategy.OnBar(newBar, history, strategyState);
                     if (signal == null) continue;
 
                     // Deduplication is keyed on BAR IDENTITY, not on a wall clock.
@@ -245,6 +252,32 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogError($"Strategy '{active.Strategy.Name}' threw: {ex.Message}", nameof(StrategyEngine), ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// The chart as a strategy reads it. On a candle chart, the chart itself. On a
+        /// Heikin-Ashi chart the chart's indicators compute on Heikin-Ashi candles
+        /// (<see cref="Indicators.IndicatorCandles"/>), and a strategy is tested on real prices —
+        /// the backtester and StrategyLab never see Heikin-Ashi — so its indicators are
+        /// recomputed here on the real bars it is handed, once per bar close and only while the
+        /// chart shows Heikin-Ashi. TradingView computes a strategy on a Heikin-Ashi chart from
+        /// Heikin-Ashi candles too, and warns that the results are not real; with orders going
+        /// to an exchange from this engine, real prices are the only safe input.
+        /// </summary>
+        private WorkspaceState StrategyStateFor(WorkspaceState state, IReadOnlyList<Sdk.Models.Ohlcv> history)
+        {
+            if (!state.IsHeikinAshi) return state;
+            if (_indicators == null)
+            {
+                _logger.LogWarning("Strategy evaluation: the chart shows Heikin-Ashi and no indicator service is registered to recompute on real bars; strategies read the chart's Heikin-Ashi indicators.",
+                    nameof(StrategyEngine));
+                return state;
+            }
+            var series = Strategies.EvaluationSeries.Compute(
+                _indicators, state.ActiveSeries, history.ToArray(), state.Identity.Symbol, heikinAshi: false,
+                (s, ex) => _logger.LogWarning($"Strategy evaluation: {s.Config.IndicatorCode} could not be computed on the real bars: {ex.Message}",
+                    nameof(StrategyEngine)));
+            return state with { ActiveSeries = series, IsHeikinAshi = false };
         }
 
         /// <summary>

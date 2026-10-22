@@ -290,7 +290,9 @@ Two reasons, and the first is the decisive one:
 
 The alternative — detecting on whatever is displayed — is what charting platforms generally do with
 indicators, and it is exactly why those platforms warn against backtesting strategies on Heikin-Ashi:
-the fills are not real. Disclosure is the honest resolution here; recomputing on HA would produce
+the fills are not real. (Since 2026-10-22 this terminal's indicators do the same — they compute on
+Heikin-Ashi candles on a Heikin-Ashi chart, as on TradingView — while strategies are recomputed on
+the real bars. Formation levels are not indicators and stay raw.) Disclosure is the honest resolution here; recomputing on HA would produce
 levels that read as prices and are not.
 
 **CANDLE patterns go the other way, and the difference is the price.** A candle pattern produces no

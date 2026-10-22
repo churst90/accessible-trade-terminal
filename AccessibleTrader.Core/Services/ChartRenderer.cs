@@ -264,8 +264,13 @@ namespace AccessibleTrader.Core.Services
                     return;
                 }
 
+                // Heikin-Ashi is recursive from the first loaded bar, so the visible candles are
+                // the tail of the WHOLE series — the candles the readouts say (BarAsDrawn) and the
+                // indicators compute on (IndicatorCandles). Built from the visible slice alone,
+                // the first candle on screen was seeded afresh and every candle after it drifted
+                // from those, more the further the chart was panned.
                 var visibleData = isHeikinAshi
-                    ? ChartMath.CalculateHeikinAshi(rawVisibleData)
+                    ? ChartMath.BarsAsDrawn(data, viewportStart + rawVisibleData.Count - 1, rawVisibleData.Count, true).ToList()
                     : rawVisibleData;
                 _textPaint.Color = _theme.Current.AxisText;
                 

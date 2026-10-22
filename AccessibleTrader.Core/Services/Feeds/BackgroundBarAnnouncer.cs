@@ -204,10 +204,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         {
             if (_charts == null) return null;
 
-            var configs = SavedSeriesFor(feed.Identity);
+            var (configs, heikinAshi) = SavedSeriesFor(feed.Identity);
             if (configs == null || !Accessibility.HeadlessChartFactory.HasNarratedSeries(configs)) return null;
 
-            string signature = Accessibility.HeadlessChartFactory.Signature(configs);
+            // The candle type is part of what the chart computes: a tab switched to Heikin-Ashi
+            // gets a new narrator.
+            string signature = Accessibility.HeadlessChartFactory.Signature(configs) + (heikinAshi ? "\nheikin-ashi" : "");
             Accessibility.HeadlessChart chart;
             lock (_narratorGate)
             {
@@ -215,7 +217,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                 // components that may no longer exist. Same rule as the headless chart cache.
                 if (!_narrators.TryGetValue(feed.Identity, out var held) || held.Signature != signature)
                 {
-                    held = (signature, _charts.Create(feed.Identity, configs));
+                    held = (signature, _charts.Create(feed.Identity, configs, Array.Empty<AccessibleTrader.Sdk.Alerts.AlertDefinition>(), heikinAshi));
                     _narrators[feed.Identity] = held;
                 }
                 chart = held.Chart;
@@ -234,27 +236,28 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// <summary>
         /// The series the user actually has on that tab, from the workspace snapshot — the same
         /// source the background workspace monitors read. Null when the tab is not in the
-        /// snapshot list, which means it is not a tab we should be narrating.
+        /// snapshot list, which means it is not a tab we should be narrating. With it, whether the
+        /// tab shows Heikin-Ashi candles, which its indicators then compute on.
         /// </summary>
-        private IReadOnlyList<SeriesConfig>? SavedSeriesFor(ChartIdentity identity)
+        private (IReadOnlyList<SeriesConfig>? Series, bool HeikinAshi) SavedSeriesFor(ChartIdentity identity)
         {
             try
             {
                 var snapshots = _store.State.TabSnapshots;
-                if (snapshots == null) return null;
+                if (snapshots == null) return (null, false);
                 foreach (var snap in snapshots)
                 {
                     if (!snap.Identity.Equals(identity)) continue;
                     var series = snap.ActiveSeries;
-                    if (series == null || series.Count == 0) return null;
-                    return series.Select(s => s.Config).ToList();
+                    if (series == null || series.Count == 0) return (null, false);
+                    return (series.Select(s => s.Config).ToList(), snap.IsHeikinAshi);
                 }
-                return null;
+                return (null, false);
             }
             catch (Exception ex)
             {
                 _logger?.LogWarning(ex, "Could not read the saved series for {Symbol}.", identity.Symbol);
-                return null;
+                return (null, false);
             }
         }
 

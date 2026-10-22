@@ -141,6 +141,28 @@ namespace AccessibleTrader.Tests
             svc.Dispose();
         }
 
+        [Fact]
+        public async Task HeikinAshiToggle_ForcesFullRecalculation()
+        {
+            // Indicators compute on the candles the chart shows (IndicatorCandles), so switching
+            // Heikin-Ashi on or off leaves every buffer describing the other candle type. Nothing
+            // else changes — same asset, same bars, same series — so nothing else would recompute.
+            var (svc, store, data, spy) = BuildOrchestration();
+
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h") with { IsHeikinAshi = true });
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.FullCalls > 0, "switching Heikin-Ashi must recalculate every bar");
+            Assert.Equal(0, spy.LastOnlyCalls);
+
+            svc.Dispose();
+        }
+
         // ── Fixtures ─────────────────────────────────────────────────────────
 
         private static (DataOrchestrationService svc, MockWorkspaceStore store, FakeDataManager data, SpyIndicatorOrchestrator spy)

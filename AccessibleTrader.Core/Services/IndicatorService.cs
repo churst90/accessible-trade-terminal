@@ -141,6 +141,9 @@ namespace AccessibleTrader.Core.Services
                 var indicators = provider.GetIndicators();
                 if (indicators.Any(i => i.Code.Equals(code, StringComparison.OrdinalIgnoreCase)))
                 {
+                    // On a Heikin-Ashi chart the provider reads Heikin-Ashi candles (IndicatorCandles).
+                    if (Indicators.IndicatorCandles.Applies(provider, parameters))
+                        data = Indicators.IndicatorCandles.For(provider, data, parameters);
                     provider.Calculate(code, data, parameters, buffer);
                     return;
                 }
@@ -154,6 +157,9 @@ namespace AccessibleTrader.Core.Services
                 var indicators = provider.GetIndicators();
                 if (indicators.Any(i => i.Code.Equals(code, StringComparison.OrdinalIgnoreCase)))
                 {
+                    // On a Heikin-Ashi chart the provider reads Heikin-Ashi candles (IndicatorCandles).
+                    if (Indicators.IndicatorCandles.Applies(provider, parameters))
+                        data = Indicators.IndicatorCandles.For(provider, data, parameters);
                     provider.UpdateLast(code, data, parameters, buffer);
                     return;
                 }

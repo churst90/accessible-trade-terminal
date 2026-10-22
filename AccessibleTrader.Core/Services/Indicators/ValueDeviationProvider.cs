@@ -250,8 +250,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // The stored VALUE is the bar extreme the zone sits at — the actual support or
                 // resistance price, which is what speech should quote and what a strategy leaf
                 // should compare against. Where the shape is DRAWN is a separate concern handled
-                // by MarkerAnchor, so the marker follows the displayed candle even under
-                // Heikin-Ashi without this value drifting away from a real, quotable price.
+                // by MarkerAnchor. On a Heikin-Ashi chart these bars ARE Heikin-Ashi (since
+                // 2026-10-22, IndicatorCandles), so the zone is the Heikin-Ashi extreme, as it
+                // would be on TradingView; a strategy computes it from the real bars.
                 double zone = belowValue ? bars[i].Low : bars[i].High;
 
                 var target = d.Tier >= 4

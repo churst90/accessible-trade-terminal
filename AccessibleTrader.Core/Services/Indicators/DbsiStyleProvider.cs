@@ -76,15 +76,16 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
-    /// <b>Heikin-Ashi.</b> DBSI computes on the chart's own candles; the app hands every provider
-    /// raw OHLCV even on a Heikin-Ashi chart, so the transform is done here, from the first bar
-    /// (<see cref="ChartMath.CalculateHeikinAshi"/>, the same transform the chart draws). On the
-    /// two Heikin-Ashi charts in the study, Heikin-Ashi input fitted better (r 0.93/0.93 vs
-    /// 0.90/0.89 at 15m). On a regular-candle chart DBSI would use regular candles — turn the
-    /// option off there to match it; the provider cannot see the chart type.
+    /// <b>Heikin-Ashi.</b> DBSI computes on the chart's own candles. This provider is handed the raw
+    /// bars even on a Heikin-Ashi chart (<see cref="IComputesHeikinAshiItself"/>) and does the
+    /// transform here, from the first bar (<see cref="ChartMath.CalculateHeikinAshi"/>, the same
+    /// transform the chart draws): always on a Heikin-Ashi chart, and on a candle chart while the
+    /// option is on (the default — on the two Heikin-Ashi charts in the study, Heikin-Ashi input
+    /// fitted better, r 0.93/0.93 vs 0.90/0.89 at 15m). Turn the option off on a candle chart to
+    /// match DBSI there.
     /// </para>
     /// </summary>
-    public sealed class DbsiStyleProvider : IIndicatorProvider
+    public sealed class DbsiStyleProvider : IIndicatorProvider, IComputesHeikinAshiItself
     {
         public const string Code = "DBSI_STYLE";
 
@@ -363,7 +364,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 GetInt(p, ParamLongEntry, DefaultLongEntry),
                 GetInt(p, ParamShortEntry, DefaultShortEntry),
                 Math.Max(2, GetInt(p, ParamTrendLength, DefaultTrendLength)),
-                IndicatorParams.GetBool(p, ParamHeikinAshi, true));
+                // On a Heikin-Ashi chart it reads Heikin-Ashi whatever the switch says, as DBSI on
+                // TradingView reads the chart's candles; built here once, from the raw bars it is
+                // handed (IComputesHeikinAshiItself), never Heikin-Ashi of Heikin-Ashi.
+                IndicatorParams.GetBool(p, ParamHeikinAshi, true) || IndicatorCandles.IsHeikinAshi(p));
         }
 
         internal sealed record Result(

@@ -1,3 +1,17 @@
+> - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars
+>   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with
+>   Cipher B, an RSI and an EMA: every indicator should recompute at once, Cipher B's dots should
+>   land where Market Cipher B's do on the HA screenshots, and a strategy on the chart should keep
+>   trading as before. Open questions:
+>   - Price against an indicator on an HA chart: an alert ("price crosses EMA"), the crossing engine
+>     and the overlay-cross narration compare the REAL close with the HA indicator. TradingView
+>     would compare the HA close. Which? (Real price is what an order fills at.)
+>   - A custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
+>     false in a strategy on an HA chart. Recompute it there, or refuse the strategy with a reason?
+>   - Cipher A was fitted on raw bars. Refit it on the HA screenshots, as Cipher B was measured?
+>   - A background tab's candle type is read when its monitor starts; switching it later waits for
+>     the next restart of that monitor.
+>   - Market Cipher B's S3 and S5 screenshots not re-measured on HA.
 > - [x] **Cipher B's gold dot removed (Cody 2026-10-22: "it isn't faithful"; see CHANGES).** Its rule
 >   and look are kept, used by nothing, in `GoldDot` ("keep the gold dot as a drawing element").
 >   Every other Cipher B array is byte-identical to before. Left on purpose: the three bull-pulse
@@ -579,9 +593,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > 3. **Ribbon narration:** with Cipher A narrating, price crossing any of the eight lines is announced
 >    ("Price crossed above EMA 5 at …"), several per sentence on a choppy day. Turn that off and narrate
 >    only the symbols? [Off — not built; today it is on.]
-> 4. **Heikin-Ashi:** indicators read the raw candles on a Heikin-Ashi chart; TradingView feeds Market
->    Cipher A (and B) the Heikin-Ashi ones, the main source of one-candle offsets. Unconfirmed what MC
->    does on a regular-candle chart. [Keep raw candles.]
+> 4. **Heikin-Ashi:** ~~indicators read the raw candles on a Heikin-Ashi chart~~ — answered 2026-10-22:
+>    Cody asked for what TradingView does, so indicators (Cipher A included) now compute on Heikin-Ashi
+>    candles on a Heikin-Ashi chart. Cipher A was FITTED on raw bars; not refitted. See CHANGES.
 > 5. **The ribbon fill:** Market Cipher A draws a translucent fill between EMA 5 and EMA 33. [Add it as a
 >    fill you can turn off.]
 > - [ ] **Build the Cipher A ribbon fill** (EMA 5 to EMA 33, a cloud fill the user can hide) if Cody agrees
@@ -634,8 +648,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    not a price). The study suggests bull minus bear as one centred pitch.
 > 6. **A marker already showing when N is switched on is never announced** when that bar closes
 >    (pre-existing narrator seeding, not DBSI's).
-> 7. **Heikin-Ashi seeding mismatch:** the drawn Heikin-Ashi candles are seeded at the view's left edge,
->    the indicator's from the first bar, so the first few on-screen candles can differ (pre-existing).
+> 7. ~~**Heikin-Ashi seeding mismatch:** the drawn Heikin-Ashi candles are seeded at the view's left edge,
+>    the indicator's from the first bar.~~ Fixed 2026-10-22: the renderer draws the tail of the whole
+>    series (`ChartMath.BarsAsDrawn`), pinned by a pixel test.
 > 8. **Colour-vision-safe mode does not recolour the labels** (they are still told apart by position).
 > 9. **`labelBars` is matched by name:** the renderer reads a series parameter called exactly that. It is
 >    documented in the plugin guide, but it is a name-based coupling.
@@ -709,9 +724,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   their slanted lines, hidden divergences — they make sounds)? Drop the anchor-regime tint MCB does
 >   not paint on the price pane? Add MCB's dotted ±100 levels and white zero line (each level adds an
 >   earcon; white vanishes on light themes)? In MCB mode the gold dot keeps the gated rule, so gold can
->   appear without a green dot — should gold require the green dot? Indicators ignore Heikin-Ashi mode
->   (TradingView feeds MCB the HA candles) — the main source of the remaining ±1-bar offsets; changing
->   it touches every indicator. SteelGray: slow-wave edge 2.1:1 and levels 2.3:1; on Paper and High
+>   appear without a green dot — should gold require the green dot? ~~Indicators ignore Heikin-Ashi mode~~ —
+>   done 2026-10-22: on a HA chart Cipher B's dots now land on MCB's bar (big green 5/5 and 3/3 on the
+>   two HA screenshots, from 2/5 and 1/3). SteelGray: slow-wave edge 2.1:1 and levels 2.3:1; on Paper and High
 >   Contrast Light the yellow VWAP and lime money flow are under 1.5:1 (as on MCB's own light theme).
 >   `StrategyBatteryCommand`'s Money Flow baseline (−80) is stale.
 > - **DSS Bressert:** defaults 13/8 (MetaTrader) vs 10/9 (TradingView) vs 10/3 (probably Bressert's
@@ -7632,8 +7647,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > 1. **Indicator series still receive the Heikin-Ashi bar.** Speech tokens like `{price}` on a
 >    marker template, and the sonifier's `PitchMapping.Price`, hand overlay series the drawn bar.
->    That is arguably right — an overlay is read against the candles it sits on — but it is a
->    third convention that nobody has stated, and indicators COMPUTE on raw OHLCV. Decide it
+>    That is arguably right — an overlay is read against the candles it sits on — and since
+>    2026-10-22 indicators COMPUTE on the drawn candles too (IndicatorCandles), so it is now one
+>    convention. Decide it
 >    deliberately rather than leaving it as whatever the transform happened to reach.
 > 2. **Should the candle readout SAY "Heikin-Ashi"?** Deliberately not added: the series-switch
 >    announcement and `ChartLayoutDescriber` both already name the mode, and prefixing every bar
@@ -14244,7 +14260,9 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   Three existing guards did their job and had to be satisfied: the keyboard-scope
   categorisation, the F1 Help dialog parity test, and `docs/SHORTCUTS.md` parity. That is the
   `F1`-missing-bindings class being prevented rather than repeated.
-- [ ] **The renderer seeds Heikin-Ashi from the visible slice while speech and audio seed it from bar 0 —
+- [x] **(Fixed 2026-10-22 — `ChartMath.BarsAsDrawn` in the renderer, pinned by
+  `HeikinAshiIndicatorCandlesTests.A_panned_Heikin_Ashi_candle_is_drawn_from_the_whole_series`.)**
+  **The renderer seeds Heikin-Ashi from the visible slice while speech and audio seed it from bar 0 —
   `ChartRenderer.cs:110-111` vs `ChartMath.cs:110-111`.** `CalculateHeikinAshi` seeds
   `prevOpen = data[0].Open; prevClose = data[0].Close`, and the renderer hands it only `rawVisibleData`
   (the viewport slice). `BarDetailService.cs:145-148`, `NavigationSonifier.cs:167-171` and

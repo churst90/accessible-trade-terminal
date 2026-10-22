@@ -133,6 +133,9 @@ Two limits of the replica, stated so they cannot be argued later:
   regular candles ([Finding PERFECT Entries, 2021-04-10, 35:31](https://youtu.be/EwtsVvxt30g?t=2131)).
   Our waves read raw candles; our money flow reads Heikin-Ashi internally. Trades fill on raw prices.
   This is a named limitation, not a variant.
+  (Note 2026-10-22, after this study: the app's charts now compute indicators on Heikin-Ashi
+  candles when the chart shows them, and Cipher B splits as Market Cipher B does. StrategyLab and
+  strategies still compute on the real bars, so this study's inputs are unchanged.)
 
 ### 1.3 The anchor wave
 

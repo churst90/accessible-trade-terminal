@@ -523,9 +523,11 @@ namespace AccessibleTrader.WebHost.Services
 
         /// <param name="Series">The saved tab's series configs, when the watch came from a tab —
         /// the narration ladder is built from the ones flagged with N. Null for an alert watch.</param>
+        /// <param name="HeikinAshi">That saved tab shows Heikin-Ashi candles, so its indicators
+        /// compute on them, as the open chart's do (IndicatorCandles). Rides with Series.</param>
         public sealed record Watch(string Provider, string Symbol, string Timeframe,
             IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot",
-            IReadOnlyList<SeriesConfig>? Series = null);
+            IReadOnlyList<SeriesConfig>? Series = null, bool HeikinAshi = false);
 
         /// <summary>One chart to fetch this poll, and the reasons it is wanted.</summary>
         internal sealed record Target(Watch Watch, bool WatchBarCloses, bool Narrate);
@@ -579,7 +581,8 @@ namespace AccessibleTrader.WebHost.Services
                     string.IsNullOrWhiteSpace(tab.Timeframe) ? "1h" : tab.Timeframe.Trim(),
                     Array.Empty<AlertDefinition>(),
                     string.IsNullOrWhiteSpace(tab.Market) ? "Spot" : tab.Market.Trim(),
-                    tab.Series);
+                    tab.Series,
+                    tab.IsHeikinAshi);
 
                 // Two tabs on the same chart are one watch. Duplicates would fetch twice and
                 // announce twice — and the second announcement would be indistinguishable from
@@ -661,8 +664,13 @@ namespace AccessibleTrader.WebHost.Services
                                Market: string.IsNullOrWhiteSpace(a.Market) ? "Spot" : a.Market!.Trim()),
                     StringTupleComparer.Instance)
                 // The saved tab's series ride along: the alerts' indicators are built from them.
-                .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market,
-                                       SavedSeriesFor(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market)))
+                .Select(g =>
+                {
+                    var tab = SavedTabFor(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market);
+                    return new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market,
+                                     (IReadOnlyList<SeriesConfig>?)tab?.Series ?? Array.Empty<SeriesConfig>(),
+                                     tab?.IsHeikinAshi ?? false);
+                })
                 .ToList();
 
         /// <summary>This monitor's watches: the chart-composing predicate, with the saved session.</summary>
@@ -682,8 +690,15 @@ namespace AccessibleTrader.WebHost.Services
 
         internal static IReadOnlyList<SeriesConfig> SavedSeriesFor(
             WorkspaceConfiguration? session, string provider, string symbol, string timeframe, string market)
+            => (IReadOnlyList<SeriesConfig>?)SavedTabFor(session, provider, symbol, timeframe, market)?.Series
+               ?? Array.Empty<SeriesConfig>();
+
+        /// <summary>The saved tab <see cref="SavedSeriesFor(WorkspaceConfiguration?, string, string, string, string)"/>
+        /// reads, or null when nothing with series is saved for the symbol.</summary>
+        internal static TabConfiguration? SavedTabFor(
+            WorkspaceConfiguration? session, string provider, string symbol, string timeframe, string market)
         {
-            if (session?.Tabs == null) return Array.Empty<SeriesConfig>();
+            if (session?.Tabs == null) return null;
             bool Same(string? x, string? y) => string.Equals(x?.Trim(), y?.Trim(), StringComparison.OrdinalIgnoreCase);
             var sameSymbol = session.Tabs
                 .Where(t => Same(t.Provider, provider) && Same(t.Symbol, symbol) && t.Series != null && t.Series.Count > 0)
@@ -691,7 +706,7 @@ namespace AccessibleTrader.WebHost.Services
             var exact = sameSymbol.FirstOrDefault(t =>
                 Same(string.IsNullOrWhiteSpace(t.Timeframe) ? "1h" : t.Timeframe, timeframe)
                 && Same(string.IsNullOrWhiteSpace(t.Market) ? "Spot" : t.Market, market));
-            return (IReadOnlyList<SeriesConfig>?)(exact ?? sameSymbol.FirstOrDefault())?.Series ?? Array.Empty<SeriesConfig>();
+            return exact ?? sameSymbol.FirstOrDefault();
         }
 
         /// <summary>
@@ -762,17 +777,22 @@ namespace AccessibleTrader.WebHost.Services
                 // later with nothing in a log. The tab's SERIES ride along either way, because
                 // the alert watch never carries any.
                 byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
-                    ? existing with { Watch = existing.Watch with { Series = w.Series ?? existing.Watch.Series }, WatchBarCloses = true }
+                    ? existing with { Watch = WithTab(existing.Watch, w), WatchBarCloses = true }
                     : new Target(w, true, false);
             }
             foreach (var w in narrationWatches)
             {
                 byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
-                    ? existing with { Watch = existing.Watch with { Series = w.Series ?? existing.Watch.Series }, Narrate = true }
+                    ? existing with { Watch = WithTab(existing.Watch, w), Narrate = true }
                     : new Target(w, false, true);
             }
             return byKey.Values.ToList();
         }
+
+        // The tab's series, and the candles it shows, from whichever watch came from the tab.
+        private static Watch WithTab(Watch existing, Watch fromTab) => fromTab.Series == null
+            ? existing
+            : existing with { Series = fromTab.Series, HeikinAshi = fromTab.HeikinAshi };
 
         /// <summary>Whether the user wants to be told about events they cannot see — one
         /// switch across the whole feature since 2026-09-11, default ON. See
@@ -916,7 +936,9 @@ namespace AccessibleTrader.WebHost.Services
         {
             string key = WatchKey(watch);
             var saved = watch.Series ?? Array.Empty<SeriesConfig>();
-            string signature = HeadlessChartFactory.Signature(saved, watch.Alerts);
+            // The candle type is part of what the chart computes: a tab switched to Heikin-Ashi
+            // gets a new chart.
+            string signature = HeadlessChartFactory.Signature(saved, watch.Alerts) + (watch.HeikinAshi ? "\nheikin-ashi" : "");
 
             if (_charts.TryGetValue(key, out var held) && held.Signature == signature)
                 return held.Chart;
@@ -935,7 +957,8 @@ namespace AccessibleTrader.WebHost.Services
             try
             {
                 var chart = factory.Create(
-                    new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved, watch.Alerts);
+                    new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved, watch.Alerts,
+                    heikinAshi: watch.HeikinAshi);
                 _charts[key] = (signature, chart);
                 _logger.LogInformation(
                     "Headless chart watching {Symbol} {Timeframe}: {Narrated} narrated series, {Total} in all, {Bars} bars of history.",

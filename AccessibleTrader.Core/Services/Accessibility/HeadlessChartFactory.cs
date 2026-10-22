@@ -128,7 +128,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// that is both is built once. Everything else on the tab costs nothing headless because
         /// nothing reads it.
         /// </summary>
-        public HeadlessChart Create(ChartIdentity identity, IReadOnlyList<SeriesConfig>? saved, IReadOnlyList<AlertDefinition> alerts)
+        /// <param name="heikinAshi">The saved tab shows Heikin-Ashi candles, so its indicators
+        /// compute on them, as the open chart's do (IndicatorCandles).</param>
+        public HeadlessChart Create(ChartIdentity identity, IReadOnlyList<SeriesConfig>? saved, IReadOnlyList<AlertDefinition> alerts,
+            bool heikinAshi = false)
         {
             saved ??= Array.Empty<SeriesConfig>();
 
@@ -260,7 +263,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Add(built.Id)) template.Add(built);
             }
 
-            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing, removed);
+            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing, removed, heikinAshi);
         }
 
         /// <summary>

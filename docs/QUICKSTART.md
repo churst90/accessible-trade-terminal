@@ -276,10 +276,10 @@ Properties.
 
 **Heikin-Ashi (Alt+C)** replaces each candle with a smoothed one: its close is the average of
 open, high, low and close, its open the midpoint of the previous smoothed candle. Trends read
-as runs of one colour, so they are easier to hear. Two things to know: the smoothed prices
-are averages nobody traded at, so **every indicator, the close line and every formation level
-keep reading the raw candles**; and with HA on, the candle you hear and its pattern are the
-smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories, and the
+as runs of one colour, so they are easier to hear. Two things to know: **indicators then compute on
+the smoothed candles**, as on TradingView, while strategies, the close line and every formation
+level keep reading the raw ones, because the smoothed prices are averages nobody traded at; and
+with HA on, the candle you hear and its pattern are the smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories, and the
 sound follows it: a level-pitched component in the price pane takes its pitch from where the
 value sits on the scale as drawn.
 

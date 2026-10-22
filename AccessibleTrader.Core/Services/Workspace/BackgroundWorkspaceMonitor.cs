@@ -45,6 +45,8 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IAlertOrchestrator _alerts;
         private readonly IAlertEvaluator _alertEvaluator;
         private readonly IStrategyEngine _strategyEngine;
+        // The tab shows Heikin-Ashi candles, so its indicators compute on them (IndicatorCandles).
+        private readonly bool _heikinAshi;
         private readonly IEventBus _eventBus;
         private readonly ILogger _logger;
         private readonly TimeSpan _pollInterval;
@@ -84,8 +86,10 @@ namespace AccessibleTrader.Core.Services.Workspace
             TimeSpan pollInterval,
             int barsToFetch = 400,
             Strategies.IStrategyPositionManager? positions = null,
-            Strategies.IConditionEvaluator? conditionEvaluator = null)
+            Strategies.IConditionEvaluator? conditionEvaluator = null,
+            bool heikinAshi = false)
         {
+            _heikinAshi = heikinAshi;
             _positions = positions;
             _conditionEvaluator = conditionEvaluator;
             _identity = identity;
@@ -140,7 +144,11 @@ namespace AccessibleTrader.Core.Services.Workspace
             if (bars.Count < 2) return;
             ct.ThrowIfCancellationRequested();
 
-            var state = BuildState(bars);
+            // Alerts read the tab as it is drawn — Heikin-Ashi indicators on a Heikin-Ashi tab, as
+            // in the foreground; strategies read indicators on the real bars, always (see
+            // EvaluationSeries). One state when the tab shows candles.
+            var state = BuildState(bars, _heikinAshi);
+            var strategyState = _heikinAshi ? BuildState(bars, heikinAshi: false) : state;
             LastBarCount = bars.Count;
             LastEvaluatedUtc = DateTime.UtcNow;
 
@@ -151,7 +159,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             _eventBus.Publish(new MonitoredBarEvent(_identity, bars[bars.Count - 1]));
 
             EvaluateAlerts(state, bars);
-            EvaluateStrategies(state, bars);
+            EvaluateStrategies(strategyState, bars);
         }
 
         /// <summary>
@@ -159,48 +167,20 @@ namespace AccessibleTrader.Core.Services.Workspace
         /// series template with every indicator recomputed against the new data. Never
         /// dispatched anywhere — this state exists only for evaluation.
         /// </summary>
-        private WorkspaceState BuildState(IReadOnlyList<Ohlcv> bars)
+        private WorkspaceState BuildState(IReadOnlyList<Ohlcv> bars, bool heikinAshi)
         {
-            var span = bars.ToArray();
-            var computed = ImmutableList.CreateBuilder<ChartSeries>();
-
-            foreach (var series in _seriesTemplate)
-            {
-                if (string.IsNullOrEmpty(series.Config.IndicatorCode))
-                {
-                    computed.Add(series); // candles/price/volume — evaluators read bars directly
-                    continue;
-                }
-
-                try
-                {
-                    var parameters = series.BuildParameterMap();
-                    parameters["__symbol"] = _identity.Symbol;
-
-                    var results = new Dictionary<string, double[]>();
-                    var buffer = new IndicatorResultBuffer(results, span.Length);
-                    _indicators.CalculateIndicator(series.Config.IndicatorCode, span, parameters, buffer);
-
-                    computed.Add(series.WithData(new SeriesDataBuffer
-                    {
-                        SeriesId = series.Id,
-                        ComponentData = results,
-                    }));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
-                        series.Config.IndicatorCode, _symbolDisplayName);
-                    computed.Add(series); // keep the series; its leaves evaluate false
-                }
-            }
+            var computed = Strategies.EvaluationSeries.Compute(
+                _indicators, _seriesTemplate, bars.ToArray(), _identity.Symbol, heikinAshi,
+                (series, ex) => _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
+                    series.Config.IndicatorCode, _symbolDisplayName));
 
             return WorkspaceState.Initial with
             {
                 Identity = _identity,
                 SymbolDisplayName = _symbolDisplayName,
                 Data = new TimeSeriesBuffer<Ohlcv>(bars),
-                ActiveSeries = computed.ToImmutable(),
+                ActiveSeries = computed,
+                IsHeikinAshi = heikinAshi,
                 CurrentDataIndex = bars.Count - 1,
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
