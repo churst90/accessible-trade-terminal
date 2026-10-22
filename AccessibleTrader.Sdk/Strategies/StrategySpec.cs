@@ -37,6 +37,15 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// <c>StrategyBundle</c> import carry the research catalogue's provenance so the library can
 /// show the user what the evidence is instead of presenting every spec as equally blessed.
 /// </param>
+/// <param name="SignalsOnHeikinAshi">
+/// Read the conditions on Heikin-Ashi candles: every indicator a condition reads is computed on
+/// them, and a price condition reads the Heikin-Ashi bar, whatever candles the chart shows. The
+/// orders do not move: entry, stop, targets, trailing stop, fills and P&amp;L stay on the real
+/// prices, as TradingView's "Fill orders on standard OHLC" does (Cody 2026-10-22: "is basing
+/// strategies on ha candles a thing people do? ... If so, let's do it"). Filling at Heikin-Ashi
+/// prices is the known trap: they are averages no order ever traded at. Condition-tree strategies
+/// only; a Roslyn strategy reads the bars it is given. False reads the real bars.
+/// </param>
 public record StrategySpec(
     string Id,
     string Name,
@@ -49,5 +58,6 @@ public record StrategySpec(
     DateTime UpdatedUtc = default,
     bool IsAutoActivate = false,
     string? RoslynSource = null,
-    StrategyProvenance? Provenance = null
+    StrategyProvenance? Provenance = null,
+    bool SignalsOnHeikinAshi = false
 );

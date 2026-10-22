@@ -36,9 +36,17 @@ namespace AccessibleTrader.Core.Strategies;
 /// expiration — Armed remains valid indefinitely until either the trigger fires or the
 /// underlying conditions invalidate.
 /// </summary>
-public class ConfigurableStrategy : BaseStrategy
+public class ConfigurableStrategy : BaseStrategy, IReadsHeikinAshiSignals
 {
     private enum SetupState { Inactive, Armed, Active }
+
+    /// <inheritdoc cref="StrategySpec.SignalsOnHeikinAshi"/>
+    public bool SignalsOnHeikinAshi => _spec.SignalsOnHeikinAshi;
+
+    /// <summary>The Heikin-Ashi candles of the history last handed in, extended a bar at a time
+    /// while the history only grows (the backtester and the live engine both append).</summary>
+    private List<Ohlcv>? _heikinAshiHistory;
+    private bool _heikinAshiMissingNotified;
 
     private readonly StrategySpec _spec;
     private readonly IConditionEvaluator _evaluator;
@@ -399,7 +407,30 @@ public class ConfigurableStrategy : BaseStrategy
             return null;
         }
 
-        var eval = _evaluator.Evaluate(_spec.Conditions, history, state);
+        // Signals on Heikin-Ashi: the conditions read Heikin-Ashi candles and the indicators
+        // computed on them; everything an order sits at below (the trigger level, the resolver's
+        // entry, stop and targets) reads the real history and state.
+        IReadOnlyList<Ohlcv> signalHistory = history;
+        WorkspaceState signalState = state;
+        if (_spec.SignalsOnHeikinAshi)
+        {
+            if (StrategyCandles.SignalState(state) is not { } heikinAshiState)
+            {
+                if (!_heikinAshiMissingNotified)
+                {
+                    _heikinAshiMissingNotified = true;
+                    if (publishEvents)
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Error,
+                            $"Strategy '{_spec.Name}' reads Heikin-Ashi signals and none were computed for it. It will not trade until they are."));
+                }
+                return null;
+            }
+            signalState = heikinAshiState;
+            signalHistory = HeikinAshiHistory(history);
+        }
+
+        var eval = _evaluator.Evaluate(_spec.Conditions, signalHistory, signalState);
 
         // Detect leaves that flipped true→false since the previous bar — these are "dropouts"
         // even if the overall tree is still true (e.g. an OR group with one false child).
@@ -452,7 +483,7 @@ public class ConfigurableStrategy : BaseStrategy
         if (_state == SetupState.Armed && _armedPlan != null)
         {
             _barsSinceArmed++;
-            if (EntryTriggerFired(_spec.Risk.Entry, _spec.Side, history))
+            if (EntryTriggerFired(_spec.Risk.Entry, _spec.Side, history, signalHistory))
             {
                 _state = SetupState.Active;
                 _barsSinceFirstConfirm = 0;
@@ -605,7 +636,12 @@ public class ConfigurableStrategy : BaseStrategy
     /// high/low range is what we test against — once price has touched the trigger level,
     /// we consider the order placed at that price.
     /// </summary>
-    private static bool EntryTriggerFired(EntryTrigger trigger, OrderSide side, IReadOnlyList<Ohlcv> history)
+    /// <param name="signalHistory">The candles the conditions read: the N-candle trigger counts
+    /// candles closing in the setup's direction, which is a signal and reads Heikin-Ashi when the
+    /// strategy does. A pullback or breakout is a price an order would fill at, and reads the real
+    /// bar.</param>
+    private static bool EntryTriggerFired(EntryTrigger trigger, OrderSide side, IReadOnlyList<Ohlcv> history,
+                                          IReadOnlyList<Ohlcv> signalHistory)
     {
         if (history.Count == 0) return false;
         var bar = history[^1];
@@ -629,10 +665,10 @@ public class ConfigurableStrategy : BaseStrategy
             case EntryTriggerKind.OnNextNCandleClose:
                 // After at least N bars have passed and the most recent N bars all closed
                 // in setup direction. Conservative: requires unbroken confirmation.
-                if (history.Count < trigger.NCandles) return false;
-                for (int i = history.Count - trigger.NCandles; i < history.Count; i++)
+                if (signalHistory.Count < trigger.NCandles) return false;
+                for (int i = signalHistory.Count - trigger.NCandles; i < signalHistory.Count; i++)
                 {
-                    var b = history[i];
+                    var b = signalHistory[i];
                     bool inDir = side == OrderSide.Buy ? b.Close > b.Open : b.Close < b.Open;
                     if (!inDir) return false;
                 }
@@ -641,6 +677,30 @@ public class ConfigurableStrategy : BaseStrategy
             default:
                 return true;
         }
+    }
+
+    /// <summary>
+    /// Heikin-Ashi candles of <paramref name="history"/>, seeded from its first bar as the chart
+    /// draws them. One new bar on the end of the history the last call saw is one step; anything
+    /// else (a fresh history, a background tab's rolling window) is rebuilt whole.
+    /// </summary>
+    private IReadOnlyList<Ohlcv> HeikinAshiHistory(IReadOnlyList<Ohlcv> history)
+    {
+        if (history.Count <= 1) return history;   // ChartMath.SeriesAsDrawn's single-bar guard
+        var ha = _heikinAshiHistory;
+        if (ha != null && ha.Count == history.Count - 1
+            && ha[0].Date == history[0].Date && ha[^1].Date == history[^2].Date)
+        {
+            var prev = ha[^1];
+            var d = history[^1];
+            double close = (d.Open + d.High + d.Low + d.Close) / 4;
+            double open = (prev.Open + prev.Close) / 2;
+            ha.Add(new Ohlcv(d.Date, open, Math.Max(d.High, Math.Max(open, close)),
+                             Math.Min(d.Low, Math.Min(open, close)), close, d.Volume));
+            return ha;
+        }
+        _heikinAshiHistory = ChartMath.CalculateHeikinAshi(history as List<Ohlcv> ?? history.ToList());
+        return _heikinAshiHistory;
     }
 
     private static double ResolveTriggerPrice(EntryTrigger trigger, IReadOnlyList<Ohlcv> history)

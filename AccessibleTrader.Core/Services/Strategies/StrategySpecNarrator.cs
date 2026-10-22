@@ -36,6 +36,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             sb.Append("Conditions: ");
             if (spec.Root == null) sb.Append("none defined. ");
             else NarrateNode(spec.Root, sb);
+            if (spec.SignalsOnHeikinAshi)
+                sb.Append(" Signals read on Heikin-Ashi candles; orders, stops and targets on the real prices.");
 
             sb.Append(" Stop: ").Append(spec.StopKind);
             if (spec.StopKind == StopSourceKind.PercentOfPrice)

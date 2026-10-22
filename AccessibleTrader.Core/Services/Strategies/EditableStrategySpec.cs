@@ -19,6 +19,9 @@ namespace AccessibleTrader.Core.Services.Strategies
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public OrderSide Side { get; set; } = OrderSide.Buy;
+        // Conditions read on Heikin-Ashi candles; orders, stops and targets on the real prices
+        // (StrategySpec.SignalsOnHeikinAshi).
+        public bool SignalsOnHeikinAshi { get; set; }
 
         // ── Conditions ───────────────────────────────────────────────────────
         public EditableConditionNode? Root { get; set; }
@@ -125,7 +128,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Risk: risk,
                 ExecutionMode: StrategyExecutionMode.Suggestion,
                 CreatedUtc: DateTime.UtcNow,
-                UpdatedUtc: DateTime.UtcNow);
+                UpdatedUtc: DateTime.UtcNow,
+                SignalsOnHeikinAshi: SignalsOnHeikinAshi);
         }
 
         /// <summary>
@@ -136,6 +140,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             Name = spec.Name;
             Description = spec.Description;
             Side = spec.Side;
+            SignalsOnHeikinAshi = spec.SignalsOnHeikinAshi;
             Root = FromConditionNode(spec.Conditions);
             SelectedNode = null;
 
@@ -178,6 +183,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             Name = string.Empty;
             Description = string.Empty;
             Side = OrderSide.Buy;
+            SignalsOnHeikinAshi = false;
             Root = null;
             SelectedNode = null;
             LoadedId = string.Empty;

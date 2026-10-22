@@ -52,6 +52,15 @@
             </select>
         </div>
 
+        @* TradingView's "Fill orders on standard OHLC": the conditions read Heikin-Ashi candles,
+           and every order still fills at a price the market traded. *@
+        <div class="modal-row">
+            <label for="bs-ha-signals">Signals from Heikin-Ashi candles (orders, stops and targets on real prices):</label>
+            <input id="bs-ha-signals" type="checkbox"
+                   checked="@_spec.SignalsOnHeikinAshi"
+                   @onchange="e => _spec.SignalsOnHeikinAshi = e.Value is bool b && b" />
+        </div>
+
         @* The "Use Recommended" button was removed 2026-08-01. It loaded a per-asset preset
        chosen automatically, and every branch of that chooser returned a Cipher-B variant —
        a component this project's own research falsified. The terminal ships tools; which

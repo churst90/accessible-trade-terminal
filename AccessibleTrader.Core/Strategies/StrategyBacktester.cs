@@ -19,17 +19,25 @@ public class StrategyBacktester : IStrategyBacktester
     private readonly Services.Strategies.IBacktestProfileCache? _profileCache;
     private readonly Services.Strategies.IMultiTimeframeDataService? _mtf;
     private readonly Services.IStrategyIndicatorCache? _indicatorCache;
+    private readonly Services.IIndicatorService? _indicators;
 
+    /// <param name="indicators">Computes the series a strategy reads on the bars it reads them
+    /// on (<see cref="Services.Strategies.StrategyCandles"/>): the real ones when the chart handed
+    /// in shows Heikin-Ashi, the Heikin-Ashi ones for a strategy that reads its signals there.
+    /// Without it a backtest reads the chart's series as they are, and a Heikin-Ashi-signal
+    /// strategy on a candle chart is refused with a reason.</param>
     public StrategyBacktester(
         Services.IProfileService? profileService = null,
         Services.Strategies.IBacktestProfileCache? profileCache = null,
         Services.Strategies.IMultiTimeframeDataService? mtf = null,
-        Services.IStrategyIndicatorCache? indicatorCache = null)
+        Services.IStrategyIndicatorCache? indicatorCache = null,
+        Services.IIndicatorService? indicators = null)
     {
         _profileService = profileService;
         _profileCache   = profileCache;
         _mtf            = mtf;
         _indicatorCache = indicatorCache;
+        _indicators     = indicators;
     }
 
     /// <summary>
@@ -194,6 +202,21 @@ public class StrategyBacktester : IStrategyBacktester
         _mtf?.Clear();
         _profileCache?.Clear();
 
+        // ── The candles the strategy reads ────────────────────────────────────
+        // The same state the live engine hands it (StrategyCandles): series on the real bars for
+        // the stops, targets and every price an order sits at; Heikin-Ashi series beside them when
+        // the strategy reads its signals there. Built over the whole history handed in, before the
+        // date filter, because the chart's series are aligned with it. Until 2026-10-22 a backtest
+        // on a Heikin-Ashi chart read the chart's Heikin-Ashi indicators against real fills while
+        // the live engine recomputed them on the real bars: the test and the trade disagreed.
+        bool heikinAshiSignals = Services.Strategies.StrategyCandles.WantsHeikinAshi(strategy);
+        if (_indicators != null && (state.IsHeikinAshi || heikinAshiSignals))
+            state = Services.Strategies.StrategyCandles.For(_indicators, state, data as Ohlcv[] ?? data.ToArray(), heikinAshiSignals);
+        else if (heikinAshiSignals && !state.IsHeikinAshi)
+            return new BacktestResult(new StrategyMetrics(0, 0, 0, 0, 0, 0), Array.Empty<BacktestTrade>(),
+                Array.Empty<(DateTime, double)>(),
+                "This strategy reads its signals on Heikin-Ashi candles, and this backtest has no indicator service to compute them.", 0, 0);
+
         // Apply optional date-range filter for walk-forward testing. Slicing here (before any
         // other work) means warmup, indicator buffers, and the strategy lifecycle all see the
         // narrower window — there's no leak from outside the window into the run. The trade-off
@@ -344,7 +367,11 @@ public class StrategyBacktester : IStrategyBacktester
         // ChartSeries here is a new instance over a new SeriesDataBuffer.
         var liveState = state with { IsBacktesting = true };
         if (featureCaptureOffset > 0)
-            liveState = liveState with { ActiveSeries = SliceSeriesFrom(liveState.ActiveSeries, featureCaptureOffset) };
+            liveState = liveState with
+            {
+                ActiveSeries = SliceSeriesFrom(liveState.ActiveSeries, featureCaptureOffset),
+                HeikinAshiSeries = liveState.HeikinAshiSeries is { } ha ? SliceSeriesFrom(ha, featureCaptureOffset) : null,
+            };
 
         // Build a growing history window; use immutable list for type compat
         var historyBuffer = ImmutableList<Ohlcv>.Empty;

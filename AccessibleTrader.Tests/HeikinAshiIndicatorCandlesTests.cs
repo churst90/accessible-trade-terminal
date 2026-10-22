@@ -4,6 +4,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Core.Services.Workspace;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Enums;
@@ -375,13 +376,24 @@ public sealed class HeikinAshiIndicatorCandlesTests
         };
     }
 
-    private static (StrategyEngine Engine, List<WorkspaceState> Seen) StrategyEngineWithSpy()
+    /// <summary>A spy strategy; <paramref name="readsHeikinAshi"/> is a strategy whose spec reads
+    /// its signals on Heikin-Ashi candles (<c>StrategySpec.SignalsOnHeikinAshi</c>).</summary>
+    private static ITradingStrategy SpyStrategy(bool readsHeikinAshi, List<WorkspaceState> seen)
     {
-        var seen = new List<WorkspaceState>();
-        var strategy = Substitute.For<ITradingStrategy>();
+        var strategy = readsHeikinAshi
+            ? Substitute.For<ITradingStrategy, IReadsHeikinAshiSignals>()
+            : Substitute.For<ITradingStrategy>();
+        if (readsHeikinAshi) ((IReadsHeikinAshiSignals)strategy).SignalsOnHeikinAshi.Returns(true);
         strategy.Name.Returns("Spy");
         strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Do<WorkspaceState>(seen.Add))
             .Returns((StrategySignal?)null);
+        return strategy;
+    }
+
+    private static (StrategyEngine Engine, List<WorkspaceState> Seen) StrategyEngineWithSpy(bool readsHeikinAshi = false)
+    {
+        var seen = new List<WorkspaceState>();
+        var strategy = SpyStrategy(readsHeikinAshi, seen);
         var store = Substitute.For<IWorkspaceStore>();
         store.State.Returns(WorkspaceState.Initial);
         var engine = new StrategyEngine(Substitute.For<IEventBus>(), Substitute.For<IOrderExecutionService>(),
@@ -407,6 +419,30 @@ public sealed class HeikinAshiIndicatorCandlesTests
         var state = Assert.Single(seen);
         Assert.False(state.IsHeikinAshi);
         Assert.Equal(raw.Select(b => b.Close), state.ActiveSeries.Single().Data.ComponentData["close"]);
+        Assert.Null(state.HeikinAshiSeries);
+    }
+
+    /// <summary>
+    /// A strategy that reads its signals on Heikin-Ashi (Cody, 2026-10-22: "is using indicator
+    /// values based on ha something that would be useful in a strategy? If so, let's do it") gets
+    /// the Heikin-Ashi series beside the real ones, on either chart: the real ones place its stop
+    /// and targets, the Heikin-Ashi ones decide its conditions.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_strategy_reading_Heikin_Ashi_signals_gets_the_Heikin_Ashi_series_beside_the_real_ones(bool chartIsHeikinAshi)
+    {
+        var raw = Bars(120);
+        var (engine, seen) = StrategyEngineWithSpy(readsHeikinAshi: true);
+
+        EvaluateBar(engine, raw, ChartState(raw, chartIsHeikinAshi));
+
+        var state = Assert.Single(seen);
+        Assert.False(state.IsHeikinAshi);
+        Assert.Equal(raw.Select(b => b.Close), state.ActiveSeries.Single().Data.ComponentData["close"]);
+        Assert.NotNull(state.HeikinAshiSeries);
+        Assert.Equal(Ha(raw).Select(b => b.Close), state.HeikinAshiSeries!.Single().Data.ComponentData["close"]);
     }
 
     [Fact]
@@ -473,6 +509,49 @@ public sealed class HeikinAshiIndicatorCandlesTests
         {
             Assert.False(s.IsHeikinAshi);
             Assert.Equal(raw.Select(b => b.Close), s.ActiveSeries.Single().Data.ComponentData["close"]);
+        });
+    }
+
+    /// <summary>A background candle tab computes the Heikin-Ashi series only for a strategy
+    /// that reads its signals there, and hands them beside the real ones.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_background_tab_computes_Heikin_Ashi_series_for_a_strategy_that_reads_them(bool readsHeikinAshi)
+    {
+        const string symbol = "KAS/USDT";
+        var raw = Bars(120);
+        var feeds = Substitute.For<IMarketFeeds>();
+        feeds.GetBarsAsync(Arg.Any<ChartIdentity>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns((IReadOnlyList<Ohlcv>)raw);
+        var alerts = Substitute.For<IAlertOrchestrator>();
+        alerts.GetAlerts().Returns(new List<AlertDefinition>());
+
+        var strategyStates = new List<WorkspaceState>();
+        var strategy = SpyStrategy(readsHeikinAshi, strategyStates);
+        var engine = Substitute.For<IStrategyEngine>();
+        engine.ActiveStrategies.Returns(new List<ActiveStrategy>
+        {
+            new("s", strategy, new Dictionary<string, object>(), StrategyExecutionMode.Suggestion, false, symbol),
+        });
+
+        var monitor = new BackgroundWorkspaceMonitor(
+            new ChartIdentity("Spot", "Bitstamp", symbol, "1d"), symbol,
+            ImmutableList.Create(IndicatorSeries(SpyCode)),
+            feeds, Service(new SpyProvider()), alerts, Substitute.For<IAlertEvaluator>(), engine, new SpyEventBus(),
+            NullLogger.Instance, TimeSpan.FromHours(1), heikinAshi: false);
+
+        await monitor.EvaluateOnceAsync(CancellationToken.None);
+        await monitor.EvaluateOnceAsync(CancellationToken.None);
+
+        Assert.NotEmpty(strategyStates);
+        Assert.All(strategyStates, s =>
+        {
+            Assert.Equal(raw.Select(b => b.Close), s.ActiveSeries.Single().Data.ComponentData["close"]);
+            if (readsHeikinAshi)
+                Assert.Equal(Ha(raw).Select(b => b.Close), s.HeikinAshiSeries!.Single().Data.ComponentData["close"]);
+            else
+                Assert.Null(s.HeikinAshiSeries);
         });
     }
 

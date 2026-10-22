@@ -156,8 +156,9 @@ public sealed class LabHost
                 mtf: null));
 
         // Backtester — all optional services null. v11/v12 don't need profile replay or MTF.
-        services.AddSingleton<IStrategyBacktester>(_ => new StrategyBacktester(
-            profileService: null, profileCache: null, mtf: null));
+        services.AddSingleton<IStrategyBacktester>(sp => new StrategyBacktester(
+            profileService: null, profileCache: null, mtf: null,
+            indicators: sp.GetRequiredService<IIndicatorService>()));
 
         return new LabHost(services.BuildServiceProvider());
     }

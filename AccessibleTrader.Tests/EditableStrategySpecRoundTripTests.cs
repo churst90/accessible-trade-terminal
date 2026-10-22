@@ -59,6 +59,23 @@ namespace AccessibleTrader.Tests
             return e.ToSpec();
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Saving_an_opened_strategy_keeps_where_it_reads_its_signals(bool heikinAshi)
+        {
+            Assert.Equal(heikinAshi, RoundTrip(Rich() with { SignalsOnHeikinAshi = heikinAshi }).SignalsOnHeikinAshi);
+        }
+
+        [Fact]
+        public void A_new_strategy_reads_its_signals_on_the_real_candles()
+        {
+            var e = new EditableStrategySpec();
+            e.LoadFromSpec(Rich() with { SignalsOnHeikinAshi = true });
+            e.Reset();
+            Assert.False(e.SignalsOnHeikinAshi);
+        }
+
         [Fact]
         public void Saving_an_opened_strategy_keeps_its_id_so_it_is_updated_not_duplicated()
         {

@@ -44,5 +44,16 @@ namespace AccessibleTrader.Tests
             string text = Narrator.Narrate(Spec(OrderSide.Buy));
             Assert.Contains("Conditions: RSI — RSI LessThan 30.00", text);
         }
+
+        [Fact]
+        public void A_strategy_reading_Heikin_Ashi_says_so_and_says_orders_stay_on_real_prices()
+        {
+            const string sentence = "Signals read on Heikin-Ashi candles; orders, stops and targets on the real prices.";
+            var spec = Spec(OrderSide.Buy);
+            Assert.DoesNotContain("Heikin-Ashi", Narrator.Narrate(spec));
+
+            spec.SignalsOnHeikinAshi = true;
+            Assert.Contains("Conditions: RSI — RSI LessThan 30.00 " + sentence, Narrator.Narrate(spec));
+        }
     }
 }

@@ -145,10 +145,17 @@ namespace AccessibleTrader.Core.Services.Workspace
             ct.ThrowIfCancellationRequested();
 
             // Alerts read the tab as it is drawn — Heikin-Ashi indicators on a Heikin-Ashi tab, as
-            // in the foreground; strategies read indicators on the real bars, always (see
-            // EvaluationSeries). One state when the tab shows candles.
+            // in the foreground; strategies read indicators on the real bars, plus Heikin-Ashi
+            // ones beside them for a strategy that reads its signals there (StrategyCandles, the
+            // same as the focused engine). One state when the tab shows candles and nothing
+            // wants Heikin-Ashi.
             var state = BuildState(bars, _heikinAshi);
-            var strategyState = _heikinAshi ? BuildState(bars, heikinAshi: false) : state;
+            bool heikinAshiWanted = _strategyEngine.ActiveStrategies.Any(a => !a.IsPaused
+                && Strategies.StrategyCandles.WantsHeikinAshi(a.Strategy)
+                && string.Equals(a.Symbol, _symbolDisplayName, StringComparison.OrdinalIgnoreCase));
+            var strategyState = Strategies.StrategyCandles.For(_indicators, state, bars.ToArray(), heikinAshiWanted,
+                (series, ex) => _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
+                    series.Config.IndicatorCode, _symbolDisplayName));
             LastBarCount = bars.Count;
             LastEvaluatedUtc = DateTime.UtcNow;
 

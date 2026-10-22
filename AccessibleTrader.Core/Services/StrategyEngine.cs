@@ -23,8 +23,9 @@ namespace AccessibleTrader.Core.Services
         private readonly IDataManager _dataManager;
         private readonly IWorkspaceStore _store;
         private readonly IStrategyIndicatorCache _indicatorCache;
-        // Recomputes the chart's indicators on the real bars while the chart shows Heikin-Ashi
-        // (see StrategyStateFor). Null only in tests that build the engine by hand.
+        // Computes the series the strategies read on the bars they read them on: real ones on a
+        // Heikin-Ashi chart, Heikin-Ashi ones for a strategy reading its signals there (see
+        // StrategyStateFor). Null only in tests that build the engine by hand.
         private readonly IIndicatorService? _indicators;
         private readonly Feeds.IMarketFeedHub? _feedHub;
         private readonly Strategies.IStrategyPositionManager? _positions;
@@ -206,7 +207,7 @@ namespace AccessibleTrader.Core.Services
                     // is a bar you were stopped out on, not one you reversed on.
                     RunManagedExits(active, newBar, history);
 
-                    strategyState ??= StrategyStateFor(state, history);
+                    strategyState ??= StrategyStateFor(state, history, WantsHeikinAshi(state));
                     var signal = active.Strategy.OnBar(newBar, history, strategyState);
                     if (signal == null) continue;
 
@@ -254,30 +255,36 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>A strategy evaluated against this chart reads its signals on Heikin-Ashi.</summary>
+        private bool WantsHeikinAshi(WorkspaceState state) =>
+            _activeStrategies.Any(a => !a.IsPaused
+                && Strategies.StrategyCandles.WantsHeikinAshi(a.Strategy)
+                && (string.IsNullOrEmpty(a.Symbol)
+                    || string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase)));
+
         /// <summary>
-        /// The chart as a strategy reads it. On a candle chart, the chart itself. On a
-        /// Heikin-Ashi chart the chart's indicators compute on Heikin-Ashi candles
-        /// (<see cref="Indicators.IndicatorCandles"/>), and a strategy is tested on real prices —
-        /// the backtester and StrategyLab never see Heikin-Ashi — so its indicators are
-        /// recomputed here on the real bars it is handed, once per bar close and only while the
-        /// chart shows Heikin-Ashi. TradingView computes a strategy on a Heikin-Ashi chart from
-        /// Heikin-Ashi candles too, and warns that the results are not real; with orders going
-        /// to an exchange from this engine, real prices are the only safe input.
+        /// The chart as a strategy reads it (<see cref="Strategies.StrategyCandles.For"/>). On a
+        /// candle chart with no strategy reading Heikin-Ashi, the chart itself. On a Heikin-Ashi
+        /// chart the chart's indicators compute on Heikin-Ashi candles
+        /// (<see cref="Indicators.IndicatorCandles"/>), so the real ones are recomputed here on
+        /// the bars the strategy is handed, once per bar close: stops and targets read them, and
+        /// so does the signal of a strategy that has not asked for Heikin-Ashi. A strategy that
+        /// has (<c>StrategySpec.SignalsOnHeikinAshi</c>) gets the Heikin-Ashi series beside them,
+        /// on any chart. Orders never fill at Heikin-Ashi prices.
         /// </summary>
-        private WorkspaceState StrategyStateFor(WorkspaceState state, IReadOnlyList<Sdk.Models.Ohlcv> history)
+        private WorkspaceState StrategyStateFor(WorkspaceState state, IReadOnlyList<Sdk.Models.Ohlcv> history, bool heikinAshiWanted)
         {
-            if (!state.IsHeikinAshi) return state;
+            if (!state.IsHeikinAshi && !heikinAshiWanted) return state;
             if (_indicators == null)
             {
-                _logger.LogWarning("Strategy evaluation: the chart shows Heikin-Ashi and no indicator service is registered to recompute on real bars; strategies read the chart's Heikin-Ashi indicators.",
+                _logger.LogWarning("Strategy evaluation: no indicator service is registered to compute the strategies' series on the bars they read; they read the chart as it is, and a strategy reading Heikin-Ashi signals on a candle chart does not trade.",
                     nameof(StrategyEngine));
                 return state;
             }
-            var series = Strategies.EvaluationSeries.Compute(
-                _indicators, state.ActiveSeries, history.ToArray(), state.Identity.Symbol, heikinAshi: false,
-                (s, ex) => _logger.LogWarning($"Strategy evaluation: {s.Config.IndicatorCode} could not be computed on the real bars: {ex.Message}",
+            return Strategies.StrategyCandles.For(
+                _indicators, state, history.ToArray(), heikinAshiWanted,
+                (s, ex) => _logger.LogWarning($"Strategy evaluation: {s.Config.IndicatorCode} could not be computed for the strategies: {ex.Message}",
                     nameof(StrategyEngine)));
-            return state with { ActiveSeries = series, IsHeikinAshi = false };
         }
 
         /// <summary>

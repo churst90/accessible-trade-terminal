@@ -325,6 +325,16 @@ namespace AccessibleTrader.Sdk.Models
 
         /// <summary>Number of open tabs (active tab + inactive snapshots).</summary>
         public int TabCount => (TabSnapshots?.Count ?? 0) + 1;
+
+        /// <summary>
+        /// The chart's series with every indicator computed on Heikin-Ashi candles, beside
+        /// <see cref="ActiveSeries"/> computed on the real bars. Set only on a state handed to a
+        /// strategy, when a strategy that reads its signals on Heikin-Ashi
+        /// (<c>StrategySpec.SignalsOnHeikinAshi</c>) is running; null everywhere else, and never
+        /// in the store. Its conditions read these, its stops and targets read
+        /// <see cref="ActiveSeries"/>.
+        /// </summary>
+        public ImmutableList<ChartSeries>? HeikinAshiSeries { get; init; }
     }
 
     public abstract record WorkspaceAction;

@@ -2,7 +2,8 @@
 >   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with
 >   Cipher B, an RSI and an EMA: every indicator should recompute at once, Cipher B's dots should
 >   land where Market Cipher B's do on the HA screenshots, and a strategy on the chart should keep
->   trading as before. Open questions:
+>   trading as before (a strategy reads the real candles unless it has the new HA-signal option, below).
+>   Open questions:
 >   - [x] Price against an indicator on an HA chart — Cody 2026-10-22: "if ha is on and a bar closes,
 >     speak that close". Every close spoken, alerted on or crossed is the HA close now (CHANGES).
 >     Cody to hear: the new-bar close on HA and off, a "price crosses EMA" alert, Ctrl+Right to a
@@ -14,6 +15,17 @@
 >   - A background tab's candle type is read when its monitor starts; switching it later waits for
 >     the next restart of that monitor.
 >   - Market Cipher B's S3 and S5 screenshots not re-measured on HA.
+> - [ ] **A strategy can read its signals on Heikin-Ashi (2026-10-22, built, NOT tried in the app; see
+>   CHANGES).** Cody to try: build a strategy with "Signals from Heikin-Ashi candles" ticked (Build
+>   Setup), hear the Summary say "Signals read on Heikin-Ashi candles; orders, stops and targets on the
+>   real prices", backtest it on a candle chart and on an HA chart (the same trades both ways), and
+>   check that the entry and stop prices it speaks are real prices. Reversible choices to confirm:
+>   - a stop or target placed on an indicator reads that indicator on the real bars;
+>   - the "next N candles close" trigger reads HA candles;
+>   - higher-timeframe leaves stay real;
+>   - with no HA series, the strategy refuses to trade (it does not fall back to real candles).
+>   - Not done: compiled (Roslyn) and plugin strategies ignore the option. Custom compiled
+>     indicators are not recomputed on HA, so their leaves are false in such a strategy.
 > - [x] **Cipher B's gold dot removed (Cody 2026-10-22: "it isn't faithful"; see CHANGES).** Its rule
 >   and look are kept, used by nothing, in `GoldDot` ("keep the gold dot as a drawing element").
 >   Every other Cipher B array is byte-identical to before. Left on purpose: the three bull-pulse

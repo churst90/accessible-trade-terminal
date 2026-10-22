@@ -14,8 +14,14 @@
   same bars as Market Cipher's Heikin-Ashi screenshots. Every close you hear is the Heikin-Ashi close
   too: the new-bar announcement, background tabs, toasts, price and candle-pattern alerts, price
   crossing a line or a moving average, and the crossing chirp. Turn Heikin-Ashi off and they are the
-  real close again. Strategies still read the real prices, so they trade what the backtester tested. Volume, profiles, the heatmap, drawings, chart formations
-  and the close line stay real.
+  real close again. Volume, profiles, the heatmap, drawings, chart formations and the close line stay
+  real.
+- **A strategy can read its signals on Heikin-Ashi candles.** Tick "Signals from Heikin-Ashi candles"
+  in Build Setup. Its conditions then read Heikin-Ashi candles, on any chart, while entries, stops,
+  targets and fills stay on real prices, as with TradingView's "Fill orders on standard OHLC". Left
+  off, a strategy reads the real candles even on a Heikin-Ashi chart. A backtest started on a
+  Heikin-Ashi chart used to read the chart's Heikin-Ashi indicators, so it could show trades the live
+  strategy would never take. It now reads the same candles the live strategy does.
 - **Cipher B no longer has a gold dot.** Market Cipher B draws none; ours came from the free VuManChu
   Cipher B, so it is gone. Everything else Cipher B draws and says is exactly as before. A saved chart
   opens without it, and a strategy or alert built on it tells you it was removed.

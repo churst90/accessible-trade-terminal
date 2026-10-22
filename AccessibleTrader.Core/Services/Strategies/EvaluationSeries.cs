@@ -7,11 +7,11 @@ namespace AccessibleTrader.Core.Services.Strategies
     /// <summary>
     /// A chart's series with every indicator recomputed on given bars, for evaluation only:
     /// never dispatched, never drawn. Two callers. A background tab's monitor builds the tab's
-    /// indicators from its polled bars. And a strategy on a Heikin-Ashi chart gets its indicators
-    /// recomputed on the REAL bars, because the chart's own now read Heikin-Ashi candles
-    /// (<see cref="IndicatorCandles"/>) and a strategy is tested — in the backtester, in
-    /// StrategyLab — on real prices. Trading it on Heikin-Ashi values would trade signals that
-    /// were never tested, with real money in Auto mode.
+    /// indicators from its polled bars. And <see cref="StrategyCandles"/> builds the series a
+    /// strategy reads: on the REAL bars for every strategy (stops, targets, and the conditions of
+    /// one that has not asked otherwise), and on Heikin-Ashi candles beside them for a strategy
+    /// that reads its signals there (<c>StrategySpec.SignalsOnHeikinAshi</c>) — the same in the
+    /// live engine, a background tab and the backtester, so a strategy trades what was tested.
     /// </summary>
     public static class EvaluationSeries
     {
@@ -23,7 +23,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// leaves then evaluate false.
         /// </summary>
         /// <param name="heikinAshi">Compute on Heikin-Ashi candles of the bars, as a Heikin-Ashi
-        /// chart does. False for a strategy, always.</param>
+        /// chart does, or as a strategy that reads its signals on Heikin-Ashi does.</param>
         public static ImmutableList<ChartSeries> Compute(
             IIndicatorService indicators,
             IEnumerable<ChartSeries> series,

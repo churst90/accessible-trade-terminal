@@ -689,10 +689,18 @@ DBSI never applies Heikin-Ashi twice, whatever its own setting says.
 The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
 So the terminal keeps these raw whatever the candles are doing:
 
-- **Strategies read the real bars.** A strategy is tested on real prices, in the backtester
-  and in StrategyLab, so on an HA chart its indicators are recomputed on the real bars before
-  it reads them, and its orders go out at real prices. TradingView runs a strategy on HA
-  candles and warns that the results are not real; here they never are HA.
+- **Strategies read the real bars unless you ask otherwise, and always trade real prices.**
+  On an HA chart a strategy's indicators are recomputed on the real bars before it reads them,
+  in the live engine, on a background tab and in the backtester alike, so the chart's candle
+  type never changes what a strategy does. A strategy can instead read its *signals* on
+  Heikin-Ashi: tick "Signals from Heikin-Ashi candles" in Build Setup. Its conditions then read
+  Heikin-Ashi candles and indicators computed on them, on any chart, while its entry, stop,
+  targets, fills and profit and loss stay on real prices. This is TradingView's "Fill orders on
+  standard OHLC" setting. TradingView's default, filling at Heikin-Ashi prices, is the known
+  trap: a backtest that buys at an average nobody traded at looks better than any real trade.
+  The "next N candles close in the setup direction" entry trigger reads the same Heikin-Ashi
+  candles as the conditions; stops and targets placed on an indicator read that indicator on the
+  real bars.
 - **Volume, the volume profiles, the heatmap, drawings and the screener are raw.** A drawing
   sits at the price you put it at; it is the close that crosses it which follows the candles
   (below).
@@ -1418,8 +1426,9 @@ companions, are described under "Adding and tuning indicators" below.
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
 long moving average needs enough history to produce a value at all. Second, **on a Heikin-Ashi chart
-every indicator reads the Heikin-Ashi candles**, as on TradingView, while a strategy still reads
-the real bars; the section on Heikin-Ashi in the chart-layout chapter explains what that means.
+every indicator reads the Heikin-Ashi candles**, as on TradingView, while a strategy reads the
+real bars unless it is set to read its signals on Heikin-Ashi; the section on Heikin-Ashi in the
+chart-layout chapter explains what that means.
 
 The glossary at the end of this manual defines each of these terms in a sentence.
 
@@ -1584,7 +1593,8 @@ that used it says once that it cannot fire. Add an EMA at each length you want i
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
 Heikin-Ashi candles, and Alt+L to a logarithmic price scale; both are explained in the
 chart-layout chapter, including the one thing to hold on to about Heikin-Ashi — every
-indicator then reads the Heikin-Ashi candles, and every strategy the real ones.
+indicator then reads the Heikin-Ashi candles, and every strategy the real ones unless you set it
+to read its signals on Heikin-Ashi (its orders are on real prices either way).
 
 ### Market structure
 
@@ -3265,7 +3275,9 @@ the truth about them. The point of the column is that a tested strategy and an u
 one should never look alike in a list.
 
 To build one, the Build Setup tab gives the strategy a Name and a Side (Long or
-Short), then a condition tree you assemble from "+ Group" (AND/OR/NOT) and "+ Leaf"
+Short), a "Signals from Heikin-Ashi candles" checkbox (off by default: the conditions read
+Heikin-Ashi candles, and entries, stops, targets and fills stay on real prices; see
+"Heikin-Ashi, and what stays raw"), then a condition tree you assemble from "+ Group" (AND/OR/NOT) and "+ Leaf"
 buttons — each leaf picks an indicator, an operator, and the component to test, with
 an optional timeframe for multi-timeframe rules. Beneath it a risk plan sets the stop
 source (a percent of price, an ATR multiple, below a swing low, or a fixed price), a

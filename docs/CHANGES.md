@@ -4,6 +4,82 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A strategy can read its signals on Heikin-Ashi candles and trade real prices; backtests read the candles live does (2026-10-22)
+
+Cody asked: "is basing strategies on ha candles a thing people do? Is using indicator values based on ha
+something that would be useful in a strategy? If so, let's do it." Yes for signals. Heikin-Ashi trend
+filters, colour-change entries and indicators run on Heikin-Ashi are common, and they are sound as long
+as nothing fills at a Heikin-Ashi price. Filling there is the known trap. A Heikin-Ashi close is an
+average of four prices, often one that never traded, so a backtest that fills at it shows profits no
+real order could get. TradingView's strategy setting "Fill orders on standard OHLC" exists to avoid
+this, and this option follows that model.
+
+- **The option.** `StrategySpec.SignalsOnHeikinAshi` (default off), a checkbox in Build Setup labelled
+  "Signals from Heikin-Ashi candles (orders, stops and targets on real prices)". It is said in the
+  Summary read-back after the conditions, and survives load/save in the builder (`EditableStrategySpec`).
+  Off, a strategy behaves exactly as before.
+- **What reads Heikin-Ashi:**
+  - every condition, on any chart: the indicators recomputed on Heikin-Ashi candles of the bars, and
+    the price itself, projected from the Heikin-Ashi bars because the candle and close-line series
+    carry real prices;
+  - the "next N candles close in the setup direction" entry trigger.
+- **What stays real:**
+  - the entry price, stop and targets, including a stop or target placed on an indicator, which reads
+    that indicator on the real bars;
+  - the pullback and breakout trigger levels;
+  - every fill and the profit and loss;
+  - higher-timeframe leaves.
+- **One builder for every host.** `StrategyCandles.For` builds the state strategies read in all three
+  hosts: the live engine, a background tab's monitor and the backtester. The real series are in
+  `ActiveSeries`; the Heikin-Ashi ones are in a new `WorkspaceState.HeikinAshiSeries`, computed only
+  when an active strategy on that symbol asks for them. The StrategyLab command-line backtester gets the
+  indicator service too.
+- **Fails closed.** A Heikin-Ashi strategy with no Heikin-Ashi series does not trade the real bars
+  under a Heikin-Ashi label. It does nothing and says once: "Strategy '…' reads Heikin-Ashi signals and
+  none were computed for it. It will not trade until they are." A backtester without an indicator
+  service refuses with a reason.
+- **Defect fixed on the way (an existing gap, found while reading the code, not reported by a user).**
+  A backtest started on a Heikin-Ashi chart, from the strategy dialog or the Summary preview, handed
+  every strategy the chart's Heikin-Ashi indicators while filling at real prices. The live engine
+  recomputed those indicators on the real bars, so the backtest could show trades the live strategy
+  would never take. The backtester now builds the same state the engine does. A date-filtered backtest
+  slices the Heikin-Ashi series with the real ones.
+
+Caveats:
+1. **Not seen or heard in the app.** The checkbox is new UI. The accessibility-lead review agent the
+   hook asks for is not registered here, so it did not review the checkbox. The markup copies the
+   labelled-checkbox pattern from the Alerts dialog.
+2. **Scope.** Applies to condition-tree strategies only. A compiled (Roslyn) or plugin strategy ignores
+   the flag.
+3. **Custom compiled indicators.** They cannot be recomputed in this path, so their leaves evaluate
+   false in a Heikin-Ashi-signal strategy (as they already did for any strategy on a Heikin-Ashi chart).
+4. **Date-filtered warm-up.** In a date-filtered backtest, the strategy's Heikin-Ashi price history is
+   seeded from the window's first bar, not the chart's. The difference halves with every bar, so it is
+   gone well inside the 200-bar warm-up.
+5. **Cost.** The live engine recomputes the chart's indicators once per bar close, while a Heikin-Ashi
+   strategy runs. On a candle chart that is one extra pass; on a Heikin-Ashi chart it is the pass that
+   already happened.
+6. **Choices Cody can reverse:**
+   - a stop or target on an indicator reads the real indicator;
+   - the N-candle trigger reads Heikin-Ashi;
+   - higher-timeframe leaves stay real;
+   - with Heikin-Ashi missing, the strategy fails closed rather than falling back to real candles.
+
+Tests (23 new):
+- `HeikinAshiStrategySignalTests` covers:
+  - an indicator leaf and a price leaf firing on a Heikin-Ashi-only close, on a candle chart and on a
+    Heikin-Ashi chart, with the stop at 99 (real) and not 108.90;
+  - the same strategy unflagged taking nothing, on a candle chart and on a Heikin-Ashi chart;
+  - the N-candle trigger;
+  - failing closed, said once;
+  - backtests: the fill at 100 with the stop at 99, the Heikin-Ashi-chart gap, date-filter slicing,
+    and the refusal.
+- Engine and background-monitor tests: the Heikin-Ashi series are handed over only when asked for.
+- Builder round-trip and reset, and the read-back sentence.
+- Each guard was proven to fail by sabotage (21 sabotages, all red). The first run left one green:
+  keeping the price lines passed on a candle chart, because the test's indicator service does not
+  know "CANDLES". The Heikin-Ashi-chart price case was added for it.
+
 ### With Heikin-Ashi on, every close you hear is the Heikin-Ashi close; DBSI is "Cipher DBSI" (2026-10-22)
 
 - Cody: "if ha is on and a bar closes, speak that close, simple as that. if ha is off, speak the
