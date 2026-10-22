@@ -33,7 +33,7 @@ public sealed class CipherBProviderSpeechTests
 
     /// <summary>A Cipher B built as the app builds it, holding the provider's output; TF-aware gates
     /// off so the ADX gate is the declared 18.</summary>
-    private static (ChartSeries Series, List<Ohlcv> Bars, IndicatorEngine Engine, Dictionary<string, double[]> Results) Chart(int flavour = 0, int length = 1400, string goldDotMode = "MCB")
+    private static (ChartSeries Series, List<Ohlcv> Bars, IndicatorEngine Engine, Dictionary<string, double[]> Results) Chart(int flavour = 0, int length = 1400)
     {
         var providers = new List<IIndicatorProvider> { new CipherBProvider() };
         var engine = new IndicatorEngine(new IndicatorService(providers, NullLogger<IndicatorService>.Instance),
@@ -44,7 +44,7 @@ public sealed class CipherBProviderSpeechTests
 
         var bars = CausalityProbeSeries.Bars(flavour, length);
         var results = new Dictionary<string, double[]>();
-        new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object> { ["TfAware"] = false, ["GoldDotMode"] = goldDotMode },
+        new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object> { ["TfAware"] = false },
             new IndicatorResultBuffer(results, bars.Count));
         foreach (var kv in results) series.Data.ComponentData[kv.Key] = kv.Value;
         return (series, bars, engine, results);
@@ -80,7 +80,6 @@ public sealed class CipherBProviderSpeechTests
     [InlineData(CipherBProvider.CompRed)]
     [InlineData(CipherBProvider.CompBullDiv)]
     [InlineData(CipherBProvider.CompBearDiv)]
-    [InlineData(CipherBProvider.CompGold)]
     public void A_dot_says_the_wave_trend_at_its_bar(string component)
     {
         var (series, bars, engine, results) = Chart();
@@ -92,39 +91,5 @@ public sealed class CipherBProviderSpeechTests
         string said = Landing(series, bars, engine, component, bar);
 
         Assert.Contains($"Wave Trend {wt:F1}", said);
-    }
-
-    /// <summary>
-    /// The CONFLUENCE gold rule (GoldDotMode = Confluence, the default until 2026-10-18; the MCB
-    /// rule's speech is in CipherBGoldDotTests).
-    /// Gold needs only GoldMinConfluence (3) of its four conditions, so on some gold bars ADX or ATR
-    /// is under its gate — it must not say "trend and volatility confirmed" there (on real daily
-    /// BTC, ETH, XRP and SOL about one gold dot each had ATR under its floor). What it does say must be true on
-    /// every gold bar: the fast wave is oversold (the gated buy requires it), and money flow positive
-    /// when it is.
-    /// </summary>
-    [Fact]
-    public void Gold_says_only_what_its_rule_guarantees()
-    {
-        int unconfirmedGold = 0;
-        foreach (int flavour in CausalityProbeSeries.AllFlavours)
-        {
-            var (series, bars, engine, results) = Chart(flavour, 6000, goldDotMode: "Confluence");
-            // Only to show the old claim was false somewhere: ADX at or under its gate (18), or ATR
-            // at or under its floor (the 20th percentile of the last 200 bars, as the provider takes
-            // it with the default AdaptiveLookback). The assertions below do not depend on these.
-            var adx = IndicatorMath.Adx(bars.ToArray(), 14);
-            var atr = IndicatorMath.Atr(bars.ToArray(), 14);
-            var atrFloor = RollingQuantile.Compute(atr, 200, 0.20, 50);
-            foreach (int bar in Fired(results[CipherBProvider.CompGold]))
-            {
-                if (!(adx[bar] > 18.0) || (!double.IsNaN(atrFloor[bar]) && !(atr[bar] > atrFloor[bar]))) unconfirmedGold++;
-                string said = Landing(series, bars, engine, CipherBProvider.CompGold, bar);
-                Assert.Contains("oversold", said);
-                Assert.DoesNotContain("confirmed", said, StringComparison.OrdinalIgnoreCase);
-                if (results[CipherBProvider.CompMoneyFlowWave][bar] > 0) Assert.Contains("Money flow positive", said);
-            }
-        }
-        Assert.True(unconfirmedGold > 0, "no gold bar with ADX or ATR under its gate in any probe series — the old 'trend and volatility confirmed' was never false here, so this proves nothing.");
     }
 }

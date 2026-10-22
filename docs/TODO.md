@@ -1,3 +1,10 @@
+> - [x] **Cipher B's gold dot removed (Cody 2026-10-22: "it isn't faithful"; see CHANGES).** Its rule
+>   and look are kept, used by nothing, in `GoldDot` ("keep the gold dot as a drawing element").
+>   Every other Cipher B array is byte-identical to before. Left on purpose: the three bull-pulse
+>   catalogue strategies and two battery cells still OR in `CIPHER_B.Triple Confluence Buy`, which
+>   now evaluates false with its retirement reason, the way their dead Cipher A / SR leaves already do.
+>   - [ ] Question for Cody: did "drawing element" mean a marker you can PLACE on the chart yourself
+>     (a gold dot in the drawing tools, as TradingView has icons)? Not built; say if so.
 > - [x] **A drawing anchored before the loaded history is drawn wrong until the chart scrolls back.**
 >   Shown with the real calculator: gold's line from the 29 Jan 2026 top, on 120 bars (first bar
 >   4 May), reads 385.63 at the newest bar instead of 405.68 — its start snaps to the first bar
@@ -514,9 +521,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] Delete `CIPHER_A.Buy Signal` and `CIPHER_SR.Support` from bare-bull-pulse, faber-pulse and
 >   capitulation-buy (`StrategyCatalogue.cs` ~1301/1451/1534; both are dead, removing them changes no
 >   backtest), with no replacement — or pick one of the replacements in report section 9 — and update
->   their CatalogueProvenance verdicts to say the pulse is now the Buy dot plus a rare gold dot.
-> - [ ] Gold dot rule: VuManChu's (now default, about a seventh as many fires) or the old confluence;
->   the returns give no reason either way (report section 4).
+>   their CatalogueProvenance verdicts to say the pulse is now the Buy dot alone (the gold leaf is
+>   dead too since 2026-10-22).
+> - [x] Gold dot rule: moot — the gold dot was removed from Cipher B on 2026-10-22.
 > - [ ] The 1h Cipher SR proximity result (old Cipher B +0.308R p 0.006, new +0.164R p 0.069, KAS and
 >   TAO only, one of eight tests): test on an independent 1h asset set, or let it go?
 > - [ ] CatalogueProvenance's rolling-window figures were all computed before the 2026-08-24
@@ -541,14 +548,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > returns give no reason to prefer either rule).
 >
 > **Open questions for Cody — Cipher B:**
-> - **Gold dot: keep it on "stock MCB" Cipher B?** It is shown by default with VuManChu's gold rule, but
+> - [x] **ANSWERED 2026-10-22: removed** (Cody: "it isn't faithful"). Was: **Gold dot: keep it on "stock MCB" Cipher B?** It is shown by default with VuManChu's gold rule, but
 >   no evidence was found that real Market Cipher B has a gold dot at all (about 100 MCB chart images
 >   scanned, none; one guide says it does not exist). Agent's recommendation: hide it by default.
-> - **Pin the lab and catalogue strategies that read the gold dot to `GoldDotMode=Confluence`?** They now
+> - [x] Moot since the removal (2026-10-22). Was: **Pin the lab and catalogue strategies that read the gold dot to `GoldDotMode=Confluence`?** They now
 >   fire about 10× less often (the three bull-pulse strategies, the battery's `*-gold` cells, MlExport's
 >   `sig_gold`). Pending the re-run above. A strategy leaf cannot choose the gold rule itself (leaf
 >   parameters are numeric), so a higher timeframe and the backtester always get the default rule.
-> - Gold's colour stays #FFD700 (VuManChu uses #E2A400) and it is drawn over the buy dot when both fall on
+> - [x] Moot since the removal. Was: Gold's colour stays #FFD700 (VuManChu uses #E2A400) and it is drawn over the buy dot when both fall on
 >   one bar — fine?
 > - **Ctrl+Alt+Shift+K** shows every hidden component, including the anchor waves and Anchor Polarity,
 >   which have always been hidden and will start sounding. Should show-all leave a provider's

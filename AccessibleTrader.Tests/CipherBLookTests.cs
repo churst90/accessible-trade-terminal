@@ -168,7 +168,7 @@ public sealed class CipherBLookTests
         {
             "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
             "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Anchor Polarity",
-            "Oversold Crossover", "Overbought Crossover", "Triple Confluence Buy", "Bullish Divergence",
+            "Oversold Crossover", "Overbought Crossover", "Bullish Divergence",
             "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation",
         };
         Assert.Equal(before.Concat(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch }), names);

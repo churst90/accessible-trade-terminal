@@ -36,10 +36,9 @@ namespace AccessibleTrader.Tests
             return bars;
         }
 
-        private static Dictionary<string, double[]> ViaLabEngine(List<Ohlcv> bars, bool old, bool? goldOld = null)
+        private static Dictionary<string, double[]> ViaLabEngine(List<Ohlcv> bars, bool old)
         {
             LabCipherProfile.CipherBOld = old;
-            LabCipherProfile.GoldOld = goldOld;
             try
             {
                 var engine = LabHost.Build().Services.GetRequiredService<IIndicatorEngine>();
@@ -56,7 +55,7 @@ namespace AccessibleTrader.Tests
 
         private static readonly string[] Pinned =
         {
-            CipherBProvider.CompWT2, CipherBProvider.CompMoneyFlowWave, CipherBProvider.CompBlue, CipherBProvider.CompGold,
+            CipherBProvider.CompWT2, CipherBProvider.CompMoneyFlowWave, CipherBProvider.CompBlue,
         };
 
         private static bool Same(double[] a, double[] b) =>
@@ -70,7 +69,7 @@ namespace AccessibleTrader.Tests
             var newRes = ViaLabEngine(bars, old: false);
             var byHand = Direct(bars, new Dictionary<string, object>
             {
-                ["WTSignalPeriod"] = 4.0, ["MoneyFlowMode"] = "Legacy", ["BuyDotMode"] = "Gated", ["GoldDotMode"] = "Confluence",
+                ["WTSignalPeriod"] = 4.0, ["MoneyFlowMode"] = "Legacy", ["BuyDotMode"] = "Gated",
             });
             var defaults = Direct(bars, new Dictionary<string, object>());
 
@@ -87,16 +86,19 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void GoldFlag_SwitchesTheGoldDotAlone()
+        public void GoldFlag_IsRefused_BecauseThereIsNoGoldDot()
         {
-            var bars = Bars();
-            var newAll = ViaLabEngine(bars, old: false);
-            var newWithOldGold = ViaLabEngine(bars, old: false, goldOld: true);
-            var oldGoldByHand = Direct(bars, new Dictionary<string, object> { ["GoldDotMode"] = "Confluence" });
-
-            Assert.True(Same(newWithOldGold[CipherBProvider.CompGold], oldGoldByHand[CipherBProvider.CompGold]));
-            Assert.True(Same(newWithOldGold[CipherBProvider.CompWT2], newAll[CipherBProvider.CompWT2]),
-                "--cipherb-gold must not move the wave");
+            // Cipher B's gold dot was removed on 2026-10-22. A run that still asks to switch it must stop
+            // and say so, not compare two identical runs and report "no difference".
+            try
+            {
+                var ex = Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "gate", "--cipherb-gold", "old" }));
+                Assert.Contains("removed", ex.Message);
+                var res = ViaLabEngine(Bars(), old: true);
+                Assert.DoesNotContain("Triple Confluence Buy", res.Keys);
+                Assert.DoesNotContain("GoldDotMode", LabCipherProfile.Apply("CIPHER_B", new Dictionary<string, object>()).Keys);
+            }
+            finally { LabCipherProfile.Reset(); }
         }
 
         [Fact]
@@ -109,7 +111,6 @@ namespace AccessibleTrader.Tests
                 Assert.Equal(6.0, p["WTSignalPeriod"]);
                 Assert.Equal("Legacy", p["MoneyFlowMode"]);
                 Assert.Equal("Gated", p["BuyDotMode"]);
-                Assert.Equal("Confluence", p["GoldDotMode"]);
                 var other = new Dictionary<string, object>();
                 Assert.Same(other, LabCipherProfile.Apply("CIPHER_A", other));
             }
@@ -121,10 +122,9 @@ namespace AccessibleTrader.Tests
         {
             try
             {
-                var rest = LabCipherProfile.Consume(new[] { "gate", "--cipherb", "old", "--tf", "1d", "--cipherb-gold", "new" });
+                var rest = LabCipherProfile.Consume(new[] { "gate", "--cipherb", "old", "--tf", "1d" });
                 Assert.Equal(new[] { "gate", "--tf", "1d" }, rest);
                 Assert.True(LabCipherProfile.CipherBOld);
-                Assert.False(LabCipherProfile.GoldOld);
                 Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "--cipherb", "olde" }));
             }
             finally { LabCipherProfile.Reset(); }

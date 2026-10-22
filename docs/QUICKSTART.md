@@ -206,7 +206,7 @@ leaves the words; F2 mutes the words.
 
 **The bar close.** One sentence per bar: the closing candle and its pattern, then whatever your
 narrated indicators made of it, up to five clauses, most consequential first. "Close 64,905 at
-14:32, Bullish engulfing. New bar: Open 64,910. Gold dot, waves turning up from oversold. RSI 14:
+14:32, Bullish engulfing. New bar: Open 64,910. Buy dot, waves crossed up from oversold. RSI 14:
 RSI overbought."
 
 **N chooses what may speak.** Press **N** on a series (or on one component to narrow it) and its

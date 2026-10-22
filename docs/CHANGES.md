@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's gold dot removed; its rule kept as a part nothing uses (2026-10-22)
+
+- Cody: "remove the gold dot from the cipher b indicator as it isn't faithful. Keep the gold dot as
+  a drawing element because something may want it later." Market Cipher B draws no gold dot; ours
+  was VuManChu Cipher B's `wtGoldBuy` (default since 2026-10-18), with the older K-of-4 confluence
+  rule behind `GoldDotMode = Confluence`.
+- **Gone from Cipher B:** the "Triple Confluence Buy" component ("Gold dot"), its speech and status
+  line value, and nine settings that served only it: Gold Dot Rule, Gold RSI Divergence, RSI Period,
+  RSI Oversold Level, ADX Period, ADX Gate, ATR Period, ATR Floor and Gold Min Confluence. An old
+  save that still carries them is ignored, not an error. The stability window drops from 508 to 500
+  bars (the RSI term was the gold dot's).
+- **Kept, used by nothing:** `GoldDot` in Core holds the ported rule (`GoldDot.Rule`, verbatim, with
+  its hand-built tests) and the look and sound (`GoldDot.Component`: #FFD700 dot, the 440 Hz
+  two-tone bell in the foreground). I read "drawing element" as this; a user-placed gold marker in the
+  drawing tools was not built (question in TODO).
+- **Saved charts and strategies:** `SignalCatalog.Retired` gives `CIPHER_B.Triple Confluence Buy`
+  its reason and points to the Buy dot. Cody's saved Cipher B restores without it and the next save
+  drops it. The three bull-pulse catalogue strategies and two battery cells keep their gold leaf (it
+  now evaluates false with that reason), the precedent set by their dead Cipher A and SR leaves.
+- **StrategyLab:** `--cipherb-gold` is refused with the reason (a run would otherwise compare two
+  identical results); `--cipherb old` sets three parameters, not four; MlExport drops the
+  `sig_gold` column and `ml/train.py` its feature.
+- **Proof nothing else moved:** every other Cipher B output array was hashed on the commit before
+  (ea37fdf3) and after, on the four causality probe series, at 1400 and 333 bars, under six
+  parameter sets (including the old gold settings): 1,297 arrays, all identical. The pre-refactor
+  WaveTrend fingerprint test lost only its gold line.
+- Tests: the gold tests now cover `GoldDot.Rule` (hand-built cases, and causality on Cipher B's own
+  slow wave), the kept look, Cipher B having no gold component/setting/output, the retirement
+  reason, and Cody's save. Five sabotages each turned their test red (gold back in Cipher B; no
+  retirement notice; the rule drawn on the bottom bar; the kept bell retuned; the lab swallowing
+  `--cipherb-gold`). 757 related tests pass locally; the full suite runs on GitHub Actions.
+
 ### A window is heard in playback, said on new bars; a low found in hindsight is said once, with its date (2026-10-22)
 
 - Cody: "I don't think manual left/right should sonify anything, but, during chart playback I

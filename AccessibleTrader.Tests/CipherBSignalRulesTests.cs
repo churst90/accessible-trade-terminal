@@ -65,11 +65,8 @@ public sealed class CipherBSignalRulesTests
     {
         // BuyDotMode = Gated: these tests are about the confirmed / cooled-down / anchor-gated
         // oversold crossover. Since 2026-10-17 the DEFAULT blue (now green) dot is Market Cipher
-        // B's plain rule instead — see CipherBLookTests — and the gated rule is an option (and
-        // still the Confluence gold dot's base in both modes). GoldDotMode = Confluence: the gold
-        // tests here are about that confluence rule; the default gold rule since 2026-10-18 is
-        // VuManChu's (CipherBGoldDotTests).
-        var p = new Dictionary<string, object> { ["TfAware"] = false, ["BuyDotMode"] = "Gated", ["GoldDotMode"] = "Confluence" };
+        // B's plain rule instead — see CipherBLookTests — and the gated rule is an option.
+        var p = new Dictionary<string, object> { ["TfAware"] = false, ["BuyDotMode"] = "Gated" };
         foreach (var (k, v) in overrides) p[k] = v;
         return p;
     }
@@ -344,59 +341,7 @@ public sealed class CipherBSignalRulesTests
     private static int RegularDivergenceCount(Dictionary<string, double[]> r)
         => FiredBars(r, CipherBProvider.CompBullDiv).Count + FiredBars(r, CipherBProvider.CompBearDiv).Count;
 
-    // ── The gold dot's confluence requirement ───────────────────────────────────────
-
-    /// <summary>
-    /// <b>Gold means SEVERAL things agree, and the count is what says how many.</b>
-    ///
-    /// <para>
-    /// Gold is the rarest marker Cipher B produces and its whole meaning is confluence. The A2h
-    /// mutant dropped the requirement to a single condition — gold on nearly every blue dot — and
-    /// nothing failed. Asserted as strict monotonicity in the parameter, plus the containment that
-    /// makes it a confluence rule rather than a different rule at each K.
-    /// </para>
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Flavours))]
-    public void RequiringMoreConfluenceProducesStrictlyFewerGoldDots(int flavour)
-    {
-        var atOne = FiredBars(Run(flavour, Params(("GoldMinConfluence", 1))), CipherBProvider.CompGold).ToHashSet();
-        var atThree = FiredBars(Run(flavour, Params(("GoldMinConfluence", 3))), CipherBProvider.CompGold).ToHashSet();
-        var atFour = FiredBars(Run(flavour, Params(("GoldMinConfluence", 4))), CipherBProvider.CompGold).ToHashSet();
-
-        Assert.True(atOne.Count > 0, $"series {flavour} produced no gold dots even at K=1 — this proves nothing");
-
-        Assert.True(atFour.Count < atOne.Count,
-            $"requiring all four conditions produced as many gold dots as requiring one " +
-            $"({atFour.Count} against {atOne.Count}) on series {flavour} — the confluence count " +
-            "is not gating anything.");
-
-        Assert.True(atThree.Count <= atOne.Count && atFour.Count <= atThree.Count,
-            $"gold dot counts are not monotonic in the confluence requirement: " +
-            $"K=1 {atOne.Count}, K=3 {atThree.Count}, K=4 {atFour.Count}.");
-
-        Assert.True(atFour.IsSubsetOf(atThree) && atThree.IsSubsetOf(atOne),
-            "a stricter confluence requirement fired gold on a bar a looser one did not — the " +
-            "conditions are being counted differently per K rather than thresholded.");
-    }
-
-    /// <summary>
-    /// A gold dot only ever appears on a bar that also carries a blue dot: gold is gated INSIDE the
-    /// blue branch, and the two are different statements about the same entry.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Flavours))]
-    public void EveryGoldDotSitsOnABlueDot(int flavour)
-    {
-        var r = Run(flavour, Params());
-        var blue = FiredBars(r, CipherBProvider.CompBlue).ToHashSet();
-        var gold = FiredBars(r, CipherBProvider.CompGold);
-
-        Assert.NotEmpty(gold);
-        var orphans = gold.Where(b => !blue.Contains(b)).ToList();
-        Assert.True(orphans.Count == 0,
-            $"gold fired on {orphans.Count} bars with no blue dot (bars {string.Join(", ", orphans.Take(6))}).");
-    }
+    // (The gold dot's confluence tests went with the dot, 2026-10-22.)
 
     // ── The N-bar confirmation ──────────────────────────────────────────────────────
 

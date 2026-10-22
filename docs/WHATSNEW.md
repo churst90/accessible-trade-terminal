@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Cipher B no longer has a gold dot.** Market Cipher B draws none; ours came from the free VuManChu
+  Cipher B, so it is gone. Everything else Cipher B draws and says is exactly as before. A saved chart
+  opens without it, and a strategy or alert built on it tells you it was removed.
 - **Cipher C is now a cycle-low indicator.**
   It marks daily, weekly and yearly cycle lows under the candles, says when a low is confirmed,
   pending, cancelled or failed, counts the days of each cycle, and on Alt+Shift+D tells you where you
@@ -23,10 +26,8 @@
   minus 5, bulls in control"; with narration on it tells you when control changes hands. It is our
   reconstruction: it names the side in control as DBSI does about 9 candles in 10, but its numbers are
   often a few points off.
-- **Cipher B's big green dot is now the "Buy dot", and the gold dot is back** with a much rarer rule:
-  three on daily Bitcoin in its whole history. It is the gold dot from the free VuManChu Cipher B;
-  we found no sign that Market Cipher B itself has one. "Gold Dot Rule: Confluence" in Properties
-  brings back the old one. Properties now names every indicator's parts the way speech does.
+- **Cipher B's big green dot is now the "Buy dot".** Properties now names every indicator's parts
+  the way speech does.
 - **Cipher B shows what Market Cipher B shows.** The red sell dot, the divergences and the anchor
   cloud are hidden, so they make no sound. They still work for alerts and strategies; press H on one
   to bring it back. Charts you already had follow these defaults too, unless you changed one yourself.

@@ -1117,7 +1117,7 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   two seconds apart at whatever speed you are playing, so speeding up makes them coarser
   rather than more frequent.
 - **Signals, on the series you asked for.** A marker signal printing on the bar the tones
-  have just reached is spoken — *"Gold dot, waves turning up from oversold."* This is the same
+  have just reached is spoken — *"Buy dot, waves crossed up from oversold."* This is the same
   flag as live auto-narration, and there are three questions behind what you hear: **N picks what
   MAY speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
   Space and the whole chart may speak; Shift+Space on one series and only that series does.
@@ -1131,8 +1131,8 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
 - **When several fire at once, the rarest is the one you hear.** Two clauses is the ceiling for
   one bar, and what falls off the end is the marker that fires most often on the chart in front
   of you. That matters on an indicator like Cipher B, where a WaveTrend cross dot prints every
-  dozen bars and the gold dot three times in fifteen years of daily Bitcoin, within a bar or two of
-  a cross and a buy dot: the one you are waiting for is the one that must not fall off the end.
+  dozen bars and a divergence a handful of times a year, often on a bar with a cross and a buy dot:
+  the one you are waiting for is the one that must not fall off the end.
   The rare one leads the sentence too, because at ten bars a second the first
   clause is the one that lands before the next bar sounds.
 - **A formation resolving.** If you have "Describe chart patterns" on, a chart formation
@@ -1143,7 +1143,7 @@ Signals and formations are rate-limited to the same two-second cadence as the la
 second one arriving inside the window is **dropped, not queued**, because at ten bars a
 second a queue means hearing about a bar the tones passed eight seconds ago. One thing gets
 through that window anyway: a **rarer** signal than the one that opened it. A WaveTrend cross
-every dozen bars would otherwise swallow the gold dot four bars behind it, which is the
+every dozen bars would otherwise swallow the divergence four bars behind it, which is the
 opposite of what the limit is for. It cannot cascade — whatever speaks claims the window at its
 own rarity, so the next thing has to be rarer still. Landmarks are
 never dropped by that limit — they are the only thing telling you where in time you are. The
@@ -1357,18 +1357,13 @@ pane. It is drawn the way Market Cipher B draws it: the fast wave a light-blue a
 dark-blue slow wave in front of it, a yellow "VWAP" area (the fast wave minus the slow) over both,
 the money flow as a green area above zero and red below over that, and along the bottom a
 money-flow bar, green while money flows in and dark red while it flows out. Small green and red
-dots on the slow wave mark every cross. Two dots sit in the money-flow bar:
+dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
+every upward cross of the waves with the slow wave at −60 or lower; narration says "Buy dot, waves
+crossed up from oversold".
 
-- the big green **Buy dot**, on every upward cross of the waves with the slow wave at −60 or lower.
-  Narration says "Buy dot, waves crossed up from oversold";
-- the **Gold dot**, much rarer: three times in fifteen years of daily Bitcoin. The slow wave makes a
-  second bottom at −65 or lower that is higher than the one before, while price makes a lower low;
-  the earlier bottom must have been at −75 or lower with RSI under 30 there. The dot appears two bars
-  after the second bottom, as soon as that bottom is certain, and narration says "Gold dot, waves
-  turning up from oversold". This is the gold dot of the free VuManChu Cipher B; Market Cipher B's
-  own material describes none, and the open code's own advice is not to buy on it alone. "Gold Dot
-  Rule" Confluence in Properties brings back the stricter-gated gold dot Cipher B used before
-  October 2026.
+There is **no gold dot**. Cipher B had one until 22 October 2026, but Market Cipher B draws none —
+it came from the free VuManChu Cipher B — so it was removed. A chart saved with it opens without it,
+and a strategy or alert built on it says it was removed and points to the Buy dot.
 
 A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale (drawn in
 the top half of the pane, as Market Cipher draws them); they are the last two stops when you arrow
@@ -1390,8 +1385,8 @@ under Properties, Appearance, Cloud Fills. A chart saved before these defaults c
 when it opens, except for anything you showed or hid yourself, which stays as you set it.
 
 Properties keeps the older behaviour within reach: "WT Slow Wave Smoothing" 4, "Money Flow Formula"
-Legacy, "Buy Dot Rule" Gated and "Gold Dot Rule" Confluence reproduce Cipher B's numbers from before
-October 2026. **Market Structure** labels swing highs and lows as higher or lower than the last and
+Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers from before October 2026 (all but the
+gold dot). **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
 from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
 Cipher SR and Dual Band Strength (DBSI-style), our versions of Market Cipher's price-chart
@@ -2468,7 +2463,7 @@ pressing N on the Buy dot narrows narration to just that. Press N on it again an
 the whole series. So the rule is: **no component picked out means all of them**, and the series
 switch is always the master — a component flagged on a series that is not narrating says
 nothing yet, and the confirmation tells you so rather than leaving you waiting. The
-confirmation on a component names the component and nothing else — *"Gold dot,
+confirmation on a component names the component and nothing else — *"Buy dot,
 narrating"* — because the cursor is already on it and the series was named when you arrived.
 When you want everything back to a known state, **Ctrl+Alt+Shift+O** switches narration off
 on every series and clears every component selection, the way Ctrl+Alt+Shift+K and U undo
@@ -2504,7 +2499,7 @@ has:
 
 | What the indicator has | What you hear, and when | In playback? |
 |---|---|---|
-| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Gold dot, waves turning up from oversold."* | **Yes** — this is the only thing playback speaks |
+| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Buy dot, waves crossed up from oversold."* | **Yes** — this is the only thing playback speaks |
 | **A price-space line** — EMA, SMA, VWAP, Bollinger, Keltner, Donchian, Ichimoku's lines, pivots | *"Price crossed above EMA 9 at 64,900."* on the bar close | No |
 | **A declared level** — most oscillators: Stochastic, CCI, MFI, ADX, ROC, %R, TRIX, CMO, Chop, PPO, StochRSI | *"crossed above overbought, 80."* on the bar close | No |
 | **Its own zone wording** — RSI, MACD, Vortex, Cipher B's waves | The indicator's own phrase: *"RSI overbought."*, *"MACD bullish crossover."* | No |
@@ -2524,7 +2519,7 @@ silence.
 it, never by the series: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series
 narrate, so the series name tells you nothing you did not already know; which of Cipher B's
 nine markers just printed is the fact you are waiting for. Where a signal's own wording
-already says which component it is — *"Bullish divergence"*, *"Gold dot, waves turning up from
+already says which component it is — *"Bullish divergence"*, *"Buy dot, waves crossed up from
 oversold"* — nothing is put in front of it. The same rule holds during playback.
 
 **The date, only when it changes.** Arrowing along an hour chart reads the time alone — *"14:00.
@@ -2540,7 +2535,7 @@ the question.
 
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
 then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
-engulfing. New bar: Open 64,910. Gold dot, waves turning up from oversold. RSI 14: RSI
+engulfing. New bar: Open 64,910. Buy dot, waves crossed up from oversold. RSI 14: RSI
 overbought."* The closing bar is named by its own stamp — the time of day on an intraday chart,
 the date on a daily or weekly one — so a run of them in the journal reads back as a record rather
 than a column of prices. Up to

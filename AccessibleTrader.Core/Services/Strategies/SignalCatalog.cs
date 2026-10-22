@@ -57,6 +57,10 @@ namespace AccessibleTrader.Core.Services.Strategies
             ["CIPHER_B.Adaptive OB"] = "Cipher B's Adaptive OB was removed on 2026-10-17; compare Wave Trend Fast with your overbought level (53 by default) instead",
             ["CIPHER_B.Adaptive OS"] = "Cipher B's Adaptive OS was removed on 2026-10-17; compare Wave Trend Fast with your oversold level (-53 by default) instead",
 
+            // 2026-10-22: Market Cipher B has no gold dot (Cody: "it isn't faithful"). Its rule is kept,
+            // unused, in GoldDot.
+            ["CIPHER_B.Triple Confluence Buy"] = "Cipher B's Gold dot (Triple Confluence Buy) was removed on 2026-10-22 because Market Cipher B has no gold dot; the nearest is Cipher B's Buy dot (Oversold Crossover), or Bullish Divergence for a divergence from oversold",
+
             // 2026-10-17: Cipher A rebuilt from measurements of real Market Cipher A (an EMA ribbon and
             // seven symbols). Its old all-WaveTrend components went; each message names the nearest
             // thing that still exists. See CipherAProvider.

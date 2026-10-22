@@ -4,7 +4,7 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Verifies key Cipher B metadata: Triple Confluence dual-tone bell, crossover
+    /// Verifies key Cipher B metadata: crossover
     /// frequencies, divergence patches, and Background-layer anchors/oscillators.
     /// </summary>
     public class CipherBMetadataTests
@@ -18,25 +18,8 @@ namespace AccessibleTrader.Tests
         private static IndicatorComponentMetadata Get(string name) =>
             GetComponents().Single(c => c.Name == name);
 
-        // ── 1. Triple Confluence Buy — dual_tone_bell ─────────────────────────
-
-        [Fact]
-        public void TripleConfluenceBuy_HasSoundPatchId_DualToneBell()
-        {
-            Assert.Equal("dual_tone_bell", Get(CipherBProvider.CompGold).DefaultSoundPatchId);
-        }
-
-        [Fact]
-        public void TripleConfluenceBuy_HasDecayMs_500()
-        {
-            Assert.Equal(500, Get(CipherBProvider.CompGold).DefaultDecayMs);
-        }
-
-        [Fact]
-        public void TripleConfluenceBuy_HasPlaybackLayer_Foreground()
-        {
-            Assert.Equal(PlaybackLayer.Foreground, Get(CipherBProvider.CompGold).DefaultPlaybackLayer);
-        }
+        // (1. The gold dot's bell went with the dot, 2026-10-22; GoldDot.Component keeps it —
+        // CipherBGoldDotTests.The_kept_part_looks_and_sounds_as_the_dot_did.)
 
         // ── 2. Crossover frequencies ──────────────────────────────────────────
 

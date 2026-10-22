@@ -68,10 +68,10 @@ public sealed class CipherBMcbFormulaTests
     /// MCB's big green dot: every cross up with the slow wave at or below −60, and nothing else —
     /// no confirmation, no cooldown, no anchor gate — drawn in the money-flow bar. Eleven of eleven
     /// MCB green dots sit on such a cross; our gated rule matched three. BuyDotMode = Gated keeps
-    /// the old rule, and the gold dot is the same in both modes.
+    /// the old rule.
     /// </summary>
     [Fact]
-    public void The_buy_dot_is_every_cross_up_at_or_below_minus_60_and_gold_does_not_move()
+    public void The_buy_dot_is_every_cross_up_at_or_below_minus_60()
     {
         int total = 0;
         foreach (int flavour in CausalityProbeSeries.HourlyFlavours)
@@ -85,7 +85,6 @@ public sealed class CipherBMcbFormulaTests
             var dots = Fired(mcb[CipherBProvider.CompBlue]);
             Assert.Equal(expected, dots);
             Assert.All(dots, i => Assert.Equal(CipherBProvider.McbBuyDotY, mcb[CipherBProvider.CompBlue][i]));
-            Assert.Equal(gated[CipherBProvider.CompGold], mcb[CipherBProvider.CompGold]);
             Assert.NotEqual(Fired(gated[CipherBProvider.CompBlue]), dots);
             total += dots.Count;
         }

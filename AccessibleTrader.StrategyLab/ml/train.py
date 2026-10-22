@@ -23,7 +23,7 @@ N_FOLDS = 5
 FEATURES = ["ret1", "ret5", "atr_pct", "dist_sma_pct", "range_pct",
             "wt1", "wt2", "wt_hist", "mfw", "anchor", "anchor2",
             "c_sine", "c_lead", "hurst", "vol_ratio", "vol_pct", "vol_state", "regime",
-            "sig_wtx", "sig_blue", "sig_gold"]
+            "sig_wtx", "sig_blue"]  # sig_gold went with Cipher B's gold dot (2026-10-22)
 
 def main():
     df = pd.read_csv(CSV)
@@ -91,10 +91,10 @@ def main():
 
     # ── META-MODEL TEST: confidence WHEN a buy signal fires ───────────────────
     # The user's real use case. Filter OOS rows to bars where a Cipher B buy fired
-    # (WT cross OR blue dot OR gold) and ask: does the model rank THOSE outcomes,
+    # (WT cross OR blue dot) and ask: does the model rank THOSE outcomes,
     # and does it beat the raw signal's unconditional win rate?
     dm = df[mask].copy(); dm["p"] = p; dm["y"] = y
-    sig = dm[(dm["sig_wtx"] == 1) | (dm["sig_blue"] == 1) | (dm["sig_gold"] == 1)]
+    sig = dm[(dm["sig_wtx"] == 1) | (dm["sig_blue"] == 1)]
     print(f"\n=== META-MODEL: confidence on buy-signal bars (n={len(sig)}) ===")
     if len(sig) > 100 and sig["y"].nunique() == 2:
         print(f"  raw signal win rate (no model) = {sig['y'].mean():.3f}")

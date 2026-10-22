@@ -12,8 +12,9 @@ namespace AccessibleTrader.StrategyLab;
 /// WHY A LAB-WIDE SWITCH AND NOT A PER-COMMAND FLAG. A re-run that is meant to say "the indicator
 /// changed and this is how much the verdict moved" has to hold everything except the indicator
 /// fixed: same snapshots, same harness, same seeds. The Cipher B refit kept its old behaviour
-/// behind four parameters (<c>WTSignalPeriod = 4</c>, <c>MoneyFlowMode = Legacy</c>,
-/// <c>BuyDotMode = Gated</c>, <c>GoldDotMode = Confluence</c>), but the lab computes Cipher B in at
+/// behind three parameters (<c>WTSignalPeriod = 4</c>, <c>MoneyFlowMode = Legacy</c>,
+/// <c>BuyDotMode = Gated</c>; a fourth, <c>GoldDotMode = Confluence</c>, went with the gold dot on
+/// 2026-10-22, so no profile reproduces a gold-dot result any more), but the lab computes Cipher B in at
 /// least six places (gate, confluence, asset-profile, ml-export, the strategy workspace, ...), each
 /// building its own parameter dictionary. Threading a flag through each of them is six chances to
 /// miss one, and a missed one silently compares NEW against NEW. So the switch sits in the one
@@ -36,17 +37,12 @@ namespace AccessibleTrader.StrategyLab;
 public static class LabCipherProfile
 {
     public const string Flag = "--cipherb";
-    /// <summary>Overrides the gold dot alone: <c>--cipherb-gold old|new</c>. Without it the gold dot
-    /// follows <see cref="Flag"/>. It exists so a re-run can say how much of a gold-dependent result
-    /// is the gold rule and how much is the rest of the refit.</summary>
+    /// <summary>The gold dot's switch, refused since Cipher B's gold dot was removed (2026-10-22): a
+    /// run asked to compare gold rules would otherwise compare nothing and say so in no way.</summary>
     public const string GoldFlag = "--cipherb-gold";
 
     /// <summary>True when lab commands compute the pre-2026-10-17 Cipher B (wave, money flow, buy dot).</summary>
     public static bool CipherBOld { get; set; }
-
-    /// <summary>The gold dot's own setting when <see cref="GoldFlag"/> was given; null = follow
-    /// <see cref="CipherBOld"/>.</summary>
-    public static bool? GoldOld { get; set; }
 
     /// <summary>The parameters that reproduce Cipher B's wave, money flow and buy dot as they were
     /// before 2026-10-17 (see the "Older behaviour behind parameters" note on <see cref="CipherBProvider"/>).</summary>
@@ -57,37 +53,30 @@ public static class LabCipherProfile
         ["BuyDotMode"] = "Gated",
     };
 
-    /// <summary>The parameter that reproduces the pre-2026-10-17 gold dot (the K-of-4 confluence rule).</summary>
-    public static IReadOnlyDictionary<string, object> OldGoldParameters { get; } = new Dictionary<string, object>
-    {
-        ["GoldDotMode"] = "Confluence",
-    };
-
-    private static bool GoldIsOld => GoldOld ?? CipherBOld;
-
     /// <summary>True when nothing was switched: every command computes today's Cipher B.</summary>
-    public static bool IsDefault => !CipherBOld && !GoldIsOld;
+    public static bool IsDefault => !CipherBOld;
 
     public static string Describe() =>
         (CipherBOld
             ? "Cipher B profile: OLD (pre-2026-10-17: WTSignalPeriod=4, MoneyFlowMode=Legacy, BuyDotMode=Gated)"
             : "Cipher B profile: NEW (2026-10-17 Market Cipher B defaults: WTSignalPeriod=3, MoneyFlowMode=MCB, BuyDotMode=MCB)")
-        + (GoldIsOld ? "; gold dot OLD (GoldDotMode=Confluence)" : "; gold dot NEW (GoldDotMode=MCB)");
+        + "; no gold dot (removed 2026-10-22)";
 
     /// <summary>
-    /// Removes <c>--cipherb old|new</c> and <c>--cipherb-gold old|new</c> from the argument list (so
-    /// no command's own parser sees an unknown flag) and sets the profile. Any other value is an
-    /// error rather than a silent default — a typo here would otherwise run the comparison against itself.
+    /// Removes <c>--cipherb old|new</c> from the argument list (so no command's own parser sees an
+    /// unknown flag) and sets the profile. Any other value is an error rather than a silent default
+    /// — a typo here would otherwise run the comparison against itself. <c>--cipherb-gold</c> is an
+    /// error: there is no gold dot to switch.
     /// </summary>
     public static string[] Consume(string[] args)
     {
         var rest = new List<string>(args.Length);
         for (int i = 0; i < args.Length; i++)
         {
-            bool main = string.Equals(args[i], Flag, StringComparison.OrdinalIgnoreCase);
-            bool gold = string.Equals(args[i], GoldFlag, StringComparison.OrdinalIgnoreCase);
-            if (!main && !gold) { rest.Add(args[i]); continue; }
-            string flag = main ? Flag : GoldFlag;
+            if (string.Equals(args[i], GoldFlag, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"{GoldFlag} was removed with Cipher B's gold dot on 2026-10-22; there is no gold dot to switch");
+            if (!string.Equals(args[i], Flag, StringComparison.OrdinalIgnoreCase)) { rest.Add(args[i]); continue; }
+            const string flag = Flag;
             if (i + 1 >= args.Length) throw new ArgumentException($"{flag} needs a value: old or new");
             var v = args[++i];
             bool old = v.ToLowerInvariant() switch
@@ -96,7 +85,7 @@ public static class LabCipherProfile
                 "new" => false,
                 _ => throw new ArgumentException($"{flag} must be 'old' or 'new', not '{v}'"),
             };
-            if (main) CipherBOld = old; else GoldOld = old;
+            CipherBOld = old;
         }
         return rest.ToArray();
     }
@@ -109,12 +98,11 @@ public static class LabCipherProfile
             return parameters;
         var merged = new Dictionary<string, object>(parameters);
         if (CipherBOld) foreach (var (k, v) in OldCipherBParameters) merged.TryAdd(k, v);
-        if (GoldIsOld) foreach (var (k, v) in OldGoldParameters) merged.TryAdd(k, v);
         return merged;
     }
 
     /// <summary>Back to the defaults (tests).</summary>
-    public static void Reset() { CipherBOld = false; GoldOld = null; }
+    public static void Reset() { CipherBOld = false; }
 }
 
 /// <summary>

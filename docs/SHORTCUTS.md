@@ -272,7 +272,7 @@ utterance per bar** so nothing can cut anything else off:
 2. **Signals**, from the series you flagged with `N` and only those — and, when you played one
    series or one component rather than the whole chart, only the ones inside what you played: a marker
    signal printing on the bar just reached, introduced by the component that fired it, never by the
-   series — *"Gold dot, waves turning up from oversold."* At most two per bar, the rarest first. A
+   series — *"Buy dot, waves crossed up from oversold."* At most two per bar, the rarest first. A
    line crossing one of its own declared levels is discrete in the same way and is spoken too — as the
    band entered (*"strong trend"*) or *"crossed above overbought"*. Never a running reading, never
    oscillator zone commentary, and volume profiles say nothing during playback.

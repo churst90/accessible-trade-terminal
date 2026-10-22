@@ -64,7 +64,8 @@ The caveat above is now history in a different way: since the causality contract
 they were retired with the SR rebuild. So `CIPHER_SR.Support` has fired in no backtest since
 2026-08-21, and `CIPHER_A.Buy Signal` in none since Cipher A was rebuilt on 2026-10-17. Three live
 specs still name both, inside an OR: **bare-bull-pulse, faber-pulse and capitulation-buy** now rest on
-Cipher B's green Buy dot and the (now rare) gold dot alone. `StrategyLab spec-variants` runs each as
+Cipher B's green Buy dot alone (their gold-dot leaf is dead too since the gold dot was removed
+from Cipher B on 2026-10-22, and evaluates false the same way). `StrategyLab spec-variants` runs each as
 written, with the dead leaves removed, and with replacements; "as written" and "removed" print
 identical numbers, and the proposal is to delete both leaves and add no replacement — Cody decides
 (see `reports/cipher_strategies_rerun_REPORT.md`, section 9, for every number).

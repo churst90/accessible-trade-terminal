@@ -30,8 +30,8 @@ public sealed class CipherBStockVisibilityTests
         new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
         new MockIndicatorPreferencesService());
 
-    /// <summary>Ours, not Market Cipher B's: hidden by default. The gold dot was here on 2026-10-17
-    /// and is shown again since 2026-10-18 with its own rule (CipherBGoldDotTests).</summary>
+    /// <summary>Ours, not Market Cipher B's: hidden by default. The gold dot was here on 2026-10-17,
+    /// shown again 2026-10-18 and removed from Cipher B 2026-10-22 (CipherBGoldDotTests).</summary>
     private static readonly string[] HiddenByDefault =
     {
         CipherBProvider.CompWT1Anchor, CipherBProvider.CompWT2Anchor, CipherBProvider.CompAnchorPolarity,
@@ -52,7 +52,7 @@ public sealed class CipherBStockVisibilityTests
     {
         "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
         "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Anchor Polarity",
-        "Oversold Crossover", "Overbought Crossover", "Triple Confluence Buy", "Bullish Divergence",
+        "Oversold Crossover", "Overbought Crossover", "Bullish Divergence",
         "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation", "RSI", "Stochastic",
     };
 
@@ -136,7 +136,7 @@ public sealed class CipherBStockVisibilityTests
         var save = CodysSave();
         // The fixture really is the old shape: the six (gold among them) shown, the Anchor Fill
         // shown, no baseline.
-        Assert.All(NewlyHidden.Append(CipherBProvider.CompGold), n => Assert.True(save.Components.Single(c => c.Name == n).IsVisible));
+        Assert.All(NewlyHidden.Append("Triple Confluence Buy"), n => Assert.True(save.Components.Single(c => c.Name == n).IsVisible));
         Assert.True(save.CloudFills.Single(f => f.DisplayName == "Anchor Fill").IsVisible);
         Assert.All(save.Components, c => Assert.Null(c.ProviderIsVisible));
 

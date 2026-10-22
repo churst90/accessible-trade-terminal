@@ -48,7 +48,7 @@ public static class MlExportCommand
         ("REGIME",   "RegimeState",      "regime"),
     };
 
-    // Causal buy-signal markers (WT cross / oversold cross / gold are computed from current+prior
+    // Causal buy-signal markers (WT cross / oversold cross are computed from current+prior
     // WT values, NOT pivot-confirmed — so they are leak-free, unlike divergence/SR). Emitted as
     // fired-flags so Python can (a) use them as features and (b) filter to signal bars for the
     // meta-model test ("confidence WHEN a setup fires").
@@ -56,7 +56,7 @@ public static class MlExportCommand
     {
         ("CIPHER_B", "WaveTrend Cross Bull", "sig_wtx"),
         ("CIPHER_B", "Oversold Crossover",   "sig_blue"),
-        ("CIPHER_B", "Triple Confluence Buy","sig_gold"),
+        // "sig_gold" (Triple Confluence Buy) went with Cipher B's gold dot on 2026-10-22.
     };
 
     public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, string outCsv)

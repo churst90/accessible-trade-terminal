@@ -95,7 +95,9 @@ public static class StrategyBatteryCommand
 
         // The "any bull entry pulse" group used inside the cipher long setups: blue dot OR gold OR
         // Cipher A buy, all FiredWithin 5 bars (the published method uses a small look-back so the entry
-        // doesn't have to be on the exact stage-3 bar).
+        // doesn't have to be on the exact stage-3 bar). The gold leaf names Cipher B's gold dot, removed
+        // 2026-10-22: like the Cipher A buy and SR support leaves it now resolves to a retired signal,
+        // evaluates false and is reported, so a re-run is the same OR without it.
         ConditionGroup BullEntryPulse(string idPrefix) => Group($"{idPrefix}-pulse", LogicOperator.Or,
             Fired($"{idPrefix}-blue", "CIPHER_B.Oversold Crossover", withinBars: 5),
             Fired($"{idPrefix}-gold", "CIPHER_B.Triple Confluence Buy", withinBars: 5),

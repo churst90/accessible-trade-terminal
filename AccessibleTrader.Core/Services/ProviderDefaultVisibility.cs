@@ -48,12 +48,9 @@ namespace AccessibleTrader.Core.Services
             {
                 // Cipher B, 2026-10-17: shown by default since they were written; hidden to match
                 // stock Market Cipher B (CipherBProvider, "Our own signals, HIDDEN by default").
-                // The gold dot was shown by default again on 2026-10-18 (its MCB rule). Its entry
-                // stays: every save older than the ProviderIsVisible record was written while gold
-                // was shown by default, so a gold hidden in one was hidden by the user and is kept;
-                // the saves written while it was hidden by default carry ProviderIsVisible = false,
-                // which is how they reach the new default (CipherBGoldDotTests).
-                ("CIPHER_B", CipherBProvider.CompRed or CipherBProvider.CompGold
+                // (The gold dot, "Triple Confluence Buy", was here too until it was removed from
+                // Cipher B on 2026-10-22; a save that still lists it has nothing to apply it to.)
+                ("CIPHER_B", CipherBProvider.CompRed
                            or CipherBProvider.CompBullDiv or CipherBProvider.CompBearDiv
                            or CipherBProvider.CompHidBull or CipherBProvider.CompHidBear) => true,
                 _ => null,

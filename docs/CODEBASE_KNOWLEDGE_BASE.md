@@ -405,8 +405,9 @@ edge.
   retired on 2026-10-17 when it was rebuilt to Market Cipher SR, which draws no such marker.) When
   the marker itself should move to its confirmation bar instead,
   `IndicatorMath.ShiftMarkersForward` is the shared implementation (Cipher B calls it; the rebuilt
-  Cipher A's symbols are all crossings, stamped on the bar of the cross). Cipher B's MCB gold dot
-  is stamped two bars after the slow-wave bottom it marks, the first bar that bottom is knowable.
+  Cipher A's symbols are all crossings, stamped on the bar of the cross). The gold-dot rule
+  (`GoldDot.Rule`, no longer used by Cipher B since 2026-10-22) is stamped two bars after the
+  slow-wave bottom it marks, the first bar that bottom is knowable.
 
 ### Why ConditionEvaluator doesn't AND short-circuit
 

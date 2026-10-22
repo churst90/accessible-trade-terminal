@@ -13,7 +13,7 @@ namespace AccessibleTrader.Tests.Blazor;
 /// <summary>
 /// Properties names a component the way everything else does — by its DISPLAY name. Its component
 /// pickers, fieldset legends and per-field labels read the machine name, so Cipher B's "Buy dot"
-/// and "Gold dot" (2026-10-18) would have been "Oversold Crossover" and "Triple Confluence Buy" in
+/// would have been "Oversold Crossover" in
 /// this dialog alone. The option VALUES stay machine names: the selection keys on them.
 /// </summary>
 public class PropertiesComponentNamesTests
@@ -45,15 +45,14 @@ public class PropertiesComponentNamesTests
         {
             var legends = cut.FindAll("legend").Select(l => l.TextContent.Trim()).ToList();
             Assert.Contains($"{legendPrefix}Buy dot", legends);
-            Assert.Contains($"{legendPrefix}Gold dot", legends);
             Assert.DoesNotContain(legends, l => l.Contains("Oversold Crossover") || l.Contains("Triple Confluence"));
 
-            var options = cut.FindAll("option").Where(o => o.GetAttribute("value") == CipherBProvider.CompGold).ToList();
+            var options = cut.FindAll("option").Where(o => o.GetAttribute("value") == CipherBProvider.CompBlue).ToList();
             Assert.NotEmpty(options);
-            Assert.All(options, o => Assert.Equal("Gold dot", o.TextContent.Trim()));
+            Assert.All(options, o => Assert.Equal("Buy dot", o.TextContent.Trim()));
 
             var labelled = cut.FindAll("[aria-label]").Select(e => e.GetAttribute("aria-label")!).ToList();
-            Assert.Contains(labelled, a => a.EndsWith(" for Gold dot"));
+            Assert.Contains(labelled, a => a.EndsWith(" for Buy dot"));
             Assert.DoesNotContain(labelled, a => a.Contains("Triple Confluence"));
         });
     }
