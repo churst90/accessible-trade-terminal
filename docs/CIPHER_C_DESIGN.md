@@ -75,14 +75,25 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 9 | Cycle count "49D" | DCL Count / WCL Count over the low, in days or weeks |
 | 10 | Green daily Future Cycle Low Range band | Green tint while the daily cycle is in its window (past only) |
 | 11 | Blue weekly FCLR band | In WCL Window (not drawn) |
-| 12 | Yellow low-to-low arcs | Cycle Arc, in a strip along the bottom of the price pane |
+| 12 | Yellow low-to-low arcs | Cycle Arc: a mustard wave of equal humps under the candles, troughs under the lows |
 | 13 | Yellow SMA line | 10-bar SMA, the one Camel trades against |
 
 Added, from the 1.0 docs rather than the frames: left, mid and right translated tops (triangles over
 each finished cycle's top) and Cycle Failed (a close under a low after its minimum gap, the cycle
 school's "failed cycle").
 
-Hidden numbers, for speech and strategies: DCL Day, WCL Week, the four window bounds, the asset preset.
+**The arcs (row 12).** CF's vendor demo (`strategy-lab-data/cf-frames/frames/vendor/zPYTF4RZpWA/`,
+gitignored) shows them as a level row of equal rounded humps well under the candles, each trough
+under a low's marks; they do not follow the price. Cipher C draws them in price on the price pane:
+the hump is a quarter of the median cycle's swing (log of high over low), each low's floor is one and
+a quarter humps under the lowest low of the two cycles it joins, and the floor eases from one low's
+level to the next, flat at each low. So every crest stays under the candles and every trough is on
+its low's bar. CF draws one level across the screen; ours steps between lows, because a level across
+fifteen years of Bitcoin would be meaningless. The height and offset are ours (CF's docs say the user
+sets position, height, width and opacity). The live arc runs flat to the middle of the next window.
+
+Hidden numbers, for speech and strategies: DCL Day, WCL Week, the four window bounds, the asset preset,
+and how far through its arc each bar is (Cycle Arc Position, what the arc says when read).
 
 ## 4. The detector, and why it is a Schaff Trend Cycle
 

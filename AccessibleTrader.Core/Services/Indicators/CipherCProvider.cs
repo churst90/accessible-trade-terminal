@@ -29,7 +29,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// that, which is a failed cycle.</item>
     /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
     /// bearish), orange in the middle, green late (right translated, bullish).</item>
-    /// <item>CF's yellow low-to-low arcs, in a strip along the bottom of the price pane.</item>
+    /// <item>CF's yellow low-to-low arcs, a wave of equal humps under the candles with its troughs under
+    /// the lows' marks.</item>
     /// <item>A soft green tint behind the bars where the daily cycle was inside its timing window.</item>
     /// <item>The 10-bar simple moving average Camel trades against (CF's yellow line).</item>
     /// </list>
@@ -65,6 +66,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompMidTop         = "Mid Translated Top";
         public const string CompRightTop       = "Right Translated Top";
         public const string CompArc            = "Cycle Arc";
+        public const string CompArcPosition    = "Cycle Arc Position";
         public const string CompInDclWindow    = "In DCL Window";
         public const string CompInWclWindow    = "In WCL Window";
         public const string CompDclDay         = "DCL Day";
@@ -75,8 +77,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompWclWindowEnd   = "WCL Window End";
         public const string CompConfluence     = "Cycle Low Confluence";
         public const string CompPreset         = "Asset Preset";
-
-        public const string ArcStrip = "Cycle Arcs";
 
         // ── Parameters ─────────────────────────────────────────────────────────
         public const string ParamPreset     = "Preset";
@@ -93,7 +93,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
 
-        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B";
+        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
 
         private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string patch, double freq, int order) => new()
         {
@@ -252,12 +252,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Hidden(CompWclWindowEnd, ComponentCausality.Lookahead),
                     Hidden(CompConfluence),
                     Hidden(CompPreset, ComponentCausality.Lookahead),
+                    // How far through its arc each bar is, 0 at a low and 1 at the crest: what the arc says.
+                    Hidden(CompArcPosition, ComponentCausality.Lookahead),
 
-                    // Last: the model factory puts a strip's components after the price pane's, so
-                    // declaring it here keeps the declared order the order the keyboard walks.
+                    // On the price pane, in price, under the candles, as CF draws them (mustard, thin).
                     new() { Name = CompArc, DisplayName = CompArc, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                            Causality = ComponentCausality.Lookahead, SubPaneName = ArcStrip, SubPaneHeightRatio = 0.12f,
-                            DefaultColorHex = SmaHex, DefaultThickness = 1.5f, DefaultUsePolarityColoring = false, DefaultIsAreaFill = false,
+                            Causality = ComponentCausality.Lookahead,
+                            DefaultColorHex = ArcHex, DefaultThickness = 1f, DefaultUsePolarityColoring = false, DefaultIsAreaFill = false,
                             // A picture of where in the cycle each bar sits; its pitch would repeat the counts.
                             DefaultIsMuted = true, DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPlaybackLayer = PlaybackLayer.Background },
@@ -275,7 +276,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             foreach (var c in new[] { CompSma, CompYcl, CompWcl, CompDcl, CompDclCount, CompWclCount, CompDclConfirmed, CompWclConfirmed,
                                       CompYclConfirmed, CompPending, CompCancelled, CompUpdated, CompFailed, CompLeftTop, CompMidTop,
                                       CompRightTop, CompArc, CompInDclWindow, CompInWclWindow, CompDclDay, CompWclWeek,
-                                      CompDclWindowStart, CompDclWindowEnd, CompWclWindowStart, CompWclWindowEnd, CompConfluence, CompPreset })
+                                      CompDclWindowStart, CompDclWindowEnd, CompWclWindowStart, CompWclWindowEnd, CompConfluence, CompPreset,
+                                      CompArcPosition })
                 o[c] = CipherCEngine.Nan(n);
             if (n == 0) return o;
 
@@ -347,10 +349,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             Copy(lowest.Updated, o[CompUpdated]);
             Copy(lowest.Failed, o[CompFailed]);
 
+            var arcPos = o[CompArcPosition];
+            var floor = ArcFloors(lowestLows, high, low, n, out double hump);
             for (int k = 1; k < lowestLows.Count; k++)
             {
                 int a = lowestLows[k - 1], b = lowestLows[k];
-                for (int i = a; i <= b; i++) o[CompArc][i] = Math.Sin(Math.PI * (i - a) / (b - a));
+                for (int i = a; i <= b; i++) arcPos[i] = Math.Sin(Math.PI * (i - a) / (b - a));
+                DrawArc(o[CompArc], a, b, b - a, floor[k - 1], floor[k], hump);
                 int top = a;
                 for (int i = a + 1; i < b; i++) if (high[i] > high[top]) top = i;
                 if (top == a) continue;
@@ -362,7 +367,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 // The live arc ends in the middle of the window the next low is due in, as CF's does.
                 int a = lowestLows[^1], due = Math.Max(1, (int)Math.Round(lowestTier.MeanBars));
-                for (int i = a; i < n && i <= a + due; i++) o[CompArc][i] = Math.Sin(Math.PI * (i - a) / due);
+                for (int i = a; i < n && i <= a + due; i++) arcPos[i] = Math.Sin(Math.PI * (i - a) / due);
+                DrawArc(o[CompArc], a, Math.Min(n - 1, a + due), due, floor[^1], floor[^1], hump);
             }
 
             // Confluence on each confirming bar: was the cycle that ended a normal length, is the
@@ -534,7 +540,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompWclWeek => WindowWords("weekly cycle", "week", "weeks", value, At(CompWclWindowStart), At(CompWclWindowEnd)),
                 CompInDclWindow => value >= 0.5 ? "in the daily timing window" : "outside the daily timing window",
                 CompInWclWindow => value >= 0.5 ? "in the weekly timing window" : "outside the weekly timing window",
-                CompArc => value >= 0.995 ? "mid-cycle" : $"{Math.Round(value * 100)} percent of the arc",
+                CompArc or CompArcPosition => At(CompArcPosition) is var pos && double.IsNaN(pos) ? null
+                    : pos >= 0.995 ? "mid-cycle" : $"{Math.Round(pos * 100)} percent of the arc",
                 CompPreset => PresetWords(value, bar.Date),
                 _ => null,
             };
@@ -552,6 +559,53 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         // ── Parameters ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Where CF's arcs sit: a level wave under the candles, every hump the same height, its troughs
+        /// under the cycle lows' marks (the vendor's demo frames). The hump is a quarter of the median
+        /// cycle's swing (log of its high over its low), so it reads the same on any asset and timeframe
+        /// and does not squeeze the candles when the price pane fits it in. Each low's floor is one and a
+        /// quarter humps under the lowest low of the two cycles it joins, so every crest stays a quarter
+        /// hump under the candles. Returned in log price, one per low.
+        /// </summary>
+        private static double[] ArcFloors(List<int> lows, double[] high, double[] low, int n, out double hump)
+        {
+            var swings = new List<double>();
+            for (int k = 1; k < lows.Count; k++)
+            {
+                double hi = 0, lo = double.MaxValue;
+                for (int i = lows[k - 1]; i <= lows[k]; i++) { hi = Math.Max(hi, high[i]); lo = Math.Min(lo, low[i]); }
+                if (lo > 0) swings.Add(Math.Log(hi / lo));
+            }
+            swings.Sort();
+            hump = swings.Count > 0 ? 0.25 * swings[swings.Count / 2] : 0.05;
+            var floor = new double[lows.Count];
+            for (int k = 0; k < lows.Count; k++)
+            {
+                int from = k > 0 ? lows[k - 1] : lows[k], to = k + 1 < lows.Count ? lows[k + 1] : n - 1;
+                double lo = double.MaxValue;
+                for (int i = from; i <= to; i++) if (low[i] > 0) lo = Math.Min(lo, low[i]);
+                floor[k] = Math.Log(lo) - 1.25 * hump;
+            }
+            return floor;
+        }
+
+        /// <summary>
+        /// One of CF's arcs: from the floor at low <paramref name="a"/> to the floor at the far end,
+        /// <paramref name="span"/> bars later, rising a hump in the middle; rounded at both ends, as CF
+        /// draws them. The floor eases from one level to the next and is flat at each low, so the
+        /// trough stays on the low's bar. Drawn up to bar <paramref name="last"/>; the live arc's far end is in the future.
+        /// </summary>
+        private static void DrawArc(double[] arc, int a, int last, int span, double fa, double fb, double hump)
+        {
+            if (span <= 0) return;
+            for (int i = a; i <= last; i++)
+            {
+                double t = Math.Min(1, (double)(i - a) / span);
+                double level = fa + (fb - fa) * t * t * t * (10 - 15 * t + 6 * t * t);
+                arc[i] = Math.Exp(level + hump * 0.5 * (1 - Math.Cos(2 * Math.PI * t)));
+            }
+        }
 
         private static void Copy(double[] from, double[] to) => Array.Copy(from, to, Math.Min(from.Length, to.Length));
 

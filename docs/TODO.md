@@ -148,6 +148,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >     the 22 June swing low exactly). It fits 5 of 14 tables; most misses could not pin the last bar.
 >     Use it to date more labels exactly once a frame's last bar is known (its own clock, or price).
 >   - The settings panel at CF's defaults: the adjustment switch is off and all three factors are 0.
+>   - [x] The Cycle Arc is on the price chart as CF draws it: equal humps under the candles, troughs
+>     under the lows (2026-10-21). [ ] Cody to look: does the pane still give the candles enough room?
+>     CF lets the user set arc height and position; ours are fixed (a quarter of the median swing).
+>   - [ ] More of CF's look, not built: a check mark for Confirmed (ours is a square), circular arrows
+>     for Pending (a grey dot), the cancelled cross in a green box, the "49D" suffix and D/W letters.
+>     Each needs a new marker shape in the renderer, speech and tactile paths.
 >     So the "2" on the vendor's docs page was an example, not the default. SMA is 10 on close.
 >   - Notes in `strategy-lab-data/cf-frames2/REPORT.md` (gitignored). Its band dates are pixel
 >     guesses and some are wrong: MSTR's band copies COIN's dates.

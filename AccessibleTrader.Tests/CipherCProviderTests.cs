@@ -80,6 +80,7 @@ public sealed class CipherCProviderTests
     [InlineData(CipherCProvider.CompMidTop, ComponentCausality.Lookahead)]
     [InlineData(CipherCProvider.CompRightTop, ComponentCausality.Lookahead)]
     [InlineData(CipherCProvider.CompArc, ComponentCausality.Lookahead)]
+    [InlineData(CipherCProvider.CompArcPosition, ComponentCausality.Lookahead)]
     [InlineData(CipherCProvider.CompDclConfirmed, ComponentCausality.Causal)]
     [InlineData(CipherCProvider.CompCancelled, ComponentCausality.Causal)]
     [InlineData(CipherCProvider.CompFailed, ComponentCausality.Causal)]
@@ -234,6 +235,39 @@ public sealed class CipherCProviderTests
         Assert.All(y, i => Assert.Contains(i, w));
         var bars = CipherSrSpeechTests.BtcDaily();
         Assert.Contains(w, i => bars[i].Date == new DateTime(2024, 8, 5));
+    }
+
+    /// <summary>
+    /// CF's arcs are drawn on the candles, under them: each runs from one cycle low up and back
+    /// down to the next, its ends on the lows. Cody's weekly chart showed ours in a strip of its own
+    /// with an axis and flattened crests, which CF never draws (2026-10-21).
+    /// </summary>
+    [Fact]
+    public void The_arcs_are_a_wave_under_the_candles_with_a_trough_at_every_low()
+    {
+        // CF's vendor demo: a row of equal yellow humps on the price pane, below every candle, each
+        // trough under a low's marks. Not a strip of its own.
+        var arcMeta = Meta().Components.Single(c => c.Name == CipherCProvider.CompArc);
+        Assert.True(string.IsNullOrEmpty(arcMeta.SubPaneName));
+        var r = Btc(); var bars = CipherSrSpeechTests.BtcDaily();
+        var arc = r[CipherCProvider.CompArc];
+        var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
+        Assert.True(lows.Count > 5);
+        Assert.All(Marked(arc), i => Assert.True(arc[i] < bars[i].Low, $"{bars[i].Date:yyyy-MM-dd}: arc {arc[i]} over low {bars[i].Low}"));
+        // A trough at each low between two arcs, a crest in each arc's middle, and every crest the same
+        // height over the line between its troughs.
+        Assert.All(lows.Skip(1).SkipLast(1), i => Assert.True(arc[i] < arc[i - 1] && arc[i] < arc[i + 1], $"{bars[i].Date:yyyy-MM-dd}"));
+        var lifts = Enumerable.Range(1, lows.Count - 1).Select(k =>
+        {
+            int a = lows[k - 1], b = lows[k], m = (a + b) / 2;
+            double chord = Math.Log(arc[a]) + (Math.Log(arc[b]) - Math.Log(arc[a])) * (m - a) / (b - a);
+            return Math.Log(arc[m]) - chord;
+        }).ToList();
+        _out.WriteLine($"hump over its chord: {lifts.Min():F3} to {lifts.Max():F3}");
+        Assert.True(lifts.Min() > 0.05 && lifts.Max() - lifts.Min() < 0.02, $"{lifts.Min():F3} to {lifts.Max():F3}");
+        // It says where in the cycle the bar is, not a price.
+        int crest = Enumerable.Range(lows[1], lows[2] - lows[1]).First(i => r[CipherCProvider.CompArcPosition][i] >= 0.995);
+        Assert.Equal("mid-cycle", Provider.GetComponentSpeech(CipherCProvider.CompArc, arc[crest], bars[crest], r, crest));
     }
 
     // ── 4. Tiers and timeframes ─────────────────────────────────────────────────────

@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's arcs are on the price chart, as CF draws them (2026-10-21)
+
+Cody, looking at the new Cipher C on his Bitcoin chart: "I simply want it to look like the original
+indicator as much as possible." The Cycle Arc was a wave in its own strip under the price, with its
+own axis (1.000, -0.6). CF's vendor demo shows a row of equal mustard humps on the price chart, well
+under the candles, each trough under a cycle low's marks. It is now drawn that way.
+
+- **Where it sits:** each hump is a quarter of the median cycle's swing tall; each low's trough is one
+  and a quarter humps under the lowest low of the two cycles it joins. The level steps from one low
+  to the next and is flat at each low, so the trough stays on the low's bar. CF draws one level for
+  the whole screen; ours steps, because one level across fifteen years of Bitcoin would be useless.
+  The height and offset are our choice; CF lets the user set them, and ours are not settings yet.
+- **Saved charts move too:** the strip came from the component's metadata, which a saved chart
+  re-reads on load, so an existing Cipher C loses its strip.
+- **The price pane fits the arcs,** so the candles use less of the pane than before (on Bitcoin daily
+  the troughs sit about 15% under the cycle's low). Not yet seen on screen.
+- **What it says is unchanged:** "mid-cycle" or "N percent of the arc", now from a hidden Cycle Arc
+  Position number, since the line's value is a price.
+- **Tests:** a new test checks, on Bitcoin's daily history, that the arc is under every candle, has a
+  trough at every low, and that every hump is the same height over the line between its troughs
+  (0.116 to 0.125 in log price). Putting the strip back, raising the crest into the candles, using a
+  straight floor between lows, and scaling the hump by cycle length each turned it red. 76 Cipher C
+  tests and 580 in the wider indicator filter pass.
+
 ### Bitcoin's cycle ranges are now CF's own table (2026-10-21)
 
 Two reviewer videos of 7 to 9 August 2025 show CF's "BTCUSD CYCLE COUNT" table on a Bitstamp daily
