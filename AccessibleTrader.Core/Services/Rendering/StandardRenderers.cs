@@ -295,10 +295,63 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// fill says <c>DefaultIsAreaFill = true</c>. The two display-type names are kept as a
         /// reading path for a workspace saved while they were declarable; nothing declares them.
         /// </para>
+        ///
+        /// <para>
+        /// The user's own choice wins since 2026-10-22 (Properties → Appearance → "Fill under the
+        /// line"; <see cref="ComponentConfig.IsAreaFillInEffect"/>).
+        /// </para>
         /// </summary>
         internal static bool IsFilled(ComponentConfig comp) =>
-            comp.IsAreaFill
+            comp.IsAreaFillInEffect()
             || comp.DisplayType is ComponentDisplayType.Area or ComponentDisplayType.Gradient;
+
+        /// <summary>
+        /// Whether the fill switch does something for this component, so the Properties dialog
+        /// offers it only there: a plain or two-polarity line (<see cref="RenderLine"/>'s paths
+        /// that fill) and a value-coloured histogram (<see cref="RenderDirectionalBars"/>' area).
+        /// Not a zone line, not a line coloured by rules or by a sibling, not a candle-coloured
+        /// bar — those are drawn piece by piece and have no single edge to fill under — and not an
+        /// Area or Gradient, which always fill.
+        /// </summary>
+        public static bool CanHaveAreaFill(ComponentConfig comp)
+        {
+            bool rules = comp.ColorRules is { Count: > 0 };
+            return comp.DisplayType switch
+            {
+                ComponentDisplayType.Line or ComponentDisplayType.Oscillator =>
+                    !rules && !comp.IsZoneLine && string.IsNullOrEmpty(comp.ColorAboveComponent),
+                ComponentDisplayType.Histogram or ComponentDisplayType.Bar =>
+                    !rules && comp.ColorSource != ColorSource.PriceAction,
+                _ => false,
+            };
+        }
+
+        /// <summary>
+        /// A component's picture (<see cref="ComponentCompanions.Path"/>): a plain line in the
+        /// component's colour, thickness and dash, lifted over NaN. No fill, no polarity colours:
+        /// it is a drawing that belongs to the component, not a reading of it.
+        /// </summary>
+        public static void RenderPath(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
+        {
+            var data = series.GetComponentData(comp.Name + ComponentCompanions.Path);
+            if (data.Length == 0 || ctx.ViewportLength <= 0) return;
+            float barWidth = ctx.Width / ctx.ViewportLength, halfBar = barWidth / 2.0f;
+            using var path = new SKPath();
+            bool first = true;
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= data.Length) break;
+                double val = data[dataIdx];
+                if (double.IsNaN(val)) { first = true; continue; }
+                float x = (i * barWidth) + halfBar;
+                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                if (first) { path.MoveTo(x, y); first = false; }
+                else path.LineTo(x, y);
+            }
+            paint.Style = SKPaintStyle.Stroke;
+            ctx.Canvas.DrawPath(path, paint);
+        }
 
         public static void RenderLine(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
@@ -659,7 +712,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             // without colour rules — a candle-direction or rule colour changes per bar and has no
             // edge to fill between. The display type, and with it the sonification profile, stays
             // Histogram.
-            if (comp.IsAreaFill && !useCandleDirection && !hasColorRules)
+            if (comp.IsAreaFillInEffect() && !useCandleDirection && !hasColorRules)
             {
                 RenderHistogramArea(ctx, comp, barData, upColor, downColor);
                 return;

@@ -140,7 +140,8 @@ public sealed class CipherCProviderTests
         {
             var w = m.Components.Single(c => c.Name == name);
             Assert.True(w.IsCount);
-            Assert.False(w.DefaultIsDrawn);   // tinted and heard, no line
+            Assert.Equal(ComponentDisplayType.Window, w.DisplayType);   // shaded and heard, the count never drawn
+            Assert.Equal("cycle arc", w.PathName);                     // its picture, named on landing
             Assert.Equal(BackgroundTint.PriceChart, w.DefaultBackgroundTint);
         }
         Assert.True(m.Components.Single(c => c.Name == CipherCProvider.CompDclConfirmed).IsCount);
@@ -260,7 +261,10 @@ public sealed class CipherCProviderTests
         var whole = Btc();
         var m = Meta();
         var causalComponents = m.Components.Where(c => (c.Causality ?? m.Causality) == ComponentCausality.Causal).Select(c => c.Name).ToList();
-        var causal = whole.Keys.Where(k => causalComponents.Contains(k) || ComponentCompanions.IsCompanionOf(k, causalComponents)).ToList();
+        // The cycle arc (a window's _path) is a picture, not a reading: it is never said or
+        // stopped on, and it is look-ahead by design (The_cycle_arc_is_drawn_between_known_lows).
+        var causal = whole.Keys.Where(k => (causalComponents.Contains(k) || ComponentCompanions.IsCompanionOf(k, causalComponents))
+            && !k.EndsWith(ComponentCompanions.Path, StringComparison.Ordinal)).ToList();
         Assert.Contains(CipherCProvider.CompDclConfirmed, causal);
         Assert.Contains(CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix, causal);
         Assert.Contains(CipherCProvider.CompDailyWindow + ComponentCompanions.Stops, causal);
@@ -282,6 +286,44 @@ public sealed class CipherCProviderTests
             && k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint).ToList();
         Assert.True(neverChecked.Count == 0, "never compared: " + string.Join(", ", neverChecked));
         static bool Same(double a, double b) => double.IsNaN(a) ? double.IsNaN(b) : Math.Abs(a - b) < 1e-9;
+    }
+
+    /// <summary>
+    /// <b>The cycle arc is the lowest tier's window's picture (2026-10-22).</b> Cody: "if the arc
+    /// is more akin to the chart formation lines and drawings, then leave it as such, just a
+    /// drawing". One hump from each low to the next, its trough on the low's bar, every point
+    /// under that bar's candle; on the daily window of a daily chart and the weekly window of a
+    /// weekly one, never both. Look-ahead, as CF's is: each arc ends at a low known only later,
+    /// so a shorter history draws a different arc — which is why the causal test leaves it out.
+    /// </summary>
+    [Fact]
+    public void The_cycle_arc_is_drawn_between_known_lows()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = Btc();
+        var arc = r[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
+        Assert.All(r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
+
+        var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
+        Assert.True(lows.Count > 50, $"{lows.Count} daily lows");
+        Assert.Equal(lows[0], Marked(arc).First());                 // nothing before the first low
+        for (int k = 0; k < lows.Count; k++)
+        {
+            int l = lows[k];
+            Assert.True(arc[l] <= arc[l + 1], $"the arc rises out of the low on {bars[l].Date:yyyy-MM-dd}");
+            if (k > 0) Assert.True(arc[l] <= arc[l - 1], $"the arc comes down into the low on {bars[l].Date:yyyy-MM-dd}");
+        }
+        foreach (int i in Marked(arc))
+            Assert.True(arc[i] < bars[i].Low, $"the arc at {arc[i]:F0} is not under the candle on {bars[i].Date:yyyy-MM-dd} (low {bars[i].Low:F0})");
+
+        // Look-ahead: on 3,000 bars the last arc runs on to where the next low is due, and the
+        // whole history puts that low elsewhere.
+        var part = Run(bars.Take(3000).ToList(), "BTC/USD")[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
+        Assert.Contains(Enumerable.Range(2600, 400), i => Math.Abs(part[i] - arc[i]) > 1e-6);
+
+        var weekly = Run(Weekly(bars), "BTC/USD");
+        Assert.Contains(weekly[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => !double.IsNaN(v));
+        Assert.All(weekly[CipherCProvider.CompDailyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
     }
 
     // ── 2. CF's own Bitcoin labels ──────────────────────────────────────────────────

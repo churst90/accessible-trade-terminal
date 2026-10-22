@@ -326,6 +326,39 @@
                                             </label>
                                         </div>
                                     }
+                                    @* FILL and PATH, 2026-10-22 (Cody: shading preferences belong
+                                       in Appearance). Each records the USER's choice
+                                       (UserIsAreaFill / UserDrawPath); never touching it follows
+                                       the indicator's default. The fill is offered only where it
+                                       draws something; the path only on a component that has one,
+                                       named as the component names it on landing. *@
+                                    @if (AccessibleTrader.Core.Services.Rendering.StandardRenderers.CanHaveAreaFill(comp))
+                                    {
+                                        var fillText = comp.DisplayType is AccessibleTrader.Sdk.Models.ComponentDisplayType.Histogram
+                                            or AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar
+                                            ? "Draw as a filled area" : "Fill under the line";
+                                        <div class="modal-row">
+                                            <label for="@(cid)-area-fill">
+                                                <input id="@(cid)-area-fill" type="checkbox"
+                                                       aria-label="@fillText for @CompLabel(comp)"
+                                                       checked="@comp.IsAreaFillInEffect()"
+                                                       @onchange="e => comp.UserIsAreaFill = (bool)(e.Value ?? false)" />
+                                                @fillText
+                                            </label>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(comp.PathName))
+                                    {
+                                        <div class="modal-row">
+                                            <label for="@(cid)-path">
+                                                <input id="@(cid)-path" type="checkbox"
+                                                       aria-label="Draw the @comp.PathName for @CompLabel(comp)"
+                                                       checked="@comp.DrawsPathInEffect()"
+                                                       @onchange="e => comp.UserDrawPath = (bool)(e.Value ?? true)" />
+                                                Draw the @comp.PathName
+                                            </label>
+                                        </div>
+                                    }
                                     @* BACKGROUND TINT, 2026-10-17 (Cody: "shading/tinting should be
                                        something any indicator can do"). Its own switch, not the
                                        Visible box's: a hidden data line such as Cipher B's Anchor
@@ -1389,6 +1422,8 @@
                 IsVisible         = c.IsVisible,
                 UserShowAxisLabel = c.UserShowAxisLabel,
                 UserBackgroundTint = c.UserBackgroundTint,
+                UserIsAreaFill    = c.UserIsAreaFill,
+                UserDrawPath      = c.UserDrawPath,
             })
             .ToList();
 

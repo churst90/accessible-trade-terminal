@@ -106,6 +106,11 @@ public class WorkspaceRestoreContractTests
         "UserShowAxisLabel", // Properties → Value label on the axis. The CHOICE only, as the
                           // tint: ShowAxisLabel is the indicator's, rebuilt from metadata, so
                           // Cipher A's ribbon default (2026-10-18) reaches saved charts.
+        "UserIsAreaFill", // Properties → Fill under the line (2026-10-22). The CHOICE only:
+                          // IsAreaFill is the indicator's, rebuilt from metadata.
+        "UserDrawPath",   // Properties → Draw the {PathName} (2026-10-22): the choice to hide a
+                          // component's picture, such as Cipher C's cycle arc. PathName itself
+                          // is the indicator's.
     };
 
     // ── The gate: no property may be unclassified ────────────────────────────────

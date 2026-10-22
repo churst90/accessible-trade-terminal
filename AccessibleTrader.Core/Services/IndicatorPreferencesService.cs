@@ -51,6 +51,8 @@ namespace AccessibleTrader.Core.Services
         public bool?   IsVisible          { get; set; }
         public bool?   UserShowAxisLabel  { get; set; }
         public BackgroundTint? UserBackgroundTint { get; set; }
+        public bool?   UserIsAreaFill     { get; set; }
+        public bool?   UserDrawPath       { get; set; }
     }
 
     /// <summary>

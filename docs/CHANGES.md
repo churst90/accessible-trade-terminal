@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Windows, fill under the line, and the cycle arc as a drawing (2026-10-22)
+
+- Cody: "Move forward with window type, area fill in appearance, and if the arc is more akin to
+  the chart formation lines and drawings, then leave it as such, just a drawing".
+- **`ComponentDisplayType.Window`** (Sdk, appended as 29): a stretch of bars that opens and closes.
+  Its value is a count to hear, never drawn as a line and never on the value axis. It is open where
+  its `_tint` companion is at or above the tint midline, or (with none) wherever it has a value.
+  The open bars are shaded (This pane unless the indicator says otherwise; Appearance wins),
+  Ctrl+Left/Right steps where it opens and closes (or through its `_stops`), the Dot Pad raises the
+  open bars full height and leaves closed ones flat, and the status line shows the count it says.
+  One helper (`WindowSpans`) decides "open" for the shading, the keys and the Dot Pad.
+  Spoken as "window"; a steady 330 Hz sine with no pitch mapping for now (not heard).
+- **Cipher C's Timing Windows are Windows**: landing on one no longer says "Line".
+- **A component's drawing, `_path`** (`ComponentCompanions.Path`, `PathName` in the metadata): a
+  line in the component's own units, in its colour and thickness. Not a stop, not a sound. Landing
+  on the component names it ("Window, with the cycle arc") while it is drawn and has data; the
+  speech template's `{type}` says the same. Properties → Appearance → "Draw the cycle arc" turns it
+  off (`UserDrawPath`); it counts toward the fitted price range, so it is not cut off.
+- **The cycle arc is back as the Timing Window's drawing** (code from 8421c5af): one arc under the
+  candles from each cycle low to the next, and a live arc from the last low to the expected length.
+  **Look-ahead**: an arc is drawn once its ending low is known. `CipherCProviderTests` now excludes
+  `_path` from the causal check, and a new test pins the look-ahead (the arc changes when bars are
+  added) and that every arc point sits under its bar's low.
+- **Fill under the line in Appearance** (`UserIsAreaFill`): "Fill under the line", or "Draw as a
+  filled area" on a histogram, on or off; the choice wins over the indicator's. Offered only where a
+  fill is drawn (a plain line or oscillator, or a histogram coloured by value), not on levels, lines
+  coloured by rules or by another line, or candle-coloured bars. Saved with the chart and with Save
+  as Defaults; a chart's own choice wins over the default.
+- `,` and `.` stay with chart formations (see TODO for the reasoning).
+- **Fixed on the way:** the declared-knob sweep (`DeclaredKnobObservabilityTests`) was already red on
+  this branch for `IsCount` and `MarkerText`, from unpushed commits CI never ran. It now also reads
+  the status line, so a knob that changes only what is printed there counts as observable, and has
+  ValueLabel and Window cells. A history-limit message from 60256450 ("History limit reached: 5,000
+  bars") formatted its number in the current culture; `CultureInvariantScanTests` caught it.
+- Tests: `WindowComponentTests` (open spans and edges, the spoken drawing name, the fitted range,
+  the Dot Pad, the fill choice and where it is offered), three pixel tests in `BackgroundTintTests`
+  (a window shaded where open, no line through its count, the drawing drawn and switched off), the
+  window-edges jump in `CrossingMessageTests`, the fill and drawing preferences in
+  `ComponentPreferenceChoicesTests`. Fourteen sabotages, one per guard, each turned it red (one
+  first survived because the renderer's default branch draws nothing; redone as "drawn as a line").
+- Not seen or heard in the app. Cipher C's weekly window on a daily chart has no tint and no arc,
+  so its Dot Pad view is blank and its "Draw the cycle arc" switch does nothing.
+
 ### Alt+Shift+D reads in one order, whichever series has focus (2026-10-22)
 
 - Cody: "with alt shift d it reads the current focused indicator first, then the candles and

@@ -225,6 +225,10 @@ namespace AccessibleTrader.Core.Services
                     // metadata above, so a provider's new default (Cipher A's ribbon, 2026-10-18)
                     // reaches every chart whose user never chose; null = never chose.
                     fresh.UserShowAxisLabel = saved.UserShowAxisLabel;
+                    // The user's fill and path choices, the same split again: IsAreaFill and
+                    // PathName came from metadata above.
+                    fresh.UserIsAreaFill = saved.UserIsAreaFill;
+                    fresh.UserDrawPath   = saved.UserDrawPath;
                 }
             }
 
@@ -243,6 +247,10 @@ namespace AccessibleTrader.Core.Services
                         fresh.UserShowAxisLabel = pref.UserShowAxisLabel;
                     if (fresh.UserBackgroundTint is null && pref.UserBackgroundTint is not null)
                         fresh.UserBackgroundTint = pref.UserBackgroundTint;
+                    if (fresh.UserIsAreaFill is null && pref.UserIsAreaFill is not null)
+                        fresh.UserIsAreaFill = pref.UserIsAreaFill;
+                    if (fresh.UserDrawPath is null && pref.UserDrawPath is not null)
+                        fresh.UserDrawPath = pref.UserDrawPath;
                     if (pref.ColorHex          != null) fresh.ColorHex          = pref.ColorHex;
                     if (pref.ColorHexSecondary  != null) fresh.ColorHexSecondary  = pref.ColorHexSecondary;
                     if (pref.Thickness         != null) fresh.Thickness         = pref.Thickness.Value;
@@ -347,6 +355,7 @@ namespace AccessibleTrader.Core.Services
                 DisplayName  = meta.DisplayName ?? meta.Name,
                 DisplayType  = type,
                 MarkerText   = meta.MarkerText,
+                PathName     = meta.PathName,
                 IsCount      = meta.IsCount,
                 Role         = role,
                 DataMapping  = meta.DataMapping ?? string.Empty,
@@ -416,7 +425,9 @@ namespace AccessibleTrader.Core.Services
                 ColorAboveComponent = meta.DefaultColorAboveComponent ?? string.Empty,
                 // Background tint — the indicator's declaration, rebuilt on every load. The user's
                 // own choice is UserBackgroundTint, restored in layer 2; it is never set here.
-                BackgroundTint     = meta.DefaultBackgroundTint ?? BackgroundTint.Off,
+                // A window is shaded unless its indicator says otherwise (ComponentDisplayType.Window).
+                BackgroundTint     = meta.DefaultBackgroundTint
+                                     ?? (type == ComponentDisplayType.Window ? BackgroundTint.ThisPane : BackgroundTint.Off),
                 TintColorAboveHex  = meta.DefaultTintColorAboveHex ?? string.Empty,
                 TintColorBelowHex  = meta.DefaultTintColorBelowHex ?? string.Empty,
                 TintMidline        = meta.DefaultTintMidline,

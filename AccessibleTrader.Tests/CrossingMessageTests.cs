@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Input;
+using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 using Xunit;
@@ -92,6 +93,47 @@ public class CrossingMessageTests
         Assert.Equal("No more Daily Timing Window changes in this direction", spoken[^1].Message);
         engine.HandleCrossJump(SystemCommand.NavLeftJump);
         Assert.Equal(4, store.State.CurrentDataIndex);
+    }
+
+    /// <summary>
+    /// A <see cref="ComponentDisplayType.Window"/> with no stops companion is stepped through the
+    /// bars it opens and closes on — the same spans it is shaded on (<see cref="WindowSpans"/>):
+    /// open on bars 3–6 and 9–10 gives stops at 3, 7 (the first bar closed), 9 and 11.
+    /// </summary>
+    [Fact]
+    public void A_window_with_no_stops_companion_jumps_to_where_it_opens_and_closes()
+    {
+        var (engine, bus, store) = Build();
+        var config = new SeriesConfig { Id = "w", IndicatorCode = "WIN", Name = "Win", FriendlyName = "Win", Pane = "Main" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Season", DisplayName = "Season", DisplayType = ComponentDisplayType.Window,
+            Role = ComponentRole.Signal, IsVisible = true,
+        });
+        var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "w" });
+        series.Data.ComponentData["Season"] = Enumerable.Range(0, 14)
+            .Select(i => i is >= 3 and <= 6 or >= 9 and <= 10 ? (double)i : double.NaN).ToArray();
+        store.Dispatch(new UpdateSettingsAction(st => st with
+        {
+            Data = Bars(14),
+            ActiveSeries = ImmutableList.Create(series),
+            FocusedSeriesId = series.Id,
+            FocusedComponentIndex = 0,
+            CurrentDataIndex = 0,
+        }));
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        var landed = new List<int>();
+        for (int k = 0; k < 5; k++)
+        {
+            engine.HandleCrossJump(SystemCommand.NavRightJump);
+            landed.Add(store.State.CurrentDataIndex);
+        }
+        Assert.Equal(new[] { 3, 7, 9, 11, 11 }, landed);
+        Assert.Equal("No more Season changes in this direction", spoken[^1].Message);
+        engine.HandleCrossJump(SystemCommand.NavLeftJump);
+        Assert.Equal(9, store.State.CurrentDataIndex);
     }
 
     private static ChartSeries Candles()

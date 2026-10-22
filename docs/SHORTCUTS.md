@@ -85,6 +85,8 @@ see the move has no way to detect.
 | Price candle or candle wick, or the price line | Next bar where price crosses a drawn trend line or horizontal line, or a vertical line's bar — nearest first. "Price crosses above horizontal line at 64,250" / "Vertical line at …" |
 | A horizontal line drawing | Next bar where price crosses that line |
 | Sparse marker (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleUpRing, TriangleDown, Square, CheckBox, RefreshBox, ZeroDot) | Next bar where that component has a non-NaN signal value |
+| A component with a stops list (Cipher C's timing windows) | Next bar on its list: the window opening or closing |
+| Window (any other) | Next bar where the window opens, or the first bar after it closes. "No more [name] changes in this direction" at the end |
 | Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses its **midline** — zero on a zero-centred reading, 50 on a bounded one. Recognised by the line's role, so all four spellings providers use for it (Zero, Midpoint, Midline, Neutral) are reached |
 | Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone. A level you have hidden is not a target |
 | Band-labelled line (ADX 20/25/50, Choppiness 38.2/61.8) | Next bar where the reading crosses a band edge; the announcement names the band entered ("strong trend") |
@@ -111,6 +113,11 @@ to the pane's own line.
 Bare comma and period step between **chart formations** — double tops, head and shoulders,
 triangles, wedges, flags. They are unmodified keys because this is something you press repeatedly
 while reading a chart, and they are chart-scoped, so they remain typable everywhere else.
+
+They step through formations only. An indicator's own drawing — Cipher C's cycle arc — is not a
+stop: it belongs to its component, which names it when you land there and says what it shows
+(Cody, 2026-10-22: one owner per key family; Arrows move by bar, Ctrl+Left/Right through the
+focused component's events, comma and period through formations).
 
 | Key | Action |
 |-----|--------|

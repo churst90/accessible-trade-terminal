@@ -525,7 +525,10 @@ namespace AccessibleTrader.Core.Services.Rendering
             or ComponentDisplayType.Gradient or ComponentDisplayType.StepLine
             or ComponentDisplayType.Bar or ComponentDisplayType.Histogram or ComponentDisplayType.ZeroArea
             // A number printed on the candle: the number is its reading (DBSI-style's "Bulls 15").
-            or ComponentDisplayType.ValueLabel;
+            or ComponentDisplayType.ValueLabel
+            // A window's count (Cipher C's "Daily Timing Window 23"): never drawn, but read here
+            // as it is spoken.
+            or ComponentDisplayType.Window;
 
         /// <summary>
         /// A series name split into the indicator's name and its numeric inputs. A series is named

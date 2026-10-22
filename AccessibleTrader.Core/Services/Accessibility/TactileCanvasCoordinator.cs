@@ -570,6 +570,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 or ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleUpRing or ComponentDisplayType.TriangleDown
                 or ComponentDisplayType.GradientDot
                     => BuildMarkerDots(values, state, cols, rows),
+                // Raised full-height where the window is open and flat where it is closed: a count
+                // drawn as a line would be a shape the screen does not show. (Closed is NaN, not
+                // 0: a 0 at the baseline would raise a pin along the floor.)
+                ComponentDisplayType.Window
+                    => BuildBarsFromBaseline(Array.ConvertAll(Rendering.WindowSpans.OpenMask(series, renderComponent),
+                        v => v == 1 ? 1.0 : double.NaN), state, cols, rows, baseline: 0),
                 _ => BuildLineCanvas(values, state, cols, rows),
             };
         }

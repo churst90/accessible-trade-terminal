@@ -4,6 +4,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Audio;
+using AccessibleTrader.Core.Services.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -504,6 +505,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         /// <summary>
+        /// <see cref="FriendlyTypeName"/>, and for a window the picture it carries: "window, with
+        /// the cycle arc" — the template's {type}, so an indicator with no speech of its own still
+        /// names everything it draws.
+        /// </summary>
+        internal static string SpokenType(ComponentConfig comp, ChartSeries? series) =>
+            comp.DisplayType == ComponentDisplayType.Window && comp.DrawsPathInEffect() && WindowSpans.HasPath(series, comp)
+                ? $"window, with the {comp.PathName}"
+                : FriendlyTypeName(comp.DisplayType);
+
+        /// <summary>
         /// Maps ComponentDisplayType to a TTS-friendly lowercase string.
         /// Prevents internal enum names like "ZeroArea" being mangled by the speech engine.
         /// </summary>
@@ -534,6 +545,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ComponentDisplayType.Cross        => "cross",
             ComponentDisplayType.CandleColor  => "sentiment phase",
             ComponentDisplayType.ValueLabel   => "value label",
+            ComponentDisplayType.Window       => "window",
             _                                 => dt.ToString().ToLower()
         };
 
@@ -803,16 +815,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     : $"{namePart}. {stateLabel}{countPhrase}. {speech}";
             }
 
-            string typeLabel = ComponentTypeLabel(ctx.Comp);
+            string typeLabel = ComponentTypeLabel(ctx.Comp, ctx.Series);
             return string.IsNullOrEmpty(typeLabel)
                 ? $"{namePart}. {stateLabel}{speech}"
                 : $"{namePart}. {typeLabel}. {stateLabel}{speech}";
         }
 
         /// <summary>Short spoken type qualifier (moved from NavigationFeedbackManager).</summary>
-        internal static string ComponentTypeLabel(ComponentConfig comp)
+        internal static string ComponentTypeLabel(ComponentConfig comp, ChartSeries? series = null)
         {
             var dt = comp.DisplayType;
+            // A window says what it draws besides its shading, so nothing on the chart is out of
+            // reach (Cody, 2026-10-22): "Window, with the cycle arc." Only when the picture is
+            // there: Cipher C's weekly window has no arc on a chart with a daily cycle.
+            if (dt == ComponentDisplayType.Window)
+                return comp.DrawsPathInEffect() && WindowSpans.HasPath(series, comp)
+                    ? $"Window, with the {comp.PathName}" : "Window";
             if (dt is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea) return "Oscillator";
             if (dt == ComponentDisplayType.CandleColor) return "Sentiment Phase";
             if (dt == ComponentDisplayType.Line) return comp.IsZoneLine ? "Level" : "Line";
@@ -1140,7 +1158,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string result = tmpl
                 .Replace("{gradient_speech}", gradientSpeech)
                 .Replace("{name}", comp.DisplayName)
-                .Replace("{type}", SpeechFormatter.FriendlyTypeName(comp.DisplayType));
+                .Replace("{type}", SpeechFormatter.SpokenType(comp, series));
 
             // Generic {value:Fn} format handler — catches F0, F1, F2, F3, ... so providers
             // can use any precision without adding a new Replace() line here.

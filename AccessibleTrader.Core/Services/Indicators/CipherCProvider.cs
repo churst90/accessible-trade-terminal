@@ -32,6 +32,10 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// bearish), orange in the middle, green late (right translated, bullish).</item>
     /// <item>A soft green tint behind the bars where the daily cycle is inside its timing window
     /// (blue for the weekly window on a chart with no daily cycle).</item>
+    /// <item>CF's yellow arcs, a level wave under the candles with a trough under each low of the
+    /// shortest running tier, drawn as that tier's timing window's picture
+    /// (<see cref="ComponentCompanions.Path"/>). Look-ahead: drawn between known lows, and the live
+    /// arc runs on to where the next low is due.</item>
     /// <item>The 10-bar simple moving average Camel trades against (CF's yellow line).</item>
     /// </list>
     ///
@@ -43,8 +47,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// default. A number that only explains another component (a low's cycle length, a
     /// confirmation's low and age, a window's bounds) is a companion array of that component
     /// (<see cref="ComponentCompanions"/>) and is said WITH it, not a keyboard stop of its own. The
-    /// arcs went: on CF they are a picture of where the cycle is, which the timing window says in
-    /// words on every bar. The rule for what is navigable: a dated one-bar event is a component; a
+    /// arcs are not a component: on CF they are a picture of where the cycle is, which the timing
+    /// window says in words on every bar, so they came back (2026-10-22) as the window's drawing —
+    /// named when the user lands on the window, switched off in Appearance. The rule for what is navigable: a dated one-bar event is a component; a
     /// state over a stretch of bars is one component with a value worth hearing on every bar (the
     /// timing windows); a fact about the whole chart (the preset) is said by Alt+Shift+D.
     /// </para>
@@ -118,7 +123,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
 
-        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B";
+        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
 
         private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order) => new()
         {
@@ -158,16 +163,19 @@ namespace AccessibleTrader.Core.Services.Indicators
         };
 
         /// <summary>
-        /// A timing window: its value is the cycle's day (or week) count on every bar, which is
-        /// what is heard; the tint is painted from its <see cref="ComponentCompanions.Tint"/>
-        /// companion (1 inside the window, 0 outside), and Ctrl+Left/Right stops where the window
-        /// opens and where it closes with no new low (<see cref="ComponentCompanions.Stops"/>).
-        /// Not drawn as a line: a day count is not a price.
+        /// A timing window (<see cref="ComponentDisplayType.Window"/>): its value is the cycle's
+        /// day (or week) count on every bar, which is what is heard; the tint is painted from its
+        /// <see cref="ComponentCompanions.Tint"/> companion (1 inside the window, 0 outside), and
+        /// Ctrl+Left/Right stops where the window opens and where it closes with no new low
+        /// (<see cref="ComponentCompanions.Stops"/>). The day count is never drawn: it is not a
+        /// price. The lowest running tier's window also carries the cycle arc
+        /// (<see cref="ComponentCompanions.Path"/>), drawn in its colour.
         /// </summary>
         private static IndicatorComponentMetadata Window(string name, string tintHex) => new()
         {
-            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-            Causality = ComponentCausality.Causal, DefaultIsDrawn = false, IsCount = true, DefaultColorHex = "#9E9E9E",
+            Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Window, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Causal, IsCount = true, DefaultColorHex = ArcHex, DefaultThickness = 1f,
+            PathName = "cycle arc",
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
             DefaultPlaybackLayer = PlaybackLayer.Background,
             // The whole 0x18 alpha at 1, nothing at 0.
@@ -194,7 +202,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "with a ringed D, blue with a W under weekly, gold with a Y under yearly, each low's length with " +
                     "its unit (49D, 24W), a green check box when a low is confirmed, a grey-blue refresh box while " +
                     "one is pending, crosses when one is cancelled or a cycle fails, translated-top triangles, and a " +
-                    "tint over the daily timing window, whose day count is read on every bar. Cycle ranges are tuned " +
+                    "tint over the daily timing window, whose day count is read on every bar, with the cycle arcs " +
+                    "drawn under the candles from low to low. Cycle ranges are tuned " +
                     "for sixteen assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver " +
                     "miners, Bitcoin, Ethereum and four crypto stocks); seven of those are estimated. Lows are drawn " +
                     "on the low's bar but known only when confirmed, a median of nine bars later. A map of cycle " +
@@ -280,6 +289,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The tint companions always exist, so a window with no tint of its own paints nothing
             // rather than falling back to tinting by its day count.
             A(CompDailyWindow + ComponentCompanions.Tint); A(CompWeeklyWindow + ComponentCompanions.Tint);
+            A(CompDailyWindow + ComponentCompanions.Path); A(CompWeeklyWindow + ComponentCompanions.Path);
             if (n == 0) return o;
 
             var p = parameters ?? new Dictionary<string, object>();
@@ -357,7 +367,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low);
 
             // The events and the tops belong to the shortest tier that runs.
-            var (lowest, _, lowestLows, tierNo, unit, ago) =
+            var (lowest, lowestTier, lowestLows, tierNo, unit, ago) =
                 dTier.Active ? (d, dTier, dLows, 1, day, day) : wTier.Active ? (w, wTier, wLows, 2, week, week) : (y, yTier, yLows, 3, year, week);
             if (dTier.Active || wTier.Active || yTier.Active) Array.Fill(A(EventsTierKey), tierNo);
 
@@ -406,6 +416,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Day and week counts against the timing windows — known on the bar.
             WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dMin, dMax, tint: true, n);
             WriteWindow(o, CompWeeklyWindow, w, wTier, barsPerWeek, wMin, wMax, tint: !dTier.Active, n);
+
+            // The cycle arc, on the window of the tier the events belong to (a yearly-only chart
+            // has no window, so no arc). A picture, not a reading: what it shows — how far into
+            // the cycle each bar is — the window says as its day count. Look-ahead: each arc is
+            // drawn between two lows known only once confirmed, and the live arc runs on to where
+            // the next low is due.
+            if (tierNo <= 2)
+                DrawArcs(o[(tierNo == 1 ? CompDailyWindow : CompWeeklyWindow) + ComponentCompanions.Path],
+                    lowestLows, lowestTier, high, low, n);
 
             int presetIndex = IndexOf(preset);
             Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
@@ -524,6 +543,68 @@ namespace AccessibleTrader.Core.Services.Indicators
             o[comp + StartSuffix] = start;
             o[comp + EndSuffix] = end;
             o[comp + ComponentCompanions.Stops] = stops;
+        }
+
+        /// <summary>
+        /// CF's yellow arcs: one hump from each low to the next, and a live one from the last low
+        /// to the middle of the window the next is due in. They sit as a level wave under the
+        /// candles (the vendor's demo frames), every hump the same height.
+        /// </summary>
+        private static void DrawArcs(double[] arc, List<int> lows, CipherCEngine.TierBars tier, double[] high, double[] low, int n)
+        {
+            if (lows.Count == 0) return;
+            var floor = ArcFloors(lows, high, low, n, out double hump);
+            for (int k = 1; k < lows.Count; k++)
+                DrawArc(arc, lows[k - 1], lows[k], lows[k] - lows[k - 1], floor[k - 1], floor[k], hump);
+            int a = lows[^1], due = Math.Max(1, (int)Math.Round(tier.MeanBars));
+            DrawArc(arc, a, Math.Min(n - 1, a + due), due, floor[^1], floor[^1], hump);
+        }
+
+        /// <summary>
+        /// Where the arcs sit. The hump is a quarter of the median cycle's swing (log of its high
+        /// over its low), so it reads the same on any asset and timeframe and does not squeeze the
+        /// candles when the price pane fits it in. Each low's floor is one and a quarter humps under
+        /// the lowest low of the two cycles it joins, so every crest stays a quarter hump under the
+        /// candles. Returned in log price, one per low.
+        /// </summary>
+        private static double[] ArcFloors(List<int> lows, double[] high, double[] low, int n, out double hump)
+        {
+            var swings = new List<double>();
+            for (int k = 1; k < lows.Count; k++)
+            {
+                double hi = 0, lo = double.MaxValue;
+                for (int i = lows[k - 1]; i <= lows[k]; i++) { hi = Math.Max(hi, high[i]); lo = Math.Min(lo, low[i]); }
+                if (lo > 0) swings.Add(Math.Log(hi / lo));
+            }
+            swings.Sort();
+            hump = swings.Count > 0 ? 0.25 * swings[swings.Count / 2] : 0.05;
+            var floor = new double[lows.Count];
+            for (int k = 0; k < lows.Count; k++)
+            {
+                int from = k > 0 ? lows[k - 1] : lows[k], to = k + 1 < lows.Count ? lows[k + 1] : n - 1;
+                double lo = double.MaxValue;
+                for (int i = from; i <= to; i++) if (low[i] > 0) lo = Math.Min(lo, low[i]);
+                floor[k] = Math.Log(lo) - 1.25 * hump;
+            }
+            return floor;
+        }
+
+        /// <summary>
+        /// One arc: from the floor at low <paramref name="a"/> to the floor at the far end,
+        /// <paramref name="span"/> bars later, rising a hump in the middle; rounded at both ends, as
+        /// CF draws them. The floor eases from one level to the next and is flat at each low, so the
+        /// trough stays on the low's bar. Drawn up to bar <paramref name="last"/>; the live arc's far
+        /// end is in the future.
+        /// </summary>
+        private static void DrawArc(double[] arc, int a, int last, int span, double fa, double fb, double hump)
+        {
+            if (span <= 0) return;
+            for (int i = a; i <= last; i++)
+            {
+                double t = Math.Min(1, (double)(i - a) / span);
+                double level = fa + (fb - fa) * t * t * t * (10 - 15 * t + 6 * t * t);
+                arc[i] = Math.Exp(level + hump * 0.5 * (1 - Math.Cos(2 * Math.PI * t)));
+            }
         }
 
         private static void AddLow(List<int> lows, int i)

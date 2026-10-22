@@ -1113,6 +1113,8 @@ namespace AccessibleTrader.Core.Services
                     or ComponentDisplayType.ZeroArea => 1,
                 ComponentDisplayType.Cloud or ComponentDisplayType.CandleColor or ComponentDisplayType.Heatmap
                     or ComponentDisplayType.Profile or ComponentDisplayType.Distribution => -1,
+                // A window's value is a count to hear, not a position.
+                ComponentDisplayType.Window => -1,
                 // A number printed at the bar is not a position on this axis.
                 ComponentDisplayType.ValueLabel when comp.MarkerAnchor != MarkerAnchor.Value => -1,
                 _ => 2,

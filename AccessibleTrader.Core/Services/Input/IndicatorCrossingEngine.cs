@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Drawing;
+using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Input
@@ -89,6 +90,14 @@ namespace AccessibleTrader.Core.Services.Input
                 if (stops is { Length: > 0 })
                 {
                     DoSparseSignalJump(focusedSeries, focusedComp, current, jumpRight, stops, "changes");
+                    return;
+                }
+
+                // Case 2b: a window that names no stops — where it opens and where it closes.
+                if (focusedComp.DisplayType == ComponentDisplayType.Window)
+                {
+                    var edges = WindowSpans.Edges(WindowSpans.OpenMask(focusedSeries, focusedComp));
+                    DoSparseSignalJump(focusedSeries, focusedComp, current, jumpRight, edges, "changes");
                     return;
                 }
 

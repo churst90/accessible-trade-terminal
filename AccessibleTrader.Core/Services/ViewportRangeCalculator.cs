@@ -118,23 +118,20 @@ namespace AccessibleTrader.Core.Services
                     //     on the chart at all, and a value label anchored to the BAR prints a number
                     //     that is not a position — DBSI-style's "15" on a $20 stock is not a price
                     //     of 15, and letting it in drags the axis to the floor.
-                    if (!comp.IsDrawn) continue;
-                    if (comp.DisplayType == ComponentDisplayType.ValueLabel && comp.MarkerAnchor != MarkerAnchor.Value) continue;
-
-                    var data = s.GetComponentData(comp.Name);
-                    if (data == null || data.Length == 0) continue;
-
-                    int cEnd = Math.Min(start + state.ViewportLength, data.Length);
-                    for (int i = start; i < cEnd; i++)
+                    foreach (var data in DrawnArrays(s, comp))
                     {
-                        double val = data[i];
-                        // NaN is WARMUP, and warmup is universal — an EMA's first N bars, a
-                        // pivot indicator's every-bar-but-a-few. Skipping it is not a special
-                        // case, it is the normal state of the left edge of the window.
-                        if (double.IsNaN(val)) continue;
-                        if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
-                        if (val < mainMin) mainMin = val;
-                        if (val > mainMax) mainMax = val;
+                        int cEnd = Math.Min(start + state.ViewportLength, data.Length);
+                        for (int i = start; i < cEnd; i++)
+                        {
+                            double val = data[i];
+                            // NaN is WARMUP, and warmup is universal — an EMA's first N bars, a
+                            // pivot indicator's every-bar-but-a-few. Skipping it is not a special
+                            // case, it is the normal state of the left edge of the window.
+                            if (double.IsNaN(val)) continue;
+                            if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
+                            if (val < mainMin) mainMin = val;
+                            if (val > mainMax) mainMax = val;
+                        }
                     }
                 }
             }
@@ -214,30 +211,27 @@ namespace AccessibleTrader.Core.Services
                         : $"{paneName}/{comp.SubPaneName}";
 
                     // Not on the chart, or not at a position on this axis (see condition (4) above).
-                    if (!comp.IsDrawn) continue;
-                    if (comp.DisplayType == ComponentDisplayType.ValueLabel && comp.MarkerAnchor != MarkerAnchor.Value) continue;
-
-                    var data = s.GetComponentData(comp.Name);
-                    if (data == null || data.Length == 0) continue;
-
-                    accum.TryGetValue(rangeKey, out var cur);
-                    double rMin = cur.HasData ? cur.Min : double.MaxValue;
-                    double rMax = cur.HasData ? cur.Max : double.MinValue;
-                    bool hasData = cur.HasData;
-
-                    int cEnd = Math.Min(start + state.ViewportLength, data.Length);
-                    for (int i = start; i < cEnd; i++)
+                    foreach (var data in DrawnArrays(s, comp))
                     {
-                        double val = data[i];
-                        if (!double.IsNaN(val))
-                        {
-                            if (val < rMin) rMin = val;
-                            if (val > rMax) rMax = val;
-                            hasData = true;
-                        }
-                    }
+                        accum.TryGetValue(rangeKey, out var cur);
+                        double rMin = cur.HasData ? cur.Min : double.MaxValue;
+                        double rMax = cur.HasData ? cur.Max : double.MinValue;
+                        bool hasData = cur.HasData;
 
-                    if (hasData) accum[rangeKey] = (rMin, rMax, true);
+                        int cEnd = Math.Min(start + state.ViewportLength, data.Length);
+                        for (int i = start; i < cEnd; i++)
+                        {
+                            double val = data[i];
+                            if (!double.IsNaN(val))
+                            {
+                                if (val < rMin) rMin = val;
+                                if (val > rMax) rMax = val;
+                                hasData = true;
+                            }
+                        }
+
+                        if (hasData) accum[rangeKey] = (rMin, rMax, true);
+                    }
                 }
 
                 // ── Reference levels expand the pane-level (main-area) range ─
@@ -324,6 +318,22 @@ namespace AccessibleTrader.Core.Services
             return new ViewportRangeResult((mainMin, mainMax), paneRanges.ToImmutableDictionary());
         }
     
+        /// <summary>
+        /// What a component puts at a position on its pane's axis: its own values, unless it is not
+        /// drawn (<see cref="ComponentConfig.IsDrawn"/>), is a bar-anchored value label, or is a
+        /// window (a count, condition (4) above); and its <see cref="ComponentCompanions.Path"/>
+        /// picture when that is drawn, so Cipher C's cycle arc under the candles is not cut off.
+        /// </summary>
+        internal static IEnumerable<double[]> DrawnArrays(ChartSeries s, ComponentConfig comp)
+        {
+            if (!comp.IsDrawn) yield break;
+            bool atValue = comp.DisplayType != ComponentDisplayType.Window
+                && !(comp.DisplayType == ComponentDisplayType.ValueLabel && comp.MarkerAnchor != MarkerAnchor.Value);
+            if (atValue && s.GetComponentData(comp.Name) is { Length: > 0 } data) yield return data;
+            if (comp.DrawsPathInEffect() && s.GetComponentData(comp.Name + ComponentCompanions.Path) is { Length: > 0 } path)
+                yield return path;
+        }
+
         /// <summary>
         /// The bounds a pane's axis must cover: what its series DECLARE
         /// (<see cref="SeriesConfig.RangeMin"/>/<c>RangeMax</c>, copied from the indicator's

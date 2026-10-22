@@ -25,6 +25,13 @@ namespace AccessibleTrader.Sdk.Models
         public string? MarkerText { get; set; }
 
         /// <summary>
+        /// What this component's <see cref="ComponentCompanions.Path"/> picture is called ("cycle
+        /// arc"), said when the user lands on the component ("Window, with the cycle arc") and
+        /// used for the Appearance switch ("Draw the cycle arc"). Null = it draws no path.
+        /// </summary>
+        public string? PathName { get; set; }
+
+        /// <summary>
         /// The value is a count — a cycle's day number, a score — and is printed and said as a
         /// whole number ("day 47"), not with a price's decimals ("47.00").
         /// </summary>

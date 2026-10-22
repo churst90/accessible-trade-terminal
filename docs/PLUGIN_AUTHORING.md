@@ -456,11 +456,26 @@ nullable — `null` means "defer to the global role/type-based default."
 | `CheckBox` | Component-coloured rounded square with a white check-mark stroke; same size rule as `Square`. Spoken as "check mark". |
 | `RefreshBox` | Component-coloured rounded square with two white circular arrows; same size rule as `Square`. Spoken as "refresh mark". |
 | `TriangleUpRing` | `TriangleUp` with a component-coloured ring one marker-height farther from the bar, with bold `MarkerText` (for example, "D") centred inside. Null `MarkerText` leaves the ring empty. Spoken as "lettered triangle". |
+| `Window` | A stretch of bars that opens and closes (a timing window, a session). Never drawn as a line and never on the value axis: its value is what is **said** on a bar (a cycle's day count), not a position. Open where its `_tint` companion is at or above `DefaultTintMidline`, or, with no `_tint` companion, wherever its value is not NaN. The open bars are shaded (`BackgroundTint.ThisPane` unless you declare `DefaultBackgroundTint`; the user's Appearance choice wins) in `DefaultTintColorAboveHex`, at one even strength. Ctrl+Left/Right stops where it opens and where it closes (the first bar no longer open), or at its `_stops` companion when it has one. The Dot Pad raises the open bars full height. Spoken as "window"; its count is on the status line. May carry a `_path` drawing (below). Added 2026-10-22 (Cipher C's timing windows). |
 | `Wick`, `Candle`, `Profile`, `Heatmap`, `Distribution` | Specialized internal types; not typically used by indicator plugins. |
 
 `ComponentDisplayType` is **append-only**: a saved workspace stores its ordinal, so new members go at
-the end (`CandleColor` is 24, `ValueLabel` 25, `CheckBox` 26, `RefreshBox` 27, `TriangleUpRing` 28)
-and none is ever reordered or removed.
+the end (`CandleColor` is 24, `ValueLabel` 25, `CheckBox` 26, `RefreshBox` 27, `TriangleUpRing` 28,
+`Window` 29) and none is ever reordered or removed.
+
+### Companion arrays
+
+Beside a component's own array, `Compute` may write arrays keyed `"{component Name}{suffix}"`
+(`ComponentCompanions`). They are not components: no keyboard stop, no sound and no line of their
+own. All of them reach `GetComponentSpeech`, so a component can say what its value means without a
+hidden component carrying each number. Four suffixes are read by the chart itself:
+
+| Suffix | What the chart does with it |
+|---|---|
+| `_label` | A number printed at the bar, opposite a marker, with `MarkerText` after it ("49D"). |
+| `_tint` | What a background tint (and a `Window`'s open/closed) is read from instead of the component's own value. NaN on a bar = no tint there. |
+| `_stops` | The bars Ctrl+Left/Right stops on for this component: any bar whose companion is not NaN. |
+| `_path` | A drawing in the component's own units (prices, on the price pane), in the component's colour, thickness and dash, lifted over NaN. Not a stop, not a sound, no reading of its own: what it shows is said by the component it belongs to. Set `PathName` ("cycle arc") and landing on the component says "Window, with the cycle arc" (only while the drawing is on and has data); Properties → Appearance shows "Draw the cycle arc" to switch it off. It counts toward the pane's fitted range. It is **not** a `,`/`.` stop: those keys belong to chart formations. |
 
 ---
 
@@ -480,7 +495,8 @@ and none is ever reordered or removed.
 | `DefaultDashStyle` | `DashStyle?` | Line dash pattern: `Solid`, `Dash`, `Dot`, or `DashDot`. |
 | `ColorBaseline` | `double?` | Value at which directional bar / histogram coloring switches. Default `0`. Set to `50` for MFI (midpoint of 0–100). Set to `-80` for a histogram anchored at −80. |
 | `DefaultColorSource` | `ColorSource?` | `Value` = color by value sign vs baseline. `PriceAction` = color by candle direction. |
-| `DefaultIsAreaFill` | `bool?` | Whether to shade the region between the line and its reference level. Null defers to StylingService. |
+| `DefaultIsAreaFill` | `bool?` | Whether to shade the region between the line and its reference level. Null defers to StylingService. The user can turn the fill on or off in Properties → Appearance ("Fill under the line" / "Draw as a filled area") wherever filling works — a plain line or oscillator, or a histogram coloured by value — and that choice wins. |
+| `PathName` | `string?` | What the component's `_path` drawing is called (see Companion arrays). Null = it draws none. |
 | `DefaultUsePolarityColoring` | `bool?` | Whether color flips above/below the reference level. Null defers to StylingService. |
 | `DefaultColorRules` | `List<ColorRule>?` | Per-bar conditional color rules. Applied in order — first matching rule wins. Null or empty = use `DefaultColorHex` for all bars (no conditional coloring). Rules are copied into `ComponentConfig.ColorRules` by `IndicatorModelFactory` at component creation time. |
 | `DefaultColorAboveComponent` | `string?` | A two-colour line coloured against ANOTHER component of the same series (its `Name`) instead of a constant: `DefaultColorHex` where this value is at or below that component, `DefaultColorHexSecondary` where it is above. Cipher A's ribbon uses it (each EMA blue above the next-longer one; the last line swaps its two colours to be blue below the one before). Null = not used. |

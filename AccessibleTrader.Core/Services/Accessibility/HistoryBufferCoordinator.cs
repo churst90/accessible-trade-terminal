@@ -79,7 +79,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _historyExhausted = true;
                         _store.Dispatch(new SetDataStatusAction(DataStatus.Ready));
                         string why = oldDataCount >= Feeds.ChartFeed.MaxBarsInCache
-                            ? $"History limit reached: {Feeds.ChartFeed.MaxBarsInCache:N0} bars."
+                            ? $"History limit reached: {Feeds.ChartFeed.MaxBarsInCache.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} bars."
                             : "No more history available.";
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, why, true));
                     }

@@ -13,29 +13,46 @@
 > - [x] **Components with nothing to navigate: Cipher C done (2026-10-22, see CHANGES; NOT heard).**
 >   28 components to 15, the rest are companions said with the component they explain.
 > - [ ] **Cipher C, what is left from the cleanup** (Cody to hear the 15 first):
->   - A Timing Window is a count with no line, but landing on it still says "Line" ("Daily Timing
->     Window. Line. daily cycle day 79, …").
+>   - [x] A Timing Window said "Line" on landing. It is a Window now ("Daily Timing Window. Window,
+>     with the cycle arc. …"), see the item below.
 >   - Alt+Shift+D says the window count and then the window words say it again ("Daily Timing Window
 >     79 … daily cycle day 79, 13 days past its window"). Question for Cody: keep the raw value (the
 >     speech-parity rule mirrors the status line) or drop it when the words carry it?
 >   - What a Timing Window should SOUND like: it is a day count on every bar. Question for Cody.
+>     For now a Window has a steady sine at 330 Hz with no pitch mapping (the count does not climb
+>     in pitch); nothing has been heard.
 >   - The yearly low on Bitcoin is confirmed about 254 weeks after it ("A 3.9 year cycle. Confirmed
 >     254 weeks later"). Engine behaviour, not changed; demonstrate whether the yearly confirmation
 >     rule is wrong before touching it.
 >   - The SMA has no Ctrl+Left/Right stop for price crossing it.
-> - [ ] **Heatmap and Profile Ctrl+Left/Right: APPROVED by Cody 2026-10-22, not built.** The bins
+> - [ ] **Window type, area fill in Appearance, the arc as the window's drawing (2026-10-22, built,
+>   NOT seen or heard in the app; see CHANGES).** Cody to check on Bitcoin daily with Cipher C:
+>   the green shading inside the daily window, the yellow arcs under the candles, "Window, with the
+>   cycle arc" on landing, Ctrl+Left/Right through the window, Properties → Appearance → "Draw the
+>   cycle arc" and "Fill under the line" (try it on Cipher B's waves). Known gaps:
+>   - The arc is look-ahead: each arc is drawn between two lows once the second is known, and the
+>     live arc runs to the expected cycle length from the last low. It moves as lows are confirmed.
+>   - Cipher C's weekly window on a daily chart has no tint and no arc, so its Dot Pad view is
+>     blank (its Ctrl+Left/Right stops still work), and Appearance still offers "Draw the cycle arc"
+>     for it although there is nothing to draw.
+>   - Windows other than Cipher C's have only been tested with made-up data.
+> - [x] **`,` and `.`: formations only (answered 2026-10-22).** Cody asked whether they should also
+>   step through an indicator's drawings, or through "visual-only stops" generally. No: one owner per
+>   key family (Arrows = bars, Ctrl+Left/Right = the focused component's events, `,`/`.` = chart
+>   formations). "Visual-only" is a definition by absence that would change with whatever is
+>   loaded, and the arc's points are the cycle lows, already a component. A drawing belongs to its
+>   component: named on landing, switched in Appearance, its information said by the component.
+> - [ ] **Heatmap and Profile Ctrl+Left/Right: DEFERRED by Cody 2026-10-22** ("it works fine and
+>   it's not hurting anything"). Was approved earlier the same day, never built. The bins
 >   live outside the component (computed when drawn), so Ctrl+Left/Right says "No points of
 >   interest" and Alt+Shift+D says nothing. To build: Profile stops where price crosses the point of
 >   control and enters or leaves the value area; Alt+Shift+D says where price sits against them;
 >   heatmap stops where the biggest liquidity level moved.
-> - [ ] **Cody's 2026-10-22 design points, answered, waiting for his go:**
->   - Component type from what it is: a component whose look is shading inside a window is a
->     "Window" (a new append-only `ComponentDisplayType`, drawn as a tint, said as "window", never
->     "Line"); a window type shades by default and the shading stays a user choice in Appearance.
+> - [ ] **Cody's 2026-10-22 design points, answered:**
+>   - [x] Component type from what it is: built as `ComponentDisplayType.Window` (item above).
 >   - Nothing out of reach: every drawn thing must at least be known to be there (named in the
 >     series summary or Alt+Shift+D) even when it has nothing to step through.
->   - Area fill (Cipher B's waves and money flow, `IsAreaFill`) is set by the indicator and NOT
->     offered in Properties; background tint and cloud fills are. Offer area fill in Appearance.
+>   - [x] Area fill offered in Appearance: built (item above).
 >   - Yearly cycle low confirms 4.9 to 5.6 years late on Bitcoin (2015 low confirmed Aug 2020,
 >     2018 low Oct 2023) and the 2022 low is never marked: the yearly Schaff line is a 1,461-bar
 >     smoothing that cannot start until bar 2,922, and the search picks the lowest low in 6 years,
@@ -44,9 +61,7 @@
 >     Worked by hand from the weekly lows, not built: it finds 2015, 2018 and 2022, and also marks
 >     June 2021 (confirmed Mar 2022 by the higher Jan 2022 low), cancelled when June 2022 closed
 >     under it. One asset, three lows: a sketch, not a result.
->   - The arc: offer it back as a drawn shape of the Timing Window (look-ahead between known lows,
->     projected from the expected length after the last one), described in the summary, not
->     navigable; or as a cycle-phase oscillator if Cody wants a scale.
+>   - [x] The arc: back as the Timing Window's drawing, not navigable (item above).
 
 # TODO — Accessible Trading Terminal
 

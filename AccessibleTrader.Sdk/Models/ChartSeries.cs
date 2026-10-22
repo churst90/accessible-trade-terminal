@@ -144,6 +144,23 @@ namespace AccessibleTrader.Sdk.Models
         RefreshBox,
         /// <summary>Upward triangle with a lettered ring one marker-height beyond it.</summary>
         TriangleUpRing,
+        /// <summary>
+        /// A stretch of bars: a timing window, a session, any span that opens and closes.
+        ///
+        /// <para>
+        /// Never drawn as a line and never on the value axis: its value is what is SAID on a bar
+        /// (a cycle's day count, say), not a position. It is open on a bar where its
+        /// <see cref="ComponentCompanions.Tint"/> companion is at or above the tint midline, or,
+        /// with no such companion, wherever its value is not NaN. The open bars are shaded by
+        /// default (<see cref="BackgroundTint.ThisPane"/> unless the provider declares otherwise;
+        /// the user's choice in Properties → Appearance wins), and Ctrl+Left/Right stops where it
+        /// opens and closes (or at its <see cref="ComponentCompanions.Stops"/>). Spoken as
+        /// "window". It may carry a picture of its own, a <see cref="ComponentCompanions.Path"/>
+        /// (Cipher C's cycle arc). Cody, 2026-10-22: "if a component type is window then windows
+        /// usually have a shading right?"
+        /// </para>
+        /// </summary>
+        Window,
     }
     
     /// <summary>

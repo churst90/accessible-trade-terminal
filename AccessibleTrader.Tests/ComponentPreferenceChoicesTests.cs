@@ -57,6 +57,31 @@ public sealed class ComponentPreferenceChoicesTests
         Assert.Equal(BackgroundTint.PriceChart, unset.BackgroundTintInEffect());
     }
 
+    /// <summary>
+    /// The fill and drawing switches (Properties → Appearance, 2026-10-22) follow the same split:
+    /// the type default reaches a chart that never chose, and a chart's own choice wins. A saved
+    /// "no fill" overrides an indicator that declares one.
+    /// </summary>
+    [Fact]
+    public void Fill_and_drawing_preferences_apply_where_the_chart_has_no_choice()
+    {
+        var preferences = new[]
+        {
+            Preference("Own choice", fill: true, drawPath: false),
+            Preference("No chart choice", fill: true, drawPath: false),
+        };
+        var savedChartChoice = new ComponentConfig { Name = "Own choice", UserIsAreaFill = false, UserDrawPath = true };
+        var series = CreateSeries(preferences, "Own choice", "No chart choice", new[] { savedChartChoice });
+
+        var own = series.Components.Single(c => c.Name == "Own choice");
+        Assert.False(own.IsAreaFillInEffect());
+        Assert.True(own.DrawsPathInEffect());
+
+        var unset = series.Components.Single(c => c.Name == "No chart choice");
+        Assert.True(unset.IsAreaFillInEffect());
+        Assert.False(unset.DrawsPathInEffect());
+    }
+
     [Fact]
     public void A_preference_file_without_the_new_keys_loads_with_both_choices_null()
     {
@@ -70,6 +95,8 @@ public sealed class ComponentPreferenceChoicesTests
         Assert.Equal("#123456", loaded.ColorHex);
         Assert.Null(loaded.UserShowAxisLabel);
         Assert.Null(loaded.UserBackgroundTint);
+        Assert.Null(loaded.UserIsAreaFill);
+        Assert.Null(loaded.UserDrawPath);
     }
 
     private static ChartSeries CreateSeries(ComponentPreference[] preferences, params string[] components) =>
@@ -95,12 +122,17 @@ public sealed class ComponentPreferenceChoicesTests
                 DisplayType = ComponentDisplayType.Line,
                 DefaultShowAxisLabel = true,
                 DefaultBackgroundTint = BackgroundTint.Off,
+                PathName = "arc",
             }).ToList(),
         };
         return factory.CreateSeriesFromMetadata(metadata, metadata.Name, "Main", new(), savedComponents?.ToList());
     }
 
     private static ComponentPreference Preference(string name, bool? axisLabel = null,
-        BackgroundTint? backgroundTint = null) =>
-        new() { Name = name, UserShowAxisLabel = axisLabel, UserBackgroundTint = backgroundTint };
+        BackgroundTint? backgroundTint = null, bool? fill = null, bool? drawPath = null) =>
+        new()
+        {
+            Name = name, UserShowAxisLabel = axisLabel, UserBackgroundTint = backgroundTint,
+            UserIsAreaFill = fill, UserDrawPath = drawPath,
+        };
 }

@@ -14,7 +14,7 @@ namespace AccessibleTrader.Sdk.Models
     /// </para>
     ///
     /// <para>
-    /// Three suffixes are read by the chart itself, for any indicator:
+    /// Four suffixes are read by the chart itself, for any indicator:
     /// </para>
     /// <list type="bullet">
     /// <item><see cref="Label"/>: a number printed at the bar, on the side opposite a marker (or
@@ -26,6 +26,13 @@ namespace AccessibleTrader.Sdk.Models
     /// <item><see cref="Stops"/>: the bars Ctrl+Left/Right stops on for this component — any bar
     /// whose companion value is not NaN — for a component with a value on every bar whose news is
     /// on a few (a timing window opening and closing).</item>
+    /// <item><see cref="Path"/>: a line in the component's own units (price, on the price pane)
+    /// drawn in the component's colour, thickness and dash: a picture that belongs to the
+    /// component, such as Cipher C's cycle arc on its timing window. Not a keyboard stop, not a
+    /// sound, no reading of its own; what it shows is said by the component it belongs to. It is
+    /// named by the component's <c>PathName</c> when the user lands on the component, and the
+    /// user turns it off in Properties → Appearance. It counts toward the pane's fitted range,
+    /// so it is not cut off.</item>
     /// </list>
     /// </summary>
     public static class ComponentCompanions
@@ -33,6 +40,7 @@ namespace AccessibleTrader.Sdk.Models
         public const string Label = "_label";
         public const string Tint = "_tint";
         public const string Stops = "_stops";
+        public const string Path = "_path";
 
         /// <summary>Whether <paramref name="key"/> is a companion of one of <paramref name="componentNames"/>.</summary>
         public static bool IsCompanionOf(string key, IEnumerable<string> componentNames)

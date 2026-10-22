@@ -269,6 +269,85 @@ public sealed class BackgroundTintTests
         StatusBandIsClear(f, reference, "Main");
     }
 
+    // ── A Window component: shaded where open, its count never drawn, its picture drawn ─
+
+    private static readonly SKColor WindowGreen = SKColor.Parse("#3000E676");
+
+    /// <summary>A <see cref="ComponentDisplayType.Window"/> on the price chart, declared inline as
+    /// any plugin would; values at 115, inside the open rows, so a line through them would show.</summary>
+    private static ChartSeries Window(double[] values, double[]? path = null, BackgroundTint tint = BackgroundTint.PriceChart,
+        bool? drawPath = null)
+    {
+        var config = new SeriesConfig { Id = "win", Name = "win", IndicatorCode = "WIN", Pane = "Main" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Season", DisplayName = "Season", DisplayType = ComponentDisplayType.Window, IsVisible = true,
+            ColorHex = "#D4A72C", Thickness = 2, BackgroundTint = tint, TintColorAboveHex = "#3000E676",
+            PathName = "arc", UserDrawPath = drawPath,
+        });
+        var s = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "win" });
+        s.Data.ComponentData["Season"] = values;
+        if (path != null) s.Data.ComponentData["Season" + ComponentCompanions.Path] = path;
+        return s;
+    }
+
+    private static readonly double[] OpenTenToNineteen = Enumerable.Range(0, N).Select(i => i is >= 10 and <= 19 ? 115.0 : double.NaN).ToArray();
+
+    private static int Differing(Frame frame, Frame reference, (int Top, int Bottom) rows)
+    {
+        int n = 0;
+        for (int y = rows.Top; y < rows.Bottom; y++)
+        for (int x = 0; x < (int)frame.PlotWidth; x++)
+            if (frame.Bmp.GetPixel(x, y) != reference.Bmp.GetPixel(x, y)) n++;
+        return n;
+    }
+
+    /// <summary>
+    /// With no tint companion, a window is shaded on the bars it has a value on, evenly, in its
+    /// tint colour — and on no other bar.
+    /// </summary>
+    [Fact]
+    public void A_window_is_shaded_where_it_has_a_value()
+    {
+        using var f = Render(Candles(), Window(OpenTenToNineteen));
+        using var reference = Render(Candles(), Window(AllNaN));
+        var rows = OpenPriceRows(f);
+        foreach (int bar in new[] { 10, 15, 19 })
+            Assert.True(TintedShare(f, reference, bar, rows, WindowGreen) > 0.9, $"bar {bar}, inside the window, is not shaded");
+        foreach (int bar in new[] { 0, 9, 20, 39 })
+            Assert.True(TintedShare(f, reference, bar, rows, WindowGreen) < 0.01, $"bar {bar}, outside the window, is shaded");
+        StatusBandIsClear(f, reference, "Main");
+    }
+
+    /// <summary>A window's value is a count to hear, not a position: with its shading off it draws nothing.</summary>
+    [Fact]
+    public void A_window_draws_no_line_through_its_count()
+    {
+        using var f = Render(Candles(), Window(OpenTenToNineteen, tint: BackgroundTint.Off));
+        using var reference = Render(Candles(), Window(AllNaN, tint: BackgroundTint.Off));
+        Untouched(f, reference, f.Rows("Main"), "price pane");
+    }
+
+    /// <summary>
+    /// The window's picture (<see cref="ComponentCompanions.Path"/>) is drawn at its prices, and
+    /// "Draw the arc" off in Appearance takes it away.
+    /// </summary>
+    [Fact]
+    public void A_windows_drawing_is_drawn_and_can_be_switched_off()
+    {
+        var path = Enumerable.Range(0, N).Select(i => 120.0 + 5 * Math.Sin(i / 6.0)).ToArray();
+        using var reference = Render(Candles(), Window(AllNaN, tint: BackgroundTint.Off));
+
+        using (var drawn = Render(Candles(), Window(AllNaN, path, BackgroundTint.Off)))
+        {
+            int changed = Differing(drawn, reference, OpenPriceRows(drawn));
+            Assert.True(changed > (int)drawn.PlotWidth, $"only {changed} pixels changed: the drawing is not across the chart");
+        }
+
+        using var off = Render(Candles(), Window(AllNaN, path, BackgroundTint.Off, drawPath: false));
+        Untouched(off, reference, off.Rows("Main"), "price pane with the drawing switched off");
+    }
+
     // ── Cipher B: Anchor Polarity ───────────────────────────────────────────────────
 
     /// <summary>

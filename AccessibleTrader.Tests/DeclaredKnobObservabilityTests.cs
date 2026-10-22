@@ -48,14 +48,15 @@ namespace AccessibleTrader.Tests;
 /// requiring the output to move. A test that only asked 'does the helper parse a double' would
 /// have stayed green through the original bug — the helper it asked was the one that already
 /// worked."</i> So: enumerate every knob on <see cref="ComponentConfig"/> BY REFLECTION, and for
-/// each one flip it and require at least one of the four channels this application actually
+/// each one flip it and require at least one of the channels this application actually
 /// delivers through to come out different.
 /// </para>
 ///
 /// <para>
-/// <b>The four channels are the whole product surface.</b> Pixels (what a sighted reviewer sees),
+/// <b>The channels are the whole product surface.</b> Pixels (what a sighted reviewer sees),
 /// the sonification point (what the chart sounds like), the navigation readout (what is said when
-/// you arrow onto it) and the bar-close narration scan (what is said unprompted). A knob that
+/// you arrow onto it), the bar-close narration scan (what is said unprompted) and, since
+/// 2026-10-22, the status line (the reading printed beside the chart). A knob that
 /// moves none of them is either dead or wired to a consumer this app does not have.
 /// </para>
 ///
@@ -88,7 +89,7 @@ public sealed class DeclaredKnobObservabilityTests
     private const int MinKnobsSwept = 40;
 
     /// <summary>
-    /// Knobs that genuinely cannot move any of the four channels, each with the reason it cannot.
+    /// Knobs that genuinely cannot move any of the channels, each with the reason it cannot.
     /// <b>Every entry here is a claim that should be re-read before it is trusted</b> — a pinned
     /// exemption with a recorded reason is worth exactly as much as the reason.
     /// </summary>
@@ -107,7 +108,7 @@ public sealed class DeclaredKnobObservabilityTests
             + "covers its one reader.",
 
         // The four below ARE read, by a consumer that is real and traced — just not by one of
-        // these four channels. Each names its reader, so the claim can be checked rather than
+        // these channels. Each names its reader, so the claim can be checked rather than
         // trusted. If a reader here is ever deleted, this line becomes the lie instead.
         ["PlaybackLayer"] =
             "Read by AudioSequencer.LayerVolume (Background 60%, Midground 80%, Foreground 100%) "
@@ -132,11 +133,16 @@ public sealed class DeclaredKnobObservabilityTests
             + "not model. Worth revisiting if the tactile canvas ever becomes a channel here.",
     };
 
-    // ── The four channels ────────────────────────────────────────────────────
+    // ── The channels ────────────────────────────────────────────────────────
 
-    /// <summary>What the four observation channels produced for one configuration.</summary>
+    /// <summary>
+    /// What the observation channels produced for one configuration. The fifth, the STATUS LINE
+    /// (2026-10-22), is the reading printed beside the chart for the bar: <c>IsCount</c> is read
+    /// there and by Alt+Shift+D and nowhere else, so without it the sweep reported a working knob
+    /// as dead.
+    /// </summary>
     private readonly record struct Observation(
-        string Pixels, string Audio, string SpeechX, string SpeechY, string Narration);
+        string Pixels, string Audio, string SpeechX, string SpeechY, string Narration, string Status);
 
     private static ThemeService Themes()
     {
@@ -235,6 +241,9 @@ public sealed class DeclaredKnobObservabilityTests
             // both names unobserved for a reason that is the fixture's fault.
             UpperComponentName = "upper",
             LowerComponentName = "lower",
+            // A picture of its own (ComponentCompanions.Path, data below), so the path's name
+            // and the user's switch for it have something to name and to switch off.
+            PathName = "arc",
         };
         variant(comp);     // the cell
         configure(comp);   // the knob under test — applied last, so a perturbation always wins
@@ -282,9 +291,13 @@ public sealed class DeclaredKnobObservabilityTests
         // defects was exactly this: "a renamed field left the sonifier's idea of a component's
         // identity pointing at nothing", and it survived every release until a user heard it.
         var buffer = new SeriesDataBuffer { SeriesId = config.Id };
-        buffer.ComponentData[canonicalName] = Values();
+        // A window's value is a count (Cipher C's day count): whole numbers, which a count prints
+        // without decimals (IsCount) where a reading prints two.
+        buffer.ComponentData[canonicalName] = shape == ComponentDisplayType.Window
+            ? Values().Select(v => Math.Round(v)).ToArray() : Values();
         buffer.ComponentData["upper"] = Values(offset: 8);
         buffer.ComponentData["lower"] = Values(offset: -8);
+        buffer.ComponentData[canonicalName + ComponentCompanions.Path] = Values(offset: 4);
         return new ChartSeries(config, buffer);
     }
 
@@ -393,6 +406,12 @@ public sealed class DeclaredKnobObservabilityTests
             state, isXMove: !isYMove, isYMove: isYMove, series, TheBars[9], "");
     }
 
+    private static string RenderStatus(ChartSeries series) =>
+        string.Join(" | ", ChartStatusLine.Build(series.Pane, new[] { series }, 9,
+                new ChartStatusLine.Context(Themes().Current, ChartStatusLine.DefaultBackingAlpha, TheBars, null),
+                400f, 4000f, 17f, t => t.Length * 7f).Lines
+            .SelectMany(l => l.Values).Select(v => $"{v.Label}={v.Text}"));
+
     private static string RenderNarration(ChartSeries series)
     {
         var scanner = new NarrationScanner(new IndicatorContextAnalyzer());
@@ -430,7 +449,8 @@ public sealed class DeclaredKnobObservabilityTests
             RenderAudio(series, comp),
             RenderSpeech(series, isYMove: false),
             RenderSpeech(series, isYMove: true),
-            RenderNarration(series));
+            RenderNarration(series),
+            RenderStatus(series));
     }
 
     // ── Perturbation ─────────────────────────────────────────────────────────
@@ -455,7 +475,8 @@ public sealed class DeclaredKnobObservabilityTests
 
         // UserShowAxisLabel is a CHOICE (null = never chose, follow ShowAxisLabel, true by
         // default): "chose true" would read exactly as the default and as unread.
-        if (t == typeof(bool) && prop.Name == "UserShowAxisLabel" && current is null) return false;
+        // UserDrawPath likewise (null = draw the path when there is one).
+        if (t == typeof(bool) && prop.Name is "UserShowAxisLabel" or "UserDrawPath" && current is null) return false;
         if (t == typeof(bool)) return !(bool)(current ?? false);
         if (t == typeof(int)) return (int)(current ?? 0) + 500;
 
@@ -585,6 +606,10 @@ public sealed class DeclaredKnobObservabilityTests
     private static readonly (ComponentDisplayType Shape, string Name, Action<ComponentConfig> Tweak)[] ExtraCells =
     {
         (ComponentDisplayType.Line, "background tint on, this pane", c => c.BackgroundTint = BackgroundTint.ThisPane),
+        // The number-on-the-candle shape, whose printed suffix (MarkerText) no other shape draws.
+        (ComponentDisplayType.ValueLabel, "value label", _ => { }),
+        // A window, shaded as a window is by default, landing on which names its path (PathName).
+        (ComponentDisplayType.Window, "window, shaded", c => c.BackgroundTint = BackgroundTint.ThisPane),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

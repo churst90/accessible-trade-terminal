@@ -933,6 +933,22 @@ the axis, and the cursor bar's date in a label on the time axis. Settings → Ap
 **Status line background** sets how solid the strip behind the status-line text is (96% by
 default); lower, and the lines behind the text show through.
 
+**Fill under a line.** Properties → Appearance → **Fill under the line** (on a histogram, **Draw
+as a filled area**) shades between a line and its midline, or draws a histogram as one filled
+shape, and turns off a fill an indicator draws by default. It is offered only where it works: a
+plain line or oscillator, or a histogram coloured by its value. A level, a line coloured by rules
+or by another line, and bars coloured like the candles are drawn piece by piece and have no single
+edge to fill under. Your choice is kept with the chart and, with Save as Defaults, for new charts.
+
+**Windows.** Some components are windows: stretches of bars that open and close, such as a
+cycle's timing window. A window is never a line. It is shaded where it is open, its number (the
+day count) is what you hear and what the status line shows, and Ctrl+Left/Right steps to where it
+opens and closes. On the Dot Pad it is raised where it is open. A window may carry a drawing of its
+own — Cipher C's cycle arc, drawn under the candles from low to low — and landing on it says so:
+"Window, with the cycle arc". The drawing is a picture, not something to step through: what it
+shows (where each cycle bottomed, how long it ran) is already said by the cycle lows and the
+window. Properties → Appearance → **Draw the cycle arc** turns it off.
+
 **The right-click menu.** Right-click on open chart space (or press the Application
 key — or Shift+F10 — with the chart focused) for the chart menu: **Play from here**
 starts playback at the bar you clicked; **Jump to latest** returns to the live edge;

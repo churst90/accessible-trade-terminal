@@ -92,15 +92,17 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         private static void Paint(RenderContext ctx, ChartSeries series, ComponentConfig comp)
         {
-            var values = TintSource(series, comp);
+            // A window is shaded where it is open, in its tint colour, at an even strength.
+            bool window = comp.DisplayType == ComponentDisplayType.Window;
+            var values = window ? WindowSpans.OpenMask(series, comp) : TintSource(series, comp);
             if (values == null || values.Length == 0 || ctx.ViewportLength <= 0) return;
 
             var above = Resolve(comp.TintColorAboveHex, comp.ColorHex);
             var below = Resolve(comp.TintColorBelowHex, comp.ColorHexSecondary);
             if (above.Alpha == 0 && below.Alpha == 0) return;
 
-            double mid = comp.TintMidline ?? comp.ColorBaseline;
-            double? fullAt = comp.TintFullAt;
+            double mid = window ? 0.5 : comp.TintMidline ?? comp.ColorBaseline;
+            double? fullAt = window ? null : comp.TintFullAt;
             double span = fullAt is double f ? Math.Abs(f - mid) : 0;
 
             float barWidth = ctx.Width / ctx.ViewportLength;
@@ -111,7 +113,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 int dataIdx = ctx.ViewportStart + i;
                 if (dataIdx >= values.Length) break;
                 double v = values[dataIdx];
-                if (double.IsNaN(v)) continue;
+                if (double.IsNaN(v) || (window && v != 1)) continue;
 
                 var colour = v >= mid ? above : below;
                 if (colour.Alpha == 0) continue;

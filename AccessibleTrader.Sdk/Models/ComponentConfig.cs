@@ -35,6 +35,17 @@ namespace AccessibleTrader.Sdk.Models
         /// the chart and in the status line. The suffix is visual only and is not spoken.
         /// </summary>
         public string? MarkerText { get; set; }
+        /// <summary>The name of this component's <see cref="ComponentCompanions.Path"/> picture;
+        /// provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.PathName"/> on every
+        /// load. Null = no path.</summary>
+        public string? PathName { get; set; }
+        /// <summary>
+        /// The USER's choice from Properties → Appearance → "Draw the {PathName}", or null when
+        /// they have never chosen (draw it). The same split as <see cref="UserShowAxisLabel"/>.
+        /// </summary>
+        public bool? UserDrawPath { get; set; }
+        /// <summary>Whether the path is drawn: the user's choice, else yes.</summary>
+        public bool DrawsPathInEffect() => !string.IsNullOrEmpty(PathName) && (UserDrawPath ?? true);
         /// <summary>
         /// The value is a count — a cycle's day number, a score — and is printed and said as a
         /// whole number ("day 47"), not with a price's decimals ("47.00").
@@ -164,6 +175,17 @@ namespace AccessibleTrader.Sdk.Models
         /// indicator's. A method, not a property, so the workspace file does not carry a third
         /// copy of the answer.</summary>
         public BackgroundTint BackgroundTintInEffect() => UserBackgroundTint ?? BackgroundTint;
+
+        /// <summary>
+        /// The USER's choice from Properties → Appearance → "Fill under the line" (or "Fill as an
+        /// area" on a histogram), or null when they have never chosen (follow
+        /// <see cref="IsAreaFill"/>, the indicator's, rebuilt from metadata on every load).
+        /// Cody, 2026-10-22: shading "needs to be preferences in the appearance tab".
+        /// </summary>
+        public bool? UserIsAreaFill { get; set; }
+
+        /// <summary>Whether the fill is drawn: the user's choice when there is one, else the indicator's.</summary>
+        public bool IsAreaFillInEffect() => UserIsAreaFill ?? IsAreaFill;
 
         /// <summary>
         /// The INDICATOR's choice of whether this component's newest value is a label on its
@@ -342,6 +364,7 @@ namespace AccessibleTrader.Sdk.Models
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
+                PathName = PathName, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

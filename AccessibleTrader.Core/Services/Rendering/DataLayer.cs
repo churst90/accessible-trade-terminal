@@ -174,6 +174,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                             case ComponentDisplayType.ValueLabel:
                                 ValueLabelRenderer.Render(ctx, s, comp);
                                 break;
+                            case ComponentDisplayType.Window:
+                                // Shaded by BackgroundTintPainter where it is open; its value is
+                                // a count to hear, not a position. Its picture, if any, is below.
+                                break;
                             case ComponentDisplayType.CandleColor:
                                 // Handled by the pre-scan above: the phase array is passed to
                                 // RenderCandles which applies it to the main candle series.
@@ -188,6 +192,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                         // after the marker on the other side of the bar.
                         if (ValueLabelRenderer.HasCompanionLabel(s, comp))
                             ValueLabelRenderer.Render(ctx, s, comp);
+                        // A picture the component carries (Cipher C's cycle arc on its window).
+                        if (comp.DrawsPathInEffect())
+                            StandardRenderers.RenderPath(ctx, s, comp, paint);
                     }
                 }
 

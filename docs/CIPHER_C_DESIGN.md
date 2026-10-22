@@ -75,17 +75,24 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 9 | Cycle count "49D" | Printed over the low with a D / W suffix (49D / 24W) from the low's label companion; spoken with the low ("A 49 day cycle") |
 | 10 | Green daily Future Cycle Low Range band | Daily Timing Window: the cycle's day count, green tint while inside its window (past only) |
 | 11 | Blue weekly FCLR band | Weekly Timing Window: the week count, blue tint inside its window (weekly charts) |
-| 12 | Yellow low-to-low arcs | Not drawn since 2026-10-22: a picture with no value to navigate (see below) |
+| 12 | Yellow low-to-low arcs | The Timing Window's drawing (`_path`): drawn, named on landing, not a stop (see below) |
 | 13 | Yellow SMA line | 10-bar SMA, the one Camel trades against |
 
 Added, from the 1.0 docs rather than the frames: left, mid and right translated tops (triangles over
 each finished cycle's top) and Cycle Failed (a close under a low after its minimum gap, the cycle
 school's "failed cycle").
 
-**The arcs (row 12) were removed on 2026-10-22.** Cody: "a component which is only visual isn't any
-use to a screen reader." The arc was a wave drawn between lows; everything it showed (where the
-cycle is, how long it has run) is now the Timing Window's day count and the low's cycle length. The
-arc code was on this branch for a day (commit 8421c5af) if it is ever wanted as a user-chosen picture.
+**The arcs (row 12) were removed on 2026-10-22 and came back the same day as a drawing.** Cody first:
+"a component which is only visual isn't any use to a screen reader", so the arc stopped being a
+component. Then: "if the arc is more akin to the chart formation lines and drawings, then leave it
+as such, just a drawing". It is now the daily (or weekly) Timing Window's `_path` companion: drawn
+under the candles in yellow (#D4A72C), one arc from each cycle low to the next and a live arc from
+the last low to the expected cycle length; landing on the window says "Window, with the cycle arc";
+Properties → Appearance → "Draw the cycle arc" turns it off. It is not a keyboard stop and not a
+`,`/`.` stop: everything it shows (where each cycle bottomed, how long it ran, where the cycle is
+now) is said by the cycle lows and the window's day count. **It is look-ahead**: an arc is drawn
+once the low it ends on is known, and the live one moves as lows confirm (`CipherCProviderTests`
+excludes it from the causal check and pins the look-ahead in its own test).
 
 ### What each part says (2026-10-22)
 
