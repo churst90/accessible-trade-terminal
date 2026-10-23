@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI adds the WaveTrend run the original was found to remember (2026-10-23)
+
+- **Formula:** each side's score adds −0.02 on the WaveTrend (9, 12, 3) cross toward it, +2.09 for the
+  rest of the run if wt1 was past −60 against the side at the cross, +0.18 if it was past +60 for it,
+  +3.45 while the gap between wt1 and its 3-bar average has widened on every bar since the cross, and
+  +1.61 per bar it has widened (up to 10). Once the gap narrows the last two go for the rest of the run.
+  The votes, streak and stretch were refitted with these terms on the same twenty charts
+  (`dbsi2/gen2.py`), copied to the digit (`DbsiStyleProvider.RunWeights`, `WaveTrendRun`).
+- **Measured, held out one chart at a time on the twenty:** exact 16.7% → 13.0%, within ±1 42.4% →
+  44.0%, within ±2 60.1% → 67.1%, error 3.40 → 2.82; readings of 17+ printed on 55 of 84 (was 4), and on
+  26 bars where DBSI did not (was 8). In sample: 14.6%, 46.0%, 69.9%, 2.67, 56 of 84 printed, 22 false;
+  side in control 395 of 422 (94%).
+- **Out of sample:** fitted on the twenty, scored on fifteen later livestream charts no fit saw: exact
+  14.1% → 14.0%, ±1 36.5% → 40.6%, ±2 55.6% → 61.0%, error 3.77 → 3.30, lower error on all 15 charts
+  (±2 better on 10, equal 2, worse 3). 17+ printed on 28 of 48 (was 2), 18 false (was 12). Refitted
+  on all 35 with charts held out one at a time: ±1 36.4% → 41.6%, ±2 57.7% → 62.3%, error 3.54 → 2.99.
+- **Caveats.** Exact hits did not improve. More false high readings. The terms are what could be
+  fitted from the structure below, not the original's mechanism; the remembered "3" and the opposite
+  side's counter are not in. The fixture is regenerated from the same twenty charts (the fifteen later
+  ones are not in it; they are scratch data and their scores above are the Python study's). Not seen
+  in the app.
+- **Tests:** golden replay, refit recovery (21 constants), in-sample, held-out and a hand-made
+  WaveTrend run test. Five sabotages red: alive term dropped (21 failed), alive never dying (24), the
+  deep flag ignoring the side (17), count uncapped (1), a run already going on the first bar counted (1).
+
+### Cipher DBSI measured against the original's own labels: what it remembers (research) (2026-10-23)
+
+- **How it was read.** The original's labels were read from the chart only (Dow 1D, Bar Replay back to
+  2021; the script was not opened). Its Start input was moved one bar at a time across 40 replay
+  windows (2024-10 to 2026-10). A label that changes with Start depends on bars before Start, which is
+  how the remembered part was separated from the part each bar scores fresh.
+- **Each side's WaveTrend run (9/12/3, own side's line above the other) carries a bonus, set at the cross:**
+  - a run level: bull 7 when the line crosses below −60, otherwise 1; bear 2 when the line is beyond ±60,
+    otherwise 1;
+  - about 4 more while the gap between the two lines has widened on every bar since the cross; once it
+    narrows, this is gone for the rest of the run;
+  - about 3 more (3 or 4 on bear) that lasts while the gap widens and for a varying number of bars after.
+- **Not found: what ends that 3.** The best single rule tried (close minus its 13-bar average still
+  rising since the gap first narrowed) agrees on 88% of 331 bars. The best pair of rules agrees on 90%.
+- **Second memory, newly found.** While one side is in that "after the widening, 3 still on" stretch,
+  the other side gains 1 per bar. The gain stays until the other side's own cross. It ticked on 12 of 23
+  such bars, on none of 59 bars while the gap was still widening, and on 4 of 62 bars after the 3 had
+  gone. On 2025-01-17 to 01-29 the bear label climbed −4, −3, −2, −1, 0 while the bull label held at 11.
+- **Effect on a whole-label rule (fitted 2021–24, scored 2025–26, 908 bars): small.** With the run
+  bonus and the opposite counter: exact 32%, within 2 67%, error 3.21. Without them: 31%, 64%, 3.46.
+  The app's linear form refitted on this chart scores 18% exact, 63% within 2, error 3.18 without the
+  run terms. With them it scores 20%, 72%, 2.55, and 60 of 97 readings of 17+ instead of 2. So the
+  linear form with run terms is the better candidate. It held on the twenty livestream charts and on
+  fifteen later ones (entry above), so it is in the app.
+- **The limit is the per-bar score, not the memory.** On bars that carry no memory, an integer vote
+  count over our 300-condition library matches only about 40% exactly. More of the grid (2021–2024)
+  and a second chart (Bitcoin) are what to gather next.
+
 ### Cipher B's money flow divides by the five-bar average Heikin-Ashi range (2026-10-23)
 
 - **Formula (MoneyFlowMode = MCB, the default):** 146 × SMA60(Heikin-Ashi body ÷ SMA5(Heikin-Ashi

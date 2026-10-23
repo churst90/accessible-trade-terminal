@@ -39,9 +39,13 @@
 - **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
   readings, not the first six. Each of its signals now counts for its own amount, a move that has
   just started scores higher than one that has run for many candles, and an oversold market adds a
-  little to the bulls (overbought to the bears). On charts it was not fitted to, it lands within one
-  point of DBSI 42% of the time, up from 35%. It still rarely reaches 17 where DBSI does, and tops out
-  at 19.
+  little to the bulls (overbought to the bears). It also follows the WaveTrend wave's turn toward
+  each side — a turn from deep oversold (overbought for bears) and a wave still pulling away from its
+  average add points — which is what the original was found to remember. On fifteen newer charts it
+  was not fitted to, it lands within two points of DBSI 61% of the time, up from 56%, and is closer on
+  all fifteen. It now reaches 17 and above on more than half the candles where DBSI does, but also on
+  more candles where DBSI does not, and it hits DBSI's exact number no more often than before (about 1
+  time in 7).
 - **Cipher C confirms a cycle low when the indicator it follows does.** A daily low now has to hold
   for half the shortest cycle before it is confirmed, and a lower low in that time takes its place.
   On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is

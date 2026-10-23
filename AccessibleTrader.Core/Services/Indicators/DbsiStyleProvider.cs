@@ -18,13 +18,17 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// (Ethereum, XRP and Bitcoin, 10 minutes to 6 hours, five of them Heikin-Ashi). A
     /// greedy search over a library of fast "direction" conditions chose the twelve below on the
     /// first six charts (<c>dbsi/scripts/greedy.py</c>). The 2026-10-23 refit
-    /// (<c>dbsi2/gen.py</c>, all twenty charts) gives each vote its own points
-    /// (<see cref="VoteWeights"/>) and adds two terms; the numbers are copied here to the digit:
+    /// (<c>dbsi2/gen2.py</c>, all twenty charts) gives each vote its own points
+    /// (<see cref="VoteWeights"/>) and adds a streak, a stretch and the WaveTrend run; the numbers
+    /// are copied here to the digit:
     /// </para>
     /// <code>
-    ///   bull = round(max(−5, −5.244 + Σ points of the bull votes − 0.507 × min(bull streak, 8)
-    ///                         + 0.689 × max(0, (50 − K14) / 10)))
-    ///   bear = the same with −5.489, the bear votes, the bear streak and max(0, (K14 − 50) / 10)
+    ///   bull = round(max(−5, −4.300 + Σ points of the bull votes − 0.247 × min(bull streak, 8)
+    ///                         + 0.427 × max(0, (50 − K14) / 10) + bull run points))
+    ///   bear = the same with −4.433, the bear votes, the bear streak, max(0, (K14 − 50) / 10)
+    ///          and the bear run
+    ///   run points = −0.02 on the cross bar + 2.09 if the cross was deep + 0.18 if over-stretched
+    ///                + 3.45 while the gap still widens + 1.61 × bars it has widened (up to 10)
     /// </code>
     /// <para>
     /// The <b>streak</b> is how many bars in a row have closed above (bear: below) the close two
@@ -33,6 +37,15 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// oversold adds to the bulls, overbought to the bears. Both beat twelve equal votes and six
     /// "families" of conditions over six lookbacks (which did worse); this is the best of the
     /// tries, not DBSI's own formula.
+    /// </para>
+    /// <para>
+    /// The <b>run</b> (<see cref="WaveTrendRun"/>) is what DBSI was found to remember. With
+    /// Market Cipher's own script on a Dow Jones daily chart, moving its Start date one bar at a
+    /// time showed each side carrying a level from the WaveTrend (9, 12, 3) cross toward it: higher
+    /// when the cross came from past −60 against the side (a "deep" cross), about 4 more while the
+    /// gap between wt1 and its 3-bar average widens every bar, gone once it narrows. DBSI's own
+    /// structure has more than this — a bonus whose end was not identified, and a count on the
+    /// other side — so these five terms are the part that could be fitted, not the mechanism.
     /// </para>
     /// <para>
     /// A condition votes BULL when its quantity is above zero and BEAR when below (exactly zero,
@@ -65,19 +78,22 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para>
     /// <b>How close it is, measured</b> (leave-one-chart-out: refitted twenty times, each time
     /// scored on the chart it never saw; the conditions themselves were picked on the first six):
-    /// the exact integer 16.7% of the time, within ±1 42%, within ±2 60%, typical error 3.4 points.
-    /// The twelve equal votes it replaced, refitted the same way: 16%, 35%, 56%, 3.7. Their shipped
-    /// numbers, on the fourteen charts they were never fitted to: 14%, 34%, 54%, 4.0 — this model is
-    /// closer on 13 of those 14. In sample on all 897 values: 16.7%, 43%, 61%, 3.3, and the side in
-    /// control named right on 94% of bars where DBSI's two numbers differ —
-    /// <c>DbsiStyleGoldenTests</c> replays it.
+    /// the exact integer 13.0% of the time, within ±1 44%, within ±2 67%, typical error 2.8 points
+    /// (without the run: 16.7%, 42%, 60%, 3.4). The twelve equal votes refitted the same way: 16%,
+    /// 35%, 56%, 3.7; this is closer than their shipped numbers on 13 of the 14 charts those were
+    /// never fitted to. In sample on all 897 values: 14.6%, 46%, 70%, 2.7, and the side in control
+    /// named right on 395 of the 422 bars where DBSI's two numbers differ (94%) —
+    /// <c>DbsiStyleGoldenTests</c> replays it. On fifteen later livestream charts that no fit saw,
+    /// the constants fitted on the twenty scored 14.0%, 41%, 61%, 3.3, against 14.1%, 37%, 56%,
+    /// 3.8 without the run, with lower error on all fifteen.
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> The top of the scale is still compressed: of the 84 readings of
-    /// 17 or more on the twenty charts (the ones Crypto Face calls rare and alerts on), this prints
-    /// 17 or more on only 4, and on 8 bars where DBSI did not. The highest it can print is about 19.
-    /// Direction and rough size are trustworthy; exact numbers and big readings are not.
+    /// <b>The known shortfall.</b> Exact hits did not improve: the run moves numbers closer but
+    /// rarely onto DBSI's integer. Big readings now print (55 of the 84 readings of 17 or more held
+    /// out, 4 before), but so do false ones: 26 bars printed 17+ where DBSI did not, 8 before; on
+    /// the fifteen later charts 28 of 48 real ones printed and 18 false, against 2 and 12.
+    /// Direction and rough size are trustworthy; exact numbers and single big readings are not.
     /// </para>
     ///
     /// <para>
@@ -126,21 +142,31 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public const int DefaultLongEntry = 7, DefaultShortEntry = 7, DefaultTrendLength = 200, DefaultLabelBars = 25;
 
-        // The model fitted on all twenty digitised charts (scratchpad dbsi2/gen.py, 2026-10-23), to the digit.
-        internal const double BullIntercept = -5.243776448904809;
-        internal const double BearIntercept = -5.488630059893191;
+        // The model fitted on all twenty digitised charts (scratchpad dbsi2/gen2.py, 2026-10-23), to the digit.
+        internal const double BullIntercept = -4.299728901019584;
+        internal const double BearIntercept = -4.432972498244312;
         /// <summary>Each vote's points, in the order of the quantities in <see cref="Compute"/>.</summary>
         internal static readonly double[] VoteWeights =
         {
-            3.0997342786874698, 0.4459414887631937, 0.3503672928684513, 2.4039377111990494,
-            0.7765487920083385, 2.9364097076608937, 0.863954814683868, 3.320275058470089,
-            3.099734278687473, 1.307596993535656, 1.427224224788756, 1.0976267615037851,
+            2.658993840577861, 0.6924691121630557, 0.37006853590337546, 2.2161727769269453,
+            0.23517804070440498, 2.3499181734497636, 0.3566725744424745, 1.2944461168121535,
+            2.658993840577857, 1.2222649037078872, 1.3572587054528842, 0.8069446065066638,
         };
         /// <summary>Points per bar of the side's streak (closes beyond the close two bars back), up to <see cref="StreakCap"/> bars.</summary>
-        internal const double StreakWeight = -0.5068956846943783;
+        internal const double StreakWeight = -0.24653397999542706;
         internal const int StreakCap = 8;
         /// <summary>Points per ten of the 14-bar stochastic's %K beyond 50 against the side (oversold for bulls).</summary>
-        internal const double StretchWeight = 0.6892391919941329;
+        internal const double StretchWeight = 0.42699612397920617;
+        /// <summary>
+        /// Points for the side's WaveTrend run (<see cref="WaveTrendRun"/>), in the order cross bar,
+        /// deep cross, over-stretched cross, still widening, bars widened so far.
+        /// </summary>
+        internal static readonly double[] RunWeights =
+        {
+            -0.021151160120534584, 2.0906434913959373, 0.17843014392802062, 3.4533179703707755, 1.6061419009002191,
+        };
+        internal const int RunCountCap = 10;
+        internal const double RunLevel = 60.0;
         internal const int StretchLength = 14;
         internal const double Floor = -5.0;
         internal const int VoteCount = 12;
@@ -403,7 +429,47 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// What the score is built from, bar by bar: each of the twelve quantities whose sign is a
         /// vote, each side's streak (uncapped) and the 14-bar %K, on the candles it reads.
         /// </summary>
-        internal sealed record Terms(double[][] Quantities, int[] BullRun, int[] BearRun, double[] K14, double[] Close);
+        internal sealed record Terms(double[][] Quantities, int[] BullRun, int[] BearRun, double[] K14, double[] Close,
+            WaveRun BullWave, WaveRun BearWave);
+
+        /// <summary>
+        /// One side's WaveTrend run, bar by bar (1 or 0, Count in bars). A run is the stretch where
+        /// wt1 is beyond its 3-bar average on the side's side (above for bulls); it starts on the
+        /// cross bar. <c>Deep</c>: wt1 was past −60 on the side's far side at the cross (below −60
+        /// for bulls, above +60 for bears); <c>Over</c>: past +60 on the side's own side.
+        /// <c>Alive</c>: the gap between wt1 and its average has widened on every bar since the
+        /// cross; once it narrows it stays off for the rest of the run. <c>Count</c>: bars since the
+        /// cross while alive, up to <see cref="RunCountCap"/>, else 0. A run already going on the
+        /// first bar is not counted (its cross is not in the data).
+        /// </summary>
+        internal sealed record WaveRun(double[] Cross, double[] Deep, double[] Over, double[] Alive, double[] Count)
+        {
+            public double Points(int i) =>
+                RunWeights[0] * Cross[i] + RunWeights[1] * Deep[i] + RunWeights[2] * Over[i]
+                + RunWeights[3] * Alive[i] + RunWeights[4] * Count[i];
+        }
+
+        internal static WaveRun WaveTrendRun(double[] wt1, double[] wt2, int side)
+        {
+            int n = wt1.Length;
+            var r = new WaveRun(new double[n], new double[n], new double[n], new double[n], new double[n]);
+            int cross = -1; bool alive = false;
+            for (int i = 1; i < n; i++)
+            {
+                double gap = side * (wt1[i] - wt2[i]), before = side * (wt1[i - 1] - wt2[i - 1]);
+                if (!(gap > 0)) { cross = -1; continue; }
+                if (!(before > 0)) { cross = i; alive = true; }
+                if (cross < 0) continue;
+                int age = i - cross;
+                if (age > 0 && alive && gap <= before) alive = false;
+                r.Cross[i] = age == 0 ? 1 : 0;
+                r.Deep[i] = side * wt1[cross] < -RunLevel ? 1 : 0;
+                r.Over[i] = side * wt1[cross] > RunLevel ? 1 : 0;
+                r.Alive[i] = alive ? 1 : 0;
+                r.Count[i] = alive ? Math.Min(age, RunCountCap) : 0;
+            }
+            return r;
+        }
 
         internal static Terms ScoringTerms(ReadOnlySpan<Ohlcv> data, bool heikinAshi)
         {
@@ -431,6 +497,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var ci = new double[n];
             for (int i = 0; i < n; i++) ci[i] = (hlc3[i] - esa[i]) / (0.015 * dd[i]);
             var wt1 = Ema(ci, 12);
+            var wt2 = Sma(wt1, 3);
             var mid2 = new double[n];
             for (int i = 0; i < n; i++) mid2[i] = i >= 1 ? c[i] - (Math.Max(h[i], h[i - 1]) + Math.Min(l[i], l[i - 1])) / 2.0 : double.NaN;
 
@@ -443,7 +510,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 StochKMinusD(c, h, l, 5), // stochk5>d
                 Change(wt1, 1),           // wt1_up
                 mid2,                     // c>mid2
-                Sub(wt1, Sma(wt1, 3)),    // wt1>wt2
+                Sub(wt1, wt2),            // wt1>wt2
                 mom2,                     // mom2 — the same quantity again; see the class comment
                 StochKMinusD(c, h, l, 6), // stochk6>d
                 Change(c, 1),             // c>pc
@@ -459,7 +526,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // The stretch: the 14-bar stochastic's %K (SMA3), centred on 50.
-            return new Terms(q, bullRun, bearRun, Sma(Stochastic(c, h, l, StretchLength), 3), c);
+            return new Terms(q, bullRun, bearRun, Sma(Stochastic(c, h, l, StretchLength), 3), c,
+                WaveTrendRun(wt1, wt2, 1), WaveTrendRun(wt1, wt2, -1));
         }
 
         internal static Result Compute(ReadOnlySpan<Ohlcv> data, Settings s)
@@ -482,8 +550,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (!ready) continue;
                 bullVotes[i] = vb; bearVotes[i] = vr;
                 double k = double.IsNaN(stretch[i]) ? 50 : stretch[i];   // a flat window: no stretch either way
-                pb += StreakWeight * Math.Min(t.BullRun[i], StreakCap) + StretchWeight * Math.Max(0, (50 - k) / 10);
-                pr += StreakWeight * Math.Min(t.BearRun[i], StreakCap) + StretchWeight * Math.Max(0, (k - 50) / 10);
+                pb += StreakWeight * Math.Min(t.BullRun[i], StreakCap) + StretchWeight * Math.Max(0, (50 - k) / 10) + t.BullWave.Points(i);
+                pr += StreakWeight * Math.Min(t.BearRun[i], StreakCap) + StretchWeight * Math.Max(0, (k - 50) / 10) + t.BearWave.Points(i);
                 bull[i] = Score(BullIntercept, pb);
                 bear[i] = Score(BearIntercept, pr);
                 control[i] = Math.Sign(bull[i] - bear[i]);

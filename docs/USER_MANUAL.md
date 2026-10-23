@@ -1587,11 +1587,14 @@ a daily chart a new level arrives about once every three to four weeks per side.
 
 **Cipher DBSI** (Trend, on the price chart) is a fast bull and bear strength
 score inspired by Market Cipher DBSI. Each candle gets two whole numbers: the bulls' score, printed
-under the candle in green, and the bears' score, printed over it in red. Bulls run from −4 to 16 and
-bears from −5 to 15; the higher number is the side in control, and on the newest candle that number
+under the candle in green, and the bears' score, printed over it in red. Both run from −5 up; on
+real charts they reach the low to mid 20s at a fresh turn. The higher number is the side in control, and on the newest candle that number
 is printed in yellow. The score is a weighted vote of twelve fast direction checks — mostly whether
 price is higher than one or two candles ago, fast stochastics turning, a fast MACD rising, WaveTrend
-rising — so it reacts within two or three candles. A 200-bar trend line runs with it, green while the
+rising — so it reacts within two or three candles. It also follows the WaveTrend wave's turn toward
+each side: a turn that starts from deep oversold (overbought for bears) adds points, and so does
+every candle on which the wave keeps pulling away from its average; once that gap narrows, those
+points go. A 200-bar trend line runs with it, green while the
 close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in
 control"; Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
 line the close is on. With narration on (N) a bar close announces "Bulls take control at …" or "Bears
@@ -1600,9 +1603,11 @@ crossing the trend line. The two scores start muted; the trend line and those an
 
 It is a reconstruction, not DBSI. Fitted to 897 DBSI numbers read off twenty charts, it names the
 side in control the way DBSI does on about 9 candles in 10 and lands within 2 points of DBSI's number
-about 6 times in 10, but it is often 3 or 4 points off, it can print at most 19, and it seldom
-reaches 17 where DBSI does. Use it for direction and rough strength, not for DBSI's exact readings or
-its rare high signals. A move that has just started scores higher than one that has run for many
+about 2 times in 3 on charts it was not fitted to, but it hits DBSI's exact number only about 1 time
+in 7 and is often 3 points off. It now reaches 17 and above on more than half the candles where DBSI
+does, but it also prints 17 or more on candles where DBSI stays lower, about 1 time in 3 when it
+prints one. Use it for direction and rough strength, not for DBSI's exact readings, and do not treat
+a single high reading as DBSI's rare signal. A move that has just started scores higher than one that has run for many
 candles, and a stretched market (oversold for bulls, overbought for bears) adds a little. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
 regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the
