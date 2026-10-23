@@ -163,32 +163,6 @@ namespace AccessibleTrader.Core.Services
                 .Select(mc => CreateComponentConfigFromMeta(meta, mc))
                 .ToList();
 
-            // Sort components so main-pane components appear first (SubPaneName == null/empty),
-            // followed by each sub-pane group in order of first appearance in the original list.
-            // Within each group, relative declaration order is preserved (stable sort via index).
-            {
-                var paneOrder = new List<string?>();
-                paneOrder.Add(null); // main pane slot
-                for (int i = 0; i < sourceComponents.Count; i++)
-                {
-                    string? pn = sourceComponents[i].SubPaneName;
-                    string? key = string.IsNullOrEmpty(pn) ? null : pn;
-                    if (key != null && !paneOrder.Contains(key, StringComparer.OrdinalIgnoreCase))
-                        paneOrder.Add(key);
-                }
-                sourceComponents = sourceComponents
-                    .Select((c, idx) => (comp: c, idx))
-                    .OrderBy(t =>
-                    {
-                        string? k = string.IsNullOrEmpty(t.comp.SubPaneName) ? null : t.comp.SubPaneName;
-                        int pos = paneOrder.FindIndex(p => string.Equals(p, k, StringComparison.OrdinalIgnoreCase));
-                        return pos < 0 ? paneOrder.Count : pos;
-                    })
-                    .ThenBy(t => t.idx)
-                    .Select(t => t.comp)
-                    .ToList();
-            }
-
             // Layer 2: restore lightweight per-component user state from the workspace save
             //          (visibility, mute, component volume, freq multiplier, and the narration
             //          selection N makes on a component). Colors and audio properties come from
@@ -368,8 +342,6 @@ namespace AccessibleTrader.Core.Services
                 // The baseline a restore compares the saved flag with (ProviderDefaultVisibility).
                 ProviderIsVisible = meta.IsVisible,
                 IsEnabled    = true,
-                SubPaneName       = meta.SubPaneName,
-                SubPaneHeightRatio = meta.SubPaneHeightRatio,
                 Volume       = 1.0f,
 
                 // Colors — provider metadata wins; fall through to StylingService role defaults.

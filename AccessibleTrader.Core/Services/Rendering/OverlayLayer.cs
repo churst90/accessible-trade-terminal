@@ -121,16 +121,10 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// below it (above it when below has no room), so two labels on one bar are both read.</item>
         /// </list>
         ///
-        /// <para>
-        /// Labels belong to the price pane itself: the overlay layer also runs for the strips
-        /// stacked inside the price pane (<see cref="RenderContext.SubPaneFilter"/>), where a
-        /// label's price would be mapped onto the strip's own scale. Nothing is placed there.
-        /// </para>
         /// </summary>
         internal static List<PlacedTextLabel> LayoutTextLabels(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
             var placed = new List<PlacedTextLabel>();
-            if (ctx.SubPaneFilter != null) return placed;
 
             using var font = new SKFont(LabelTypeface, LabelFontPx * ctx.Density);
             float pad = LabelPadPx * ctx.Density, gap = LabelGapPx * ctx.Density;

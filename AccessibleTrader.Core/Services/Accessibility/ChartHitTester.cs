@@ -35,9 +35,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <param name="axisWidthFraction">Right y-axis column fraction, from IPaneLayoutService.</param>
         /// <param name="statusBands">Each pane's status band, from IPaneLayoutService: a pane's
         /// values are drawn on its plot, which starts below the band.</param>
-        /// <param name="subPaneStrips">Each pane's sub-pane strips, from IPaneLayoutService: a
-        /// component with a SubPaneName is drawn in its strip on the strip's own range, the rest
-        /// above the strips.</param>
         public static ChartHit? HitTest(
             WorkspaceState state,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
@@ -45,8 +42,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             float axisWidthFraction,
             double x, double y, double width, double height,
             double tolerancePx = TolerancePx,
-            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null,
-            IReadOnlyDictionary<string, IReadOnlyList<Rendering.SubPaneStrip>>? subPaneStrips = null)
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
         {
             if (state.Data == null || state.Data.Count == 0 || width <= 0 || height <= 0) return null;
 
@@ -109,14 +105,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     double value = data[barIndex];
                     if (double.IsNaN(value) || double.IsInfinity(value)) continue;
 
-                    // Where the renderer drew it (Cody, 2026-10-17): on the pane's PLOT, below its
-                    // status band and above its sub-pane strips on the pane's range — or, for a
-                    // component with a SubPaneName, in its strip on the strip's own range. The
-                    // strip's line used to be looked for on the pane's range over the whole
-                    // plot: Loukas Cycles' FY (since removed) at 1000 days on a 0–70 scale, off the canvas.
-                    if (ChartMath.PlotAreaPx(paneName, comp.SubPaneName, height, dividers, axisHeightFraction,
-                            statusBands, subPaneStrips) is not { } area) continue;
-                    var (min, max, isLog) = ChartMath.RangeFor(state, paneName, comp.SubPaneName);
+                    // Where the renderer drew it: on the pane's PLOT, below its status band.
+                    if (ChartMath.PlotAreaPx(paneName, height, dividers, axisHeightFraction,
+                            statusBands) is not { } area) continue;
+                    var (min, max, isLog) = ChartMath.RangeFor(state, paneName);
                     float compY = ChartMath.MapY(value, (float)area.Top, (float)area.Bottom, min, max, isLog);
                     double dist = Math.Abs(compY - y);
                     if (dist <= tolerancePx && (best == null || dist < best.DistancePx))

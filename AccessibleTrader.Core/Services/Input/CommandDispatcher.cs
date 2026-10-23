@@ -241,7 +241,7 @@ namespace AccessibleTrader.Core.Services.Input
                 return;
             }
 
-            // Intra-pane component navigation — walks the current strip across every series in the pane.
+            // Intra-pane component navigation — walks the current pane across every series in it.
             if (command == SystemCommand.NavComponentInPaneNext || command == SystemCommand.NavComponentInPanePrev)
             {
                 if (_store.State.Data == null || !_store.State.Data.Any())
@@ -844,14 +844,12 @@ namespace AccessibleTrader.Core.Services.Input
         }
 
         /// <summary>
-        /// Ctrl+Up / Ctrl+Down — walk the components of the STRIP the cursor is in: the pane's
-        /// main area, or one sub-pane strip of it, ACROSS EVERY SERIES IN THE PANE.
+        /// Ctrl+Up / Ctrl+Down — walk the components of the pane the cursor is in, ACROSS
+        /// EVERY SERIES IN THE PANE.
         ///
         /// <para>
-        /// Across series is the whole point, and it is what makes the sub-pane a thing the
-        /// keyboard can reach without a key of its own. A sub-pane is declared by a component but
-        /// DRAWN from every series in the pane, so a walk scoped to one series was walking a
-        /// structure that does not exist: on the Main pane it could reach the candles' components
+        /// Across series is the whole point: a walk scoped to one series was walking a
+        /// structure that does not exist. On the Main pane it could reach the candles' components
         /// and never Price's, though both are drawn against the same axis, in the same band, one
         /// on top of the other.
         /// </para>
@@ -873,7 +871,6 @@ namespace AccessibleTrader.Core.Services.Input
             if (pane == null) return;
 
             int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
-            string? strip = series.Components[focusedIdx].SubPaneName;
 
             // (series id, component index) in visual order: series down the pane, components
             // down each series.
@@ -882,8 +879,7 @@ namespace AccessibleTrader.Core.Services.Input
             {
                 for (int i = 0; i < s.Components.Count; i++)
                 {
-                    if (string.Equals(s.Components[i].SubPaneName, strip, StringComparison.OrdinalIgnoreCase))
-                        walk.Add((s.Id, i));
+                    walk.Add((s.Id, i));
                 }
             }
             if (walk.Count == 0) return;

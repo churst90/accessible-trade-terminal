@@ -113,13 +113,7 @@ namespace AccessibleTrader.Tests
             Assert.Equal(PlaybackLayer.Foreground, Get(CipherBProvider.CompCrossBull).DefaultPlaybackLayer);
         }
 
-        // ── 7. MF Wave — no sub-pane, Background audio ────────────────────────
-
-        [Fact]
-        public void MoneyFlowWave_HasNoSubPane()
-        {
-            Assert.Null(Get(CipherBProvider.CompMoneyFlowWave).SubPaneName);
-        }
+        // ── 7. MF Wave — Background audio ─────────────────────────────────────
 
         [Fact]
         public void MoneyFlowWave_HasBackgroundPlaybackLayer()

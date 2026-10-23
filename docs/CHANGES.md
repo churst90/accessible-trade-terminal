@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The sub-pane strip is gone (2026-10-22)
+
+Cody: "remove the small strip now". A component could set `SubPaneName` (and `SubPaneHeightRatio`)
+and be drawn in a short strip along the bottom of its pane, on its own range. Loukas Cycle Detection's
+"FY" was the last user and Loukas was removed today, so no built-in indicator has used a strip since.
+
+- **Removed.** The layout and the extra render pass in `ChartRenderer`, `IPaneLayoutService.SubPaneStrips`
+  and the `SubPaneStrip` record, the strip's own axis labels, the `RenderContext.SubPaneFilter`
+  parameter, the strip clauses in hit-testing, hover mapping and drawing anchors, the `"Pane/Sub"`
+  range keys in `ViewportRangeCalculator`, the "N strips inside it" speech and the strip part of the
+  pane-change and Shift+F1 sentences, and the two properties on `ComponentConfig` and
+  `IndicatorComponentMetadata`. Intra-pane navigation now walks every component in the pane.
+  A missing pane range key no longer falls back through a second key; the pane key is looked up once.
+- **Saved files still load.** Workspaces that carry `"SubPaneName"` or `"SubPaneHeightRatio"` (Cipher B
+  saves have both as null; a Loukas save has `"FY"`) deserialize as before. The loader ignores members
+  it does not know, and the component is drawn in its pane's main area. `SavedSubPaneNameTests` (2)
+  pins both. Proven by sabotage: putting `SubPaneName` back on `ComponentConfig` with the old main-pass
+  skip turns the draw test red ("not drawn at all"); restored and diffed.
+- **Breaking for plugins.** A plugin that sets `SubPaneName` or `SubPaneHeightRatio` no longer compiles.
+  Remove the lines; the component is then drawn in the main area of its pane. A component that needs its
+  own axis should use its own pane.
+- **Tests.** `SubPaneStripTests` deleted (the strip's labels, hover, hit-test and frame), plus one
+  strip case each in `BackgroundTintTests`, `ChartHitTesterAndRangeTests`, `RenderLayerTests` (2),
+  `DeclaredBoundsTests`, `CipherBMetadataTests`, `PaneRangeFallbackTests`, `PaneModelAndTrailingSpeechTests`
+  and `PriceAutoFitScopeTests`. Strip knobs left the declared-knob sweep. `GetSeriesRange_SubPane_*`
+  were renamed `GetSeriesRange_IndicatorPane_*` (they test indicator panes). The guard against a
+  too-short pane failing the frame (`if (labelBottom < labelTop) return;` in `RenderYAxis`) is still in
+  the code, but its test went with the strip. Not seen or heard in the app.
+
 ### Cipher C backtested: buying the confirmed daily low (2026-10-22, research, no code change)
 
 Asked by Cody: buy at the confirmed cycle low, sell at the top, split by translation. Full write-up in
@@ -108,7 +137,7 @@ been seen or heard in the app.
     is a component Cipher C declares. Proven by sabotage: un-retiring the code turns all 7 red, and
     pointing ICL at a name Cipher C does not have turns 2 red.
   - Comments that spoke of Loukas in the present tense now say it was removed. No built-in indicator
-    uses a sub-pane strip any more (Loukas's "FY" was the only one); the mechanism and its tests stay.
+    uses a sub-pane strip any more (Loukas's "FY" was the only one); the mechanism was removed the same day.
 
 ### A strategy can read its signals on Heikin-Ashi candles and trade real prices; backtests read the candles live does (2026-10-22)
 
@@ -119,6 +148,10 @@ as nothing fills at a Heikin-Ashi price. Filling there is the known trap. A Heik
 average of four prices, often one that never traded, so a backtest that fills at it shows profits no
 real order could get. TradingView's strategy setting "Fill orders on standard OHLC" exists to avoid
 this, and this option follows that model.
+
+Fixed later the same day: `WorkspaceState.HeikinAshiSeries` was missing from the script sandbox's
+projection census, so `WorkspaceProjectionTests` was red. It is now declared NotCarried (a script
+strategy never asks for Heikin-Ashi signals; carrying the series would double the per-bar payload).
 
 - **The option.** `StrategySpec.SignalsOnHeikinAshi` (default off), a checkbox in Build Setup labelled
   "Signals from Heikin-Ashi candles (orders, stops and targets on real prices)". It is said in the

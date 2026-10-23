@@ -56,7 +56,7 @@ public sealed class PriceAutoFitScopeTests
 
     /// <summary>A Main-pane band: two components, one above the candles and one below.</summary>
     private static ChartSeries Band(double upper, double lower, bool seriesVisible = true,
-                                    bool upperVisible = true, string? subPane = null)
+                                    bool upperVisible = true)
     {
         var cfg = new SeriesConfig
         {
@@ -66,12 +66,10 @@ public sealed class PriceAutoFitScopeTests
         cfg.Components.Add(new ComponentConfig
         {
             Name = "upper", DisplayName = "Upper Band", IsVisible = upperVisible, IsEnabled = true,
-            SubPaneName = subPane ?? string.Empty,
         });
         cfg.Components.Add(new ComponentConfig
         {
             Name = "lower", DisplayName = "Lower Band", IsVisible = true, IsEnabled = true,
-            SubPaneName = subPane ?? string.Empty,
         });
         var data = new SeriesDataBuffer { SeriesId = "bb" };
         data.ComponentData["upper"] = Enumerable.Repeat(upper, BarCount).ToArray();
@@ -153,15 +151,6 @@ public sealed class PriceAutoFitScopeTests
 
         Assert.True(max < 110, "the hidden upper band must not leave its footprint on the axis");
         Assert.True(min <= 90, "the visible lower band must still be inside the pane");
-    }
-
-    [Fact]
-    public void ASubPaneStripIsItsOwnAxis_AndDoesNotMoveTheMainOne()
-    {
-        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90, subPane: "Strip"));
-
-        Assert.InRange(max, 105, 106);
-        Assert.InRange(min, 94, 95);
     }
 
     /// <summary>

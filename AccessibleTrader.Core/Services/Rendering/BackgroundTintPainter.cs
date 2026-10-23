@@ -52,8 +52,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
-        /// <summary>The "this pane" tints of the series drawn in this pane — in its main area when
-        /// <see cref="RenderContext.SubPaneFilter"/> is null, else in that sub-pane strip.</summary>
+        /// <summary>The "this pane" tints of the series drawn in this pane — .</summary>
         public static void PaintPaneTints(RenderContext ctx, IEnumerable<ChartSeries> paneSeries)
         {
             foreach (var s in paneSeries)
@@ -62,9 +61,6 @@ namespace AccessibleTrader.Core.Services.Rendering
                 foreach (var c in s.Components)
                 {
                     if (c.BackgroundTintInEffect() != BackgroundTint.ThisPane) continue;
-                    bool inSubPane = !string.IsNullOrEmpty(c.SubPaneName);
-                    if (ctx.SubPaneFilter == null ? inSubPane
-                        : !string.Equals(c.SubPaneName, ctx.SubPaneFilter, StringComparison.Ordinal)) continue;
                     Paint(ctx, s, c);
                 }
             }

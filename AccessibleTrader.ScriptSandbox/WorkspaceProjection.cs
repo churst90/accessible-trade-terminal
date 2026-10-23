@@ -128,6 +128,10 @@ public static class WorkspaceProjection
         // How far back a restored tab loads its history, consumed by the next load and cleared.
         // A loading instruction for the host's data manager; a strategy sees the bars it loaded.
         nameof(WorkspaceState.RestoredLoad),
+        // The chart's series recomputed on Heikin-Ashi candles, built by StrategyCandles.For only
+        // for a built-in strategy that reads its signals on Heikin-Ashi. A script strategy never
+        // asks for them; carrying them would double the per-bar payload for nothing.
+        nameof(WorkspaceState.HeikinAshiSeries),
 
         // The two narration switches. AnnounceNewBars and DescribeChartPatterns ARE carried,
         // which makes this look inconsistent, so the reason is written down: those two predate

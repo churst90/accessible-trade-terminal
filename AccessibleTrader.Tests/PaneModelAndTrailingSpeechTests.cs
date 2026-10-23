@@ -11,10 +11,9 @@ namespace AccessibleTrader.Tests;
 /// The pane model, and the speech form Cody asked for on 2026-09-04.
 ///
 /// <para><b>The model.</b> A PANE IS A Y AXIS — <c>ChartRenderer</c> groups the series list by
-/// <see cref="ChartSeries.Pane"/> and gives each group its own axis and its own band. A SUB-PANE
-/// is a strip inside a pane, declared by a component but collected by the renderer across every
-/// series in the pane. Navigation used to disagree with that on both counts: it read the pane
-/// list off ONE series' components, so Alt+PageUp on the candles said "No sub-panes in Candles"
+/// <see cref="ChartSeries.Pane"/> and gives each group its own axis and its own band. (There was once a
+/// "sub-pane strip" inside a pane; it has been removed.) Navigation used to disagree with the
+/// renderer: it read the pane list off ONE series' components, so Alt+PageUp on the candles said "No sub-panes in Candles"
 /// while the chart had two more panes on it, and Ctrl+Up/Down could not reach a price overlay
 /// drawn on top of the candles against the same axis.</para>
 ///
@@ -36,16 +35,16 @@ public sealed class PaneModelAndTrailingSpeechTests
 {
     // ── The structure ────────────────────────────────────────────────────────────
 
-    private static ChartSeries Series(string id, string name, string pane, params (string Name, string? Strip)[] comps)
+    private static ChartSeries Series(string id, string name, string pane, params string[] comps)
     {
         var cfg = new SeriesConfig { Id = id, Name = name, FriendlyName = name, Pane = pane, IsVisible = true, Volume = 1f };
         var buf = new SeriesDataBuffer { SeriesId = id };
-        foreach (var (n, strip) in comps)
+        foreach (var n in comps)
         {
             cfg.Components.Add(new ComponentConfig
             {
                 Name = n, DisplayName = n, DisplayType = ComponentDisplayType.Line,
-                IsVisible = true, IsEnabled = true, Volume = 1f, SubPaneName = strip,
+                IsVisible = true, IsEnabled = true, Volume = 1f,
             });
             buf.ComponentData[n] = new[] { 1.0, 2.0 };
         }
@@ -63,10 +62,10 @@ public sealed class PaneModelAndTrailingSpeechTests
     public void Panes_are_ordered_Main_first_then_first_appearance()
     {
         var series = ImmutableList.Create(
-            Series("rsi", "RSI", "Pane_RSI", ("RSI", null)),
-            Series("candles", "Candles", "Main", ("Close", null)),
-            Series("price", "Price", "Main", ("Line", null)),
-            Series("vol", "Volume", "Volume", ("Vol", null)));
+            Series("rsi", "RSI", "Pane_RSI", "RSI"),
+            Series("candles", "Candles", "Main", "Close"),
+            Series("price", "Price", "Main", "Line"),
+            Series("vol", "Volume", "Volume", "Vol"));
 
         var panes = ChartPaneModel.Panes(series);
 
@@ -86,9 +85,9 @@ public sealed class PaneModelAndTrailingSpeechTests
     public void Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order()
     {
         var series = ImmutableList.Create(
-            Series("rsi", "RSI", "Pane_RSI", ("RSI", null)),
-            Series("macd", "MACD", "Pane_MACD", ("MACD", null)),
-            Series("candles", "Candles", "Main", ("Close", null)));
+            Series("rsi", "RSI", "Pane_RSI", "RSI"),
+            Series("macd", "MACD", "Pane_MACD", "MACD"),
+            Series("candles", "Candles", "Main", "Close"));
 
         Assert.Equal(new[] { "Main", "Pane_RSI", "Pane_MACD" },
             ChartPaneModel.Panes(series).Select(p => p.Key).ToArray());
@@ -100,9 +99,9 @@ public sealed class PaneModelAndTrailingSpeechTests
     public void Series_in_visual_order_puts_both_Main_series_before_the_indicator()
     {
         var series = ImmutableList.Create(
-            Series("candles", "Candles", "Main", ("Close", null)),
-            Series("rsi", "RSI", "Pane_RSI", ("RSI", null)),
-            Series("price", "Price", "Main", ("Line", null)));
+            Series("candles", "Candles", "Main", "Close"),
+            Series("rsi", "RSI", "Pane_RSI", "RSI"),
+            Series("price", "Price", "Main", "Line"));
 
         Assert.Equal(new[] { "candles", "price", "rsi" },
             ChartPaneModel.SeriesInVisualOrder(series).Select(s => s.Id).ToArray());
@@ -119,24 +118,7 @@ public sealed class PaneModelAndTrailingSpeechTests
     public void A_pane_holding_one_series_is_named_by_that_series()
         => Assert.Equal("Relative Strength Index",
             ChartPaneModel.DisplayName("Pane_RSI",
-                new[] { Series("rsi", "Relative Strength Index", "Pane_RSI", ("RSI", null)) }));
-
-    /// <summary>
-    /// The strip is collected across EVERY series in the pane, not just the one that declared it.
-    /// That is how the renderer draws it, and the two disagreeing was the whole defect.
-    /// </summary>
-    [Fact]
-    public void Strips_are_collected_across_every_series_in_the_pane()
-    {
-        var paneSeries = new[]
-        {
-            Series("a", "A", "Pane_X", ("Wave", null)),
-            Series("b", "B", "Pane_X", ("Money Flow Wave", "MF")),
-        };
-
-        Assert.Equal(new[] { "MF" }, ChartPaneModel.SubPaneKeys(paneSeries).ToArray());
-        Assert.Equal("Money Flow Wave", ChartPaneModel.SubPaneDisplayName("MF", paneSeries));
-    }
+                new[] { Series("rsi", "Relative Strength Index", "Pane_RSI", "RSI") }));
 
     // ── The trailing speech form ─────────────────────────────────────────────────
 
@@ -188,8 +170,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void The_pane_name_comes_last_not_first()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         string said = SwitchOnto(rsi, all);
 
@@ -209,8 +191,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void Hidden_is_the_first_thing_said_not_the_last()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         string said = SwitchOnto(rsi, all, visible: false).Trim();
 
@@ -227,8 +209,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void Hidden_and_muted_are_both_said_and_they_lead()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         string said = SwitchOnto(rsi, all, visible: false, muted: true).Trim();
 
@@ -243,9 +225,9 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void Narrating_is_the_last_thing_said()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
         rsi.IsAutoNarrated = true;
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         string said = SwitchOnto(rsi, all).Trim();
         Assert.EndsWith("Narrating.", said, StringComparison.Ordinal);
@@ -261,8 +243,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void A_plain_series_says_neither_word()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         string said = SwitchOnto(rsi, all).Trim();
 
@@ -278,8 +260,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void The_pane_is_actually_named()
     {
-        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+        var rsi = Series("rsi", "RSI", "Pane_RSI", "RSI");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), rsi);
 
         Assert.Contains("RSI pane", SwitchOnto(rsi, all), StringComparison.OrdinalIgnoreCase);
     }
@@ -293,8 +275,8 @@ public sealed class PaneModelAndTrailingSpeechTests
     [Fact]
     public void The_series_switch_no_longer_counts_sub_panes_as_panes()
     {
-        var cipher = Series("cipher", "Cipher B", "Pane_CIPHER_B", ("Wave", null), ("MFW", "MF"));
-        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), cipher);
+        var cipher = Series("cipher", "Cipher B", "Pane_CIPHER_B", "Wave", "MFW");
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), cipher);
 
         string said = SwitchOnto(cipher, all);
 

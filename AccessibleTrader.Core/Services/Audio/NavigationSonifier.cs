@@ -222,7 +222,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // A missing key for an indicator pane falls back to that pane's EMPTY range, never to
             // the price range — see ViewportRangeCalculator.RangeFor for the defect that was.
             var focusedComp = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
-            var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, focusedComp?.SubPaneName, state.ViewportRange);
+            var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, state.ViewportRange);
 
             // The bar AS DRAWN, so pitch and direction follow the candle colours on screen.
             //

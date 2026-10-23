@@ -52,7 +52,6 @@ public sealed class NarrationRouteContractTests
     /// <summary>A price-space overlay: "price crossed above it" on the bar close.</summary>
     private static bool OverlayRoute(IndicatorMetadata m, IndicatorComponentMetadata c)
         => string.Equals(m.DefaultPane, "Main", StringComparison.OrdinalIgnoreCase)
-           && string.IsNullOrEmpty(c.SubPaneName)
            && c.DisplayType == ComponentDisplayType.Line
            && !c.DefaultIsZoneLine
            && c.Role != ComponentRole.PriceAction
@@ -178,7 +177,7 @@ public sealed class NarrationRouteContractTests
             cfg.Components.Add(new ComponentConfig
             {
                 Name = c.Name, DisplayName = c.DisplayName ?? c.Name, DisplayType = c.DisplayType,
-                Role = c.Role, SubPaneName = c.SubPaneName,
+                Role = c.Role,
                 IsVisible = c.IsVisible, IsMuted = false,
                 IsZoneLine = c.DefaultIsZoneLine,
                 SignalSpeechTemplate = c.DefaultSignalSpeechTemplate,

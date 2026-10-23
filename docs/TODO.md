@@ -18,8 +18,6 @@
 >     (2) a walk-forward strategy (buy a confirmed low only after a left-translated cycle) with a
 >     pre-registered rule; (3) the weekly tier. Cody: worth pursuing?
 >   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
->   - No built-in indicator uses a sub-pane strip now that Loukas is gone; keep the mechanism for
->     plugins or remove it?
 > - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars
 >   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with
 >   Cipher B, an RSI and an EMA: every indicator should recompute at once, Cipher B's dots should

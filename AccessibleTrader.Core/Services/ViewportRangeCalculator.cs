@@ -113,7 +113,6 @@ namespace AccessibleTrader.Core.Services
                 foreach (var comp in s.Components)
                 {
                     if (!comp.IsVisible) continue;
-                    if (!string.IsNullOrEmpty(comp.SubPaneName)) continue;
                     // (4) DRAWN AT ITS VALUE. An undrawn component (ComponentConfig.IsDrawn) is not
                     //     on the chart at all, and a value label anchored to the BAR prints a number
                     //     that is not a position — DBSI-style's "15" on a $20 stock is not a price
@@ -161,7 +160,7 @@ namespace AccessibleTrader.Core.Services
             // ── Indicator Panes ───────────────────────────────────────────────
             // Accumulate min/max per range key across ALL series (fixes early-exit bug where
             // only the first series per pane was computed).
-            // Range key = pane name for main-area components; "PaneName/SubPaneName" for sub-pane components.
+            // Range key = the pane name.
             var accum = new Dictionary<string, (double Min, double Max, bool HasData)>(StringComparer.Ordinal);
 
             // ── Declared bounds per pane ──────────────────────────────────
@@ -206,9 +205,7 @@ namespace AccessibleTrader.Core.Services
                 // ── Component data ranges ─────────────────────────────────────
                 foreach (var comp in s.Components)
                 {
-                    string rangeKey = string.IsNullOrEmpty(comp.SubPaneName)
-                        ? paneName
-                        : $"{paneName}/{comp.SubPaneName}";
+                    string rangeKey = paneName;
 
                     // Not on the chart, or not at a position on this axis (see condition (4) above).
                     foreach (var data in DrawnArrays(s, comp))
@@ -273,11 +270,8 @@ namespace AccessibleTrader.Core.Services
                 string key = kvp.Key;
                 var (rMin, rMax, hasData) = kvp.Value;
 
-                bool isSubPane = key.IndexOf('/') >= 0;
-                string basePaneName = isSubPane ? key.Substring(0, key.IndexOf('/')) : key;
-
-                // Bounds apply to the pane's main area; a sub-pane strip is its own axis.
-                var bounds = isSubPane ? null : BoundsFor(basePaneName, declaredBounds);
+                string basePaneName = key;
+                var bounds = BoundsFor(basePaneName, declaredBounds);
 
                 if (!hasData)
                 {
@@ -298,13 +292,12 @@ namespace AccessibleTrader.Core.Services
                 {
                     double originalMin = rMin;
                     double pRange = rMax - rMin;
-                    // Sub-panes get a slightly larger buffer so the fill doesn't touch the strip edge.
-                    double bufferPct = isSubPane ? 0.15 : 0.10;
+                    double bufferPct = 0.10;
                     if (pRange < 0.000001) { rMin -= 1.0; rMax += 1.0; }
                     else { rMin -= pRange * bufferPct; rMax += pRange * bufferPct; }
                     // A DECLARED floor wins: the indicator said where its axis bottoms out and
                     // that answer does not depend on what is in the window.
-                    if (!isSubPane && declaredFloors.TryGetValue(basePaneName, out double declaredFloor))
+                    if (declaredFloors.TryGetValue(basePaneName, out double declaredFloor))
                     {
                         if (rMin < declaredFloor) rMin = declaredFloor;
                     }
@@ -353,19 +346,14 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>
         /// The range an indicator pane has before it has any data: its implicit bounds if it has
-        /// any (Cipher B ±100), else 0–100, the bounded-oscillator convention. A sub-pane key
-        /// ("Pane_CIPHER_B/MF") takes the plain default.
+        /// any (Cipher B ±100), else 0–100, the bounded-oscillator convention.
         /// </summary>
-        public static (double Min, double Max) EmptyPaneRange(string rangeKey)
-        {
-            int slash = rangeKey.IndexOf('/');
-            string basePane = slash >= 0 ? rangeKey.Substring(0, slash) : rangeKey;
-            return (slash < 0 ? ImplicitBounds(basePane) : null) ?? (0.0, 100.0);
-        }
+        public static (double Min, double Max) EmptyPaneRange(string paneKey)
+            => ImplicitBounds(paneKey) ?? (0.0, 100.0);
 
         /// <summary>
         /// <b>The range a component is normalised against</b> — pitch in navigation and playback
-        /// both read it. The sub-pane's range when the component lives in one, else the pane's.
+        /// both read it. The pane's range.
         ///
         /// <para>
         /// <b>When the key is missing</b>, the answer depends on WHICH pane is missing. The Main
@@ -391,16 +379,14 @@ namespace AccessibleTrader.Core.Services
         public static (double Min, double Max) RangeFor(
             IReadOnlyDictionary<string, (double Min, double Max)>? paneRanges,
             string? pane,
-            string? subPane,
             (double Min, double Max) viewportRange)
         {
             string paneKey = string.IsNullOrEmpty(pane) ? "Main" : pane!;
-            string rangeKey = string.IsNullOrEmpty(subPane) ? paneKey : $"{paneKey}/{subPane}";
+            string rangeKey = paneKey;
 
             if (paneRanges != null)
             {
                 if (paneRanges.TryGetValue(rangeKey, out var r)) return r;
-                if (paneRanges.TryGetValue(paneKey, out var pr)) return pr;
             }
 
             return paneKey.Equals("Main", StringComparison.OrdinalIgnoreCase)

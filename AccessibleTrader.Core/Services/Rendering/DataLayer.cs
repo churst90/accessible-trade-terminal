@@ -22,9 +22,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // ── Pre-scan: detect any active CandleColor overlay so candle rendering can apply
             //             per-bar sentiment phase colors and suppress wicks.
-            //             Only applies in the main-pane pass (SubPaneFilter == null).
             double[]? candlePhaseData = null;
-            if (ctx.SubPaneFilter == null)
             {
                 foreach (var os in seriesList)
                 {
@@ -44,8 +42,6 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // ── Pass 0: BACKGROUND FILLS — zone bands and cloud fills rendered first so they
             //            always sit behind candles and all other indicator components.
-            // Sub-pane pass skips these (they are main-area-only).
-            if (ctx.SubPaneFilter == null)
             {
                 foreach (var s in seriesList)
                 {
@@ -95,12 +91,6 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // Heard, not painted (ComponentConfig.IsDrawn): its data, speech and narration
                     // stay; the chart draws nothing for it.
                     if (!comp.IsDrawn) continue;
-
-                    // Sub-pane filter: null = main-area pass (skip sub-pane components);
-                    //                  string = sub-pane pass (skip components not in that strip).
-                    bool isSubPaneComp = !string.IsNullOrEmpty(comp.SubPaneName);
-                    if (ctx.SubPaneFilter == null && isSubPaneComp) continue;
-                    if (ctx.SubPaneFilter != null && comp.SubPaneName != ctx.SubPaneFilter) continue;
 
                     using var paint = _stylingService.GetPaint(comp, ctx.Density);
 
@@ -198,9 +188,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     }
                 }
 
-                // 3. LEVELS — main-area-only (no sub-pane pass renders them).
-                // Cloud fills and zone bands are already rendered in Pass 0 above.
-                if (ctx.SubPaneFilter != null) continue;
+                // 3. LEVELS. Cloud fills and zone bands are already rendered in Pass 0 above.
 
                 foreach (var lvl in s.Levels)
                 {

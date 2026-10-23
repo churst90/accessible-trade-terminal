@@ -374,13 +374,11 @@ namespace AccessibleTrader.BlazorClient.Services
             // no price at all. Over the x-axis strip there is no value; the bar still is.
             //
             // On the part of the pane the value is drawn in (Cody, 2026-10-17): its PLOT, which
-            // starts below its status band, and — when the pane has sub-pane strips (Loukas
-            // Cycles' FY, removed 2026-10-22, was the one built-in user) — the area above them on the pane's range, or a strip on the strip's
-            // own range. The strip used to be read on the pane's range stretched over both.
+            // starts below its status band.
             double value = double.NaN;
-            if (ChartMath.PlotAreaAtPx(y, height, dividers, axisH, _paneLayout?.StatusBands, _paneLayout?.SubPaneStrips) is { } area)
+            if (ChartMath.PlotAreaAtPx(y, height, dividers, axisH, _paneLayout?.StatusBands) is { } area)
             {
-                var (min, max, isLog) = ChartMath.RangeFor(state, area.Pane, area.SubPane);
+                var (min, max, isLog) = ChartMath.RangeFor(state, area.Pane);
                 value = ChartMath.MapYToPrice(y - area.Top, area.Bottom - area.Top, min, max, isLog);
             }
 
