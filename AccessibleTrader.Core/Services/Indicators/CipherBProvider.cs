@@ -9,7 +9,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <summary>
     /// Accessible Cipher B — a native C# replica of Market Cipher B (MCB), fitted on 2026-10-17 to
     /// five dated MCB screenshots (the strongest a TradingView chart whose status line reads
-    /// "MarketCipher B (2.2.6, …)"); the per-element evidence is in the comments below.
+    /// "MarketCipher B (2.2.6, …)") and on 2026-10-23 checked against MCB 2.4.0's own plotted
+    /// values (BTCUSD 1D, 5,513 bars): waves, VWAP, both 0–100 lines and every dot exact, the money
+    /// flow not (correlation 0.97). The per-element evidence is in the comments below.
     ///
     /// <para><b>What MCB draws, and is shown by default:</b> the fast and slow WaveTrend waves (light-
     /// and dark-blue areas), MCB's "VWAP" (our WT Histogram, WT1 − WT2, one yellow area), the money
@@ -334,8 +336,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // drawn in the money-flow bar. Was blue (#0BBCF5) on the wave until 2026-10-17;
                     // see BuyDotMode for the rule.
                     // Spoken "Buy dot, waves crossed up from oversold" (was "Oversold crossover, long
-                    // signal"): true of both rules — MCB's fires on a cross up with the slow wave at or
-                    // below −BuyDotLevel (−60), Gated on a cross up with the fast wave below the OS
+                    // signal"): true of both rules — MCB's fires on a cross up with the fast wave below
+                    // −BuyDotLevel (−60), Gated on a cross up with the fast wave below the OS
                     // threshold for ConfirmBars bars.
                     new() { Name = CompBlue,          DisplayName = DisplayBuyDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
                             DefaultColorHex = "#3FFF00", DefaultThickness = 5.0f,
@@ -516,9 +518,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
                             Description = "MCB = 180 x average Heikin-Ashi body/range over Money Flow Period bars (fitted to Market Cipher B). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
                     new() { Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
-                            Description = "MCB = a green dot on every cross up with the slow wave at or below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17." },
+                            Description = "MCB = a green dot on every cross up with the fast wave below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
-                            Description = "MCB buy-dot depth: the slow wave must be at or below minus this at the cross. 60 = MCB 2.2.6." },
+                            Description = "MCB buy-dot depth: the fast wave must be below minus this at the cross. 60 = Market Cipher B's default." },
                     new() { Name = "OBLevel",        DisplayName = "OB/OS Threshold",        DefaultValue = 53.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "Fixed-mode OB/OS level for the gated dots and divergences. In Percentile mode it is used only until the rolling window has warmed up." },
                     // Signal logic
@@ -722,18 +724,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // On a Heikin-Ashi chart Market Cipher B reads Heikin-Ashi candles, as every
-            // TradingView indicator does, with one exception. Measured 2026-10-22 against the two
-            // digitised Heikin-Ashi MCB screenshots (BTCUSD 1D Bitstamp, S2 and S4):
-            //   waves, VWAP and dots on Heikin-Ashi: every big green dot and 47 of 51 / 47 of 56
-            //     cross dots on MCB's exact bar (raw bars: 3 of 8 big green dots);
-            //   money flow built from Heikin-Ashi candles OF the Heikin-Ashi candles (the script
-            //     builds its own, from whatever candles it is handed): RMSE 4.6 / 4.8 points with
-            //     the existing multiplier, against 6.2 / 6.5 built from the real bars;
-            //   the "RSI" and "Stochastic" lines on the REAL bars: RMSE 2.1 / 1.2 points, against
-            //     3.5 / 1.9 on Heikin-Ashi, and no length refit closes the gap (best 3.45 / 1.87).
-            // So this provider is handed the raw bars (IComputesHeikinAshiItself), keeps them for
-            // the two lines, and gives everything else — the money flow included — Heikin-Ashi.
-            double[] lineHigh = high, lineLow = low, lineHlc3 = hlc3;
+            // TradingView indicator does. Read from MCB 2.4.0's own plotted values on BTCUSD 1D
+            // Bitstamp, 5,513 bars, once on a Heikin-Ashi chart and once on candles (2026-10-23):
+            // the waves, VWAP and both 0–100 lines equal these formulas on the chart's candles to
+            // the five decimals TradingView prints. (The 2026-10-22 screenshot digitising had the
+            // two lines on the real bars; the exact values say otherwise.) The money flow builds
+            // its own Heikin-Ashi from the candles it is handed, so on a Heikin-Ashi chart it is
+            // Heikin-Ashi of Heikin-Ashi — the nearer fit there (RMSE 4.8 against 5.0), not exact.
+            // So this provider is handed the raw bars (IComputesHeikinAshiItself) and turns them
+            // into Heikin-Ashi itself when the chart shows Heikin-Ashi.
             if (IndicatorCandles.IsHeikinAshi(parameters))
             {
                 var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
@@ -842,16 +841,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // ── MCB "RSI" and "Stochastic" lines (drawn, muted by default) ──────────────────
-            // Market Cipher B draws two 0–100 lines in the wave pane: a thin magenta one its guide
-            // calls "RSI" ("a modified, smoothed stochastic-style oscillator") and a thicker one
-            // coloured green/red it calls "Stochastics". Digitised from the "MarketCipher B
-            // (2.2.6, …)" chart and searched against RSI, MFI, Stoch RSI and stochastics of 5–200
-            // bars: the magenta line is a 40-bar stochastic of hlc3 smoothed by SMA3 (RMSE 2.1
-            // points over 309 bars) and the red/green one an 80-bar stochastic smoothed by SMA3
-            // (RMSE 1.2 over 397 bars). Neither is an RSI — the best true RSI was off by 12 points.
-            // Both read the real bars, even on a Heikin-Ashi chart (see the source series above).
-            var mcbRsi   = WaveTrendMath.SmoothedStochastic(lineHlc3, lineHigh, lineLow, McbRsiLength, McbLineSmoothing);
-            var mcbStoch = WaveTrendMath.SmoothedStochastic(lineHlc3, lineHigh, lineLow, McbStochLength, McbLineSmoothing);
+            // Market Cipher B draws two 0–100 lines in the wave pane: a thin magenta one it titles
+            // "RSI" and a thicker green/red one titled "Sto RSI". Neither is an RSI. Searched
+            // against MCB 2.4.0's plotted values (BTCUSD 1D, 5,513 bars, candle and Heikin-Ashi
+            // charts) over stochastics, RSIs and smoothings of 2–100 bars on four sources: "RSI" is
+            // a 40-bar stochastic of the CLOSE smoothed by SMA2 and "Sto RSI" an 81-bar one, also
+            // SMA2, both exact (RMSE 0.000003); the next best were 1.3 and 0.7 points off. Before
+            // 2026-10-23 these were fitted to a digitised screenshot: hlc3, 40/80 bars, SMA3.
+            var mcbRsi   = WaveTrendMath.SmoothedStochastic(close, high, low, McbRsiLength, McbLineSmoothing);
+            var mcbStoch = WaveTrendMath.SmoothedStochastic(close, high, low, McbStochLength, McbLineSmoothing);
 
             // ── Adaptive OB/OS ───────────────────────────────────────────────
             // In Fixed mode, emit constant ±obLevel lines. In Percentile mode,
@@ -902,20 +900,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i]) ||
                     double.IsNaN(wt1[i - 1]) || double.IsNaN(wt2[i - 1])) continue;
 
-                bool crossUp   = wt1[i - 1] < wt2[i - 1] && wt1[i] >= wt2[i];
-                bool crossDown = wt1[i - 1] > wt2[i - 1] && wt1[i] <= wt2[i];
+                // Pine's crossover/crossunder, as MCB's cross dots fire: 524 of 524 each on BTCUSD 1D.
+                bool crossUp   = WaveTrendMath.CrossedOver(wt1, wt2, i);
+                bool crossDown = WaveTrendMath.CrossedUnder(wt1, wt2, i);
 
                 // ON the slow wave, as MCB draws its cross dots (they sat 3 points off it).
                 if (crossUp)   crossBullSignal[i] = wt2[i];
                 if (crossDown) crossBearSignal[i] = wt2[i];
 
-                // MCB's big green buy dot: a cross up with the slow wave at or below −BuyDotLevel,
-                // nothing else — no confirmation bars, no cooldown, no anchor gate. Drawn in the
-                // money-flow bar along the bottom of the pane, where MCB draws it. Every big green
-                // dot in three dated MCB screenshots (11 dots) sits on such a cross, and the rule
-                // fires on no other bar of those charts but one (S2 2022-05-13, where MCB's own
-                // cross dot covers that spot). At −53 it fired on 11 extra crosses (−46..−57).
-                if (crossUp && wt2[i] <= -buyDotLevel) mcbBuy[i] = McbBuyDotY;
+                // MCB's big green buy dot: a cross up with the FAST wave below −BuyDotLevel (MCB's
+                // OS input, −60), nothing else — no confirmation bars, no cooldown, no anchor gate.
+                // Drawn in the money-flow bar along the bottom of the pane, where MCB draws it.
+                // Against MCB 2.4.0's own "Green Dot" column on BTCUSD 1D: 64 of 64 dots on candles
+                // and 68 of 68 on Heikin-Ashi, no extra. Testing the slow wave instead (this
+                // indicator before 2026-10-23, from screenshots) adds 10 and 7 dots that MCB never drew.
+                if (crossUp && wt1[i] < -buyDotLevel) mcbBuy[i] = McbBuyDotY;
 
                 double obHere = adaptiveOb[i];
                 double osHere = adaptiveOs[i];
@@ -1432,9 +1431,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // ── Constants ─────────────────────────────────────────────────────────
 
-        /// <summary>The 0–100 lines' stochastic windows, fitted to MCB 2.2.6 (see their call site):
-        /// "RSI" 40 bars, "Stochastic" 80, each smoothed by <see cref="McbLineSmoothing"/>.</summary>
-        private const int McbRsiLength = 40, McbStochLength = 80, McbLineSmoothing = 3;
+        /// <summary>The 0–100 lines' stochastic windows, read from MCB 2.4.0's values (see their call
+        /// site): "RSI" 40 bars, "Stochastic" 81, each smoothed by <see cref="McbLineSmoothing"/>.</summary>
+        internal const int McbRsiLength = 40, McbStochLength = 81, McbLineSmoothing = 2;
 
         /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−92..−100).</summary>
         internal const double McbBuyDotY = -96.0;

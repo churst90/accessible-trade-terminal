@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B checked against Market Cipher B's own values: the two 0–100 lines and the Buy dot corrected (2026-10-23)
+
+- **Read from the original's plotted values, not screenshots.** With Cody's Market Cipher membership,
+  Market Cipher B 2.4.0's data-window values were read from TradingView on Bitstamp BTCUSD daily,
+  5,513 bars, once on a Heikin-Ashi chart and once on candles. Compared against Cipher B's formulas:
+  - The waves, the yellow "VWAP" (fast minus slow) and the small cross dots were already exact
+    (524 of 524 crosses each way).
+  - **The "RSI" and "Stochastic" lines were wrong.** They are stochastics of the **close**, not of
+    hlc3. The lengths are **40 and 81** bars, not 40 and 80, and they are smoothed over **2** bars,
+    not 3 (`McbRsiLength`, `McbStochLength`, `McbLineSmoothing`). Now exact (RMSE 0.000003 against
+    the next-best forms' 1.3 and 0.7 points).
+  - **On a Heikin-Ashi chart the lines now read the Heikin-Ashi candles,** as the waves do. The
+    2026-10-22 screenshot digitising had put them on the real bars, and the exact values say otherwise.
+  - **The Buy dot tests the fast wave.** It is every cross up with the fast wave below −60. The
+    slow wave was the old test. Now 64 of 64 Market Cipher B Buy dots on candles and 68 of 68 on
+    Heikin-Ashi, none extra. The slow-wave rule drew 10 and 7 dots the original never drew. The
+    crosses now use Pine's crossover and crossunder exactly.
+- **The money flow is still not exact.** It is near a 60-bar average of each Heikin-Ashi candle's
+  body over its range (Heikin-Ashi of Heikin-Ashi on a Heikin-Ashi chart). Against the original:
+  correlation 0.97, same side of zero on 92% of bars. The multiplier is unchanged. Lower-timeframe
+  sourcing and other forms are not yet tried.
+- **Research moves with it.** The StrategyLab setup grader reads the Buy dot (`CompBlue`), so a re-run
+  of the Buy-dot studies would see slightly different dots. They were not re-run; their "no edge"
+  verdicts stand on the old dots.
+- Tests: `CipherBMcbFormulaTests` restates the Buy dot (with a check that the slow-wave rule really
+  differs) and the lines' stochastic independently. `HeikinAshiIndicatorCandlesTests` expects the
+  lines on Heikin-Ashi candles. `CipherBWaveTrendParityTests` re-pinned the RSI and Stochastic
+  fingerprints only. Five sabotages each went red: the Buy dot back on the slow wave, the lines on
+  hlc3, 80 bars, 3-bar smoothing, and the lines on the real bars under Heikin-Ashi. Not seen or
+  heard in the app.
+
 ### Cipher C picks its weekly lows from its daily lows, as the original does (2026-10-23)
 
 - **On a daily chart the weekly tier no longer finds its own lows.** `CipherCEngine.WeeklyFromDaily`

@@ -691,9 +691,8 @@ MACD, a moving average, Cipher A, B and C, Cipher DBSI and your own compiled ind
 Heikin-Ashi open, high, low and close; the volume is unchanged. Switching HA on or off
 recomputes every indicator on the whole history. So an indicator reading on an HA chart is a
 reading of the smoothed candles, and a level it announces is a smoothed level, not a price
-anything traded at. A few indicators know what they read on an HA chart: Market Cipher B's
-"RSI" and "Stochastic" lines read the real bars and its money flow builds its own Heikin-Ashi
-from the chart's candles (both measured against Market Cipher B's own screenshots), and Cipher
+anything traded at. A few indicators know what they read on an HA chart: Cipher B's money flow
+builds its own Heikin-Ashi from the chart's candles, as Market Cipher B's does, and Cipher
 DBSI never applies Heikin-Ashi twice, whatever its own setting says.
 
 The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
@@ -1399,14 +1398,16 @@ dark-blue slow wave in front of it, a yellow "VWAP" area (the fast wave minus th
 the money flow as a green area above zero and red below over that, and along the bottom a
 money-flow bar, green while money flows in and dark red while it flows out. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
-every upward cross of the waves with the slow wave at −60 or lower; narration says "Buy dot, waves
+every upward cross of the waves with the fast wave below −60; narration says "Buy dot, waves
 crossed up from oversold".
 
 There is **no gold dot**. Cipher B had one until 22 October 2026, but Market Cipher B draws none —
 it came from the free VuManChu Cipher B — so it was removed. A chart saved with it opens without it,
 and a strategy or alert built on it says it was removed and points to the Buy dot.
 
-A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale (drawn in
+A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale. Despite
+the names they are stochastics of the close, over 40 and 81 candles, smoothed over 2, as Market
+Cipher B draws them (drawn in
 the top half of the pane, as Market Cipher draws them); they are the last two stops when you arrow
 through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20, click
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration

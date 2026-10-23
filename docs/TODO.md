@@ -59,6 +59,11 @@
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
 >   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
 >   Left open:
+>   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
+>     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
+>     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the
+>     original's. Still open: the money flow (correlation 0.97, same side of zero 92%), and the
+>     divergences, which are not measured.
 >   - **Cipher DBSI refitted on all twenty charts (2026-10-23, built, NOT seen; see CHANGES).** Each vote
 >     now has its own points, a long streak counts against the score and a stretched stochastic for it.
 >     Held out one chart at a time: within ±1 35% → 42%, error 3.72 → 3.40; closer than the old numbers

@@ -215,11 +215,11 @@ public sealed class HeikinAshiIndicatorCandlesTests
     }
 
     /// <summary>
-    /// Measured against the Market Cipher B screenshots on a Heikin-Ashi BTCUSD daily chart
-    /// (2026-10-22): the waves read Heikin-Ashi; the money flow builds Heikin-Ashi from the
-    /// chart's candles, so on a Heikin-Ashi chart it is Heikin-Ashi of Heikin-Ashi (RMSE 4.6/4.8
-    /// against 6.2/6.5 for Heikin-Ashi of the real bars); the "RSI" and "Stochastic" lines read
-    /// the real bars (2.1/1.2 against 3.5/1.9 on Heikin-Ashi).
+    /// Read from Market Cipher B 2.4.0's own plotted values on a Heikin-Ashi BTCUSD daily chart
+    /// (2026-10-23, 5,513 bars): the waves and the "RSI" and "Stochastic" lines read the
+    /// Heikin-Ashi candles, exactly; the money flow builds Heikin-Ashi from the chart's candles, so
+    /// on a Heikin-Ashi chart it is Heikin-Ashi of Heikin-Ashi (the nearer fit, RMSE 4.8 against
+    /// 5.0; not exact). The 2026-10-22 screenshot digitising had put the two lines on the real bars.
     /// </summary>
     [Fact]
     public void Cipher_B_on_a_Heikin_Ashi_chart_reads_what_Market_Cipher_B_reads()
@@ -233,14 +233,14 @@ public sealed class HeikinAshiIndicatorCandlesTests
         Assert.Equal(wavesOnHa[CipherBProvider.CompWT1], onChart[CipherBProvider.CompWT1]);
         Assert.Equal(wavesOnHa[CipherBProvider.CompWT2], onChart[CipherBProvider.CompWT2]);
         Assert.Equal(wavesOnHa[CipherBProvider.CompMoneyFlowWave], onChart[CipherBProvider.CompMoneyFlowWave]);
-        Assert.Equal(onRaw[CipherBProvider.CompMcbRsi], onChart[CipherBProvider.CompMcbRsi]);
-        Assert.Equal(onRaw[CipherBProvider.CompMcbStoch], onChart[CipherBProvider.CompMcbStoch]);
+        Assert.Equal(wavesOnHa[CipherBProvider.CompMcbRsi], onChart[CipherBProvider.CompMcbRsi]);
+        Assert.Equal(wavesOnHa[CipherBProvider.CompMcbStoch], onChart[CipherBProvider.CompMcbStoch]);
 
         // Each comparison can fail: the candle types give different values for every one.
         Assert.NotEqual(onRaw[CipherBProvider.CompWT1], onChart[CipherBProvider.CompWT1]);
         Assert.NotEqual(onRaw[CipherBProvider.CompMoneyFlowWave], onChart[CipherBProvider.CompMoneyFlowWave]);
-        Assert.NotEqual(wavesOnHa[CipherBProvider.CompMcbRsi], onChart[CipherBProvider.CompMcbRsi]);
-        Assert.NotEqual(wavesOnHa[CipherBProvider.CompMcbStoch], onChart[CipherBProvider.CompMcbStoch]);
+        Assert.NotEqual(onRaw[CipherBProvider.CompMcbRsi], onChart[CipherBProvider.CompMcbRsi]);
+        Assert.NotEqual(onRaw[CipherBProvider.CompMcbStoch], onChart[CipherBProvider.CompMcbStoch]);
     }
 
     // ── DBSI: its own switch, never applied twice ─────────────────────────────

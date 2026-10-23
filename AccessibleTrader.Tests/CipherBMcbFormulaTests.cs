@@ -4,7 +4,8 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// <b>Cipher B's numbers, fitted to real Market Cipher B (2026-10-17).</b>
+/// <b>Cipher B's numbers, fitted to real Market Cipher B (2026-10-17; lines and buy dot re-read
+/// from MCB 2.4.0's own plotted values 2026-10-23).</b>
 ///
 /// <para>Four dated TradingView screenshots were digitised (BTCUSD 1D Bitstamp Heikin-Ashi ×2,
 /// BTCUSDT 1D Binance, BTCUSDT 30m Binance) and our maths searched against them; the fits are in
@@ -65,30 +66,34 @@ public sealed class CipherBMcbFormulaTests
     // ── The green buy dot ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// MCB's big green dot: every cross up with the slow wave at or below −60, and nothing else —
-    /// no confirmation, no cooldown, no anchor gate — drawn in the money-flow bar. Eleven of eleven
-    /// MCB green dots sit on such a cross; our gated rule matched three. BuyDotMode = Gated keeps
-    /// the old rule.
+    /// MCB's big green dot: every cross up (Pine's crossover) with the FAST wave below −60, and
+    /// nothing else — no confirmation, no cooldown, no anchor gate — drawn in the money-flow bar.
+    /// Read from MCB 2.4.0's own "Green Dot" column on BTCUSD 1D (2026-10-23): 64 of 64 on candles,
+    /// 68 of 68 on Heikin-Ashi, no extra; the slow-wave test used before added 10 and 7.
+    /// BuyDotMode = Gated keeps the older gated rule.
     /// </summary>
     [Fact]
-    public void The_buy_dot_is_every_cross_up_at_or_below_minus_60()
+    public void The_buy_dot_is_every_cross_up_with_the_fast_wave_below_minus_60()
     {
-        int total = 0;
+        int total = 0, slowRuleDiffers = 0;
         foreach (int flavour in CausalityProbeSeries.HourlyFlavours)
         {
             var bars = CausalityProbeSeries.Bars(flavour, 1400);
             var mcb = Run(bars); var gated = Run(bars, ("BuyDotMode", "Gated"));
             var fast = mcb[CipherBProvider.CompWT1]; var slow = mcb[CipherBProvider.CompWT2];
-            var expected = Enumerable.Range(1, bars.Count - 1).Where(i =>
+            List<int> Crosses(Func<int, bool> deep) => Enumerable.Range(1, bars.Count - 1).Where(i =>
                 !double.IsNaN(fast[i - 1]) && !double.IsNaN(slow[i - 1]) && !double.IsNaN(fast[i]) && !double.IsNaN(slow[i])
-                && fast[i - 1] < slow[i - 1] && fast[i] >= slow[i] && slow[i] <= -60).ToList();
+                && fast[i - 1] <= slow[i - 1] && fast[i] > slow[i] && deep(i)).ToList();
+            var expected = Crosses(i => fast[i] < -60);
             var dots = Fired(mcb[CipherBProvider.CompBlue]);
             Assert.Equal(expected, dots);
             Assert.All(dots, i => Assert.Equal(CipherBProvider.McbBuyDotY, mcb[CipherBProvider.CompBlue][i]));
             Assert.NotEqual(Fired(gated[CipherBProvider.CompBlue]), dots);
+            if (!Crosses(i => slow[i] <= -60).SequenceEqual(expected)) slowRuleDiffers++;
             total += dots.Count;
         }
         Assert.True(total > 0, "no MCB buy dot fired on any probe series — nothing was tested");
+        Assert.True(slowRuleDiffers > 0, "the slow-wave rule fires on the same bars on every probe series — the test cannot tell them apart");
     }
 
     // ── Money flow ────────────────────────────────────────────────────────────────
@@ -160,24 +165,33 @@ public sealed class CipherBMcbFormulaTests
     // ── The two stochastic lines ──────────────────────────────────────────────────
 
     /// <summary>
-    /// MCB's magenta "RSI" is a 40-bar stochastic and its green/red "Stochastic" an 80-bar one, both
-    /// smoothed over 3 (RMSE 2.1 and 1.2 points against the digitised lines). A price spike 60 bars
-    /// back is outside the first's window and inside the second's; both stay within 0–100.
+    /// MCB's magenta "RSI" is a 40-bar stochastic of the CLOSE and its green/red "Sto RSI" an
+    /// 81-bar one, both smoothed by SMA 2 — exact against MCB 2.4.0's plotted values on BTCUSD 1D
+    /// (5,513 bars, RMSE 0.000003; hlc3, 80 bars or SMA 3 are 0.7–2.4 points off). Restated here
+    /// from the definition, on candles whose close sits away from hlc3 so each choice shows.
     /// </summary>
     [Fact]
-    public void The_rsi_line_looks_back_40_bars_and_the_stochastic_80()
+    public void The_two_lines_are_40_and_81_bar_stochastics_of_the_close_smoothed_over_2()
     {
         var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        List<Ohlcv> Series(bool spike) => Enumerable.Range(0, 200).Select(i =>
+        var bars = Enumerable.Range(0, 300).Select(i =>
         {
-            double p = 100 + 5 * Math.Sin(i / 6.0);
-            double hi = p + 1 + (spike && i == 140 ? 50 : 0);
-            return new Ohlcv(start.AddDays(i), p, hi, p - 1, p, 1000);
+            double p = 100 + 8 * Math.Sin(i / 7.0) + 3 * Math.Sin(i / 2.3);
+            return new Ohlcv(start.AddDays(i), p - 0.5, p + 1.5 + (i % 5), p - 1.2 - (i % 3), p + 0.7 * Math.Cos(i), 1000);
         }).ToList();
-        var plain = Run(Series(false)); var spiked = Run(Series(true));
-        Assert.Equal(plain[CipherBProvider.CompMcbRsi][199], spiked[CipherBProvider.CompMcbRsi][199], 9);
-        Assert.NotEqual(plain[CipherBProvider.CompMcbStoch][199], spiked[CipherBProvider.CompMcbStoch][199]);
+        double Stoch(int i, int n)
+        {
+            double hh = double.MinValue, ll = double.MaxValue;
+            for (int j = i - n + 1; j <= i; j++) { hh = Math.Max(hh, bars[j].High); ll = Math.Min(ll, bars[j].Low); }
+            return 100 * (bars[i].Close - ll) / (hh - ll);
+        }
+        var r = Run(bars);
+        for (int i = 100; i < 300; i++)
+        {
+            Assert.Equal((Stoch(i, 40) + Stoch(i - 1, 40)) / 2, r[CipherBProvider.CompMcbRsi][i], 9);
+            Assert.Equal((Stoch(i, 81) + Stoch(i - 1, 81)) / 2, r[CipherBProvider.CompMcbStoch][i], 9);
+        }
         foreach (var name in new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch })
-            Assert.All(plain[name].Where(v => !double.IsNaN(v)), v => Assert.InRange(v, 0.0, 100.0));
+            Assert.All(r[name].Where(v => !double.IsNaN(v)), v => Assert.InRange(v, 0.0, 100.0));
     }
 }
