@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C backtested: buying the confirmed daily low (2026-10-22, research, no code change)
+
+Asked by Cody: buy at the confirmed cycle low, sell at the top, split by translation. Full write-up in
+`docs/CIPHER_C_DESIGN.md` section 8; scripts in `strategy-lab-data/cipher-c-backtest-2026-10-22/`.
+
+- **The confirmations are causal.** A bar-by-bar replay puts every confirmation, cancellation and
+  failure on the same bar as the full-history run on BTC, ETH, SPY, QQQ, DIA and GLD.
+- **Selling at the exact top** (hindsight) makes BTC +38% a trade, ETH +10%, the stock ETFs and gold
+  +3–5%. But the top has often already passed when the low is confirmed: ETH 67 of 145 cycles.
+- **Real exits are not an edge.** Against random entries with the same exit and stop, they range from
+  worse than random (QQQ, ETH) to slightly better (DIA, SPY), a fraction of a percent a trade.
+- **The previous cycle's translation held out of sample on stocks.** The cycle after a left-translated
+  one beat the cycle after a right-translated one by about 2 points a trade in 12 of 13 (window exit)
+  and 13 of 13 (20 bars) stock ETFs that were not looked at first. Part of it is that those lows fell
+  further; within equal falls, about 0.75–2 points remain. Not on crypto. The ETFs share their years,
+  and nothing has been walked forward.
+- **Found on the way:** on XAU (twelvedata), whose file has stray weekend bars, the replay agrees on only
+  42 of 150 confirmations. One weekend bar flips Cipher C's bar clock to "trades every day" and rescales
+  every cycle. Not fixed (TODO).
+
 ### Cipher B's money flow strokes its edge as Market Cipher B does; Cipher B's dots, VWAP and "RSI" re-measured; Loukas Cycle Detection removed (2026-10-22)
 
 Cody: "please go out and see if you can tackle those items regarding cipher b, the vwap, missing dots,
@@ -35,10 +55,16 @@ been seen or heard in the app.
     are not dots: 2022-06-05 and 2022-06-12 are false detections (the real dots are on 06-03 and 06-09,
     where ours are) and 2021-07-09 is a fragment at the left edge of the picture.
   - S2 green: 36 found, 32 on the exact bar and 4 one bar early.
-  - **Not explained:** we draw a few dots the digitiser did not find: S2 red 2021-10-10 and 2022-05-05,
-    S2 green 2021-10-11, 10-15 and 11-29, S4 red 2021-12-14, S4 green 2021-10-11 and 10-15. Each is a
-    wave cross by less than 1 point. Either Market Cipher B hides a cross that small or the dot is lost
-    under the other marks in the picture; not settled.
+  - **The dots we draw that the digitiser did not find are Market Cipher B's too** (checked the same
+    day): S2 red 2021-10-10 and 2022-05-05, S2 green 2021-10-11, 10-15 and 11-29, S4 red 2021-12-14,
+    S4 green 2021-10-11 and 10-15. Cropped at each date (the axis ticks land on the date lines), MCB
+    draws a dot on every one; they sit on the wave crest and the dotted level, where the digitiser
+    lost them. Two of them were already inconsistent between screenshots of the same bars (12-14 found
+    on S2, missed on S4; 10-10 the reverse). An earlier line here called them crosses under 1 point:
+    wrong, they are 1.46 to 8.87 points apart.
+  - **No threshold to tune.** Asked to try one: the smallest cross Market Cipher B does draw
+    (1.15 points apart after the cross) is smaller than every one of these, so any threshold that
+    dropped them would drop real dots too. The cross rule is unchanged.
   - The earlier entry's "the four S2 cross-downs missing are missing on raw too" was wrong and is
     struck through.
 - **VWAP was already right.** The r 0.78/0.82 reported earlier came from a digitiser that picked up the

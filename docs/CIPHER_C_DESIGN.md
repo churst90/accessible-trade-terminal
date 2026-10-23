@@ -126,10 +126,13 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
   (`docs/CYCLE_SCHOOL_FINDINGS.md`). CF's own SPX counts fall inside its stated 36–44 day window only
   5 times in 23 (22%), counting trading days: 22–64, median 43, and 17 of 23 within 30–50. Counted
   in calendar days, 1 in 23. The indicator follows the method; it does not prove it.
+  Buying the confirmed daily low (section 8) is not a dependable edge either; the one thing that held
+  out of sample is that, on stock ETFs, the cycle after a left-translated one does better.
 - **The lows are drawn on their own bar and known only later**, as CF's are. They are declared
   look-ahead, so no strategy can use them. The events (Confirmed, Cancelled, Failed, Pending, the
   Timing Windows and the confirmations' companions) are decided on their own bar; a test checks that cutting the history
-  short never changes them.
+  short never changes them, and a bar-by-bar replay of six assets agrees (section 8). Except: one
+  weekend bar on a weekday chart (XAU's data has them) changes the clock and redraws the cycles.
 - **Seven of sixteen presets are estimated:** NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. The five
   newly read stock/miner tables and the updated gold table are now marked as CF's own; the stock
   daily-values-as-trading-days reading is an inference from the TradingView charts.
@@ -164,3 +167,46 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
 
 `docs/CYCLE_LOW_INDICATOR_DESIGN.md` is a different design (a capitulation score, no windows) written
 for the pre-registered cycle-school test. It is not what Cipher C does.
+
+## 8. Backtest: buy the confirmed daily low (2026-10-22)
+
+Cody: *"run backtests on cipher c now where we buy at the confirmed cycle low and sold at the peak
+left, center or right translated and see how that does."* Run on the shipped `CipherCProvider.Compute`
+over the lab's daily files (scripts and the throwaway dump harness:
+`strategy-lab-data/cipher-c-backtest-2026-10-22/`). Buy at the next open after **DCL Confirmed**, one
+position at a time, 0.1% a side. Every causal exit also stops out on a close under the confirmed low.
+
+**The confirmations are causal.** Replayed bar by bar (each bar computed from the bars up to it), every
+confirmation, cancellation and failure lands on the same bar as in the full-history run on BTC, ETH,
+SPY, QQQ, DIA and GLD. Not on XAU (twelvedata): 42 of 150 match, because that file has 135 stray
+weekend bars since October 2024 and one weekend bar in the last 500 flips `MeasureBars` to "trades
+every day", which rescales every cycle (TODO).
+
+**Selling at the top (oracle, look-ahead).** Mean per trade: BTC +38%, ETH +10%, QQQ +5.5%, SPY +3.7%,
+DIA +3.5%, GLD +3.3%, winning 83–98% of the time. Right-translated cycles make the most (BTC +45%,
+SPY +4.2%) and left the least (BTC +16%, SPY +2.4%), but that is the definition of a right-translated
+cycle, not a finding. The top is not reachable: on ETH it had already passed when the low was
+confirmed in 67 of 145 cycles, GLD 51 of 225, BTC 22 of 95. Confirmation comes a median 5–12 bars
+after the low (BTC 12, p90 56).
+
+**Causal exits** (sell on a close under the 10 SMA; when the next low's window opens; after 10, 20 or 40
+bars), against random entry bars with the **same exit rule and stop** (the stop is the lowest low of a
+lookback drawn from the real confirmation lags; holding the strategy's own hold lengths flatters an
+adaptive exit). Per-trade means are a fraction of a percent on the stock ETFs. DIA beats 92–96% of the
+random draws on every rule and SPY 75–95%; QQQ (31–65%) and ETH (5–50%) do worse than random; GLD is
+mixed. BTC's SMA exit beats 86% (2012–16 and 2017–26 alike); its window exit 60–70%. Read across 30
+comparisons: no exit is a dependable edge on its own.
+
+**The previous cycle's translation (known at the confirmation) is the one thing that held out.** The
+cycle after a LEFT-translated one returned more than the cycle after a right-translated one, opposite to
+reading right translation as "bullish, carry on". Found on SPY, QQQ and DIA (window exit: +2.1, +3.5,
++2.9 points, shuffle p 0.01, 0.02, 0.00), then predicted before looking on 13 other stock ETFs (IWM,
+EFA, EEM, VTI and nine sectors, SPX preset): positive in 12 of 13 with the window exit and 13 of 13
+holding 20 bars, about +2 points a trade. Not on crypto (BTC +16 points but p 0.29 on 21 trades; ETH
+−1). Part of it is the size of the fall: a low after a left-translated cycle has fallen a median 12%
+from the cycle's high, after a right one 5%, and bigger falls bounce more. Within thirds of that fall,
+left still beats right by 0.75–2 points.
+
+Caveats: the ETFs share their years, so 12 of 13 is fewer independent tests than it looks; the stock
+presets are partly estimated (section 6); no costs beyond 0.1% a side; this is a finding about the
+signal, not a strategy that has been walked forward.

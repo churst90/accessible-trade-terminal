@@ -6,9 +6,17 @@
 >   - Cipher DBSI is still a few points off and cannot go above 16, where DBSI prints up to 25. A
 >     magnitude term could fix that, but it needs more DBSI reference screenshots to hold out. Cody: are
 >     there more?
->   - Cipher B draws a few dots on crosses under 1 point that the digitiser did not find on MCB's
->     screenshots (8 across S2 and S4, listed in CHANGES). Hidden by MCB, or lost under other marks?
 >   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
+>   - **Cipher C clock flips on one weekend bar (shown 2026-10-22).** `CipherCEngine.MeasureBars` says
+>     "trades every day" if any of the last 500 bars is a Saturday or Sunday. XAU's twelvedata file
+>     has 135 stray weekend bars, and its bar-by-bar replay agrees with the full run on only 42 of 150
+>     confirmations. Proposed fix: require a real share of weekend bars (e.g. at least 10% of the
+>     window), plus a test with one stray weekend bar. Cody: OK?
+>   - **Cipher C backtest follow-ups (CIPHER_C_DESIGN section 8).** On stock ETFs, the cycle after a
+>     left-translated one beat the cycle after a right-translated one, out of sample. Next: (1) a
+>     control that buys after any equal fall with no cycle at all, to see what translation adds;
+>     (2) a walk-forward strategy (buy a confirmed low only after a left-translated cycle) with a
+>     pre-registered rule; (3) the weekly tier. Cody: worth pursuing?
 >   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
 >   - No built-in indicator uses a sub-pane strip now that Loukas is gone; keep the mechanism for
 >     plugins or remove it?
