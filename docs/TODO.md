@@ -32,14 +32,15 @@
 >     control that buys after any equal fall with no cycle at all, to see what translation adds;
 >     (2) a walk-forward strategy (buy a confirmed low only after a left-translated cycle) with a
 >     pre-registered rule; (3) the weekly tier. Cody: worth pursuing?
->   - **Cipher C takes a too-early low as the daily low (shown 2026-10-22, CIPHER_C_DESIGN section 9).**
->     On DJI it took 06-23, a half-cycle low 23 bars after the last daily low, instead of 07-22, which
->     the original marks as both a daily and a weekly low. Cipher C's own weekly tier picked 07-23, so
->     its tiers disagree. Over the whole history, 3 of DJI's 28 weekly lows are not daily lows. Proposed:
->     when the deepest low comes before the window's minimum and a later in-window low holds above it,
->     take the later one (or at least the weekly tier's low). Score it on the held-out labels and the
->     bar-by-bar replay. Also open: TLT has no preset, and its one window read about 29–35 days. Cody: OK
->     to build the fix?
+>   - **Cipher C vs the original indicator itself (2026-10-22, CIPHER_C_DESIGN section 10).** The
+>     06-23 "defect" from section 9 is withdrawn: the original confirms 06-23 too. On DJI daily
+>     2017-2026, 35 of the original's 48 daily lows are on the same bar as Cipher C's, 12 of 20
+>     weekly lows and 38 of 47 tops. Cipher C makes more, shorter cycles: its shortest is 22 bars,
+>     8 cycles under 27; the original's shortest is 27, median 50. The original labels no
+>     mid-translated tops. Next, while the trial lasts (ends about 11-05): the same read on the
+>     other 15 finetuned assets, daily and weekly, plus the settings panel. Then test a minimum
+>     daily cycle of about 27 bars against all of them. Cody: go ahead with the other assets?
+>     Also open: TLT has no preset; its one screenshot window read about 29–35 days.
 >   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
 > - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars
 >   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with

@@ -8,9 +8,19 @@ All notable changes to this project will be documented in this file.
 
 - Scored against the original indicator's output in videos from after the build (10-19 to 10-22). On
   DJI and TLT daily, five of seven lows match within a few days (`docs/CIPHER_C_DESIGN.md` section 9).
-- **Defect shown, not fixed:** on DJI the daily tier took a half-cycle low (06-23) instead of 07-22,
-  which the original marks as a daily and a weekly low. Cipher C's own weekly tier picked 07-23. A fix
-  is proposed in TODO.
+- ~~Defect: on DJI the daily tier took a half-cycle low (06-23) instead of 07-22.~~ **Withdrawn the
+  same day.** The original indicator itself, read on TradingView, confirms 06-23 too, and counts its
+  timing window from it. The screenshot used other settings, a different symbol or another version.
+  The proposed fix is dropped (section 9 carries the note).
+- **Against the original itself** (section 10). Cody took the creator's TradingView trial. Every label,
+  box and table cell it draws on DJI daily was read from the chart. Nothing was exported: that needs
+  a paid plan. The data stays out of the repo. From 2017 to 2026:
+  - 35 of its 48 daily lows are on the same bar as Cipher C's;
+  - 12 of its 20 weekly lows match, and 38 of its 47 tops;
+  - Cipher C makes more, shorter cycles: 8 under 27 bars, where the original never goes under 27;
+  - the original labels only left- and right-translated tops.
+
+  Caveats: final labels, so this says nothing about real-time confirmation timing. One asset so far.
 - The four transcripts are added to the corpus (`AccessibleTrader.StrategyLab/Corpus`, manifest
   updated). Two members-only videos were not obtained.
 - Caveat: these are two screenshots of other people's charts, with dates read to 1–3 days. The

@@ -213,6 +213,13 @@ signal, not a strategy that has been walked forward.
 
 ## 9. Held-out check against videos after 2026-10-17 (2026-10-22)
 
+> **Corrected the same day (section 10).** The DJI "defect" below is withdrawn. The original
+> indicator itself, run on TradingView (TVC:DJI daily, default settings), confirms **06-23** as its
+> daily low, the same bar Cipher C took. It has no low at 07-22, and its timing window is counted
+> from 06-23 (35–43 bars after it). The screenshot below was made with settings, a symbol or a
+> version we cannot see. The proposed fix would have moved Cipher C away from the original, so it
+> is dropped. The rest of this section is kept as it was written.
+
 Cody asked how well Cipher C finds the cycle lows, tops and failed cycles, and whether its timing
 windows fit. Every label used so far was in hand while Cipher C was being built, so it was scored
 only against videos that came out after the build: 10-19, 10-20, 10-21 and 10-22. Their
@@ -259,3 +266,63 @@ New about how the original looks, from the screenshots:
 Still not seen: the yearly low, any translation label, and the settings panel. Spoken: the creator
 puts the left/right translation cut-off at 30 days, half of a 60-day cycle. Cipher C already cuts at
 the midpoint.
+
+## 10. Against the original indicator itself, DJI daily (2026-10-22)
+
+Cody took the creator's 14-day TradingView trial. TradingView's "download chart data" needs a paid
+plan, so nothing was exported. Instead, every label, box, line and table cell the indicator draws was
+read from the chart in a separate browser window that Cody logged into (TVC:DJI, 1D, default settings,
+version V-2). The indicator's code is compiled and was not opened; only what it draws on the chart
+was read. The data is kept out of the repo, in `strategy-lab-data/cf-tv-export/`, along with the
+tools and scripts used to read it.
+
+**What it drew:** 500 labels (TradingView's cap), covering 2000-10 to 2026-10:
+
+- 129 daily lows, 53 of them marked "updated", so the original moves its lows too;
+- 55 weekly lows and 5 yearly lows;
+- 128 tops, 89 right-translated and 39 left-translated. **No mid-translated tops:** it labels only
+  left and right;
+- a count under each low, in trading days ("58D") or weeks ("24W");
+- 218 cycle boxes from low to low. Green is a normal cycle; red (64 of them) is a cycle that ended
+  below where it started;
+- a shaded timing window and a table. The table gives the preset (DJI: 36–44 days, 22–31 weeks,
+  4 years, the same as our estimated preset), days since the last confirmed and unconfirmed daily
+  low, and the same for weeks.
+
+**Scored against Cipher C** (Yahoo ^DJI, full run, 2017-03 to 2026-10; matches are one-to-one):
+
+| | Original | Cipher C | Same bar | Within 3 bars | Within 7 bars |
+|---|---|---|---|---|---|
+| Daily lows | 48 | 56 | 35 | 35 | 36 |
+| Weekly lows | 20 | 22 | 12 | 12 | 12 |
+| Tops (any translation) | 47 | 56 | 38 | 38 | 38 |
+
+- **When they agree, they agree on the exact bar.** Both take the lowest low. When they disagree,
+  each has usually taken a different low inside the same cycle.
+- **Cipher C makes more, shorter cycles.** Daily cycle lengths:
+  - the original: shortest 27 bars, median 50, 11 longer than 60, only 8 of 47 inside its own 36–44 range;
+  - Cipher C: shortest 22, median 37, and 8 shorter than 27.
+- **This is the real version of the "too-early low" problem.** The original never starts a new daily
+  cycle under 27 bars; Cipher C does, eight times. It is not the 06-23 case: there, the original had
+  no 05-20 low at all, so 06-23 came 58 bars after 03-30.
+- **The timing window matches.** The original shades 35–43 bars after its last daily low (08-12 to
+  08-24 after 06-23). Cipher C's is 36–44 after the same low: the same window, give or take one bar
+  of counting convention.
+- **Now (10-22):** the original's last *confirmed* daily low is 06-23, 85 bars ago. It shows 10-01 as
+  an unconfirmed daily low, tagged "MID", 15 bars ago. Cipher C confirmed 10-01 on 10-12. So the
+  original confirms more slowly here, or reads 10-01 as a mid-cycle low. What "MID" means is
+  unverified.
+
+**Caveats:**
+
+- These are final labels: what the chart shows after the original has updated its lows. Cipher C's
+  full run is the same kind of picture, so the comparison is fair. It says nothing about when
+  either one confirmed in real time.
+- One asset and one timeframe so far.
+- The two data feeds differ slightly (TVC vs Yahoo).
+
+**Next:** the same read on the rest of the original's finetuned list (SPX, DXY, NDQ, GOLD, SILVER,
+USOIL, GDX, GDXJ, SILJ, ETHUSD, BTCUSD, COIN, MSTR, MARA, RIOT), daily and weekly, and its settings
+panel. Then see whether a minimum cycle length of about 27 bars brings Cipher C's daily lows onto the
+original's without costing the matches it already has.
+
