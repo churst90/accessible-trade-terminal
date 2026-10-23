@@ -20,6 +20,10 @@ namespace AccessibleTrader.Core.Services
         public const string MuteIncludesOrderEvents = "speech.muteIncludesOrderEvents";
         public const string HoverSonification  = "accessibility.hoverSonification";
         public const string VisualEarcons      = "accessibility.visualEarcons";
+        // Opt-in: while arrowing, the focused indicator's OTHER markers on the bar tick quietly
+        // after the focused component's own tone. Off by default (Cody, 2026-10-22: they made it
+        // "hard to hear what I'm supposed to be listening for on a particular component").
+        public const string TickOtherSignalsWhileArrowing = "audio.tickOtherSignalsWhileArrowing";
 
         // ── The two earcon families ──────────────────────────────────────────
         // Shift+F3 (WorkspaceState.IsEarconsEnabled) is the master mute over both.

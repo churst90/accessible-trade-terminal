@@ -8,6 +8,13 @@
 
 ## Unreleased
 
+- **Arrowing an indicator is heard for the component you are on.** Moving left and right through one
+  component of a busy indicator such as Cipher B used to ring other sounds as well. The approach ping
+  and the "held beyond" tone came from other lines and other indicators, such as an RSI nearing 70 in
+  another pane, and the indicator's other dots and crosses ticked too. Now the level sounds come only
+  from the component in focus, and its own levels. The other signals' ticks are a setting, off unless
+  you turn on "Tick other signals while arrowing" on the Sonification tab of Settings. Lines you drew still chirp when
+  price crosses them.
 - **Heikin-Ashi now feeds your indicators, as on TradingView.** With Heikin-Ashi on (Alt+C), RSI,
   MACD, moving averages, Cipher A, B and C, Cipher DBSI and your own indicators compute on the Heikin-Ashi
   candles, and switching it recomputes them at once. Cipher A and Cipher B now put their marks on the

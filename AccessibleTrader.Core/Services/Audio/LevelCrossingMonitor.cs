@@ -121,35 +121,43 @@ namespace AccessibleTrader.Core.Services.Audio
             _lastIndex = idx;
             LineDrawingCrosses(state, from, idx);
 
-            foreach (var series in state.ActiveSeries)
+            // The level cues are heard for the component being ARROWED, against the levels it
+            // answers to — the rule the crossing chirp already follows (CreateAudioPoint reads the
+            // focused component and ComponentSubscribesTo). Until 2026-10-22 every visible indicator
+            // was checked here, each from its first line, whatever had focus, and Cody heard them:
+            // "I hear sonifications from components other than the one I'm navigating … some of
+            // them i think may be rsi crosses". Arrowing Cipher B's money flow rang for its
+            // WaveTrend nearing ±60 and for an RSI in another pane nearing 70.
+            var series = state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
+            if (series == null || !series.IsVisible || series.IsMuted) return;
+            if (series.Levels == null || series.Levels.Count == 0) return;
+
+            int ci = series.ClampComponent(state.FocusedComponentIndex);
+            if (ci < 0) return;
+            var focused = series.Components[ci];
+            // A marker's value is where it is drawn, not a reading a level describes; a level
+            // component is the line itself.
+            if (!focused.IsVisible || focused.IsMuted || focused.Role == ComponentRole.Level
+                || focused.DisplayType == ComponentDisplayType.Level
+                || AudioConstants.MarkerDisplayTypes.Contains(focused.DisplayType)) return;
+
+            var compData = series.GetComponentData(focused.Name);
+            if (compData == null || idx >= compData.Length) return;
+
+            double val = compData[idx];
+            if (double.IsNaN(val)) return;
+
+            foreach (var lc in series.Levels)
             {
-                if (!series.IsVisible) continue;
-                if (series.Levels == null || series.Levels.Count == 0) continue;
+                if (!lc.IsVisible || !lc.PlayEarcon) continue;
+                if (!AudioZoneHelper.ComponentSubscribesTo(focused, lc.Name)) continue;
 
-                // Primary component = the non-level visible data line the indicator
-                // uses for its main value (RSI %, Stoch %K, Cipher B WT, etc.).
-                var primary = series.Components.FirstOrDefault(c =>
-                    c.IsVisible && c.Role != ComponentRole.Level &&
-                    c.DisplayType != ComponentDisplayType.Level);
-                if (primary == null) continue;
-
-                var compData = series.GetComponentData(primary.Name);
-                if (compData == null || idx >= compData.Length) continue;
-
-                double val = compData[idx];
-                if (double.IsNaN(val)) continue;
-
-                foreach (var lc in series.Levels)
-                {
-                    if (!lc.IsVisible || !lc.PlayEarcon) continue;
-
-                    // Direction used to be sniffed from the level's NAME here, and any level that
-                    // was not called "Overbought" or "Oversold" was skipped outright — so a level a
-                    // person placed themselves, with "Play Earcon on Crossing" ticked, made no sound
-                    // and gave no reason. LevelConfig.EffectiveCrossDirection keeps that inference
-                    // for provider levels but resolves everything else to Both.
-                    ProcessLevel(state, series, lc, val, lc.EffectiveCrossDirection);
-                }
+                // Direction used to be sniffed from the level's NAME here, and any level that
+                // was not called "Overbought" or "Oversold" was skipped outright — so a level a
+                // person placed themselves, with "Play Earcon on Crossing" ticked, made no sound
+                // and gave no reason. LevelConfig.EffectiveCrossDirection keeps that inference
+                // for provider levels but resolves everything else to Both.
+                ProcessLevel(state, series, focused, lc, val, lc.EffectiveCrossDirection);
             }
         }
 
@@ -206,12 +214,14 @@ namespace AccessibleTrader.Core.Services.Audio
             if (direction != 0) _sonifier.PlayCrossEarcon(direction, ComputePan(state));
         }
 
-        private void ProcessLevel(WorkspaceState state, ChartSeries series, LevelConfig lc,
-            double val, LevelCrossDirection direction)
+        private void ProcessLevel(WorkspaceState state, ChartSeries series, ComponentConfig comp,
+            LevelConfig lc, double val, LevelCrossDirection direction)
         {
             // Keyed by value as well as name: two hand-placed levels can share a name, and sharing a
-            // tracker would make each one cancel the other's approach and sustained state.
-            string key = series.Id + "::" + lc.Name + "::" + lc.Value.ToString("R",
+            // tracker would make each one cancel the other's approach and sustained state. Keyed by
+            // component too: two lines of one indicator answering to the same level are tracked
+            // apart, so moving focus between them does not carry one's "held beyond" count over.
+            string key = series.Id + "::" + comp.Name + "::" + lc.Name + "::" + lc.Value.ToString("R",
                 System.Globalization.CultureInfo.InvariantCulture);
             if (!_states.TryGetValue(key, out var s))
             {

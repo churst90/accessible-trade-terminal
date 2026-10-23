@@ -77,6 +77,10 @@ namespace AccessibleTrader.Tests
                 CurrentDataIndex = currentIndex,
                 ViewportStartIndex = 0,
                 ViewportLength = barCount,
+                // The level cues are heard for the component being arrowed, so the RSI line has to
+                // be the one in focus (ArrowingHearsOnlyTheFocusedComponentTests).
+                FocusedSeriesId = series.Id,
+                FocusedComponentIndex = 0,
             };
         }
 

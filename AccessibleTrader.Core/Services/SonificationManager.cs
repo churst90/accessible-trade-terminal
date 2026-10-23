@@ -13,6 +13,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IMainThreadService _mainThreadService;
         private readonly IEventBus _eventBus;
         private readonly ILevelCrossingMonitor? _levelCrossing;
+        private readonly IAppSettings? _settings;
         private readonly List<IDisposable> _subscriptions = new();
         private readonly SonificationStateMachine _stateMachine;
 
@@ -62,8 +63,10 @@ namespace AccessibleTrader.Core.Services
             IWorkspaceStore store,
             IMainThreadService mainThreadService,
             IEventBus eventBus,
-            ILevelCrossingMonitor? levelCrossing = null)
+            ILevelCrossingMonitor? levelCrossing = null,
+            IAppSettings? settings = null)
         {
+            _settings = settings;
             _playback = playback;
             _navigation = navigation;
             _store = store;
@@ -165,12 +168,20 @@ namespace AccessibleTrader.Core.Services
                         // crossSeriesMode: false — navigation scans only the focused series;
                         // cross-indicator audio belongs to playback. Fire-and-forget by
                         // design: navigation response must not wait on it.
-                        _ = _navigation.FireClusterTicksAsync(
-                            state,
-                            state.CurrentDataIndex,
-                            excludeSeriesId: state.FocusedSeriesId ?? string.Empty,
-                            excludeComponentIndex: state.FocusedComponentIndex,
-                            crossSeriesMode: false);
+                        //
+                        // OPT-IN since 2026-10-22 (Settings → Audio, "Tick other signals on
+                        // the bar while arrowing"). Cody heard them as "sonifications from
+                        // components other than the one I'm navigating", which made the
+                        // focused component hard to follow. ArrowingHearsOnlyTheFocusedComponentTests.
+                        if (_settings?.TickOtherSignalsWhileArrowing == true)
+                        {
+                            _ = _navigation.FireClusterTicksAsync(
+                                state,
+                                state.CurrentDataIndex,
+                                excludeSeriesId: state.FocusedSeriesId ?? string.Empty,
+                                excludeComponentIndex: state.FocusedComponentIndex,
+                                crossSeriesMode: false);
+                        }
                     }
                 }
             }));

@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Arrowing is heard for the component you are on (2026-10-22)
+
+Cody: "when left and right arrowing in an indicator with many series, it seems like I hear
+sonifications from components other than the one I'm navigating … some of them i think may be rsi
+crosses or something". Two things made those sounds. Both are shown by tests that failed before the fix.
+
+- **Level cues followed every indicator, not the focus.** `LevelCrossingMonitor.OnBarNavigated` worked out
+  the 1,400 Hz approach ping and the 220 Hz "held beyond" tone for EVERY visible indicator with levels,
+  each from its first line, whatever had focus. Arrowing Cipher B's money flow rang for its WaveTrend
+  nearing ±60, and for an RSI in another pane nearing 70. They now follow the focused component, against
+  the levels it answers to (`SubscribedLevelNames`). The crossing chirp already worked that way. A marker,
+  a level line or a muted component in focus gets no level cue. Each tracker is now keyed by component too.
+- **Cluster ticks are now opt-in.** After the focused component's tone, every other marker of the same
+  indicator on that bar (Cipher B's dots and crosses, for example) ticked quietly on slots 3–7. They now
+  play only with Settings → Sonification → **Tick other signals while arrowing** (off by default;
+  `SettingsKeys.TickOtherSignalsWhileArrowing`, `IAppSettings`, injected into `SonificationManager`
+  as optional). Playback is unchanged.
+- **Unchanged:** a horizontal or vertical line you drew still sounds its crossing chirp whatever has
+  focus (Cody, 2026-10-09). Price crosses those lines, not an indicator component.
+- **Tests.** `ArrowingHearsOnlyTheFocusedComponentTests` (6): an RSI in another pane is silent, a sibling
+  line is silent, the focused line still rings (the positive control), cluster ticks are off with no
+  settings and with the box unticked, and they fire with it ticked. `LevelCrossingMonitorTests` now
+  focuses its RSI. `ClusterTicksFireOnNavigationTests` turns the setting on. Three sabotages turned it
+  red, each restored and diffed: the subscription filter removed, the first indicator with levels used
+  in place of the focused one, and the setting gate removed.
+- **Not heard in the app yet.**
+
 ### The sub-pane strip is gone (2026-10-22)
 
 Cody: "remove the small strip now". A component could set `SubPaneName` (and `SubPaneHeightRatio`)

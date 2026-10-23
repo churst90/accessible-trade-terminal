@@ -153,6 +153,16 @@ signals — they are not written to the Journal, and none of them changes with y
 strategy setup. If you hear one lone high beep while arrowing across an RSI, that is
 the approach ping.
 
+While you arrow left and right, these sounds follow the **component you are on** and only the levels
+it answers to. Arrowing Cipher B's money flow does not ring for its WaveTrend nearing 60, or for an RSI
+in another pane nearing 70. Move to that line and you hear its cues. A line you drew on the price chart
+is the exception: its crossing chirp sounds whatever has focus, because price crosses it.
+
+By default you hear only the focused component. To also hear a quiet tick for each of the indicator's
+other signals on the bar (its other dots, crosses and arrows), turn on **Tick other signals while
+arrowing** on the Sonification tab of Settings. The ticks then follow the focused component's own tone,
+so a bar carrying three signals sounds different from a bar carrying one.
+
 **Adding a level of your own.** Press `0` with an indicator focused that sits in its own pane, and
 the terminal puts a reference line on that pane's **neutral** — the value the reading swings about.
 For MACD, momentum and the other zero-centred readings that is zero. For RSI, Stochastic and MFI,

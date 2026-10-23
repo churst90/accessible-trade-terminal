@@ -731,6 +731,15 @@
                     </div>
 
                     <div class="modal-row">
+                        <label for="s-tick-other-signals">Tick other signals while arrowing</label>
+                        <input id="s-tick-other-signals" type="checkbox"
+                               aria-describedby="s-tick-other-signals-hint"
+                               checked="@_tickOtherSignals"
+                               @onchange="e => _tickOtherSignals = e.Value is bool b && b" />
+                    </div>
+                    <p id="s-tick-other-signals-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">After the focused component's tone, a quiet tick for each of the indicator's other signals on that bar. Off: you hear only the component you are on.</p>
+
+                    <div class="modal-row">
                         <label for="s-sound-theme">Sound theme</label>
                         <select id="s-sound-theme"
                                 value="@_soundTheme"
@@ -1313,6 +1322,7 @@
         new("Speak time landmarks during playback", "Narration", "s-playback-landmarks", "narration playback landmark date hour time calendar boundary"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
+        new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
         new("Sound theme", "Sonification", "s-sound-theme", "instrument voices patch orchestra"),
         new("Market earcons", "Sonification", "s-earcons-chart", "earcon alert new bar setup bell signal indicator tone beep chart"),
         new("Interface earcons", "Sonification", "s-earcons-interface", "earcon boundary edge beep success retry info connection modal toggle terminal application tone"),
@@ -1634,6 +1644,7 @@
     private void OnSpeechOutputChanged(ChangeEventArgs e) =>
         _speechOutputMode = e.Value?.ToString() ?? "both";
     private bool _hoverSonification;
+    private bool _tickOtherSignals;
     private bool _magnetSnap;
     private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
@@ -1951,6 +1962,7 @@
             _ => "both",
         };
         _hoverSonification = App.HoverSonification;
+        _tickOtherSignals = App.TickOtherSignalsWhileArrowing;
         _magnetSnap = App.MagnetSnap;
         _marketStructureDefault = App.MarketStructureOnByDefault;
         _soundTheme = App.SoundTheme;
@@ -2204,6 +2216,7 @@
         // things should save on pressing the save button"). They are staged now; this is where
         // they land.
         App.HoverSonification       = _hoverSonification;
+        App.TickOtherSignalsWhileArrowing = _tickOtherSignals;
         App.MagnetSnap              = _magnetSnap;
         App.MarketStructureOnByDefault = _marketStructureDefault;
         App.SoundTheme              = _soundTheme;

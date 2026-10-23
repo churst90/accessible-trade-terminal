@@ -1,3 +1,9 @@
+> - [ ] **Arrowing heard for the focused component only (2026-10-22, built, NOT heard; see CHANGES).**
+>   Cody to arrow Cipher B's money flow, WaveTrend and RSI on Bitcoin daily, with an RSI in its own
+>   pane too. Each component should ring only its own approach and "held beyond" cues, and the other
+>   dots and crosses should not tick. Then tick "Tick other signals while arrowing" (Sonification tab)
+>   and they should come back. If something still sounds on a component, say which bar: a sound that
+>   is not in the fix (a drawn line's chirp, or a text-label tick) is the next suspect.
 > - [ ] **Cipher B fidelity pass, Loukas removed (2026-10-22, built, NOT seen or heard; see CHANGES).**
 >   Cody to look at: Cipher B's money flow on Bitcoin daily with Heikin-Ashi on, next to Market Cipher B.
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts

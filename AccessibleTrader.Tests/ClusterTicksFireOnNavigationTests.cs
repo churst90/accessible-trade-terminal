@@ -50,12 +50,18 @@ namespace AccessibleTrader.Tests
             mainThread.When(m => m.InvokeOnMainThread(Arg.Any<Action>()))
                       .Do(ci => ci.Arg<Action>().Invoke());
 
+            // Cluster ticks are opt-in since 2026-10-22 (ArrowingHearsOnlyTheFocusedComponentTests
+            // pins the default); this file is about the wiring once someone has switched them on.
+            var settings = Substitute.For<IAppSettings>();
+            settings.TickOtherSignalsWhileArrowing.Returns(true);
+
             var mgr = new SonificationManager(
                 Substitute.For<IPlaybackOrchestrator>(),
                 nav,
                 store,
                 mainThread,
-                new SpyEventBus());
+                new SpyEventBus(),
+                settings: settings);
 
             return (mgr, store, nav);
         }
