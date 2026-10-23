@@ -7521,6 +7521,29 @@
    ],
    "access": "public",
    "note": "held-out label check, docs/CIPHER_C_DESIGN.md section 9"
+  },
+  {
+   "id": "83eCNcVQ1rM",
+   "source": "dbsi-reviewers",
+   "school": "market-cipher",
+   "channel": "CryptoWolf",
+   "title": "RSIs and DBSI Breakdown in Market Cipher",
+   "url": "https://www.youtube.com/watch?v=83eCNcVQ1rM",
+   "publish_date": "2022-01-28",
+   "duration_s": 1744,
+   "duration": "0:29:04",
+   "obtained": true,
+   "method": "YouTube subtitles (ASR)",
+   "transcript": "transcripts/dbsi-reviewers/2022-01-28_83eCNcVQ1rM.txt",
+   "vtt": "transcripts/dbsi-reviewers/2022-01-28_83eCNcVQ1rM.vtt",
+   "sha256": "6abbcb2e891d866ce0a203810f195c8c27bfcb6b25eab982fcf333dc03bd63cc",
+   "words": 3801,
+   "retrieved": "2026-10-23",
+   "tags": [
+    "tool-tutorial"
+   ],
+   "access": "public",
+   "note": "DBSI scale and reversal readings (5-minute BTC); sent by Cody 2026-10-23"
   }
  ]
 }

@@ -28,6 +28,9 @@ school: cycle 155 obtained, market-cipher 117, structure 25, other 0. Not obtain
 members-only videos and one public-playlist video titled "Members only" (never requested), one
 Market Cipher video YouTube reports unavailable, and one TradingView page that returned 404.
 
+Added after that build: five records, so 320 in all and 302 obtained. The latest is CryptoWolf's
+"RSIs and DBSI Breakdown in Market Cipher" (2026-10-23, DBSI readings up to 30).
+
 Rules files exist for every source except Bob Loukas: his 8 transcripts are here, but his rules
 file was deferred (Cody, 2026-10-18). The educator rules files were written from the first 20
 educator transcripts; 35 educator videos fetched later are in `transcripts/` but not yet folded into
