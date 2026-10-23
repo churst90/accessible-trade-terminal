@@ -209,6 +209,10 @@ Two limits, stated so they cannot be argued later:
 
 ### 2.1 Definitions
 
+> Note added 2026-10-23, after the fact: Cipher SR's level rule has since been replaced by Market Cipher
+> SR's exact rule (stepped two-bar pivot, drawn three bars later; see CHANGES). This round used the old
+> rule as frozen below; its results describe that rule, not the current one.
+
 Cipher SR runs with its shipped defaults (Pivot Left Bars 3, VolumeMA 6) on the entry (TTF) bars,
 through the lab's indicator engine, separately per asset and timeframe. ATR is ATR(14) on the TTF, as
 in round 2.

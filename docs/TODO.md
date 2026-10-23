@@ -59,6 +59,11 @@
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
 >   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
 >   Left open:
+>   - **Cipher SR checked against Market Cipher SR's values (2026-10-23, built, NOT seen; see CHANGES).**
+>     The purple and yellow dot levels now equal the original's on every bar (Bitcoin 15-minute).
+>     Cody to look: on a 15-minute chart the dots should sit where Market Cipher SR's do; about half
+>     the old levels are gone. Question for Cody: the original draws the whole day's range from the
+>     day's first bar (look-ahead on history); ours draws the range so far. Keep ours (proposed)?
 >   - **Cipher A checked against Market Cipher A's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; every symbol but the Yellow Diamond is
 >     exact on Bitcoin daily. Cody to look: the symbols should sit on Market Cipher A's. Still open: the
@@ -718,13 +723,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   palette). More legend-bearing charts would firm these up.
 >
 > **Open questions for Cody — Cipher SR:**
-> - **Listen to Cipher SR on a 1D chart and decide.** Its narration over BTC daily goes from 255
->   utterances (after the speech fixes) to about 1,915 — a new level about every 5.5 days per side.
->   Keep Pivot Left Bars 3, default it higher on daily charts (less faithful: 5/10/15 give 807/580/473
->   replacements against 986), or speak only replacements on 1D?
-> - **The acceptance rule is unknown.** No single feature separated MCSR's 17 accepted levels from the
->   251 pivots it skipped; ours matches 68.6% of dot bars fitted and 62.5% held out. More frames with
->   legends (Coinbase or Binance intraday) would help.
+> - **Listen to Cipher SR on a 1D chart and decide.** Since the exact rule (2026-10-23) a new level
+>   arrives about every 24 days per side on BTC daily (227 R / 221 S over 5,416 days; the old rule
+>   gave about 11). Narration should be roughly halved again; Cody to listen.
+> - ~~The acceptance rule is unknown.~~ Found 2026-10-23 from Market Cipher SR's plotted values: a
+>   stepped two-bar climb and fall on above-average volume, drawn three bars later; 100% bar for bar.
 > - **Resolution:** MCSR computes on 15-minute bars whatever the chart; ours uses the chart's bars, so a
 >   1-hour chart gets 1-hour pivots. Give the provider lower-timeframe data?
 > - The range is the running day's value, not MCSR's repainted whole day (a deliberate causality choice).

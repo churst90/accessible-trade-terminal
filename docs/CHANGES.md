@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher SR checked against Market Cipher SR's own values: the level rule is now exact (2026-10-23)
+
+- **Read from the original's plotted values.** Market Cipher SR 2.4.0's six plots were read from
+  TradingView on Bitstamp BTCUSD 15-minute (5,076 bars, 2026-09-01 to 2026-10-23), at its defaults
+  and with VolumeMA set to 1, 2, 12 and 50, Days Back 3 and Resolution 5 and 30.
+  - **Cipher Resistance / Support:** a bar whose high climbed STRICTLY for two bars into it and
+    fell STRICTLY for two bars after it (h[p-2] < h[p-1] < h[p] > h[p+1] > h[p+2]; the mirror for
+    lows), with volume above its VolumeMA-bar average (itself included), drawn from bar p + 3.
+    Rebuilt that way, Cipher SR's Resistance and Support Zones equal the original's on every bar at
+    VolumeMA 2, 6, 12 and 50 (5,013 to 5,065 bars per line). VolumeMA 1 draws nothing in both.
+    The rule this replaces (three bars left, one right, drawn on the next bar) was fitted to two
+    video frames; it took about twice the levels, and each one bar after its pivot.
+  - **How the rule was found:** every accepted level is a two-bar pivot on volume above average,
+    but only half of those are accepted. Changing VolumeMA never flipped a pivot that passed the
+    volume test at both settings, so the second condition is a fixed property of the bars; a search
+    over price comparisons near the pivot found the stepped climb and fall (99.4% alone, then 100%).
+  - **VWAP was already exact** (to 0.00001, the live bar excepted). **H/L Pivot Days Back** N
+    covers today and the N - 1 days before it, as ours did (checked at 1 and 3).
+  - **Pivot High / Low ("Range High / Low") differ on purpose.** The original draws the whole UTC
+    day's high and low from the day's first bar, which needs the rest of the day; ours draws the
+    range so far, the same value on the live bar (50% of historical bars equal). Unchanged.
+  - **Resolution** (15 by default) recomputes everything on that timeframe's bars; a provider here
+    sees only the chart's bars, so ours is the original's on a 15-minute chart only. Unchanged.
+- **Setting removed:** "Pivot Left Bars". The original's pivot has no setting. A chart that saved
+  one loads and ignores it.
+- **On the old video frames,** which were not used to find the rule, agreement rose from 68.6% to
+  96.5% (10-minute frame) and from 62.5% to 69.8% (12-minute frame, read only to the bar).
+- **Research moves with it.** The setup-grader round 3 (Market Cipher at Cipher SR support) and the
+  confluence studies read the old levels; none was re-run.
+- Tests: the zone-rule test now pins the stepped pivot three bars back, and that every stepped
+  pivot is taken; a new test pins that an equal step on either side is not a step, with its twin;
+  the video-frame floors rose to 93% and 66%. The TradingView export is not in the repository (in
+  the gitignored strategy-lab-data/mc-exact). Five sabotages each went red: a plain two-bar pivot,
+  drawn one bar early, an equal step allowed on the left, on the right, and no volume filter. Not
+  seen or heard in the app.
+
 ### Cipher A checked against Market Cipher A's own values: four symbol rules corrected (2026-10-23)
 
 - **Read from the original's plotted values.** Market Cipher A 2.5.0's data-window values were read

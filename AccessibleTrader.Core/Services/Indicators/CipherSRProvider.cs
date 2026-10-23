@@ -15,24 +15,30 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Coinbase BTC-USD candles for the same minutes (Fixtures/mcsr_observations.json):</para>
     /// <list type="bullet">
     ///   <item><b>Cipher Resistance / Support</b> — one level per side, drawn as a run of dots, one
-    ///   per bar, at a bar's exact high (low). Every level seen was the high (low) of a bar that the
-    ///   very next bar failed to exceed, and it appeared on the first bar after that next bar closed:
-    ///   a pivot with ONE bar on the right. It then holds — through closes beyond it — until a newer
-    ///   level replaces it. Its run length is its age ("the number of dots shows how long the level
-    ///   has been the local high"). Not every such pivot is taken: three of the accepted levels had
-    ///   only 3 bars on the left, and the volume input is a 6-bar volume average. The exact
-    ///   acceptance rule is NOT identified (no simple left-length, volume or oscillator rule separates
-    ///   the 17 levels the frames show from the 251 pivots they skip); this provider uses left 3,
-    ///   right 1, pivot-bar volume above its 6-bar average, which matches the dot level on 69% of
-    ///   the bars where the fitted frame shows one and 62% on the held-out frame (the provider this
-    ///   replaces: 13% and 0%). See CipherSrMarketCipherFidelityTests.</item>
+    ///   per bar, at a bar's exact high (low), held — through closes beyond it — until a newer level
+    ///   replaces it. Its run length is its age ("the number of dots shows how long the level has
+    ///   been the local high"). <b>Exact rule (2026-10-23, read from Market Cipher SR 2.4.0's plotted
+    ///   values on TradingView, BTCUSD 15-minute, 5,076 bars, 175 resistance and 180 support levels):</b>
+    ///   the highs climb STRICTLY for two bars into the pivot bar and fall STRICTLY for two bars after
+    ///   it (h[p-2] &lt; h[p-1] &lt; h[p] &gt; h[p+1] &gt; h[p+2]; the mirror for lows), the pivot bar's
+    ///   volume is above the average of the last VolumeMA bars (itself included), and the level is
+    ///   drawn from bar p + 3 — the first bar after the pivot's second right-hand bar closed. Rebuilt
+    ///   from this, every bar of both lines matched Market Cipher SR's at VolumeMA 2, 6, 12 and 50
+    ///   (VolumeMA 1 draws nothing there and here: no bar's volume beats itself). A plain two-bar
+    ///   pivot is not enough: half of the pivots that pass the volume test do not climb in steps and
+    ///   are skipped, the same half whatever the VolumeMA. Changing "H/L Pivot Days Back" did not
+    ///   move a level. Earlier versions of this provider took a three-bar-left, one-bar-right pivot,
+    ///   fitted to two digitised video frames (69% / 62%). See CipherSrMarketCipherFidelityTests.</item>
     ///   <item><b>Range High / Low / Mid</b> ("Pivot High", "Pivot Low", "Center Of Range") — the
     ///   session's high, low and midpoint; MCSR's legend printed 38226.62 / 37300.00 / 37763.31 for
     ///   2022-01-29 UTC, Coinbase's exact day high and low. MCSR draws the whole day's value from the
-    ///   day's first bar (it knows the day's high before it happens); this draws the RUNNING value,
-    ///   which is what MCSR shows on the live bar and the only causal form.</item>
+    ///   day's first bar (it knows the day's high before it happens; checked 2026-10-23, every bar of
+    ///   a 15-minute history); this draws the RUNNING value, which is what MCSR shows on the live bar
+    ///   and the only causal form. "H/L Pivot Days Back" N covers today and the N - 1 days before it,
+    ///   as MCSR's does (checked at 1 and 3).</item>
     ///   <item><b>VWAP</b> — volume-weighted hlc3, reset at 00:00 UTC, on the chart's own bars. Five
-    ///   values MCSR printed matched this to the cent.</item>
+    ///   values MCSR printed matched this to the cent, and on 2026-10-23 every bar of a 15-minute
+    ///   history matched MCSR's plotted VWAP to 0.00001.</item>
     /// </list>
     ///
     /// <para><b>Timeframe.</b> MCSR is "built for the hourly timeframe and below" and computes its
@@ -89,7 +95,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompResistanceSince = CompResistanceLine + SinceSuffix;
         public const string CompSupportSince    = CompSupportLine    + SinceSuffix;
 
-        public const int DefaultLeftBars = 3;
+        /// <summary>Bars the highs (lows) must climb in steps into a pivot, and fall in steps after it.</summary>
+        public const int PivotSteps = 2;
+        /// <summary>Bars after the pivot bar that its level is first drawn: the bar after its last right-hand bar closed.</summary>
+        public const int LevelLag = PivotSteps + 1;
         public const int DefaultVolumeMa = 6;
         public const int DefaultRangeDays = 1;
 
@@ -105,7 +114,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 RequiresFullRecalcOnTick = true,
                 Description =
                     "Market Cipher SR's levels, built for the hourly chart and below. " +
-                    "Purple dots: resistance, the high of a bar the next bar failed to beat, on volume above its 6-bar average; " +
+                    "Purple dots: resistance, a high the two bars before climbed to in steps and the two bars after fell from in steps, on volume above its 6-bar average, drawn from the third bar after it; " +
                     "yellow dots: support, the same for lows. One level per side, held until a newer one replaces it; " +
                     "the length of a run of dots is the level's age. " +
                     "Range High, Low and Mid: the UTC day's range so far. VWAP: the day's volume-weighted average price, reset at 00:00 UTC. " +
@@ -185,9 +194,6 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 Parameters = new List<IndicatorParameterMetadata>
                 {
-                    new() { Name = "LeftBars", DisplayName = "Pivot Left Bars", DataType = typeof(int), DefaultValue = (double)DefaultLeftBars,
-                            MinValue = 1, MaxValue = 50,
-                            Description = "Bars before a high (low) that it must beat to become a level. The bar after it must not beat it either. 3 matches Market Cipher SR's levels best." },
                     new() { Name = "VolumeMA", DisplayName = "VolumeMA", DataType = typeof(int), DefaultValue = (double)DefaultVolumeMa,
                             MinValue = 0, MaxValue = 100,
                             Description = "Market Cipher SR's VolumeMA: a level is taken only from a bar whose volume is above the average of the last this-many bars (itself included). 0 takes every pivot." },
@@ -204,7 +210,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             if (n == 0) return;
 
-            int left     = Math.Clamp(GetInt(parameters, "LeftBars", DefaultLeftBars), 1, 50);
             int volMa    = Math.Clamp(GetInt(parameters, "VolumeMA", DefaultVolumeMa), 0, 100);
             int rangeDays = Math.Clamp(GetInt(parameters, "RangeDays", DefaultRangeDays), 1, 30);
 
@@ -221,24 +226,25 @@ namespace AccessibleTrader.Core.Services.Indicators
             var rangeMid  = NanArray(n);
             var vwap      = NanArray(n);
 
-            // ── Levels: a pivot with `left` bars on the left and ONE on the right ──────────────
-            // Accepted at bar c = p + 1, the first bar that can know bar p was not beaten. Nothing
-            // here reads a bar after the one being written.
+            // ── Levels: a stepped pivot, drawn LevelLag bars after it ───────────────────────────
+            // Accepted at bar c = p + 3, the first bar after p + 2 closed. Reads bars p - 2 .. p + 2
+            // only: nothing here reads the bar being written or any after it.
             double lastRes = double.NaN, lastSup = double.NaN;
             double resSince = double.NaN, supSince = double.NaN;
             int resTouches = 0, supTouches = 0;
             for (int c = 0; c < n; c++)
             {
-                int p = c - 1;
+                int p = c - LevelLag;
                 bool newRes = false, newSup = false;
-                if (p >= left && data[p].High > 0 && data[p].Low > 0 && VolumeOk(data, p, volMa))
+                if (p >= PivotSteps && data[p].High > 0 && data[p].Low > 0 && VolumeOk(data, p, volMa))
                 {
                     double h = data[p].High, l = data[p].Low;
-                    bool ph = h > data[c].High, pl = l < data[c].Low;
-                    for (int k = 1; k <= left && (ph || pl); k++)
+                    bool ph = true, pl = true;
+                    for (int k = 0; k < PivotSteps; k++)
                     {
-                        if (h <= data[p - k].High) ph = false;
-                        if (l >= data[p - k].Low)  pl = false;
+                        // Climbing in: bar p-k beats bar p-k-1. Falling out: bar p+k+1 is below bar p+k.
+                        if (!(data[p - k].High > data[p - k - 1].High && data[p + k + 1].High < data[p + k].High)) ph = false;
+                        if (!(data[p - k].Low  < data[p - k - 1].Low  && data[p + k + 1].Low  > data[p + k].Low))  pl = false;
                     }
                     if (ph)
                     {
@@ -346,15 +352,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             => Calculate(code, data, parameters, buffer);
 
         /// <summary>
-        /// Bars before a level found here is the level a longer history would find: the pivot's left
-        /// bars, its one right bar and the volume average. (A level can be older than this — it holds
+        /// Bars before a level found here is the level a longer history would find: the pivot's steps
+        /// in, its lag and the volume average. (A level can be older than this — it holds
         /// until replaced — and a session's range and VWAP start at the session's first bar.)
         /// </summary>
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
         {
-            int left  = Math.Clamp(GetInt(parameters, "LeftBars", DefaultLeftBars), 1, 50);
             int volMa = Math.Clamp(GetInt(parameters, "VolumeMA", DefaultVolumeMa), 0, 100);
-            return Math.Max(left, volMa) + 2;
+            return Math.Max(PivotSteps, volMa) + LevelLag + 1;
         }
 
         /// <summary>

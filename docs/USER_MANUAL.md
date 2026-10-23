@@ -1560,8 +1560,10 @@ divergences, Manipulation and Exhaustion are gone, and a strategy or alert that 
 so once, with what to use instead.
 
 **Cipher SR** (Overlays, on the price chart) is Market Cipher SR's levels, built for the hourly chart
-and below. **Purple dots** (Resistance Zone) mark a resistance level: the high of a bar the next bar
-did not beat, taken only when that bar's volume was above its 6-bar average. **Yellow dots** (Support
+and below. **Purple dots** (Resistance Zone) mark a resistance level: a high that the two bars before it
+climbed to step by step and the two bars after it fell from step by step, taken only when that bar's
+volume was above its 6-bar average, and drawn from the third bar after it (the first bar after the
+second fall closed). This is Market Cipher SR's own rule, read from its plotted values. **Yellow dots** (Support
 Zone) are the same for lows. Each level is held until a newer one replaces it — price closing
 through it does not end it, you hear "Price crossed above Resistance Zone at …" — and when a new one
 takes over you hear "New resistance at …, replacing …". Arrow onto a zone line to hear its price,
@@ -1569,10 +1571,12 @@ which side of it price is on, how long it has held and how often price has teste
 price below, held 152 days, tested 2 times". **Range High, Range Low and Range Mid** are today's
 range so far and **VWAP** today's volume-weighted average price, both on UTC days; all four are
 drawn but silent by default, and empty on daily and longer charts, where they are left out of the
-status line (landing on one with Ctrl+Up or Ctrl+Down still stops there and says "no data"). Its settings are Pivot Left Bars
-(3), VolumeMA (6) and H/L Pivot Days Back (1). Market Cipher SR works from 15-minute bars whatever the
-chart; ours uses the chart's own bars, so on a daily chart a new level arrives about every five or
-six days per side, and narration has a lot more to say than it did.
+status line (landing on one with Ctrl+Up or Ctrl+Down still stops there and says "no data"). Its settings are VolumeMA (6)
+and H/L Pivot Days Back (1); the Pivot Left Bars setting is gone, because the original's pivot has no
+setting. Market Cipher SR draws today's whole range from the day's first bar, which it can only do
+by knowing the rest of the day; ours draws the range so far, which is the same on today's bars.
+Market Cipher SR works from 15-minute bars whatever the chart; ours uses the chart's own bars, so on
+a daily chart a new level arrives about once every three to four weeks per side.
 
 **Cipher DBSI** (Trend, on the price chart) is a fast bull and bear strength
 score inspired by Market Cipher DBSI. Each candle gets two whole numbers: the bulls' score, printed

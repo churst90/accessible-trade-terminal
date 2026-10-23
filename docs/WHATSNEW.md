@@ -8,6 +8,13 @@
 
 ## Unreleased
 
+- **Cipher SR's purple and yellow dots now match Market Cipher SR's on every candle.** Checked
+  against the original's values on Bitcoin 15-minute: a level is a high the two candles before
+  climbed to step by step and the two after fell from step by step, on above-average volume, and it
+  appears three candles later. About half the levels Cipher SR used to draw are gone, and the rest
+  arrive a little later. VWAP already matched. The day's range lines still show the range so far
+  rather than the whole day's, which the original only knows by looking ahead. The Pivot Left Bars
+  setting is gone.
 - **Cipher A now matches Market Cipher A's own numbers, symbol for symbol, except one.** Checked
   candle by candle on Bitcoin daily: the ribbon, the Red X and the Blood Diamond already matched.
   The Green Dot, Blue Triangle, Red Diamond and Yellow X now land on every one of the original's

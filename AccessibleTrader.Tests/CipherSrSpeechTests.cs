@@ -388,7 +388,10 @@ public sealed class CipherSrSpeechTests
                 && baseline[k].Zip(m).Any(z => !(double.IsNaN(z.First) && double.IsNaN(z.Second)) && z.First != z.Second));
             if (!differs) dead.Add($"{p.Name} ({def} -> {other})");
         }
-        Assert.True(meta.Parameters.Count >= 3, "Cipher SR declares fewer settings than Market Cipher SR's three");
+        // Market Cipher SR's numeric settings are H/L Pivot Days Back, Resolution and VolumeMA. Its
+        // pivot has no setting (two steps in, two out, read from its plotted values), and Resolution
+        // cannot be honoured by a provider that sees only the chart's bars.
+        Assert.True(meta.Parameters.Count >= 2, "Cipher SR declares fewer settings than Market Cipher SR's Days Back and VolumeMA");
         Assert.True(dead.Count == 0, "settings that change nothing: " + string.Join(", ", dead));
     }
 

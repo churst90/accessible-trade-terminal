@@ -91,10 +91,13 @@ public sealed class CipherSrMarketCipherFidelityTests
     /// <b>The dot levels are Market Cipher SR's on most of the bars where MCSR is seen to draw one.</b>
     ///
     /// <para>
-    /// The fitted frame (10-minute chart) and a HELD-OUT frame (12-minute chart, never used to choose
-    /// the rule) each have a floor just under what the shipped rule reaches when it was
-    /// committed (68.6% and 62.5%). The design it replaced (a 15-bar swing pivot on 1.2x volume, broken by a close) agreed
-    /// on 13% and 0%. MCSR's exact acceptance rule is not identified; see the provider's summary.
+    /// The rule is no longer fitted to these frames: on 2026-10-23 it was read from Market Cipher SR
+    /// 2.4.0's own plotted values on TradingView (a stepped two-bar pivot on volume above its
+    /// VolumeMA average, drawn three bars later; every bar of a 5,076-bar BTCUSD 15-minute history
+    /// matched — that export is not in the repository). These video frames are an independent check
+    /// against an older version (v2.2.0) and against Coinbase's candles rather than TradingView's:
+    /// 96.5% on the 10-minute frame and 69.8% on the 12-minute frame, floors just under. The rule
+    /// fitted to these frames before reached 68.6% and 62.5%; the design before that, 13% and 0%.
     /// </para>
     /// </summary>
     [Fact]
@@ -104,10 +107,10 @@ public sealed class CipherSrMarketCipherFidelityTests
         var (fit, fitDetail) = Agreement(sets[0], 0);
         var holdout = new[] { -720L, 0L, 720L }.Select(s => Agreement(sets[1], s)).OrderByDescending(a => a.Share).First();
 
-        Assert.True(fit >= 0.65,
-            $"agreement with Market Cipher SR on the fitted frame is {fit:P0} (floor 65%):\n  " + string.Join("\n  ", fitDetail));
-        Assert.True(holdout.Share >= 0.55,
-            $"agreement with Market Cipher SR on the held-out frame is {holdout.Share:P0} (floor 55%):\n  " + string.Join("\n  ", holdout.Detail));
+        Assert.True(fit >= 0.93,
+            $"agreement with Market Cipher SR on the fitted frame is {fit:P0} (floor 93%):\n  " + string.Join("\n  ", fitDetail));
+        Assert.True(holdout.Share >= 0.66,
+            $"agreement with Market Cipher SR on the held-out frame is {holdout.Share:P0} (floor 66%):\n  " + string.Join("\n  ", holdout.Detail));
     }
 
     /// <summary>
