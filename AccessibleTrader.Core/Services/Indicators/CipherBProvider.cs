@@ -807,25 +807,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // The period is NOT timeframe-scaled (mfPeriodDeclared): MCB keeps 60 on 15m and 30m.
                 // The Heikin-Ashi candles are computed here from the chart's candles, so on a
                 // Heikin-Ashi chart they are Heikin-Ashi of Heikin-Ashi, as MCB's are (see above).
-                var haBody = new double[n];
-                var haRange = new double[n];
-                double haO = 0, haC = 0;
-                for (int i = 0; i < n; i++)
-                {
-                    double c4 = (open[i] + high[i] + low[i] + close[i]) / 4.0;
-                    double o4 = i == 0 ? (open[i] + close[i]) / 2.0 : (haO + haC) / 2.0;
-                    double h4 = Math.Max(high[i], Math.Max(o4, c4)), l4 = Math.Min(low[i], Math.Min(o4, c4));
-                    haO = o4; haC = c4;
-                    haBody[i] = c4 - o4;
-                    haRange[i] = h4 - l4;
-                }
-                var avgRange = IndicatorMath.Sma(haRange, McbMoneyFlowRangeBars);
-                var bodyShare = new double[n];
-                for (int i = 0; i < n; i++)
-                    bodyShare[i] = double.IsNaN(avgRange[i]) ? double.NaN
-                                 : avgRange[i] < 1e-10 ? 0.0
-                                 : haBody[i] / avgRange[i];
-                mfSmooth = IndicatorMath.Sma(bodyShare, mfPeriodDeclared);
+                mfSmooth = McbMoneyFlowShare(open, high, low, close, mfPeriodDeclared);
             }
             else
             {
@@ -1455,6 +1437,43 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>Money-flow display scales: MCB mode's linear 180 (fitted; see Calculate) and the
         /// Legacy mode's 175 after its signed square root (VuManChu's constant). Both are clamped to
         /// ±<see cref="MoneyFlowClamp"/> so a rare run of extreme bodies stays inside the pane.</summary>
+        /// <summary>The MCB-mode money flow as Cipher B draws it: 146 × <see cref="McbMoneyFlowShare"/>,
+        /// clamped to ±100. Cipher A's Yellow Diamond reads it (2026-10-23).</summary>
+        public static double[] McbMoneyFlow(double[] open, double[] high, double[] low, double[] close, int period)
+        {
+            var share = McbMoneyFlowShare(open, high, low, close, period);
+            for (int i = 0; i < share.Length; i++)
+                if (!double.IsNaN(share[i])) share[i] = Math.Clamp(share[i] * McbMoneyFlowScale, -MoneyFlowClamp, MoneyFlowClamp);
+            return share;
+        }
+
+        /// <summary>SMA over <paramref name="period"/> bars of each Heikin-Ashi body divided by the average
+        /// Heikin-Ashi range of the last <see cref="McbMoneyFlowRangeBars"/> bars, the Heikin-Ashi candles
+        /// computed from the given candles. Unscaled; see the MCB money flow notes in Calculate.</summary>
+        internal static double[] McbMoneyFlowShare(double[] open, double[] high, double[] low, double[] close, int period)
+        {
+            int n = close.Length;
+            var haBody = new double[n];
+            var haRange = new double[n];
+            double haO = 0, haC = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double c4 = (open[i] + high[i] + low[i] + close[i]) / 4.0;
+                double o4 = i == 0 ? (open[i] + close[i]) / 2.0 : (haO + haC) / 2.0;
+                double h4 = Math.Max(high[i], Math.Max(o4, c4)), l4 = Math.Min(low[i], Math.Min(o4, c4));
+                haO = o4; haC = c4;
+                haBody[i] = c4 - o4;
+                haRange[i] = h4 - l4;
+            }
+            var avgRange = IndicatorMath.Sma(haRange, McbMoneyFlowRangeBars);
+            var bodyShare = new double[n];
+            for (int i = 0; i < n; i++)
+                bodyShare[i] = double.IsNaN(avgRange[i]) ? double.NaN
+                             : avgRange[i] < 1e-10 ? 0.0
+                             : haBody[i] / avgRange[i];
+            return IndicatorMath.Sma(bodyShare, period);
+        }
+
         private const double McbMoneyFlowScale = 146.0, LegacyMoneyFlowScale = 175.0, MoneyFlowClamp = 100.0;
         private const int McbMoneyFlowRangeBars = 5;
 

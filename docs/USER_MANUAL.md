@@ -1557,7 +1557,8 @@ Wave Trend against its slow wave. What makes each symbol:
 - **Blue Triangle** — EMA 5 crosses above EMA 25 with Wave Trend above its slow wave and EMA 11
   still below EMA 33: an early turn.
 - **Yellow Diamond** — Wave Trend is above its slow wave and EMA 5 leads the ribbon: bullish
-  continuation. It repeats on candle after candle in a strong trend, so it is the quietest sound.
+  continuation. When the two waves are 1.25 or less apart it also needs Cipher B's money flow above 5
+  (the money flow is computed whether or not Cipher B is on the chart). It repeats on candle after candle in a strong trend, so it is the quietest sound.
 - **Red X** — EMA 5 crosses below EMA 11.
 - **Red Diamond** — Wave Trend crosses down; the same cross as Cipher B's small red dot.
 - **Blood Diamond** — a Red Diamond and a Red X on the same candle. The Red Diamond is there too.

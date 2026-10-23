@@ -115,6 +115,45 @@ public sealed class CipherAProviderTests
         }
     }
 
+    /// <summary>
+    /// The Yellow Diamond's gate on generated walks: where the fast wave is 1.25 or less above the slow
+    /// one, the diamond is drawn only when Cipher B's money flow — Cipher B run on its own — is above 5.
+    /// The golden candles have no such bar with the money flow between 0 and 5, so this is what pins the 5.
+    /// </summary>
+    [Fact]
+    public void A_near_tie_Yellow_Diamond_needs_Cipher_B_money_flow_above_5()
+    {
+        int lowFlow = 0, highFlow = 0, wide = 0;
+        foreach (int seed in new[] { 3, 5, 8, 13 })
+        {
+            var rng = new Random(seed); var bars = new List<Ohlcv>(); double px = 100;
+            for (int i = 0; i < 3000; i++)
+            {
+                double o = px; px *= Math.Exp(rng.NextDouble() * 0.06 - 0.029);
+                double hi = Math.Max(o, px) * (1 + rng.NextDouble() * 0.01), lo = Math.Min(o, px) * (1 - rng.NextDouble() * 0.01);
+                bars.Add(new Ohlcv(new DateTime(2015, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(i), o, hi, lo, px, 1000));
+            }
+            var a = Run(bars);
+            var b = new Dictionary<string, double[]>();
+            new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object>(), new IndicatorResultBuffer(b, bars.Count));
+            double[] wt1 = a[CipherAProvider.Wt1Key], wt2 = a[CipherAProvider.Wt2Key], mf = b[CipherBProvider.CompMoneyFlowWave];
+            double[] e5 = a[CipherAProvider.RibbonLine(0)], e11 = a[CipherAProvider.RibbonLine(1)], e33 = a[CipherAProvider.RibbonLine(7)];
+            for (int i = 100; i < bars.Count; i++)
+            {
+                double gap = wt1[i] - wt2[i];
+                if (!(gap > 0 && e5[i] > e11[i] && e5[i] > e33[i]) || double.IsNaN(mf[i])) continue;
+                bool drawn = !double.IsNaN(a[CipherAProvider.CompYellowDiamond][i]);
+                string at = $"seed {seed} bar {i}: gap {gap:F3}, money flow {mf[i]:F2}";
+                if (gap > 1.25) { wide++; Assert.True(drawn, at + " — a wide gap draws it whatever the money flow"); }
+                else if (mf[i] > 5) { highFlow++; Assert.True(drawn, at + " — money flow above 5 draws it"); }
+                else if (mf[i] > 0) { lowFlow++; Assert.False(drawn, at + " — money flow 0 to 5 does not"); }
+                else Assert.False(drawn, at);
+            }
+        }
+        _out.WriteLine($"near ties with money flow 0-5: {lowFlow}, above 5: {highFlow}; wide gaps: {wide}");
+        Assert.True(lowFlow >= 5 && highFlow >= 5, $"the walks gave {lowFlow} near ties with money flow 0-5 and {highFlow} above 5 — not enough to pin the gate");
+    }
+
     // ── 2. What real Market Cipher A drew ───────────────────────────────────────────────
 
     /// <summary>

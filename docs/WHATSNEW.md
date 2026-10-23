@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Cipher A's Yellow Diamond now matches Market Cipher A's.** When the two waves nearly touch, it is
+  drawn only if Cipher B's money flow is above 5. That removes the few extra diamonds the old rule drew.
 - **Cipher A's symbols say what they mean.** Landing on a Green Dot says *"Trend turned up:
   medium-term trend crossed up, with momentum and the short-term trend already up"* instead of the
   moving-average numbers; a Yellow X says it is often a trap. The manual explains each one.

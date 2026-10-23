@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher A's Yellow Diamond needs Cipher B's money flow on a near tie of the waves (2026-10-23)
+
+- **Rule:** the Yellow Diamond (fast wave above slow, EMA 5 above EMA 11 and EMA 33) now also needs
+  the fast wave more than 1.25 above the slow one, or Cipher B's money flow (MCB mode, 60 bars) above 5.
+  Cipher A computes the money flow itself (`CipherBProvider.McbMoneyFlow`, the code Cipher B already
+  used, moved into a shared method).
+- **Found:** every one of the Yellow Diamonds the old rule added had the waves 1.18 or less apart (raw
+  chart 1.22), yet real ones are drawn on gaps as small as 0.02, so no gap threshold alone works and no
+  Wave Trend length, source or smoothing did better. A depth-1 tree on the near-tie bars picked money
+  flow; with Market Cipher B 2.4.0's own plotted money flow, "gap > T or money flow > M" is exact on
+  both Bitcoin daily charts (Bitstamp 2011–2026 after a 300-bar warm-up: Heikin-Ashi 1,312/1,312 with
+  34 extra before, raw candles 1,322/1,322 with 39 extra before). The feasible bounds were T in
+  (1.22, 1.28] and M in [4.97, 5.01) across the two; 1.25 and 5 picked.
+- **Held out:** Market Cipher A 2.5.0 on DJI 1D (300 bars, 2024-03 to 2025-06, never used for the fit),
+  with this app's money flow: 9 extra → none, 92/92. DJI has no volume, so the gate does not use volume.
+- **Caveats.** With this app's money flow on Bitcoin daily, which is close to but not exactly Market
+  Cipher B's, 6 (Heikin-Ashi: 1 extra, 5 missing) and 4 (raw: 3 extra, 1 missing) Yellow Diamonds
+  differ; the money-flow fix would close them. Two thresholds fitted on 73 bars across two charts of
+  one market, with one held-out chart. The Green Dot needs the Yellow Diamond, so a Green Dot can now
+  move with it (none did on the charts above). Not seen in the app.
+- **Tests:** goldens regenerated from an independent restatement (`mca2/golden3.py`); a new test runs
+  Cipher B alone on four generated walks and checks the gate on 27 near ties with money flow 0–5 and 317
+  above 5 (the golden candles have none in 0–5). Sabotages red: gate removed, gap 2.5, "and" for "or",
+  money flow 0, money flow 10.
+
 ### Cipher A's symbols say what they mean, not which averages crossed (2026-10-23)
 
 - Landing on a symbol now says its meaning: Green Dot "Trend turned up: medium-term trend crossed up,

@@ -73,9 +73,11 @@
 >     the old levels are gone. Cody 2026-10-23: keep ours for the range (the running day, not the
 >     original's look-ahead whole day).
 >   - **Cipher A checked against Market Cipher A's values (2026-10-23, built, NOT seen; see CHANGES).**
->     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; every symbol but the Yellow Diamond is
->     exact on Bitcoin daily. Cody to look: the symbols should sit on Market Cipher A's. Still open: the
->     Yellow Diamond's 40 extra (of 1,431). Questions for Cody: add the original's ninth ribbon line
+>     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; the Yellow Diamond's extras solved the
+>     same day (a near tie of the waves needs Cipher B's money flow above 5): every symbol is exact on
+>     Bitcoin daily with the original's money flow, and 4–6 Yellow Diamonds differ with ours (our money
+>     flow is not exact; see the Cipher B item). Cody to look: the symbols should sit on Market Cipher
+>     A's. Questions for Cody: add the original's ninth ribbon line
 >     (SMA 21) and pivot marks, both hidden by default there? Follow its defaults (only the EMA 21 line,
 >     no Yellow Diamond, Green Dot or Red Diamond shown)? Proposed: add both hidden, keep our defaults.
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**

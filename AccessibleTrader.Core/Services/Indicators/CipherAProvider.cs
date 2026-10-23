@@ -33,7 +33,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <item><b>Blue Triangle</b> — EMA 5 crosses above EMA 25 with the fast wave above the slow
     /// one and EMA 11 still below EMA 33.</item>
     /// <item><b>Yellow Diamond</b> — Wave Trend fast above slow while EMA 5 is above both EMA 11 and
-    /// EMA 33. Every real one is predicted; about 3 % of the predicted ones are not drawn.</item>
+    /// EMA 33, and the fast wave more than 1.25 above the slow one or Cipher B's money flow above 5.</item>
     /// <item><b>Red X</b> — EMA 5 crosses below EMA 11.</item>
     /// <item><b>Red Diamond</b> — Wave Trend fast crosses below slow (hlc3, 9, 12, SMA 3: Cipher B's
     /// wave), on every candle, a Red X candle included.</item>
@@ -45,8 +45,12 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// (Bitstamp, 2011–2026, candles and Heikin-Ashi): the eight ribbon lines are exact, and every
     /// symbol but the Yellow Diamond fires on exactly its bars, none missing and none extra (Green
     /// Dot 60/60, Blue Triangle 88/88, Red X 185/185, Red Diamond 541/541, Blood Diamond 29/29,
-    /// Yellow X 26/26 on candles; the same on Heikin-Ashi). The Yellow Diamond finds all 1,391 real
-    /// ones plus 40 it does not draw; no threshold on the waves or the ribbon separates those 40.
+    /// Yellow X 26/26 on candles; the same on Heikin-Ashi). The Yellow Diamond also needs the fast wave
+    /// more than 1.25 above the slow one OR Cipher B's money flow above 5: with Market Cipher B's own
+    /// money flow that is exact on both charts (1,312/1,312 and 1,322/1,322, none extra; it was 34 and
+    /// 39 extra), the bounds fitted to (1.22, 1.28] and [4.97, 5.01) on the two. With this app's money
+    /// flow, which is close to but not exactly Market Cipher B's, 6 and 4 bars differ. Held out: Market
+    /// Cipher A on DJI 1D (300 bars, never fitted) went from 9 extra to exact with this app's money flow.
     /// The earlier rules (Green Dot without the Yellow Diamond gate, Blue Triangle on EMA 29 below
     /// EMA 33, Red Diamond suppressed on Red X candles, Yellow X on an 80-bar stochastic of hlc3
     /// below 22) came from digitised pictures and each missed or added symbols.</para>
@@ -63,6 +67,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompGreenDot      = "Green Dot";
         public const string CompBlueTriangle  = "Blue Triangle";
         public const string CompYellowDiamond = "Yellow Diamond";
+        private const double YellowDiamondWaveGap = 1.25, YellowDiamondMoneyFlow = 5.0;
+        private const int YellowDiamondMoneyFlowPeriod = 60;
         public const string CompRedX          = "Red X";
         public const string CompRedDiamond    = "Red Diamond";
         public const string CompBloodDiamond  = "Blood Diamond";
@@ -218,6 +224,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int k = 0; k < RibbonLengths.Length; k++) ema[k] = IndicatorMath.Ema(close, RibbonLengths[k]);
             var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wtChannel, wtAverage, wtSignal);
             var stoch = WaveTrendMath.SmoothedStochastic(close, high, low, CipherBProvider.McbStochLength, CipherBProvider.McbLineSmoothing);
+            var moneyFlow = CipherBProvider.McbMoneyFlow(open, high, low, close, YellowDiamondMoneyFlowPeriod);
 
             double[] e5 = ema[0], e11 = ema[1], e25 = ema[5], e33 = ema[7];
             var green = Nan(n); var blue = Nan(n); var yd = Nan(n); var redX = Nan(n); var redD = Nan(n); var blood = Nan(n); var yx = Nan(n);
@@ -229,7 +236,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 bool rx = WaveTrendMath.CrossedUnder(e5, e11, i);
                 bool rd = WaveTrendMath.CrossedUnder(wt1, wt2, i);
                 bool upWave = wt1[i] > wt2[i];
-                bool ydOn = upWave && e5[i] > e11[i] && e5[i] > e33[i];
+                // A wave gap of 1.25 or less needs Cipher B's money flow above 5 (see the class notes).
+                bool ydOn = upWave && e5[i] > e11[i] && e5[i] > e33[i]
+                         && (wt1[i] - wt2[i] > YellowDiamondWaveGap || moneyFlow[i] > YellowDiamondMoneyFlow);
                 if (WaveTrendMath.CrossedOver(e11, e33, i) && ydOn) green[i] = At(CompGreenDot);
                 if (WaveTrendMath.CrossedOver(e5, e25, i) && upWave && e11[i] < e33[i]) blue[i] = At(CompBlueTriangle);
                 if (ydOn) yd[i] = At(CompYellowDiamond);
