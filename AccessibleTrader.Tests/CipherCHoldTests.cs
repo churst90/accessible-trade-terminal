@@ -29,7 +29,7 @@ public class CipherCHoldTests
         low = bars.Select(b => b.Low).ToArray();
         var tier = CipherCEngine.Tier(54, 66, 1, CipherCEngine.MeasureBars(bars));
         Assert.Equal(54, tier.MinBars);
-        return CipherCEngine.Detect(bars, tier, 75, 10);
+        return CipherCEngine.Detect(bars, tier, 75, 10, searchOnTurn: true);   // as the daily tier runs
     }
 
     private const int Hold = 27;          // half of 54

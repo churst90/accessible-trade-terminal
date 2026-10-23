@@ -309,7 +309,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var dTier = CipherCEngine.Tier(dMin, dMax, 1, clock);
             var wTier = CipherCEngine.Tier(wMin * clock.DaysPerWeek, wMax * clock.DaysPerWeek, clock.DaysPerWeek, clock);
             var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
-            var d = CipherCEngine.Detect(data, dTier, ob, os);
+            var d = CipherCEngine.Detect(data, dTier, ob, os, searchOnTurn: true);
             var w = CipherCEngine.Detect(data, wTier, ob, os);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
 

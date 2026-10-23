@@ -13,6 +13,12 @@
   On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is
   therefore known later than before: about 18 trading days after it on the Dow, 27 days on Bitcoin.
   The cycle ranges for all sixteen tuned assets are now the original's own.
+- **Cipher C finds the next daily low sooner in strong rallies.** It used to wait for its cycle line to
+  turn, which on gold miners in autumn 2025 left a low unconfirmed five weeks after the original
+  had confirmed it. It now starts looking on schedule and takes the low after the cycle's top as soon
+  as a candle closes above the one before. It is closer to the original, not identical. Gold and the
+  dollar index now count five-day weeks, as the original does; a stray weekend bar no longer redraws
+  their cycles.
 - **Signals can say what they look like.** Turn on "Say what signals look like" on the Speech tab of
   Settings, and each signal is followed by its look on the chart: "Buy. Drawn as a large green dot.",
   "Cycle low. Drawn as a green up triangle below the candle." The colour is the one drawn on that bar,

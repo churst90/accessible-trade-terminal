@@ -5,14 +5,18 @@
 >   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
 >   presets are now the original's ranges (SPX's from videos). Cody to look at Bitcoin daily: a low
 >   is now confirmed about 27 days after it, where it was 12. Open:
->   - **Later confirmation is a real change for anything that trades it.** The section 8 backtest
->     (the left-translated finding) bought 5–12 bars after the low and has not been re-run. Cody:
->     keep the original's timing, and re-run the backtest on it?
->   - **What starts the search is still not the original's.** In strong rallies the original confirms
->     on schedule while Cipher C's cycle line has not crossed (GDX late 2025: Cipher C 5 weeks late),
->     and at other times it shows no candidate through a rally (Dow: July 2023, early 2024). Every
->     gate tried scored worse. The trial ends about 11-05; replaying a third asset (crypto) would test
->     the hold where it counts calendar days.
+>   - ~~Keep the original's timing and re-run the backtest?~~ Cody: yes. Re-run 2026-10-23
+>     (CIPHER_C_DESIGN section 8): every event replays causally on all seven assets, exits still
+>     show no edge, and the left-translated finding is gone (withdrawn).
+>   - **The daily search (2026-10-23, built, NOT seen or heard; see CHANGES).** From the last low plus
+>     the shortest cycle less two bars, the first close above the bar before's high takes the low
+>     after the cycle's top; no wait for the cycle line's cross. Names the original's candidate on its
+>     bar GDX 25 of 38, Dow 21 of 35: closer, not the rule. Held out daily F1 0.727 → 0.739, tops
+>     0.795 → 0.815 (five assets better, two worse). Cody to look at GDX daily, autumn 2025: the
+>     original confirmed the 2025-09-18 low on 10-03, Cipher C used to on 11-07; not checked on the
+>     app's GDX data (the lab's GDX bars from TradingView look like Heikin-Ashi prices). Still open: the original
+>     sometimes names a low on a falling bar; the weekly tier still waits for the cross. The trial
+>     ends about 11-05; replaying a crypto chart and a weekly chart would test both.
 >   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%).
 >   - The weekly tier uses the same hold unverified; no weekly chart was replayed.
 >   - Cipher C does not say when a low is being held. The original shows it as "unconfirmed" with a
@@ -41,16 +45,12 @@
 >     magnitude term could fix that, but it needs more DBSI reference screenshots to hold out. Cody: are
 >     there more?
 >   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
->   - **Cipher C clock flips on one weekend bar (shown 2026-10-22).** `CipherCEngine.MeasureBars` says
->     "trades every day" if any of the last 500 bars is a Saturday or Sunday. XAU's twelvedata file
->     has 135 stray weekend bars, and its bar-by-bar replay agrees with the full run on only 42 of 150
->     confirmations. Proposed fix: require a real share of weekend bars (e.g. at least 10% of the
->     window), plus a test with one stray weekend bar. Cody: OK?
->   - **Cipher C backtest follow-ups (CIPHER_C_DESIGN section 8).** On stock ETFs, the cycle after a
->     left-translated one beat the cycle after a right-translated one, out of sample. Next: (1) a
->     control that buys after any equal fall with no cycle at all, to see what translation adds;
->     (2) a walk-forward strategy (buy a confirmed low only after a left-translated cycle) with a
->     pre-registered rule; (3) the weekly tier. Cody: worth pursuing?
+>   - ~~**Cipher C clock flips on one weekend bar.**~~ Fixed 2026-10-23 (see CHANGES): the original
+>     counts gold's and the dollar index's weeks as five bars, only crypto's as seven. Saturday and
+>     Sunday bars must each turn up on half the weeks at a quarter of a weekday's range (flat bars left
+>     out, for 2011 Bitcoin). XAU's replay now agrees with the full run on 161 of 161 confirmations.
+>   - ~~**Cipher C backtest follow-ups.**~~ Moot: the left-translated finding did not survive the
+>     original's timing (CIPHER_C_DESIGN section 8, re-run 2026-10-23).
 >   - **Cipher C vs the original indicator itself (2026-10-22, CIPHER_C_DESIGN section 10).** The
 >     06-23 "defect" from section 9 is withdrawn: the original confirms 06-23 too. On DJI daily
 >     2017-2026, 35 of the original's 48 daily lows are on the same bar as Cipher C's, 12 of 20

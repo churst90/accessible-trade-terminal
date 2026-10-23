@@ -56,6 +56,22 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
+    /// <b>The search, on the daily tier.</b> Once a confirmed low is there, the daily tier does not
+    /// wait for the cross. From the last low plus the shortest cycle less two bars
+    /// (<see cref="SearchFromBeforeMin"/>), any close above the bar before's high takes the
+    /// lowest low since the cycle's highest high as the low to hold. Read from the same replays:
+    /// the original's "unconfirmed" low first appears 21 to 43 bars after the last low on GDX
+    /// (shortest 22), and it is seldom the lowest bar since the last low, but the low after the
+    /// cycle's top. Simulated against every replayed bar, this rule names the original's candidate
+    /// on the bar it appears more often than any other tried (GDX 25 of 38, Dow 21 of 35), but it is
+    /// not the rule: the original sometimes names a low on a falling bar, and sometimes a day or two
+    /// later than this. On the original's final labels, after a 300-bar warm-up, it lifted the daily
+    /// F1 from 0.727 to 0.739 and the tops from 0.795 to 0.815 on eight assets held out from it
+    /// (five better, two worse, Bitcoin level). The first low, and the weekly and yearly tiers, still
+    /// wait for the cross.
+    /// </para>
+    ///
+    /// <para>
     /// <b>What it is not.</b> Not an edge. Camel's own checklist showed none against shuffled
     /// prices in this project's tests, and CF's own SPX counts fall inside its stated 36–44 day
     /// window only 5 times in 23 (22–64 trading days, median 43; 17 of 23 fall in 30–50). The indicator follows the method;
@@ -74,6 +90,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Read from the original in bar replay (see "The hold" in the class remarks) ──
         public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle before it is confirmed
         public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
+        public const int    SearchFromBeforeMin = 2;  // the daily search opens at the last low + shortest cycle − this
 
         // ── Presets ────────────────────────────────────────────────────────────────────
 
@@ -183,7 +200,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <param name="BarsPerDay">Bars in one of the chart's days: a calendar day when the asset
         /// trades every day, a trading day when it does not. 1 on a daily chart, 1/5 on a weekly
         /// stock chart, 24 on an hourly crypto chart.</param>
-        /// <param name="TradesEveryDay">Bars fall on Saturdays or Sundays.</param>
+        /// <param name="TradesEveryDay">The market trades on Saturdays and Sundays (see <see cref="WeekendTrades"/>).</param>
         /// <param name="BarDays">The bar's own length in those days (1 daily, 5 or 7 weekly).</param>
         public readonly record struct BarClock(double BarsPerDay, bool TradesEveryDay)
         {
@@ -192,24 +209,97 @@ namespace AccessibleTrader.Core.Services.Indicators
             public double BarDays => 1 / BarsPerDay;
         }
 
+        /// <summary>Saturday's and Sunday's bars must each be at least this share of a weekday
+        /// bar's typical range to count as trading, flat bars left out. Over every cut of the lab's
+        /// ten coins (each judged on its last 500 bars, from bar 100) the quieter weekend day was
+        /// never under 0.37 of a weekday on daily bars, 0.35 on four-hour bars (Bitcoin);
+        /// twelvedata's gold, which does not trade then, prints Saturdays at 0.17 and Sundays at
+        /// 0.02.</summary>
+        internal const double WeekendRangeShare = 0.25;
+
+        /// <summary>
+        /// Whether the market trades on the weekend: Saturday bars and Sunday bars each turn up in
+        /// at least half the weeks, and each is a real session, its median range at least
+        /// <see cref="WeekendRangeShare"/> of a weekday bar's. A flat bar (high equals low) is a
+        /// day nothing traded and says nothing either way, so the ranges leave flat bars out:
+        /// Bitstamp's Bitcoin in 2011 had more flat weekend bars than not, and counting them made
+        /// its first 300 bars a five-day market and the rest seven (Dogecoin and Solana on four-hour
+        /// bars likewise), so a replay of the early bars disagreed with the whole run.
+        ///
+        /// <para>
+        /// The original counts gold's and the dollar index's weeks as five bars although
+        /// TradingView dates a fifth of their bars on a Sunday (UTC: Monday's session opens on
+        /// Sunday evening), and only crypto's as seven, read from its own "weeks since" counts on
+        /// sixteen assets, 2026-10-23. A bar on Saturday or Sunday once meant "trades every day",
+        /// so one stray weekend bar turned gold's 20 to 28 weeks from 100 to 140 bars into 140 to
+        /// 196, and on twelvedata's gold, which since 2024 prints short Saturday and Sunday bars,
+        /// the clock flipped as the last 500 bars moved across them (a replay agreed with the full
+        /// run on 42 of 150 confirmations).
+        /// </para>
+        /// </summary>
+        private static bool WeekendTrades(ReadOnlySpan<Ohlcv> bars)
+        {
+            if (bars.Length < 2) return false;
+            var sat = new List<double>(); var sun = new List<double>(); var week = new List<double>();
+            foreach (var b in bars)
+            {
+                double r = b.High - b.Low;
+                if (r <= 0) continue;
+                (b.Date.DayOfWeek switch { DayOfWeek.Saturday => sat, DayOfWeek.Sunday => sun, _ => week }).Add(r);
+            }
+            double weeks = Math.Max(1, (bars[^1].Date - bars[0].Date).TotalDays / 7);
+            int satDays = 0, sunDays = 0; DateTime lastSat = default, lastSun = default;
+            foreach (var b in bars)
+            {
+                var d = b.Date.Date;
+                if (b.Date.DayOfWeek == DayOfWeek.Saturday && d != lastSat) { satDays++; lastSat = d; }
+                if (b.Date.DayOfWeek == DayOfWeek.Sunday && d != lastSun) { sunDays++; lastSun = d; }
+            }
+            if (satDays < weeks / 2 || sunDays < weeks / 2) return false;
+            double typical = Median(week);
+            if (typical <= 0) return true;   // no weekday ranges (a flat or close-only source): the dates decide
+            return Median(sat) >= WeekendRangeShare * typical && Median(sun) >= WeekendRangeShare * typical;
+        }
+
+        private static double WeekendShare(ReadOnlySpan<Ohlcv> bars)
+        {
+            int k = 0;
+            foreach (var b in bars) if (b.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) k++;
+            return bars.Length == 0 ? 0 : (double)k / bars.Length;
+        }
+
+        private static double Median(List<double> v)
+        {
+            if (v.Count == 0) return 0;
+            v.Sort();
+            return v[v.Count / 2];
+        }
+
         public static BarClock MeasureBars(ReadOnlySpan<Ohlcv> data)
         {
             int n = data.Length;
             if (n < 3) return new BarClock(1, false);
             int from = Math.Max(1, n - 500);
             var gaps = new List<double>(n - from);
-            bool weekend = false;
             for (int i = from; i < n; i++)
             {
                 double g = (data[i].Date - data[i - 1].Date).TotalSeconds;
                 if (g > 0) gaps.Add(g);
             }
+            bool anyWeekend = false;
             for (int i = from - 1; i < n; i++)
-                if (data[i].Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) { weekend = true; break; }
-            if (gaps.Count == 0) return new BarClock(1, weekend);
+                if (data[i].Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) { anyWeekend = true; break; }
+            if (gaps.Count == 0) return new BarClock(1, anyWeekend);
             gaps.Sort();
             double spacing = gaps[gaps.Count / 2];
             double spacingDays = spacing / 86400.0;
+            // A daily or shorter bar is judged by what trades on the weekend. A bar of two or three
+            // days spans the weekend either way, so it is judged by how many fall on one: a fifth
+            // or more (Bitcoin's two-day bars 0.28, twelvedata's gold at most 0.13). A weekly or
+            // longer bar is dated on whatever day the source starts its week, so only its date can tell.
+            bool weekend = spacingDays < 1.5 ? WeekendTrades(data[(from - 1)..])
+                         : spacingDays < 4 ? WeekendShare(data[(from - 1)..]) >= 0.2
+                         : anyWeekend;
 
             if (spacingDays < 20.0 / 24)
             {
@@ -263,6 +353,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             public List<int> Lows { get; } = new();
             /// <summary>The bar each of <see cref="Lows"/> was confirmed on.</summary>
             public List<int> ConfirmedAt { get; } = new();
+            /// <summary>The bar the search found each of <see cref="Lows"/> on (a lower low while it
+            /// held may have taken its place since).</summary>
+            public List<int> FoundAt { get; } = new();
             /// <summary>Per bar: the newest confirmed low known ON that bar, or -1.</summary>
             public int[] LastLowAt = Array.Empty<int>();
             /// <summary>
@@ -280,8 +373,11 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>
         /// Runs the detector for one tier. Everything it publishes per bar is decided from that bar
         /// and earlier ones; only <see cref="TierRun.Lows"/> (the final list) knows the future.
+        /// <paramref name="searchOnTurn"/>: the daily tier's search (see "The search" in the class
+        /// remarks); off, every low waits for the cycle line's cross.
         /// </summary>
-        public static TierRun Detect(ReadOnlySpan<Ohlcv> data, TierBars tier, double overbought, double oversold)
+        public static TierRun Detect(ReadOnlySpan<Ohlcv> data, TierBars tier, double overbought, double oversold,
+                                     bool searchOnTurn = false)
         {
             int n = data.Length;
             var run = new TierRun
@@ -301,14 +397,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             int searchBack = (int)Math.Round(tier.MaxBars * SearchBackCycles);
             int hold = Math.Max(0, (int)Math.Round(tier.MinBars * HoldFraction));
             int holdFrom = Math.Max(0, (int)Math.Round(tier.MinBars) - HoldFromBeforeMin);
+            int searchFrom = Math.Max(1, (int)Math.Round(tier.MinBars) - SearchFromBeforeMin);
 
-            var close = new double[n]; var low = new double[n];
-            for (int i = 0; i < n; i++) { close[i] = data[i].Close; low[i] = data[i].Low; }
+            var close = new double[n]; var low = new double[n]; var high = new double[n];
+            for (int i = 0; i < n; i++) { close[i] = data[i].Close; low[i] = data[i].Low; high[i] = data[i].High; }
             var stc = SchaffTrendCycle(close, len, fast, slow);
 
             bool armed = false, cancelledSince = false;
             double replaced = double.NaN;
             int last = -1, failedFor = -1, held = -1;   // held: a found low waiting out its hold
+            int found = -1;                             // the bar the search found it on
             for (int t = slow * 2; t < n; t++)
             {
                 if (stc[t] <= oversold && !armed)
@@ -327,6 +425,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         replaced = low[last];
                         run.Lows.RemoveAt(run.Lows.Count - 1);
                         run.ConfirmedAt.RemoveAt(run.ConfirmedAt.Count - 1);
+                        run.FoundAt.RemoveAt(run.FoundAt.Count - 1);
                         last = run.Lows.Count > 0 ? run.Lows[^1] : -1;
                         armed = true; cancelledSince = true;
                     }
@@ -342,7 +441,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     if (low[t] < low[held]) held = t;
                 }
-                else if (armed && stc[t - 1] < overbought && stc[t] >= overbought)
+                else if (searchOnTurn && last >= 0 && t - last >= searchFrom && close[t] > high[t - 1])
+                {
+                    // The lowest low since the cycle's highest high (the latest of equal bars), if
+                    // the bar has turned up from it.
+                    int top = last + 1;
+                    for (int i = last + 2; i <= t; i++) if (high[i] >= high[top]) top = i;
+                    int c = top;
+                    for (int i = top + 1; i <= t; i++) if (low[i] <= low[c]) c = i;
+                    if (c < t) { held = c; found = t; }
+                }
+                else if ((!searchOnTurn || last < 0) && armed && stc[t - 1] < overbought && stc[t] >= overbought)
                 {
                     int start = last >= 0 ? last + minGap : 0;
                     start = Math.Max(Math.Max(start, t - searchBack), swing);
@@ -360,14 +469,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                         bool stillLowest = true;
                         for (int j = c + 1; j <= t && stillLowest; j++)
                             if (low[j] < low[c]) stillLowest = false;
-                        if (stillLowest) held = c;
+                        if (stillLowest) { held = c; found = t; }
                     }
                 }
                 if (held >= 0 && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) >= hold)
                 {
                     run.Confirmed[t] = low[held];
                     if (cancelledSince) run.Updated[t] = replaced;
-                    run.Lows.Add(held); run.ConfirmedAt.Add(t);
+                    run.Lows.Add(held); run.ConfirmedAt.Add(t); run.FoundAt.Add(found);
                     last = held; held = -1; armed = false; cancelledSince = false;
                 }
                 run.LastLowAt[t] = last;

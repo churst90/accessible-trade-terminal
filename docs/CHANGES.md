@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: the daily search opens on schedule, gold's weeks are five bars, and the backtest re-run (2026-10-23)
+
+- **The daily tier searches for the next low the way the original appears to.** It no longer waits
+  for the cycle line to cross up through overbought once a confirmed low is there. From the last low
+  plus the shortest cycle less two bars (`CipherCEngine.SearchFromBeforeMin`), the first close above
+  the bar before's high takes the lowest low since the cycle's highest high as the low to hold
+  (`Detect(searchOnTurn: true)`, used by the daily tier only; the first low on a chart, and the weekly
+  and yearly tiers, still wait for the cross). Read from the Dow and GDX bar replays: the original's
+  "unconfirmed" low first appears 21 to 43 bars after the last low on GDX, and is the low after the
+  cycle's top, seldom the lowest bar since the last low.
+  - It is the best rule tried, not the original's: simulated on every replayed bar it names the
+    original's candidate on the bar it appears GDX 25 of 38, Dow 21 of 35. The original sometimes
+    names a low on a falling bar, or a day or two later.
+  - Exact-bar F1 against the original's labels, 8 assets held out: daily 0.727 to 0.739, weekly 0.587
+    to 0.592, tops 0.795 to 0.815 (five better, two worse, Bitcoin level). Training assets: daily
+    0.694 to 0.721.
+  - Not seen or heard in the app.
+- **Gold's and the dollar index's weeks are five bars, as the original counts them.** One Saturday or
+  Sunday bar in the last 500 used to make Cipher C treat a market as trading every day, so
+  twelvedata's gold (short weekend bars since 2024) flipped its weeks from five bars to seven as the
+  window moved, and redrew every cycle. Now Saturday and Sunday bars must each turn up on at least half
+  the weeks, each at a median range of at least a quarter of a weekday's (`WeekendRangeShare`); on
+  two-day bars at least a fifth must fall on a weekend. Flat bars (high equals low: nothing traded)
+  are left out of the ranges, since Bitstamp's Bitcoin had more flat weekend bars than not in 2011
+  and counting them made its first 300 bars a five-day market (Dogecoin and Solana four-hour bars
+  likewise early on). Over every cut of the lab's 52 daily assets, and its four-hour and five-minute
+  files, each asset keeps one clock: crypto seven days, gold and stocks five. Read from the original's own "weeks since the
+  last weekly low" on sixteen assets: crypto is the only seven-day week. XAU's bar-by-bar replay now
+  agrees with the full run on all 161 daily confirmations (was 42 of 150); replayed from bar 100,
+  XAU 168 of 168, Bitcoin 89 of 89, Ethereum 153 of 153.
+- **The backtest of buying the confirmed daily low, re-run on the original's timing** (Cody chose
+  to keep it). Every event replays causally on all seven assets. Confirmation now comes a median
+  18 bars after the low on the stock ETFs, 27 on Bitcoin. Exits still show no edge against random
+  entries with the same exit and stop. **The left-translated finding is withdrawn:** after the
+  change, the cycle after a left-translated one beat the cycle after a right-translated one on only
+  6 of the 13 ETFs it had been predicted on (12 of 13 before), and SPY, QQQ and DIA show nothing
+  (p 0.39–0.79). Docs only; see CIPHER_C_DESIGN section 8.
+- Tests: `CipherCSearchTests` (6) and `CipherCClockTests` (13). The rules' numbers are written into
+  the tests, not read from the engine. Twelve sabotages failed as they should. Search: the gate two
+  bars later, a close above the previous close, the lowest low since the last low, two bars to the
+  low's right, no search, the cross still allowed. Clock: Saturday presence only, Sunday presence
+  only, no presence check, flat bars counted, flat bars counted on weekends only, all-flat weekends
+  counted as trading. Earlier clock sabotages also failed: the old any-weekend-bar rule, no
+  range check, and two-day bars judged by range. `CipherCHoldTests` now run the daily tier as
+  shipped (with the search).
+
 ### Cipher C confirms a cycle low when the original indicator does (2026-10-22)
 
 - **A found low now waits out a hold before it is confirmed.** It holds for half the shortest cycle,

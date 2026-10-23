@@ -142,18 +142,25 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
   (`docs/CYCLE_SCHOOL_FINDINGS.md`). CF's own SPX counts fall inside its stated 36–44 day window only
   5 times in 23 (22%), counting trading days: 22–64, median 43, and 17 of 23 within 30–50. Counted
   in calendar days, 1 in 23. The indicator follows the method; it does not prove it.
-  Buying the confirmed daily low (section 8) is not a dependable edge either; the one thing that held
-  out of sample is that, on stock ETFs, the cycle after a left-translated one does better.
+  Buying the confirmed daily low (section 8) is not a dependable edge either. The left-translated
+  finding that once held out of sample went away when confirmation moved to the original's timing.
 - **The lows are drawn on their own bar and known only later**, as CF's are. They are declared
   look-ahead, so no strategy can use them. The events (Confirmed, Cancelled, Failed, Pending, the
   Timing Windows and the confirmations' companions) are decided on their own bar; a test checks that cutting the history
-  short never changes them, and a bar-by-bar replay of six assets agrees (section 8). Except: one
-  weekend bar on a weekday chart (XAU's data has them) changes the clock and redraws the cycles.
+  short never changes them, and a bar-by-bar replay of seven assets agrees on every event (section 8).
+- **Weekends.** The original counts gold's and the dollar index's weeks as five bars and only crypto's
+  as seven, although TradingView dates a fifth of their bars on a Sunday (UTC). Cipher C now calls a
+  market "trades every day" only when Saturday and Sunday bars each turn up on at least half the weeks
+  and each day's median range is at least a quarter of a weekday's (on two-day bars: at least a fifth
+  of the bars fall on a weekend). Flat bars (nothing traded) are left out of the ranges; counting
+  them made Bitstamp's 2011 Bitcoin a five-day market for its first 300 bars. One stray weekend bar
+  used to be enough, which flipped XAU's clock.
 - **The presets are the original's own** (section 2), SPX's from videos. Reading the stock
   daily values as trading days is an inference from the TradingView charts.
-- **What starts the search for a low is not the original's.** Confirmation timing now is (section
-  11), but in strong rallies the original confirms a low the cycle line has not yet found, and in
-  others it shows no candidate at all. Neither rule is known.
+- **What starts the search for a low is closer to the original's, not the same.** Confirmation timing
+  is the original's (section 11). The daily search now opens on schedule and takes the low after the
+  cycle's top on the first bar that turns up (section 11), but it names the original's candidate on
+  the bar it appears only about two times in three.
 - **Not built:** CF's future FCLR boxes to the right of the last bar (the chart has no future bars to
   draw on), the camel emoji in the D/W/Y low stacks, confluence that upgrades from LOW to MID to HIGH
   over the following bars (ours is fixed at confirmation), the US macro table and the Bullish Meter.
@@ -194,44 +201,52 @@ over the lab's daily files (scripts and the throwaway dump harness:
 `strategy-lab-data/cipher-c-backtest-2026-10-22/`). Buy at the next open after **DCL Confirmed**, one
 position at a time, 0.1% a side. Every causal exit also stops out on a close under the confirmed low.
 
-**The confirmations are causal.** Replayed bar by bar (each bar computed from the bars up to it), every
-confirmation, cancellation and failure lands on the same bar as in the full-history run on BTC, ETH,
-SPY, QQQ, DIA and GLD. Not on XAU (twelvedata): 42 of 150 match, because that file has 135 stray
-weekend bars since October 2024 and one weekend bar in the last 500 flips `MeasureBars` to "trades
-every day", which rescales every cycle (TODO).
+**Re-run on the original's timing (2026-10-23).** Cody chose to keep the original's later
+confirmation (section 11) and re-run this. The run below is on the engine with the hold, the weekend
+clock (section 6) and the daily search (section 11); scripts in
+`strategy-lab-data/cipher-c-backtest-2026-10-23/`.
 
-**Selling at the top (oracle, look-ahead).** Mean per trade: BTC +38%, ETH +10%, QQQ +5.5%, SPY +3.7%,
-DIA +3.5%, GLD +3.3%, winning 83–98% of the time. Right-translated cycles make the most (BTC +45%,
-SPY +4.2%) and left the least (BTC +16%, SPY +2.4%), but that is the definition of a right-translated
-cycle, not a finding. The top is not reachable: on ETH it had already passed when the low was
-confirmed in 67 of 145 cycles, GLD 51 of 225, BTC 22 of 95. Confirmation comes a median 5–12 bars
-after the low (BTC 12, p90 56).
+- **The confirmations are causal, now on all seven assets.** Replayed bar by bar (each bar computed
+  from the bars up to it), every daily, weekly and yearly confirmation, cancellation and failure lands
+  on the same bar as in the full-history run: BTC 85 of 85 daily confirmations, ETH 143, SPY 178, QQQ
+  134, DIA 144, GLD 177, and XAU 161 of 161 (42 of 150 before the weekend fix), each replayed from
+  bar 300. From bar 100, after flat weekend bars were left out of the clock: BTC 89 of 89, ETH 153,
+  XAU 168.
+- **Confirmation now comes later:** a median 18 bars after the low on SPY, QQQ and DIA (p90 19–22),
+  11 on GLD and XAU, 8 on ETH, 27 on BTC (p90 46). The top had already passed when the low was
+  confirmed in 35 of 89 BTC cycles, 68 of 155 ETH, 45 of 183 SPY.
+- **Causal exits still show no edge** against random entries with the same exit rule and stop. On
+  the stock ETFs per-trade means are within a fraction of a percent of zero; SPY now does worse than
+  random on all five exits (beats 6–27% of the draws), DIA is at chance (36–50%), QQQ mixed (33–77%).
+  BTC beats 57–81% (SMA exit 78%), ETH 42–87%, GLD 25–94%, XAU 16–85%. Across 35 comparisons nothing
+  is a dependable edge.
+- **The left-translated finding is gone.** The cycle after a left-translated one against the cycle
+  after a right-translated one, window exit: SPY −0.5, QQQ +0.4, DIA +0.2 points (shuffle p 0.79,
+  0.40, 0.39). On the 13 ETFs it was predicted on, 6 positive, 1 level, 6 negative; only IWM is
+  significant (+1.9, p 0.02). BTC −15, ETH −4. Holding 20 bars reads the same. What the first run
+  found was a property of buying 5–12 bars after the low, which the original does not do.
 
-**Causal exits** (sell on a close under the 10 SMA; when the next low's window opens; after 10, 20 or 40
-bars), against random entry bars with the **same exit rule and stop** (the stop is the lowest low of a
-lookback drawn from the real confirmation lags; holding the strategy's own hold lengths flatters an
-adaptive exit). Per-trade means are a fraction of a percent on the stock ETFs. DIA beats 92–96% of the
-random draws on every rule and SPY 75–95%; QQQ (31–65%) and ETH (5–50%) do worse than random; GLD is
-mixed. BTC's SMA exit beats 86% (2012–16 and 2017–26 alike); its window exit 60–70%. Read across 30
-comparisons: no exit is a dependable edge on its own.
+**The first run (2026-10-22, before the hold).** Kept for the record; its entries came earlier than
+Cipher C's do now.
 
-**The previous cycle's translation (known at the confirmation) is the one thing that held out.** The
-cycle after a LEFT-translated one returned more than the cycle after a right-translated one, opposite to
-reading right translation as "bullish, carry on". Found on SPY, QQQ and DIA (window exit: +2.1, +3.5,
-+2.9 points, shuffle p 0.01, 0.02, 0.00), then predicted before looking on 13 other stock ETFs (IWM,
-EFA, EEM, VTI and nine sectors, SPX preset): positive in 12 of 13 with the window exit and 13 of 13
-holding 20 bars, about +2 points a trade. Not on crypto (BTC +16 points but p 0.29 on 21 trades; ETH
-−1). Part of it is the size of the fall: a low after a left-translated cycle has fallen a median 12%
-from the cycle's high, after a right one 5%, and bigger falls bounce more. Within thirds of that fall,
-left still beats right by 0.75–2 points.
+- Replayed bar by bar, every event matched the full run on BTC, ETH, SPY, QQQ, DIA and GLD. On XAU
+  (twelvedata) 42 of 150 matched: that file has 135 stray weekend bars since October 2024, and one
+  in the last 500 flipped the clock (fixed since, section 6).
+- **Selling at the top (oracle, look-ahead).** Mean per trade: BTC +38%, ETH +10%, QQQ +5.5%, SPY
+  +3.7%, DIA +3.5%, GLD +3.3%, winning 83–98% of the time. Right-translated cycles make the most and
+  left the least, but that is the definition of a right-translated cycle, not a finding.
+  Confirmation came a median 5–12 bars after the low.
+- **Causal exits** (sell on a close under the 10 SMA; when the next low's window opens; after 10, 20
+  or 40 bars; every exit also stops out on a close under the confirmed low), against random entry
+  bars with the same exit rule and stop: DIA beat 92–96% of the draws and SPY 75–95%, QQQ and ETH did
+  worse than random, GLD mixed. No exit was a dependable edge.
+- **Left-translated (withdrawn 2026-10-23).** The cycle after a left-translated one returned more than
+  the cycle after a right-translated one on SPY, QQQ and DIA (window exit +2.1, +3.5, +2.9 points,
+  p 0.01, 0.02, 0.00), and then on 12 of 13 other stock ETFs predicted before looking. It did not
+  survive the original's timing (above).
 
-> **Run before the hold (section 11).** These trades bought a median 5–12 bars after the low.
-> Cipher C now confirms after the low has held for half the shortest cycle (18 bars on the stock
-> ETFs), so every entry here comes earlier than it would now. The results have not been re-run.
-
-Caveats: the ETFs share their years, so 12 of 13 is fewer independent tests than it looks; the stock
-presets were then partly estimated (section 6); no costs beyond 0.1% a side; this is a finding about the
-signal, not a strategy that has been walked forward.
+Caveats: the ETFs share their years; the stock presets are partly estimated (section 6); no costs
+beyond 0.1% a side.
 
 ## 9. Held-out check against videos after 2026-10-17 (2026-10-22)
 
@@ -393,7 +408,8 @@ after a 300-bar warm-up, in the Python prototype with the original's ranges:
 | | Train daily | Train weekly | Train tops | Held-out daily | Held-out weekly | Held-out tops |
 |---|---|---|---|---|---|---|
 | No hold | 0.677 | 0.499 | 0.742 | 0.712 | 0.560 | 0.789 |
-| Hold (now) | 0.694 | 0.515 | 0.749 | 0.727 | 0.587 | 0.795 |
+| Hold | 0.694 | 0.515 | 0.749 | 0.727 | 0.587 | 0.795 |
+| Hold and the daily search (now) | 0.721 | 0.526 | 0.771 | 0.739 | 0.592 | 0.815 |
 
 The rule came from the Dow and GDX replays, and both are in the training set. The held-out gain is
 small but runs the same way on all three counts. Dropping cancellation scored a little higher
@@ -401,15 +417,22 @@ small but runs the same way on all three counts. Dropping cancellation scored a 
 
 **What is still not the original's:**
 
-- **What starts the search.** Most of the remaining misses are lows the two pick differently.
-  Sometimes the original confirms a low in a strong rally, on schedule, while Cipher C's cycle line
-  has not crossed. GDX in late 2025 shows this: the original confirmed 09-18 on 10-03, and Cipher C
-  confirmed it on 11-07. At other times the original shows no candidate at all through a rally (Dow:
-  July 2023, January–February 2024, September 2024, September 2025). Its search seems to start
-  about three-quarters of a shortest cycle after the last low, and it takes a recent swing low, not
-  the window's minimum. Every gate tried on top of Cipher C's own trigger (moving-average position,
-  drawdown, position in the range, "no new cycle high since", a top-first rule) scored worse
-  without it.
+- **What starts the search (partly done 2026-10-23).** Before, Cipher C found a low only when its
+  cycle line crossed up through overbought. In strong rallies the original confirmed on schedule
+  while the line had not crossed (GDX: the original confirmed 2025-09-18 on 10-03, Cipher C on
+  11-07), and at other times it showed no candidate through a rally (Dow: July 2023, early 2024).
+  Read from the replays: the original's "unconfirmed" low first appears 21 to 43 bars after the last
+  low on GDX (shortest cycle 22), and it is seldom the lowest bar since the last low but the low after
+  the cycle's top. **The daily tier now searches that way** (`CipherCEngine.Detect(searchOnTurn:
+  true)`): from the last low plus the shortest cycle less two bars (`SearchFromBeforeMin`), the first
+  close above the bar before's high takes the lowest low since the cycle's highest high. Simulated on
+  every replayed bar it names the original's candidate on the bar it appears more often than any
+  rule tried (GDX 25 of 38, Dow 21 of 35), but it is not the rule: the
+  original sometimes names a low on a falling bar, and sometimes a day or two later. Held out (table
+  above): daily 0.727 → 0.739 and tops 0.795 → 0.815; per asset five better, two worse, Bitcoin level.
+  The first low on a chart, and the weekly and yearly tiers, still wait for the cross. Tried and
+  worse: a close above the bar before's close, the lowest low since the last low, two bars to the
+  low's right, a gate a few bars later.
 - **The LOW / MID / HIGH tag** on an unconfirmed low. The best single separators found (the high
   since the candidate against its range, or the close against a 38-bar average) agree with the
   tag about 90% of the time. Neither is the rule.
@@ -418,4 +441,4 @@ small but runs the same way on all three counts. Dropping cancellation scored a 
 
 **What changes for a user.** A daily low is now known at least half a cycle after it happened:
 18 trading days on the Dow, 27 calendar days on Bitcoin (the median there was 12 before). The
-backtest in section 8 bought earlier than this and has not been re-run.
+backtest in section 8 was re-run on it (2026-10-23).
