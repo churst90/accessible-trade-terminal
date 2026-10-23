@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
   - Read from the original's labels in TradingView, not from its code. Run on the original's own
     daily lows over sixteen assets: 317 of its weekly lows drawn, 60 extra, 60 missed. On the spans
     replayed bar by bar (GDX, Dow, Bitcoin) it draws exactly the original's.
+  - End to end, with Cipher C finding its own daily lows (measured afterwards, same day): weekly F1
+    0.580 on the same bar over the sixteen assets, against 0.560 before; eight assets better, seven
+    worse (GDXJ and GDX lose). The daily lows are what limit it.
   - On the app's Bitcoin data since 2022-05-12, Cipher C's weekly lows are the original's eight.
     It adds 2025-04-07 where the original has 2025-03-11, because the daily lows differ there. It
     has no 2022-12-19, which is a daily low Cipher C does not find. The 5 August 2024 crash is no

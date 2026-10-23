@@ -26,6 +26,13 @@
 >     04-07; 2022-12-19 has no Cipher C daily low). Cody to look at Bitcoin daily: no W under the
 >     5 August 2024 crash any more (the original has none). Open:
 >     - The four weeks are fitted, not read (GDX accepts anything from 84 to 100 bars, Bitcoin 119 to 134).
+    - Measured end to end (2026-10-23): with Cipher C finding its own daily lows, the weekly lows
+      match the original's on the same bar with F1 0.580 over the sixteen assets (262 of its 454
+      drawn, 187 extra), against 0.560 for the engine before this change. Eight assets better, seven
+      worse: Bitcoin 0.57 to 0.86, oil 0.55 to 0.67, COIN 0.46 to 0.62; GDXJ 0.64 to 0.43, GDX 0.48 to
+      0.42. Same data the four weeks were fitted on, so not out of sample. Given the original's own
+      daily lows the rule reaches about 0.84, so most of what is left comes from the daily lows
+      (daily F1 0.76).
 >     - Residuals on the dollar index, Ethereum and gold; the "lower low a daily cycle later" step and
 >       the double are the least certain parts.
 >     - On a weekly chart the weekly tier still finds its own lows with the cross and the hold,
