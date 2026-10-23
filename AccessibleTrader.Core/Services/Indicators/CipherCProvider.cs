@@ -207,8 +207,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "tint over the daily timing window, whose day count is read on every bar, with the cycle arcs " +
                     "drawn under the candles from low to low. Cycle ranges are tuned " +
                     "for sixteen assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver " +
-                    "miners, Bitcoin, Ethereum and four crypto stocks); seven of those are estimated. Lows are drawn " +
-                    "on the low's bar but known only when confirmed, a median of nine bars later. A map of cycle " +
+                    "miners, Bitcoin, Ethereum and four crypto stocks). Lows are drawn on the low's bar but known " +
+                    "only when confirmed, after the low has held for half the shortest cycle. A map of cycle " +
                     "timing, not an edge.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {

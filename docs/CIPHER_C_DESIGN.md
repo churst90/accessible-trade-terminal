@@ -54,9 +54,25 @@ Bitcoin's table (54–66 days, 22–42 weeks, 4 years) was read from two more re
 August 2025 (`strategy-lab-data/cf-frames3/frames/s4EfttpMNXA/35.jpg`, `qVlnivWr2ho/0.jpg`). Camel
 says 28–32 weeks on his 2026 streams; Cipher C follows the indicator's table. For COIN, MSTR, MARA and
 RIOT, treating the daily values as trading days follows the TradingView stock-bar context; that is
-an inference, not an explicit CF statement. The other seven presets in `CipherCEngine.Presets` are
-estimates from the nearest of those: NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. Each says so when
-spoken ("estimated, not CF's").
+an inference, not an explicit CF statement.
+
+**All sixteen are now the original's own (2026-10-22, section 11).** The table the original draws
+on its own TradingView chart was read for fifteen of them. It confirmed the nine above and replaced
+the seven estimates:
+
+| Asset | Daily (days) | Weekly (weeks) | Yearly (years) | Was |
+|---|---|---|---|---|
+| NDQ, DJI | 36–44 | 22–31 | 4 | yearly 3.5–4.5 |
+| DXY | 15–24 | 16–20 | 3 | 15–25, 15–20, 2.5–3.5 |
+| SILVER | 22–28 | 20–28 | 8 | the same |
+| USOIL | 36–44 | 16–20 | 3 | 30–45, 18–26, 3–4 |
+| GDXJ, SILJ | 22–28 | 22–26 | 8 | weekly 20–28 |
+| ETH | 15–25 | 7–10 | 4 | yearly 3.5–4.5 |
+
+SPX's table does not draw on TradingView's SP:SPX, so SPX keeps the ranges read off Camel's videos.
+Crude oil's real ranges match the original's crude oil lows worse than the estimate did (0.68
+against 0.76, exact-bar F1 in the Python prototype); they are used because they are the original's.
+No preset says "estimated" any more.
 
 ## 3. What CF draws, and how many parts it has
 
@@ -133,9 +149,11 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
   Timing Windows and the confirmations' companions) are decided on their own bar; a test checks that cutting the history
   short never changes them, and a bar-by-bar replay of six assets agrees (section 8). Except: one
   weekend bar on a weekday chart (XAU's data has them) changes the clock and redraws the cycles.
-- **Seven of sixteen presets are estimated:** NDQ, DJI, DXY, SILVER, USOIL, GDXJ and SILJ. The five
-  newly read stock/miner tables and the updated gold table are now marked as CF's own; the stock
-  daily-values-as-trading-days reading is an inference from the TradingView charts.
+- **The presets are the original's own** (section 2), SPX's from videos. Reading the stock
+  daily values as trading days is an inference from the TradingView charts.
+- **What starts the search for a low is not the original's.** Confirmation timing now is (section
+  11), but in strong rallies the original confirms a low the cycle line has not yet found, and in
+  others it shows no candidate at all. Neither rule is known.
 - **Not built:** CF's future FCLR boxes to the right of the last bar (the chart has no future bars to
   draw on), the camel emoji in the D/W/Y low stacks, confluence that upgrades from LOW to MID to HIGH
   over the following bars (ours is fixed at confirmation), the US macro table and the Bullish Meter.
@@ -207,8 +225,12 @@ holding 20 bars, about +2 points a trade. Not on crypto (BTC +16 points but p 0.
 from the cycle's high, after a right one 5%, and bigger falls bounce more. Within thirds of that fall,
 left still beats right by 0.75–2 points.
 
+> **Run before the hold (section 11).** These trades bought a median 5–12 bars after the low.
+> Cipher C now confirms after the low has held for half the shortest cycle (18 bars on the stock
+> ETFs), so every entry here comes earlier than it would now. The results have not been re-run.
+
 Caveats: the ETFs share their years, so 12 of 13 is fewer independent tests than it looks; the stock
-presets are partly estimated (section 6); no costs beyond 0.1% a side; this is a finding about the
+presets were then partly estimated (section 6); no costs beyond 0.1% a side; this is a finding about the
 signal, not a strategy that has been walked forward.
 
 ## 9. Held-out check against videos after 2026-10-17 (2026-10-22)
@@ -326,3 +348,74 @@ USOIL, GDX, GDXJ, SILJ, ETHUSD, BTCUSD, COIN, MSTR, MARA, RIOT), daily and weekl
 panel. Then see whether a minimum cycle length of about 27 bars brings Cipher C's daily lows onto the
 original's without costing the matches it already has.
 
+
+## 11. Confirming when the original confirms (2026-10-22)
+
+Section 10 compared final pictures. This section compares *when* each one confirms. TradingView's bar
+replay steps the original one bar at a time, so it draws only what it knew on that bar. Its labels
+and table were read on every bar: the Dow daily from January 2023 (920 bars) and GDX daily from
+October 2023 (720 bars) to October 2026. The table's "unconfirmed" row names the low it is holding
+before it confirms it. As in section 10, nothing was exported and the replay data stays in
+`strategy-lab-data/`.
+
+**The original's rule, read from it.** A found low is confirmed once it has held for **half the
+shortest cycle**. The hold counts from the low itself, or from **the last confirmed low plus the
+shortest cycle less two bars**, whichever is later. A lower low while it holds takes its place
+(the original's 🔄) and the hold starts again.
+
+- Dow (36–44): every confirmation from 2023 came 18 bars after the later of the low and the last low
+  plus 34.
+- GDX (22–28): all 27 cycles came 11 bars after the later of the low and the last low plus 20. Two
+  of them separate "less two bars" from 34/36 of the shortest cycle (21 on GDX); both fit less two.
+- Tops are labelled only when the next low is confirmed.
+
+**What Cipher C does now.** `CipherCEngine.Detect` keeps its own way of finding the low (the cycle
+line's cross up through overbought, then the lowest swing low since the minimum gap). It then holds
+that low under the original's rule (`HoldFraction` 0.5, `HoldFromBeforeMin` 2). Cancellation is
+kept: the original documents a "cancelled" alert. With the hold, a low can only be cancelled in a
+short gap, between half and 0.6 of the shortest cycle after it.
+
+| Confirmations on the original's own bar (same low, same date) | Before | Now |
+|---|---|---|
+| Dow, 18 of the original's daily lows from March 2023 | 1 | 13 |
+| GDX, 27 of the original's daily lows from October 2023 | 0 | 16 |
+| Same low, any date: Dow / GDX | 14 / 20 | 16 / 21 |
+
+Measured on the C# engine through the dump harness. Before the hold, Cipher C confirmed a median 15
+calendar days earlier than the original on the Dow, and 10 earlier on GDX.
+
+**Across all fifteen assets, without fitting the hold to them.** The original's final labels were read
+off its chart for the other finetuned assets, by section 10's method. They were split before looking into seven to train on (GDX,
+SILVER, DJI, DXY, ETHUSD, MARA, COIN) and eight held out (GDXJ, SILJ, GOLD, NDQ, USOIL, BTCUSD,
+MSTR, RIOT). Each cell is the F1 score: a low counts only on its exact bar, matched one to one,
+after a 300-bar warm-up, in the Python prototype with the original's ranges:
+
+| | Train daily | Train weekly | Train tops | Held-out daily | Held-out weekly | Held-out tops |
+|---|---|---|---|---|---|---|
+| No hold | 0.677 | 0.499 | 0.742 | 0.712 | 0.560 | 0.789 |
+| Hold (now) | 0.694 | 0.515 | 0.749 | 0.727 | 0.587 | 0.795 |
+
+The rule came from the Dow and GDX replays, and both are in the training set. The held-out gain is
+small but runs the same way on all three counts. Dropping cancellation scored a little higher
+(held-out daily about 0.73). It was kept because the original has the state.
+
+**What is still not the original's:**
+
+- **What starts the search.** Most of the remaining misses are lows the two pick differently.
+  Sometimes the original confirms a low in a strong rally, on schedule, while Cipher C's cycle line
+  has not crossed. GDX in late 2025 shows this: the original confirmed 09-18 on 10-03, and Cipher C
+  confirmed it on 11-07. At other times the original shows no candidate at all through a rally (Dow:
+  July 2023, January–February 2024, September 2024, September 2025). Its search seems to start
+  about three-quarters of a shortest cycle after the last low, and it takes a recent swing low, not
+  the window's minimum. Every gate tried on top of Cipher C's own trigger (moving-average position,
+  drawdown, position in the range, "no new cycle high since", a top-first rule) scored worse
+  without it.
+- **The LOW / MID / HIGH tag** on an unconfirmed low. The best single separators found (the high
+  since the candidate against its range, or the close against a 38-bar average) agree with the
+  tag about 90% of the time. Neither is the rule.
+- **The weekly tier.** Only daily charts were replayed. The weekly tier uses the same hold
+  unverified.
+
+**What changes for a user.** A daily low is now known at least half a cycle after it happened:
+18 trading days on the Dow, 27 calendar days on Bitcoin (the median there was 12 before). The
+backtest in section 8 bought earlier than this and has not been re-run.

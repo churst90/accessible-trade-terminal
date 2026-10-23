@@ -269,7 +269,17 @@ public sealed class CipherCProviderTests
         Assert.Contains(CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix, causal);
         Assert.Contains(CipherCProvider.CompDailyWindow + ComponentCompanions.Stops, causal);
         var everCompared = new HashSet<string>();
-        foreach (int cut in new[] { 3000, 3800, 4500, 5200 })
+        // Fixed cuts, plus one just after the last confirmation that replaced a cancelled low on
+        // each tier: since confirmations wait out the hold (2026-10-22), cancellations are rare
+        // and no longer fall in the fixed stretches.
+        var cuts = new List<int> { 3000, 3800, 4500, 5200 };
+        foreach (var replaced in new[] { CipherCProvider.CompDclConfirmed, CipherCProvider.CompWclConfirmed })
+        {
+            int last = Marked(whole[replaced + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
+            Assert.True(last > 400, $"{replaced}: no confirmation replaces a cancelled low on Bitcoin");
+            cuts.Add(last + 1);
+        }
+        foreach (int cut in cuts)
         {
             var part = Run(bars.Take(cut).ToList(), "BTC/USD");
             foreach (var c in causal)
@@ -578,6 +588,15 @@ public sealed class CipherCProviderTests
     [InlineData("GDX", 22, 28, 22, 26, 8, 8, false)]
     [InlineData("GOLD", 22, 28, 20, 28, 8, 8, false)]
     [InlineData("BTC", 54, 66, 22, 42, 4, 4, true)]
+    // Read from the original's own range table in TradingView, 2026-10-22 (SPX's does not draw there).
+    [InlineData("NDQ", 36, 44, 22, 31, 4, 4, false)]
+    [InlineData("DJI", 36, 44, 22, 31, 4, 4, false)]
+    [InlineData("DXY", 15, 24, 16, 20, 3, 3, false)]
+    [InlineData("SILVER", 22, 28, 20, 28, 8, 8, false)]
+    [InlineData("USOIL", 36, 44, 16, 20, 3, 3, false)]
+    [InlineData("GDXJ", 22, 28, 22, 26, 8, 8, false)]
+    [InlineData("SILJ", 22, 28, 22, 26, 8, 8, false)]
+    [InlineData("ETH", 15, 25, 7, 10, 4, 4, true)]
     public void CF_read_presets_have_the_recorded_ranges(string key, double dailyMin, double dailyMax,
         double weeklyMin, double weeklyMax, double yearlyMin, double yearlyMax, bool calendarDays)
     {
@@ -599,7 +618,7 @@ public sealed class CipherCProviderTests
         var gold = CipherCProvider.PresetWords(4, new DateTime(2025, 1, 1));
         Assert.StartsWith("Gold ranges, tuned: daily 22 to 28 trading days", gold);
         var dji = CipherCProvider.PresetWords(2, new DateTime(2025, 1, 1));
-        Assert.Contains("Dow Jones ranges, estimated:", dji);
+        Assert.Contains("Dow Jones ranges, tuned:", dji);
         var other = CipherCProvider.PresetWords(-1 - 11, new DateTime(2025, 1, 1));
         Assert.StartsWith("no preset for this symbol, so Bitcoin's ranges", other);
         Assert.DoesNotContain("halving", other);

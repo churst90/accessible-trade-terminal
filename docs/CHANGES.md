@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C confirms a cycle low when the original indicator does (2026-10-22)
+
+- **A found low now waits out a hold before it is confirmed.** It holds for half the shortest cycle,
+  counted from the low or from the last confirmed low plus the shortest cycle less two bars,
+  whichever is later. A lower low while it holds takes its place and the hold starts again. This is
+  the original's own timing. It was read bar by bar from TradingView's bar replay with Cody's trial
+  (Dow daily from 2023, GDX daily from October 2023; nothing exported, data kept out of the repo).
+  The original fits it on every cycle: Dow 18 bars after the later of the low and the last low plus
+  34, GDX 11 bars after the later of the low and the last low plus 20.
+  - Confirmations on the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). Same low
+    on any date: Dow 16 (was 14), GDX 21 (was 20).
+  - On the 8 assets held out of the original's finetuned list, exact-bar F1 against its labels:
+    daily 0.712 to 0.727, weekly 0.560 to 0.587, tops 0.789 to 0.795.
+  - `CipherCEngine.HoldFraction` (0.5) and `HoldFromBeforeMin` (2). Cancellation is kept, because
+    the original has the state, though dropping it scored a little higher.
+- **All sixteen presets are now the original's ranges.** Fifteen were read from the table it draws
+  on TradingView. Changed: DXY 15–24 days, 16–20 weeks, 3 years; crude oil 36–44 days, 16–20 weeks,
+  3 years; GDXJ and SILJ 22–26 weeks; Nasdaq, Dow and Ethereum 4 years. SPX keeps its ranges from the
+  videos, because its table does not draw on SP:SPX. No preset is spoken as "estimated" any more.
+- Tests: `CipherCHoldTests` (3) hold the engine to the rule on the Bitcoin fixture. The rule's
+  numbers are written in the test, not read from the engine. 6 sabotages went red: no hold, no
+  replacement, the hold counted from the last low plus 53 or plus 51, the hold ignoring the last
+  low, and a hold of 0.55. The causality test now also cuts just after the last confirmation that
+  replaced a cancelled low, because cancellations are rare under the hold. The preset test now
+  covers all fifteen read tables.
+- **Caveats:**
+  - A daily low is now known later: 18 trading days on the Dow, 27 days on Bitcoin (a median 12
+    before). The section 8 backtest bought earlier and has not been re-run.
+  - What starts the search for a low is still Cipher C's own. In strong rallies the original
+    confirms on schedule while Cipher C waits for its cycle line (GDX, late 2025).
+  - Daily charts only; the weekly tier uses the same hold unverified.
+  - Not seen or heard in the app.
+
 ### Cipher C checked against labels it was not built on (2026-10-22, docs and research data only)
 
 - Scored against the original indicator's output in videos from after the build (10-19 to 10-22). On

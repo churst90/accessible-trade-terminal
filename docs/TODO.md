@@ -1,3 +1,22 @@
+> - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
+>   and CIPHER_C_DESIGN section 11).** A found daily low now holds for half the shortest cycle, counted
+>   from the later of the low and the last low plus the shortest cycle less two bars. A lower low
+>   while it holds replaces it. This is the original's rule, read from TradingView's bar replay on the
+>   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
+>   presets are now the original's ranges (SPX's from videos). Cody to look at Bitcoin daily: a low
+>   is now confirmed about 27 days after it, where it was 12. Open:
+>   - **Later confirmation is a real change for anything that trades it.** The section 8 backtest
+>     (the left-translated finding) bought 5–12 bars after the low and has not been re-run. Cody:
+>     keep the original's timing, and re-run the backtest on it?
+>   - **What starts the search is still not the original's.** In strong rallies the original confirms
+>     on schedule while Cipher C's cycle line has not crossed (GDX late 2025: Cipher C 5 weeks late),
+>     and at other times it shows no candidate through a rally (Dow: July 2023, early 2024). Every
+>     gate tried scored worse. The trial ends about 11-05; replaying a third asset (crypto) would test
+>     the hold where it counts calendar days.
+>   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%).
+>   - The weekly tier uses the same hold unverified; no weekly chart was replayed.
+>   - Cipher C does not say when a low is being held. The original shows it as "unconfirmed" with a
+>     day count. Add it as a reading?
 > - [ ] **"Say what signals look like" (2026-10-22, built, NOT heard; see CHANGES).** Cody to tick it
 >   (Settings → Speech) and arrow Cipher B on Bitcoin daily: the Buy dot should say "Drawn as a large
 >   green dot", a bearish WaveTrend cross "a red dot". Then arrow Cipher C's lows and confirmations, play
@@ -37,9 +56,10 @@
 >     2017-2026, 35 of the original's 48 daily lows are on the same bar as Cipher C's, 12 of 20
 >     weekly lows and 38 of 47 tops. Cipher C makes more, shorter cycles: its shortest is 22 bars,
 >     8 cycles under 27; the original's shortest is 27, median 50. The original labels no
->     mid-translated tops. Next, while the trial lasts (ends about 11-05): the same read on the
->     other 15 finetuned assets, daily and weekly, plus the settings panel. Then test a minimum
->     daily cycle of about 27 bars against all of them. Cody: go ahead with the other assets?
+>     mid-translated tops. Done since: the other finetuned assets' daily labels were read, and the
+>     confirmation timing was copied (the item above). Still to do while the trial lasts (ends about
+>     11-05): weekly charts and the settings panel. A minimum daily cycle near 27 bars was tried as
+>     a search window of 0.75 of the shortest cycle and scored worse held out.
 >     Also open: TLT has no preset; its one screenshot window read about 29–35 days.
 >   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
 > - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars

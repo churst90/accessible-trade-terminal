@@ -2622,8 +2622,10 @@ it is only found bars later, once price has turned. Narration says such a mark o
 that found it closes, never in the middle of a bar, and names the date it is drawn on: "Right
 translated top, bullish, on March 17 2026." When the indicator confirms the low with a mark of
 its own (Cipher C's check box), you hear one sentence on the confirmation instead of two: "Daily
-cycle low confirmed, on March 29 2026 at 64,955, 6 bars ago." There is no twenty-bar limit on
-these, however late the low is found. Turning narration on does not read out the ones already
+cycle low confirmed, on March 29 2026 at 64,955, 27 bars ago." Cipher C confirms a daily low
+only after it has held for half the shortest cycle (27 days on Bitcoin, 18 trading days on the
+Dow), as the indicator it follows does. There is no twenty-bar limit on these, however late the
+low is found. Turning narration on does not read out the ones already
 on the chart.
 
 Auto-narration is one of a small family of "let the terminal keep you posted" features

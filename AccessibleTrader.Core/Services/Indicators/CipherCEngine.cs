@@ -37,7 +37,22 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// last confirmed low's minimum gap (60% of the shortest cycle). The low must still be the
     /// lowest bar up to the confirming bar. A close under a confirmed low before that minimum gap
     /// CANCELS it (CF's "cancelled" state); a close under it after the gap is a FAILED cycle.
-    /// Confirmation therefore comes some bars after the low — a median of nine on SPX daily.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The hold.</b> The low the cross finds is not confirmed on that bar: it must hold for half
+    /// the shortest cycle (<see cref="HoldFraction"/>), counted from the low itself or from the last
+    /// confirmed low plus the shortest cycle less two bars (<see cref="HoldFromBeforeMin"/>),
+    /// whichever is later. A lower low while it holds takes its place and starts the hold again.
+    /// This is the original's own timing, read bar by bar from it in TradingView's bar replay
+    /// (2026-10-22): on the Dow (36-bar shortest cycle) every confirmation came 18 bars after the
+    /// later of the low and the last low plus 34; on GDX (22) 11 bars after the later of the low and
+    /// the last low plus 20, all 27 cycles from October 2023 to October 2026. Where the two agree
+    /// on the low, Cipher C now confirms it on the same bar the original does: 13 of the original's
+    /// 18 Dow lows from 2023 and 16 of its 27 GDX lows. The rest are lows the two pick differently.
+    /// Confirmation therefore comes at least half a shortest cycle after the low: 18 bars on the
+    /// Dow, where it used to be a median of eight. Read on daily charts only; the weekly tier uses
+    /// the same rule unverified.
     /// </para>
     ///
     /// <para>
@@ -56,32 +71,39 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const double StcSlowFactor    = 1.0;   // slow EMA = mean cycle × this
         public const double SearchBackCycles = 1.5;   // the low is looked for at most this many longest cycles back
 
+        // ── Read from the original in bar replay (see "The hold" in the class remarks) ──
+        public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle before it is confirmed
+        public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
+
         // ── Presets ────────────────────────────────────────────────────────────────────
 
         // Said aloud after the preset's name. The indicator names no vendor (Cody, 2026-10-21).
         private const string FromCf     = "tuned";
-        private const string Estimated  = "estimated";
 
         /// <summary>
         /// The sixteen assets CF says it is fine-tuned for (its own watchlist on cftrading.co.uk:
         /// SPX, DXY, NDQ, DJI, GOLD, SILVER, USOIL, GDX, GDXJ, SILJ, ETHUSD, BTCUSD, COIN, MSTR,
-        /// MARA, RIOT). Nine of its range tables are now CF's own: SPX, GOLD and Ethereum, plus
-        /// COIN, MSTR, MARA, RIOT, GDX and Bitcoin read off reviewer videos from August 2025. The
-        /// other seven are estimates from the nearest of those and say so.
+        /// MARA, RIOT). All sixteen range tables are CF's own. Fifteen were read from the table the
+        /// original draws on its own chart in TradingView (2026-10-22): that corrected DXY (15–24
+        /// days, 16–20 weeks, 3 years), crude oil (36–44 days, 16–20 weeks, 3 years), GDXJ and SILJ
+        /// (22–26 weeks), and the Nasdaq, Dow and Ethereum yearly cycle (4 years), which had been
+        /// estimates. SPX's table does not draw there, so SPX keeps the ranges read off Camel's
+        /// videos. Crude oil's real table matches the original's crude oil lows worse than the
+        /// estimate did (0.68 against 0.76 on exact bars); it is used because it is the original's.
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
             new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf),
-            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 3.5, 4.5, false, Estimated),
-            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 3.5, 4.5, false, Estimated),
-            new CyclePreset("DXY",    "Dollar index", 15, 25, 15, 20, 2.5, 3.5, false, Estimated),
+            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf),
+            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf),
+            new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf),
             new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf),
-            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, Estimated),
-            new CyclePreset("USOIL",  "Crude oil",   30, 45, 18, 26, 3,   4,   false, Estimated),
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf),
+            new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
             new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 20, 28, 8, 8, false, Estimated),
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 20, 28, 8, 8, false, Estimated),
-            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 3.5, 4.5, true,  FromCf),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf),
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf),
+            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf),
@@ -277,6 +299,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             int swing = Math.Clamp((int)Math.Round(tier.MinBars / 7), 2, 5);
             int minGap = tier.MinGap;
             int searchBack = (int)Math.Round(tier.MaxBars * SearchBackCycles);
+            int hold = Math.Max(0, (int)Math.Round(tier.MinBars * HoldFraction));
+            int holdFrom = Math.Max(0, (int)Math.Round(tier.MinBars) - HoldFromBeforeMin);
 
             var close = new double[n]; var low = new double[n];
             for (int i = 0; i < n; i++) { close[i] = data[i].Close; low[i] = data[i].Low; }
@@ -284,7 +308,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             bool armed = false, cancelledSince = false;
             double replaced = double.NaN;
-            int last = -1, failedFor = -1;
+            int last = -1, failedFor = -1, held = -1;   // held: a found low waiting out its hold
             for (int t = slow * 2; t < n; t++)
             {
                 if (stc[t] <= oversold && !armed)
@@ -314,7 +338,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     }
                 }
 
-                if (armed && stc[t - 1] < overbought && stc[t] >= overbought)
+                if (held >= 0)
+                {
+                    if (low[t] < low[held]) held = t;
+                }
+                else if (armed && stc[t - 1] < overbought && stc[t] >= overbought)
                 {
                     int start = last >= 0 ? last + minGap : 0;
                     start = Math.Max(Math.Max(start, t - searchBack), swing);
@@ -332,14 +360,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                         bool stillLowest = true;
                         for (int j = c + 1; j <= t && stillLowest; j++)
                             if (low[j] < low[c]) stillLowest = false;
-                        if (stillLowest)
-                        {
-                            run.Confirmed[t] = low[c];
-                            if (cancelledSince) run.Updated[t] = replaced;
-                            run.Lows.Add(c); run.ConfirmedAt.Add(t);
-                            last = c; armed = false; cancelledSince = false;
-                        }
+                        if (stillLowest) held = c;
                     }
+                }
+                if (held >= 0 && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) >= hold)
+                {
+                    run.Confirmed[t] = low[held];
+                    if (cancelledSince) run.Updated[t] = replaced;
+                    run.Lows.Add(held); run.ConfirmedAt.Add(t);
+                    last = held; held = -1; armed = false; cancelledSince = false;
                 }
                 run.LastLowAt[t] = last;
             }

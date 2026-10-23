@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Cipher C confirms a cycle low when the indicator it follows does.** A daily low now has to hold
+  for half the shortest cycle before it is confirmed, and a lower low in that time takes its place.
+  On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is
+  therefore known later than before: about 18 trading days after it on the Dow, 27 days on Bitcoin.
+  The cycle ranges for all sixteen tuned assets are now the original's own.
 - **Signals can say what they look like.** Turn on "Say what signals look like" on the Speech tab of
   Settings, and each signal is followed by its look on the chart: "Buy. Drawn as a large green dot.",
   "Cycle low. Drawn as a green up triangle below the candle." The colour is the one drawn on that bar,
