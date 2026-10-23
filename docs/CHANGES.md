@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C picks its weekly lows from its daily lows, as the original does (2026-10-23)
+
+- **On a daily chart the weekly tier no longer finds its own lows.** `CipherCEngine.WeeklyFromDaily`
+  judges each confirmed daily low on the bar it is confirmed. The new daily low is the weekly
+  candidate. It is kept when the next daily low comes at least `KeepBars` from the last kept weekly
+  low: the shortest weekly cycle less four weeks (`KeepWeeksBelowMin`), so 90 bars on GDX and the Dow
+  and 126 on Bitcoin. A lower daily low replaces it, and a kept low undercut too soon is dropped
+  (Cancelled, with the price of the low that replaced it on the next confirmation). After a weekly
+  low lower than the one before, the next daily low decides a "double". "Confirmed" is the kept
+  weekly low before the newest, as the original labels it, so on Bitcoin a weekly low is confirmed
+  156 to 374 days after it (median 206). Weekly lows are no longer snapped onto daily lows; they are
+  daily lows already.
+  - Read from the original's labels in TradingView, not from its code. Run on the original's own
+    daily lows over sixteen assets: 317 of its weekly lows drawn, 60 extra, 60 missed. On the spans
+    replayed bar by bar (GDX, Dow, Bitcoin) it draws exactly the original's.
+  - On the app's Bitcoin data since 2022-05-12, Cipher C's weekly lows are the original's eight.
+    It adds 2025-04-07 where the original has 2025-03-11, because the daily lows differ there. It
+    has no 2022-12-19, which is a daily low Cipher C does not find. The 5 August 2024 crash is no
+    longer a weekly low; the original has a daily low there but no weekly one. The old test asserted
+    that weekly low and was replaced.
+  - Caveats: the four weeks are fitted, not read (GDX accepts 84 to 100 bars; Bitcoin gives the same
+    lows anywhere from 119 to 134). Residuals remain on the dollar index, Ethereum and gold. The
+    "lower low a daily cycle later" step and the double rest on few cases. On Bitcoin a weekly low
+    is never replaced, so that part is tested only on synthetic lows. Weekly charts are unchanged
+    (the weekly tier still finds its own lows with the cross and hold, unverified): the original has
+    no weekly mode and warns "Timeframe Not Optimised".
+  - Tests: `CipherCWeeklyTests` (new, worked by hand: the margin, the keep, the drop and the double,
+    the replacement, causality at every cut), the provider's wiring at 22 and 24 weeks
+    (`Cipher_C_searches_this_way_on_the_daily_tier_only`; 24 because Bitcoin cannot tell 18 weeks
+    from 19), and the Bitcoin dates in `CipherCProviderTests`. Sixteen sabotages, all red.
+  - DBSI side note, no code: two more DBSI videos were read (TODO). The real scale reaches 29–30.
+    One checkable daily reading (Bitcoin 2021-05-09, bull 8 / bear −2 on an open candle) has Cipher
+    DBSI on the same side but stronger (13 / −1 closed).
+  - Not seen in the app.
+
 ### Cipher DBSI refitted on twenty charts: per-vote points, a streak and a stretch (2026-10-23)
 
 - **Each of the twelve votes now has its own points, and two terms join them.** The old score was

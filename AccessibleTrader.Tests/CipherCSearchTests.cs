@@ -126,8 +126,10 @@ public class CipherCSearchTests
         Assert.True(afterTop >= 3, $"only {afterTop} lows differ from the lowest bar since the last low; the top rule is untested");
     }
 
-    /// <summary>Only the daily tier searches this way; the weekly and yearly tiers, and the first
-    /// low on any tier, wait for the cycle line's cross.</summary>
+    /// <summary>Only the daily tier searches this way; the yearly tier, and the first low on any
+    /// tier, wait for the cycle line's cross. On a daily chart the weekly tier is picked from the
+    /// daily lows the search found (<see cref="CipherCWeeklyTests"/>): 22 − 4 weeks of 7 bars from
+    /// the last kept one, a daily cycle of 54; four weeks short whatever the shortest weekly cycle.</summary>
     [Fact]
     public void Cipher_C_searches_this_way_on_the_daily_tier_only()
     {
@@ -142,8 +144,16 @@ public class CipherCSearchTests
         Assert.NotEqual(marked(cross.Confirmed), marked(turn.Confirmed));
         Assert.Equal(marked(turn.Confirmed), marked(r[CipherCProvider.CompDclConfirmed]));
 
-        var weekly = CipherCEngine.Tier(22 * 7, 42 * 7, 7, clock);
-        Assert.Equal(marked(CipherCEngine.Detect(bars, weekly, 75, 10).Confirmed), marked(r[CipherCProvider.CompWclConfirmed]));
+        var weekly = CipherCEngine.WeeklyFromDaily(turn, bars, 126, 54);
+        Assert.NotEmpty(marked(weekly.Confirmed));
+        Assert.Equal(marked(weekly.Confirmed), marked(r[CipherCProvider.CompWclConfirmed]));
+
+        // Bitcoin's lows come out the same for any distance from 119 to 134 bars, so 22 weeks cannot
+        // tell 18 weeks from 19. At 24 weeks they differ: 20 weeks (140 bars) is kept, 21 (147) is not.
+        var r24 = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["Symbol"] = "BTC/USD", [CipherCProvider.ParamWeeklyMin] = 24.0 });
+        var at140 = marked(CipherCEngine.WeeklyFromDaily(turn, bars, 140, 54).Confirmed);
+        Assert.NotEqual(at140, marked(CipherCEngine.WeeklyFromDaily(turn, bars, 147, 54).Confirmed));
+        Assert.Equal(at140, marked(r24[CipherCProvider.CompWclConfirmed]));
     }
 
     /// <summary>The first low has no last low to count from, so it waits for the cross either way.</summary>

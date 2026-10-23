@@ -309,11 +309,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             var dTier = CipherCEngine.Tier(dMin, dMax, 1, clock);
             var wTier = CipherCEngine.Tier(wMin * clock.DaysPerWeek, wMax * clock.DaysPerWeek, clock.DaysPerWeek, clock);
             var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
-            var d = CipherCEngine.Detect(data, dTier, ob, os, searchOnTurn: true);
-            var w = CipherCEngine.Detect(data, wTier, ob, os);
-            var y = CipherCEngine.Detect(data, yTier, ob, os);
-
             double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
+            var d = CipherCEngine.Detect(data, dTier, ob, os, searchOnTurn: true);
+            // With a daily tier the weekly lows are picked from the daily ones, as the original
+            // picks them; on a weekly chart the weekly tier finds its own.
+            bool weeklyFromDaily = dTier.Active && wTier.Active;
+            var w = weeklyFromDaily
+                ? CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars)
+                : CipherCEngine.Detect(data, wTier, ob, os);
+            var y = CipherCEngine.Detect(data, yTier, ob, os);
             var day = new Unit("daily", "day", "days", clock.BarsPerDay);
             var week = new Unit("weekly", "week", "weeks", barsPerWeek);
             var year = new Unit("yearly", "year", "years", clock.BarsPerDay * clock.DaysPerYear);
@@ -336,19 +340,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             // of the weekly (or daily) ones — CF's stacks always sit on one another.
             int dReach = (int)Math.Round(dTier.MinBars / 2), wReach = (int)Math.Round(wTier.MinBars / 2);
             var dConfirm = Confirmations(d, null, 0, data);
-            var wConfirm = Confirmations(w, dTier.Active ? d.Lows : null, dReach, data);
+            var wConfirm = Confirmations(w, dTier.Active && !weeklyFromDaily ? d.Lows : null, dReach, data);
             var yConfirm = Confirmations(y, wTier.Active ? w.Lows : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data);
             var dLows = new List<int>(d.Lows);
-            var wLows = dTier.Active ? CipherCEngine.SnapTo(w.Lows, dLows, dReach, data) : new List<int>(w.Lows);
+            var wLows = dTier.Active && !weeklyFromDaily ? CipherCEngine.SnapTo(w.Lows, dLows, dReach, data) : new List<int>(w.Lows);
             var wDrawn = new List<int>(wLows);
             var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, wReach, data)
                       : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, dReach, data) : y.Lows;
             // And a higher low with no lower one near it is a lower low as well: a weekly cycle
-            // low IS a daily cycle low. The daily detector misses one when it comes inside the
-            // minimum gap and only its wick undercuts the last low, so nothing cancelled that one
-            // — Bitcoin's 5 August 2024 crash (low 49,577, close near 54,000, 31 days after the
-            // 5 July low). CF draws a D under every W; so does this. A low added this way was
-            // confirmed by the higher tier, so it takes that tier's confirmation.
+            // low IS a daily cycle low. Picked from the daily lows, a weekly low is one already,
+            // unless the daily tier later cancelled it; a yearly low, or a weekly one found on its
+            // own, can miss a daily low the daily detector skipped. CF draws a D under every W; so
+            // does this. A low added this way was confirmed by the higher tier, so it takes that
+            // tier's confirmation.
             if (wTier.Active) foreach (int i in yLows) { AddLow(wLows, i); wConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
             if (dTier.Active)
             {
@@ -370,7 +374,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // higher ones' lows).
             WriteConfirmed(o, CompDclConfirmed, d, dTier, day, sma, close, high, low, DrawnAt(d, null, 0, data));
             WriteConfirmed(o, CompWclConfirmed, w, wTier, week, sma, close, high, low,
-                DrawnAt(w, dTier.Active ? d.Lows : null, dReach, data));
+                DrawnAt(w, dTier.Active && !weeklyFromDaily ? d.Lows : null, dReach, data));
             WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low,
                 DrawnAt(y, wTier.Active ? wDrawn : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data));
 

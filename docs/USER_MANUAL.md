@@ -2626,7 +2626,10 @@ translated top, bullish, on March 17 2026." When the indicator confirms the low 
 its own (Cipher C's check box), you hear one sentence on the confirmation instead of two: "Daily
 cycle low confirmed, on March 29 2026 at 64,955, 27 bars ago." Cipher C confirms a daily low
 only after it has held for half the shortest cycle (27 days on Bitcoin, 18 trading days on the
-Dow), as the indicator it follows does. There is no twenty-bar limit on these, however late the
+Dow), as the indicator it follows does. On a daily chart its weekly lows are picked from those
+daily lows, again as that indicator picks them: a daily low becomes a weekly one once the next
+daily low comes far enough after the last weekly low, and it is called confirmed only once the
+weekly low after it is kept, months later on Bitcoin. There is no twenty-bar limit on these, however late the
 low is found. Turning narration on does not read out the ones already
 on the chart.
 

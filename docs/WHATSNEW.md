@@ -62,6 +62,10 @@
   crypto stocks), and on a weekly chart it talks about weekly cycles, not daily ones. A low is only
   marked once it is confirmed, usually some days later. Old Cipher C
   strategies and alerts tell you its old parts were removed.
+- **Cipher C's weekly lows on a daily chart are picked from its daily lows**, the way the indicator
+  it follows picks them, so a weekly low now always sits on a daily low. As there, it is called
+  confirmed only once the weekly low after it is kept, which can be months. On Bitcoin since 2022 they land on the same dates as that indicator's wherever the daily
+  lows agree. A weekly chart works as before.
 - **Loukas Cycle Detection is gone.** Cipher C finds the same cycle lows for each asset. A chart that
   had it opens without it and says so once; a strategy or alert on it tells you which Cipher C signal
   to use instead. The StrategyLab "Cycle Low Reversal" strategy, built on it, is retired too.

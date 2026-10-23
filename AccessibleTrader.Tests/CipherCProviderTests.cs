@@ -269,16 +269,16 @@ public sealed class CipherCProviderTests
         Assert.Contains(CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix, causal);
         Assert.Contains(CipherCProvider.CompDailyWindow + ComponentCompanions.Stops, causal);
         var everCompared = new HashSet<string>();
-        // Fixed cuts, plus one just after the last confirmation that replaced a cancelled low on
-        // each tier: since confirmations wait out the hold (2026-10-22), cancellations are rare
-        // and no longer fall in the fixed stretches.
+        // Fixed cuts, plus one just after the last daily confirmation that replaced a cancelled
+        // low: since confirmations wait out the hold (2026-10-22), cancellations are rare and no
+        // longer fall in the fixed stretches. The weekly tier drops no kept low anywhere on
+        // Bitcoin (it picks its lows from the daily ones, 2026-10-23), so its "replaces" never
+        // fires here; CipherCWeeklyTests checks it on every cut of a case that drops one.
         var cuts = new List<int> { 3000, 3800, 4500, 5200 };
-        foreach (var replaced in new[] { CipherCProvider.CompDclConfirmed, CipherCProvider.CompWclConfirmed })
-        {
-            int last = Marked(whole[replaced + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
-            Assert.True(last > 400, $"{replaced}: no confirmation replaces a cancelled low on Bitcoin");
-            cuts.Add(last + 1);
-        }
+        int lastReplaced = Marked(whole[CipherCProvider.CompDclConfirmed + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
+        Assert.True(lastReplaced > 400, "no daily confirmation replaces a cancelled low on Bitcoin");
+        cuts.Add(lastReplaced + 1);
+        Assert.Empty(Marked(whole[CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix]));
         foreach (int cut in cuts)
         {
             var part = Run(bars.Take(cut).ToList(), "BTC/USD");
@@ -293,7 +293,8 @@ public sealed class CipherCProviderTests
         // confirmed in them: the 2022 one is confirmed on bar ~4,100, outside every 400-bar stretch.)
         // Nor does the weekly window tint on a daily chart: the daily one's green would be covered.
         var neverChecked = causal.Except(everCompared).Where(k => !k.StartsWith(CipherCProvider.CompYclConfirmed, StringComparison.Ordinal)
-            && k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint).ToList();
+            && k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint
+            && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix).ToList();
         Assert.True(neverChecked.Count == 0, "never compared: " + string.Join(", ", neverChecked));
         static bool Same(double a, double b) => double.IsNaN(a) ? double.IsNaN(b) : Math.Abs(a - b) < 1e-9;
     }
@@ -437,9 +438,13 @@ public sealed class CipherCProviderTests
 
     /// <summary>
     /// A weekly low is always one of the daily lows, a yearly low one of the weekly ones — CF's
-    /// stacks sit on one another. Bitcoin's 5 August 2024 crash is the case that needs it: the
-    /// daily detector skips it (31 days after the last low, inside the minimum gap, closed above it)
-    /// and the weekly one finds it.
+    /// stacks sit on one another. Since the weekly lows are picked from the daily ones
+    /// (<see cref="CipherCWeeklyTests"/>), Bitcoin's weekly lows from June 2022 are the original's
+    /// wherever the two daily lows agree (read off the original's chart in TradingView,
+    /// 2026-10-23). Where they do not, the weekly ones differ with them: the original has a daily
+    /// low on 19 December 2022 and 11 March 2025, and drew a weekly low on each; Cipher C has
+    /// neither daily low (it has 7 April 2025). The original draws no weekly low on the 5 August
+    /// 2024 crash, a daily low 31 days after the weekly one of 5 July.
     /// </summary>
     [Fact]
     public void A_weekly_low_sits_on_a_daily_low_and_a_yearly_low_on_a_weekly_one()
@@ -453,7 +458,12 @@ public sealed class CipherCProviderTests
         Assert.All(w, i => Assert.Contains(i, d));
         Assert.All(y, i => Assert.Contains(i, w));
         var bars = CipherSrSpeechTests.BtcDaily();
-        Assert.Contains(w, i => bars[i].Date == new DateTime(2024, 8, 5));
+        var original = new[] { "2022-06-18", "2022-11-21", "2023-09-11", "2024-01-23", "2024-07-05", "2024-10-10",
+                               "2025-11-21", "2026-02-06" }.Select(DateTime.Parse).ToList();
+        var since2022 = w.Select(i => bars[i].Date.Date).Where(x => x >= new DateTime(2022, 5, 12)).ToList();
+        Assert.Equal(original, since2022.Where(x => x != new DateTime(2025, 4, 7)).ToList());
+        Assert.Contains(d, i => bars[i].Date == new DateTime(2024, 8, 5));
+        Assert.DoesNotContain(w, i => bars[i].Date == new DateTime(2024, 8, 5));
     }
 
     // ── 4. Tiers and timeframes ─────────────────────────────────────────────────────

@@ -15,10 +15,21 @@
 >     0.795 → 0.815 (five assets better, two worse). Cody to look at GDX daily, autumn 2025: the
 >     original confirmed the 2025-09-18 low on 10-03, Cipher C used to on 11-07; not checked on the
 >     app's GDX data (the lab's GDX bars from TradingView look like Heikin-Ashi prices). Still open: the original
->     sometimes names a low on a falling bar; the weekly tier still waits for the cross. The trial
->     ends about 11-05; replaying a crypto chart and a weekly chart would test both.
+>     sometimes names a low on a falling bar. The trial ends about 11-05.
 >   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%).
->   - The weekly tier uses the same hold unverified; no weekly chart was replayed.
+>   - **The weekly tier picks from the daily lows (2026-10-23, built, NOT seen; see CHANGES).** On a
+>     daily chart a weekly low is now the original's choice among its confirmed daily lows: kept when
+>     the next daily low is the shortest weekly cycle less four weeks from the last kept one, with a
+>     "double" after a lower one. On the original's own daily lows over sixteen assets: 317 drawn as
+>     it does, 60 extra, 60 missed; exact on the GDX, Dow and Bitcoin replays. Bitcoin since May 2022:
+>     Cipher C's weekly lows are the original's except where the daily lows differ (2025-03-11 vs
+>     04-07; 2022-12-19 has no Cipher C daily low). Cody to look at Bitcoin daily: no W under the
+>     5 August 2024 crash any more (the original has none). Open:
+>     - The four weeks are fitted, not read (GDX accepts anything from 84 to 100 bars, Bitcoin 119 to 134).
+>     - Residuals on the dollar index, Ethereum and gold; the "lower low a daily cycle later" step and
+>       the double are the least certain parts.
+>     - On a weekly chart the weekly tier still finds its own lows with the cross and the hold,
+>       unverified: the original has no weekly mode ("Timeframe Not Optimised").
 >   - Cipher C does not say when a low is being held. The original shows it as "unconfirmed" with a
 >     day count. Add it as a reading?
 > - [ ] **"Say what signals look like" (2026-10-22, built, NOT heard; see CHANGES).** Cody to tick it
@@ -762,6 +773,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   RMSE 3.40 (twelve equal votes refitted the same way: 16.1%, 35.0%, 56.0%, 3.72). Failed: "−5 + 2 ×
 >   votes" (−5 aside, odd and even scores are about equally common: 383 vs 361); six condition families
 >   over six lookbacks (36 "indications", equal weights RMSE 4.67, fitted 3.93). The 17+ gap mostly stays.
+>   **Two more videos (2026-10-23, transcripts in strategy-lab-data/dbsi-videos-2026-10-23).** The real
+>   scale runs to 29–30 on a fresh 5-minute push (ours stops at 19); the floor is −5. Near a turn the
+>   losing side climbs −5, −5, −4, −3, −2 and then jumps straight to 7, 15, which fits a floor that holds
+>   the score down until enough votes flip. A jump from about 3 into the 20s burns out fast; 14–17 is
+>   strong, 17–19 sustained. DBSI prints only on the last 20–25 candles, and yellow marks the stronger
+>   number. One checkable reading: Bitcoin daily 2021-05-09, bull 8 / bear −2 on a still-open candle;
+>   Cipher DBSI says 13 / −1 on the closed bar (12 / −2 on Heikin-Ashi). Same side, stronger; a partial
+>   bar cannot be matched. Too few numbers to refit on.
 >
 > **Open questions — formations and Spider Lines:**
 > - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative
