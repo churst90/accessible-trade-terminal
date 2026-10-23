@@ -258,7 +258,7 @@ namespace AccessibleTrader.Sdk.Models
         bool SpeakPlaybackLandmarks = true,
         /// <summary>Speak the date on every bar, rather than only when the day changes.</summary>
         bool SpeakDateOnEveryBar = false,
-        /// <summary>Follow a spoken signal with what its marker looks like ("Drawn as a large green
+        /// <summary>Follow a spoken signal with what its marker looks like ("Large green
         /// dot."). Cody, 2026-10-22. See MarkerLook. Off by default: it lengthens every signal.</summary>
         bool DescribeSignalLooks = false,
         // How the active tab opens if it was restored from a saved workspace and its data

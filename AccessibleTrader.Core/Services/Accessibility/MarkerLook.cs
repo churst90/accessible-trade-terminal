@@ -6,7 +6,8 @@ using SkiaSharp;
 namespace AccessibleTrader.Core.Services.Accessibility
 {
     /// <summary>
-    /// What a signal marker looks like on the chart, in words: "Drawn as a large green dot."
+    /// What a signal marker looks like on the chart, in words: "Large green dot." And what colour a
+    /// line is: "Orange line."
     ///
     /// <para>
     /// Cody, 2026-10-22, asked for the descriptors so the signals can be talked about with people who
@@ -24,6 +25,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// colour rule or a user's recolour is what is said), and where it sits when it is pinned to the
     /// candle rather than to a value (<see cref="ComponentConfig.MarkerAnchor"/>).
     /// </para>
+    ///
+    /// <para>
+    /// Cody, 2026-10-23: the "Drawn as" in front is gone (it said nothing the description did not),
+    /// and every line says its colour too, "so when someone says orange or blue line they can tell
+    /// by ear" (<see cref="LineSentence"/>).
+    /// </para>
     /// </summary>
     public static class MarkerLook
     {
@@ -34,17 +41,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// (5) are "large", its ordinary dots (3 and 3.5) carry no size word.</summary>
         internal const float LargeFrom = 4.5f;
 
-        /// <summary>"Drawn as a large green dot." when the setting is on and a marker is drawn on
-        /// this bar; empty otherwise.</summary>
+        /// <summary>"Large green dot." when the setting is on and a marker is drawn on this bar;
+        /// empty otherwise.</summary>
         public static string Sentence(WorkspaceState state, ChartSeries series, ComponentConfig comp, int dataIndex)
             => state.DescribeSignalLooks ? Sentence(series, comp, dataIndex) : "";
 
-        /// <summary>"Drawn as a large green dot." for a marker drawn on this bar; empty when the
-        /// component is not a marker, is hidden, or has nothing on this bar.</summary>
+        /// <summary>"Large green dot." for a marker drawn on this bar; empty when the component is
+        /// not a marker, is hidden, or has nothing on this bar.</summary>
         public static string Sentence(ChartSeries series, ComponentConfig comp, int dataIndex)
         {
             string look = Describe(series, comp, dataIndex);
-            return look.Length == 0 ? "" : $"Drawn as {Article(look)} {look}.";
+            return look.Length == 0 ? "" : Capitalise(look) + ".";
+        }
+
+        /// <summary>
+        /// The display types drawn as a line or an area, which say their colour. Not bars: volume
+        /// and histograms are painted by direction on every bar, so their colour word would only
+        /// restate up or down, on nearly every bar of a sweep.
+        /// </summary>
+        private static readonly HashSet<ComponentDisplayType> LineTypes = new()
+        {
+            ComponentDisplayType.Line, ComponentDisplayType.StepLine, ComponentDisplayType.Oscillator,
+            ComponentDisplayType.Area, ComponentDisplayType.ZeroArea,
+        };
+
+        /// <summary>
+        /// "Orange line." for a visible line or area with a value on
+        /// this bar. Said when <paramref name="arriving"/> (the user just moved onto the component),
+        /// and otherwise only on a bar where the colour's NAME differs from the bar before's, so a
+        /// left/right sweep along an orange line is silent about it and a line that turns from green
+        /// to red says so on the bar it turns. Empty otherwise.
+        /// </summary>
+        public static string LineSentence(ChartSeries series, ComponentConfig comp, int dataIndex, bool arriving)
+        {
+            string look = DescribeLine(series, comp, dataIndex);
+            if (look.Length == 0) return "";
+            if (!arriving && DescribeLine(series, comp, dataIndex - 1) == look) return "";
+            return Capitalise(look) + ".";
+        }
+
+        /// <summary>"orange line", or empty.</summary>
+        public static string DescribeLine(ChartSeries series, ComponentConfig comp, int dataIndex)
+        {
+            if (!comp.IsVisible || !LineTypes.Contains(comp.DisplayType)) return "";
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || dataIndex < 0 || dataIndex >= data.Length || double.IsNaN(data[dataIndex])) return "";
+            string colour = ColorName(StandardRenderers.LineColorAt(series, comp, dataIndex));
+            return $"{colour} line";
         }
 
         /// <summary>"large green dot below the candle", or empty.</summary>
@@ -122,11 +165,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return hue;
         }
 
-        /// <summary>"a" or "an" for the first word, always a size or a colour ("an orange dot").</summary>
-        private static string Article(string phrase)
-        {
-            char first = char.ToLowerInvariant(phrase[0]);
-            return "aeiou".IndexOf(first) >= 0 ? "an" : "a";
-        }
+        private static string Capitalise(string phrase) => char.ToUpperInvariant(phrase[0]) + phrase[1..];
     }
 }

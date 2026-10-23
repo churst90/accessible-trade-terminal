@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Arrowing speaks only the focused component; lines say their colour; no "Drawn as" (2026-10-23)
+
+- **Reported by Cody:** with signal descriptions on, "I could be on cipher b moving around and hear
+  cipher A shapes ... when on cipher a on the green dot I'll be hearing about the yellow diamonds and
+  everything else ... I should only hear what is relevant to the component I'm on unless they are
+  drawn meta on the chart like chart patterns and the cycle arc".
+  - **Cause:** every left/right step spoke the other marker signals on the bar: the focused
+    indicator's other markers and every price-pane indicator's (NavigationFeedbackManager
+    GetAdditionalSignalSpeech, on since it stopped being gated on the candle series). The
+    descriptions made it longer, not different. The sound side was already focused-only
+    (2026-10-22, "Tick other signals while arrowing").
+  - **Fix:** that clause is now opt-in, **Settings → Speech → Speak other signals while arrowing**
+    (`speech.speakOtherSignalsWhileArrowing`, off). Formations, zone proximity and the user's text
+    labels are chart-wide and still spoken; narration at bar close and playback are unchanged.
+- **Lines say their colour** under the renamed **Say what lines and signals look like**
+  (MarkerLook.LineSentence): "Orange line." on moving up or down onto a line or area, and on a
+  left/right step only where the colour's name changes. The colour is the one painted
+  (StandardRenderers.LineColorAt: colour rules, sibling comparison, polarity split, ZeroArea sign,
+  else the component's colour). Volume and histogram bars say none: they are coloured by
+  direction on every bar. Every built-in line uses its component's colour, so this covers all the
+  standard indicators without per-indicator work.
+- **"Drawn as" removed:** "Buy. Large green dot." (was "Buy. Drawn as a large green dot.").
+- Tests: the opt-in is pinned both ways on a Cipher A-like pair and another indicator's marker; line
+  colour on arrival, not again along the line, on a colour-rule change, against a sibling, never for
+  histograms, and through navigation. NavigationUtteranceTests now runs with the opt-in on. Five
+  sabotages each went red: the gate removed, the colour said on every bar, the sibling colour
+  ignored, "Drawn as" put back, histograms describing a colour. Not heard in the app.
+
 ### Cipher SR checked against Market Cipher SR's own values: the level rule is now exact (2026-10-23)
 
 - **Read from the original's plotted values.** Market Cipher SR 2.4.0's six plots were read from

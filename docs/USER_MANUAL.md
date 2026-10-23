@@ -163,6 +163,13 @@ other signals on the bar (its other dots, crosses and arrows), turn on **Tick ot
 arrowing** on the Sonification tab of Settings. The ticks then follow the focused component's own tone,
 so a bar carrying three signals sounds different from a bar carrying one.
 
+Speech follows the same rule. Arrowing Cipher A's Green Dot names the Green Dot, not the Yellow
+Diamond on the same candle, and arrowing Cipher B does not name Cipher A's signals. To hear the
+other signals on the bar named after your reading (the same indicator's other markers and those of
+other indicators on the price pane), turn on **Speak other signals while arrowing** on the Speech
+tab. Chart patterns, cycle marks, your own text labels and nearby support and resistance are about
+the whole chart and are spoken either way, and narration as bars close keeps its own rules.
+
 **Adding a level of your own.** Press `0` with an indicator focused that sits in its own pane, and
 the terminal puts a reference line on that pane's **neutral** — the value the reading swings about.
 For MACD, momentum and the other zero-centred readings that is zero. For RSI, Stochastic and MFI,
@@ -2585,10 +2592,10 @@ turns it on; boundaries only is the default. The two "Speak values as" orders th
 timestamp explicitly — time only, date only — are unaffected: choosing one has already answered
 the question.
 
-**What a signal looks like.** Sighted traders talk about signals by their look: "the big green
-dot", "the red triangle above the candle". Turn on **Settings (F12) → Speech → Say what signals
-look like** and every signal marker you hear is followed by one sentence describing it: *"Buy.
-Drawn as a large green dot."* It says four things:
+**What lines and signals look like.** Sighted traders talk about signals by their look: "the big
+green dot", "the red triangle above the candle", "the orange line". Turn on **Settings (F12) →
+Speech → Say what lines and signals look like** and every signal marker you hear is followed by one
+sentence describing it: *"Buy. Large green dot."* It says four things:
 
 - **Shape.** Dot, up or down arrow, up or down triangle, up triangle with a ring (and the letter in
   it), diamond, square, X, square with a check mark, or square with circling arrows.
@@ -2599,9 +2606,17 @@ Drawn as a large green dot."* It says four things:
 - **Position.** "Below the candle" or "above the candle" when it sits under or over the bar rather
   than at a value.
 
-You hear it when you arrow onto a signal, for another indicator's signal on the same bar, during
-playback, and when signals are narrated as a bar closes. Alerts are not described. It is off by
-default because it lengthens every signal.
+You hear it when you arrow onto a signal, for the other signals on the bar when **Speak other
+signals while arrowing** is on, during playback, and when signals are narrated as a bar closes.
+Alerts are not described.
+
+**Lines say their colour** too: *"Orange line."* when you move up or down onto a line or a filled
+area (a moving average, an RSI, Cipher B's waves), and again while arrowing left and right only on
+the bar where its colour changes, so a line that turns from green to red says *"Red line."* there.
+The colour is the one drawn, so a line you recoloured says its new colour. Volume and histogram
+bars are coloured up or down on every bar and do not say a colour.
+
+It is off by default because it lengthens what you hear.
 
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
 then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish

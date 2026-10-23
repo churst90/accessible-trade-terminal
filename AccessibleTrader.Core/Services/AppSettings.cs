@@ -29,6 +29,9 @@ namespace AccessibleTrader.Core.Services
         bool MuteIncludesOrderEvents { get; set; }
         bool HoverSonification { get; set; }
         bool TickOtherSignalsWhileArrowing { get; set; }
+        /// <summary>While arrowing, speak the other signals on the bar after the focused reading.
+        /// Default false: only the focused component is heard.</summary>
+        bool SpeakOtherSignalsWhileArrowing { get; set; }
         bool VisualEarcons { get; set; }
 
         /// <summary>
@@ -171,6 +174,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.TickOtherSignalsWhileArrowing);
             set => Set(SettingsKeys.TickOtherSignalsWhileArrowing, value);
+        }
+        public bool SpeakOtherSignalsWhileArrowing
+        {
+            get => GetBool(SettingsKeys.SpeakOtherSignalsWhileArrowing);
+            set => Set(SettingsKeys.SpeakOtherSignalsWhileArrowing, value);
         }
         public bool VisualEarcons
         {

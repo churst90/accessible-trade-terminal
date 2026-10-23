@@ -16,7 +16,7 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// <b>"Say what signals look like"</b>: a signal is said with what it looks like on the chart,
-/// "Buy. Drawn as a large green dot.", so it can be matched to what a sighted trader calls it.
+/// "Buy. Large green dot.", so it can be matched to what a sighted trader calls it.
 ///
 /// <para>
 /// Cody, 2026-10-22: <i>"then have the descriptors been added, if not, let's work on this"</i>.
@@ -86,7 +86,7 @@ public class MarkerLookTests
     public void A_big_green_dot_is_a_large_green_dot()
     {
         var comp = Marker(ComponentDisplayType.Dot, thickness: 5f);
-        Assert.Equal("Drawn as a large green dot.", MarkerLook.Sentence(One(comp, new[] { 50.0 }), comp, 0));
+        Assert.Equal("Large green dot.", MarkerLook.Sentence(One(comp, new[] { 50.0 }), comp, 0));
     }
 
     [Theory]
@@ -124,7 +124,7 @@ public class MarkerLookTests
     {
         var comp = Marker(ComponentDisplayType.Arrow, hex: "#FF9800");
         var s = One(comp, new[] { 1.0, -1.0 });
-        Assert.Equal("an orange up arrow", MarkerLook.Sentence(s, comp, 0)[9..^1]);
+        Assert.Equal("Orange up arrow.", MarkerLook.Sentence(s, comp, 0));
         Assert.Equal("orange down arrow", MarkerLook.Describe(s, comp, 1));
     }
 
@@ -291,10 +291,10 @@ public class MarkerLookTests
             DescribeSignalLooks = describe,
         };
 
-    private static string Navigate(WorkspaceState state)
+    private static string Navigate(WorkspaceState state, bool speakOtherSignals = true)
     {
         var spy = new SpySpeechRouter();
-        new NavigationFeedbackManager(spy, new SpeechFormatter()) { IsSpeechEnabled = true }
+        new NavigationFeedbackManager(spy, new SpeechFormatter(), TestAppSettings.SpeakingOtherSignals(speakOtherSignals)) { IsSpeechEnabled = true }
             .HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
         return string.Join(" | ", spy.SpokenTexts);
     }
@@ -308,13 +308,13 @@ public class MarkerLookTests
         var s = BigBuy();
         string on = Navigate(NavState(1, describe: true, s.Id, s));
         _out.WriteLine(on);
-        Assert.Contains("Drawn as a large green dot.", on);
+        Assert.Contains("Large green dot.", on);
         Assert.Contains("Buy", on);
-        Assert.True(on.IndexOf("Buy", StringComparison.Ordinal) < on.IndexOf("Drawn as", StringComparison.Ordinal),
+        Assert.True(on.IndexOf("Buy", StringComparison.Ordinal) < on.IndexOf("Large green dot", StringComparison.Ordinal),
             $"the look came before the signal: '{on}'");
 
         string off = Navigate(NavState(1, describe: false, s.Id, s));
-        Assert.DoesNotContain("Drawn as", off);
+        Assert.DoesNotContain("green dot", off);
         Assert.Contains("Buy", off);
     }
 
@@ -327,17 +327,17 @@ public class MarkerLookTests
         var state = NavState(1, describe: true, s.Id, s) with { LastInteractionContext = InteractionContext.Series };
         string on = Navigate(state);
         _out.WriteLine(on);
-        Assert.Contains("Buy. Drawn as a large green dot. ", on);
+        Assert.Contains("Buy. Large green dot. ", on);
         Assert.DoesNotContain("..", on);
 
-        Assert.DoesNotContain("Drawn as", Navigate(state with { DescribeSignalLooks = false }));
+        Assert.DoesNotContain("green dot", Navigate(state with { DescribeSignalLooks = false }));
     }
 
     [Fact]
     public void A_bar_with_no_signal_has_no_look()
     {
         var s = BigBuy();
-        Assert.DoesNotContain("Drawn as", Navigate(NavState(0, describe: true, s.Id, s)));
+        Assert.DoesNotContain("green dot", Navigate(NavState(0, describe: true, s.Id, s)));
     }
 
     [Fact]
@@ -350,11 +350,11 @@ public class MarkerLookTests
 
         string on = Navigate(NavState(1, describe: true, focus.Id, focus, other));
         _out.WriteLine(on);
-        Assert.Contains("Sell. Drawn as a red down triangle above the candle", on);
+        Assert.Contains("Sell. Red down triangle above the candle", on);
 
         string off = Navigate(NavState(1, describe: false, focus.Id, focus, other));
         Assert.Contains("Sell", off);
-        Assert.DoesNotContain("Drawn as", off);
+        Assert.DoesNotContain("triangle", off);
     }
 
     [Fact]
@@ -376,11 +376,11 @@ public class MarkerLookTests
         };
         string? on = PlaybackNarration.SignalsForStep(state, 1, null);
         _out.WriteLine(on);
-        Assert.Contains("Buy. Drawn as a cyan diamond.", on);
+        Assert.Contains("Buy. Cyan diamond.", on);
 
         string? off = PlaybackNarration.SignalsForStep(state with { DescribeSignalLooks = false }, 1, null);
         Assert.Contains("Buy", off);
-        Assert.DoesNotContain("Drawn as", off);
+        Assert.DoesNotContain("diamond", off);
     }
 
     [Fact]
@@ -413,10 +413,123 @@ public class MarkerLookTests
         string? on = Scan(true);
         _out.WriteLine(on);
         string date = PlaybackNarration.DateText(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(35), 86400);
-        Assert.Contains($"Cycle low, on {date}. Drawn as a green up triangle below the candle.", on);
+        Assert.Contains($"Cycle low, on {date}. Green up triangle below the candle.", on);
 
         string? off = Scan(false);
         Assert.Contains($"Cycle low, on {date}", off);
-        Assert.DoesNotContain("Drawn as", off);
+        Assert.DoesNotContain("triangle", off);
+    }
+
+    // ── Only the component you are on (Cody, 2026-10-23) ──────────────────────────
+
+    /// <summary>Two markers of ONE indicator on the same bar, the first focused: Cipher A's Green
+    /// Dot and Yellow Diamond.</summary>
+    private static ChartSeries GreenDotAndYellowDiamond()
+    {
+        var green = Marker(ComponentDisplayType.Dot, name: "Green", template: "Green dot.");
+        var yellow = Marker(ComponentDisplayType.Diamond, hex: "#FFD600", name: "Yellow", template: "Yellow diamond.");
+        var s = One(green, new[] { double.NaN, 99.0, double.NaN }, id: "ciphera");
+        s.Components.Add(yellow);
+        s.Data.ComponentData[yellow.Name] = new[] { double.NaN, 99.5, double.NaN };
+        return s;
+    }
+
+    [Fact]
+    public void Arrowing_says_only_the_focused_component_unless_asked_for_the_others()
+    {
+        var a = GreenDotAndYellowDiamond();
+        var sell = Marker(ComponentDisplayType.TriangleDown, hex: "#FF1744", name: "Sell", template: "Sell.");
+        var other = One(sell, new[] { double.NaN, 101.0, double.NaN }, id: "sells");
+        var state = NavState(1, describe: true, a.Id, a, other);
+
+        string off = Navigate(state, speakOtherSignals: false);
+        _out.WriteLine(off);
+        Assert.Contains("Green", off);
+        Assert.DoesNotContain("Yellow", off);     // the same indicator's other marker
+        Assert.DoesNotContain("diamond", off);
+        Assert.DoesNotContain("Sell", off);       // another indicator's marker
+        Assert.DoesNotContain("triangle", off);
+
+        string on = Navigate(state, speakOtherSignals: true);
+        _out.WriteLine(on);
+        Assert.Contains("Yellow diamond", on);
+        Assert.Contains("Sell", on);
+    }
+
+    // ── Line colours ──────────────────────────────────────────────────────────────
+
+    private static ComponentConfig Line(string hex) => new()
+    {
+        Name = "SMA", DisplayName = "SMA", IsVisible = true, DisplayType = ComponentDisplayType.Line,
+        ColorHex = hex, Thickness = 2f,
+    };
+
+    [Fact]
+    public void A_line_says_its_colour_on_arrival_and_not_again_along_it()
+    {
+        var comp = Line("#FF9800");
+        var s = One(comp, new[] { 1.0, 2.0, 3.0 });
+        Assert.Equal("Orange line.", MarkerLook.LineSentence(s, comp, 1, arriving: true));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, arriving: false));
+        // The first bar of the line has no bar before it with a colour: that is a change.
+        var late = One(comp, new[] { double.NaN, 2.0, 3.0 });
+        Assert.Equal("Orange line.", MarkerLook.LineSentence(late, comp, 1, arriving: false));
+        // Hidden: not drawn, so no colour.
+        comp.IsVisible = false;
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 1, arriving: true));
+    }
+
+    [Fact]
+    public void A_line_that_changes_colour_says_so_on_the_bar_it_changes()
+    {
+        var comp = Line("#00E676");
+        comp.ColorRules = new List<ColorRule>
+        {
+            new() { Condition = ColorCondition.Rising, ColorHex = "#00E676" },
+            new() { Condition = ColorCondition.Falling, ColorHex = "#FF1744" },
+        };
+        var s = One(comp, new[] { 1.0, 2.0, 3.0, 2.0, 1.0 });
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, arriving: false));
+        Assert.Equal("Red line.", MarkerLook.LineSentence(s, comp, 3, arriving: false));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 4, arriving: false));
+    }
+
+    [Fact]
+    public void A_line_coloured_against_a_sibling_names_the_colour_painted()
+    {
+        // Cipher B's slow stochastic: the secondary colour above the fast line, the primary below.
+        var slow = Line("#00E676");
+        slow.Name = "Slow"; slow.ColorHexSecondary = "#FF1744"; slow.ColorAboveComponent = "Fast";
+        var s = One(slow, new[] { 50.0, 60.0 });
+        s.Data.ComponentData["Fast"] = new[] { 55.0, 55.0 };
+        Assert.Equal("green line", MarkerLook.DescribeLine(s, slow, 0));
+        Assert.Equal("red line", MarkerLook.DescribeLine(s, slow, 1));
+    }
+
+    [Fact]
+    public void Volume_and_histogram_bars_do_not_say_a_colour()
+    {
+        var bars = Line("#00E676");
+        bars.DisplayType = ComponentDisplayType.Histogram;
+        Assert.Equal("", MarkerLook.LineSentence(One(bars, new[] { 1.0, 2.0 }), bars, 1, arriving: true));
+    }
+
+    [Fact]
+    public void Moving_onto_a_line_says_its_colour_when_looks_are_described()
+    {
+        var comp = Line("#2196F3");
+        var s = One(comp, new[] { 1.0, 2.0, 3.0 }, id: "ema");
+        string Speak(bool describe, bool yMove)
+        {
+            var spy = new SpySpeechRouter();
+            new NavigationFeedbackManager(spy, new SpeechFormatter()) { IsSpeechEnabled = true }
+                .HandleNavigationFeedback(NavState(1, describe, s.Id, s), isXMove: !yMove, isYMove: yMove, prefixMessage: "");
+            return string.Join(" | ", spy.SpokenTexts);
+        }
+        string on = Speak(describe: true, yMove: true);
+        _out.WriteLine(on);
+        Assert.Contains("Blue line.", on);
+        Assert.DoesNotContain("Blue line", Speak(describe: true, yMove: false));   // along it: same colour
+        Assert.DoesNotContain("line", Speak(describe: false, yMove: true));
     }
 }

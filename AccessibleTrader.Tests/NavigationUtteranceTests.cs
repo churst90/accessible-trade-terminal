@@ -25,8 +25,11 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class NavigationUtteranceTests
 {
+    // With "Speak other signals while arrowing" ON: this file pins how the other signals on a bar
+    // are composed into the one utterance, which needs them spoken. Off is the default, pinned in
+    // MarkerLookTests.Arrowing_says_only_the_focused_component_unless_asked_for_the_others.
     private static NavigationFeedbackManager Manager(SpySpeechRouter spy)
-        => new(spy, new SpeechFormatter()) { IsSpeechEnabled = true };
+        => new(spy, new SpeechFormatter(), TestAppSettings.SpeakingOtherSignals()) { IsSpeechEnabled = true };
 
     private static ChartSeries CandleSeries()
     {

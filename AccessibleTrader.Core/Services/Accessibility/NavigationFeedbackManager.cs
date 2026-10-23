@@ -26,6 +26,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // HandleNavigationFeedback) — a constructor that claimed a reach this class no longer has.
         private readonly ISpeechFeedbackRouter _speechRouter;
         private readonly ISpeechFormatter _formatter;
+        // Read for one opt-in only: whether the other signals on a bar are spoken while arrowing
+        // (SpeakOtherSignalsWhileArrowing). Null (the tests' construction) reads as off.
+        private readonly IAppSettings? _settings;
 
         // Proximity tolerance: zone is "active" if the bar's H/L range comes within 0.5% of the zone value.
         private const double ZoneProximityPct = 0.005;
@@ -37,10 +40,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public NavigationFeedbackManager(
             ISpeechFeedbackRouter speechRouter,
-            ISpeechFormatter formatter)
+            ISpeechFormatter formatter,
+            IAppSettings? settings = null)
         {
             _speechRouter = speechRouter;
             _formatter = formatter;
+            _settings = settings;
         }
 
         /// <summary>
@@ -460,7 +465,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //    Still Component context only (Series context already summarises every component),
             //    still X moves only (no repetition while moving up and down), and still suppressed
             //    on a jump, where the user is repositioning rather than reading.
+            //
+            //    And now OPT-IN (Settings, Speech, "Speak other signals while arrowing"). Cody,
+            //    2026-10-23: "I could be on cipher b moving around and hear cipher A shapes ... when
+            //    on cipher a on the green dot I'll be hearing about the yellow diamonds and
+            //    everything else ... I should only hear what is relevant to the component I'm on
+            //    unless they are drawn meta on the chart like chart patterns and the cycle arc".
+            //    The same rule the ticks already follow (TickOtherSignalsWhileArrowing). Chart
+            //    formations (1), zones (2) and the user's own text labels (2b) are that chart-wide
+            //    "meta" and stay; narration of new bars has its own rules and is untouched.
             if (!isJump && isXMove && !isHeatmap && !isProfile
+                && _settings?.SpeakOtherSignalsWhileArrowing == true
                 && state.LastInteractionContext == InteractionContext.Component)
             {
                 int focusedComp = s.ClampComponent(state.FocusedComponentIndex);

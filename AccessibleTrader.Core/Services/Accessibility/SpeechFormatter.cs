@@ -429,7 +429,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // ── Dispatcher ───────────────────────────────────────────────────────────
 
         /// <summary>Closes <paramref name="text"/> with a full stop when a sentence is about to
-        /// follow it, so "Buy: buy signal at 64,250" and "Drawn as..." read as two sentences.</summary>
+        /// follow it, so "Buy: buy signal at 64,250" and "Large green dot." read as two sentences.</summary>
         private static string EndSentence(string text, string following)
         {
             if (following.Length == 0) return text;
@@ -498,6 +498,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // signal answered by its provider's own speech is described too. Empty on a bar
                 // with no marker, so a left/right sweep adds nothing between signals.
                 string look = describeLook ? MarkerLook.Sentence(series, comp, dataIndex) : "";
+                // A line's colour, on arriving at it and where it changes (MarkerLook.LineSentence).
+                if (describeLook && look.Length == 0) look = MarkerLook.LineSentence(series, comp, dataIndex, isYMove);
                 string lookSuffix = look.Length == 0 ? "" : " " + look;
 
                 foreach (var strategy in _strategies)

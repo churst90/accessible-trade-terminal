@@ -24,6 +24,11 @@ namespace AccessibleTrader.Core.Services
         // after the focused component's own tone. Off by default (Cody, 2026-10-22: they made it
         // "hard to hear what I'm supposed to be listening for on a particular component").
         public const string TickOtherSignalsWhileArrowing = "audio.tickOtherSignalsWhileArrowing";
+        // Opt-in: while arrowing, the other signals on the bar (the focused indicator's other
+        // markers and other price-pane indicators') are SPOKEN after the focused reading. Off by
+        // default (Cody, 2026-10-23: on Cipher A's Green Dot he heard the Yellow Diamond and the
+        // rest, which "breaks the rule of hearing just what component I'm on").
+        public const string SpeakOtherSignalsWhileArrowing = "speech.speakOtherSignalsWhileArrowing";
 
         // ── The two earcon families ──────────────────────────────────────────
         // Shift+F3 (WorkspaceState.IsEarconsEnabled) is the master mute over both.

@@ -531,7 +531,21 @@
                     </p>
 
                     <div class="modal-row">
-                        <label for="s-describe-signal-looks">Say what signals look like</label>
+                        <label for="s-speak-other-signals">Speak other signals while arrowing</label>
+                        <input id="s-speak-other-signals" type="checkbox"
+                               aria-describedby="s-speak-other-signals-hint"
+                               checked="@_speakOtherSignals"
+                               @onchange="e => _speakOtherSignals = e.Value is bool b && b" />
+                    </div>
+                    <p id="s-speak-other-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        After the component you are on, also name the other signals on that bar: the
+                        same indicator's other markers and those of other indicators on the price
+                        pane. Off: you hear only the component you are on. Chart patterns, cycle
+                        marks, your own labels and zones are spoken either way.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-describe-signal-looks">Say what lines and signals look like</label>
                         <input id="s-describe-signal-looks" type="checkbox"
                                aria-describedby="s-describe-signal-looks-hint"
                                checked="@Store.State.DescribeSignalLooks"
@@ -539,9 +553,11 @@
                     </div>
                     <p id="s-describe-signal-looks-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         Follows each spoken signal with how it is drawn: its colour, shape and size,
-                        and whether it sits above or below the candle &mdash; "Drawn as a large green
-                        dot." The colour is the one on the chart, so a colour you changed is the one
-                        you hear. For talking about a chart with someone who reads it by eye.
+                        and whether it sits above or below the candle &mdash; "Large green dot." A
+                        line says its colour when you move onto it and when the colour changes
+                        &mdash; "Orange line." The colour is the one on the chart, so a colour you
+                        changed is the one you hear. For talking about a chart with someone who
+                        reads it by eye.
                     </p>
 
                     <div class="modal-row">
@@ -1324,7 +1340,8 @@
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
         new("Speak the date on every bar", "Speech", "s-date-every-bar", "date day boundary intraday timestamp"),
-        new("Say what signals look like", "Speech", "s-describe-signal-looks", "describe colour color shape size dot triangle marker appearance sighted"),
+        new("Speak other signals while arrowing", "Speech", "s-speak-other-signals", "other markers signals same bar indicators focused component only cross series"),
+        new("Say what lines and signals look like", "Speech", "s-describe-signal-looks", "describe colour color shape size dot triangle marker line appearance sighted"),
         new("Speak values as", "Speech", "s-speech-order", "name value order header"),
         new("Read column headers", "Speech", "s-read-headers", "table grid"),
 
@@ -1661,6 +1678,7 @@
         _speechOutputMode = e.Value?.ToString() ?? "both";
     private bool _hoverSonification;
     private bool _tickOtherSignals;
+    private bool _speakOtherSignals;
     private bool _magnetSnap;
     private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
@@ -1980,6 +1998,7 @@
         };
         _hoverSonification = App.HoverSonification;
         _tickOtherSignals = App.TickOtherSignalsWhileArrowing;
+        _speakOtherSignals = App.SpeakOtherSignalsWhileArrowing;
         _magnetSnap = App.MagnetSnap;
         _marketStructureDefault = App.MarketStructureOnByDefault;
         _soundTheme = App.SoundTheme;
@@ -2235,6 +2254,7 @@
         // they land.
         App.HoverSonification       = _hoverSonification;
         App.TickOtherSignalsWhileArrowing = _tickOtherSignals;
+        App.SpeakOtherSignalsWhileArrowing = _speakOtherSignals;
         App.MagnetSnap              = _magnetSnap;
         App.MarketStructureOnByDefault = _marketStructureDefault;
         App.SoundTheme              = _soundTheme;

@@ -118,6 +118,29 @@ namespace AccessibleTrader.Core.Services.Rendering
             return (data != null ? ResolveBarColor(comp, data, dataIdx) : null) ?? StaticColor(comp);
         }
 
+        /// <summary>
+        /// The colour a line or area component is painted at <paramref name="dataIdx"/>, by the
+        /// same precedence <see cref="RenderLine"/> uses: colour rules, then a sibling comparison,
+        /// then a polarity split, otherwise the component's own colour; a ZeroArea by its sign, as
+        /// <see cref="RenderZeroArea"/> paints it. For speech (MarkerLook):
+        /// "Orange line." must name the colour on the chart.
+        /// </summary>
+        internal static SKColor LineColorAt(ChartSeries series, ComponentConfig comp, int dataIdx)
+        {
+            var data = series.GetComponentData(comp.Name);
+            double val = data != null && dataIdx >= 0 && dataIdx < data.Length ? data[dataIdx] : double.NaN;
+            SKColor own = StaticColor(comp);
+            if (comp.DisplayType == ComponentDisplayType.ZeroArea)
+                return !double.IsNaN(val) && val < 0 && SKColor.TryParse(comp.ColorHexSecondary, out var neg) ? neg : own;
+            if (comp.ColorRules is { Count: > 0 })
+                return (data != null ? ResolveBarColor(comp, data, dataIdx) : null) ?? own;
+            if (!string.IsNullOrEmpty(comp.ColorAboveComponent))
+                return ColorAgainstSibling(comp, series, dataIdx, val) ?? own;
+            if (WantsPolaritySplit(comp) && !double.IsNaN(val))
+                return PolarityColor(comp, val, own);
+            return own;
+        }
+
         // ── Sentiment phase colors for CandleColor overlay (Cipher S) ──────────
         // Index 0 = Max Fear … 10 = Max Euphoria.  Matches the 11-phase legend in
         // the Market Cycle Highs & Lows design: fear → cool hues, greed → warm hues.

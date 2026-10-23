@@ -8,6 +8,13 @@
 
 ## Unreleased
 
+- **Arrowing speaks only the component you are on.** On Cipher A's Green Dot you no longer hear the
+  Yellow Diamond on the same candle, and on Cipher B you no longer hear Cipher A's signals. To hear
+  them named after your reading, turn on **Speak other signals while arrowing** (Settings, Speech).
+  Chart patterns, cycle marks, your labels and nearby zones are still spoken.
+- **Lines say their colour.** With **Say what lines and signals look like** on, moving onto a line
+  says *"Orange line."*, and arrowing along it says the colour again only where it changes. Signal
+  descriptions lost their "Drawn as" in front: *"Buy. Large green dot."*
 - **Cipher SR's purple and yellow dots now match Market Cipher SR's on every candle.** Checked
   against the original's values on Bitcoin 15-minute: a level is a high the two candles before
   climbed to step by step and the two after fell from step by step, on above-average volume, and it

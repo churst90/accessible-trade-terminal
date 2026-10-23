@@ -59,11 +59,15 @@
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
 >   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
 >   Left open:
+>   - **Arrowing speaks only the focused component (2026-10-23, built, NOT heard; see CHANGES).** Cody to
+>     listen: Cipher A's Green Dot should no longer name the Yellow Diamond, and Cipher B should not
+>     name Cipher A's signals. "Speak other signals while arrowing" (Speech) brings them back. Lines
+>     say "Orange line." on arrival with "Say what lines and signals look like" on; "Drawn as" gone.
 >   - **Cipher SR checked against Market Cipher SR's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The purple and yellow dot levels now equal the original's on every bar (Bitcoin 15-minute).
 >     Cody to look: on a 15-minute chart the dots should sit where Market Cipher SR's do; about half
->     the old levels are gone. Question for Cody: the original draws the whole day's range from the
->     day's first bar (look-ahead on history); ours draws the range so far. Keep ours (proposed)?
+>     the old levels are gone. Cody 2026-10-23: keep ours for the range (the running day, not the
+>     original's look-ahead whole day).
 >   - **Cipher A checked against Market Cipher A's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; every symbol but the Yellow Diamond is
 >     exact on Bitcoin daily. Cody to look: the symbols should sit on Market Cipher A's. Still open: the
