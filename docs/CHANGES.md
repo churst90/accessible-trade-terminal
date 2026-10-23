@@ -96,6 +96,29 @@ All notable changes to this project will be documented in this file.
 - **The limit is the per-bar score, not the memory.** On bars that carry no memory, an integer vote
   count over our 300-condition library matches only about 40% exactly. More of the grid (2021–2024)
   and a second chart (Bitcoin) are what to gather next.
+- **Later the same evening: what each earlier bar adds (research only, no code change).** From the
+  same windows, with no new reading: the change in a label when Start moves back one more bar is what
+  that bar contributes. Lined up by contributing bar, this gives a map of what each bar adds to each
+  later day's label.
+  - **The cross bar** adds the run level, plus 4 while the gap widens, plus the 3 when it is on
+    (for example 14 = 7 + 4 + 3). Once the gap narrows it drops to level + 3, then to the level, and to 0
+    when the run ends.
+  - **Other bars in the run** add 1 each, which lasts one to three days. **Bars on the other side** do
+    the same for the other side's counter: on its k-th day, each of the last k bars adds exactly 1.
+  - **The 3 is its own event, usually on the bar just before the side's own cross** (3, 4, or 5 on the
+    first day). It lasts 1 to 10 days and can end while the run is still widening.
+  - **What starts it (best found):** the close moved this side's way, this side's 11-bar stochastic
+    (3-bar average) is below 50 for bulls, above 50 for bears, and at least 2 bars have passed since this side's last run
+    ended. That matches 56 of 67 starts, with 14 false starts.
+  - **What ends it:** not one close the other way. "Close beyond the close 2 bars back" keeps it on for
+    88.5% of 156 days. With "5/13 MACD still rising" added it is 91.7%, but that pair was the best of
+    about 80,000 tried, so it may be luck.
+  - **Tried in the app's linear form, not adopted.** On the fifteen later livestream charts: within 2
+    59.0% to 62.8%, error 3.28 to 3.19, exact 14.6% to 14.0%, false 17+ readings 17 to 20. The best
+    variant was chosen after seeing these scores, and the fitted weight is about 1.5 against a true 3–4,
+    so the rule is only a rough stand-in.
+  - **No volume needed.** The Dow chart has no volume on any of its 1,733 bars, and the original still
+    scores there. The app's version uses no volume either.
 
 ### Cipher B's money flow divides by the five-bar average Heikin-Ashi range (2026-10-23)
 
@@ -133,6 +156,24 @@ All notable changes to this project will be documented in this file.
   flow, and the vacuity check needs one. Sabotages, all red: own range (1 bar), 4 bars, 6 bars,
   scale 180, raw body in place of Heikin-Ashi.
 - Not seen in the app.
+- **Later the same day: research only, no code change.**
+  - **Chart type barely matters.** The original's money flow on the Bitcoin daily candle chart and on
+    the Heikin-Ashi chart agree closely: correlation 0.998, median gap 0.9 points, largest 5.8 (at the
+    start of the series and in July 2018). Its waves differ by up to 13 points between the two.
+  - **What that suggests:** the original computes its Heikin-Ashi bars from the real candles even on
+    a Heikin-Ashi chart, but not exactly, since the lines are not identical. The app computes them
+    from whatever bars the chart shows, so on a Heikin-Ashi chart it works from Heikin-Ashi of
+    Heikin-Ashi.
+  - **The newest-bar term:** worked back from the original's line, its per-bar input has a
+    correlation of 0.944 with ours, peaking with no lag. The slope is steady from year to year
+    (0.94–1.10).
+  - **What's left over** correlates most with where the close sits in the Heikin-Ashi-of-Heikin-Ashi
+    bar (0.32) and with the previous candle's body (0.27).
+  - **Two extra terms:** fitted before 2020 and tested after, they cut the per-bar error from 0.199 to
+    0.169. That is a formula made up to fit, not the original's, so it was not adopted.
+  - **The 8-bar-late start** is still unexplained. Every form tried that would start at bar 67 fitted
+    worse: 9-bar range averages (simple, EMA, RMA, high-low), a 5-bar average of a 5-bar average, and
+    a 5-bar average of the ratio.
 
 ### Arrowing speaks only the focused component; lines say their colour; no "Drawn as" (2026-10-23)
 

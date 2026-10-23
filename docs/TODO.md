@@ -86,7 +86,10 @@
 >     original's. Still open: the money flow (correlation 0.98, same side of zero 92–95% since the
 >     five-bar average range, 2026-10-23; its best scale still varies 135–163 by chart, and the
 >     original's line starts 8 bars later than a 60-bar average needs, unexplained), and the
->     divergences, which are not measured.
+>     divergences, which are not measured. Researched further the same evening, with no change made.
+>     The original's money flow is nearly the same on candle and Heikin-Ashi charts (correlation
+>     0.998), and the remainder isn't a simple formula; CHANGES has the numbers. Parked unless a new
+>     idea comes up.
 >   - **Cipher DBSI refitted on all twenty charts, then given the WaveTrend run (2026-10-23, built, NOT
 >     seen; see CHANGES).** Each vote has its own points, a long streak counts against the score, a
 >     stretched stochastic for it, and since the second commit the side's WaveTrend run adds points (a
@@ -95,11 +98,13 @@
 >     all fifteen; 17+ printed on 28 of 48 real ones (was 2), but 18 false (was 12); exact flat at 14%.
 >     Two commits to revert if Cody dislikes either. Cody to look at Bitcoin 4h Heikin-Ashi: big readings
 >     can now reach the 20s after a fresh turn from oversold, and should fall back as the wave flattens.
->   - **Cipher DBSI, what is still unknown.** The original also keeps a bonus of about 3 that outlasts
->     the widening by a varying number of bars (best rule for its end 88–90%), and while it is on the
->     other side gains 1 per bar; neither is in the app. Most of the per-bar score is still unmatched
->     (about 40% exact on bars with no memory). Next: extend the Start grid back to 2021 (startgrid.py
->     resumes) and repeat on Bitcoin 1D.
+>   - **Cipher DBSI, what is still unknown.** The original also keeps a bonus of about 3, usually started
+>     on the bar before a side's own cross. The best rule found for its start matches 56 of 67, and for
+>     its end 88.5%. The other side's counter adds 1 per bar. Neither is in the app: a rough version
+>     helped a little (within 2 59% to 63%) but gave more false 17+ readings, so Cody to decide. Most of
+>     the per-bar score is still unmatched (about 40% exact on bars with no memory). Next: the Start grid
+>     is being extended back to 2022 to check the start and end rules on bars they were not found on;
+>     then Bitcoin 1D.
 >   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
 >   - ~~**Cipher C clock flips on one weekend bar.**~~ Fixed 2026-10-23 (see CHANGES): the original
 >     counts gold's and the dollar index's weeks as five bars, only crypto's as seven. Saturday and
