@@ -8,6 +8,12 @@
 
 ## Unreleased
 
+- **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
+  readings, not the first six. Each of its signals now counts for its own amount, a move that has
+  just started scores higher than one that has run for many candles, and an oversold market adds a
+  little to the bulls (overbought to the bears). On charts it was not fitted to, it lands within one
+  point of DBSI 42% of the time, up from 35%. It still rarely reaches 17 where DBSI does, and tops out
+  at 19.
 - **Cipher C confirms a cycle low when the indicator it follows does.** A daily low now has to hold
   for half the shortest cycle before it is confirmed, and a lower low in that time takes its place.
   On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is

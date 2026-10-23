@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI refitted on twenty charts: per-vote points, a streak and a stretch (2026-10-23)
+
+- **Each of the twelve votes now has its own points, and two terms join them.** The old score was
+  `max(−5, a + 1.668 × votes)`, fitted on the first six digitised charts. Refitted on all twenty
+  (897 DBSI numbers, `dbsi2/gen.py`), each vote has its own weight (`DbsiStyleProvider.VoteWeights`,
+  0.35 to 3.32), the side's **streak** (bars in a row closing beyond the close two back, capped at 8)
+  subtracts 0.51 a bar, and the **stretch** (the 14-bar stochastic's %K beyond 50 against the side)
+  adds 0.69 per ten points. `ScoringTerms` exposes the per-bar inputs so the golden test refits from
+  them.
+  - Held out one chart at a time: exact 16.7%, within ±1 42.4%, within ±2 60.1%, error 3.40. Twelve
+    equal votes refitted on the same folds: 16.1%, 35.0%, 56.0%, 3.72. On the fourteen charts the old
+    numbers never saw, closer on 13 (ETH 10-minute is worse: 4.24 vs 3.56). In sample: 16.7%, 42.7%,
+    60.8%, 3.30, side in control 94%.
+  - Caveats: the twelve conditions were picked on the first six charts, so those six are optimistic
+    held out. The top of the scale stays compressed: of DBSI's 84 readings of 17 or more, it prints
+    17+ on 4 (and on 8 bars where DBSI did not); the most it can print is 19. Bulls now reach −5
+    (the old no-vote score rounded to −4). Not DBSI's formula: two other designs failed ("−5 + 2 ×
+    votes"; six families of conditions over six lookbacks, after the vendor's "36 indications").
+  - `DbsiStyleGoldenTests` rewritten: exact replay on all twenty charts (was six), the refit recovers
+    all fifteen constants, in-sample and held-out fidelity, the scale. Revert is this one commit.
+  - Not seen in the app.
+
 ### Cipher C: the daily search opens on schedule, gold's weeks are five bars, and the backtest re-run (2026-10-23)
 
 - **The daily tier searches for the next low the way the original appears to.** It no longer waits

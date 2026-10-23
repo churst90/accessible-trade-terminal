@@ -11,19 +11,29 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// formula is closed, and this one was reverse-fitted to it.
     ///
     /// <para>
-    /// <b>Where the formula comes from.</b> 143 candles' worth of DBSI numbers were read by eye
-    /// off six real charts (four Gunslinger Trades frames of Coinbase BTCUSD on 1D/1W/3D/2D, the
-    /// vendor's own 15-minute Heikin-Ashi product image, and a 30-minute Heikin-Ashi Bitstamp chart
-    /// from the official channel; feasibility study of 2026-10-17, <c>dbsi/data/labels.json</c>).
-    /// A greedy search over a library of fast "direction" conditions, with the side score modelled
-    /// as <c>max(−5, a + b × votes)</c>, chose the twelve below on all six charts
-    /// (<c>dbsi/scripts/greedy.py</c>, full-data selection order), and <c>final.py</c> fitted the
-    /// three numbers. They are copied here to the digit:
+    /// <b>Where the formula comes from.</b> 897 DBSI numbers were read by eye off twenty real
+    /// charts in the feasibility study of 2026-10-17: six first (four Gunslinger Trades frames of
+    /// Coinbase BTCUSD on 1D/1W/3D/2D, the vendor's own 15-minute Heikin-Ashi product image, a
+    /// 30-minute Heikin-Ashi Bitstamp chart from the official channel), then fourteen more
+    /// (Ethereum, XRP and Bitcoin, 10 minutes to 6 hours, five of them Heikin-Ashi). A
+    /// greedy search over a library of fast "direction" conditions chose the twelve below on the
+    /// first six charts (<c>dbsi/scripts/greedy.py</c>). The 2026-10-23 refit
+    /// (<c>dbsi2/gen.py</c>, all twenty charts) gives each vote its own points
+    /// (<see cref="VoteWeights"/>) and adds two terms; the numbers are copied here to the digit:
     /// </para>
     /// <code>
-    ///   bull = round(max(−5, −4.3320339 + 1.66805928 × bull votes))
-    ///   bear = round(max(−5, −4.79048715 + 1.66805928 × bear votes))
+    ///   bull = round(max(−5, −5.244 + Σ points of the bull votes − 0.507 × min(bull streak, 8)
+    ///                         + 0.689 × max(0, (50 − K14) / 10)))
+    ///   bear = the same with −5.489, the bear votes, the bear streak and max(0, (K14 − 50) / 10)
     /// </code>
+    /// <para>
+    /// The <b>streak</b> is how many bars in a row have closed above (bear: below) the close two
+    /// bars back; it counts AGAINST the score, so a fresh move scores higher than a long one. The
+    /// <b>stretch</b> is how far the 14-bar stochastic's %K (SMA3) sits on the far side of 50 —
+    /// oversold adds to the bulls, overbought to the bears. Both beat twelve equal votes and six
+    /// "families" of conditions over six lookbacks (which did worse); this is the best of the
+    /// tries, not DBSI's own formula.
+    /// </para>
     /// <para>
     /// A condition votes BULL when its quantity is above zero and BEAR when below (exactly zero,
     /// or still warming up: neither) — the study's <c>sym()</c>. On the candles chosen by
@@ -49,23 +59,24 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Moving averages follow the study (and Pine's <c>ta.ema</c>): an EMA is seeded with the SMA of
     /// its first <c>n</c> inputs. Where the study's numpy SMA quietly counted a warming-up NaN as
     /// zero, this blanks the bar; that changes nothing once every condition has warmed up (bar 29),
-    /// and the golden replay below shows it changes none of the 143 bars.
+    /// and the golden replay below shows it changes none of the 897 values.
     /// </para>
     ///
     /// <para>
-    /// <b>How close it is, measured</b> (study, leave-one-chart-out with the conditions chosen
-    /// inside each fold, so a chart never helped pick its own model): r 0.91 on the bull number
-    /// and 0.93 on the bear, typical error 3.5 points (a constant guess: 8.3), the side in control
-    /// named right on 91% of bars; the exact integer only 15% of the time, within ±2 55%, within
-    /// ±4 about 82%. This exact model scored on all 143 bars (in sample): r 0.92/0.93, error 3.1,
-    /// control 94%, exact 14%, ±2 59%, ±4 87% — <c>DbsiStyleGoldenTests</c> replays it.
+    /// <b>How close it is, measured</b> (leave-one-chart-out: refitted twenty times, each time
+    /// scored on the chart it never saw; the conditions themselves were picked on the first six):
+    /// the exact integer 16.7% of the time, within ±1 42%, within ±2 60%, typical error 3.4 points.
+    /// The twelve equal votes it replaced, refitted the same way: 16%, 35%, 56%, 3.7. Their shipped
+    /// numbers, on the fourteen charts they were never fitted to: 14%, 34%, 54%, 4.0 — this model is
+    /// closer on 13 of those 14. In sample on all 897 values: 16.7%, 43%, 61%, 3.3, and the side in
+    /// control named right on 94% of bars where DBSI's two numbers differ —
+    /// <c>DbsiStyleGoldenTests</c> replays it.
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> Twelve votes top out at 16 (bulls) and 15 (bears), and the
-    /// model compresses the top of the scale: where real DBSI prints 20 or more (the readings
-    /// Crypto Face calls rare and alerts on), this averages about 15. Bulls never print −5 either:
-    /// the fitted no-vote score is −4.33, which rounds to −4 (bears' −4.79 rounds to −5).
+    /// <b>The known shortfall.</b> The top of the scale is still compressed: of the 84 readings of
+    /// 17 or more on the twenty charts (the ones Crypto Face calls rare and alerts on), this prints
+    /// 17 or more on only 4, and on 8 bars where DBSI did not. The highest it can print is about 19.
     /// Direction and rough size are trustworthy; exact numbers and big readings are not.
     /// </para>
     ///
@@ -115,10 +126,22 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public const int DefaultLongEntry = 7, DefaultShortEntry = 7, DefaultTrendLength = 200, DefaultLabelBars = 25;
 
-        // The study's fitted model (final.py on all six charts, M = 12), to the digit.
-        internal const double BullIntercept = -4.3320339;
-        internal const double BearIntercept = -4.79048715;
-        internal const double PointsPerVote = 1.66805928;
+        // The model fitted on all twenty digitised charts (scratchpad dbsi2/gen.py, 2026-10-23), to the digit.
+        internal const double BullIntercept = -5.243776448904809;
+        internal const double BearIntercept = -5.488630059893191;
+        /// <summary>Each vote's points, in the order of the quantities in <see cref="Compute"/>.</summary>
+        internal static readonly double[] VoteWeights =
+        {
+            3.0997342786874698, 0.4459414887631937, 0.3503672928684513, 2.4039377111990494,
+            0.7765487920083385, 2.9364097076608937, 0.863954814683868, 3.320275058470089,
+            3.099734278687473, 1.307596993535656, 1.427224224788756, 1.0976267615037851,
+        };
+        /// <summary>Points per bar of the side's streak (closes beyond the close two bars back), up to <see cref="StreakCap"/> bars.</summary>
+        internal const double StreakWeight = -0.5068956846943783;
+        internal const int StreakCap = 8;
+        /// <summary>Points per ten of the 14-bar stochastic's %K beyond 50 against the side (oversold for bulls).</summary>
+        internal const double StretchWeight = 0.6892391919941329;
+        internal const int StretchLength = 14;
         internal const double Floor = -5.0;
         internal const int VoteCount = 12;
 
@@ -138,7 +161,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Description =
                     "A fast bull/bear strength score inspired by Market Cipher DBSI, printed on the candles: " +
                     "bulls below each candle, bears above, the newest candle's leader in yellow, and a 200-bar trend " +
-                    "line green above price and red below. Reverse-fitted from 143 digitised DBSI candles: the side in " +
+                    "line green above price and red below. Reverse-fitted from 897 DBSI numbers on twenty charts: the side in " +
                     "control agrees with DBSI on about 9 bars in 10, but the numbers are often 2 to 4 points off and it " +
                     "rarely goes above 16 where DBSI reaches the 20s. Not DBSI.",
                 Parameters = new List<IndicatorParameterMetadata>
@@ -376,11 +399,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             double[] BullsTakeControl, double[] BearsTakeControl, double[] LongEntry, double[] ShortEntry,
             int[] BullVotes, int[] BearVotes);
 
-        internal static Result Compute(ReadOnlySpan<Ohlcv> data, Settings s)
+        /// <summary>
+        /// What the score is built from, bar by bar: each of the twelve quantities whose sign is a
+        /// vote, each side's streak (uncapped) and the 14-bar %K, on the candles it reads.
+        /// </summary>
+        internal sealed record Terms(double[][] Quantities, int[] BullRun, int[] BearRun, double[] K14, double[] Close);
+
+        internal static Terms ScoringTerms(ReadOnlySpan<Ohlcv> data, bool heikinAshi)
         {
             int n = data.Length;
             double[] o = new double[n], h = new double[n], l = new double[n], c = new double[n];
-            if (s.HeikinAshi && n > 0)
+            if (heikinAshi && n > 0)
             {
                 var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
                 for (int i = 0; i < n; i++) { o[i] = ha[i].Open; h[i] = ha[i].High; l[i] = ha[i].Low; c[i] = ha[i].Close; }
@@ -421,21 +450,42 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Change(o, 1),             // o>po
             };
 
+            // The streak: how many bars in a row have closed above (bulls) or below (bears) the close two bars back.
+            var bullRun = new int[n]; var bearRun = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                bullRun[i] = mom2[i] > 0 ? (i > 0 ? bullRun[i - 1] : 0) + 1 : 0;
+                bearRun[i] = mom2[i] < 0 ? (i > 0 ? bearRun[i - 1] : 0) + 1 : 0;
+            }
+
+            // The stretch: the 14-bar stochastic's %K (SMA3), centred on 50.
+            return new Terms(q, bullRun, bearRun, Sma(Stochastic(c, h, l, StretchLength), 3), c);
+        }
+
+        internal static Result Compute(ReadOnlySpan<Ohlcv> data, Settings s)
+        {
+            int n = data.Length;
+            var t = ScoringTerms(data, s.HeikinAshi);
+            var q = t.Quantities; var c = t.Close; var stretch = t.K14;
+
             var bull = Nan(n); var bear = Nan(n); var control = Nan(n);
             var bullVotes = new int[n]; var bearVotes = new int[n];
             for (int i = 0; i < n; i++)
             {
-                int vb = 0, vr = 0; bool ready = true;
-                foreach (var x in q)
+                int vb = 0, vr = 0; double pb = 0, pr = 0; bool ready = true;
+                for (int j = 0; j < q.Length; j++)
                 {
-                    double v = x[i];
+                    double v = q[j][i];
                     if (double.IsNaN(v) || double.IsInfinity(v)) { ready = false; break; }
-                    if (v > 0) vb++; else if (v < 0) vr++;
+                    if (v > 0) { vb++; pb += VoteWeights[j]; } else if (v < 0) { vr++; pr += VoteWeights[j]; }
                 }
                 if (!ready) continue;
                 bullVotes[i] = vb; bearVotes[i] = vr;
-                bull[i] = Score(BullIntercept, vb);
-                bear[i] = Score(BearIntercept, vr);
+                double k = double.IsNaN(stretch[i]) ? 50 : stretch[i];   // a flat window: no stretch either way
+                pb += StreakWeight * Math.Min(t.BullRun[i], StreakCap) + StretchWeight * Math.Max(0, (50 - k) / 10);
+                pr += StreakWeight * Math.Min(t.BearRun[i], StreakCap) + StretchWeight * Math.Max(0, (k - 50) / 10);
+                bull[i] = Score(BullIntercept, pb);
+                bear[i] = Score(BearIntercept, pr);
                 control[i] = Math.Sign(bull[i] - bear[i]);
             }
 
@@ -478,12 +528,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             return (bullsTake, bearsTake, longEntry, shortEntry);
         }
 
-        /// <summary>round(max(−5, intercept + 1.668 × votes)), half to even like numpy's round.</summary>
-        internal static double Score(double intercept, int votes) =>
-            Math.Round(Math.Max(Floor, intercept + PointsPerVote * votes), MidpointRounding.ToEven);
+        /// <summary>round(max(−5, intercept + points)), half to even like numpy's round.</summary>
+        internal static double Score(double intercept, double points) =>
+            Math.Round(Math.Max(Floor, intercept + points), MidpointRounding.ToEven);
 
         /// <summary>K − D: K = SMA3 of the n-bar stochastic of close, D = SMA3 of K. A flat window is undefined.</summary>
         private static double[] StochKMinusD(double[] c, double[] h, double[] l, int len)
+        {
+            var k = Sma(Stochastic(c, h, l, len), 3);
+            return Sub(k, Sma(k, 3));
+        }
+
+        /// <summary>The n-bar stochastic of close, 0 to 100. A flat window is undefined.</summary>
+        private static double[] Stochastic(double[] c, double[] h, double[] l, int len)
         {
             int n = c.Length;
             var st = Nan(n);
@@ -493,8 +550,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 for (int j = i - len + 1; j <= i; j++) { if (h[j] > hh) hh = h[j]; if (l[j] < ll) ll = l[j]; }
                 if (hh > ll) st[i] = 100.0 * (c[i] - ll) / (hh - ll);
             }
-            var k = Sma(st, 3);
-            return Sub(k, Sma(k, 3));
+            return st;
         }
 
         /// <summary>SMA; NaN while the window holds a NaN.</summary>

@@ -41,9 +41,12 @@
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
 >   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
 >   Left open:
->   - Cipher DBSI is still a few points off and cannot go above 16, where DBSI prints up to 25. A
->     magnitude term could fix that, but it needs more DBSI reference screenshots to hold out. Cody: are
->     there more?
+>   - **Cipher DBSI refitted on all twenty charts (2026-10-23, built, NOT seen; see CHANGES).** Each vote
+>     now has its own points, a long streak counts against the score and a stretched stochastic for it.
+>     Held out one chart at a time: within ±1 35% → 42%, error 3.72 → 3.40; closer than the old numbers
+>     on 13 of the 14 charts they never saw. Still off: it prints 17+ on 4 of DBSI's 84 readings of 17+,
+>     and tops out at 19. One commit to revert if Cody dislikes it. Cody to look at Bitcoin 4h
+>     Heikin-Ashi: big readings should now reach the high teens after a fresh push.
 >   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
 >   - ~~**Cipher C clock flips on one weekend bar.**~~ Fixed 2026-10-23 (see CHANGES): the original
 >     counts gold's and the dollar index's weeks as five bars, only crypto's as seven. Saturday and
@@ -753,6 +756,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   run as a term does not help. Vendor transcript: "36 separate indications that are percentage weighed".
 >   **What would settle it:** ~300–500 consecutive bars of both numbers written down from TradingView Bar
 >   Replay by someone with a DBSI subscription.
+>   **Round 3 (2026-10-23): shipped a modest refit.** Cody has no DBSI subscription (too expensive), so the
+>   20 charts are all there is. Free weights per vote + a streak term (capped at 8 bars, negative: fresh
+>   moves score higher) + a 14-bar stochastic stretch term, held out: exact 16.7%, ±1 42.4%, ±2 60.1%,
+>   RMSE 3.40 (twelve equal votes refitted the same way: 16.1%, 35.0%, 56.0%, 3.72). Failed: "−5 + 2 ×
+>   votes" (−5 aside, odd and even scores are about equally common: 383 vs 361); six condition families
+>   over six lookbacks (36 "indications", equal weights RMSE 4.67, fitted 3.93). The 17+ gap mostly stays.
 >
 > **Open questions — formations and Spider Lines:**
 > - Formation span edges are now dotted at 3:1 so they do not compete with the candles; the alternative

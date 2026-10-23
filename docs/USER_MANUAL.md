@@ -1585,10 +1585,12 @@ line the close is on. With narration on (N) a bar close announces "Bulls take co
 take control at …", "Bulls reached the long entry score at …" or the bears' short version, and price
 crossing the trend line. The two scores start muted; the trend line and those announcements do not.
 
-It is a reconstruction, not DBSI. Fitted to 143 DBSI candles, it names the side in control the way
-DBSI does on about 9 candles in 10, but its numbers are often 2 to 4 points off and it never reaches
-DBSI's 20s, so use it for direction and rough strength, not for DBSI's exact readings or its rare
-20-plus signals. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
+It is a reconstruction, not DBSI. Fitted to 897 DBSI numbers read off twenty charts, it names the
+side in control the way DBSI does on about 9 candles in 10 and lands within 2 points of DBSI's number
+about 6 times in 10, but it is often 3 or 4 points off, it can print at most 19, and it seldom
+reaches 17 where DBSI does. Use it for direction and rough strength, not for DBSI's exact readings or
+its rare high signals. A move that has just started scores higher than one that has run for many
+candles, and a stretched market (oversold for bulls, overbought for bears) adds a little. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
 regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the
 Heikin-Ashi candles either way, once) and **Label the newest N bars** (25,
