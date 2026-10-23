@@ -1170,7 +1170,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Reported by Cody, 2026-09-04: Alt+PageDown onto the volume pane and then
                 // Shift+F1 answered "main pane". This block was the LAST reader of the sub-pane
                 // model the sixteenth pass retired everywhere else. It asked the focused
-                // COMPONENT for its `SubPaneName` and called an empty answer "main pane" — but a
+                // COMPONENT for its sub-pane (since removed) and called an empty answer "main pane" — but a
                 // pane is a Y axis, declared by `ChartSeries.Pane` across the whole series list,
                 // and the volume series' components declare no sub-pane at all. So every series
                 // outside Main answered "main pane", and the orientation key — the one a
@@ -1194,24 +1194,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int paneIndex = panes.ToList().FindIndex(p => string.Equals(p.Key, paneKey, StringComparison.Ordinal));
                 if (paneIndex >= 0 && panes.Count > 1)
                     msg += $", {paneIndex + 1} of {panes.Count}";
-
-                // The strip inside the pane, when the cursor is standing IN a component. Named as
-                // a STRIP rather than a pane, the same word the arrow keys use, because calling
-                // both things "pane" is how the two models got confused in the first place.
-                //
-                // This half keeps the Component gate that the pane clause above lost, and for the
-                // reason the gate was written: in Series context the focused component index is
-                // whatever it happened to be left at (pane navigation sets it to 0), so naming
-                // that component's strip would report a place the user is not standing.
-                if (state.LastInteractionContext == InteractionContext.Component)
-                {
-                    int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
-                    string? strip = compIdx >= 0 && compIdx < focusedSeries.Components.Count
-                        ? focusedSeries.Components[compIdx].SubPaneName
-                        : null;
-                    string? stripLabel = ChartPaneModel.SubPaneDisplayName(strip, paneSeries);
-                    if (stripLabel != null) msg += $", {stripLabel} strip";
-                }
             }
 
             // A focused drawing: say which anchor Shift+Arrow would move, without

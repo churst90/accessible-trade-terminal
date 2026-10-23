@@ -25,16 +25,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// </para>
     ///
     /// <para>
-    /// A SUB-PANE is a strip inside a pane, declared by a COMPONENT
-    /// (<c>ComponentConfig.SubPaneName</c>) — but the renderer collects sub-panes across every
-    /// series in the pane, so visually a sub-pane belongs to the PANE and not to the series that
-    /// declared it. Navigation used to disagree with that: it built its pane list from one
-    /// series' components alone, so Ctrl+Up/Down on the candle series could never reach Price.
-    /// Everything that walks or names the structure now comes through here, so there is one
-    /// answer rather than three.
-    /// </para>
-    ///
-    /// <para>
     /// Visual order is Main first, then every other pane in first-appearance order — the same
     /// order <c>ChartRenderer</c> lays them out in. It matters because "PageDown moves down the
     /// chart" is a promise the list order alone does not keep: a series added out of pane
@@ -126,57 +116,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             return Prettify(paneKey!);
-        }
-
-        /// <summary>
-        /// What a sub-pane strip is called aloud, without the word "pane". Null/empty — the main
-        /// area of the pane — returns null, because the main area is not a thing with a name of
-        /// its own and saying "main area" on every move into it would be noise.
-        ///
-        /// <para>
-        /// A sub-pane key is a two-letter machine string ("MF", "FY"), so it is resolved through
-        /// the display name of a component that lives in it ("Money Flow Wave" → "Money Flow
-        /// Wave") in preference to spelling the key aloud. The search runs across every series in
-        /// the pane, not just one, because that is where the renderer draws the strip from.
-        /// </para>
-        /// </summary>
-        public static string? SubPaneDisplayName(string? subPaneName, IEnumerable<ChartSeries>? paneSeries)
-        {
-            if (string.IsNullOrEmpty(subPaneName)) return null;
-
-            foreach (var s in paneSeries ?? Enumerable.Empty<ChartSeries>())
-            {
-                foreach (var comp in s.Components)
-                {
-                    if (!string.Equals(comp.SubPaneName, subPaneName, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    string dn = comp.DisplayName ?? comp.Name ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(dn) &&
-                        !dn.Trim().Equals(subPaneName, StringComparison.OrdinalIgnoreCase))
-                        return dn.Trim();
-                }
-            }
-
-            return Prettify(subPaneName!);
-        }
-
-        /// <summary>
-        /// Distinct sub-pane keys inside a pane, in first-appearance order, collected across
-        /// EVERY series in the pane. Null (the pane's main area) is not included.
-        /// </summary>
-        public static IReadOnlyList<string> SubPaneKeys(IEnumerable<ChartSeries>? paneSeries)
-        {
-            var seen = new List<string>();
-            foreach (var s in paneSeries ?? Enumerable.Empty<ChartSeries>())
-            {
-                foreach (var comp in s.Components)
-                {
-                    if (string.IsNullOrEmpty(comp.SubPaneName)) continue;
-                    if (!seen.Contains(comp.SubPaneName, StringComparer.OrdinalIgnoreCase))
-                        seen.Add(comp.SubPaneName!);
-                }
-            }
-            return seen;
         }
 
         /// <summary>"Pane_CIPHER_B" → "Cipher B". Machine keys read as spelling aloud.</summary>

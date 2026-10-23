@@ -120,11 +120,6 @@ public sealed class DeclaredKnobObservabilityTests
             + "carries frequency, timbre and volume; how long the note lasts is decided by the "
             + "player, so it cannot appear in a single sonification point.",
 
-        ["SubPaneHeightRatio"] =
-            "Read by ChartRenderer when it allocates the sub-pane strips (clamped 0.05-0.40). "
-            + "That is pane LAYOUT, which happens above DataLayer — this channel hands the layer a "
-            + "rectangle that is already decided.",
-
         ["DataMapping"] =
             "Read by IndicatorStateMapper (which OHLCV field an overlay tracks), by "
             + "IndicatorOrchestrator (whether a series needs recomputation) and by "
@@ -329,16 +324,6 @@ public sealed class DeclaredKnobObservabilityTests
             BackgroundTintPainter.PaintPaneTints(ctx, new[] { series });
             BackgroundTintPainter.PaintPriceChartTints(ctx, new[] { series });
             new DataLayer(Styling()).Render(ctx, new[] { series });
-
-            // A sub-pane component is skipped by the main pass; render the sub-pane pass too, so
-            // SubPaneName is observed as a MOVE rather than as a disappearance that also happens
-            // to be what an invisible component looks like.
-            foreach (var sub in series.Components
-                         .Select(c => c.SubPaneName)
-                         .Where(n => !string.IsNullOrEmpty(n)).Distinct())
-            {
-                new DataLayer(Styling()).Render(ctx with { SubPaneFilter = sub }, new[] { series });
-            }
         }
 
         // The pixel bytes, hashed. Exact-colour assertions are brittle across Skia versions; a
@@ -494,7 +479,6 @@ public sealed class DeclaredKnobObservabilityTests
             float f = (float)(current ?? 0f);
             return prop.Name switch
             {
-                "SubPaneHeightRatio" => f == 0.5f ? 0.25f : 0.5f,
                 "Volume" => f == 0.25f ? 0.75f : 0.25f,
                 "NoiseAmount" => f == 0.8f ? 0.4f : 0.8f,
                 "Thickness" => f == 9f ? 5f : 9f,
@@ -522,7 +506,6 @@ public sealed class DeclaredKnobObservabilityTests
                 "DataMapping" => s == "open" ? "high" : "open",
                 "SpeechTemplate" => "{name} perturbed {value}",
                 "SignalSpeechTemplate" => "{name} fired at {value}",
-                "SubPaneName" => "strip",
                 // A REAL registered patch id. An invented one would be looked up, missed, and
                 // ignored — and "the registry had nothing for it" is indistinguishable from
                 // "nothing reads this field", which is the finding this file is trying to make.

@@ -62,20 +62,6 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Whether this component is visible by default. Defaults to true.</summary>
         public bool IsVisible { get; set; } = true;
 
-        /// <summary>
-        /// Name of the sub-pane strip within the parent indicator pane that this component belongs to.
-        /// Null = main area of the parent pane (default, existing behaviour for all current indicators).
-        /// Must match a sub-pane key that can be discovered from sibling components in the same series.
-        /// </summary>
-        public string? SubPaneName { get; set; }
-
-        /// <summary>
-        /// Default height of the sub-pane as a fraction of the parent indicator pane height (0.0–1.0).
-        /// Only meaningful when <see cref="SubPaneName"/> is set. Clamped to [0.05, 0.40] at render time.
-        /// Example: 0.22 = sub-pane occupies 22% of the parent pane; main area gets the remaining 78%.
-        /// </summary>
-        public float? SubPaneHeightRatio { get; set; }
-
         // ── Visual hints (null = use role/type-based StylingService default) ──────────────
 
         /// <summary>Primary (bullish/positive) color hex. Overrides role-based color default when set.</summary>

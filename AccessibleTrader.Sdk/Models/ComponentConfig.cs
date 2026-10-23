@@ -299,12 +299,6 @@ namespace AccessibleTrader.Sdk.Models
         public bool UsesGradientSpeech { get; set; } = false;
 
         /// <summary>
-        /// Sub-pane this component renders in. Null = main area of the parent indicator pane.
-        /// Set by IndicatorModelFactory from IndicatorComponentMetadata.SubPaneName.
-        /// </summary>
-        public string? SubPaneName { get; set; }
-
-        /// <summary>
         /// When true, NavigationFeedbackManager checks zone proximity on each navigation step:
         /// if the current candle's price range (High/Low) overlaps this component's value at that
         /// bar (within a 0.5% tolerance), a quiet 100ms proximity tone plays on audio slot 2.
@@ -336,12 +330,6 @@ namespace AccessibleTrader.Sdk.Models
         /// Propagated from <see cref="AccessibleTrader.Sdk.Models.IndicatorComponentMetadata.DefaultSignalSpeechTemplate"/>.
         /// </summary>
         public string? SignalSpeechTemplate { get; set; }
-
-        /// <summary>
-        /// Preferred sub-pane height as a fraction of the parent indicator pane [0.05, 0.40].
-        /// Only meaningful when SubPaneName is set. Null = use metadata-declared ratio (0.22 default).
-        /// </summary>
-        public float? SubPaneHeightRatio { get; set; }
 
         /// <summary>
         /// Names of the series-level LevelConfig entries (by LevelConfig.Name) this component
@@ -400,8 +388,6 @@ namespace AccessibleTrader.Sdk.Models
                 BullishSoundPatchId = BullishSoundPatchId,
                 BearishSoundPatchId = BearishSoundPatchId,
                 UsesGradientSpeech = UsesGradientSpeech,
-                SubPaneName = SubPaneName,
-                SubPaneHeightRatio = SubPaneHeightRatio,
                 DecayMs = DecayMs,
                 PlaybackLayer = PlaybackLayer,
                 IsZoneLine = IsZoneLine,

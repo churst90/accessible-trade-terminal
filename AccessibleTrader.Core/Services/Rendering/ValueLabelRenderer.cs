@@ -269,7 +269,6 @@ namespace AccessibleTrader.Core.Services.Rendering
                 foreach (var c in s.Components)
                 {
                     if ((c.DisplayType != ComponentDisplayType.ValueLabel && !HasCompanionLabel(s, c)) || !c.IsVisible || !c.IsEnabled || !c.IsDrawn) continue;
-                    if (!string.IsNullOrEmpty(c.SubPaneName)) continue;
                     foreach (var l in Layout(ctx, s, c, out _)) plates.Add(l.Plate);
                 }
             }

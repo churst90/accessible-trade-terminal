@@ -124,14 +124,9 @@ namespace AccessibleTrader.Tests
         // ── Fixtures ───────────────────────────────────────────────────────────
 
         /// <summary>
-        /// A two-sub-pane indicator focused on the first pane, so NavSubPaneNext has somewhere
-        /// to go. The pane keys are deliberately terse ("MF") and the display names friendly
-        /// ("Money Flow Wave") — the exact shape that produced the doubled announcement.
-        /// </summary>
-        /// <summary>
         /// A chart shaped like the one the bug was found on: TWO series sharing the Main pane
         /// (candles and a price overlay — the pair Ctrl+Up/Down could not walk between), and a
-        /// Cipher-style indicator in a pane of its own carrying a sub-pane strip.
+        /// Cipher-style indicator in a pane of its own.
         /// </summary>
         private static (CommandDispatcher Dispatcher, SpyEventBus Bus, MockWorkspaceStore Store) Build()
         {
@@ -152,11 +147,11 @@ namespace AccessibleTrader.Tests
             };
             cipherCfg.Components.Add(new ComponentConfig
             {
-                Name = "Wave", DisplayName = "Wave", IsVisible = true, SubPaneName = null
+                Name = "Wave", DisplayName = "Wave", IsVisible = true
             });
             cipherCfg.Components.Add(new ComponentConfig
             {
-                Name = "MFW", DisplayName = "Money Flow Wave", IsVisible = true, SubPaneName = "MF"
+                Name = "MFW", DisplayName = "Money Flow Wave", IsVisible = true
             });
             var cipherBuf = new SeriesDataBuffer { SeriesId = "cipher" };
             cipherBuf.ComponentData["Wave"] = new[] { 1.0, 2.0 };

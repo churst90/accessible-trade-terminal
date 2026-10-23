@@ -486,7 +486,7 @@ hidden component carrying each number. Four suffixes are read by the chart itsel
 |---|---|---|
 | `DefaultColorHex` | `string?` | Primary color (bullish / positive side). Hex string: `"#RRGGBB"` or `"#AARRGGBB"`. |
 | `DefaultColorHexSecondary` | `string?` | Secondary color (bearish / negative side) for polarity-colored components. |
-| `DefaultBackgroundTint` | `BackgroundTint?` | Shade the background behind each bar from this component's value: `ThisPane` (its own pane or sub-pane strip) or `PriceChart`. Null = `Off`. Visual only. Independent of `IsVisible`, so a hidden data component can tint. The user's choice in Properties overrides it per chart and is kept; charts whose user never chose follow this value, so changing it reaches existing charts. `BackgroundTint` is an append-only enum (its ordinal is stored). |
+| `DefaultBackgroundTint` | `BackgroundTint?` | Shade the background behind each bar from this component's value: `ThisPane` (its own pane) or `PriceChart`. Null = `Off`. Visual only. Independent of `IsVisible`, so a hidden data component can tint. The user's choice in Properties overrides it per chart and is kept; charts whose user never chose follow this value, so changing it reaches existing charts. `BackgroundTint` is an append-only enum (its ordinal is stored). |
 | `DefaultTintColorAboveHex` | `string?` | Tint where the value is ≥ the tint midline. `#AARRGGBB`; the alpha is the strength (0x16–0x20 is subtle); alpha `00` paints nothing. Null = `DefaultColorHex` at alpha 0x16. |
 | `DefaultTintColorBelowHex` | `string?` | Tint below the midline. Null = `DefaultColorHexSecondary` at 0x16; `#00000000` = nothing below. |
 | `DefaultTintMidline` | `double?` | The value dividing the two tint colours. Null = `ColorBaseline` (where the bar and polarity colours split). |
@@ -549,18 +549,6 @@ new IndicatorComponentMetadata
 
 Rules are evaluated in declaration order; the first matching rule wins. A bar that
 matches no rule falls back to `DefaultColorHex`.
-
----
-
-### Sub-Panes
-
-A sub-pane is a horizontal strip within the parent indicator pane. Components in the
-same sub-pane share a contiguous vertical region at the bottom of the pane.
-
-| Field | Type | Description |
-|---|---|---|
-| `SubPaneName` | `string?` | String key for the sub-pane strip. All components with the same key share one sub-pane. Null = component renders in the main area of its pane (default). |
-| `SubPaneHeightRatio` | `float?` | Height of the sub-pane as a fraction of the parent pane height. Clamped to `[0.05, 0.40]` at render time. Example: `0.22f` = sub-pane occupies 22%, main area gets 78%. Only meaningful when `SubPaneName` is set. |
 
 ---
 
@@ -943,7 +931,7 @@ has two declarations:
 Cipher B is the worked example: its waves use the pane's ±53/±60, while its 0–100 RSI and
 Stochastic lines (drawn on the same −100…+100 axis, as Market Cipher draws them) have a midline of
 50 and subscribe only to two undrawn levels at 80 and 20. A component that needs its own AXIS, not
-just its own meaning, belongs in a strip (`SubPaneName`).
+just its own meaning, belongs in its own pane. There is no longer a strip inside a pane (`SubPaneName` was removed on 2026-10-22).
 
 ### DashStyle options
 

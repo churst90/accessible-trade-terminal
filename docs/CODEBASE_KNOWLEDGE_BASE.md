@@ -633,10 +633,10 @@ list must never pose as a complete one.
   view was retired 2026-09-04 — the second pane was read-only by construction, so the
   terminal drew a chart it could say nothing about.
 - **`ChartPaneModel`** — the structural model: which panes exist, in what visual order, what
-  each is called, which series belong to which, and what strips are inside. Navigation,
+  each is called, which series belong to which. Navigation,
   speech and the pane readback all read it, so there is one answer rather than three
-  disagreeing ones. A PANE IS A Y AXIS; a sub-pane is a strip drawn from every series in the
-  pane, which is why walking one per-series was wrong.
+  disagreeing ones. A PANE IS A Y AXIS, drawn from every series in the pane, which is
+  why walking one per-series was wrong.
 
 ### Indicator-layer changes made for these features
 

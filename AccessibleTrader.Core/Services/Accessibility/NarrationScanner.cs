@@ -477,7 +477,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static bool IsPriceSpaceOverlayLine(ChartSeries series, ComponentConfig comp)
             => !series.IsDrawing
                && string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase)
-               && string.IsNullOrEmpty(comp.SubPaneName)
                && comp.DisplayType == ComponentDisplayType.Line
                // An undrawn line is not on the chart to be crossed (DBSI-style's hidden ±1 Control
                // and its trend's source close are lines only so they have a reading).
@@ -1271,7 +1270,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             if (at < 0 || at > confirmedAt) return null;
             string where = $"on {BarDateText(state, at)}";
-            if (ReferenceLevelPlacement.IsPricePane(series.Pane) && string.IsNullOrEmpty(mark.SubPaneName)
+            if (ReferenceLevelPlacement.IsPricePane(series.Pane)
                 && at < data.Length && !double.IsNaN(data[at]))
                 where += $" at {SpeechPriceFormatter.FormatPrice(data[at])}";
             int ago = confirmedAt - at;

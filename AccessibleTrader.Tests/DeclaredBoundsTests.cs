@@ -255,24 +255,6 @@ public sealed class DeclaredBoundsTests
         Assert.Equal((-100.0, 100.0), new ViewportRangeCalculator().Calculate(StateWith(40, bareSeries)).PaneRanges["Pane_CIPHER_B"]);
     }
 
-    /// <summary>A sub-pane strip is its own axis and takes none of its pane's bounds.</summary>
-    [Fact]
-    public void ASubPane_IsNotBounded()
-    {
-        var cfg = new SeriesConfig { Id = "b", IndicatorCode = "BOUNDED", Pane = "Pane_BOUNDED", RangeMin = -100, RangeMax = 100 };
-        cfg.Components.Add(new ComponentConfig { Name = "Wave", DisplayType = ComponentDisplayType.Line });
-        cfg.Components.Add(new ComponentConfig { Name = "Flow", DisplayType = ComponentDisplayType.Line, SubPaneName = "MF" });
-        var buf = new SeriesDataBuffer { SeriesId = "b" };
-        buf.ComponentData["Wave"] = Ramp(40, -40, 60);
-        buf.ComponentData["Flow"] = Ramp(40, -2, 2);
-        var series = new ChartSeries(cfg, buf);
-
-        var ranges = new ViewportRangeCalculator().Calculate(StateWith(40, series)).PaneRanges;
-        Assert.Equal((-100.0, 100.0), ranges["Pane_BOUNDED"]);
-        var strip = ranges["Pane_BOUNDED/MF"];
-        Assert.True(strip.Max < 10 && strip.Min > -10, $"the sub-pane took the pane's bounds: {strip}");
-    }
-
     /// <summary>Two RSIs in one pane: same bounds, one axis.</summary>
     [Fact]
     public void TwoBoundedSeriesInOnePane_TakeTheUnion()

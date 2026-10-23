@@ -54,16 +54,14 @@ namespace AccessibleTrader.Tests
         }
 
         private static RenderContext Ctx(SKCanvas canvas, IReadOnlyList<Ohlcv> data, ChartTheme theme,
-            double min = 90, double max = 130, string pane = "Main", int cursor = -1,
-            string? subPaneFilter = null)
+            double min = 90, double max = 130, string pane = "Main", int cursor = -1)
         {
             int vlen = Math.Max(1, data.Count);
             return new RenderContext(
                 Canvas: canvas, PaneRect: SKRect.Create(0, 0, W, H), Data: data,
                 ViewportStart: 0, ViewportLength: vlen, Min: min, Max: max,
                 IsLogScale: false, ItemWidth: (float)W / vlen, Density: 1f,
-                PaneName: pane, LocalCursorIndex: cursor, Theme: theme,
-                SubPaneFilter: subPaneFilter);
+                PaneName: pane, LocalCursorIndex: cursor, Theme: theme);
         }
 
         private static SKBitmap Render(Action<SKCanvas> draw)
@@ -87,7 +85,7 @@ namespace AccessibleTrader.Tests
         }
 
         private static ChartSeries LineSeries(string comp, double[] values, string pane = "Main",
-            string? subPane = null, bool visible = true)
+            bool visible = true)
         {
             var config = new SeriesConfig { Id = comp, Name = comp, Pane = pane, IsVisible = visible };
             config.Components.Add(new ComponentConfig
@@ -95,7 +93,6 @@ namespace AccessibleTrader.Tests
                 Name = comp,
                 DisplayType = ComponentDisplayType.Line,
                 ColorHex = "#00FFFF",
-                SubPaneName = subPane ?? "",
             });
             var buffer = new SeriesDataBuffer { SeriesId = comp };
             buffer.ComponentData[comp] = values;
@@ -217,22 +214,6 @@ namespace AccessibleTrader.Tests
                 NewDataLayer().Render(Ctx(c, Bars(20), theme), new[] { LineSeries("Ema", values, visible: false) }));
 
             Assert.Equal(0, NonSentinelCount(bmp));
-        }
-
-        [Fact]
-        public void Data_SubPaneComponent_IsSkippedInTheMainPass_AndDrawnInItsOwnPass()
-        {
-            var theme = Theme().Current;
-            var values = Enumerable.Range(0, 20).Select(i => 100.0 + i).ToArray();
-            var series = LineSeries("Squeeze", values, subPane: "strip");
-
-            using var mainPass = Render(c =>
-                NewDataLayer().Render(Ctx(c, Bars(20), theme), new[] { series }));
-            using var stripPass = Render(c =>
-                NewDataLayer().Render(Ctx(c, Bars(20), theme, subPaneFilter: "strip"), new[] { series }));
-
-            Assert.Equal(0, NonSentinelCount(mainPass));
-            Assert.True(NonSentinelCount(stripPass) > 0);
         }
 
         [Fact]
@@ -522,21 +503,6 @@ namespace AccessibleTrader.Tests
             var placed = Assert.Single(Layout(TextLabel("edge", bar: 2, price: price)));
 
             Assert.True(placed.Box.Top >= Pane.Top && placed.Box.Bottom <= Pane.Bottom, $"plate {placed.Box}");
-        }
-
-        [Fact]
-        public void TextLabels_are_not_drawn_in_a_strip_inside_the_price_pane()
-        {
-            // The overlay layer also runs for each strip stacked in the price pane, with the
-            // strip's own scale; the label's price means nothing there.
-            var theme = Theme();
-            using var strip = Render(c => new OverlayLayer().Render(
-                Ctx(c, Bars(10), theme.Current, subPaneFilter: "strip"), new[] { TextLabel("note", bar: 5, price: 110) }));
-            using var pane = Render(c => new OverlayLayer().Render(
-                Ctx(c, Bars(10), theme.Current), new[] { TextLabel("note", bar: 5, price: 110) }));
-
-            Assert.Equal(0, NonSentinelCount(strip));
-            Assert.True(NonSentinelCount(pane) > 0, "vacuity: the same label is drawn in the pane itself");
         }
 
         [Fact]

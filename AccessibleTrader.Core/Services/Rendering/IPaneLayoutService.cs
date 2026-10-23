@@ -57,29 +57,12 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         IReadOnlyDictionary<string, PaneStatusBand> StatusBands { get; }
 
-        /// <summary>
-        /// Each pane's SUB-PANE STRIPS, by pane name, top to bottom: the strips along the bottom of
-        /// the pane's plot that components with a <c>SubPaneName</c> are drawn in, each on its own
-        /// range (<c>"Pane/Sub"</c> in PaneRanges) — Loukas Cycles' "FY" was one (removed 2026-10-22). The pane's other
-        /// components are drawn in the area above the first strip. A pane without strips is not
-        /// listed. Empty until a frame has been drawn.
-        ///
-        /// <para>
-        /// Published so that every mapping agrees with the drawing (Cody, 2026-10-17): until then
-        /// the axis, the crosshair badge, the hover readout and the hit tester all mapped the
-        /// pane's one range over the whole plot, strip included, while the renderer drew the
-        /// pane's values above the strip and the strip's on their own range inside it.
-        /// </para>
-        /// </summary>
-        IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>> SubPaneStrips { get; }
-
         /// <summary>Called by ChartRenderer after pane heights are calculated.</summary>
         void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
             float axisWidthFraction,
-            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null,
-            IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>>? subPaneStrips = null);
+            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null);
 
         /// <summary>Fires whenever <see cref="Update"/> is called with changed values.</summary>
         event Action? LayoutChanged;
@@ -91,12 +74,6 @@ namespace AccessibleTrader.Core.Services.Rendering
     /// </summary>
     public readonly record struct PaneStatusBand(int Lines, float HeightFraction);
 
-    /// <summary>
-    /// One sub-pane strip: its name (a component's <c>SubPaneName</c>) and its top and bottom as
-    /// fractions of the canvas height. See <see cref="IPaneLayoutService.SubPaneStrips"/>.
-    /// </summary>
-    public readonly record struct SubPaneStrip(string Name, float TopFraction, float BottomFraction);
-
     public class PaneLayoutService : IPaneLayoutService
     {
         private static readonly IReadOnlyDictionary<string, PaneStatusBand> NoBands = new Dictionary<string, PaneStatusBand>();
@@ -105,14 +82,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         private float _axisHeightFraction;
         private float _axisWidthFraction;
         private IReadOnlyDictionary<string, PaneStatusBand> _statusBands = NoBands;
-        private static readonly IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>> NoStrips = new Dictionary<string, IReadOnlyList<SubPaneStrip>>();
-        private IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>> _subPaneStrips = NoStrips;
 
         public IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers => _dividers;
         public float AxisHeightFraction => _axisHeightFraction;
         public float AxisWidthFraction => _axisWidthFraction;
         public IReadOnlyDictionary<string, PaneStatusBand> StatusBands => _statusBands;
-        public IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>> SubPaneStrips => _subPaneStrips;
 
         public event Action? LayoutChanged;
 
@@ -120,11 +94,9 @@ namespace AccessibleTrader.Core.Services.Rendering
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
             float axisWidthFraction,
-            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null,
-            IReadOnlyDictionary<string, IReadOnlyList<SubPaneStrip>>? subPaneStrips = null)
+            IReadOnlyDictionary<string, PaneStatusBand>? statusBands = null)
         {
             _dividers = dividers;
-            _subPaneStrips = subPaneStrips ?? NoStrips;
             _axisHeightFraction = axisHeightFraction;
             _axisWidthFraction = axisWidthFraction;
             _statusBands = statusBands ?? NoBands;

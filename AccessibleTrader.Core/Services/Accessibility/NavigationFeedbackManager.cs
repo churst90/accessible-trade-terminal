@@ -282,19 +282,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 speechPrefix = visibilityPrefix + speechPrefix;
             }
 
-            // 2b. WHERE THE CURSOR NOW IS — the pane, and the strip inside it.
+            // 2b. WHERE THE CURSOR NOW IS — the pane.
             //
             // Computed against the previous state and spoken ONLY when it changed. A pane is a Y
             // axis, so crossing into one means the numbers that follow are being read against a
             // different scale; that is worth a clause. Ten Page Downs inside the Main pane are
             // not, which is why nothing is said when nothing moved.
             //
-            // Both halves are resolved through ChartPaneModel, so a strip is named from the
-            // components of every series in the pane rather than of the focused one alone — the
-            // renderer draws the strip that way, and the two disagreeing is the defect that made
-            // Ctrl+Up/Down unable to reach Price from the candles.
             {
-                string? prevPaneKey = null, prevStrip = null;
+                string? prevPaneKey = null;
                 if (_previousState != null)
                 {
                     var prevSeries = _previousState.ActiveSeries
@@ -302,33 +298,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (prevSeries != null)
                     {
                         prevPaneKey = ChartPaneModel.KeyOf(prevSeries);
-                        int pIdx = prevSeries.ClampComponent(_previousState.FocusedComponentIndex);
-                        if (pIdx >= 0 && pIdx < prevSeries.Components.Count)
-                            prevStrip = prevSeries.Components[pIdx].SubPaneName;
                     }
                 }
 
                 string currPaneKey = ChartPaneModel.KeyOf(s);
                 int currCompIdx = s.ClampComponent(state.FocusedComponentIndex);
-                string? currStrip = currCompIdx >= 0 && currCompIdx < s.Components.Count
-                    ? s.Components[currCompIdx].SubPaneName
-                    : null;
 
                 bool paneChanged = !string.Equals(prevPaneKey, currPaneKey, StringComparison.Ordinal);
-                bool stripChanged = !string.Equals(prevStrip, currStrip, StringComparison.OrdinalIgnoreCase);
 
-                if (paneChanged || stripChanged)
+                if (paneChanged)
                 {
                     var pane = ChartPaneModel.Panes(state.ActiveSeries)
                         .FirstOrDefault(x => string.Equals(x.Key, currPaneKey, StringComparison.Ordinal));
                     var paneSeries = pane?.Series ?? new List<ChartSeries> { s };
 
                     string paneLabel = ChartPaneModel.DisplayName(currPaneKey, paneSeries) + " pane";
-                    string? stripLabel = ChartPaneModel.SubPaneDisplayName(currStrip, paneSeries);
 
-                    orientationClause = stripLabel == null
-                        ? paneLabel + "."
-                        : $"{paneLabel}, {stripLabel} strip.";
+                    orientationClause = paneLabel + ".";
                 }
 
                 // A drawing's per-bar sentence carries no component name (it is constant across a

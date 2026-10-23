@@ -136,7 +136,7 @@ public class ChartMathRenderingTests
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_ComputesMinMax_WithTenPercentBuffer()
+    public void GetSeriesRange_IndicatorPane_ComputesMinMax_WithTenPercentBuffer()
     {
         // Non-Main pane derives its own range from component data within the
         // viewport, plus a 10% margin top and bottom for legibility.
@@ -149,7 +149,7 @@ public class ChartMathRenderingTests
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_SkipsNaN_AndSpansMultipleComponents()
+    public void GetSeriesRange_IndicatorPane_SkipsNaN_AndSpansMultipleComponents()
     {
         var series = MakeSeries("multi", "sub",
             ("A", new[] { 10.0, double.NaN, 20.0 }),
@@ -163,21 +163,21 @@ public class ChartMathRenderingTests
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_NoData_FallsBackTo0To100()
+    public void GetSeriesRange_IndicatorPane_NoData_FallsBackTo0To100()
     {
         var series = MakeSeries("empty", "sub", ("Line", Array.Empty<double>()));
         Assert.Equal((0.0, 100.0), ChartMath.GetSeriesRange(series, 0, 5, (10.0, 20.0)));
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_AllNaN_FallsBackTo0To100()
+    public void GetSeriesRange_IndicatorPane_AllNaN_FallsBackTo0To100()
     {
         var series = MakeSeries("nan", "sub", ("Line", new[] { double.NaN, double.NaN }));
         Assert.Equal((0.0, 100.0), ChartMath.GetSeriesRange(series, 0, 2, (10.0, 20.0)));
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_FlatValue_ExpandsByOne()
+    public void GetSeriesRange_IndicatorPane_FlatValue_ExpandsByOne()
     {
         // When every value is identical the range would be zero-height; the code
         // widens it by ±1 (before the 10% buffer) so the line is visible.
@@ -190,7 +190,7 @@ public class ChartMathRenderingTests
     }
 
     [Fact]
-    public void GetSeriesRange_SubPane_HonoursViewportWindow()
+    public void GetSeriesRange_IndicatorPane_HonoursViewportWindow()
     {
         // Only the [start, start+length) slice contributes to the range.
         var series = MakeSeries("win", "sub", ("Line", new[] { 100.0, 1.0, 2.0, 3.0, 999.0 }));

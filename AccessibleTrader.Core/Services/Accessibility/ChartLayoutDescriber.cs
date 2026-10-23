@@ -184,16 +184,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             parts.Add($"{Count(pane.Series.Count, "series")}: " +
                       string.Join(", ", pane.Series.Select(x => x.Name)) + ".");
 
-            // Sub-panes are named but not counted as panes: they share the pane's band and are
-            // reached with Ctrl+Up/Down like any other component, not with a key of their own.
-            var subPanes = ChartPaneModel.SubPaneKeys(pane.Series);
-            if (subPanes.Count > 0)
-            {
-                parts.Add($"{Count(subPanes.Count, "strip")} inside it: " +
-                          string.Join(", ", subPanes.Select(k => ChartPaneModel.SubPaneDisplayName(k, pane.Series))) +
-                          ". Control Up and Control Down walk the strip you are in.");
-            }
-
             return string.Join(" ", parts);
         }
 

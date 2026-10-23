@@ -22,9 +22,6 @@ namespace AccessibleTrader.Core.Services.Rendering
         string PaneName,
         int LocalCursorIndex,
         ChartTheme Theme,
-        // When null: render only main-area components (SubPaneName is null/empty).
-        // When non-null: render only components whose SubPaneName matches this value.
-        string? SubPaneFilter = null,
         // The whole stacked-pane area (price + every indicator pane), or null to mean "this pane".
         //
         //
