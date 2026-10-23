@@ -583,6 +583,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         .Replace("{name}", comp.DisplayName);
                     if (string.IsNullOrWhiteSpace(speech)) continue;
 
+                    // What it looks like, as its own sentence (MarkerLook; opt-in). Its full stop
+                    // is left to the join below, like every other entry's.
+                    string look = MarkerLook.Sentence(state, series, comp, dataIndex);
+                    if (look.Length > 0)
+                    {
+                        string said = speech.TrimEnd().TrimEnd('.');
+                        speech = $"{said}. {look.TrimEnd('.')}";
+                    }
+
                     int tier = SignalTierClassifier.GetTier(comp, series);
                     string dn = comp.DisplayName ?? comp.Name;
                     bool positive = dn.Contains("Bull", StringComparison.OrdinalIgnoreCase) ||

@@ -58,6 +58,66 @@ namespace AccessibleTrader.Core.Services.Rendering
             return null;
         }
 
+        // ── The colour a marker is painted, for the renderers and for speech ──
+        //
+        // "Say what signals look like" (MarkerLook) names the colour of the marker on a bar, and it
+        // must name the colour the chart PAINTED, not the one the provider declared: a colour rule
+        // or a Money Flow dot's sign repaints it per bar. So the per-bar choices live here, and the
+        // renderers below take them from here too.
+
+        /// <summary>Money Flow's zero-line dot: green-teal at or above zero, red below.</summary>
+        internal static readonly SKColor ZeroDotUp   = new(38, 198, 130, 210);
+        internal static readonly SKColor ZeroDotDown = new(255, 82, 82, 210);
+
+        // Gradient anchor colours matching real Market Cipher A palette:
+        //   teal (#00FF9F) = oversold/bearish WT (deeply negative)
+        //   gray (#90A4AE) = neutral midpoint (WT near zero)
+        //   red  (#FF3D00) = overbought/bullish WT (deeply positive)
+        // gradAlpha = 230 (~90%) so dots are clearly visible against the chart background.
+        private static readonly SKColor GradTeal = new(0, 255, 159);
+        private static readonly SKColor GradGray = new(144, 164, 174);
+        private static readonly SKColor GradRed  = new(255, 61, 0);
+        private const byte GradAlpha = 230;
+
+        /// <summary>A Dot's colour from its "_color" companion (Cipher A's WT Momentum ribbon).</summary>
+        internal static SKColor DotGradientColor(double companion)
+        {
+            double wt = Math.Clamp(companion, -100.0, 100.0);
+            // Power curve (exponent 0.6) saturates color faster at moderate WT values
+            // so common readings of ±30–50 render vividly rather than near-gray.
+            float t = (float)Math.Pow(Math.Abs(wt) / 100.0, 0.6);
+            SKColor to = wt < 0 ? GradTeal : GradRed;
+            return new SKColor(
+                (byte)(GradGray.Red   + (to.Red   - GradGray.Red)   * t),
+                (byte)(GradGray.Green + (to.Green - GradGray.Green) * t),
+                (byte)(GradGray.Blue  + (to.Blue  - GradGray.Blue)  * t),
+                GradAlpha);
+        }
+
+        /// <summary>The component's own colour, as <see cref="StylingService.GetPaint"/> makes it.</summary>
+        internal static SKColor StaticColor(ComponentConfig comp) =>
+            SKColor.TryParse(comp.ColorHex, out var c) ? c : SKColors.White;
+
+        /// <summary>
+        /// The colour a marker component is painted at <paramref name="dataIdx"/>: a ZeroDot by its
+        /// sign, a Dot by its "_color" companion when it has one, otherwise the first matching colour
+        /// rule, otherwise the component's own colour.
+        /// </summary>
+        internal static SKColor MarkerColorAt(ChartSeries series, ComponentConfig comp, int dataIdx)
+        {
+            var data = series.GetComponentData(comp.Name);
+            double val = data != null && dataIdx >= 0 && dataIdx < data.Length ? data[dataIdx] : double.NaN;
+            if (comp.DisplayType == ComponentDisplayType.ZeroDot)
+                return val >= 0 ? ZeroDotUp : ZeroDotDown;
+            if (comp.DisplayType == ComponentDisplayType.Dot)
+            {
+                var colorData = series.GetComponentData(comp.Name + "_color");
+                if (colorData != null && dataIdx >= 0 && dataIdx < colorData.Length && !double.IsNaN(colorData[dataIdx]))
+                    return DotGradientColor(colorData[dataIdx]);
+            }
+            return (data != null ? ResolveBarColor(comp, data, dataIdx) : null) ?? StaticColor(comp);
+        }
+
         // ── Sentiment phase colors for CandleColor overlay (Cipher S) ──────────
         // Index 0 = Max Fear … 10 = Max Euphoria.  Matches the 11-phase legend in
         // the Market Cycle Highs & Lows design: fear → cool hues, greed → warm hues.
@@ -943,8 +1003,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             float yZero    = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
             yZero = Math.Clamp(yZero, ctx.Top, ctx.Bottom);
 
-            using var posPaint = new SKPaint { Color = new SKColor(38, 198, 130, 210),  Style = SKPaintStyle.Fill, IsAntialias = true };
-            using var negPaint = new SKPaint { Color = new SKColor(255,  82,  82, 210), Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var posPaint = new SKPaint { Color = ZeroDotUp,   Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var negPaint = new SKPaint { Color = ZeroDotDown, Style = SKPaintStyle.Fill, IsAntialias = true };
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -985,16 +1045,6 @@ namespace AccessibleTrader.Core.Services.Rendering
             bool hasAnchors = anchorIdxData != null && anchorYData != null
                 && anchorIdxData.Length == data.Length && anchorYData.Length == data.Length;
 
-            // Gradient anchor colours matching real Market Cipher A palette:
-            //   teal (#00FF9F) = oversold/bearish WT (deeply negative)
-            //   gray (#90A4AE) = neutral midpoint (WT near zero)
-            //   red  (#FF3D00) = overbought/bullish WT (deeply positive)
-            // gradAlpha = 230 (~90%) so dots are clearly visible against the chart background.
-            var teal = new SKColor(0,   255, 159);  // #00FF9F oversold
-            var gray = new SKColor(144, 164, 174);  // #90A4AE neutral
-            var red  = new SKColor(255,  61,   0);  // #FF3D00 overbought
-            const byte gradAlpha = 230;
-
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
             float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
@@ -1009,24 +1059,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float x = (i * barWidth) + halfBar;
                 float y = ResolveMarkerY(ctx, comp, i, val);
 
-                SKColor col;
-                if (hasGradient && dataIdx < colorData!.Length && !double.IsNaN(colorData[dataIdx]))
-                {
-                    double wt  = Math.Clamp(colorData[dataIdx], -100.0, 100.0);
-                    // Power curve (exponent 0.6) saturates color faster at moderate WT values
-                    // so common readings of ±30–50 render vividly rather than near-gray.
-                    float  t   = (float)Math.Pow(Math.Abs(wt) / 100.0, 0.6);
-                    SKColor to = wt < 0 ? teal : red;
-                    col = new SKColor(
-                        (byte)(gray.Red   + (to.Red   - gray.Red)   * t),
-                        (byte)(gray.Green + (to.Green - gray.Green) * t),
-                        (byte)(gray.Blue  + (to.Blue  - gray.Blue)  * t),
-                        gradAlpha);
-                }
-                else
-                {
-                    col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
-                }
+                SKColor col = hasGradient && dataIdx < colorData!.Length && !double.IsNaN(colorData[dataIdx])
+                    ? DotGradientColor(colorData[dataIdx])
+                    : ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
 
                 // Slanted pivot-to-pivot line. Resolves the prior pivot's screen
                 // X/Y from the companion arrays' stored bar index + Y value. Skip

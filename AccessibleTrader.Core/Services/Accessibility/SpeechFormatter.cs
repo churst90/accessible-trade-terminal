@@ -179,9 +179,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var values = series.Components
                     .Where(c => c.IsVisible && !c.IsMuted)
                     .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
-                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data));
+                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
+                        describeLook: state.DescribeSignalLooks))
+                    .ToList();
 
-                msg = string.Join(". ", values);
+                // A value that already closes its sentence (a signal followed by what it looks
+                // like) is not given a second full stop by the join. The last keeps its own: what
+                // follows the summary ("Main pane.") is joined on with a space.
+                msg = string.Join(". ", values.Select((v, i) => i < values.Count - 1 ? v.TrimEnd().TrimEnd('.') : v.TrimEnd()));
             }
             else
             {
@@ -207,7 +212,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     : null;
                 msg = FormatTemplateValue(series, comp, readsRawBar ? rawPt : pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                     isYMove: isYMove, liveClose: liveClose, provider: provider,
-                    viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data);
+                    viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
+                    describeLook: state.DescribeSignalLooks);
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -422,9 +428,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Dispatcher ───────────────────────────────────────────────────────────
 
+        /// <summary>Closes <paramref name="text"/> with a full stop when a sentence is about to
+        /// follow it, so "Buy: buy signal at 64,250" and "Drawn as..." read as two sentences.</summary>
+        private static string EndSentence(string text, string following)
+        {
+            if (following.Length == 0) return text;
+            string t = text.TrimEnd();
+            return t.Length == 0 || ".!?".Contains(t[^1]) ? t : t + ".";
+        }
+
         private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
             bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null,
-            int viewportStart = -1, int viewportLength = -1, IReadOnlyList<Ohlcv>? bars = null)
+            int viewportStart = -1, int viewportLength = -1, IReadOnlyList<Ohlcv>? bars = null,
+            bool describeLook = false)
         {
             try
             {
@@ -477,14 +493,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         ? " Narrating."
                         : "";
 
+                // What the marker on this bar looks like, after whatever the strategy said about
+                // what it MEANS (MarkerLook; opt-in). Here rather than in MarkerSignalStrategy so a
+                // signal answered by its provider's own speech is described too. Empty on a bar
+                // with no marker, so a left/right sweep adds nothing between signals.
+                string look = describeLook ? MarkerLook.Sentence(series, comp, dataIndex) : "";
+                string lookSuffix = look.Length == 0 ? "" : " " + look;
+
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
                     {
                         var result = strategy.Format(ctx);
-                        if (result != null) return statePrefix + result + narrationSuffix;
+                        if (result != null) return statePrefix + EndSentence(result, look) + lookSuffix + narrationSuffix;
                     }
 
-                return statePrefix + (_fallback.Format(ctx) ?? "") + narrationSuffix;
+                string fallback = _fallback.Format(ctx) ?? "";
+                return statePrefix + EndSentence(fallback, look) + lookSuffix + narrationSuffix;
             }
             catch (Exception ex)
             {

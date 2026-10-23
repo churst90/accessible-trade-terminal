@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Signals can say what they look like (2026-10-22)
+
+Cody asked whether the descriptors had been added: "if not, let's work on this". Sighted traders name a
+signal by its look ("the big green dot", "the red triangle above the candle"), and a signal heard only by
+its name ("Buy") cannot be matched to that. New setting: Settings → Speech → **Say what signals look
+like** (off by default; `SettingsKeys.DescribeSignalLooks`, mirrored into `WorkspaceState.DescribeSignalLooks`,
+declared NotCarried in the script sandbox projection). With it on, a signal marker is followed by a
+sentence: *"Buy. Drawn as a large green dot."*
+
+- **What is said** (`MarkerLook`, Core/Services/Accessibility):
+  - The **shape**: dot, up or down arrow (by the value's sign, as it is drawn), up/down triangle,
+    up triangle with a ring (and its letter), diamond, square, X, square with a check mark, square with
+    circling arrows.
+  - The **size**, from the thickness that sizes every marker: below 2.5 "small", 4.5 and up "large", no
+    word between. Cipher B's Buy dot (5) is large; its ordinary dots (3, 3.5) say no size.
+  - The **colour painted on that bar**, not the declared one. A colour rule, a Money Flow dot's sign and
+    a gradient dot's companion each repaint a marker per bar. The renderers' per-bar colour choice moved
+    into `StandardRenderers.MarkerColorAt`, which the dot renderers and the speech both read.
+    Colour names come from hue and lightness (`MarkerLook.ColorName`), tuned on every colour the built-in
+    markers use. For example, #78909C (Cipher C's pending box) is "gray", #FF3D00 is "red", #EF9A9A is
+    "light red" and #E91E63 is "pink".
+  - **Where it sits**, when it is pinned to the candle: "below the candle" or "above the candle".
+- **Where it is said:**
+  - arrowing onto a signal (the focused component, and the Series-context summary);
+  - another indicator's signal on the bar;
+  - playback narration;
+  - the signals narrated when a bar closes (after a hindsight mark's date).
+- **Not described:** alerts. A tree alert says "conditions met" and names no marker.
+- **Changed on the way:** the Series summary joins its components with ". ", so a value already ending
+  in a full stop (a signal template such as "Buy.") gave a double stop before the next one. That comes from
+  reading the old join and was not shown by a test. The join now drops the inner stops and keeps the last one.
+- **Tests.** `MarkerLookTests` (56):
+  - colour names, size, shape, sign, anchor and the ring's letter;
+  - nothing said on a bar with no marker, a hidden component or a line;
+  - a **pixel sweep**: every marker shape is drawn through the real `DataLayer`, and the colour named
+    must be the name of the colour covering most of the marker. This covers colour rules, ZeroDot signs
+    and the gradient. A guard fails if a new marker shape is not in the sweep.
+  - each speech path with the setting on and off.
+
+  Twelve sabotages turned it red, each restored and diffed:
+  - the setting gate removed;
+  - the declared colour used in place of the painted one;
+  - each of the five speech hooks dropped;
+  - each Series/focused gate forced on, and the summary gate forced off;
+  - the renderer's gradient replaced with the flat colour;
+  - the size word and the arrow's sign removed.
+
+  A first pass of the pixel sweep caught three wrong names (saddle brown said "orange", blue-gray said
+  "blue", #CCCCCC said "white"). The summary test caught the summary's lost final full stop.
+- **Not heard in the app yet.**
+
 ### Arrowing is heard for the component you are on (2026-10-22)
 
 Cody: "when left and right arrowing in an indicator with many series, it seems like I hear

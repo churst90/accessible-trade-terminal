@@ -80,6 +80,8 @@ namespace AccessibleTrader.Core.Services
         // writes changes back here)
         bool SpeakTimestamps { get; set; }
         bool SpeakDateOnEveryBar { get; set; }
+        /// <summary>Follow a spoken signal with what its marker looks like. See MarkerLook.</summary>
+        bool DescribeSignalLooks { get; set; }
         string TimestampReadLocation { get; set; }
         bool ReadColumnHeaders { get; set; }
         string SpeechOrder { get; set; }
@@ -254,6 +256,12 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.SpeakDateOnEveryBar, def: false);
             set => Set(SettingsKeys.SpeakDateOnEveryBar, value);
+        }
+
+        public bool DescribeSignalLooks
+        {
+            get => GetBool(SettingsKeys.DescribeSignalLooks, def: false);
+            set => Set(SettingsKeys.DescribeSignalLooks, value);
         }
         public string TimestampReadLocation
         {

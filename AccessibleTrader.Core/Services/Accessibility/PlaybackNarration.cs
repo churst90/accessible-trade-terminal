@@ -589,7 +589,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 47 of the 61 shipped templates end without a full stop, which read fine alone and
             // run into the next clause once joined — the same repair ScanUtterance makes.
             if (!".!?".Contains(text[^1])) text += ".";
-            return text;
+            // What it looks like (MarkerLook; opt-in).
+            string look = MarkerLook.Sentence(state, series, comp, barIndex);
+            return look.Length == 0 ? text : $"{text} {look}";
         }
 
         // ── Dates ──────────────────────────────────────────────────────────────────

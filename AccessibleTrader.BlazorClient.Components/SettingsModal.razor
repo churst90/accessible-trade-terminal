@@ -531,6 +531,20 @@
                     </p>
 
                     <div class="modal-row">
+                        <label for="s-describe-signal-looks">Say what signals look like</label>
+                        <input id="s-describe-signal-looks" type="checkbox"
+                               aria-describedby="s-describe-signal-looks-hint"
+                               checked="@Store.State.DescribeSignalLooks"
+                               @onchange="e => _describeLooks = e.Value is bool b ? b : Store.State.DescribeSignalLooks" />
+                    </div>
+                    <p id="s-describe-signal-looks-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Follows each spoken signal with how it is drawn: its colour, shape and size,
+                        and whether it sits above or below the candle &mdash; "Drawn as a large green
+                        dot." The colour is the one on the chart, so a colour you changed is the one
+                        you hear. For talking about a chart with someone who reads it by eye.
+                    </p>
+
+                    <div class="modal-row">
                         <label for="s-speech-order">Speak values as</label>
                         <select id="s-speech-order" value="@_speechOrder"
                                 @onchange="OnSpeechOrderChanged">
@@ -1273,6 +1287,7 @@
     // Local copies for pending changes — written by Save, dropped by Cancel
     private bool _speakTimestamps;
     private bool _dateEveryBar;
+    private bool _describeLooks;
     private bool _readHeaders;
     private bool _announceBars;
     private bool _describeChartPatterns;
@@ -1309,6 +1324,7 @@
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
         new("Speak the date on every bar", "Speech", "s-date-every-bar", "date day boundary intraday timestamp"),
+        new("Say what signals look like", "Speech", "s-describe-signal-looks", "describe colour color shape size dot triangle marker appearance sighted"),
         new("Speak values as", "Speech", "s-speech-order", "name value order header"),
         new("Read column headers", "Speech", "s-read-headers", "table grid"),
 
@@ -1922,6 +1938,7 @@
     {
         _speakTimestamps = Store.State.SpeakTimestamps;
         _dateEveryBar    = Store.State.SpeakDateOnEveryBar;
+        _describeLooks   = Store.State.DescribeSignalLooks;
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
         _describeChartPatterns = Store.State.DescribeChartPatterns;
@@ -2173,6 +2190,7 @@
         {
             SpeakTimestamps  = _speakTimestamps,
             SpeakDateOnEveryBar = _dateEveryBar,
+            DescribeSignalLooks = _describeLooks,
             // Both of these were honoured by SpeechFormatter with no control anywhere to set
             // them — live behaviour with no way to reach it, which is what the settings-wiring
             // audit exists to find. They go through the store like every other speech preference.

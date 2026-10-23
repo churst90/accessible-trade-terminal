@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Signals can say what they look like.** Turn on "Say what signals look like" on the Speech tab of
+  Settings, and each signal is followed by its look on the chart: "Buy. Drawn as a large green dot.",
+  "Cycle low. Drawn as a green up triangle below the candle." The colour is the one drawn on that bar,
+  so a dot that turns red when it is bearish is said as red. It helps when you are talking a chart
+  through with someone who reads it by eye.
 - **Arrowing an indicator is heard for the component you are on.** Moving left and right through one
   component of a busy indicator such as Cipher B used to ring other sounds as well. The approach ping
   and the "held beyond" tone came from other lines and other indicators, such as an RSI nearing 70 in

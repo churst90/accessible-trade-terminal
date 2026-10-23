@@ -326,6 +326,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         msg = $"{msg.TrimEnd().TrimEnd('.')}, on {BarDateText(state, barIndex)}.";
                     if (!string.IsNullOrEmpty(msg) && ConfirmedMark(series, comp, barIndex, state) is { } mark)
                         msg = $"{msg.TrimEnd().TrimEnd('.')}, {mark}.";
+                    // What it looks like (MarkerLook; opt-in), last, as a sentence of its own.
+                    if (!string.IsNullOrWhiteSpace(msg) && MarkerLook.Sentence(state, series, comp, barIndex) is { Length: > 0 } look)
+                    {
+                        string t = msg.TrimEnd();
+                        msg = (".!?".Contains(t[^1]) ? t : t + ".") + " " + look;
+                    }
                     if (!string.IsNullOrEmpty(msg))
                     {
                         utterance.Add(ScanUtterance.TierSignal, series.FriendlyName, markerKey, msg,
@@ -1303,17 +1309,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : SpeechPriceFormatter.FormatPrice(val);
             string valueStr = val.ToString("F1", CultureInfo.InvariantCulture);
 
-            if (!string.IsNullOrEmpty(comp.SignalSpeechTemplate))
-            {
-                return comp.SignalSpeechTemplate
+            return !string.IsNullOrEmpty(comp.SignalSpeechTemplate)
+                ? comp.SignalSpeechTemplate
                     .Replace("{price}", price)
                     .Replace("{value}", valueStr)
                     .Replace("{name}", !string.IsNullOrEmpty(comp.DisplayName) ? comp.DisplayName : comp.Name)
-                    .Replace("{series}", series.FriendlyName);
-            }
-
-            // The component, not the series, introduces a signal — see ScanUtterance.Compose.
-            return $"{SignalClauseSpeech.ComponentName(comp)} at {price}.";
+                    .Replace("{series}", series.FriendlyName)
+                // The component, not the series, introduces a signal — see ScanUtterance.Compose.
+                : $"{SignalClauseSpeech.ComponentName(comp)} at {price}.";
         }
 
         private static string? BuildZoneTransitionMessage(

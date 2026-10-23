@@ -77,7 +77,7 @@ namespace AccessibleTrader.Core.Services
             bool DescribeChartPatterns, bool DescribeCandlePatterns,
             bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback,
             bool SpeakPlaybackLandmarks = true, bool SpeakDateOnEveryBar = false,
-            float PlaybackSpeed = 1.0f);
+            float PlaybackSpeed = 1.0f, bool DescribeSignalLooks = false);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -85,7 +85,7 @@ namespace AccessibleTrader.Core.Services
             s.DescribeChartPatterns, s.DescribeCandlePatterns,
             s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback,
             s.SpeakPlaybackLandmarks, s.SpeakDateOnEveryBar,
-            s.PlaybackSpeed);
+            s.PlaybackSpeed, s.DescribeSignalLooks);
 
         public void Initialize()
         {
@@ -110,6 +110,7 @@ namespace AccessibleTrader.Core.Services
                     NarrateDuringPlayback = _settings.NarrateDuringPlayback,
                     SpeakPlaybackLandmarks = _settings.SpeakPlaybackLandmarks,
                     SpeakDateOnEveryBar = _settings.SpeakDateOnEveryBar,
+                    DescribeSignalLooks = _settings.DescribeSignalLooks,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -146,6 +147,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.NarrateDuringPlayback = p.NarrateDuringPlayback;
                         _settings.SpeakPlaybackLandmarks = p.SpeakPlaybackLandmarks;
                         _settings.SpeakDateOnEveryBar = p.SpeakDateOnEveryBar;
+                        _settings.DescribeSignalLooks = p.DescribeSignalLooks;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

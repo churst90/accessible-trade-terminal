@@ -148,6 +148,8 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.SpeakPlaybackLandmarks),
         // And this one says whether it reads the DATE aloud while you arrow around.
         nameof(WorkspaceState.SpeakDateOnEveryBar),
+        // And this one whether a spoken signal says what its marker looks like.
+        nameof(WorkspaceState.DescribeSignalLooks),
     };
 
     /// <summary>

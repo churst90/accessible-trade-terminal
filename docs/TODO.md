@@ -1,3 +1,12 @@
+> - [ ] **"Say what signals look like" (2026-10-22, built, NOT heard; see CHANGES).** Cody to tick it
+>   (Settings → Speech) and arrow Cipher B on Bitcoin daily: the Buy dot should say "Drawn as a large
+>   green dot", a bearish WaveTrend cross "a red dot". Then arrow Cipher C's lows and confirmations, play
+>   back a stretch, and let a bar close with a signal on it. Questions:
+>   - Are the colour words right to the eye? Names are by hue, tuned on our palette. "Large" starts
+>     at thickness 4.5, "small" below 2.5.
+>   - Should alerts describe the marker too? Tree alerts say only "conditions met" today, so there is
+>     no marker named to describe.
+>   - Script/plugin indicators using `GradientDot` are not described. No built-in uses it.
 > - [ ] **Arrowing heard for the focused component only (2026-10-22, built, NOT heard; see CHANGES).**
 >   Cody to arrow Cipher B's money flow, WaveTrend and RSI on Bitcoin daily, with an RSI in its own
 >   pane too. Each component should ring only its own approach and "held beyond" cues, and the other

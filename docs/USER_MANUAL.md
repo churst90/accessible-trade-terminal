@@ -2577,6 +2577,24 @@ turns it on; boundaries only is the default. The two "Speak values as" orders th
 timestamp explicitly — time only, date only — are unaffected: choosing one has already answered
 the question.
 
+**What a signal looks like.** Sighted traders talk about signals by their look: "the big green
+dot", "the red triangle above the candle". Turn on **Settings (F12) → Speech → Say what signals
+look like** and every signal marker you hear is followed by one sentence describing it: *"Buy.
+Drawn as a large green dot."* It says four things:
+
+- **Shape.** Dot, up or down arrow, up or down triangle, up triangle with a ring (and the letter in
+  it), diamond, square, X, square with a check mark, or square with circling arrows.
+- **Size.** "Large" or "small" when the marker is drawn noticeably bigger or smaller than usual.
+  Ordinary markers say no size.
+- **Colour.** The colour drawn on that bar, so a marker that changes colour with its value is said
+  as it looks there.
+- **Position.** "Below the candle" or "above the candle" when it sits under or over the bar rather
+  than at a value.
+
+You hear it when you arrow onto a signal, for another indicator's signal on the same bar, during
+playback, and when signals are narrated as a bar closes. Alerts are not described. It is off by
+default because it lengthens every signal.
+
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
 then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
 engulfing. New bar: Open 64,910. Buy dot, waves crossed up from oversold. RSI 14: RSI
