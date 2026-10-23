@@ -97,18 +97,30 @@ namespace AccessibleTrader.Tests
         private static bool ResolvedBy(WaitStatus st, int bar, int expiry, int t) =>
             st is WaitStatus.Confirmed or WaitStatus.Void ? bar <= t : st == WaitStatus.Expired && expiry <= t;
 
+        // Two walks: on seed 7 alone every resolved wait confirms since money flow moved to the
+        // five-bar average range (2026-10-23), so the vacuity check below found no void to compare.
         [Fact]
         public void NothingAtBarTChangesWhenTheBarsAfterTAreRemoved()
         {
             var engine = Engine();
-            var bars = Walk();
+            int ctxCompared = 0, e1Resolved = 0, voids = 0, confirmed = 0;
+            var ctxSeen = new HashSet<int>();
+            foreach (int seed in new[] { 7, 11 })
+                CompareCuts(engine, Walk(seed: seed), ref ctxCompared, ref e1Resolved, ref voids, ref confirmed, ctxSeen);
+            // Vacuity: real contexts of more than one kind, and resolved waits of both outcomes.
+            Assert.True(ctxCompared > 1000, $"only {ctxCompared} defined contexts compared");
+            Assert.True(ctxSeen.Count >= 3, $"contexts seen: {string.Join(",", ctxSeen)}");
+            Assert.True(e1Resolved >= 10 && voids >= 1 && confirmed >= 1, $"resolved {e1Resolved}, void {voids}, confirmed {confirmed}");
+        }
+
+        private static void CompareCuts(IIndicatorEngine engine, List<Ohlcv> bars,
+            ref int ctxCompared, ref int e1Resolved, ref int voids, ref int confirmed, HashSet<int> ctxSeen)
+        {
             var full = Build(engine, bars);
             var dots = Dots(full).ToList();
             var cuts = Enumerable.Range(0, bars.Count).Where(i => i > 700 && i < bars.Count - 1 &&
                     (i % 61 == 0 || dots.Contains(i - 3) || dots.Contains(i - 14) || dots.Contains(i - 31)))
                 .Take(120).ToList();
-            int ctxCompared = 0, e1Resolved = 0, voids = 0, confirmed = 0;
-            var ctxSeen = new HashSet<int>();
             foreach (int t in cuts)
             {
                 var cut = Build(engine, bars.Take(t + 1).ToList());
@@ -147,10 +159,6 @@ namespace AccessibleTrader.Tests
                     }
                 }
             }
-            // Vacuity: real contexts of more than one kind, and resolved waits of both outcomes.
-            Assert.True(ctxCompared > 1000, $"only {ctxCompared} defined contexts compared");
-            Assert.True(ctxSeen.Count >= 3, $"contexts seen: {string.Join(",", ctxSeen)}");
-            Assert.True(e1Resolved >= 10 && voids >= 1 && confirmed >= 1, $"resolved {e1Resolved}, void {voids}, confirmed {confirmed}");
         }
 
         // ── The higher-timeframe context comes only from completed higher bars ─

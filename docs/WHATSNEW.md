@@ -31,8 +31,11 @@
   candle by candle on Bitcoin daily: the waves, the yellow area and every small cross dot already
   matched. The "RSI" and "Stochastic" lines did not and now do. The big green Buy dot now comes on
   every cross up with the *fast* wave below −60, so it lands where the original's does: every one
-  of its dots, none extra. The money flow is close (it rises and falls with the original's) but not
-  identical yet.
+  of its dots, none extra. The money flow is close but not identical yet. It moved closer on
+  23 October: it now measures each Heikin-Ashi candle's body against the average size of the last
+  five candles, not against that one candle's own size. Measured against the original on Bitcoin
+  daily and 15-minute charts, its typical miss went from about 6½ points to about 4½, and it is on
+  the same side of zero 92–95% of the time, up from 87–93%.
 - **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
   readings, not the first six. Each of its signals now counts for its own amount, a move that has
   just started scores higher than one that has run for many candles, and an oversold market adds a

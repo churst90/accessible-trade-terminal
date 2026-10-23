@@ -120,9 +120,9 @@ public sealed class CipherBMcbFormulaTests
 
     /// <summary>
     /// MCB's money flow is LINEAR in the average body (no square root): candles whose bodies are a
-    /// steady share of their range give 180 × that share once the Heikin-Ashi candles settle. The
-    /// legacy square root gave 175 × √share — 2.2× as tall for a 10% share, the over-tall wave that
-    /// covered the VWAP.
+    /// steady share of their range give 146 × that share once the Heikin-Ashi candles settle (with a
+    /// steady range, body ÷ 5-bar average range is body ÷ range). The legacy square root gave
+    /// 175 × √share — about twice as tall for a 10% share, the over-tall wave that covered the VWAP.
     /// </summary>
     [Fact]
     public void Money_flow_is_linear_in_the_average_body()
@@ -139,10 +139,38 @@ public sealed class CipherBMcbFormulaTests
         var legacy = Run(bars, ("MoneyFlowMode", "Legacy"))[CipherBProvider.CompMoneyFlowWave];
         // Heikin-Ashi: close = ohlc4 = o + 0.1; open = the previous HA midpoint, which settles at
         // o − 0.3 (x = (x − 0.2 + o − 0.1) / 2 ⇒ x = o − 0.3); high/low = the raw ones (o + 1.1 /
-        // o − 0.9). Body 0.4, range 2.0 → share 0.2 → 36. The legacy square root of the RAW share
+        // o − 0.9). Body 0.4, range 2.0 → share 0.2 → 29.2. The legacy square root of the RAW share
         // (0.1) gives 175 × 0.316 = 55.
-        Assert.Equal(180 * 0.2, mf[250], 2);
+        Assert.Equal(146 * 0.2, mf[250], 2);
         Assert.True(legacy[250] > 1.4 * mf[250], $"legacy {legacy[250]:F1} vs MCB {mf[250]:F1}");
+    }
+
+    /// <summary>
+    /// Each Heikin-Ashi body is divided by the AVERAGE range of the last FIVE Heikin-Ashi candles,
+    /// not by its own range (MCB 2.4.0's plotted money flow: error 8.5 → 5.0 points on raw daily
+    /// BTCUSD, held out on the Heikin-Ashi and 15-minute charts). One candle's wicks are stretched
+    /// equally up and down, which leaves its Heikin-Ashi body where it was and widens only its range.
+    /// With the five-bar average that wide range still shrinks the next four bars' shares, so the
+    /// 60-bar wave stays lower until bar k + 63 and is back exactly at bar k + 64; dividing by each
+    /// candle's own range would be back already at bar k + 60, and a longer average later.
+    /// </summary>
+    [Fact]
+    public void Money_flow_divides_by_the_five_bar_average_range()
+    {
+        var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        const int k = 150;
+        List<Ohlcv> Series(bool spike) => Enumerable.Range(0, 300).Select(i =>
+        {
+            double o = 100 + 0.2 * i, c = o + 0.2, w = spike && i == k ? 5.0 : 0.0;
+            return new Ohlcv(start.AddDays(i), o, c + 0.9 + w, o - 0.9 - w, c, 1000);
+        }).ToList();
+        var steady = Run(Series(false))[CipherBProvider.CompMoneyFlowWave];
+        var spiked = Run(Series(true))[CipherBProvider.CompMoneyFlowWave];
+        Assert.Equal(steady[k - 1], spiked[k - 1], 9);
+        Assert.True(spiked[k] < steady[k] - 0.1, $"the wide candle itself: {spiked[k]:F3} vs {steady[k]:F3}");
+        Assert.True(spiked[k + 60] < steady[k + 60] - 0.1, $"bar k+60 (the wide candle has left the 60-bar window; the next four still read its range): {spiked[k + 60]:F3} vs {steady[k + 60]:F3}");
+        Assert.True(spiked[k + 63] < steady[k + 63] - 0.01, $"bar k+63: {spiked[k + 63]:F3} vs {steady[k + 63]:F3}");
+        Assert.Equal(steady[k + 64], spiked[k + 64], 9);
     }
 
     /// <summary>

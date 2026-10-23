@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's money flow divides by the five-bar average Heikin-Ashi range (2026-10-23)
+
+- **Formula (MoneyFlowMode = MCB, the default):** 146 × SMA60(Heikin-Ashi body ÷ SMA5(Heikin-Ashi
+  range)), clamped to ±100. It was 180 × SMA60(body ÷ that candle's own range). Legacy mode is
+  unchanged.
+- **Measured against Market Cipher B 2.4.0's plotted money flow** (BTCUSD 1D candles and Heikin-Ashi
+  from 2011, 5,446 bars each; BTCUSD 15-minute from 2026-09-01, 5,009 bars). Typical error (RMSE,
+  points on a ±100 scale) and share of bars on the same side of zero, old → new:
+
+  | Chart | RMSE | Same side of zero | Correlation |
+  |---|---|---|---|
+  | 1D candles | 8.5 → 5.0 | 92.0% → 93.8% | 0.980 |
+  | 1D Heikin-Ashi | 6.4 → 4.8 | 92.8% → 95.0% | 0.986 |
+  | 15-minute candles | 6.7 → 4.3 | 86.9% → 91.7% | 0.967 |
+
+  The new numbers are from the app's own output, not the fitting script (they agree to the
+  printed digit).
+- **How it was chosen:** the 60-bar average is confirmed by deconvolution: each step of the
+  original's line is a fixed multiple of the newest bar's term minus the term 60 bars back. The
+  five-bar range was picked on 1D candles before 2020 only, then checked on the rest of the 1D
+  candles, the 1D Heikin-Ashi chart and the 15-minute chart, and improved all three. The 146 is the
+  pooled fit.
+- **Caveats:** still NOT exact. Fitted alone, each chart wants a different scale (135–163), so some
+  ingredient is still missing. The original's line also starts at bar 67, 8 bars later than a
+  60-bar average needs (ours starts at bar 63); that is unexplained. Rejected because they fitted
+  worse or only fitted the data they were chosen on: volume weighting, RSI and MFI of 4–15 bars,
+  EMAs, double smoothing, windowed stochastics, clipping and tanh, shifted bars, and the
+  Heikin-Ashi hlc3 in place of the close (slightly better, but chosen on all the data).
+- Tests: `Money_flow_divides_by_the_five_bar_average_range` widens one candle's wicks, which
+  changes its Heikin-Ashi range and not its body; the wave must stay lower until bar k+63 and be
+  back exactly at k+64. The linear test now expects 146 × share. The Cipher B fingerprint re-pinned
+  only the money-flow line; no other output moved. SetupGraderMc2's causality test now runs on two
+  random walks (seeds 7 and 11), because on seed 7 alone no wait ended void under the new money
+  flow, and the vacuity check needs one. Sabotages, all red: own range (1 bar), 4 bars, 6 bars,
+  scale 180, raw body in place of Heikin-Ashi.
+- Not seen in the app.
+
 ### Arrowing speaks only the focused component; lines say their colour; no "Drawn as" (2026-10-23)
 
 - **Reported by Cody:** with signal descriptions on, "I could be on cipher b moving around and hear

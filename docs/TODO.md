@@ -77,7 +77,9 @@
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the
->     original's. Still open: the money flow (correlation 0.97, same side of zero 92%), and the
+>     original's. Still open: the money flow (correlation 0.98, same side of zero 92–95% since the
+>     five-bar average range, 2026-10-23; its best scale still varies 135–163 by chart, and the
+>     original's line starts 8 bars later than a 60-bar average needs, unexplained), and the
 >     divergences, which are not measured.
 >   - **Cipher DBSI refitted on all twenty charts (2026-10-23, built, NOT seen; see CHANGES).** Each vote
 >     now has its own points, a long streak counts against the score and a stretched stochastic for it.
