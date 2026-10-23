@@ -75,9 +75,9 @@ public sealed class CipherAProviderTests
     // ── 1. The fitted model's numbers, on the raw candles ──────────────────────────────
 
     /// <summary>
-    /// The eight ribbon EMAs, the two waves and the 80-bar stochastic match the fitted reference
-    /// model at three dates to 1e-9 relative — EMA of the CLOSE at 5 11 15 18 21 25 29 33, WaveTrend
-    /// hlc3 9/12/SMA3.
+    /// The eight ribbon EMAs, the two waves and the stochastic match the reference model at three
+    /// dates to 1e-9 relative — EMA of the CLOSE at 5 11 15 18 21 25 29 33, WaveTrend hlc3 9/12/SMA3,
+    /// and Cipher B's "Stochastic" line (81-bar stochastic of the close, SMA 2) behind the Yellow X.
     /// </summary>
     [Fact]
     public void The_ribbon_and_waves_are_the_fitted_model()
@@ -91,14 +91,18 @@ public sealed class CipherAProviderTests
                 Close(g.Ema[k], r[CipherAProvider.RibbonLine(k)][i], $"{CipherAProvider.RibbonLine(k)} on {date}");
             Close(g.Wt1, r[CipherAProvider.Wt1Key][i], $"fast wave on {date}");
             Close(g.Wt2, r[CipherAProvider.Wt2Key][i], $"slow wave on {date}");
-            Close(g.Stoch, r[CipherAProvider.StochKey][i], $"80-bar stochastic on {date}");
+            Close(g.Stoch, r[CipherAProvider.StochKey][i], $"81-bar stochastic on {date}");
         }
 
         static void Close(double want, double got, string what) =>
             Assert.True(Math.Abs(want - got) <= 1e-9 * Math.Max(1, Math.Abs(want)), $"{what}: want {want}, got {got}");
     }
 
-    /// <summary>Every symbol fires on exactly the bars the fitted model fires it on, over 587 real days.</summary>
+    /// <summary>Every symbol fires on exactly the bars the reference model fires it on, over 893 real days.
+    /// The reference restates the rules read from Market Cipher A 2.5.0's own values on 2026-10-23
+    /// (scratchpad golden2.py): Green Dot gated by the Yellow Diamond, Blue Triangle on the fast wave
+    /// above the slow and EMA 11 below EMA 33, a Red Diamond on every wave cross down, Yellow X on the
+    /// 81-bar stochastic of the close below 20.</summary>
     [Fact]
     public void Every_symbol_fires_where_the_fitted_model_fires_it()
     {
@@ -131,6 +135,9 @@ public sealed class CipherAProviderTests
             var got = Fired(r, comp, ha).Where(d => string.CompareOrdinal(d, from) >= 0 && string.CompareOrdinal(d, to) <= 0).ToList();
             var missing = want.Except(got).ToList(); var extra = got.Except(want).ToList();
             if (comp == CipherAProvider.CompYellowDiamond) extra.Remove("2021-10-04");
+            // Market Cipher A plots a Red Diamond on a Blood Diamond candle too (its own values say so,
+            // 29 of 29 on BTCUSD 1D); the Blood Diamond is drawn over it, so the picture shows only that.
+            if (comp == CipherAProvider.CompRedDiamond) extra.RemoveAll(d => events[CipherAProvider.CompBloodDiamond].Contains(d));
             measured += want.Length;
             _out.WriteLine($"{comp}: real {want.Length}, ours {got.Count}, missing [{string.Join(" ", missing)}], extra [{string.Join(" ", extra)}]");
             if (missing.Count + extra.Count > 0) report.Add($"{comp}: missing [{string.Join(" ", missing)}] extra [{string.Join(" ", extra)}]");
@@ -243,9 +250,9 @@ public sealed class CipherAProviderTests
     // ── 3. Cipher B parity: one WaveTrend ───────────────────────────────────────────────
 
     /// <summary>
-    /// A Red Diamond (or a Blood Diamond, which is a Red Diamond on a Red X candle) is drawn on
-    /// exactly the candles where Cipher B draws its wave-cross-down dot: both read the shared
-    /// <see cref="WaveTrendMath"/> calculation, and this pins the providers' cross-down events.
+    /// A Red Diamond is drawn on exactly the candles where Cipher B draws its wave-cross-down dot —
+    /// a Red X candle included, where the Blood Diamond is drawn as well: both providers read the
+    /// shared <see cref="WaveTrendMath"/> calculation, and this pins their cross-down events.
     /// </summary>
     [Fact]
     public void Red_and_blood_diamonds_are_Cipher_B_wave_crosses_down()
@@ -254,7 +261,9 @@ public sealed class CipherAProviderTests
         var b = new Dictionary<string, double[]>();
         new CipherBProvider().Calculate("CIPHER_B", System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars),
             new Dictionary<string, object>(), new IndicatorResultBuffer(b, bars.Count));
-        var aBars = Fired(a, CipherAProvider.CompRedDiamond, bars).Concat(Fired(a, CipherAProvider.CompBloodDiamond, bars)).OrderBy(d => d).ToList();
+        var aBars = Fired(a, CipherAProvider.CompRedDiamond, bars);
+        var blood = Fired(a, CipherAProvider.CompBloodDiamond, bars);
+        Assert.True(blood.Count > 0 && blood.All(aBars.Contains), $"Blood Diamonds without a Red Diamond: [{string.Join(" ", blood.Except(aBars))}]");
         var bBars = Fired(b, CipherBProvider.CompCrossBear, bars);
         Assert.True(aBars.Count > 40, "too few wave crosses to compare");
         Assert.True(aBars.SequenceEqual(bBars),
@@ -299,7 +308,7 @@ public sealed class CipherAProviderTests
             [CipherAProvider.CompRedX] = "EMA 5 crossed below EMA 11",
             [CipherAProvider.CompRedDiamond] = "Wave Trend crossed down",
             [CipherAProvider.CompBloodDiamond] = "Red diamond and red X on one candle",
-            [CipherAProvider.CompYellowX] = "80-bar range",
+            [CipherAProvider.CompYellowX] = "81-bar range",
         };
         foreach (var (comp, words) in expect)
         {

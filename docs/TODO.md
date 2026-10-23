@@ -59,6 +59,12 @@
 >   Its edge is now stroked, brighter than the body, as MCB draws it. Saved charts, strategies or alerts
 >   with Loukas Cycle Detection should each say once that it was removed and what to use on Cipher C.
 >   Left open:
+>   - **Cipher A checked against Market Cipher A's values (2026-10-23, built, NOT seen; see CHANGES).**
+>     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; every symbol but the Yellow Diamond is
+>     exact on Bitcoin daily. Cody to look: the symbols should sit on Market Cipher A's. Still open: the
+>     Yellow Diamond's 40 extra (of 1,431). Questions for Cody: add the original's ninth ribbon line
+>     (SMA 21) and pivot marks, both hidden by default there? Follow its defaults (only the EMA 21 line,
+>     no Yellow Diamond, Green Dot or Red Diamond shown)? Proposed: add both hidden, keep our defaults.
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the

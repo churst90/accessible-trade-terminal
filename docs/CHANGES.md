@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher A checked against Market Cipher A's own values: four symbol rules corrected (2026-10-23)
+
+- **Read from the original's plotted values.** Market Cipher A 2.5.0's data-window values were read
+  from TradingView on Bitstamp BTCUSD daily (2011–2026), on candles and on Heikin-Ashi, and compared
+  with Cipher A bar for bar.
+  - **The eight ribbon lines were already exact** (EMA of the close, 5 11 15 18 21 25 29 33), and so
+    were the Red X (185 of 185) and the Blood Diamond (29 of 29).
+  - **Green Dot:** EMA 11 crossing above EMA 33 counts only on a Yellow Diamond candle (fast wave
+    above slow, EMA 5 above EMA 11 and EMA 33). Now 60 of 60 on candles, 61 of 61 on Heikin-Ashi,
+    none extra.
+  - **Blue Triangle:** EMA 5 crossing above EMA 25 with the fast wave above the slow one and
+    **EMA 11** below EMA 33. The old test was EMA 29 below EMA 33, which missed 8 and added 8. Now
+    88 of 88 and 85 of 85.
+  - **Red Diamond:** drawn on every wave cross down, a Red X candle included; the original plots it
+    under its Blood Diamond. It used to be left off those candles. Now 541 of 541. The bar detail
+    still names only the Blood Diamond on such a candle.
+  - **Yellow X:** the stochastic is Cipher B's corrected "Stochastic" line (81-bar stochastic of the
+    **close**, smoothed over 2) **below 20**. It was an 80-bar stochastic of hlc3 smoothed over 3,
+    below 22. Now 26 of 26 and 25 of 25. The Yellow X Range Level default moved from 22 to 20; a
+    chart that saved 22 keeps it.
+- **The Yellow Diamond is still not exact.** It finds every real one (1,391) and draws 40 the
+  original does not. Those 40 sit near a tie of the waves or the ribbon lines, but no threshold,
+  brute-force search or decision tree on the inputs separated them.
+- **The original has things this does not draw:** a ninth ribbon line (a 21-bar simple average of
+  the close) and pivot high/low marks at the bar's high and low. Both are hidden in its defaults.
+  Its defaults also show only the EMA 21 line, and hide the Yellow Diamond, Green Dot and Red
+  Diamond; Cipher A shows everything. Neither is changed; both are questions in TODO.
+- **Research moves with it.** The StrategyLab Cipher A battery (`cipher-a-battery`) reads these
+  symbols; it was not re-run, and its 2026-10-17 verdicts stand on the old rules.
+- Tests: `CipherAGoldenData`'s reference events and values were regenerated from an independent
+  restatement of the new rules (scratchpad `golden2.py`; the ribbon and wave values came out
+  bit-identical to the old reference). Both real-chart tests still pass, with a Red Diamond under a
+  digitised Blood Diamond allowed. The Red Diamond test now pins every Blood Diamond on a Red
+  Diamond. Six sabotages each went red: the Green Dot without its gate, the Blue Triangle without the
+  wave test or without EMA 11 below EMA 33, the Red Diamond skipping Red X candles, the old
+  stochastic, and the old level 22. Not seen or heard in the app.
+
 ### Cipher B checked against Market Cipher B's own values: the two 0–100 lines and the Buy dot corrected (2026-10-23)
 
 - **Read from the original's plotted values, not screenshots.** With Cody's Market Cipher membership,

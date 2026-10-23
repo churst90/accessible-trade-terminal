@@ -29,21 +29,27 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// <para><b>The symbols</b> (exact bar / within one bar, fit charts then hold-outs):</para>
     /// <list type="bullet">
-    /// <item><b>Green Dot</b> — EMA 11 crosses above EMA 33. 13/13 on the bar; hold-out 5/5.</item>
-    /// <item><b>Blue Triangle</b> — EMA 5 crosses above EMA 25 while EMA 29 is below EMA 33
-    /// (OpenCipher A's rule). 15/16 within one bar; hold-out 10/10.</item>
+    /// <item><b>Green Dot</b> — EMA 11 crosses above EMA 33 on a Yellow Diamond candle.</item>
+    /// <item><b>Blue Triangle</b> — EMA 5 crosses above EMA 25 with the fast wave above the slow
+    /// one and EMA 11 still below EMA 33.</item>
     /// <item><b>Yellow Diamond</b> — Wave Trend fast above slow while EMA 5 is above both EMA 11 and
-    /// EMA 33. Recall 128/128; on the clearest chart 25 of 26 predictions are real.</item>
-    /// <item><b>Red X</b> — EMA 5 crosses below EMA 11. 36/36; hold-out 17/17 within one bar.</item>
+    /// EMA 33. Every real one is predicted; about 3 % of the predicted ones are not drawn.</item>
+    /// <item><b>Red X</b> — EMA 5 crosses below EMA 11.</item>
     /// <item><b>Red Diamond</b> — Wave Trend fast crosses below slow (hlc3, 9, 12, SMA 3: Cipher B's
-    /// fitted wave), on a candle without a Red X — with one it is the Blood Diamond. 117/124 within
-    /// one bar; hold-out 37/40, with no false ones.</item>
-    /// <item><b>Blood Diamond</b> — a Red Diamond and a Red X on the same candle. 5/5; hold-out 6/6.</item>
-    /// <item><b>Yellow X</b> — a Red Diamond with the slow wave at −40 or lower and price in the bottom
-    /// 22 % of its 80-bar range (the 80-bar stochastic of hlc3, SMA 3 — Cipher B's fitted
-    /// "Stochastic" line). 22/22 on the fit charts. Not volume: the chart's volume on Yellow X
-    /// bars is ordinary (median 0.9× its 20-bar average).</item>
+    /// wave), on every candle, a Red X candle included.</item>
+    /// <item><b>Blood Diamond</b> — a Red Diamond and a Red X on the same candle.</item>
+    /// <item><b>Yellow X</b> — a Red Diamond with the slow wave at −40 or lower and Cipher B's
+    /// "Stochastic" line (the 81-bar stochastic of the close, SMA 2) below 20.</item>
     /// </list>
+    /// <para>Checked 2026-10-23 against Market Cipher A 2.5.0's own plotted values on BTCUSD 1D
+    /// (Bitstamp, 2011–2026, candles and Heikin-Ashi): the eight ribbon lines are exact, and every
+    /// symbol but the Yellow Diamond fires on exactly its bars, none missing and none extra (Green
+    /// Dot 60/60, Blue Triangle 88/88, Red X 185/185, Red Diamond 541/541, Blood Diamond 29/29,
+    /// Yellow X 26/26 on candles; the same on Heikin-Ashi). The Yellow Diamond finds all 1,391 real
+    /// ones plus 40 it does not draw; no threshold on the waves or the ribbon separates those 40.
+    /// The earlier rules (Green Dot without the Yellow Diamond gate, Blue Triangle on EMA 29 below
+    /// EMA 33, Red Diamond suppressed on Red X candles, Yellow X on an 80-bar stochastic of hlc3
+    /// below 22) came from digitised pictures and each missed or added symbols.</para>
     ///
     /// <para><b>Saved charts and strategies.</b> The code stays <c>CIPHER_A</c>. The components of the
     /// all-WaveTrend Cipher A this replaced (Buy/Sell Signal, the divergences, Manipulation,
@@ -107,9 +113,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "YellowXWaveLevel", DisplayName = "Yellow X Wave Level", DataType = typeof(double), DefaultValue = -40.0,
                             MinValue = -100, MaxValue = 0, Step = 1,
                             Description = "A Red Diamond is a Yellow X only with the slow wave at or below this level." },
-                    new() { Name = "YellowXRangeLevel", DisplayName = "Yellow X Range Level (%)", DataType = typeof(double), DefaultValue = 22.0,
+                    new() { Name = "YellowXRangeLevel", DisplayName = "Yellow X Range Level (%)", DataType = typeof(double), DefaultValue = 20.0,
                             MinValue = 1, MaxValue = 100, Step = 1,
-                            Description = "…and with price in the bottom this-many percent of its 80-bar range (the 80-bar stochastic of hlc3, smoothed over 3)." },
+                            Description = "…and with Cipher B's Stochastic line (the 81-bar stochastic of the close, smoothed over 2) below this." },
                 },
             }
         };
@@ -199,7 +205,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int wtAverage = Math.Max(1, GetInt(parameters, "WT2Period", 12));
             int wtSignal  = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
             double yxWave  = GetDbl(parameters, "YellowXWaveLevel", -40.0);
-            double yxRange = GetDbl(parameters, "YellowXRangeLevel", 22.0);
+            double yxRange = GetDbl(parameters, "YellowXRangeLevel", 20.0);
 
             var close = new double[n]; var open = new double[n]; var high = new double[n]; var low = new double[n]; var hlc3 = new double[n];
             for (int i = 0; i < n; i++)
@@ -211,9 +217,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             var ema = new double[RibbonLengths.Length][];
             for (int k = 0; k < RibbonLengths.Length; k++) ema[k] = IndicatorMath.Ema(close, RibbonLengths[k]);
             var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wtChannel, wtAverage, wtSignal);
-            var stoch = WaveTrendMath.SmoothedStochastic(hlc3, high, low, 80, 3);
+            var stoch = WaveTrendMath.SmoothedStochastic(close, high, low, CipherBProvider.McbStochLength, CipherBProvider.McbLineSmoothing);
 
-            double[] e5 = ema[0], e11 = ema[1], e25 = ema[5], e29 = ema[6], e33 = ema[7];
+            double[] e5 = ema[0], e11 = ema[1], e25 = ema[5], e33 = ema[7];
             var green = Nan(n); var blue = Nan(n); var yd = Nan(n); var redX = Nan(n); var redD = Nan(n); var blood = Nan(n); var yx = Nan(n);
             for (int i = 1; i < n; i++)
             {
@@ -222,11 +228,13 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 bool rx = WaveTrendMath.CrossedUnder(e5, e11, i);
                 bool rd = WaveTrendMath.CrossedUnder(wt1, wt2, i);
-                if (WaveTrendMath.CrossedOver(e11, e33, i)) green[i] = At(CompGreenDot);
-                if (WaveTrendMath.CrossedOver(e5, e25, i) && e29[i] < e33[i]) blue[i] = At(CompBlueTriangle);
-                if (wt1[i] > wt2[i] && e5[i] > e11[i] && e5[i] > e33[i]) yd[i] = At(CompYellowDiamond);
+                bool upWave = wt1[i] > wt2[i];
+                bool ydOn = upWave && e5[i] > e11[i] && e5[i] > e33[i];
+                if (WaveTrendMath.CrossedOver(e11, e33, i) && ydOn) green[i] = At(CompGreenDot);
+                if (WaveTrendMath.CrossedOver(e5, e25, i) && upWave && e11[i] < e33[i]) blue[i] = At(CompBlueTriangle);
+                if (ydOn) yd[i] = At(CompYellowDiamond);
                 if (rx) redX[i] = At(CompRedX);
-                if (rd && !rx) redD[i] = At(CompRedDiamond);   // with a Red X it is drawn as the Blood Diamond instead
+                if (rd) redD[i] = At(CompRedDiamond);   // also on a Red X candle, as Market Cipher A plots it
                 if (rd && rx) blood[i] = At(CompBloodDiamond);
                 if (rd && wt2[i] <= yxWave && stoch[i] < yxRange) yx[i] = At(CompYellowX);
             }
@@ -240,7 +248,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
-        /// <summary>EMA 33 needs about four times its length to forget its seed; the range stochastic needs 80 bars.</summary>
+        /// <summary>EMA 33 needs about four times its length to forget its seed; the range stochastic needs 81.</summary>
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters) => 140;
 
         // ── Speech ──────────────────────────────────────────────────────────────────────────
@@ -260,13 +268,13 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             return componentName switch
             {
-                CompGreenDot      => $"EMA 11 crossed above EMA 33. Price {price}.",
-                CompBlueTriangle  => $"EMA 5 crossed above EMA 25, with EMA 29 still below EMA 33. Price {price}.",
+                CompGreenDot      => $"EMA 11 crossed above EMA 33, Wave Trend above its slow wave and EMA 5 above EMA 11 and EMA 33. Price {price}.",
+                CompBlueTriangle  => $"EMA 5 crossed above EMA 25, Wave Trend above its slow wave{At(wt1)}, EMA 11 still below EMA 33. Price {price}.",
                 CompYellowDiamond => $"Wave Trend above its slow wave{At(wt1)}, EMA 5 above EMA 11 and EMA 33. Price {price}.",
                 CompRedX          => $"EMA 5 crossed below EMA 11. Price {price}.",
                 CompRedDiamond    => $"Wave Trend crossed down{At(wt2)}. Price {price}.",
                 CompBloodDiamond  => $"Red diamond and red X on one candle: Wave Trend crossed down{At(wt2)} as EMA 5 crossed below EMA 11. Price {price}.",
-                CompYellowX       => $"Wave Trend crossed down{At(wt2)} with price in the bottom {(double.IsNaN(st) ? "part" : $"{st:F0} percent")} of its 80-bar range. Price {price}.",
+                CompYellowX       => $"Wave Trend crossed down{At(wt2)} with price in the bottom {(double.IsNaN(st) ? "part" : $"{st:F0} percent")} of its 81-bar range. Price {price}.",
                 _ => null,
             };
 

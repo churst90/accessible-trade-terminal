@@ -1542,15 +1542,16 @@ press M on one to hear it. Only EMA 5 puts its value on the price axis; turn the
 in Properties → Appearance → Value label on the axis. Its **seven symbols** come first when you move through its parts, each
 with its own sound, and landing on one says what made it:
 
-- **Green Dot** — EMA 11 crosses above EMA 33.
-- **Blue Triangle** — EMA 5 crosses above EMA 25 while EMA 29 is still below EMA 33: an early turn.
+- **Green Dot** — EMA 11 crosses above EMA 33 on a Yellow Diamond candle.
+- **Blue Triangle** — EMA 5 crosses above EMA 25 with Wave Trend above its slow wave and EMA 11
+  still below EMA 33: an early turn.
 - **Yellow Diamond** — Wave Trend is above its slow wave and EMA 5 leads the ribbon: bullish
   continuation. It repeats on candle after candle in a strong trend, so it is the quietest sound.
 - **Red X** — EMA 5 crosses below EMA 11.
 - **Red Diamond** — Wave Trend crosses down; the same cross as Cipher B's small red dot.
-- **Blood Diamond** — a Red Diamond and a Red X on the same candle.
-- **Yellow X** — a Red Diamond deep in the oversold zone (slow wave at −40 or lower) with price in
-  the bottom 22% of its last 80 candles: a bearish warning, not a buy.
+- **Blood Diamond** — a Red Diamond and a Red X on the same candle. The Red Diamond is there too.
+- **Yellow X** — a Red Diamond deep in the oversold zone (slow wave at −40 or lower) with Cipher B's
+  Stochastic line below 20 (price near the bottom of its last 81 candles): a bearish warning, not a buy.
 
 With narration on, each symbol is announced ("Green dot, bullish", "Yellow X, bearish warning"), and
 because the ribbon lines are price lines, price crossing one is announced too. A chart or strategy

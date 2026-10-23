@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Cipher A now matches Market Cipher A's own numbers, symbol for symbol, except one.** Checked
+  candle by candle on Bitcoin daily: the ribbon, the Red X and the Blood Diamond already matched.
+  The Green Dot, Blue Triangle, Red Diamond and Yellow X now land on every one of the original's
+  and nowhere else. The Red Diamond now also appears under a Blood Diamond, as the original's does.
+  The Yellow Diamond still shows about 3 in 100 that the original leaves out.
 - **Cipher B now matches Market Cipher B's own numbers.** Checked against the original's values
   candle by candle on Bitcoin daily: the waves, the yellow area and every small cross dot already
   matched. The "RSI" and "Stochastic" lines did not and now do. The big green Buy dot now comes on
