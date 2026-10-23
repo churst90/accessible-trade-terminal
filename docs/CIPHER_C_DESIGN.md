@@ -210,3 +210,52 @@ left still beats right by 0.75–2 points.
 Caveats: the ETFs share their years, so 12 of 13 is fewer independent tests than it looks; the stock
 presets are partly estimated (section 6); no costs beyond 0.1% a side; this is a finding about the
 signal, not a strategy that has been walked forward.
+
+## 9. Held-out check against videos after 2026-10-17 (2026-10-22)
+
+Cody asked how well Cipher C finds the cycle lows, tops and failed cycles, and whether its timing
+windows fit. Every label used so far was in hand while Cipher C was being built, so it was scored
+only against videos that came out after the build: 10-19, 10-20, 10-21 and 10-22. Their
+transcripts are in `AccessibleTrader.StrategyLab/Corpus/transcripts/camel-finance/`. Two more
+videos from those days are members-only and were not obtained.
+
+The creator hides the indicator on his own charts in all four videos. The only indicator output on
+screen is two screenshots of other traders' charts: DJI daily (made 10-20) and TLT daily (made
+10-19). Dates are read from the axis ticks and are good to 1–3 days. Cipher C was run on Yahoo
+daily DJI and TLT to 2026-10-22, both as a full run and replayed bar by bar from 2025. DJI uses its
+preset (daily window 36–44, partly estimated). TLT has no preset, so it falls back to 36–44.
+
+| | Their label | Cipher C |
+|---|---|---|
+| DJI | daily low about 05-18 (count 36D) | daily low 05-20 ✓ |
+| DJI | daily + weekly low about 07-22 (44D) | **missed.** The daily tier took 06-23 (23 bars after 05-20, below the 36-bar minimum) and confirmed it on 08-04. Its weekly tier picked 07-23 as the weekly low, so the two tiers disagree. |
+| DJI | timing band about 09-11 to 09-21 | ours sat a month early, because it was counted from 06-23. Their band is exactly 36–44 trading days after 07-22, which supports the estimated DJI preset. |
+| DJI | daily + weekly low about 10-01 (49D) | daily low 10-01, confirmed 10-12 ✓. Before that, a "cycle failed" on 09-30 when the 06-23 low broke, which they did not show. |
+| TLT | daily + weekly low about 05-20 | daily low 05-19, weekly confirmed 05-29 ✓ |
+| TLT | daily low about 08-14 (±3) | daily low 08-18, confirmed 08-20, about 4 days off. Cancelled on 09-10 when price undercut it; theirs still stands. |
+| TLT | timing band about 09-27 to 10-06 | ours was later. Their band reads like a 29–35 day cycle; this is one window, too little to set a preset from. |
+| TLT | daily low about 10-06, still unresolved (a white disc) | daily + weekly low 10-07 ✓ |
+
+Five of the seven lows match within a few days. The DJI miss is a defect, and it shows: **when the
+lowest low since the last cycle low comes too early (a half-cycle low), the daily tier takes it
+anyway**, then measures its window and its translation from the wrong low. The same pattern shows
+up across the whole history:
+
+- DJI: 3 of 28 weekly confirmations name a low the daily tier does not mark (2019-09-27, 2020-02-12,
+  2026-08-06). TLT: 0 of 24.
+- Daily cycles shorter than 27 bars: DJI 6 of 56 (median 39 bars, 9 longer than 60); TLT 5 of 49
+  (median 45, 13 longer than 60).
+
+Proposed fix (TODO, not built): when the deepest low comes before the window's minimum and a later
+low inside the window holds above it, prefer the later low. At the least, take the weekly tier's low
+as the daily low when they disagree. The fix would then be scored on the same labels plus the next
+videos, and against the bar-by-bar replay so it stays causal.
+
+New about how the original looks, from the screenshots:
+- a low that is not yet resolved is drawn as a white disc;
+- the weekly stack can carry its own count (DJI's `27`);
+- a row of small blue "D" circles runs along the bottom of the pane.
+
+Still not seen: the yearly low, any translation label, and the settings panel. Spoken: the creator
+puts the left/right translation cut-off at 30 days, half of a 60-day cycle. Cipher C already cuts at
+the midpoint.

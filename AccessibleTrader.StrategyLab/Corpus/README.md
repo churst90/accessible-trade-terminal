@@ -35,6 +35,10 @@ their rules files (among them Trader Geo's 93-minute tutorial `DYW_M-hoOn8`, whi
 `rules/trader-geo.md` still lists as not obtained), and the 2026-10-16 Camel daily
 (`l0Dg-rb1u98`) arrived after `rules/camel-finance.md` was written.
 
+Added 2026-10-22: four Camel Finance dailies from 10-19 to 10-22 (YouTube captions), used as held-out
+labels for Cipher C (`docs/CIPHER_C_DESIGN.md` section 9). Two members-only videos from the same days
+are listed as not obtained.
+
 ## Schools: never blended
 
 The sources are different schools of trading, and each rules file describes one trader's own

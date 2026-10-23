@@ -7425,6 +7425,102 @@
    ],
    "access": "public",
    "note": "cited in SETUP_GRADER_PREREG 1.4"
+  },
+  {
+   "id": "SbdNOXDWw2c",
+   "source": "camel-finance",
+   "school": "cycle",
+   "channel": "Camel Finance",
+   "title": "A Volatile Week Ahead?",
+   "url": "https://www.youtube.com/watch?v=SbdNOXDWw2c",
+   "publish_date": "2026-10-19",
+   "duration_s": 850,
+   "duration": "0:14:10",
+   "obtained": true,
+   "method": "YouTube captions (yt-dlp)",
+   "transcript": "transcripts/camel-finance/2026-10-19_SbdNOXDWw2c.txt",
+   "vtt": "transcripts/camel-finance/2026-10-19_SbdNOXDWw2c.vtt",
+   "sha256": "5a903aa449fbe2e8ea7af2bfe46aff1ffee5717aed4aa8d5200eb630f21da1a5",
+   "words": 3355,
+   "retrieved": "2026-10-22",
+   "tags": [
+    "market-update",
+    "live-call"
+   ],
+   "access": "public",
+   "note": "held-out label check, docs/CIPHER_C_DESIGN.md section 9"
+  },
+  {
+   "id": "_YAospLGJQc",
+   "source": "camel-finance",
+   "school": "cycle",
+   "channel": "Camel Finance",
+   "title": "Here's Why I'm Buying Every Dip:",
+   "url": "https://www.youtube.com/watch?v=_YAospLGJQc",
+   "publish_date": "2026-10-20",
+   "duration_s": 899,
+   "duration": "0:14:59",
+   "obtained": true,
+   "method": "YouTube captions (yt-dlp)",
+   "transcript": "transcripts/camel-finance/2026-10-20__YAospLGJQc.txt",
+   "vtt": "transcripts/camel-finance/2026-10-20__YAospLGJQc.vtt",
+   "sha256": "54bc0af2407c34f4f64652a29391d3b6bc27a67ffe699e8e9ceef4437f9419e1",
+   "words": 3757,
+   "retrieved": "2026-10-22",
+   "tags": [
+    "market-update",
+    "live-call"
+   ],
+   "access": "public",
+   "note": "held-out label check, docs/CIPHER_C_DESIGN.md section 9"
+  },
+  {
+   "id": "uZiWBdEBzAo",
+   "source": "camel-finance",
+   "school": "cycle",
+   "channel": "Camel Finance",
+   "title": "Investors are panicking",
+   "url": "https://www.youtube.com/watch?v=uZiWBdEBzAo",
+   "publish_date": "2026-10-21",
+   "duration_s": 1069,
+   "duration": "0:17:49",
+   "obtained": true,
+   "method": "YouTube captions (yt-dlp)",
+   "transcript": "transcripts/camel-finance/2026-10-21_uZiWBdEBzAo.txt",
+   "vtt": "transcripts/camel-finance/2026-10-21_uZiWBdEBzAo.vtt",
+   "sha256": "b4f1381ee477e458ce3f53cb57a2b5e7a16ed46aa2f691b403778c2e10cdcf27",
+   "words": 3976,
+   "retrieved": "2026-10-22",
+   "tags": [
+    "market-update",
+    "live-call",
+    "indicator-screenshot"
+   ],
+   "access": "public",
+   "note": "held-out label check, docs/CIPHER_C_DESIGN.md section 9"
+  },
+  {
+   "id": "Z4a9s7JhcgY",
+   "source": "camel-finance",
+   "school": "cycle",
+   "channel": "Camel Finance",
+   "title": "Exactly as Expected...",
+   "url": "https://www.youtube.com/watch?v=Z4a9s7JhcgY",
+   "publish_date": "2026-10-22",
+   "duration_s": 343,
+   "duration": "0:05:43",
+   "obtained": true,
+   "method": "YouTube captions (yt-dlp)",
+   "transcript": "transcripts/camel-finance/2026-10-22_Z4a9s7JhcgY.txt",
+   "vtt": "transcripts/camel-finance/2026-10-22_Z4a9s7JhcgY.vtt",
+   "sha256": "3fb8dd992152e7579efd9f216f9d58496e41d421359892792be54d3fce2e93a3",
+   "words": 1167,
+   "retrieved": "2026-10-22",
+   "tags": [
+    "market-update"
+   ],
+   "access": "public",
+   "note": "held-out label check, docs/CIPHER_C_DESIGN.md section 9"
   }
  ]
 }

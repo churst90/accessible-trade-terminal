@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C checked against labels it was not built on (2026-10-22, docs and research data only)
+
+- Scored against the original indicator's output in videos from after the build (10-19 to 10-22). On
+  DJI and TLT daily, five of seven lows match within a few days (`docs/CIPHER_C_DESIGN.md` section 9).
+- **Defect shown, not fixed:** on DJI the daily tier took a half-cycle low (06-23) instead of 07-22,
+  which the original marks as a daily and a weekly low. Cipher C's own weekly tier picked 07-23. A fix
+  is proposed in TODO.
+- The four transcripts are added to the corpus (`AccessibleTrader.StrategyLab/Corpus`, manifest
+  updated). Two members-only videos were not obtained.
+- Caveat: these are two screenshots of other people's charts, with dates read to 1–3 days. The
+  creator hides the indicator on his own charts.
+
 ### Signals can say what they look like (2026-10-22)
 
 Cody asked whether the descriptors had been added: "if not, let's work on this". Sighted traders name a

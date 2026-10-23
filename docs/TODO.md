@@ -32,6 +32,14 @@
 >     control that buys after any equal fall with no cycle at all, to see what translation adds;
 >     (2) a walk-forward strategy (buy a confirmed low only after a left-translated cycle) with a
 >     pre-registered rule; (3) the weekly tier. Cody: worth pursuing?
+>   - **Cipher C takes a too-early low as the daily low (shown 2026-10-22, CIPHER_C_DESIGN section 9).**
+>     On DJI it took 06-23, a half-cycle low 23 bars after the last daily low, instead of 07-22, which
+>     the original marks as both a daily and a weekly low. Cipher C's own weekly tier picked 07-23, so
+>     its tiers disagree. Over the whole history, 3 of DJI's 28 weekly lows are not daily lows. Proposed:
+>     when the deepest low comes before the window's minimum and a later in-window low holds above it,
+>     take the later one (or at least the weekly tier's low). Score it on the held-out labels and the
+>     bar-by-bar replay. Also open: TLT has no preset, and its one window read about 29–35 days. Cody: OK
+>     to build the fix?
 >   - MCB's zero line is white and dotted; ours is grey and solid. Change it?
 > - [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars
 >   (2026-10-22, built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with
