@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher A's symbols say what they mean, not which averages crossed (2026-10-23)
+
+- Landing on a symbol now says its meaning: Green Dot "Trend turned up: medium-term trend crossed up,
+  with momentum and the short-term trend already up", Blue Triangle "Early turn up…", Yellow Diamond
+  "Bullish conditions…", Red X "Short-term trend turned down", Red Diamond "Momentum turned down",
+  Blood Diamond "…the strongest sell warning", Yellow X "Momentum turned down again while already
+  oversold: often a trap; several in a row can mean selling is running out". Before, it read the EMA
+  and Wave Trend values. Cody asked for this (2026-10-23).
+- The manual defines short-term trend, medium-term trend and momentum in terms of the averages, and
+  adds how traders read the symbols, marked as their claims, untested by the app.
+- **Caveats.** The trader readings in the Yellow X and Blood Diamond sentences are claims, not
+  measured. Not heard in the app.
+- **Tests:** the speech test now also asserts no sentence contains "EMA". Sabotage (Red X back to
+  "EMA 5 crossed under EMA 11") red.
+
 ### Cipher DBSI adds the WaveTrend run the original was found to remember (2026-10-23)
 
 - **Formula:** each side's score adds −0.02 on the WaveTrend (9, 12, 3) cross toward it, +2.09 for the

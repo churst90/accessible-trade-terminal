@@ -63,6 +63,10 @@
 >     listen: Cipher A's Green Dot should no longer name the Yellow Diamond, and Cipher B should not
 >     name Cipher A's signals. "Speak other signals while arrowing" (Speech) brings them back. Lines
 >     say "Orange line." on arrival with "Say what lines and signals look like" on; "Drawn as" gone.
+>   - **Cipher A's symbols say what they mean (2026-10-23, built, NOT heard; see CHANGES).** Cody to
+>     listen: landing on a Green Dot says "Trend turned up: medium-term trend crossed up, with momentum
+>     and the short-term trend already up", not which averages crossed. Tell me any sentence that reads
+>     wrong or too long.
 >   - **Cipher SR checked against Market Cipher SR's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The purple and yellow dot levels now equal the original's on every bar (Bitcoin 15-minute).
 >     Cody to look: on a 15-minute chart the dots should sit where Market Cipher SR's do; about half

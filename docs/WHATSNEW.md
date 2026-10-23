@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Cipher A's symbols say what they mean.** Landing on a Green Dot says *"Trend turned up:
+  medium-term trend crossed up, with momentum and the short-term trend already up"* instead of the
+  moving-average numbers; a Yellow X says it is often a trap. The manual explains each one.
 - **Arrowing speaks only the component you are on.** On Cipher A's Green Dot you no longer hear the
   Yellow Diamond on the same candle, and on Cipher B you no longer hear Cipher A's signals. To hear
   them named after your reading, turn on **Speak other signals while arrowing** (Settings, Speech).

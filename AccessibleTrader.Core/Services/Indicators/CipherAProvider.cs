@@ -254,31 +254,29 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Speech ──────────────────────────────────────────────────────────────────────────
 
         /// <summary>Value-only speech when the keyboard lands on a component (NavigationFeedbackManager
-        /// says the name first): what made the symbol, and for a ribbon line its colour and why.</summary>
+        /// says the name first): what the symbol means, in words rather than the averages behind it
+        /// ("short-term trend" = EMA 5 against EMA 11 or 25, "medium-term" = EMA 11 against EMA 33,
+        /// "momentum" = the Wave Trend against its slow wave; Cody, 2026-10-23), and for a ribbon
+        /// line its colour and why.</summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
             if (double.IsNaN(value)) return "no data";
             string price = SpeechPriceFormatter.FormatPrice(bar.Close);
-            double wt1 = Get(allComponentData, Wt1Key, dataIndex), wt2 = Get(allComponentData, Wt2Key, dataIndex);
-            double st = Get(allComponentData, StochKey, dataIndex);
-
             int k = Array.FindIndex(RibbonLengths, L => componentName == $"EMA {L}");
             if (k >= 0) return RibbonLineSpeech(k, value, allComponentData, dataIndex);
 
             return componentName switch
             {
-                CompGreenDot      => $"EMA 11 crossed above EMA 33, Wave Trend above its slow wave and EMA 5 above EMA 11 and EMA 33. Price {price}.",
-                CompBlueTriangle  => $"EMA 5 crossed above EMA 25, Wave Trend above its slow wave{At(wt1)}, EMA 11 still below EMA 33. Price {price}.",
-                CompYellowDiamond => $"Wave Trend above its slow wave{At(wt1)}, EMA 5 above EMA 11 and EMA 33. Price {price}.",
-                CompRedX          => $"EMA 5 crossed below EMA 11. Price {price}.",
-                CompRedDiamond    => $"Wave Trend crossed down{At(wt2)}. Price {price}.",
-                CompBloodDiamond  => $"Red diamond and red X on one candle: Wave Trend crossed down{At(wt2)} as EMA 5 crossed below EMA 11. Price {price}.",
-                CompYellowX       => $"Wave Trend crossed down{At(wt2)} with price in the bottom {(double.IsNaN(st) ? "part" : $"{st:F0} percent")} of its 81-bar range. Price {price}.",
+                CompGreenDot      => $"Trend turned up: medium-term trend crossed up, with momentum and the short-term trend already up. Price {price}.",
+                CompBlueTriangle  => $"Early turn up: short-term trend crossed up with momentum rising, longer trend still down. Price {price}.",
+                CompYellowDiamond => $"Bullish conditions: momentum and the short-term trend both up. Price {price}.",
+                CompRedX          => $"Short-term trend turned down. Price {price}.",
+                CompRedDiamond    => $"Momentum turned down. Price {price}.",
+                CompBloodDiamond  => $"Momentum and the short-term trend turned down together: the strongest sell warning. Price {price}.",
+                CompYellowX       => $"Momentum turned down again while already oversold: often a trap; several in a row can mean selling is running out. Price {price}.",
                 _ => null,
             };
-
-            static string At(double v) => double.IsNaN(v) ? "" : $" at {v:F1}";
         }
 
         private static string RibbonLineSpeech(int k, double value, IReadOnlyDictionary<string, double[]> data, int idx)

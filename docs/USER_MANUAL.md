@@ -1547,7 +1547,11 @@ uptrend in order, and grey spreading from the short lines is a trend turning. La
 you its value, its colour and why — "Blue, bullish: above EMA 11". The eight lines start **muted**;
 press M on one to hear it. Only EMA 5 puts its value on the price axis; turn the others' labels on
 in Properties → Appearance → Value label on the axis. Its **seven symbols** come first when you move through its parts, each
-with its own sound, and landing on one says what made it:
+with its own sound. Landing on one says what it means rather than which averages crossed — for
+example "Green Dot. Trend turned up: medium-term trend crossed up, with momentum and the short-term
+trend already up." In those sentences the **short-term trend** is EMA 5 against EMA 11 (or EMA 25
+for the Blue Triangle), the **medium-term trend** is EMA 11 against EMA 33, and **momentum** is
+Wave Trend against its slow wave. What makes each symbol:
 
 - **Green Dot** — EMA 11 crosses above EMA 33 on a Yellow Diamond candle.
 - **Blue Triangle** — EMA 5 crosses above EMA 25 with Wave Trend above its slow wave and EMA 11
@@ -1559,6 +1563,13 @@ with its own sound, and landing on one says what made it:
 - **Blood Diamond** — a Red Diamond and a Red X on the same candle. The Red Diamond is there too.
 - **Yellow X** — a Red Diamond deep in the oversold zone (slow wave at −40 or lower) with Cipher B's
   Stochastic line below 20 (price near the bottom of its last 81 candles): a bearish warning, not a buy.
+
+How traders read them (their claims; this app has not tested any of them): the Blue Triangle is the
+earliest and least reliable sign of a turn up, the Green Dot a confirmation that comes later, and
+Yellow Diamonds in a run mark an uptrend. Red Diamonds in a cluster mark a downtrend, a Red X is
+watched in case it becomes a Blood Diamond, and the Blood Diamond is the strongest exit warning but
+not a trade on its own. A Yellow X is called a trap — bearish more often than not — yet four or five
+in a row are read as selling running out, and a Yellow X on a Green Dot's candle overrides the dot.
 
 With narration on, each symbol is announced ("Green dot, bullish", "Yellow X, bearish warning"), and
 because the ribbon lines are price lines, price crossing one is announced too. A chart or strategy

@@ -292,7 +292,7 @@ public sealed class CipherAProviderTests
     }
 
     /// <summary>What Ctrl+Up/Down says on each stop of a Cipher A on the bar each symbol fired:
-    /// the symbol's name and what made it, and for a ribbon line its value and colour.</summary>
+    /// the symbol's name and what it means, and for a ribbon line its value and colour.</summary>
     [Fact]
     public void Each_stop_says_its_symbol_name_and_why()
     {
@@ -302,13 +302,13 @@ public sealed class CipherAProviderTests
         var engine = Engine();
         var expect = new Dictionary<string, string>
         {
-            [CipherAProvider.CompGreenDot] = "EMA 11 crossed above EMA 33",
-            [CipherAProvider.CompBlueTriangle] = "EMA 5 crossed above EMA 25",
-            [CipherAProvider.CompYellowDiamond] = "Wave Trend above its slow wave",
-            [CipherAProvider.CompRedX] = "EMA 5 crossed below EMA 11",
-            [CipherAProvider.CompRedDiamond] = "Wave Trend crossed down",
-            [CipherAProvider.CompBloodDiamond] = "Red diamond and red X on one candle",
-            [CipherAProvider.CompYellowX] = "81-bar range",
+            [CipherAProvider.CompGreenDot] = "Trend turned up: medium-term trend crossed up",
+            [CipherAProvider.CompBlueTriangle] = "Early turn up: short-term trend crossed up",
+            [CipherAProvider.CompYellowDiamond] = "Bullish conditions: momentum and the short-term trend both up",
+            [CipherAProvider.CompRedX] = "Short-term trend turned down.",
+            [CipherAProvider.CompRedDiamond] = "Momentum turned down.",
+            [CipherAProvider.CompBloodDiamond] = "the strongest sell warning",
+            [CipherAProvider.CompYellowX] = "while already oversold",
         };
         foreach (var (comp, words) in expect)
         {
@@ -318,6 +318,7 @@ public sealed class CipherAProviderTests
             _out.WriteLine($"{comp}: {said}");
             Assert.Contains(comp, said, StringComparison.OrdinalIgnoreCase);
             Assert.Contains(words, said);
+            Assert.DoesNotContain("EMA", said);   // meaning, not the averages behind it (Cody, 2026-10-23)
         }
         int e5 = series.Components.FindIndex(c => c.Name == "EMA 5");
         string line = Landing(series, bars, engine, e5, bars.Count - 1);
