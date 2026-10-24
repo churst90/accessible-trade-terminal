@@ -195,6 +195,50 @@ ribbons in general" / "announce when in the ribbon? yes".
   - **No volume needed.** The Dow chart has no volume on any of its 1,733 bars, and the original still
     scores there. The app's version uses no volume either.
 
+### Cipher B's money flow divides by the five-bar average Heikin-Ashi BODY size: one scale fits every chart (2026-10-23)
+
+- **Formula (MoneyFlowMode = MCB, the default):** 68 × SMA60(Heikin-Ashi body ÷ SMA5(|Heikin-Ashi
+  body|)), clamped to ±100. Earlier the same day it was 146 × SMA60(body ÷ SMA5(Heikin-Ashi range))
+  (the entry below). The wicks no longer count at all. Legacy mode is unchanged.
+- **What gave it away:** the Dow's daily chart before about 1930 has flat bars (open = high = low
+  = close), so the Heikin-Ashi range there is the body. On those bars the range form needed a scale
+  of about 71; on the rest of the Dow about 140; on Bitcoin 135–163. Dividing by the body size
+  instead needs one scale on all of them. Market Cipher B 2.4.0's money flow was harvested on
+  TVC:DJI 1D for this (the whole history), as well as the Bitcoin charts already measured.
+- **Measured against Market Cipher B 2.4.0's plotted money flow** (typical error, RMSE in points on
+  a ±100 scale, at the pooled scale; from the fitting script, which the app's restatement test
+  matches):
+
+  | Chart | Best scale alone | RMSE range form → body form |
+  |---|---|---|
+  | Dow 1D, before 1930 (flat bars) | 69.6 | 3.06 → 1.99 |
+  | Dow 1D, 1930–1993 | 68.7 | 5.43 → 1.72 |
+  | Dow 1D, 1994 on | 66.5 | 4.97 → 1.73 |
+  | Bitcoin 1D | 66.4 | 4.74 → 1.80 |
+  | Bitcoin 15-minute | 66.1 | 4.06 → 1.77 |
+
+  The pooled best scale is 67.8; the app uses 68. Same side of zero 96.6–97.5% (was 92–94%).
+  Fitted on the Dow alone the scale is still about 68, and Bitcoin, never fitted, stays at 1.8.
+- **Cipher A's Yellow Diamond follows it** (its near-tie gate reads this money flow above 5).
+  Against Market Cipher A's own diamonds: Bitcoin daily Heikin-Ashi 6 → 4 bars differ (of 5,213),
+  candles 4 → 3, Dow (300 bars, no volume) still exact. One diamond left the Cipher A goldens
+  (2021-08-14), regenerated from an independent restatement (golden4.py).
+- **Tried and worse on every chart:** 4, 6, 7 or 8 bodies; an EMA or RMA of the body size; the
+  largest of the last five; root mean square; SMA5(body) ÷ SMA5(size); an EMA, 59- or 61-bar outer
+  average; a one-bar shift; raw candle bodies; the result normalised by its own spread. On a
+  Heikin-Ashi chart, Heikin-Ashi of the Heikin-Ashi bars fits worse (2.43) than Heikin-Ashi of the
+  raw bars (1.93), so the existing handling stays.
+- **Caveats:** still NOT exact (about 1.8 points typical). The original's line starts at bar 67,
+  ours at 63; that is still unexplained. The body form was found after looking at all the data;
+  what argues against overfitting is that one number now fits two very different markets and the
+  Dow's flat-bar era, where the range form needed half the scale.
+- Tests: `Money_flow_reads_68_on_steady_candles_whatever_their_size` (steady candles of size 1 and
+  10 both read 68; the range form read a size-dependent number), `Money_flow_ignores_the_wicks` (a
+  symmetric wick spike changes nothing), and `Money_flow_is_68_times_the_60_bar_mean_of_body_over_five_bar_mean_size`
+  (an independent restatement on a random walk) replace the range test and the 146 linear test. The
+  Cipher B fingerprint re-pinned only the money-flow line. Sabotages, all red: range divisor, 4
+  bodies, 6 bodies, scale 70, own body size, raw candle body.
+
 ### Cipher B's money flow divides by the five-bar average Heikin-Ashi range (2026-10-23)
 
 - **Formula (MoneyFlowMode = MCB, the default):** 146 × SMA60(Heikin-Ashi body ÷ SMA5(Heikin-Ashi

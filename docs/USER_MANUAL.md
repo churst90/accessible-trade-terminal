@@ -1406,7 +1406,9 @@ the money flow as a green area above zero and red below over that, and along the
 money-flow bar, green while money flows in and dark red while it flows out. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
 every upward cross of the waves with the fast wave below −60; narration says "Buy dot, waves
-crossed up from oversold".
+crossed up from oversold". The money flow reads no volume: it averages, over the last 60 candles, each
+Heikin-Ashi candle's body against the average body of the five candles before and including it, so
+a run of candles that close firmly up pushes it above zero whatever the market's price or volume.
 
 There is **no gold dot**. Cipher B had one until 22 October 2026, but Market Cipher B draws none —
 it came from the free VuManChu Cipher B — so it was removed. A chart saved with it opens without it,

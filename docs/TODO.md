@@ -93,13 +93,11 @@
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the
->     original's. Still open: the money flow (correlation 0.98, same side of zero 92–95% since the
->     five-bar average range, 2026-10-23; its best scale still varies 135–163 by chart, and the
->     original's line starts 8 bars later than a 60-bar average needs, unexplained), and the
->     divergences, which are not measured. Researched further the same evening, with no change made.
->     The original's money flow is nearly the same on candle and Heikin-Ashi charts (correlation
->     0.998), and the remainder isn't a simple formula; CHANGES has the numbers. Parked unless a new
->     idea comes up.
+>     original's. Still open: the money flow, now 68 × the 60-bar average of each Heikin-Ashi body
+>     over the average size of the last five (2026-10-23 late, built, NOT seen): typical miss about
+>     1.8 points on the Dow and Bitcoin, one scale for both, same side of zero 97%; still not exact,
+>     and the original's line starts 4 bars later than ours (bar 67 vs 63), unexplained. The
+>     divergences are not measured.
 >   - **Cipher DBSI refitted on all twenty charts, then given the WaveTrend run (2026-10-23, built, NOT
 >     seen; see CHANGES).** Each vote has its own points, a long streak counts against the score, a
 >     stretched stochastic for it, and since the second commit the side's WaveTrend run adds points (a
