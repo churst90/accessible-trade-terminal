@@ -181,7 +181,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // (51 - 2 + 25; 50 would give 73), on both. At 40 every one of ours came 5 bars early.
             new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51),
             new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51),
-            new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf),
+            // Its table says 36-44, but the original counts MARA from 38 (candle replay, 2022-26, 23 lows):
+            // confirmed 19 bars after the low on 19, a short cycle no sooner than the last low + 55
+            // (38 - 2 + 19; 55, 55, 56), a first label no sooner than + 37. At 36 every one came a bar early.
+            new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 38),
             new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf),
         };
 

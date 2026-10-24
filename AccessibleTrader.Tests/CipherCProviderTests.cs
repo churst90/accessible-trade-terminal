@@ -715,12 +715,15 @@ public sealed class CipherCProviderTests
     /// (candles, 2022–26) both confirm 25 bars after the low (14 of 17 and 14 of 18), and a cut-short
     /// cycle's check mark comes no sooner than the last low + 74 and a first label no sooner than
     /// + 50: a shortest cycle of 51, counted from 51 − 2 = 49 and held half of it rounded down, 25
-    /// (rounded to the nearest it would be 26, and at 50 the waits would be 73 and 49).
+    /// (rounded to the nearest it would be 26, and at 50 the waits would be 73 and 49). MARA's table
+    /// says 36–44, but it confirms 19 bars after the low (19 of 23) and a cut-short cycle no sooner than
+    /// the last low + 55 (55, 55, 56): counted from 38 (36 would hold 18 and wait 52; 39, wait 56).
     /// </summary>
     [Theory]
-    [InlineData("MSTR")]
-    [InlineData("COIN")]
-    public void Coinbase_and_MicroStrategy_count_from_51_days_held_25(string symbol)
+    [InlineData("MSTR", 40, 90, 51, 25, 74)]
+    [InlineData("COIN", 40, 90, 51, 25, 74)]
+    [InlineData("MARA", 36, 44, 38, 19, 55)]
+    public void Stocks_count_from_the_originals_shortest_cycle(string symbol, int tableMin, int tableMax, int counted, int hold, int wait)
     {
         var bars = CipherSrSpeechTests.BtcDaily().Where(b => b.Date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)).ToList();
         var r = Run(bars, symbol);
@@ -729,11 +732,11 @@ public sealed class CipherCProviderTests
         var waits = lows.Zip(lows.Skip(1), (a, b) => (a, b)).Where(p => !cancelled.Any(c => c > p.a.Mark && c <= p.b.Mark)).Select(p => p.b.Mark - p.a.Low).ToList();
         var lags = lows.Select(x => x.Mark - x.Low).ToList();
         _out.WriteLine($"{symbol}: {lows.Count} confirmations, shortest lag {lags.Min()}, shortest wait from the last low {waits.Min()} ({waits.Count(w => w == waits.Min())} times)");
-        Assert.Equal(25, lags.Min());
-        Assert.Equal(25, lags.GroupBy(x => x).OrderByDescending(g => g.Count()).First().Key);
-        Assert.Equal(74, waits.Min());
-        Assert.Equal(40, CipherCEngine.Preset(symbol).DailyMin);
-        Assert.Contains("daily 40 to 90 trading days, counted from 51,", CipherCProvider.PresetWords(CipherCEngine.Presets.ToList().FindIndex(p => p.Key == symbol), new DateTime(2025, 1, 1)));
+        Assert.Equal(hold, lags.Min());
+        Assert.Equal(hold, lags.GroupBy(x => x).OrderByDescending(g => g.Count()).First().Key);
+        Assert.Equal(wait, waits.Min());
+        Assert.Equal(tableMin, CipherCEngine.Preset(symbol).DailyMin);
+        Assert.Contains($"daily {tableMin} to {tableMax} trading days, counted from {counted},", CipherCProvider.PresetWords(CipherCEngine.Presets.ToList().FindIndex(p => p.Key == symbol), new DateTime(2025, 1, 1)));
     }
 
     /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No

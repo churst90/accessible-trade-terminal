@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts MARA from 38 trading days (2026-10-24)
+
+- Its table says 36 to 44. In the original's candle replay (2022–26, 23 lows) it confirms a low 19
+  bars after it on 19 of 23, a short cycle no sooner than the last low + 55 (55, 55, 56, 67), and
+  shows a first label no sooner than the last low + 37: a shortest cycle of 38. At 36 every Cipher C
+  check mark came a bar early (0 of 20 on the original's bar).
+- Scored on that replay (held out): check marks on the original's bar 0 of 20 → 15 of 19, exact
+  daily lows 27 → 26 of 32, extra daily lows 4 → 5, weekly 11 of 14 both (3 extra). Counting from
+  37 gives 0 of 20; from 39, 15 of 18 with daily 25 and weekly 10. CTZ, the open-source look-alike:
+  daily 20 of 32 with 34 extra, weekly 9 of 14, never on the original's bar.
+- The Coinbase and MicroStrategy test now covers MARA too: a hold of 19 and a wait of 55. Counting
+  from 36, 37 or 39 turns it red. Not seen in the app.
+
 ### Cipher C counts Coinbase and MicroStrategy from 51 days, and the hold rounds down (2026-10-24)
 
 - Both tables say 40 to 90 trading days. In the original's candle replays (Coinbase 2021–26, 17

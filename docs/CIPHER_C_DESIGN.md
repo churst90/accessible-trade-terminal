@@ -468,6 +468,7 @@ cycle − 1.
 | SILJ (22) | 43 | 11 on 38 | 31, 31, 33, 34 | last + 21 | 22 |
 | Coinbase (40) | 17 | 25 on 14 | 74 (then 77, 101) | last + 50 | **51** |
 | MicroStrategy (40) | 18 | 25 on 14 | 74, 74, 74, 75 | last + 50 | **51** |
+| MARA (36) | 23 | 19 on 19 | 55, 55, 56 (then 67) | last + 37 | **38** |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -503,6 +504,9 @@ cycle − 1.
   finds no low before it; the original names 06-13. Excluding the turning bar from the top was
   tried on all fourteen assets: 886 → 904 exact of 1167, but extras 229 → 334. On 2022-09-23 the
   low is undercut 29 bars on, inside the cancel gap of round(0.6 × 51) = 31; the original keeps it.
+- **MARA counts from 38, not 36.** At 36 every Cipher C check mark came a bar early (0 of 20 on the
+  original's bar). Counted from 38: 15 of 19, exact daily lows 27 → 26 of 32, extras 4 → 5, weekly
+  11 of 14 both.
 - **The original never removes a confirmed low.** In every candle replay so far (0 of 379
   confirmed lows on nine assets) a low with its check mark is still in the final labels, and its
   cancelled mark (❌) is never drawn; its table shows only Confirmed and Unconfirmed. Cipher C
@@ -512,7 +516,7 @@ cycle − 1.
 - **The rule, put in one number:** on every asset so far the check mark waits h bars (the commonest
   hold) after the low, and a short cycle's waits until the last low + 3h − 2: the shortest cycle that
   fits is 2h. GDX 11 → 22, Dow 18 → 36, Bitcoin 24 → 48, Silver 12 → 24, dollar 9 → 18, Ethereum
-  8 → 16, S&P 16 → 32, Coinbase and MicroStrategy 25 → 51 (2h + 1: the hold is half, rounded down).
+  8 → 16, S&P 16 → 32, Coinbase and MicroStrategy 25 → 51 (2h + 1: the hold is half, rounded down), MARA 19 → 38.
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the
