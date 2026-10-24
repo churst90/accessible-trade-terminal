@@ -718,11 +718,14 @@ public sealed class CipherCProviderTests
     /// (rounded to the nearest it would be 26, and at 50 the waits would be 73 and 49). MARA's table
     /// says 36–44, but it confirms 19 bars after the low (19 of 23) and a cut-short cycle no sooner than
     /// the last low + 55 (55, 55, 56): counted from 38 (36 would hold 18 and wait 52; 39, wait 56).
+    /// RIOT has MARA's table and hold, but its cut-short cycles wait until the last low + 56 (56, 56, 56)
+    /// and its first label comes no sooner than + 38: counted from 39.
     /// </summary>
     [Theory]
     [InlineData("MSTR", 40, 90, 51, 25, 74)]
     [InlineData("COIN", 40, 90, 51, 25, 74)]
     [InlineData("MARA", 36, 44, 38, 19, 55)]
+    [InlineData("RIOT", 36, 44, 39, 19, 56)]
     public void Stocks_count_from_the_originals_shortest_cycle(string symbol, int tableMin, int tableMax, int counted, int hold, int wait)
     {
         var bars = CipherSrSpeechTests.BtcDaily().Where(b => b.Date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)).ToList();

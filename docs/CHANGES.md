@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts RIOT from 39 trading days (2026-10-24)
+
+- Its table says 36 to 44, the same as MARA's. In the original's candle replay (2022–26, 23 lows) it
+  confirms a low 19 bars after it on 19 of 23, as MARA does. But a short cycle is confirmed no
+  sooner than the last low + 56 (56, 56, 56, then 60), and a first label shows no sooner than the
+  last low + 38. That makes the shortest cycle 39, not MARA's 38. Floor(39/2) is still 19. At 36,
+  none of Cipher C's check marks landed on the original's bar (0 of 16).
+- Scored on that replay (held out): check marks on the original's bar 0 of 16 → 12 of 15 (all three
+  cut-short cycles included), exact daily lows 21 of 31 both, weekly 7 of 15 both. Counting from 38
+  instead gives 9 of 15 on the bar, but daily 22 and weekly 8: one more low of each, with the
+  timing off. 39 is used because all three timing readings agree on it.
+- CTZ, the open-source look-alike: daily 23 of 31 with 33 extra, weekly 7 of 15, never on the
+  original's bar.
+- The stock count test covers RIOT too: a hold of 19 and a wait of 56. Counting from 36, 38 or 40
+  turns it red. That completes the sixteen presets. Not seen in the app.
+
 ### Cipher C counts MARA from 38 trading days (2026-10-24)
 
 - Its table says 36 to 44. In the original's candle replay (2022–26, 23 lows) it confirms a low 19

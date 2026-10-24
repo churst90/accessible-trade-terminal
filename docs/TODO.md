@@ -48,7 +48,8 @@
 >     NOT seen): check marks 47 → 52 of 67. **Coinbase and MicroStrategy count from 51** (tables 40–90;
 >     the hold now rounds down; built, NOT seen): check marks 0 → 15 of 16 (MicroStrategy), 0 → 7 of 8
 >     (Coinbase), but Coinbase's exact daily lows 12 → 7 of 19. **MARA counts from 38** (table 36–44;
->     built, NOT seen): check marks 0 → 15 of 19. Still to check: RIOT.
+>     built, NOT seen): check marks 0 → 15 of 19. **RIOT counts from 39** (same table; built, NOT
+>     seen): check marks 0 → 12 of 15. All sixteen presets are now checked against the original.
 >   - **Cody: drop cancellation of a CONFIRMED low?** The original never removed one in any replay
 >     (0 of 379, nine assets) and never drew ❌. Without it: exact daily lows 886 → 903 of 1167, extras
 >     229 → 239, weekly unchanged. The Cycle Low Cancelled component would then never fire (remove it,

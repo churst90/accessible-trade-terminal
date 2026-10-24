@@ -185,7 +185,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // confirmed 19 bars after the low on 19, a short cycle no sooner than the last low + 55
             // (38 - 2 + 19; 55, 55, 56), a first label no sooner than + 37. At 36 every one came a bar early.
             new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 38),
-            new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf),
+            // RIOT shares MARA's table but is counted from 39 (candle replay, 2022-26, 23 lows): confirmed
+            // 19 bars after the low on 19 (floor(39/2); 38 holds 19 too), a short cycle no sooner than the
+            // last low + 56 (39 - 2 + 19; 56, 56, 56), a first label no sooner than + 38 (39 - 1).
+            new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 39),
         };
 
         /// <summary>Other names each preset's asset trades under: index, ETF, future, CFD, spot pair.</summary>

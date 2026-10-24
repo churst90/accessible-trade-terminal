@@ -469,6 +469,7 @@ cycle − 1.
 | Coinbase (40) | 17 | 25 on 14 | 74 (then 77, 101) | last + 50 | **51** |
 | MicroStrategy (40) | 18 | 25 on 14 | 74, 74, 74, 75 | last + 50 | **51** |
 | MARA (36) | 23 | 19 on 19 | 55, 55, 56 (then 67) | last + 37 | **38** |
+| RIOT (36) | 23 | 19 on 19 | 56, 56, 56 (then 60) | last + 38 | **39** |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -507,6 +508,10 @@ cycle − 1.
 - **MARA counts from 38, not 36.** At 36 every Cipher C check mark came a bar early (0 of 20 on the
   original's bar). Counted from 38: 15 of 19, exact daily lows 27 → 26 of 32, extras 4 → 5, weekly
   11 of 14 both.
+- **RIOT counts from 39.** It has MARA's table and MARA's hold, but its short cycles wait one bar
+  longer and its first labels come one bar later, so it counts from 39 (floor(39/2) = 19). Check marks
+  on the original's bar 0 of 16 → 12 of 15. Exact daily lows (21 of 31) and weekly lows (7 of 15)
+  are unchanged. At 38: 9 of 15 on the bar, daily 22, weekly 8.
 - **The original never removes a confirmed low.** In every candle replay so far (0 of 379
   confirmed lows on nine assets) a low with its check mark is still in the final labels, and its
   cancelled mark (❌) is never drawn; its table shows only Confirmed and Unconfirmed. Cipher C
@@ -516,7 +521,7 @@ cycle − 1.
 - **The rule, put in one number:** on every asset so far the check mark waits h bars (the commonest
   hold) after the low, and a short cycle's waits until the last low + 3h − 2: the shortest cycle that
   fits is 2h. GDX 11 → 22, Dow 18 → 36, Bitcoin 24 → 48, Silver 12 → 24, dollar 9 → 18, Ethereum
-  8 → 16, S&P 16 → 32, Coinbase and MicroStrategy 25 → 51 (2h + 1: the hold is half, rounded down), MARA 19 → 38.
+  8 → 16, S&P 16 → 32, Coinbase and MicroStrategy 25 → 51 (2h + 1: the hold is half, rounded down), MARA 19 → 38, RIOT 19 → 39 (2h + 1).
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the
