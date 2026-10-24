@@ -62,6 +62,16 @@
 >     - It keeps an undercut low 1–2 bars before due about 3 times in 4. Keeping those costs more
 >       extras than it gains, so not adopted. It also holds a few overdue cycles through long
 >       undercuts (Coinbase 2025-12-31), and that is not modelled.
+>     - **Held out (2026-10-24):** the original's replays before 2022 (fourteen assets, 2015-12 →
+>       2022-01; Bitcoin and Coinbase have no earlier start), which no rule was read from. They hold:
+>       - every drop of a pending low is a bar under it, 177 of 177, and none is moved;
+>       - most lows confirm exactly half the shortest cycle after the anchor (DJI 28 of 31, Gold 45 of
+>         53, Ethereum 44 of 56), the rest mostly at 1.5 × the shortest less 2;
+>       - the candidate low at naming (lowest low after the cycle's top, top searched from half the
+>         shortest cycle back) is the original's 81% of the time (85% where it was read).
+>       - What does not: no price trigger beats "the next eligible bar" (35% of namings on its bar;
+>         the best of fifteen rules 37%, picked after scoring). And an undercut 1–2 bars before due
+>         is kept about half the time here (19 of 42), not 3 in 4. The trigger stays the open item.
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
 >     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.
