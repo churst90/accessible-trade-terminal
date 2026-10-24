@@ -159,7 +159,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf),
             new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf),
             new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf),
-            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf),
+            // Its table says 15-25, but the original counts Ethereum from 16 (candle replay, 2022-26, 75
+            // lows): confirmed 8 bars after the low on 59 of 75 (15 and 16 both hold 8), a short cycle
+            // no sooner than the last low + 22 (16 - 2 + 8; 15 would give 21), a first label no sooner
+            // than the last low + 15.
+            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were

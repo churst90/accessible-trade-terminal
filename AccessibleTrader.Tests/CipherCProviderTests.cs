@@ -687,6 +687,29 @@ public sealed class CipherCProviderTests
         Assert.Equal(tableMin, CipherCEngine.Presets[preset].DailyMin);   // the table's range is still what is shown
     }
 
+    /// <summary>
+    /// Ethereum's table says 15–25 days, but in the original's bar replay (candles, 2022–26, 75
+    /// lows) a short cycle's check mark comes no sooner than the last low + 22 (16 of 16 cut-short
+    /// cycles), as if the shortest cycle were 16: counted from 16 − 2 = 14 and held 8. At 15 the
+    /// hold is also 8 (7.5 rounds up), so only the short-cycle wait tells them apart: 21 at 15.
+    /// </summary>
+    [Fact]
+    public void Ethereum_counts_its_daily_cycle_from_16_days()
+    {
+        var r = Run(CipherSrSpeechTests.BtcDaily(), "ETH/USD");
+        var lows = Marked(r[CipherCProvider.CompDclConfirmed]).Select(t => (Mark: t, Low: t - (int)r[CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix][t])).ToList();
+        // A low closed under within the gap is taken back (cancelled) and the next counts from the
+        // low before it, so pairs with a cancellation between them are not a wait from the last low.
+        var cancelled = Marked(r[CipherCProvider.CompCancelled]).ToList();
+        var waits = lows.Zip(lows.Skip(1), (a, b) => (a, b)).Where(p => !cancelled.Any(c => c > p.a.Mark && c <= p.b.Mark)).Select(p => p.b.Mark - p.a.Low).ToList();
+        var lags = lows.Select(x => x.Mark - x.Low).ToList();
+        _out.WriteLine($"{lows.Count} confirmations, shortest lag {lags.Min()}, shortest wait from the last low {waits.Min()} ({waits.Count(w => w == waits.Min())} times)");
+        Assert.Equal(8, lags.Min());
+        Assert.Equal(22, waits.Min());
+        Assert.Equal(15, CipherCEngine.Preset("ETH").DailyMin);
+        Assert.Contains("daily 15 to 25 days, counted from 16,", CipherCProvider.PresetWords(CipherCEngine.Presets.ToList().FindIndex(p => p.Key == "ETH"), new DateTime(2025, 1, 1)));
+    }
+
     /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No
     /// vendor name in anything the user reads (the metadata: description, parameter help, component
     /// names) or hears (every preset's spoken words, and the no-preset fallbacks).</summary>

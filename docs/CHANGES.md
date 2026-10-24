@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts Ethereum's daily cycle from 16 days (2026-10-24)
+
+- Ethereum's table says 15 to 25 days. In the original's candle replay (2022–26, 75 lows) it
+  confirms a low 8 bars after it on 59 of 75, a short cycle no sooner than the last low + 22 (all
+  16 cut-short cycles) and a first label no sooner than the last low + 15: all fit a shortest cycle
+  of 16. At 15 the wait is also 8 (7.5 rounds up), so only the short-cycle wait differs: 21, a bar
+  early. The range shown and said stays 15 to 25, followed by "counted from 16".
+- Scored on that replay (Ethereum was held out until now): check marks on the original's bar 47 of
+  66 → 52 of 67, extra daily lows 44 → 37, exact daily lows 113 → 112 of 130; weekly 31 of 57 both,
+  extra weekly lows 36 → 33. CTZ, the open-source look-alike, at its own setting: daily 68 of 130,
+  weekly 11; set to the table's ranges, 105 and 20, with 59 extra daily lows; never on the
+  original's confirmation bar.
+- Ethereum's weekly lows fit neither weekly rule: counting daily lows (the dollar's rule) gives the
+  original's own weekly lows 26 of 35 since 2021-11 at its gap, the weekly pick 24 of 34. Counting
+  them in Cipher C adds one exact weekly low (31 → 32); not adopted on that evidence.
+- The junior miners were checked and behave as their table's 22: GDXJ holds 11 on 37 of 44, short
+  cycles from the last low + 31; SILJ 11 on 38 of 43, from + 31. Cipher C on SILJ (held out): daily
+  45 of 60, 8 extra, check marks on the original's bar 27 of 29, weekly 9 of 14; CTZ daily 36 of 60.
+- New test: Bitcoin's bars under Ethereum's preset confirm 8 bars after the low and no sooner than
+  the last kept low + 22. Counting from 15 (21) or 17 (23) turns it red. Not seen in the app.
+
 ### Cipher C picks the weekly lows of the dollar, Dow, S&P and Nasdaq by counting daily lows (2026-10-24)
 
 - Read from the original's weekly labels and week counts, logged bar by bar in the dollar's candle

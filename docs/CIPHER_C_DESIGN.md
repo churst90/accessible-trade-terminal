@@ -463,6 +463,9 @@ cycle − 1.
 | Gold (22) | 44 | 11 on 37 | 31, 31, 31 (then later) | last + 21 | 22 |
 | Silver (22) | 40 | 12 on 33 | 34, 35, 36, 36, 36, 38 | last + 23 | **24** |
 | Dollar index (15) | 52 | 9 on 39 | 25, 25, 25, 25, 26 (then later) | last + 17 | **18** |
+| Ethereum (15) | 75 | 8 on 59 | 22, 22, 22, 23, 24 (then later) | last + 15 | **16** |
+| GDXJ (22) | 44 | 11 on 37 | 31, 31, 31, 31, 32 | last + 21 | 22 |
+| SILJ (22) | 43 | 11 on 38 | 31, 31, 33, 34 | last + 21 | 22 |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -483,6 +486,15 @@ cycle − 1.
   the 12th and picks the 22nd). Searching 3 bars sooner than the count (tried) gives 90 daily, 18
   weekly; not adopted. The original's lows on the dollar are often closer than its shortest cycle
   (35 of 113 gaps under 18 bars, down to 10): its first label waits, the low itself need not.
+- **Ethereum counts from 16, not 15.** Both hold 8 bars (7.5 rounds up), so the check mark after a
+  normal cycle is the same; a short cycle's waits a bar longer, to the last low + 22. Counted from
+  16: check marks on the original's bar 47 of 66 → 52 of 67, extra daily lows 44 → 37, exact daily
+  lows 113 → 112 of 130, weekly 31 of 57 both (extras 36 → 33). Its weekly lows fit neither weekly
+  rule (counting daily lows 26 of 35 of the original's own since 2021-11, the weekly pick 24 of 34).
+- **The rule, put in one number:** on every asset so far the check mark waits h bars (the commonest
+  hold) after the low, and a short cycle's waits until the last low + 3h − 2: the shortest cycle that
+  fits is 2h. GDX 11 → 22, Dow 18 → 36, Bitcoin 24 → 48, Silver 12 → 24, dollar 9 → 18, Ethereum
+  8 → 16, S&P 16 → 32.
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the

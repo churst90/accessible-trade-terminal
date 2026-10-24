@@ -44,8 +44,8 @@
 >     24** (table 22–28, as Gold's; built, NOT seen): check marks 0 → 27 of 32. **The dollar counts
 >     from 18** (table 15–24; built, NOT seen): check marks 1 → 30 of 40, but exact daily lows 93 → 87
 >     and weekly 21 → 19, lost to the search trigger (CIPHER_C_DESIGN section 12). Checked and as their
->     tables: GDX, Gold, Dow, Nasdaq, oil. Still to check: Ethereum (table 15–25), the junior miners,
->     the four stocks.
+>     tables: GDX, Gold, Dow, Nasdaq, oil, GDXJ, SILJ. **Ethereum counts from 16** (table 15–25; built,
+>     NOT seen): check marks 47 → 52 of 67. Still to check: the four stocks (COIN, MSTR, MARA, RIOT).
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
 >     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.
