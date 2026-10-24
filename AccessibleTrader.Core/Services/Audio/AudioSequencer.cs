@@ -619,6 +619,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 {
                     if (fill.Sonification == null) continue;
                     if (!fill.IsVisible) continue;
+                    if (series.Config.IsExcluded(fill.UpperComponentName) || series.Config.IsExcluded(fill.LowerComponentName)) continue;
 
                     // Retrieve data arrays by component name via ChartSeries helper.
                     var upperData = series.GetComponentData(fill.UpperComponentName);

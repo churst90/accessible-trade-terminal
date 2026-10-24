@@ -77,9 +77,17 @@
 >     same day (a near tie of the waves needs Cipher B's money flow above 5): every symbol is exact on
 >     Bitcoin daily with the original's money flow, and 4–6 Yellow Diamonds differ with ours (our money
 >     flow is not exact; see the Cipher B item). Cody to look: the symbols should sit on Market Cipher
->     A's. Questions for Cody: add the original's ninth ribbon line
->     (SMA 21) and pivot marks, both hidden by default there? Follow its defaults (only the EMA 21 line,
->     no Yellow Diamond, Green Dot or Red Diamond shown)? Proposed: add both hidden, keep our defaults.
+>     A's. ~~Ninth line and pivots?~~ Answered by Cody 2026-10-23: build them, off by default, every
+>     part a preference — done the same day (next item).
+>   - **Cipher A's colours, fills, Ribbon 9, pivots, Parts → Include and ribbon narration (2026-10-23,
+>     built, NOT seen or heard; see CHANGES).** Colours, widths, fills and symbol sizes are the
+>     original's style settings. Cody to look at Bitcoin daily: the ribbon should be the original's
+>     blues with its two light fills; include Ribbon 9 and the pivots from Properties → Appearance →
+>     Parts and check them against the original. Cody to listen: with Cipher A narrating, "Price entered
+>     the ribbon, between …", "left the ribbon above/below", "crossed above/below the ribbon" on bar
+>     closes, and no per-line crosses. Open: the pivots with Bars Back above 1 and on intraday charts
+>     are not checked against the original (I can set its input on TradingView and compare); the last
+>     Include box refusing to untick is tested in bUnit, not in a browser.
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the
@@ -729,16 +737,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    `StrategyBatteryCommand` cells on `CIPHER_A.Buy/Sell Signal`, `Exhaustion`, `Manipulation` and
 >    `CIPHER_SR.Support/Resistance` score as never firing.
 > 2. **Ribbon sound:** all eight lines muted, or keep one audible (EMA 33)? [Keep all muted.]
-> 3. **Ribbon narration:** with Cipher A narrating, price crossing any of the eight lines is announced
->    ("Price crossed above EMA 5 at …"), several per sentence on a choppy day. Turn that off and narrate
->    only the symbols? [Off — not built; today it is on.]
+> 3. ~~**Ribbon narration**~~ — answered 2026-10-23 (Cody: "Ribbon narration, yes … for this indicator
+>    and I suppose ribbons in general"; "announce when in the ribbon? yes"). Correction: the question
+>    said per-line crosses were announced "today"; they were not — the lines are muted and the cross scan
+>    skips muted lines, so the ribbon said nothing. Built: the ribbon narrates as one band (see CHANGES).
 > 4. **Heikin-Ashi:** ~~indicators read the raw candles on a Heikin-Ashi chart~~ — answered 2026-10-22:
 >    Cody asked for what TradingView does, so indicators (Cipher A included) now compute on Heikin-Ashi
 >    candles on a Heikin-Ashi chart. Cipher A was fitted on the HA screenshots, re-checked 2026-10-22.
-> 5. **The ribbon fill:** Market Cipher A draws a translucent fill between EMA 5 and EMA 33. [Add it as a
->    fill you can turn off.]
-> - [ ] **Build the Cipher A ribbon fill** (EMA 5 to EMA 33, a cloud fill the user can hide) if Cody agrees
->   with 5.
+> 5. ~~**The ribbon fill**~~ — answered 2026-10-23 ("all colors should match"): both of the original's
+>    fills built, EMA 5–33 and EMA 5–11.
+> - [x] **Build the Cipher A ribbon fill** — done 2026-10-23 with the original's two fills, see CHANGES.
 > - [x] **Cipher B should call `WaveTrendMath`** — Cipher A's copy is line-for-line Cipher B's, pinned
 >   equal by a test, but there are two copies. Done 2026-10-19, see CHANGES.
 > - Least certain parts of the fit: the Yellow Diamond rule (best fit among those tried, precision

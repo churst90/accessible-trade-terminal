@@ -488,7 +488,8 @@ namespace AccessibleTrader.Core.Services
                 instanceName,
                 config.Pane,
                 parameters,
-                config.Components.ToList(),
+                // Both lists: a part the user left out is restored left out, with its settings.
+                config.Components.Concat(config.ExcludedComponents).ToList(),
                 restoreId: config.Id);
 
             // Restore user-saved CloudFills (MigrateSeriesConfig already merged any new defaults into them).

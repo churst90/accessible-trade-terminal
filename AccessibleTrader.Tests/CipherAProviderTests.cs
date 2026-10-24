@@ -418,6 +418,9 @@ public sealed class CipherAProviderTests
         var names = series.Components.Select(c => c.Name).ToList();
         _out.WriteLine(string.Join(" | ", names));
         Assert.Equal(Symbols.Concat(Enumerable.Range(0, 8).Select(CipherAProvider.RibbonLine)), names);
+        // Ribbon 9 and the pivots exist but are left out until the user includes them.
+        Assert.Equal(new[] { CipherAProvider.CompRibbon9, CipherAProvider.CompPivotHigh, CipherAProvider.CompPivotLow },
+            series.Config.ExcludedComponents.Select(c => c.Name));
         Assert.Empty(names.Intersect(SavedBeforeRebuild));
 
         var bars = RawBars(); var r = Run(bars, series.Parameters.ToDictionary(kv => kv.Key, kv => (object)kv.Value));
@@ -428,6 +431,36 @@ public sealed class CipherAProviderTests
         Assert.DoesNotContain(said, s => SavedBeforeRebuild.Any(o => s.Contains(o, StringComparison.OrdinalIgnoreCase)));
         Assert.True(Fired(r, CipherAProvider.CompRedX, bars).SequenceEqual(CipherAGoldenData.RawEvents[CipherAProvider.CompRedX]),
             "the old saved parameters changed what the restored Cipher A computes");
+    }
+
+    /// <summary>
+    /// Ribbon 9 is the close's simple average (21 bars by default, as Market Cipher A). The pivot lines
+    /// are the bar's own high and low at 1 bar back, which is what Market Cipher A 2.5.0 plotted on
+    /// every bar of BTCUSD 1D (2026-10-23); at more bars back they are the highest high and lowest low
+    /// of that many bars, which is not yet checked against the original.
+    /// </summary>
+    [Fact]
+    public void Ribbon_nine_is_the_simple_average_and_the_pivots_are_the_highs_and_lows()
+    {
+        var bars = RawBars();
+        var r = Run(bars);
+        int n = bars.Count;
+        for (int i = 20; i < n; i += 37)
+        {
+            double sma = Enumerable.Range(i - 20, 21).Average(j => bars[j].Close);
+            Assert.Equal(sma, r[CipherAProvider.CompRibbon9][i], 6);
+            Assert.Equal(bars[i].High, r[CipherAProvider.CompPivotHigh][i]);
+            Assert.Equal(bars[i].Low,  r[CipherAProvider.CompPivotLow][i]);
+        }
+        Assert.True(double.IsNaN(r[CipherAProvider.CompRibbon9][10]));
+
+        var r3 = Run(bars, new() { ["PivotDaysBack"] = 3.0, ["Ribbon9Length"] = 5.0 });
+        for (int i = 4; i < n; i += 41)
+        {
+            Assert.Equal(Enumerable.Range(i - 2, 3).Max(j => bars[j].High), r3[CipherAProvider.CompPivotHigh][i]);
+            Assert.Equal(Enumerable.Range(i - 2, 3).Min(j => bars[j].Low),  r3[CipherAProvider.CompPivotLow][i]);
+            Assert.Equal(Enumerable.Range(i - 4, 5).Average(j => bars[j].Close), r3[CipherAProvider.CompRibbon9][i], 6);
+        }
     }
 
     // ── 6. Strategies and alerts that named a removed component ─────────────────────────

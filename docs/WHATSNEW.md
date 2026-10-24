@@ -8,6 +8,15 @@
 
 ## Unreleased
 
+- **Cipher A looks like the original.** Its ribbon uses Market Cipher A's own blues, line widths and
+  two light fills, and its symbols the original's colours and sizes. The original's ninth line (a
+  yellow 21-day average) and its pivot lines are there too, left out until you include them.
+- **Leave out any part of an indicator.** Properties → Appearance → Parts has an "Include" box for
+  each part. A part left out is gone: not drawn, heard, spoken or reached with the arrow keys. "Save
+  as Defaults" remembers it for new charts.
+- **Cipher A's ribbon is narrated as one band.** When a candle closes you hear *"Price entered the
+  ribbon, between …"*, *"Price left the ribbon above"* (or below), or *"Price crossed above the
+  ribbon"* when one candle jumps it, and nothing while price moves about inside it.
 - **Cipher A's Yellow Diamond now matches Market Cipher A's.** When the two waves nearly touch, it is
   drawn only if Cipher B's money flow is above 5. That removes the few extra diamonds the old rule drew.
 - **Cipher A's symbols say what they mean.** Landing on a Green Dot says *"Trend turned up:

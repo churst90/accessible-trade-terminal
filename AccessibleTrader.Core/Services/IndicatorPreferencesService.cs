@@ -49,6 +49,8 @@ namespace AccessibleTrader.Core.Services
         public double? BaseFrequency      { get; set; }
         public float?  NoiseAmount        { get; set; }
         public bool?   IsVisible          { get; set; }
+        /// <summary>Included (true) or left out (false) on new charts; see SeriesConfig.ExcludedComponents.</summary>
+        public bool?   IsEnabled          { get; set; }
         public bool?   UserShowAxisLabel  { get; set; }
         public BackgroundTint? UserBackgroundTint { get; set; }
         public bool?   UserIsAreaFill     { get; set; }

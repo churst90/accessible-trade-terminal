@@ -1517,6 +1517,9 @@ says where and at which value; it is for sighted viewers only, nothing is spoken
 works even when the line itself is hidden: Top/Bottom Detector tints the price chart red where
 Distribution Confidence is 0.5 or more, and Cipher B's Anchor Polarity can tint but is off by
 default, like Market Cipher);
+Appearance also holds **Parts**, an "Include" box for each part of an indicator with more than one — leave a part
+out and it is gone from the chart: not drawn, heard, spoken or reached with the arrow keys, until you
+include it again (at least one part has to stay in, and the last box will not untick);
 **Levels** for every reference level, its value, colour, which crossings to report, and
 a Remove button on the ones you added; **Sonification** for the sound patch each
 component plays, with a bullish/bearish or above/below-midline pair where the component
@@ -1546,7 +1549,17 @@ it falls below; the longest, EMA 33, is blue while it is below EMA 29. A fully b
 uptrend in order, and grey spreading from the short lines is a trend turning. Landing on a line tells
 you its value, its colour and why — "Blue, bullish: above EMA 11". The eight lines start **muted**;
 press M on one to hear it. Only EMA 5 puts its value on the price axis; turn the others' labels on
-in Properties → Appearance → Value label on the axis. Its **seven symbols** come first when you move through its parts, each
+in Properties → Appearance → Value label on the axis. Two light-blue fills shade the ribbon for
+sighted viewers, one from EMA 5 to EMA 33 and a stronger one from EMA 5 to EMA 11; they make no
+sound. The colours, line widths, fills and symbol sizes are the original's own settings.
+
+Three more parts are there but **left out** until you include them (Properties → Appearance →
+Parts): **Ribbon 9**, a yellow 21-bar simple average of the close (General → Ribbon 9 Length), and
+**Pivot High** and **Pivot Low**, light-blue lines at the highest high and lowest low of the last
+1 bar — the bar's own high and low — or more (General → Pivot Bars Back). At 1 on a daily chart the
+pivots match the original; other settings and intraday charts have not been checked against it.
+Every line and symbol can be left out the same way, and "Save as Defaults" keeps your choice for new
+charts. Its **seven symbols** come first when you move through its parts, each
 with its own sound. Landing on one says what it means rather than which averages crossed — for
 example "Green Dot. Trend turned up: medium-term trend crossed up, with momentum and the short-term
 trend already up." In those sentences the **short-term trend** is EMA 5 against EMA 11 (or EMA 25
@@ -1573,7 +1586,13 @@ not a trade on its own. A Yellow X is called a trap — bearish more often than 
 in a row are read as selling running out, and a Yellow X on a Green Dot's candle overrides the dot.
 
 With narration on, each symbol is announced ("Green dot, bullish", "Yellow X, bearish warning"), and
-because the ribbon lines are price lines, price crossing one is announced too. A chart or strategy
+the ribbon is announced as **one band** when a candle closes: "Cipher A: Price entered the ribbon,
+between 64,200.00 and 66,900.00", "Price left the ribbon above, at 66,900.00" (or below), and "Price
+crossed above the ribbon" when one candle jumps it. Moving about inside it says nothing. The band is
+the lines you can see — hide one and the band is the rest — and it speaks even though its lines are
+muted, because their mute is for sound. To hear only the ribbon, press N on one of its lines; to
+hear only a symbol, press N on that symbol. Any indicator that declares lines as a ribbon is
+announced the same way. A chart or strategy
 saved with the old Cipher A (before October 2026) still opens; its old Buy and Sell signals,
 divergences, Manipulation and Exhaustion are gone, and a strategy or alert that used one tells you
 so once, with what to use instead.

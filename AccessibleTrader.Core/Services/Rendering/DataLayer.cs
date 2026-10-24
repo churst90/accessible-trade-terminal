@@ -59,7 +59,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // Cloud fills second (Ichimoku, WT Fill, EMA Fill, etc.).
                     foreach (var fill in s.Config.CloudFills)
                     {
-                        if (!fill.IsVisible) continue;
+                        if (!DrawsFill(s.Config, fill)) continue;
                         StandardRenderers.RenderCloudFill(ctx, s, fill);
                     }
                 }
@@ -218,6 +218,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <summary>The components in paint order: ascending <see cref="ComponentConfig.DrawOrder"/>,
         /// declared order within a tie. Every component has DrawOrder 0 unless its provider says
         /// otherwise, so for everything else this IS the declared order.</summary>
+        /// <summary>A cloud fill is drawn when it is visible and neither of its edges is a part the
+        /// user left out (SeriesConfig.ExcludedComponents): the band goes with its edge.</summary>
+        internal static bool DrawsFill(SeriesConfig config, CloudFillConfig fill) =>
+            fill.IsVisible && !config.IsExcluded(fill.UpperComponentName) && !config.IsExcluded(fill.LowerComponentName);
+
         internal static IEnumerable<ComponentConfig> InDrawOrder(IReadOnlyList<ComponentConfig> components)
         {
             bool any = false;

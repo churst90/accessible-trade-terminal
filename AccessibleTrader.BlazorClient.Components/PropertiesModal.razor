@@ -240,6 +240,35 @@
 
                     case "Appearance":
                         <div class="scroll-area">
+                            @* PARTS, 2026-10-23 (Cody: "those components just won't be added").
+                               A part left out is not drawn, heard, spoken, narrated or a keyboard
+                               stop — unlike Visible or Audio, which hide or silence a part that is
+                               still there. Takes effect on Apply, like every box here. *@
+                            @if (_series.Config != null && _componentOrder.Count > 1)
+                            {
+                                <fieldset>
+                                    <legend>Parts</legend>
+                                    <p id="parts-help" style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">Leave a part out and it is gone from the chart: not drawn, heard, spoken or reached with the arrow keys.</p>
+                                    @foreach (var part in AccessibleTrader.Core.Services.ComponentInclusion.AllParts(_series.Config, _componentOrder))
+                                    {
+                                        var partId = "include-" + Slug(part.Name);
+                                        bool included = !_series.Config.IsExcluded(part.Name);
+                                        // The last part left in: the click (Space too) is cancelled
+                                        // in the browser, so the box never shows unticked while the
+                                        // part stays in — a refused change would otherwise leave the
+                                        // box unticked, as Blazor sees no change to re-render.
+                                        bool isLast = included && _series.Config.Components.Count == 1;
+                                        <div class="modal-row" @key="part.Name">
+                                            <label for="@partId">
+                                                <input id="@partId" type="checkbox" checked="@included" aria-describedby="parts-help"
+                                                       @onclick="() => { if (isLast) RefuseLastPart(); }" @onclick:preventDefault="isLast"
+                                                       @onchange="e => SetIncluded(part.Name, (bool)(e.Value ?? true))" />
+                                                Include @CompLabel(part)
+                                            </label>
+                                        </div>
+                                    }
+                                </fieldset>
+                            }
                             @if (_series.Components.Count > 3)
                             {
                                 <div class="modal-row" style="margin-bottom:12px;">
@@ -1042,6 +1071,8 @@
     }
     private Dictionary<string, string> _stringParams = new();
     private List<IndicatorParameterMetadata> _paramMeta = new();
+    /// <summary>The indicator's component names in its own order (the Parts list and where an included part goes back).</summary>
+    private List<string> _componentOrder = new();
     private string? _error;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;
@@ -1074,6 +1105,7 @@
 
         // Look up parameter metadata for display names, descriptions, and validation.
         _paramMeta = new();
+        _componentOrder = new();
         if (!string.IsNullOrEmpty(_series.Config?.IndicatorCode))
         {
             var allMeta = IndicatorService.GetAvailableIndicators();
@@ -1081,6 +1113,8 @@
                 m.Code.Equals(_series.Config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
             if (meta?.Parameters != null)
                 _paramMeta = meta.Parameters;
+            if (meta?.Components != null)
+                _componentOrder = meta.Components.Select(c => c.Name).ToList();
         }
 
         // Seed every declared string parameter the series has not set yet with its metadata
@@ -1103,6 +1137,23 @@
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "props-title"); } catch { }
     }
+
+    /// <summary>The Parts box. Refuses to leave out the last included part, and says so.</summary>
+    private void SetIncluded(string name, bool include)
+    {
+        if (_series?.Config == null) return;
+        if (!AccessibleTrader.Core.Services.ComponentInclusion.SetIncluded(_series.Config, name, include, _componentOrder))
+        {
+            if (!include) RefuseLastPart();
+        }
+        else if (!include && _selectedComponentName == name)
+            _selectedComponentName = "";
+        StateHasChanged();
+    }
+
+    private void RefuseLastPart() =>
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+            "At least one part has to stay included.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
     private void Close()
     {
@@ -1320,6 +1371,9 @@
         _series.Config.Components.Clear();
         foreach (var c in freshSeries.Components)
             _series.Config.Components.Add(c);
+        _series.Config.ExcludedComponents.Clear();
+        foreach (var c in freshSeries.Config.ExcludedComponents)
+            _series.Config.ExcludedComponents.Add(c);
 
         // Re-inject level defaults from the provider (prefs were cleared above so Layer 3 is empty).
         SeriesManager.ResetLevelsToProviderDefaults(_series);
@@ -1404,7 +1458,7 @@
         if (string.IsNullOrEmpty(indicatorCode)) return;
 
         // Build ComponentPreference list from the current (potentially edited) component state.
-        var prefs = _series.Components
+        var prefs = _series.Components.Concat(_series.Config?.ExcludedComponents ?? new())
             .Where(c => c.DisplayType != ComponentDisplayType.Level)
             .Select(c => new ComponentPreference
             {
@@ -1420,6 +1474,7 @@
                 BaseFrequency     = c.BaseFrequency,
                 NoiseAmount       = c.NoiseAmount,
                 IsVisible         = c.IsVisible,
+                IsEnabled         = c.IsEnabled,
                 UserShowAxisLabel = c.UserShowAxisLabel,
                 UserBackgroundTint = c.UserBackgroundTint,
                 UserIsAreaFill    = c.UserIsAreaFill,

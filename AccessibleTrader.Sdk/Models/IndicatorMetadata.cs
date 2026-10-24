@@ -32,6 +32,13 @@ namespace AccessibleTrader.Sdk.Models
         public string? PathName { get; set; }
 
         /// <summary>
+        /// The ribbon this line belongs to ("ribbon"). Lines that share a name narrate as ONE band
+        /// on the bar close: price entering it, leaving it above or below, or crossing straight
+        /// through it, instead of one "Price crossed" per line. Null = a line of its own.
+        /// </summary>
+        public string? RibbonName { get; set; }
+
+        /// <summary>
         /// For a <see cref="ComponentCausality.Lookahead"/> marker (a low painted on the bar it
         /// happened on, found later): the causal component that marks the bar it was confirmed on.
         /// New-bar narration then says the two as one sentence when the confirmation closes —
@@ -172,6 +179,15 @@ namespace AccessibleTrader.Sdk.Models
         /// load. Null = drawn.
         /// </summary>
         public bool? DefaultIsDrawn { get; set; }
+
+        /// <summary>
+        /// False = the component is left out until the user includes it (Properties → Include):
+        /// not drawn, not heard, not a navigation stop, not spoken or narrated, as if the indicator
+        /// had no such part. Propagated to <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.IsEnabled"/>
+        /// when the component is first built; after that it is the user's choice, saved with the chart.
+        /// Null = included.
+        /// </summary>
+        public bool? DefaultIsEnabled { get; set; }
 
 
         /// <summary>

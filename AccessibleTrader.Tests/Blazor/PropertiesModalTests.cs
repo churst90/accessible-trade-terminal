@@ -633,4 +633,48 @@ public class PropertiesModalTests
         Assert.Null(untouched.UserShowAxisLabel);
         Assert.Null(untouched.UserBackgroundTint);
     }
+    /// <summary>
+    /// Parts → Include refuses to leave out the last part. The refusal used to be spoken while the
+    /// box was left UNTICKED in the browser: the part stays in, so the checked value Blazor renders
+    /// does not change and it never puts the tick back. The last part's box now cancels the click
+    /// itself (Space included), so it can never show unticked. What bUnit can show is the
+    /// cancel flag being on exactly for the last part, and the refusal spoken; the browser's own
+    /// handling of a cancelled checkbox click is not run here (unverified in a browser).
+    /// </summary>
+    [Fact]
+    public void Parts_the_last_included_part_cancels_its_own_click_and_says_why()
+    {
+        using var h = new BlazorTestHarness();
+        var series = NewSeries("ca", "Cipher A");
+        series.Config.IndicatorCode = "CipherA";
+        foreach (var n in new[] { "Green Dot", "Red X" })
+            series.Config.Components.Add(new ComponentConfig { Name = n, DisplayName = n, DisplayType = ComponentDisplayType.Dot, IsVisible = true });
+        h.IndicatorService.GetAvailableIndicators().Returns(new List<IndicatorMetadata>
+        {
+            new() { Code = "CipherA", Name = "Cipher A", Components =
+            {
+                new IndicatorComponentMetadata { Name = "Green Dot" },
+                new IndicatorComponentMetadata { Name = "Red X" },
+            } },
+        });
+        SeedActiveSeries(h, series);
+        var spoken = new List<string>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-appearance").Click();
+        bool Cancels(string id) => cut.Find(id).HasAttribute("blazor:onclick:preventdefault");
+
+        Assert.False(Cancels("#include-green-dot"));
+        Assert.False(Cancels("#include-red-x"));
+
+        cut.Find("#include-green-dot").Change(false);
+        Assert.False(cut.Find("#include-green-dot").HasAttribute("checked"));
+        Assert.True(Cancels("#include-red-x"));
+        Assert.False(Cancels("#include-green-dot"));
+
+        cut.Find("#include-red-x").Click();
+        Assert.Equal(new[] { "At least one part has to stay included." }, spoken);
+        Assert.True(cut.Find("#include-red-x").HasAttribute("checked"));
+    }
 }

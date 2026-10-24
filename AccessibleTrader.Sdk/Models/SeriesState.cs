@@ -64,6 +64,25 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private bool _announceAcrossSeries = true;
 
         public ObservableCollection<ComponentConfig> Components { get; set; } = new();
+
+        /// <summary>
+        /// The parts of this indicator the user has left out (Properties → Parts → Include), or
+        /// that the indicator leaves out until included (<c>DefaultIsEnabled = false</c>). Kept
+        /// here, not in <see cref="Components"/>, so nothing that draws, sounds, speaks, narrates or
+        /// navigates ever meets them — as if the indicator had no such part (Cody, 2026-10-23: "those
+        /// components just won't be added"). Saved with the chart, settings intact, so including one
+        /// again brings it back as it was. Their values are still computed: alerts and strategies
+        /// read results by name.
+        /// </summary>
+        public ObservableCollection<ComponentConfig> ExcludedComponents { get; set; } = new();
+
+        /// <summary>True when <paramref name="componentName"/> is one of <see cref="ExcludedComponents"/>.</summary>
+        public bool IsExcluded(string componentName)
+        {
+            foreach (var c in ExcludedComponents)
+                if (string.Equals(c.Name, componentName, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
         public ObservableCollection<LevelConfig> Levels { get; set; } = new();
         /// <summary>Cloud fills between pairs of components. Visual-only — not navigable or audible.</summary>
         public List<CloudFillConfig> CloudFills { get; set; } = new();
@@ -109,6 +128,7 @@ namespace AccessibleTrader.Sdk.Models
                 Drawing = Drawing
             };
             foreach (var comp in Components) c.Components.Add(comp.Clone());
+            foreach (var comp in ExcludedComponents) c.ExcludedComponents.Add(comp.Clone());
             foreach (var level in Levels) c.Levels.Add(level.Clone());
             foreach (var fill in CloudFills) c.CloudFills.Add(fill.Clone());
             foreach (var band in ZoneBands) c.ZoneBands.Add(band.Clone());

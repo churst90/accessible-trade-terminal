@@ -236,6 +236,10 @@ namespace AccessibleTrader.Core.Services
                     if (pref.BaseFrequency     != null) fresh.BaseFrequency     = pref.BaseFrequency.Value;
                     if (pref.NoiseAmount       != null) fresh.NoiseAmount       = pref.NoiseAmount.Value;
                     if (pref.IsVisible         != null) fresh.IsVisible         = pref.IsVisible.Value;
+                    // "Include" saved as this indicator's default — but a chart that saved its own
+                    // choice keeps it, as with the axis label above.
+                    if (pref.IsEnabled != null && componentOverrides?.Any(o => o.Name == fresh.Name) != true)
+                        fresh.IsEnabled = pref.IsEnabled.Value;
                 }
             }
 
@@ -246,7 +250,11 @@ namespace AccessibleTrader.Core.Services
             // few lines above and dropped here on EVERY series build, not just a restore, so
             // Market Structure's swing markers were anchored to the value instead of above and
             // below the bar for as long as the anchor has existed.
-            foreach (var uiComp in sourceComponents) config.Components.Add(uiComp.Clone());
+            //
+            // A component the user (or the indicator, by default) has left out goes to
+            // ExcludedComponents instead: nothing downstream sees it. Metadata order is kept in both.
+            foreach (var uiComp in sourceComponents)
+                (uiComp.IsEnabled ? config.Components : config.ExcludedComponents).Add(uiComp.Clone());
 
             // Copy default cloud fills from metadata
             // ProviderIsVisible records the default each fill was built against, so a restore can
@@ -331,6 +339,7 @@ namespace AccessibleTrader.Core.Services
                 DisplayType  = type,
                 MarkerText   = meta.MarkerText,
                 PathName     = meta.PathName,
+                RibbonName   = meta.RibbonName,
                 IsHindsight  = CausalityContract.Effective(indicator, meta) == ComponentCausality.Lookahead,
                 ConfirmedBy  = meta.ConfirmedBy,
                 IsCount      = meta.IsCount,
@@ -341,7 +350,7 @@ namespace AccessibleTrader.Core.Services
                 IsVisible    = meta.IsVisible,
                 // The baseline a restore compares the saved flag with (ProviderDefaultVisibility).
                 ProviderIsVisible = meta.IsVisible,
-                IsEnabled    = true,
+                IsEnabled    = meta.DefaultIsEnabled ?? true,
                 Volume       = 1.0f,
 
                 // Colors — provider metadata wins; fall through to StylingService role defaults.

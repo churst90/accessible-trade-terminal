@@ -39,6 +39,9 @@ namespace AccessibleTrader.Sdk.Models
         /// provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.PathName"/> on every
         /// load. Null = no path.</summary>
         public string? PathName { get; set; }
+        /// <summary>The ribbon this line narrates as part of; provider-owned, rebuilt from
+        /// <see cref="IndicatorComponentMetadata.RibbonName"/> on every load. Null = none.</summary>
+        public string? RibbonName { get; set; }
         /// <summary>The marker is painted in hindsight — on the bar it happened, found later
         /// (<see cref="ComponentCausality.Lookahead"/>). Provider-owned, rebuilt from the
         /// indicator's declared causality on every load.</summary>
@@ -363,7 +366,7 @@ namespace AccessibleTrader.Sdk.Models
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
-                PathName = PathName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
+                PathName = PathName, RibbonName = RibbonName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

@@ -83,11 +83,19 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string Wt2Key   = "Cipher A_wt2";
         public const string StochKey = "Cipher A_stoch80";
 
-        /// <summary>MCA's uptrend ladder, darkest (EMA 5) to near-white (EMA 33). VuManChu copied these
-        /// hexes exactly; the 2D chart's lines 3–7 are pixel-exact.</summary>
-        private static readonly string[] BlueLadder = { "#1573D4", "#3096FF", "#57ABFF", "#85C2FF", "#9BCDFF", "#B3D9FF", "#C9E5FF", "#DFECFB" };
-        /// <summary>The downtrend grey, (90, 99, 114) on the 2D chart.</summary>
-        private const string Grey = "#5A6372";
+        public const string CompRibbon9   = "Ribbon 9";
+        public const string CompPivotHigh = "Pivot High";
+        public const string CompPivotLow  = "Pivot Low";
+
+        // Colours, widths and sizes are Market Cipher A 2.5.0's own, read from the study's style
+        // table on TradingView (2026-10-23), alpha included. Eight-digit hexes are #AARRGGBB.
+        /// <summary>The uptrend ladder, darkest (EMA 5) to near-white (EMA 33). Lines 5 and 6 share a colour
+        /// in the original. (The 2.1.2 snapshots digitised on 2026-10-17 were a few shades off these.)</summary>
+        private static readonly string[] BlueLadder = { "#0066CC", "#1A8CFF", "#4DA6FF", "#80BFFF", "#99CCFF", "#99CCFF", "#CCE6FF", "#E6F2FF" };
+        /// <summary>The downtrend grey, rgb(80, 86, 98), the same for every line.</summary>
+        private const string Grey = "#505662";
+        /// <summary>Market Cipher A's "tiny" and "small" shape sizes.</summary>
+        private const float Tiny = 8f, Small = 12f;
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -102,7 +110,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "Market Cipher A, measured against real Market Cipher A charts: an eight-EMA ribbon " +
                     "(5 11 15 18 21 25 29 33) whose lines are blue while each is above the next and grey " +
                     "when not, and seven symbols — Green Dot, Blue Triangle, Yellow Diamond (bullish) and " +
-                    "Red X, Red Diamond, Blood Diamond, Yellow X (bearish). Computed from the chart's own " +
+                    "Red X, Red Diamond, Blood Diamond, Yellow X (bearish). Also, off until included: a ninth " +
+                    "line (a 21-bar simple average) and pivot high and low lines. Computed from the chart's own " +
                     "candles only.",
                 Components = BuildComponents(),
                 Parameters = new List<IndicatorParameterMetadata>
@@ -122,6 +131,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "YellowXRangeLevel", DisplayName = "Yellow X Range Level (%)", DataType = typeof(double), DefaultValue = 20.0,
                             MinValue = 1, MaxValue = 100, Step = 1,
                             Description = "…and with Cipher B's Stochastic line (the 81-bar stochastic of the close, smoothed over 2) below this." },
+                    new() { Name = "Ribbon9Length", DisplayName = "Ribbon 9 Length", DataType = typeof(int), DefaultValue = 21.0,
+                            MinValue = 2, MaxValue = 400, Step = 1,
+                            Description = "Bars in Ribbon 9, a simple average of the close. 21, as Market Cipher A." },
+                    new() { Name = "PivotDaysBack", DisplayName = "Pivot Bars Back", DataType = typeof(int), DefaultValue = 1.0,
+                            MinValue = 1, MaxValue = 50, Step = 1,
+                            Description = "Pivot High is the highest high of this many bars, Pivot Low the lowest low. At 1 on a daily chart this matches Market Cipher A; other values and intraday charts are not yet checked against it." },
+                },
+                // Market Cipher A shades between the first and last ribbon lines and, more strongly, between
+                // the first two. Visual only: the lines themselves are already navigable.
+                DefaultCloudFills = new List<CloudFillConfig>
+                {
+                    new() { UpperComponentName = RibbonLine(0), LowerComponentName = RibbonLine(RibbonLengths.Length - 1),
+                            BullishColorHex = "#1AB3D9FF", BearishColorHex = "#1AB3D9FF", DisplayName = "Ribbon Fill" },
+                    new() { UpperComponentName = RibbonLine(0), LowerComponentName = RibbonLine(1),
+                            BullishColorHex = "#2680B3FF", BearishColorHex = "#2680B3FF", DisplayName = "Fast Ribbon Fill" },
                 },
             }
         };
@@ -131,14 +155,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             var list = new List<IndicatorComponentMetadata>
             {
                 // ── Symbols. Bullish first, then bearish; each a marker that pings. ─────────────
-                Marker(CompGreenDot,      ComponentDisplayType.Dot,       "#00E676", 9f,  "sine_bell",         880.0, 380, "Green dot, bullish"),
-                Marker(CompBlueTriangle,  ComponentDisplayType.TriangleUp,"#4058F0", 11f, "crystal_bell",      660.0, 320, "Blue triangle, momentum turning"),
+                Marker(CompGreenDot,      ComponentDisplayType.Dot,       "#00E676",   Tiny,  "sine_bell",         880.0, 380, "Green dot, bullish"),
+                Marker(CompBlueTriangle,  ComponentDisplayType.TriangleUp,"#4259F4",   Small, "crystal_bell",      660.0, 320, "Blue triangle, momentum turning"),
                 // Fires on many bars in a row in a trend, so it is the quietest: short and in the background.
-                Marker(CompYellowDiamond, ComponentDisplayType.Diamond,   "#9E9D24", 7f,  "triangle_bell",     1046.0, 90, "Yellow diamond", PlaybackLayer.Background),
-                Marker(CompRedX,          ComponentDisplayType.Cross,     "#FF5252", 8f,  "detuned_pair_bell", 250.0, 320, "Red X, bearish"),
-                Marker(CompRedDiamond,    ComponentDisplayType.Diamond,   "#B71C1C", 7f,  "triangle_bell",     330.0, 200, "Red diamond"),
-                Marker(CompBloodDiamond,  ComponentDisplayType.Diamond,   "#FF0000", 14f, "dual_tone_bell",    165.0, 500, "Blood diamond, strongly bearish"),
-                Marker(CompYellowX,       ComponentDisplayType.Cross,     "#FFEB3B", 12f, "detuned_pair_bell", 550.0, 450, "Yellow X, bearish warning"),
+                // Drawn at 30% opacity, as the original, for the same reason.
+                Marker(CompYellowDiamond, ComponentDisplayType.Diamond,   "#4DFDD835", Tiny,  "triangle_bell",     1046.0, 90, "Yellow diamond", PlaybackLayer.Background),
+                Marker(CompRedX,          ComponentDisplayType.Cross,     "#F23645",   Tiny,  "detuned_pair_bell", 250.0, 320, "Red X, bearish"),
+                Marker(CompRedDiamond,    ComponentDisplayType.Diamond,   "#8CF23645", Tiny,  "triangle_bell",     330.0, 200, "Red diamond"),
+                Marker(CompBloodDiamond,  ComponentDisplayType.Diamond,   "#F23645",   Small, "dual_tone_bell",    165.0, 500, "Blood diamond, strongly bearish"),
+                Marker(CompYellowX,       ComponentDisplayType.Cross,     "#FDD835",   Small, "detuned_pair_bell", 550.0, 450, "Yellow X, bearish warning"),
             };
 
             // ── The ribbon. Muted: eight voices within a few percent of price would bury the
@@ -157,8 +182,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     DefaultColorAboveComponent = last ? RibbonLine(k - 1) : RibbonLine(k + 1),
                     DefaultColorHex          = last ? BlueLadder[k] : Grey,
                     DefaultColorHexSecondary = last ? Grey : BlueLadder[k],
-                    DefaultThickness = k == 0 ? 2.0f : 1.5f,
+                    DefaultThickness = 2.0f,
                     DefaultIsMuted = true,
+                    // One band for narration: "Price entered the ribbon", not eight crosses.
+                    RibbonName = "ribbon",
                     // Only EMA 5 puts its value on the price axis (Cody, 2026-10-18). Eight labels
                     // within a few percent of price, with Cipher SR's levels and the close, stacked
                     // about 13 tags up the axis and pushed some ~100 px from their own lines (the
@@ -171,6 +198,24 @@ namespace AccessibleTrader.Core.Services.Indicators
                     DefaultDrawOrder = -1,
                 });
             }
+
+            // ── Off until the user includes them, as in the original (its Ribbon 9 and pivot
+            // switches are off by default). Muted and quiet like the ribbon when included.
+            list.Add(new IndicatorComponentMetadata
+            {
+                Name = CompRibbon9, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                DefaultColorHex = "#FDD835", DefaultThickness = 2.0f,
+                DefaultIsEnabled = false, DefaultIsMuted = true, DefaultShowAxisLabel = false,
+                DefaultPlaybackLayer = PlaybackLayer.Background, DefaultUsePolarityColoring = false, DefaultDrawOrder = -1,
+            });
+            foreach (var pivot in new[] { CompPivotHigh, CompPivotLow })
+                list.Add(new IndicatorComponentMetadata
+                {
+                    Name = pivot, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+                    DefaultColorHex = "#CC4DA6FF", DefaultThickness = 1.0f,
+                    DefaultIsEnabled = false, DefaultIsMuted = true, DefaultShowAxisLabel = false,
+                    DefaultPlaybackLayer = PlaybackLayer.Background, DefaultUsePolarityColoring = false, DefaultDrawOrder = -1,
+                });
             return list;
         }
 
@@ -212,6 +257,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             int wtSignal  = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
             double yxWave  = GetDbl(parameters, "YellowXWaveLevel", -40.0);
             double yxRange = GetDbl(parameters, "YellowXRangeLevel", 20.0);
+            int ribbon9   = Math.Max(1, GetInt(parameters, "Ribbon9Length", 21));
+            int pivotBack = Math.Max(1, GetInt(parameters, "PivotDaysBack", 1));
 
             var close = new double[n]; var open = new double[n]; var high = new double[n]; var low = new double[n]; var hlc3 = new double[n];
             for (int i = 0; i < n; i++)
@@ -251,6 +298,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             Write(buffer, CompGreenDot, green); Write(buffer, CompBlueTriangle, blue); Write(buffer, CompYellowDiamond, yd);
             Write(buffer, CompRedX, redX); Write(buffer, CompRedDiamond, redD); Write(buffer, CompBloodDiamond, blood); Write(buffer, CompYellowX, yx);
             for (int k = 0; k < RibbonLengths.Length; k++) Write(buffer, RibbonLine(k), ema[k]);
+            Write(buffer, CompRibbon9, IndicatorMath.Sma(close, ribbon9));
+            var pivHigh = Nan(n); var pivLow = Nan(n);
+            for (int i = pivotBack - 1; i < n; i++)
+            {
+                double hi = double.MinValue, lo = double.MaxValue;
+                for (int j = i - pivotBack + 1; j <= i; j++) { hi = Math.Max(hi, high[j]); lo = Math.Min(lo, low[j]); }
+                pivHigh[i] = hi; pivLow[i] = lo;
+            }
+            Write(buffer, CompPivotHigh, pivHigh); Write(buffer, CompPivotLow, pivLow);
             Write(buffer, Wt1Key, wt1); Write(buffer, Wt2Key, wt2); Write(buffer, StochKey, stoch);
         }
 
@@ -274,6 +330,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             string price = SpeechPriceFormatter.FormatPrice(bar.Close);
             int k = Array.FindIndex(RibbonLengths, L => componentName == $"EMA {L}");
             if (k >= 0) return RibbonLineSpeech(k, value, allComponentData, dataIndex);
+            if (componentName == CompRibbon9) return $"{SpeechPriceFormatter.FormatPrice(value)}. Yellow, simple average.";
+            if (componentName is CompPivotHigh or CompPivotLow) return $"{SpeechPriceFormatter.FormatPrice(value)}. Light blue.";
 
             return componentName switch
             {

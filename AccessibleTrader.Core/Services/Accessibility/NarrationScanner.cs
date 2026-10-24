@@ -355,6 +355,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1d. Price crossing a plain price-space overlay (an EMA, a VWAP).
             ScanOverlayCrosses(series, state, toIndex, utterance);
 
+            // 1d″. A ribbon: price entering it, leaving it, or crossing straight through it.
+            ScanRibbons(series, state, toIndex, utterance);
+
             // 1d′. A PROFILE: price against its point of control and value area, and the point
             // of control moving. A profile has no per-bar value and no marker; what it has is
             // three levels, and the news about a level is what crossed it.
@@ -521,13 +524,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var above = new List<string>();
             var below = new List<string>();
-            int overlayCount = series.Components.Count(c => IsPriceSpaceOverlayLine(series, c));
+            int overlayCount = series.Components.Count(c => IsPriceSpaceOverlayLine(series, c) && string.IsNullOrEmpty(c.RibbonName));
 
             foreach (var comp in series.Components)
             {
                 if (!comp.IsVisible || comp.IsMuted) continue;
                 if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
                 if (!IsPriceSpaceOverlayLine(series, comp)) continue;
+                // A ribbon's line is said as the band (ScanRibbons), never on its own.
+                if (!string.IsNullOrEmpty(comp.RibbonName)) continue;
 
                 var data = series.GetComponentData(comp.Name);
                 if (data == null || barIndex >= data.Length) continue;
@@ -965,6 +970,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 _lastCloudPosition[$"{series.Id}:{comp.Name}"] = position;
             }
+
+            // Ribbons the same way: the side price is on when narration starts is not news.
+            if (close > 0)
+                foreach (var (name, lines) in Ribbons(series))
+                    if (RibbonPosition(series, lines, idx, close, out _, out _) is { } where)
+                        _lastCloudPosition[$"{series.Id}:ribbon:{name}"] = where;
         }
 
         private void ScanZoneLines(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
@@ -1189,6 +1200,82 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
 
                 _lastCloudPosition[cloudKey] = position;
+            }
+        }
+
+        // ── Ribbons ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The series' ribbons: its lines grouped by <see cref="ComponentConfig.RibbonName"/>,
+        /// counting only lines that are shown and on the price axis. A hidden line is not part of
+        /// the band the user sees, so it does not widen the band they hear about; a left-out line
+        /// (Properties → Parts) is not in <c>Components</c> at all.
+        /// </summary>
+        private static IEnumerable<(string Name, List<ComponentConfig> Lines)> Ribbons(ChartSeries series)
+            => series.Components
+                .Where(c => !string.IsNullOrEmpty(c.RibbonName) && c.IsVisible && IsPriceSpaceOverlayLine(series, c))
+                .GroupBy(c => c.RibbonName!)
+                .Select(g => (g.Key, g.ToList()));
+
+        /// <summary>
+        /// Where <paramref name="close"/> is against the band the lines span at a bar — "inside",
+        /// "above" or "below" — with the band's edges; null while any line has no value yet.
+        /// </summary>
+        private static string? RibbonPosition(ChartSeries series, List<ComponentConfig> lines, int barIndex, double close,
+                                              out double lo, out double hi)
+        {
+            lo = double.MaxValue; hi = double.MinValue;
+            foreach (var c in lines)
+            {
+                var d = series.GetComponentData(c.Name);
+                if (d == null || barIndex >= d.Length || double.IsNaN(d[barIndex])) return null;
+                lo = Math.Min(lo, d[barIndex]);
+                hi = Math.Max(hi, d[barIndex]);
+            }
+            return close >= lo && close <= hi ? "inside" : close > hi ? "above" : "below";
+        }
+
+        /// <summary>
+        /// "Cipher A: Price entered the ribbon, between 64,200.00 and 66,900.00." on the bar close
+        /// where it happened; "left the ribbon above, at …" / "below, at …"; and "crossed above
+        /// the ribbon, at …" when one bar jumps the whole band.
+        ///
+        /// <para><b>Cody, 2026-10-23:</b> <i>"Ribbon narration, yes I agree, for this indicator and
+        /// I suppose ribbons in general"</i>; <i>"announce when in the ribbon? yes"</i>. Before
+        /// this the ribbon said nothing on a bar close: its lines are muted, and
+        /// <see cref="ScanOverlayCrosses"/> skips a muted line.</para>
+        ///
+        /// <para><b>Mute is not consulted.</b> A ribbon's lines are muted for SOUND (eight tones
+        /// within a few percent of price bury the candles); the band's news is what narration is
+        /// for. What silences it is what silences any narration: the series not narrating, or an
+        /// N selection that picks none of the ribbon's lines.</para>
+        /// </summary>
+        private void ScanRibbons(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
+        {
+            if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
+            double close = CloseAsDrawn(state, barIndex);
+            if (close <= 0 || double.IsNaN(close)) return;
+
+            foreach (var (name, lines) in Ribbons(series))
+            {
+                if (!lines.Any(c => SeriesNarrationScope.ComponentNarrates(series, c))) continue;
+                if (RibbonPosition(series, lines, barIndex, close, out double lo, out double hi) is not { } position) continue;
+
+                string key = $"{series.Id}:ribbon:{name}";
+                if (_lastCloudPosition.TryGetValue(key, out var prev) && prev != position)
+                {
+                    string top = SpeechPriceFormatter.FormatPrice(hi), bottom = SpeechPriceFormatter.FormatPrice(lo);
+                    string msg = (prev, position) switch
+                    {
+                        (_, "inside")       => $"Price entered the {name}, between {bottom} and {top}.",
+                        ("inside", "above") => $"Price left the {name} above, at {top}.",
+                        ("inside", _)       => $"Price left the {name} below, at {bottom}.",
+                        (_, "above")        => $"Price crossed above the {name}, at {top}.",
+                        _                   => $"Price crossed below the {name}, at {bottom}.",
+                    };
+                    utterance.Add(ScanUtterance.TierCross, series.FriendlyName, key, $"{series.FriendlyName}: {msg}");
+                }
+                _lastCloudPosition[key] = position;
             }
         }
 

@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher A in the original's colours, with Ribbon 9, pivots, Parts → Include and ribbon narration (2026-10-23)
+
+Cody, 2026-10-23: the ninth ribbon line "available but disabled", pivot marks "true to the
+original", "all colors should match as well for everything", "each shape and ribbon and visual
+option as a preference", and on narration "Ribbon narration, yes … for this indicator and I suppose
+ribbons in general" / "announce when in the ribbon? yes".
+
+- **Colours and sizes** are Market Cipher A 2.5.0's own style settings, read from its settings
+  dialog: the ladder #0066CC #1A8CFF #4DA6FF #80BFFF #99CCFF #99CCFF #CCE6FF #E6F2FF (was matched
+  from screenshots, #1573D4 …), grey #505662, every line width 2 (EMA 11–33 were 1.5). Symbols:
+  Yellow Diamond #FDD835 at 30% opacity, Blue Triangle #4259F4, Green Dot #00E676, Red X #F23645,
+  Yellow X #FDD835, Red Diamond #F23645 at 55%, Blood Diamond #F23645; the original's "tiny" is 8 px
+  and "small" 12 px here (Blue Triangle, Yellow X and Blood Diamond are small).
+- **Two fills**, as the original: EMA 5 to EMA 33 (#B3D9FF at 10%) and EMA 5 to EMA 11 (#80B3FF at
+  15%). Drawn only; they have no sound.
+- **Ribbon 9**: a 21-bar simple average of the close (General → Ribbon 9 Length), yellow #FDD835,
+  width 2. **Pivot High / Pivot Low**: the highest high and lowest low of the last N bars (General →
+  Pivot Bars Back, 1 by default, as the original's "Days Back"), #4DA6FF at 80%, width 1. All three
+  are left out by default, as the original has them off; every other part is in.
+- **Properties → Appearance → Parts**: an "Include" box per part, for any indicator with more than
+  one. A part left out moves to `SeriesConfig.ExcludedComponents`: still computed (so other parts
+  and strategies that read it still work) but not drawn, sounded, spoken, narrated or reached with
+  the arrow keys, and a fill with a left-out edge is not drawn. It is saved with the chart; "Save as
+  Defaults" stores it (`IndicatorPreferences.IsEnabled`); "Reset to Defaults" puts the indicator's
+  own choice back. A part put back returns to its place in the indicator's order. The last included
+  part cannot be left out: its box cancels the click and says "At least one part has to stay
+  included." (Before that fix, found while writing this, the refusal was spoken but the box was left
+  unticked, since Blazor saw no change to re-render.) A provider declares a part off with
+  `IndicatorComponentMetadata.DefaultIsEnabled = false`; a chart saved before a part existed gets it
+  per that default.
+- **Ribbon narration.** Lines that share an `IndicatorComponentMetadata.RibbonName` narrate as one
+  band on the bar close: "Cipher A: Price entered the ribbon, between 64,200.00 and 66,900.00.",
+  "… left the ribbon above, at …" / "below, at …", and "… crossed above / below the ribbon, at …"
+  when one bar jumps it. The band is the min and max of the visible ribbon lines on that bar.
+  Cipher A's eight EMAs are one ribbon; Ribbon 9 and the pivots are not part of it. A ribbon line
+  never speaks its own "Price crossed". The side price is on when narration is switched on is the
+  starting point, so the bar forming then can be news when it closes.
+- **Correction to the TODO's question 3:** it said per-line crosses were announced "today". They
+  were not: the eight lines are muted and the overlay-cross scan skips muted lines, so the ribbon
+  said nothing on a bar close (`Ribbon_lines_were_silent_before_ribbon_narration` records it).
+- **Caveats.** Not seen or heard in the app. The pivots are checked against the original only at
+  Days Back 1 on a daily chart; higher values and intraday charts are unverified (the "highest of N
+  bars" reading is a guess for N above 1). Ribbon narration ignores the lines' mute (their mute is
+  for sound); it is silenced by the series not narrating or by an N selection that picks none of its
+  lines. The last-box refusal is tested in bUnit (the cancel flag and the spoken refusal), not in a
+  browser. The accessibility-lead review agent is not registered in this session, so no agent review
+  of the Parts fieldset was run.
+- **Tests:** `ComponentInclusionTests` (7), `RibbonNarrationTests` (11), Cipher A metadata and
+  provider tests for colours, fills, defaults, Ribbon 9 and pivots, and a `PropertiesModalTests` case
+  for the last part. Sabotages red: factory partition off, restore drops excluded, fill ignores
+  exclusion, clone drops excluded, preference ignored, include appends, Ribbon 9 on by default, pivot
+  on close, Yellow Diamond opaque, fills removed; ribbon scan not called, overlay speaks ribbon lines,
+  mute honoured, selection ignored, hidden lines counted, no seed, left above says below, factory
+  drops the ribbon name, clone drops it, Cipher A without a ribbon; last box not cancelled, refusal
+  not spoken. ("No seed" and "factory drops" first stayed green; a tick test and a factory test were
+  added and both now go red.)
+
 ### Cipher A's Yellow Diamond needs Cipher B's money flow on a near tie of the waves (2026-10-23)
 
 - **Rule:** the Yellow Diamond (fast wave above slow, EMA 5 above EMA 11 and EMA 33) now also needs
