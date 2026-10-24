@@ -85,9 +85,11 @@
 >     blues with its two light fills; include Ribbon 9 and the pivots from Properties → Appearance →
 >     Parts and check them against the original. Cody to listen: with Cipher A narrating, "Price entered
 >     the ribbon, between …", "left the ribbon above/below", "crossed above/below the ribbon" on bar
->     closes, and no per-line crosses. Open: the pivots with Bars Back above 1 and on intraday charts
->     are not checked against the original (I can set its input on TradingView and compare); the last
->     Include box refusing to untick is tested in bUnit, not in a browser.
+>     closes, and no per-line crosses. Pivots checked on TradingView the same day (TVC:DJI): 1D at 1 and
+>     3 back exact; on 1 hour the original counts DAYS, not bars (300/300 at 1 and 2), now built,
+>     with today's high so far instead of the whole day's (CHANGES). Still open: sessions that cross
+>     midnight UTC and weekly charts are unchecked; the last Include box refusing to untick is tested
+>     in bUnit, not in a browser.
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the

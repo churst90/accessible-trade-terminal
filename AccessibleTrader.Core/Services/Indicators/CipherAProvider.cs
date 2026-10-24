@@ -136,7 +136,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "Bars in Ribbon 9, a simple average of the close. 21, as Market Cipher A." },
                     new() { Name = "PivotDaysBack", DisplayName = "Pivot Bars Back", DataType = typeof(int), DefaultValue = 1.0,
                             MinValue = 1, MaxValue = 50, Step = 1,
-                            Description = "Pivot High is the highest high of this many bars, Pivot Low the lowest low. At 1 on a daily chart this matches Market Cipher A; other values and intraday charts are not yet checked against it." },
+                            Description = "Pivot High is the highest high of this many bars, Pivot Low the lowest low; on an intraday chart, of this many trading days, today's high so far included." },
                 },
                 // Market Cipher A shades between the first and last ribbon lines and, more strongly, between
                 // the first two. Visual only: the lines themselves are already navigable.
@@ -238,6 +238,53 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultUsePolarityColoring = false,
         };
 
+        /// <summary>
+        /// Pivot High and Pivot Low: the highest high and lowest low of the last
+        /// <paramref name="back"/> bars on a daily chart, and of the last <paramref name="back"/>
+        /// trading DAYS on an intraday one, today included.
+        ///
+        /// <para>Checked against Market Cipher A on TradingView, 2026-10-23 (TVC:DJI, 300 bars each):
+        /// 1D at 1 and 3 bars back match bar for bar; on 1 hour at 1 and 2 days back every bar
+        /// shows the high and low of the 1D bars of its day and the day(s) before it, 300/300. A
+        /// Monday at 2 pairs with the Friday, so the count is in trading days, not calendar days.</para>
+        ///
+        /// <para><b>Deliberately different on intraday history:</b> the original shows the WHOLE
+        /// day's high on every bar of that day, so a 10:00 bar already carries the high made at
+        /// 15:00. Here today's part is the high SO FAR, up to and including the bar. The two agree
+        /// on each day's last bar and on the live bar; earlier in a past day this one is lower (or
+        /// the low higher). Same choice as Cipher SR's range (Cody: keep it running).</para>
+        ///
+        /// <para>Days are UTC dates, as Cipher SR's range and VWAP. A session that spans midnight
+        /// UTC (futures, Asian markets) splits in two here; not checked against the original.
+        /// Weekly and longer charts use bars, also not checked.</para>
+        /// </summary>
+        private static (double[] High, double[] Low) Pivots(ReadOnlySpan<Ohlcv> data, double[] high, double[] low, int back)
+        {
+            int n = data.Length;
+            var pivHigh = Nan(n); var pivLow = Nan(n);
+            var days = new List<(long Day, double High, double Low)>();
+            for (int i = 0; i < n; i++)
+            {
+                long day = (long)Math.Floor(CipherSrProvider.UnixSeconds(data[i].Date) / 86400.0);
+                if (days.Count == 0 || days[^1].Day != day) days.Add((day, high[i], low[i]));
+                else days[^1] = (day, Math.Max(days[^1].High, high[i]), Math.Min(days[^1].Low, low[i]));
+
+                double hi = double.MinValue, lo = double.MaxValue;
+                if (CipherSrProvider.IsIntraday(data, i))
+                {
+                    if (days.Count < back) continue;
+                    for (int k = days.Count - back; k < days.Count; k++) { hi = Math.Max(hi, days[k].High); lo = Math.Min(lo, days[k].Low); }
+                }
+                else
+                {
+                    if (i < back - 1) continue;
+                    for (int j = i - back + 1; j <= i; j++) { hi = Math.Max(hi, high[j]); lo = Math.Min(lo, low[j]); }
+                }
+                pivHigh[i] = hi; pivLow[i] = lo;
+            }
+            return (pivHigh, pivLow);
+        }
+
         /// <summary>Stacking slot above the high, so symbols on one candle sit one above another
         /// as Market Cipher A draws them, rather than on top of each other.</summary>
         private static int Slot(string comp) => comp switch
@@ -299,13 +346,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             Write(buffer, CompRedX, redX); Write(buffer, CompRedDiamond, redD); Write(buffer, CompBloodDiamond, blood); Write(buffer, CompYellowX, yx);
             for (int k = 0; k < RibbonLengths.Length; k++) Write(buffer, RibbonLine(k), ema[k]);
             Write(buffer, CompRibbon9, IndicatorMath.Sma(close, ribbon9));
-            var pivHigh = Nan(n); var pivLow = Nan(n);
-            for (int i = pivotBack - 1; i < n; i++)
-            {
-                double hi = double.MinValue, lo = double.MaxValue;
-                for (int j = i - pivotBack + 1; j <= i; j++) { hi = Math.Max(hi, high[j]); lo = Math.Min(lo, low[j]); }
-                pivHigh[i] = hi; pivLow[i] = lo;
-            }
+            var (pivHigh, pivLow) = Pivots(data, high, low, pivotBack);
             Write(buffer, CompPivotHigh, pivHigh); Write(buffer, CompPivotLow, pivLow);
             Write(buffer, Wt1Key, wt1); Write(buffer, Wt2Key, wt2); Write(buffer, StochKey, stoch);
         }

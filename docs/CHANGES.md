@@ -23,6 +23,18 @@ ribbons in general" / "announce when in the ribbon? yes".
   width 2. **Pivot High / Pivot Low**: the highest high and lowest low of the last N bars (General →
   Pivot Bars Back, 1 by default, as the original's "Days Back"), #4DA6FF at 80%, width 1. All three
   are left out by default, as the original has them off; every other part is in.
+  - **Pivots checked against Market Cipher A on TradingView** (TVC:DJI, 300 bars each, by setting
+    its "H/L Pivot Days Back" and Show Pivot inputs and reading what it drew, then putting them
+    back): 1D at 1 and 3 back match bar for bar. On 1 hour the original counts DAYS: every bar shows
+    the 1D bars' high and low of its own day (1 back), and of its day and the trading day before
+    (2 back; Monday with Friday), 300/300 both. Ours now does the same on intraday charts
+    (`CipherAProvider.Pivots`, days from `CipherSrProvider.IsIntraday` / UTC dates). **Deliberate
+    difference:** on past days the original's 10:00 bar already carries the 15:00 high (the whole
+    day's); ours uses today's high so far, as Cipher SR's range (Cody: keep it running), so the two
+    agree on each day's last bar and on the forming bar and differ earlier in a day. **Not checked:**
+    sessions that cross midnight UTC (split into two days here), weekly charts (bars here), Bars Back
+    above 2 intraday. Test `On_an_intraday_chart_the_pivots_are_trading_days_back_with_today_so_far`;
+    sabotages red: chart bars always, calendar days, one day too many, the whole day's high.
 - **Properties → Appearance → Parts**: an "Include" box per part, for any indicator with more than
   one. A part left out moves to `SeriesConfig.ExcludedComponents`: still computed (so other parts
   and strategies that read it still work) but not drawn, sounded, spoken, narrated or reached with

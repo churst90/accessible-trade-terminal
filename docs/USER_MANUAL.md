@@ -1556,8 +1556,14 @@ sound. The colours, line widths, fills and symbol sizes are the original's own s
 Three more parts are there but **left out** until you include them (Properties → Appearance →
 Parts): **Ribbon 9**, a yellow 21-bar simple average of the close (General → Ribbon 9 Length), and
 **Pivot High** and **Pivot Low**, light-blue lines at the highest high and lowest low of the last
-1 bar — the bar's own high and low — or more (General → Pivot Bars Back). At 1 on a daily chart the
-pivots match the original; other settings and intraday charts have not been checked against it.
+1 bar — the bar's own high and low — or more (General → Pivot Bars Back). On an intraday chart the
+count is in trading days, not bars: at 1, every bar carries its day's high and low, at 2 also the
+trading day before (Monday reaches back to Friday). On daily charts, and on hourly charts at 1 and 2,
+this matches the original bar for bar, with one deliberate difference: on past days the original
+puts the whole day's high on every bar of that day, even bars before the high was made, and ours
+uses the high so far, as Cipher SR's range does. The two agree on each day's last bar and on the bar
+being formed. Days are UTC dates; markets whose session crosses midnight UTC, and weekly charts,
+have not been checked.
 Every line and symbol can be left out the same way, and "Save as Defaults" keeps your choice for new
 charts. Its **seven symbols** come first when you move through its parts, each
 with its own sound. Landing on one says what it means rather than which averages crossed — for

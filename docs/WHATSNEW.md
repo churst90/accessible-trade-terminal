@@ -10,7 +10,8 @@
 
 - **Cipher A looks like the original.** Its ribbon uses Market Cipher A's own blues, line widths and
   two light fills, and its symbols the original's colours and sizes. The original's ninth line (a
-  yellow 21-day average) and its pivot lines are there too, left out until you include them.
+  yellow 21-day average) and its pivot lines are there too, left out until you include them. On an
+  hourly chart the pivots show the day's high and low, as the original does.
 - **Leave out any part of an indicator.** Properties → Appearance → Parts has an "Include" box for
   each part. A part left out is gone: not drawn, heard, spoken or reached with the arrow keys. "Save
   as Defaults" remembers it for new charts.

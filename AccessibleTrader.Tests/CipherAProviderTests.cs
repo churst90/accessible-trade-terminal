@@ -437,7 +437,7 @@ public sealed class CipherAProviderTests
     /// Ribbon 9 is the close's simple average (21 bars by default, as Market Cipher A). The pivot lines
     /// are the bar's own high and low at 1 bar back, which is what Market Cipher A 2.5.0 plotted on
     /// every bar of BTCUSD 1D (2026-10-23); at more bars back they are the highest high and lowest low
-    /// of that many bars, which is not yet checked against the original.
+    /// of that many bars, as Market Cipher A on TVC:DJI 1D at 3 bars back (300/300, 2026-10-23).
     /// </summary>
     [Fact]
     public void Ribbon_nine_is_the_simple_average_and_the_pivots_are_the_highs_and_lows()
@@ -460,6 +460,53 @@ public sealed class CipherAProviderTests
             Assert.Equal(Enumerable.Range(i - 2, 3).Max(j => bars[j].High), r3[CipherAProvider.CompPivotHigh][i]);
             Assert.Equal(Enumerable.Range(i - 2, 3).Min(j => bars[j].Low),  r3[CipherAProvider.CompPivotLow][i]);
             Assert.Equal(Enumerable.Range(i - 4, 5).Average(j => bars[j].Close), r3[CipherAProvider.CompRibbon9][i], 6);
+        }
+    }
+
+    /// <summary>
+    /// On an hourly chart the pivots are DAYS back, not bars: Market Cipher A on TVC:DJI 1 hour
+    /// showed the 1D bars' high and low of the bar's day (1 back) and of that day and the trading day
+    /// before it (2 back) on all 300 bars, Monday pairing with Friday. Unlike the original, today's
+    /// part is the high and low SO FAR: its 10:00 bar does not know the 15:00 high.
+    /// </summary>
+    [Fact]
+    public void On_an_intraday_chart_the_pivots_are_trading_days_back_with_today_so_far()
+    {
+        // Thursday, Friday, then Monday: seven hourly bars a day from 13:30 UTC. Each day's high
+        // comes late (bar 5), its low early (bar 1), so "so far" and "whole day" differ.
+        var days = new[] { new DateTime(2026, 10, 15, 13, 30, 0, DateTimeKind.Utc), new DateTime(2026, 10, 16, 13, 30, 0, DateTimeKind.Utc), new DateTime(2026, 10, 19, 13, 30, 0, DateTimeKind.Utc) };
+        double[] baseOf = { 100, 120, 90 };
+        var bars = new List<Ohlcv>();
+        foreach (var (day, d) in days.Select((t, d) => (t, d)))
+            for (int h = 0; h < 7; h++)
+            {
+                double mid = baseOf[d] + h;
+                double hi = mid + (h == 5 ? 10 : 1), lo = mid - (h == 1 ? 10 : 1);
+                bars.Add(new Ohlcv(day.AddHours(h), mid, hi, lo, mid, 1000));
+            }
+        double RunningHigh(int d, int h) => Enumerable.Range(0, h + 1).Max(k => bars[d * 7 + k].High);
+        double RunningLow(int d, int h)  => Enumerable.Range(0, h + 1).Min(k => bars[d * 7 + k].Low);
+        double DayHigh(int d) => RunningHigh(d, 6);
+        double DayLow(int d)  => RunningLow(d, 6);
+
+        var r1 = Run(bars);
+        for (int d = 0; d < 3; d++)
+            for (int h = 0; h < 7; h++)
+            {
+                Assert.Equal(RunningHigh(d, h), r1[CipherAProvider.CompPivotHigh][d * 7 + h]);
+                Assert.Equal(RunningLow(d, h),  r1[CipherAProvider.CompPivotLow][d * 7 + h]);
+            }
+        // Not the last bar's own high: the day's 15:00 high still stands at 16:00 and 17:00.
+        Assert.Equal(baseOf[2] + 15, r1[CipherAProvider.CompPivotHigh][2 * 7 + 6]);
+
+        var r2 = Run(bars, new() { ["PivotDaysBack"] = 2.0 });
+        Assert.True(double.IsNaN(r2[CipherAProvider.CompPivotHigh][6]), "Thursday has no day before it on this chart");
+        for (int h = 0; h < 7; h++)
+        {
+            // Monday reaches back to Friday, over the weekend.
+            Assert.Equal(Math.Max(DayHigh(1), RunningHigh(2, h)), r2[CipherAProvider.CompPivotHigh][14 + h]);
+            Assert.Equal(Math.Min(DayLow(1),  RunningLow(2, h)),  r2[CipherAProvider.CompPivotLow][14 + h]);
+            Assert.Equal(Math.Max(DayHigh(0), RunningHigh(1, h)), r2[CipherAProvider.CompPivotHigh][7 + h]);
         }
     }
 

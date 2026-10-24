@@ -335,14 +335,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// a bar's answer never depends on bars after it; a weekend gap on an intraday chart is
         /// bridged by the bars before it.
         /// </summary>
-        private static bool IsIntraday(ReadOnlySpan<Ohlcv> data, int i)
+        internal static bool IsIntraday(ReadOnlySpan<Ohlcv> data, int i)
         {
             for (int k = i; k >= Math.Max(1, i - 5); k--)
                 if ((data[k].Date - data[k - 1].Date).TotalSeconds is > 0 and < 86400) return true;
             return false;
         }
 
-        private static double UnixSeconds(DateTime t)
+        internal static double UnixSeconds(DateTime t)
         {
             var utc = t.Kind == DateTimeKind.Local ? t.ToUniversalTime() : DateTime.SpecifyKind(t, DateTimeKind.Utc);
             return (utc - DateTime.UnixEpoch).TotalSeconds;
