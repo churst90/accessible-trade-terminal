@@ -139,7 +139,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf),
             new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf),
             new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf),
-            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf),
+            // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
+            // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
+            // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
+            // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
             new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf),
             new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf),

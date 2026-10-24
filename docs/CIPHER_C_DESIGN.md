@@ -459,6 +459,9 @@ cycle − 1.
 | Dow (36) | 25 | 18 on 19 | 52, 52 (then later) | last + 35 | 36 |
 | Bitcoin (54) | 24 | 24 on 19 | 70, 70, 70, 70, 72 | last + 47 | **48** |
 | S&P, SP:SPX (none: the original said "Unoptimised Asset Detected") | 21 | 16 on 18 | 46, 46, 48 | last + 31 | 32 |
+| Nasdaq (36) | 25 | 18 on 24 | 52 | last + 35 | 36 |
+| Gold (22) | 44 | 11 on 37 | 31, 31, 31 (then later) | last + 21 | 22 |
+| Silver (22) | 40 | 12 on 33 | 34, 35, 36, 36, 36, 38 | last + 23 | **24** |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -466,6 +469,11 @@ cycle − 1.
   still what is shown and said, followed by "counted from 48". Scored on the Bitcoin candle replay:
   daily lows on the original's bar 19 → 22 of 25, extra lows 6 → 6, check marks on the original's
   bar 0 of 19 → 20 of 22. Weekly lows stay 9 of 11, with extra weekly lows 1 → 3.
+- **Silver counts from 24, not 22**, though its table is Gold's (22 to 28) and Gold counts from
+  22. At 22 none of Cipher C's Silver check marks landed on the original's bar (0 of 33, each a bar
+  early). Counted from 24 (`CountDailyMin`, said as "counted from 24"): check marks on its bar 0 of
+  33 → 27 of 32, extra daily lows 12 → 8, but exact daily lows 47 → 46 of 56 and weekly 6 → 5 of
+  12 (both still 6 within 2 bars). Silver was not used to fit anything before this.
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the

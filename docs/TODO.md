@@ -34,8 +34,10 @@
     weekly label per bar, to read the rule.
   - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
 >     replays show the original counts Bitcoin's daily cycle as if the shortest were 48, though its
->     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. Still to check as the
->     other thirteen assets land: Ethereum (table 15–25), metals, the dollar, the indices.
+>     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. **Silver counts from
+>     24** (table 22–28, as Gold's; built, NOT seen): check marks 0 → 27 of 32. Checked and as their
+>     tables: GDX, Gold, Dow, Nasdaq. Still to check: Ethereum (table 15–25), the dollar, oil, the
+>     junior miners, the four stocks.
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
 >     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.

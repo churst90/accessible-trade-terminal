@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts Silver's daily cycle from 24 days (2026-10-24)
+
+- Silver's table says 22 to 28 days, the same as Gold's, and Gold behaves as 22. In the original's
+  candle replay of Silver (2021–26, 40 lows) it confirms a low 12 bars after it on 33 of 40, a short
+  cycle no sooner than the last low + 34 and a first label no sooner than the last low + 23: all
+  three fit a shortest cycle of 24. Cipher C now counts Silver from 24, as Bitcoin from 48. The
+  range shown and said stays 22 to 28, followed by "counted from 24".
+- Scored on that replay (Silver was held out until now): check marks on the original's bar 0 of 33
+  → 27 of 32, extra daily lows 12 → 8. It costs one exact daily low (47 → 46 of 56) and one exact
+  weekly low (6 → 5 of 12); both stay 6 within 2 bars. The other six scored assets are unchanged.
+- Silver's weekly lows do not fit the weekly pick either (7 of the original's 9 since 2021 at best,
+  as Gold and GDX, the other 22-day assets).
+- One new test: the same weekday bars under Silver confirm 12 bars after their low, under Gold 11.
+  Counting Silver from 22 or 26 turns it red. Not seen in the app.
+
 ### Cipher C confirms a low on the day it comes due, even if that day goes lower (2026-10-24)
 
 - Until now a lower low on the bar a held daily low came due took its place and started the hold

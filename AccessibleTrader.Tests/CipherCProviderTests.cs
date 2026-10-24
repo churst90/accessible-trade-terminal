@@ -663,6 +663,33 @@ public sealed class CipherCProviderTests
         Assert.Equal(22, CipherCEngine.Preset("GDX").CountedDailyMin);
     }
 
+    /// <summary>
+    /// Silver's table says 22–28 days, as Gold's does, but in the original's bar replay (candles,
+    /// 2021–26, 40 lows) Silver confirms 12 bars after the low on 33 of 40, as if the shortest
+    /// cycle were 24, where Gold confirms at 11 on 37 of 44. So the same bars give Silver's daily
+    /// confirmations a shortest and commonest lag of 12 and Gold's of 11.
+    /// </summary>
+    [Fact]
+    public void Silver_counts_its_daily_cycle_from_24_days_and_gold_from_22()
+    {
+        // Bitcoin's bars without weekends, so a trading-day preset counts one bar a day.
+        var bars = CipherSrSpeechTests.BtcDaily().Where(b => b.Date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)).ToList();
+        List<int> Lags(string symbol)
+        {
+            var r = Run(bars, symbol);
+            return Marked(r[CipherCProvider.CompDclConfirmed]).Select(t => (int)r[CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix][t]).ToList();
+        }
+        int Common(List<int> l) => l.GroupBy(x => x).OrderByDescending(g => g.Count()).First().Key;
+        var silver = Lags("XAG/USD"); var gold = Lags("XAU/USD");
+        _out.WriteLine($"silver {silver.Count} confirmations, shortest {silver.Min()}, commonest {Common(silver)}; gold {gold.Count}, {gold.Min()}, {Common(gold)}");
+        Assert.Equal(12, silver.Min());
+        Assert.Equal(12, Common(silver));
+        Assert.Equal(11, gold.Min());
+        Assert.Equal(11, Common(gold));
+        Assert.Equal(22, CipherCEngine.Preset("SILVER").DailyMin);
+        Assert.Contains("daily 22 to 28 trading days, counted from 24,", CipherCProvider.PresetWords(5, new DateTime(2025, 1, 1)));
+    }
+
     /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No
     /// vendor name in anything the user reads (the metadata: description, parameter help, component
     /// names) or hears (every preset's spoken words, and the no-preset fallbacks).</summary>
