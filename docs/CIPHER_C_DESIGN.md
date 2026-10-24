@@ -494,7 +494,16 @@ replays (GDX, Bitcoin, Dow, SP:SPX, Nasdaq), 124 undercuts:
   again. It now confirms on that bar. Scores in CHANGES (2026-10-24): small gains
   on GDX, Bitcoin and the S&P, Dow weekly one worse, Nasdaq unchanged.
 - **Earlier in the hold the original drops the low** (its 🕘 label goes away) rather than moving it.
-  The next label comes from a fresh search. Cipher C moves the low to the lower bar instead. Not tried yet.
+  The next label comes from a fresh search. Cipher C moves the low to the lower bar instead. The
+  lows and check marks come out the same: a fresh search finds the lowest bar since the cycle's top,
+  which is the lower bar. Only when the unconfirmed label shows differs.
+- **Counted in bars left until the low is due** (the hold counted from the later of the low and the
+  last low + the shortest cycle − 2), the 124 undercuts split cleanly: 4 or more bars left, dropped
+  100 of 100; 1 or 2 left, kept 7 of 8; the due bar, confirmed 7 of 8. Tried: ignoring a lower low
+  in the last 1, 2 or 3 bars as well. Two bars is best on GDX (daily 51 → 53 of 61, weekly 6 → 7),
+  S&P (84 → 85, weekly 30 → 32) and Gold (83 → 85), but the Dow loses 2 daily and 6 weekly lows
+  (101 → 99, 39 → 33): its three such bars (2022-06-13, 2024-12-18, 2025-04-03) were all dropped. Not
+  adopted; what decides the 8 near-due cases is not found.
 - **Nasdaq's misses are the search, not the hold.** On 20 May 2022 the original found the low and
   confirmed it on 16 June, the bar that made a lower low. Cipher C found no low there: an earlier low
   had failed, and the low it found was 16 June itself.

@@ -23,8 +23,15 @@
 >   is now confirmed about 24 days after it (27 until 2026-10-24, 12 before the hold). Open:
 >   - **Confirmed on the due day even if it goes lower (2026-10-24, built, NOT seen; CIPHER_C_DESIGN
     section 13).** Small gain on four of five replays (Dow weekly −1). Check it held out on Gold and the
-    later assets as they land. The original also drops (not moves) an unconfirmed low that is undercut
-    early in the hold, 106 of 124 undercuts; Cipher C moves it. Not tried yet.
+    later assets as they land. Gold (held out): daily 83 of 112, check marks on its bar 26 of 28. The
+    original keeps its unconfirmed low through a lower low 1–2 bars before due on 7 of 8; ignoring
+    those bars helps GDX, S&P, Gold but costs the Dow 6 weekly lows, so not adopted.
+  - **Gold's weekly lows: 4 of 9 since 2021, 10 extra.** The weekly pick reproduces the original's
+    weekly lows from its own daily lows on the Dow (10 of 11 in the replay), Bitcoin (11 of 11),
+    S&P (11 of 13), Nasdaq (8 of 11), but not Gold (5 of 8) or GDX (5 of 9) at any keep distance;
+    both have 22-day daily cycles. On Gold the original keeps weekly lows 24–46 weeks apart (table
+    20–28) and skips a candidate the pick would draw (2025-01-26). Replays from DXY on log every
+    weekly label per bar, to read the rule.
   - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
 >     replays show the original counts Bitcoin's daily cycle as if the shortest were 48, though its
 >     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. Still to check as the
