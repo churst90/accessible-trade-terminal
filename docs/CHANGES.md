@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI adds an eighth base vote: Cipher B's money flow rising (2026-10-24)
+
+- **Formula:** each side's base votes gain one more: Cipher B's money flow (the 60-bar average of each
+  Heikin-Ashi body over the average size of the last five bodies) rising for the bulls, falling for
+  the bears. It is computed on Heikin-Ashi of the candles the score reads, so on the default
+  Heikin-Ashi setting it is Heikin-Ashi of Heikin-Ashi, as Cipher B's own is on a Heikin-Ashi chart
+  (`CipherBProvider.McbMoneyFlowShare`, reused). Undefined until its 64-bar window fills. Every
+  constant refitted on the same twenty charts (`dbsi6/gen4.py`), copied to the digit. Full score 34
+  for both sides (bears were 33); no votes still −5.
+- **How it was found:** on the original's Start grids (bars whose two numbers add to 3, nothing
+  remembered), a search for the missing base votes found that the money flow rising takes the place
+  of one of the 2-point votes. With it, the integer vote count matches the original's bull number
+  exactly on 70.5% of the Dow 2024-26 grid, 72.6% of the Dow 2022-24 grid and 72.3% of Bitcoin's
+  (about 62% before), and the extremes are now 89-98% exact. The weight-1 vote is confirmed as the
+  WaveTrend gap widening.
+- **Measured:** on the fifteen livestream charts no fit saw: exact 17.4% -> 20.4%, within 1 48.5% ->
+  50.5%, within 2 65.3% -> 67.1%, error 3.08 -> 3.06; 17+ printed on 27 of 48 (same), false 17+
+  8 -> 10. Leave one chart out on the twenty: exact 24.1% -> 25.1%, within 2 71.9% -> 72.8%, error
+  2.52 -> 2.51, false 17+ 15 -> 20. In sample: 25.2%, 55.3%, 75.6%, 2.36; 17+ printed 50 of 84, 18
+  false; side in control 395 of 422 (was 397).
+- **On the original's Start grids, never fitted** (private; Cody asked to keep the grids out of the
+  repo for now): Dow daily 2022-26 within 2 72.5% -> 75.2%, exact 23.3% -> 27.3%; Bitcoin 1D
+  Heikin-Ashi 2022-26 within 2 68.8% -> 71.9%, exact 21.2% -> 24.0%, but false 17+ 35 -> 45.
+- **Caveats.** More false 17+ readings on every set: the model now reaches 17 a little more often
+  where DBSI does not. About 28% of the no-memory bars are still unmatched, mostly middling scores,
+  so some of the other base votes are probably stand-ins for DBSI's own. The money flow was found
+  after looking at all the grids. Not seen in the app.
+- **Tests:** fixture regenerated; golden replay on all 35 charts, refit recovery (one more column),
+  in-sample, leave-one-out and livestream numbers updated, and a new test that the shipped model
+  beats the same model fitted without the money flow on the fifteen livestream charts. Four
+  sabotages red: falling instead of rising (39 failed), a 59-bar average (39), the vote dropped
+  (40), the money flow computed from the open alone (40).
+
 ### Cipher C judges a weekly candidate at the next daily low on Gold, Silver and the miners (2026-10-24)
 
 - On Gold, Silver, GDX, GDXJ and SILJ (the original's 22-day assets) the weekly lows are now picked

@@ -170,6 +170,14 @@
 >   - **Cipher DBSI given seven base votes (2026-10-24, built, NOT seen; see CHANGES).** Found on the
 >     original's Dow daily Start grid; on the fifteen charts no fit saw: exact 14% → 17%, ±1 41% → 49%,
 >     ±2 61% → 65%, false 17+ 18 → 8. One commit to revert if Cody dislikes it.
+>   - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
+>     CHANGES).** On the fifteen charts no fit saw: exact 17% → 20%, ±2 65% → 67%, false 17+ 8 → 10. On
+>     the private grids, ±2 Dow 72.5% → 75.2%, Bitcoin 68.8% → 71.9% (false 17+ 35 → 45). One commit
+>     to revert. Still open: about 28% of no-memory bars unmatched (more base votes to find); the
+>     original's cross adds clean integers (bull: 5 alive / 1 after a normal cross, 14 / 7 deep, 6 / 2
+>     over-stretched; bear 5-9 / 1, 10 / 2, 9 / 2; +1 per bar while the gap widens), so an integer
+>     model of the run may beat the fitted run terms; the bull/bear deep asymmetry and the "Q" are
+>     unexplained.
 >   - **Cipher DBSI, what is still unknown.** The original also keeps a bonus of about 3, usually started
 >     on the bar before a side's own cross. The best rule found for its start matches 56 of 67, and for
 >     its end 88.5%. The other side's counter adds 1 per bar. Neither is in the app: a rough version

@@ -21,15 +21,16 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// (<c>dbsi2/gen2.py</c>, all twenty charts) gives each vote its own points
     /// (<see cref="VoteWeights"/>) and adds a streak, a stretch and the WaveTrend run; the
     /// 2026-10-24 refit (<c>dbsi6/gen3.py</c>, the same twenty charts) adds seven base votes
-    /// (<see cref="BaseVotes"/>). The numbers are copied here to the digit:
+    /// (<see cref="BaseVotes"/>), and the next (<c>dbsi6/gen4.py</c>) an eighth, the money flow
+    /// rising. The numbers are copied here to the digit:
     /// </para>
     /// <code>
-    ///   bull = round(max(−5, −4.960 + Σ points of the bull votes + Σ points of the bull base votes
-    ///                         − 0.070 × min(bull streak, 8) + 0.346 × max(0, (50 − K14) / 10) + bull run points))
-    ///   bear = the same with −5.087, the bear votes and base votes, the bear streak,
+    ///   bull = round(max(−5, −5.108 + Σ points of the bull votes + Σ points of the bull base votes
+    ///                         − 0.086 × min(bull streak, 8) + 0.412 × max(0, (50 − K14) / 10) + bull run points))
+    ///   bear = the same with −5.362, the bear votes and base votes, the bear streak,
     ///          max(0, (K14 − 50) / 10) and the bear run
-    ///   run points = 0.58 on the cross bar + 2.62 if the cross was deep − 0.07 if over-stretched
-    ///                + 2.23 while the gap still widens + 1.44 × bars it has widened (up to 10)
+    ///   run points = 0.51 on the cross bar + 2.66 if the cross was deep + 0.14 if over-stretched
+    ///                + 2.29 while the gap still widens + 1.43 × bars it has widened (up to 10)
     /// </code>
     /// <para>
     /// The <b>streak</b> is how many bars in a row have closed above (bear: below) the close two
@@ -55,7 +56,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// of the 2025–26 rows after a fit on 2021–24 (the twelve votes' old count: 33%). They were
     /// chosen on that Dow grid only, none of the charts below; their points here are refitted
     /// with everything else. Two of them are votes already in the twelve (the 2-bar momentum and wt1 rising), so the
-    /// momentum now counts three times and wt1 rising twice.
+    /// momentum now counts three times and wt1 rising twice. The eighth, Cipher B's money flow
+    /// rising, was found later on the same grid and held on Bitcoin's (2026-10-24): one of the
+    /// 2-point votes, it lifted the integer program's exact share from about 62% to 70–73% on the
+    /// Dow and on Bitcoin. No other base vote was found yet; the rest of the remaining error sits on
+    /// middling scores, so some of these are likely stand-ins for DBSI's own.
     /// </para>
     /// <para>
     /// A condition votes BULL when its quantity is above zero and BEAR when below (exactly zero,
@@ -150,36 +155,38 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public const int DefaultLongEntry = 7, DefaultShortEntry = 7, DefaultTrendLength = 200, DefaultLabelBars = 25;
 
-        // The model fitted on all twenty digitised charts (scratchpad dbsi6/gen3.py, 2026-10-24), to the digit.
-        internal const double BullIntercept = -4.959528407837538;
-        internal const double BearIntercept = -5.086732192356974;
+        // The model fitted on all twenty digitised charts (scratchpad dbsi6/gen4.py, 2026-10-24), to the digit.
+        internal const double BullIntercept = -5.107601536391871;
+        internal const double BearIntercept = -5.36160202946061;
         /// <summary>Each vote's points, in the order of the quantities in <see cref="Compute"/>.</summary>
         internal static readonly double[] VoteWeights =
         {
-            1.0848595478981897, 0.8277068913706439, 0.355736019635076, 1.2855563043316178,
-            0.06409295031743655, 0.9824908491180169, -0.17136094750774694, 1.025574129881378,
-            1.0848595478983027, 0.8999478988359495, 0.6844410934334169, 0.2689731054629559,
+            1.0845193714429286, 0.6920168363443725, 0.27232645311916226, 1.1420231726576762,
+            -0.06435200262764666, 1.0564906950400466, -0.17870869900644748, 0.9637448850457233,
+            1.0845193714429517, 0.986888815844512, 0.5774456916409217, 0.24278913740901845,
         };
         /// <summary>Each base vote's points, in the order of <see cref="BaseVotes"/>.</summary>
         internal static readonly double[] BaseWeights =
         {
-            1.0848595478983025, 2.3817720384558885, 0.1418099820262318, 1.0665198789552812,
-            0.8928601866288831, 0.9824908491180082, 2.659309037548321,
+            1.0845193714429509, 2.218589825116933, 0.049114618236642725, 0.9651428097898649,
+            0.9428726328586932, 1.0564906950400514, 2.5451751627314296, 1.17725342314774,
         };
         /// <summary>Points per bar of the side's streak (closes beyond the close two bars back), up to <see cref="StreakCap"/> bars.</summary>
-        internal const double StreakWeight = -0.07006656827515877;
+        internal const double StreakWeight = -0.08614779435237956;
         internal const int StreakCap = 8;
         /// <summary>Points per ten of the 14-bar stochastic's %K beyond 50 against the side (oversold for bulls).</summary>
-        internal const double StretchWeight = 0.3457825394944898;
+        internal const double StretchWeight = 0.4121202286127175;
         /// <summary>
         /// Points for the side's WaveTrend run (<see cref="WaveTrendRun"/>), in the order cross bar,
         /// deep cross, over-stretched cross, still widening, bars widened so far.
         /// </summary>
         internal static readonly double[] RunWeights =
         {
-            0.5831743130812089, 2.6249856273722285, -0.06721117800927416, 2.227286091090286, 1.4382849589092626,
+            0.5108906010457016, 2.6639085907051845, 0.1393033092487012, 2.292314667482957, 1.4330034234268854,
         };
         internal const int RunCountCap = 10;
+        /// <summary>The money flow's averaging length (Cipher B's 60) for the eighth base vote.</summary>
+        internal const int MoneyFlowLength = 60;
         internal const double RunLevel = 60.0;
         internal const int StretchLength = 14;
         internal const double Floor = -5.0;
@@ -447,12 +454,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             WaveRun BullWave, WaveRun BearWave, double[][] BullBase, double[][] BearBase);
 
         /// <summary>
-        /// The seven base votes of one side, each 1 or 0 per bar, on the candles given (the bears'
+        /// The eight base votes of one side, each 1 or 0 per bar, on the candles given (the bears'
         /// are these on the candles turned upside down: −open, −low as high, −high as low, −close,
         /// so every "above" becomes a strict "below"). In order: close above the close 2 bars back;
         /// the 4-bar EMA of close above itself 2 bars back; hlc3 above its 4-bar RMA; the 6-bar
         /// stochastic (SMA2) above its 3-bar SMA; the 21-bar stochastic (SMA2) rising; WaveTrend wt1
-        /// (9, 12) rising; wt1's gap over its 3-bar SMA widening. Undefined compares as no vote. The
+        /// (9, 12) rising; wt1's gap over its 3-bar SMA widening; Cipher B's money flow (the SMA60 of
+        /// each Heikin-Ashi body over the average size of the last five, Heikin-Ashi of the candles
+        /// given) rising — for the bears, falling. Undefined compares as no vote. The
         /// first and sixth are the votes <c>c&gt;c[2]</c> and <c>wt1_up</c> again, bar for bar, so
         /// the fit split their points evenly with them. The arithmetic is this class's (SMA-seeded
         /// EMA and RMA, a stochastic undefined until its window fills), not the Start-grid search's.
@@ -471,10 +480,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 0; i < n; i++) ci[i] = (hlc3[i] - esa[i]) / (0.015 * dd[i]);
             var wt1 = Ema(ci, 12);
             var gap = Sub(wt1, Sma(wt1, 3));
+            // Cipher B's money flow, unscaled: Heikin-Ashi of these candles, so Heikin-Ashi of
+            // Heikin-Ashi when the score reads Heikin-Ashi candles, as Cipher B's is on such a chart.
+            var mf = CipherBProvider.McbMoneyFlowShare(o, h, l, c, MoneyFlowLength);
             return new[]
             {
                 Above(c, Shift(c, 2)), Above(e4, Shift(e4, 2)), Above(hlc3, Rma(hlc3, 4)),
                 Above(k6, Sma(k6, 3)), Above(k21, Shift(k21, 1)), Above(wt1, Shift(wt1, 1)), Above(gap, Shift(gap, 1)),
+                Above(mf, Shift(mf, 1)),
             };
         }
 
