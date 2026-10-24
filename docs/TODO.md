@@ -16,8 +16,8 @@
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
 >   and CIPHER_C_DESIGN section 11).** A found daily low now holds for half the shortest cycle, counted
->   from the later of the low and the last low plus the shortest cycle less two bars. A lower low
->   while it holds replaces it. This is the original's rule, read from TradingView's bar replay on the
+>   from the later of the low and the last low plus the shortest cycle less two bars. A lower bar
+>   while it holds cancels it and the search looks again (2026-10-24). This is the original's rule, read from TradingView's bar replay on the
 >   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
 >   presets are now the original's ranges (SPX's from videos). Cody to look at Bitcoin daily: a low
 >   is now confirmed about 24 days after it (27 until 2026-10-24, 12 before the hold). Open:
@@ -50,10 +50,18 @@
 >     (Coinbase), but Coinbase's exact daily lows 12 → 7 of 19. **MARA counts from 38** (table 36–44;
 >     built, NOT seen): check marks 0 → 15 of 19. **RIOT counts from 39** (same table; built, NOT
 >     seen): check marks 0 → 12 of 15. All sixteen presets are now checked against the original.
->   - **Cody: drop cancellation of a CONFIRMED low?** The original never removed one in any replay
->     (0 of 379, nine assets) and never drew ❌. Without it: exact daily lows 886 → 903 of 1167, extras
->     229 → 239, weekly unchanged. The Cycle Low Cancelled component would then never fire (remove it,
->     or keep it for something else?). CIPHER_C_DESIGN section 12.
+>   - **A confirmed low is never cancelled (Cody, 2026-10-24; built, NOT seen or heard;
+>     CIPHER_C_DESIGN section 15).** A close under it is a failed cycle at any gap. Cycle Low Cancelled
+>     now fires when a bar goes under the PENDING low before it is due; the search drops it and looks
+>     again. Sixteen assets: daily 946 → 958 of 1,244, weekly 280 → 284 of 463, check marks on the
+>     original's bar 340 → 332. Cody to hear a cancellation on Bitcoin daily ("Daily pending cycle
+>     low cancelled: a low of …, under the pending low of …"). Still open, before the trial ends:
+>     - WHEN the original names its pending low. Tried: a Schaff trigger (better per episode, worse
+>       end to end), a decision tree (no better), re-picking every bar (worse). Our cancellations
+>       are 470 against its 332 drops, 197 on the same bar.
+>     - It keeps an undercut low 1–2 bars before due about 3 times in 4. Keeping those costs more
+>       extras than it gains, so not adopted. It also holds a few overdue cycles through long
+>       undercuts (Coinbase 2025-12-31), and that is not modelled.
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
 >     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.
@@ -68,7 +76,8 @@
 >     original confirmed the 2025-09-18 low on 10-03, Cipher C used to on 11-07; not checked on the
 >     app's GDX data (the lab's GDX bars from TradingView look like Heikin-Ashi prices). Still open: the original
 >     sometimes names a low on a falling bar. The trial ends about 11-05.
->   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%).
+>   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%;
+>     % above the low has medians 4.9 / 7.4 / 15.2 but overlaps).
 >   - **The weekly tier picks from the daily lows (2026-10-23, built, NOT seen; see CHANGES).** On a
 >     daily chart a weekly low is now the original's choice among its confirmed daily lows: kept when
 >     the next daily low is the shortest weekly cycle less four weeks from the last kept one, with a

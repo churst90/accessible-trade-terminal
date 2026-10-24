@@ -396,26 +396,32 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// A cancellation is a close under the low before the minimum gap; a failure is a close under
-    /// it after. Both carry the low's price, and both happen on Bitcoin.
+    /// A cancellation is a bar going under a pending low (the cancelled low's price); a failure is a
+    /// close under a confirmed low, at any gap. Both happen on Bitcoin, and no cancelled low is ever
+    /// one of the confirmed lows.
     /// </summary>
     [Fact]
-    public void A_cancellation_and_a_failure_are_closes_under_the_low()
+    public void A_cancellation_undercuts_a_pending_low_and_a_failure_closes_under_a_confirmed_one()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
         var r = Btc();
         var cancelled = Marked(r[CipherCProvider.CompCancelled]).ToList();
         var failed = Marked(r[CipherCProvider.CompFailed]).ToList();
+        var lows = Marked(r[CipherCProvider.CompDcl]).ToHashSet();
         _out.WriteLine($"{cancelled.Count} cancelled, {failed.Count} failed");
         Assert.NotEmpty(cancelled);
         Assert.NotEmpty(failed);
-        foreach (int t in cancelled.Concat(failed))
-            Assert.True(bars[t].Close < r[CipherCProvider.CompCancelled][t] || bars[t].Close < r[CipherCProvider.CompFailed][t],
-                $"{bars[t].Date:yyyy-MM-dd}: close {bars[t].Close} is not under the low");
-
-        var tier = CipherCEngine.Tier(48, 66, 1, CipherCEngine.MeasureBars(bars.ToArray()));   // counted from 48
+        foreach (int t in cancelled)
+        {
+            Assert.True(bars[t].Low < r[CipherCProvider.CompCancelled][t], $"{bars[t].Date:yyyy-MM-dd}: low {bars[t].Low} is not under the pending low");
+            int at = t - (int)r[CipherCProvider.CompCancelled + CipherCProvider.AgoSuffix][t];
+            Assert.DoesNotContain(at, lows);
+        }
         foreach (int t in failed)
-            Assert.True(r[CipherCProvider.CompDailyWindow][t] - 1 >= tier.MinGap, $"{bars[t].Date:yyyy-MM-dd}: a failure before the minimum gap");
+        {
+            Assert.True(bars[t].Close < r[CipherCProvider.CompFailed][t], $"{bars[t].Date:yyyy-MM-dd}: close {bars[t].Close} is not under the low");
+            Assert.Contains(t - (int)r[CipherCProvider.CompFailed + CipherCProvider.AgoSuffix][t], lows);
+        }
     }
 
     /// <summary>The number under a low is the cycle that ended there, in days, counting both ends — CF's convention.</summary>
@@ -446,7 +452,7 @@ public sealed class CipherCProviderTests
     /// the bar it comes due, even when that bar goes lower, it has the original's daily low of 12 May
     /// 2023 and so its weekly low of 11 September 2023: 9 of the original's 10 weekly lows to the
     /// fixture's end. It misses 21 November 2025, after keeping the daily low of 22 June 2025 as a
-    /// weekly one where the original did not, and keeps 10 March 2023, which the original does not. The original draws no weekly low
+    /// weekly one where the original did not, and keeps 12 May 2023 as a weekly low, which the original does not. The original draws no weekly low
     /// on the 5 August 2024 crash, a daily low 31 days after the weekly one of 5 July.
     /// </summary>
     [Fact]
@@ -466,7 +472,7 @@ public sealed class CipherCProviderTests
         var since2022 = w.Select(i => bars[i].Date.Date).Where(x => x >= new DateTime(2022, 5, 12)).ToList();
         // The fixture ends on 15 June 2026, before the original's low of 1 July.
         Assert.Equal(original.Where(x => x <= bars[^1].Date).Except(new[] { new DateTime(2025, 11, 21) }),
-                     since2022.Except(new[] { new DateTime(2023, 3, 10), new DateTime(2025, 6, 22) }));
+                     since2022.Except(new[] { new DateTime(2023, 5, 12), new DateTime(2025, 6, 22) }));
         Assert.Contains(d, i => bars[i].Date == new DateTime(2024, 8, 5));
         Assert.DoesNotContain(w, i => bars[i].Date == new DateTime(2024, 8, 5));
     }
@@ -960,7 +966,7 @@ public sealed class CipherCProviderTests
     public void A_number_said_aloud_takes_the_right_article(double n, string article) => Assert.Equal(article, CipherCProvider.A(n));
 
     /// <summary>
-    /// A cancellation and a failure say the low closed under and how long ago it was made: that
+    /// A cancellation and a failure say the low they went under and how long ago it was made: that
     /// many days back, the bar's low is the price they name.
     /// </summary>
     [Fact]
@@ -981,7 +987,8 @@ public sealed class CipherCProviderTests
         int c = Marked(r[CipherCProvider.CompCancelled]).Last();
         string said = Provider.GetComponentSpeech(CipherCProvider.CompCancelled, r[CipherCProvider.CompCancelled][c], bars[c], r, c)!;
         _out.WriteLine(said);
-        Assert.Matches("^Daily cycle low cancelled: closed at [0-9,.]+, under the low of [0-9,.]+ from [0-9]+ days? ago\\.$", said);
+        Assert.Matches("^Daily pending cycle low cancelled: a low of [0-9,.]+, under the pending low of [0-9,.]+ from [0-9]+ days? ago\\.$", said);
+        Assert.Contains($"a low of {bars[c].Low.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)},", said);   // the bar's low, not its close
     }
 
     /// <summary>

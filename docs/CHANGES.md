@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C never takes back a confirmed low; a cancellation is now a pending low undercut (2026-10-24)
+
+- Cody's decision: confirmed lows are not cancelled. The original removed none of the 379 it
+  confirmed in its candle replays and never drew its cancelled mark over one. A close under the
+  newest confirmed low is now always a failed cycle (Cycle Failed), however soon after the low; the
+  0.6-of-the-shortest-cycle gap no longer splits the two.
+- **Cycle Low Cancelled now fires where the original drops its unconfirmed low.** While a found
+  low is holding, a bar going under it before its due bar cancels it. The daily search then drops
+  it and looks again from the next bar, as the original does: it names the next pending low a bar
+  or more later on 328 of the 332 it dropped (none on the same bar). Before this the lower bar
+  silently took its place. The next confirmation still says which cancelled low it replaces. The
+  cycle line's cross (used before a chart's first low, and with no daily tier) still moves the low
+  onto the undercutting bar.
+- Speech: "Daily pending cycle low cancelled: a low of 75285.00, under the pending low of 76000.00
+  from 4 days ago." The status line says "the last daily pending cycle low was cancelled 24 days
+  ago". A failure is unchanged: "Daily cycle failed: closed at 64045.64, under the cycle low of
+  64955.00 from 66 days ago."
+- Scored on the original's candle replays, all sixteen assets: exact daily lows 946 → 958 of 1,244
+  (extra 246 → 256); weekly lows 280 → 284 of 463 (extra 176 → 172); check marks on the original's
+  bar 340 → 332. Over the replay windows the original drops 332 pending lows. Cipher C cancels 470,
+  197 of them on the original's bar.
+- Bitcoin's weekly lows: Cipher C now keeps 12 May 2023 as a weekly low, which the original does
+  not, instead of 10 March 2023. Its other weekly lows since 2022 are unchanged.
+- Tried and not adopted (scored on all sixteen):
+  - A Schaff-trigger start for the search: first bar exact 405 of 854, against 258 for the close
+    above the bar before's high, and better on 15 of 16 assets held out one at a time. End to end
+    it was worse: daily 925, extra 310.
+  - Keeping a pending low undercut 1 or 2 bars before it is due: daily 964 or 968, but extra 276
+    or 298, and weekly 280 or 279.
+  - Re-picking the pending low on every bar: agrees with the original on fewer bars (5,081 against
+    5,277 of 7,458).
+  - A decision tree on when the original names its pending low: no better than the current rule
+    (at best recall 0.52 at precision 0.40, leave-one-asset-out).
+- New tests:
+  - A confirmed low is never taken back.
+  - A failure is the first close under the confirmed low, at any gap (4 of 26 on Bitcoin come
+    before the old gap).
+  - A cancellation is a bar under the pending low before it is due, nothing is held on that bar,
+    and the next confirmation names it.
+  - Seven sabotages are red: removing the confirmed low, the old gap, re-holding on the same bar,
+    cancelling on a close, no Updated, cancelling on the due bar, and speaking the close.
+- Not seen or heard in the app.
+
 ### Cipher C counts RIOT from 39 trading days (2026-10-24)
 
 - Its table says 36 to 44, the same as MARA's. In the original's candle replay (2022–26, 23 lows) it
@@ -55,8 +98,8 @@ All notable changes to this project will be documented in this file.
 - Tried and not adopted, on all fourteen assets: letting the search's top exclude the bar that turns
   up (exact daily lows 886 → 904 of 1167, but extra lows 229 → 334). Not cancelling a confirmed low
   at all: 886 → 903, extras 229 → 239, weekly unchanged. The original never removed a confirmed
-  low in any replay (0 of 379 on nine assets) and never drew its cancelled mark; this is now a
-  question for Cody in TODO.
+  low in any replay (0 of 379 on nine assets) and never drew its cancelled mark (Cody: never cancel
+  a confirmed low; done in the entry above).
 - New test: weekday bars under the Coinbase and MicroStrategy presets confirm 25 bars after the low
   and no sooner than the last kept low + 74. Rounding the hold to nearest (26), or counting from 50
   (73) or 52, turns it red. Not seen in the app.

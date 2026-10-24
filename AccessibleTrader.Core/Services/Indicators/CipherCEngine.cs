@@ -45,8 +45,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <b>The rule.</b> After the Schaff line has been at or under the oversold level, its first
     /// cross up through the overbought level CONFIRMS a cycle low: the lowest swing low since the
     /// last confirmed low's minimum gap (60% of the shortest cycle). The low must still be the
-    /// lowest bar up to the confirming bar. A close under a confirmed low before that minimum gap
-    /// CANCELS it (CF's "cancelled" state); a close under it after the gap is a FAILED cycle.
+    /// lowest bar up to the confirming bar. A confirmed low is never taken back: the first close
+    /// under it is a FAILED cycle, at any gap. A bar under a low still holding (pending), before
+    /// the bar it is due, CANCELS that pending low (CF's "cancelled" state).
     /// </para>
     ///
     /// <para>
@@ -419,14 +420,20 @@ namespace AccessibleTrader.Core.Services.Indicators
             public int[] LastLowAt = Array.Empty<int>();
             /// <summary>
             /// Events, by the bar they happen on. Confirmed, Cancelled and Failed carry the price of
-            /// the low concerned; Pending the bar's close; Updated, on a confirmation that came after
-            /// a cancellation, the price of the low that was cancelled (the one this low replaces).
+            /// the low concerned (Cancelled: the pending low a lower bar undercut; Failed: the
+            /// confirmed low a close went under); Pending the bar's close; Updated, on a confirmation
+            /// that came after a cancellation, the price of the low that was cancelled (the one this
+            /// low replaces).
             /// </summary>
             public double[] Confirmed = Array.Empty<double>(), Cancelled = Array.Empty<double>(),
                             Updated = Array.Empty<double>(), Pending = Array.Empty<double>(),
                             Failed = Array.Empty<double>();
-            /// <summary>Per bar: the low a cancellation or failure on that bar closed under, or -1.</summary>
+            /// <summary>Per bar: the confirmed low a failure on that bar closed under, or -1.</summary>
             public int[] ClosedUnder = Array.Empty<int>();
+            /// <summary>Per bar: the low found and holding at the end of that bar (the pending low), or -1.</summary>
+            public int[] HeldAt = Array.Empty<int>();
+            /// <summary>Per bar: the pending low a cancellation on that bar dropped, or -1.</summary>
+            public int[] CancelledLow = Array.Empty<int>();
         }
 
         /// <summary>
@@ -441,8 +448,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             var run = new TierRun
             {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(),
+                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
                 Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
             };
             if (!tier.Active || n == 0) return run;
@@ -475,33 +482,31 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
                 else if (stc[t] <= oversold) armed = true;
 
-                if (last >= 0 && close[t] < low[last])
+                // A confirmed low is never taken back (the original: 0 of 379 on sixteen assets).
+                // The first close under it fails the cycle.
+                if (last >= 0 && close[t] < low[last] && failedFor != last)
                 {
-                    if (t - last < minGap)
-                    {
-                        run.Cancelled[t] = low[last];
-                        run.ClosedUnder[t] = last;
-                        replaced = low[last];
-                        run.Lows.RemoveAt(run.Lows.Count - 1);
-                        run.ConfirmedAt.RemoveAt(run.ConfirmedAt.Count - 1);
-                        run.FoundAt.RemoveAt(run.FoundAt.Count - 1);
-                        last = run.Lows.Count > 0 ? run.Lows[^1] : -1;
-                        armed = true; cancelledSince = true;
-                    }
-                    else if (failedFor != last)
-                    {
-                        run.Failed[t] = low[last];
-                        run.ClosedUnder[t] = last;
-                        failedFor = last;
-                    }
+                    run.Failed[t] = low[last];
+                    run.ClosedUnder[t] = last;
+                    failedFor = last;
                 }
 
                 if (held >= 0)
                 {
-                    // A lower low takes the held one's place up to the bar before it is due; on
-                    // that bar the held low is confirmed whatever the bar's low (the original, 8 of
-                    // the 13 such bars in its replays on five daily charts).
-                    if (low[t] < low[held] && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) < hold) held = t;
+                    // A bar under the held low up to the bar before it is due cancels it; on that
+                    // bar the held low is confirmed whatever the bar's low (the original, 8 of the
+                    // 13 such bars in its replays on five daily charts). The original drops the
+                    // undercut low and names the next one a bar or more later (328 of 332 pending
+                    // lows it dropped, none replaced on the same bar), so the search drops it too
+                    // and looks again from the next bar; the cycle line's cross, which may not come
+                    // again, moves it to the undercutting bar.
+                    if (low[t] < low[held] && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) < hold)
+                    {
+                        run.Cancelled[t] = replaced = low[held];
+                        run.CancelledLow[t] = held;
+                        cancelledSince = true;
+                        held = searchOnTurn && last >= 0 ? -1 : t;
+                    }
                 }
                 else if (searchOnTurn && last >= 0 && t - last >= searchFrom && close[t] > high[t - 1])
                 {
@@ -542,6 +547,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     last = held; held = -1; armed = false; cancelledSince = false;
                 }
                 run.LastLowAt[t] = last;
+                run.HeldAt[t] = held;
             }
             return run;
         }
@@ -574,8 +580,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             var run = new TierRun
             {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(),
+                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
                 Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
             };
             if (daily.LastLowAt.Length != n) return run;
@@ -601,7 +607,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         int i = kept[^1];
                         kept.RemoveAt(kept.Count - 1); drawnOn.Remove(i); keptOn.Remove(i);
                         run.Cancelled[t] = replaced = Low(i);
-                        run.ClosedUnder[t] = i;
+                        run.CancelledLow[t] = i;
                     }
                     switch (phase)
                     {
@@ -697,8 +703,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             var run = new TierRun
             {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(),
+                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
                 Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
             };
             if (daily.LastLowAt.Length != n) return run;

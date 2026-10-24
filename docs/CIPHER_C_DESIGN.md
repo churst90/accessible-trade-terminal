@@ -85,7 +85,7 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 3 | Yearly cycle low (described in the docs, never seen) | Bigger gold triangle with a Y ring (YCL) |
 | 4 | ✅ on the bar a low is confirmed | Green rounded check box above the bar (DCL / WCL / YCL Confirmed) |
 | 5 | 🔄 pending | Grey-blue rounded refresh box (Cycle Low Pending) |
-| 6 | ❌ cancelled, in a green box | Red cross (Cycle Low Cancelled); the confirmation that follows says which cancelled low it replaces |
+| 6 | ❌ cancelled, in a green box | Red cross (Cycle Low Cancelled) when a bar goes under the pending low before it is due; the confirmation that follows says which cancelled low it replaces. A confirmed low is never cancelled (section 15) |
 | 7 | Live confirmation marker above price | Same square as 4 |
 | 8 | LOW / MID / HIGH confluence text | The Confirmed components' own value (1, 2, 3), spoken as low/mid/high |
 | 9 | Cycle count "49D" | Printed over the low with a D / W suffix (49D / 24W) from the low's label companion; spoken with the low ("A 49 day cycle") |
@@ -125,7 +125,7 @@ speech, with no keyboard stop or sound of their own. Examples are from the Bitco
 | DCL / WCL / YCL | the low's price | "Daily cycle low, 64955.00. A 52 day cycle. Confirmed 6 days later." |
 | DCL / WCL / YCL Confirmed | confluence, 1 to 3 | "Weekly cycle low confirmed, low confluence: the low of 59930.00, 8.7 weeks ago. It replaces the cancelled low of 80537.00." |
 | Cycle Low Pending | the bar's close | "… reached oversold on day 50. Lowest low since the last cycle low: 65696.00, 45 days ago." |
-| Cycle Low Cancelled | the low it closed under | "Daily cycle low cancelled: closed at 76244.00, under the low of 76600.00 from 28 days ago." |
+| Cycle Low Cancelled | the pending low it went under | "Daily pending cycle low cancelled: a low of 75285.00, under the pending low of 76000.00 from 4 days ago." |
 | Cycle Failed | the cycle low it closed under | "Daily cycle failed: closed at …, under the cycle low of … from N days ago." |
 | Left / Mid / Right Translated Top | the top's high | "Left translated top, bearish: high 126272.00, day 36 of an 82 day cycle." |
 | Daily / Weekly Timing Window | the day (week) of the cycle | "daily cycle day 79, 13 days past its window"; Ctrl+Left/Right stops where the window opens and closes |
@@ -388,7 +388,8 @@ shortest cycle less two bars**, whichever is later. A lower low while it holds t
 line's cross up through overbought, then the lowest swing low since the minimum gap). It then holds
 that low under the original's rule (`HoldFraction` 0.5, `HoldFromBeforeMin` 2). Cancellation is
 kept: the original documents a "cancelled" alert. With the hold, a low can only be cancelled in a
-short gap, between half and 0.6 of the shortest cycle after it.
+short gap, between half and 0.6 of the shortest cycle after it. (Superseded 2026-10-24, section 15:
+only a pending low is cancelled; a confirmed one never is.)
 
 | Confirmations on the original's own bar (same low, same date) | Before | Now |
 |---|---|---|
@@ -518,6 +519,7 @@ cycle − 1.
   cancels a confirmed low closed under within 0.6 of the shortest cycle. Turning that off: exact
   daily lows 886 → 903 of 1167, extras 229 → 239, F1 0.781 → 0.786, weekly lows unchanged. Not
   adopted yet: it would leave the Cycle Low Cancelled component with nothing to say (TODO).
+  Adopted 2026-10-24 (section 15), with Cycle Low Cancelled moved to the pending low.
 - **The rule, put in one number:** on every asset so far the check mark waits h bars (the commonest
   hold) after the low, and a short cycle's waits until the last low + 3h − 2: the shortest cycle that
   fits is 2h. GDX 11 → 22, Dow 18 → 36, Bitcoin 24 → 48, Silver 12 → 24, dollar 9 → 18, Ethereum
@@ -622,4 +624,55 @@ labels (exact weekly lows, extras):
 Oil (held out, scored 2026-10-24): it counts from its table's 36 (check marks 18 bars after the
 low on 21 of 27), Cipher C's daily lows 97 of 129 exact with 23 extra, check marks on the
 original's bar 13 of 17, weekly 31 of 57.
+
+## 15. A confirmed low is never cancelled; a pending one is (2026-10-24)
+
+Cody's decision, from the replays: the original removed none of the 379 lows it confirmed and never
+drew its cancelled mark over one. What it does drop is its unconfirmed (🕘) low. In the candle
+replays of all sixteen assets it drops 332 of them, each on a bar that went under it before it came
+due. On 328 of the 332 the next pending low is named a bar or more later; it is never replaced on
+the same bar. After a drop, the next low it names is the lowest since the drop bar on 329 of 353.
+
+**What Cipher C does now** (`CipherCEngine.Detect`):
+
+- The first close under the newest confirmed low is a failed cycle, at any gap. Nothing is removed.
+- While a found low holds, a bar under it up to the bar before it is due cancels it. The event
+  carries the cancelled low's price (`TierRun.Cancelled`, `TierRun.CancelledLow`).
+- The daily search then holds nothing and looks again from the next bar. The cycle line's cross,
+  which may not come again, moves the low onto the undercutting bar. That path is used before the
+  first low and on charts with no daily tier.
+- On the due bar the low is confirmed whatever the bar's low (section 13).
+- `TierRun.HeldAt` is the low holding at the end of each bar.
+
+| All sixteen candle replays | Before | Now |
+|---|---|---|
+| Exact daily lows, of 1,244 | 946 | 958 |
+| Extra daily lows | 246 | 256 |
+| Weekly lows, of 463 | 280 | 284 |
+| Extra weekly lows | 176 | 172 |
+| Check marks on the original's bar | 340 | 332 |
+| Cancellations, against the original's 332 drops | (confirmed lows only) | 470, 197 on its bar |
+
+**Studied and not adopted:**
+
+- **When the original names a pending low.** Given the bar it names one on, the low is the lowest
+  since the highest high after the last confirmed low on 454 of 528 (86%). No price shape beats
+  "the next bar after the gate" (38%). A Schaff trend cycle trigger (length 0.3, fast 0.2, slow
+  1.25 of the shortest cycle, first bar no sooner than the gate with the line over 15) names the
+  original's bar 405 of 854 times against 258. Held out one asset at a time, it is 381 of 854 and
+  better on 15 of 16 assets. In the engine it loses: daily 925, extra 310, check marks 321, with 485
+  pending lows the original never shows. A leave-one-asset-out decision tree over bars at risk
+  (Schaff, RSI, distances to the averages, bar shape, age) gets at best recall 0.52 at
+  precision 0.40.
+- **Keeping an undercut low near its due bar.** The original keeps 76% of lows undercut 1 bar
+  before due, 52% at 2, 29% at 3, and drops nearly all from 5 on. Its rare long holds through
+  undercuts are overdue cycles: Coinbase 2025-12-31, 13 bars under and confirmed on the due bar;
+  oil 2025-02-12 and 2026-04-07; MARA 2024-12-31; MicroStrategy 2023-08-18. Dropping only with 2 or
+  more bars left: daily 964, extra 276, weekly 280. With 3 or more: 968, 298, 279.
+- **Re-picking the pending low every bar** (lowest since the highest high after the last low)
+  instead of keeping the one found. On 7,458 bars where the original shows a pending low, ours
+  matches on 5,277, the re-pick on 5,081. The re-pick fills 775 bars where we hold nothing but
+  breaks 1,018. The original keeps the low it found.
+- **The LOW / MID / HIGH tag** loosely follows how far above the low price is (medians 4.9, 7.4,
+  15.2%), but the ranges overlap heavily.
 

@@ -122,7 +122,7 @@ public class CipherCWeeklyTests
             (230, 102, 240),                  // the double
             (260, 99.5, 270), (370, 104, 380)); // a candidate, kept 180 or 200 bars on
         Assert.Equal(103, w.Cancelled[200]);
-        Assert.Equal(120, w.ClosedUnder[200]);
+        Assert.Equal(120, w.CancelledLow[200]);
         Assert.Equal(new[] { 200 }, Marked(w.Cancelled));
         Assert.DoesNotContain(120, w.Lows);
         Assert.Equal(10, w.LastLowAt[200]);   // 10 is still the kept low before the newest (170)
@@ -224,7 +224,7 @@ public class CipherCWeeklyTests
             for (int t = 0; t < cut; t++)
             {
                 Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);
-                Assert.Equal(whole.ClosedUnder[t], part.ClosedUnder[t]);
+                Assert.Equal(whole.CancelledLow[t], part.CancelledLow[t]);
                 foreach (var (a, b) in new[] { (whole.Confirmed, part.Confirmed), (whole.Cancelled, part.Cancelled), (whole.Updated, part.Updated) })
                     Assert.Equal(a[t], b[t]);
             }

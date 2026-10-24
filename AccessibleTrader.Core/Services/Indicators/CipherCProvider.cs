@@ -25,9 +25,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <item>The cycle's length above each low, with CF's unit suffix: 49D for days and 24W for
     /// weeks, counted inclusively as CF does. The suffix is printed, not spoken.</item>
     /// <item>A green rounded check box on the bar a low is CONFIRMED, a grey-blue rounded refresh
-    /// box while one is pending, a red cross when price closes under a low too soon after it and
-    /// cancels it (CF's red X), and an orange cross when price closes under a low after that, which
-    /// is a failed cycle.</item>
+    /// box while one is pending, a red cross when a bar goes under a pending low before it is due
+    /// and cancels it (CF's red X), and an orange cross when price closes under a confirmed low,
+    /// which is a failed cycle (a confirmed low is never taken back).</item>
     /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
     /// bearish), orange in the middle, green late (right translated, bullish).</item>
     /// <item>A soft green tint behind the bars where the daily cycle is inside its timing window
@@ -203,7 +203,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "Daily, weekly and yearly cycle lows on the price chart. Green triangles under daily cycle lows " +
                     "with a ringed D, blue with a W under weekly, gold with a Y under yearly, each low's length with " +
                     "its unit (49D, 24W), a green check box when a low is confirmed, a grey-blue refresh box while " +
-                    "one is pending, crosses when one is cancelled or a cycle fails, translated-top triangles, and a " +
+                    "one is pending, crosses when a pending low is cancelled or a cycle fails, translated-top triangles, and a " +
                     "tint over the daily timing window, whose day count is read on every bar, with the cycle arcs " +
                     "drawn under the candles from low to low. Cycle ranges are tuned " +
                     "for sixteen assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver " +
@@ -258,7 +258,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                           "Cycle low pending."),
                     // Value: the price of the low closed under. Warnings, not sell signals.
                     Event(CompCancelled, ComponentDisplayType.Cross, MarkerAnchor.BelowBar, "#FF1744", 3f, "triangle_bell", 220, PlaybackLayer.Midground,
-                          "Cycle low cancelled, price closed under it."),
+                          "Pending cycle low cancelled, a bar went under it before it was due."),
                     Event(CompFailed, ComponentDisplayType.Cross, MarkerAnchor.AboveBar, "#FF6D00", 3f, "triangle_bell", 175, PlaybackLayer.Midground,
                           "Cycle failed, price closed under the cycle low."),
 
@@ -410,9 +410,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int t = 0; t < n; t++)
             {
                 if (!double.IsNaN(lowest.Confirmed[t])) cancelledAt = failedAt = -1;
-                int under = lowest.ClosedUnder[t];
-                if (!double.IsNaN(lowest.Cancelled[t])) { cancelledAt = t; cancelledAgo[t] = Units(t - under, ago); }
-                if (!double.IsNaN(lowest.Failed[t])) { failedAt = t; failedAgo[t] = Units(t - under, ago); }
+                if (!double.IsNaN(lowest.Cancelled[t])) { cancelledAt = t; cancelledAgo[t] = Units(t - lowest.CancelledLow[t], ago); }
+                if (!double.IsNaN(lowest.Failed[t])) { failedAt = t; failedAgo[t] = Units(t - lowest.ClosedUnder[t], ago); }
                 if (cancelledAt >= 0) cancelledSince[t] = Units(t - cancelledAt, ago);
                 if (failedAt >= 0) failedSince[t] = Units(t - failedAt, ago);
             }
@@ -705,9 +704,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             string events = TierWord(At(EventsTierKey));
             (string unit, string units) = AgoUnit(At(EventsTierKey));
-            if (!double.IsNaN(At(CompCancelled))) words.Add($"{events} cycle low cancelled");
+            if (!double.IsNaN(At(CompCancelled))) words.Add($"{events} pending cycle low cancelled");
             else if (At(CompCancelled + SinceSuffix) is var cs && !double.IsNaN(cs))
-                words.Add($"the last {events} cycle low was cancelled {Span(cs, unit, units)} ago");
+                words.Add($"the last {events} pending cycle low was cancelled {Span(cs, unit, units)} ago");
             if (!double.IsNaN(At(CompFailed))) words.Add($"{events} cycle failed");
             else if (At(CompFailed + SinceSuffix) is var fs && !double.IsNaN(fs))
                 words.Add($"the {events} cycle failed {Span(fs, unit, units)} ago");
@@ -838,11 +837,11 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 case CompCancelled: case CompFailed:
                 {
-                    string what = componentName == CompCancelled ? $"{Tier(tier)} cycle low cancelled" : $"{Tier(tier)} cycle failed";
-                    string under = componentName == CompCancelled ? "the low" : "the cycle low";
                     double age = At(componentName + AgoSuffix);
-                    return $"{what}: closed at {Price(bar.Close)}, under {under} of {Price(value)}" +
-                           (double.IsNaN(age) ? "." : $" from {Span(age, unit, units)} ago.");
+                    string from = double.IsNaN(age) ? "." : $" from {Span(age, unit, units)} ago.";
+                    return componentName == CompCancelled
+                        ? $"{Tier(tier)} pending cycle low cancelled: a low of {Price(bar.Low)}, under the pending low of {Price(value)}" + from
+                        : $"{Tier(tier)} cycle failed: closed at {Price(bar.Close)}, under the cycle low of {Price(value)}" + from;
                 }
 
                 case CompLeftTop: case CompMidTop: case CompRightTop:
