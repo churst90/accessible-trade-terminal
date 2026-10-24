@@ -6,14 +6,20 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// One asset's cycle lengths: the daily cycle in days, the weekly cycle in weeks, the yearly
     /// cycle in years. <see cref="CalendarDays"/> says which days the daily range counts — calendar
     /// days for an asset that trades every day (Bitcoin), trading days for one that does not (the
-    /// S&amp;P). <see cref="Source"/> is said aloud, so it is plain words.
+    /// S&amp;P). <see cref="Source"/> is said aloud, so it is plain words. <see cref="CountDailyMin"/>,
+    /// when not 0, is the shortest daily cycle the original counts with where it differs from the
+    /// range its table shows (Bitcoin: table 54–66 days, counted from 48).
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
         double DailyMin, double DailyMax,
         double WeeklyMin, double WeeklyMax,
         double YearlyMin, double YearlyMax,
-        bool CalendarDays, string Source);
+        bool CalendarDays, string Source, double CountDailyMin = 0)
+    {
+        /// <summary>The shortest daily cycle the detector counts with.</summary>
+        public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
+    }
 
     /// <summary>
     /// The arithmetic behind <see cref="CipherCProvider"/>: the asset presets, how many bars a day
@@ -141,7 +147,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
-            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf),
+            // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were
+            // 48 (bar replay on candles, 2022-26, 24 lows): its first label comes no sooner than the
+            // last low + 47 (dMin - 1), it confirms 24 bars after the low on 19 of 24, and a short
+            // cycle's confirmation waits until the last low + 70 (1.5 dMin - 2), on 4 of 5. At 54 every
+            // one of ours came 3 bars late; at 48, 20 of 22 land on its bar and 22 of 25 lows match (19).
+            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
             new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf),

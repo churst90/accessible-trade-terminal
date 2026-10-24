@@ -20,7 +20,14 @@
 >   while it holds replaces it. This is the original's rule, read from TradingView's bar replay on the
 >   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
 >   presets are now the original's ranges (SPX's from videos). Cody to look at Bitcoin daily: a low
->   is now confirmed about 27 days after it, where it was 12. Open:
+>   is now confirmed about 24 days after it (27 until 2026-10-24, 12 before the hold). Open:
+>   - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
+>     replays show the original counts Bitcoin's daily cycle as if the shortest were 48, though its
+>     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. Still to check as the
+>     other thirteen assets land: Ethereum (table 15–25), metals, the dollar, the indices.
+>   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
+>     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
+>     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.
 >   - ~~Keep the original's timing and re-run the backtest?~~ Cody: yes. Re-run 2026-10-23
 >     (CIPHER_C_DESIGN section 8): every event replays causally on all seven assets, exits still
 >     show no edge, and the left-translated finding is gone (withdrawn).
@@ -128,7 +135,10 @@
 >   - **Cipher DBSI, what is still unknown.** The original also keeps a bonus of about 3, usually started
 >     on the bar before a side's own cross. The best rule found for its start matches 56 of 67, and for
 >     its end 88.5%. The other side's counter adds 1 per bar. Neither is in the app: a rough version
->     helped a little (within 2 59% to 63%) but gave more false 17+ readings, so Cody to decide. Most of
+>     helped a little (within 2 59% to 63%) but gave more false 17+ readings, so Cody to decide. Retried
+>     on top of the base votes (2026-10-24, `dbsi6/x3.py`): Q on its trigger bar gives held-out ±2 65.3%
+>     → 66.9%, exact 17.4% → 19.2%, but leave-one-chart-out falls (±2 71.9% → 71.1%) and false 17+ rise
+>     15 → 20; a count of bars since the side's run ended adds nothing (65.8%). Still not shipped. Most of
 >     the per-bar score is still unmatched (about 40% exact on bars with no memory). Next: the Start grid
 >     is being extended back to 2022 to check the start and end rules on bars they were not found on;
 >     then Bitcoin 1D.

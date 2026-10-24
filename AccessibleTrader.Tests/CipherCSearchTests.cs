@@ -138,21 +138,21 @@ public class CipherCSearchTests
         var clock = CipherCEngine.MeasureBars(bars);
         var marked = (double[] a) => Enumerable.Range(0, bars.Length).Where(i => !double.IsNaN(a[i])).ToList();
 
-        var daily = CipherCEngine.Tier(54, 66, 1, clock);
+        var daily = CipherCEngine.Tier(48, 66, 1, clock);
         var turn = CipherCEngine.Detect(bars, daily, 75, 10, searchOnTurn: true);
         var cross = CipherCEngine.Detect(bars, daily, 75, 10, searchOnTurn: false);
         Assert.NotEqual(marked(cross.Confirmed), marked(turn.Confirmed));
         Assert.Equal(marked(turn.Confirmed), marked(r[CipherCProvider.CompDclConfirmed]));
 
-        var weekly = CipherCEngine.WeeklyFromDaily(turn, bars, 126, 54);
+        var weekly = CipherCEngine.WeeklyFromDaily(turn, bars, 126, 48);
         Assert.NotEmpty(marked(weekly.Confirmed));
         Assert.Equal(marked(weekly.Confirmed), marked(r[CipherCProvider.CompWclConfirmed]));
 
         // Bitcoin's lows come out the same for any distance from 119 to 134 bars, so 22 weeks cannot
         // tell 18 weeks from 19. At 24 weeks they differ: 20 weeks (140 bars) is kept, 21 (147) is not.
         var r24 = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["Symbol"] = "BTC/USD", [CipherCProvider.ParamWeeklyMin] = 24.0 });
-        var at140 = marked(CipherCEngine.WeeklyFromDaily(turn, bars, 140, 54).Confirmed);
-        Assert.NotEqual(at140, marked(CipherCEngine.WeeklyFromDaily(turn, bars, 147, 54).Confirmed));
+        var at140 = marked(CipherCEngine.WeeklyFromDaily(turn, bars, 140, 48).Confirmed);
+        Assert.NotEqual(at140, marked(CipherCEngine.WeeklyFromDaily(turn, bars, 147, 48).Confirmed));
         Assert.Equal(at140, marked(r24[CipherCProvider.CompWclConfirmed]));
     }
 

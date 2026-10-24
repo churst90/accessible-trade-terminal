@@ -440,5 +440,40 @@ small but runs the same way on all three counts. Dropping cancellation scored a 
   unverified.
 
 **What changes for a user.** A daily low is now known at least half a cycle after it happened:
-18 trading days on the Dow, 27 calendar days on Bitcoin (the median there was 12 before). The
+18 trading days on the Dow, 24 calendar days on Bitcoin since 2026-10-24 (section 12; 27 before that, and a median of 12 before the hold). The
 backtest in section 8 was re-run on it (2026-10-23).
+
+## 12. The same rule on candles, and Bitcoin's real count (2026-10-24)
+
+The replays in section 11 ran on Heikin-Ashi charts. The original was replayed again on regular
+candles from January 2022 to October 2026, one asset at a time (`strategy-lab-data/cf-tv-export/cap2/`,
+not committed). For each confirmed low, two numbers were read. The **hold** is the bars from the low
+to its check mark. The **gate** is the bars from the last confirmed low to the check mark, on the
+cycles cut short. Under section 11's rule, hold = half the shortest cycle and gate = 1.5 × the
+shortest cycle − 2. The first label of a new low comes no sooner than the last low + the shortest
+cycle − 1.
+
+| Asset (table's shortest cycle) | Lows | Commonest hold | Gate on short cycles | Earliest first label | Shortest cycle that fits |
+|---|---|---|---|---|---|
+| GDX (22) | 44 | 11 on 37 | 31, 31, 31 (then 33s) | last + 21 | 22 |
+| Dow (36) | 25 | 18 on 19 | 52, 52 (then later) | last + 35 | 36 |
+| Bitcoin (54) | 24 | 24 on 19 | 70, 70, 70, 70, 72 | last + 47 | **48** |
+| S&P, SP:SPX (none: the original said "Unoptimised Asset Detected") | 21 | 16 on 18 | 46, 46, 48 | last + 31 | 32 |
+
+- **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
+- **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
+  Bitcoin low 3 bars late. `CyclePreset.CountDailyMin` now holds the 48. The table's 54 to 66 is
+  still what is shown and said, followed by "counted from 48". Scored on the Bitcoin candle replay:
+  daily lows on the original's bar 19 → 22 of 25, extra lows 6 → 6, check marks on the original's
+  bar 0 of 19 → 20 of 22. Weekly lows stay 9 of 11, with extra weekly lows 1 → 3.
+- **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
+  SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
+  Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the
+  S&P's ranges, not 32.
+- **An open-source look-alike, CTZ Cycle Trader v1.7, was scored beside it** (ported exactly, checked
+  against its own chart labels). It confirms about 5 bars after a low, and never on the original's
+  bar. Exact daily lows: GDX CTZ 44 of 61 vs Cipher C 49; Bitcoin 17 of 25 vs 22; Dow 81 of 129 vs
+  101; S&P (SP:SPX) 86 of 129 vs 83, where Cipher C counts from 36 and the original from its
+  default 32. CTZ finds many more lows that the original does not have (Dow 137 vs 23, S&P 102
+  vs 27).
+

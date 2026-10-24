@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts Bitcoin's daily cycle from 48 days, as the original does (2026-10-24)
+
+- The original's table says Bitcoin's daily cycle is 54 to 66 days. Replayed bar by bar on candles
+  (2022–26, 24 lows), every timing it shows fits a shortest cycle of 48:
+  - its first label of a new low comes no sooner than the last low + 47;
+  - it confirms 24 bars after the low on 19 of 24;
+  - a short cycle's confirmation waits until the last low + 70 on 4 of 5.
+  The same three readings give 22 on GDX, 36 on the Dow and 32 on the S&P's default count, each
+  that asset's own shortest cycle. So the rule is unchanged; only Bitcoin's number was wrong.
+- `CyclePreset.CountDailyMin` (new, 0 = the table's) holds Bitcoin's 48. The detector counts with it.
+  The range shown and said stays 54 to 66, and the preset's words add "counted from 48". The
+  "Daily cycle shortest" setting still overrides it.
+- **Scored on the Bitcoin candle replay:**
+  - daily lows on the original's bar: 19 → 22 of 25, with 6 extra lows before and after;
+  - check marks on the original's bar: 0 of 19 (all 3 bars late) → 20 of 22;
+  - weekly lows: 9 of 11 before and after, extra weekly lows 1 → 3. It now has the original's
+    weekly lows of 19 December 2022 and 11 March 2025, but misses 11 September 2023 and
+    21 November 2025, where the daily lows before them differ.
+  The 48 was read from this same replay, so this is not held out. The older Heikin-Ashi replay and
+  Ethereum are still to check.
+- **Also found:** on TradingView's SP:SPX the original says "Unoptimised Asset Detected" and uses a
+  default count that behaves as 32. Cipher C keeps the S&P's 36 to 44 for SPX (question in TODO).
+- **Fixed on the way:** Cipher C's "ago" companions (cancellation, failure, lowest since the
+  low) existed only if the event had fired in the bars given, so a chart with no cancellation
+  had fewer components than one with. They now always exist (NaN when the event never fires).
+  The causality test found it: one of its cuts has no cancellation at 48.
+- **Tests:** Bitcoin's daily confirmations come 24 bars after the low, never sooner, and 24 is the
+  commonest lag. The preset's words say "counted from 48", and other presets don't. The window
+  on a weekday chart is still 54 × 5/7. Bitcoin's weekly lows are listed against the original's.
+  Sabotages, all red: the provider ignores the count; the words drop it; 48 → 54; the window
+  starts at the count; the companion is made only when its event fires.
+
 ### Cipher DBSI adds seven base votes found on the original's Start grid (2026-10-24)
 
 - **Formula:** each side adds seven more weighted checks (bears read the candles upside down): close

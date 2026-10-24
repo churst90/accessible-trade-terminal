@@ -302,7 +302,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The preset's days are converted to the chart's own: a trading-day range on a chart
             // that trades every day grows by 7/5, and the other way shrinks.
             double dayScale = (clock.TradesEveryDay ? 7.0 : 5.0) / (preset.CalendarDays ? 7.0 : 5.0);
-            double dMin = Override(p, ParamDailyMin, preset.DailyMin * dayScale), dMax = Override(p, ParamDailyMax, preset.DailyMax * dayScale);
+            // The window drawn and said is the preset's range; the cycle is counted from
+            // CountedDailyMin, which differs from it only where the original counts from less.
+            double dWindowMin = Override(p, ParamDailyMin, preset.DailyMin * dayScale);
+            double dMin = Override(p, ParamDailyMin, preset.CountedDailyMin * dayScale), dMax = Override(p, ParamDailyMax, preset.DailyMax * dayScale);
             double wMin = Override(p, ParamWeeklyMin, preset.WeeklyMin), wMax = Override(p, ParamWeeklyMax, preset.WeeklyMax);
             double yMin = Override(p, ParamYearlyMin, preset.YearlyMin), yMax = Override(p, ParamYearlyMax, preset.YearlyMax);
 
@@ -384,6 +387,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (dTier.Active || wTier.Active || yTier.Active) Array.Fill(A(EventsTierKey), tierNo);
 
             Copy(lowest.Pending, o[CompPending]);
+            // Every companion exists whether or not its event fires: a stretch with no cancellation
+            // has the same components as one with one, all NaN.
+            double[] pendingLowest = A(CompPending + LowestSuffix), pendingLowestAgo = A(CompPending + LowestAgoSuffix);
             for (int t = 0; t < n; t++)
             {
                 if (double.IsNaN(lowest.Pending[t])) continue;
@@ -392,20 +398,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                 int at = last + 1;
                 for (int i = last + 1; i <= t; i++) if (low[i] < low[at]) at = i;
                 if (at > t) continue;
-                A(CompPending + LowestSuffix)[t] = low[at];
-                A(CompPending + LowestAgoSuffix)[t] = Units(t - at, ago);
+                pendingLowest[t] = low[at];
+                pendingLowestAgo[t] = Units(t - at, ago);
             }
 
             Copy(lowest.Cancelled, o[CompCancelled]);
             Copy(lowest.Failed, o[CompFailed]);
             double[] cancelledSince = A(CompCancelled + SinceSuffix), failedSince = A(CompFailed + SinceSuffix);
+            double[] cancelledAgo = A(CompCancelled + AgoSuffix), failedAgo = A(CompFailed + AgoSuffix);
             int cancelledAt = -1, failedAt = -1;
             for (int t = 0; t < n; t++)
             {
                 if (!double.IsNaN(lowest.Confirmed[t])) cancelledAt = failedAt = -1;
                 int under = lowest.ClosedUnder[t];
-                if (!double.IsNaN(lowest.Cancelled[t])) { cancelledAt = t; A(CompCancelled + AgoSuffix)[t] = Units(t - under, ago); }
-                if (!double.IsNaN(lowest.Failed[t])) { failedAt = t; A(CompFailed + AgoSuffix)[t] = Units(t - under, ago); }
+                if (!double.IsNaN(lowest.Cancelled[t])) { cancelledAt = t; cancelledAgo[t] = Units(t - under, ago); }
+                if (!double.IsNaN(lowest.Failed[t])) { failedAt = t; failedAgo[t] = Units(t - under, ago); }
                 if (cancelledAt >= 0) cancelledSince[t] = Units(t - cancelledAt, ago);
                 if (failedAt >= 0) failedSince[t] = Units(t - failedAt, ago);
             }
@@ -426,7 +433,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // Day and week counts against the timing windows — known on the bar.
-            WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dMin, dMax, tint: true, n);
+            WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dWindowMin, dMax, tint: true, n);
             WriteWindow(o, CompWeeklyWindow, w, wTier, barsPerWeek, wMin, wMax, tint: !dTier.Active, n);
 
             // The cycle arc, on the window of the tier the events belong to (a yearly-only chart
@@ -753,7 +760,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             string text = fineTuned
                 ? $"{preset.Name} ranges, {preset.Source}"
                 : $"no preset for this symbol, so {preset.Name}'s ranges";
-            text += $": daily {Range(preset.DailyMin, preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}, " +
+            text += $": daily {Range(preset.DailyMin, preset.DailyMax)} {(preset.CalendarDays ? "days" : "trading days")}" +
+                    (preset.CountDailyMin > 0 ? $", counted from {Num(preset.CountDailyMin)}, " : ", ") +
                     $"weekly {Range(preset.WeeklyMin, preset.WeeklyMax)} weeks, yearly {Range(preset.YearlyMin, preset.YearlyMax)} years";
             if (preset.Key == "BTC" && fineTuned)
             {

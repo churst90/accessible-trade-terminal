@@ -413,7 +413,7 @@ public sealed class CipherCProviderTests
             Assert.True(bars[t].Close < r[CipherCProvider.CompCancelled][t] || bars[t].Close < r[CipherCProvider.CompFailed][t],
                 $"{bars[t].Date:yyyy-MM-dd}: close {bars[t].Close} is not under the low");
 
-        var tier = CipherCEngine.Tier(54, 66, 1, CipherCEngine.MeasureBars(bars.ToArray()));
+        var tier = CipherCEngine.Tier(48, 66, 1, CipherCEngine.MeasureBars(bars.ToArray()));   // counted from 48
         foreach (int t in failed)
             Assert.True(r[CipherCProvider.CompDailyWindow][t] - 1 >= tier.MinGap, $"{bars[t].Date:yyyy-MM-dd}: a failure before the minimum gap");
     }
@@ -440,11 +440,13 @@ public sealed class CipherCProviderTests
     /// A weekly low is always one of the daily lows, a yearly low one of the weekly ones — CF's
     /// stacks sit on one another. Since the weekly lows are picked from the daily ones
     /// (<see cref="CipherCWeeklyTests"/>), Bitcoin's weekly lows from June 2022 are the original's
-    /// wherever the two daily lows agree (read off the original's chart in TradingView,
-    /// 2026-10-23). Where they do not, the weekly ones differ with them: the original has a daily
-    /// low on 19 December 2022 and 11 March 2025, and drew a weekly low on each; Cipher C has
-    /// neither daily low (it has 7 April 2025). The original draws no weekly low on the 5 August
-    /// 2024 crash, a daily low 31 days after the weekly one of 5 July.
+    /// wherever the two daily lows agree (read off the original's chart in TradingView, candles,
+    /// 2026-10-24). Counted from 48 days, Cipher C has the original's daily lows of 19 December
+    /// 2022 and 11 March 2025 and a weekly low on each, as the original draws: 9 of its 11 weekly
+    /// lows to the fixture's end. It misses 11 September 2023, after daily lows of 15 June and 24 October 2023 where the
+    /// original has 12 May and 27 November, and 21 November 2025, after keeping the daily low of
+    /// 22 June 2025 as a weekly one where the original did not. The original draws no weekly low
+    /// on the 5 August 2024 crash, a daily low 31 days after the weekly one of 5 July.
     /// </summary>
     [Fact]
     public void A_weekly_low_sits_on_a_daily_low_and_a_yearly_low_on_a_weekly_one()
@@ -458,10 +460,12 @@ public sealed class CipherCProviderTests
         Assert.All(w, i => Assert.Contains(i, d));
         Assert.All(y, i => Assert.Contains(i, w));
         var bars = CipherSrSpeechTests.BtcDaily();
-        var original = new[] { "2022-06-18", "2022-11-21", "2023-09-11", "2024-01-23", "2024-07-05", "2024-10-10",
-                               "2025-11-21", "2026-02-06" }.Select(DateTime.Parse).ToList();
+        var original = new[] { "2022-06-18", "2022-11-21", "2022-12-19", "2023-09-11", "2024-01-23", "2024-07-05",
+                               "2024-10-10", "2025-03-11", "2025-11-21", "2026-02-06", "2026-07-01" }.Select(DateTime.Parse).ToList();
         var since2022 = w.Select(i => bars[i].Date.Date).Where(x => x >= new DateTime(2022, 5, 12)).ToList();
-        Assert.Equal(original, since2022.Where(x => x != new DateTime(2025, 4, 7)).ToList());
+        // The fixture ends on 15 June 2026, before the original's low of 1 July.
+        Assert.Equal(original.Where(x => x <= bars[^1].Date).Except(new[] { new DateTime(2023, 9, 11), new DateTime(2025, 11, 21) }),
+                     since2022.Except(new[] { new DateTime(2023, 6, 15), new DateTime(2023, 10, 24), new DateTime(2025, 6, 22) }));
         Assert.Contains(d, i => bars[i].Date == new DateTime(2024, 8, 5));
         Assert.DoesNotContain(w, i => bars[i].Date == new DateTime(2024, 8, 5));
     }
@@ -634,6 +638,28 @@ public sealed class CipherCProviderTests
         Assert.DoesNotContain("halving", other);
         var btc = CipherCProvider.PresetWords(11, new DateTime(2026, 6, 1));
         Assert.Contains("after the April 2024 halving", btc);
+        Assert.Contains("daily 54 to 66 days, counted from 48, weekly 22 to 42 weeks", btc);
+        Assert.DoesNotContain("counted from", gold);
+    }
+
+    /// <summary>
+    /// The original's table says Bitcoin's daily cycle is 54–66 days, but in TradingView's bar
+    /// replay (candles, 2022–26, 24 lows) it counts as if the shortest were 48: it confirms 24 bars
+    /// after the low on 19 of 24, never sooner, where 54 would give 27. So on the Bitcoin fixture the
+    /// daily confirmations come 24 bars after their low, never sooner, and that is the commonest lag.
+    /// </summary>
+    [Fact]
+    public void Bitcoin_counts_its_daily_cycle_from_48_days_though_its_table_says_54()
+    {
+        var r = Btc();
+        var lags = Marked(r[CipherCProvider.CompDclConfirmed]).Select(t => (int)r[CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix][t]).ToList();
+        var common = lags.GroupBy(x => x).OrderByDescending(g => g.Count()).First();
+        _out.WriteLine($"{lags.Count} daily confirmations, shortest lag {lags.Min()}, commonest {common.Key} on {common.Count()}");
+        Assert.Equal(24, lags.Min());
+        Assert.Equal(24, common.Key);
+        Assert.Equal(48, CipherCEngine.Preset("BTC").CountedDailyMin);
+        Assert.Equal(54, CipherCEngine.Preset("BTC").DailyMin);
+        Assert.Equal(22, CipherCEngine.Preset("GDX").CountedDailyMin);
     }
 
     /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No
