@@ -156,7 +156,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = true,
                             DefaultReferenceLevel = 0.0,   // net positioning is signed: zero is flat
                             SpeechTemplate = "Net {value:F1} percent of open interest.",
-                            IsVisible = false },
+                            DefaultIsEnabled = false },
 
                     new() { Name = CompCrowdedLong,
                             DisplayName = "Crowded Long",

@@ -158,13 +158,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                             IsVisible = true },
 
                     // ── Kumo Polarity ────────────────────────────────────────────────────────
-                    // Hidden ternary line: +1 when Senkou A > B (bullish cloud), -1 when B > A,
+                    // Ternary line, left out by default: +1 when Senkou A > B (bullish cloud), -1 when B > A,
                     // 0 when equal. Lets strategies gate on cloud direction with a single leaf
                     // instead of an arithmetic comparison on the two Senkou spans.
                     new() { Name = CompKumoPolarity,
                             DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
                             DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "Kumo polarity {value:F0}." },
 

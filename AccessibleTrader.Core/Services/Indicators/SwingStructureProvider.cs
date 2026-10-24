@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         // +1 uptrend, -1 downtrend, 0 range, NaN until two swings exist.
                         Name = CompState, DisplayName = "Structure State",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         DefaultColorHex = "#B0BEC5", DefaultThickness = 1.5f,
                         DefaultReferenceLevel = 0.0,
                         SubscribedLevelNames = Array.Empty<string>(),
@@ -167,7 +167,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompLastHigh, DisplayName = "Last Swing High",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Level,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         DefaultColorHex = "#EF5350", DefaultThickness = 1f,
                         DefaultDashStyle = DashStyle.Dash,
                         SubscribedLevelNames = Array.Empty<string>(),
@@ -177,7 +177,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompLastLow, DisplayName = "Last Swing Low",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Level,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         DefaultColorHex = "#26A69A", DefaultThickness = 1f,
                         DefaultDashStyle = DashStyle.Dash,
                         SubscribedLevelNames = Array.Empty<string>(),

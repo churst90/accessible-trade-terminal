@@ -65,7 +65,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "Regime {value:F0}.",
-                            IsVisible = false },
+                            DefaultIsEnabled = false },
                 },
 
                 Parameters = new List<IndicatorParameterMetadata>

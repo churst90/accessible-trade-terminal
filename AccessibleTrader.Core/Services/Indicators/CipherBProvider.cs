@@ -127,11 +127,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // ── Anchor Waves — a 5×-period WaveTrend pair: the higher-timeframe regime ──
-                    // Ours, not MCB's (no anchor appears on any MCB chart). Hidden lines; they feed
+                    // Ours, not MCB's (no anchor appears on any MCB chart). Left out by default; they still feed
                     // Anchor Polarity, the anchor suppression of the gated dots, and the Anchor Fill
-                    // cloud (also hidden by default since 2026-10-17).
+                    // cloud (hidden by default since 2026-10-17; it draws only while both waves are included).
                     new() { Name = CompWT1Anchor,     DisplayName = "Anchor Wave Fast", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#78909C", DefaultThickness = 2.0f, IsVisible = false,
+                            DefaultColorHex = "#78909C", DefaultThickness = 2.0f, DefaultIsEnabled = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultWaveform = "triangle",
                             DefaultAboveWaveform = "triangle", DefaultBelowWaveform = "sine",
@@ -141,7 +141,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompWT2Anchor,     DisplayName = "Anchor Wave Slow", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#1A237E", DefaultThickness = 2.5f, IsVisible = false,
+                            DefaultColorHex = "#1A237E", DefaultThickness = 2.5f, DefaultIsEnabled = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultWaveform = "sine",
                             DefaultAboveWaveform = "triangle", DefaultBelowWaveform = "sine",
@@ -315,9 +315,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // The adaptive OB/OS thresholds are not components since 2026-10-17 — see
                     // ThresholdObKey for why (Cody's 2026-10-17 report).
 
-                    // ── Anchor Polarity — +1/0/-1 hidden, strategy-friendly ──
+                    // ── Anchor Polarity — +1/0/-1, left out by default, strategy-friendly ──
                     new() { Name = CompAnchorPolarity, DisplayName = "Anchor Polarity", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f, IsVisible = false,
+                            DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f, DefaultIsEnabled = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             SpeechTemplate = "Anchor polarity. {value:F0}.",
@@ -353,7 +353,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     //
-                    // ── Our own signals, HIDDEN by default (2026-10-17) ─────────────────────────
+                    // ── Our own signals, LEFT OUT by default (hidden 2026-10-17, left out 2026-10-23) ─────────────────────────
                     // Cody: "finish disabling the elements on cipher b to make it similar to stock
                     // market cipher's config". The red Overbought Crossover and the
                     // four divergences appear on none of the five dated MCB
@@ -361,11 +361,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // three 2022–2023 BTC charts) — while our rules fire them on those same bars: red
                     // 6/1/1/2, divergences 9/4/3/6 across S2–S5. MCB's red marks are
                     // the small cross dots above. Computed, keyboard stops, strategy and alert inputs
-                    // as before; hidden, so not drawn, sounded or narrated until shown. A chart saved
+                    // as before; left out, so not drawn, sounded, narrated or a keyboard stop until included
+                    // (Properties → Appearance → Parts; hidden and still a stop until 2026-10-23). A chart saved
                     // when they were visible by default follows the new default unless its user had
-                    // changed them (IndicatorModelFactory, layer 2; ComponentConfig.ProviderIsVisible).
+                    // changed them (IndicatorModelFactory, layer 2; ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut).
                     new() { Name = CompRed,           DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultColorHex = "#FF1744", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -377,11 +378,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Overbought crossover, short signal",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
-                    // ── Divergence dots (hidden by default — see the Overbought Crossover) ──
+                    // ── Divergence dots (left out by default — see the Overbought Crossover) ──
                     // A divergence dot also draws a slanted line back to its first pivot (the
-                    // _anchorIdx / _anchorY companions); a hidden dot draws neither.
+                    // _anchorIdx / _anchorY companions); a dot left out or hidden draws neither.
                     new() { Name = CompBullDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultColorHex = "#00E676", DefaultThickness = 3.5f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -394,7 +395,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompBearDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultColorHex = "#FF1744", DefaultThickness = 3.5f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -407,7 +408,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBull,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultColorHex = "#26C6DA", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
@@ -420,7 +421,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompHidBear,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            IsVisible = false,
+                            DefaultIsEnabled = false,
                             DefaultColorHex = "#FF9800", DefaultThickness = 3.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,

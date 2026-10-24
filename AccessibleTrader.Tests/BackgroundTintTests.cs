@@ -81,10 +81,19 @@ public sealed class BackgroundTintTests
     private static readonly double[] Polarity = Enumerable.Range(0, N).Select(i => (i / 5) % 2 == 0 ? 1.0 : -1.0).ToArray();
     private static readonly double[] AllNaN = Enumerable.Repeat(double.NaN, N).ToArray();
 
-    private static ChartSeries CipherB(double[] polarity, BackgroundTint? userTint = null)
+    /// <summary>Cipher B with Anchor Polarity's data. Anchor Polarity is left out by default
+    /// (2026-10-23); <paramref name="included"/> includes it under Parts and hides its line with H,
+    /// as a user who wants only its tint does.</summary>
+    private static ChartSeries CipherB(double[] polarity, BackgroundTint? userTint = null, bool included = true)
     {
         var s = FromProvider(new CipherBProvider(), "CIPHER_B", new() { [CipherBProvider.CompAnchorPolarity] = polarity });
-        s.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity).UserBackgroundTint = userTint;
+        s.Data.ComponentData[CipherBProvider.CompAnchorPolarity] = polarity;
+        if (!included) return s;
+        var order = new CipherBProvider().GetIndicators()[0].Components.Select(c => c.Name).ToList();
+        Assert.True(ComponentInclusion.SetIncluded(s.Config, CipherBProvider.CompAnchorPolarity, true, order));
+        var anchor = s.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
+        anchor.IsVisible = false;
+        anchor.UserBackgroundTint = userTint;
         return s;
     }
 
@@ -358,13 +367,14 @@ public sealed class BackgroundTintTests
     [Fact]
     public void Cipher_B_tints_nothing_by_default()
     {
-        var series = CipherB(Polarity);
-        var anchor = series.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
+        var series = CipherB(Polarity, included: false);
+        // Left out by default, still computed (strategies read it); and its own default tint is Off,
+        // so including it changes nothing either.
+        var anchor = series.Config.ExcludedComponents.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
         Assert.Equal(BackgroundTint.Off, anchor.BackgroundTintInEffect());
-        Assert.False(anchor.IsVisible);   // still a hidden data component; alerts and strategies read it
 
         using var f = Render(Candles(), series);
-        using var reference = Render(Candles(), CipherB(AllNaN));
+        using var reference = Render(Candles(), CipherB(AllNaN, included: false));
         Untouched(f, reference, f.Rows("Main"), "price pane");
         Untouched(f, reference, f.Rows("Pane_CIPHER_B"), "Cipher B pane");
     }
@@ -532,7 +542,9 @@ public sealed class BackgroundTintTests
     }
 
     /// <summary>The user's choice comes back as made — Off on a component whose indicator tints,
-    /// Price chart on one whose indicator does not.</summary>
+    /// Price chart on one whose indicator does not. Anchor Polarity, hidden by default when this
+    /// was saved and left out by default since 2026-10-23, stays included: its tint is the user's
+    /// and a left-out part tints nothing (ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut).</summary>
     [Fact]
     public void A_users_tint_choice_survives_a_restore()
     {

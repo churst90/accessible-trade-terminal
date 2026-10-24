@@ -397,7 +397,8 @@ public sealed class DbsiStyleProviderTests
         foreach (var ev in new[] { DbsiStyleProvider.CompBullsTakeControl, DbsiStyleProvider.CompBearsTakeControl,
                                    DbsiStyleProvider.CompLongEntry, DbsiStyleProvider.CompShortEntry,
                                    DbsiStyleProvider.CompControl, DbsiStyleProvider.CompTrendSource })
-            Assert.False(back.Components.Single(c => c.Name == ev).IsDrawn, $"{ev} came back drawn");
+            // Control and Trend source close are left out by default (2026-10-23), undrawn if included.
+            Assert.False(back.Components.Concat(back.Config.ExcludedComponents).Single(c => c.Name == ev).IsDrawn, $"{ev} came back drawn");
         Assert.True(back.Components.Single(c => c.Name == DbsiStyleProvider.CompTrend).IsDrawn);
 
         // And the restored series draws: its labels for the newest 10 bars only.

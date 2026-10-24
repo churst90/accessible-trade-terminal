@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Parts that should not show by default are left out, not hidden (2026-10-23)
+
+Cody, 2026-10-23: audit every indicator; parts that should not show by default are left out
+(Properties → Appearance → Parts), "not added hidden and muted".
+
+- A hidden part was still a keyboard stop (announced "Hidden"), still listed in the Alerts dialog,
+  and could be narrated. A part left out is none of those until its Include box is ticked: not
+  drawn, sounded, spoken, narrated or reached with Ctrl+Up/Down. It is still computed, so
+  strategies, the parts that read it, and speech that reads it by name (Cipher DBSI's "price
+  above/below" reads its Trend source close) work as before.
+- **Every indicator** was audited; no part ships hidden any more (a test fails on any that does).
+  Left out by default now: Anchored VWAP's Bias and Bias Soft; Cipher B's anchor waves, Anchor
+  Polarity, red dot and four divergences; Coin Metrics' MVRV regime, MVRV Z, active addresses Z and
+  hash rate; COT's net % of open interest; Cipher DBSI's Control and Trend source; DSS Bressert's
+  MIT; Hurst's Regime; Ichimoku's Kumo Polarity; Pivots' Zone and R3/S3 (and Camarilla H3/H4/L3/L4);
+  fourteen of Pulse's; Regime's Above SMA and Above EMA; Market Structure's State and Last Swing
+  High/Low; Value Deviation's Value High, Value Low and Tier; Vol Regime's Percentile and State.
+  Included, each one shows (a left-out part's line is not also hidden).
+- **Saved charts.** A part saved hidden at the default that hid it comes back left out; so does a
+  Cipher B signal saved shown only because it was shown by default before 2026-10-17. A part the
+  user had shown stays in and shown; so does one the user had given a background tint (Anchor
+  Polarity shading the price chart with its line hidden), which a left-out part could not paint;
+  either keeps the visibility it was saved with.
+  A part included since, then hidden with H, stays included and hidden. "Save as Defaults" saved
+  while a part was hidden leaves it out.
+- **Caveats.** Cipher B's Anchor Fill draws only once both anchor waves are included. Ctrl+Alt+Shift+K
+  (show everything hidden) does not include parts. An alert already set on a part now left out
+  still fires, but the Alerts dialog does not list that part and describes the alert by code and
+  part name. A part included and hidden with H, then saved with "Save as Defaults", comes back
+  left out on the next new chart (the saved defaults cannot tell that from an old hidden default).
+- Tests: `HiddenPartsAreLeftOutTests` (ten), Cipher B's visibility tests rewritten for left out
+  (`CipherBStockVisibilityTests`), background tint and restore tests updated. Two older failures
+  fixed on the way: the workspace restore contract did not declare `ExcludedComponents`
+  (since 8f359e83), and the knob sweep had no entry for `RibbonName` (its reader, the bar-close
+  ribbon narration, is pinned by `RibbonNarrationTests`). Nine sabotages red: a part hidden again,
+  either migration removed, speech skipping left-out data, the retired default, a since-change
+  include, a tint, a user's show, and a kept-in part's saved visibility each ignored. Non-browser
+  suite 9,486 passed. Not seen in the app.
+
 ### Properties → Advanced: the settings the original indicator does not have (2026-10-23)
 
 Cody, 2026-10-23: settings the original indicator has no input for go on an Advanced tab.

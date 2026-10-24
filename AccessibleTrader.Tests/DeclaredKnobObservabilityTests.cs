@@ -132,6 +132,13 @@ public sealed class DeclaredKnobObservabilityTests
             + "component it names, as one sentence. New-bar narration is a scan across bars, not a "
             + "single bar's picture, sound or reading, so none of these channels can see it; "
             + "HindsightNarrationTests pins it (and its removal was shown to turn them red).",
+
+        ["RibbonName"] =
+            "Read only by NarrationScanner on a bar close: shown price-pane lines that share a ribbon "
+            + "name are narrated as one band (\"entered the ribbon\", \"left the ribbon above\") instead "
+            + "of line by line. Like ConfirmedBy it is a scan across bars on the price axis, which none "
+            + "of these single-bar channels sees; RibbonNarrationTests pins it. Not a user knob either: "
+            + "the factory copies it from the indicator's metadata on every load.",
     };
 
     // ── The channels ────────────────────────────────────────────────────────

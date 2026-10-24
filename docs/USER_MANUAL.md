@@ -1425,15 +1425,15 @@ extremes, heard but not drawn. The levels are plain grey lines, solid at ±60 an
 the waves turn rough past ±53 and rougher past ±60. Money Flow is spoken by its side and its number,
 "buying pressure, 18.0" or "selling pressure, 12.4".
 
-**What Cipher B hides.** Its own extra signals, which Market Cipher B does not show, are computed
-but hidden, and hidden means silent — no bell, no narration, nothing in Alt+Shift+D or the status
-line: the red Overbought Crossover, the regular and hidden divergences with their slanted lines,
-the anchor waves and Anchor Polarity, and the Anchor Fill cloud. You still meet them when you move
-through Cipher B's parts with Ctrl+Up and Ctrl+Down, each announced "Hidden" first, and alerts and
-strategies built on them still fire. To show one, land on it and press H, or tick Visible in
-Properties; Ctrl+Alt+Shift+K shows every hidden component on the chart at once; the Anchor Fill is
-under Properties, Appearance, Cloud Fills. A chart saved before these defaults changed takes them
-when it opens, except for anything you showed or hid yourself, which stays as you set it.
+**What Cipher B leaves out.** Its own extra signals, which Market Cipher B does not show, are
+computed but left out: the red Overbought Crossover, the regular and hidden divergences with their
+slanted lines, and the anchor waves and Anchor Polarity. A part left out is not drawn, heard,
+spoken or reached with Ctrl+Up and Ctrl+Down, and is not in Alt+Shift+D, the status line or the
+Alerts dialog's list; strategies built on them still fire. To bring one in, tick its Include box
+under Properties, Appearance, Parts (Ctrl+Alt+Shift+K, which shows what you hid with H, does not
+include parts). The Anchor Fill cloud is hidden too, under Properties, Appearance, Cloud Fills, and
+draws only once both anchor waves are included. A chart saved before these defaults changed takes
+them when it opens, except for anything you showed yourself, which stays in and shown.
 
 Properties keeps the older behaviour within reach: "WT Slow Wave Smoothing" 4, "Money Flow Formula"
 Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers from before October 2026 (all but the
@@ -1517,8 +1517,8 @@ component's **Background tint** — Off, This pane or Price chart — which shad
 behind each bar by whether that component's value is at or above its midline (the hint under it
 says where and at which value; it is for sighted viewers only, nothing is spoken or sounded, and it
 works even when the line itself is hidden: Top/Bottom Detector tints the price chart red where
-Distribution Confidence is 0.5 or more, and Cipher B's Anchor Polarity can tint but is off by
-default, like Market Cipher);
+Distribution Confidence is 0.5 or more, and Cipher B's Anchor Polarity can tint but is left out
+by default, like Market Cipher: include it under Parts first);
 Appearance also holds **Parts**, an "Include" box for each part of an indicator with more than one — leave a part
 out and it is gone from the chart: not drawn, heard, spoken or reached with the arrow keys, until you
 include it again (at least one part has to stay in, and the last box will not untick);
@@ -1695,9 +1695,9 @@ The shapes are deliberate. Market Structure owns the angular family — squares 
 crosses — and Value Deviation below owns triangles, dots and diamonds, so that on
 a chart carrying both you can never mistake a swing high for a resistance zone.
 They shipped a week apart, were each checked alone, and for a while both drew red
-down-triangles at the same size. Three more components are computed but hidden by default —
-Structure State, Last Swing High and Last Swing Low — and you can switch any of
-them on in the object tree or the indicator's properties.
+down-triangles at the same size. Three more components are computed but left out by default —
+Structure State, Last Swing High and Last Swing Low — and you can include any of
+them under the indicator's Properties, Appearance, Parts.
 
 **One thing to be clear about, because it is easy to misread.** A swing marker
 is drawn ON the pivot bar, but a pivot cannot be *identified* until the span has

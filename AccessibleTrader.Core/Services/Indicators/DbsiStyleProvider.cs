@@ -258,17 +258,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultIsDrawn = false, DefaultMarkerAnchor = MarkerAnchor.AboveBar,
                             DefaultColorHex = BearHex, DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSignalSpeechTemplate = "Bears reached the short entry score at {price}." },
-                    // For strategies and alerts: +1 bulls ahead, −1 bears ahead, 0 a tie. Hidden and
+                    // For strategies and alerts: +1 bulls ahead, −1 bears ahead, 0 a tie. Left out and
                     // undrawn (a ±1 line on the price pane is not a price).
                     new() { Name = CompControl, DisplayName = "Control", DisplayType = ComponentDisplayType.Line,
                             Role = ComponentRole.Signal, Causality = ComponentCausality.Causal,
-                            IsVisible = false, DefaultIsDrawn = false, DefaultIsMuted = true,
+                            DefaultIsEnabled = false, DefaultIsDrawn = false, DefaultIsMuted = true,
                             DefaultColorHex = LiveHex },
                     // The close the trend is computed from and coloured against (Heikin-Ashi when the
-                    // option is on). Hidden and undrawn; it exists so the trend line can be two-coloured.
+                    // option is on). Left out and undrawn (still computed: the trend reads it); it exists so the trend line can be two-coloured.
                     new() { Name = CompTrendSource, DisplayName = "Trend source close", DisplayType = ComponentDisplayType.Line,
                             Role = ComponentRole.Signal, Causality = ComponentCausality.Causal,
-                            IsVisible = false, DefaultIsDrawn = false, DefaultIsMuted = true,
+                            DefaultIsEnabled = false, DefaultIsDrawn = false, DefaultIsMuted = true,
                             DefaultColorHex = "#9E9E9E" },
                 },
             },

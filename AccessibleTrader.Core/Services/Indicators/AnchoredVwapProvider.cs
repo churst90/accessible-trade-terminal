@@ -75,7 +75,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0,
                             DefaultPitchMapping = PitchMapping.Direction,
                             SpeechTemplate = "AVWAP bias {value:F0}.",
-                            IsVisible = false },
+                            DefaultIsEnabled = false },
                     new() { Name = CompBiasSoft, DisplayName = "AVWAP Bias Soft",
                             DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             DefaultColorHex = "#FFA000", DefaultThickness = 1.0f,
@@ -83,7 +83,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0,
                             DefaultPitchMapping = PitchMapping.Direction,
                             SpeechTemplate = "AVWAP bias soft {value:F0}.",
-                            IsVisible = false },
+                            DefaultIsEnabled = false },
                 },
 
                 Parameters = new List<IndicatorParameterMetadata>

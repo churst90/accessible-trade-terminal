@@ -770,7 +770,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // pivot counts), and __live_close (present price for distance speech
             // regardless of how far back the cursor is).
             var compDataDict = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
-            foreach (var c in series.Components)
+            // The parts left out too (SeriesConfig.ExcludedComponents): still computed, and a part's
+            // speech may read one — DBSI's trend says which side of it the close is from its
+            // Trend source close, left out by default since 2026-10-23.
+            foreach (var c in series.Components.Concat(series.Config.ExcludedComponents))
             {
                 var cd = series.GetComponentData(c.Name);
                 if (cd != null) compDataDict[c.DisplayName ?? c.Name] = cd;

@@ -16,8 +16,10 @@ namespace AccessibleTrader.Tests;
 ///
 /// <para>Cody: "finish disabling the elements on cipher b to make it similar to stock market
 /// cipher's config". The red Overbought Crossover, the gold Triple Confluence Buy, the four
-/// divergences and the Anchor Fill appear on none of the five dated MCB charts; they are hidden by
-/// default, still computed and still keyboard stops. Visibility is saved per chart, and until now a
+/// divergences and the Anchor Fill appear on none of the five dated MCB charts; they were hidden by
+/// default, still computed and still keyboard stops. Since 2026-10-23 the parts among them are LEFT
+/// OUT by default (Cody: "not added hidden and muted"; <see cref="HiddenPartsAreLeftOutTests"/>):
+/// still computed, but not keyboard stops until Properties → Parts includes them. Visibility is saved per chart, and until now a
 /// restore put the saved flag back verbatim — so a default change reached only charts added
 /// afterwards, and Cody's chart (saved while they were shown by default) would have kept them, and
 /// their sounds. These restore HIS save (<see cref="CodysCipherBSave"/>) through the real path,
@@ -30,9 +32,10 @@ public sealed class CipherBStockVisibilityTests
         new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
         new MockIndicatorPreferencesService());
 
-    /// <summary>Ours, not Market Cipher B's: hidden by default. The gold dot was here on 2026-10-17,
-    /// shown again 2026-10-18 and removed from Cipher B 2026-10-22 (CipherBGoldDotTests).</summary>
-    private static readonly string[] HiddenByDefault =
+    /// <summary>Ours, not Market Cipher B's: hidden by default 2026-10-17, left out by default
+    /// 2026-10-23. The gold dot was here on 2026-10-17, shown again 2026-10-18 and removed from
+    /// Cipher B 2026-10-22 (CipherBGoldDotTests).</summary>
+    private static readonly string[] LeftOutByDefault =
     {
         CipherBProvider.CompWT1Anchor, CipherBProvider.CompWT2Anchor, CipherBProvider.CompAnchorPolarity,
         CipherBProvider.CompRed,
@@ -47,14 +50,23 @@ public sealed class CipherBStockVisibilityTests
         CipherBProvider.CompBullDiv, CipherBProvider.CompBearDiv, CipherBProvider.CompHidBull, CipherBProvider.CompHidBear,
     };
 
-    /// <summary>Every keyboard stop, in order — the order Ctrl+Up/Down walks. Unchanged by hiding.</summary>
-    private static readonly string[] KeyboardOrder =
+    /// <summary>Every part, in the indicator's order — Properties → Parts, and the order
+    /// Ctrl+Up/Down walks the included ones in.</summary>
+    private static readonly string[] AllParts =
     {
         "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
         "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Anchor Polarity",
         "Oversold Crossover", "Overbought Crossover", "Bullish Divergence",
         "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation", "RSI", "Stochastic",
     };
+
+    /// <summary>The keyboard stops of a chart with the defaults: every part but the left-out ones.</summary>
+    private static readonly string[] KeyboardOrder = AllParts.Except(LeftOutByDefault).ToArray();
+
+    private static List<string> LeftOut(ChartSeries s) => s.Config.ExcludedComponents.Select(c => c.Name).ToList();
+
+    private static void Include(ChartSeries s, string name) =>
+        Assert.True(ComponentInclusion.SetIncluded(s.Config, name, true, AllParts));
 
     private static (IndicatorEngine Engine, List<IndicatorMetadata> Meta) Cipher()
     {
@@ -98,19 +110,22 @@ public sealed class CipherBStockVisibilityTests
     {
         var s = Fresh();
         Assert.Equal(KeyboardOrder, s.Components.Select(c => c.Name));
-        Assert.Equal(HiddenByDefault.OrderBy(n => n), s.Components.Where(c => !c.IsVisible).Select(c => c.Name).OrderBy(n => n));
+        Assert.Equal(LeftOutByDefault, LeftOut(s));
+        Assert.All(s.Components.Concat(s.Config.ExcludedComponents), c => Assert.True(c.IsVisible));
+        Assert.Equal(AllParts, ComponentInclusion.AllParts(s.Config, AllParts).Select(c => c.Name));
         Assert.False(Fill(s, "Anchor Fill").IsVisible);
         Assert.False(Fill(s, "WT Fill").IsVisible);
         Assert.True(s.Config.ZoneBands.Single(b => b.DisplayName == "Money Flow Bar").IsVisible);
         // The baseline a later restore needs is recorded from the first build.
-        Assert.All(s.Components, c => Assert.Equal(c.IsVisible, c.ProviderIsVisible));
+        Assert.All(s.Components.Concat(s.Config.ExcludedComponents), c => Assert.Equal(c.IsVisible, c.ProviderIsVisible));
         Assert.All(s.Config.CloudFills, f => Assert.Equal(f.IsVisible, f.ProviderIsVisible));
     }
 
-    /// <summary>Hidden is not removed: every hidden signal is still computed (strategies, alerts and
-    /// a component the user shows again read it), and hidden means silent.</summary>
+    /// <summary>Left out is not removed: every left-out signal is still computed (strategies, and a
+    /// part the user includes, read it); it is not a component the chart sounds; and once included it
+    /// sounds like any shown dot.</summary>
     [Fact]
-    public void The_hidden_signals_are_still_computed_and_are_silent()
+    public void The_left_out_signals_are_still_computed_and_sound_only_once_included()
     {
         var bars = CausalityProbeSeries.Bars(CausalityProbeSeries.HourlyFlavours.First(), 1400);
         var results = new Dictionary<string, double[]>();
@@ -120,12 +135,14 @@ public sealed class CipherBStockVisibilityTests
             Assert.True(results[name].Any(v => !double.IsNaN(v)), $"{name} fired nowhere on 1400 bars — the check would be vacuous.");
 
         var s = Fresh();
+        Assert.All(NewlyHidden, n => Assert.DoesNotContain(n, s.Components.Select(c => c.Name)));
         var strategy = new DefaultSonificationStrategy(new SoundPatchRegistry());
         var bar = bars[^1];
         foreach (var name in NewlyHidden)
-            Assert.Equal(0f, strategy.CreateAudioPoint(s, C(s, name), -40, bar, 5, 10, (-100, 100), 1f).Volume);
-        // A shown dot, same call: not silent — so the zero above is the hiding, not the harness.
-        Assert.True(strategy.CreateAudioPoint(s, C(s, CipherBProvider.CompBlue), -96, bar, 5, 10, (-100, 100), 1f).Volume > 0f);
+        {
+            Include(s, name);
+            Assert.True(strategy.CreateAudioPoint(s, C(s, name), -40, bar, 5, 10, (-100, 100), 1f).Volume > 0f, name);
+        }
     }
 
     // ── Cody's saved chart ───────────────────────────────────────────────────────────
@@ -143,7 +160,8 @@ public sealed class CipherBStockVisibilityTests
         var s = Restore(save);
 
         Assert.Equal(KeyboardOrder, s.Components.Select(c => c.Name));
-        Assert.Equal(HiddenByDefault.OrderBy(n => n), s.Components.Where(c => !c.IsVisible).Select(c => c.Name).OrderBy(n => n));
+        Assert.Equal(LeftOutByDefault, LeftOut(s));
+        Assert.All(s.Components, c => Assert.True(c.IsVisible));
         Assert.False(Fill(s, "Anchor Fill").IsVisible);
         Assert.False(Fill(s, "WT Fill").IsVisible);
         // His own switches are untouched: RSI and Stochastic muted as he left them.
@@ -151,7 +169,7 @@ public sealed class CipherBStockVisibilityTests
         Assert.True(C(s, CipherBProvider.CompMcbStoch).IsMuted);
         // And the next save records the baseline, so it no longer leans on the retired table.
         var next = SaveAgain(s);
-        Assert.All(next.Components, c => Assert.NotNull(c.ProviderIsVisible));
+        Assert.All(next.Components.Concat(next.ExcludedComponents), c => Assert.NotNull(c.ProviderIsVisible));
         Assert.All(next.CloudFills, f => Assert.NotNull(f.ProviderIsVisible));
     }
 
@@ -162,20 +180,22 @@ public sealed class CipherBStockVisibilityTests
         var once = Restore(CodysSave());
         var twice = Restore(SaveAgain(once));
         Assert.Equal(Visible(once), Visible(twice));
+        Assert.Equal(LeftOut(once), LeftOut(twice));
         Assert.Equal(once.Config.CloudFills.Select(f => f.IsVisible), twice.Config.CloudFills.Select(f => f.IsVisible));
     }
 
     // ── The user's own choices are kept ──────────────────────────────────────────────
 
     /// <summary>
-    /// After the restore, Cody shows the bullish divergence again (H) and hides the cross-down dots;
-    /// shows the Anchor Fill and hides the money flow. All four survive the next launch.
+    /// After the restore, Cody includes the bullish divergence again (Properties → Parts) and hides
+    /// the cross-down dots; shows the Anchor Fill and hides the money flow. All four survive the next
+    /// launch.
     /// </summary>
     [Fact]
     public void What_the_user_shows_or_hides_after_the_change_survives_a_restart()
     {
         var s = Restore(CodysSave());
-        C(s, CipherBProvider.CompBullDiv).IsVisible = true;
+        Include(s, CipherBProvider.CompBullDiv);
         C(s, CipherBProvider.CompCrossBear).IsVisible = false;
         C(s, CipherBProvider.CompMoneyFlowWave).IsVisible = false;
         Fill(s, "Anchor Fill").IsVisible = true;
@@ -186,14 +206,14 @@ public sealed class CipherBStockVisibilityTests
         Assert.False(C(back, CipherBProvider.CompCrossBear).IsVisible);
         Assert.False(C(back, CipherBProvider.CompMoneyFlowWave).IsVisible);
         Assert.True(Fill(back, "Anchor Fill").IsVisible);
-        Assert.False(C(back, CipherBProvider.CompBearDiv).IsVisible);   // untouched: still the default
+        Assert.Contains(CipherBProvider.CompBearDiv, LeftOut(back));   // untouched: still the default
     }
 
     /// <summary>
     /// In a save from BEFORE the baseline existed, a flag that differs from the old default was the
-    /// user's: a divergence he had hidden stays hidden (same as the new default, nothing to see), and
-    /// — the case that matters — a component whose default never changed keeps whatever he chose:
-    /// Anchor Polarity shown, the cross-up dots hidden, the WT Fill shown.
+    /// user's: a divergence he had hidden is left out (as the new default, nothing to see); Anchor
+    /// Polarity, hidden by default until 2026-10-23, shown by him stays included and shown; and a
+    /// component whose default never changed keeps whatever he chose: the cross-up dots hidden.
     /// </summary>
     [Fact]
     public void In_an_old_save_a_flag_that_was_not_the_old_default_is_the_users()
@@ -209,7 +229,7 @@ public sealed class CipherBStockVisibilityTests
 
         Assert.True(C(s, CipherBProvider.CompAnchorPolarity).IsVisible);
         Assert.False(C(s, CipherBProvider.CompCrossBull).IsVisible);
-        Assert.False(C(s, CipherBProvider.CompHidBear).IsVisible);
+        Assert.Contains(CipherBProvider.CompHidBear, LeftOut(s));
         // WT Fill shown in an old save equals the OLD default (shown until 2026-10-17), so it follows
         // the indicator — hidden. The retired table can only know defaults, not intent.
         Assert.False(Fill(s, "WT Fill").IsVisible);

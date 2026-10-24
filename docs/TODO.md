@@ -7,8 +7,13 @@
 >      - Should the Add Indicator dialog split them the same way? Today it lists every parameter.
 >      - Cipher B's Wave Trend periods are not Market Cipher B inputs either. Move them too?
 >      - Cipher C was not compared with CF's inputs one by one.
->   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted;
->      parts other parts read stay computed. Not built.
+>   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted
+>      (built, NOT seen; see CHANGES). Cody to open his saved Cipher B and check that Ctrl+Down
+>      no longer stops on the divergences or anchor waves, and that Properties → Parts lists them.
+>      Questions:
+>      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
+>      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
+>      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
 >   and CIPHER_C_DESIGN section 11).** A found daily low now holds for half the shortest cycle, counted
 >   from the later of the low and the last low plus the shortest cycle less two bars. A lower low

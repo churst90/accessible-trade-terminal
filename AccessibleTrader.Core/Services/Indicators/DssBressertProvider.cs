@@ -147,11 +147,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultColorHex = "#E65100",
                             DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}." },
-                    // MetaTrader's second line, hidden: see "The second line" above. Spoken as
+                    // MetaTrader's second line, left out by default: see "The second line" above. Spoken as
                     // "Smoothed %K" — the stochastic after its first EMA — because "MIT" read
                     // aloud is a university.
                     new() { Name = CompMit, DisplayName = "Smoothed %K", DisplayType = ComponentDisplayType.Oscillator,
-                            DefaultColorHex = "#7E57C2", IsVisible = false,
+                            DefaultColorHex = "#7E57C2", DefaultIsEnabled = false,
                             DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },

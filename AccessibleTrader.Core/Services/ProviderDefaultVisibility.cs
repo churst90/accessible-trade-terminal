@@ -56,6 +56,32 @@ namespace AccessibleTrader.Core.Services
                 _ => null,
             };
 
+        /// <summary>
+        /// <b>A part that was hidden by default is now left out by default</b> (Cody, 2026-10-23:
+        /// "components that should not show by default must be LEFT OUT … not added hidden and
+        /// muted"). A chart saved before then holds such a part included, usually hidden; this says
+        /// whether the restore should leave it out instead. Only when the indicator now leaves the
+        /// part out by default, and the save is from before (the default recorded beside it is
+        /// not "shown": every part left out by default is shown once included, so a save made
+        /// since records true and its Include box is the user's). Then the part is left out
+        /// when the save holds it hidden, or shown only because its retired default showed it
+        /// (Cipher B's own signals before 2026-10-17); a part the user had shown stays, and so does
+        /// one the user had given a background tint, which shades even while the part is hidden
+        /// (Cipher B's Anchor Polarity on the price chart) and would stop if it were left out.
+        /// </summary>
+        /// <param name="nowDefaultIsEnabled">The indicator's <c>DefaultIsEnabled</c> for the part now.</param>
+        /// <param name="savedIsVisible">The visibility the workspace file holds.</param>
+        /// <param name="savedAgainst">The default recorded beside it; null in older saves.</param>
+        /// <param name="retiredDefault">As for <see cref="Resolve"/>.</param>
+        /// <param name="userTinted">The save holds a background tint the user chose, other than Off.</param>
+        public static bool HiddenDefaultIsNowLeftOut(bool? nowDefaultIsEnabled, bool savedIsVisible, bool? savedAgainst, bool? retiredDefault,
+            bool userTinted = false)
+        {
+            if (nowDefaultIsEnabled != false || savedAgainst == true || userTinted) return false;
+            bool? baseline = savedAgainst ?? retiredDefault;
+            return !savedIsVisible || baseline == true;
+        }
+
         /// <summary>The same for cloud fills, keyed by their display name.</summary>
         public static bool? RetiredCloudFillDefault(string indicatorCode, string fillDisplayName) =>
             (indicatorCode.ToUpperInvariant(), fillDisplayName) switch

@@ -214,11 +214,17 @@ namespace AccessibleTrader.Tests
             var made = new AccessibleTrader.Core.Services.IndicatorModelFactory(styling, new MockIndicatorPreferencesService())
                 .CreateSeriesFromMetadata(meta, "Cipher B", "Pane_CIPHER_B", new List<(string, string)>(), null);
             var buf = new SeriesDataBuffer { SeriesId = made.Id };
-            foreach (var c in made.Components) buf.ComponentData[c.Name] = At3(-61.5);
+            // The provider computes every part, left out or not.
+            foreach (var c in made.Components.Concat(made.Config.ExcludedComponents)) buf.ComponentData[c.Name] = At3(-61.5);
             var cipher = made.WithData(buf);
 
-            var hidden = cipher.Components.Where(c => !c.IsVisible).Select(c => c.DisplayName ?? c.Name).ToList();
-            Assert.True(hidden.Count >= 2, "precondition: Cipher B declares hidden components (anchor waves, polarity)");
+            // Parts it leaves out by default (anchor waves, polarity, its own dots; hidden until
+            // 2026-10-23), and one the user hid with H.
+            var hidden = cipher.Config.ExcludedComponents.Select(c => c.DisplayName ?? c.Name).ToList();
+            Assert.True(hidden.Count >= 2, "precondition: Cipher B leaves parts out by default (anchor waves, polarity)");
+            var hiddenByUser = cipher.Components.Single(c => c.Name == AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompMcbRsi);
+            hiddenByUser.IsVisible = false;
+            hidden.Add(hiddenByUser.DisplayName!);
 
             foreach (string said in new[]
                      {

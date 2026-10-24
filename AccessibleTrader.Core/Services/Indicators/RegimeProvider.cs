@@ -53,7 +53,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompAboveSma, DisplayName = "Close − SMA(200)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Close minus S M A two hundred {value:price}.",
                     },
@@ -61,7 +61,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompAboveEma, DisplayName = "Close − EMA(200)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Close minus E M A two hundred {value:price}.",
                     },

@@ -128,7 +128,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompValueHigh, DisplayName = "Value Area High",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Level,
-                        IsVisible = false, DefaultColorHex = "#9E9E9E", DefaultThickness = 1f,
+                        DefaultIsEnabled = false, DefaultColorHex = "#9E9E9E", DefaultThickness = 1f,
                         DefaultDashStyle = DashStyle.Dash,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Value area high {value:price}.",
@@ -137,7 +137,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompValueLow, DisplayName = "Value Area Low",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Level,
-                        IsVisible = false, DefaultColorHex = "#9E9E9E", DefaultThickness = 1f,
+                        DefaultIsEnabled = false, DefaultColorHex = "#9E9E9E", DefaultThickness = 1f,
                         DefaultDashStyle = DashStyle.Dash,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Value area low {value:price}.",
@@ -147,7 +147,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         // Signed tier: negative below value (support side), positive above.
                         Name = CompTier, DisplayName = "Deviation Tier",
                         DisplayType = ComponentDisplayType.StepLine, Role = ComponentRole.Signal,
-                        IsVisible = false, DefaultColorHex = "#B0BEC5", DefaultThickness = 1f,
+                        DefaultIsEnabled = false, DefaultColorHex = "#B0BEC5", DefaultThickness = 1f,
                         DefaultReferenceLevel = 0.0,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Tier {value:F0}.",

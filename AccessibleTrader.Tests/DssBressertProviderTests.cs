@@ -432,7 +432,7 @@ public sealed class DssBressertProviderTests
         Assert.True(comps[0].DefaultTriggerBoundaryClick);
         Assert.NotEqual(true, comps[1].DefaultTriggerBoundaryClick);
         Assert.True(comps[0].IsVisible && comps[1].IsVisible);
-        Assert.False(comps[2].IsVisible);
+        Assert.Equal(false, comps[2].DefaultIsEnabled);   // left out by default (hidden until 2026-10-23)
         Assert.Equal("Smoothed %K", comps[2].DisplayName);
     }
 

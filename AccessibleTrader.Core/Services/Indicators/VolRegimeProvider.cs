@@ -84,7 +84,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompVolPercentile, DisplayName = "Vol Percentile",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Vol percentile {value:F2}.",
                     },
@@ -92,7 +92,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompVolState, DisplayName = "Vol State",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         DefaultReferenceLevel = 0.0,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Vol state {value:F0}.",

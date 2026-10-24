@@ -411,14 +411,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultSignalSpeechTemplate = "Pulse short blocked.",
                     },
 
-                    // ── v2 hidden components (catalog-only, harness/strategy use) ──
-                    // IsVisible=false → renderer skips them but SignalCatalog still
+                    // ── v2 left-out components (catalog-only, harness/strategy use) ──
+                    // Left out by default (DefaultIsEnabled = false) but SignalCatalog still
                     // exposes them as PULSE.* leaf signals.
                     new()
                     {
                         Name = CompRegime, DisplayName = "Regime State",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Regime {value:F0}.",
                     },
@@ -426,7 +426,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompAnchorSlope, DisplayName = "Anchor Slope",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Anchor slope {value:F2}.",
                     },
@@ -434,37 +434,37 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompBullCrossV2, DisplayName = "Bull Cross V2",
                         DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                     },
                     new()
                     {
                         Name = CompBearCrossV2, DisplayName = "Bear Cross V2",
                         DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                     },
                     new()
                     {
                         Name = CompBullCrossAnchor, DisplayName = "Bull Cross Anchor",
                         DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                     },
                     new()
                     {
                         Name = CompBearCrossAnchor, DisplayName = "Bear Cross Anchor",
                         DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                     },
 
-                    // ── v3 hidden continuous components ────────────────────────────
+                    // ── v3 left-out continuous components ────────────────────────────
                     new()
                     {
                         Name = CompCmf, DisplayName = "CMF",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "C M F {value:F2}.",
                     },
@@ -472,7 +472,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompVolPctile, DisplayName = "Vol Percentile",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Vol percentile {value:F0}.",
                     },
@@ -488,12 +488,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultSignalSpeechTemplate = "Pulse golden long entry.",
                         DefaultPlaybackLayer = PlaybackLayer.Foreground,
                     },
-                    // ── v5 hidden continuous (CycleState — raw 1..4) ───────────────
+                    // ── v5 left-out continuous (CycleState — raw 1..4) ───────────────
                     new()
                     {
                         Name = CompCycleState, DisplayName = "Cycle State (1-4)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Cycle stage {value:F0}.",
                     },
@@ -525,12 +525,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                         },
                     },
 
-                    // ── v4 hidden continuous (MTF Anchor + MTF Regime) ─────────────
+                    // ── v4 left-out continuous (MTF Anchor + MTF Regime) ─────────────
                     new()
                     {
                         Name = CompAnchorMtf, DisplayName = "Anchor MTF",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Anchor M T F {value:F1}.",
                     },
@@ -538,17 +538,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompRegimeMtf, DisplayName = "Regime MTF",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Regime M T F {value:F0}.",
                     },
 
-                    // ── v6 hidden continuous (RollSharpe + AbsRollSharpe + TrendState) ─
+                    // ── v6 left-out continuous (RollSharpe + AbsRollSharpe + TrendState) ─
                     new()
                     {
                         Name = CompRollSharpe, DisplayName = "Rolling Sharpe",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Rolling Sharpe {value:F2}.",
                     },
@@ -556,7 +556,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompAbsRollSharpe, DisplayName = "|Rolling Sharpe|",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Absolute Sharpe {value:F2}.",
                     },
@@ -564,7 +564,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompTrendState, DisplayName = "Trend State",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "Trend state {value:F0}.",
                     },

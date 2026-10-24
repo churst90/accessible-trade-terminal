@@ -80,7 +80,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompMvrvRegime, DisplayName = "MVRV Regime (1-4)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "M V R V regime {value:F0}.",
                     },
@@ -88,7 +88,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompMvrvZ, DisplayName = "MVRV Z-Score (365)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SpeechTemplate = "M V R V Z {value:F2}.",
                     },
                     new()
@@ -103,14 +103,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                     {
                         Name = CompAdrActCntZ, DisplayName = "Active Addresses Z (365)",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SpeechTemplate = "Active addresses Z {value:F2}.",
                     },
                     new()
                     {
                         Name = CompHashRate, DisplayName = "Hash Rate",
                         DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
-                        IsVisible = false,
+                        DefaultIsEnabled = false,
                         SpeechTemplate = "Hash rate {value:F0}.",
                     },
                 }

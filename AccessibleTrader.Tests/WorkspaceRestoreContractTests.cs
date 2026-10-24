@@ -74,6 +74,9 @@ public class WorkspaceRestoreContractTests
         ["Components"]      = "rebuilt from provider metadata (layer 1) so a metadata improvement "
                             + "reaches existing charts; the user-owned half is merged in layer 2 "
                             + "and asserted separately below",
+        ["ExcludedComponents"] = "the parts left out (Properties → Parts), rebuilt with Components: "
+                            + "each part's Include (ComponentConfig.IsEnabled) is user-owned, merged in "
+                            + "layer 2 and asserted with the component properties below",
         ["Levels"]          = "restored wholesale when present — asserted by its own test below",
         ["CloudFills"]      = "restored wholesale when present, same as Levels",
         ["ZoneBands"]       = "restored wholesale when present, same as Levels",
@@ -214,8 +217,9 @@ public class WorkspaceRestoreContractTests
 
             svc.RestoreSeriesFromSaved(saved, TwoComponentMeta());
 
-            var restored = store.State.ActiveSeries.Single(s => s.Id == saved.Id)
-                .Components.Single(c => c.Name == "Buy");
+            // A part saved left out (IsEnabled false) is restored into ExcludedComponents.
+            var cfg = store.State.ActiveSeries.Single(s => s.Id == saved.Id).Config;
+            var restored = cfg.Components.Concat(cfg.ExcludedComponents).Single(c => c.Name == "Buy");
             if (!ReflectionFixture.Equivalent(want, prop.GetValue(restored))) dropped.Add(name);
         }
 

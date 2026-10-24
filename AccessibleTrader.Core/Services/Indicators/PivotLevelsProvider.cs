@@ -75,7 +75,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "Zone {value:F0}.",
-                            IsVisible = false },
+                            DefaultIsEnabled = false },
                 },
 
                 Parameters = new List<IndicatorParameterMetadata>
@@ -256,7 +256,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // the magnitude-aware token. {value:F2} spoke "S1 0.00" for every sub-dollar
                 // asset — on the one number a user would put in an order.
                 SpeechTemplate = $"{display} {{value:price}}.",
-                IsVisible = visible
+                DefaultIsEnabled = visible ? null : false
             };
 
         private static bool PeriodChanged(DateTime a, DateTime b, string period)

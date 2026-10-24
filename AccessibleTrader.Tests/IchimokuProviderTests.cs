@@ -86,10 +86,10 @@ namespace AccessibleTrader.Tests
         public void Components_ExposeHiddenKumoPolarityHelper()
         {
             // Kumo Polarity is a strategy-composer helper (+1 / 0 / -1) — it
-            // is intentionally hidden from the chart and has a zero reference
-            // level so strategies can gate on it via a simple threshold leaf.
+            // is left out of the chart by default (hidden until 2026-10-23) and has a
+            // zero reference level so strategies can gate on it via a simple threshold leaf.
             var c = GetComponent(IchimokuProvider.CompKumoPolarity);
-            Assert.False(c.IsVisible, "Kumo Polarity must be hidden — it's a strategy leaf, not a chart line.");
+            Assert.True(c.DefaultIsEnabled == false, "Kumo Polarity must be left out by default — it's a strategy leaf, not a chart line.");
             Assert.Equal(0.0, c.DefaultReferenceLevel);
         }
 

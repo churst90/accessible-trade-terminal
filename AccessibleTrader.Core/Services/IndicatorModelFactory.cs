@@ -182,6 +182,21 @@ namespace AccessibleTrader.Core.Services
                         saved.IsVisible, saved.ProviderIsVisible, fresh.IsVisible,
                         ProviderDefaultVisibility.RetiredComponentDefault(meta.Code, fresh.Name));
                     fresh.IsEnabled      = saved.IsEnabled;
+                    // Saved hidden by a default that now leaves the part out: left out, and
+                    // shown if the user includes it (ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut).
+                    // Kept in from such a save (shown, or tinted, by the user): as saved — its old
+                    // hidden default is now "left out", not a visibility to resolve against.
+                    bool? nowDefaultIsEnabled = meta.Components.FirstOrDefault(m => m.Name == fresh.Name)?.DefaultIsEnabled;
+                    if (ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut(
+                            nowDefaultIsEnabled, saved.IsVisible, saved.ProviderIsVisible,
+                            ProviderDefaultVisibility.RetiredComponentDefault(meta.Code, fresh.Name),
+                            userTinted: saved.UserBackgroundTint is { } tint && tint != BackgroundTint.Off))
+                    {
+                        fresh.IsEnabled = false;
+                        fresh.IsVisible = true;
+                    }
+                    else if (nowDefaultIsEnabled == false && saved.ProviderIsVisible != true)
+                        fresh.IsVisible = saved.IsVisible;
                     fresh.IsMuted        = saved.IsMuted;
                     fresh.Volume         = saved.Volume;
                     fresh.FreqMultiplier = saved.FreqMultiplier;
@@ -235,6 +250,12 @@ namespace AccessibleTrader.Core.Services
                     if (pref.FreqMultiplier    != null) fresh.FreqMultiplier    = pref.FreqMultiplier.Value;
                     if (pref.BaseFrequency     != null) fresh.BaseFrequency     = pref.BaseFrequency.Value;
                     if (pref.NoiseAmount       != null) fresh.NoiseAmount       = pref.NoiseAmount.Value;
+                    // Defaults saved while the part was hidden by default (the same change as layer 2):
+                    // it stays left out, and its saved "hidden" does not follow it in when included.
+                    if (pref.IsVisible == false && ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut(
+                            meta.Components.FirstOrDefault(m => m.Name == fresh.Name)?.DefaultIsEnabled,
+                            savedIsVisible: false, savedAgainst: null, retiredDefault: null))
+                        continue;
                     if (pref.IsVisible         != null) fresh.IsVisible         = pref.IsVisible.Value;
                     // "Include" saved as this indicator's default — but a chart that saved its own
                     // choice keeps it, as with the axis label above.

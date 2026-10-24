@@ -257,7 +257,8 @@ public sealed class CipherBGoldDotTests
 
         var now = Restore(saved);
         Assert.DoesNotContain(now.Components, c => c.Name == GoldName);
-        var names = now.Components.Select(c => c.Name).ToHashSet();
+        // Left out (2026-10-23) is not gone: the part is still there, waiting to be included.
+        var names = now.Components.Concat(now.Config.ExcludedComponents).Select(c => c.Name).ToHashSet();
         var vanished = saved.Components.Select(c => c.Name)
             .Where(n => !names.Contains(n) && !SignalCatalog.Retired.ContainsKey($"CIPHER_B.{n}")).ToList();
         Assert.True(vanished.Count == 0, $"saved components gone without a retirement notice: {string.Join(", ", vanished)}");

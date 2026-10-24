@@ -31,7 +31,7 @@ public sealed class CipherBProviderSpeechTests
         new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
         new MockIndicatorPreferencesService());
 
-    /// <summary>A Cipher B built as the app builds it, holding the provider's output; TF-aware gates
+    /// <summary>A Cipher B built as the app builds it, every part included, holding the provider's output; TF-aware gates
     /// off so the ADX gate is the declared 18.</summary>
     private static (ChartSeries Series, List<Ohlcv> Bars, IndicatorEngine Engine, Dictionary<string, double[]> Results) Chart(int flavour = 0, int length = 1400)
     {
@@ -41,6 +41,11 @@ public sealed class CipherBProviderSpeechTests
         var meta = new CipherBProvider().GetIndicators()[0];
         var series = Factory.CreateSeriesFromMetadata(meta, "Cipher B", "Pane_CIPHER_B",
             new List<(string, string)>(), componentOverrides: null);
+        // Every part included: the red dot and the divergences are left out by default (2026-10-23)
+        // and say this once the user includes them.
+        var order = meta.Components.Select(c => c.Name).ToList();
+        foreach (var name in series.Config.ExcludedComponents.Select(c => c.Name).ToList())
+            ComponentInclusion.SetIncluded(series.Config, name, true, order);
 
         var bars = CausalityProbeSeries.Bars(flavour, length);
         var results = new Dictionary<string, double[]>();
