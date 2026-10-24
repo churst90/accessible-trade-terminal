@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Tests;
@@ -99,33 +100,45 @@ public sealed class CipherBMcbFormulaTests
     // ── Money flow ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// MCB's money flow reads HEIKIN-ASHI candle bodies, not raw ones. A steady climb of dojis
-    /// (open = close on every raw candle) has no raw body at all — the legacy formula reads it as
-    /// zero — while its Heikin-Ashi candles are all rising, so MCB's money flow is positive.
+    /// MCB's money flow reads only the TYPICAL PRICE, (high + low + close) / 3, of the candles the
+    /// chart shows (exact against Market Cipher B 2.4.0, 2026-10-24). Moving every open inside its
+    /// candle, or stretching one candle's wicks equally up and down, leaves every typical price where
+    /// it was, and the money flow does not move on any bar; raising one high alone moves it. (The
+    /// 2026-10-23 fit read Heikin-Ashi bodies, which the open moves.)
     /// </summary>
     [Fact]
-    public void Money_flow_reads_heikin_ashi_bodies()
+    public void Money_flow_reads_only_the_typical_price()
     {
         var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var dojis = Enumerable.Range(0, 200).Select(i =>
+        const int k = 150;
+        List<Ohlcv> Series(double openShift, double bothWicks, double highOnly) => Enumerable.Range(0, 300).Select(i =>
         {
-            double p = 100 + i;
-            return new Ohlcv(start.AddDays(i), p, p + 1, p - 1, p, 1000);
+            double o = 100 + 0.2 * i + (i % 7 == 3 ? -0.5 : 0), c = o + 0.2 * (i % 5 == 0 ? -1 : 1);
+            double w = i == k ? bothWicks : 0.0, up = i == k ? highOnly : 0.0;
+            // The wicks reach 0.9 past the body, so an open moved by up to 0.8 stays inside the candle.
+            return new Ohlcv(start.AddDays(i), o + openShift * Math.Sin(i), Math.Max(o, c) + 0.9 + w + up, Math.Min(o, c) - 0.9 - w, c, 1000);
         }).ToList();
-        var mcb = Run(dojis)[CipherBProvider.CompMoneyFlowWave];
-        var legacy = Run(dojis, ("MoneyFlowMode", "Legacy"))[CipherBProvider.CompMoneyFlowWave];
-        Assert.Equal(0.0, legacy[150], 9);
-        Assert.True(mcb[150] > 5, $"money flow on rising Heikin-Ashi candles reads {mcb[150]:F2}, not positive");
+        var steady = Run(Series(0, 0, 0))[CipherBProvider.CompMoneyFlowWave];
+        var reopened = Run(Series(0.8, 0, 0))[CipherBProvider.CompMoneyFlowWave];
+        var stretched = Run(Series(0, 5, 0))[CipherBProvider.CompMoneyFlowWave];
+        var raised = Run(Series(0, 0, 3))[CipherBProvider.CompMoneyFlowWave];
+        for (int i = 0; i < 300; i++)
+        {
+            Assert.Equal(steady[i], reopened[i], 9);
+            Assert.Equal(steady[i], stretched[i], 9);
+        }
+        Assert.True(Math.Abs(raised[k] - steady[k]) > 0.1, $"raising one high moved the money flow by only {raised[k] - steady[k]:F4}");
     }
 
     /// <summary>
-    /// MCB's money flow is LINEAR (no square root) and SIZE-FREE: each Heikin-Ashi body is measured
-    /// against the average size of the last five, so a run of steady rising candles reads the full
-    /// 68 whatever their size, and the same run at ten times the price reads the same. The legacy
-    /// square root of the raw candle's body share gave 175 × √0.1 = 55 here.
+    /// MCB's money flow is LINEAR (no square root) and SIZE-FREE: each typical price's step from its
+    /// five-bar mean is measured against the mean size of the last five such steps, so a run of
+    /// steady rising candles reads the full 200/3 whatever their size, and the same run at ten times
+    /// the price reads the same. The legacy square root of the raw candle's body share gave
+    /// 175 × √0.1 = 55 here.
     /// </summary>
     [Fact]
-    public void Money_flow_reads_68_on_steady_candles_whatever_their_size()
+    public void Money_flow_reads_200_over_3_on_steady_candles_whatever_their_size()
     {
         var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         List<Ohlcv> Steady(double unit) => Enumerable.Range(0, 300).Select(i =>
@@ -136,59 +149,56 @@ public sealed class CipherBMcbFormulaTests
         var mf = Run(Steady(1))[CipherBProvider.CompMoneyFlowWave];
         var big = Run(Steady(10))[CipherBProvider.CompMoneyFlowWave];
         var legacy = Run(Steady(1), ("MoneyFlowMode", "Legacy"))[CipherBProvider.CompMoneyFlowWave];
-        // Heikin-Ashi body settles at 0.4 every bar: body ÷ average body = 1, the 60-bar average 1.
-        Assert.Equal(68.0, mf[250], 6);
+        // The typical price climbs 0.2 a bar: it sits 0.4 above its 5-bar mean every bar, ratio 1.
+        Assert.Equal(200.0 / 3.0, mf[250], 6);
         Assert.Equal(mf[250], big[250], 6);
         Assert.Equal(175 * Math.Sqrt(0.1), legacy[250], 6);
     }
 
     /// <summary>
-    /// The range plays no part: each body is divided by the average SIZE of the last five bodies,
-    /// not by any range (the 2026-10-23 range form needed a scale of 71 on TVC:DJI's rangeless
-    /// pre-1930 bars and about 140 on later ones; the body form takes 66–70 on every series). One
-    /// candle's wicks are stretched equally up and down, which leaves its Heikin-Ashi body where it
-    /// was: the money flow does not move on any bar.
+    /// The whole formula restated from its definition on a random walk: d = typical price less its
+    /// 5-bar mean, d ÷ the mean size of the last FIVE d, a 60-bar mean of that, × 200/3. The first
+    /// value is on bar 68 (index 67), where MCB's line starts: 4 + 4 + 59 bars of warm-up.
     /// </summary>
     [Fact]
-    public void Money_flow_ignores_the_wicks()
-    {
-        var start = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        const int k = 150;
-        List<Ohlcv> Series(bool spike) => Enumerable.Range(0, 300).Select(i =>
-        {
-            double o = 100 + 0.2 * i + (i % 7 == 3 ? -0.5 : 0), c = o + 0.2 * (i % 5 == 0 ? -1 : 1), w = spike && i == k ? 5.0 : 0.0;
-            return new Ohlcv(start.AddDays(i), o, Math.Max(o, c) + 0.9 + w, Math.Min(o, c) - 0.9 - w, c, 1000);
-        }).ToList();
-        var steady = Run(Series(false))[CipherBProvider.CompMoneyFlowWave];
-        var spiked = Run(Series(true))[CipherBProvider.CompMoneyFlowWave];
-        for (int i = 70; i < 300; i++) Assert.Equal(steady[i], spiked[i], 9);
-    }
-
-    /// <summary>
-    /// The whole formula restated from its definition on a random walk: Heikin-Ashi candles from the
-    /// chart's, each body ÷ the mean size of the last FIVE bodies, a 60-bar mean of that, × 68.
-    /// </summary>
-    [Fact]
-    public void Money_flow_is_68_times_the_60_bar_mean_of_body_over_five_bar_mean_size()
+    public void Money_flow_is_200_over_3_times_the_60_bar_mean_of_typical_deviation_over_its_five_bar_mean_size()
     {
         var bars = CausalityProbeSeries.Bars(3, 400);
         var mf = Run(bars)[CipherBProvider.CompMoneyFlowWave];
+        AssertRestatesTheFormula(bars, mf);
+    }
+
+    /// <summary>
+    /// On a Heikin-Ashi chart the money flow reads the Heikin-Ashi candles' typical price, as MCB
+    /// does (exact on BTCUSD 1D Heikin-Ashi, 5,446 bars): one Heikin-Ashi, not Heikin-Ashi of
+    /// Heikin-Ashi, and not the raw candles.
+    /// </summary>
+    [Fact]
+    public void Money_flow_reads_heikin_ashi_candles_on_a_heikin_ashi_chart()
+    {
+        var bars = CausalityProbeSeries.Bars(3, 400);
+        var onHa = Run(bars, (IndicatorCandles.HeikinAshiKey, 1.0))[CipherBProvider.CompMoneyFlowWave];
+        var ha = ChartMath.CalculateHeikinAshi(bars.ToList());
+        AssertRestatesTheFormula(ha, onHa);
+        Assert.NotEqual(Run(bars)[CipherBProvider.CompMoneyFlowWave][200], onHa[200], 6);
+    }
+
+    private static void AssertRestatesTheFormula(IReadOnlyList<Ohlcv> bars, double[] mf)
+    {
         int n = bars.Count;
-        var body = new double[n];
-        double ho = 0, hc = 0;
-        for (int i = 0; i < n; i++)
+        double Typical(int i) => (bars[i].High + bars[i].Low + bars[i].Close) / 3;
+        double D(int i) => Typical(i) - Enumerable.Range(i - 4, 5).Average(Typical);
+        double Share(int i) => D(i) / Enumerable.Range(i - 4, 5).Average(j => Math.Abs(D(j)));
+        int checkedBars = 0;
+        for (int i = 67; i < n; i += 17)
         {
-            double c4 = (bars[i].Open + bars[i].High + bars[i].Low + bars[i].Close) / 4;
-            double o4 = i == 0 ? (bars[i].Open + bars[i].Close) / 2 : (ho + hc) / 2;
-            ho = o4; hc = c4; body[i] = c4 - o4;
-        }
-        double Share(int i) => body[i] / Enumerable.Range(i - 4, 5).Average(j => Math.Abs(body[j]));
-        for (int i = 63; i < n; i += 17)
-        {
-            double expected = Math.Clamp(68 * Enumerable.Range(i - 59, 60).Average(Share), -100, 100);
+            double expected = Math.Clamp(200.0 / 3.0 * Enumerable.Range(i - 59, 60).Average(Share), -100, 100);
             Assert.Equal(expected, mf[i], 6);
+            checkedBars++;
         }
-        Assert.True(double.IsNaN(mf[62]), "the first value needs 5 + 60 - 1 bars");
+        Assert.True(checkedBars > 10);
+        Assert.False(double.IsNaN(mf[67]), "MCB's line starts on bar 68");
+        Assert.True(double.IsNaN(mf[66]), "the first value needs 4 + 4 + 59 bars before it");
     }
 
     /// <summary>

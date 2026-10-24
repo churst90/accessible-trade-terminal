@@ -113,15 +113,15 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"the twenty: {f}");
         // gen5.py's numbers for this exact model on all twenty charts.
         Assert.Equal(897, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.331) < 0.002 && Math.Abs(f.Within1 - 0.458) < 0.002
-                    && Math.Abs(f.Within2 - 0.735) < 0.002, f.ToString());
-        Assert.True(Math.Abs(f.Rmse - 2.65) < 0.01, f.ToString());
-        Assert.Equal((84, 35, 6), (f.High, f.HighPrinted, f.FalseHigh));
+        Assert.True(Math.Abs(f.Exact - 0.346) < 0.002 && Math.Abs(f.Within1 - 0.474) < 0.002
+                    && Math.Abs(f.Within2 - 0.748) < 0.002, f.ToString());
+        Assert.True(Math.Abs(f.Rmse - 2.58) < 0.01, f.ToString());
+        Assert.Equal((84, 37, 6), (f.High, f.HighPrinted, f.FalseHigh));
 
         // The side in control: on the bars where DBSI's two numbers differ, the larger of ours is DBSI's larger.
         var (differ, same) = SideInControl(pred, truth);
         _out.WriteLine($"side in control: {same} of {differ}");
-        Assert.Equal((422, 393), (differ, same));   // 93%; the linear model 395
+        Assert.Equal((422, 394), (differ, same));   // 93%; the linear model 395
     }
 
     /// <summary>
@@ -129,8 +129,8 @@ public sealed class DbsiStyleGoldenTests
     /// to 1 day) were never part of a choice. The integer model hits DBSI's exact number far more
     /// often than the linear model it replaced (fitted on the same twenty) and lands within 2 more
     /// often, with fewer false 17+; it lands within 1 less often, because each vote moves it by 2,
-    /// and it prints fewer of DBSI's own 17+. gen5.py: 31.6%, 45.2%, 70.6%, 3.14, 17+ 21 of 48 and 4
-    /// false; the linear model 20.4%, 50.5%, 67.1%, 3.06, 27 of 48 and 10 false.
+    /// and it prints fewer of DBSI's own 17+. gen5.py: 31.2%, 45.2%, 71.5%, 3.07, 17+ 21 of 48 and 3
+    /// false (with the 2026-10-24 exact money flow; 31.6%, 70.6%, 3.14 and 4 false with the fitted one); the linear model 20.4%, 50.5%, 67.1%, 3.06, 27 of 48 and 10 false.
     /// </summary>
     [Fact]
     public void On_fifteen_charts_no_choice_saw_it_is_exact_more_often_than_the_linear_model()
@@ -140,9 +140,9 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"livestream, integer model: {f}");
         _out.WriteLine($"livestream, linear model: {lin}");
         Assert.Equal(lin.N, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.316) < 0.003 && Math.Abs(f.Within1 - 0.452) < 0.003
-                    && Math.Abs(f.Within2 - 0.706) < 0.003 && Math.Abs(f.Rmse - 3.14) < 0.01, f.ToString());
-        Assert.Equal((48, 21, 4), (f.High, f.HighPrinted, f.FalseHigh));
+        Assert.True(Math.Abs(f.Exact - 0.312) < 0.003 && Math.Abs(f.Within1 - 0.452) < 0.003
+                    && Math.Abs(f.Within2 - 0.715) < 0.003 && Math.Abs(f.Rmse - 3.07) < 0.01, f.ToString());
+        Assert.Equal((48, 21, 3), (f.High, f.HighPrinted, f.FalseHigh));
         Assert.True(Math.Abs(lin.Exact - 0.204) < 0.003 && Math.Abs(lin.Within2 - 0.671) < 0.003 && lin.FalseHigh == 10, lin.ToString());
         Assert.True(f.Exact >= lin.Exact + 0.10 && f.Within2 >= lin.Within2 + 0.03 && f.FalseHigh < lin.FalseHigh,
             $"integer {f}; linear {lin}");
@@ -150,7 +150,7 @@ public sealed class DbsiStyleGoldenTests
         var (differ, same) = SideInControl(Pooled(Livestream, c => Labelled(c, Run(c))));
         var (ld, ls) = SideInControl(Pooled(Livestream, c => (c.LinearBull.Select(v => (double)v).ToArray(), c.LinearBear.Select(v => (double)v).ToArray())));
         _out.WriteLine($"side in control: {same} of {differ}, linear {ls} of {ld}");
-        Assert.Equal((262, 241, 243), (differ, same, ls));   // 92% against 93%: the side in control is no better
+        Assert.Equal((262, 242, 243), (differ, same, ls));   // 92% against 93%: the side in control is no better
     }
 
     /// <summary>

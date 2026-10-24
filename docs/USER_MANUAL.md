@@ -698,8 +698,9 @@ MACD, a moving average, Cipher A, B and C, Cipher DBSI and your own compiled ind
 Heikin-Ashi open, high, low and close; the volume is unchanged. Switching HA on or off
 recomputes every indicator on the whole history. So an indicator reading on an HA chart is a
 reading of the smoothed candles, and a level it announces is a smoothed level, not a price
-anything traded at. A few indicators know what they read on an HA chart: Cipher B's money flow
-builds its own Heikin-Ashi from the chart's candles, as Market Cipher B's does, and Cipher
+anything traded at. A few indicators know what they read on an HA chart: Cipher B is handed the
+real candles and makes the Heikin-Ashi once itself, so every part of it reads them exactly as
+Market Cipher B's does on the same chart, and Cipher
 DBSI never applies Heikin-Ashi twice, whatever its own setting says.
 
 The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
@@ -1406,9 +1407,12 @@ the money flow as a green area above zero and red below over that, and along the
 money-flow bar, green while money flows in and dark red while it flows out. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
 every upward cross of the waves with the fast wave below −60; narration says "Buy dot, waves
-crossed up from oversold". The money flow reads no volume: it averages, over the last 60 candles, each
-Heikin-Ashi candle's body against the average body of the five candles before and including it, so
-a run of candles that close firmly up pushes it above zero whatever the market's price or volume.
+crossed up from oversold". The money flow reads no volume: for each candle it takes the typical price (high, low and close
+averaged), how far that sits from its average over the last five candles, and that distance against
+its own average size over the same five; it averages this over the last 60 candles. A run of
+candles that keep rising pushes it above zero whatever the market's price or volume. It equals
+Market Cipher B's money flow to the five decimals TradingView shows, on candle and Heikin-Ashi
+charts (checked on the Dow's daily history since 1896 and Bitcoin daily and 15-minute).
 
 There is **no gold dot**. Cipher B had one until 22 October 2026, but Market Cipher B draws none —
 it came from the free VuManChu Cipher B — so it was removed. A chart saved with it opens without it,
@@ -1649,7 +1653,7 @@ and it names the side in control the way DBSI does on about 9 candles in 10. On 
 it was never chosen on (DBSI livestreams, 2024–2026), it prints DBSI's exact number about 1 time in 3
 and lands within 2 points about 7 times in 10. Because each check is worth 2, when it misses it is
 usually by 2, so it is within 1 point a little under half the time. It prints 17 or more less often
-than DBSI does (on 21 of the 48 candles where DBSI did), and rarely where DBSI stays lower (4 times
+than DBSI does (on 21 of the 48 candles where DBSI did), and rarely where DBSI stays lower (3 times
 in those charts). Use it for direction and rough strength, and do not treat a single high reading as
 DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a

@@ -54,11 +54,12 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para>
     /// <b>How close it is, measured</b> (<c>DbsiStyleGoldenTests</c> replays all of it). On the
     /// fifteen livestream charts (2026-10-23, Coinbase/Bitstamp Bitcoin and Ethereum, 1 minute to
-    /// 1 day) that no choice saw: DBSI's exact number 31.6% of the time, within ±1 45.2%, within ±2
-    /// 70.6%, typical error 3.14 points. The linear model it replaced (twelve weighted votes, eight
+    /// 1 day) that no choice saw: DBSI's exact number 31.2% of the time, within ±1 45.2%, within ±2
+    /// 71.5%, typical error 3.07 points (with the exact money flow, 2026-10-24; the fitted one gave
+    /// 31.6%, 45.2%, 70.6%, 3.14, and the same settings win either way). The linear model it replaced (twelve weighted votes, eight
     /// weighted base votes, a streak, a stretch and weighted run terms, fitted on the same twenty):
     /// 20.4%, 50.5%, 67.1%, 3.06. Exact far more often, within 1 less often: every vote moves the
-    /// score by 2, so a miss is usually 2, not 1. On the twenty: 33.1%, 45.8%, 73.5%, 2.65.
+    /// score by 2, so a miss is usually 2, not 1. On the twenty: 34.6%, 47.4%, 74.8%, 2.58.
     /// </para>
     ///
     /// <para>
@@ -432,8 +433,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// so every "above" becomes a strict "below"). In order: close above the close 2 bars back;
         /// the 4-bar EMA of close above itself 2 bars back; the 21-bar stochastic (SMA2) rising;
         /// WaveTrend wt1 (9, 12) rising; wt1's gap over its 3-bar SMA widening; the previous close
-        /// above the close before it; Cipher B's money flow (the SMA60 of each Heikin-Ashi body over
-        /// the average size of the last five, Heikin-Ashi of the candles given) rising — for the
+        /// above the close before it; Cipher B's money flow (the SMA60 of hlc3 less its 5-bar mean over
+        /// the 5-bar mean size of that, on the candles given) rising — for the
         /// bears, falling. Undefined compares as no vote.
         /// </summary>
         internal static double[][] BaseVotes(double[] o, double[] h, double[] l, double[] c)
@@ -442,9 +443,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             var k21 = Sma(Stochastic(c, h, l, 21), 2);
             var wt1 = WaveTrend1(h, l, c);
             var gap = Sub(wt1, Sma(wt1, 3));
-            // Cipher B's money flow, unscaled: Heikin-Ashi of these candles, so Heikin-Ashi of
-            // Heikin-Ashi when the score reads Heikin-Ashi candles, as Cipher B's is on such a chart.
-            var mf = CipherBProvider.McbMoneyFlowShare(o, h, l, c, MoneyFlowLength);
+            // Cipher B's money flow, unscaled, on these candles (Heikin-Ashi when the score reads
+            // Heikin-Ashi candles), as Cipher B's is on such a chart.
+            var mf = CipherBProvider.McbMoneyFlowShare(h, l, c, MoneyFlowLength);
             return new[]
             {
                 Above(c, Shift(c, 2)), Above(e4, Shift(e4, 2)), Above(k21, Shift(k21, 1)), Above(wt1, Shift(wt1, 1)),

@@ -48,9 +48,10 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// Yellow X 26/26 on candles; the same on Heikin-Ashi). The Yellow Diamond also needs the fast wave
     /// more than 1.25 above the slow one OR Cipher B's money flow above 5: with Market Cipher B's own
     /// money flow that is exact on both charts (1,312/1,312 and 1,322/1,322, none extra; it was 34 and
-    /// 39 extra), the bounds fitted to (1.22, 1.28] and [4.97, 5.01) on the two. With this app's money
-    /// flow, which is close to but not exactly Market Cipher B's, 6 and 4 bars differ. Held out: Market
-    /// Cipher A on DJI 1D (300 bars, never fitted) went from 9 extra to exact with this app's money flow.
+    /// 39 extra), the bounds fitted to (1.22, 1.28] and [4.97, 5.01) on the two. Since 2026-10-24 this
+    /// app's money flow is Market Cipher B's exactly, and the Yellow Diamond is exact too: 0 bars differ
+    /// on either chart (4 and 3 with the fitted money flow before). Held out: Market Cipher A on DJI 1D
+    /// (300 bars, never fitted) went from 9 extra to exact, and stays exact.
     /// The earlier rules (Green Dot without the Yellow Diamond gate, Blue Triangle on EMA 29 below
     /// EMA 33, Red Diamond suppressed on Red X candles, Yellow X on an 80-bar stochastic of hlc3
     /// below 22) came from digitised pictures and each missed or added symbols.</para>
@@ -318,7 +319,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int k = 0; k < RibbonLengths.Length; k++) ema[k] = IndicatorMath.Ema(close, RibbonLengths[k]);
             var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wtChannel, wtAverage, wtSignal);
             var stoch = WaveTrendMath.SmoothedStochastic(close, high, low, CipherBProvider.McbStochLength, CipherBProvider.McbLineSmoothing);
-            var moneyFlow = CipherBProvider.McbMoneyFlow(open, high, low, close, YellowDiamondMoneyFlowPeriod);
+            var moneyFlow = CipherBProvider.McbMoneyFlow(high, low, close, YellowDiamondMoneyFlowPeriod);
 
             double[] e5 = ema[0], e11 = ema[1], e25 = ema[5], e33 = ema[7];
             var green = Nan(n); var blue = Nan(n); var yd = Nan(n); var redX = Nan(n); var redD = Nan(n); var blood = Nan(n); var yx = Nan(n);

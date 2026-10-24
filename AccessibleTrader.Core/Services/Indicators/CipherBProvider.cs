@@ -237,10 +237,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultIsAreaFill = true, DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
 
-                    // ── Money Flow — a smoothed candle body/range ratio, centred on zero ──
+                    // ── Money Flow — a smoothed typical-price deviation ratio, centred on zero ──
                     // Volumeless (it works where volume is synthetic). MoneyFlowMode = MCB (default):
-                    // 68 × the average over MFPeriod bars of each Heikin-Ashi body divided by the
-                    // average size of the last 5 Heikin-Ashi bodies; Legacy: the
+                    // 200/3 × the average over MFPeriod bars of each candle's hlc3 less its 5-bar mean,
+                    // divided by the 5-bar mean size of that difference; Legacy: the
                     // VuManChu-style raw-candle average through a signed square root × 175. Formula
                     // and fit evidence at its computation in Calculate. Clamped to ±100.
                     //
@@ -518,7 +518,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "WTSignalPeriod", DisplayName = "WT Slow Wave Smoothing",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10,  Step = 1,
                             Description = "SMA length of the slow wave over the fast one. 3 = Market Cipher B (its crosses land on our crosses' bar 164 of 182 times). 4 = this indicator before 2026-10-17, which every saved backtest used." },
                     new() { IsAdvanced = true, Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
-                            Description = "MCB = 68 x average over Money Flow Period bars of each Heikin-Ashi body divided by the average size of the last 5 Heikin-Ashi bodies (fitted to Market Cipher B). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
+                            Description = "MCB = 200/3 x average over Money Flow Period bars of each candle's typical price (high + low + close) / 3 less its 5-bar mean, divided by the 5-bar mean size of that difference (Market Cipher B's own, exact). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
                     new() { IsAdvanced = true, Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
                             Description = "MCB = a green dot on every cross up with the fast wave below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
@@ -730,11 +730,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Bitstamp, 5,513 bars, once on a Heikin-Ashi chart and once on candles (2026-10-23):
             // the waves, VWAP and both 0–100 lines equal these formulas on the chart's candles to
             // the five decimals TradingView prints. (The 2026-10-22 screenshot digitising had the
-            // two lines on the real bars; the exact values say otherwise.) The money flow builds
-            // its own Heikin-Ashi from the candles it is handed, so on a Heikin-Ashi chart it is
-            // Heikin-Ashi of Heikin-Ashi — the nearer fit there (RMSE 4.8 against 5.0), not exact.
-            // So this provider is handed the raw bars (IComputesHeikinAshiItself) and turns them
-            // into Heikin-Ashi itself when the chart shows Heikin-Ashi.
+            // two lines on the real bars; the exact values say otherwise.) The money flow too
+            // (2026-10-24, exact on both charts). This provider is handed the raw bars
+            // (IComputesHeikinAshiItself) and turns them into Heikin-Ashi itself when the chart
+            // shows Heikin-Ashi.
             if (IndicatorCandles.IsHeikinAshi(parameters))
             {
                 var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
@@ -794,27 +793,24 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (mcbMoneyFlow)
             {
                 // ── MCB money flow (MoneyFlowMode = MCB, the default since 2026-10-17) ──────────
-                // 68 × SMA(HA body / SMA(|HA body|, 5), MFPeriod), linear, clamped to ±100.
-                // Fitted to Market Cipher B 2.4.0's own plotted money flow. The 60-bar SMA is
-                // confirmed by deconvolution (the per-bar step of MCB's line is a fixed multiple of the
-                // newest bar minus the bar 60 back). The divisor is the AVERAGE SIZE OF THE LAST FIVE
-                // BODIES (2026-10-23, second fit). The first fit divided by the five-bar average
-                // RANGE (×146) and needed a different scale on every chart: 135–163 on BTCUSD, and
-                // on TVC:DJI 1D 71 before 1930 (bars with no range: open = high = low = close, where
-                // a Heikin-Ashi range equals its body) against about 140 after. Dividing by bodies
-                // takes one scale everywhere: fitted alone, DJI before 1930 / 1930–93 / since 1994,
-                // BTCUSD 1D and 15m want 69.6 / 68.7 / 66.5 / 66.4 / 66.1, and at 68 the error is
-                // 2.0 / 1.7 / 1.7 / 1.8 / 1.8 points (was 3.1 / 5.4 / 5.0 / 4.7 / 4.1), the sign
-                // agreeing on 96.6–97.5% of bars (was 92–94%). Fitted on DJI alone the scale is
-                // about 68 too, and BTCUSD keeps 1.8. Neighbours fitted worse on every series: 4 or
-                // 6 bodies, EMA/RMA of the bodies, the largest of five, their root-mean-square,
-                // raw-candle bodies, an EMA 60. Still NOT exact (≈1.8 points), and MCB's line
-                // starts 8 bars later than a 60-bar SMA needs; both unexplained.
-                // No constant offset (fitted intercepts were noise around zero).
-                // The period is NOT timeframe-scaled (mfPeriodDeclared): MCB keeps 60 on 15m and 30m.
-                // The Heikin-Ashi candles are computed here from the chart's candles, so on a
-                // Heikin-Ashi chart they are Heikin-Ashi of Heikin-Ashi, as MCB's are (see above).
-                mfSmooth = McbMoneyFlowShare(open, high, low, close, mfPeriodDeclared);
+                // 200/3 × SMA(d / SMA(|d|, 5), MFPeriod), d = hlc3 − SMA(hlc3, 5), on the chart's
+                // candles (Heikin-Ashi on a Heikin-Ashi chart), linear, clamped to ±100. EXACT against
+                // Market Cipher B 2.4.0's plotted money flow (2026-10-24): TVC:DJI 1D since 1896
+                // (32,585 bars), BTCUSD 1D on candles and on Heikin-Ashi (5,446 each), BTCUSD 15m
+                // (5,009), every finished bar to the five decimals TradingView prints, the first
+                // value on bar 68 as MCB's (4 + 4 + 59 bars of warm-up). Found by recovering MCB's
+                // per-bar input from its line (the 60-bar SMA makes each step 1/60 of the newest
+                // input less the one 60 back; one unknown offset per bar-of-60, fitted) and fitting
+                // that input as a weighted sum of the last ten candles' prices: high, low and close
+                // weigh alike, the open almost nothing, and the four bars before weigh a quarter
+                // each against the newest, nothing older — hlc3 less its 5-bar mean.
+                // Earlier fits, superseded: 68 × SMA60(Heikin-Ashi body / SMA5 |body|) (2026-10-23,
+                // error ~1.8, starting 4 bars early) and 146 × SMA60(Heikin-Ashi body / SMA5 range).
+                // The constant 200/3 came out of the fit (66.6667 on every series), not assumed.
+                // No constant offset. The period is NOT timeframe-scaled (mfPeriodDeclared): MCB
+                // keeps 60 on 15m and 30m. On a Heikin-Ashi chart the candles here are already
+                // Heikin-Ashi (see above), which is what MCB reads there: exact on both charts.
+                mfSmooth = McbMoneyFlowShare(high, low, close, mfPeriodDeclared);
             }
             else
             {
@@ -1441,48 +1437,49 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// Anchor Polarity and the anchor suppression of the gated dots are measured on SMA4.</summary>
         private const int AnchorSlowWavePeriod = 4;
 
-        /// <summary>Money-flow display scales: MCB mode's linear 68 (fitted; see Calculate) and the
-        /// Legacy mode's 175 after its signed square root (VuManChu's constant). Both are clamped to
-        /// ±<see cref="MoneyFlowClamp"/> so a rare run of extreme bodies stays inside the pane.</summary>
-        /// <summary>The MCB-mode money flow as Cipher B draws it: 68 × <see cref="McbMoneyFlowShare"/>,
+        /// <summary>The MCB-mode money flow as Cipher B draws it: 200/3 × <see cref="McbMoneyFlowShare"/>,
         /// clamped to ±100. Cipher A's Yellow Diamond reads it (2026-10-23).</summary>
-        public static double[] McbMoneyFlow(double[] open, double[] high, double[] low, double[] close, int period)
+        public static double[] McbMoneyFlow(double[] high, double[] low, double[] close, int period)
         {
-            var share = McbMoneyFlowShare(open, high, low, close, period);
+            var share = McbMoneyFlowShare(high, low, close, period);
             for (int i = 0; i < share.Length; i++)
                 if (!double.IsNaN(share[i])) share[i] = Math.Clamp(share[i] * McbMoneyFlowScale, -MoneyFlowClamp, MoneyFlowClamp);
             return share;
         }
 
-        /// <summary>SMA over <paramref name="period"/> bars of each Heikin-Ashi body divided by the average
-        /// size of the last <see cref="McbMoneyFlowBodyBars"/> Heikin-Ashi bodies, the Heikin-Ashi candles
-        /// computed from the given candles. Unscaled; see the MCB money flow notes in Calculate.</summary>
-        internal static double[] McbMoneyFlowShare(double[] open, double[] high, double[] low, double[] close, int period)
+        /// <summary>SMA over <paramref name="period"/> bars of each candle's typical price (hlc3) less its
+        /// <see cref="McbMoneyFlowTypicalBars"/>-bar mean, divided by the mean size of that difference over
+        /// the same number of bars. Read on the candles given, as the chart shows them. Unscaled; see the
+        /// MCB money flow notes in Calculate.</summary>
+        internal static double[] McbMoneyFlowShare(double[] high, double[] low, double[] close, int period)
         {
             int n = close.Length;
-            var haBody = new double[n];
-            var haSize = new double[n];
-            double haO = 0, haC = 0;
+            var typical = new double[n];
+            for (int i = 0; i < n; i++) typical[i] = (high[i] + low[i] + close[i]) / 3.0;
+            var typicalMean = IndicatorMath.Sma(typical, McbMoneyFlowTypicalBars);
+            var deviation = new double[n];
+            var size = new double[n];
             for (int i = 0; i < n; i++)
             {
-                // The Heikin-Ashi high and low are not needed: only the body is.
-                double c4 = (open[i] + high[i] + low[i] + close[i]) / 4.0;
-                double o4 = i == 0 ? (open[i] + close[i]) / 2.0 : (haO + haC) / 2.0;
-                haO = o4; haC = c4;
-                haBody[i] = c4 - o4;
-                haSize[i] = Math.Abs(haBody[i]);
+                deviation[i] = typical[i] - typicalMean[i];
+                size[i] = Math.Abs(deviation[i]);
             }
-            var avgSize = IndicatorMath.Sma(haSize, McbMoneyFlowBodyBars);
-            var bodyShare = new double[n];
+            var meanSize = IndicatorMath.Sma(size, McbMoneyFlowTypicalBars);
+            var share = new double[n];
             for (int i = 0; i < n; i++)
-                bodyShare[i] = double.IsNaN(avgSize[i]) ? double.NaN
-                             : avgSize[i] < 1e-10 ? 0.0
-                             : haBody[i] / avgSize[i];
-            return IndicatorMath.Sma(bodyShare, period);
+                // Five unchanged typical prices give 0 / 0. MCB's line was never seen there (no such
+                // run in any series read); 0 keeps the window going.
+                share[i] = double.IsNaN(meanSize[i]) ? double.NaN
+                         : meanSize[i] < 1e-10 ? 0.0
+                         : deviation[i] / meanSize[i];
+            return IndicatorMath.Sma(share, period);
         }
 
-        private const double McbMoneyFlowScale = 68.0, LegacyMoneyFlowScale = 175.0, MoneyFlowClamp = 100.0;
-        private const int McbMoneyFlowBodyBars = 5;
+        /// <summary>Money-flow display scales: MCB mode's linear 200/3 (exact; see Calculate) and the
+        /// Legacy mode's 175 after its signed square root (VuManChu's constant). Both are clamped to
+        /// ±<see cref="MoneyFlowClamp"/> so a rare run of extreme values stays inside the pane.</summary>
+        private const double McbMoneyFlowScale = 200.0 / 3.0, LegacyMoneyFlowScale = 175.0, MoneyFlowClamp = 100.0;
+        private const int McbMoneyFlowTypicalBars = 5;
 
         /// <summary>How far from the SLOW wave a gated dot is drawn: the red Overbought Crossover 5
         /// above it, the Gated buy dot 5 below it, clear of the cross dot that sits on it.</summary>

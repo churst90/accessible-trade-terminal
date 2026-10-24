@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's money flow is Market Cipher B's exactly (2026-10-24)
+
+- **Formula:** d = typical price (high + low + close) / 3 less its 5-bar mean; money flow =
+  200/3 × the 60-bar mean of d ÷ (the 5-bar mean of |d|), clamped to ±100, on the chart's own candles
+  (Heikin-Ashi on a Heikin-Ashi chart, made once from the real candles). Was 68 × the 60-bar mean of
+  each Heikin-Ashi body ÷ the 5-bar mean body size (2026-10-23). The open plays no part.
+- **Checked against Market Cipher B 2.4.0's plotted money flow:** equal to the five decimals
+  TradingView prints on every finished bar of TVC:DJI 1D since 1896 (32,585 bars), BTCUSD 1D on
+  candles and on Heikin-Ashi (5,446 each) and BTCUSD 15m (5,009; only the still-forming last bar
+  differs, by 0.02). The first value is on bar 68 (index 67), the original's: 4 + 4 + 59 bars of
+  warm-up. That explains the "starts 4 bars late" left open on 2026-10-23, and why the original
+  barely changes between candle and Heikin-Ashi charts.
+- **How it was found:** the 60-bar mean makes each step of the original's line 1/60 of the newest
+  input less the one 60 bars back, so its per-bar input was recovered up to one offset per bar of
+  the 60 (fitted). That input, regressed on the last ten candles' prices, weighed high, low and close
+  alike, the open almost nothing, and the four bars before a quarter each against the newest, nothing
+  older: the typical price less its 5-bar mean. The scale came out 66.667 on every series (200/3), not
+  assumed.
+- **Cipher A's Yellow Diamond**, which reads it: against Market Cipher A, 0 bars differ on BTCUSD 1D
+  Heikin-Ashi (was 4) and candles (was 3); TVC:DJI 300/300 still exact. The Cipher A goldens did not
+  change (golden5.py regenerates them with this formula; the same 226 diamonds).
+- **Cipher DBSI's money-flow vote** reads it too: on the fifteen livestream charts no fit saw, exact
+  31.6% → 31.2%, within 2 70.6% → 71.5%, error 3.14 → 3.07, false 17+ 4 → 3, side in control 241 →
+  242 of 262; on the twenty, exact 33.1% → 34.6%, within 1 45.8% → 47.4%, within 2 73.5% → 74.8%,
+  error 2.65 → 2.58, 17+ printed 35 → 37 of 84, side in control 393 → 394 of 422. The same settings
+  still win (intfinal.py re-run; every one-step neighbour lower). Fixture regenerated (gen5.py, the
+  study's MF vote now defaults to the exact formula). Private Start grids (not in the repo): Dow
+  within 2 78.8% → 79.2%, Bitcoin 75.8% → 76.6%.
+- **Tests:** four money-flow tests replace four: only the typical price counts (moving the opens or
+  stretching both wicks changes nothing, raising one high does); 200/3 on steady candles of any size;
+  the formula restated with its first value on index 67; on a Heikin-Ashi chart it reads the
+  Heikin-Ashi candles' typical price. Fingerprint re-pinned for the money-flow line only. Eight
+  sabotages red: scale 68, 4 or 6 bars, the close for the typical price, hlcc4, squared for the size,
+  a 61-bar mean, raw candles on a Heikin-Ashi chart.
+- **Caveats:** five unchanged typical prices in a row would give 0 / 0; ours reads 0 there, the
+  original's was never seen there (no such run in any series read). Legacy mode unchanged. Not seen
+  in the app.
+
 ### Cipher DBSI scores in whole-number votes, as the original does (2026-10-24)
 
 - **Formula:** the fitted weights are gone. Each side starts at −5 and adds whole points:

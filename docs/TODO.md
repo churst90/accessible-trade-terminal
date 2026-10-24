@@ -136,8 +136,8 @@
 >   - **Cipher A checked against Market Cipher A's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     Green Dot, Blue Triangle, Red Diamond and Yellow X fixed; the Yellow Diamond's extras solved the
 >     same day (a near tie of the waves needs Cipher B's money flow above 5): every symbol is exact on
->     Bitcoin daily with the original's money flow, and 4–6 Yellow Diamonds differ with ours (our money
->     flow is not exact; see the Cipher B item). Cody to look: the symbols should sit on Market Cipher
+>     Bitcoin daily with the original's money flow; with ours 4–6 Yellow Diamonds differed until our money
+>     flow became exact (2026-10-24): now none differ on Bitcoin daily (candles or Heikin-Ashi) or the Dow. Cody to look: the symbols should sit on Market Cipher
 >     A's. ~~Ninth line and pivots?~~ Answered by Cody 2026-10-23: build them, off by default, every
 >     part a preference — done the same day (next item).
 >   - **Cipher A's colours, fills, Ribbon 9, pivots, Parts → Include and ribbon narration (2026-10-23,
@@ -154,11 +154,12 @@
 >   - **Cipher B checked against Market Cipher B's values (2026-10-23, built, NOT seen; see CHANGES).**
 >     The lines and the Buy dot are fixed, and everything but the money flow is exact. Cody to look at
 >     Bitcoin daily: the Buy dots should sit on Market Cipher B's, and the RSI line should track the
->     original's. Still open: the money flow, now 68 × the 60-bar average of each Heikin-Ashi body
->     over the average size of the last five (2026-10-23 late, built, NOT seen): typical miss about
->     1.8 points on the Dow and Bitcoin, one scale for both, same side of zero 97%; still not exact,
->     and the original's line starts 4 bars later than ours (bar 67 vs 63), unexplained. The
->     divergences are not measured.
+>     original's. The money flow is exact too since 2026-10-24 (built, NOT seen): 200/3 × the 60-bar
+>     average of (typical price − its 5-bar mean) over the 5-bar mean size of that, on the chart's own
+>     candles; equal to the original's to five decimals on the Dow since 1896, Bitcoin daily (candles
+>     and Heikin-Ashi) and 15-minute, starting on the same bar. Cody to look: the money-flow area should
+>     now lie exactly on Market Cipher B's. Still open: the divergences are not measured; five unchanged
+>     typical prices in a row give 0 here (never seen in any series, so the original's is unknown).
 >   - **Cipher DBSI refitted on all twenty charts, then given the WaveTrend run (2026-10-23, built, NOT
 >     seen; see CHANGES).** Each vote has its own points, a long streak counts against the score, a
 >     stretched stochastic for it, and since the second commit the side's WaveTrend run adds points (a
@@ -174,7 +175,8 @@
     the fitted weights. On the fifteen charts no fit saw: exact 20% → 32%, ±2 67% → 71%, false 17+
     10 → 4; ±1 51% → 45% (misses are 2s now). One commit to revert. Still open: DBSI's remembered "3"
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
-    of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set.
+    of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
+    exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
   - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
 >     CHANGES).** On the fifteen charts no fit saw: exact 17% → 20%, ±2 65% → 67%, false 17+ 8 → 10. On
 >     the private grids, ±2 Dow 72.5% → 75.2%, Bitcoin 68.8% → 71.9% (false 17+ 35 → 45). One commit

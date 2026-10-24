@@ -37,26 +37,26 @@
   arrive a little later. VWAP already matched. The day's range lines still show the range so far
   rather than the whole day's, which the original only knows by looking ahead. The Pivot Left Bars
   setting is gone.
-- **Cipher A now matches Market Cipher A's own numbers, symbol for symbol, except one.** Checked
+- **Cipher A now matches Market Cipher A's own numbers, symbol for symbol.** Checked
   candle by candle on Bitcoin daily: the ribbon, the Red X and the Blood Diamond already matched.
   The Green Dot, Blue Triangle, Red Diamond and Yellow X now land on every one of the original's
   and nowhere else. The Red Diamond now also appears under a Blood Diamond, as the original's does.
-  The Yellow Diamond still shows about 3 in 100 that the original leaves out.
+  The Yellow Diamond, which reads Cipher B's money flow, now matches too (see Cipher B below).
 - **Cipher B now matches Market Cipher B's own numbers.** Checked against the original's values
   candle by candle on Bitcoin daily: the waves, the yellow area and every small cross dot already
   matched. The "RSI" and "Stochastic" lines did not and now do. The big green Buy dot now comes on
   every cross up with the *fast* wave below −60, so it lands where the original's does: every one
-  of its dots, none extra. The money flow is very close but not identical yet. It now measures each
-  Heikin-Ashi candle's body against the average body of the last five candles; the wicks no longer
-  count. Measured against the original on the Dow's whole daily history and on Bitcoin daily and
-  15-minute charts, its typical miss went from about 6½ points to under 2, and it is on the same
-  side of zero 97% of the time, up from 87–93%. Cipher A's Yellow Diamond, which reads it, now
-  differs from the original's on 3 or 4 of about 5,200 Bitcoin days.
+  of its dots, none extra. The money flow now matches too. It measures how far each candle's typical
+  price (high, low and close averaged) sits from its average over the last five candles, against
+  the usual size of that distance, averaged over 60 candles. It equals the original's to the five
+  decimals TradingView shows on the Dow's whole daily history and on Bitcoin daily (candles and
+  Heikin-Ashi) and 15-minute charts; before, its typical miss was about 6½ points. Cipher A's Yellow
+  Diamond, which reads it, now lands on exactly the original's candles on Bitcoin daily and the Dow.
 - **Cipher DBSI counts in whole points, as DBSI does.** Each fast check adds 2 points (one adds 1),
   and the WaveTrend wave's turn toward a side adds a set number plus 1 a candle while the wave keeps
   pulling away. On fifteen charts it was not built from, it now prints DBSI's exact number about 1
-  time in 3 (was 1 in 5) and lands within two points 71% of the time (was 67%). It prints 17 or more
-  where DBSI does not only 4 times (was 10), but also reaches 17 a little less often where DBSI does.
+  time in 3 (was 1 in 5) and lands within two points 72% of the time (was 67%). It prints 17 or more
+  where DBSI does not only 3 times (was 10), but also reaches 17 a little less often where DBSI does.
 - **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
   readings, not the first six. Each of its signals now counts for its own amount, a move that has
   just started scores higher than one that has run for many candles, and an oversold market adds a
