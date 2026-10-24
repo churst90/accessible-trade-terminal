@@ -1,3 +1,11 @@
+> - [ ] **Properties pass (Cody, 2026-10-23).** Three decisions, done in this order:
+>   1. Reset to Defaults resets everything, parameters included (built, NOT seen; see CHANGES).
+>      Cody to change an RSI's period and colour, press Reset to Defaults, and hear the name and
+>      period come back. It keeps the pane, your own levels, a profile's anchor, and mute / hide / narrate.
+>   2. An Advanced tab for settings the original indicator has no input for (Cipher B's legacy money
+>      flow, gated buy dot, adaptive thresholds, percentiles, anchor suppression, cooldown). Not built.
+>   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted;
+>      parts other parts read stay computed. Not built.
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
 >   and CIPHER_C_DESIGN section 11).** A found daily low now holds for half the shortest cycle, counted
 >   from the later of the low and the last low plus the shortest cycle less two bars. A lower low

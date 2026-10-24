@@ -916,7 +916,7 @@
                 {
                     <button title="Save current appearance and sonification as persistent defaults for this indicator type"
                             @onclick="SaveAsDefaults">Save as Defaults</button>
-                    <button title="Discard all customisations and reload fresh metadata defaults for this indicator"
+                    <button title="Put every setting of this indicator, its parameters included, back to the defaults"
                             @onclick="ResetToDefaults">Reset to Defaults</button>
                 }
                 @* "Save", not "Apply Changes": one vocabulary across every dialog that can
@@ -1337,10 +1337,10 @@
     }
 
     /// <summary>
-    /// Regenerates all component configs from fresh indicator metadata, clearing any stale
-    /// workspace overrides and user preferences. Useful when provider defaults have changed
-    /// (e.g. new waveform or color defaults in CipherB) and the running series is still using
-    /// an old workspace save.
+    /// Puts the indicator back to what it ships with — parameters and modes included, since
+    /// 2026-10-23 (it used to keep them) — through
+    /// <see cref="ISeriesManagementService.ResetToIndicatorDefaults"/>, which says what it keeps.
+    /// Applied at once; the open dialog then shows the defaults.
     /// </summary>
     private void ResetToDefaults()
     {
@@ -1352,38 +1352,18 @@
             .FirstOrDefault(m => m.Code == indicatorCode);
         if (meta == null) return;
 
-        // Wipe persisted preferences so Layer 3 is empty → pure metadata defaults.
-        IndicatorPrefs.ClearPreferences(indicatorCode);
-
-        // Build parameter list from current series (preserves user-set periods etc.)
-        var paramList = _series.Parameters
-            .Select(kvp => (kvp.Key, kvp.Value.ToString()))
-            .Concat(_series.StringParameters.Select(kvp => (kvp.Key, kvp.Value)))
-            .ToList();
-
-        // CreateSeriesFromMetadata with no workspace overrides → Layer 1 only.
-        var freshSeries = Factory.CreateSeriesFromMetadata(
-            meta, _series.FriendlyName, _series.Pane ?? "", paramList,
-            new System.Collections.Generic.List<ComponentConfig>());
-
-        // Splice fresh component configs into the cloned series (preserves ID / pane / params).
-        if (_series.Config == null) return;
-        _series.Config.Components.Clear();
-        foreach (var c in freshSeries.Components)
-            _series.Config.Components.Add(c);
-        _series.Config.ExcludedComponents.Clear();
-        foreach (var c in freshSeries.Config.ExcludedComponents)
-            _series.Config.ExcludedComponents.Add(c);
-
-        // Re-inject level defaults from the provider (prefs were cleared above so Layer 3 is empty).
-        SeriesManager.ResetLevelsToProviderDefaults(_series);
-
-        // Apply immediately — no need for user to click Apply.
-        var updatedList = Store.State.ActiveSeries
-            .Select(s => s.Id == _series.Id ? _series : s)
-            .ToImmutableList();
-        Store.Dispatch(new UpdateSeriesAction(updatedList));
+        SeriesManager.ResetToIndicatorDefaults(_series, meta);
         SeriesManager.PersistWorkspace();
+
+        // The dialog's own copies of the parameters, or the fields keep showing the old values
+        // and the next Apply writes them back.
+        _params = new Dictionary<string, double>(_series.Parameters);
+        PinProfileAnchor();
+        _stringParams = new Dictionary<string, string>(_series.StringParameters);
+        foreach (var pm in _paramMeta)
+            if (pm.DataType == typeof(string) && !_stringParams.ContainsKey(pm.Name))
+                _stringParams[pm.Name] = pm.DefaultValue?.ToString() ?? string.Empty;
+
         EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"{_series.FriendlyName} reset to defaults", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -46,6 +47,14 @@ namespace AccessibleTrader.Core.Services
         /// want pure provider defaults with no type-default overrides.
         /// </summary>
         void ResetLevelsToProviderDefaults(ChartSeries series);
+        /// <summary>
+        /// Properties → Reset to Defaults: puts <paramref name="series"/> back to what
+        /// <paramref name="meta"/> ships with — parameters, parts, colours, sound, fills, bands,
+        /// levels — clears the indicator's saved preferences, puts the series into the store in
+        /// place of the one with its id, and re-names its cohort. Keeps its id, pane, the levels the
+        /// user placed, a fixed-range profile's anchor, and the mute / hide / narrate switches.
+        /// </summary>
+        void ResetToIndicatorDefaults(ChartSeries series, IndicatorMetadata meta);
     }
 
     public class SeriesManagementService : ISeriesManagementService
@@ -730,6 +739,77 @@ namespace AccessibleTrader.Core.Services
         /// re-injected as a duplicate either.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Reset to Defaults resets EVERYTHING the indicator has a setting for (Cody, 2026-10-23).
+        ///
+        /// <para>
+        /// Until then it rebuilt the parts and levels and KEPT the parameters, so a Cipher B
+        /// switched to its legacy money flow, or an RSI set to 7, stayed that way after a reset —
+        /// "reset to defaults" reset the look and left the indicator itself as it was. The
+        /// parameters now come from the metadata, exactly as the Add Indicator dialog seeds them
+        /// (<see cref="DefaultParameterList"/>).
+        /// </para>
+        ///
+        /// <para>
+        /// What it keeps is not a setting of the indicator: the series' id and pane (where it is),
+        /// the levels the user placed (their annotation, see
+        /// <see cref="ResetLevelsToProviderDefaults"/>), a fixed-range or anchored profile's anchor
+        /// (which bars it covers — a placement, captured when it was added, never typed), and the
+        /// mute, hide and narrate switches, which keys toggle on the chart.
+        /// </para>
+        /// </summary>
+        public void ResetToIndicatorDefaults(ChartSeries series, IndicatorMetadata meta)
+        {
+            var config = series.Config;
+            _indicatorPrefs.ClearPreferences(meta.Code);
+
+            var anchor = config.Parameters
+                .Where(kv => kv.Key == ProfileAnchoring.AnchorStartParam || kv.Key == ProfileAnchoring.AnchorEndParam)
+                .ToList();
+
+            var fresh = _modelFactory.CreateSeriesFromMetadata(
+                meta, config.FriendlyName, config.Pane ?? "", DefaultParameterList(meta),
+                componentOverrides: null).Config;
+
+            config.Parameters.Clear();
+            foreach (var kv in fresh.Parameters) config.Parameters[kv.Key] = kv.Value;
+            foreach (var kv in anchor) config.Parameters[kv.Key] = kv.Value;
+            config.StringParameters.Clear();
+            foreach (var kv in fresh.StringParameters) config.StringParameters[kv.Key] = kv.Value;
+
+            config.Components.Clear();
+            foreach (var c in fresh.Components) config.Components.Add(c);
+            config.ExcludedComponents.Clear();
+            foreach (var c in fresh.ExcludedComponents) config.ExcludedComponents.Add(c);
+            config.CloudFills.Clear();
+            foreach (var f in fresh.CloudFills) config.CloudFills.Add(f);
+            config.ZoneBands.Clear();
+            foreach (var b in fresh.ZoneBands) config.ZoneBands.Add(b);
+
+            // The two series-wide settings Properties offers (Sonification's volume, General's
+            // "announce across series").
+            config.Volume = fresh.Volume;
+            config.AnnounceAcrossSeries = fresh.AnnounceAcrossSeries;
+
+            // Levels last: an indicator's default levels can read its parameters.
+            ResetLevelsToProviderDefaults(series);
+
+            _store.Dispatch(new UpdateSeriesAction(_store.State.ActiveSeries
+                .Select(s => s.Id == series.Id ? series : s)
+                .ToImmutableList()));
+            // The name is computed from the parameters (IndicatorInstanceName), and they changed.
+            RenameCohort(meta.Code, meta);
+        }
+
+        /// <summary>
+        /// Every parameter <paramref name="meta"/> declares, at its default, formatted as the
+        /// factory reads it — the list the Add Indicator dialog builds when nothing is edited.
+        /// </summary>
+        public static List<(string Name, string Value)> DefaultParameterList(IndicatorMetadata meta) =>
+            meta.Parameters
+                .Select(p => (p.Name, FormatParam(p.DefaultValue ?? (p.DataType == typeof(string) ? "" : (object)0.0))))
+                .ToList();
+
         public void ResetLevelsToProviderDefaults(ChartSeries series)
         {
             var codeUp = series.Config?.IndicatorCode?.ToUpperInvariant() ?? "";

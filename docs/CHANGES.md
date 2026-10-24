@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Reset to Defaults resets everything, parameters included (2026-10-23)
+
+Cody, 2026-10-23: Reset to Defaults should reset everything, inputs, periods and modes too.
+
+- **Properties → Reset to Defaults** used to rebuild the parts, colours, sound and levels and carry
+  the parameters across, so an RSI set to 7 or a Cipher B on its legacy money flow stayed that way.
+  It now also puts every parameter back to the indicator's default (as the Add Indicator dialog
+  seeds them), and Cipher-style fills and bands, Sonification's series volume and General's
+  "announce across series". The name is worked out again from the new parameters, for every
+  instance of that indicator on the chart. The open dialog shows the defaults at once.
+- **Kept**, because they are not settings of the indicator: its pane, the levels you placed, a
+  fixed-range or anchored profile's anchor (which bars it covers), and the mute, hide and narrate
+  switches the keys toggle.
+- Moved from the dialog into `SeriesManagementService.ResetToIndicatorDefaults` so it can be tested.
+  Five tests (`ResetToIndicatorDefaultsTests`); six sabotages red: parameters kept, no re-name,
+  anchor dropped, volume kept, preferences not cleared, parts kept as the user had them.
+- Not seen in the app.
+
 ### Cipher A in the original's colours, with Ribbon 9, pivots, Parts → Include and ribbon narration (2026-10-23)
 
 Cody, 2026-10-23: the ninth ribbon line "available but disabled", pivot marks "true to the
