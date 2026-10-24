@@ -28,16 +28,16 @@
     those bars helps GDX, S&P, Gold but costs the Dow 6 weekly lows, so not adopted.
   - **Weekly lows by counting daily lows (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 14).**
     The dollar, Dow, S&P and Nasdaq now pick weekly lows as the original does there (dollar weekly
-    19 → 27 of 46, Nasdaq 33 → 38, Dow 39 → 40 with 4 fewer extras, S&P 30 → 29). Oil, Gold, Silver,
-    GDX and Bitcoin do not fit; read their rule from the cap3 weekly-label replays as they land.
+    19 → 27 of 46, Nasdaq 33 → 38, Dow 39 → 40 with 4 fewer extras, S&P 30 → 29). Oil and Bitcoin
+    do not fit and keep the old pick (Gold, Silver and the miners: next item).
     The Bitcoin wiring test (CipherCSearchTests) passes a "Symbol" key the provider does not read;
     it gets Bitcoin as the fallback for a daily chart that trades every day. Make it name the preset.
-  - **Gold's weekly lows: 4 of 9 since 2021, 10 extra.** The weekly pick reproduces the original's
-    weekly lows from its own daily lows on the Dow (10 of 11 in the replay), Bitcoin (11 of 11),
-    S&P (11 of 13), Nasdaq (8 of 11), but not Gold (5 of 8) or GDX (5 of 9) at any keep distance;
-    both have 22-day daily cycles. On Gold the original keeps weekly lows 24–46 weeks apart (table
-    20–28) and skips a candidate the pick would draw (2025-01-26). Replays from DXY on log every
-    weekly label per bar, to read the rule.
+  - **Gold, Silver and the miners judge a weekly candidate at the next daily low (2026-10-24,
+    built, NOT seen; CIPHER_C_DESIGN section 16).** On the original's own daily lows 40 of 47 weekly
+    lows with 6 extra (old pick 43, 51 extra). End to end the extras fall 44 → 23 but exact 43 → 39
+    of 72; SILJ, the held-out one, 9 → 6. Open: our daily lows flip the rule's rhythm; the passes it
+    does not explain (GDXJ 2023-12-13, SILJ 2024-10-09, Gold 2025-01-26). Oil and Bitcoin keep the
+    old pick.
   - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
 >     replays show the original counts Bitcoin's daily cycle as if the shortest were 48, though its
 >     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. **Silver counts from

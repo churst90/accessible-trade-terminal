@@ -614,7 +614,8 @@ labels (exact weekly lows, extras):
   default 32 (gap 60) — the open question in TODO.
 - Daily lows change by one on the Dow (101 → 100) and the dollar (87 → 86): every weekly low is
   drawn as a daily low too, and a weekly low the daily tier later cancelled now falls elsewhere.
-- **Oil, Gold, Silver, GDX and Bitcoin do not fit** and keep the old pick. Oil follows the same
+- **Oil, Gold, Silver, GDX and Bitcoin do not fit** (Gold, Silver and the miners got their own rule
+  later: section 16). Oil follows the same
   shape (its first-low replacement holds) but no single gap works: 20 bars draws all 13 with 3
   extra, 50 draws 10 with 3 extra. Gold, Silver and GDX keep weekly lows five or more daily cycles
   apart; Bitcoin fits the old pick (11 of 11) better than this one (9 of 11). The weekly-label
@@ -624,6 +625,61 @@ labels (exact weekly lows, extras):
 Oil (held out, scored 2026-10-24): it counts from its table's 36 (check marks 18 bars after the
 low on 21 of 27), Cipher C's daily lows 97 of 129 exact with 23 extra, check marks on the
 original's bar 13 of 17, weekly 31 of 57.
+
+## 16. Weekly lows judged at the next daily low: Gold, Silver, the miners (2026-10-24)
+
+The 22-day assets (Gold, Silver, GDX, GDXJ, SILJ; all with a table shortest daily cycle of 22) did
+not fit either weekly rule. Their rule was read from GDXJ's candle replay, which logs every weekly
+label the original draws on every bar, and the 🕘 counters in its table (weeks since the
+confirmed and since the unconfirmed weekly low).
+
+**The rule** (`CipherCEngine.WeeklyFromNextDaily`, used where `CyclePreset.WeeklyNextDaily` is set).
+U is the newest weekly low. Each daily confirmation is acted on the bar it happens.
+
+1. A daily low confirmed after U is drawn at once as the weekly candidate F.
+2. The next daily confirmation N judges it:
+   - N lower than F: N is a new weekly low when at least 4 cycles (88 bars) after U; otherwise it
+     takes U's place if lower than U.
+   - N not lower: F is a new weekly low when at least 4.5 cycles (99 bars) after U; otherwise it
+     takes U's place if lower.
+3. The confirmation after N draws no candidate when N undercut F, or F was more than 6 cycles
+   (132 bars) after U. The one after that does.
+4. The confirmed weekly low (where the week count runs from) is the one before the newest.
+
+The three gaps are fitted, in multiples of the table's shortest daily cycle. The fit allows 100–104,
+85–88 and 130–140 bars at 22. Silver is counted from 24 (section 12) but fits the table's 22; at 24
+(108 bars) it draws one fewer. A minimum distance for drawing the candidate does nothing below 34
+bars and is left out.
+
+**Fed the original's own daily lows**, in the order it confirmed them, from its weekly state on the
+first replay bar (the replays since 2021-22, `ctz/w22.py`):
+
+| | Weekly lows | This rule | Extra | The old pick |
+|---|---|---|---|---|
+| GDXJ | 10 | 10 | 0 | |
+| GDX | 9 | 8 | 1 | |
+| Gold | 8 | 7 | 2 | |
+| Silver | 9 | 8 | 1 | |
+| SILJ (held out of the reading) | 11 | 7 | 2 | |
+| Total | 47 | 40 | 6 | 43, 51 extra |
+
+**End to end**, with Cipher C finding its own daily lows, scored on the original's final weekly lows:
+
+| | Exact, all history | Extra | Exact, replay years | Extra |
+|---|---|---|---|---|
+| Old pick | 43 of 72 | 44 | 26 of 47 | 31 |
+| This rule | 39 of 72 | 23 | 24 of 47 | 18 |
+
+- F1 rises 0.54 → 0.58 over all history and 0.50 → 0.54 over the replay years; the gain is in extras.
+- By asset (all history, exact / extra): GDX 6/6 → 7/3, GDXJ 7/6 → 7/2, Gold 15/17 → 15/6, Silver
+  6/10 → 4/7, SILJ 9/5 → 6/5. SILJ, the one asset the rule was not read from, loses three.
+- Why it loses end to end: the rule alternates (candidate, judge, sometimes a pass). An extra or
+  missing daily low of ours flips that rhythm and the error carries on. On SILJ our daily low of
+  2023-06-29 (the original's is 2023-07-06) starts a run of three wrong weekly lows. Variants with
+  less memory (no pass, or the judging low becoming the next candidate) fit the original's own lows
+  worse (33–38 of 47, 12–15 extra) and are no better end to end.
+- Open: the passes the rule does not explain (GDXJ 2023-12-13, SILJ 2024-10-09, Gold 2025-01-26), and
+  Silver's 2024-02-27 weekly low, which the original placed afterwards at the next check mark.
 
 ## 15. A confirmed low is never cancelled; a pending one is (2026-10-24)
 

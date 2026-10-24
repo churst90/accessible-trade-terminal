@@ -2710,7 +2710,12 @@ weekly low after it is kept, months later on Bitcoin. On the dollar index, the D
 the Nasdaq it picks them another way, again as the indicator does there: the first daily low after a
 new weekly low takes its place if it is lower, and after that a new weekly low goes on the lowest
 daily low that comes at least two shortest daily cycles (less two days each) after the last; the
-weekly low called confirmed is the one before the newest. There is no twenty-bar limit on these, however late the
+weekly low called confirmed is the one before the newest. On Gold, Silver and the gold and
+silver miners, a third way: a daily low is drawn as the weekly candidate and the next daily low
+judges it. If that one is not lower, the candidate is a weekly low when it is at least four and a
+half shortest daily cycles (99 trading days) after the last weekly low; if it is lower, it is a
+weekly low itself when four cycles (88) after the last. Too near, the lower of the two takes the
+last weekly low's place. There is no twenty-bar limit on these, however late the
 low is found. Turning narration on does not read out the ones already
 on the chart.
 

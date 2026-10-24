@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C judges a weekly candidate at the next daily low on Gold, Silver and the miners (2026-10-24)
+
+- On Gold, Silver, GDX, GDXJ and SILJ (the original's 22-day assets) the weekly lows are now picked
+  as the original picks them there, read from GDXJ's weekly-label replay: a daily low is drawn as
+  the candidate and the next daily low judges it. Not lower, the candidate is a weekly low when 4.5
+  shortest daily cycles (99 trading days) after the last; lower, that one is a weekly low itself at
+  4 cycles (88). Too near, the lower of the two takes the last weekly low's place. After a lower
+  judge, or a candidate more than 6 cycles (132) out, the next daily low draws no candidate.
+- On the original's own daily lows: 40 of its 47 weekly lows with 6 extra, against 43 with 51 for
+  the old pick. Cipher C end to end (its own daily lows, all history): exact 43 → 39 of 72, extras
+  44 → 23; the replay years 26 → 24 of 47, extras 31 → 18. SILJ, which the rule was not read from,
+  loses three (9 → 6) and Silver two; GDX gains one. The three gaps are fitted.
+- Caveat: the rule alternates, so one extra or missing daily low of ours can put the next few
+  weekly lows on the wrong daily low. Oil and Bitcoin keep the old pick.
+- `CyclePreset.WeeklyNextDaily`, `CipherCEngine.WeeklyFromNextDaily`. Seven new tests, 13 cases (one per branch
+  at its edge, causality, the provider wiring for GDX and Silver); nine sabotages red. Not seen in
+  the app.
+
 ### Cipher C never takes back a confirmed low; a cancellation is now a pending low undercut (2026-10-24)
 
 - Cody's decision: confirmed lows are not cancelled. The original removed none of the 379 it

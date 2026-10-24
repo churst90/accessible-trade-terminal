@@ -319,6 +319,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool weeklyFromDaily = dTier.Active && wTier.Active;
             var w = !weeklyFromDaily ? CipherCEngine.Detect(data, wTier, ob, os)
                 : preset.WeeklyEveryTwoDaily ? CipherCEngine.WeeklyFromTwoDaily(d, data, 2 * (dTier.MinBars - 2))
+                : preset.WeeklyNextDaily ? CipherCEngine.WeeklyFromNextDaily(d, data,
+                    4.5 * dWindowMin * clock.BarsPerDay, 4 * dWindowMin * clock.BarsPerDay, 6 * dWindowMin * clock.BarsPerDay)
                 : CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
             var day = new Unit("daily", "day", "days", clock.BarsPerDay);

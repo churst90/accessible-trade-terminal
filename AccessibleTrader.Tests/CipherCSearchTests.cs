@@ -208,6 +208,34 @@ public class CipherCSearchTests
         Assert.All(CipherCEngine.Presets.Where(p => p.Key is not ("SPX" or "NDQ" or "DJI" or "DXY")), p => Assert.False(p.WeeklyEveryTwoDaily));
     }
 
+    /// <summary>On Gold, Silver and the miners the weekly lows are a candidate judged at the next daily
+    /// low (<see cref="CipherCEngine.WeeklyFromNextDaily"/>), with gaps of 4.5, 4 and 6 of the table's
+    /// shortest daily cycle, Silver's table 22 too though it is counted from 24.</summary>
+    [Theory]
+    [InlineData("GDX")]
+    [InlineData("SILVER")]
+    public void Gold_silver_and_the_miners_judge_a_weekly_candidate_at_the_next_daily_low(string key)
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = CipherCProvider.Compute(bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
+        var clock = CipherCEngine.MeasureBars(bars);
+        var marked = (double[] a) => Enumerable.Range(0, bars.Length).Where(i => !double.IsNaN(a[i])).ToList();
+        var preset = CipherCEngine.Presets.Single(p => p.Key == key);
+
+        // 22-28 trading days on a chart that trades every day: x 7/5.
+        double table = 22 * 7 / 5.0;
+        var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, 28 * 7 / 5.0, 1, clock);
+        var turn = CipherCEngine.Detect(bars, daily, 75, 10, searchOnTurn: true);
+        Assert.Equal(marked(turn.Confirmed), marked(r[CipherCProvider.CompDclConfirmed]));
+
+        var next = CipherCEngine.WeeklyFromNextDaily(turn, bars, 4.5 * table, 4 * table, 6 * table);
+        Assert.NotEmpty(marked(next.Confirmed));
+        Assert.Equal(marked(next.Confirmed), marked(r[CipherCProvider.CompWclConfirmed]));
+        Assert.NotEqual(marked(next.Confirmed), marked(CipherCEngine.WeeklyFromDaily(turn, bars, CipherCEngine.KeepBars(preset.WeeklyMin, 7), daily.MinBars).Confirmed));
+        Assert.All(new[] { "GOLD", "SILVER", "GDX", "GDXJ", "SILJ" }, k => Assert.True(CipherCEngine.Presets.Single(p => p.Key == k).WeeklyNextDaily));
+        Assert.All(CipherCEngine.Presets.Where(p => p.Key is not ("GOLD" or "SILVER" or "GDX" or "GDXJ" or "SILJ")), p => Assert.False(p.WeeklyNextDaily));
+    }
+
     /// <summary>The first low has no last low to count from, so it waits for the cross either way.</summary>
     [Fact]
     public void The_first_low_waits_for_the_cross()
