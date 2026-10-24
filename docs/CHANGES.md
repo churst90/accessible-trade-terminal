@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts the dollar index's daily cycle from 18 days (2026-10-24)
+
+- The dollar's table says 15 to 24 days. In the original's candle replay (2021–26, 52 lows) it
+  confirms a low 9 bars after it on 39 of 52, a short cycle no sooner than the last low + 25 and a
+  first label no sooner than the last low + 17: all fit a shortest cycle of 18. The range shown and
+  said stays 15 to 24, followed by "counted from 18".
+- Scored on that replay: check marks on the original's bar 1 of 43 → 30 of 40, extra daily lows
+  37 → 21. It costs exact lows: daily 93 → 87 of 114, weekly 21 → 19 of 46. The lost lows come from
+  Cipher C's search firing before the original's (its top comes earlier), not from the count.
+  The other seven scored assets are unchanged.
+- The Silver test is now one test over three assets (Silver 12, Gold 11, dollar 9 bars, on the
+  same weekday bars). Counting the dollar from 15 or 20 turns it red. Not seen in the app.
+
 ### Cipher C counts Silver's daily cycle from 24 days (2026-10-24)
 
 - Silver's table says 22 to 28 days, the same as Gold's, and Gold behaves as 22. In the original's

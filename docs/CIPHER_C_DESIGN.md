@@ -462,6 +462,7 @@ cycle − 1.
 | Nasdaq (36) | 25 | 18 on 24 | 52 | last + 35 | 36 |
 | Gold (22) | 44 | 11 on 37 | 31, 31, 31 (then later) | last + 21 | 22 |
 | Silver (22) | 40 | 12 on 33 | 34, 35, 36, 36, 36, 38 | last + 23 | **24** |
+| Dollar index (15) | 52 | 9 on 39 | 25, 25, 25, 25, 26 (then later) | last + 17 | **18** |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -474,6 +475,14 @@ cycle − 1.
   early). Counted from 24 (`CountDailyMin`, said as "counted from 24"): check marks on its bar 0 of
   33 → 27 of 32, extra daily lows 12 → 8, but exact daily lows 47 → 46 of 56 and weekly 6 → 5 of
   12 (both still 6 within 2 bars). Silver was not used to fit anything before this.
+- **The dollar index counts from 18, not 15.** At 15 one Cipher C check mark in 43 landed on the
+  original's bar (most a bar early). Counted from 18: 30 of 40, extra daily lows 37 → 21, but exact
+  daily lows 93 → 87 of 114 and weekly 21 → 19 of 46 (daily F1 0.76 → 0.78, weekly 0.51 → 0.47).
+  The lows lost are not a timing matter: the search fires earlier than the original's and finds an
+  earlier top (2026-03: ours picks the 9th, after a top on the 5th; the original waits for the top of
+  the 12th and picks the 22nd). Searching 3 bars sooner than the count (tried) gives 90 daily, 18
+  weekly; not adopted. The original's lows on the dollar are often closer than its shortest cycle
+  (35 of 113 gaps under 18 bars, down to 10): its first label waits, the low itself need not.
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the

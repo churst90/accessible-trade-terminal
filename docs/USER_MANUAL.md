@@ -2695,7 +2695,8 @@ cycle low confirmed, on March 29 2026 at 64,955, 24 bars ago." Cipher C confirms
 only after it has held for half the shortest cycle (24 days on Bitcoin, 18 trading days on the
 Dow), as the indicator it follows does. Bitcoin's range is 54 to 66 days, but the indicator counts
 it from 48, so Cipher C does too; the preset's spoken description says "counted from 48". Silver
-is the same: its range is 22 to 28 days, as Gold's is, but it is counted from 24 (a 12-day wait). A lower
+is the same: its range is 22 to 28 days, as Gold's is, but it is counted from 24 (a 12-day wait);
+and the dollar index, 15 to 24 days, is counted from 18 (a 9-day wait). A lower
 low while a low holds takes its place and starts the wait again, except on the day the wait ends:
 then the held low is confirmed even if that day goes lower. On a daily chart its weekly lows are picked from those
 daily lows, again as that indicator picks them: a daily low becomes a weekly one once the next
