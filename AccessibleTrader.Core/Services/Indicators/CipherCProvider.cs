@@ -303,7 +303,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // that trades every day grows by 7/5, and the other way shrinks.
             double dayScale = (clock.TradesEveryDay ? 7.0 : 5.0) / (preset.CalendarDays ? 7.0 : 5.0);
             // The window drawn and said is the preset's range; the cycle is counted from
-            // CountedDailyMin, which differs from it only where the original counts from less.
+            // CountedDailyMin, which differs from it only where the original counts from another length.
             double dWindowMin = Override(p, ParamDailyMin, preset.DailyMin * dayScale);
             double dMin = Override(p, ParamDailyMin, preset.CountedDailyMin * dayScale), dMax = Override(p, ParamDailyMax, preset.DailyMax * dayScale);
             double wMin = Override(p, ParamWeeklyMin, preset.WeeklyMin), wMax = Override(p, ParamWeeklyMax, preset.WeeklyMax);

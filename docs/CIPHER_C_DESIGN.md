@@ -466,6 +466,8 @@ cycle − 1.
 | Ethereum (15) | 75 | 8 on 59 | 22, 22, 22, 23, 24 (then later) | last + 15 | **16** |
 | GDXJ (22) | 44 | 11 on 37 | 31, 31, 31, 31, 32 | last + 21 | 22 |
 | SILJ (22) | 43 | 11 on 38 | 31, 31, 33, 34 | last + 21 | 22 |
+| Coinbase (40) | 17 | 25 on 14 | 74 (then 77, 101) | last + 50 | **51** |
+| MicroStrategy (40) | 18 | 25 on 14 | 74, 74, 74, 75 | last + 50 | **51** |
 
 - **The rule holds on candles.** All three numbers agree with the same shortest cycle on every asset.
 - **Bitcoin counts from 48, not 54.** Its table says 54 to 66 days. At 54, Cipher C confirmed every
@@ -491,10 +493,26 @@ cycle − 1.
   16: check marks on the original's bar 47 of 66 → 52 of 67, extra daily lows 44 → 37, exact daily
   lows 113 → 112 of 130, weekly 31 of 57 both (extras 36 → 33). Its weekly lows fit neither weekly
   rule (counting daily lows 26 of 35 of the original's own since 2021-11, the weekly pick 24 of 34).
+- **Coinbase and MicroStrategy count from 51, not 40, and the hold rounds down.** A hold of 25 with
+  a short-cycle gate at 74 is 51 − 2 + 25, so the hold is half of 51 rounded down (Pine's `int()`).
+  These are the first odd shortest cycles; the even ones cannot tell rounding down from rounding to
+  nearest. MicroStrategy: daily lows 22 → 25 of 28, extras 14 → 4, weekly 7 → 10 of 12, check marks
+  on the original's bar 0 → 15 of 16. Coinbase: check marks 0 → 7 of 8, but daily lows 12 → 7 of 19
+  and weekly 5 → 4 of 9. Two of the losses are explained. On 2025-06-18 the bar that turns up is
+  itself the cycle's highest high, so the search (top over the last low to this bar, inclusive)
+  finds no low before it; the original names 06-13. Excluding the turning bar from the top was
+  tried on all fourteen assets: 886 → 904 exact of 1167, but extras 229 → 334. On 2022-09-23 the
+  low is undercut 29 bars on, inside the cancel gap of round(0.6 × 51) = 31; the original keeps it.
+- **The original never removes a confirmed low.** In every candle replay so far (0 of 379
+  confirmed lows on nine assets) a low with its check mark is still in the final labels, and its
+  cancelled mark (❌) is never drawn; its table shows only Confirmed and Unconfirmed. Cipher C
+  cancels a confirmed low closed under within 0.6 of the shortest cycle. Turning that off: exact
+  daily lows 886 → 903 of 1167, extras 229 → 239, F1 0.781 → 0.786, weekly lows unchanged. Not
+  adopted yet: it would leave the Cycle Low Cancelled component with nothing to say (TODO).
 - **The rule, put in one number:** on every asset so far the check mark waits h bars (the commonest
   hold) after the low, and a short cycle's waits until the last low + 3h − 2: the shortest cycle that
   fits is 2h. GDX 11 → 22, Dow 18 → 36, Bitcoin 24 → 48, Silver 12 → 24, dollar 9 → 18, Ethereum
-  8 → 16, S&P 16 → 32.
+  8 → 16, S&P 16 → 32, Coinbase and MicroStrategy 25 → 51 (2h + 1: the hold is half, rounded down).
 - **The S&P on TradingView's SP:SPX is not recognised** by the original, though its list names
   SP{SPX}, so it fell back to its default count. That default behaves as a shortest cycle of 32.
   Cipher C keeps the S&P's own 36 to 44 for SPX. Its fallback for an unknown symbol is still the

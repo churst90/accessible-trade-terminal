@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts Coinbase and MicroStrategy from 51 days, and the hold rounds down (2026-10-24)
+
+- Both tables say 40 to 90 trading days. In the original's candle replays (Coinbase 2021–26, 17
+  lows; MicroStrategy 2019–26, 18 lows) it confirms a low 25 bars after it on 14 of each, and a
+  short cycle no sooner than the last low + 74 (Coinbase 74; MicroStrategy 74, 74, 74, 75). Its
+  first label comes no sooner than the last low + 50. All three fit a shortest cycle of 51 if half
+  of it is rounded DOWN (25); every earlier asset's shortest cycle was even, so this is the first
+  that tells the two apart. Cipher C's hold now rounds down. At 40, every Cipher C check mark on
+  these two came 5 bars early.
+- MicroStrategy (held out): exact daily lows 22 → 25 of 28, extra daily lows 14 → 4, weekly 7 → 10
+  of 12 (extras 7 → 2), check marks on the original's bar 0 of 15 → 15 of 16. CTZ, the open-source
+  look-alike: daily 17 of 28 with 46 extra, weekly 8 of 12, never on the original's bar.
+- Coinbase (held out): check marks on the original's bar 0 of 13 → 7 of 8, extra daily lows 9 → 6,
+  but exact daily lows 12 → 7 of 19 and weekly 5 → 4 of 9. The lows lost are search and
+  cancellation, not timing. Once, the bar that turns up is itself the cycle's highest high, so the
+  search finds nothing (the original still names the low before it). Once, a low undercut 29 bars
+  after it is now inside the longer cancel gap (31 bars). CTZ: daily 13 of 19 with 33 extra.
+- The other twelve scored assets come out byte for byte the same (their shortest cycles are even).
+  A minimum typed in by hand that is odd now holds a bar less.
+- Tried and not adopted, on all fourteen assets: letting the search's top exclude the bar that turns
+  up (exact daily lows 886 → 904 of 1167, but extra lows 229 → 334). Not cancelling a confirmed low
+  at all: 886 → 903, extras 229 → 239, weekly unchanged. The original never removed a confirmed
+  low in any replay (0 of 379 on nine assets) and never drew its cancelled mark; this is now a
+  question for Cody in TODO.
+- New test: weekday bars under the Coinbase and MicroStrategy presets confirm 25 bars after the low
+  and no sooner than the last kept low + 74. Rounding the hold to nearest (26), or counting from 50
+  (73) or 52, turns it red. Not seen in the app.
+
 ### Cipher C counts Ethereum's daily cycle from 16 days (2026-10-24)
 
 - Ethereum's table says 15 to 25 days. In the original's candle replay (2022–26, 75 lows) it

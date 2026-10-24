@@ -690,8 +690,8 @@ public sealed class CipherCProviderTests
     /// <summary>
     /// Ethereum's table says 15–25 days, but in the original's bar replay (candles, 2022–26, 75
     /// lows) a short cycle's check mark comes no sooner than the last low + 22 (16 of 16 cut-short
-    /// cycles), as if the shortest cycle were 16: counted from 16 − 2 = 14 and held 8. At 15 the
-    /// hold is also 8 (7.5 rounds up), so only the short-cycle wait tells them apart: 21 at 15.
+    /// cycles), as if the shortest cycle were 16: counted from 16 − 2 = 14 and held 8. At 15 it
+    /// would be held 7 (half, rounded down) and the short-cycle wait would be 20.
     /// </summary>
     [Fact]
     public void Ethereum_counts_its_daily_cycle_from_16_days()
@@ -708,6 +708,32 @@ public sealed class CipherCProviderTests
         Assert.Equal(22, waits.Min());
         Assert.Equal(15, CipherCEngine.Preset("ETH").DailyMin);
         Assert.Contains("daily 15 to 25 days, counted from 16,", CipherCProvider.PresetWords(CipherCEngine.Presets.ToList().FindIndex(p => p.Key == "ETH"), new DateTime(2025, 1, 1)));
+    }
+
+    /// <summary>
+    /// Coinbase and MicroStrategy share a table (40–90 days), but in the original's bar replay
+    /// (candles, 2022–26) both confirm 25 bars after the low (14 of 17 and 14 of 18), and a cut-short
+    /// cycle's check mark comes no sooner than the last low + 74 and a first label no sooner than
+    /// + 50: a shortest cycle of 51, counted from 51 − 2 = 49 and held half of it rounded down, 25
+    /// (rounded to the nearest it would be 26, and at 50 the waits would be 73 and 49).
+    /// </summary>
+    [Theory]
+    [InlineData("MSTR")]
+    [InlineData("COIN")]
+    public void Coinbase_and_MicroStrategy_count_from_51_days_held_25(string symbol)
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().Where(b => b.Date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)).ToList();
+        var r = Run(bars, symbol);
+        var lows = Marked(r[CipherCProvider.CompDclConfirmed]).Select(t => (Mark: t, Low: t - (int)r[CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix][t])).ToList();
+        var cancelled = Marked(r[CipherCProvider.CompCancelled]).ToList();
+        var waits = lows.Zip(lows.Skip(1), (a, b) => (a, b)).Where(p => !cancelled.Any(c => c > p.a.Mark && c <= p.b.Mark)).Select(p => p.b.Mark - p.a.Low).ToList();
+        var lags = lows.Select(x => x.Mark - x.Low).ToList();
+        _out.WriteLine($"{symbol}: {lows.Count} confirmations, shortest lag {lags.Min()}, shortest wait from the last low {waits.Min()} ({waits.Count(w => w == waits.Min())} times)");
+        Assert.Equal(25, lags.Min());
+        Assert.Equal(25, lags.GroupBy(x => x).OrderByDescending(g => g.Count()).First().Key);
+        Assert.Equal(74, waits.Min());
+        Assert.Equal(40, CipherCEngine.Preset(symbol).DailyMin);
+        Assert.Contains("daily 40 to 90 trading days, counted from 51,", CipherCProvider.PresetWords(CipherCEngine.Presets.ToList().FindIndex(p => p.Key == symbol), new DateTime(2025, 1, 1)));
     }
 
     /// <summary>Cody, 2026-10-21: "not supposed to be representative brand wise ... just cycles". No

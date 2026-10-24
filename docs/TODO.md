@@ -45,7 +45,13 @@
 >     from 18** (table 15–24; built, NOT seen): check marks 1 → 30 of 40, but exact daily lows 93 → 87
 >     and weekly 21 → 19, lost to the search trigger (CIPHER_C_DESIGN section 12). Checked and as their
 >     tables: GDX, Gold, Dow, Nasdaq, oil, GDXJ, SILJ. **Ethereum counts from 16** (table 15–25; built,
->     NOT seen): check marks 47 → 52 of 67. Still to check: the four stocks (COIN, MSTR, MARA, RIOT).
+>     NOT seen): check marks 47 → 52 of 67. **Coinbase and MicroStrategy count from 51** (tables 40–90;
+>     the hold now rounds down; built, NOT seen): check marks 0 → 15 of 16 (MicroStrategy), 0 → 7 of 8
+>     (Coinbase), but Coinbase's exact daily lows 12 → 7 of 19. Still to check: MARA, RIOT.
+>   - **Cody: drop cancellation of a CONFIRMED low?** The original never removed one in any replay
+>     (0 of 379, nine assets) and never drew ❌. Without it: exact daily lows 886 → 903 of 1167, extras
+>     229 → 239, weekly unchanged. The Cycle Low Cancelled component would then never fire (remove it,
+>     or keep it for something else?). CIPHER_C_DESIGN section 12.
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
 >     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.

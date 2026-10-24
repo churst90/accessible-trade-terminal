@@ -8,7 +8,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// days for an asset that trades every day (Bitcoin), trading days for one that does not (the
     /// S&amp;P). <see cref="Source"/> is said aloud, so it is plain words. <see cref="CountDailyMin"/>,
     /// when not 0, is the shortest daily cycle the original counts with where it differs from the
-    /// range its table shows (Bitcoin: table 54–66 days, counted from 48).
+    /// range its table shows (Bitcoin: table 54–66 days, counted from 48; Coinbase and MicroStrategy:
+    /// 40–90, counted from 51).
     /// <see cref="WeeklyEveryTwoDaily"/> picks the weekly lows by
     /// <see cref="CipherCEngine.WeeklyFromTwoDaily"/>, the rule the original follows on the dollar,
     /// the Dow, the S&amp;P and the Nasdaq; the others keep <see cref="CipherCEngine.WeeklyFromDaily"/>.
@@ -50,7 +51,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// <para>
     /// <b>The hold.</b> The low the cross finds is not confirmed on that bar: it must hold for half
-    /// the shortest cycle (<see cref="HoldFraction"/>), counted from the low itself or from the last
+    /// the shortest cycle, rounded down (<see cref="HoldFraction"/>; 25 bars on a 51-bar cycle), counted from the low itself or from the last
     /// confirmed low plus the shortest cycle less two bars (<see cref="HoldFromBeforeMin"/>),
     /// whichever is later. A lower low while it holds takes its place and starts the hold again.
     /// This is the original's own timing, read bar by bar from it in TradingView's bar replay
@@ -119,7 +120,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const double SearchBackCycles = 1.5;   // the low is looked for at most this many longest cycles back
 
         // ── Read from the original in bar replay (see "The hold" in the class remarks) ──
-        public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle before it is confirmed
+        public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle (rounded down) before it is confirmed
         public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
         public const int    SearchFromBeforeMin = 2;  // the daily search opens at the last low + shortest cycle − this
         public const double KeepWeeksBelowMin = 4;    // a weekly low is kept this many weeks short of the shortest weekly cycle from the last
@@ -174,8 +175,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
-            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf),
-            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf),
+            // Its table says 40-90 for both, but the original counts Coinbase and MicroStrategy from 51
+            // (candle replays, 2021-26 and 2019-26): confirmed 25 bars after the low (half of 51,
+            // rounded down; 50 would hold 25 too), a short cycle no sooner than the last low + 74
+            // (51 - 2 + 25; 50 would give 73), on both. At 40 every one of ours came 5 bars early.
+            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51),
+            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51),
             new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf),
             new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf),
         };
@@ -443,7 +448,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int swing = Math.Clamp((int)Math.Round(tier.MinBars / 7), 2, 5);
             int minGap = tier.MinGap;
             int searchBack = (int)Math.Round(tier.MaxBars * SearchBackCycles);
-            int hold = Math.Max(0, (int)Math.Round(tier.MinBars * HoldFraction));
+            int hold = Math.Max(0, (int)Math.Floor(tier.MinBars * HoldFraction));
             int holdFrom = Math.Max(0, (int)Math.Round(tier.MinBars) - HoldFromBeforeMin);
             int searchFrom = Math.Max(1, (int)Math.Round(tier.MinBars) - SearchFromBeforeMin);
 
