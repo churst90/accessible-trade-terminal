@@ -468,7 +468,10 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 if (held >= 0)
                 {
-                    if (low[t] < low[held]) held = t;
+                    // A lower low takes the held one's place up to the bar before it is due; on
+                    // that bar the held low is confirmed whatever the bar's low (the original, 8 of
+                    // the 13 such bars in its replays on five daily charts).
+                    if (low[t] < low[held] && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) < hold) held = t;
                 }
                 else if (searchOnTurn && last >= 0 && t - last >= searchFrom && close[t] > high[t - 1])
                 {

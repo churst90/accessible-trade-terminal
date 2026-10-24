@@ -442,10 +442,11 @@ public sealed class CipherCProviderTests
     /// (<see cref="CipherCWeeklyTests"/>), Bitcoin's weekly lows from June 2022 are the original's
     /// wherever the two daily lows agree (read off the original's chart in TradingView, candles,
     /// 2026-10-24). Counted from 48 days, Cipher C has the original's daily lows of 19 December
-    /// 2022 and 11 March 2025 and a weekly low on each, as the original draws: 9 of its 11 weekly
-    /// lows to the fixture's end. It misses 11 September 2023, after daily lows of 15 June and 24 October 2023 where the
-    /// original has 12 May and 27 November, and 21 November 2025, after keeping the daily low of
-    /// 22 June 2025 as a weekly one where the original did not. The original draws no weekly low
+    /// 2022 and 11 March 2025 and a weekly low on each, as the original draws. Confirming a low on
+    /// the bar it comes due, even when that bar goes lower, it has the original's daily low of 12 May
+    /// 2023 and so its weekly low of 11 September 2023: 9 of the original's 10 weekly lows to the
+    /// fixture's end. It misses 21 November 2025, after keeping the daily low of 22 June 2025 as a
+    /// weekly one where the original did not, and keeps 10 March 2023, which the original does not. The original draws no weekly low
     /// on the 5 August 2024 crash, a daily low 31 days after the weekly one of 5 July.
     /// </summary>
     [Fact]
@@ -464,8 +465,8 @@ public sealed class CipherCProviderTests
                                "2024-10-10", "2025-03-11", "2025-11-21", "2026-02-06", "2026-07-01" }.Select(DateTime.Parse).ToList();
         var since2022 = w.Select(i => bars[i].Date.Date).Where(x => x >= new DateTime(2022, 5, 12)).ToList();
         // The fixture ends on 15 June 2026, before the original's low of 1 July.
-        Assert.Equal(original.Where(x => x <= bars[^1].Date).Except(new[] { new DateTime(2023, 9, 11), new DateTime(2025, 11, 21) }),
-                     since2022.Except(new[] { new DateTime(2023, 6, 15), new DateTime(2023, 10, 24), new DateTime(2025, 6, 22) }));
+        Assert.Equal(original.Where(x => x <= bars[^1].Date).Except(new[] { new DateTime(2025, 11, 21) }),
+                     since2022.Except(new[] { new DateTime(2023, 3, 10), new DateTime(2025, 6, 22) }));
         Assert.Contains(d, i => bars[i].Date == new DateTime(2024, 8, 5));
         Assert.DoesNotContain(w, i => bars[i].Date == new DateTime(2024, 8, 5));
     }

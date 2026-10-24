@@ -2694,7 +2694,9 @@ its own (Cipher C's check box), you hear one sentence on the confirmation instea
 cycle low confirmed, on March 29 2026 at 64,955, 24 bars ago." Cipher C confirms a daily low
 only after it has held for half the shortest cycle (24 days on Bitcoin, 18 trading days on the
 Dow), as the indicator it follows does. Bitcoin's range is 54 to 66 days, but the indicator counts
-it from 48, so Cipher C does too; the preset's spoken description says "counted from 48". On a daily chart its weekly lows are picked from those
+it from 48, so Cipher C does too; the preset's spoken description says "counted from 48". A lower
+low while a low holds takes its place and starts the wait again, except on the day the wait ends:
+then the held low is confirmed even if that day goes lower. On a daily chart its weekly lows are picked from those
 daily lows, again as that indicator picks them: a daily low becomes a weekly one once the next
 daily low comes far enough after the last weekly low, and it is called confirmed only once the
 weekly low after it is kept, months later on Bitcoin. There is no twenty-bar limit on these, however late the

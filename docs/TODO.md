@@ -21,7 +21,11 @@
 >   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
 >   presets are now the original's ranges (SPX's from videos). Cody to look at Bitcoin daily: a low
 >   is now confirmed about 24 days after it (27 until 2026-10-24, 12 before the hold). Open:
->   - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
+>   - **Confirmed on the due day even if it goes lower (2026-10-24, built, NOT seen; CIPHER_C_DESIGN
+    section 13).** Small gain on four of five replays (Dow weekly −1). Check it held out on Gold and the
+    later assets as they land. The original also drops (not moves) an unconfirmed low that is undercut
+    early in the hold, 106 of 124 undercuts; Cipher C moves it. Not tried yet.
+  - **Bitcoin counts from 48 (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 12).** The candle
 >     replays show the original counts Bitcoin's daily cycle as if the shortest were 48, though its
 >     table says 54–66. On its bar: lows 19 → 22 of 25, check marks 0 → 20 of 22. Still to check as the
 >     other thirteen assets land: Ethereum (table 15–25), metals, the dollar, the indices.

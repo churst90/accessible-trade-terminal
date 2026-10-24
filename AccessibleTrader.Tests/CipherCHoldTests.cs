@@ -6,7 +6,8 @@ namespace AccessibleTrader.Tests;
 /// <summary>
 /// Cipher C confirms a cycle low when the original does: after the low has held for half the
 /// shortest cycle, counted from the low or from the last low plus the shortest cycle less two bars,
-/// whichever is later. A lower low while it holds takes its place.
+/// whichever is later. A lower low while it holds takes its place, up to the bar before it is due;
+/// on that bar it is confirmed whatever the bar's low (<see cref="CipherCSearchTests"/>).
 ///
 /// <para>
 /// The rule was read bar by bar from the original in TradingView's bar replay on 2026-10-22: Dow
@@ -70,14 +71,14 @@ public class CipherCHoldTests
 
     /// <summary>
     /// A lower low during the hold replaces the one being held, so the confirmed low is still the
-    /// lowest bar from itself to the bar that confirms it.
+    /// lowest bar from itself to the bar before the one that confirms it.
     /// </summary>
     [Fact]
     public void A_confirmed_low_is_the_lowest_bar_up_to_its_confirmation()
     {
         var r = Daily(out var low);
         for (int k = 0; k < r.Lows.Count; k++)
-            for (int j = r.Lows[k] + 1; j <= r.ConfirmedAt[k]; j++)
+            for (int j = r.Lows[k] + 1; j < r.ConfirmedAt[k]; j++)
                 Assert.True(low[j] >= low[r.Lows[k]],
                     $"low {k} (bar {r.Lows[k]}, {low[r.Lows[k]]}) confirmed on bar {r.ConfirmedAt[k]} " +
                     $"although bar {j} went lower ({low[j]}) while it held");

@@ -105,7 +105,8 @@ public class CipherCSearchTests
     /// <summary>
     /// The low it takes is the one after the cycle's top, not the lowest bar since the last low
     /// (which is usually the bar after it). A lower low while it holds may take its place, so the
-    /// confirmed low is the lowest bar from the top to the confirmation.
+    /// confirmed low is the lowest bar from the top to the bar before its confirmation (on that bar
+    /// it is due, see the next test).
     /// </summary>
     [Fact]
     public void The_low_is_the_lowest_bar_from_the_cycle_s_top_to_its_confirmation()
@@ -116,7 +117,7 @@ public class CipherCSearchTests
         {
             int top = Top(high, r.Lows[k - 1], r.FoundAt[k]);
             Assert.True(r.Lows[k] >= top, $"low {k} (bar {r.Lows[k]}) comes before the cycle's top (bar {top})");
-            for (int j = top; j <= r.ConfirmedAt[k]; j++)
+            for (int j = top; j < r.ConfirmedAt[k]; j++)
                 Assert.True(low[j] >= low[r.Lows[k]],
                     $"low {k} (bar {r.Lows[k]}, {low[r.Lows[k]]}): bar {j} went lower ({low[j]}) between the top (bar {top}) and the confirmation (bar {r.ConfirmedAt[k]})");
             // Not the lowest since the last low: somewhere before the top went lower.
@@ -124,6 +125,32 @@ public class CipherCSearchTests
         }
         _out.WriteLine($"{afterTop} of {r.Lows.Count - 1} lows sit above a lower bar between the last low and the top");
         Assert.True(afterTop >= 3, $"only {afterTop} lows differ from the lowest bar since the last low; the top rule is untested");
+    }
+
+    /// <summary>
+    /// A low is confirmed on the bar it comes due even if that bar goes lower: the lower bar does
+    /// not take its place and start the hold again. Read from the original's bar replay
+    /// (2026-10-24, candles, GDX, Bitcoin, the Dow, S&amp;P 500 and Nasdaq daily): of the 13 bars
+    /// that went under its unconfirmed low once the hold had run, it confirmed the low on 8, kept
+    /// it unconfirmed on 3 and dropped it on 2. On Bitcoin counted from 48 days this is the
+    /// original's daily low of 12 May 2023 (otherwise 15 June). Up to the bar before, a lower low
+    /// still takes its place: 23 October 2019 for 30 September 2019, the bar before the older low
+    /// came due (not checked against the original, whose replay starts in 2022).
+    /// </summary>
+    [Fact]
+    public void A_low_is_confirmed_on_the_bar_it_comes_due_even_if_that_bar_goes_lower()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var low = bars.Select(b => b.Low).ToArray();
+        var r = CipherCEngine.Detect(bars, CipherCEngine.Tier(48, 66, 1, CipherCEngine.MeasureBars(bars)), 75, 10, searchOnTurn: true);
+        var under = Enumerable.Range(1, r.Lows.Count - 1).Where(k => low[r.ConfirmedAt[k]] < low[r.Lows[k]]).ToList();
+        foreach (var k in under)
+            _out.WriteLine($"low {k} {bars[r.Lows[k]].Date:yyyy-MM-dd} at {low[r.Lows[k]]}, confirmed {bars[r.ConfirmedAt[k]].Date:yyyy-MM-dd} on a low of {low[r.ConfirmedAt[k]]}");
+        Assert.NotEmpty(under);
+        Assert.Contains(r.Lows, i => bars[i].Date.Date == new DateTime(2023, 5, 12));
+        Assert.DoesNotContain(r.Lows, i => bars[i].Date.Date == new DateTime(2023, 6, 15));
+        Assert.Contains(r.Lows, i => bars[i].Date.Date == new DateTime(2019, 10, 23));
+        Assert.DoesNotContain(r.Lows, i => bars[i].Date.Date == new DateTime(2019, 9, 30));
     }
 
     /// <summary>Only the daily tier searches this way; the yearly tier, and the first low on any

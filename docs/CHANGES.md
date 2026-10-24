@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C confirms a low on the day it comes due, even if that day goes lower (2026-10-24)
+
+- Until now a lower low on the bar a held daily low came due took its place and started the hold
+  again. The original does not do that. In its candle replays on five daily charts (GDX, Bitcoin,
+  the Dow, SP:SPX, Nasdaq, 2022–26), 13 bars went under its unconfirmed low once the hold had run.
+  On 8 of them it confirmed the low anyway; it kept the low unconfirmed on 3 and dropped it on 2.
+  Before the hold has run, a lower low still takes the held one's place (`CipherCEngine.Detect`).
+- **Scored on the same candle replays, against the original's labels** (before → after):
+  - GDX: daily lows on its bar 49 → 51 of 61, weekly 5 → 6 of 12 (extra weekly 7 → 6), check marks
+    on its bar 30 of 33 → 31 of 35;
+  - Bitcoin: daily 22 → 23 of 25 (extra 6 → 5), weekly 9 → 10 of 11 (extra 3 → 2): it now has the
+    original's daily low of 12 May 2023 (was 15 June) and so its weekly low of 11 September 2023;
+  - S&P (SP:SPX): daily 83 → 84 of 129, weekly 29 → 30 of 57;
+  - Dow: daily 101 of 129 both, weekly 40 → 39 of 57 (extra 14 → 17), check marks 15 of 19 → 16 of 20;
+  - Nasdaq: unchanged.
+  The rule was chosen after scoring all five, so none is held out. Gold and the assets after it,
+  replayed next, are.
+- **Tests:** a new search test (a lower low on the due bar does not take the low's place: Bitcoin's
+  12 May 2023 at 48; the bar before still does: 23 October 2019 for 30 September 2019); the weekly
+  test's list (now misses only 21 November 2025, extra 10 March 2023 and 22 June 2025); the two
+  "lowest bar up to the confirmation" tests now stop at the bar before it. Sabotages, all red: the
+  old rule; never replacing; stopping a bar early; stopping a bar late.
+
 ### Cipher C counts Bitcoin's daily cycle from 48 days, as the original does (2026-10-24)
 
 - The original's table says Bitcoin's daily cycle is 54 to 66 days. Replayed bar by bar on candles

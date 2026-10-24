@@ -477,3 +477,24 @@ cycle − 1.
   default 32. CTZ finds many more lows that the original does not have (Dow 137 vs 23, S&P 102
   vs 27).
 
+## 13. A lower low on the bar a low comes due (2026-10-24)
+
+`strategy-lab-data/cf-tv-export/ctz/moved.py` lists every replay bar whose low went under the
+original's unconfirmed (🕘) daily low, and what the original showed on the next bar. Five candle
+replays (GDX, Bitcoin, Dow, SP:SPX, Nasdaq), 124 undercuts:
+
+| Bars since the low, as a share of the hold | Confirmed | Kept unconfirmed | Dropped |
+|---|---|---|---|
+| under 0.5 | 0 | 0 | 74 |
+| 0.5 to 0.75 | 0 | 0 | 19 |
+| 0.75 to 1 | 0 | 7 | 11 |
+| 1 or more (due) | 8 | 3 | 2 |
+
+- **On the due bar the original confirms.** Cipher C used to move the low to the new bar and hold
+  again. It now confirms on that bar. Scores in CHANGES (2026-10-24): small gains
+  on GDX, Bitcoin and the S&P, Dow weekly one worse, Nasdaq unchanged.
+- **Earlier in the hold the original drops the low** (its 🕘 label goes away) rather than moving it.
+  The next label comes from a fresh search. Cipher C moves the low to the lower bar instead. Not tried yet.
+- **Nasdaq's misses are the search, not the hold.** On 20 May 2022 the original found the low and
+  confirmed it on 16 June, the bar that made a lower low. Cipher C found no low there: an earlier low
+  had failed, and the low it found was 16 June itself.
