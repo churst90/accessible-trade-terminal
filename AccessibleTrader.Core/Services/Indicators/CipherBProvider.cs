@@ -516,9 +516,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "SMA length for the body/range Money Flow. 60 produces the slow glass-wave shape matching real MCB." },
                     new() { Name = "WTSignalPeriod", DisplayName = "WT Slow Wave Smoothing",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10,  Step = 1,
                             Description = "SMA length of the slow wave over the fast one. 3 = Market Cipher B (its crosses land on our crosses' bar 164 of 182 times). 4 = this indicator before 2026-10-17, which every saved backtest used." },
-                    new() { Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
+                    new() { IsAdvanced = true, Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
                             Description = "MCB = 68 x average over Money Flow Period bars of each Heikin-Ashi body divided by the average size of the last 5 Heikin-Ashi bodies (fitted to Market Cipher B). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
-                    new() { Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
+                    new() { IsAdvanced = true, Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
                             Description = "MCB = a green dot on every cross up with the fast wave below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "MCB buy-dot depth: the fast wave must be below minus this at the cross. 60 = Market Cipher B's default." },
@@ -527,29 +527,29 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // Signal logic
                     new() { Name = "PivotBars",      DisplayName = "Divergence Pivot Bars",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10, Step = 1 },
                     // Anchor waves
-                    new() { Name = "AnchorMultiplier", DisplayName = "Anchor Wave Multiplier", DefaultValue = 5.0, DataType = typeof(int), MinValue = 2, MaxValue = 10, Step = 1,
+                    new() { IsAdvanced = true, Name = "AnchorMultiplier", DisplayName = "Anchor Wave Multiplier", DefaultValue = 5.0, DataType = typeof(int), MinValue = 2, MaxValue = 10, Step = 1,
                             Description = "Period multiplier for the anchor WT pair (default 5 = 5× WT periods)." },
 
                     // Adaptive thresholds
-                    new() { Name = "ThresholdMode",    DisplayName = "Threshold Mode",        DefaultValue = "Fixed", DataType = typeof(string),
+                    new() { IsAdvanced = true, Name = "ThresholdMode",    DisplayName = "Threshold Mode",        DefaultValue = "Fixed", DataType = typeof(string),
                             Description = "Fixed = ±OBLevel. Percentile = rolling OB/OS envelopes that adapt to the instrument." },
-                    new() { Name = "AdaptiveLookback", DisplayName = "Adaptive Lookback",     DefaultValue = 500.0, DataType = typeof(int), MinValue = 50, MaxValue = 2000, Step = 50,
+                    new() { IsAdvanced = true, Name = "AdaptiveLookback", DisplayName = "Adaptive Lookback",     DefaultValue = 500.0, DataType = typeof(int), MinValue = 50, MaxValue = 2000, Step = 50,
                             Description = "Window length for percentile-based thresholds. Longer = more stable, slower to adapt." },
-                    new() { Name = "UpperPercentile",  DisplayName = "Upper Percentile",      DefaultValue = 0.95, DataType = typeof(double), MinValue = 0.80, MaxValue = 0.99, Step = 0.01 },
-                    new() { Name = "LowerPercentile",  DisplayName = "Lower Percentile",      DefaultValue = 0.05, DataType = typeof(double), MinValue = 0.01, MaxValue = 0.20, Step = 0.01 },
-                    new() { Name = "MinThresholdFloor",DisplayName = "Min Threshold Floor",   DefaultValue = 40.0, DataType = typeof(double), MinValue = 20, MaxValue = 80, Step = 1,
+                    new() { IsAdvanced = true, Name = "UpperPercentile",  DisplayName = "Upper Percentile",      DefaultValue = 0.95, DataType = typeof(double), MinValue = 0.80, MaxValue = 0.99, Step = 0.01 },
+                    new() { IsAdvanced = true, Name = "LowerPercentile",  DisplayName = "Lower Percentile",      DefaultValue = 0.05, DataType = typeof(double), MinValue = 0.01, MaxValue = 0.20, Step = 0.01 },
+                    new() { IsAdvanced = true, Name = "MinThresholdFloor",DisplayName = "Min Threshold Floor",   DefaultValue = 40.0, DataType = typeof(double), MinValue = 20, MaxValue = 80, Step = 1,
                             Description = "|Minimum| threshold used in Percentile mode to prevent whipsaw in compressed regimes." },
 
                     // Signal quality gates
-                    new() { Name = "ConfirmBars",    DisplayName = "Confirmation Bars",     DefaultValue = 2.0, DataType = typeof(int), MinValue = 1, MaxValue = 5, Step = 1,
+                    new() { IsAdvanced = true, Name = "ConfirmBars",    DisplayName = "Confirmation Bars",     DefaultValue = 2.0, DataType = typeof(int), MinValue = 1, MaxValue = 5, Step = 1,
                             Description = "Bars the fast wave must stay past OS/OB before a gated dot fires: the red Overbought Crossover and the Gated buy dot (1 = immediate, 2 = sustained)." },
-                    new() { Name = "CooldownBars",   DisplayName = "Cooldown Bars",         DefaultValue = 0.0, DataType = typeof(int), MinValue = 0, MaxValue = 50, Step = 1,
+                    new() { IsAdvanced = true, Name = "CooldownBars",   DisplayName = "Cooldown Bars",         DefaultValue = 0.0, DataType = typeof(int), MinValue = 0, MaxValue = 50, Step = 1,
                             Description = "Suppress further same-side dots for N bars after one fires. 0 = auto (uses WT1Period)." },
-                    new() { Name = "UseAnchorSuppression", DisplayName = "Anchor Suppression", DefaultValue = true, DataType = typeof(bool),
+                    new() { IsAdvanced = true, Name = "UseAnchorSuppression", DisplayName = "Anchor Suppression", DefaultValue = true, DataType = typeof(bool),
                             Description = "When ON, the Gated buy dot is suppressed while Anchor Wave is strongly bearish, and the red dot while it is strongly bullish. Prevents counter-trend entries against a clear higher-TF regime." },
-                    new() { Name = "AnchorSuppressDepth", DisplayName = "Anchor Suppress Depth", DefaultValue = 40.0, DataType = typeof(double), MinValue = 10, MaxValue = 80, Step = 5,
+                    new() { IsAdvanced = true, Name = "AnchorSuppressDepth", DisplayName = "Anchor Suppress Depth", DefaultValue = 40.0, DataType = typeof(double), MinValue = 10, MaxValue = 80, Step = 5,
                             Description = "Anchor Wave must exceed ±this value to count as 'strongly directional' for suppression. Lower values suppress more often." },
-                    new() { Name = "TfAware",        DisplayName = "Timeframe-Aware Gates", DefaultValue = true, DataType = typeof(bool),
+                    new() { IsAdvanced = true, Name = "TfAware",        DisplayName = "Timeframe-Aware Gates", DefaultValue = true, DataType = typeof(bool),
                             Description = "When ON, Cipher B reads the chart's timeframe (or, failing that, the bars' spacing) and scales the divergence gates and the Legacy money flow's period accordingly. Default values are daily-tuned; intraday TFs need a looser MF/conviction or signals fire too rarely. Turn OFF to use literal parameter values." },
                 }
             }

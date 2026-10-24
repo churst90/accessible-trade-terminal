@@ -2,8 +2,11 @@
 >   1. Reset to Defaults resets everything, parameters included (built, NOT seen; see CHANGES).
 >      Cody to change an RSI's period and colour, press Reset to Defaults, and hear the name and
 >      period come back. It keeps the pane, your own levels, a profile's anchor, and mute / hide / narrate.
->   2. An Advanced tab for settings the original indicator has no input for (Cipher B's legacy money
->      flow, gated buy dot, adaptive thresholds, percentiles, anchor suppression, cooldown). Not built.
+>   2. An Advanced tab for settings the original indicator has no input for (built, NOT seen; see
+>      CHANGES). Cipher B's thirteen settings of ours and two of DBSI's are on it. Questions:
+>      - Should the Add Indicator dialog split them the same way? Today it lists every parameter.
+>      - Cipher B's Wave Trend periods are not Market Cipher B inputs either. Move them too?
+>      - Cipher C was not compared with CF's inputs one by one.
 >   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted;
 >      parts other parts read stay computed. Not built.
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES

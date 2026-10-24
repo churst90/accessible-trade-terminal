@@ -53,6 +53,14 @@
                         aria-selected="@(_activeTab == "Speech" ? "true" : "false")"
                         aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "Speech"'>Speech</button>
+                @if (HasAdvanced)
+                {
+                    <button role="tab" id="props-tab-advanced"
+                            class="@(_activeTab == "Advanced" ? "active" : "")"
+                            aria-selected="@(_activeTab == "Advanced" ? "true" : "false")"
+                            aria-controls="props-tabpanel"
+                            @onclick='() => _activeTab = "Advanced"'>Advanced</button>
+                }
             </div>
 
             <div class="tab-content" role="tabpanel"
@@ -62,67 +70,11 @@
                 {
                     case "General":
                         <div class="scroll-area">
-                            @if (_params.Any() || _stringParams.Any() || _anchorRangeText != null)
+                            @if (HasParameters(advanced: false) || _anchorRangeText != null)
                             {
                                 <fieldset>
                                     <legend>Indicator Parameters</legend>
-                                    @* Text-valued knobs — comparison symbol, MA type, pivot
-                                       period, threshold mode. Same text input AddIndicatorModal
-                                       uses, so a parameter reads and edits the same way whether
-                                       the series is being created or adjusted. *@
-                                    @foreach (var key in _stringParams.Keys.ToList())
-                                    {
-                                        var spm = _paramMeta.FirstOrDefault(p =>
-                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
-                                        var sDisplayName = spm != null && !string.IsNullOrEmpty(spm.DisplayName)
-                                            ? spm.DisplayName : key;
-
-                                        <div class="modal-row">
-                                            <label for="prop-@key">@sDisplayName</label>
-                                            <input id="prop-@key" type="text"
-                                                   value="@_stringParams[key]"
-                                                   @onchange="e => UpdateStringParam(key, e.Value?.ToString())" />
-                                        </div>
-                                        @if (spm != null && !string.IsNullOrEmpty(spm.Description))
-                                        {
-                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@spm.Description</p>
-                                        }
-                                    }
-                                    @foreach (var key in _params.Keys.ToList())
-                                    {
-                                        var pm = _paramMeta.FirstOrDefault(p =>
-                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
-                                        var displayName = pm != null && !string.IsNullOrEmpty(pm.DisplayName)
-                                            ? pm.DisplayName : key;
-                                        var step = pm?.Step?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "any";
-                                        var minAttr = pm?.MinValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                                        var maxAttr = pm?.MaxValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-                                        <div class="modal-row">
-                                            <label for="prop-@key">@displayName</label>
-                                            @if (pm != null && pm.DataType == typeof(bool))
-                                            {
-                                                @* Yes/no knobs render as checkboxes here too. A 0/1
-                                                   spinner is unusable with a screen reader. *@
-                                                <input id="prop-@key" type="checkbox"
-                                                       checked="@(_params[key] != 0)"
-                                                       @onchange="e => UpdateBoolParam(key, e.Value)" />
-                                            }
-                                            else
-                                            {
-                                                <input id="prop-@key" type="number"
-                                                       step="@step"
-                                                       min="@minAttr"
-                                                       max="@maxAttr"
-                                                       value="@_params[key]"
-                                                       @onchange="e => UpdateParam(key, e.Value?.ToString())" />
-                                            }
-                                        </div>
-                                        @if (pm != null && !string.IsNullOrEmpty(pm.Description))
-                                        {
-                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@pm.Description</p>
-                                        }
-                                    }
+                                    @{ ParameterRows(__builder, advanced: false); }
                                     @* A fixed-range profile's anchor. Two parameters the user never
                                        typed — Unix seconds captured from the viewport when the profile
                                        was added — used to be listed here as editable numbers under the
@@ -238,6 +190,15 @@
                         </div>
                         break;
 
+                    case "Advanced":
+                        <div class="scroll-area">
+                            <fieldset>
+                                <legend>Advanced</legend>
+                                <p style="margin:0 0 8px 0; font-size:0.85rem;">Settings the original indicator does not have. Their defaults behave as the original does.</p>
+                                @{ ParameterRows(__builder, advanced: true); }
+                            </fieldset>
+                        </div>
+                        break;
                     case "Appearance":
                         <div class="scroll-area">
                             @* PARTS, 2026-10-23 (Cody: "those components just won't be added").
@@ -961,8 +922,88 @@
     private string _activeTab = "General";
 
     // Tab ids in visual order, so the arrow handler and the markup cannot drift apart.
-    private static readonly string[] TabIds = { "props-tab-general", "props-tab-appearance", "props-tab-levels", "props-tab-sonification", "props-tab-speech" };
-    private static readonly string[] TabKeys = { "General", "Appearance", "Levels", "Sonification", "Speech" };
+    // The Advanced tab is last, and only there when the indicator has a setting for it.
+    private string[] TabIds => HasAdvanced
+        ? new[] { "props-tab-general", "props-tab-appearance", "props-tab-levels", "props-tab-sonification", "props-tab-speech", "props-tab-advanced" }
+        : new[] { "props-tab-general", "props-tab-appearance", "props-tab-levels", "props-tab-sonification", "props-tab-speech" };
+    private string[] TabKeys => HasAdvanced
+        ? new[] { "General", "Appearance", "Levels", "Sonification", "Speech", "Advanced" }
+        : new[] { "General", "Appearance", "Levels", "Sonification", "Speech" };
+
+    /// <summary>Whether <paramref name="key"/> is a setting the original indicator has no input for
+    /// (<see cref="IndicatorParameterMetadata.IsAdvanced"/>). A key the metadata no longer declares is not.</summary>
+    private bool IsAdvancedParam(string key) =>
+        _paramMeta.Any(p => p.IsAdvanced && p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+
+    private bool HasParameters(bool advanced) =>
+        _params.Keys.Concat(_stringParams.Keys).Any(k => IsAdvancedParam(k) == advanced);
+
+    private bool HasAdvanced => HasParameters(advanced: true);
+
+    /// <summary>
+    /// The parameter fields of one tab — General's (<paramref name="advanced"/> false) or
+    /// Advanced's. One copy of the markup, so a knob reads and edits the same on either tab.
+    /// </summary>
+    private void ParameterRows(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder, bool advanced)
+    {
+                                    @* Text-valued knobs — comparison symbol, MA type, pivot
+                                       period, threshold mode. Same text input AddIndicatorModal
+                                       uses, so a parameter reads and edits the same way whether
+                                       the series is being created or adjusted. *@
+        foreach (var key in _stringParams.Keys.Where(k => IsAdvancedParam(k) == advanced).ToList())
+                                    {
+                                        var spm = _paramMeta.FirstOrDefault(p =>
+                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+                                        var sDisplayName = spm != null && !string.IsNullOrEmpty(spm.DisplayName)
+                                            ? spm.DisplayName : key;
+
+                                        <div class="modal-row">
+                                            <label for="prop-@key">@sDisplayName</label>
+                                            <input id="prop-@key" type="text"
+                                                   value="@_stringParams[key]"
+                                                   @onchange="e => UpdateStringParam(key, e.Value?.ToString())" />
+                                        </div>
+                                        @if (spm != null && !string.IsNullOrEmpty(spm.Description))
+                                        {
+                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@spm.Description</p>
+                                        }
+                                    }
+        foreach (var key in _params.Keys.Where(k => IsAdvancedParam(k) == advanced).ToList())
+                                    {
+                                        var pm = _paramMeta.FirstOrDefault(p =>
+                                            p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+                                        var displayName = pm != null && !string.IsNullOrEmpty(pm.DisplayName)
+                                            ? pm.DisplayName : key;
+                                        var step = pm?.Step?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "any";
+                                        var minAttr = pm?.MinValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                        var maxAttr = pm?.MaxValue?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                                        <div class="modal-row">
+                                            <label for="prop-@key">@displayName</label>
+                                            @if (pm != null && pm.DataType == typeof(bool))
+                                            {
+                                                @* Yes/no knobs render as checkboxes here too. A 0/1
+                                                   spinner is unusable with a screen reader. *@
+                                                <input id="prop-@key" type="checkbox"
+                                                       checked="@(_params[key] != 0)"
+                                                       @onchange="e => UpdateBoolParam(key, e.Value)" />
+                                            }
+                                            else
+                                            {
+                                                <input id="prop-@key" type="number"
+                                                       step="@step"
+                                                       min="@minAttr"
+                                                       max="@maxAttr"
+                                                       value="@_params[key]"
+                                                       @onchange="e => UpdateParam(key, e.Value?.ToString())" />
+                                            }
+                                        </div>
+                                        @if (pm != null && !string.IsNullOrEmpty(pm.Description))
+                                        {
+                                            <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@pm.Description</p>
+                                        }
+                                    }
+    }
 
     /// <summary>
     /// Arrow / Home / End across the tab row. Selection follows focus, per WAI-ARIA:
@@ -991,6 +1032,7 @@
         "Levels"       => "props-tab-levels",
         "Sonification" => "props-tab-sonification",
         "Speech"       => "props-tab-speech",
+        "Advanced"     => "props-tab-advanced",
         _              => "props-tab-general",
     };
     private string _selectedComponentName = "";  // "" = show all components

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Properties → Advanced: the settings the original indicator does not have (2026-10-23)
+
+Cody, 2026-10-23: settings the original indicator has no input for go on an Advanced tab.
+
+- A parameter can now say it is one of ours (`IndicatorParameterMetadata.IsAdvanced`). Properties
+  shows those on a new **Advanced** tab, last in the row, and only for an indicator that has one;
+  General keeps the rest. Arrow keys, Home and End reach it like the other tabs.
+- **Cipher B**: Money Flow Formula (legacy), Buy Dot Rule (gated), Anchor Wave Multiplier, Threshold
+  Mode, Adaptive Lookback, Upper and Lower Percentile, Min Threshold Floor, Confirmation Bars,
+  Cooldown Bars, Anchor Suppression and its depth, Timeframe-Aware Gates. General keeps the four
+  periods, Buy Dot Level, OB/OS Threshold and Divergence Pivot Bars.
+- **Cipher DBSI**: Compute on Heikin-Ashi candles and Label the newest N bars (the original scores
+  whatever candles the chart draws, and labels 25 because of TradingView's label limit).
+- **Not moved**, because they are the original's inputs or were not checked against it: Cipher A,
+  Cipher SR, Cipher C (CF's inputs were not compared one by one). The Wave Trend periods are not
+  inputs of Market Cipher B either, but are the indicator's formula, so they stay on General.
+- Nothing about how any indicator calculates changed; only where its settings are shown. The Add
+  Indicator dialog still lists every parameter together.
+- Three tests (`PropertiesAdvancedTabTests`); five sabotages red: nothing advanced, the tab always
+  shown, the arrows skipping it, the legacy money flow back on General, Advanced listing everything.
+  Not seen in the app.
+
 ### Reset to Defaults resets everything, parameters included (2026-10-23)
 
 Cody, 2026-10-23: Reset to Defaults should reset everything, inputs, periods and modes too.

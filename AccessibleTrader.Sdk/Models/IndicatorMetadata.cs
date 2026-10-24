@@ -468,6 +468,14 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Step increment for numeric inputs (null = use default step).</summary>
         public double? Step { get; set; }
 
+        /// <summary>
+        /// True = a setting the original indicator has no input for — one of ours, such as Cipher
+        /// B's legacy money flow or its gated buy dot. Properties shows it on the Advanced tab
+        /// instead of General (Cody, 2026-10-23), so General holds what the original offers.
+        /// Its default should give the original's behaviour.
+        /// </summary>
+        public bool IsAdvanced { get; set; }
+
         public override string ToString() => DisplayName;
     }
 }
