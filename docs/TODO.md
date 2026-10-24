@@ -168,9 +168,21 @@
 >     on top of the base votes (2026-10-24, `dbsi6/x3.py`): Q on its trigger bar gives held-out ±2 65.3%
 >     → 66.9%, exact 17.4% → 19.2%, but leave-one-chart-out falls (±2 71.9% → 71.1%) and false 17+ rise
 >     15 → 20; a count of bars since the side's run ended adds nothing (65.8%). Still not shipped. Most of
->     the per-bar score is still unmatched (about 40% exact on bars with no memory). Next: the Start grid
->     is being extended back to 2022 to check the start and end rules on bars they were not found on;
->     then Bitcoin 1D.
+>     the per-bar score is still unmatched (about 40% exact on bars with no memory). Start and end rules
+>     held out on the Dow 2022-24 grid (see CHANGES 4304bf90) and on Bitcoin 1D Heikin-Ashi.
+>   - **Cody: may the original's Start-grid numbers go in the public repo, so DBSI can be fitted on
+>     them?** (2026-10-24, research only, nothing shipped.) The grid now covers the Dow 2022-26 (1,121
+>     days) and Bitcoin 1D Heikin-Ashi 2022-12 to 2026-10 (1,417 days), read off the live chart. The
+>     shipped model on all of Bitcoin, never fitted there: exact 21.2%, ±1 50.5%, ±2 68.8%, side in
+>     control 92.1%. Refitting the same terms on the Dow grid + Bitcoin before 2025 + the twenty
+>     digitised charts, then scoring Bitcoin 2025-26 (662 days no fit saw): exact 22.4 → 26.5%, ±1
+>     53.3 → 55.7%, ±2 71.8 → 75.7%, error 2.35 → 2.29, 17+ caught 84 → 91 of 138, false 17+ 15 → 19
+>     (actual 14-16 on all 19). On the fifteen held-out digitised charts: ±2 65.3 → 68.3%, exact 17.4
+>     → 20.2%, false 17+ 8 → 14 (12 of 14 actual 14-16). Fitting on the grids alone is about as good
+>     (Dow only: Bitcoin 2025-26 ±2 75.2%). To ship it, the test that refits the shipped constants
+>     needs the grid labels in its fixture: about 2,500 days of the original's output in the public
+>     repo. The twenty digitised charts (from public videos) are there already. Tool: `dbsi6/x5.py`
+>     (FITGRID=DOW+BTCA PLUS20=1; SPLIT=2025-01-01).
 >   - Not measured: Cipher B's divergences, and the regular-candle screenshots S3 and S5.
 >   - ~~**Cipher C clock flips on one weekend bar.**~~ Fixed 2026-10-23 (see CHANGES): the original
 >     counts gold's and the dollar index's weeks as five bars, only crypto's as seven. Saturday and
