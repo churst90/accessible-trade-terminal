@@ -230,4 +230,102 @@ public class CipherCWeeklyTests
             }
         }
     }
+
+    // The weekly tier by counting daily lows (CipherCEngine.WeeklyFromTwoDaily): the dollar, the
+    // Dow, the S&P and the Nasdaq. Gap 40 = two daily cycles of 22 less two bars each.
+    private const double Gap = 2 * (DailyMin - 2);
+
+    private static CipherCEngine.TierRun ByTwo(int n, params (int Bar, double Low, int At)[] lows)
+    {
+        var (daily, data) = Daily(n, lows);
+        return CipherCEngine.WeeklyFromTwoDaily(daily, data, Gap);
+    }
+
+    /// <summary>
+    /// The first daily low after a new weekly low takes its place when it is lower, however near;
+    /// otherwise the weekly low stays. A low that took the place is never moved itself.
+    /// </summary>
+    [Theory]
+    [InlineData(95, new[] { 30 })]    // lower: takes the place
+    [InlineData(105, new[] { 10 })]   // higher: the weekly low stays
+    public void The_first_daily_low_after_a_new_weekly_low_takes_its_place_only_when_lower(double low, int[] expected)
+    {
+        var run = ByTwo(120, (10, 100, 20), (30, low, 40));
+        Assert.Equal(expected, run.Lows);
+        Assert.Equal(40, run.ConfirmedAt[0]);
+    }
+
+    [Fact]
+    public void A_daily_low_that_took_a_weekly_lows_place_is_not_moved_by_the_next_lower_one()
+    {
+        var run = ByTwo(120, (10, 100, 20), (30, 95, 40), (45, 90, 55));
+        Assert.Equal(new[] { 30 }, run.Lows);
+    }
+
+    /// <summary>
+    /// From the second daily low after the newest weekly low, a new one goes on the lowest of
+    /// them that is at least the gap after it; until one is, it waits for the next.
+    /// </summary>
+    [Theory]
+    [InlineData(50, new[] { 10, 50 })]       // 40 bars after: a new weekly low
+    [InlineData(49, new[] { 10, 80 })]       // 39: waits, and the next one is it
+    public void A_new_weekly_low_needs_the_gap_from_the_newest(int second, int[] expected)
+    {
+        var run = ByTwo(160, (10, 100, 20), (30, 110, 40), (second, 104, second + 10), (80, 108, 90));
+        Assert.Equal(expected, run.Lows);
+    }
+
+    /// <summary>
+    /// The new weekly low can be an earlier daily low than the one just confirmed: the lowest of
+    /// those far enough, drawn on the bar the later one is confirmed and fixed at once.
+    /// </summary>
+    [Fact]
+    public void A_new_weekly_low_goes_on_the_lowest_far_enough_daily_low_even_an_earlier_one()
+    {
+        var run = ByTwo(160, (10, 100, 20), (52, 104, 62), (70, 108, 80));
+        Assert.Equal(new[] { 10, 52 }, run.Lows);
+        Assert.Equal(80, run.FoundAt[1]);
+        Assert.Equal(80, run.ConfirmedAt[1]);
+    }
+
+    /// <summary>
+    /// The confirmed weekly low (the one the week count runs from) is the one before the newest. It
+    /// moves at a daily confirmation, but not on the bar a new weekly low is drawn on its own daily
+    /// low: then it waits for the next daily confirmation. That new weekly low can still move until
+    /// then (-1).
+    /// </summary>
+    [Fact]
+    public void The_confirmed_weekly_low_moves_at_the_daily_confirmation_after_a_new_one_is_drawn()
+    {
+        var lows = new (int Bar, double Low, int At)[] { (10, 100, 20), (30, 110, 40), (60, 108, 70), (90, 112, 100) };
+        var before = ByTwo(99, lows.Where(l => l.At < 99).ToArray());
+        Assert.Equal(new[] { 10, 60 }, before.Lows);
+        Assert.Equal(-1, before.ConfirmedAt[1]);
+        var run = ByTwo(120, lows);
+        Assert.Equal(-1, run.LastLowAt[99]);
+        Assert.Equal(10, run.LastLowAt[100]);
+        Assert.Equal(new[] { 100 }, Marked(run.Confirmed));
+        Assert.Equal(100, run.ConfirmedAt[1]);
+    }
+
+    [Fact]
+    public void The_weekly_tier_by_daily_lows_says_on_each_bar_only_what_it_knew_then()
+    {
+        var lows = new (int Bar, double Low, int At)[]
+        {
+            (10, 100, 20), (30, 95, 40), (50, 110, 60), (75, 104, 85), (100, 108, 110), (130, 90, 140),
+            (150, 99, 160), (170, 96, 180), (215, 102, 225), (240, 101, 250), (280, 94, 290),
+        };
+        var whole = ByTwo(320, lows);
+        Assert.True(whole.Lows.Count >= 4);
+        for (int cut = 1; cut <= 320; cut++)
+        {
+            var part = ByTwo(cut, lows.Where(l => l.At < cut).ToArray());
+            for (int t = 0; t < cut; t++)
+            {
+                Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);
+                Assert.Equal(whole.Confirmed[t], part.Confirmed[t]);
+            }
+        }
+    }
 }

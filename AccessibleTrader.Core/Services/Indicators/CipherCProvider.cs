@@ -317,9 +317,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // With a daily tier the weekly lows are picked from the daily ones, as the original
             // picks them; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;
-            var w = weeklyFromDaily
-                ? CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars)
-                : CipherCEngine.Detect(data, wTier, ob, os);
+            var w = !weeklyFromDaily ? CipherCEngine.Detect(data, wTier, ob, os)
+                : preset.WeeklyEveryTwoDaily ? CipherCEngine.WeeklyFromTwoDaily(d, data, 2 * (dTier.MinBars - 2))
+                : CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
             var day = new Unit("daily", "day", "days", clock.BarsPerDay);
             var week = new Unit("weekly", "week", "weeks", barsPerWeek);

@@ -183,6 +183,31 @@ public class CipherCSearchTests
         Assert.Equal(at140, marked(r24[CipherCProvider.CompWclConfirmed]));
     }
 
+    /// <summary>On the dollar, the Dow, the S&amp;P and the Nasdaq the weekly lows are picked by counting
+    /// daily lows instead (<see cref="CipherCEngine.WeeklyFromTwoDaily"/>), with a gap of two daily
+    /// cycles less two bars each. The others keep the pick above.</summary>
+    [Fact]
+    public void The_dow_picks_its_weekly_lows_by_counting_daily_lows()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = CipherCProvider.Compute(bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "DJI" });
+        var clock = CipherCEngine.MeasureBars(bars);
+        var marked = (double[] a) => Enumerable.Range(0, bars.Length).Where(i => !double.IsNaN(a[i])).ToList();
+
+        // The Dow's 36-44 trading days on a chart that trades every day: × 7/5.
+        var daily = CipherCEngine.Tier(36 * 7 / 5.0, 44 * 7 / 5.0, 1, clock);
+        var turn = CipherCEngine.Detect(bars, daily, 75, 10, searchOnTurn: true);
+        Assert.Equal(marked(turn.Confirmed), marked(r[CipherCProvider.CompDclConfirmed]));
+
+        var byTwo = marked(CipherCEngine.WeeklyFromTwoDaily(turn, bars, 2 * (daily.MinBars - 2)).Confirmed);
+        Assert.NotEmpty(byTwo);
+        Assert.Equal(byTwo, marked(r[CipherCProvider.CompWclConfirmed]));
+        Assert.NotEqual(byTwo, marked(CipherCEngine.WeeklyFromTwoDaily(turn, bars, 2 * (daily.MinBars - 2) + 8).Confirmed));
+        Assert.NotEqual(byTwo, marked(CipherCEngine.WeeklyFromDaily(turn, bars, CipherCEngine.KeepBars(22, 7), daily.MinBars).Confirmed));
+        Assert.All(new[] { "SPX", "NDQ", "DJI", "DXY" }, k => Assert.True(CipherCEngine.Presets.Single(p => p.Key == k).WeeklyEveryTwoDaily));
+        Assert.All(CipherCEngine.Presets.Where(p => p.Key is not ("SPX" or "NDQ" or "DJI" or "DXY")), p => Assert.False(p.WeeklyEveryTwoDaily));
+    }
+
     /// <summary>The first low has no last low to count from, so it waits for the cross either way.</summary>
     [Fact]
     public void The_first_low_waits_for_the_cross()

@@ -524,3 +524,63 @@ replays (GDX, Bitcoin, Dow, SP:SPX, Nasdaq), 124 undercuts:
 - **Nasdaq's misses are the search, not the hold.** On 20 May 2022 the original found the low and
   confirmed it on 16 June, the bar that made a lower low. Cipher C found no low there: an earlier low
   had failed, and the low it found was 16 June itself.
+
+## 14. Weekly lows by counting daily lows: the dollar, the Dow, the S&P, the Nasdaq (2026-10-24)
+
+From the dollar on, the candle replays log every weekly label the original shows on every bar, and
+its table's two week counts ("Weeks Since Last WCL", the confirmed one, and the unconfirmed one).
+`strategy-lab-data/cf-tv-export/ctz/wcount.py` turns the counts back into weekly-low dates;
+`ctz/wsim.py` replays a rule on the original's own daily confirmations; `ctz/wours.py` on Cipher C's.
+
+**The rule read from the dollar** (all its 2022–26 weekly lows; each step acted on the bar a daily
+low is confirmed):
+
+- The first daily low after a new weekly low takes its place if it is lower (12 of 12), however
+  near. A low that took a place is never moved itself (4 of 4).
+- From the second daily low after the newest weekly low, a new weekly low goes on the lowest of the
+  daily lows since it that is at least 2 × (shortest daily cycle − 2) bars after it. This can be an
+  earlier daily low than the one just confirmed. Until one is far enough, nothing happens.
+- The confirmed weekly low, which the week count runs from, is the one before the newest. It moves
+  at a daily confirmation, except on the bar a new weekly low is drawn on the low just confirmed.
+
+Fed the original's own daily lows (counted from the dollar's 18, the Dow's and Nasdaq's 36, the S&P's
+default 32):
+
+| | Gap (bars) | Weekly lows drawn | Missed | Extra |
+|---|---|---|---|---|
+| Dollar | 32 | 22 of 22 | 0 | 0 |
+| Dow | 68 | 10 of 11 | 1 | 1 |
+| Nasdaq | 68 | 10 of 11 | 1 | 1 |
+| S&P (SP:SPX) | 60 | 11 of 13 | 2 | 1 |
+| Oil | 68 | 7 of 13 | 6 | 3 |
+
+The old pick (`WeeklyFromDaily`, the four-week margin) on the same lows: Dow 10 of 11, S&P 11 of 13,
+Nasdaq 8 of 11. The gap was fitted on these replays, so the replays are not held out; the history
+before them (the original's final labels back to the 1990s–2000s) is, in the end-to-end scores below.
+
+**Built** as `CipherCEngine.WeeklyFromTwoDaily`, used where `CyclePreset.WeeklyEveryTwoDaily` is set
+(dollar, Dow, S&P, Nasdaq). Cipher C finding its own daily lows, scored on the original's final
+labels (exact weekly lows, extras):
+
+| | Before | After |
+|---|---|---|
+| Dollar | 19 of 46, 16 | 27 of 46, 16 |
+| Dow | 39 of 57, 17 | 40 of 57, 13 |
+| Nasdaq | 33 of 56, 22 | 38 of 56, 16 |
+| S&P | 30 of 57, 19 | 29 of 57, 20 |
+
+- The S&P loses one because Cipher C counts it from 36 (gap 68) where the original counts from its
+  default 32 (gap 60) — the open question in TODO.
+- Daily lows change by one on the Dow (101 → 100) and the dollar (87 → 86): every weekly low is
+  drawn as a daily low too, and a weekly low the daily tier later cancelled now falls elsewhere.
+- **Oil, Gold, Silver, GDX and Bitcoin do not fit** and keep the old pick. Oil follows the same
+  shape (its first-low replacement holds) but no single gap works: 20 bars draws all 13 with 3
+  extra, 50 draws 10 with 3 extra. Gold, Silver and GDX keep weekly lows five or more daily cycles
+  apart; Bitcoin fits the old pick (11 of 11) better than this one (9 of 11). The weekly-label
+  replays of Gold, Bitcoin, Silver, GDX, the Dow, the Nasdaq and the S&P from 2022 (cap3) are
+  queued to read those.
+
+Oil (held out, scored 2026-10-24): it counts from its table's 36 (check marks 18 bars after the
+low on 21 of 27), Cipher C's daily lows 97 of 129 exact with 23 extra, check marks on the
+original's bar 13 of 17, weekly 31 of 57.
+

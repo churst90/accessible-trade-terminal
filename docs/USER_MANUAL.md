@@ -2701,7 +2701,11 @@ low while a low holds takes its place and starts the wait again, except on the d
 then the held low is confirmed even if that day goes lower. On a daily chart its weekly lows are picked from those
 daily lows, again as that indicator picks them: a daily low becomes a weekly one once the next
 daily low comes far enough after the last weekly low, and it is called confirmed only once the
-weekly low after it is kept, months later on Bitcoin. There is no twenty-bar limit on these, however late the
+weekly low after it is kept, months later on Bitcoin. On the dollar index, the Dow, the S&P and
+the Nasdaq it picks them another way, again as the indicator does there: the first daily low after a
+new weekly low takes its place if it is lower, and after that a new weekly low goes on the lowest
+daily low that comes at least two shortest daily cycles (less two days each) after the last; the
+weekly low called confirmed is the one before the newest. There is no twenty-bar limit on these, however late the
 low is found. Turning narration on does not read out the ones already
 on the chart.
 

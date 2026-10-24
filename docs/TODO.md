@@ -26,6 +26,12 @@
     later assets as they land. Gold (held out): daily 83 of 112, check marks on its bar 26 of 28. The
     original keeps its unconfirmed low through a lower low 1–2 bars before due on 7 of 8; ignoring
     those bars helps GDX, S&P, Gold but costs the Dow 6 weekly lows, so not adopted.
+  - **Weekly lows by counting daily lows (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 14).**
+    The dollar, Dow, S&P and Nasdaq now pick weekly lows as the original does there (dollar weekly
+    19 → 27 of 46, Nasdaq 33 → 38, Dow 39 → 40 with 4 fewer extras, S&P 30 → 29). Oil, Gold, Silver,
+    GDX and Bitcoin do not fit; read their rule from the cap3 weekly-label replays as they land.
+    The Bitcoin wiring test (CipherCSearchTests) passes a "Symbol" key the provider does not read;
+    it gets Bitcoin as the fallback for a daily chart that trades every day. Make it name the preset.
   - **Gold's weekly lows: 4 of 9 since 2021, 10 extra.** The weekly pick reproduces the original's
     weekly lows from its own daily lows on the Dow (10 of 11 in the replay), Bitcoin (11 of 11),
     S&P (11 of 13), Nasdaq (8 of 11), but not Gold (5 of 8) or GDX (5 of 9) at any keep distance;
@@ -38,7 +44,7 @@
 >     24** (table 22–28, as Gold's; built, NOT seen): check marks 0 → 27 of 32. **The dollar counts
 >     from 18** (table 15–24; built, NOT seen): check marks 1 → 30 of 40, but exact daily lows 93 → 87
 >     and weekly 21 → 19, lost to the search trigger (CIPHER_C_DESIGN section 12). Checked and as their
->     tables: GDX, Gold, Dow, Nasdaq. Still to check: Ethereum (table 15–25), oil, the junior miners,
+>     tables: GDX, Gold, Dow, Nasdaq, oil. Still to check: Ethereum (table 15–25), the junior miners,
 >     the four stocks.
 >   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
 >     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for

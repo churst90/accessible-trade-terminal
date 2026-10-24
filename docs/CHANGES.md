@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C picks the weekly lows of the dollar, Dow, S&P and Nasdaq by counting daily lows (2026-10-24)
+
+- Read from the original's weekly labels and week counts, logged bar by bar in the dollar's candle
+  replay: the first daily low after a new weekly low takes its place if lower; from the second on, a
+  new weekly low goes on the lowest daily low since then that is two shortest daily cycles less two
+  bars each after the last (68 bars on the Dow and Nasdaq, 32 on the dollar). The weekly low called
+  confirmed is the one before the newest. Fed the original's own daily lows it draws 22 of 22 of the
+  dollar's weekly lows, 10 of 11 on the Dow and Nasdaq, 11 of 13 on the S&P.
+- Cipher C on its own daily lows, exact weekly lows (extras): dollar 19 → 27 of 46 (16 → 16), Dow
+  39 → 40 of 57 (17 → 13), Nasdaq 33 → 38 of 56 (22 → 16), S&P 30 → 29 of 57 (19 → 20; the original
+  counts the S&P from its default 32, Cipher C from 36). Daily lows: Dow 101 → 100, dollar 87 → 86
+  (every weekly low is drawn as a daily one). Oil, Gold, Silver, GDX and Bitcoin do not fit it and
+  keep the weekly pick from 2026-10-23.
+- The gap was fitted on the replays (2022–26); the history before them is held out.
+- Oil (held out) is scored: its table's 36 days fits its timing, daily lows 97 of 129, check marks
+  on the original's bar 13 of 17. Not changed.
+- Seven new tests (each branch by hand, causality on every cut, the Dow's provider wiring); six
+  sabotages red: the gap one bar longer, no replacement, a replacement replaced, no placement on an
+  earlier low, the confirmed low moved on the drawing bar, the flag ignored. Not seen in the app.
+
 ### Cipher C counts the dollar index's daily cycle from 18 days (2026-10-24)
 
 - The dollar's table says 15 to 24 days. In the original's candle replay (2021–26, 52 lows) it
