@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI scores in whole-number votes, as the original does (2026-10-24)
+
+- **Formula:** the fitted weights are gone. Each side starts at −5 and adds whole points:
+  - 2 each for the close above the close 2 back, the previous close above the one before it, the
+    4-bar EMA rising, the 21-bar stochastic (SMA 2) rising, WaveTrend rising and Cipher B's money flow
+    rising; 1 for the WaveTrend gap (WaveTrend minus its 3-bar average) widening. The bears use the
+    candles turned upside down.
+  - From WaveTrend's last cross toward the side: 1 point (3 when it crossed from deeper than 60 on
+    the side's own side). While that run is alive (the gap has widened on every bar since the cross),
+    6 more plus 1 per bar since the cross, up to 10.
+  - When the side's run is not alive: 1 per bar beyond the first that the gap has widened in a row
+    (up to 9), and 2 when the close is strictly beyond the previous close.
+  - The score never goes below −5. The top is 27, the same as DBSI's.
+- **How it was chosen:** an integer simulator (`dbsi7/intsim5.py`) searched on the same twenty
+  charts only (`intfinal.py`, scored on within 2 plus exact). Every setting one step either way
+  scores lower there, and a test pins that. DBSI's remembered "3" (the Q) is left out: its trigger
+  is still unresolved (presence matches only about half), and the twenty prefer no Q.
+- **Measured on the fifteen livestream charts no fit saw** (integer vs the linear model it replaces):
+  exact 20.4% → 31.6%, within 2 67.1% → 70.6%, false 17+ 10 → 4; but within 1 50.5% → 45.2% (every
+  vote moves the score by 2, so a miss is usually 2, not 1), error 3.06 → 3.14, 17+ printed on 21 of
+  48 (was 27), side in control 241 of 262 (was 243). On the twenty: exact 33.1%, within 1 45.8%,
+  within 2 73.5%, error 2.65, side in control 393 of 422 (was 395). On the private Start grids
+  (never fitted; kept out of the repo): Dow within 2 75.2% → 78.8%, exact 41.8%; Bitcoin 71.9% →
+  75.8%, exact 37.6%, false 17+ 45 → 4.
+- **Caveats.** It reaches 17+ less often than DBSI does; its highest number on the 35 charts is 23.
+  Rows where the run is alive and DBSI holds no "3" are about 1.8 under. The structure was found
+  after seeing all the grids, so the fifteen are held out from the fit but not from the search for
+  what to fit. Not seen in the app.
+- **Tests:** fixture regenerated (`dbsi7/gen5.py`, still keeps the linear model's numbers for
+  comparison); golden replay on all 35 charts bar for bar; a neighbour test; the twenty's and the
+  fifteen's numbers pinned, with the integer model beating the linear one on exact by 10 points and
+  on within 2 by 3; floor/top; scores start on bar 30; an unchanged close is a close up for neither
+  side; the not-alive terms. The leave-one-out, refit and vote-comparison tests went with the fit.
+  Nine sabotages red: alive points 5 (1 failed), close up while alive (40), streak uncapped (2),
+  streak of the wrong vote (38), c > c[1] for c[1] > c[2] (37), scores from bar 29 (1), deep level 2
+  (33), and each side's close up non-strict (1 each; the bears' survived until the unchanged-close
+  test was added). README 9596.
+
 ### Cipher DBSI adds an eighth base vote: Cipher B's money flow rising (2026-10-24)
 
 - **Formula:** each side's base votes gain one more: Cipher B's money flow (the 60-bar average of each

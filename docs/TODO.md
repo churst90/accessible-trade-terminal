@@ -170,7 +170,12 @@
 >   - **Cipher DBSI given seven base votes (2026-10-24, built, NOT seen; see CHANGES).** Found on the
 >     original's Dow daily Start grid; on the fifteen charts no fit saw: exact 14% → 17%, ±1 41% → 49%,
 >     ±2 61% → 65%, false 17+ 18 → 8. One commit to revert if Cody dislikes it.
->   - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
+>   - **Cipher DBSI scores in whole-number votes (2026-10-24, built, NOT seen; see CHANGES).** Replaces
+    the fitted weights. On the fifteen charts no fit saw: exact 20% → 32%, ±2 67% → 71%, false 17+
+    10 → 4; ±1 51% → 45% (misses are 2s now). One commit to revert. Still open: DBSI's remembered "3"
+    (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
+    of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set.
+  - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
 >     CHANGES).** On the fifteen charts no fit saw: exact 17% → 20%, ±2 65% → 67%, false 17+ 8 → 10. On
 >     the private grids, ±2 Dow 72.5% → 75.2%, Bitcoin 68.8% → 71.9% (false 17+ 35 → 45). One commit
 >     to revert. Still open: about 28% of no-memory bars unmatched (more base votes to find); the

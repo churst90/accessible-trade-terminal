@@ -52,6 +52,11 @@
   15-minute charts, its typical miss went from about 6½ points to under 2, and it is on the same
   side of zero 97% of the time, up from 87–93%. Cipher A's Yellow Diamond, which reads it, now
   differs from the original's on 3 or 4 of about 5,200 Bitcoin days.
+- **Cipher DBSI counts in whole points, as DBSI does.** Each fast check adds 2 points (one adds 1),
+  and the WaveTrend wave's turn toward a side adds a set number plus 1 a candle while the wave keeps
+  pulling away. On fifteen charts it was not built from, it now prints DBSI's exact number about 1
+  time in 3 (was 1 in 5) and lands within two points 71% of the time (was 67%). It prints 17 or more
+  where DBSI does not only 4 times (was 10), but also reaches 17 a little less often where DBSI does.
 - **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
   readings, not the first six. Each of its signals now counts for its own amount, a move that has
   just started scores higher than one that has run for many candles, and an oversold market adds a
