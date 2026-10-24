@@ -170,6 +170,12 @@ ribbons in general" / "announce when in the ribbon? yes".
   - **What ends it:** not one close the other way. "Close beyond the close 2 bars back" keeps it on for
     88.5% of 156 days. With "5/13 MACD still rising" added it is 91.7%, but that pair was the best of
     about 80,000 tried, so it may be luck.
+  - **Held out (checked later on 2026-10-23):** both rules were fixed on the 2024-10 to 2026-10 grid,
+    then scored on a new Start grid of the same Dow daily chart, 2022-05 to 2024-09 (49 snapshots, 389
+    candidate bars, 80 starts). Start rule: 68 of 80 starts, 20 false (precision 0.77, recall 0.85;
+    fitted 0.80 and 0.84). End rule "close beyond the close 2 bars back": right on 92.6% of 190 days
+    (fitted 88.5%); with the MACD added, 92.1% (fitted 91.7%), so the MACD adds nothing out of sample.
+    One chart and one market, so it says the rule is real there, not that it is the original's.
   - **Tried in the app's linear form, not adopted.** On the fifteen later livestream charts: within 2
     59.0% to 62.8%, error 3.28 to 3.19, exact 14.6% to 14.0%, false 17+ readings 17 to 20. The best
     variant was chosen after seeing these scores, and the fitted weight is about 1.5 against a true 3–4,
