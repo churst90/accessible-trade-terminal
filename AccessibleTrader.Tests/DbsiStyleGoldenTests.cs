@@ -11,8 +11,9 @@ namespace AccessibleTrader.Tests;
 ///
 /// <para>
 /// The 897 digitised Market Cipher DBSI numbers (twenty charts, each with the 100 bars before its
-/// labels) are in <see cref="DbsiDigitisedCharts"/>, generated from the study's files. Four claims,
-/// each against the study rather than against this code:
+/// labels) are in <see cref="DbsiDigitisedCharts"/>, generated from the study's files, with fifteen
+/// later livestream charts no fit saw (<c>Fitted</c> false). Five claims, each against the study
+/// rather than against this code:
 /// </para>
 /// <list type="number">
 ///   <item>The provider's twelve votes and the integers it prints are the study model's on every
@@ -23,6 +24,8 @@ namespace AccessibleTrader.Tests;
 ///   <item>The fidelity the manual quotes holds, in sample and held out one chart at a time.</item>
 ///   <item>Held out, it beats the twelve equal votes it replaced, refitted on the same folds, and the
 ///         replaced model's shipped numbers on the fourteen charts those were never fitted to.</item>
+///   <item>On the fifteen livestream charts, the shipped constants beat the same model fitted on the
+///         twenty without the seven base votes.</item>
 /// </list>
 /// </summary>
 public sealed class DbsiStyleGoldenTests
@@ -49,6 +52,12 @@ public sealed class DbsiStyleGoldenTests
 
     public static IEnumerable<object[]> Charts() => DbsiDigitisedCharts.All.Select(c => new object[] { c.Key });
 
+    /// <summary>The twenty charts the constants were fitted on.</summary>
+    private static DbsiDigitisedCharts.Chart[] Fitted => DbsiDigitisedCharts.All.Where(c => c.Fitted).ToArray();
+
+    /// <summary>The fifteen livestream charts (2026-10-23) no fit saw.</summary>
+    private static DbsiDigitisedCharts.Chart[] Livestream => DbsiDigitisedCharts.All.Where(c => !c.Fitted).ToArray();
+
     private static DbsiDigitisedCharts.Chart ChartNamed(string key) => DbsiDigitisedCharts.All.Single(c => c.Key == key);
 
     [Theory]
@@ -72,43 +81,48 @@ public sealed class DbsiStyleGoldenTests
 
     /// <summary>
     /// The study's fit (least squares, refitted on the rows the −5 floor does not bind until they
-    /// settle) on the provider's own terms. The two copies of the 2-bar momentum are one column
-    /// here, so it recovers their sum; the study split it evenly between them.
+    /// settle) on the provider's own terms, on the twenty fitted charts. The three copies of the
+    /// 2-bar momentum (two votes and the first base vote) are one column here, and so are the two
+    /// of wt1 rising (a vote and the sixth base vote), so it recovers their sums; the study split
+    /// each evenly between its copies.
     /// </summary>
     [Fact]
     public void Refitting_the_digitised_numbers_from_the_providers_terms_recovers_the_shipped_constants()
     {
-        var p = Fit(DbsiDigitisedCharts.All.SelectMany(NewRows).ToList());
-        var w = DbsiStyleProvider.VoteWeights;
-        var shipped = new List<double> { DbsiStyleProvider.BullIntercept, DbsiStyleProvider.BearIntercept, w[0] + w[8] };
-        shipped.AddRange(Enumerable.Range(1, 11).Where(j => j != 8).Select(j => w[j]));
+        var p = Fit(Fitted.SelectMany(c => NewRows(c)).ToList());
+        var w = DbsiStyleProvider.VoteWeights; var b = DbsiStyleProvider.BaseWeights;
+        var shipped = new List<double> { DbsiStyleProvider.BullIntercept, DbsiStyleProvider.BearIntercept, w[0] + w[8] + b[0] };
+        shipped.AddRange(Enumerable.Range(1, 11).Where(j => j != 8).Select(j => j == 5 ? w[5] + b[5] : w[j]));
         shipped.Add(DbsiStyleProvider.StreakWeight);
         shipped.Add(DbsiStyleProvider.StretchWeight);
         shipped.AddRange(DbsiStyleProvider.RunWeights);
+        shipped.AddRange(new[] { b[1], b[2], b[3], b[4], b[6] });
         Assert.Equal(shipped.Count, p.Length);
         for (int j = 0; j < p.Length; j++)
             Assert.True(Math.Abs(p[j] - shipped[j]) < 1e-6, $"constant {j}: refit {p[j]:R}, shipped {shipped[j]:R}");
         Assert.Equal(w[0], w[8], 9);
+        Assert.Equal(w[0], b[0], 9);
+        Assert.Equal(w[5], b[5], 9);
     }
 
     [Fact]
     public void In_sample_fidelity_is_what_the_manual_quotes()
     {
-        var (pred, truth) = Pooled(DbsiDigitisedCharts.All, c =>
+        var (pred, truth) = Pooled(Fitted, c =>
         {
             var r = Run(c); int off = r.Bull.Length - c.Bull.Length;
             return (r.Bull.Skip(off).ToArray(), r.Bear.Skip(off).ToArray());
         });
         var f = Fidelity(pred, truth);
         _out.WriteLine($"in sample: {f}");
-        // gen2.py's numbers for this exact model on all twenty charts.
+        // gen3.py's numbers for this exact model on all twenty charts.
         Assert.Equal(897, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.146) < 0.002 && Math.Abs(f.Within1 - 0.460) < 0.002
-                    && Math.Abs(f.Within2 - 0.699) < 0.002, f.ToString());
-        Assert.True(Math.Abs(f.Rmse - 2.67) < 0.01, f.ToString());
+        Assert.True(Math.Abs(f.Exact - 0.237) < 0.002 && Math.Abs(f.Within1 - 0.541) < 0.002
+                    && Math.Abs(f.Within2 - 0.739) < 0.002, f.ToString());
+        Assert.True(Math.Abs(f.Rmse - 2.41) < 0.01, f.ToString());
         Assert.Equal(84, f.High);
-        Assert.Equal(56, f.HighPrinted);
-        Assert.Equal(22, f.FalseHigh);   // the cost the manual states
+        Assert.Equal(47, f.HighPrinted);
+        Assert.Equal(13, f.FalseHigh);   // the cost the manual states
 
         // The side in control: on the bars where DBSI's two numbers differ, the larger of ours is DBSI's larger.
         int differ = 0, same = 0;
@@ -119,19 +133,19 @@ public sealed class DbsiStyleGoldenTests
             if (pred[j] != pred[j + 1] && pred[j] > pred[j + 1] == truth[j] > truth[j + 1]) same++;
         }
         _out.WriteLine($"side in control: {same} of {differ}");
-        Assert.Equal((422, 395), (differ, same));   // 94%, as before the run terms
+        Assert.Equal((422, 397), (differ, same));   // 94%, 395 before the base votes
     }
 
     /// <summary>
     /// Leave one chart out: refit on nineteen charts, score the twentieth, pool. The twelve
     /// conditions were picked on the first six charts, so on those six this is optimistic; on the
-    /// other fourteen it is not. gen2.py: exact 13.0%, ±1 44.0%, ±2 67.1%, error 2.82 (without the
-    /// run terms 16.7%, 42.4%, 60.1%, 3.40: fewer exact hits, closer everywhere else).
+    /// other fourteen it is not. gen3.py: exact 24.1%, ±1 52.0%, ±2 71.9%, error 2.52 (without the
+    /// base votes 13.0%, 44.0%, 67.1%, 2.82).
     /// </summary>
     [Fact]
     public void Held_out_one_chart_at_a_time_it_keeps_its_fidelity_and_beats_the_model_it_replaced()
     {
-        var all = DbsiDigitisedCharts.All;
+        var all = Fitted;
         var newRows = all.ToDictionary(c => c.Key, c => NewRows(c).ToList());
         var oldRows = all.ToDictionary(c => c.Key, c => OldRows(c).ToList());
         var fresh = Loco(all, newRows);
@@ -140,7 +154,7 @@ public sealed class DbsiStyleGoldenTests
         var e = Fidelity(equal.SelectMany(x => x.Value.pred).ToList(), equal.SelectMany(x => x.Value.truth).ToList());
         _out.WriteLine($"held out: {f}");
         _out.WriteLine($"twelve equal votes, refitted the same way: {e}");
-        Assert.True(f.Exact >= 0.125 && f.Within1 >= 0.435 && f.Within2 >= 0.665 && f.Rmse <= 2.87, f.ToString());
+        Assert.True(f.Exact >= 0.235 && f.Within1 >= 0.512 && f.Within2 >= 0.715 && f.Rmse <= 2.57, f.ToString());
         Assert.True(f.Rmse <= e.Rmse - 0.2 && f.Within1 >= e.Within1 + 0.05, $"new {f}; equal votes {e}");
 
         // The replaced model's shipped numbers never saw these fourteen charts.
@@ -164,30 +178,63 @@ public sealed class DbsiStyleGoldenTests
     }
 
     /// <summary>
+    /// The fifteen livestream charts (2026-10-23: Coinbase and Bitstamp Bitcoin and Ethereum, 1 minute
+    /// to 1 day) were never fitted, and the seven base votes were chosen on a Dow grid, not on them.
+    /// The shipped constants score them once; the model without the base votes, fitted the same way on
+    /// the same twenty, is the bar to beat. gen3.py: 17.4%, 48.5%, 65.3%, 3.08, 17+ 27 of 48 printed
+    /// and 8 false; without 14.0%, 40.6%, 61.0%, 3.30, 28 of 48 and 18 false.
+    /// </summary>
+    [Fact]
+    public void On_fifteen_charts_no_fit_saw_the_base_votes_beat_the_model_without_them()
+    {
+        var (pred, truth) = Pooled(Livestream, c =>
+        {
+            var r = Run(c); int off = r.Bull.Length - c.Bull.Length;
+            return (r.Bull.Skip(off).ToArray(), r.Bear.Skip(off).ToArray());
+        });
+        var f = Fidelity(pred, truth);
+        var p = Fit(Fitted.SelectMany(c => NewRows(c, withBase: false)).ToList());
+        var rows = Livestream.SelectMany(c => NewRows(c, withBase: false)).ToList();
+        var e = Fidelity(rows.Select(r => Predict(p, r.x)).ToList(), rows.Select(r => r.y).ToList());
+        _out.WriteLine($"livestream, shipped: {f}");
+        _out.WriteLine($"livestream, without the base votes: {e}");
+        Assert.Equal(e.N, f.N);
+        Assert.True(Math.Abs(f.Exact - 0.174) < 0.003 && Math.Abs(f.Within1 - 0.485) < 0.003
+                    && Math.Abs(f.Within2 - 0.653) < 0.003 && Math.Abs(f.Rmse - 3.08) < 0.01, f.ToString());
+        Assert.Equal((27, 8), (f.HighPrinted, f.FalseHigh));
+        Assert.True(f.Rmse <= e.Rmse - 0.2 && f.Within2 >= e.Within2 + 0.04 && f.FalseHigh * 2 <= e.FalseHigh,
+            $"shipped {f}; without the base votes {e}");
+    }
+
+    /// <summary>
     /// The scale the manual states, held true so the manual cannot drift from it: with no votes
-    /// and no run both sides print −4, and a long streak against them takes them to the −5 floor;
-    /// a deep cross whose gap has widened for ten
-    /// bars, with every vote and %K at the far end, prints 35 — the original's own numbers on these
+    /// and no run both sides sit at the −5 floor, and a long streak keeps them there; a deep cross
+    /// whose gap has widened for ten bars, with every vote and base vote on the side and %K at the
+    /// far end, prints 34 for the bulls and 33 for the bears — the original's own numbers on these
     /// charts reach 27, and the model's reach 26 where the votes and the run line up.
     /// </summary>
     [Fact]
     public void The_floor_is_minus_5_and_the_run_carries_the_high_scores()
     {
         var run = DbsiStyleProvider.RunWeights;
-        double full = DbsiStyleProvider.VoteWeights.Sum() + DbsiStyleProvider.StreakWeight + 5 * DbsiStyleProvider.StretchWeight
-                      + run[1] + run[3] + DbsiStyleProvider.RunCountCap * run[4];
-        Assert.Equal(35, DbsiStyleProvider.Score(DbsiStyleProvider.BullIntercept, full));
-        Assert.Equal(35, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, full));
+        double full = DbsiStyleProvider.VoteWeights.Sum() + DbsiStyleProvider.BaseWeights.Sum() + DbsiStyleProvider.StreakWeight
+                      + 5 * DbsiStyleProvider.StretchWeight + run[1] + run[3] + DbsiStyleProvider.RunCountCap * run[4];
+        Assert.Equal(34, DbsiStyleProvider.Score(DbsiStyleProvider.BullIntercept, full));
+        Assert.Equal(33, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, full));
         double streak = DbsiStyleProvider.StreakCap * DbsiStyleProvider.StreakWeight;
-        Assert.Equal(-4, DbsiStyleProvider.Score(DbsiStyleProvider.BullIntercept, 0));
-        Assert.Equal(-4, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, 0));
+        Assert.Equal(-5, DbsiStyleProvider.Score(DbsiStyleProvider.BullIntercept, 0));
+        Assert.Equal(-5, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, 0));
         Assert.Equal(-5, DbsiStyleProvider.Score(DbsiStyleProvider.BullIntercept, streak));
-        Assert.Equal(-5, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, streak - 10));
+        Assert.Equal(-5, DbsiStyleProvider.Score(DbsiStyleProvider.BearIntercept, streak));
         Assert.True(DbsiStyleProvider.StreakWeight < 0, "a long streak counts against the score");
-        Assert.True(DbsiStyleProvider.VoteWeights.All(x => x > 0), "every vote adds to its side");
+        Assert.True(DbsiStyleProvider.BaseWeights.All(x => x > 0), "every base vote adds to its side");
+        // The twelve votes' points shrank once the base votes took their job; one, close above the
+        // 2-bar midpoint, now takes a fifth of a point away.
+        Assert.True(DbsiStyleProvider.VoteWeights.All(x => x > -0.2), "no vote takes much from its side");
         Assert.True(run[1] > 1 && run[3] > 1 && run[4] > 1, "a deep cross and a widening gap add to the side");
         int top = DbsiDigitisedCharts.All.Max(c => Math.Max(c.Bull.Max(), c.Bear.Max()));
-        Assert.Equal(26, top);
+        int truthTop = DbsiDigitisedCharts.All.Max(c => Math.Max(c.TrueBull.Max() ?? -5, c.TrueBear.Max() ?? -5));
+        Assert.Equal((27, 26), (truthTop, top));
     }
 
     /// <summary>
@@ -227,9 +274,10 @@ public sealed class DbsiStyleGoldenTests
 
     // ── rows: (features, truth) per labelled side ──────────────────────────────────
 
-    /// <summary>The refit's columns: bull, bear, the 2-bar momentum (both copies), the other
-    /// ten votes, the streak (capped), the stretch, the five WaveTrend run terms.</summary>
-    private static IEnumerable<(double[] x, double y)> NewRows(DbsiDigitisedCharts.Chart c)
+    /// <summary>The refit's columns: bull, bear, the 2-bar momentum (all three copies), the other
+    /// ten votes, the streak (capped), the stretch, the five WaveTrend run terms, the five base votes
+    /// that are not copies of a vote (all unless <paramref name="withBase"/> is false).</summary>
+    private static IEnumerable<(double[] x, double y)> NewRows(DbsiDigitisedCharts.Chart c, bool withBase = true)
     {
         var t = DbsiStyleProvider.ScoringTerms(Bars(c).ToArray(), c.HeikinAshi);
         int n = c.Bull.Length, off = t.Close.Length - n;
@@ -247,6 +295,8 @@ public sealed class DbsiStyleGoldenTests
                     x.Add(bull ? (t.Quantities[j][i] > 0 ? 1 : 0) : (t.Quantities[j][i] < 0 ? 1 : 0));
                 x.Add(streak); x.Add(stretch);
                 x.Add(w.Cross[i]); x.Add(w.Deep[i]); x.Add(w.Over[i]); x.Add(w.Alive[i]); x.Add(w.Count[i]);
+                if (withBase)
+                    foreach (int j in new[] { 1, 2, 3, 4, 6 }) x.Add((bull ? t.BullBase : t.BearBase)[j][i]);
                 return x.ToArray();
             }
         }

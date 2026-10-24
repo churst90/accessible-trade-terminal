@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI adds seven base votes found on the original's Start grid (2026-10-24)
+
+- **Formula:** each side adds seven more weighted checks (bears read the candles upside down): close
+  above the close 2 back, a 4-bar EMA of the close above itself 2 bars back, the typical price above
+  its 4-bar RMA, the 6-bar stochastic (SMA 2) above its 3-bar average, the 21-bar stochastic (SMA 2)
+  rising, WaveTrend wt1 rising, and the gap between wt1 and its 3-bar average widening. They are the
+  smallest set whose plain count matched the original's score on the Dow daily Start grid (DBSI's own
+  labels from the live script) on bars with no memory: 66% exact before 2025, 58% after. Two of them
+  are the same as existing votes and only add to those votes' points. Every constant was refitted on
+  the same twenty charts (`dbsi6/gen3.py`), copied to the digit (`DbsiStyleProvider.BaseWeights`,
+  `BaseVotes`). Full score 34 bulls / 33 bears; no votes still −5.
+- **Measured, held out one chart at a time on the twenty:** exact 13.0% → 24.1%, within ±1 44.0% →
+  52.0%, within ±2 67.1% → 71.9%, error 2.82 → 2.52; false 17+ readings 26 → 15. In sample: 23.7%,
+  54.1%, 73.9%, 2.41; 17+ printed on 47 of 84 (was 56), 13 false (was 22); side in control 397 of 422.
+- **Out of sample:** fitted on the twenty, scored on fifteen later livestream charts no fit saw (now
+  in the fixture, marked not fitted): exact 14.0% → 17.4%, ±1 40.6% → 48.5%, ±2 61.0% → 65.3%, error
+  3.30 → 3.08; 17+ printed on 27 of 48 (was 28), false 18 → 8.
+- **Caveats.** Still far from exact: about 1 value in 6 on new charts. The checks were found on a Dow
+  daily grid, while most of the thirty-five charts are crypto; they are what fits, not the original's
+  code. The remembered "3" and the opposite side's counter are still not in. Not seen in the app.
+- **Tests:** the fixture now carries all 35 charts (20 fitted, 15 held out); golden replay on every
+  bar, refit recovery (with the two duplicate votes merged), in-sample, leave-one-chart-out and a new
+  test that the base votes beat the model without them on the fifteen. Four sabotages red: bears not
+  mirrored (high and low not swapped, 39 failed), RMA swapped for EMA (19), gap vote dropped (39), EMA
+  compared 1 bar back instead of 2 (39).
+
 ### Parts that should not show by default are left out, not hidden (2026-10-23)
 
 Cody, 2026-10-23: audit every indicator; parts that should not show by default are left out

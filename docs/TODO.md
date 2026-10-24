@@ -122,6 +122,9 @@
 >     all fifteen; 17+ printed on 28 of 48 real ones (was 2), but 18 false (was 12); exact flat at 14%.
 >     Two commits to revert if Cody dislikes either. Cody to look at Bitcoin 4h Heikin-Ashi: big readings
 >     can now reach the 20s after a fresh turn from oversold, and should fall back as the wave flattens.
+>   - **Cipher DBSI given seven base votes (2026-10-24, built, NOT seen; see CHANGES).** Found on the
+>     original's Dow daily Start grid; on the fifteen charts no fit saw: exact 14% → 17%, ±1 41% → 49%,
+>     ±2 61% → 65%, false 17+ 18 → 8. One commit to revert if Cody dislikes it.
 >   - **Cipher DBSI, what is still unknown.** The original also keeps a bonus of about 3, usually started
 >     on the bar before a side's own cross. The best rule found for its start matches 56 of 67, and for
 >     its end 88.5%. The other side's counter adds 1 per bar. Neither is in the app: a rough version
