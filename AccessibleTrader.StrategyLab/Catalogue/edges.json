@@ -2392,6 +2392,68 @@
         "command": "setup-grader-mc3 --snapshots <absolute path to strategy-lab-data>",
         "implemented": true
       }
+    },
+    {
+      "id": "market-cipher-exact-ciphers-rerun",
+      "title": "Market Cipher school, rounds 1-3 and the Cipher A battery re-run on the exact Ciphers",
+      "family": "confluence",
+      "claim": "The Market Cipher tests of 2026-10-17/18 (round 1's setup grade, round 2's Buy dot against the trigger wave, round 3's Cipher SR support, and the Cipher A signal battery) reach an edge once run on the exact replicas: Cipher B as Market Cipher B 2.4.0 (Buy dot on the fast wave, its RSI and money flow), Cipher A as Market Cipher A 2.5.0, Cipher SR as Market Cipher SR.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "4h/1d",
+        "horizonBars": 20,
+        "notes": "Pre-registered in docs/EXACT_CIPHERS_RERUN_PREREG.md (a95f53bc) before any outcome on the exact indicators; each counts-only stage committed before its full run. The same inputs as 10-17/18, re-hashed (0 changed): 52 files for round 1, 50 for rounds 2-3 (crypto 10 assets, equities 33 Yahoo series, crypto 4h as round 3's headline class), 8 series for the battery. Development era before 2023, held-out 2023+. Longs only for rounds 1-3. An exploratory arm on Heikin-Ashi candles (round 2 and the battery) gives no verdict by the plan's own rule."
+      },
+      "effect": {
+        "measure": "excess-R-over-location-matched-random-entry",
+        "value": 0.365,
+        "unit": "R",
+        "n": 36,
+        "p": 0.054,
+        "notes": "No edge in every round and class, as on 10-17/18. The value is round 3's L2-E1 crypto 4h, the trigger at Cipher SR support against random bars at support: +0.365R on 36, raw p 0.054, held-out +0.296R on 53 (p 0.11), noise kept 42%, cross-round Holm 1.00; not Suggestive. Round 1: grade A still essentially absent (0 crypto, 1 equities in development), so P1 and P4 not testable. Round 2: every headline No edge; P2-equities (trigger) moved from No edge to Suggestive (+0.118R on 586, p 0.024, Holm 0.145), not an edge; crypto P2 fell to 28 E1 trades, under the 30 for confirmatory. Round 3: none of 29 tests passes the cross-round Holm over 119 tests; fewer setups sit at support (crypto 4h E0 128 -> 41), so crypto daily's location tests are not testable and equities lost every held-out check: partly a no-power result there. Cipher A battery: 0 of 314 signal cells and 0 of 67 combination cells survive the family-wise max-|t| null (best pFW 0.11, Cipher B Green Dot on gold under the Faber gate, 13 events: the dip filter again). variantsTried: the 119 cross-round tests plus the battery's 381 tested cells; the Heikin-Ashi arm is exploratory and unused.",
+        "variantsTried": 500
+      },
+      "controls": [
+        "context-matched-averaged-random-entry",
+        "location-and-context-matched-random-entry",
+        "block-permutation-20-bar-blocks",
+        "placebo-levels-shifted-3-to-6-atr",
+        "cross-round-holm-119-tests",
+        "family-wise-max-t-block-permutation-null",
+        "held-out-era-2023-plus",
+        "random-exit-control"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-10-24",
+      "lastMeasured": "2026-10-24",
+      "source": "docs/EXACT_CIPHERS_RERUN_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "market-cipher-sr-location",
+          "note": "Round 3 on the old replicas (+0.253R on 53, p 0.091); the same trigger-at-support picture on fewer trades."
+        },
+        {
+          "id": "market-cipher-dot-vs-trigger-wave",
+          "note": "Round 2 on the old replicas; its counts reproduced before the switch."
+        },
+        {
+          "id": "cipherb-setup-grader-hierarchy",
+          "note": "Round 1 on the old replicas; grade A absent on both."
+        },
+        {
+          "id": "cipher-confluence",
+          "note": "The Cipher A battery's earlier re-measure (0 of 441 and 0 of 70 cells); the exact battery is smaller because the DC-window gate and the gold dot were removed."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "setup-grader-mc3 --priors exact --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }
