@@ -213,7 +213,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
-                            Description = $"Whose cycle ranges to use. Auto reads the chart's symbol (SPY, ES and ^GSPC are the S&P; GLD and XAUUSD gold; and so on). Or type one of: {PresetKeys}." },
+                            Description = $"Whose cycle ranges to use. Auto reads the chart's symbol (SPX, US500 and ^GSPC are the S&P; XAUUSD is gold; a fund or future such as SPY, ES or GLD has none and takes the default count). Or type one of: {PresetKeys}." },
                     new() { Name = ParamDailyMin, DisplayName = "Daily cycle shortest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's. In the chart's own days: calendar days for crypto, trading days for stocks." },
                     new() { Name = ParamDailyMax, DisplayName = "Daily cycle longest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
