@@ -216,3 +216,59 @@ survives in either family.
 - **The overlap structure holds.** Red Diamond, Blood Diamond and Yellow X are 100% within a bar of
   a Cipher B bear wave cross; Yellow Diamond is within a bar of a bull cross 76% of the time (77% on
   10-17).
+
+## Step 8: round 3, full run (`--priors exact`)
+
+Run once, with no crash or rerun. Inputs: 50 files, re-hashed after the run, 0 changed.
+
+**Verdict, in the pre-registration's words: crypto 4h (the headline) No edge, crypto daily No edge,
+equities daily No edge, as on 10-18.** None of the 29 round-3 tests passes the cross-round Holm,
+and none passes the placebo gate except L1-E1 crypto 4h, which fails everything else. **No round-3
+test is Suggestive:** the smallest raw p is 0.054 (L2-E1 crypto 4h). On 10-18 four were
+Suggestive: A-E0 crypto 4h, X4-E0 crypto 4h and the two equities X4s.
+
+| Headline test (crypto 4h) | 10-18 stat, raw p | Exact stat, raw p | Exact held-out (n, stat, p) |
+|---|---|---|---|
+| L1-E0, at support vs not | −0.225R (128 vs 206), 0.93; held-out 184, −0.118 | −0.395R (41 vs 219), 0.95 | 60, +0.347, 0.024: does not agree (dev not above 0) |
+| L1-E1 | −0.109R (53 vs 105), 0.75; held-out 92, +0.082 | +0.266R (36 vs 95), 0.21 | 53, +0.303, 0.073: agrees |
+| L2-E0, vs random at-support bars | +0.026R (128), 0.32; held-out 184, +0.053 | −0.081R (41), 0.62 | 60, +0.506, 0.004: does not agree (dev not above 0) |
+| L2-E1 | +0.253R (53), 0.091; held-out 92, +0.143 | +0.365R (36), 0.054 | 53, +0.296, 0.11: does not agree (p above 0.10) |
+| L3, at-support random vs all random | −0.095R (5,197 bars), 1.00 | −0.117R (3,268), 0.9999 | 4,982, −0.005, 0.61 |
+
+- **The trigger at support (L2-E1) is again the one headline test that looks like something.**
+  - Development: +0.365R on 36, raw p 0.054. The held-out era: +0.296R on 53, p 0.11.
+  - Noise kept 42%. The cross-round Holm is 1.00.
+  - It is the same picture as on 10-18 (+0.253R, p 0.091), on fewer trades: No edge, and not
+    Suggestive.
+- **L1-E1 changed sign,** −0.109R → +0.266R. It is still not significant (p 0.21), and noise keeps
+  −28%.
+
+- **Crypto daily:** all 8 L1, L2 and exit tests are not testable (13 dot and 10 trigger setups at
+  support, under 15). L3 is confirmatory and No edge (−0.133R, p 0.99).
+- **Equities:** every test is confirmatory in development and No edge (p 0.09 to 0.92). Every
+  held-out check is lost (9 and 2 at support), as forecast in step 6.
+- **Family A (older vs newer levels)** is not testable in crypto 4h now (29 vs 12 and 5 vs 31). On
+  10-18, A-E0 was the round's best lead (+0.567R, p 0.038).
+- **Exits:** X4 beats its random exits in development in every class, but not significantly
+  (p 0.09 to 0.15). It agrees in the held-out era in crypto 4h (p 0.054 and 0.041). On 10-18, X4-E0
+  crypto 4h had p 0.0041.
+- **The one oddity, which decides nothing.** Crypto 4h dot setups at support did worse than those
+  away from support in development (−0.395R), and better in the held-out era (+0.347R, p 0.024; L2
+  +0.506R, p 0.004).
+  - The sign flips between eras, so by the plan's rule it is not agreement.
+  - It is not a lead under any rule written before the run.
+- **The cross-round Holm**, over 119 tests with the exact round 1 and 2 p's:
+  - **Nothing in any round survives.**
+  - Round 2's exits now enter at their raw p, instead of at 1 as on 10-18, where round 2's findings
+    printed only Holm p's. So the closest call is R2 X4-E0 equities: raw 0.0005, cross-round Holm
+    0.0595.
+  - 0.0005 is the floor that round 2's 2,000 random books allow (1 ÷ 2,001). The test could not have
+    gone lower, and the first Holm step needs 0.00042. So round 2's exits could never pass this
+    correction, whatever the data.
+  - Then R2 X3-E0 equities: raw 0.0015, Holm 0.177. Then R1 P3-equities: raw 0.0061, Holm 0.71.
+- **Section 7.5's sentences hold in all three classes, word for word.** Dots and triggers at Cipher
+  SR support do no better than random at-support bars. Being at support is no better than a random
+  bar. The method has no edge as written.
+  - In crypto 4h E0 and in equities E0 and E1, at-support setups did worse than setups away from
+    support. The plan's own note says that is not a "buy away from levels" rule without its own
+    pre-registration.
