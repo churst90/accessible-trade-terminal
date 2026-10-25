@@ -85,11 +85,37 @@
 >   - ~~**Should the fallback for an unknown symbol copy the original's default count (32)?**~~ Cody:
 >     yes (2026-10-24). Done 2026-10-25 (CHANGES; CIPHER_C_DESIGN section 17): 32 bars on every clock;
 >     held out on 13 charts, daily F1 0.700 → 0.762, weekly 0.551 → 0.575.
->   - **SPY, QQQ (and other aliases) are not recognised by the original.** Its table says "Unoptimised
->     Asset Detected" on BATS:SPY, BATS:QQQ and SP:SPX, but Cipher C sends SPY and SP:SPX to its S&P
->     preset (36) and QQQ to the Nasdaq's. On SPY and QQQ the default count matches the original
->     better (daily F1 0.710 → 0.758, 0.645 → 0.706). Which tickers the original does tune is being
->     read (cap6), then the aliases follow it.
+>   - ~~**SPY, QQQ (and other aliases) are not recognised by the original.**~~ Done 2026-10-25
+>     (CHANGES; CIPHER_C_DESIGN section 17): the ETF and future aliases are gone (SPY, QQQ, DIA, ES,
+>     GLD, IBIT and the rest; none tuned by the original), and so is IXIC (the Nasdaq Composite).
+>   - **Cody: should a preset follow the instrument or the exact feed?** The original tunes one
+>     TradingView feed per asset, not the asset: it says "Unoptimised Asset Detected" on COINBASE:BTCUSD,
+>     BINANCE:BTCUSDT, COINBASE:ETHUSD, OANDA:XAUUSD, TVC:SPX, OANDA:SPX500USD, CAPITALCOM:SPX500 and
+>     NASDAQ_DLY:NDX, and runs its default count there (Cipher C's default matches it better on each:
+>     Coinbase BTC daily F1 0.632 → 0.694, Binance 0.629 → 0.714, Coinbase ETH 0.583 → 0.690, OANDA gold
+>     0.688 → 0.769). It does tune BATS:GDX and BATS:COIN (ticker match there). Cipher C gives the
+>     preset to every feed of the instrument ("BTC/USD" from any exchange, "XAU/USD", "^GSPC", "US30"),
+>     which is what the original shows on the feed it tunes (BITSTAMP:BTCUSD, TVC:GOLD, TVC:DJI...),
+>     but not what it shows on the same feed as the app's. Copying it exactly would mean the BTC preset
+>     only on Bitstamp and the index, gold and oil presets on no feed the app has (they would still
+>     be choosable by hand). Recommendation: keep the instrument rule, since the original on its tuned
+>     feed is what people compare against.
+>   - **Cody: off the daily chart, count like the original (bars) or keep counting time?** On weekly
+>     and 4-hour charts the original says "Timeframe Not Optimised, Switch to Daily" and then runs its
+>     daily count on the chart's own bars: the Dow's shortest gap is 22 weekly bars and 24 four-hour
+>     bars, as it is 24 days on the daily chart; the replica's best count is 36 weekly / 36-37
+>     four-hour bars on the Dow, 23 / 21 on gold, 51 four-hour on Bitcoin (48 on daily). Its weekly
+>     lows on those charts come from two of those lows, as on the daily chart. Cipher C counts time:
+>     on 4-hour gold and Bitcoin its daily cycle is 6 × longer (daily F1 against the original 0.22 and
+>     0.25), and on a weekly chart it draws no daily lows and its own 22-week ones (weekly F1 0.37 on
+>     the Dow, 63 extra). Copying the original means "daily" lows a few days apart on a 4-hour chart,
+>     and the ages said in bars, not days. Recommendation: copy it, since the original warns and so
+>     can Cipher C ("not tuned for this timeframe").
+>   - **Bug (demonstrated 2026-10-25): a 2-bar session is read as daily bars.** On TradingView's Dow
+>     4-hour chart (2 bars a session, 13:30 and 17:30 UTC), 2,707 gaps are 4 hours and 2,127 are 20 hours
+>     plus about 590 over weekends, so the median gap is 20 hours, exactly the 20/24-day cut-off, and
+>     `MeasureBars` says 1 bar a day. Cipher C then counts 36 bars, which happens to be what the
+>     original counts (daily F1 0.836); GDX 4-hour the same (0.782). Fix with the answer above.
 >   - ~~Keep the original's timing and re-run the backtest?~~ Cody: yes. Re-run 2026-10-23
 >     (CIPHER_C_DESIGN section 8): every event replays causally on all seven assets, exits still
 >     show no edge, and the left-translated finding is gone (withdrawn).

@@ -767,9 +767,34 @@ Cipher C's fallback is now the S&P's ranges and weekly rule counted from 32 bars
   the S&P's rule applies: two daily counts less two bars each, 60. Fed the original's own daily lows,
   56 fits better (F1 0.752 → 0.793 over six stocks). With Cipher C's own daily lows it is a wash
   (mean 0.582 at 60, 0.584 at 56, 3 better and 3 worse), so 60 stays.
-- **SPY and QQQ are unoptimised in the original** (BATS feed), as SP:SPX is, though Cipher C maps them
-  to its S&P and Nasdaq presets. Which S&P, Nasdaq and Dow tickers the original tunes is the next
-  read.
+- **Which tickers the original tunes** (cap6-cap8, final drawings, daily candles). It tunes one
+  TradingView feed per asset. Ticker alone is enough for some (BATS:GDX, BATS:COIN are "Finetuned"
+  though its list says ARCA and NASDAQ), not for others. Each row below says "Unoptimised Asset
+  Detected", and Cipher C's default count matches the original's lows better than the preset the
+  replica used to give it:
+
+  | Chart | Daily F1, preset → default | Weekly F1, preset → default | Preset |
+  |---|---|---|---|
+  | TVC:SPX (CBOE:SPX opens it) | 0.697 → 0.739 | 0.547 → 0.648 | S&P |
+  | OANDA:SPX500USD | 0.689 → 0.735 | 0.418 → 0.544 | S&P |
+  | CAPITALCOM:SPX500 | 0.689 → 0.727 | 0.485 → 0.537 | S&P |
+  | CME_MINI_DL:ES1! | 0.658 → 0.735 | 0.569 → 0.584 | S&P |
+  | BATS:SPY | 0.710 → 0.758 | 0.593 → 0.595 | S&P |
+  | NASDAQ_DLY:NDX | 0.642 → 0.706 | 0.509 → 0.631 | Nasdaq |
+  | BATS:QQQ | 0.645 → 0.706 | 0.500 → 0.554 | Nasdaq |
+  | COINBASE:BTCUSD | 0.632 → 0.694 | 0.493 → 0.523 | Bitcoin |
+  | BINANCE:BTCUSDT | 0.629 → 0.714 | 0.492 → 0.548 | Bitcoin |
+  | COINBASE:ETHUSD | 0.583 → 0.690 | 0.465 → 0.370 | Ether |
+  | OANDA:XAUUSD | 0.688 → 0.769 | 0.433 → 0.691 | Gold |
+
+  BATS:DIA, BATS:GLD, BATS:SLV, BATS:USO, BATS:UUP, BATS:IBIT and COMEX_DL:GC1! are unoptimised too
+  (not scored). BITSTAMP:BTCUSD, TVC:USOIL, BATS:COIN and BATS:MSTR are finetuned (controls). The S&P preset is its table for SP:SPX, which the Basic plan cannot open (it serves
+  SP_DLY:SPX, unoptimised).
+
+  Cipher C now drops the ETF and future aliases (SPY, QQQ, DIA, ES, GLD, IBIT and the rest) and IXIC,
+  the Nasdaq Composite. It keeps every spelling of the instrument itself, on any feed. That is the
+  original on the feed it tunes, not on the others (the Coinbase, Binance and OANDA rows). Whether to
+  copy the original feed by feed is a question for Cody (TODO).
 - **The trigger, again** (the first eligible bar is still the best, 38% of 854 namings):
   - depth gates and a floor under the candidate: at most +0.004 F1;
   - Heikin-Ashi green 37%, RSI over 30 38.5% (a tie);

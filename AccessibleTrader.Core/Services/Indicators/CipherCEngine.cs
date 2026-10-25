@@ -197,19 +197,26 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 39),
         };
 
-        /// <summary>Other names each preset's asset trades under: index, ETF, future, CFD, spot pair.</summary>
+        /// <summary>
+        /// Other names for the very instrument each preset is for: the index, metal, oil or coin
+        /// under another data source's spelling ("^GSPC", "US30", "XAU/USD", "BTC/USDT"). Not its
+        /// ETFs or futures: the original tunes none of SPY, QQQ, DIA or the S&amp;P future (it says
+        /// "Unoptimised Asset Detected" on each, read 2026-10-25) and its default count matches its
+        /// own lows there better than the index's preset (SPY daily F1 .758 against .710, QQQ .706
+        /// against .645). Nor the Nasdaq Composite (IXIC), which is not the Nasdaq 100.
+        /// </summary>
         private static readonly Dictionary<string, string> Aliases = new(StringComparer.OrdinalIgnoreCase)
         {
-            ["SPX"] = "SPX", ["SPY"] = "SPX", ["ES"] = "SPX", ["US500"] = "SPX", ["VOO"] = "SPX", ["IVV"] = "SPX", ["GSPC"] = "SPX", ["SPX500"] = "SPX",
-            ["NDQ"] = "NDQ", ["NDX"] = "NDQ", ["QQQ"] = "NDQ", ["NQ"] = "NDQ", ["US100"] = "NDQ", ["NAS100"] = "NDQ", ["IXIC"] = "NDQ",
-            ["DJI"] = "DJI", ["DIA"] = "DJI", ["YM"] = "DJI", ["US30"] = "DJI", ["DJIA"] = "DJI",
-            ["DXY"] = "DXY", ["UUP"] = "DXY", ["DX"] = "DXY",
-            ["GOLD"] = "GOLD", ["XAU"] = "GOLD", ["GLD"] = "GOLD", ["GC"] = "GOLD", ["IAU"] = "GOLD",
-            ["SILVER"] = "SILVER", ["XAG"] = "SILVER", ["SLV"] = "SILVER", ["SI"] = "SILVER",
-            ["USOIL"] = "USOIL", ["WTI"] = "USOIL", ["CL"] = "USOIL", ["USO"] = "USOIL", ["OIL"] = "USOIL",
+            ["SPX"] = "SPX", ["US500"] = "SPX", ["GSPC"] = "SPX", ["SPX500"] = "SPX",
+            ["NDQ"] = "NDQ", ["NDX"] = "NDQ", ["US100"] = "NDQ", ["NAS100"] = "NDQ",
+            ["DJI"] = "DJI", ["US30"] = "DJI", ["DJIA"] = "DJI",
+            ["DXY"] = "DXY",
+            ["GOLD"] = "GOLD", ["XAU"] = "GOLD",
+            ["SILVER"] = "SILVER", ["XAG"] = "SILVER",
+            ["USOIL"] = "USOIL", ["WTI"] = "USOIL", ["OIL"] = "USOIL",
             ["GDX"] = "GDX", ["GDXJ"] = "GDXJ", ["SILJ"] = "SILJ",
-            ["ETH"] = "ETH", ["ETHEREUM"] = "ETH", ["ETHA"] = "ETH", ["ETHE"] = "ETH",
-            ["BTC"] = "BTC", ["XBT"] = "BTC", ["BITCOIN"] = "BTC", ["IBIT"] = "BTC", ["FBTC"] = "BTC", ["GBTC"] = "BTC",
+            ["ETH"] = "ETH", ["ETHEREUM"] = "ETH",
+            ["BTC"] = "BTC", ["XBT"] = "BTC", ["BITCOIN"] = "BTC",
             ["COIN"] = "COIN", ["MSTR"] = "MSTR", ["MARA"] = "MARA", ["RIOT"] = "RIOT",
         };
 
@@ -218,7 +225,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public static CyclePreset Preset(string key) => Presets.First(p => p.Key == key);
 
         /// <summary>
-        /// The preset for a chart symbol ("BTC/USD", "TVC:GOLD", "XAUUSD", "SPY", "^GSPC"), or null
+        /// The preset for a chart symbol ("BTC/USD", "TVC:GOLD", "XAUUSD", "^GSPC"), or null
         /// when the symbol is none of the sixteen.
         /// </summary>
         public static CyclePreset? PresetForSymbol(string? symbol)

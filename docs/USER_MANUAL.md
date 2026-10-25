@@ -2710,7 +2710,9 @@ from 51 (a 25-day wait: half the shortest cycle, rounded down); MARA, 36 to 44, 
 (a 19-day wait), and RIOT, with the same table, from 39 (also a 19-day wait). A symbol none of the sixteen presets
 covers (Apple, Coca-Cola, Solana, the euro) is counted from 32 bars, a 16-bar wait, on daily charts
 of stocks and coins alike, as the indicator's own default count is; its spoken description says "no
-preset for this symbol, so the default count". A lower
+preset for this symbol, so the default count". That includes funds and futures that track a preset's
+asset (SPY, QQQ, DIA, GLD, IBIT), which the indicator does not tune either; the asset itself under
+another name (^GSPC, US30, XAU/USD, BTC/USDT) keeps its preset. A lower
 low while a low holds cancels it ("Daily pending cycle low cancelled"), and Cipher C looks for the
 next low from the following day, except on the day the wait ends: then the held low is confirmed
 even if that day goes lower. A confirmed low is never taken back; a close under it is a failed

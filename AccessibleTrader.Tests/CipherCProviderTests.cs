@@ -540,7 +540,7 @@ public sealed class CipherCProviderTests
         var clock = CipherCEngine.MeasureBars(weeks.ToArray());
         Assert.False(clock.TradesEveryDay);
         Assert.Equal(0.2, clock.BarsPerDay, 3);
-        var r = Run(weeks, "SPY");
+        var r = Run(weeks, "SPX");
         Assert.Equal(22.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
         Assert.Empty(Marked(Of(r, CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix)));
     }
@@ -553,10 +553,10 @@ public sealed class CipherCProviderTests
     public void A_calendar_day_preset_on_a_weekday_chart_is_converted_to_trading_days()
     {
         var bars = Weekdays(800, new DateTime(2022, 1, 3));
-        var r = Run(bars, "IBIT");
+        var r = Run(bars, "BTC");
         Assert.Equal(38.6, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
         Assert.Equal(47.1, r[CipherCProvider.CompDailyWindow + CipherCProvider.EndSuffix][^1]);
-        var spx = Run(bars, "SPY");
+        var spx = Run(bars, "SPX");
         Assert.Equal(36.0, spx[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
     }
 
@@ -573,16 +573,23 @@ public sealed class CipherCProviderTests
     // ── 5. The sixteen assets ───────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("SPY", "SPX")]
     [InlineData("^GSPC", "SPX")]
+    [InlineData("US30", "DJI")]
+    [InlineData("NDX", "NDQ")]
     [InlineData("SP:SPX", "SPX")]
     [InlineData("BTC/USD", "BTC")]
     [InlineData("BTCUSDT", "BTC")]
     [InlineData("XAUUSD", "GOLD")]
     [InlineData("TVC:GOLD", "GOLD")]
     [InlineData("ETH-USD", "ETH")]
-    [InlineData("DIA", "DJI")]
-    [InlineData("QQQ", "NDQ")]
+    // ETFs and futures are not the index: the original tunes none of them.
+    [InlineData("SPY", null)]
+    [InlineData("DIA", null)]
+    [InlineData("QQQ", null)]
+    [InlineData("ES", null)]
+    [InlineData("GLD", null)]
+    [InlineData("IBIT", null)]
+    [InlineData("^IXIC", null)]
     [InlineData("MSTR", "MSTR")]
     [InlineData("AAPL", null)]
     [InlineData("SOL/USD", null)]

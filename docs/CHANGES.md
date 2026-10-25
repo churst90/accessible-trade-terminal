@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: an ETF or future no longer takes its index's preset (2026-10-25)
+
+- **What changed** (`CipherCEngine.Aliases`; study `strategy-lab-data/cf-tv-export` cap6-cap8,
+  `ctz/ccrun.sh`; CIPHER_C_DESIGN section 17):
+  - SPY, VOO, IVV, ES, QQQ, NQ, DIA, YM, UUP, DX, GLD, GC, IAU, SLV, SI, USO, CL, ETHA, ETHE, IBIT,
+    FBTC and GBTC no longer map to the S&P, Nasdaq, Dow, dollar, gold, silver, oil, Ether and
+    Bitcoin presets. They get the default count (32 bars), as any other symbol does.
+  - IXIC no longer maps to the Nasdaq 100 preset: it is the Nasdaq Composite, another index.
+  - Kept: other spellings of the same instrument (^GSPC, US500, SPX500, NDX, US100, NAS100, US30,
+    DJIA, XAU, XAG, WTI, OIL, XBT, BITCOIN, quote suffixes such as BTCUSDT).
+- **Why:** the ETF and future aliases were the replica's own idea (8c2f8b00), not the original's.
+  The original says "Unoptimised Asset Detected" on BATS:SPY, BATS:QQQ, BATS:DIA, CME_MINI_DL:ES1!
+  BATS:GLD, BATS:SLV, BATS:USO, BATS:UUP, BATS:IBIT and COMEX_DL:GC1!, and runs its default count there. Cipher C's default matches its lows better than the
+  index preset on each one read: SPY daily F1 0.710 → 0.758, QQQ 0.645 → 0.706, ES1! 0.658 → 0.735.
+- **Caveats:**
+  - The original tunes one feed per asset, not the asset. It also calls COINBASE:BTCUSD,
+    BINANCE:BTCUSDT, COINBASE:ETHUSD, OANDA:XAUUSD, TVC:SPX and NASDAQ_DLY:NDX unoptimised. Cipher C
+    still gives those instruments their presets on any feed; whether to copy the original exactly is
+    a question for Cody (TODO).
+  - The backtest in CIPHER_C_DESIGN section 8 ran SPY, QQQ, DIA and GLD on the index presets. It was
+    not re-run.
+  - Tests: the symbol table's cases now say SPY, DIA, QQQ, ES, GLD, IBIT and ^IXIC have no preset, and
+    US30 and NDX do. Three tests that used SPY or IBIT to reach a preset now name it. Sabotages red:
+    SPY put back, IXIC put back, US30 dropped.
+  - Not seen in the app.
+
 ### Cipher C on a symbol without a preset: the original's default count of 32 bars (2026-10-25)
 
 - **What changed** (`CipherCEngine.Fallback`, `DefaultCountDailyMin`; study
