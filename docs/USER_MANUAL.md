@@ -2707,7 +2707,10 @@ is the same: its range is 22 to 28 days, as Gold's is, but it is counted from 24
 and the dollar index, 15 to 24 days, is counted from 18 (a 9-day wait); Ethereum, 15 to 25 days,
 is counted from 16 (an 8-day wait); Coinbase and MicroStrategy, 40 to 90 trading days, are counted
 from 51 (a 25-day wait: half the shortest cycle, rounded down); MARA, 36 to 44, is counted from 38
-(a 19-day wait), and RIOT, with the same table, from 39 (also a 19-day wait). A lower
+(a 19-day wait), and RIOT, with the same table, from 39 (also a 19-day wait). A symbol none of the sixteen presets
+covers (Apple, Coca-Cola, Solana, the euro) is counted from 32 bars, a 16-bar wait, on daily charts
+of stocks and coins alike, as the indicator's own default count is; its spoken description says "no
+preset for this symbol, so the default count". A lower
 low while a low holds cancels it ("Daily pending cycle low cancelled"), and Cipher C looks for the
 next low from the following day, except on the day the wait ends: then the held low is confirmed
 even if that day goes lower. A confirmed low is never taken back; a close under it is a failed

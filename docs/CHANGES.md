@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C on a symbol without a preset: the original's default count of 32 bars (2026-10-25)
+
+- **What changed** (`CipherCEngine.Fallback`, `DefaultCountDailyMin`; study
+  `strategy-lab-data/cf-tv-export/ctz/unpreset.py`, `ccrun.sh`, `wsim5.py`, CIPHER_C_DESIGN section 17):
+  - A symbol none of the sixteen presets covers gets the S&P's ranges and weekly rule, counted from
+    32 bars. Stocks were counted from the S&P's 36. Charts that trade every day used Bitcoin's preset
+    (counted from 48, a different weekly rule).
+  - The 32 is bars on either clock: a coin is no longer stretched by 7/5.
+  - The spoken preset says "no preset for this symbol, so the default count: daily lows from 32 bars, …".
+- **Where it came from:** the original's own final drawings on 17 daily charts it does not tune. Its
+  table reads "Unoptimised Asset Detected" and "Default Count Selected" on each. The 17 are seven
+  stocks, SPY, QQQ, three coins (SOL, XRP, LTC), EURUSD, USDJPY, Brent and the Nikkei, plus SP:SPX
+  from before.
+  - Its shortest gap between daily lows is 18 to 23 bars on every one; the best count in the replica
+    is 26 to 33.
+  - The 32 was chosen on AAPL, TSLA, NVDA and MSFT. The other 13 were only scored.
+- **How close it is**, on the 13 held out (Cipher C's own lows against the original's):
+  - Daily lows on the original's bar: 1,007 → **1,170** of 1,529. Extra lows 341 → 373. F1 0.700 →
+    **0.762**, better on all 13. The coins gain most: SOL 0.50 → 0.65, XRP 0.61 → 0.77, LTC 0.60 → 0.78.
+  - Weekly lows: 336 → 373 of 673. Extra 211 → 252. F1 0.551 → 0.575, better on 9, worse on 4 (XOM,
+    USDJPY, Brent, Nikkei).
+  - SPY and QQQ are scored as the original treats them, unoptimised. Cipher C still sends them to
+    the S&P and Nasdaq presets, which score worse there: SPY daily 0.710 against 0.758, QQQ 0.645
+    against 0.706 (TODO).
+- **Not changed:** the weekly gap stays two daily counts less two bars each (60). A gap of 56 fits the
+  original's own daily lows better, but with Cipher C finding its own it is a wash: mean weekly F1
+  0.584 against 0.582, 3 better and 3 worse.
+- **Tests:** the fallback test pins 32 on both clocks, the chart's clock and the weekly rule. The
+  preset-words test pins the new sentence.
+  - `CipherCSearchTests` passed the symbol under a key the provider does not read. It only got
+    Bitcoin's preset through the old fallback. It now passes `__symbol`.
+  - Four sabotages went red: a count of 36, the 7/5 stretch back, Bitcoin's preset back for coins,
+    and the old sentence.
+- **Caveats:**
+  - The default's weekly range is not shown by the original, so the S&P's 22 to 31 weeks is said.
+  - Only daily charts were checked.
+  - The original's drawings are private captures, not in the repo.
+  - Not seen or heard in the app.
+  - The accessibility-lead agent the project hook asks for is not registered. This is engine math
+    with one spoken sentence, so it went ahead without it.
+
 ### Cipher DBSI: bulls and bears score their runs differently, and a close up off a run grows (2026-10-25)
 
 - **What changed** (`DbsiStyleProvider`, study `strategy-lab-data/dbsi-study/dbsi7/gen6.py`):

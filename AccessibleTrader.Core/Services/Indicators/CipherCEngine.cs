@@ -238,10 +238,24 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
+        /// The original's count on a symbol it does not tune ("Default Count Selected"): its lows
+        /// behave as a shortest daily cycle of 32 bars on every chart it was read on, stocks, ETFs,
+        /// the S&amp;P on SP:SPX and coins alike (best fits 29 to 33; its shortest gap 18 to 23 bars).
+        /// </summary>
+        public const double DefaultCountDailyMin = 32;
+
+        /// <summary>
+        /// What a symbol that is none of the sixteen gets: the S&amp;P's ranges and weekly rule,
+        /// counted from <see cref="DefaultCountDailyMin"/> bars. Its days are the chart's own, so a
+        /// chart that trades every day counts 32 bars too, not 32 × 7/5.
+        /// </summary>
+        public static CyclePreset Fallback(bool tradesEveryDay)
+            => Preset("SPX") with { CountDailyMin = DefaultCountDailyMin, CalendarDays = tradesEveryDay };
+
+        /// <summary>
         /// Which preset drives a chart, and whether it was chosen for this asset. "Auto" (or blank)
-        /// reads the symbol; a symbol that is none of the sixteen gets Bitcoin's ranges when it
-        /// trades every day and the S&amp;P's otherwise — CF's own fallback is not known, so the
-        /// reading says the asset is not one CF tunes.
+        /// reads the symbol; a symbol that is none of the sixteen gets <see cref="Fallback"/>, and
+        /// the reading says the asset is not one CF tunes.
         /// </summary>
         public static (CyclePreset Preset, bool FineTuned) Resolve(string? choice, string? symbol, bool tradesEveryDay)
         {
@@ -253,7 +267,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             var bySymbol = PresetForSymbol(symbol);
             if (bySymbol != null) return (bySymbol, true);
-            return (Preset(tradesEveryDay ? "BTC" : "SPX"), false);
+            return (Fallback(tradesEveryDay), false);
         }
 
         // ── How long a bar is ─────────────────────────────────────────────────────────

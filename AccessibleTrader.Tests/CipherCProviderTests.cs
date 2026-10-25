@@ -594,8 +594,16 @@ public sealed class CipherCProviderTests
     {
         Assert.Equal(16, CipherCEngine.Presets.Count);
         Assert.Equal(16, CipherCEngine.Presets.Select(p => p.Key).Distinct().Count());
-        Assert.Equal(("BTC", false), Key(CipherCEngine.Resolve("Auto", "SOL/USD", tradesEveryDay: true)));
-        Assert.Equal(("SPX", false), Key(CipherCEngine.Resolve("Auto", "AAPL", tradesEveryDay: false)));
+        var sol = CipherCEngine.Resolve("Auto", "SOL/USD", tradesEveryDay: true);
+        var aapl = CipherCEngine.Resolve("Auto", "AAPL", tradesEveryDay: false);
+        Assert.Equal(("SPX", false), Key(sol));
+        Assert.Equal(("SPX", false), Key(aapl));
+        // The original's default count: 32 bars on either clock, never stretched by 7/5 on a coin.
+        Assert.Equal(32, sol.Preset.CountedDailyMin);
+        Assert.Equal(32, aapl.Preset.CountedDailyMin);
+        Assert.True(sol.Preset.CalendarDays);
+        Assert.False(aapl.Preset.CalendarDays);
+        Assert.True(sol.Preset.WeeklyEveryTwoDaily);
         Assert.Equal(("GOLD", true), Key(CipherCEngine.Resolve("GOLD", "AAPL", tradesEveryDay: false)));
         Assert.Equal(("ETH", true), Key(CipherCEngine.Resolve("", "ETH/USD", tradesEveryDay: true)));
         static (string, bool) Key((CyclePreset P, bool F) r) => (r.P.Key, r.F);
@@ -640,8 +648,8 @@ public sealed class CipherCProviderTests
         Assert.StartsWith("Gold ranges, tuned: daily 22 to 28 trading days", gold);
         var dji = CipherCProvider.PresetWords(2, new DateTime(2025, 1, 1));
         Assert.Contains("Dow Jones ranges, tuned:", dji);
-        var other = CipherCProvider.PresetWords(-1 - 11, new DateTime(2025, 1, 1));
-        Assert.StartsWith("no preset for this symbol, so Bitcoin's ranges", other);
+        var other = CipherCProvider.PresetWords(-1 - 0, new DateTime(2025, 1, 1));
+        Assert.StartsWith("no preset for this symbol, so the default count: daily lows from 32 bars, weekly 22 to 31 weeks", other);
         Assert.DoesNotContain("halving", other);
         var btc = CipherCProvider.PresetWords(11, new DateTime(2026, 6, 1));
         Assert.Contains("after the April 2024 halving", btc);

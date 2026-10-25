@@ -82,9 +82,14 @@
 >       - What does not: no price trigger beats "the next eligible bar" (35% of namings on its bar;
 >         the best of fifteen rules 37%, picked after scoring). And an undercut 1–2 bars before due
 >         is kept about half the time here (19 of 42), not 3 in 4. The trigger stays the open item.
->   - **The S&P on SP:SPX is not recognised by the original** ("Unoptimised Asset Detected"), so it uses
->     its default count, which behaves as a shortest cycle of 32. Cody: should Cipher C's fallback for
->     an unknown symbol copy that (32), not the S&P's 36–44? Its default weekly range is not read yet.
+>   - ~~**Should the fallback for an unknown symbol copy the original's default count (32)?**~~ Cody:
+>     yes (2026-10-24). Done 2026-10-25 (CHANGES; CIPHER_C_DESIGN section 17): 32 bars on every clock;
+>     held out on 13 charts, daily F1 0.700 → 0.762, weekly 0.551 → 0.575.
+>   - **SPY, QQQ (and other aliases) are not recognised by the original.** Its table says "Unoptimised
+>     Asset Detected" on BATS:SPY, BATS:QQQ and SP:SPX, but Cipher C sends SPY and SP:SPX to its S&P
+>     preset (36) and QQQ to the Nasdaq's. On SPY and QQQ the default count matches the original
+>     better (daily F1 0.710 → 0.758, 0.645 → 0.706). Which tickers the original does tune is being
+>     read (cap6), then the aliases follow it.
 >   - ~~Keep the original's timing and re-run the backtest?~~ Cody: yes. Re-run 2026-10-23
 >     (CIPHER_C_DESIGN section 8): every event replays causally on all seven assets, exits still
 >     show no edge, and the left-translated finding is gone (withdrawn).

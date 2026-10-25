@@ -758,6 +758,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             int index = fineTuned ? (int)value : -1 - (int)value;
             if (index < 0 || index >= CipherCEngine.Presets.Count) return "no preset";
             var preset = CipherCEngine.Presets[index];
+            if (!fineTuned)
+                return $"no preset for this symbol, so the default count: daily lows from {Num(CipherCEngine.DefaultCountDailyMin)} bars, " +
+                       $"weekly {Range(preset.WeeklyMin, preset.WeeklyMax)} weeks, yearly {Range(preset.YearlyMin, preset.YearlyMax)} years";
             string text = fineTuned
                 ? $"{preset.Name} ranges, {preset.Source}"
                 : $"no preset for this symbol, so {preset.Name}'s ranges";

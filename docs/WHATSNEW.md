@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Cipher C on a symbol without a preset counts the way the original does.** Apple, Solana, the euro
+  or any symbol none of the sixteen presets covers is now counted from 32 bars, the original's
+  default count. Coins used Bitcoin's 48 before, stocks the S&P's 36. Its daily lows match the
+  original's more often on all thirteen charts checked (from 66% to 77% of them).
 - **Cipher A looks like the original.** Its ribbon uses Market Cipher A's own blues, line widths and
   two light fills, and its symbols the original's colours and sizes. The original's ninth line (a
   yellow 21-day average) and its pivot lines are there too, left out until you include them. On an

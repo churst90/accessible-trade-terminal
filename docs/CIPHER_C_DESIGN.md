@@ -732,3 +732,51 @@ the same bar. After a drop, the next low it names is the lowest since the drop b
 - **The LOW / MID / HIGH tag** loosely follows how far above the low price is (medians 4.9, 7.4,
   15.2%), but the ranges overlap heavily.
 
+
+## 17. The original's default count on symbols it does not tune (2026-10-25)
+
+On a symbol outside its list the original's table says "Unoptimised Asset Detected" and "Default
+Count Selected", and shows no daily band. Its final drawings were read on 17 such daily charts
+(private captures, cf-tv-export cap5, plus SP:SPX from cap2). Its shortest gap between daily lows is
+18 to 23 bars on each of them, stocks and coins alike. The replica's best shortest cycle is 26 to 33
+(stocks 30 to 33, coins 28 to 30, forex 29 to 30). So the default is a count in **bars**, about 32,
+whatever the chart's clock.
+
+Cipher C's fallback is now the S&P's ranges and weekly rule counted from 32 bars
+(`CipherCEngine.Fallback`). 32 was chosen on AAPL, TSLA, NVDA and MSFT (daily F1 0.744/0.691/0.685/
+0.610 → 0.758/0.751/0.727/0.679). The other 13 were only scored, Cipher C finding its own lows:
+
+| Held out | Daily F1, old → 32 | Weekly F1, old → 32 | Old fallback |
+|---|---|---|---|
+| AMZN | 0.783 → 0.822 | 0.673 → 0.775 | S&P (36) |
+| JPM | 0.661 → 0.718 | 0.486 → 0.557 | S&P |
+| XOM | 0.755 → 0.815 | 0.701 → 0.621 | S&P |
+| KO | 0.732 → 0.780 | 0.462 → 0.587 | S&P |
+| SPY | 0.710 → 0.758 | 0.593 → 0.595 | S&P (alias) |
+| QQQ | 0.645 → 0.706 | 0.500 → 0.554 | Nasdaq (alias) |
+| SOL | 0.500 → 0.649 | 0.296 → 0.437 | Bitcoin (48) |
+| XRP | 0.605 → 0.772 | 0.500 → 0.526 | Bitcoin |
+| LTC | 0.601 → 0.784 | 0.456 → 0.529 | Bitcoin |
+| EURUSD | 0.709 → 0.738 | 0.486 → 0.577 | S&P |
+| USDJPY | 0.764 → 0.773 | 0.642 → 0.561 | S&P |
+| Brent (UKOIL) | 0.708 → 0.771 | 0.549 → 0.495 | S&P |
+| Nikkei 225 | 0.710 → 0.744 | 0.577 → 0.537 | S&P |
+| **All 13** | **0.700 → 0.762** (1,007 → 1,170 of 1,529, extra 341 → 373) | **0.551 → 0.575** (336 → 373 of 673) | |
+
+- **The weekly gap.** Most of the default's weekly lows span two daily lows (2 on 34 of 58 on AMZN), so
+  the S&P's rule applies: two daily counts less two bars each, 60. Fed the original's own daily lows,
+  56 fits better (F1 0.752 → 0.793 over six stocks). With Cipher C's own daily lows it is a wash
+  (mean 0.582 at 60, 0.584 at 56, 3 better and 3 worse), so 60 stays.
+- **SPY and QQQ are unoptimised in the original** (BATS feed), as SP:SPX is, though Cipher C maps them
+  to its S&P and Nasdaq presets. Which S&P, Nasdaq and Dow tickers the original tunes is the next
+  read.
+- **The trigger, again** (the first eligible bar is still the best, 38% of 854 namings):
+  - depth gates and a floor under the candidate: at most +0.004 F1;
+  - Heikin-Ashi green 37%, RSI over 30 38.5% (a tie);
+  - smoothed turns: the best is a 4-bar EMA of the high-low midpoint, a tie;
+  - weekday: no effect;
+  - the bar after the low: no feature separates "named now" from "named later" (AUC 0.58 at best,
+    for the low's next low and the close's rise in ATR).
+- **The table's bars counter (row 5, column 4)** counts from the pending low, not from its naming.
+  After a pending low is dropped it keeps counting from the dropped low, with no label drawn, until
+  the next one is named (1,927 bars in 327 runs on the sixteen replays).
