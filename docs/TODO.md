@@ -242,6 +242,19 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
+  - **Cipher DBSI stoch 40, Stoch RSI and the Q state (2026-10-25, built, NOT seen; see CHANGES).**
+    Hourly held out exact 44.0% → 59.6%, ±2 81.9% → 85.6%; the fifteen exact 36.8% → 48.5%, ±1
+    50.0% → 58.7%, ±2 77.1% → 78.1%, but typical error 2.78 → 2.80. The off-run close-up is gone. One
+    commit to revert. Cody to look at a Bitcoin 1h Heikin-Ashi pullback after a run: once a close turns
+    up from a low stochastic, the bulls' number should jump by about 4 and hold while closes stay above
+    the close two candles back. Still open:
+    - About half the hourly misses: a side in a run while the other side is off a run and not in Q.
+      The other side's number there is often a few points off.
+    - Broken runs often one short (3 where DBSI has 4). Bear broken close-ups of 3/5/6/9 seen, not decoded.
+    - The Q trigger fits about 9 times in 10, not always. Its stochastic length (10 to 12) and midline
+      (45 to 55) are not sharp.
+    - Forcing the previous-close vote in alive runs raises exact but lowers ±2; not adopted.
+    - A second market's hourly harvest would test all of this away from Bitcoin 2026.
   - **Cipher DBSI side-specific runs and the off-run close-up (2026-10-25, built, NOT seen; see
     CHANGES).** Chosen on DBSI's own hourly Bitcoin Heikin-Ashi numbers (private). Hourly held-out ±2
     75.9% → 81.2%, the fifteen 71.5% → 78.0%, exact 31% → 36%. False 17+ 3 → 6 on the fifteen. One

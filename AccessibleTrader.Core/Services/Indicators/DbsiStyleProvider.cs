@@ -11,23 +11,26 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// formula is closed, and this one was reverse-engineered from its printed numbers.
     ///
     /// <para>
-    /// <b>The score</b> (2026-10-24, <c>dbsi7/gen5.py</c>; side-specific run and off-run close-up
-    /// 2026-10-25, <c>gen6.py</c>; the bears' broken-run close-up 3, <c>gen7.py</c>): whole numbers only, no fitted decimals. For each side, on the
+    /// <b>The score</b> (2026-10-24, <c>dbsi7/gen5.py</c>; side-specific run 2026-10-25, <c>gen6.py</c>;
+    /// the bears' broken-run close-up 3, <c>gen7.py</c>; the stoch-40 and Stoch RSI votes and the Q
+    /// state, <c>dbsi8/gen8.py</c>): whole numbers only, no fitted decimals. For each side, on the
     /// candles chosen by "Compute on Heikin-Ashi candles":
     /// </para>
     /// <code>
-    ///   score = max(−5, base + run)
+    ///   score = max(−5, base + run + Q)
     ///   base  = −5 + 2 per base vote (the gap vote 1): up to +8
     ///   run   = in a WaveTrend run:    its level: bulls 7 if the cross was deep, bears 2; else 1
     ///         + while the run is alive: bulls 6, bears 7, + bars since the cross (up to 10)
     ///         + while it is not alive (broken, or no run): bars the gap has widened in a row − 1 (0 to 9)
-    ///             + on a close beyond the previous close: in a broken run bulls 2, bears 3;
-    ///               off a run, bars since the run ended (0 on the first bar out, up to 4)
+    ///             + in a broken run, on a close beyond the previous close: bulls 2, bears 3
+    ///   Q     = 4 while the Q state is on (never in a run): off a run, 2+ bars after it ended, a close
+    ///           beyond the previous close with the 11-bar stochastic (SMA3) on the side's low half
+    ///           turns it on; it stays on while each close is beyond the close 2 bars back
     /// </code>
     /// <para>
     /// The highest score is 31 for bulls and 27 for bears (every vote, a deep cross alive for ten
-    /// bars); DBSI's own highest is 27, on the digitised charts and on 7,127 hourly bars, and the
-    /// model's is 27 on both. The <b>base votes</b> (<see cref="BaseVotes"/>, <see cref="BasePoints"/>)
+    /// bars); off a run it is 21 (every vote, a ten-bar streak and the Q state). DBSI's own highest is
+    /// 27, on the digitised charts and on 7,127 hourly bars, and the model's is 27 on the charts. The <b>base votes</b> (<see cref="BaseVotes"/>, <see cref="BasePoints"/>)
     /// are DBSI's score on bars with nothing to remember, found with Market Cipher's own script on a
     /// Dow Jones daily chart: moving its Start date one bar at a time leaves a bar where only the
     /// base counts, and an integer program matched the bulls' number there. The <b>run</b>
@@ -35,7 +38,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// cross toward the side: a level, higher after a deep cross (wt1 past −60 against the side), and
     /// about 6 more plus one a bar while the gap between wt1 and its 3-bar average widens every bar.
     /// Once the gap narrows the run is no longer alive, and from then on, and between runs, the
-    /// score follows the gap's widening streak and the close instead.
+    /// score follows the gap's widening streak and the close instead. The <b>Q state</b>
+    /// (<see cref="Model.QState"/>) is the value DBSI's Start grid showed setting on a close up and
+    /// holding while the close stays beyond the close 2 back; its trigger was found on the hourly
+    /// set's misses (2026-10-25): a close up while the side's short stochastic is in its low half, at
+    /// least two bars after the side's run ended.
     /// </para>
     /// <para>
     /// <b>How the numbers were chosen.</b> Every setting is a small whole number, picked by trying
@@ -48,10 +55,14 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// script, kept out of this repository): its bull runs after a deep cross sat about 6 points
     /// higher than the bears', and a free fit of the broken-run close-up gave bears 2.9 points to the
     /// bulls' 1.8 (refitting both sides together moved only the bears' 2 to 3).
-    /// Each setting one step either way scores lower on the hourly set and on the twenty. Not tried: anything DBSI
-    /// remembers beyond the run. Its Start grid shows a value that sets on a close up and holds
-    /// while the close stays beyond the close 2 back, but no trigger found matched it better than
-    /// half the time, and with it the choice on the twenty was worse; it is left out.
+    /// The hourly set's misses then gave three more (<c>dbsi8/</c>, 2026-10-25): the third base vote's
+    /// stochastic is 40 bars, not 21; the sixth vote is Stoch RSI (RSI 12, its 12-bar stochastic,
+    /// K its 3-bar SMA) rising, a flat K voting by its side of 50, in place of the previous close
+    /// above the close before it; and the Q state, worth 4, which made the off-run close-up (bars
+    /// since the run, up to 4) worse than nothing, so it is gone. Each setting one step either way
+    /// scores lower on the twenty. The RSI's length is not sharp (11 to 13 score within a point; the
+    /// usual 14 is worse on every set) and neither is the Q state's stochastic length (10 to 12) or
+    /// midline (45 to 55).
     /// </para>
     /// <para>
     /// A vote is 1 when its quantity is above zero on the side's candles (the bears': the candles
@@ -63,22 +74,26 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para>
     /// <b>How close it is, measured</b> (<c>DbsiStyleGoldenTests</c> replays all of it). On the
     /// fifteen livestream charts (2026-10-23, Coinbase/Bitstamp Bitcoin and Ethereum, 1 minute to
-    /// 1 day) that no choice saw: DBSI's exact number 36.8% of the time, within ±1 50.0%, within ±2
-    /// 77.1%, typical error 2.78 points; with bears' broken close-up 2 (gen6) 36.2%, 50.2%, 78.0%,
-    /// 2.80; before the hourly choices (gen5) 31.2%, 45.2%, 71.5%, 3.07. On the last seven weeks of
-    /// the hourly chart (2026-09-07 to 10-24, held out from every choice, 2 × 1,151 numbers): 44.0%,
-    /// 57.5%, 81.9%, 2.11; gen6 41.9%, 57.2%, 81.2%, 2.16; gen5 36.4%, 51.6%, 75.9%, 2.53. The linear model it replaced (twelve weighted votes, eight
-    /// weighted base votes, a streak, a stretch and weighted run terms, fitted on the same twenty):
-    /// 20.4%, 50.5%, 67.1%, 3.06 on the fifteen. On the twenty: 40.2%, 54.4%, 77.4%, 2.29 (gen6:
-    /// 39.1%, 54.1%, 77.8%, 2.31; gen5: 34.6%, 47.4%, 74.8%, 2.58).
+    /// 1 day) that no choice saw: DBSI's exact number 48.5% of the time, within ±1 58.7%, within ±2
+    /// 78.1%, typical error 2.80 points; before the stoch-40, Stoch RSI and Q changes (gen7) 36.8%,
+    /// 50.0%, 77.1%, 2.78; before the hourly choices (gen5) 31.2%, 45.2%, 71.5%, 3.07. On the last
+    /// seven weeks of the hourly chart (2026-09-07 to 10-24, held out from every choice, 2 × 1,151
+    /// numbers): 59.6%, 71.7%, 85.6%, 1.81; gen7 44.0%, 57.5%, 81.9%, 2.11; gen5 36.4%, 51.6%, 75.9%,
+    /// 2.53. The linear model it replaced (twelve weighted votes, eight weighted base votes, a streak,
+    /// a stretch and weighted run terms, fitted on the same twenty): 20.4%, 50.5%, 67.1%, 3.06 on the
+    /// fifteen. On the twenty: 55.1%, 66.7%, 80.4%, 2.16 (gen7: 40.2%, 54.4%, 77.4%, 2.29; gen5: 34.6%,
+    /// 47.4%, 74.8%, 2.58).
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> About two readings in three are not DBSI's exact number, and on the
-    /// livestream charts about one in five is 3 or more off. It prints 17 or more on 35 of the 48
-    /// such readings there (before: 21), and where DBSI does not on 6 bars (before: 3; the linear
-    /// model 27 and 10). Why bulls and bears differ after a deep cross, and in a broken run, is not known; the
-    /// hourly set is one market in one rising-and-falling year. Direction and rough size are trustworthy; exact numbers and single big
+    /// <b>The known shortfall.</b> About half the readings are not DBSI's exact number, and on the
+    /// livestream charts about one in five is 3 or more off; the typical error there did not fall
+    /// (2.80, gen7 2.78), so the misses left are a little bigger. It prints 17 or more on 38 of the 48
+    /// such readings there (gen7 35, gen5 21), and where DBSI does not on 6 bars (gen5 3; the linear
+    /// model 27 and 10). About half the hourly misses are a side in a run while the other side is off
+    /// a run and not in the Q state; a broken run is often one short. Why bulls and bears differ after
+    /// a deep cross, and in a broken run, is not known; the hourly set is one market in one
+    /// rising-and-falling year. Direction and rough size are trustworthy; exact numbers and single big
     /// readings are not.
     /// </para>
     ///
@@ -127,7 +142,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public const int DefaultLongEntry = 7, DefaultShortEntry = 7, DefaultTrendLength = 200, DefaultLabelBars = 25;
 
-        // The integer model (scratchpad dbsi7/gen5.py, 2026-10-24; run settings gen6.py/gen7.py, 2026-10-25): base points and streak start chosen on the twenty digitised charts, run settings on the hourly set.
+        // The integer model (scratchpad dbsi7/gen5.py, 2026-10-24; run settings gen6.py/gen7.py, 2026-10-25; the stoch-40 and Stoch RSI votes and the Q state dbsi8/gen8.py, 2026-10-25): base points and streak start chosen on the twenty digitised charts, the rest on the hourly set.
         /// <summary>Each base vote's points, in the order of <see cref="BaseVotes"/>.</summary>
         internal static readonly int[] BasePoints = { 2, 2, 2, 2, 1, 2, 2 };
         /// <summary>The score with no vote and nothing remembered, and its floor.</summary>
@@ -147,10 +162,22 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>While the run is not alive: the gap's widening streak counts from its bar after this many (<see cref="Model.NotAlivePoints"/>).</summary>
         internal const int StreakStart = 1;
         /// <summary>
-        /// Off a run: a close beyond the previous close is worth one point per bar since the side's
-        /// last run ended (none on the first bar out), up to this many (<see cref="WaveRun.SinceRun"/>).
+        /// The Q state's points (<see cref="Model.QState"/>): off a run, a close beyond the previous close
+        /// with the <see cref="QStochLength"/>-bar stochastic (SMA3) on the side's far side of
+        /// <see cref="QBelow"/>, at least <see cref="QAfterRun"/> bars after the side's last run ended,
+        /// starts it; it holds while each close stays beyond the close 2 bars back, and a run ends it.
         /// </summary>
-        internal const int OffRunCloseUpCap = 4;
+        internal const int QPoints = 4;
+        internal const int QAfterRun = 2;
+        internal const int QStochLength = 11;
+        internal const double QBelow = 50.0;
+        /// <summary>The third base vote's stochastic length (SMA2 of the stochastic of close).</summary>
+        internal const int StochLength = 40;
+        /// <summary>The sixth base vote, Stoch RSI: RSI of this length, its stochastic over this many bars, K its SMA of <see cref="StochRsiSmoothing"/>.</summary>
+        internal const int StochRsiLength = 12;
+        internal const int StochRsiSmoothing = 3;
+        /// <summary>A Stoch RSI K change this small is no change (a flat K is a tie, decided by the side of 50; this absorbs the SMA's rounding).</summary>
+        internal const double StochRsiTie = 1e-9;
         /// <summary>The money flow's averaging length (Cipher B's 60) for the seventh base vote.</summary>
         internal const int MoneyFlowLength = 60;
         /// <summary>wt1 beyond this against the side at the cross makes the cross deep.</summary>
@@ -160,7 +187,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// The score's settings as one value, so a variant can be scored the same way (the golden
         /// tests try every setting one step either way). <see cref="Shipped"/> is the constants above.
         /// </summary>
-        internal sealed record Model(int[] BasePoints, RunSettings Bull, RunSettings Bear, int StreakStart, int OffRunCloseUpCap)
+        internal sealed record Model(int[] BasePoints, RunSettings Bull, RunSettings Bear, int StreakStart,
+            int QPoints, int QAfterRun, int StochLength, int StochRsiSmoothing)
         {
             /// <summary>The run's points on bar <paramref name="i"/>: its level, and while alive the alive points and the count.</summary>
             public static int RunPoints(RunSettings r, WaveRun w, int i) =>
@@ -169,26 +197,49 @@ namespace AccessibleTrader.Core.Services.Indicators
             /// <summary>
             /// The points of a side whose run is not alive: one per bar of the gap's widening streak
             /// beyond <see cref="StreakStart"/> (the streak counted up to <see cref="RunCountCap"/>), and
-            /// on a close beyond the previous close the side's <see cref="RunSettings.BrokenCloseUpPoints"/>
-            /// in a broken run, or off a run the bars since it ended, up to <see cref="OffRunCloseUpCap"/>.
+            /// in a broken run on a close beyond the previous close the side's <see cref="RunSettings.BrokenCloseUpPoints"/>
+            /// (off a run the close counts only through the Q state).
             /// </summary>
             public int NotAlivePoints(RunSettings r, WaveRun w, int streak, double closeUp, int i) =>
                 Math.Max(Math.Min(streak, RunCountCap) - StreakStart, 0)
-                + (closeUp != 1 ? 0 : w.Run[i] == 1 ? r.BrokenCloseUpPoints : Math.Min((int)w.SinceRun[i], OffRunCloseUpCap));
+                + (closeUp == 1 && w.Run[i] == 1 ? r.BrokenCloseUpPoints : 0);
 
-            /// <summary>One side's score on bar <paramref name="i"/> (<paramref name="side"/> 1 bulls, −1 bears): max(−5, base + run).</summary>
-            public int Score(int side, double[][] baseVotes, WaveRun wave, int streak, double closeUp, int i)
+            /// <summary>
+            /// One side's Q state, bar by bar (1 or 0): in a run it is off; off a run, a close beyond the
+            /// previous close (<paramref name="closeUp"/>) with the side's <see cref="QStochLength"/>-bar
+            /// stochastic below <see cref="QBelow"/> (<paramref name="qStoch"/>, on the side's candles) at
+            /// least <see cref="QAfterRun"/> bars after its last run ended turns it on; it stays on while
+            /// the close stays beyond the close 2 bars back (<paramref name="hold"/>, the first base vote).
+            /// </summary>
+            public double[] QState(double[] closeUp, double[] qStoch, double[] hold, WaveRun w)
+            {
+                int n = closeUp.Length;
+                var q = new double[n];
+                bool on = false;
+                for (int i = 0; i < n; i++)
+                {
+                    if (w.Run[i] == 1) on = false;
+                    else if (closeUp[i] == 1 && qStoch[i] < QBelow && w.SinceRun[i] >= QAfterRun) on = true;
+                    else if (on && hold[i] != 1) on = false;
+                    q[i] = on ? 1 : 0;
+                }
+                return q;
+            }
+
+            /// <summary>One side's score on bar <paramref name="i"/> (<paramref name="side"/> 1 bulls, −1 bears): max(−5, base + run + Q).</summary>
+            public int Score(int side, double[][] baseVotes, WaveRun wave, int streak, double closeUp, double q, int i)
             {
                 int score = Floor;
                 for (int j = 0; j < BasePoints.Length; j++) if (baseVotes[j][i] == 1) score += BasePoints[j];
                 var r = side > 0 ? Bull : Bear;
                 score += RunPoints(r, wave, i);
                 if (wave.Alive[i] == 0) score += NotAlivePoints(r, wave, streak, closeUp, i);
+                if (q == 1) score += QPoints;
                 return Math.Max(Floor, score);
             }
         }
 
-        internal static readonly Model Shipped = new(BasePoints, BullRun, BearRun, StreakStart, OffRunCloseUpCap);
+        internal static readonly Model Shipped = new(BasePoints, BullRun, BearRun, StreakStart, QPoints, QAfterRun, StochLength, StochRsiSmoothing);
 
         // DBSI's own colours as seen on the vendor image: green below, red above, yellow live.
         internal const string BullHex = "#00E676", BearHex = "#FF5252", LiveHex = "#FFEB3B";
@@ -208,7 +259,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     "bulls below each candle, bears above, the newest candle's leader in yellow, and a 200-bar trend " +
                     "line green above price and red below. Reverse-engineered from DBSI's printed numbers as whole-number votes " +
                     "plus what DBSI remembers of the WaveTrend cross. On charts it was not built from, it prints DBSI's exact " +
-                    "number about 1 time in 3 and lands within 2 points about 7 times in 10; it prints 17 or more less often " +
+                    "number about 1 time in 2 and lands within 2 points about 8 times in 10; it prints 17 or more less often " +
                     "than DBSI does. Not DBSI.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -446,26 +497,29 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>
         /// What the score is built from, bar by bar, on the candles it reads: each side's base votes,
-        /// WaveTrend run, gap streak (bars in a row the gap has widened, uncapped) and close up (1 or
-        /// 0), the closes, and the gap itself (wt1 − its 3-bar SMA), which says when scores start.
+        /// WaveTrend run, gap streak (bars in a row the gap has widened, uncapped), close up (1 or
+        /// 0) and Q state (<see cref="Model.QState"/>), the closes, and the gap itself (wt1 − its 3-bar
+        /// SMA), which says when scores start.
         /// </summary>
         internal sealed record Terms(double[][] BullBase, double[][] BearBase, WaveRun BullWave, WaveRun BearWave,
-            int[] BullStreak, int[] BearStreak, double[] BullCloseUp, double[] BearCloseUp, double[] Close, double[] Gap);
+            int[] BullStreak, int[] BearStreak, double[] BullCloseUp, double[] BearCloseUp, double[] BullQ, double[] BearQ,
+            double[] Close, double[] Gap);
 
         /// <summary>
         /// The seven base votes of one side, each 1 or 0 per bar, on the candles given (the bears'
         /// are these on the candles turned upside down: −open, −low as high, −high as low, −close,
         /// so every "above" becomes a strict "below"). In order: close above the close 2 bars back;
-        /// the 4-bar EMA of close above itself 2 bars back; the 21-bar stochastic (SMA2) rising;
-        /// WaveTrend wt1 (9, 12) rising; wt1's gap over its 3-bar SMA widening; the previous close
-        /// above the close before it; Cipher B's money flow (the SMA60 of hlc3 less its 5-bar mean over
+        /// the 4-bar EMA of close above itself 2 bars back; the 40-bar stochastic (SMA2) rising;
+        /// WaveTrend wt1 (9, 12) rising; wt1's gap over its 3-bar SMA widening; Stoch RSI (RSI 12, its
+        /// 12-bar stochastic, K = SMA3) rising, or flat and above 50; Cipher B's money flow (the SMA60 of hlc3 less its 5-bar mean over
         /// the 5-bar mean size of that, on the candles given) rising — for the
         /// bears, falling. Undefined compares as no vote.
         /// </summary>
-        internal static double[][] BaseVotes(double[] o, double[] h, double[] l, double[] c)
+        internal static double[][] BaseVotes(double[] o, double[] h, double[] l, double[] c, Model? model = null)
         {
+            var m = model ?? Shipped;
             var e4 = Ema(c, 4);
-            var k21 = Sma(Stochastic(c, h, l, 21), 2);
+            var k = Sma(Stochastic(c, h, l, m.StochLength), 2);
             var wt1 = WaveTrend1(h, l, c);
             var gap = Sub(wt1, Sma(wt1, 3));
             // Cipher B's money flow, unscaled, on these candles (Heikin-Ashi when the score reads
@@ -473,13 +527,47 @@ namespace AccessibleTrader.Core.Services.Indicators
             var mf = CipherBProvider.McbMoneyFlowShare(h, l, c, MoneyFlowLength);
             return new[]
             {
-                Above(c, Shift(c, 2)), Above(e4, Shift(e4, 2)), Above(k21, Shift(k21, 1)), Above(wt1, Shift(wt1, 1)),
-                Above(gap, Shift(gap, 1)), Above(Shift(c, 1), Shift(c, 2)), Above(mf, Shift(mf, 1)),
+                Above(c, Shift(c, 2)), Above(e4, Shift(e4, 2)), Above(k, Shift(k, 1)), Above(wt1, Shift(wt1, 1)),
+                Above(gap, Shift(gap, 1)), StochRsiRising(c, m.StochRsiSmoothing), Above(mf, Shift(mf, 1)),
             };
+        }
+
+        /// <summary>
+        /// The Stoch RSI vote: K (the SMA of the <see cref="StochRsiLength"/>-bar stochastic of RSI
+        /// <see cref="StochRsiLength"/>) rising; where K has not moved (by more than
+        /// <see cref="StochRsiTie"/>) or its change is undefined, K above 50. On the bears' upside-down
+        /// candles the RSI is 100 less the bulls', so this is K falling, or flat below 50.
+        /// </summary>
+        private static double[] StochRsiRising(double[] c, int smoothing)
+        {
+            var rsi = Rsi(c, StochRsiLength);
+            var k = Sma(Stochastic(rsi, rsi, rsi, StochRsiLength), smoothing);
+            var r = new double[c.Length];
+            for (int i = 0; i < c.Length; i++)
+            {
+                double d = i > 0 ? k[i] - k[i - 1] : double.NaN;
+                bool tie = double.IsNaN(d) || Math.Abs(d) <= StochRsiTie;
+                r[i] = (tie ? k[i] > 50 : d > 0) ? 1 : 0;   // NaN compares false
+            }
+            return r;
+        }
+
+        /// <summary>Wilder's RSI, its averages seeded as Pine's <c>ta.rma</c> (the mean of the first <paramref name="len"/> changes).</summary>
+        private static double[] Rsi(double[] c, int len)
+        {
+            int n = c.Length;
+            var up = Nan(n); var dn = Nan(n);
+            for (int i = 1; i < n; i++) { double d = c[i] - c[i - 1]; up[i] = Math.Max(d, 0); dn[i] = Math.Max(-d, 0); }
+            var au = Smoothed(up, len, 1.0 / len); var ad = Smoothed(dn, len, 1.0 / len);
+            var r = new double[n];
+            for (int i = 0; i < n; i++) r[i] = 100 - 100 / (1 + au[i] / ad[i]);
+            return r;
         }
 
         /// <summary>The position of the gap-widening vote in <see cref="BaseVotes"/>.</summary>
         private const int GapVote = 4;
+        /// <summary>The base vote that holds the Q state on: the close beyond the close 2 bars back.</summary>
+        private const int HoldVote = 0;
 
         /// <summary>WaveTrend wt1: hlc3, channel 9, average 12.</summary>
         private static double[] WaveTrend1(double[] h, double[] l, double[] c)
@@ -548,8 +636,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             return r;
         }
 
-        internal static Terms ScoringTerms(ReadOnlySpan<Ohlcv> data, bool heikinAshi)
+        internal static Terms ScoringTerms(ReadOnlySpan<Ohlcv> data, bool heikinAshi, Model? model = null)
         {
+            var m = model ?? Shipped;
             int n = data.Length;
             double[] o = new double[n], h = new double[n], l = new double[n], c = new double[n];
             if (heikinAshi && n > 0)
@@ -565,8 +654,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             var wt1 = WaveTrend1(h, l, c);
             var wt2 = Sma(wt1, 3);
             double[] Neg(double[] x) => x.Select(v => -v).ToArray();
-            var bullBase = BaseVotes(o, h, l, c);
-            var bearBase = BaseVotes(Neg(o), Neg(l), Neg(h), Neg(c));
+            var bullBase = BaseVotes(o, h, l, c, m);
+            var bearBase = BaseVotes(Neg(o), Neg(l), Neg(h), Neg(c), m);
             int[] Streak(double[] vote)
             {
                 var s = new int[n];
@@ -575,23 +664,29 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             double[] bullUp = new double[n], bearUp = new double[n];
             for (int i = 1; i < n; i++) { bullUp[i] = c[i] > c[i - 1] ? 1 : 0; bearUp[i] = c[i] < c[i - 1] ? 1 : 0; }
-            return new Terms(bullBase, bearBase, WaveTrendRun(wt1, wt2, 1), WaveTrendRun(wt1, wt2, -1),
-                Streak(bullBase[GapVote]), Streak(bearBase[GapVote]), bullUp, bearUp, c, Sub(wt1, wt2));
+            // The Q state's stochastic, on each side's candles; undefined counts as the midline (no trigger).
+            double[] QStoch(double[] cc, double[] hh, double[] ll) =>
+                Sma(Stochastic(cc, hh, ll, QStochLength), 3).Select(v => double.IsNaN(v) ? QBelow : v).ToArray();
+            WaveRun bullWave = WaveTrendRun(wt1, wt2, 1), bearWave = WaveTrendRun(wt1, wt2, -1);
+            var bullQ = m.QState(bullUp, QStoch(c, h, l), bullBase[HoldVote], bullWave);
+            var bearQ = m.QState(bearUp, QStoch(Neg(c), Neg(l), Neg(h)), bearBase[HoldVote], bearWave);
+            return new Terms(bullBase, bearBase, bullWave, bearWave,
+                Streak(bullBase[GapVote]), Streak(bearBase[GapVote]), bullUp, bearUp, bullQ, bearQ, c, Sub(wt1, wt2));
         }
 
         internal static Result Compute(ReadOnlySpan<Ohlcv> data, Settings s, Model? model = null)
         {
             var m = model ?? Shipped;
             int n = data.Length;
-            var t = ScoringTerms(data, s.HeikinAshi);
+            var t = ScoringTerms(data, s.HeikinAshi, m);
             var c = t.Close;
 
             var bull = Nan(n); var bear = Nan(n); var control = Nan(n);
             for (int i = 1; i < n; i++)
             {
                 if (double.IsNaN(t.Gap[i]) || double.IsNaN(t.Gap[i - 1])) continue;   // still warming up
-                bull[i] = m.Score(1, t.BullBase, t.BullWave, t.BullStreak[i], t.BullCloseUp[i], i);
-                bear[i] = m.Score(-1, t.BearBase, t.BearWave, t.BearStreak[i], t.BearCloseUp[i], i);
+                bull[i] = m.Score(1, t.BullBase, t.BullWave, t.BullStreak[i], t.BullCloseUp[i], t.BullQ[i], i);
+                bear[i] = m.Score(-1, t.BearBase, t.BearWave, t.BearStreak[i], t.BearCloseUp[i], t.BearQ[i], i);
                 control[i] = Math.Sign(bull[i] - bear[i]);
             }
 
