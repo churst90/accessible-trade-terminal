@@ -180,3 +180,39 @@ files, 0 changed.
     setups are at support from 2023 on. Development stays confirmatory.
 - Equities held-out E1 is flagged for an extreme share (4.3% at support). Section 5 says nothing
   changes because of it.
+
+## Step 7: the Cipher A battery, full run
+
+Run once, with no crash or rerun. Seeds and draws are as on 10-17: 2,000 block permutations, block 20,
+horizon 20 bars, entry at the next open. The inputs are the same 8 series.
+
+**Verdict, by its own rule (the family-wise max-|t| null at 0.05): No edge, as on 10-17.** No cell
+survives in either family.
+
+| Family | 10-17 (61caa0d4) | Exact |
+|---|---|---|
+| Signal by signal: cells attempted / tested / Cipher A | 480 / 441 / 266 | 352 / 314 / 186 |
+| Cipher A cells with raw p ≤ 0.05 | 20 (about 13 expected) | 15 (about 9 expected) |
+| Cells surviving the family-wise null | 0 (best pFW 0.38) | 0 (best pFW 0.11) |
+| Combinations: attempted / tested | 96 / 70 | 96 / 67 |
+| Combination cells with raw p ≤ 0.05 | 7 (about 4 expected) | 6 (about 3 expected) |
+| Cells surviving the family-wise null | 0 (best pFW 0.47) | 0 (best pFW 0.15) |
+
+- **Why the signal family is smaller:** two things in it no longer exist. These are code removals,
+  not choices made in this re-run.
+  - The G6 "DC window" gate went with Loukas Cycle Detection (9e63291d, 10-22).
+  - The Cipher B gold dot was removed (c47ad6b3, 10-22).
+  - So 12 signals × 5 gates became 11 × 4, on each of the 8 assets.
+- **Best cells,** all on a handful of trades and none surviving the family:
+  - Cipher B Green Dot, gold, Faber gate: 13 events, 92% hit, +3.31% excess, pFW 0.11. The same cell
+    is K2's best combination (pFW 0.15).
+  - Cipher A Yellow X short under VR<1: ETH 8 events, BTC 12, gold 15; pFW 0.49 to 0.56.
+- **This is the dip-filter result again, as on 10-17.** On 10-17 the family's top cell was gold under
+  Faber, at pFW 0.38.
+- **K1 (B green dot + ribbon up) has 0 events on every asset.** It had fewer than 5 on 10-17. With the
+  exact Buy dot (fast wave below −60), a dot never fires while EMA 11 is above EMA 33. I checked the
+  ribbon indexing: `RibbonLine(1)` is EMA 11 and `RibbonLine(7)` is EMA 33, unchanged since the
+  ninth line was added. So K2 is every dot.
+- **The overlap structure holds.** Red Diamond, Blood Diamond and Yellow X are 100% within a bar of
+  a Cipher B bear wave cross; Yellow Diamond is within a bar of a bull cross 76% of the time (77% on
+  10-17).
