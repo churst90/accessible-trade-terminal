@@ -1636,11 +1636,13 @@ is printed in yellow. The score is whole points, as DBSI's is. Each side starts 
 each of six fast checks: the close above the close two candles ago, the previous close above the one
 before it, a 4-bar average rising, a 21-bar stochastic rising, WaveTrend rising and Cipher B's money
 flow rising; and 1 when WaveTrend is pulling away from its average (the bears' checks are the mirror
-image). It also remembers the WaveTrend wave's last turn toward each side: 1 point after the turn, 3
-if it turned from deep oversold (overbought for bears), and while the wave keeps pulling away from
-its average, 6 more plus 1 for each candle since the turn, up to 10. Once that gap narrows, those
-points go; the side then gets 1 point for each candle after the first that the gap has widened in a
-row and 2 when the close is beyond the previous close. The highest possible score is 27. A 200-bar
+image). It also remembers the WaveTrend wave's last turn toward each side: 1 point after the turn,
+or 7 for bulls if it turned from deep oversold (2 for bears from deep overbought), and while the wave
+keeps pulling away from its average, 6 more for bulls (7 for bears) plus 1 for each candle since the
+turn, up to 10. Once that gap narrows, those points go; the side then gets 1 point for each candle
+after the first that the gap has widened in a row, and when the close is beyond the previous close,
+2 while the turn is still going, or, once the wave has turned back, 1 point for each candle since
+then, up to 4. The highest possible score is 31 for bulls and 27 for bears. A 200-bar
 trend line runs with it, green while the
 close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in
 control"; Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
@@ -1648,13 +1650,13 @@ line the close is on. With narration on (N) a bar close announces "Bulls take co
 take control at …", "Bulls reached the long entry score at …" or the bears' short version, and price
 crossing the trend line. The two scores start muted; the trend line and those announcements do not.
 
-It is a reconstruction, not DBSI. Its points were chosen on 897 DBSI numbers read off twenty charts,
-and it names the side in control the way DBSI does on about 9 candles in 10. On fifteen more charts
-it was never chosen on (DBSI livestreams, 2024–2026), it prints DBSI's exact number about 1 time in 3
-and lands within 2 points about 7 times in 10. Because each check is worth 2, when it misses it is
-usually by 2, so it is within 1 point a little under half the time. It prints 17 or more less often
-than DBSI does (on 21 of the 48 candles where DBSI did), and rarely where DBSI stays lower (3 times
-in those charts). Use it for direction and rough strength, and do not treat a single high reading as
+It is a reconstruction, not DBSI. Its points were chosen on 897 DBSI numbers read off twenty charts
+and about 5,800 hourly Bitcoin numbers read from DBSI itself, and it names the side in control the way
+DBSI does on about 9 candles in 10. On fifteen more charts it was never chosen on (DBSI livestreams,
+2024–2026), it prints DBSI's exact number a little more than 1 time in 3 and lands within 2 points
+nearly 8 times in 10. Because each check is worth 2, when it misses it is often by 2, so it is within
+1 point about half the time. It prints 17 or more less often than DBSI does (on 35 of the 48 candles
+where DBSI did), and sometimes where DBSI stays lower (6 times in those charts). Use it for direction and rough strength, and do not treat a single high reading as
 DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
 regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the

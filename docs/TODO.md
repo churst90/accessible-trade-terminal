@@ -197,6 +197,17 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
+  - **Cipher DBSI side-specific runs and the off-run close-up (2026-10-25, built, NOT seen; see
+    CHANGES).** Chosen on DBSI's own hourly Bitcoin Heikin-Ashi numbers (private). Hourly held-out ±2
+    75.9% → 81.2%, the fifteen 71.5% → 78.0%, exact 31% → 36%. False 17+ 3 → 6 on the fifteen. One
+    commit to revert. Cody to look at Bitcoin 1h Heikin-Ashi after a turn up from below −60: the
+    bulls' number should now sit in the high teens to mid-20s while the wave keeps pulling away.
+    Still open:
+    - Why bulls and bears differ (ideas: Cipher B's buy dot, or the year's trend; a second market's
+      hourly harvest would tell).
+    - Two more clues, not adopted: a broken run's close-up at 3 scored slightly better on the hourly
+      set but worse on the twenty; a side-specific broken-run weight helps hourly exact but costs
+      ±2 on the fifteen.
   - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
 >     CHANGES).** On the fifteen charts no fit saw: exact 17% → 20%, ±2 65% → 67%, false 17+ 8 → 10. On
 >     the private grids, ±2 Dow 72.5% → 75.2%, Bitcoin 68.8% → 71.9% (false 17+ 35 → 45). One commit

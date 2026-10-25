@@ -11,20 +11,23 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// formula is closed, and this one was reverse-engineered from its printed numbers.
     ///
     /// <para>
-    /// <b>The score</b> (2026-10-24, <c>dbsi7/gen5.py</c>): whole numbers only, no fitted decimals.
-    /// For each side, on the candles chosen by "Compute on Heikin-Ashi candles":
+    /// <b>The score</b> (2026-10-24, <c>dbsi7/gen5.py</c>; side-specific run and off-run close-up
+    /// 2026-10-25, <c>gen6.py</c>): whole numbers only, no fitted decimals. For each side, on the
+    /// candles chosen by "Compute on Heikin-Ashi candles":
     /// </para>
     /// <code>
     ///   score = max(−5, base + run)
     ///   base  = −5 + 2 per base vote (the gap vote 1): up to +8
-    ///   run   = in a WaveTrend run:    3 if its cross was deep, else 1
-    ///         + while the run is alive: 6 + bars since the cross (up to 10)
+    ///   run   = in a WaveTrend run:    its level: bulls 7 if the cross was deep, bears 2; else 1
+    ///         + while the run is alive: bulls 6, bears 7, + bars since the cross (up to 10)
     ///         + while it is not alive (broken, or no run): bars the gap has widened in a row − 1 (0 to 9)
-    ///                                                      + 2 if the close is beyond the previous close
+    ///             + on a close beyond the previous close: in a broken run 2;
+    ///               off a run, bars since the run ended (0 on the first bar out, up to 4)
     /// </code>
     /// <para>
-    /// The highest score is 27 (every vote, a deep cross alive for ten bars), DBSI's own highest
-    /// number on the digitised charts. The <b>base votes</b> (<see cref="BaseVotes"/>, <see cref="BasePoints"/>)
+    /// The highest score is 31 for bulls and 27 for bears (every vote, a deep cross alive for ten
+    /// bars); DBSI's own highest is 27, on the digitised charts and on 7,127 hourly bars, and the
+    /// model's is 27 on both. The <b>base votes</b> (<see cref="BaseVotes"/>, <see cref="BasePoints"/>)
     /// are DBSI's score on bars with nothing to remember, found with Market Cipher's own script on a
     /// Dow Jones daily chart: moving its Start date one bar at a time leaves a bar where only the
     /// base counts, and an integer program matched the bulls' number there. The <b>run</b>
@@ -36,10 +39,14 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     /// <para>
     /// <b>How the numbers were chosen.</b> Every setting is a small whole number, picked by trying
-    /// them all on the twenty digitised charts below (897 DBSI numbers read by eye, 2026-10-17:
+    /// them all, best by the share within 2 plus the exact share. The streak start and the broken
+    /// run's close-up points on the twenty digitised charts below (897 DBSI numbers read by eye, 2026-10-17:
     /// Coinbase BTCUSD on 1D/1W/3D/2D, the vendor's own 15-minute Heikin-Ashi image, Bitstamp,
-    /// Ethereum and XRP from 10 minutes to 6 hours, seven of them Heikin-Ashi), best by the share within 2 plus the
-    /// exact share; each setting one step either way scores lower there. Not tried: anything DBSI
+    /// Ethereum and XRP from 10 minutes to 6 hours, seven of them Heikin-Ashi). Each side's run
+    /// settings and the off-run close-up on an hourly set of DBSI's own numbers (Bitcoin 1-hour
+    /// Heikin-Ashi, 2026-01-01 to 09-06, 5,826 bars read from the vendor's script, kept out of this
+    /// repository): its bull runs after a deep cross sat about 6 points higher than the bears'.
+    /// Each setting one step either way scores lower on the hourly set and on the twenty. Not tried: anything DBSI
     /// remembers beyond the run. Its Start grid shows a value that sets on a close up and holds
     /// while the close stays beyond the close 2 back, but no trigger found matched it better than
     /// half the time, and with it the choice on the twenty was worse; it is left out.
@@ -54,19 +61,20 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para>
     /// <b>How close it is, measured</b> (<c>DbsiStyleGoldenTests</c> replays all of it). On the
     /// fifteen livestream charts (2026-10-23, Coinbase/Bitstamp Bitcoin and Ethereum, 1 minute to
-    /// 1 day) that no choice saw: DBSI's exact number 31.2% of the time, within ±1 45.2%, within ±2
-    /// 71.5%, typical error 3.07 points (with the exact money flow, 2026-10-24; the fitted one gave
-    /// 31.6%, 45.2%, 70.6%, 3.14, and the same settings win either way). The linear model it replaced (twelve weighted votes, eight
+    /// 1 day) that no choice saw: DBSI's exact number 36.2% of the time, within ±1 50.2%, within ±2
+    /// 78.0%, typical error 2.80 points; before the 2026-10-25 change 31.2%, 45.2%, 71.5%, 3.07. On
+    /// the last seven weeks of the hourly chart (2026-09-07 to 10-24, held out from the choice, 2 × 1,151
+    /// numbers): 41.9%, 57.2%, 81.2%, 2.16; before, 36.4%, 51.6%, 75.9%, 2.53. The linear model it replaced (twelve weighted votes, eight
     /// weighted base votes, a streak, a stretch and weighted run terms, fitted on the same twenty):
-    /// 20.4%, 50.5%, 67.1%, 3.06. Exact far more often, within 1 less often: every vote moves the
-    /// score by 2, so a miss is usually 2, not 1. On the twenty: 34.6%, 47.4%, 74.8%, 2.58.
+    /// 20.4%, 50.5%, 67.1%, 3.06 on the fifteen. On the twenty: 39.1%, 54.1%, 77.8%, 2.31 (before: 34.6%, 47.4%, 74.8%, 2.58).
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> Two readings in three are not DBSI's exact number, and on the
-    /// livestream charts about one in three is 3 or more off. It prints 17 or more less often than
-    /// DBSI (21 of the 48 such readings there) and rarely where DBSI does not (4 bars; the linear
-    /// model 27 and 10). Direction and rough size are trustworthy; exact numbers and single big
+    /// <b>The known shortfall.</b> About two readings in three are not DBSI's exact number, and on the
+    /// livestream charts about one in five is 3 or more off. It prints 17 or more on 35 of the 48
+    /// such readings there (before: 21), and where DBSI does not on 6 bars (before: 3; the linear
+    /// model 27 and 10). Why bulls and bears differ after a deep cross is not known; the
+    /// hourly set is one market in one rising-and-falling year. Direction and rough size are trustworthy; exact numbers and single big
     /// readings are not.
     /// </para>
     ///
@@ -120,15 +128,25 @@ namespace AccessibleTrader.Core.Services.Indicators
         internal static readonly int[] BasePoints = { 2, 2, 2, 2, 1, 2, 2 };
         /// <summary>The score with no vote and nothing remembered, and its floor.</summary>
         internal const int Floor = -5;
-        /// <summary>In a run: its level, by the cross (<see cref="WaveTrendRun"/>).</summary>
-        internal const int RunLevel = 1, DeepRunLevel = 3;
-        /// <summary>While the run is alive: these points plus one per bar since the cross, up to <see cref="RunCountCap"/>.</summary>
-        internal const int AlivePoints = 6;
+        /// <summary>
+        /// One side's run settings (<see cref="Model.RunPoints"/>): its level in a run, by the cross
+        /// (<see cref="WaveTrendRun"/>), and while the run is alive these alive points plus one per bar
+        /// since the cross, up to <see cref="RunCountCap"/>. The two sides differ (2026-10-25, chosen on
+        /// an hourly set of DBSI's own numbers): a deep bull cross is worth far more than a deep bear one.
+        /// </summary>
+        internal sealed record RunSettings(int RunLevel, int DeepRunLevel, int AlivePoints);
+        internal static readonly RunSettings BullRun = new(RunLevel: 1, DeepRunLevel: 7, AlivePoints: 6);
+        internal static readonly RunSettings BearRun = new(RunLevel: 1, DeepRunLevel: 2, AlivePoints: 7);
         internal const int RunCountCap = 10;
         /// <summary>While the run is not alive: the gap's widening streak counts from its bar after this many (<see cref="Model.NotAlivePoints"/>).</summary>
         internal const int StreakStart = 1;
-        /// <summary>While the run is not alive: these points on a close beyond the previous close.</summary>
+        /// <summary>In a broken run (not alive): these points on a close beyond the previous close.</summary>
         internal const int CloseUpPoints = 2;
+        /// <summary>
+        /// Off a run: a close beyond the previous close is worth one point per bar since the side's
+        /// last run ended (none on the first bar out), up to this many (<see cref="WaveRun.SinceRun"/>).
+        /// </summary>
+        internal const int OffRunCloseUpCap = 4;
         /// <summary>The money flow's averaging length (Cipher B's 60) for the seventh base vote.</summary>
         internal const int MoneyFlowLength = 60;
         /// <summary>wt1 beyond this against the side at the cross makes the cross deep.</summary>
@@ -138,32 +156,34 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// The score's settings as one value, so a variant can be scored the same way (the golden
         /// tests try every setting one step either way). <see cref="Shipped"/> is the constants above.
         /// </summary>
-        internal sealed record Model(int[] BasePoints, int RunLevel, int DeepRunLevel, int AlivePoints, int StreakStart, int CloseUpPoints)
+        internal sealed record Model(int[] BasePoints, RunSettings Bull, RunSettings Bear, int StreakStart, int CloseUpPoints, int OffRunCloseUpCap)
         {
             /// <summary>The run's points on bar <paramref name="i"/>: its level, and while alive the alive points and the count.</summary>
-            public int RunPoints(WaveRun w, int i) =>
-                w.Run[i] == 0 ? 0 : (w.Deep[i] == 1 ? DeepRunLevel : RunLevel) + (w.Alive[i] == 1 ? AlivePoints + (int)w.Count[i] : 0);
+            public static int RunPoints(RunSettings r, WaveRun w, int i) =>
+                w.Run[i] == 0 ? 0 : (w.Deep[i] == 1 ? r.DeepRunLevel : r.RunLevel) + (w.Alive[i] == 1 ? r.AlivePoints + (int)w.Count[i] : 0);
 
             /// <summary>
             /// The points of a side whose run is not alive: one per bar of the gap's widening streak
             /// beyond <see cref="StreakStart"/> (the streak counted up to <see cref="RunCountCap"/>), and
-            /// <see cref="CloseUpPoints"/> on a close beyond the previous close.
+            /// on a close beyond the previous close <see cref="CloseUpPoints"/> in a broken run, or off
+            /// a run the bars since it ended, up to <see cref="OffRunCloseUpCap"/>.
             /// </summary>
-            public int NotAlivePoints(int streak, double closeUp) =>
-                Math.Max(Math.Min(streak, RunCountCap) - StreakStart, 0) + (closeUp == 1 ? CloseUpPoints : 0);
+            public int NotAlivePoints(WaveRun w, int streak, double closeUp, int i) =>
+                Math.Max(Math.Min(streak, RunCountCap) - StreakStart, 0)
+                + (closeUp != 1 ? 0 : w.Run[i] == 1 ? CloseUpPoints : Math.Min((int)w.SinceRun[i], OffRunCloseUpCap));
 
-            /// <summary>One side's score on bar <paramref name="i"/>: max(−5, base + run).</summary>
-            public int Score(double[][] baseVotes, WaveRun wave, int streak, double closeUp, int i)
+            /// <summary>One side's score on bar <paramref name="i"/> (<paramref name="side"/> 1 bulls, −1 bears): max(−5, base + run).</summary>
+            public int Score(int side, double[][] baseVotes, WaveRun wave, int streak, double closeUp, int i)
             {
                 int score = Floor;
                 for (int j = 0; j < BasePoints.Length; j++) if (baseVotes[j][i] == 1) score += BasePoints[j];
-                score += RunPoints(wave, i);
-                if (wave.Alive[i] == 0) score += NotAlivePoints(streak, closeUp);
+                score += RunPoints(side > 0 ? Bull : Bear, wave, i);
+                if (wave.Alive[i] == 0) score += NotAlivePoints(wave, streak, closeUp, i);
                 return Math.Max(Floor, score);
             }
         }
 
-        internal static readonly Model Shipped = new(BasePoints, RunLevel, DeepRunLevel, AlivePoints, StreakStart, CloseUpPoints);
+        internal static readonly Model Shipped = new(BasePoints, BullRun, BearRun, StreakStart, CloseUpPoints, OffRunCloseUpCap);
 
         // DBSI's own colours as seen on the vendor image: green below, red above, yellow live.
         internal const string BullHex = "#00E676", BearHex = "#FF5252", LiveHex = "#FFEB3B";
@@ -490,20 +510,27 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// for bulls, above +60 for bears). <c>Alive</c>: the gap between wt1 and its average has
         /// widened on every bar since the cross; once it narrows it stays off for the rest of the
         /// run. <c>Count</c>: bars since the cross while alive, up to <see cref="RunCountCap"/>, else
-        /// 0. A run already going on the first bar is not counted (its cross is not in the data): it
-        /// is no run.
+        /// 0. <c>SinceRun</c>: on bars off a run, the bars since the side's last run ended (0 on the
+        /// first bar out), else 0. A run already going on the first bar is not counted (its cross is
+        /// not in the data): it is no run, and its end starts no count.
         /// </summary>
-        internal sealed record WaveRun(double[] Run, double[] Deep, double[] Alive, double[] Count);
+        internal sealed record WaveRun(double[] Run, double[] Deep, double[] Alive, double[] Count, double[] SinceRun);
 
         internal static WaveRun WaveTrendRun(double[] wt1, double[] wt2, int side)
         {
             int n = wt1.Length;
-            var r = new WaveRun(new double[n], new double[n], new double[n], new double[n]);
-            int cross = -1; bool alive = false;
+            var r = new WaveRun(new double[n], new double[n], new double[n], new double[n], new double[n]);
+            int cross = -1, lastEnd = -1; bool alive = false;
             for (int i = 1; i < n; i++)
             {
                 double gap = side * (wt1[i] - wt2[i]), before = side * (wt1[i - 1] - wt2[i - 1]);
-                if (!(gap > 0)) { cross = -1; continue; }
+                if (!(gap > 0))
+                {
+                    if (cross >= 0) lastEnd = i;
+                    cross = -1;
+                    r.SinceRun[i] = lastEnd >= 0 ? i - lastEnd : 0;
+                    continue;
+                }
                 if (!(before > 0)) { cross = i; alive = true; }
                 if (cross < 0) continue;
                 int age = i - cross;
@@ -558,8 +585,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 1; i < n; i++)
             {
                 if (double.IsNaN(t.Gap[i]) || double.IsNaN(t.Gap[i - 1])) continue;   // still warming up
-                bull[i] = m.Score(t.BullBase, t.BullWave, t.BullStreak[i], t.BullCloseUp[i], i);
-                bear[i] = m.Score(t.BearBase, t.BearWave, t.BearStreak[i], t.BearCloseUp[i], i);
+                bull[i] = m.Score(1, t.BullBase, t.BullWave, t.BullStreak[i], t.BullCloseUp[i], i);
+                bear[i] = m.Score(-1, t.BearBase, t.BearWave, t.BearStreak[i], t.BearCloseUp[i], i);
                 control[i] = Math.Sign(bull[i] - bear[i]);
             }
 

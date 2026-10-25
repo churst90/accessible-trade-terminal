@@ -52,6 +52,13 @@
   decimals TradingView shows on the Dow's whole daily history and on Bitcoin daily (candles and
   Heikin-Ashi) and 15-minute charts; before, its typical miss was about 6½ points. Cipher A's Yellow
   Diamond, which reads it, now lands on exactly the original's candles on Bitcoin daily and the Dow.
+- **Cipher DBSI is closer again.** A turn up from deep oversold now counts for much more for the bulls
+  than a turn down from deep overbought does for the bears, as the original's numbers showed on a
+  year of hourly Bitcoin. Once a wave has turned back, a close in the side's favour counts for more
+  the longer ago the turn ended. On fifteen charts it was not built from, it now prints DBSI's exact
+  number a little more than 1 time in 3 and lands within two points 78% of the time (was 72%). It
+  reaches 17 or more on 35 of the 48 candles where DBSI does (was 21), but also 6 times where DBSI
+  does not (was 3).
 - **Cipher DBSI counts in whole points, as DBSI does.** Each fast check adds 2 points (one adds 1),
   and the WaveTrend wave's turn toward a side adds a set number plus 1 a candle while the wave keeps
   pulling away. On fifteen charts it was not built from, it now prints DBSI's exact number about 1
