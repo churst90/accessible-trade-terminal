@@ -320,7 +320,8 @@ try
             HasFlag(args.Skip(1).ToArray(), "--counts-only")),
         "setup-grader-mc3" => await SetupGraderMc3Command.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
-            HasFlag(args.Skip(1).ToArray(), "--counts-only")),
+            HasFlag(args.Skip(1).ToArray(), "--counts-only"),
+            GetFlag(args.Skip(1).ToArray(), "--priors") ?? "10-18"),
         "spec-variants" => await SpecVariantsCommand.RunAsync(
             GetFlag(args.Skip(1).ToArray(), "--snapshots") ?? "../strategy-lab-data",
             all: HasFlag(args.Skip(1).ToArray(), "--all")),
@@ -352,7 +353,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
     Console.WriteLine("  StrategyLab setup-grader --snapshots <dir> [--counts-only]   # pre-registered (docs/SETUP_GRADER_PREREG.md)");
     Console.WriteLine("  StrategyLab setup-grader-mc2 --snapshots <dir> [--counts-only]   # round 2, Market Cipher school (docs/SETUP_GRADER_ROUND2_MC_PREREG.md)");
-    Console.WriteLine("  StrategyLab setup-grader-mc3 --snapshots <dir> [--counts-only]   # round 3, Market Cipher with Cipher SR location (docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md)");
+    Console.WriteLine("  StrategyLab setup-grader-mc3 --snapshots <dir> [--counts-only] [--priors exact]   # round 3 (--priors exact: rounds 1-2 as re-run on the exact Ciphers), Market Cipher with Cipher SR location (docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md)");
     Console.WriteLine("  Any command: --cipherb old  computes Cipher B as before 2026-10-17 (WTSignalPeriod 4, Legacy money flow, Gated buy dot; the gold dot was removed 2026-10-22)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine("  StrategyLab catalogue list [--status <level>] [--verbose]        # specs + what the evidence is");

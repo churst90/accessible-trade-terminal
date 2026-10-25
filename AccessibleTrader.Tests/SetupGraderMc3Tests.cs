@@ -350,6 +350,22 @@ namespace AccessibleTrader.Tests
             Assert.NotEmpty(Mc3.Reproduce(built, new[] { ("crypto", setups, e1 - 1) }, out _));
             // The pre-registered targets are round 2's published numbers.
             Assert.Equal(new[] { ("crypto4h", 334, 158), ("crypto", 70, 33), ("equities", 1_423, 721) }, Mc3.Round2Dev);
+            // --priors exact: round 2 as re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md, step 3).
+            Assert.Equal(new[] { ("crypto4h", 260, 131), ("crypto", 59, 28), ("equities", 1_176, 586) }, Mc3.Round2DevExact);
+        }
+
+        [Fact]
+        public void TheExactPriorsHoldTheSameEarlierTestsAsThe1018Ones()
+        {
+            // Section 7.1: round 1 has 39 tests and round 2 has 51. The exact table changes p, never which tests.
+            var old = Mc3.EarlierRounds();
+            var exact = Mc3.EarlierRounds(exact: true);
+            Assert.Equal(39, old.Count(x => x.Round == "R1"));
+            Assert.Equal(51, old.Count(x => x.Round == "R2"));
+            Assert.Equal(old.Select(x => (x.Round, x.Id)).OrderBy(x => x), exact.Select(x => (x.Round, x.Id)).OrderBy(x => x));
+            Assert.Equal(exact.Count, exact.Select(x => (x.Round, x.Id)).Distinct().Count());
+            Assert.All(exact, x => Assert.InRange(x.P, 0.0, 1.0));
+            Assert.NotEqual(old.Select(x => x.P), exact.Select(x => x.P));
         }
     }
 }

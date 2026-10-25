@@ -75,6 +75,11 @@ public static class SetupGraderMc3Command
     internal static readonly (string Cls, int Setups, int E1)[] Round2Dev =
         { ("crypto4h", 334, 158), ("crypto", 70, 33), ("equities", 1_423, 721) };
 
+    /// <summary>The same counts from round 2 re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_PREREG.md,
+    /// section 3 step 4; printed in docs/EXACT_CIPHERS_RERUN_FINDINGS.md step 3). Chosen by <c>--priors exact</c>.</summary>
+    internal static readonly (string Cls, int Setups, int E1)[] Round2DevExact =
+        { ("crypto4h", 260, 131), ("crypto", 59, 28), ("equities", 1_176, 586) };
+
     private static readonly string[] CryptoDaily =
     {
         "bitstamp_BTC_USDT_1d.json", "bitstamp_ETH_USDT_1d.json", "bitstamp_LTC_USDT_1d.json", "bitstamp_XRP_USDT_1d.json",
@@ -147,7 +152,7 @@ public static class SetupGraderMc3Command
 
     // ── Entry point ──────────────────────────────────────────────────────────
 
-    public static async Task<int> RunAsync(string snapshotDir, bool countsOnly)
+    public static async Task<int> RunAsync(string snapshotDir, bool countsOnly, string priors = "10-18")
     {
         Console.WriteLine("SETUP GRADER ROUND 3, MARKET CIPHER WITH CIPHER SR LOCATION — pre-registered in docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
@@ -156,6 +161,15 @@ public static class SetupGraderMc3Command
             Console.WriteLine("The pre-registration fixes the shipped (MCB) Cipher B defaults. Refusing to run another profile.");
             return 2;
         }
+        if (priors != "10-18" && priors != "exact")
+        {
+            Console.WriteLine($"--priors must be 10-18 (the default) or exact, not '{priors}'.");
+            return 2;
+        }
+        var exact = priors == "exact";
+        Console.WriteLine(exact
+            ? "Earlier rounds: --priors exact — rounds 1 and 2 as re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md), for the plumbing check and the cross-round Holm"
+            : "Earlier rounds: the 10-18 runs (docs/SETUP_GRADER_FINDINGS.md, docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md)");
         Console.WriteLine($"Snapshots: {Path.GetFullPath(snapshotDir)} (read only)");
         var files = Crypto4h.Concat(CryptoDaily).Concat(EquityNames.Select(e => $"yahoo_{e}_1d.json")).ToList();
         var missing = files.Where(f => !File.Exists(Path.Combine(snapshotDir, f))).ToList();
@@ -181,7 +195,7 @@ public static class SetupGraderMc3Command
 
         // ── Section 3: the plumbing check, before anything else ──────────────
         Console.WriteLine("══════ PLUMBING CHECK (section 3): round 2's development-era counts, reproduced by round 2's own code ══════");
-        var mism = Reproduce(built, Round2Dev, out var lines);
+        var mism = Reproduce(built, exact ? Round2DevExact : Round2Dev, out var lines);
         foreach (var l in lines) Console.WriteLine("  " + l);
         if (mism.Count > 0)
         {
@@ -263,8 +277,8 @@ public static class SetupGraderMc3Command
         Console.WriteLine();
 
         // ── Cross-round Holm (section 7.2) ──────────────────────────────────
-        var cross = CrossRound(all);
-        PrintCrossRound(cross, all);
+        var cross = CrossRound(all, exact);
+        PrintCrossRound(cross, all, exact);
 
         // ── Verdicts (sections 7.4 and 7.5) ─────────────────────────────────
         Console.WriteLine("── VERDICT ──");
@@ -721,8 +735,9 @@ public static class SetupGraderMc3Command
 
     /// <summary>Rounds 1 and 2's pre-registered tests with the raw p printed in their findings (p = 1
     /// where not testable, or where the findings print no raw p). Section 7.1's counts: 39 and 51.</summary>
-    internal static List<(string Round, string Id, double P)> EarlierRounds()
+    internal static List<(string Round, string Id, double P)> EarlierRounds(bool exact = false)
     {
+        if (exact) return EarlierRoundsExact();
         var l = new List<(string, string, double)>();
         void A(string r, string id, double p) => l.Add((r, id, p));
         // Round 1 (docs/SETUP_GRADER_FINDINGS.md): primary 8, secondary 12, macro 5, exits 10, fallback 4.
@@ -753,9 +768,43 @@ public static class SetupGraderMc3Command
         return l;
     }
 
-    internal static List<(string Round, string Id, double P, double Holm)> CrossRound(List<Row> round3)
+    /// <summary>The same 39 and 51 tests, with the raw p printed by rounds 1 and 2 re-run on the exact
+    /// Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md, steps 4 and 5; p = 1 where not testable). The
+    /// re-run prints round 2's raw exit p, so those enter at their value, not at 1 as in the 10-18 table.</summary>
+    internal static List<(string Round, string Id, double P)> EarlierRoundsExact()
     {
-        var l = EarlierRounds().Select(x => (x.Round, x.Id, x.P)).ToList();
+        var l = new List<(string, string, double)>();
+        void A(string r, string id, double p) => l.Add((r, id, p));
+        A("R1", "P1-crypto", 1); A("R1", "P2-crypto", 1); A("R1", "P3-crypto", 0.2862); A("R1", "P4-crypto", 1);
+        A("R1", "P1-equities", 1); A("R1", "P2-equities", 0.7048); A("R1", "P3-equities", 0.0061); A("R1", "P4-equities", 1);
+        A("R1", "S1-crypto", 0.3990); A("R1", "S1-equities", 0.0127); A("R1", "S2-crypto", 1); A("R1", "S2-equities", 1);
+        A("R1", "S3a-crypto", 1); A("R1", "S3b-crypto", 1); A("R1", "S3a-equities", 1); A("R1", "S3b-equities", 1);
+        A("R1", "S4a-crypto4h", 1); A("R1", "S4b-crypto4h", 1); A("R1", "S5-crypto", 1); A("R1", "S5-equities", 1);
+        A("R1", "M1-crypto", 0.4228); A("R1", "M1-equities", 0.5668); A("R1", "M2-crypto", 0.2163); A("R1", "M2-equities", 0.9143); A("R1", "M3-crypto", 0.7985);
+        foreach (var x in new[] { "X1", "X2", "X3", "X4", "X5" }) A("R1", $"{x}-crypto", 1);
+        A("R1", "X1-equities", 0.1030); A("R1", "X2-equities", 0.0950); A("R1", "X3-equities", 0.7900); A("R1", "X4-equities", 0.4800); A("R1", "X5-equities", 0.3260);
+        A("R1", "AuB-equities", 0.7530); A("R1", "AuB-C-equities", 0.9426); A("R1", "AuB-crypto", 1); A("R1", "AuB-C-crypto", 1);
+        A("R2", "P1-crypto", 0.6144); A("R2", "P2-crypto", 0.1294); A("R2", "P3-crypto", 0.2848);
+        A("R2", "P1-equities", 0.5468); A("R2", "P2-equities", 0.0241); A("R2", "P3-equities", 0.0924);
+        A("R2", "GA-E0-crypto", 1); A("R2", "GO-E0-crypto", 1); A("R2", "GA-E1-crypto", 1); A("R2", "GO-E1-crypto", 1);
+        A("R2", "GA-E0-equities", 0.2868); A("R2", "GO-E0-equities", 0.3139); A("R2", "GA-E1-equities", 0.4587); A("R2", "GO-E1-equities", 0.7673);
+        A("R2", "S1-crypto", 0.4472); A("R2", "S1-equities", 0.4355);
+        A("R2", "S2a-crypto", 0.1128); A("R2", "S2b-crypto", 0.1228); A("R2", "S2a-equities", 0.6944); A("R2", "S2b-equities", 0.6371);
+        A("R2", "S3a-crypto", 0.5655); A("R2", "S3b-crypto", 0.5708); A("R2", "S3a-equities", 0.2215); A("R2", "S3b-equities", 0.2640);
+        A("R2", "S4-P1-crypto4h", 0.0798); A("R2", "S4-P2-crypto4h", 0.2116); A("R2", "S4-P3-crypto4h", 0.7212);
+        A("R2", "S5-crypto", 0.2355); A("R2", "S5-equities", 0.6993);
+        A("R2", "S6-crypto", 1); A("R2", "S6-equities", 0.0622); A("R2", "S7-crypto", 1); A("R2", "S7-equities", 0.2151);
+        A("R2", "X1-E0-crypto", 0.0555); A("R2", "X2-E0-crypto", 0.9585); A("R2", "X3-E0-crypto", 0.4508); A("R2", "X4-E0-crypto", 0.0490);
+        A("R2", "X1-E1-crypto", 0.4488); A("R2", "X2-E1-crypto", 0.3583); A("R2", "X3-E1-crypto", 0.9500); A("R2", "X4-E1-crypto", 0.1399);
+        A("R2", "X1-E0-equities", 0.0080); A("R2", "X2-E0-equities", 0.1244); A("R2", "X3-E0-equities", 0.0015); A("R2", "X4-E0-equities", 0.0005);
+        A("R2", "X1-E1-equities", 0.0445); A("R2", "X2-E1-equities", 0.3008); A("R2", "X3-E1-equities", 0.1824); A("R2", "X4-E1-equities", 0.0435);
+        A("R2", "GOAB-E0-crypto", 0.3332); A("R2", "GOAB-E1-crypto", 1);
+        return l;
+    }
+
+    internal static List<(string Round, string Id, double P, double Holm)> CrossRound(List<Row> round3, bool exact = false)
+    {
+        var l = EarlierRounds(exact).Select(x => (x.Round, x.Id, x.P)).ToList();
         l.AddRange(round3.Select(t => ("R3", t.Id, t.Testable ? t.P : 1.0)));
         var adj = SetupGraderCore.Holm(l.Select(x => x.P).ToList());
         var outp = l.Select((x, k) => (x.Round, x.Id, x.P, adj[k])).ToList();
@@ -763,7 +812,7 @@ public static class SetupGraderMc3Command
         return outp;
     }
 
-    private static void PrintCrossRound(List<(string Round, string Id, double P, double Holm)> cross, List<Row> r3)
+    private static void PrintCrossRound(List<(string Round, string Id, double P, double Holm)> cross, List<Row> r3, bool exact = false)
     {
         Console.WriteLine($"══════ CROSS-ROUND HOLM (section 7.2): {cross.Count} tests — round 1 {cross.Count(x => x.Round == "R1")}, round 2 {cross.Count(x => x.Round == "R2")}, round 3 {cross.Count(x => x.Round == "R3")} ══════");
         Console.WriteLine($"  Bonferroni line 0.05 / {cross.Count} = {0.05 / cross.Count:0.00000}. Smallest possible round-3 p with {Draws:N0} draws: {1.0 / (Draws + 1):0.00000}.");
@@ -771,13 +820,19 @@ public static class SetupGraderMc3Command
         foreach (var x in cross.OrderBy(x => x.P).Take(12))
             Console.WriteLine($"    {x.Round} {x.Id,-18} raw {x.P,8:0.00000}  cross-round Holm {x.Holm,7:0.0000}  {(x.Holm <= Alpha ? "PASSES" : "fails")}");
         Console.WriteLine("  Re-reading rounds 1 and 2 (not a test): their Holm-significant results under the cross-round Holm:");
-        foreach (var (r, id) in new[] { ("R1", "P3-equities"), ("R1", "S1-equities") })
+        var reread = exact
+            ? new[] { ("R1", "P3-equities"), ("R2", "X3-E0-equities"), ("R2", "X4-E0-equities") }
+            : new[] { ("R1", "P3-equities"), ("R1", "S1-equities") };
+        foreach (var (r, id) in reread)
         {
             var x = cross.First(c => c.Round == r && c.Id == id);
             Console.WriteLine($"    {r} {id}: raw {x.P}, cross-round Holm {x.Holm:0.0000} -> {(x.Holm <= Alpha ? "still passes" : "no longer passes")}");
         }
-        Console.WriteLine("    R2 X4-E0-equities, X4-E1-equities, X1-E0-equities (round-2 Holm 0.008, 0.008, 0.042): their raw p is not printed in round 2's findings, so they enter at 1.");
-        Console.WriteLine($"      Even at the smallest p round 2's 2,000 random books allow (1/2,001 = 0.0005), the first Holm step here needs 0.05 / {cross.Count} = {0.05 / cross.Count:0.00000}, so none could pass.");
+        if (!exact)
+        {
+            Console.WriteLine("    R2 X4-E0-equities, X4-E1-equities, X1-E0-equities (round-2 Holm 0.008, 0.008, 0.042): their raw p is not printed in round 2's findings, so they enter at 1.");
+            Console.WriteLine($"      Even at the smallest p round 2's 2,000 random books allow (1/2,001 = 0.0005), the first Holm step here needs 0.05 / {cross.Count} = {0.05 / cross.Count:0.00000}, so none could pass.");
+        }
         Console.WriteLine();
         Console.WriteLine("  Round 3, raw p, within-family Holm (decides nothing), cross-round Holm (decides):");
         foreach (var t in r3)
