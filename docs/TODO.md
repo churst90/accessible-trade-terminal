@@ -250,9 +250,12 @@
     Still open:
     - Why bulls and bears differ (ideas: Cipher B's buy dot, or the year's trend; a second market's
       hourly harvest would tell).
-    - Two more clues, not adopted: a broken run's close-up at 3 scored slightly better on the hourly
-      set but worse on the twenty; a side-specific broken-run weight helps hourly exact but costs
-      ±2 on the fifteen.
+    - Bears' broken-run close-up 3 adopted 2026-10-25 (next entry). Still not adopted: 3 on both
+      sides (worse on the twenty and the hourly set).
+  - **Cipher DBSI bears' broken-run close-up 3 (2026-10-25, built, NOT seen; see CHANGES).** Hourly
+    held-out exact 41.9% → 44.0%, ±2 81.2% → 81.9%; the fifteen exact 36.2% → 36.8% but ±2
+    78.0% → 77.1%. One commit to revert. Still open: the bear side is still weaker than the bull side
+    (hourly ±2 about 79% against 86%); most false 17+ readings are true 16s; why bears differ.
   - **Cipher DBSI given an eighth base vote, the money flow rising (2026-10-24, built, NOT seen; see
 >     CHANGES).** On the fifteen charts no fit saw: exact 17% → 20%, ±2 65% → 67%, false 17+ 8 → 10. On
 >     the private grids, ±2 Dow 72.5% → 75.2%, Bitcoin 68.8% → 71.9% (false 17+ 35 → 45). One commit

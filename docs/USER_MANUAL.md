@@ -1641,7 +1641,7 @@ or 7 for bulls if it turned from deep oversold (2 for bears from deep overbought
 keeps pulling away from its average, 6 more for bulls (7 for bears) plus 1 for each candle since the
 turn, up to 10. Once that gap narrows, those points go; the side then gets 1 point for each candle
 after the first that the gap has widened in a row, and when the close is beyond the previous close,
-2 while the turn is still going, or, once the wave has turned back, 1 point for each candle since
+2 for bulls (3 for bears) while the turn is still going, or, once the wave has turned back, 1 point for each candle since
 then, up to 4. The highest possible score is 31 for bulls and 27 for bears. A 200-bar
 trend line runs with it, green while the
 close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in

@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Cipher DBSI's bear numbers are closer.** After a WaveTrend turn down stops pulling away, a close
+  lower than the previous one now adds 3 to the bears' score, not 2, as DBSI's own hourly Bitcoin
+  numbers showed. On seven weeks of hourly Bitcoin it was not built from, it prints DBSI's exact
+  number 44% of the time (was 42%). Within two points it is about the same: a little better there,
+  a little worse on the fifteen livestream charts (77%, was 78%).
 - **Cipher C on a symbol without a preset counts the way the original does.** Apple, Solana, the euro
   or any symbol none of the sixteen presets covers is now counted from 32 bars, the original's
   default count. Coins used Bitcoin's 48 before, stocks the S&P's 36. Its daily lows match the
