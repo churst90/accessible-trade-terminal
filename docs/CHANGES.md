@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Market Cipher tests re-run on the exact Ciphers: still No edge (2026-10-25)
+
+- **What ran:** the four pre-registered tests of 2026-10-17 and 10-18 (Cipher A battery, setup
+  grader rounds 1 to 3). They were run again, unchanged, on the Cipher A, B and SR that now match
+  Market Cipher's own plotted values. The plan was written first
+  (`docs/EXACT_CIPHERS_RERUN_PREREG.md`); results in `docs/EXACT_CIPHERS_RERUN_FINDINGS.md`.
+- **Verdicts:** all four say No edge again, in every class. Nothing passes its own correction.
+  - Round 1: the equities grade-C dot still passes inside round 1 (Holm 0.049, was 0.011); the veto
+    no longer does.
+  - Round 2: the equities trigger entry is now Suggestive (p 0.024, Holm 0.145). The equities exits
+    still beat random exits.
+  - Round 3: 0 of 29 pass, none Suggestive (was 4).
+  - Battery: 0 cells survive; best pFW 0.11 (was 0.38).
+  - Round 3's correction over all three rounds' 119 tests passes nothing. Round 2's exits now enter
+    at their raw p; on 10-18 they entered at 1.
+- **StrategyLab:**
+  - `setup-grader-mc3 --priors exact` reads rounds 1 and 2 as re-run.
+  - A lab-wide `--cipher-candles ha` computes the three Ciphers as on a Heikin-Ashi chart
+    (exploratory; rounds 1 and 3 refuse it).
+  - Tests for both, with sabotages red.
+- **Exploratory, Heikin-Ashi:** round 2 and the battery once each; nothing. The crypto 4h trigger
+  entry reaches +0.338R on 141 (p 0.0024) in development, but is +0.037R on 233 from 2023 on.
+- **Caveats:**
+  - The data, the held-out era and the old answers were all known before this run.
+  - Round 3 lost most of its setups at support (crypto 4h dot 128 → 41), so its crypto daily
+    location tests are not testable and equities has no held-out check.
+  - Not seen in the app; nothing in the app changed.
+
 ### Cipher B's money flow is Market Cipher B's exactly (2026-10-24)
 
 - **Formula:** d = typical price (high + low + close) / 3 less its 5-bar mean; money flow =

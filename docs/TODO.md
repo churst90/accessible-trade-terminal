@@ -1,3 +1,13 @@
+> - [ ] **The Market Cipher tests on the exact Ciphers: DONE, still No edge (2026-10-25; see CHANGES
+>   and `docs/EXACT_CIPHERS_RERUN_FINDINGS.md`).** Left:
+>   - The only lead from the whole Market Cipher series is the crypto 4h trigger-wave entry, and it
+>     is weak. It came out at +0.268R on the old Ciphers, +0.094R on the exact ones on candles, and
+>     +0.338R on Heikin-Ashi, but only +0.037R in the held-out era. Test it again only under its
+>     own pre-registration, on 4h bars after 2026-10-18; it needs months of new bars. Cody to
+>     decide whether that is worth waiting for.
+>   - Round 2's exits can never pass the three-round correction: 2,000 random books cannot give a p
+>     below 0.0005, and the first step needs 0.00042. A future round with exits needs more than 2,380
+>     books just to make passing possible (1 ÷ 2,381 = 0.00042); 10,000 leaves room.
 > - [ ] **Properties pass (Cody, 2026-10-23).** Three decisions, done in this order:
 >   1. Reset to Defaults resets everything, parameters included (built, NOT seen; see CHANGES).
 >      Cody to change an RSI's period and colour, press Reset to Defaults, and hear the name and
