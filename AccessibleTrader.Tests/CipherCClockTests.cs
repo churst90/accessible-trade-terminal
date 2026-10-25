@@ -99,6 +99,34 @@ public class CipherCClockTests
                 $"the clock says gold trades every day at bar {cut} ({bars[cut - 1].Date:yyyy-MM-dd})");
     }
 
+    /// <summary>The Dow's four-hour chart on TradingView: two bars a session, 13:30 and 17:30 UTC.
+    /// Half the gaps are the 20-hour night, so the median gap is one; the chart once read as daily
+    /// bars, a day a bar.</summary>
+    [Fact]
+    public void Two_bars_a_session_are_two_bars_a_day()
+    {
+        var bars = new List<Ohlcv>();
+        for (int i = 0; i < 700; i++)
+        {
+            var d = Start.AddDays(i);
+            if (Weekend(d)) continue;
+            bars.Add(Bar(d.AddHours(13.5), bars.Count, 2.0));
+            bars.Add(Bar(d.AddHours(17.5), bars.Count, 2.0));
+        }
+        var clock = CipherCEngine.MeasureBars(bars.ToArray());
+        Assert.False(clock.TradesEveryDay);
+        Assert.Equal(2, clock.BarsPerDay, 6);
+    }
+
+    /// <summary>And a stock's daily bars stay one a day.</summary>
+    [Fact]
+    public void One_bar_a_session_is_a_daily_chart()
+    {
+        var clock = CipherCEngine.MeasureBars(Daily(1500, d => Weekend(d) ? null : 2.0, hour: 14));
+        Assert.False(clock.TradesEveryDay);
+        Assert.Equal(1, clock.BarsPerDay, 6);
+    }
+
     /// <summary>TradingView's gold and dollar index: five bars a week, Monday's dated Sunday 22:00 UTC.</summary>
     [Fact]
     public void Five_sessions_a_week_dated_from_Sunday_evening_are_a_five_day_week()

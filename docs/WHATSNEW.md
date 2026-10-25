@@ -12,6 +12,11 @@
   or any symbol none of the sixteen presets covers is now counted from 32 bars, the original's
   default count. Coins used Bitcoin's 48 before, stocks the S&P's 36. Its daily lows match the
   original's more often on all thirteen charts checked (from 66% to 77% of them).
+- **Cipher C off the daily chart counts as the original does.** On a weekly, four-hour or hourly
+  chart it counts each bar as one of the preset's days, as the original does there, and says its
+  counts in bars. It says the preset is not tuned for that timeframe and that daily is. A weekly
+  chart now has daily lows too. On four-hour gold and Bitcoin its lows match the original's three
+  times as often as before.
 - **An ETF or future is counted as itself, not as its index.** SPY, QQQ, DIA, GLD, IBIT and other
   funds and futures no longer take the S&P's, Nasdaq's, Dow's, gold's or Bitcoin's preset; they get
   the default count, as the original gives them. The index, gold or coin itself under another name

@@ -303,8 +303,7 @@ public sealed class CipherCProviderTests
     /// <b>The cycle arc is the lowest tier's window's picture (2026-10-22).</b> Cody: "if the arc
     /// is more akin to the chart formation lines and drawings, then leave it as such, just a
     /// drawing". One hump from each low to the next, its trough on the low's bar, every point
-    /// under that bar's candle; on the daily window of a daily chart and the weekly window of a
-    /// weekly one, never both. Look-ahead, as CF's is: each arc ends at a low known only later,
+    /// under that bar's candle; on the lowest tier's window, never both. Look-ahead, as CF's is: each arc ends at a low known only later,
     /// so a shorter history draws a different arc — which is why the causal test leaves it out.
     /// </summary>
     [Fact]
@@ -332,9 +331,10 @@ public sealed class CipherCProviderTests
         var part = Run(bars.Take(3000).ToList(), "BTC/USD")[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
         Assert.Contains(Enumerable.Range(2600, 400), i => Math.Abs(part[i] - arc[i]) > 1e-6);
 
+        // A weekly chart counts its daily cycle in bars, so the arc is on its daily window too.
         var weekly = Run(Weekly(bars), "BTC/USD");
-        Assert.Contains(weekly[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => !double.IsNaN(v));
-        Assert.All(weekly[CipherCProvider.CompDailyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
+        Assert.Contains(weekly[CipherCProvider.CompDailyWindow + ComponentCompanions.Path], v => !double.IsNaN(v));
+        Assert.All(weekly[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
     }
 
     // ── 2. CF's own Bitcoin labels ──────────────────────────────────────────────────
@@ -491,28 +491,68 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// On a weekly chart there is no daily cycle — no "DCL" (Cody's complaint about Loukas on the
-    /// weekly chart) — and the weekly cycle runs, carrying the events instead.
+    /// <b>Off daily the counts run in the chart's bars, as the original runs them (2026-10-25).</b>
+    /// On a weekly chart CF says "Timeframe Not Optimised, Switch to Daily" and still draws its daily
+    /// lows, its daily count taken as weeks: the Dow's 36 fits its weekly labels at 36. Cody: "copy
+    /// the original: goal is 100% accurate replication". This chart once had no daily cycle at all
+    /// (a wish from Loukas's weekly chart, before the rebuild copied CF).
     /// </summary>
     [Fact]
-    public void A_weekly_chart_has_no_daily_cycle_and_runs_the_weekly_one()
+    public void A_weekly_chart_counts_the_daily_cycle_in_its_bars()
     {
         var weeks = Weekly(CipherSrSpeechTests.BtcDaily());
         var r = Run(weeks, "BTC/USD");
-        Assert.Empty(Marked(r[CipherCProvider.CompDcl]));
-        Assert.Empty(Marked(r[CipherCProvider.CompDailyWindow]));
-        Assert.Empty(Marked(Of(r, CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix)));
-        Assert.NotEmpty(Marked(r[CipherCProvider.CompWcl]));
-        Assert.NotEmpty(Marked(r[CipherCProvider.CompWeeklyWindow]));
-        // With no daily window to cover, the weekly one tints.
-        Assert.Contains(1.0, r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint]);
-        // And the weekly count is the one printed under the lows.
-        Assert.NotEmpty(Marked(r[CipherCProvider.CompWcl + ComponentCompanions.Label]));
-        Assert.NotEmpty(Marked(r[CipherCProvider.CompPending]));
-        var words = CipherCProvider.StateWords(n => r.TryGetValue(n, out var a) ? a : null, weeks.Count - 1);
+        Assert.Equal(1.0, r[CipherCProvider.InBarsKey][^1]);
+        // Bitcoin's 54 to 66 days are 54 to 66 bars, and its weekly 22 to 42 weeks 154 to 294.
+        Assert.Equal(54.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
+        Assert.Equal(66.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.EndSuffix][^1]);
+        Assert.Equal(154.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
+        var dcl = Marked(r[CipherCProvider.CompDcl]).ToList();
+        Assert.True(dcl.Count >= 5, $"{dcl.Count} daily lows");
+        // A low's cycle is counted in bars, both ends, as on a daily chart.
+        Assert.Equal(dcl[^1] - dcl[^2] + 1, r[CipherCProvider.CompDcl + CipherCProvider.LengthSuffix][dcl[^1]]);
+        Assert.NotEmpty(Marked(r[CipherCProvider.CompDcl + ComponentCompanions.Label]));
+
+        var words = CipherCProvider.StateWords(n => r.TryGetValue(n, out var a) ? a : null, weeks.Count - 1, weeks[^1].Date);
         _out.WriteLine(string.Join(". ", words));
-        Assert.DoesNotContain(words, s => s.Contains("daily", StringComparison.Ordinal));
-        Assert.Contains(words, s => s.StartsWith("weekly cycle week ", StringComparison.Ordinal));
+        Assert.Contains(words, s => s.StartsWith("daily cycle bar ", StringComparison.Ordinal));
+        Assert.Contains(words, s => s.StartsWith("weekly cycle bar ", StringComparison.Ordinal));
+        Assert.Contains(words, s => s.StartsWith("the last daily pending cycle low was cancelled", StringComparison.Ordinal) && s.EndsWith(" bars ago", StringComparison.Ordinal));
+        Assert.Contains(words, s => s.EndsWith("Not tuned for this timeframe: its days are counted as this chart's bars; switch to daily for the tuned count", StringComparison.Ordinal));
+        var p = new CipherCProvider();
+        string? low = p.GetComponentSpeech(CipherCProvider.CompDcl, r[CipherCProvider.CompDcl][dcl[^1]], weeks[dcl[^1]], r, dcl[^1]);
+        _out.WriteLine(low);
+        Assert.Contains(" bar cycle.", low);
+    }
+
+    /// <summary>The Dow's four-hour chart: two bars a session, and the Dow's 36 days are 36 bars.</summary>
+    [Fact]
+    public void A_four_hour_stock_chart_counts_the_daily_cycle_in_its_bars()
+    {
+        var bars = new List<Ohlcv>();
+        foreach (var day in Weekdays(1200, new DateTime(2020, 1, 6)))
+            for (int h = 0; h < 2; h++)
+            {
+                int i = bars.Count;
+                double c = 100 + 10 * Math.Sin(2 * Math.PI * i / 40.0) + i * 0.01;
+                bars.Add(new Ohlcv(day.Date.AddHours(13.5 + 4 * h), c - 0.3, c + 1, c - 1, c, 1000));
+            }
+        var r = Run(bars, "DJI");
+        Assert.Equal(1.0, r[CipherCProvider.InBarsKey][^1]);
+        Assert.Equal(36.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
+        Assert.Equal(110.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
+    }
+
+    /// <summary>And a daily chart counts days, with no warning.</summary>
+    [Fact]
+    public void A_daily_chart_counts_days()
+    {
+        var bars = Weekdays(800, new DateTime(2022, 1, 3));
+        var r = Run(bars, "DJI");
+        Assert.Equal(0.0, r[CipherCProvider.InBarsKey][^1]);
+        var words = CipherCProvider.StateWords(n => r.TryGetValue(n, out var a) ? a : null, bars.Count - 1, bars[^1].Date);
+        Assert.Contains(words, s => s.StartsWith("daily cycle day ", StringComparison.Ordinal));
+        Assert.DoesNotContain(words, s => s.Contains("Not tuned", StringComparison.Ordinal));
     }
 
     private static List<Ohlcv> Weekdays(int count, DateTime from)
@@ -529,20 +569,20 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// A stock's weekly bar is five trading days, so the weekly cycle runs on a weekly stock chart.
-    /// (The bar clock once had the factor upside down — 9.8 trading days a bar — and switched the
-    /// weekly tier off on every weekly stock chart.)
+    /// A stock's weekly bar is five trading days. (The bar clock once had the factor upside down —
+    /// 9.8 trading days a bar — and switched the weekly tier off on every weekly stock chart.) Its
+    /// counts run in bars: the S&amp;P's 36 days are 36 bars, its 22 weeks 110.
     /// </summary>
     [Fact]
-    public void A_weekly_stock_chart_runs_the_weekly_cycle()
+    public void A_weekly_stock_chart_counts_in_bars()
     {
         var weeks = Weekly(Weekdays(3000, new DateTime(2010, 1, 4)));
         var clock = CipherCEngine.MeasureBars(weeks.ToArray());
         Assert.False(clock.TradesEveryDay);
         Assert.Equal(0.2, clock.BarsPerDay, 3);
         var r = Run(weeks, "SPX");
-        Assert.Equal(22.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
-        Assert.Empty(Marked(Of(r, CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix)));
+        Assert.Equal(36.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
+        Assert.Equal(110.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
     }
 
     /// <summary>

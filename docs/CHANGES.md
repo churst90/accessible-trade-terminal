@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C off the daily chart counts in the chart's bars, as the original does; a two-bar session is no longer read as daily bars (2026-10-25)
+
+- **What changed** (`CipherCProvider.Compute`, `InBarsKey`, `PresetWords`; `CipherCEngine.MeasureBars`;
+  study `strategy-lab-data/cf-tv-export` cap5, cap9, `ctz/ccrun.sh`; CIPHER_C_DESIGN section 18):
+  - On any chart that is not daily (weekly, 2-day, 4-hour, hourly), Cipher C counts each bar as one
+    day of the preset, on the preset's own calendar: the Dow's 36 to 44 days are 36 to 44 bars, its
+    22 to 31 weeks 110 to 155 bars. It used to count time (a 4-hour Bitcoin chart's 54 days were 324
+    bars), and a weekly chart had no daily cycle at all.
+  - A weekly chart now has daily lows (D), with the weekly lows picked from them as on a daily chart.
+  - Off daily, every count, age, cycle length and window is said in bars ("daily cycle bar 12, in
+    its window, 8 bars left", "a 48 bar cycle, confirmed 24 bars later"), and the preset line ends
+    with "Not tuned for this timeframe: its days are counted as this chart's bars; switch to daily
+    for the tuned count". The Daily cycle shortest setting is in bars there too.
+  - `MeasureBars`: a market that does not trade on weekends is judged by its bars per date whenever
+    its bars are under a day and a half apart. With two bars a session (TradingView's Dow 4-hour
+    chart, 13:30 and 17:30 UTC) half the gaps are the 20-hour night, so the median gap sat exactly on
+    the 20-hour cut-off and the chart read as one bar a day.
+- **Why:** Cody, 2026-10-25: "copy the original: goal is 100% accurate replication". Off daily the
+  original says "Timeframe Not Optimised, Switch to Daily" and runs its daily count in the chart's
+  bars: the count that best fits its labels is the Dow's 36 on weekly and on 4-hour (preset 36),
+  gold's 23 on weekly (22), the miners' 21 (22), Bitcoin's 51 on 4-hour (48).
+- **Against the original's own labels** (same charts the rule was read from):
+  - 4-hour daily F1: gold 0.22 → 0.748, Bitcoin 0.245 → 0.729; the Dow (0.836) and GDX (0.782)
+    unchanged, since the bug already read them as daily.
+  - Weekly charts, weekly F1: Dow 0.365 → 0.773, gold 0.214 → 0.889, GDX 1.000 (3 of 3); daily lows
+    (none before) Dow 0.755, gold 0.846, GDX 0.960. Bitcoin's weekly capture has 3 labels: too few.
+- **Held out** (cap9, captured after the rule was written: Nasdaq, silver, Ether, Coinbase, oil,
+    the dollar index on weekly and 4-hour, scored on both builds; pooled F1):
+    - 4-hour: daily 0.398 → 0.749, weekly 0.300 → 0.558. Silver, Ether, oil and the dollar gain
+      (daily 0.23-0.33 → 0.75-0.83); the Nasdaq and Coinbase (two bars a session) are unchanged.
+    - Weekly charts: daily lows (none before) 0.763 (121 of 158, 38 extra). Weekly lows 0.332 →
+      0.400, but mixed: the Nasdaq 0.30 → 0.48, silver 0.27 → 0.80, oil 0.32 → 0.41 better; Ether
+      0.33 → 0.20, Coinbase 0.25 → 0 (2 labels), the dollar 0.51 → 0.38 worse. Recall fell 0.76 →
+      0.39 as the extras fell 185 → 38: the weekly tier on a weekly chart is not yet the original's.
+- **Caveats:**
+  - This reverses an older rule: a weekly chart had no daily cycle (from a wish about Loukas's
+    weekly chart, before Cipher C was rebuilt on the original). The original draws them.
+  - The weekly cycle's numbers off daily are five or seven bars a "week" of the count, said in bars;
+    the original's "Weeks since last WCL" off daily is not decoded.
+  - Tests: three that pinned the old weekly chart (no daily cycle, time-counted weekly window, the
+    arc on the weekly window) now pin the bar count; new tests for a 4-hour two-bar-session chart, a
+    daily chart's words, and two-bar sessions in `MeasureBars`. Sabotages red: counting time again,
+    day words off daily, the weekly window in weeks, no warning, the old `MeasureBars`.
+  - Not seen or heard in the app.
+
 ### Cipher C: an ETF or future no longer takes its index's preset (2026-10-25)
 
 - **What changed** (`CipherCEngine.Aliases`; study `strategy-lab-data/cf-tv-export` cap6-cap8,
@@ -21,8 +66,7 @@ All notable changes to this project will be documented in this file.
 - **Caveats:**
   - The original tunes one feed per asset, not the asset. It also calls COINBASE:BTCUSD,
     BINANCE:BTCUSDT, COINBASE:ETHUSD, OANDA:XAUUSD, TVC:SPX and NASDAQ_DLY:NDX unoptimised. Cipher C
-    still gives those instruments their presets on any feed; whether to copy the original exactly is
-    a question for Cody (TODO).
+    still gives those instruments their presets on any feed. Cody, 2026-10-25: keep it per asset.
   - The backtest in CIPHER_C_DESIGN section 8 ran SPY, QQQ, DIA and GLD on the index presets. It was
     not re-run.
   - Tests: the symbol table's cases now say SPY, DIA, QQQ, ES, GLD, IBIT and ^IXIC have no preset, and

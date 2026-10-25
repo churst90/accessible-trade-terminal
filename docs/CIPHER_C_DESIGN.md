@@ -793,8 +793,8 @@ Cipher C's fallback is now the S&P's ranges and weekly rule counted from 32 bars
 
   Cipher C now drops the ETF and future aliases (SPY, QQQ, DIA, ES, GLD, IBIT and the rest) and IXIC,
   the Nasdaq Composite. It keeps every spelling of the instrument itself, on any feed. That is the
-  original on the feed it tunes, not on the others (the Coinbase, Binance and OANDA rows). Whether to
-  copy the original feed by feed is a question for Cody (TODO).
+  original on the feed it tunes, not on the others (the Coinbase, Binance and OANDA rows). Cody,
+  2026-10-25: keep it per asset, every feed of an asset taking its preset.
 - **The trigger, again** (the first eligible bar is still the best, 38% of 854 namings):
   - depth gates and a floor under the candidate: at most +0.004 F1;
   - Heikin-Ashi green 37%, RSI over 30 38.5% (a tie);
@@ -805,3 +805,61 @@ Cipher C's fallback is now the S&P's ranges and weekly rule counted from 32 bars
 - **The table's bars counter (row 5, column 4)** counts from the pending low, not from its naming.
   After a pending low is dropped it keeps counting from the dropped low, with no label drawn, until
   the next one is named (1,927 bars in 327 runs on the sixteen replays).
+
+## 18. Off the daily chart: the daily count in the chart's bars (2026-10-25)
+
+On any chart that is not daily the original's table says "Timeframe Not Optimised, Switch to
+Daily", and it still draws daily and weekly lows. Its final drawings were read on weekly and 4-hour
+charts of the Dow, gold, the miners and Bitcoin (private captures, cf-tv-export cap5). The shortest
+daily cycle that fits its daily labels best is the preset's own, **in bars**: the Dow 36 on weekly and
+on 4-hour (preset 36), gold 23 on weekly (22), the miners 21 (22), Bitcoin 51 on 4-hour (48). Counted
+in time, Bitcoin's 4-hour chart would need 324 bars.
+
+So off daily Cipher C runs the preset as if each bar were a day of the preset's own calendar
+(`CipherCProvider.Compute`: `BarClock(1, preset.CalendarDays)`): every daily range is in bars, a
+"week" is five or seven bars, the weekly ranges and window are the preset's weeks in those bars. Each
+bar carries `__in_bars`, which turns the spoken units into bars and adds "Not tuned for this
+timeframe" to the preset line. Cody, 2026-10-25: copy the original.
+
+`MeasureBars` had a bug the 4-hour charts exposed. TradingView's Dow 4-hour chart has two bars a
+session (13:30 and 17:30 UTC), so half its gaps are the 20-hour night and the median gap sat on the
+20-hour cut-off: read as one bar a day. That happened to match the original (it counts bars), which is
+why the Dow and the miners scored 0.836 and 0.782 on 4-hour before. A market that does not trade on
+weekends with bars under a day and a half apart is now judged by its bars per date.
+
+| Chart (rule read here) | Daily F1, before → after | Weekly F1, before → after |
+|---|---|---|
+| Dow 1W | none → 0.755 | 0.365 → 0.773 |
+| Gold 1W | none → 0.846 | 0.214 → 0.889 |
+| GDX 1W | none → 0.960 | → 1.000 (3 labels) |
+| Bitcoin 1W | none → 0.667 | → 0.667 (3 labels) |
+| Dow 4h | 0.836 → 0.836 | 0.577 |
+| Gold 4h | 0.22 → 0.748 | 0.528 |
+| GDX 4h | 0.782 → 0.782 | 0.605 |
+| Bitcoin 4h | 0.245 → 0.729 | 0.610 |
+
+Held out (cap9, captured after the rule was written; both builds scored on the same captures):
+
+| Chart | Daily F1, before → after | Weekly F1, before → after |
+|---|---|---|
+| Nasdaq 4h | 0.692 → 0.692 | 0.476 → 0.476 |
+| Silver 4h | 0.233 → 0.761 | 0.057 → 0.533 |
+| Ether 4h | 0.325 → 0.755 | 0.265 → 0.628 |
+| Coinbase 4h | 0.567 → 0.567 | 0.552 → 0.552 |
+| Oil 4h | 0.254 → 0.745 | 0.161 → 0.554 |
+| Dollar index 4h | 0.273 → 0.829 | 0.197 → 0.577 |
+| **4h pooled** | **0.398 → 0.749** | **0.300 → 0.558** |
+| Nasdaq 1W | none → 0.727 | 0.301 → 0.476 |
+| Silver 1W | none → 0.870 | 0.267 → 0.800 |
+| Ether 1W | none → 0.857 | 0.333 → 0.200 |
+| Coinbase 1W | none → 0 (4 labels) | 0.250 → 0 (2 labels) |
+| Oil 1W | none → 0.763 | 0.316 → 0.409 |
+| Dollar index 1W | none → 0.791 | 0.514 → 0.375 |
+| **1W pooled** | **none → 0.763** | **0.332 → 0.400** |
+
+- The 4-hour result holds out. The Nasdaq and Coinbase have two bars a session, so the old bug
+  already counted them in bars.
+- On weekly charts the daily lows hold out, the weekly lows only partly: recall fell 0.76 → 0.39 as
+  extras fell 185 → 38. Three charts better, three worse. The weekly tier on a weekly chart (the
+  window in weeks of five or seven bars, the weekly lows picked from the daily lows) is not yet the
+  original's, and its "Weeks since last WCL" off daily is not decoded.

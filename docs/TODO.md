@@ -88,7 +88,8 @@
 >   - ~~**SPY, QQQ (and other aliases) are not recognised by the original.**~~ Done 2026-10-25
 >     (CHANGES; CIPHER_C_DESIGN section 17): the ETF and future aliases are gone (SPY, QQQ, DIA, ES,
 >     GLD, IBIT and the rest; none tuned by the original), and so is IXIC (the Nasdaq Composite).
->   - **Cody: should a preset follow the instrument or the exact feed?** The original tunes one
+>   - ~~**Cody: should a preset follow the instrument or the exact feed?**~~ Cody, 2026-10-25: per
+>     asset (as it is): every feed of an asset keeps its preset. No change. The original tunes one
 >     TradingView feed per asset, not the asset: it says "Unoptimised Asset Detected" on COINBASE:BTCUSD,
 >     BINANCE:BTCUSDT, COINBASE:ETHUSD, OANDA:XAUUSD, TVC:SPX, OANDA:SPX500USD, CAPITALCOM:SPX500 and
 >     NASDAQ_DLY:NDX, and runs its default count there (Cipher C's default matches it better on each:
@@ -100,7 +101,14 @@
 >     only on Bitstamp and the index, gold and oil presets on no feed the app has (they would still
 >     be choosable by hand). Recommendation: keep the instrument rule, since the original on its tuned
 >     feed is what people compare against.
->   - **Cody: off the daily chart, count like the original (bars) or keep counting time?** On weekly
+>   - ~~**Cody: off the daily chart, count like the original (bars) or keep counting time?**~~ Cody,
+>     2026-10-25: copy the original. Done 2026-10-25 (CHANGES; CIPHER_C_DESIGN section 18): counts in
+>     bars off daily, said in bars, with a "not tuned for this timeframe" warning. NOT seen or heard.
+>     Held out on six assets: 4-hour daily F1 0.40 → 0.75, weekly 0.30 → 0.56; weekly charts' daily
+>     lows 0.76 (none before). **Open:** the weekly tier ON a weekly chart is mixed (pooled 0.33 →
+>     0.40; Ether, Coinbase, the dollar worse; recall 0.76 → 0.39). Next: decode the original's
+>     weekly window and "Weeks since last WCL" off daily from cap5/cap9 (DXY 1W, ETH 1W first).
+>     The question as asked: on weekly
 >     and 4-hour charts the original says "Timeframe Not Optimised, Switch to Daily" and then runs its
 >     daily count on the chart's own bars: the Dow's shortest gap is 22 weekly bars and 24 four-hour
 >     bars, as it is 24 days on the daily chart; the replica's best count is 36 weekly / 36-37
@@ -111,7 +119,8 @@
 >     the Dow, 63 extra). Copying the original means "daily" lows a few days apart on a 4-hour chart,
 >     and the ages said in bars, not days. Recommendation: copy it, since the original warns and so
 >     can Cipher C ("not tuned for this timeframe").
->   - **Bug (demonstrated 2026-10-25): a 2-bar session is read as daily bars.** On TradingView's Dow
+>   - ~~**Bug (demonstrated 2026-10-25): a 2-bar session is read as daily bars.**~~ Fixed 2026-10-25
+>     (CHANGES): judged by bars per date; test and sabotage red. On TradingView's Dow
 >     4-hour chart (2 bars a session, 13:30 and 17:30 UTC), 2,707 gaps are 4 hours and 2,127 are 20 hours
 >     plus about 590 over weekends, so the median gap is 20 hours, exactly the 20/24-day cut-off, and
 >     `MeasureBars` says 1 bar a day. Cipher C then counts 36 bars, which happens to be what the
@@ -147,8 +156,9 @@
       (daily F1 0.76).
 >     - Residuals on the dollar index, Ethereum and gold; the "lower low a daily cycle later" step and
 >       the double are the least certain parts.
->     - On a weekly chart the weekly tier still finds its own lows with the cross and the hold,
->       unverified: the original has no weekly mode ("Timeframe Not Optimised").
+>     - ~~On a weekly chart the weekly tier still finds its own lows~~: since 2026-10-25 a weekly
+>       chart counts in bars and picks its weekly lows from its daily ones, as the original does there.
+>       Still open off daily: the original's "Weeks since last WCL" there is not decoded.
 >   - Cipher C does not say when a low is being held. The original shows it as "unconfirmed" with a
 >     day count. Add it as a reading?
 > - [ ] **"Say what signals look like" (2026-10-22, built, NOT heard; see CHANGES).** Cody to tick it

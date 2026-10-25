@@ -387,10 +387,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                          : spacingDays < 4 ? WeekendShare(data[(from - 1)..]) >= 0.2
                          : anyWeekend;
 
-            if (spacingDays < 20.0 / 24)
+            if (spacingDays < 20.0 / 24 && weekend) return new BarClock(86400.0 / spacing, true);
+            if (spacingDays < 1.5 && !weekend)
             {
-                if (weekend) return new BarClock(86400.0 / spacing, true);
                 // A stock's intraday bars: how many make one session, from the dates themselves.
+                // Not from the spacing: with two bars a session (the Dow's four-hour chart, 13:30
+                // and 17:30 UTC) half the gaps are the 20-hour night, so the median gap is a night
+                // and the chart once read as daily.
                 var perDate = new Dictionary<DateTime, int>();
                 for (int i = from - 1; i < n; i++)
                 {
@@ -398,7 +401,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     perDate[d] = perDate.TryGetValue(d, out var c) ? c + 1 : 1;
                 }
                 var counts = perDate.Values.OrderBy(v => v).ToList();
-                return new BarClock(Math.Max(1, counts[counts.Count / 2]), false);
+                int perSession = counts[counts.Count / 2];
+                if (perSession > 1 || spacingDays < 20.0 / 24) return new BarClock(Math.Max(1, perSession), false);
             }
             if (spacingDays < 4)
                 return new BarClock(weekend ? 1 / Math.Round(spacingDays) : 1 / Math.Max(1, Math.Round(spacingDays)), weekend);

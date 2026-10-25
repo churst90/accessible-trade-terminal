@@ -2723,7 +2723,12 @@ weekly low after it is kept, months later on Bitcoin. On the dollar index, the D
 the Nasdaq it picks them another way, again as the indicator does there: the first daily low after a
 new weekly low takes its place if it is lower, and after that a new weekly low goes on the lowest
 daily low that comes at least two shortest daily cycles (less two days each) after the last; the
-weekly low called confirmed is the one before the newest. On Gold, Silver and the gold and
+weekly low called confirmed is the one before the newest. On any chart that is not daily (weekly, four-hour, hourly)
+Cipher C does what the indicator it follows does there: it counts each bar as one of the preset's
+days, so the Dow's 36 days are 36 bars, whether a bar is a week or four hours. Every count, age and
+cycle length is then said in bars ("daily cycle bar 12, in its window, 8 bars left"), and the
+preset's description ends "Not tuned for this timeframe: its days are counted as this chart's bars;
+switch to daily for the tuned count". On Gold, Silver and the gold and
 silver miners, a third way: a daily low is drawn as the weekly candidate and the next daily low
 judges it. If that one is not lower, the candidate is a weekly low when it is at least four and a
 half shortest daily cycles (99 trading days) after the last weekly low; if it is lower, it is a

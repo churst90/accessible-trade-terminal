@@ -107,6 +107,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string EventsTierKey = "__events_tier";
         /// <summary>The preset: its index, or -1-index when the symbol had none and this is the fallback.</summary>
         public const string PresetKey = "__preset";
+        /// <summary>1 when the chart is not daily and the counts run in its bars, as the original runs them there; 0 on a daily chart.</summary>
+        public const string InBarsKey = "__in_bars";
 
         // ── Parameters ─────────────────────────────────────────────────────────
         public const string ParamPreset     = "Preset";
@@ -215,7 +217,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
                             Description = $"Whose cycle ranges to use. Auto reads the chart's symbol (SPX, US500 and ^GSPC are the S&P; XAUUSD is gold; a fund or future such as SPY, ES or GLD has none and takes the default count). Or type one of: {PresetKeys}." },
                     new() { Name = ParamDailyMin, DisplayName = "Daily cycle shortest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
-                            Description = "0 = the preset's. In the chart's own days: calendar days for crypto, trading days for stocks." },
+                            Description = "0 = the preset's. In the chart's own days: calendar days for crypto, trading days for stocks. Off a daily chart, in its bars." },
                     new() { Name = ParamDailyMax, DisplayName = "Daily cycle longest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's." },
                     new() { Name = ParamWeeklyMin, DisplayName = "Weekly cycle shortest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
@@ -295,8 +297,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (n == 0) return o;
 
             var p = parameters ?? new Dictionary<string, object>();
-            var clock = CipherCEngine.MeasureBars(data);
-            var (preset, fineTuned) = CipherCEngine.Resolve(Str(p, ParamPreset), Str(p, "__symbol"), clock.TradesEveryDay);
+            var chartClock = CipherCEngine.MeasureBars(data);
+            var (preset, fineTuned) = CipherCEngine.Resolve(Str(p, ParamPreset), Str(p, "__symbol"), chartClock.TradesEveryDay);
+            // Off a daily chart the original says "Timeframe Not Optimised, Switch to Daily" and runs
+            // its daily count in the chart's own bars: the Dow's 36 is 36 bars on its weekly and
+            // four-hour charts alike (best fits to its labels 36 and 36; gold's 22 fits at 23 on
+            // weekly, the miners' 22 at 21, Bitcoin's 48 at 51 on four-hour, 2026-10-25). So does
+            // this: a bar is a day, on the preset's own calendar, and every count is in bars.
+            bool inBars = Math.Abs(chartClock.BarsPerDay - 1) > 1e-6;
+            var clock = inBars ? new CipherCEngine.BarClock(1, preset.CalendarDays) : chartClock;
             double ob = Dbl(p, ParamOverbought, DefaultOverbought), os = Dbl(p, ParamOversold, DefaultOversold);
 
             // The preset's days are converted to the chart's own: a trading-day range on a chart
@@ -323,9 +332,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                     4.5 * dWindowMin * clock.BarsPerDay, 4 * dWindowMin * clock.BarsPerDay, 6 * dWindowMin * clock.BarsPerDay)
                 : CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
-            var day = new Unit("daily", "day", "days", clock.BarsPerDay);
-            var week = new Unit("weekly", "week", "weeks", barsPerWeek);
-            var year = new Unit("yearly", "year", "years", clock.BarsPerDay * clock.DaysPerYear);
+            // Off daily a week of the count is five or seven bars, not a week, so its lengths,
+            // ages and windows are said in bars too.
+            var day = inBars ? new Unit("daily", "bar", "bars", 1) : new Unit("daily", "day", "days", clock.BarsPerDay);
+            var week = inBars ? new Unit("weekly", "bar", "bars", 1) : new Unit("weekly", "week", "weeks", barsPerWeek);
+            var year = inBars ? new Unit("yearly", "bar", "bars", 1) : new Unit("yearly", "year", "years", clock.BarsPerDay * clock.DaysPerYear);
+            double weeksInUnits = inBars ? clock.DaysPerWeek : 1;
 
             var close = new double[n]; var high = new double[n]; var low = new double[n];
             for (int i = 0; i < n; i++) { close[i] = data[i].Close; high[i] = data[i].High; low[i] = data[i].Low; }
@@ -369,7 +381,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // after it was confirmed. The weekly label is drawn only where there is no daily one, so
             // the two never print on top of each other.
             WriteLows(o, CompDcl, dLows, dConfirm, low, day, day, label: true, LengthInDays(clock));
-            WriteLows(o, CompWcl, wLows, wConfirm, low, week, week, label: !dTier.Active, (a, b) => Math.Round((b - a) / barsPerWeek));
+            WriteLows(o, CompWcl, wLows, wConfirm, low, week, week, label: !dTier.Active, (a, b) => Math.Round((b - a) / week.Bars));
             WriteLows(o, CompYcl, yLows, yConfirm, low, year, week, label: false, (a, b) => Math.Round((b - a) / year.Bars, 1));
 
             // The confirmations: their confluence, the low, its age, and the low a confirmation
@@ -419,7 +431,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // Each finished cycle's top: where it came in the cycle, and how long the cycle was.
-            var length = tierNo == 1 ? LengthInDays(clock) : tierNo == 2 ? (a, b) => Math.Round((b - a) / barsPerWeek) : (Func<int, int, double>)((a, b) => Math.Round((b - a) / year.Bars, 1));
+            var length = tierNo == 1 ? LengthInDays(clock) : tierNo == 2 ? (a, b) => Math.Round((b - a) / week.Bars) : (Func<int, int, double>)((a, b) => Math.Round((b - a) / year.Bars, 1));
             for (int k = 1; k < lowestLows.Count; k++)
             {
                 int a = lowestLows[k - 1], b = lowestLows[k];
@@ -435,7 +447,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // Day and week counts against the timing windows — known on the bar.
             WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dWindowMin, dMax, tint: true, n);
-            WriteWindow(o, CompWeeklyWindow, w, wTier, barsPerWeek, wMin, wMax, tint: !dTier.Active, n);
+            WriteWindow(o, CompWeeklyWindow, w, wTier, week.Bars, wMin * weeksInUnits, wMax * weeksInUnits, tint: !dTier.Active, n);
 
             // The cycle arc, on the window of the tier the events belong to (a yearly-only chart
             // has no window, so no arc). A picture, not a reading: what it shows — how far into
@@ -448,6 +460,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             int presetIndex = IndexOf(preset);
             Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
+            Array.Fill(A(InBarsKey), inBars ? 1 : 0);
             return o;
         }
 
@@ -693,9 +706,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             var words = new List<string>();
             double At(string name) => component(name) is { } a && index >= 0 && index < a.Length ? a[index] : double.NaN;
 
-            string? daily = WindowWords("daily cycle", "day", "days", At(CompDailyWindow), At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
+            bool inBars = At(InBarsKey) == 1;
+            var (dayWord, dayWords) = Words(inBars, "day", "days");
+            var (weekWord, weekWords) = Words(inBars, "week", "weeks");
+            string? daily = WindowWords("daily cycle", dayWord, dayWords, At(CompDailyWindow), At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
             if (daily != null) words.Add(daily);
-            string? weekly = WindowWords("weekly cycle", "week", "weeks", At(CompWeeklyWindow), At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
+            string? weekly = WindowWords("weekly cycle", weekWord, weekWords, At(CompWeeklyWindow), At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
             if (weekly != null) words.Add(weekly);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
@@ -705,7 +721,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             string events = TierWord(At(EventsTierKey));
-            (string unit, string units) = AgoUnit(At(EventsTierKey));
+            (string unit, string units) = AgoUnit(At(EventsTierKey), inBars);
             if (!double.IsNaN(At(CompCancelled))) words.Add($"{events} pending cycle low cancelled");
             else if (At(CompCancelled + SinceSuffix) is var cs && !double.IsNaN(cs))
                 words.Add($"the last {events} pending cycle low was cancelled {Span(cs, unit, units)} ago");
@@ -714,7 +730,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 words.Add($"the {events} cycle failed {Span(fs, unit, units)} ago");
 
             if (barDate is { } date && !double.IsNaN(At(PresetKey)))
-                words.Add(PresetWords(At(PresetKey), date));
+                words.Add(PresetWords(At(PresetKey), date, inBars));
             return words;
         }
 
@@ -745,13 +761,23 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static string TierWord(double tier) => tier switch { 2 => "weekly", 3 => "yearly", _ => "daily" };
 
-        /// <summary>What an age is counted in: days on the daily tier, weeks on the others.</summary>
-        private static (string, string) AgoUnit(double tier) => tier is 2 or 3 ? ("week", "weeks") : ("day", "days");
+        /// <summary>What an age is counted in: days on the daily tier, weeks on the others; bars off a daily chart.</summary>
+        private static (string, string) AgoUnit(double tier, bool inBars) => Words(inBars, tier is 2 or 3 ? "week" : "day", tier is 2 or 3 ? "weeks" : "days");
+
+        /// <summary>A unit's words, or "bar" and "bars" when the chart is not daily and the counts run in bars.</summary>
+        private static (string, string) Words(bool inBars, string unit, string units) => inBars ? ("bar", "bars") : (unit, units);
 
         private static string Span(double v, string unit, string units) => $"{Num(v)} {(Math.Abs(v - 1) < 1e-9 ? unit : units)}";
 
-        /// <summary>The preset a chart used, in words, from the value of <see cref="PresetKey"/>.</summary>
-        public static string PresetWords(double value, DateTime barDate)
+        /// <summary>The preset a chart used, in words, from the value of <see cref="PresetKey"/>;
+        /// off a daily chart (<paramref name="inBars"/>), with the original's warning after it.</summary>
+        public static string PresetWords(double value, DateTime barDate, bool inBars = false)
+        {
+            string text = PresetRanges(value, barDate);
+            return inBars ? text + ". Not tuned for this timeframe: its days are counted as this chart's bars; switch to daily for the tuned count" : text;
+        }
+
+        private static string PresetRanges(double value, DateTime barDate)
         {
             if (double.IsNaN(value)) return "no preset";
             bool fineTuned = value >= 0;
@@ -801,19 +827,22 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (double.IsNaN(value)) return null;
             double At(string name) => allComponentData.TryGetValue(name, out var a) && dataIndex >= 0 && dataIndex < a.Length ? a[dataIndex] : double.NaN;
             string tier = TierWord(At(EventsTierKey));
-            var (unit, units) = AgoUnit(At(EventsTierKey));
+            bool inBars = At(InBarsKey) == 1;
+            var (unit, units) = AgoUnit(At(EventsTierKey), inBars);
+            var (dayWord, dayWords) = Words(inBars, "day", "days");
+            var (weekWord, weekWords) = Words(inBars, "week", "weeks");
             string Tier(string t) => char.ToUpperInvariant(t[0]) + t[1..];
 
             switch (componentName)
             {
-                case CompDcl: return LowWords("Daily", value, At(CompDcl + LengthSuffix), "day", At(CompDcl + AfterSuffix), "day", "days");
-                case CompWcl: return LowWords("Weekly", value, At(CompWcl + LengthSuffix), "week", At(CompWcl + AfterSuffix), "week", "weeks");
-                case CompYcl: return LowWords("Yearly", value, At(CompYcl + LengthSuffix), "year", At(CompYcl + AfterSuffix), "week", "weeks");
+                case CompDcl: return LowWords("Daily", value, At(CompDcl + LengthSuffix), dayWord, At(CompDcl + AfterSuffix), dayWord, dayWords);
+                case CompWcl: return LowWords("Weekly", value, At(CompWcl + LengthSuffix), weekWord, At(CompWcl + AfterSuffix), weekWord, weekWords);
+                case CompYcl: return LowWords("Yearly", value, At(CompYcl + LengthSuffix), inBars ? "bar" : "year", At(CompYcl + AfterSuffix), weekWord, weekWords);
 
                 case CompDclConfirmed: case CompWclConfirmed: case CompYclConfirmed:
                 {
                     string t = componentName == CompDclConfirmed ? "daily" : componentName == CompWclConfirmed ? "weekly" : "yearly";
-                    var (u, us) = componentName == CompDclConfirmed ? ("day", "days") : ("week", "weeks");
+                    var (u, us) = componentName == CompDclConfirmed ? (dayWord, dayWords) : (weekWord, weekWords);
                     string s = $"{Tier(t)} cycle low confirmed, {ConfluenceWord(value)} confluence";
                     double lowPrice = At(componentName + LowSuffix), age = At(componentName + AgoSuffix);
                     if (!double.IsNaN(lowPrice))
@@ -830,7 +859,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     string s = $"{Tier(tier)} cycle low pending, the cycle line reached oversold";
                     double count = tier == "daily" ? At(CompDailyWindow) : tier == "weekly" ? At(CompWeeklyWindow) : double.NaN;
-                    string countUnit = tier == "weekly" ? "week" : "day";
+                    string countUnit = tier == "weekly" ? weekWord : dayWord;
                     if (!double.IsNaN(count)) s += $" on {countUnit} {Num(count)}";
                     s += ".";
                     double lowest = At(CompPending + LowestSuffix), lowestAgo = At(CompPending + LowestAgoSuffix);
@@ -852,7 +881,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 case CompLeftTop: case CompMidTop: case CompRightTop:
                 {
                     string what = componentName == CompLeftTop ? "Left translated top, bearish" : componentName == CompRightTop ? "Right translated top, bullish" : "Mid translated top";
-                    string topUnit = tier == "weekly" ? "week" : tier == "yearly" ? "year" : "day";
+                    string topUnit = inBars ? "bar" : tier == "weekly" ? "week" : tier == "yearly" ? "year" : "day";
                     double dayOf = At(componentName + DaySuffix), len = At(componentName + LengthSuffix);
                     string s = $"{what}: high {Price(value)}";
                     if (!double.IsNaN(dayOf) && !double.IsNaN(len)) s += $", {topUnit} {Num(dayOf)} of {A(len)} {Num(len)} {topUnit} cycle";
@@ -860,9 +889,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
 
                 case CompDailyWindow:
-                    return WindowWords("daily cycle", "day", "days", value, At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
+                    return WindowWords("daily cycle", dayWord, dayWords, value, At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
                 case CompWeeklyWindow:
-                    return WindowWords("weekly cycle", "week", "weeks", value, At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
+                    return WindowWords("weekly cycle", weekWord, weekWords, value, At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
                 default:
                     return null;
             }
