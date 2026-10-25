@@ -135,3 +135,48 @@ section 12: a raw p below 0.05 that fails Holm.
 - "Grade counts move by tens of percent, not collapse": right. Development-era equities grade B
   fell 58% in round 1 (90 → 37), which is at the top of that range. Non-vetoed setups fell 16 to
   22% in round 2.
+
+## Step 6: round 3, the switch and its counts (before its full run)
+
+**The switch** is commit 6c49ef1d, made before any round-3 run on the exact indicators.
+- `--priors exact` selects round 2's re-run development-era counts for the plumbing check. It also
+  selects rounds 1 and 2's re-run raw p for the cross-round Holm.
+- The test IDs are the same as before: 39 for round 1 and 51 for round 2. A new test pins them.
+- One difference from the 10-18 table: round 2's 16 exit tests enter at their printed raw p, not at
+  1. Round 3's section 7.2 says earlier rounds enter "with the raw p-values printed in their
+  findings". On 10-18 only their Holm p was printed. The re-run prints the raw ones, listed here:
+
+  | Exit test | Crypto E0 | Crypto E1 | Equities E0 | Equities E1 |
+  |---|---|---|---|---|
+  | X1 | 0.0555 | 0.4488 | 0.0080 | 0.0445 |
+  | X2 | 0.9585 | 0.3583 | 0.1244 | 0.3008 |
+  | X3 | 0.4508 | 0.9500 | 0.0015 | 0.1824 |
+  | X4 | 0.0490 | 0.1399 | 0.0005 | 0.0435 |
+
+  Every other round 1 and 2 p is in the step 4 and 5 output. Not-testable tests enter at 1.
+
+**Without the switch, round 3 stopped with exit 4,** as section 3 of the plan predicted. Round 2's
+10-18 counts (334/158, 70/33, 1,423/721) did not reproduce.
+
+**With the switch, the plumbing check matched exactly:** 260/131, 59/28, 1,176/586. Inputs: 50
+files, 0 changed.
+
+**Development-era setups at Cipher SR support, old (10-18) → exact:**
+
+| Class | E0 at support | E1 at support | L3 random bars at support |
+|---|---|---|---|
+| Crypto 4h | 128 of 334 (38%) → 41 of 260 (16%) | 53 of 158 → 36 of 131 (27%) | 5,197 → 3,268 |
+| Crypto daily | 25 of 70 → 13 of 59 | 21 of 33 → 10 of 28 | 1,216 → 814 |
+| Equities | 435 of 1,423 (31%) → 144 of 1,176 (12%) | 202 of 721 → 103 of 586 (18%) | 29,243 → 19,797 |
+
+- **The exact Cipher SR puts far fewer setups at support.** Its level is a 2-bar pivot that becomes
+  live three bars later and steps. The old replica had a level near most lows.
+- **Testability changes (section 5):**
+  - Crypto 4h: every headline test is still confirmatory and checkable (L1, L2, L3, XR/X4 for both
+    entries). A-E0 becomes not testable (29 against 12).
+  - **Crypto daily: L1 and L2 for both entries become not testable** (13 and 10 at support; they
+    were Suggestive only). Only L3 is left.
+  - **Equities: the held-out check is lost for almost everything.** Only 9 dot setups and 2 trigger
+    setups are at support from 2023 on. Development stays confirmatory.
+- Equities held-out E1 is flagged for an extreme share (4.3% at support). Section 5 says nothing
+  changes because of it.
