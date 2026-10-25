@@ -595,17 +595,11 @@ namespace AccessibleTrader.Tests
             // causal, but the synthetic series never lines them up on one bar. Real bars do
             // (2021-07-01 and 2021-09-20 on Bitstamp BTC/USD) — CipherAProviderTests pins those.
             "CIPHER_A.Blood Diamond",
-            // Cipher C's events need a cycle low, and the shortest cycle on these 400 hourly bars
-            // is the daily one at 54 days × 24 = 1,296 bars. Their causality is pinned on fifteen
-            // years of Bitstamp BTC daily, prefix by prefix:
+            // Cipher C's yearly low needs years of daily lows. Since 2026-10-25 an hourly chart
+            // counts the preset's days in bars (as the original does), so these 400 hourly bars
+            // exercise its daily and weekly events; the yearly one stays pinned on fifteen years of
+            // Bitstamp BTC daily, prefix by prefix:
             // CipherCProviderTests.The_events_on_a_bar_do_not_change_when_later_bars_arrive.
-            "CIPHER_C.Cycle Failed",
-            "CIPHER_C.Cycle Low Cancelled",
-            "CIPHER_C.Cycle Low Pending",
-            "CIPHER_C.DCL Confirmed",
-            "CIPHER_C.Daily Timing Window",
-            "CIPHER_C.WCL Confirmed",
-            "CIPHER_C.Weekly Timing Window",
             "CIPHER_C.YCL Confirmed",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",

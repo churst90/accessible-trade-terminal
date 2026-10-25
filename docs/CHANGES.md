@@ -47,6 +47,9 @@ All notable changes to this project will be documented in this file.
     arc on the weekly window) now pin the bar count; new tests for a 4-hour two-bar-session chart, a
     daily chart's words, and two-bar sessions in `MeasureBars`. Sabotages red: counting time again,
     day words off daily, the weekly window in weeks, no warning, the old `MeasureBars`.
+  - The causality guard's 400 hourly bars now produce Cipher C's daily and weekly events (they
+    produced none while an hourly chart counted time), and those seven pass the prefix check; they
+    are off its blind-spot list (only the yearly low stays on it).
   - Not seen or heard in the app.
 
 ### Cipher C: an ETF or future no longer takes its index's preset (2026-10-25)
