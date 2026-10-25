@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Research notes, no code change: Cipher C's weekly tier on weekly charts (2026-10-25)
+
+- **What was read** (private captures cf-tv-export cap5 and cap9, ten weekly charts; scripts
+  `ctz/w1w.py` and `ctz/wgrid.py`; CIPHER_C_DESIGN section 18, end):
+  - The original's table counts on a weekly chart are in bars. "Weeks Since Last WCL" is the bars
+    since the weekly low divided by the preset's week (5, or 7 on Bitcoin and Ether), rounded down.
+    The confirmed count runs from the weekly low before the newest, as on the daily chart. This holds
+    on 8 of 9 charts; Silver is not explained.
+  - Given the original's own daily lows, the dollar/Dow/Nasdaq weekly rule draws 7 of 9, 19 of 22
+    and 17 of 21 of its weekly lows on weekly charts. So the weekly misses there come from Cipher C's
+    daily lows.
+- **Tried and not adopted:** Ether on the every-two-daily-lows rule. It fits the original's weekly
+  chart (9 of 9 on its own daily lows; 2 of 9 for the old pick). End to end the weekly chart goes
+  2 → 6 of 9 and daily 33 → 34 of 57, but 4-hour falls 38 → 32 of 54 and there are 3 more extras.
+  The engine is unchanged.
+- **Not decoded:** oil's weekly chart. The old pick is 55 of 57 on oil's daily chart but 14 of 23
+  on its weekly one, whatever its gap.
+
 ### Cipher C off the daily chart counts in the chart's bars, as the original does; a two-bar session is no longer read as daily bars (2026-10-25)
 
 - **What changed** (`CipherCProvider.Compute`, `InBarsKey`, `PresetWords`; `CipherCEngine.MeasureBars`;

@@ -863,3 +863,27 @@ Held out (cap9, captured after the rule was written; both builds scored on the s
   extras fell 185 → 38. Three charts better, three worse. The weekly tier on a weekly chart (the
   window in weeks of five or seven bars, the weekly lows picked from the daily lows) is not yet the
   original's, and its "Weeks since last WCL" off daily is not decoded.
+
+**Weekly charts, read further (2026-10-25).** On the ten weekly charts (cap5, cap9):
+
+- **The table's week counts are bars divided by the preset's week.** The unconfirmed "Weeks Since
+  Last WCL" is the bars since the newest weekly low divided by five (seven on Bitcoin and Ether),
+  rounded down, on all nine charts with one: the dollar 24 bars → 4, Ether 37 → 5, the Dow 80 → 16.
+  The confirmed count runs from the weekly low before the newest. It stays two back when the newest
+  was drawn on the daily low just confirmed and no daily low has been confirmed since, as section 14
+  says: the dollar 171 → 34, Gold and GDX 212 → 42, oil 255 → 51. That holds on 8 of 9; Silver
+  (43, from 2022-08-28) is not explained. "Days since Last DCL" is in bars too.
+- **The dollar's, Dow's and Nasdaq's weekly rule holds on weekly charts.** Fed the original's own
+  daily lows, the every-two-daily-lows rule (`ctz/w1w.py`, gap 2 × (shortest − 2) bars) draws the
+  dollar's weekly lows 7 of 9, the Dow's 19 of 22, the Nasdaq's 17 of 21. The misses are at the start
+  of the history. So on those charts Cipher C's weekly misses come from its daily lows.
+- **Ether fits that rule on its weekly chart, but not end to end.** On the original's own daily lows,
+  Ether's weekly chart gets 9 of 9 with the every-two rule (2 extra) against 2 of 9 with the old pick,
+  and its daily chart 45 of 57 against 39. Tried in the engine with Cipher C's own daily lows: weekly
+  chart 2 → 6 of 9, daily 33 → 34 of 57, 4-hour 38 → 32 of 54. That is 73 → 72 correct with 3 more
+  extras, so it was not adopted.
+- **Oil's weekly chart fits neither rule.** The old pick, 55 of 57 on oil's daily chart given the
+  original's daily lows, is 14 of 23 on its weekly chart. Changing its gap makes no difference.
+  The every-two rule is at best 22 of 23 with 9 extra (gap 32). Not decoded.
+- Nine Ether lows and two Coinbase lows are too few to fit a rule to. The original itself says
+  "switch to daily" here. So the weekly tier on weekly charts stays as built.

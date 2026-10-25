@@ -106,8 +106,12 @@
 >     bars off daily, said in bars, with a "not tuned for this timeframe" warning. NOT seen or heard.
 >     Held out on six assets: 4-hour daily F1 0.40 → 0.75, weekly 0.30 → 0.56; weekly charts' daily
 >     lows 0.76 (none before). **Open:** the weekly tier ON a weekly chart is mixed (pooled 0.33 →
->     0.40; Ether, Coinbase, the dollar worse; recall 0.76 → 0.39). Next: decode the original's
->     weekly window and "Weeks since last WCL" off daily from cap5/cap9 (DXY 1W, ETH 1W first).
+>     0.40; Ether, Coinbase, the dollar worse; recall 0.76 → 0.39). Read further 2026-10-25
+>     (CIPHER_C_DESIGN section 18, end). The table's week counts are bars ÷ 5 (or 7). The dollar,
+>     Dow and Nasdaq weekly rule holds on weekly charts given the original's daily lows, so their
+>     misses come from Cipher C's daily lows. Ether fits that rule on its weekly chart, but end to
+>     end it is a wash (73 → 72 correct): not adopted. Oil's weekly chart fits neither rule.
+>     **Left as built**, since the original says "switch to daily" there and the samples are small.
 >     The question as asked: on weekly
 >     and 4-hour charts the original says "Timeframe Not Optimised, Switch to Daily" and then runs its
 >     daily count on the chart's own bars: the Dow's shortest gap is 22 weekly bars and 24 four-hour
