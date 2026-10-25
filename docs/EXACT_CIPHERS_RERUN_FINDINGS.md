@@ -272,3 +272,82 @@ Suggestive: A-E0 crypto 4h, X4-E0 crypto 4h and the two equities X4s.
   - In crypto 4h E0 and in equities E0 and E1, at-support setups did worse than setups away from
     support. The plan's own note says that is not a "buy away from levels" rule without its own
     pre-registration.
+
+## Step 9: exploratory, the Ciphers on Heikin-Ashi candles (section 6)
+
+The switch is `--cipher-candles ha` (82b8adb7). It stamps the Heikin-Ashi chart parameter on
+Cipher A, Cipher B and Cipher SR only. Entries, stops, ATR, the higher-timeframe context and fills
+stay on the real bars. Rounds 1 and 3 refuse it: round 1, asked with `--counts-only`, stopped with
+exit 2. Round 2 and the battery each ran once with it, with exit 0; inputs re-hashed, 0 changed.
+**Nothing here is a verdict.** Section 6 allows only "worth its own pre-registration on new data" or
+"nothing".
+
+**Round 2 on Heikin-Ashi:** every headline reads No edge, by the run's own criteria, in both classes.
+
+| Test (development era) | Exact, candles | Exact, Heikin-Ashi | Heikin-Ashi held-out |
+|---|---|---|---|
+| P1 crypto, dot at next open | +0.022 (59), p 0.61 | +0.151 (68), p 0.19 | −0.073 (70) |
+| P2 crypto, trigger entry | +0.302 (28), p 0.13 | +0.196 (34), p 0.19 | −0.022 (36) |
+| P1 equities | −0.006 (1,176), p 0.55 | −0.010 (1,322), p 0.61 | +0.059 (107) |
+| P2 equities | +0.118 (586), p 0.024 | +0.082 (662), p 0.084 | +0.566 (56) |
+| S4-P2 crypto 4h, trigger entry | +0.094 (131), p 0.21 | **+0.338 (141), p 0.0024, Holm in S 0.046** | **+0.037 (233)** |
+
+- **The one number that moves is the crypto 4h trigger entry.**
+  - It was +0.268R on 158 (p 0.014) on 10-18's replicas, +0.094R on the exact Ciphers on candles,
+    and +0.338R on Heikin-Ashi.
+  - It does not carry into 2023 on: +0.037R on 233 trades, against +0.338R before.
+  - So this run says **nothing** about it: a development-era number that vanishes in the held-out
+    era is what a lucky cut looks like.
+  - It is also the third version of the same entry that this lab has looked at, so its p is not
+    worth its face value.
+  - If it is ever tested again, it needs its own pre-registration, on 4h bars after 2026-10-18 only.
+- **Grades:** nothing (GA/GO p 0.16 to 0.59). Crypto grade A E0 now has 19 setups, which is
+  Suggestive only by count, at p 0.26.
+- **Exits:** the equities E0 exits beat their random exits as on candles, still at the floor p. X3
+  is Holm 0.008; X1 is Holm 0.038, newly; X4 is Holm 0.11, no longer. It is the same exit result on
+  the same trades, already seen twice.
+
+**The battery on Heikin-Ashi:** nothing.
+
+- 352 cells attempted, 315 tested, 187 Cipher-A-dependent.
+- 14 of them at raw p ≤ 0.05, with about 9 expected by chance. 0 survive the family-wise null; the
+  best pFW is 0.37 (gold Cipher B Green Dot under Faber, 14 events). On candles: 15, 0, best 0.11.
+- Combinations: 5 of 67 at p ≤ 0.05, 0 surviving, best pFW 0.27.
+  - That best cell is a NEGATIVE one: K4, a Blue Triangle with a green dot within 5 bars, on gold,
+    5 events.
+
+**Heikin-Ashi does not rescue the Ciphers.** It is worth a pre-registration only if the crypto 4h
+trigger result shows up on bars this lab has not used.
+
+## Total tries
+
+| # | Command | Stage | Result |
+|---|---|---|---|
+| 1 | `setup-grader` | `--counts-only` | recorded (step 2) |
+| 2 | `setup-grader` | full | No edge (step 4) |
+| 3 | `setup-grader-mc2` | `--counts-only` | recorded (step 3) |
+| 4 | `setup-grader-mc2` | full | No edge (step 5) |
+| 5 | `setup-grader-mc3` | full, without `--priors exact` | exit 4, as planned (step 6) |
+| 6 | `setup-grader-mc3 --priors exact` | `--counts-only` | recorded (step 6) |
+| 7 | `setup-grader-mc3 --priors exact` | full | No edge (step 8) |
+| 8 | `cipher-a-battery` | full | No edge (step 7) |
+| 9 | `setup-grader --cipher-candles ha` | `--counts-only` | refused, exit 2; computes nothing |
+| 10 | `setup-grader-mc2 --cipher-candles ha` | full, exploratory | nothing (step 9) |
+| 11 | `cipher-a-battery --cipher-candles ha` | full, exploratory | nothing (step 9) |
+
+No run crashed and none was rerun. Nothing was run that is not listed here.
+
+## The predictions (section 5), checked
+
+- **"All four verdicts stay No edge": right.**
+  - Round 1, round 2, round 3 and the battery all read No edge on the exact Ciphers.
+  - Nothing in any of them passes its own correction.
+  - Round 3's cross-round Holm passes nothing across all three rounds.
+- **"The setup counts change by tens of percent, not collapse": right for rounds 1 and 2**
+  (steps 2 and 3).
+- **"Round 3's support will be different levels, still No edge": right on the verdict, short on
+  the size.**
+  - I did not predict how much fewer setups would sit at support: crypto 4h E0 fell from 128 to 41,
+    and equities E0 from 435 to 144.
+  - Crypto daily's location tests became not testable, and equities lost every held-out check.
+  - So round 3's No edge is partly a no-power result in those classes, and it says so.
