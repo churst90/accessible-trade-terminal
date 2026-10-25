@@ -40,6 +40,19 @@ public static class LabCipherProfile
     /// <summary>The gold dot's switch, refused since Cipher B's gold dot was removed (2026-10-22): a
     /// run asked to compare gold rules would otherwise compare nothing and say so in no way.</summary>
     public const string GoldFlag = "--cipherb-gold";
+    /// <summary>Exploratory (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6): <c>--cipher-candles ha</c>
+    /// computes Cipher A, Cipher B and Cipher SR as a Heikin-Ashi chart computes them in the app.</summary>
+    public const string CandlesFlag = "--cipher-candles";
+
+    /// <summary>The indicators <c>--cipher-candles ha</c> moves onto Heikin-Ashi. Everything else —
+    /// ATR, the higher-timeframe context, entries, stops and fills — stays on the real bars.</summary>
+    public static IReadOnlyList<string> HeikinAshiCodes { get; } = new[] { "CIPHER_A", "CIPHER_B", "CIPHER_SR" };
+
+    /// <summary>True when lab commands compute the Ciphers on Heikin-Ashi candles, by stamping
+    /// <see cref="IndicatorCandles.HeikinAshiKey"/> — the same parameter a Heikin-Ashi chart gives
+    /// them, so each one computes exactly as it does there (Cipher B builds its own Heikin-Ashi
+    /// from the key; the indicator service converts the bars for the others).</summary>
+    public static bool CiphersOnHeikinAshi { get; set; }
 
     /// <summary>True when lab commands compute the pre-2026-10-17 Cipher B (wave, money flow, buy dot).</summary>
     public static bool CipherBOld { get; set; }
@@ -53,14 +66,18 @@ public static class LabCipherProfile
         ["BuyDotMode"] = "Gated",
     };
 
-    /// <summary>True when nothing was switched: every command computes today's Cipher B.</summary>
-    public static bool IsDefault => !CipherBOld;
+    /// <summary>True when nothing was switched: every command computes today's Cipher B, and the
+    /// Ciphers on real candles.</summary>
+    public static bool IsDefault => !CipherBOld && !CiphersOnHeikinAshi;
 
     public static string Describe() =>
         (CipherBOld
             ? "Cipher B profile: OLD (pre-2026-10-17: WTSignalPeriod=4, MoneyFlowMode=Legacy, BuyDotMode=Gated)"
             : "Cipher B profile: NEW (2026-10-17 Market Cipher B defaults: WTSignalPeriod=3, MoneyFlowMode=MCB, BuyDotMode=MCB)")
-        + "; no gold dot (removed 2026-10-22)";
+        + "; no gold dot (removed 2026-10-22)"
+        + (CiphersOnHeikinAshi
+            ? "\nCipher candles: HEIKIN-ASHI (exploratory) — Cipher A, Cipher B and Cipher SR computed as on a Heikin-Ashi chart; entries, stops, ATR and fills on the real bars"
+            : "");
 
     /// <summary>
     /// Removes <c>--cipherb old|new</c> from the argument list (so no command's own parser sees an
@@ -75,6 +92,18 @@ public static class LabCipherProfile
         {
             if (string.Equals(args[i], GoldFlag, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"{GoldFlag} was removed with Cipher B's gold dot on 2026-10-22; there is no gold dot to switch");
+            if (string.Equals(args[i], CandlesFlag, StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 >= args.Length) throw new ArgumentException($"{CandlesFlag} needs a value: ha or candles");
+                var c = args[++i];
+                CiphersOnHeikinAshi = c.ToLowerInvariant() switch
+                {
+                    "ha" => true,
+                    "candles" => false,
+                    _ => throw new ArgumentException($"{CandlesFlag} must be 'ha' or 'candles', not '{c}'"),
+                };
+                continue;
+            }
             if (!string.Equals(args[i], Flag, StringComparison.OrdinalIgnoreCase)) { rest.Add(args[i]); continue; }
             const string flag = Flag;
             if (i + 1 >= args.Length) throw new ArgumentException($"{flag} needs a value: old or new");
@@ -90,19 +119,23 @@ public static class LabCipherProfile
         return rest.ToArray();
     }
 
-    /// <summary>The parameters the engine should hand Cipher B: the caller's, plus the old
-    /// profile's for any the caller left unset. A new dictionary; the caller's is untouched.</summary>
+    /// <summary>The parameters the engine should hand an indicator: the caller's, plus the old
+    /// Cipher B profile's for any the caller left unset, plus the Heikin-Ashi key for a Cipher under
+    /// <c>--cipher-candles ha</c> unless the caller set it. A new dictionary when anything is added;
+    /// the caller's is untouched.</summary>
     public static Dictionary<string, object> Apply(string code, Dictionary<string, object> parameters)
     {
-        if (IsDefault || !string.Equals(code, "CIPHER_B", StringComparison.OrdinalIgnoreCase))
-            return parameters;
+        bool oldB = CipherBOld && string.Equals(code, "CIPHER_B", StringComparison.OrdinalIgnoreCase);
+        bool ha = CiphersOnHeikinAshi && HeikinAshiCodes.Contains(code, StringComparer.OrdinalIgnoreCase);
+        if (!oldB && !ha) return parameters;
         var merged = new Dictionary<string, object>(parameters);
-        if (CipherBOld) foreach (var (k, v) in OldCipherBParameters) merged.TryAdd(k, v);
+        if (oldB) foreach (var (k, v) in OldCipherBParameters) merged.TryAdd(k, v);
+        if (ha) merged.TryAdd(IndicatorCandles.HeikinAshiKey, 1.0);
         return merged;
     }
 
     /// <summary>Back to the defaults (tests).</summary>
-    public static void Reset() { CipherBOld = false; }
+    public static void Reset() { CipherBOld = false; CiphersOnHeikinAshi = false; }
 }
 
 /// <summary>

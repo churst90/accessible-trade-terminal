@@ -128,11 +128,15 @@ public static class SetupGraderMc2Command
     {
         Console.WriteLine("SETUP GRADER ROUND 2, MARKET CIPHER — pre-registered in docs/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
-        if (!LabCipherProfile.IsDefault)
+        // --cipher-candles ha alone is allowed: the exploratory part of
+        // docs/EXACT_CIPHERS_RERUN_PREREG.md (section 6). It is never the pre-registered run.
+        if (LabCipherProfile.CipherBOld)
         {
             Console.WriteLine("The pre-registration fixes the shipped (MCB) Cipher B defaults. Refusing to run another profile.");
             return 2;
         }
+        if (LabCipherProfile.CiphersOnHeikinAshi)
+            Console.WriteLine("EXPLORATORY: the Ciphers on Heikin-Ashi candles. Not the pre-registered run; its verdicts can say only \"worth its own pre-registration on new data\" or \"nothing\" (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6).");
         Console.WriteLine($"Snapshots: {Path.GetFullPath(snapshotDir)} (read only)");
         var files = CryptoDaily.Concat(EquityNames.Select(e => $"yahoo_{e}_1d.json")).Concat(Crypto4h).ToList();
         var missing = files.Where(f => !File.Exists(Path.Combine(snapshotDir, f))).ToList();
