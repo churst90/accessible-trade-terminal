@@ -124,7 +124,7 @@ speech, with no keyboard stop or sound of their own. Examples are from the Bitco
 | SMA | the 10-bar average | the average, as any line |
 | DCL / WCL / YCL | the low's price | "Daily cycle low, 64955.00. A 52 day cycle. Confirmed 6 days later." |
 | DCL / WCL / YCL Confirmed | confluence, 1 to 3 | "Weekly cycle low confirmed, low confluence: the low of 59930.00, 8.7 weeks ago. It replaces the cancelled low of 80537.00." |
-| Cycle Low Pending | the bar's close | "… reached oversold on day 50. Lowest low since the last cycle low: 65696.00, 45 days ago." |
+| Cycle Low Pending | the bar's close | "Daily cycle low pending on day 76: the low of 59100.00, 7 days ago." (the low the daily tier names; with no daily tier, "… the cycle line reached oversold on week N. Lowest low since the last cycle low: …") |
 | Cycle Low Cancelled | the pending low it went under | "Daily pending cycle low cancelled: a low of 75285.00, under the pending low of 76000.00 from 4 days ago." |
 | Cycle Failed | the cycle low it closed under | "Daily cycle failed: closed at …, under the cycle low of … from N days ago." |
 | Left / Mid / Right Translated Top | the top's high | "Left translated top, bearish: high 126272.00, day 36 of an 82 day cycle." |
@@ -941,7 +941,24 @@ close above the previous high, shallow trees.
 0.799. Ether keeps the first rule without its "double" (`CyclePreset.WeeklyDoubles`; a weekly low
 after a lower one is a new candidate) and SILJ moves to the first rule from the next-daily one: 0.839
 (before 2022 0.802 → 0.837, after 0.794 → 0.841; Ether 0.61 → 0.85, SILJ 0.61 → 0.96, no asset
-worse). The original draws no weekly lows on untuned assets; Cipher C still does.
+worse).
+
+The original draws no weekly lows on untuned assets, but its table still counts "weeks since last
+WCL", confirmed and unconfirmed. On the three held-out replays every drop in that count lands on
+exactly one of its daily lows (weeks = bars / 5, rounded down), so its hidden weekly lows can be read
+(`ctz/hidw3.py`). They are a weekly test that was never fitted. Cipher C's fallback rule (every two
+daily lows, gap two shortest cycles less two bars, 60) on the original's daily lows: EUR/USD 10 of 10,
+Platinum 12 of 14, Apple 9 of 15 with 3 extra, F1 0.849 in all; on our own daily lows 0.822. The
+first-rule and next-daily rules score 0.720 and 0.473 there. Apple's misses are not the rule's "move"
+step (a lower next daily low replaces a fresh weekly low): without it Apple gains 2, but every tuned
+every-two asset and the other two held-out ones collapse. Cipher C still draws these lows.
+
+**The original's table, bar by bar** (`ctz/tabcmp.py`, `ctz/unc2.py`, `ctz/wconf_t.py`). "Days since
+last DCL" is t − low; the daily window's count is t − low + 1, the day of the cycle, so it reads one
+more on every bar where the lows agree. "Days since unconfirmed DCL" is t − the pending low, and it
+keeps counting a dropped low until the next naming. Cipher C's pending lows reproduce it on 96.4% of
+rows. The original's weekly low is confirmed only on a daily confirmation, once the next weekly low
+is fixed, as in Cipher C. A daily pending low's companions name the held low (`TierRun.HeldAt`).
 
 Prepending history moves the weekly chain for longer than the old search did: the chain starts from
 the first bar, as the original's does. Pinned by a test (daily lows move only in the first 300 bars

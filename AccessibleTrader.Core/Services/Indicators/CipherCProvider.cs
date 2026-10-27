@@ -255,7 +255,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                           "Weekly cycle low confirmed.", count: true),
                     Event(CompYclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 6.5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
                           "Yearly cycle low confirmed.", count: true),
-                    // Value: the close. The bar the hidden cycle line reached oversold.
+                    // Value: the close. The bar the daily tier names a low on (with no daily tier,
+                    // the bar the hidden cycle line reached oversold).
                     Event(CompPending, ComponentDisplayType.RefreshBox, MarkerAnchor.AboveBar, "#78909C", 4f, "triangle_bell", 440, PlaybackLayer.Background,
                           "Cycle low pending."),
                     // Value: the price of the low closed under. Warnings, not sell signals.
@@ -407,6 +408,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int t = 0; t < n; t++)
             {
                 if (double.IsNaN(lowest.Pending[t])) continue;
+                // The daily tier names its low on the pending bar: that low, not the lowest since
+                // the last one (a later swing low can be higher than an earlier dip it skips).
+                int named = lowest.HeldAt[t];
+                if (named >= 0 && named < t)
+                {
+                    pendingLowest[t] = low[named];
+                    pendingLowestAgo[t] = Units(t - named, ago);
+                    continue;
+                }
                 int last = lowest.LastLowAt[t];
                 if (last < 0) continue;
                 int at = last + 1;
@@ -857,12 +867,15 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 case CompPending:
                 {
-                    string s = $"{Tier(tier)} cycle low pending, the cycle line reached oversold";
                     double count = tier == "daily" ? At(CompDailyWindow) : tier == "weekly" ? At(CompWeeklyWindow) : double.NaN;
                     string countUnit = tier == "weekly" ? weekWord : dayWord;
-                    if (!double.IsNaN(count)) s += $" on {countUnit} {Num(count)}";
-                    s += ".";
+                    string on = double.IsNaN(count) ? "" : $" on {countUnit} {Num(count)}";
                     double lowest = At(CompPending + LowestSuffix), lowestAgo = At(CompPending + LowestAgoSuffix);
+                    // The daily tier names the low it will confirm.
+                    if (tier == "daily")
+                        return $"Daily cycle low pending{on}" + (double.IsNaN(lowest) ? "." :
+                               $": the low of {Price(lowest)}" + (double.IsNaN(lowestAgo) ? "." : $", {Span(lowestAgo, unit, units)} ago."));
+                    string s = $"{Tier(tier)} cycle low pending, the cycle line reached oversold{on}.";
                     if (!double.IsNaN(lowest))
                         s += $" Lowest low since the last cycle low: {Price(lowest)}" +
                              (double.IsNaN(lowestAgo) ? "." : lowestAgo == 0 ? ", this bar." : $", {Span(lowestAgo, unit, units)} ago.");

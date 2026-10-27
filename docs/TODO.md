@@ -29,8 +29,26 @@
 >   sixteen replays (F1 0.951); held out Platinum 0.939, Apple 0.985, EUR/USD 0.961. Weekly F1 0.799 →
 >   0.839 (Ether without the double, SILJ on the first rule). Cody to look at any daily chart: lows
 >   should now be named, confirmed and dropped on the original's bars. Open:
->   - Untuned assets: the original draws no weekly lows there (Platinum, Apple); Cipher C does. Copy?
+>   - Untuned assets: the original draws no weekly lows there (Platinum, Apple, EUR/USD), but its table
+>     still counts weeks since its last weekly low, confirmed and unconfirmed. The resets give its hidden
+>     weekly lows (each on one of its daily lows, weeks = bars / 5 rounded down; `ctz/hidw3.py`). Cipher
+>     C's fallback rule (every two daily lows, gap 60) gets 31 of 39 of them on the original's daily
+>     lows, 3 extra (F1 0.849; EUR/USD 10 of 10, Platinum 12 of 14, Apple 9 of 15), and F1 0.822 on its
+>     own daily lows. Never fitted: keep it held out. Question for Cody: draw them (as now) or hide the
+>     marks and keep the count, as the original does?
 >   - Residue on the replays: 18 drops, 7 early namings, 1 candidate; nothing found separates them.
+>   - The original's table, read bar by bar in the replays (`ctz/tabcmp.py`, `ctz/unc2.py`): its "days
+>     since last DCL" is the bars since the low (the low's own day 0); Cipher C's daily window counts
+>     the low's day as day 1, so it is one more on every bar where the lows agree (every row on GDX,
+>     SPX, NDQ, MSTR and the held-out EUR/USD and Apple). Its window opens at day dmin, the bar the
+>     original may first name a low (t − last ≥ dmin − 1), so the window is right; only the number said
+>     differs. Question for Cody: say the original's number (days since) instead of the day of the
+>     cycle? Its "days since unconfirmed DCL" is the bars since the pending low; after a drop it keeps
+>     counting the dropped low until a new one is named (✅ only after a confirmation). With that, Cipher
+>     C's pending lows give the original's cell on 96.4% of 24,100 rows (every row on 6 of 19 assets);
+>     the rest are bars where the lows differ. Weekly "weeks since": the original confirms a weekly low
+>     on a daily confirmation (66 of 66 on six assets) once the next weekly low is fixed, as Cipher C
+>     does; the rows that differ are where the weekly lows differ (on EUR/USD, held out, none do).
 >   - The LOW / MID / HIGH tag, Faster Confirmation, and which of the original's settings map to ours.
 >   - The original's trial ends about 2026-11-05: anything else needing a replay must be read first.
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES

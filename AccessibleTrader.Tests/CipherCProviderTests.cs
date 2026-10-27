@@ -1047,28 +1047,42 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// A pending low says the lowest low since the last cycle low: the lowest bar low in that span,
-    /// that many days back.
+    /// A daily pending low names the low the daily tier holds: that bar is drawn as the next daily
+    /// low, or a later bar cancels it at that price. Not the lowest low since the last cycle low,
+    /// which the original skips when it comes before the cycle's top.
     /// </summary>
     [Fact]
-    public void A_pending_low_names_the_lowest_low_since_the_last_one()
+    public void A_daily_pending_low_names_the_low_it_holds()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
         var r = Btc();
         var pending = Marked(r[CipherCProvider.CompPending]).ToList();
-        Assert.NotEmpty(pending);
+        var cancelled = Marked(r[CipherCProvider.CompCancelled]).ToList();
+        var dcl = Marked(r[CipherCProvider.CompDcl]).ToHashSet();
+        Assert.True(pending.Count > 10);
+        int drawn = 0, dropped = 0;
         foreach (int t in pending)
         {
-            double lowest = r[CipherCProvider.CompPending + CipherCProvider.LowestSuffix][t];
-            if (double.IsNaN(lowest)) continue;
+            double named = r[CipherCProvider.CompPending + CipherCProvider.LowestSuffix][t];
+            Assert.False(double.IsNaN(named));
             int at = t - (int)r[CipherCProvider.CompPending + CipherCProvider.LowestAgoSuffix][t];
-            Assert.Equal(lowest, bars[at].Low);
-            for (int i = at; i <= t; i++) Assert.True(bars[i].Low >= lowest);
+            Assert.True(at < t);
+            Assert.Equal(bars[at].Low, named);
+            int next = pending.FirstOrDefault(p => p > t, bars.Count);
+            if (dcl.Contains(at)) drawn++;
+            else if (next == bars.Count && !cancelled.Any(c => c > t)) Assert.DoesNotContain(dcl, d => d > t);   // still held at the end
+            else
+            {
+                Assert.Contains(cancelled, c => c > t && c <= next && r[CipherCProvider.CompCancelled][c] == named);
+                dropped++;
+            }
         }
+        Assert.True(drawn > 10 && dropped > 0, $"drawn {drawn}, dropped {dropped}");
         int last = pending[^1];
         string said = Provider.GetComponentSpeech(CipherCProvider.CompPending, r[CipherCProvider.CompPending][last], bars[last], r, last)!;
         _out.WriteLine(said);
-        Assert.Matches("^Daily cycle low pending, the cycle line reached oversold on day [0-9]+\\. Lowest low since the last cycle low: ", said);
+        Assert.Matches("^Daily cycle low pending on day [0-9]+: the low of [0-9,.]+, [0-9]+ days? ago\\.$", said);
+        Assert.DoesNotContain("oversold", said);
     }
 
     [Fact]

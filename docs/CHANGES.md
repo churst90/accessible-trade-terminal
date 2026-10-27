@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's daily pending low names the low it holds; the original's table checked bar by bar (2026-10-27)
+
+- **What changed:** on the daily tier, Cycle Low Pending's companions (`_lowest`, `_lowestAgo`) are
+  the low the daily tier names on that bar (`TierRun.HeldAt`), not the lowest low since the last
+  cycle low. That lowest low is often before the cycle's top, and the original never takes it. The
+  speech is now "Daily cycle low pending on day 76: the low of 59100.00, 7 days ago." The old words
+  ("the cycle line reached oversold", "Lowest low since the last cycle low") belonged to the old
+  search. They stay on the weekly and yearly tiers, which still run it (weekly charts).
+- **The original's table, read in its replays** (private, `ctz/tabcmp.py`, `ctz/tabdiff.py`,
+  `ctz/unc2.py`, `ctz/wconf_t.py`; Cipher C walk-forward dumps from the untracked
+  `ZzCipherCDumpHarness` via `ctz/tabrun.sh`):
+  - *Days since the last daily low* is the bars since it: the low's own day is 0. Cipher C's daily
+    window says the day of the cycle, counting the low's own day as 1. So it is one more than the
+    original wherever the lows agree, which is every row of GDX, SPX, NDQ, MSTR and the held-out
+    EUR/USD and Apple (1,207-1,250 each). The window still opens on the bar the original may first
+    name a low. Whether to say the original's number is a question for Cody (TODO).
+  - *Days since the unconfirmed daily low* is the bars since the pending low. After a drop the
+    original keeps counting the dropped low until it names a new one. With that rule, Cipher C's
+    pending lows give the original's cell on 96.4% of 24,100 rows, and every row on 6 of 19 assets.
+    The rest are bars where the lows differ (the daily residue). Cipher C has no such per-bar count;
+    nothing is added for it.
+  - *Weeks since the last weekly low*: the original confirms a weekly low only on a daily
+    confirmation bar (66 of 66 on six assets), once the next weekly low is fixed. Cipher C works the
+    same way, so the rows that differ are where the weekly lows differ. On the held-out EUR/USD
+    (hidden weekly lows) every row agrees.
+- **Tests:** `A_pending_low_names_the_lowest_low_since_the_last_one` becomes
+  `A_daily_pending_low_names_the_low_it_holds`, on the Bitcoin test chart. Every pending low's bar is
+  later drawn as a daily low, or cancelled at that price before the next pending low, or still held
+  at the chart's end. The speech is pinned, without "oversold".
+  - Three sabotages turn it red: the old lowest-since companion, the old words on the daily tier, and
+    the age one day off.
+  - All 221 Cipher C tests pass locally.
+- **Caveats:** not seen or heard in the app. The day-count convention is unchanged pending Cody.
+
 ### Cipher C's daily tier is the original's rule: about 19 in 20 daily lows on the same bar (2026-10-27)
 
 - **What changed:** the daily tier has its own detector, `CipherCEngine.DetectDaily`, read bar by bar
@@ -56,7 +90,7 @@ All notable changes to this project will be documented in this file.
   d − 2, d − 1 from the hold's start as d − 2, pivot break off, DSS length/EMA swapped, seed drawn, drop before confirm,
   trigger EMA 4, hold-from strict, back 30, break by a high, top tie to the earlier, seed last of
   equal lows, flat window 0, Ether doubles on, the double and S-lower gates, SILJ on next-daily, the
-  provider ignoring `WeeklyDoubles`. README 9662 tests.
+  provider ignoring `WeeklyDoubles`. README 9657 tests (the doc guard's `--list-tests` count; 9662, first written here, was a run total).
 
 ### Cipher DBSI rebuilt from every rule found: about 19 in 20 exact (2026-10-26)
 
