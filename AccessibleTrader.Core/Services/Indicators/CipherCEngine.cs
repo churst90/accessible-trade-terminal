@@ -13,8 +13,12 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <see cref="WeeklyEveryTwoDaily"/> picks the weekly lows by
     /// <see cref="CipherCEngine.WeeklyFromTwoDaily"/>, the rule the original follows on the dollar,
     /// the Dow, the S&amp;P and the Nasdaq; <see cref="WeeklyNextDaily"/> by
-    /// <see cref="CipherCEngine.WeeklyFromNextDaily"/>, its rule on Gold, Silver and the miners; the
-    /// others keep <see cref="CipherCEngine.WeeklyFromDaily"/>.
+    /// <see cref="CipherCEngine.WeeklyFromNextDaily"/>, its rule on Gold, Silver, GDX and GDXJ; the
+    /// others keep <see cref="CipherCEngine.WeeklyFromDaily"/>, on Ether without its "double"
+    /// (<see cref="WeeklyDoubles"/> false).
+    /// <see cref="DssLength"/> and <see cref="DssSmooth"/> are the stochastic length and EMA length
+    /// of the double-smoothed stochastic that names a daily low (<see cref="CipherCEngine.DetectDaily"/>);
+    /// <see cref="PivotBreak"/> adds the second way to name one, the break of the last swing high.
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
@@ -22,7 +26,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         double WeeklyMin, double WeeklyMax,
         double YearlyMin, double YearlyMax,
         bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyEveryTwoDaily = false,
-        bool WeeklyNextDaily = false)
+        bool WeeklyNextDaily = false, int DssLength = CipherCEngine.DefaultDssLength,
+        int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true)
     {
         /// <summary>The shortest daily cycle the detector counts with.</summary>
         public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
@@ -33,56 +38,53 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// is on this chart, and the cycle-low detector run once per tier.
     ///
     /// <para>
-    /// <b>What the detector is.</b> Camel Finance's CF Cycle Trading Indicator is closed source. Its
-    /// settings screen shows "overbought 75, oversold 10", "fast/slow EMA adjustment" and a "cycle
-    /// length adjustment factor" — the inputs of a Schaff Trend Cycle (a MACD put through a double
-    /// stochastic), with its lengths scaled from the asset's cycle range. This detector is that
-    /// inference, fitted to the 25 SPX daily cycle lows CF itself labelled on Camel's videos
-    /// (2020–2022 and 2024–2025): it finds 18 of the 25 within two bars (72%). Held out, on CF's
-    /// own labels it was never fitted to, it finds 8 of 13 within four days (gold 3 of 7, Dow 3 of
-    /// 4, Bitcoin 2 of 2); those labels were read off video frames and carry ±1–3 days themselves.
-    /// The misses are mostly half-cycle lows CF marks and this does not.
+    /// <b>The daily tier</b> (<see cref="DetectDaily"/>) is the original's own rule, read bar by bar
+    /// from it in TradingView's bar replay on candles (sixteen tuned assets, 2026-10-22 to 27; the
+    /// replays cannot be committed, so <c>CipherCDailyTests</c> hold the engine to the study's model
+    /// instead). With d the shortest daily cycle in bars:
+    /// <list type="bullet">
+    ///   <item><b>Naming.</b> Once the last low is d − 1 bars back, and d − 1 bars from where its hold
+    ///         began, a bar names a low (the original's "unconfirmed" low) when the double-smoothed
+    ///         stochastic (Bressert's DSS, <see cref="DoubleSmoothedStochastic"/>; length and EMA per
+    ///         preset, 10 and 9 by default) is above its 5-bar EMA and between the oversold and
+    ///         overbought levels (10 and 75). The level the original needs to still name a low is the
+    ///         DSS rounded up, on every date tried. On gold, silver, the miners and the dollar
+    ///         (<see cref="CyclePreset.PivotBreak"/>) a bar also names one by breaking the last
+    ///         one-bar swing high, the first break since it formed that no close has made.</item>
+    ///   <item><b>The low.</b> The lowest swing low after the cycle's top (the highest one-bar swing
+    ///         high since the last low, or since the bar before it was confirmed), at most
+    ///         <see cref="CandidateBack"/> bars back, and after any pending low dropped since.</item>
+    ///   <item><b>The hold.</b> Half of d, rounded down (<see cref="HoldFraction"/>), from the low if it
+    ///         is at least d − 2 after the last (<see cref="HoldFromBeforeMin"/>), else from the bar
+    ///         before the naming bar. Never confirmed on the naming bar.</item>
+    ///   <item><b>The drop.</b> A bar under the pending low within d / 3 bars of naming it, rounded up
+    ///         (<see cref="DropDivisor"/>), drops it, unless the low comes due on that bar; after
+    ///         that the low stands whatever the price does.</item>
+    ///   <item><b>The start.</b> The first cycle counts from the lowest bar of the first d bars, which
+    ///         is not drawn. From any start the lows are the same as from the original's own within
+    ///         about two cycles.</item>
+    /// </list>
+    /// On the original's final daily lows over the sixteen assets this draws 1,183 of its 1,240
+    /// and 64 it does not (F1 0.951; 0.950 before 2022, 0.953 after). Held out, on charts it was
+    /// never fitted to, both on the default count: platinum 0.939, Apple 0.985 (since 2022, 30 of 30).
     /// </para>
     ///
     /// <para>
-    /// <b>The rule.</b> After the Schaff line has been at or under the oversold level, its first
-    /// cross up through the overbought level CONFIRMS a cycle low: the lowest swing low since the
-    /// last confirmed low's minimum gap (60% of the shortest cycle). The low must still be the
-    /// lowest bar up to the confirming bar. A confirmed low is never taken back: the first close
-    /// under it is a FAILED cycle, at any gap. A bar under a low still holding (pending), before
-    /// the bar it is due, CANCELS that pending low (CF's "cancelled" state).
+    /// <b>The cycle line,</b> on the yearly tier and on a weekly chart's weekly tier, is an inference
+    /// from the original's settings screen ("overbought 75, oversold 10", "fast/slow EMA
+    /// adjustment", "cycle length adjustment factor"): a Schaff Trend Cycle with its lengths scaled
+    /// from the cycle range, fitted to the 25 S&amp;P daily lows read off videos (18 of 25 within
+    /// two bars). After the line has been at or under the oversold level, its first cross up through
+    /// the overbought level confirms the lowest swing low since the last low's minimum gap (60% of
+    /// the shortest cycle), if it is still the lowest bar. It then holds as the daily tier's does,
+    /// counted from the later of the low and the last low plus the shortest cycle less two; a lower
+    /// bar before it is due takes its place. Unverified there.
     /// </para>
     ///
     /// <para>
-    /// <b>The hold.</b> The low the cross finds is not confirmed on that bar: it must hold for half
-    /// the shortest cycle, rounded down (<see cref="HoldFraction"/>; 25 bars on a 51-bar cycle), counted from the low itself or from the last
-    /// confirmed low plus the shortest cycle less two bars (<see cref="HoldFromBeforeMin"/>),
-    /// whichever is later. A lower low while it holds takes its place and starts the hold again.
-    /// This is the original's own timing, read bar by bar from it in TradingView's bar replay
-    /// (2026-10-22): on the Dow (36-bar shortest cycle) every confirmation came 18 bars after the
-    /// later of the low and the last low plus 34; on GDX (22) 11 bars after the later of the low and
-    /// the last low plus 20, all 27 cycles from October 2023 to October 2026. Where the two agree
-    /// on the low, Cipher C now confirms it on the same bar the original does: 13 of the original's
-    /// 18 Dow lows from 2023 and 16 of its 27 GDX lows. The rest are lows the two pick differently.
-    /// Confirmation therefore comes at least half a shortest cycle after the low: 18 bars on the
-    /// Dow, where it used to be a median of eight. Read on daily charts only. The yearly tier, and
-    /// the weekly tier on a weekly chart, use the same rule unverified.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>The search, on the daily tier.</b> Once a confirmed low is there, the daily tier does not
-    /// wait for the cross. From the last low plus the shortest cycle less two bars
-    /// (<see cref="SearchFromBeforeMin"/>), any close above the bar before's high takes the
-    /// lowest low since the cycle's highest high as the low to hold. Read from the same replays:
-    /// the original's "unconfirmed" low first appears 21 to 43 bars after the last low on GDX
-    /// (shortest 22), and it is seldom the lowest bar since the last low, but the low after the
-    /// cycle's top. Simulated against every replayed bar, this rule names the original's candidate
-    /// on the bar it appears more often than any other tried (GDX 25 of 38, Dow 21 of 35), but it is
-    /// not the rule: the original sometimes names a low on a falling bar, and sometimes a day or two
-    /// later than this. On the original's final labels, after a 300-bar warm-up, it lifted the daily
-    /// F1 from 0.727 to 0.739 and the tops from 0.795 to 0.815 on eight assets held out from it
-    /// (five better, two worse, Bitcoin level). The first low, the yearly tier, and the weekly tier
-    /// on a weekly chart still wait for the cross.
+    /// A confirmed low is never taken back: the first close under it is a FAILED cycle, at any gap
+    /// (the original removed none of the 379 lows it confirmed in its replays). A pending low dropped
+    /// is CANCELLED (the original's "cancelled" state).
     /// </para>
     ///
     /// <para>
@@ -105,8 +107,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <see cref="WeeklyFromTwoDaily"/>): the first daily low after a new weekly low takes its place
     /// if lower; from the second, a new weekly low goes on the lowest daily low since that is two
     /// shortest daily cycles less two bars each after the last.
-    /// On Gold, Silver and the miners (22-day tables) the original judges a candidate at the next
-    /// daily low instead (<see cref="CyclePreset.WeeklyNextDaily"/>, <see cref="WeeklyFromNextDaily"/>).
+    /// On Gold, Silver, GDX and GDXJ (22-day tables) the original judges a candidate at the next
+    /// daily low instead (<see cref="CyclePreset.WeeklyNextDaily"/>, <see cref="WeeklyFromNextDaily"/>);
+    /// the junior silver miners keep the first rule, and Ether keeps it without the "double"
+    /// (<see cref="CyclePreset.WeeklyDoubles"/>). Both fitted on the 2022-26 replays and checked
+    /// before 2022; on the daily tier's own lows the sixteen assets' weekly F1 goes 0.799 -> 0.839.
     /// </para>
     ///
     /// <para>
@@ -128,8 +133,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Read from the original in bar replay (see "The hold" in the class remarks) ──
         public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle (rounded down) before it is confirmed
         public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
-        public const int    SearchFromBeforeMin = 2;  // the daily search opens at the last low + shortest cycle − this
         public const double KeepWeeksBelowMin = 4;    // a weekly low is kept this many weeks short of the shortest weekly cycle from the last
+
+        // ── The daily tier (see DetectDaily) ──
+        public const int    DefaultDssLength = 10;   // the double-smoothed stochastic's length, where a preset names none
+        public const int    DefaultDssSmooth = 9;    // its EMA
+        public const int    DssTrigger       = 5;    // the EMA of the line it must be above
+        public const int    CandidateBack    = 99;   // the low is looked for at most this many bars back
+        public const double DropDivisor      = 3;    // an undercut drops the pending low only within the shortest cycle / this (rounded up) bars of naming it
 
         // ── Presets ────────────────────────────────────────────────────────────────────
 
@@ -149,28 +160,34 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
-            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, WeeklyEveryTwoDaily: true),
+            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32, WeeklyEveryTwoDaily: true),
             new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true),
             new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true),
             // Its table says 15-24, but the original counts the dollar from 18 (candle replay, 2021-26,
             // 52 lows): confirmed 9 bars after the low on 39 of 52, a short cycle no sooner than the
             // last low + 25, a first label no sooner than the last low + 17.
-            new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18, WeeklyEveryTwoDaily: true),
-            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyNextDaily: true),
+            new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18, WeeklyEveryTwoDaily: true,
+                DssLength: 8, PivotBreak: true),
+            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
             // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
             // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
             // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
             // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
-            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyNextDaily: true),
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyNextDaily: true, PivotBreak: true),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
-            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyNextDaily: true),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyNextDaily: true),
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyNextDaily: true),
+            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyNextDaily: true, PivotBreak: true),
+            // The junior silver miners pick their weekly lows as the indices and coins do, not as the other
+            // metals (the original's 2022-26 replays: 13 of its 13 weekly lows on its own daily lows,
+            // 7 of 13 by the next daily low; fitted after 2022, 2 of 2 before).
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, PivotBreak: true),
             // Its table says 15-25, but the original counts Ethereum from 16 (candle replay, 2022-26, 75
             // lows): confirmed 8 bars after the low on 59 of 75 (15 and 16 both hold 8), a short cycle
             // no sooner than the last low + 22 (16 - 2 + 8; 15 would give 21), a first label no sooner
             // than the last low + 15.
-            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16),
+            // Ether's weekly lows have no "double" (on its own daily lows the original's weekly F1 0.71 -> 0.88;
+            // fitted on 2022-26, before 2022 0.71 -> 0.84).
+            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were
@@ -178,15 +195,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             // last low + 47 (dMin - 1), it confirms 24 bars after the low on 19 of 24, and a short
             // cycle's confirmation waits until the last low + 70 (1.5 dMin - 2), on 4 of 5. At 54 every
             // one of ours came 3 bars late; at 48, 20 of 22 land on its bar and 22 of 25 lows match (19).
-            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48),
+            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48, DssLength: 14, DssSmooth: 14),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
             // Its table says 40-90 for both, but the original counts Coinbase and MicroStrategy from 51
             // (candle replays, 2021-26 and 2019-26): confirmed 25 bars after the low (half of 51,
             // rounded down; 50 would hold 25 too), a short cycle no sooner than the last low + 74
             // (51 - 2 + 25; 50 would give 73), on both. At 40 every one of ours came 5 bars early.
-            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51),
-            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51),
+            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51, DssLength: 14),
+            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51, DssLength: 14),
             // Its table says 36-44, but the original counts MARA from 38 (candle replay, 2022-26, 23 lows):
             // confirmed 19 bars after the low on 19, a short cycle no sooner than the last low + 55
             // (38 - 2 + 19; 55, 55, 56), a first label no sooner than + 37. At 36 every one came a bar early.
@@ -467,13 +484,12 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// Runs the detector for one tier. Everything it publishes per bar is decided from that bar
-        /// and earlier ones; only <see cref="TierRun.Lows"/> (the final list) knows the future.
-        /// <paramref name="searchOnTurn"/>: the daily tier's search (see "The search" in the class
-        /// remarks); off, every low waits for the cycle line's cross.
+        /// Runs the cycle line's detector for one tier: the weekly tier on a chart with no daily one,
+        /// and the yearly tier (the daily tier is <see cref="DetectDaily"/>). Everything it publishes
+        /// per bar is decided from that bar and earlier ones; only <see cref="TierRun.Lows"/> (the
+        /// final list) knows the future.
         /// </summary>
-        public static TierRun Detect(ReadOnlySpan<Ohlcv> data, TierBars tier, double overbought, double oversold,
-                                     bool searchOnTurn = false)
+        public static TierRun Detect(ReadOnlySpan<Ohlcv> data, TierBars tier, double overbought, double oversold)
         {
             int n = data.Length;
             var run = new TierRun
@@ -493,7 +509,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             int searchBack = (int)Math.Round(tier.MaxBars * SearchBackCycles);
             int hold = Math.Max(0, (int)Math.Floor(tier.MinBars * HoldFraction));
             int holdFrom = Math.Max(0, (int)Math.Round(tier.MinBars) - HoldFromBeforeMin);
-            int searchFrom = Math.Max(1, (int)Math.Round(tier.MinBars) - SearchFromBeforeMin);
 
             var close = new double[n]; var low = new double[n]; var high = new double[n];
             for (int i = 0; i < n; i++) { close[i] = data[i].Close; low[i] = data[i].Low; high[i] = data[i].High; }
@@ -524,31 +539,18 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (held >= 0)
                 {
                     // A bar under the held low up to the bar before it is due cancels it; on that
-                    // bar the held low is confirmed whatever the bar's low (the original, 8 of the
-                    // 13 such bars in its replays on five daily charts). The original drops the
-                    // undercut low and names the next one a bar or more later (328 of 332 pending
-                    // lows it dropped, none replaced on the same bar), so the search drops it too
-                    // and looks again from the next bar; the cycle line's cross, which may not come
-                    // again, moves it to the undercutting bar.
+                    // bar the held low is confirmed whatever the bar's low (the original's rule on
+                    // daily charts). The cycle line's cross, which may not come again, moves it to
+                    // the undercutting bar.
                     if (low[t] < low[held] && t - (last >= 0 ? Math.Max(held, last + holdFrom) : held) < hold)
                     {
                         run.Cancelled[t] = replaced = low[held];
                         run.CancelledLow[t] = held;
                         cancelledSince = true;
-                        held = searchOnTurn && last >= 0 ? -1 : t;
+                        held = t;
                     }
                 }
-                else if (searchOnTurn && last >= 0 && t - last >= searchFrom && close[t] > high[t - 1])
-                {
-                    // The lowest low since the cycle's highest high (the latest of equal bars), if
-                    // the bar has turned up from it.
-                    int top = last + 1;
-                    for (int i = last + 2; i <= t; i++) if (high[i] >= high[top]) top = i;
-                    int c = top;
-                    for (int i = top + 1; i <= t; i++) if (low[i] <= low[c]) c = i;
-                    if (c < t) { held = c; found = t; }
-                }
-                else if ((!searchOnTurn || last < 0) && armed && stc[t - 1] < overbought && stc[t] >= overbought)
+                else if (armed && stc[t - 1] < overbought && stc[t] >= overbought)
                 {
                     int start = last >= 0 ? last + minGap : 0;
                     start = Math.Max(Math.Max(start, t - searchBack), swing);
@@ -583,6 +585,189 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
+        /// The double-smoothed stochastic (Bressert's DSS) the daily tier names a low with, and its
+        /// trigger: s = EMA(stochastic of the close in the high-low range, <paramref name="smooth"/>),
+        /// d = EMA(stochastic of s in its own range, <paramref name="smooth"/>), trigger = EMA(d, 5).
+        /// A stochastic with no full window yet, or a flat one, reads 50; each EMA starts from its
+        /// first input.
+        /// </summary>
+        public static (double[] Dss, double[] Trigger) DoubleSmoothedStochastic(double[] high, double[] low, double[] close,
+                                                                                 int length, int smooth)
+        {
+            int n = close.Length;
+            var s = Ema(Stochastic(close, high, low, length), smooth);
+            var d = Ema(Stochastic(s, s, s, length), smooth);
+            return (d, Ema(d, DssTrigger));
+        }
+
+        private static double[] Stochastic(double[] x, double[] high, double[] low, int length)
+        {
+            int n = x.Length;
+            var o = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (i < length - 1) { o[i] = 50; continue; }
+                double hh = high[i], ll = low[i];
+                for (int j = i - length + 1; j < i; j++) { if (high[j] > hh) hh = high[j]; if (low[j] < ll) ll = low[j]; }
+                double v = (x[i] - ll) / (hh - ll) * 100;
+                o[i] = double.IsFinite(v) ? v : 50;
+            }
+            return o;
+        }
+
+        private static double[] Ema(double[] x, int length)
+        {
+            var o = new double[x.Length];
+            if (x.Length == 0) return o;
+            double a = 2.0 / (length + 1);
+            o[0] = x[0];
+            for (int i = 1; i < x.Length; i++) o[i] = o[i - 1] + a * (x[i] - o[i - 1]);
+            return o;
+        }
+
+        /// <summary>
+        /// The daily tier: the original's own rule, read bar by bar from it in TradingView's bar
+        /// replay (sixteen tuned assets, 2026-10-27; see "The daily tier" in the class remarks).
+        /// Everything it publishes per bar is decided from that bar and earlier ones. The low before
+        /// the first cycle is the lowest bar of the first shortest cycle, or <paramref name="seed"/>;
+        /// it is where the count starts, not a low of its own (not in <see cref="TierRun.Lows"/>).
+        /// </summary>
+        public static TierRun DetectDaily(ReadOnlySpan<Ohlcv> data, TierBars tier, int dssLength, int dssSmooth,
+                                          double overbought, double oversold, bool pivotBreak, int seed = -1)
+        {
+            int n = data.Length;
+            var run = new TierRun
+            {
+                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
+                Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
+            };
+            if (!tier.Active || n < 3) return run;
+
+            double dmin = tier.MinBars;
+            int hold = Math.Max(0, (int)Math.Floor(dmin * HoldFraction));
+            int holdFrom = (int)Math.Round(dmin) - HoldFromBeforeMin;
+            double searchFrom = dmin - 1;
+            int originGap = (int)Math.Round(dmin) - 1;
+            int dropWithin = (int)Math.Ceiling(dmin / DropDivisor);
+
+            var close = new double[n]; var low = new double[n]; var high = new double[n];
+            for (int i = 0; i < n; i++) { close[i] = data[i].Close; low[i] = data[i].Low; high[i] = data[i].High; }
+            var (dss, trigger) = DoubleSmoothedStochastic(high, low, close, dssLength, dssSmooth);
+
+            if (seed < 0)
+            {
+                seed = 0;
+                for (int i = 1; i < Math.Min(n, (int)Math.Round(dmin)); i++) if (low[i] < low[seed]) seed = i;
+            }
+
+            bool cancelledSince = false;
+            double replaced = double.NaN;
+            int last = seed, held = -1, named = 0, origin = 0, dropBar = -1, failedFor = -1;
+            int confirmedAt = int.MinValue / 2, lastOrigin = int.MinValue / 2;
+            bool real = false;   // last is a low of its own, not the seed
+            for (int t = seed + 1; t < n; t++)
+            {
+                if (real && close[t] < low[last] && failedFor != last)
+                {
+                    run.Failed[t] = low[last];
+                    run.ClosedUnder[t] = last;
+                    failedFor = last;
+                }
+
+                bool due = held >= 0 && t - origin >= hold && t > named;
+                if (held >= 0)
+                {
+                    // An undercut drops the pending low only soon after it was named; later the low
+                    // stands whatever the price does. A low due to confirm on this bar confirms.
+                    if (low[t] < low[held] && !due && t - named < dropWithin)
+                    {
+                        run.Cancelled[t] = replaced = low[held];
+                        run.CancelledLow[t] = held;
+                        cancelledSince = true;
+                        held = -1; dropBar = t;
+                    }
+                }
+                else if (t - last >= searchFrom && t - lastOrigin >= originGap)
+                {
+                    bool dssUp = dss[t] > trigger[t] && dss[t] < overbought && dss[t] > oversold;
+                    if (dssUp || pivotBreak)
+                    {
+                        int c = Candidate(high, low, t, last, confirmedAt, dropBar, out int top);
+                        if (c < t && (dssUp || BreaksLastSwingHigh(high, close, t, c, top)))
+                        {
+                            held = c; named = t;
+                            origin = held >= last + holdFrom ? held : t - 1;
+                            run.Pending[t] = close[t];
+                        }
+                    }
+                }
+
+                if (held >= 0 && t - origin >= hold && t > named)
+                {
+                    run.Confirmed[t] = low[held];
+                    if (cancelledSince) run.Updated[t] = replaced;
+                    run.Lows.Add(held); run.ConfirmedAt.Add(t); run.FoundAt.Add(named);
+                    last = held; held = -1; dropBar = -1; confirmedAt = t; lastOrigin = origin;
+                    cancelledSince = false; real = true;
+                }
+                run.LastLowAt[t] = real ? last : -1;
+                run.HeldAt[t] = held;
+            }
+            return run;
+        }
+
+        /// <summary>
+        /// The low a naming bar <paramref name="t"/> names, or <paramref name="t"/> for none: the
+        /// lowest swing low (no higher than the bar before, lower than the bar after; the latest of
+        /// equal ones) after the cycle's top and after any pending low dropped since, at most
+        /// <see cref="CandidateBack"/> bars back. The top is the highest one-bar swing high (no lower
+        /// than the bar before, higher than the bar after) from the last low, or from the bar before
+        /// it was confirmed if later; with none, the highest high up to two bars back (one, if the
+        /// bar is not a higher high).
+        /// </summary>
+        private static int Candidate(double[] high, double[] low, int t, int last, int confirmedAt, int dropBar, out int top)
+        {
+            int exclude = high[t] > high[t - 1] ? 2 : 1;
+            int end = t - exclude > last + 1 ? t - exclude : t - 1;
+            int from = confirmedAt - 1 <= end ? Math.Max(last + 1, confirmedAt - 1) : last + 1;
+            top = -1;
+            for (int q = Math.Max(from, 1); q <= t - 1; q++)
+                if (high[q - 1] <= high[q] && high[q + 1] < high[q] && (top < 0 || high[q] >= high[top])) top = q;
+            if (top < 0)
+            {
+                top = from;
+                for (int q = from + 1; q <= end; q++) if (high[q] >= high[top]) top = q;
+            }
+            int s0 = Math.Max(Math.Max(top + 1, t - CandidateBack), Math.Max(last + 1, dropBar));
+            int c = t;
+            for (int k = s0; k < t; k++)
+            {
+                if (k - 1 >= last + 1 && low[k] > low[k - 1]) continue;
+                if (!(low[k] < low[k + 1])) continue;
+                if (c == t || low[k] <= low[c]) c = k;
+            }
+            return c;
+        }
+
+        /// <summary>
+        /// The second way to name a low, on the presets that have it (<see cref="CyclePreset.PivotBreak"/>):
+        /// bar <paramref name="t"/>'s high is the first break of the last one-bar swing high (two or
+        /// more bars back) since it formed, judged by closes: no bar after it closed above it.
+        /// The low named must come after the cycle's top.
+        /// </summary>
+        private static bool BreaksLastSwingHigh(double[] high, double[] close, int t, int candidate, int top)
+        {
+            if (candidate <= top) return false;
+            int j = -1;
+            for (int q = t - 2; q >= 1; q--)
+                if (high[q - 1] <= high[q] && high[q + 1] < high[q]) { j = q; break; }
+            if (j < 0 || !(high[t] > high[j])) return false;
+            for (int q = j + 1; q < t; q++) if (close[q] > high[j]) return false;
+            return true;
+        }
+
+        /// <summary>
         /// How far, in bars, a daily low must be from the newest kept weekly low to keep a weekly
         /// low: the shortest weekly cycle less <see cref="KeepWeeksBelowMin"/> weeks. Read from the
         /// original: GDX and the Dow 90 (22 weeks of 5 bars; GDX allows 84 to 100), Bitcoin 126 (22
@@ -603,9 +788,12 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// the original's confirmed weekly low: the kept weekly low before the newest, which its
         /// week count runs from. Confirmed fires when that moves on, Cancelled on the bar a kept
         /// weekly low is dropped (carrying its price), and Updated on the next confirmation after
-        /// one was (the price of the one dropped last).
+        /// one was (the price of the one dropped last). With <paramref name="doubles"/> false there
+        /// is no "double": a kept lower low is not judged by the next daily low, and a lower low a
+        /// daily cycle after a replacement is not judged either.
         /// </summary>
-        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double keepBars, double dailyMin)
+        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double keepBars, double dailyMin,
+                                              bool doubles = true)
         {
             int n = data.Length;
             var run = new TierRun
@@ -664,7 +852,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 bool lower = kept.Count > 0 && Low(cand) < Low(kept[^1]);
                                 dprev = kept.Count > 0 ? kept[^1] : -1;
                                 Keep(cand); chk = d;
-                                phase = lower ? 'D' : 'L';
+                                phase = lower && doubles ? 'D' : 'L';
                             }
                             else { drawnOn.Remove(cand); phase = 'L'; }
                             break;
@@ -682,7 +870,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         default:   // 'S', after a replacement
                             // A lower low a full daily cycle after the replacement is judged as a
                             // checkpoint after a new weekly low.
-                            if (cand >= 0 && Low(d) < Low(cand) && d - cand >= dailyMin && kept.Count > 1)
+                            if (doubles && cand >= 0 && Low(d) < Low(cand) && d - cand >= dailyMin && kept.Count > 1)
                             {
                                 chk = d; dprev = kept[^1] == cand ? kept[^2] : kept[^1];
                                 phase = 'D';

@@ -301,6 +301,13 @@ namespace AccessibleTrader.Tests
             // TopBottomDetectorProviderTests.DistributionConfidence_ResidueConverges_ItIsNotAnchoredToArrayIndexZero.
             // It sat under DEFECT until 2026-08-27 on the strength of nobody having looked.
             "TOP_BOTTOM_DETECTOR.Distribution Confidence",
+            // Cipher C's weekly lows are a chain picked from its daily lows, each kept by its gap from
+            // the one kept before, as the original's are (it runs from the chart's first bar too). A
+            // prepend that moves one early daily low (the daily tier agrees again within ~270 bars)
+            // can shift the chain for longer: on probe series 1 up to bar 1037 of 1400. It converges,
+            // measured in CipherCDailyTests.A_prepend_changes_the_daily_lows_briefly_and_the_weekly_chain_for_longer.
+            "CIPHER_C.WCL Confirmed",
+            "CIPHER_C.Weekly Timing Window",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were

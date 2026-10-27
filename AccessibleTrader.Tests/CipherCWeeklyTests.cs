@@ -186,6 +186,30 @@ public class CipherCWeeklyTests
     }
 
     /// <summary>
+    /// Ether's weekly lows have no "double" (<see cref="CyclePreset.WeeklyDoubles"/>): after a
+    /// lower weekly low the next daily low is a new candidate, not the judge of a second weekly
+    /// low, and a lower low a daily cycle after a replacement is not judged either. The two
+    /// scenarios above, with doubles off.
+    /// </summary>
+    [Fact]
+    public void Without_doubles_the_low_after_a_lower_weekly_low_is_a_new_candidate()
+    {
+        var (d1, data1) = Daily(400,
+            (10, 100, 20), (50, 110, 60), (120, 103, 130), (150, 107, 160),
+            (170, 95, 180), (190, 99, 200), (230, 102, 240), (260, 99.5, 270), (370, 104, 380));
+        var w1 = CipherCEngine.WeeklyFromDaily(d1, data1, Keep, DailyMin, doubles: false);
+        Assert.Equal(new[] { 10, 170, 260 }, w1.Lows);          // with doubles 10, 170, 190, 260
+        Assert.Equal(new[] { 60, 200, 270 }, w1.ConfirmedAt);   // 230 is the candidate 260 replaces, kept at once
+
+        var (d2, data2) = Daily(400,
+            (10, 100, 20), (50, 110, 60), (120, 103, 130), (150, 107, 160),
+            (170, 101, 180), (200, 98, 210), (225, 96, 235), (260, 97, 270));
+        var w2 = CipherCEngine.WeeklyFromDaily(d2, data2, Keep, DailyMin, doubles: false);
+        Assert.Equal(new[] { 10, 200, 260 }, w2.Lows);          // with doubles 10, 200, 225
+        Assert.Equal(-1, w2.ConfirmedAt[^1]);
+    }
+
+    /// <summary>
     /// A replacement nearer than 90 bars to the kept low is not drawn, and the candidate it
     /// replaced is gone too: the next daily low after it starts afresh.
     /// </summary>

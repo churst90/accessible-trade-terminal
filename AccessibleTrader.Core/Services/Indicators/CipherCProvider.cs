@@ -322,7 +322,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var wTier = CipherCEngine.Tier(wMin * clock.DaysPerWeek, wMax * clock.DaysPerWeek, clock.DaysPerWeek, clock);
             var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
             double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
-            var d = CipherCEngine.Detect(data, dTier, ob, os, searchOnTurn: true);
+            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, preset.PivotBreak);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
             // picks them; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;
@@ -330,7 +330,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 : preset.WeeklyEveryTwoDaily ? CipherCEngine.WeeklyFromTwoDaily(d, data, 2 * (dTier.MinBars - 2))
                 : preset.WeeklyNextDaily ? CipherCEngine.WeeklyFromNextDaily(d, data,
                     4.5 * dWindowMin * clock.BarsPerDay, 4 * dWindowMin * clock.BarsPerDay, 6 * dWindowMin * clock.BarsPerDay)
-                : CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars);
+                : CipherCEngine.WeeklyFromDaily(d, data, CipherCEngine.KeepBars(wMin, barsPerWeek), dTier.MinBars, preset.WeeklyDoubles);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
             // Off daily a week of the count is five or seven bars, not a week, so its lengths,
             // ages and windows are said in bars too.

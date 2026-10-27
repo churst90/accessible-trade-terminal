@@ -4,21 +4,20 @@ using Xunit.Abstractions;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// Cipher C confirms a cycle low when the original does: after the low has held for half the
+/// The hold on the tiers the cycle line's cross finds (<see cref="CipherCEngine.Detect"/>: a weekly
+/// chart's weekly tier, and the yearly tier): a low is confirmed after it has held for half the
 /// shortest cycle, counted from the low or from the last low plus the shortest cycle less two bars,
-/// whichever is later. A lower bar while it holds, up to the bar before it is due, cancels it and
-/// the search looks again from the next bar; on the due bar it is confirmed whatever the bar's low
-/// (<see cref="CipherCSearchTests"/>). A confirmed low is never taken back: a close under it fails
-/// the cycle.
+/// whichever is later. A lower bar while it holds, up to the bar before it is due, cancels it; on
+/// the due bar it is confirmed whatever the bar's low. A confirmed low is never taken back: a close
+/// under it fails the cycle. The daily tier holds by its own rule (<see cref="CipherCDailyTests"/>).
 ///
 /// <para>
-/// The rule was read bar by bar from the original in TradingView's bar replay on 2026-10-22: Dow
-/// daily (36-bar shortest cycle) confirms 18 bars after the later of the low and the last low plus
-/// 34, GDX daily (22) 11 bars after the later of the low and the last low plus 20, on every cycle
-/// from 2023 (Dow) and October 2023 (GDX) to October 2026. That data cannot be committed, so these
-/// tests hold the engine to the rule on the Bitcoin fixture: 54-bar shortest cycle, so a 27-bar
-/// hold from no earlier than the last low plus 52. The numbers are written out here from what the
-/// original did, not read from the engine's constants.
+/// The rule was read bar by bar from the original's daily tier in TradingView's bar replay on
+/// 2026-10-22: Dow daily (36-bar shortest cycle) confirms 18 bars after the later of the low and
+/// the last low plus 34, GDX daily (22) 11 bars after the later of the low and the last low plus
+/// 20. The cross tiers borrow it unverified. These tests run the detector on the Bitcoin fixture
+/// at a 54-bar shortest cycle, so a 27-bar hold from no earlier than the last low plus 52. The
+/// numbers are written out here, not read from the engine's constants.
 /// </para>
 /// </summary>
 public class CipherCHoldTests
@@ -32,7 +31,7 @@ public class CipherCHoldTests
         low = bars.Select(b => b.Low).ToArray();
         var tier = CipherCEngine.Tier(54, 66, 1, CipherCEngine.MeasureBars(bars));
         Assert.Equal(54, tier.MinBars);
-        return CipherCEngine.Detect(bars, tier, 75, 10, searchOnTurn: true);   // as the daily tier runs
+        return CipherCEngine.Detect(bars, tier, 75, 10);
     }
 
     private const int Hold = 27;          // half of 54
@@ -154,7 +153,7 @@ public class CipherCHoldTests
                 n++;
                 Assert.Equal(low[held], r.Cancelled[t]);
                 Assert.Equal(held, r.CancelledLow[t]);
-                Assert.Equal(lastLow >= 0 ? -1 : t, r.HeldAt[t]);   // before the first low, the cycle line's cross holds the bar
+                Assert.Equal(t, r.HeldAt[t]);   // the cycle line's cross holds the cancelling bar
                 Assert.DoesNotContain(held, r.Lows);
                 lastCancelled = r.Cancelled[t];
             }

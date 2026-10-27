@@ -24,8 +24,18 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C's daily tier is the original's rule (2026-10-27, built, NOT seen or heard; see
+>   CHANGES and CIPHER_C_DESIGN section 19).** About 19 in 20 daily lows on the original's bar on the
+>   sixteen replays (F1 0.951); held out Platinum 0.939, Apple 0.985, EUR/USD 0.961. Weekly F1 0.799 →
+>   0.839 (Ether without the double, SILJ on the first rule). Cody to look at any daily chart: lows
+>   should now be named, confirmed and dropped on the original's bars. Open:
+>   - Untuned assets: the original draws no weekly lows there (Platinum, Apple); Cipher C does. Copy?
+>   - Residue on the replays: 18 drops, 7 early namings, 1 candidate; nothing found separates them.
+>   - The LOW / MID / HIGH tag, Faster Confirmation, and which of the original's settings map to ours.
+>   - The original's trial ends about 2026-11-05: anything else needing a replay must be read first.
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
->   and CIPHER_C_DESIGN section 11).** A found daily low now holds for half the shortest cycle, counted
+>   and CIPHER_C_DESIGN section 11).** (Its daily naming, hold and drop are superseded by the 2026-10-27 item
+>   above; the weekly notes below still stand, except that SILJ now uses the first rule.) A found daily low now holds for half the shortest cycle, counted
 >   from the later of the low and the last low plus the shortest cycle less two bars. A lower bar
 >   while it holds cancels it and the search looks again (2026-10-24). This is the original's rule, read from TradingView's bar replay on the
 >   Dow and GDX. On the original's own bar: Dow 13 of 18 (was 1), GDX 16 of 27 (was 0). All sixteen
@@ -40,8 +50,8 @@
     The dollar, Dow, S&P and Nasdaq now pick weekly lows as the original does there (dollar weekly
     19 → 27 of 46, Nasdaq 33 → 38, Dow 39 → 40 with 4 fewer extras, S&P 30 → 29). Oil and Bitcoin
     do not fit and keep the old pick (Gold, Silver and the miners: next item).
-    The Bitcoin wiring test (CipherCSearchTests) passes a "Symbol" key the provider does not read;
-    it gets Bitcoin as the fallback for a daily chart that trades every day. Make it name the preset.
+    ~~The Bitcoin wiring test (CipherCSearchTests) passes a "Symbol" key the provider does not
+    read.~~ Done 2026-10-27: the test moved to CipherCDailyTests and passes `__symbol`.
   - **Gold, Silver and the miners judge a weekly candidate at the next daily low (2026-10-24,
     built, NOT seen; CIPHER_C_DESIGN section 16).** On the original's own daily lows 40 of 47 weekly
     lows with 6 extra (old pick 43, 51 extra). End to end the extras fall 44 → 23 but exact 43 → 39

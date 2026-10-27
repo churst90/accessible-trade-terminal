@@ -424,8 +424,8 @@ small but runs the same way on all three counts. Dropping cancellation scored a 
   11-07), and at other times it showed no candidate through a rally (Dow: July 2023, early 2024).
   Read from the replays: the original's "unconfirmed" low first appears 21 to 43 bars after the last
   low on GDX (shortest cycle 22), and it is seldom the lowest bar since the last low but the low after
-  the cycle's top. **The daily tier now searches that way** (`CipherCEngine.Detect(searchOnTurn:
-  true)`): from the last low plus the shortest cycle less two bars (`SearchFromBeforeMin`), the first
+  the cycle's top. **The daily tier searched that way until 2026-10-27** (`CipherCEngine.Detect(searchOnTurn:
+  true)`, removed; section 19 has the rule that replaced it): from the last low plus the shortest cycle less two bars (`SearchFromBeforeMin`), the first
   close above the bar before's high takes the lowest low since the cycle's highest high. Simulated on
   every replayed bar it names the original's candidate on the bar it appears more often than any
   rule tried (GDX 25 of 38, Dow 21 of 35), but it is not the rule: the
@@ -887,3 +887,62 @@ Held out (cap9, captured after the rule was written; both builds scored on the s
   The every-two rule is at best 22 of 23 with 9 extra (gap 32). Not decoded.
 - Nine Ether lows and two Coinbase lows are too few to fit a rule to. The original itself says
   "switch to daily" here. So the weekly tier on weekly charts stays as built.
+
+## 19. The daily tier is the original's rule (2026-10-27)
+
+The daily tier has its own detector, `CipherCEngine.DetectDaily`, read bar by bar from the original
+in TradingView's bar replay on candles on all sixteen tuned assets, and on three untuned ones held
+out (private captures, cf-tv-export cap2, cap10, cap11; study model `ctz/sim_dss2.py`, which the C#
+matches bit for bit). The weekly and yearly tiers keep `Detect`. With d the shortest daily cycle
+the detector counts in bars:
+
+1. **Naming.** Once the last low is d − 1 bars back, and d − 1 bars from where its hold began, a bar
+   names a low when Bressert's double-smoothed stochastic (s = EMA(stoch(close, high, low, N)),
+   DSS = EMA(stoch(s, s, s, N)), both EMAs the preset's length) is above its 5-bar EMA and between
+   oversold 10 and overbought 75. Found by lowering the original's overbought input on a replay until
+   a naming vanished: the last level that still names it is the DSS rounded up, on every date tried.
+   N and the EMA per preset: Bitcoin, Coinbase, MicroStrategy 14; Ether 9; GDX, GDXJ, Gold, the
+   dollar 8; Silver, SILJ 10; others 10; EMA 9, Bitcoin 14.
+2. **The second way** (Gold, Silver, GDX, GDXJ, SILJ, the dollar). A bar names a low by going above
+   the last one-bar swing high (at least two bars back), when no bar since it formed has closed above
+   it and the bar is above the low's own high. Read from a GDX replay with the overbought input at
+   1, where every naming is this way: 59 of 59 named, no false bar of 461. On the other assets it
+   names far too early, and on Platinum it costs 0.939 → 0.807, so it is per preset.
+3. **The low.** The lowest one-bar swing low after the cycle's top, the top being the highest one-bar
+   swing high from the later of the bar after the last low and the bar before the last low was
+   confirmed (the highest bar there if there is none), at most 99 bars back, and after any pending low
+   dropped since.
+4. **The hold.** Half of d rounded down, from the low if it is at least d − 2 bars after the last,
+   else from the bar before the naming bar; never on the naming bar. A low due on a bar that goes
+   under it still confirms.
+5. **The drop.** A bar under the pending low within d / 3 bars of naming it, rounded up, drops it;
+   the search goes on from there. After that the low is locked.
+6. **The start.** The lowest bar of the first d bars (first of equal lows); not drawn.
+
+Scored from the first low the original and the study share, then on the study's own lows to the
+end (a wrong low early would otherwise shift the rest; the chart's own start is rule 6).
+
+| Set | Original's lows | Ours | Same bar | F1 |
+|---|---|---|---|---|
+| Sixteen tuned replays (rules read from their 2022–26 bars) | 1240 | | 1183 | 0.951 (before 2022 0.950, after 0.953) |
+| Platinum, held out, untuned | 166 | 164 | 155 | 0.939 |
+| Apple, held out, untuned | 162 | 161 | 159 | 0.985 |
+| EUR/USD, held out, untuned | 142 | 141 | 136 | 0.961 |
+
+Left on the tuned replays, with the original's lows put back at each of its confirmations: 18 drops
+(it keeps a low after an early undercut, or drops one late, on the Dow, the dollar, Silver, GDXJ,
+Ether), 7 namings a bar or more early (Riot, Bitcoin twice, Ether, the dollar twice, Gold), and one
+candidate. Nothing tried separates them: the DSS and its EMA, the close, the undercut's size, a close
+or open under, lows before the candidate, time past the longest cycle, a weekly lock. Tried and worse
+for naming: a second DSS of any length, other price sources, a 4-hour DSS, latches, a pivot plus a
+close above the previous high, shallow trees.
+
+**The weekly tier,** run on our own daily lows (`ctz/we2e.py`): the presets' weekly rules score F1
+0.799. Ether keeps the first rule without its "double" (`CyclePreset.WeeklyDoubles`; a weekly low
+after a lower one is a new candidate) and SILJ moves to the first rule from the next-daily one: 0.839
+(before 2022 0.802 → 0.837, after 0.794 → 0.841; Ether 0.61 → 0.85, SILJ 0.61 → 0.96, no asset
+worse). The original draws no weekly lows on untuned assets; Cipher C still does.
+
+Prepending history moves the weekly chain for longer than the old search did: the chain starts from
+the first bar, as the original's does. Pinned by a test (daily lows move only in the first 300 bars
+of 1400, weekly in the first 1100).
