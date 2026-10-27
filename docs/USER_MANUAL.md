@@ -1633,18 +1633,18 @@ score inspired by Market Cipher DBSI. Each candle gets two whole numbers: the bu
 under the candle in green, and the bears' score, printed over it in red. Both run from −5 up; on
 real charts they reach the low 20s when a WaveTrend turn keeps going for many candles. The higher number is the side in control, and on the newest candle that number
 is printed in yellow. The score is whole points, as DBSI's is. Each side starts at −5 and gains 2 for
-each of six fast checks: the close above the close two candles ago, a 4-bar average rising, a 40-bar
-stochastic rising, WaveTrend rising, Stoch RSI rising (or, when it has not moved, above 50) and Cipher
-B's money flow rising; and 1 when WaveTrend is pulling away from its average (the bears' checks are
-the mirror image). It also remembers the WaveTrend wave's last turn toward each side: 1 point after the turn,
-or 7 for bulls if it turned from deep oversold (2 for bears from deep overbought), and while the wave
-keeps pulling away from its average, 6 more for bulls (7 for bears) plus 1 for each candle since the
-turn, up to 10. Once that gap narrows, those points go; the side then gets 1 point for each candle
-after the first that the gap has widened in a row, and when the close is beyond the previous close
-while the turn is still going, 2 for bulls (3 for bears). Once the wave has turned back, a side can
-gain a 4-point bonus: it starts two or more candles after the turn ended, on a close beyond the
-previous close while an 11-bar stochastic is in the side's low half, and it lasts while each close
-stays beyond the close two candles back. The highest possible score is 31 for bulls and 27 for bears. A 200-bar
+each of six fast checks: a 9-bar ALMA rising, a 40-bar and an 81-bar stochastic rising, WaveTrend
+rising, Stoch RSI rising and Cipher B's money flow rising; and 1 when WaveTrend is pulling away from
+its average (the bears' checks are the mirror image). The rest depends on where the WaveTrend wave is
+for that side. After it turns toward the side, the side gets 1 point (7 for bulls if it turned from
+deep oversold, 2 for bears from deep overbought), and while the wave keeps pulling away from its
+average, 6 more for bulls (7 for bears) plus 1 for each candle since the turn, up to 10. Once that gap
+narrows, the side keeps the turn's point and instead gains 1 for each candle the gap has widened in a
+row, plus a few points that Stoch RSI turns on and off. Once the wave has turned back, a side can gain
+a 4-point bonus that starts on a close in its favour while a short stochastic is low, and lasts while
+each close stays beyond the close two candles back. On top of these, about forty small corrections
+of 1 to 6 points apply on narrow kinds of candle, each one found where DBSI's own numbers disagreed.
+DBSI's highest number on the charts checked is 27, and so is this one's. A 200-bar
 trend line runs with it, green while the
 close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in
 control"; Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
@@ -1652,15 +1652,18 @@ line the close is on. With narration on (N) a bar close announces "Bulls take co
 take control at …", "Bulls reached the long entry score at …" or the bears' short version, and price
 crossing the trend line. The two scores start muted; the trend line and those announcements do not.
 
-It is a reconstruction, not DBSI. Its points were chosen on 897 DBSI numbers read off twenty charts
-and about 5,800 hourly Bitcoin numbers read from DBSI itself, and it names the side in control the way
-DBSI does on about 9 candles in 10. On fifteen more charts it was never chosen on (DBSI livestreams,
-2024–2026), it prints DBSI's exact number about 1 time in 2 and lands within 2 points nearly 8 times
-in 10. Because each check is worth 2, when it misses it is often by 2, so it is within 1 point about
-6 times in 10. On seven weeks of hourly Bitcoin it was not chosen on, it is exact 6 times in 10 and
-within 2 points about 86 times in 100. It prints 17 or more less often than DBSI does (on 38 of the 48 candles
-where DBSI did), and sometimes where DBSI stays lower (6 times in those charts). Use it for direction and rough strength, and do not treat a single high reading as
-DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
+It is a reconstruction, not DBSI. Its rules were found on DBSI's own numbers, read from its labels:
+thousands of hourly and daily Bitcoin and Dow candles, plus 1,505 read by eye off thirty-five charts.
+Every rule had to lose nothing on ten more charts it was not found on (gold, Apple, the Dow, the S&P
+500 and Ethereum daily; Bitcoin and Ethereum four-hour; Bitstamp Bitcoin four-hour and hourly). On
+those it prints DBSI's exact number about 19 times in 20 (94 to 97%) and lands within 2 points about
+99 times in 100. On three charts gathered after the rules were settled (Microsoft 15-minute, Bitcoin
+5-minute and 1-minute) it is exact 94% of the time. On the charts read by eye, which carry some
+reading mistakes, it is exact about 8 times in 10. Bear numbers still miss more often than bull
+numbers. It names the side in control the way DBSI does on about 98 candles in 100. The misses
+left are mostly a candle early or late where Stoch RSI leaves 0 or 100. It prints 17 or more on 45 of
+the 48 livestream candles where DBSI did, and 3 times where DBSI stayed lower. It is a close stand-in,
+but a single reading can still be a few points off DBSI's, so do not treat one high reading as DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
 regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the
 Heikin-Ashi candles either way, once) and **Label the newest N bars** (25,

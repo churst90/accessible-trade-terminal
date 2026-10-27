@@ -242,6 +242,82 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
+  - **Cipher DBSI rebuilt from every rule found (2026-10-26, merged to local main 2026-10-27, NOT
+    pushed, NOT seen or heard in the app; see CHANGES).** One clean model (`DbsiScoreModel`, a port of the study's
+    `dbsi8/clean_dbsi.py` with the ARM memory, the bear near-zero flag and the deep-jump zero-line way, frozen as
+    `clean_dbsi_port_v5.py`) replaces gen8. Exact on 94.5–97.5% of the ten veto sets (95.4% pooled), the
+    hourly held-out weeks 59.6% → 96.1%, the fifteen 48.5% → 83.7%, the twenty 55.1% → 84.8%; never
+    mined: Microsoft 15m 94.2%, Bitstamp 5m 95.3%, Bitstamp 1m 94.0%. Cody to look at Bitcoin 1h Heikin-Ashi and any daily chart: the printed
+    numbers should now sit on Market Cipher DBSI's own more than nine times in ten. Still open:
+    - The misses left are mostly raw Stoch RSI leaving its 0 or 100 pin a bar early or late, and the
+      dead-run step that rides on it. A brute-force search of other indicators found no missing input.
+    - The rule "cross from WT above 36.5 with the 81-bar stochastic above 81.5" (+4) never fires on the
+      35 digitised charts, so the repository's tests cannot see it (sabotage at 30 stayed green); only
+      the private sets pin it. Likewise the summation order (numpy pairwise) flips no score there; a
+      unit test pins it instead.
+    - About forty corrections of 1–6 points plus the ARM, each narrow. The ten veto sets could veto
+      rules (the ARM's s2 rule and the three removals included), so they are not untouched; the three
+      held-out harvests came after.
+    - False 17+: the fifteen 3 (true 45 of 48), the twenty 5 (true 77 of 84).
+    - **Ported (2026-10-26):** the ARM (one remembered value per side through an alive run; s2 =
+      2-bar mean of raw Stoch RSI ≤ 60 bull / ≤ 40 bear gives the re-arm its +1, also in the dead
+      re-arm), the kept gate on the bear zero-line, near-zero, continuation-cross and Q-turn terms,
+      and the three rules leave-one-out removed (bull 3-bar-high Q start, bear barely-crossed
+      exception, bear zero-line 5-versus-6 split). Parity bit for bit on all 35 charts.
+    - **Ported (2026-10-26, v4):** the bear near-zero flag on dead bars (WT climbs 5+ into −15..10 with
+      the gap and ALMA votes on, raw Stoch RSI not falling: +2 held until it falls; not set on a flat
+      bar reading −2). The 35 charts do not reach its rise-of-5 edge or its flat-bar exception
+      (sabotages green); only the private sets pin those.
+    - **Ported (2026-10-26, v5, frozen as `clean_dbsi_port_v5.py`):** a fifth way into the bear
+      zero-line bonus (no cross term; WT jumps 10+ into −32..5, gap 10+, raw Stoch RSI 95+, bear-side
+      RSI 52+). +35 exact (main +10, veto +25, none worse; Bitstamp 5m held out 2856 → 2858).
+      The twenty and fifteen figures do not move; one chart pins it (sabotages red).
+    - **Left:** the bear side still misses more often than the bull: 9.2% of alive bars and 7.0% of dead
+      bars, against 3.2% and 3.5% for bulls.
+      - The bear zero-line bonus (±6) at the cross: 78 missed, 26 false (104 errors of 3,436 cross
+        bars, after the v5 deep-jump way). A cross-validated boosted model on every bar feature of both
+        sides (lags 0–3, the off stretch's length and low, the bull side's state) reaches about 93–97
+        errors before v5's 115, so per-bar features can add at most about 10 more; the rest needs
+        something we do not compute.
+      - Bear dead bars: 383 misses where the truth is +2. They come in short stretches (most one
+        bar) that end when raw Stoch RSI falls, like the near-zero flag. The same boosted model
+        finds about 47 of 130 onsets with 15 false. Tried and rejected: a break-bar way into the
+        flag without the gap vote (−20..0, jump 8+, RSI ≤ 53; +20 unseen but four sets worse);
+        dropping the flat-bar −2 on big WT jumps (worse on 7–11 sets). The break bar's −3 holds
+        on 92% of break bars; the exceptions are a +2 in 68 cases.
+      - **What is missing (2026-10-26 diagnosis):** the bear errors come as ~1,180 starts
+        (most stretches one bar). Nothing we compute predicts a start: not the per-bar features,
+        not the original's own past scores (they only predict a stretch's continuation), not
+        history to 50 bars, not the money-flow value. Ruled out: label noise (5,914 bars harvested
+        twice, 2 differ), a higher timeframe (no hour-of-day pattern), a near-cutoff feed or
+        precision difference (bear errors sit near a cutoff no more often than right bars; bulls
+        do), price level (the original on Bitstamp BTC daily + 200,000 is identical on all 1,495
+        bars; × 1,000 differs on 3). The original's bear is NOT its bull on mirrored price: on
+        200000 − BTC its bull equals the plain chart's bear on 58% of bars.
+      - **Next: mirror twins.** On that daily pair (not a fitted set; ours 94.4% bear exact), 64 of
+        83 bear misses fall where our bull model on the mirrored chart matches the original, so
+        the shared logic is right and the miss is in the bear-only part, the original's bear minus
+        its mirrored bull (0 on 58% of bars; off-run bars only 0 or +1; the top miss is dead bars
+        +3 where ours says +1). Harvest a `K − X` twin of each harvestable chart and fit that
+        difference directly as the target. TradingView Basic refuses intraday spread symbols, so
+        twins are daily only: harvesting (2026-10-26) BTC, ETH, XAU, DJI, SPX, AAPL daily mirrors
+        and eight new daily pairs (SOL, NVDA, EURUSD, XAG to mine; TSLA, AMZN, USOIL, BNB held
+        out). First read on BTC daily: the difference is a run-level offset, set at the run's
+        onset (Q or first alive bar), held on down-close bars to the run's end, 0 on up-close
+        dead bars; values +1, +2, +3, +7. Ours picks the wrong offset at some onsets.
+      - **Fitting the twins failed (2026-10-27).** On the BTC, ETH and EURUSD twins, restricted
+        to bars where our mirrored bull is right, the offset is wrong on 29 of 253, 22 of 193 and
+        24 of 109 segments. At down-close cross bars our zero-line term is already the best single
+        split (353 of 368); the other 15 match no per-bar feature. The wrong onsets are mostly
+        +2 on dead, Q or alive bars, and ±6 zero-line crosses. Two rules fitted to them, both
+        rejected: (1) a dead/alive WT jump into −26..21 with sk = 100 and K > 80 fires about three
+        times as often where the original adds nothing (main −35, unseen −19, 13 sets worse);
+        (2) a Q onset after a falling small WT (main −12, unseen −29, 11 sets worse). Both hit the
+        same ceiling as the GBM test.
+        The twins are still useful as extra unseen markets and held-out data, not as a
+        source of rules. Recommendation: stop the bear hunt. The twin harvest was stopped on
+        2026-10-27 with every twin done but the Solana mirror (900 bars); the scores are in CHANGES.
+        Open for Cody: push it, see and hear it in the app, and whether the bear hunt stops here.
   - **Cipher DBSI stoch 40, Stoch RSI and the Q state (2026-10-25, built, NOT seen; see CHANGES).**
     Hourly held out exact 44.0% → 59.6%, ±2 81.9% → 85.6%; the fifteen exact 36.8% → 48.5%, ±1
     50.0% → 58.7%, ±2 77.1% → 78.1%, but typical error 2.78 → 2.80. The off-run close-up is gone. One

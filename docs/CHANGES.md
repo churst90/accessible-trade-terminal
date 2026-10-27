@@ -4,6 +4,106 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI rebuilt from every rule found: about 19 in 20 exact (2026-10-26)
+
+- **What changed:** the score is a new class, `DbsiScoreModel`, a line-for-line port of the study's
+  `strategy-lab-data/dbsi-study/dbsi8/clean_dbsi.py` (private; ported from its frozen copy `clean_dbsi_port_v5.py`, identical to it). `DbsiStyleProvider` keeps its components,
+  settings, events, trend line and Heikin-Ashi handling and now calls `DbsiScoreModel.Score`. gen8's
+  model, settings record and terms are gone.
+  - The base: −5 + 2 × (ALMA 9 rising, the 40-bar and 81-bar stochastics rising, wt1 rising, Stoch RSI,
+    money flow rising) + 1 for the WaveTrend gap widening. The close against the close 2 back (V0) no
+    longer scores by itself; it gates several rules.
+  - The Stoch RSI vote: the 2-bar mean of raw Stoch RSI (12, 12) against its value 2 bars back; where
+    that is flat, K's slope, then K's side of 50; a flat K on the wrong side still votes when raw Stoch
+    RSI stayed off its pin and RSI moved that way a bar ago.
+  - Three states per side: off a run (the streak, the Q state at 4, Stoch RSI terms), alive (the level,
+    3 + 1 a bar + the ARM, terms read at the cross), dead (the level, the streak, a held step that raw
+    Stoch RSI re-arms, holds or drops). Bulls and bears run the same code on mirrored prices; the side
+    numbers stay (deep level 7/2, step 2/3, broken close-up 2/3).
+  - **The ARM**, one memory per side carried through an alive run, replaces a dozen alive-bar patches. At
+    the cross it takes the Q value of the bar before if Q was on, else the hidden arm (bulls +1 when K ≤ 6);
+    it is 0 if raw Stoch RSI fell over 2 bars (bulls: did not rise). Any later fall drops it; a later rise
+    re-arms it at the step (bulls 2, bears 3) **+1 when s2, the mean of raw Stoch RSI and its value a bar
+    before, is at or below 60 for bulls or 40 for bears**. The s2 rule is exact on the study's rows (bulls 0
+    misses in 1,885, bears 5 in 1,582); thresholds on K were a worse stand-in. The dead run's re-arm uses the same rule.
+  - **Kept**: the bear zero-line bonus (4 or 6), the near-zero bonus, the continuation cross and the Q-turn
+    +2 count only while the arm has not been dropped since the cross. The bear cross terms and the two
+    wide-gap +2 terms stay unconditional.
+  - **The bear near-zero flag** on dead bars replaces a one-bar +2: when the bear side's WaveTrend climbs
+    by 5 or more into −15 to 10 with the gap and ALMA votes on and raw Stoch RSI not falling, +2 is held
+    until raw Stoch RSI falls (not set on a flat bar that reads −2). The truth's dead-run +2 stretches came
+    from it: bear dead misses 8.2% → 7.0% of bars, +51 main, +75 veto sets, none worse.
+  - **A fifth way into the bear zero-line bonus**: with no cross term, the bear side's WaveTrend jumps
+    by 10 or more into −32 to 5 with a gap of 10 or more, raw Stoch RSI 95 or over and the bear-side
+    RSI 52 or over. Of the cross bars where the truth had the bonus and we did not, most were this deep
+    jump; its look-alikes had a narrower gap, a cross term or a lower RSI. +10 main, +25 veto sets,
+    none worse; the bonus trigger's errors 115 → 104.
+  - **Three rules removed** by leaving each of 54 out in turn (each removal gained exact matches): the bull
+    Q start on a 3-bar high, the bear "barely crossed" exception, and the bear zero-cross 5-or-6 split
+    (+10 main, +7 veto sets together).
+  - About forty corrections of 1 to 6 points, each found on DBSI's own numbers where the model missed
+    (CAND10 to CAND114 in the study), then cleaned: six simplifications that cost nothing, and every
+    constant rounded where rounding lost nothing (the whole rounded model is +1 exact on the study).
+  - Raw Stoch RSI is rounded to 9 decimals so its 0 and 100 pins compare equal on both sides; sums
+    follow numpy's pairwise order; NaN handling follows Python's (`min` keeps the left value).
+- **How it was chosen:** a rule was kept only if it lost no exact matches on any of nine main sets
+  (the twenty, the fifteen, the vendor's 15-minute image, the Dow and Bitcoin daily Start grids, the
+  hourly discovery and held-out weeks, raw Bitcoin daily and raw Bitcoin hourly), then on ten veto
+  sets never used to find a rule (gold, Apple, the Dow, the S&P 500, Ethereum daily; Bitcoin raw and
+  Heikin-Ashi 4h; Ethereum 4h; Bitstamp Bitcoin 4h and 1h). All are DBSI's drawn labels, never its
+  inputs, kept out of this repository.
+- **How close it is** (exact / within 1 / within 2 / typical error):
+  - Three sets harvested after the ARM was built and never used to choose anything: Microsoft 15-minute
+    2822 of 2996 (94.2%), Bitstamp Bitcoin 5-minute 2858 of 3000 (95.3%), 1-minute 1326 of 1410 (94.0%);
+    the model before the ARM had 2725, 2742, 1278 (before the near-zero flag 2814, 2845, 1326; before
+    the deep-jump zero-line way 2822, 2856, 1326).
+  - The ten veto sets: 94.5–97.5% exact (pooled 95.4% of 37,032; before the ARM 91.6%), 96.4–98.4% within 1,
+    98.5–99.5% within 2, error 0.43–0.63. Bitstamp 4h 95.7 / 97.3 / 98.9 / 0.54, 1h 95.0 / 97.4 / 98.8 / 0.54.
+  - The hourly held-out weeks (2026-09-07 to 10-24): gen8 59.6 / 71.7 / 85.6 / 1.81 → **96.1 / 97.7 / 99.2 / 0.61**.
+  - The fifteen: 48.5 / 58.7 / 78.1 / 2.80 → **83.7 / 86.2 / 89.6 / 2.26**. The twenty: 55.1 / 66.7 / 80.4 /
+    2.16 → **84.8 / 88.3 / 93.3 / 1.26**. These are read by eye; part of what is left is reading error.
+  - Side in control: the twenty 399 → 418 of 422, the fifteen 247 → 256 of 262.
+  - 17+: the fifteen 38 → 45 of 48 printed, false 6 → 3; the twenty 65 → 77 of 84, false 12 → 5.
+  - Bears still miss more often than bulls (alive bars 9.2% against 3.2%, dead 7.0% against 3.5%).
+  - **Daily charts harvested after the model was settled (2026-10-27), each with its mirror twin**
+    (the spread `K − X`, price upside down, so the original's bull on the twin is its bear on the
+    plain chart; the first 200 bars and the last bar left out). Held out (BNB, Tesla, Amazon, US oil,
+    plain and mirrored): 12,796 bars a side, **94.4% exact** (bulls 96.0, bears 92.8), 97.9% within 2;
+    gen8 56.5%. Unseen markets (Solana, silver, Nvidia, the euro, plain and mirrored): 11,119 a side,
+    **94.2% exact**, 98.1% within 2. The Solana twin was stopped at 900 bars (bulls 97.1, bears 93.3).
+    The twins of the veto sets score the same: the Dow, S&P 500 and gold mirrors bulls 95.1–98.1,
+    bears 92.2–93.3.
+- **Tests:** the fixture is regenerated (`dbsi8/zz_export_clean.py MODEL.py`; `--check` diffs against the
+  fixture on disk, `--charts` also rewrites the printed Bull/Bear arrays in `DbsiDigitisedCharts`), gen8 now as Previous. New
+  `DbsiScoreModelParityTests`: on all 35 charts every bar's bull and bear score equals the study's
+  (`DbsiCleanScores`, full length, warm-up null), bit for bit. The golden tests drop the gen8 model's
+  tests (one-step settings, hand-scored rows, the Q state on hand-made bars, the close-up and Stoch RSI
+  vote tests) and gain a numpy pairwise-sum test (9 values sum to 6, not 7; 132 values to 124, not
+  130); the WaveTrend run test moves to `DbsiScoreModel.WaveRun`. The fidelity tests pin the new
+  numbers and clean ≥ gen8 + 10 points exact on both sets. Sabotages: raw Stoch RSI unrounded (21
+  red), the 17.34 threshold at 12 (33 red), a running-total sum (the sum test red; parity stays green:
+  no score on the 35 charts depends on the order); on the ARM port, the bull s2 threshold 60 → 61
+  (2 charts red), the bear 40 → 41 (2), the kept gate on the bear zero-line terms always on (3), the arm
+  never dropped as kept (3), the near-zero flag without its ALMA gate (1), the deep-jump zero-line way
+  dropped (1) or without its RSI gate (5). The 35 charts never reach four rules, so two windows of
+  real daily candles were added (`DbsiCoverageCharts`: gold 2004-05 and the Dow 1948-49, 300 bars
+  each, candles and our scores only; the generator refuses to write them unless each broken rule
+  changes a score there). The C# matches the study on both, bit for bit. Each of these now turns one
+  window red: the near-zero flag's rise of 5 moved to 6, its flat-bar exception dropped (gold), the
+  36.5 threshold at 30, and 17.34 → 17.4 (Dow). Still not caught: 36.5 → 36.6, which changes no
+  score on any of the ~67,000 harvested daily bars of gold, the Dow and the S&P.
+  README 9644 tests.
+- **Caveats:**
+  - **The veto sets are not untouched.** They could reject a rule and did (CAND110 to 113), and the
+    ARM's s2 rule and the three removals were kept only where no veto set got worse. The Bitstamp sets
+    came last and score like the rest; the Microsoft 15-minute and Bitstamp 5- and 1-minute sets were
+    harvested after the ARM and are the only truly held-out numbers here.
+  - **Many rules are narrow** (a few points on one kind of bar), found on Bitcoin first. They held on
+    gold, stocks and Ethereum, daily to hourly, and on the three held-out sets down to 1 minute.
+  - **What is left is timing, not a missing indicator**: raw Stoch RSI leaving its pin a bar early or
+    late, and the dead-run step that holds on it.
+  - Not seen or heard in the app.
+
 ### Cipher DBSI: a 40-bar stochastic, a Stoch RSI vote and the Q state (2026-10-25)
 
 - **What changed** (`DbsiStyleProvider`, study `strategy-lab-data/dbsi-study/dbsi8/`, standalone

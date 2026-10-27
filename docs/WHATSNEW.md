@@ -8,6 +8,14 @@
 
 ## Unreleased
 
+- **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20.** It was rebuilt from
+  every rule found in DBSI's own labels on Bitcoin, Ethereum, gold, the Dow, the S&P 500 and Apple,
+  hourly to daily. On ten charts no rule was found on, it prints DBSI's exact number 94 to 97% of the
+  time and is within two points 99 times in 100; on seven weeks of hourly Bitcoin it is exact 96% of
+  the time (was 60%). On three charts gathered after the rules were settled (Microsoft 15-minute,
+  Bitcoin 5-minute and 1-minute) it is exact 94% of the time. On the fifteen livestream charts read
+  by eye it is exact 83% of the time (was 49%). Bear numbers still miss more often than bull numbers. The misses left are mostly a candle early or late where
+  Stoch RSI leaves 0 or 100.
 - **Cipher DBSI's bear numbers are closer.** After a WaveTrend turn down stops pulling away, a close
   lower than the previous one now adds 3 to the bears' score, not 2, as DBSI's own hourly Bitcoin
   numbers showed. On seven weeks of hourly Bitcoin it was not built from, it prints DBSI's exact
