@@ -128,6 +128,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string ParamSma        = "SmaLength";
         public const string ParamOverbought = "Overbought";
         public const string ParamOversold   = "Oversold";
+        public const string ParamFasterConfirmation = "FasterConfirmation";
 
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
@@ -238,9 +239,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamSma, DisplayName = "Moving average length", DataType = typeof(int), DefaultValue = (double)DefaultSma, MinValue = 2, Step = 1,
                             Description = "The simple moving average drawn on price, 10 by default." },
                     new() { Name = ParamOverbought, DisplayName = "Confirm level", DataType = typeof(double), DefaultValue = DefaultOverbought, MinValue = 1, MaxValue = 99, Step = 1,
-                            Description = "75 by default. A low is confirmed when the hidden cycle line climbs through this after reaching the oversold level." },
+                            Description = "75 by default. A daily low is named only while the hidden stochastic is below this. On a weekly chart's own weekly tier and the yearly tier, a low is confirmed when the hidden cycle line climbs through it after reaching the arm level." },
                     new() { Name = ParamOversold, DisplayName = "Arm level", DataType = typeof(double), DefaultValue = DefaultOversold, MinValue = 0, MaxValue = 99, Step = 1,
-                            Description = "10 by default. The hidden cycle line must reach this before the next low can be confirmed." },
+                            Description = "10 by default. A daily low is named only while the hidden stochastic is above this. On a weekly chart's own weekly tier and the yearly tier, the hidden cycle line must reach it before the next low can be confirmed." },
+                    new() { IsAdvanced = true, Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default. On, a daily low is also named when price breaks the last swing high, as it always is on gold, silver, the miners and the dollar, so lows are named sooner and some cycles end on a different low." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
@@ -330,7 +333,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             var wTier = CipherCEngine.Tier(wMin * clock.DaysPerWeek, wMax * clock.DaysPerWeek, clock.DaysPerWeek, clock);
             var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
             double barsPerWeek = clock.BarsPerDay * clock.DaysPerWeek;
-            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, preset.PivotBreak);
+            // The original's "Faster Confirmation" (read off its drawings on the Dow and Bitcoin,
+            // 2026-10-27) is the swing-high break switched on for an asset that lacks it.
+            bool pivotBreak = preset.PivotBreak || IndicatorParams.GetBool(p, ParamFasterConfirmation, false);
+            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
             // picks them; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;

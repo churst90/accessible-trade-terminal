@@ -998,3 +998,44 @@ confirmed one, that is when an earlier one was dropped: 880 of 884 labels (2022-
 cancellation names the cancelled low it replaces (`_replaced`), as its confirmation already did:
 same as the original's 🔄 on 831 of 844 namings both share (2022-26) and 535 of 548 (held out); the
 rest follow the drop differences in section 19. Confirmed labels can carry 🔄 too.
+
+## 21. Faster confirmation, and the original's other inputs (2026-10-27)
+
+The original's inputs were compared one by one by setting each on its study and reading the
+drawing back (private, `probe/fc_*.jsonl`, `cap13/`). Its asset-adjustment inputs act only while
+their group's switch is on; with the switch on and every value at its default, the drawing is the
+switch-off drawing (six assets).
+
+| The original's input | What it does there | Cipher C |
+|---|---|---|
+| Asset preset | which cycle ranges | Asset preset |
+| Cycle multiplier | shortest cycle × the value above 1, ÷ it below −1 | Daily cycle shortest / longest (a count, not a multiplier) |
+| Trigger adjustment | the DSS trigger EMA ≈ 5 − the value | fixed at 5 |
+| Slow adjustment | the DSS EMA = 9 − the value, exactly | the preset's, not a setting |
+| Overbought / oversold | the band the DSS names a daily low in | Confirm level / Arm level (75 / 10) |
+| Faster confirmation | the swing-high break switched on | Faster confirmation (Advanced, off) |
+
+**Faster confirmation** ("This will make the indicator confirm lows faster") does not change the
+hold. On the Dow, where the break is off, it names pending lows earlier (2022-03-15 for 03-16,
+05-04 for 05-06, 06-24 for 06-27) and still confirms floor(36 / 2) = 18 bars after the hold
+begins. Every low it names passes the DSS gate or the swing-high break (section 19). It is the break
+switched on for an asset that lacks it:
+
+- **The Dow, in bar replay with it on (2022-2026):** the model with the break names 41 of the original's 49
+  lows on the same bar with the same low; without the break, 22. The control, with it off and
+  without the break, is 39 of 44.
+- **Final drawings, model with the break vs without, against the original with it on (F1):**
+  Bitcoin 1.000 vs 0.846, Coinbase 1.000 vs 0.923, Ether 0.946 vs 0.792, the Dow 0.857 vs 0.770.
+  With it off, the model without the break fits as before (0.980, 0.919, 0.970, 0.874).
+- **Gold and GDX, which always break:** the drawing does not change at all.
+- **The S&P:** neither fits end to end on its long history (0.677, 0.673; 0.788 with it off),
+  because one moved low moves the rest. Step by step, seeded at each of the original's lows,
+  the next low is right 152 of 174 times with the break, 133 without; with it off, 144 of 164
+  without the break.
+
+Cipher C's setting turns the break on (`preset.PivotBreak || FasterConfirmation`); on the metals and
+the dollar it changes nothing. The Confirm level / Arm level settings bound the DSS band on the
+daily tier; their old STC meaning (arm, then confirm) now applies only to a weekly chart's own
+weekly tier and to the yearly tier. In the original they act only with the adjustment switch on;
+Cipher C's act on their own. Not ported: the trigger and slow adjustments (each preset's DSS is
+fixed), and the cycle multiplier as a multiplier.

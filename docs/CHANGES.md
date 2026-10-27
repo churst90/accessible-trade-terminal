@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C gains Faster confirmation, the original's input of that name (2026-10-27)
+
+- **What changed:** a Faster confirmation setting (Properties → Advanced, off by default) turns on
+  the daily tier's second way to name a low, the break of the last swing high, which gold, silver,
+  the miners and the dollar always have (`CipherCProvider.ParamFasterConfirmation`). The Confirm
+  level and Arm level descriptions now say what they do on the daily tier: they bound the DSS band
+  a daily low is named in. The old arm-then-confirm meaning applies only to a weekly chart's own
+  weekly tier and the yearly tier.
+- **Why:** the original's inputs were compared one by one (CIPHER_C_DESIGN section 21). Its "Faster
+  Confirmation" changes neither the hold nor the confirmation lag. It names lows on the break too.
+- **Numbers (private captures):**
+  - The Dow in bar replay with it on, 2022-2026: the model with the break names 41 of the
+    original's 49 lows on the same bar; without the break, 22. The control is 39 of 44.
+  - Final drawings, F1 against the original with it on, with the break vs without: Bitcoin 1.000 vs
+    0.846, Coinbase 1.000 vs 0.923, Ether 0.946 vs 0.792, the Dow 0.857 vs 0.770.
+  - Gold and GDX: no change.
+- **Tests:** `Faster_confirmation_switches_the_swing_high_break_on` (Bitcoin and GDX) checks the
+  provider draws the break's confirmations with it on, a different set from off on Bitcoin, and the
+  same set on GDX. Two sabotages went red: the setting ignored (Bitcoin), and the setting replacing
+  the preset's break instead of adding to it (GDX, along with four other tests).
+- **Caveats:**
+  - The S&P's long-history drawing fits neither way end to end (0.677 with the break, 0.673
+    without; 0.788 with the setting off). One moved low moves the rest. Step by step, seeded at
+    each of the original's lows, the break gets the next low 152 of 174 times, and 133 without it.
+  - In the original, these inputs act only while its asset-adjustment switch is on; Cipher C's act
+    on their own.
+  - The original's DSS trigger and slow adjustments are not ported.
+  - Not seen or heard in the app.
+
 ### Cipher C's pending low says the original's LOW / MID / HIGH tag, and which cancelled low it replaces (2026-10-27)
 
 - **What changed:** on the daily tier, Cycle Low Pending gains two companions.

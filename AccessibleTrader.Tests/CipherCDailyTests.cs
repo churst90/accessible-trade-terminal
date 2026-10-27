@@ -267,6 +267,26 @@ public class CipherCDailyTests
         Assert.NotEqual(Marked(d.Confirmed), Marked(CipherCEngine.DetectDaily(Bars, tier, 10, 9, 75, 10, !preset.PivotBreak).Confirmed));
     }
 
+    /// <summary>The original's "Faster Confirmation" is the swing-high break switched on: on Bitcoin
+    /// (which has no break) its lows become the break's, read off the original's drawings on the
+    /// Dow and Bitcoin; on the miners (which always break) nothing moves.</summary>
+    [Theory]
+    [InlineData("BTC")]
+    [InlineData("GDX")]
+    public void Faster_confirmation_switches_the_swing_high_break_on(string key)
+    {
+        var preset = CipherCEngine.Preset(key);
+        var off = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
+        var on = CipherCProvider.Compute(Bars, new Dictionary<string, object>
+            { [CipherCProvider.ParamPreset] = key, [CipherCProvider.ParamFasterConfirmation] = true });
+        double scale = preset.CalendarDays ? 1 : 7 / 5.0;
+        var tier = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
+        var broken = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, true);
+        Assert.Equal(Marked(broken.Confirmed), Marked(on[CipherCProvider.CompDclConfirmed]));
+        if (preset.PivotBreak) Assert.Equal(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
+        else Assert.NotEqual(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
+    }
+
     /// <summary>
     /// The daily tier starts from the chart's first bars, so older bars arriving in front can move
     /// its first lows; it agrees again within 300 bars on every probe series. The weekly chain picked

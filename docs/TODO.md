@@ -16,7 +16,9 @@
 >      CHANGES). Cipher B's thirteen settings of ours and two of DBSI's are on it. Questions:
 >      - Should the Add Indicator dialog split them the same way? Today it lists every parameter.
 >      - Cipher B's Wave Trend periods are not Market Cipher B inputs either. Move them too?
->      - Cipher C was not compared with CF's inputs one by one.
+>      - Cipher C has now been compared with the original's inputs one by one (CIPHER_C_DESIGN section 21).
+>        Faster confirmation is on Advanced. Should the original's trigger and slow DSS adjustments be
+>        settings too? Today each preset's DSS is fixed.
 >   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted
 >      (built, NOT seen; see CHANGES). Cody to open his saved Cipher B and check that Ctrl+Down
 >      no longer stops on the divergences or anchor waves, and that Properties → Parts lists them.
@@ -24,6 +26,13 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C's Faster confirmation (2026-10-27, built, NOT seen or heard; see CHANGES and
+>   CIPHER_C_DESIGN section 21).** The original's "Faster Confirmation" input is the swing-high break
+>   switched on for an asset that lacks it. Read off its drawings: Bitcoin and Coinbase 1.000, Ether
+>   0.946, the Dow 0.857 (0.770 to 0.923 without the break); no change on gold or GDX. On the S&P, only
+>   step by step (152 of 174 next lows). Cody to switch it on (Properties → Advanced) on a Bitcoin
+>   daily chart and hear lows named sooner. Open: the S&P's long-history drawing fits poorly with it
+>   off or on (0.79 / 0.67), a cascade not studied.
 > - [ ] **Cipher C's pending low says the original's LOW / MID / HIGH tag (2026-10-27, built, NOT seen
 >   or heard; see CHANGES and CIPHER_C_DESIGN section 20).** One point for the Awesome Oscillator (hl2,
 >   5, 34) above zero, one for the close above the month's VWAP (hlc3): 98.7% of the original's
