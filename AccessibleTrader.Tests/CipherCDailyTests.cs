@@ -9,15 +9,16 @@ namespace AccessibleTrader.Tests;
 /// Cipher C's daily tier (<see cref="CipherCEngine.DetectDaily"/>) is the original's own rule,
 /// read bar by bar from it in TradingView's bar replay on candles (sixteen assets, 2026-10-22 to
 /// 27). The replays cannot be committed, so the engine is held to the study's model instead: its
-/// lows, naming bars and drops on the Bitcoin fixture under four settings
+/// lows, naming bars and drops on the Bitcoin fixture under five settings
 /// (<see cref="CipherCDailyStudy"/>, generated from the study's script). The property tests below
 /// pin each rule on its own, with the numbers written out here rather than read from the engine:
 /// Bitcoin's count of 48, so a window from 47 bars, a 24-bar hold from no earlier than the last
-/// low plus 46, and drops only within 16 bars of naming.
+/// low plus 46, and drops only within 16 bars of naming; on the Dow's settings, drops at any time
+/// before the low is due.
 ///
 /// <para>
-/// On the original's final daily lows over the sixteen assets the model draws 1,183 of its 1,240
-/// and 64 it does not (F1 0.951). Held out, never fitted: platinum 0.939, Apple 0.985.
+/// On the original's final daily lows over the sixteen assets the model draws 1,202 of its 1,244
+/// and 35 it does not (F1 0.969). Held out, never fitted: platinum 0.939, Apple 0.985.
 /// </para>
 /// </summary>
 public class CipherCDailyTests
@@ -34,6 +35,7 @@ public class CipherCDailyTests
     {
         new object[] { nameof(CipherCDailyStudy.Bitcoin) }, new object[] { nameof(CipherCDailyStudy.Miners) },
         new object[] { nameof(CipherCDailyStudy.Default) }, new object[] { nameof(CipherCDailyStudy.Dollar) },
+        new object[] { nameof(CipherCDailyStudy.Dow) },
     };
 
     private static CipherCDailyStudy.Run Study(string name) => name switch
@@ -41,11 +43,13 @@ public class CipherCDailyTests
         nameof(CipherCDailyStudy.Bitcoin) => CipherCDailyStudy.Bitcoin,
         nameof(CipherCDailyStudy.Miners) => CipherCDailyStudy.Miners,
         nameof(CipherCDailyStudy.Default) => CipherCDailyStudy.Default,
+        nameof(CipherCDailyStudy.Dow) => CipherCDailyStudy.Dow,
         _ => CipherCDailyStudy.Dollar,
     };
 
     private static CipherCEngine.TierRun Run(CipherCDailyStudy.Run s, int seed = -1) =>
-        CipherCEngine.DetectDaily(Bars, new CipherCEngine.TierBars(s.Min, s.Min * 2, true), s.Length, s.Smooth, 75, 10, s.PivotBreak, seed);
+        CipherCEngine.DetectDaily(Bars, new CipherCEngine.TierBars(s.Min, s.Min * 2, true), s.Length, s.Smooth, 75, 10, s.PivotBreak, seed,
+            s.DropUntilDue);
 
     private static List<int> Marked(double[] a) => Enumerable.Range(0, a.Length).Where(i => !double.IsNaN(a[i])).ToList();
 
@@ -204,6 +208,36 @@ public class CipherCDailyTests
         Assert.True(dueUnder >= 1, "no low confirmed on a bar that undercut it; confirm-before-drop is untested");
     }
 
+    /// <summary>On the Dow's settings (and the dollar's, silver's and Ether's) any bar under the pending
+    /// low before it comes due drops it, however long after naming; never on the bar it comes due.
+    /// Some of those drops come after d / 3 (12 bars), and with the d / 3 drop the lows differ.</summary>
+    [Fact]
+    public void The_dow_drops_a_pending_low_on_any_undercut_before_it_is_due()
+    {
+        var s = CipherCDailyStudy.Dow;
+        Assert.True(s.DropUntilDue);
+        var r = Run(s);
+        var low = Low;
+        var names = Marked(r.Pending);
+        int late = 0, dueUnder = 0;
+        for (int t = 1; t < low.Length; t++)
+        {
+            int held = r.HeldAt[t - 1];
+            if (held < 0) continue;
+            int named = names.Last(b => b < t);
+            bool under = low[t] < low[held];
+            bool due = !double.IsNaN(r.Confirmed[t]);
+            bool dropped = !double.IsNaN(r.Cancelled[t]);
+            Assert.Equal(under && !due, dropped);
+            if (dropped && t - named >= 12) late++;
+            if (under && due) dueUnder++;
+        }
+        _out.WriteLine($"{Marked(r.Cancelled).Count} dropped, {late} of them 12 or more bars after naming, {dueUnder} confirmed on an undercut");
+        Assert.True(late >= 1, "no drop later than d / 3; the flag is untested");
+        Assert.True(dueUnder >= 1, "no low confirmed on a bar that undercut it; confirm-before-drop is untested");
+        Assert.NotEqual(s.Lows, Run(s with { DropUntilDue = false }).Lows);
+    }
+
     /// <summary>The bar the count starts from is not a low: nothing is drawn or said until the first
     /// real confirmation, and no close under it fails a cycle.</summary>
     [Fact]
@@ -244,10 +278,11 @@ public class CipherCDailyTests
         {
             Assert.Equal(want.TryGetValue(p.Key, out var v) ? v : (10, 9), (p.DssLength, p.DssSmooth));
             Assert.Equal(p.Key is "GDX" or "GDXJ" or "GOLD" or "SILVER" or "SILJ" or "DXY", p.PivotBreak);
+            Assert.Equal(p.Key is "DJI" or "DXY" or "SILVER" or "ETH", p.DropUntilDue);
         }
         Assert.Equal(32, CipherCEngine.Preset("SPX").CountedDailyMin);
         var f = CipherCEngine.Fallback(true);
-        Assert.Equal((32.0, 10, 9, false), (f.CountedDailyMin, f.DssLength, f.DssSmooth, f.PivotBreak));
+        Assert.Equal((32.0, 10, 9, false, false), (f.CountedDailyMin, f.DssLength, f.DssSmooth, f.PivotBreak, f.DropUntilDue));
     }
 
     /// <summary>The provider runs the preset's daily tier: Bitcoin from 48 with its own DSS, the
@@ -255,16 +290,19 @@ public class CipherCDailyTests
     [Theory]
     [InlineData("BTC")]
     [InlineData("GDX")]
+    [InlineData("DJI")]
     public void The_provider_draws_the_preset_s_daily_tier(string key)
     {
         var preset = CipherCEngine.Preset(key);
         var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var tier = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak);
+        var d = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
         Assert.True(d.Lows.Count > 30);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
         Assert.NotEqual(Marked(d.Confirmed), Marked(CipherCEngine.DetectDaily(Bars, tier, 10, 9, 75, 10, !preset.PivotBreak).Confirmed));
+        if (preset.DropUntilDue)
+            Assert.NotEqual(Marked(d.Confirmed), Marked(CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak).Confirmed));
     }
 
     /// <summary>The original's "Faster Confirmation" is the swing-high break switched on: on Bitcoin
@@ -349,7 +387,7 @@ public class CipherCDailyTests
         var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "DJI" });
         // The Dow's 36-44 trading days on a chart that trades every day: × 7/5.
         var daily = CipherCEngine.Tier(36 * 7 / 5.0, 44 * 7 / 5.0, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, 10, 9, 75, 10, false);
+        var d = CipherCEngine.DetectDaily(Bars, daily, 10, 9, 75, 10, false, dropUntilDue: true);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
 
         var byTwo = Marked(CipherCEngine.WeeklyFromTwoDaily(d, Bars, 2 * (daily.MinBars - 2)).Confirmed);
@@ -374,7 +412,7 @@ public class CipherCDailyTests
         // 22-28 trading days on a chart that trades every day: × 7/5.
         double table = 22 * 7 / 5.0;
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, 28 * 7 / 5.0, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, 9, 75, 10, true);
+        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, 9, 75, 10, true, dropUntilDue: preset.DropUntilDue);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
 
         var next = CipherCEngine.WeeklyFromNextDaily(d, Bars, 4.5 * table, 4 * table, 6 * table);
@@ -396,7 +434,7 @@ public class CipherCDailyTests
         var preset = CipherCEngine.Preset(key);
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak);
+        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
         double keep = CipherCEngine.KeepBars(preset.WeeklyMin, 7);
         var w = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, keep, daily.MinBars, doubles).Confirmed);

@@ -26,6 +26,21 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C drops a pending low on any undercut before due on the Dow, the dollar, Silver and
+>   Ether (2026-10-27, built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 22).** Read
+>   from the original's cancelled marks in its whole-history drawings: daily F1 0.950 → 0.969 on the
+>   sixteen replays (35 others, was 65), the Dow 138 → 147 of 148 with no others. Cody to look at a
+>   Dow daily chart: lows cancelled later in the wait should now match. Open:
+>   - Fitted per asset. The Nasdaq, on the Dow's numbers, keeps its 6 late undercuts; why is unknown.
+>     GDXJ has one of each and keeps d / 3.
+>   - The weekly tier on Heikin-Ashi bars, held out: weaker than on candles on the Nasdaq (0.894 →
+>     0.821) and gold (0.744 → 0.698); the daily tier carries over (the Dow 0.914 → 0.923, gold 0.920
+>     → 0.947). Not studied.
+>   - **Question for Cody: the yearly low.** The original's yearly mark (🅨) is a fixed date per
+>     tuned asset, not computed: Heikin-Ashi bars and every input leave all 23 checked dates where
+>     they are, and untuned assets draw none. Three choices: port the dates (the original's labels
+>     would then sit in this public repo), keep them in a private local file the app reads if
+>     present, or keep Cipher C's own computed yearly tier (as now).
 > - [ ] **Cipher C's Faster confirmation (2026-10-27, built, NOT seen or heard; see CHANGES and
 >   CIPHER_C_DESIGN section 21).** The original's "Faster Confirmation" input is the swing-high break
 >   switched on for an asset that lacks it. Read off its drawings: Bitcoin and Coinbase 1.000, Ether
@@ -61,6 +76,8 @@
 >     own daily lows. Never fitted: keep it held out. Question for Cody: draw them (as now) or hide the
 >     marks and keep the count, as the original does?
 >   - Residue on the replays: 18 drops, 7 early namings, 1 candidate; nothing found separates them.
+>     (The drops are mostly the Dow's, the dollar's, Silver's and Ether's late undercuts, now
+>     dropped: item above.)
 >   - The original's table, read bar by bar in the replays (`ctz/tabcmp.py`, `ctz/unc2.py`): its "days
 >     since last DCL" is the bars since the low (the low's own day 0); Cipher C's daily window counts
 >     the low's day as day 1, so it is one more on every bar where the lows agree (every row on GDX,

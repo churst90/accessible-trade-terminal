@@ -336,7 +336,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The original's "Faster Confirmation" (read off its drawings on the Dow and Bitcoin,
             // 2026-10-27) is the swing-high break switched on for an asset that lacks it.
             bool pivotBreak = preset.PivotBreak || IndicatorParams.GetBool(p, ParamFasterConfirmation, false);
-            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak);
+            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak, dropUntilDue: preset.DropUntilDue);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
             // picks them; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;

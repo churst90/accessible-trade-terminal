@@ -1039,3 +1039,63 @@ daily tier; their old STC meaning (arm, then confirm) now applies only to a week
 weekly tier and to the yearly tier. In the original they act only with the adjustment switch on;
 Cipher C's act on their own. Not ported: the trigger and slow adjustments (each preset's DSS is
 fixed), and the cycle multiplier as a multiplier.
+
+## 22. Dropping until due on four assets, the yearly low, and Heikin-Ashi (2026-10-27)
+
+**The drop, read from cancelled marks.** The original's full-history drawings, with its 80- and
+32-bar limits switched off, keep its cancelled (❌) daily marks, which the replays' final frames did
+not (private, `probe/y_*.jsonl`; `ctz/ddign.py`, `ctz/dd.py`, a Python replica of
+`CipherCEngine.DetectDaily` that matches the C# on every low). Rule 5 of section 19 drops a pending
+low only on a bar under it within d / 3 bars of naming it. Every bar under a pending low later than
+that, and before it is due, was a cancellation on the Dow (13), the dollar (8), Silver (3) and
+Ether (2). On every other tuned asset it was a keep: 64 such bars, 6 of them on the Nasdaq, whose
+cycle numbers are the Dow's. GDXJ has one of each and is left as it was.
+
+So the preset carries `DropUntilDue`: on the Dow, the dollar, Silver and Ether any bar under the
+pending low before it comes due drops it. A bar under it on the due bar still confirms it.
+
+| Set | Before (d / 3 everywhere) | After |
+|---|---|---|
+| Sixteen tuned replays, final frames | 1,185 of 1,244, 65 others, F1 0.950 | 1,202, 35 others, F1 0.969 |
+| Same assets, whole history (probe) | 1,310 of 1,372, 71 others, F1 0.952 | 1,328, 36 others, F1 0.971 |
+| Platinum, Apple, EUR/USD (untuned), whole history | 445 of 466, 16 others, F1 0.960 | no change |
+
+Per asset, whole history, daily lows on the original's bar / others, and weekly F1:
+
+| Asset | Daily before | Daily after | Weekly F1 |
+|---|---|---|---|
+| The Dow | 138 of 148, 16 others | 147 of 148, 0 | 0.692 → 0.794 |
+| The dollar | 107 of 115, 11 | 111 of 115, 2 | 0.830 → 0.848 |
+| Silver | 51 of 56, 7 | 54 of 56, 2 | 0.696 → 0.783 |
+| Ether | 162 of 165, 7 | 164 of 165, 3 | 0.855 → 0.897 |
+
+No asset is worse. Why the Dow differs from the Nasdaq on the same numbers is not known: the flag is
+fitted per asset, from these drawings.
+
+**Heikin-Ashi, held out.** The original's whole-history drawings on Heikin-Ashi bars (Dow, Nasdaq,
+gold, Bitcoin; `ctz/hamk.py`) were never used to fit anything. Cipher C run on the same Heikin-Ashi
+bars (TradingView's formula), F1 candles → Heikin-Ashi, before the flag:
+
+| Asset | Daily | Weekly |
+|---|---|---|
+| The Dow | 0.914 → 0.923 | 0.692 → 0.703 |
+| Gold | 0.920 → 0.947 | 0.744 → 0.698 |
+| Bitcoin | 0.980 → 0.980 | 0.909 → 0.909 |
+| The Nasdaq | 0.987 → 0.987 | 0.894 → 0.821 |
+
+With the flag the Dow's Heikin-Ashi daily goes 138 of 147 with 14 others → 146 of 147 with none,
+weekly 0.703 → 0.810. The daily rule carries over to Heikin-Ashi; the weekly tier is weaker there
+on the Nasdaq and gold, not studied.
+
+**The yearly low (🅨) is not computed from price.** On Heikin-Ashi bars the original's daily lows
+move (Bitcoin 47 → 45, the Dow 264 → 262, gold 175 → 178 marks), but all 23 of its yearly marks on
+those four assets keep their dates; only the mark's height follows the bar's low. Each is drawn on
+the first bar at or after a calendar date (00:00 UTC), so gold's, whose daily bars open the evening
+before, all fall on the first bar of a UTC week. None of its inputs moves them (the cycle
+multiplier, the DSS adjustments, the overbought and oversold levels, and one more input that changes nothing visible; one Dow set
+hit a script error and drew nothing). The marks do not follow any rule tried: weekly or daily DSS,
+the lowest low, the spacing, an arm and fire. Three crypto stocks share one date, one mark sits 19%
+above its week's low, and untuned assets (Platinum, Apple, EUR/USD) and the S&P, which has no yearly
+row in its table, draw none. They read as a table of dates per tuned asset. Cipher C's yearly tier
+is still its own computed one; porting the dates would put the original's labels in this public
+repo (TODO question for Cody).

@@ -18,7 +18,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// (<see cref="WeeklyDoubles"/> false).
     /// <see cref="DssLength"/> and <see cref="DssSmooth"/> are the stochastic length and EMA length
     /// of the double-smoothed stochastic that names a daily low (<see cref="CipherCEngine.DetectDaily"/>);
-    /// <see cref="PivotBreak"/> adds the second way to name one, the break of the last swing high.
+    /// <see cref="PivotBreak"/> adds the second way to name one, the break of the last swing high;
+    /// <see cref="DropUntilDue"/> lets an undercut drop a pending daily low at any time before it
+    /// is due, not only within d / 3 bars of naming it (the Dow, the dollar, silver and Ether).
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
@@ -27,7 +29,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         double YearlyMin, double YearlyMax,
         bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyEveryTwoDaily = false,
         bool WeeklyNextDaily = false, int DssLength = CipherCEngine.DefaultDssLength,
-        int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true)
+        int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true,
+        bool DropUntilDue = false)
     {
         /// <summary>The shortest daily cycle the detector counts with.</summary>
         public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
@@ -59,14 +62,17 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///         before the naming bar. Never confirmed on the naming bar.</item>
     ///   <item><b>The drop.</b> A bar under the pending low within d / 3 bars of naming it, rounded up
     ///         (<see cref="DropDivisor"/>), drops it, unless the low comes due on that bar; after
-    ///         that the low stands whatever the price does.</item>
+    ///         that the low stands whatever the price does. On the Dow, the dollar, silver and Ether
+    ///         (<see cref="CyclePreset.DropUntilDue"/>) any bar under it before it comes due drops it.</item>
     ///   <item><b>The start.</b> The first cycle counts from the lowest bar of the first d bars, which
     ///         is not drawn. From any start the lows are the same as from the original's own within
     ///         about two cycles.</item>
     /// </list>
-    /// On the original's final daily lows over the sixteen assets this draws 1,183 of its 1,240
-    /// and 64 it does not (F1 0.951; 0.950 before 2022, 0.953 after). Held out, on charts it was
-    /// never fitted to, both on the default count: platinum 0.939, Apple 0.985 (since 2022, 30 of 30).
+    /// On the original's final daily lows over the sixteen assets this draws 1,202 of its 1,244
+    /// and 35 it does not (F1 0.969; 0.950 with the d / 3 drop everywhere). Over their whole history,
+    /// cancelled lows shown (2026-10-27), 1,328 of 1,372 and 36 others (0.971, was 0.952). Held out,
+    /// on charts it was never fitted to, on the default count: platinum 0.939, Apple 0.985 (since
+    /// 2022, 30 of 30); over the whole history of platinum, Apple and the euro 445 of 466, 16 others (0.960).
     /// </para>
     ///
     /// <para>
@@ -162,18 +168,23 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32, WeeklyEveryTwoDaily: true),
             new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true),
-            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true),
+            // The Dow, the dollar, silver and Ether drop a pending low on any undercut before it is due
+            // (DropUntilDue): on the original's full-history drawings (cancelled lows shown, 2026-10-27)
+            // every undercut later than d / 3 after naming was a cancel there (Dow 13, dollar 8, silver 3,
+            // Ether 2) and a keep on every other asset (64, the Nasdaq's 6 among them on the Dow's table).
+            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true, DropUntilDue: true),
             // Its table says 15-24, but the original counts the dollar from 18 (candle replay, 2021-26,
             // 52 lows): confirmed 9 bars after the low on 39 of 52, a short cycle no sooner than the
             // last low + 25, a first label no sooner than the last low + 17.
             new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18, WeeklyEveryTwoDaily: true,
-                DssLength: 8, PivotBreak: true),
+                DssLength: 8, PivotBreak: true, DropUntilDue: true),
             new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
             // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
             // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
             // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
             // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
-            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyNextDaily: true, PivotBreak: true),
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyNextDaily: true, PivotBreak: true,
+                DropUntilDue: true),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
             new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
             new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyNextDaily: true, PivotBreak: true),
@@ -187,7 +198,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // than the last low + 15.
             // Ether's weekly lows have no "double" (on its own daily lows the original's weekly F1 0.71 -> 0.88;
             // fitted on 2022-26, before 2022 0.71 -> 0.84).
-            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false),
+            new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false,
+                DropUntilDue: true),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were
@@ -633,7 +645,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// it is where the count starts, not a low of its own (not in <see cref="TierRun.Lows"/>).
         /// </summary>
         public static TierRun DetectDaily(ReadOnlySpan<Ohlcv> data, TierBars tier, int dssLength, int dssSmooth,
-                                          double overbought, double oversold, bool pivotBreak, int seed = -1)
+                                          double overbought, double oversold, bool pivotBreak, int seed = -1,
+                                          bool dropUntilDue = false)
         {
             int n = data.Length;
             var run = new TierRun
@@ -678,9 +691,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 bool due = held >= 0 && t - origin >= hold && t > named;
                 if (held >= 0)
                 {
-                    // An undercut drops the pending low only soon after it was named; later the low
-                    // stands whatever the price does. A low due to confirm on this bar confirms.
-                    if (low[t] < low[held] && !due && t - named < dropWithin)
+                    // An undercut drops the pending low only soon after it was named (any time before
+                    // it is due, with dropUntilDue); later the low stands whatever the price does. A
+                    // low due to confirm on this bar confirms.
+                    if (low[t] < low[held] && !due && (dropUntilDue || t - named < dropWithin))
                     {
                         run.Cancelled[t] = replaced = low[held];
                         run.CancelledLow[t] = held;
