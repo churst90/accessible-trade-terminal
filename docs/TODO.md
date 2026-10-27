@@ -242,8 +242,8 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
-  - **Cipher DBSI rebuilt from every rule found (2026-10-26, merged to local main 2026-10-27, NOT
-    pushed, NOT seen or heard in the app; see CHANGES).** One clean model (`DbsiScoreModel`, a port of the study's
+  - **Cipher DBSI rebuilt from every rule found (2026-10-26, merged and pushed 2026-10-27,
+    NOT deployed, NOT seen or heard in the app; see CHANGES).** One clean model (`DbsiScoreModel`, a port of the study's
     `dbsi8/clean_dbsi.py` with the ARM memory, the bear near-zero flag and the deep-jump zero-line way, frozen as
     `clean_dbsi_port_v5.py`) replaces gen8. Exact on 94.5–97.5% of the ten veto sets (95.4% pooled), the
     hourly held-out weeks 59.6% → 96.1%, the fifteen 48.5% → 83.7%, the twenty 55.1% → 84.8%; never
@@ -315,9 +315,9 @@
         (2) a Q onset after a falling small WT (main −12, unseen −29, 11 sets worse). Both hit the
         same ceiling as the GBM test.
         The twins are still useful as extra unseen markets and held-out data, not as a
-        source of rules. Recommendation: stop the bear hunt. The twin harvest was stopped on
-        2026-10-27 with every twin done but the Solana mirror (900 bars); the scores are in CHANGES.
-        Open for Cody: push it, see and hear it in the app, and whether the bear hunt stops here.
+        source of rules. **The bear hunt is stopped (Cody, 2026-10-27).** The twin harvest was
+        stopped the same day with every twin done but the Solana mirror (900 bars); the scores are
+        in CHANGES. Pushed 2026-10-27, not deployed. Open for Cody: see and hear it in the app.
   - **Cipher DBSI stoch 40, Stoch RSI and the Q state (2026-10-25, built, NOT seen; see CHANGES).**
     Hourly held out exact 44.0% → 59.6%, ±2 81.9% → 85.6%; the fifteen exact 36.8% → 48.5%, ±1
     50.0% → 58.7%, ±2 77.1% → 78.1%, but typical error 2.78 → 2.80. The off-run close-up is gone. One
