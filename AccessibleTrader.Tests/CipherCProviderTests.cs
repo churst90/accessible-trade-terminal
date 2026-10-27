@@ -1081,8 +1081,102 @@ public sealed class CipherCProviderTests
         int last = pending[^1];
         string said = Provider.GetComponentSpeech(CipherCProvider.CompPending, r[CipherCProvider.CompPending][last], bars[last], r, last)!;
         _out.WriteLine(said);
-        Assert.Matches("^Daily cycle low pending on day [0-9]+: the low of [0-9,.]+, [0-9]+ days? ago\\.$", said);
+        Assert.Matches("^Daily cycle low pending on day [0-9]+, (low|mid|high) confluence: the low of [0-9,.]+, [0-9]+ days? ago\\.( It replaces the cancelled low of [0-9,.]+\\.)?$", said);
         Assert.DoesNotContain("oversold", said);
+    }
+
+    /// <summary>
+    /// The original tags its pending daily low LOW, MID or HIGH, bar by bar: a point for the
+    /// Awesome Oscillator of hl2 (SMA 5 less SMA 34) above zero and one for the close above the
+    /// VWAP of hlc3 anchored at the calendar month. Each scenario is built so that one wrong
+    /// reading gives a different grade on its last bar: the close in place of hl2, no anchor, a
+    /// weekly anchor, a chart without volume counted as having it.
+    /// </summary>
+    [Fact]
+    public void The_pending_tag_is_the_oscillator_and_the_months_vwap()
+    {
+        static double[] Grade(List<Ohlcv> b) =>
+            CipherCProvider.Grade(b.ToArray(), b.Select(x => x.High).ToArray(), b.Select(x => x.Low).ToArray(), b.Select(x => x.Close).ToArray());
+        var jan = new DateTime(2026, 1, 1);
+        Ohlcv Bar(int day, double c, double v = 1000, double up = 1, double down = 1) => new(jan.AddDays(day), c, c + up, c - down, c, v);
+
+        // A flat close under rising highs: hl2 rises, the close does not; the VWAP of hlc3 stays over the close.
+        var wicks = Enumerable.Range(0, 40).Select(i => Bar(i, 100, up: 1 + i * 0.5)).ToList();
+        var g = Grade(wicks);
+        Assert.True(double.IsNaN(g[32]), "the oscillator needs 34 bars");
+        Assert.Equal(1, g[33]);
+        Assert.Equal(1, g[^1]);
+
+        // January at 200, then February from 100 rising slowly: the oscillator is under zero, the
+        // close over February's VWAP and under one never reset.
+        var rebound = Enumerable.Range(0, 31).Select(i => Bar(i, 200)).Concat(Enumerable.Range(0, 28).Select(j => Bar(31 + j, 100 + j * 0.5))).ToList();
+        Assert.Equal(1, Grade(rebound)[^1]);
+
+        // January at 100, February up to 140 by the 20th and back to 125 by the 28th: over the
+        // month's VWAP, under the last week's.
+        var fade = Enumerable.Range(0, 31).Select(i => Bar(i, 100))
+            .Concat(Enumerable.Range(0, 28).Select(j => Bar(31 + j, j <= 19 ? 100 + 40.0 * j / 19 : 140 - 15.0 * (j - 19) / 8))).ToList();
+        Assert.Equal(2, Grade(fade)[^1]);
+
+        // Without volume there is no VWAP point, so never high (the original's index, dollar and metal charts).
+        Assert.Equal(1, Grade(fade.Select(x => x with { Volume = 0 }).ToList())[^1]);
+        Assert.Equal(1, Grade(fade.Select(x => x with { Volume = double.NaN }).ToList())[^1]);
+    }
+
+    /// <summary>
+    /// The tag is on every bar the daily low is held, from the pending bar on, and on none
+    /// after it is confirmed or dropped; it is the bar's own grade. A pending low named after a
+    /// cancellation since the last confirmed low names the cancelled low it replaces (the
+    /// original's 🔄), and the first one after a confirmation does not.
+    /// </summary>
+    [Fact]
+    public void A_held_daily_low_carries_the_tag_and_what_it_replaces()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = Btc();
+        var grade = r[CipherCProvider.CompPending + CipherCProvider.GradeSuffix];
+        var replaced = r[CipherCProvider.CompPending + CipherCProvider.ReplacedSuffix];
+        var own = CipherCProvider.Grade(bars.ToArray(), bars.Select(b => b.High).ToArray(), bars.Select(b => b.Low).ToArray(), bars.Select(b => b.Close).ToArray());
+        var pending = Marked(r[CipherCProvider.CompPending]).ToList();
+        var ends = Marked(r[CipherCProvider.CompDclConfirmed]).Concat(Marked(r[CipherCProvider.CompCancelled])).OrderBy(i => i).ToList();
+        var confirmed = Marked(r[CipherCProvider.CompDclConfirmed]).ToHashSet();
+        int held = 0, replacing = 0, first = 0;
+        foreach (int p in pending)
+        {
+            int end = ends.FirstOrDefault(e => e > p, bars.Count);
+            for (int t = p; t < end; t++) { Assert.Equal(own[t], grade[t]); held++; }
+            if (end < bars.Count && confirmed.Contains(end)) Assert.True(double.IsNaN(grade[end]), $"graded on the confirmation at {end}");
+
+            int before = ends.LastOrDefault(e => e < p, -1);
+            if (before >= 0 && !confirmed.Contains(before)) { Assert.Equal(r[CipherCProvider.CompCancelled][before], replaced[p]); replacing++; }
+            else { Assert.True(double.IsNaN(replaced[p])); first++; }
+        }
+        Assert.Equal(held, Marked(grade).Count());
+        Assert.True(replacing > 0 && first > 0, $"replacing {replacing}, first {first}");
+        Assert.Contains(Marked(grade), t => grade[t] == 0);
+        Assert.Contains(Marked(grade), t => grade[t] == 1);
+        Assert.Contains(Marked(grade), t => grade[t] == 2);
+    }
+
+    [Fact]
+    public void A_pending_low_says_its_tag_and_the_low_it_replaces()
+    {
+        var bar = new Ohlcv(new DateTime(2026, 1, 1), 50, 55, 45, 50, 1000);
+        var data = new Dictionary<string, double[]>
+        {
+            [CipherCProvider.EventsTierKey] = new[] { 1.0 },
+            [CipherCProvider.CompDailyWindow] = new[] { 76.0 },
+            [CipherCProvider.CompPending + CipherCProvider.LowestSuffix] = new[] { 45.5 },
+            [CipherCProvider.CompPending + CipherCProvider.LowestAgoSuffix] = new[] { 7.0 },
+            [CipherCProvider.CompPending + CipherCProvider.GradeSuffix] = new[] { 1.0 },
+            [CipherCProvider.CompPending + CipherCProvider.ReplacedSuffix] = new[] { 48.25 },
+        };
+        Assert.Equal("Daily cycle low pending on day 76, mid confluence: the low of 45.50, 7 days ago. It replaces the cancelled low of 48.25.",
+            Provider.GetComponentSpeech(CipherCProvider.CompPending, 50, bar, data, 0));
+        data[CipherCProvider.CompPending + CipherCProvider.GradeSuffix] = new[] { 2.0 };
+        data[CipherCProvider.CompPending + CipherCProvider.ReplacedSuffix] = new[] { double.NaN };
+        Assert.Equal("Daily cycle low pending on day 76, high confluence: the low of 45.50, 7 days ago.",
+            Provider.GetComponentSpeech(CipherCProvider.CompPending, 50, bar, data, 0));
     }
 
     [Fact]

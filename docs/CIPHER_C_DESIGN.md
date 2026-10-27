@@ -84,10 +84,10 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 2 | Blue stack under each weekly cycle low, one row under the D | Bigger blue triangle with a W ring (WCL) |
 | 3 | Yearly cycle low (described in the docs, never seen) | Bigger gold triangle with a Y ring (YCL) |
 | 4 | ✅ on the bar a low is confirmed | Green rounded check box above the bar (DCL / WCL / YCL Confirmed) |
-| 5 | 🔄 pending | Grey-blue rounded refresh box (Cycle Low Pending) |
+| 5 | 🕘 pending (🔄 too when an earlier pending low was dropped since the last confirmed one) | Grey-blue rounded refresh box (Cycle Low Pending); one after a cancellation says which cancelled low it replaces (section 20) |
 | 6 | ❌ cancelled, in a green box | Red cross (Cycle Low Cancelled) when a bar goes under the pending low before it is due; the confirmation that follows says which cancelled low it replaces. A confirmed low is never cancelled (section 15) |
 | 7 | Live confirmation marker above price | Same square as 4 |
-| 8 | LOW / MID / HIGH confluence text | The Confirmed components' own value (1, 2, 3), spoken as low/mid/high |
+| 8 | LOW / MID / HIGH on the pending label, bar by bar | The pending low's `_grade` companion (0, 1, 2) on every bar it is held, spoken with the pending (section 20). The Confirmed components' own confluence (1 to 3) is ours: the original tags no confirmed low |
 | 9 | Cycle count "49D" | Printed over the low with a D / W suffix (49D / 24W) from the low's label companion; spoken with the low ("A 49 day cycle") |
 | 10 | Green daily Future Cycle Low Range band | Daily Timing Window: the cycle's day count, green tint while inside its window (past only) |
 | 11 | Blue weekly FCLR band | Weekly Timing Window: the week count, blue tint inside its window (weekly charts) |
@@ -124,7 +124,7 @@ speech, with no keyboard stop or sound of their own. Examples are from the Bitco
 | SMA | the 10-bar average | the average, as any line |
 | DCL / WCL / YCL | the low's price | "Daily cycle low, 64955.00. A 52 day cycle. Confirmed 6 days later." |
 | DCL / WCL / YCL Confirmed | confluence, 1 to 3 | "Weekly cycle low confirmed, low confluence: the low of 59930.00, 8.7 weeks ago. It replaces the cancelled low of 80537.00." |
-| Cycle Low Pending | the bar's close | "Daily cycle low pending on day 76: the low of 59100.00, 7 days ago." (the low the daily tier names; with no daily tier, "… the cycle line reached oversold on week N. Lowest low since the last cycle low: …") |
+| Cycle Low Pending | the bar's close | "Daily cycle low pending on day 76, mid confluence: the low of 59100.00, 7 days ago. It replaces the cancelled low of 61000.00." (the last sentence only after a cancellation; the low the daily tier names; with no daily tier, "… the cycle line reached oversold on week N. Lowest low since the last cycle low: …") |
 | Cycle Low Cancelled | the pending low it went under | "Daily pending cycle low cancelled: a low of 75285.00, under the pending low of 76000.00 from 4 days ago." |
 | Cycle Failed | the cycle low it closed under | "Daily cycle failed: closed at …, under the cycle low of … from N days ago." |
 | Left / Mid / Right Translated Top | the top's high | "Left translated top, bearish: high 126272.00, day 36 of an 82 day cycle." |
@@ -162,10 +162,12 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
   cycle's top on the first bar that turns up (section 11), but it names the original's candidate on
   the bar it appears only about two times in three.
 - **Not built:** CF's future FCLR boxes to the right of the last bar (the chart has no future bars to
-  draw on), the camel emoji in the D/W/Y low stacks, confluence that upgrades from LOW to MID to HIGH
-  over the following bars (ours is fixed at confirmation), the US macro table and the Bullish Meter.
-- **Confluence is ours, not CF's.** CF names three parts (breakout, momentum, supporting indicators)
-  without definitions. Cipher C gives one point each on the confirming bar for: the cycle that just
+  draw on), the camel emoji in the D/W/Y low stacks, the US macro table and the Bullish Meter. The
+  pending tag changes bar by bar as the original's does (section 20), but it is spoken only when
+  the low is named; a later change is read on the bar, not announced.
+- **Confirmation confluence is ours, not CF's.** CF tags only pending lows (section 20); its
+  confirmed labels carry no tag. CF names three parts (breakout, momentum, supporting indicators)
+  without definitions. On confirmation Cipher C gives one point each on the confirming bar for: the cycle that just
   ended was inside its normal length, the close is above the 10 SMA, and the close is above the low
   bar's high. Three is high, two mid, one or none low.
 - **The clock under a week.** Fewer than seven days of a crypto chart look like a stock's until a
@@ -434,9 +436,7 @@ small but runs the same way on all three counts. Dropping cancellation scored a 
   The first low on a chart, and the weekly and yearly tiers, still wait for the cross. Tried and
   worse: a close above the bar before's close, the lowest low since the last low, two bars to the
   low's right, a gate a few bars later.
-- **The LOW / MID / HIGH tag** on an unconfirmed low. The best single separators found (the high
-  since the candidate against its range, or the close against a 38-bar average) agree with the
-  tag about 90% of the time. Neither is the rule.
+- **The LOW / MID / HIGH tag** on an unconfirmed low: found later (section 20).
 - **The weekly tier.** Only daily charts were replayed. The weekly tier uses the same hold
   unverified.
 
@@ -730,7 +730,7 @@ the same bar. After a drop, the next low it names is the lowest since the drop b
   matches on 5,277, the re-pick on 5,081. The re-pick fills 775 bars where we hold nothing but
   breaks 1,018. The original keeps the low it found.
 - **The LOW / MID / HIGH tag** loosely follows how far above the low price is (medians 4.9, 7.4,
-  15.2%), but the ranges overlap heavily.
+  15.2%), but the ranges overlap heavily. The rule is the bar's own (section 20).
 
 
 ## 17. The original's default count on symbols it does not tune (2026-10-25)
@@ -963,3 +963,38 @@ is fixed, as in Cipher C. A daily pending low's companions name the held low (`T
 Prepending history moves the weekly chain for longer than the old search did: the chain starts from
 the first bar, as the original's does. Pinned by a test (daily lows move only in the first 300 bars
 of 1400, weekly in the first 1100).
+
+## 20. The pending low's LOW / MID / HIGH tag, and its 🔄 (2026-10-27)
+
+The original writes LOW, MID or HIGH on its pending daily label (🕘), and the word changes from bar
+to bar while the low is held: it follows the price bar, not the low. On each bar it is two points,
+read from the replays (private, `ctz/grademodel.py`, `ctz/gradeds.py`):
+
+- one for the Awesome Oscillator above zero: SMA 5 less SMA 34 of hl2;
+- one for the close above the VWAP of hlc3 anchored at the calendar month (reset on the first bar of
+  each month; no point when the month has no volume).
+
+0 is LOW, 1 MID, 2 HIGH. `CipherCProvider.Grade` computes it; the pending low carries it per bar
+as `Cycle Low Pending_grade` on every bar its low is held (`TierRun.HeldAt`), and its speech says it
+("…on day 76, mid confluence: …"). The C# matches the study model on every row:
+
+| Set | Labelled bars | Same grade |
+|---|---|---|
+| Sixteen tuned replays, 2022-2026 (the rule was read here) | 7,486 | 98.65% (per asset 97.3-99.4) |
+| Fourteen of them held out in time, 2020-03 to 2022-01 | 4,874 | 98.75% |
+
+Bars where Cipher C holds a low too: 7,192 of the 7,486 (98.69% same). Worse sources for both
+parts: close 95.9%, hl2 98.1%, ohlc4 97.8%. Every miss is the original one grade higher, with
+the oscillator under zero, on a single bar (101 of 101 a lower low than the bar before, the low
+within one ATR of the pending low, most of them down closes). Nothing tried separates them: lags,
+divergence, the DSS, weekly and monthly oscillators, RSI, averages, the distance in ATRs; the bars
+are the replay's own. The original's index, dollar, gold, silver and oil charts have no volume, so
+no VWAP point, and are never HIGH; neither is Cipher C on a chart without volume. **Caveat:** a
+data source that does give an index volume would give Cipher C HIGH where the original cannot.
+
+**🔄.** A pending label also carries 🔄 when it is not the first pending low since the last
+confirmed one, that is when an earlier one was dropped: 880 of 884 labels (2022-26), 583 of 584
+(held out). It does not change during the pending low's life. Cipher C's pending low named after a
+cancellation names the cancelled low it replaces (`_replaced`), as its confirmation already did:
+same as the original's 🔄 on 831 of 844 namings both share (2022-26) and 535 of 548 (held out); the
+rest follow the drop differences in section 19. Confirmed labels can carry 🔄 too.

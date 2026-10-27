@@ -24,6 +24,21 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C's pending low says the original's LOW / MID / HIGH tag (2026-10-27, built, NOT seen
+>   or heard; see CHANGES and CIPHER_C_DESIGN section 20).** One point for the Awesome Oscillator (hl2,
+>   5, 34) above zero, one for the close above the month's VWAP (hlc3): 98.7% of the original's
+>   labelled bars, 98.8% held out in time. The tag changes bar by bar as the original's does; it is
+>   spoken when the low is named ("…on day 76, mid confluence: …"). A pending low after a
+>   cancellation now says which low it replaces (the original's 🔄). Cody to land on a daily pending
+>   low and hear the tag. Open:
+>   - About 1.3% of bars: the original one grade higher on a single bar with the oscillator under
+>     zero, always a lower low than the bar before. Not found.
+>   - A later change of tag is read on the bar (the companion) but not announced. Announce it?
+>   - Question for Cody: the original tags no confirmed low, but Cipher C's confirmations still say
+>     their own confluence (1 to 3: cycle length, close over the 10 SMA, close over the low bar's
+>     high). Keep it, drop it, or say the pending tag's last value instead?
+>   - A data source that gives an index (Dow, Nasdaq, dollar) or metal volume would make Cipher C say
+>     HIGH where the original, with no volume there, never does.
 > - [ ] **Cipher C's daily tier is the original's rule (2026-10-27, built, NOT seen or heard; see
 >   CHANGES and CIPHER_C_DESIGN section 19).** About 19 in 20 daily lows on the original's bar on the
 >   sixteen replays (F1 0.951); held out Platinum 0.939, Apple 0.985, EUR/USD 0.961. Weekly F1 0.799 →
@@ -49,7 +64,7 @@
 >     the rest are bars where the lows differ. Weekly "weeks since": the original confirms a weekly low
 >     on a daily confirmation (66 of 66 on six assets) once the next weekly low is fixed, as Cipher C
 >     does; the rows that differ are where the weekly lows differ (on EUR/USD, held out, none do).
->   - The LOW / MID / HIGH tag, Faster Confirmation, and which of the original's settings map to ours.
+>   - Faster Confirmation, and which of the original's settings map to ours (the tag: item above).
 >   - The original's trial ends about 2026-11-05: anything else needing a replay must be read first.
 > - [ ] **Cipher C confirms when the original does (2026-10-22, built, NOT seen or heard; see CHANGES
 >   and CIPHER_C_DESIGN section 11).** (Its daily naming, hold and drop are superseded by the 2026-10-27 item
@@ -168,8 +183,7 @@
 >     original confirmed the 2025-09-18 low on 10-03, Cipher C used to on 11-07; not checked on the
 >     app's GDX data (the lab's GDX bars from TradingView look like Heikin-Ashi prices). Still open: the original
 >     sometimes names a low on a falling bar. The trial ends about 11-05.
->   - The LOW / MID / HIGH tag on an unconfirmed low is not decoded (best separator about 90%;
->     % above the low has medians 4.9 / 7.4 / 15.2 but overlaps).
+>   - The LOW / MID / HIGH tag on an unconfirmed low: decoded 2026-10-27 (item at the top).
 >   - **The weekly tier picks from the daily lows (2026-10-23, built, NOT seen; see CHANGES).** On a
 >     daily chart a weekly low is now the original's choice among its confirmed daily lows: kept when
 >     the next daily low is the shortest weekly cycle less four weeks from the last kept one, with a
@@ -727,7 +741,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >     - [x] "49D" / "24W" suffixes on the cycle counts.
 >     - [ ] The cancelled low's green box around the original stack (ours is a red cross on the cancelling bar).
 >     - [ ] CF puts the check under the low's own stack once confirmed; ours sits above the confirming bar.
->     - [ ] CF's LOW / MID / HIGH text under the stack; ours is spoken only.
+>     - [ ] CF's LOW / MID / HIGH text on the pending label; ours is spoken only (the tag itself is the original's since 2026-10-27).
 >     - No camel emoji: Cody declined it (no vendor branding).
 >   - [x] No vendor name in what the user sees or hears (Cody, 2026-10-21: "not supposed to be
 >     representative brand wise ... just cycles"). Research docs keep the provenance.

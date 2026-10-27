@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's pending low says the original's LOW / MID / HIGH tag, and which cancelled low it replaces (2026-10-27)
+
+- **What changed:** on the daily tier, Cycle Low Pending gains two companions.
+  - `_grade` (0 low, 1 mid, 2 high) is on every bar the daily low is held. One point is for the
+    Awesome Oscillator, SMA 5 less SMA 34 of hl2, above zero. The other is for the close above the
+    VWAP of hlc3 anchored at the calendar month. A month without volume gets no VWAP point.
+  - `_replaced` is the cancelled low it replaces, on a pending low named after a cancellation since
+    the last confirmed low.
+  - The speech is now "Daily cycle low pending on day 76, mid confluence: the low of 45.50, 7 days
+    ago. It replaces the cancelled low of 48.25." (`CipherCProvider.Grade`, `GradeWord`).
+- **Why:** the original writes LOW, MID or HIGH on its pending daily label and changes it bar by
+  bar. It marks a pending low with 🔄 when an earlier one was dropped since the last confirmed low.
+  Both were read from TradingView's bar replay (private captures; study `ctz/grademodel.py`).
+- **Numbers:** the C# gives the study's grade on every row.
+  - Sixteen tuned replays, 2022-2026, where the rule was read: 7,486 labelled bars, 98.65% the
+    same (per asset 97.3-99.4%).
+  - Fourteen held out in time, 2020-03 to 2022-01: 4,874 bars, 98.75%.
+  - On the bars where Cipher C holds a low too: 7,192 of the 7,486, 98.69%.
+  - Other sources for both parts were worse: close 95.9%, hl2 98.1%, ohlc4 97.8%.
+  - 🔄: on 880 of 884 of the original's labels it means "not the first pending low since the last
+    confirmed one". `_replaced` agrees with it on 831 of 844 namings both share (2022-26) and 535 of
+    548 (held out). The rest are where the drops differ.
+- **Tests:** `The_pending_tag_is_the_oscillator_and_the_months_vwap` uses synthetic scenarios in
+  which the close in place of hl2, no anchor, a weekly anchor, a no-volume VWAP point, or a 33-bar
+  start each change the last bar's grade. `A_held_daily_low_carries_the_tag_and_what_it_replaces`
+  covers the Bitcoin daily chart. `A_pending_low_says_its_tag_and_the_low_it_replaces` pins the exact
+  words. The old pending-speech pattern takes the tag. Nine sabotages went red, each on its own
+  test: source close, weekly anchor, no reset, the VWAP point without volume, a 33-bar start, a
+  grade on every bar, a replacement kept past a confirmation, the confirmation's confluence words,
+  and the replacement unsaid.
+- **Caveats:**
+  - About 1.3% of bars miss: the original is one grade higher on a single bar with the oscillator
+    under zero (every one a lower low than the bar before). Nothing tried explains them.
+  - The original's index, dollar, gold, silver and oil charts have no volume and are never HIGH. A
+    data source that gives those charts volume would make Cipher C say HIGH where the original cannot.
+  - A later change of tag is read on the bar, not announced.
+  - The original tags no confirmed low. Cipher C's own confirmation confluence stays, as a question
+    for Cody in TODO.
+  - Not seen or heard in the app.
+
 ### Cipher C's daily pending low names the low it holds; the original's table checked bar by bar (2026-10-27)
 
 - **What changed:** on the daily tier, Cycle Low Pending's companions (`_lowest`, `_lowestAgo`) are

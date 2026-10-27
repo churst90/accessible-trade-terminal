@@ -97,6 +97,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string ReplacedSuffix = "_replaced";
         /// <summary>A pending low: the lowest low since the last cycle low, and how long ago.</summary>
         public const string LowestSuffix = "_lowest", LowestAgoSuffix = "_lowestAgo";
+        /// <summary>
+        /// A held daily low, per bar while it is held: the original's LOW/MID/HIGH tag on its pending
+        /// label, 0 low, 1 mid, 2 high. A point for the Awesome Oscillator (hl2, 5 and 34) above zero
+        /// and one for the close above the month's VWAP (hlc3, anchored at each calendar month); a
+        /// chart with no volume gets no VWAP point.
+        /// </summary>
+        public const string GradeSuffix = "_grade";
         /// <summary>A translated top: where in its cycle it came (day, week or year N).</summary>
         public const string DaySuffix = "_day";
         /// <summary>A timing window's bounds, in its count's unit.</summary>
@@ -424,6 +431,24 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (at > t) continue;
                 pendingLowest[t] = low[at];
                 pendingLowestAgo[t] = Units(t - at, ago);
+            }
+
+            // The daily tier's held low carries the original's LOW/MID/HIGH tag, bar by bar (it
+            // follows the price, not the low), and a pending low named after a cancellation
+            // since the last confirmed low is marked as replacing it (the original's 🔄 on the
+            // pending label: 880 of 884 such labels, 2026-10-27).
+            double[] pendingGrade = A(CompPending + GradeSuffix), pendingReplaced = A(CompPending + ReplacedSuffix);
+            if (tierNo == 1)
+            {
+                var grade = Grade(data, high, low, close);
+                double replacedSince = double.NaN;
+                for (int t = 0; t < n; t++)
+                {
+                    if (!double.IsNaN(lowest.Confirmed[t])) replacedSince = double.NaN;
+                    if (!double.IsNaN(lowest.Cancelled[t])) replacedSince = lowest.Cancelled[t];
+                    if (lowest.HeldAt[t] >= 0) pendingGrade[t] = grade[t];
+                    if (!double.IsNaN(lowest.Pending[t])) pendingReplaced[t] = replacedSince;
+                }
             }
 
             Copy(lowest.Cancelled, o[CompCancelled]);
@@ -769,6 +794,43 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public static string ConfluenceWord(double score) => score >= 3 ? "high" : score >= 2 ? "mid" : "low";
 
+        /// <summary>A held daily low's tag (<see cref="GradeSuffix"/>): 0 low, 1 mid, 2 high.</summary>
+        public static string GradeWord(double grade) => grade >= 2 ? "high" : grade >= 1 ? "mid" : "low";
+
+        /// <summary>
+        /// The original's LOW/MID/HIGH tag on each bar (0-2): the Awesome Oscillator, SMA 5 less SMA
+        /// 34 of hl2, above zero, plus the close above the VWAP of hlc3 anchored at each calendar
+        /// month. NaN before the oscillator has 34 bars. Fitted to the original's pending labels:
+        /// 98.7% of 7,486 labelled bars on sixteen assets (2022-2026), 98.8% on fourteen held out
+        /// in time (2020-2022); every miss is the original one grade higher on a single bar with the
+        /// oscillator under zero. A chart without volume (the original's index, dollar, gold, silver
+        /// and oil charts) gets no VWAP point and is never high, as the original's never are.
+        /// </summary>
+        internal static double[] Grade(ReadOnlySpan<Ohlcv> data, double[] high, double[] low, double[] close)
+        {
+            int n = data.Length;
+            var g = CipherCEngine.Nan(n);
+            double s5 = 0, s34 = 0, cumPv = 0, cumV = 0;
+            int month = -1;
+            double Hl2(int k) => (high[k] + low[k]) / 2;
+            for (int i = 0; i < n; i++)
+            {
+                s5 += Hl2(i); s34 += Hl2(i);
+                if (i >= 5) s5 -= Hl2(i - 5);
+                if (i >= 34) s34 -= Hl2(i - 34);
+                var date = data[i].Date;
+                int m = date.Year * 12 + date.Month;
+                if (m != month) { month = m; cumPv = cumV = 0; }
+                double v = data[i].Volume;
+                if (!double.IsNaN(v) && v > 0) { cumPv += (high[i] + low[i] + close[i]) / 3 * v; cumV += v; }
+                if (i < 33) continue;
+                double score = s5 / 5 - s34 / 34 > 0 ? 1 : 0;
+                if (cumV > 0 && close[i] > cumPv / cumV) score++;
+                g[i] = score;
+            }
+            return g;
+        }
+
         private static string TierWord(double tier) => tier switch { 2 => "weekly", 3 => "yearly", _ => "daily" };
 
         /// <summary>What an age is counted in: days on the daily tier, weeks on the others; bars off a daily chart.</summary>
@@ -873,8 +935,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     double lowest = At(CompPending + LowestSuffix), lowestAgo = At(CompPending + LowestAgoSuffix);
                     // The daily tier names the low it will confirm.
                     if (tier == "daily")
-                        return $"Daily cycle low pending{on}" + (double.IsNaN(lowest) ? "." :
-                               $": the low of {Price(lowest)}" + (double.IsNaN(lowestAgo) ? "." : $", {Span(lowestAgo, unit, units)} ago."));
+                    {
+                        double grade = At(CompPending + GradeSuffix), replaced = At(CompPending + ReplacedSuffix);
+                        string s0 = $"Daily cycle low pending{on}" + (double.IsNaN(grade) ? "" : $", {GradeWord(grade)} confluence") +
+                                    (double.IsNaN(lowest) ? "." : $": the low of {Price(lowest)}" + (double.IsNaN(lowestAgo) ? "." : $", {Span(lowestAgo, unit, units)} ago."));
+                        if (!double.IsNaN(replaced)) s0 += $" It replaces the cancelled low of {Price(replaced)}.";
+                        return s0;
+                    }
                     string s = $"{Tier(tier)} cycle low pending, the cycle line reached oversold{on}.";
                     if (!double.IsNaN(lowest))
                         s += $" Lowest low since the last cycle low: {Price(lowest)}" +
