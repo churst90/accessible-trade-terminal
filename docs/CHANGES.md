@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C mirrors the original's settings: its display switches, the table's sections, the moving average's source and offset, and the custom count's words (2026-10-28)
+
+- **What changed (Cody, 2026-10-28: "all trading view cf settings should be mirrored", "is the
+  table drawn on screen by default in the original … have it shown by default … with a way to
+  disable it", "default count: address this").** Every input of the original was listed with its
+  default, and the unclear ones were set one at a time on its Dow daily chart and read back from its
+  drawing (CIPHER_C_DESIGN section 30).
+  - **27 display switches, with the original's defaults, in its order** (`CipherCProvider.Switches`):
+    the table and its four sections (asset detection, asset list, cycle low windows, asset cycle
+    count); the daily lows' marks, lines and grade; the cancelled lows' crosses (off), the updated,
+    unconfirmed and confirmed signs, and the confirmation mark (off); the weekly and yearly lows'
+    marks and lines; the count numbers, daily and weekly; the cycle wave; the daily, weekly and
+    yearly bands; the translated tops, their lines and their boxes. **Pictures only:** a switch
+    hides a drawing and nothing else; what is found, spoken, stopped on and alerted on is the same.
+    The table is shown by default, as the original's is, and can be switched off.
+  - **Two marks are now hidden by default, as in the original:** the cross on a cancelled daily low
+    and the mark under a confirmation's bar. Both are still spoken and still stops.
+  - **The table's sections** each blank their own cells and move nothing: asset detection the whole
+    first column, the asset list its last three rows, the cycle count the ranges, the windows the
+    counts. `ChartInfoTable` passes the series' settings to `TableRows`.
+  - **A count picked in Asset preset now says so, in the original's words:** "ETH COUNT SELECTED"
+    in red over the ranges, "ETH Count Selected", "Recommended for Short-cycle Crypto", no yearly
+    range, and "FUTURE CYCLE LOW IS INVALID". The first cell still says whether the chart's own
+    symbol is tuned. Gold and silver are named "XAU/USD" and "XAG/USD", as the original lists them.
+    Auto still means the symbol picks. The original ignores its count selection until its custom
+    count switch is on, and then uses it even on a tuned symbol, which is what a typed preset
+    already did.
+  - **The moving average** gains the original's source and offset (General), and is left out until
+    included, as the original's is off by default (its width 3 and colour #FDD835CC are the
+    original's). The confluence grade still reads the close's average, unshifted; the original's
+    labels do not change with its source either.
+  - **Settings tabs:** the six cycle range overrides moved to Advanced (the original has no such
+    inputs); Faster confirmation moved to General (the original has it).
+  - Renderers: `ComponentCompanions.Hide` (bits `HideMarker`, `HideLine`, `HideWord`, badge signs
+    shifted by `HideBadgeShift`), read by the upward ring, the downward triangle, the marks' lines
+    and the stacking.
+- **Not mirrored:** the original with its custom count on and left at NONE (on a tuned symbol it
+  keeps the count, drops the yearly lows and shows the custom words); the original draws no yearly
+  lows under a custom count, but Cipher C still finds its own; sizes, glyphs, the mascot, line
+  styles and widths, per-part colours beyond Appearance, the US data table, cancelled weekly lows,
+  the adjustment group and the arcs' geometry.
+- **Tests:** seven new (CipherCProviderTests section 7c, `A_hidden_marker_draws_no_ink`), one
+  extended (the chart's table reads the series' switches), one updated (a saved Cipher C restores
+  with the moving average left out). Each display switch is flipped on Bitcoin's daily chart and
+  must change at least one picture and nothing else. Sabotages red: the confirmation mark never
+  hidden; a band switch clearing the window itself; a number switch made vacuous; the grade reading
+  the shown source; the offset ignored; the windows section collapsing its cells; the asset list
+  switch ignored; the table switch ignored; a picked count keeping the yearly range; gold's
+  name; the badge shift dropped; the lines, the ring's stacking and the downward triangle ignoring
+  the hide bits; `ChartInfoTable` not passing the settings. One did not go red: dropping
+  `Hidden`'s NaN check, because on .NET 10 a NaN converts to 0, so it hides nothing either way.
+- Not seen or heard in the app. No accessibility agent is registered here to review it.
+
 ### Cipher C says the original's "days since", and speaks its unconfirmed counts and marks (2026-10-28)
 
 - **What changed (Cody, 2026-10-28: "speech, switch to whichever one is more accurate and make them

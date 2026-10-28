@@ -868,6 +868,13 @@ public sealed class CipherCProviderTests
         Assert.Equal(series[0].Name, Assert.Single(tables).SeriesId);
         Assert.Equal(7, tables[0].Rows.Count);
         Assert.Empty(ChartInfoTable.Build(series, -1));
+        // The series' own table switches reach the table.
+        var off = Series("CIPHER_C", "Main", true);
+        off.Parameters[CipherCProvider.ParamTable] = 0;
+        Assert.Empty(ChartInfoTable.Build(new[] { off }, r[CipherCProvider.PresetKey].Length - 1));
+        var noWindows = Series("CIPHER_C", "Main", true);
+        noWindows.Parameters[CipherCProvider.ParamTableWindows] = 0;
+        Assert.Equal("", ChartInfoTable.Build(new[] { noWindows }, r[CipherCProvider.PresetKey].Length - 1).Single().Rows[0][^1].Text);
     }
 
     /// <summary>No table before a chart has its preset (a bar outside the data).</summary>
@@ -1338,7 +1345,9 @@ public sealed class CipherCProviderTests
         var names = series.Components.Select(c => c.Name).ToList();
         _out.WriteLine(string.Join(" | ", names));
         Assert.Equal("Main", series.Config.Pane);
-        Assert.Equal(Meta().Components.Select(c => c.Name), names);
+        // The moving average is left out until included, as the original's is off (2026-10-28).
+        Assert.Equal(Meta().Components.Where(c => c.DefaultIsEnabled != false).Select(c => c.Name), names);
+        Assert.Equal(new[] { CipherCProvider.CompSma }, series.Config.ExcludedComponents.Select(c => c.Name));
         Assert.Empty(names.Intersect(SavedBeforeRebuild));
         Assert.Empty(series.Levels);
 
@@ -1759,6 +1768,198 @@ public sealed class CipherCProviderTests
     }
 
     public static IEnumerable<object[]> RemovedOn20261022Ids() => RemovedOn20261022.Select(n => new object[] { $"CIPHER_C.{n}" });
+
+    // ── 7c. The original's display switches ────────────────────────────────────────
+
+    private static readonly string[] PictureKeys =
+    {
+        ComponentCompanions.Hide, ComponentCompanions.Label, ComponentCompanions.Path, ComponentCompanions.BoxStart,
+        ComponentCompanions.BoxEnd, ComponentCompanions.BoxTop, ComponentCompanions.BoxBottom,
+    };
+
+    private static bool SameValues(double[] a, double[] b) =>
+        a.Length == b.Length && Enumerable.Range(0, a.Length).All(i => a[i].Equals(b[i]));
+
+    private static IReadOnlyList<IReadOnlyList<TableCell>> Table(Dictionary<string, double[]> r, int index, Dictionary<string, object> p) =>
+        CipherCProvider.TableRows(n => r.TryGetValue(n, out var a) ? a : null, index, p);
+
+    /// <summary>
+    /// Every one of the original's display switches is a setting, in its order and with its
+    /// default, and off by default are the two it leaves off: the cancelled daily lows' crosses
+    /// and the mark under a confirmation's bar. Both are found and spoken all the same.
+    /// </summary>
+    [Fact]
+    public void The_defaults_hide_the_confirmation_mark_and_the_cancelled_crosses()
+    {
+        var names = Meta().Parameters.Select(x => x.Name).ToList();
+        foreach (var w in CipherCProvider.Switches)
+        {
+            Assert.Contains(w.Name, names);
+            Assert.Equal(w.On, (bool)Meta().Parameters.Single(x => x.Name == w.Name).DefaultValue!);
+        }
+        Assert.Equal(new[] { CipherCProvider.ParamCancelledLows, CipherCProvider.ParamConfirmationMark },
+            CipherCProvider.Switches.Where(w => !w.On).Select(w => w.Name));
+
+        var r = Btc();
+        var confirmed = r[CipherCProvider.CompDclConfirmed];
+        var confirmedHide = r[CipherCProvider.CompDclConfirmed + ComponentCompanions.Hide];
+        Assert.NotEmpty(Marked(confirmed));
+        Assert.All(Marked(confirmed), t => Assert.Equal(ComponentCompanions.HideMarker, ComponentCompanions.Hidden(confirmedHide, t)));
+
+        var dcl = r[CipherCProvider.CompDcl];
+        var hide = r[CipherCProvider.CompDcl + ComponentCompanions.Hide];
+        var badge = r[CipherCProvider.CompDcl + ComponentCompanions.Badge];
+        var crosses = Marked(r[CipherCProvider.CompDcl + ComponentCompanions.Mark])
+            .Where(t => double.IsNaN(dcl[t]) && ((int)badge[t] & ComponentCompanions.BadgeCross) != 0).ToList();
+        Assert.NotEmpty(crosses);
+        Assert.All(crosses, t => Assert.True((ComponentCompanions.Hidden(hide, t) & ComponentCompanions.HideMarker) != 0));
+        // The confirmed lows themselves are all drawn.
+        Assert.All(Marked(dcl), t => Assert.Equal(0, ComponentCompanions.Hidden(hide, t) & ComponentCompanions.HideMarker));
+
+        var shown = Run(CipherSrSpeechTests.BtcDaily(), "BTC/USD", new()
+        {
+            [CipherCProvider.ParamConfirmationMark] = true, [CipherCProvider.ParamCancelledLows] = true,
+        });
+        Assert.All(Marked(confirmed), t => Assert.Equal(0, ComponentCompanions.Hidden(shown[CipherCProvider.CompDclConfirmed + ComponentCompanions.Hide], t)));
+        Assert.All(crosses, t => Assert.Equal(0, ComponentCompanions.Hidden(shown[CipherCProvider.CompDcl + ComponentCompanions.Hide], t)));
+    }
+
+    /// <summary>
+    /// Each picture switch flipped from its default changes something drawn on the Bitcoin chart
+    /// and nothing else: only the hide, label, path and box companions differ, so what is found,
+    /// spoken, stopped on and alerted on is the same (the table's switches are the table's own).
+    /// </summary>
+    [Fact]
+    public void Each_display_switch_changes_pictures_only()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var baseline = Btc();
+        int last = bars.Count - 1;
+        var said = CipherCProvider.StateWords(k => baseline.TryGetValue(k, out var a) ? a : null, last, bars[last].Date);
+        foreach (var w in CipherCProvider.Switches.Where(w => !w.Name.StartsWith(CipherCProvider.ParamTable, StringComparison.Ordinal)))
+        {
+            var r = Run(bars, "BTC/USD", new() { [w.Name] = !w.On });
+            Assert.Equal(baseline.Keys.OrderBy(k => k), r.Keys.OrderBy(k => k));
+            var changed = baseline.Keys.Where(k => !SameValues(baseline[k], r[k])).ToList();
+            _out.WriteLine($"{w.Name} -> {string.Join(", ", changed)}");
+            Assert.True(changed.Count > 0, $"{w.Name} changed nothing on the Bitcoin chart");
+            Assert.All(changed, k => Assert.True(PictureKeys.Any(s => k.EndsWith(s, StringComparison.Ordinal)), $"{w.Name} changed {k}"));
+            Assert.Equal(said, CipherCProvider.StateWords(k => r.TryGetValue(k, out var a) ? a : null, last, bars[last].Date));
+        }
+    }
+
+    /// <summary>
+    /// The hide companion's bits and the badge mask: a bar with no hide value hides nothing; the
+    /// badge bits above <see cref="ComponentCompanions.HideBadgeShift"/> take signs off one by one.
+    /// </summary>
+    [Fact]
+    public void Hidden_bits_take_off_only_what_they_name()
+    {
+        var hide = new[] { double.NaN, ComponentCompanions.HideMarker, ComponentCompanions.HideLine | ComponentCompanions.HideWord };
+        Assert.Equal(0, ComponentCompanions.Hidden(null, 0));
+        Assert.Equal(0, ComponentCompanions.Hidden(hide, 0));
+        Assert.Equal(ComponentCompanions.HideMarker, ComponentCompanions.Hidden(hide, 1));
+        Assert.Equal(0, ComponentCompanions.Hidden(hide, 7));
+        int all = ComponentCompanions.BadgeCheck | ComponentCompanions.BadgeRefresh | ComponentCompanions.BadgeClock;
+        Assert.Equal(all, ComponentCompanions.ShownBadges(all, 0));
+        Assert.Equal(ComponentCompanions.BadgeCheck | ComponentCompanions.BadgeClock,
+            ComponentCompanions.ShownBadges(all, ComponentCompanions.BadgeRefresh << ComponentCompanions.HideBadgeShift));
+        Assert.Equal(ComponentCompanions.BadgeClock, ComponentCompanions.ShownBadges(all,
+            (ComponentCompanions.BadgeRefresh | ComponentCompanions.BadgeCheck) << ComponentCompanions.HideBadgeShift | ComponentCompanions.HideLine));
+        Assert.True(double.IsNaN(ComponentCompanions.ShownBadges(double.NaN, ComponentCompanions.HideMarker)));
+    }
+
+    /// <summary>
+    /// The moving average's source and offset, as the original's: the line is the source's average
+    /// shifted right by the offset, and the confluence grade still reads the close's, unshifted.
+    /// </summary>
+    [Fact]
+    public void The_moving_average_takes_a_source_and_an_offset_and_the_grade_ignores_both()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var baseline = Btc();
+        var r = Run(bars, "BTC/USD", new() { [CipherCProvider.ParamSmaSource] = "open", [CipherCProvider.ParamSmaOffset] = 3 });
+        int len = CipherCProvider.DefaultSma;
+        for (int i = len + 3; i < bars.Count; i += 37)
+        {
+            double expected = Enumerable.Range(i - 3 - len + 1, len).Average(j => (double)bars[j].Open);
+            Assert.Equal(expected, r[CipherCProvider.CompSma][i], 6);
+        }
+        Assert.True(double.IsNaN(r[CipherCProvider.CompSma][len + 1]));
+        Assert.All(baseline.Keys.Where(k => k != CipherCProvider.CompSma), k => Assert.True(SameValues(baseline[k], r[k]), k));
+    }
+
+    /// <summary>
+    /// The table's switches, mapped on the original's own table on 2026-10-28: the table on/off,
+    /// and four sections, each blanking its own cells without moving the rest — asset detection
+    /// (the whole first column), the asset list (the first column's last three rows), the cycle
+    /// count (the ranges) and the cycle low windows (the counts).
+    /// </summary>
+    [Fact]
+    public void The_table_switches_blank_their_own_cells()
+    {
+        var r = Btc();
+        int last = r[CipherCProvider.CompDcl].Length - 1;
+        var full = Table(r, last, new());
+        Assert.Equal(7, full.Count);
+        Assert.Empty(Table(r, last, new() { [CipherCProvider.ParamTable] = false }));
+
+        static int[] Starts(IReadOnlyList<TableCell> row) { var s = new int[row.Count]; for (int i = 1; i < row.Count; i++) s[i] = s[i - 1] + row[i - 1].ColSpan; return s; }
+        void Check(string name, Func<int, int, bool> blanked)
+        {
+            var t = Table(r, last, new() { [name] = false });
+            Assert.Equal(full.Select(row => row.Select(c => c.ColSpan)), t.Select(row => row.Select(c => c.ColSpan)));
+            int cleared = 0;
+            for (int row = 0; row < full.Count; row++)
+            {
+                var at = Starts(full[row]);
+                for (int i = 0; i < full[row].Count; i++)
+                {
+                    if (blanked(row, at[i])) { Assert.Equal("", t[row][i].Text); if (full[row][i].Text != "") cleared++; }
+                    else Assert.Equal(full[row][i], t[row][i]);
+                }
+            }
+            Assert.True(cleared > 0, $"{name} blanked nothing");
+        }
+        Check(CipherCProvider.ParamTableDetection, (row, col) => col == 0);
+        Check(CipherCProvider.ParamTableAssets, (row, col) => col == 0 && row >= 4);
+        Check(CipherCProvider.ParamTableCount, (row, col) => col is 1 or 2);
+        Check(CipherCProvider.ParamTableWindows, (row, col) => col >= 3);
+    }
+
+    /// <summary>
+    /// A count picked in the settings is the original's custom count: its table names it in red
+    /// ("ETH COUNT SELECTED", gold as "XAU/USD"), says what it is recommended for, warns that the
+    /// future cycle low is invalid and shows no yearly range, while the first cell still says
+    /// whether the chart's own symbol is tuned (all read from the original's table, 2026-10-28).
+    /// </summary>
+    [Fact]
+    public void A_picked_count_says_so_in_the_table()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        int last = bars.Count - 1;
+        var auto = Table(Btc(), last);
+        Assert.Equal("✅ Finetuned Asset Detected ✅ | BTC CYCLE COUNT | Cycle Low Windows", Cells(auto[0]));
+        Assert.Equal("Default Count Selected", auto[1][0].Text);
+        Assert.Equal("", auto[2][0].Text);
+        Assert.Equal("Yearly Cycle Range", auto[3][1].Text);
+        Assert.Equal("", auto[4][1].Text);
+
+        var eth = Table(Run(bars, "BTC/USD", new() { [CipherCProvider.ParamPreset] = "ETH" }), last);
+        Assert.Equal("✅ Finetuned Asset Detected ✅ | ETH COUNT SELECTED | Cycle Low Windows", Cells(eth[0]));
+        Assert.Equal(CipherCProvider.TableChosen, eth[0][1].Fill);
+        Assert.Equal("ETH Count Selected", eth[1][0].Text);
+        Assert.Equal("Recommended for Short-cycle Crypto", eth[2][0].Text);
+        Assert.Equal("Weekly Cycle Range", eth[2][1].Text);
+        Assert.Equal("", eth[3][1].Text);
+        Assert.Equal("", eth[3][2].Text);
+        Assert.Equal("FUTURE CYCLE LOW IS INVALID", eth[4][1].Text);
+        Assert.Equal(2, eth[4][1].ColSpan);
+
+        var gold = Table(Run(bars, "SOMETHING", new() { [CipherCProvider.ParamPreset] = "GOLD" }), last);
+        Assert.Equal("⚠️ Unoptimised Asset Detected ⚠️ | XAU/USD COUNT SELECTED | Cycle Low Windows", Cells(gold[0]));
+        Assert.Equal("Recommended for Commodities/Metals", gold[2][0].Text);
+    }
 
     // ── 8. Strategies and alerts that named a removed component ─────────────────────
 

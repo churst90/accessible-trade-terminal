@@ -1013,12 +1013,12 @@ switch-off drawing (six assets).
 
 | The original's input | What it does there | Cipher C |
 |---|---|---|
-| Asset preset | which cycle ranges | Asset preset |
+| Custom count + select count | which cycle ranges; the choice counts only with the switch on, and then even on a tuned symbol (section 30) | Asset preset (Auto = the switch off) |
 | Cycle multiplier | shortest cycle × the value above 1, ÷ it below −1 | Daily cycle shortest / longest (a count, not a multiplier) |
 | Trigger adjustment | the DSS trigger EMA ≈ 5 − the value | fixed at 5 |
 | Slow adjustment | the DSS EMA = 9 − the value, exactly | the preset's, not a setting |
 | Overbought / oversold | the band the DSS names a daily low in | Confirm level / Arm level (75 / 10) |
-| Faster confirmation | the swing-high break switched on | Faster confirmation (Advanced, off) |
+| Faster confirmation | the swing-high break switched on | Faster confirmation (General since 2026-10-28, off) |
 
 **Faster confirmation** ("This will make the indicator confirm lows faster") does not change the
 hold. On the Dow, where the break is off, it names pending lows earlier (2022-03-15 for 03-16,
@@ -1479,7 +1479,7 @@ Unconfirmed, the bars since the daily low held now; a check when none is held (o
 until the next low is named); after a cancellation it keeps counting from the dropped low's bar,
 until a new low is named. The unconfirmed weekly cell is the weeks since the newest weekly low (the
 one not yet confirmed), in the preset's week. Not modelled: the original counts a dropped weekly low
-on, and it says something other than "Default Count Selected" when a count is changed (not read).
+on. A count picked in the settings has its own words (section 30).
 Both unconfirmed counts are spoken in the state words, "12 days since the unconfirmed daily low",
 "3 weeks since the unconfirmed weekly low" (2026-10-28).
 
@@ -1487,3 +1487,64 @@ Both unconfirmed counts are spoken in the state words, "12 days since the unconf
 down at the high, the tip about two pixels off. `MarkerTouchesBar` puts the tip there (the gap is
 measured from the tip, so the triangle's height is added); other markers keep the padding of a
 share of the bar's range.
+
+## 30. The original's display switches and its custom count (2026-10-28)
+
+Cody: "all trading view cf settings should be mirrored". Every input of the original was listed
+with its default from its study's input metadata (never its script), and the ones not obvious from
+their names were set one at a time on the Dow's daily chart and read back from its drawing
+(private, `cap15/`).
+
+**Display switches are pictures only.** The original's on/off inputs for what it draws are
+Cipher C settings with its defaults, in its order (`CipherCProvider.Switches`, 27): the table and
+its four sections; the daily lows' marks, lines and grade; the cancelled daily lows (off), the
+updated, unconfirmed and confirmed signs, and the confirmation mark (off); the weekly and yearly
+lows' marks and lines; the count numbers, daily and weekly; the cycle wave; the daily, weekly and
+yearly bands; the translated tops, their lines and their cycle range boxes. One switched off hides
+its drawing and nothing else: a bar's `_hide` companion (`ComponentCompanions.Hide`) carries bits
+for the marker, its line, its word, and badge signs shifted by `HideBadgeShift`, and the renderers
+skip what it names; labels, the wave's path and the bands' boxes are cleared. What is found,
+spoken, stopped on and alerted on does not change (a test flips each one on Bitcoin and compares
+every other output). Two are off by default as in the original: a cancelled low's cross and the
+mark under a confirmation's bar. Both are still spoken and are still stops. Include (Parts) still
+leaves a whole part out; the moving average is now left out until included, as the original's is
+off.
+
+**The table's sections** (read on the Dow, both untuned DJ:DJI and tuned TVC:DJI): the table switch
+removes it; *asset detection* blanks the whole first column, the asset list with it; *asset list*
+blanks the first column's last three rows; *asset cycle count* blanks the ranges (columns 1-2);
+*cycle low windows* blanks the counts (columns 3-4). Nothing moves: the other cells keep their
+places.
+
+**The moving average** has the original's source and offset: the line is the source's average
+shifted right by the offset. The confluence grade still reads the close's, unshifted (on the Dow,
+the original's labels are identical with its source set to open).
+
+**The custom count.** The original's "custom count" switch is off by default, and while it is off
+its count selection does nothing. With it on, the selection is used even on a symbol it tunes: on
+the tuned Dow, the Bitcoin count draws Bitcoin's lows. Its table then says:
+
+| Cell | Words | Fill |
+|---|---|---|
+| Header, columns 1-2 | "<count> COUNT SELECTED" (gold "XAU/USD", silver "XAG/USD") | #F236455C |
+| Column 0, row 1 | "<count> Count Selected" | dark |
+| Column 0, row 2 | "Recommended for <kind>" | dark |
+| Yearly range | blank | |
+| Columns 1-2, row 4 | "FUTURE CYCLE LOW IS INVALID" (tiny) | #F236455C |
+
+The first cell still says whether the chart's own symbol is tuned. The kinds: Bitcoin, Coinbase and
+MicroStrategy "Longer-cycle Crypto"; Ether "Short-cycle Crypto"; the S&P, Nasdaq and Dow "Equity
+Indexes"; the dollar "Forex and Bonds"; gold and silver "Commodities/Metals"; the miners and Riot
+"Short-cycle Equities"; oil "Broader Commodities"; Marathon "NONE" (the original's own word).
+Cipher C's Asset preset is the two inputs in one: Auto is the switch off, a typed count is the
+switch on with that count, and the table says so (`CipherCProvider.ChosenKey`).
+
+Not mirrored:
+- The original with the switch on and the selection left at NONE: on a tuned symbol it keeps the
+  symbol's count but drops the yearly lows and shows the custom-count words.
+- Under a custom count the original draws no yearly lows (its yearly lows are a per-asset date
+  table, section 22; it draws none on an untuned symbol either). Cipher C still finds its own.
+- Sizes, glyph choices, the mascot, icon heights, line styles and widths, per-part colours beyond
+  Appearance, the US data table, cancelled weekly lows (not modelled), and the alerts (Cipher C's
+  are the app's).
+- The adjustment group (cycle length, fast and slow factors) and the arcs' geometry: section 21.

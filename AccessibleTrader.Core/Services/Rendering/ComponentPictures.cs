@@ -57,13 +57,15 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <summary>
         /// A dotted vertical line through the whole pane at every visible bar
         /// <paramref name="comp"/> has a value on, in its colour at its
-        /// <see cref="ComponentConfig.MarkLineAlpha"/>, one device pixel wide.
+        /// <see cref="ComponentConfig.MarkLineAlpha"/>, one device pixel wide; not on a bar whose
+        /// <see cref="ComponentCompanions.Hide"/> hides the line.
         /// </summary>
         public static void RenderMarkLines(RenderContext ctx, ChartSeries series, ComponentConfig comp)
         {
             if (comp.MarkLineAlpha <= 0 || ctx.ViewportLength <= 0) return;
             var data = series.GetComponentData(comp.Name);
             if (data.Length == 0) return;
+            var hide = series.GetComponentData(comp.Name + ComponentCompanions.Hide);
             float barWidth = ctx.Width / ctx.ViewportLength, halfBar = barWidth / 2f, d = ctx.Density;
             using var dash = SKPathEffect.CreateDash(new[] { 1.5f * d, 2.5f * d }, 0);
             using var lease = SKPaintPool.Rent();
@@ -77,7 +79,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 int k = ctx.ViewportStart + i;
                 if (k >= data.Length) break;
-                if (double.IsNaN(data[k])) continue;
+                if (double.IsNaN(data[k]) || (ComponentCompanions.Hidden(hide, k) & ComponentCompanions.HideLine) != 0) continue;
                 float x = i * barWidth + halfBar;
                 ctx.Canvas.DrawLine(x, ctx.Top, x, ctx.Bottom, p);
             }
@@ -170,12 +172,14 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>
         /// What a marker is drawn at on data bar <paramref name="k"/>: the component's value, else
-        /// its <see cref="ComponentCompanions.Mark"/>; NaN when neither is set.
+        /// its <see cref="ComponentCompanions.Mark"/>; NaN when neither is set, or when its
+        /// <see cref="ComponentCompanions.Hide"/> hides the marker there.
         /// </summary>
         public static double MarkedValue(ChartSeries series, ComponentConfig comp, int k)
         {
             var data = series.GetComponentData(comp.Name);
             if (k < 0) return double.NaN;
+            if ((ComponentCompanions.Hidden(series.GetComponentData(comp.Name + ComponentCompanions.Hide), k) & ComponentCompanions.HideMarker) != 0) return double.NaN;
             if (k < data.Length && !double.IsNaN(data[k])) return data[k];
             var mark = series.GetComponentData(comp.Name + ComponentCompanions.Mark);
             return k < mark.Length ? mark[k] : double.NaN;
@@ -185,10 +189,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         private static float BelowRing(RenderContext ctx, ChartSeries series, ComponentConfig comp, int k, float h)
         {
             var bits = series.GetComponentData(comp.Name + ComponentCompanions.Badge);
-            int rows = BadgeRows(k < bits.Length ? bits[k] : double.NaN);
+            int hidden = ComponentCompanions.Hidden(series.GetComponentData(comp.Name + ComponentCompanions.Hide), k);
+            int rows = BadgeRows(ComponentCompanions.ShownBadges(k < bits.Length ? bits[k] : double.NaN, hidden));
             float reach = rows * (BadgeSide(h) + BadgeGap(h));
             var words = series.GetComponentData(comp.Name + ComponentCompanions.BadgeWord);
-            if (BadgeWord(comp, k < words.Length ? words[k] : double.NaN) != null) reach += BadgeGap(h) + WordPx(ctx, h);
+            if ((hidden & ComponentCompanions.HideWord) == 0 && BadgeWord(comp, k < words.Length ? words[k] : double.NaN) != null) reach += BadgeGap(h) + WordPx(ctx, h);
             return reach;
         }
 

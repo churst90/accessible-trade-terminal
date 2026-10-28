@@ -1363,19 +1363,22 @@ namespace AccessibleTrader.Core.Services.Rendering
             float ringRadius = triangleHeight * 0.45f;
             var badges = series.GetComponentData(comp.Name + ComponentCompanions.Badge);
             var words = series.GetComponentData(comp.Name + ComponentCompanions.BadgeWord);
+            var hide = series.GetComponentData(comp.Name + ComponentCompanions.Hide);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
                 if (dataIdx >= data.Length && dataIdx >= marks.Length) break;
-                // A bar with no value can still carry a mark (ComponentCompanions.Mark).
+                // A bar with no value can still carry a mark (ComponentCompanions.Mark); either
+                // can be hidden (ComponentCompanions.Hide), which MarkedValue answers as NaN.
                 double val = ComponentPictures.MarkedValue(series, comp, dataIdx);
+                int hidden = ComponentCompanions.Hidden(hide, dataIdx);
                 float x = i * barWidth + halfBar;
                 if (double.IsNaN(val))
                 {
                     // Nor a mark, but a word: the word alone, at the marker's place (the original's
                     // Start under the bar its count starts from).
-                    double alone = dataIdx < words.Length ? words[dataIdx] : double.NaN;
+                    double alone = dataIdx < words.Length && (hidden & (ComponentCompanions.HideMarker | ComponentCompanions.HideWord)) == 0 ? words[dataIdx] : double.NaN;
                     string? only = ComponentPictures.BadgeWord(comp, alone);
                     if (only != null && comp.MarkerAnchor != MarkerAnchor.Value)
                     {
@@ -1410,8 +1413,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float ringY = up ? y - 2f * triangleHeight : y + triangleHeight;
                 LetterDisc(ctx, x, ringY, ringRadius, triangleHeight, comp.MarkerText, color);
 
-                double bits = dataIdx < badges.Length ? badges[dataIdx] : double.NaN;
-                double wordIndex = dataIdx < words.Length ? words[dataIdx] : double.NaN;
+                double bits = ComponentCompanions.ShownBadges(dataIdx < badges.Length ? badges[dataIdx] : double.NaN, hidden);
+                double wordIndex = dataIdx < words.Length && (hidden & ComponentCompanions.HideWord) == 0 ? words[dataIdx] : double.NaN;
                 string? word = ComponentPictures.BadgeWord(comp, wordIndex);
                 if (ComponentPictures.BadgeRows(bits) > 0 || word != null)
                     ComponentPictures.DrawBadges(ctx, comp, x, up ? ringY - ringRadius : ringY + ringRadius, !up, triangleHeight, bits, word, color,
@@ -1456,7 +1459,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// Size = comp.Thickness * 3 (same as Arrow). With a <see cref="ComponentConfig.MarkerText"/>
         /// a letter disc sits over it (the original's 🅡 over a right translated top's ▼), and a
         /// bar's <see cref="ComponentCompanions.Badge"/> signs sit over that (its ✅ over a
-        /// confirmation's ▼).
+        /// confirmation's ▼). Not on a bar whose <see cref="ComponentCompanions.Hide"/> hides the marker.
         /// </summary>
         public static void RenderTriangleDown(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
@@ -1467,13 +1470,15 @@ namespace AccessibleTrader.Core.Services.Rendering
             float halfBar   = barWidth / 2.0f;
             float arrowSize = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
             var badges = series.GetComponentData(comp.Name + ComponentCompanions.Badge);
+            var hide = series.GetComponentData(comp.Name + ComponentCompanions.Hide);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
                 if (dataIdx >= data.Length) break;
                 double val = data[dataIdx];
-                if (double.IsNaN(val)) continue;
+                int hidden = ComponentCompanions.Hidden(hide, dataIdx);
+                if (double.IsNaN(val) || (hidden & ComponentCompanions.HideMarker) != 0) continue;
 
                 float x = (i * barWidth) + halfBar;
                 float y = ResolveMarkerY(ctx, comp, i, val, arrowSize);
@@ -1497,7 +1502,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     LetterDisc(ctx, x, y - arrowSize, radius, arrowSize, comp.MarkerText, col);
                     edge = y - arrowSize - radius;
                 }
-                double bits = dataIdx < badges.Length ? badges[dataIdx] : double.NaN;
+                double bits = ComponentCompanions.ShownBadges(dataIdx < badges.Length ? badges[dataIdx] : double.NaN, hidden);
                 if (ComponentPictures.BadgeRows(bits) > 0)
                     ComponentPictures.DrawBadges(ctx, comp, x, edge, down: false, arrowSize, bits, null, col);
             }

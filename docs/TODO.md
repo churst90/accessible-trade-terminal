@@ -47,7 +47,20 @@
 >       newest weekly low);
 >     - replays of Coinbase 4h and Bitcoin weekly (TradingView must have a visible window; the
 >       trial ends about 11-05).
->   - "Default Count Selected" is always shown; the original's words for a changed count are not read.
+>   - ~~"Default Count Selected" is always shown; the original's words for a changed count are not
+>     read~~: done 2026-10-28 (CHANGES, "mirrors the original's settings"). A picked count says the
+>     original's words. Left: the original draws no yearly lows under a custom count (or on an
+>     untuned symbol); Cipher C still finds its own. That waits on the yearly date table question
+>     (section 22).
+> - [ ] **Cipher C mirrors the original's settings (2026-10-28, built, NOT seen; CHANGES and
+>   CIPHER_C_DESIGN section 30).** 27 display switches with its defaults, pictures only; the
+>   cancelled crosses and the confirmation mark are hidden by default, as in the original; the
+>   table's four sections; the moving average's source and offset, left out by default; a picked
+>   count's words. Cody to check:
+>   - Properties: the switches are on General in the original's order. Is that too long a list? It
+>     could be split into its own tab ("Display").
+>   - The daily chart now has no mark under a confirmation's bar and no cross on a cancelled low,
+>     as the original. Both are still spoken when arrowing.
 >   - ~~Question for Cody: the table's unconfirmed days and weeks are not spoken; speech says the day
 >     of the cycle~~: done 2026-10-28 (Cody: "yes speak them", "make them match"; CHANGES, "days
 >     since"). Everything says days since; the counts are in the state words; the held and cancelled

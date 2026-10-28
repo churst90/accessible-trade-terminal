@@ -126,6 +126,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string EventsTierKey = "__events_tier";
         /// <summary>The preset: its index, or -1-index when the symbol had none and this is the fallback.</summary>
         public const string PresetKey = "__preset";
+        /// <summary>1 when the count was picked in the settings on a symbol with no tuned count, 2 on one with its own, 0 when the symbol chose it.</summary>
+        public const string ChosenKey = "__presetChosen";
         /// <summary>1 when the chart is not daily and the counts run in its bars, as the original runs them there; 0 on a daily chart.</summary>
         public const string InBarsKey = "__in_bars";
         /// <summary>
@@ -148,13 +150,68 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string ParamOverbought = "Overbought";
         public const string ParamOversold   = "Oversold";
         public const string ParamFasterConfirmation = "FasterConfirmation";
+        public const string ParamSmaSource  = "SmaSource";
+        public const string ParamSmaOffset  = "SmaOffset";
+
+        // The original's display switches (its inputs, read 2026-10-28), each with its default.
+        // Pictures only (ApplyDisplay): what a switch turns off is still found, heard, spoken and
+        // a stop; Properties → Include leaves a part out altogether.
+        public const string ParamTable = "Table", ParamTableDetection = "TableDetection", ParamTableAssets = "TableAssetList",
+            ParamTableWindows = "TableWindows", ParamTableCount = "TableCycleCount";
+        public const string ParamDailyMarks = "DailyLowMarks", ParamDailyLines = "DailyLowLines", ParamGrade = "HeldLowGrade";
+        public const string ParamWeeklyMarks = "WeeklyLowMarks", ParamWeeklyLines = "WeeklyLowLines";
+        public const string ParamYearlyMarks = "YearlyLowMarks", ParamYearlyLines = "YearlyLowLines";
+        public const string ParamCountNumbers = "CountNumbers", ParamDailyNumbers = "DailyCountNumbers", ParamWeeklyNumbers = "WeeklyCountNumbers";
+        public const string ParamWave = "CycleWave";
+        public const string ParamDailyBand = "DailyBand", ParamWeeklyBand = "WeeklyBand", ParamYearlyBand = "YearlyBand";
+        public const string ParamTops = "TranslatedTops", ParamTopLines = "TopLines", ParamTopBoxes = "CycleRangeBoxes";
+        public const string ParamCancelledLows = "CancelledDailyLows", ParamUpdatedSign = "UpdatedSign",
+            ParamUnconfirmedLow = "UnconfirmedDailyLow", ParamConfirmedSign = "ConfirmedSign", ParamConfirmationMark = "ConfirmationMark";
+
+        /// <summary>
+        /// The original's display switches, in its order, with its defaults: the name, what
+        /// Properties calls it, whether it starts on, and what it shows. Cancelled daily lows and
+        /// the confirmation mark start off, as they do in the original (none of its default
+        /// drawings on sixteen assets has either, 2026-10-28).
+        /// </summary>
+        internal static readonly (string Name, string Display, bool On, string Description)[] Switches =
+        {
+            (ParamTable, "Table", true, "The table in the price pane's bottom right corner."),
+            (ParamTableDetection, "Table: asset detection", true, "The table's first column: whether the symbol has a tuned count, which count is used, whether the chart is daily, and the asset list."),
+            (ParamTableAssets, "Table: asset list", true, "The table's list of the symbols with a tuned count."),
+            (ParamTableWindows, "Table: cycle low windows", true, "The table's days and weeks since the last confirmed and unconfirmed lows."),
+            (ParamTableCount, "Table: asset cycle count", true, "The table's daily, weekly and yearly cycle ranges."),
+            (ParamDailyMarks, "Daily lows: marks", true, "The triangle, D and signs under each daily low. Off, the lows are still heard."),
+            (ParamDailyLines, "Daily lows: lines", true, "The faint dotted line through the chart at each daily low."),
+            (ParamGrade, "Daily lows: confluence", true, "The grade (LOW, MID, HIGH) under the unconfirmed daily low."),
+            (ParamCountNumbers, "Cycle count numbers", true, "Each low's cycle length beside its mark (49D, 24W)."),
+            (ParamDailyNumbers, "Cycle count numbers: daily", true, "The daily lows' lengths."),
+            (ParamWeeklyNumbers, "Cycle count numbers: weekly", true, "The weekly lows' lengths."),
+            (ParamWave, "Cycle wave", true, "The wave under the candles from low to low."),
+            (ParamDailyBand, "Daily cycle low range", true, "The band over the live daily cycle's timing window."),
+            (ParamWeeklyLines, "Weekly lows: lines", true, "The faint dotted line through the chart at each weekly low."),
+            (ParamWeeklyMarks, "Weekly lows: marks", true, "The triangle and W under each weekly low."),
+            (ParamWeeklyBand, "Weekly cycle low range", true, "The band over the live weekly cycle's timing window."),
+            (ParamYearlyMarks, "Yearly lows: marks", true, "The triangle and Y under each yearly low."),
+            (ParamYearlyLines, "Yearly lows: lines", true, "The faint dotted line through the chart at each yearly low."),
+            (ParamYearlyBand, "Yearly cycle low range", true, "The band over the live yearly cycle's timing window."),
+            (ParamTops, "Translated tops", true, "The lettered tops (L, M, R) over each finished cycle."),
+            (ParamTopLines, "Translated tops: lines", true, "The dotted line through the chart at each top."),
+            (ParamTopBoxes, "Translated tops: cycle range box", true, "The faint box over each cycle, low to low."),
+            (ParamCancelledLows, "Cancelled daily lows", false, "Off by default. On, a daily low undercut before it was confirmed keeps its mark, with a red cross."),
+            (ParamUpdatedSign, "Updated daily lows", true, "The refresh sign on a low named after a cancelled one."),
+            (ParamUnconfirmedLow, "Unconfirmed daily low", true, "The low being held, with a clock, before it is confirmed."),
+            (ParamConfirmedSign, "Confirmed daily lows", true, "The check under each confirmed daily low."),
+            (ParamConfirmationMark, "Confirmation mark", false, "Off by default. On, a check over a down triangle on the bar each daily low is confirmed on."),
+        };
 
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
 
         // The original's own colours, read from its drawings (2026-10-28; TradingView keeps them as
-        // 0xAABBGGRR): its daily, weekly and yearly marks, its three tops, and its wave at 0xCC.
-        internal const string DclHex = "#4CAF50", WclHex = "#2962FF", YclHex = "#D5C110", SmaHex = "#FFEB3B", ArcHex = "#CCFDD835";
+        // 0xAABBGGRR): its daily, weekly and yearly marks, its three tops, and its wave and moving
+        // average at 0xCC (the average's default colour and width 3 are its inputs').
+        internal const string DclHex = "#4CAF50", WclHex = "#2962FF", YclHex = "#D5C110", SmaHex = "#CCFDD835", ArcHex = "#CCFDD835";
         internal const string LeftTopHex = "#F23645", MidTopHex = "#FF9800", RightTopHex = "#4CAF50", StartHex = "#FF9800";
         /// <summary>The live window bands: daily green, weekly blue, yearly yellow.</summary>
         internal const string DailyBandHex = "#4CAF50", WeeklyBandHex = "#2962FF", YearlyBandHex = "#FDD835";
@@ -267,31 +324,39 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = ParamPreset, DisplayName = "Asset preset", DataType = typeof(string), DefaultValue = "Auto",
                             Description = $"Whose cycle ranges to use. Auto reads the chart's symbol (SPX, US500 and ^GSPC are the S&P; XAUUSD is gold; a fund or future such as SPY, ES or GLD has none and takes the default count). Or type one of: {PresetKeys}." },
-                    new() { Name = ParamDailyMin, DisplayName = "Daily cycle shortest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                    new() { IsAdvanced = true, Name = ParamDailyMin, DisplayName = "Daily cycle shortest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's. In the chart's own days: calendar days for crypto, trading days for stocks. Off a daily chart, in its bars." },
-                    new() { Name = ParamDailyMax, DisplayName = "Daily cycle longest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                    new() { IsAdvanced = true, Name = ParamDailyMax, DisplayName = "Daily cycle longest (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's." },
-                    new() { Name = ParamWeeklyMin, DisplayName = "Weekly cycle shortest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                    new() { IsAdvanced = true, Name = ParamWeeklyMin, DisplayName = "Weekly cycle shortest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's." },
-                    new() { Name = ParamWeeklyMax, DisplayName = "Weekly cycle longest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
+                    new() { IsAdvanced = true, Name = ParamWeeklyMax, DisplayName = "Weekly cycle longest (weeks)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
                             Description = "0 = the preset's." },
-                    new() { Name = ParamYearlyMin, DisplayName = "Yearly cycle shortest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
+                    new() { IsAdvanced = true, Name = ParamYearlyMin, DisplayName = "Yearly cycle shortest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
                             Description = "0 = the preset's." },
-                    new() { Name = ParamYearlyMax, DisplayName = "Yearly cycle longest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
+                    new() { IsAdvanced = true, Name = ParamYearlyMax, DisplayName = "Yearly cycle longest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
                             Description = "0 = the preset's." },
                     new() { Name = ParamSma, DisplayName = "Moving average length", DataType = typeof(int), DefaultValue = (double)DefaultSma, MinValue = 2, Step = 1,
-                            Description = "The simple moving average drawn on price, 10 by default." },
+                            Description = "The simple moving average drawn on price, 10 by default. It is left out until included, as the original's is off." },
+                    new() { Name = ParamSmaSource, DisplayName = "Moving average source", DataType = typeof(string), DefaultValue = "close",
+                            Description = "What it averages: open, high, low, close, hl2, hlc3, hlcc4, ohlc4 or volume. Close by default." },
+                    new() { Name = ParamSmaOffset, DisplayName = "Moving average offset", DataType = typeof(int), DefaultValue = 0.0, Step = 1,
+                            Description = "Bars to shift the line by, right if above 0. 0 by default." },
                     new() { Name = ParamOverbought, DisplayName = "Confirm level", DataType = typeof(double), DefaultValue = DefaultOverbought, MinValue = 1, MaxValue = 99, Step = 1,
                             Description = "75 by default. A daily low is named only while the hidden stochastic is below this. On a weekly chart's own weekly tier and the yearly tier, a low is confirmed when the hidden cycle line climbs through it after reaching the arm level." },
                     new() { Name = ParamOversold, DisplayName = "Arm level", DataType = typeof(double), DefaultValue = DefaultOversold, MinValue = 0, MaxValue = 99, Step = 1,
                             Description = "10 by default. A daily low is named only while the hidden stochastic is above this. On a weekly chart's own weekly tier and the yearly tier, the hidden cycle line must reach it before the next low can be confirmed." },
-                    new() { IsAdvanced = true, Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
+                    new() { Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
                             Description = "Off by default. On, a daily low is also named when price breaks the last swing high, as it always is on gold, silver, the miners and the dollar, so lows are named sooner and some cycles end on a different low." },
-                },
+                }.Concat(Switches.Select(w => new IndicatorParameterMetadata
+                {
+                    Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
+                })).ToList(),
                 Components = new List<IndicatorComponentMetadata>
                 {
+                    // Left out until included: the original's moving average is off by default.
                     new() { Name = CompSma, DisplayName = CompSma, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Median,
-                            Causality = ComponentCausality.Causal, DefaultColorHex = SmaHex, DefaultThickness = 1.5f,
+                            Causality = ComponentCausality.Causal, DefaultColorHex = SmaHex, DefaultThickness = 3f, DefaultIsEnabled = false,
                             DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
 
                     // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
@@ -363,6 +428,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     A(c + k);
             foreach (var k in new[] { ComponentCompanions.Badge, ComponentCompanions.BadgeWord, ComponentCompanions.Mark }) A(CompDcl + k);
             A(CompDclConfirmed + ComponentCompanions.Badge);
+            // What the display switches hide (ApplyDisplay), whichever are on.
+            foreach (var c in new[] { CompDcl, CompWcl, CompYcl, CompDclConfirmed, CompLeftTop, CompMidTop, CompRightTop })
+                A(c + ComponentCompanions.Hide);
             if (n == 0) return o;
 
             var p = parameters ?? new Dictionary<string, object>();
@@ -414,15 +482,18 @@ namespace AccessibleTrader.Core.Services.Indicators
             var close = new double[n]; var high = new double[n]; var low = new double[n];
             for (int i = 0; i < n; i++) { close[i] = data[i].Close; high[i] = data[i].High; low[i] = data[i].Low; }
 
-            // The moving average.
+            // The moving average, of its source, shifted by its offset as the original's can be.
+            // The confluence grade's close-over-average test reads it unshifted, of the close.
             int smaLen = Math.Max(2, Int(p, ParamSma, DefaultSma));
-            var sma = o[CompSma];
-            double sum = 0;
+            var sma = CipherCEngine.Nan(n);
+            Average(close, smaLen, sma);
+            var src = Source(data, Str(p, ParamSmaSource));
+            var shown = ReferenceEquals(src, null) ? sma : Average(src, smaLen, CipherCEngine.Nan(n));
+            int offset = Int(p, ParamSmaOffset, 0);
             for (int i = 0; i < n; i++)
             {
-                sum += close[i];
-                if (i >= smaLen) sum -= close[i - smaLen];
-                if (i >= smaLen - 1) sma[i] = sum / smaLen;
+                int from = i - offset;
+                o[CompSma][i] = from >= 0 && from < n ? shown[from] : double.NaN;
             }
 
             // Where the lows are. A weekly low is one of the daily lows near it, a yearly low one
@@ -603,8 +674,107 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             int presetIndex = IndexOf(preset);
             Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
+            Array.Fill(A(ChosenKey), !CipherCEngine.IsChosen(Str(p, ParamPreset)) ? 0 : CipherCEngine.PresetForSymbol(Str(p, "__symbol")) != null ? 2 : 1);
             Array.Fill(A(InBarsKey), inBars ? 1 : 0);
+            ApplyDisplay(o, p, n);
             return o;
+        }
+
+        /// <summary>A simple moving average of <paramref name="v"/> into <paramref name="into"/>, NaN before it has <paramref name="length"/> bars.</summary>
+        private static double[] Average(double[] v, int length, double[] into)
+        {
+            double sum = 0;
+            for (int i = 0; i < v.Length; i++)
+            {
+                sum += v[i];
+                if (i >= length) sum -= v[i - length];
+                if (i >= length - 1) into[i] = sum / length;
+            }
+            return into;
+        }
+
+        /// <summary>The moving average's source as the original names them; null for the close (or an unknown name).</summary>
+        private static double[]? Source(ReadOnlySpan<Ohlcv> data, string? name)
+        {
+            Func<Ohlcv, double>? f = (name ?? "close").Trim().ToLowerInvariant() switch
+            {
+                "open" => b => b.Open, "high" => b => b.High, "low" => b => b.Low,
+                "hl2" => b => (b.High + b.Low) / 2, "hlc3" => b => (b.High + b.Low + b.Close) / 3,
+                "hlcc4" => b => (b.High + b.Low + 2 * b.Close) / 4, "ohlc4" => b => (b.Open + b.High + b.Low + b.Close) / 4,
+                "volume" => b => b.Volume, _ => null,
+            };
+            if (f == null) return null;
+            var a = new double[data.Length];
+            for (int i = 0; i < a.Length; i++) a[i] = f(data[i]);
+            return a;
+        }
+
+        /// <summary>Whether one of the original's display switches (<see cref="Switches"/>) is on.</summary>
+        internal static bool SwitchOn(IReadOnlyDictionary<string, object>? p, string name)
+        {
+            foreach (var w in Switches) if (w.Name == name) return IndicatorParams.GetBool(p, name, w.On);
+            return true;
+        }
+
+        /// <summary>
+        /// The original's display switches (<see cref="Switches"/>). Pictures only: one switched off
+        /// hides its drawing by the part's <see cref="ComponentCompanions.Hide"/> where the bar has a
+        /// value, a stop or speech (a low, its signs, its line, a top), and clears a companion that
+        /// is only a picture (a length beside a low, a band, a box, the wave). What is found, heard
+        /// and said does not change; the table's switches are read by <see cref="TableRows"/>.
+        /// </summary>
+        private static void ApplyDisplay(Dictionary<string, double[]> o, Dictionary<string, object> p, int n)
+        {
+            bool On(string name) => SwitchOn(p, name);
+            bool Has(string key, int t) => o.TryGetValue(key, out var a) && !double.IsNaN(a[t]);
+            int Bits(string key, int t) => Has(key, t) ? (int)o[key][t] : 0;
+            void Hide(string comp, Func<int, int> bits)
+            {
+                var h = o[comp + ComponentCompanions.Hide];
+                for (int t = 0; t < n; t++)
+                {
+                    int b = bits(t);
+                    if (b != 0) h[t] = ComponentCompanions.Hidden(h, t) | b;
+                }
+            }
+            void Clear(string key) { if (o.TryGetValue(key, out var a)) Array.Fill(a, double.NaN); }
+            const int Marker = ComponentCompanions.HideMarker, Line = ComponentCompanions.HideLine, Shift = ComponentCompanions.HideBadgeShift;
+            string badge = CompDcl + ComponentCompanions.Badge, mark = CompDcl + ComponentCompanions.Mark, word = CompDcl + ComponentCompanions.BadgeWord;
+
+            // The daily lows: marks, lines, the held low's grade, and the confirmation signs.
+            if (!On(ParamDailyMarks)) Hide(CompDcl, t => Has(CompDcl, t) || Has(mark, t) || Has(word, t) ? Marker : 0);
+            if (!On(ParamDailyLines)) Hide(CompDcl, t => Has(CompDcl, t) ? Line : 0);
+            if (!On(ParamGrade)) Hide(CompDcl, t => Has(word, t) && o[word][t] != StartWord ? ComponentCompanions.HideWord : 0);
+            if (!On(ParamCancelledLows)) Hide(CompDcl, t => !Has(CompDcl, t) && (Bits(badge, t) & ComponentCompanions.BadgeCross) != 0 ? Marker : 0);
+            if (!On(ParamUnconfirmedLow)) Hide(CompDcl, t => !Has(CompDcl, t) && (Bits(badge, t) & ComponentCompanions.BadgeClock) != 0 ? Marker : 0);
+            if (!On(ParamUpdatedSign)) Hide(CompDcl, t => (Bits(badge, t) & ComponentCompanions.BadgeRefresh) != 0 ? ComponentCompanions.BadgeRefresh << Shift : 0);
+            if (!On(ParamConfirmedSign)) Hide(CompDcl, t => (Bits(badge, t) & ComponentCompanions.BadgeCheck) != 0 ? ComponentCompanions.BadgeCheck << Shift : 0);
+            if (!On(ParamConfirmationMark)) Hide(CompDclConfirmed, t => Has(CompDclConfirmed, t) ? Marker : 0);
+
+            // The weekly and yearly lows.
+            if (!On(ParamWeeklyMarks)) Hide(CompWcl, t => Has(CompWcl, t) ? Marker : 0);
+            if (!On(ParamWeeklyLines)) Hide(CompWcl, t => Has(CompWcl, t) ? Line : 0);
+            if (!On(ParamYearlyMarks)) Hide(CompYcl, t => Has(CompYcl, t) ? Marker : 0);
+            if (!On(ParamYearlyLines)) Hide(CompYcl, t => Has(CompYcl, t) ? Line : 0);
+
+            // The lengths beside the marks, the wave and the bands.
+            if (!On(ParamCountNumbers) || !On(ParamDailyNumbers)) Clear(CompDcl + ComponentCompanions.Label);
+            if (!On(ParamCountNumbers) || !On(ParamWeeklyNumbers)) Clear(CompWcl + ComponentCompanions.Label);
+            foreach (var (window, band) in new[] { (CompDailyWindow, ParamDailyBand), (CompWeeklyWindow, ParamWeeklyBand), (CompYearlyWindow, ParamYearlyBand) })
+            {
+                if (!On(ParamWave)) Clear(window + ComponentCompanions.Path);
+                if (!On(band)) { Clear(window + ComponentCompanions.BoxStart); Clear(window + ComponentCompanions.BoxEnd); }
+            }
+
+            // The tops: their marks, lines and boxes.
+            foreach (var top in new[] { CompLeftTop, CompMidTop, CompRightTop })
+            {
+                if (!On(ParamTops)) Hide(top, t => Has(top, t) ? Marker | Line : 0);
+                else if (!On(ParamTopLines)) Hide(top, t => Has(top, t) ? Line : 0);
+                if (!On(ParamTops) || !On(ParamTopBoxes))
+                    foreach (var k in new[] { ComponentCompanions.BoxStart, ComponentCompanions.BoxEnd, ComponentCompanions.BoxTop, ComponentCompanions.BoxBottom })
+                        Clear(top + k);
+            }
         }
 
         /// <summary>CF's count: the cycle that ended at a low, in days, counting both ends.</summary>
@@ -1133,51 +1303,80 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <see cref="HeldWeeksKey"/>), and the symbols with a preset. Empty before the chart has
         /// a preset.
         /// </summary>
-        public static IReadOnlyList<IReadOnlyList<Rendering.TableCell>> TableRows(Func<string, double[]?> component, int index)
+        public static IReadOnlyList<IReadOnlyList<Rendering.TableCell>> TableRows(Func<string, double[]?> component, int index,
+            IReadOnlyDictionary<string, object>? parameters = null)
         {
             double At(string name) => component(name) is { } a && index >= 0 && index < a.Length ? a[index] : double.NaN;
             double value = At(PresetKey);
-            if (double.IsNaN(value)) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
+            if (double.IsNaN(value) || !SwitchOn(parameters, ParamTable)) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
             bool tuned = value >= 0, inBars = At(InBarsKey) == 1;
             int presetIndex = tuned ? (int)value : -1 - (int)value;
             if (presetIndex < 0 || presetIndex >= CipherCEngine.Presets.Count) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
             var preset = CipherCEngine.Presets[presetIndex];
-            string head = tuned ? TableTuned : TableUntuned;
+            // A count picked in the settings (the original's custom count): its heading says so in
+            // red, the first column names it and what it suits, and there is no yearly range.
+            double chosenAt = At(ChosenKey);
+            bool chosen = chosenAt >= 1, detected = chosen ? chosenAt == 2 : tuned;
+            string head = detected ? TableTuned : TableUntuned;
             // The original prints NaN where it has no count yet; a dash here.
             string Since(double count) => double.IsNaN(count) ? "\u2014" : Num(count);
             string Held(double v) => double.IsNaN(v) ? "\u2014" : v < 0 ? "\u2705" : Num(v);
             var keys = CipherCEngine.Presets.Select(p => p.Key).ToList();
             int split = keys.IndexOf("ETH") is var e && e > 0 ? e : (keys.Count + 1) / 2;   // the stock and metal symbols, then the crypto ones
+            var (pick, suits) = Picked.TryGetValue(preset.Key, out var c) ? c : (preset.Key, "NONE");
 
+            // Each of the original's four section switches blanks its own cells; nothing moves.
+            bool detection = SwitchOn(parameters, ParamTableDetection), assets = detection && SwitchOn(parameters, ParamTableAssets),
+                 ranges = SwitchOn(parameters, ParamTableCount), windows = SwitchOn(parameters, ParamTableWindows);
             Rendering.TableCell C(string text, string? fill = null, int span = 1, int size = 0) => new(text, fill, span, size);
             Rendering.TableCell Blank(int span = 1) => C("", null, span);
-            IEnumerable<Rendering.TableCell> Middle(string label, string range) =>
-                tuned ? new[] { C(label, TableLabel, size: -1), C(range, TableValue) } : new[] { Blank(), Blank() };
+            Rendering.TableCell Col0(bool on, Rendering.TableCell cell) => on ? cell : Blank();
+            Rendering.TableCell[] Ranges(Rendering.TableCell[] cells) => ranges ? cells : cells.Select(x => Blank(x.ColSpan)).ToArray();
+            Rendering.TableCell[] Windows(params Rendering.TableCell[] cells) => windows ? cells : cells.Select(x => Blank(x.ColSpan)).ToArray();
+            Rendering.TableCell[] Middle(string label, string range, bool shown = true) =>
+                Ranges(tuned && shown ? new[] { C(label, TableLabel, size: -1), C(range, TableValue) } : new[] { Blank(), Blank() });
             const string SinceDcl = "Days since Last DCL :", SinceWcl = "Weeks Since Last WCL :";
             return new List<IReadOnlyList<Rendering.TableCell>>
             {
-                new[] { C(tuned ? "\u2705 Finetuned Asset Detected \u2705" : "\u26A0\uFE0F Unoptimised Asset Detected \u26A0\uFE0F", head, size: 1),
-                        tuned ? C($"{preset.Key} CYCLE COUNT", TableCountHead, 2, 1) : Blank(2),
-                        C("Cycle Low Windows", head, 2, 1) },
-                new[] { C("Default Count Selected", TableDark) }
+                new[] { Col0(detection, C(detected ? "\u2705 Finetuned Asset Detected \u2705" : "\u26A0\uFE0F Unoptimised Asset Detected \u26A0\uFE0F", head, size: 1)) }
+                    .Concat(Ranges(new[] { chosen ? C($"{pick} COUNT SELECTED", TableChosen, 2, 1) : tuned ? C($"{preset.Key} CYCLE COUNT", TableCountHead, 2, 1) : Blank(2) }))
+                    .Concat(Windows(C("Cycle Low Windows", head, 2, 1))).ToArray(),
+                new[] { Col0(detection, C(chosen ? $"{pick} Count Selected" : "Default Count Selected", TableDark)) }
                     .Concat(Middle("Daily Cycle Range", $"{Dash(preset.DailyMin, preset.DailyMax)} days"))
-                    .Append(C("\u2705 Confirmed \u2705", null, 2)).ToArray(),
-                new[] { C("", TableDark) }
+                    .Concat(Windows(C("\u2705 Confirmed \u2705", null, 2))).ToArray(),
+                new[] { Col0(detection, C(chosen ? $"Recommended for {suits}" : "", TableDark)) }
                     .Concat(Middle("Weekly Cycle Range", $"{Dash(preset.WeeklyMin, preset.WeeklyMax)} weeks"))
-                    .Concat(new[] { C(SinceDcl), C(Since(At(CompDailyWindow))) }).ToArray(),
-                new[] { inBars ? C("\u26A0\uFE0F Timeframe Not Optimised, Switch to Daily \u26A0\uFE0F", TableWrongFrame) : C("\u2705 Optimised Timeframe - Daily \u2705", TableRightFrame) }
-                    .Concat(Middle("Yearly Cycle Range", $"{Dash(preset.YearlyMin, preset.YearlyMax)} years"))
-                    .Concat(new[] { C(SinceWcl), C(Since(At(CompWeeklyWindow))) }).ToArray(),
-                new[] { C("\U0001F447 Finetuned Assets Listed Below \U0001F447", TableValue), Blank(2), C("\U0001F558 Unconfirmed \U0001F558", null, 2) },
-                new[] { C(string.Join(", ", keys.Take(split)), TableDark, size: -1), Blank(2), C(SinceDcl), C(Held(At(HeldDaysKey))) },
-                new[] { C(string.Join(", ", keys.Skip(split)), TableDarkLight, size: -1), Blank(2), C(SinceWcl), C(Held(At(HeldWeeksKey))) },
+                    .Concat(Windows(C(SinceDcl), C(Since(At(CompDailyWindow))))).ToArray(),
+                new[] { Col0(detection, inBars ? C("\u26A0\uFE0F Timeframe Not Optimised, Switch to Daily \u26A0\uFE0F", TableWrongFrame) : C("\u2705 Optimised Timeframe - Daily \u2705", TableRightFrame)) }
+                    .Concat(Middle("Yearly Cycle Range", $"{Dash(preset.YearlyMin, preset.YearlyMax)} years", shown: !chosen))
+                    .Concat(Windows(C(SinceWcl), C(Since(At(CompWeeklyWindow))))).ToArray(),
+                new[] { Col0(assets, C("\U0001F447 Finetuned Assets Listed Below \U0001F447", TableValue)) }
+                    .Concat(Ranges(new[] { chosen ? C("FUTURE CYCLE LOW IS INVALID", TableChosen, 2, -1) : Blank(2) }))
+                    .Concat(Windows(C("\U0001F558 Unconfirmed \U0001F558", null, 2))).ToArray(),
+                new[] { Col0(assets, C(string.Join(", ", keys.Take(split)), TableDark, size: -1)), Blank(2) }.Concat(Windows(C(SinceDcl), C(Held(At(HeldDaysKey))))).ToArray(),
+                new[] { Col0(assets, C(string.Join(", ", keys.Skip(split)), TableDarkLight, size: -1)), Blank(2) }.Concat(Windows(C(SinceWcl), C(Held(At(HeldWeeksKey))))).ToArray(),
             };
         }
+
+        /// <summary>
+        /// A picked count's name in the original's list of counts, and what its table says it is
+        /// recommended for (its words, read from its table for every count on 2026-10-28; Marathon's
+        /// is its own "NONE").
+        /// </summary>
+        private static readonly IReadOnlyDictionary<string, (string Pick, string For)> Picked = new Dictionary<string, (string, string)>
+        {
+            ["BTC"] = ("BTC", "Longer-cycle Crypto"), ["ETH"] = ("ETH", "Short-cycle Crypto"),
+            ["SPX"] = ("SPX", "Equity Indexes"), ["NDQ"] = ("NDQ", "Equity Indexes"), ["DJI"] = ("DJI", "Equity Indexes"),
+            ["DXY"] = ("DXY", "Forex and Bonds"), ["GOLD"] = ("XAU/USD", "Commodities/Metals"), ["SILVER"] = ("XAG/USD", "Commodities/Metals"),
+            ["GDX"] = ("GDX", "Short-cycle Equities"), ["GDXJ"] = ("GDXJ", "Short-cycle Equities"), ["SILJ"] = ("SILJ", "Short-cycle Equities"),
+            ["USOIL"] = ("USOIL", "Broader Commodities"), ["COIN"] = ("COIN", "Longer-cycle Crypto"), ["MSTR"] = ("MSTR", "Longer-cycle Crypto"),
+            ["MARA"] = ("MARA", "NONE"), ["RIOT"] = ("RIOT", "Short-cycle Equities"),
+        };
 
         // The original's cell fills, #RRGGBBAA.
         internal const string TableTuned = "#4CAF4F69", TableUntuned = "#FF525269", TableCountHead = "#20C12B5C",
             TableDark = "#363A455C", TableDarkLight = "#363A454B", TableLabel = "#363A4519", TableValue = "#787B8626",
-            TableRightFrame = "#4CAF4FA3", TableWrongFrame = "#FF000066";
+            TableRightFrame = "#4CAF4FA3", TableWrongFrame = "#FF000066", TableChosen = "#F236455C";
 
         /// <summary>"36\u201344", or "4" when a range is one value: the original's en dash.</summary>
         private static string Dash(double min, double max) => min == max ? Num(min) : $"{Num(min)}\u2013{Num(max)}";

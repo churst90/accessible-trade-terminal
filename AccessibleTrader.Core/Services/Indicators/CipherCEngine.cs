@@ -300,6 +300,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         public static CyclePreset Fallback(bool tradesEveryDay)
             => Preset("SPX") with { CountDailyMin = DefaultCountDailyMin, CalendarDays = tradesEveryDay };
 
+        /// <summary>Whether a preset setting picks a count rather than leaving it to the symbol (Auto, empty, or no such count).</summary>
+        public static bool IsChosen(string? choice)
+        {
+            string c = (choice ?? "").Trim();
+            return c.Length > 0 && !c.Equals("Auto", StringComparison.OrdinalIgnoreCase) && PresetForSymbol(c) != null;
+        }
+
         /// <summary>
         /// Which preset drives a chart, and whether it was chosen for this asset. "Auto" (or blank)
         /// reads the symbol; a symbol that is none of the sixteen gets <see cref="Fallback"/>, and

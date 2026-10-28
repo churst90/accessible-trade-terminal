@@ -476,6 +476,57 @@ namespace AccessibleTrader.Tests
             }
         }
 
+        /// <summary>
+        /// The hide companion (<see cref="ComponentCompanions.Hide"/>, an indicator's own display
+        /// switches) takes a marker off the picture: an upward ring, a downward triangle and the
+        /// marks' price lines draw no ink on a bar whose hide bits name them, and a badge bit
+        /// shifted into the hide value takes just that sign off.
+        /// </summary>
+        [Fact]
+        public void A_hidden_marker_draws_no_ink()
+        {
+            const int width = 400, height = 300, count = 20, bar = 10;
+            var bars = Enumerable.Range(0, count).Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 48, 55, 45, 52, 1000)).ToList();
+            int Ink(ComponentDisplayType shape, MarkerAnchor anchor, double hide, double badge = double.NaN, bool lines = false)
+            {
+                using var bitmap = new SKBitmap(width, height);
+                using var canvas = new SKCanvas(bitmap);
+                canvas.Clear(SKColors.Black);
+                var theme = DbsiChartHarness.Themes(ThemeType.Blackout).Current;
+                var ctx = new RenderContext(canvas, new SKRect(0, 0, width, height), bars, ViewportStart: 0, ViewportLength: count,
+                    Min: 0, Max: 100, IsLogScale: false, ItemWidth: width / (float)count, Density: 1f, PaneName: "Main", LocalCursorIndex: -1, Theme: theme);
+                var series = new ChartSeries();
+                var comp = new ComponentConfig { Name = "M", DisplayName = "M", DisplayType = shape, ColorHex = "#00E676", MarkerAnchor = anchor, Thickness = 3f, MarkerText = "D", MarkLineAlpha = lines ? 200 : 0 };
+                series.Components.Add(comp);
+                double[] One(double v) { var a = Enumerable.Repeat(double.NaN, count).ToArray(); a[bar] = v; return a; }
+                series.Data.ComponentData["M"] = One(45);
+                series.Data.ComponentData["M" + ComponentCompanions.Hide] = One(hide);
+                series.Data.ComponentData["M" + ComponentCompanions.Badge] = One(badge);
+                using var paint = new SKPaint { IsAntialias = true, Color = SKColor.Parse(comp.ColorHex) };
+                if (lines) ComponentPictures.RenderMarkLines(ctx, series, comp);
+                else if (shape == ComponentDisplayType.TriangleUpRing) StandardRenderers.RenderTriangleUpRing(ctx, series, comp, paint);
+                else StandardRenderers.RenderTriangleDown(ctx, series, comp, paint);
+                int ink = 0;
+                for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) if (bitmap.GetPixel(x, y) != SKColors.Black) ink++;
+                return ink;
+            }
+            int ring = Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, double.NaN);
+            Assert.True(ring > 0);
+            Assert.Equal(0, Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, ComponentCompanions.HideMarker));
+            Assert.Equal(ring, Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, ComponentCompanions.HideLine));
+            Assert.True(Ink(ComponentDisplayType.TriangleDown, MarkerAnchor.AboveBar, double.NaN) > 0);
+            Assert.Equal(0, Ink(ComponentDisplayType.TriangleDown, MarkerAnchor.AboveBar, ComponentCompanions.HideMarker));
+
+            int signed = Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, double.NaN, ComponentCompanions.BadgeCheck);
+            Assert.True(signed > ring, "the check sign adds ink under the ring");
+            Assert.Equal(ring, Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar,
+                ComponentCompanions.BadgeCheck << ComponentCompanions.HideBadgeShift, ComponentCompanions.BadgeCheck));
+
+            int line = Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, double.NaN, lines: true);
+            Assert.True(line > 0);
+            Assert.Equal(0, Ink(ComponentDisplayType.TriangleUpRing, MarkerAnchor.BelowBar, ComponentCompanions.HideLine, lines: true));
+        }
+
         [Fact]
         public void CF_shape_review_PNGs_are_written_only_when_requested()
         {

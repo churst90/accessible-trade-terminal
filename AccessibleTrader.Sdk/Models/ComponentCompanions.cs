@@ -53,6 +53,13 @@ namespace AccessibleTrader.Sdk.Models
     /// where the component has no value — Cipher C's pending and cancelled lows, which the
     /// original draws as lows but which are not lows. A picture only: not a stop, a sound, a
     /// value or a dotted line; what it shows is said by another component.</item>
+    /// <item><see cref="Hide"/>: the parts of the component's picture left out on a bar, a bit
+    /// set (<see cref="HideMarker"/>, <see cref="HideLine"/>, <see cref="HideWord"/>, and a
+    /// <see cref="Badge"/> bit shifted up by <see cref="HideBadgeShift"/> for one sign). Pictures
+    /// only: the bar keeps its value, its stop, its sound and its speech, which may still say
+    /// what the hidden sign means. For an indicator's own display switches, such as Cipher C's
+    /// copies of the original's (2026-10-28), so switching a picture off is not a change of
+    /// what is heard.</item>
     /// </list>
     /// </summary>
     public static class ComponentCompanions
@@ -69,10 +76,24 @@ namespace AccessibleTrader.Sdk.Models
         public const string Badge = "_badge";
         public const string BadgeWord = "_badgeWord";
         public const string Mark = "_mark";
+        public const string Hide = "_hide";
 
         /// <summary><see cref="Badge"/> bits, drawn away from the ring in this order: clock,
         /// refresh, check, cross.</summary>
         public const int BadgeCheck = 1, BadgeClock = 2, BadgeRefresh = 4, BadgeCross = 8;
+
+        /// <summary><see cref="Hide"/> bits: the marker (with its signs and word), the dotted
+        /// line, the word alone; a sign is hidden by its <see cref="Badge"/> bit shifted up by
+        /// <see cref="HideBadgeShift"/>.</summary>
+        public const int HideMarker = 1, HideLine = 2, HideWord = 4, HideBadgeShift = 3;
+
+        /// <summary>The <see cref="Hide"/> bits on bar <paramref name="k"/>, 0 when none.</summary>
+        public static int Hidden(double[]? hide, int k) =>
+            hide != null && k >= 0 && k < hide.Length && !double.IsNaN(hide[k]) ? (int)hide[k] : 0;
+
+        /// <summary>A bar's <see cref="Badge"/> bits less the ones <paramref name="hidden"/> hides; NaN stays NaN.</summary>
+        public static double ShownBadges(double bits, int hidden) =>
+            double.IsNaN(bits) || hidden == 0 ? bits : (int)bits & ~(hidden >> HideBadgeShift);
 
         /// <summary>Whether <paramref name="key"/> is a companion of one of <paramref name="componentNames"/>.</summary>
         public static bool IsCompanionOf(string key, IEnumerable<string> componentNames)
