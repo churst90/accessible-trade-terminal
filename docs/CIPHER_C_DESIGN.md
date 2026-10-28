@@ -1585,3 +1585,22 @@ due, its origin is that bar, and the next search waits until December 2023. The 
 that low one bar earlier than the model (46 bars from Start, not 47), probably on the bar still
 forming; not modelled.
 
+## 32. The unconfirmed weekly cell (2026-10-28)
+
+The table's last row counts weeks since the unconfirmed weekly low (bars since, divided by the
+preset's week, rounded down). Which low that is was read from the original's table on its sixteen
+tuned daily replays, against the weekly lows it had drawn by each bar:
+
+- **Everywhere but the metals** it is the newest low drawn, the candidate included: from the bar the
+  candidate is drawn (the second daily low after the newest weekly low) the count restarts from it,
+  and after the next daily low judges it, from whichever low that made a weekly low. 99.9% of bars
+  on each of those charts on the original's own drawings (the odd bar is the last).
+- **On Gold, Silver and the miners** the same rule fits 76-86% of bars. The rest count from a low the
+  original drew nowhere: a candidate that went (too near the newest weekly low and not under it,
+  section 23), or an undercut that became only the reference low. Counting from those as well takes
+  GDX to every bar.
+
+`TierRun.HeldAt` of `WeeklyFromDaily` and `WeeklyByWeeks` is that low (`Anchor`'s `drawn`). Cipher
+C's cell against the original's, every replayed bar of the 19 daily charts: 53.2% -> 91.7% exact
+(the newest-drawn rule alone 86.6%, with the reference only 89.7%). What is left follows from Cipher
+C's weekly lows where they differ from the original's.

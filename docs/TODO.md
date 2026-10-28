@@ -48,8 +48,10 @@
 >       take its lows found from 1,817 to 1,826 of 1,894 and its extras from 105 to 86, and removes
 >       Bitcoin's weekly extra low of September 2023. They are read off the original's chart. May
 >       they go in the public repo, the same question as the yearly date table (section 22)?
->     - counting a dropped weekly low on in the unconfirmed weekly cell (Cipher C counts from its
->       newest weekly low);
+>     - ~~counting a dropped weekly low in the unconfirmed weekly cell~~: done 2026-10-28 (CHANGES,
+>       "unconfirmed week count runs from the newest weekly low drawn"). The cell counts from the
+>       newest low drawn, the candidate included, and on the metals from a low drawn nowhere;
+>       53 -> 92% exact. What is left is where the weekly lows differ;
 >     - replays of Coinbase 4h and Bitcoin weekly (TradingView must have a visible window; the
 >       trial ends about 11-05).
 >   - ~~"Default Count Selected" is always shown; the original's words for a changed count are not

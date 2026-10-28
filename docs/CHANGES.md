@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's unconfirmed week count runs from the newest weekly low drawn, the candidate included (2026-10-28)
+
+- **What changed (Cody's precise pass, "counting a dropped weekly low in the unconfirmed weekly
+  cell").** The table's unconfirmed weekly cell counted weeks from Cipher C's newest weekly low, so
+  while a weekly candidate was drawn and not yet judged it ran on from the low before (often 20 or
+  30 weeks, where the original said 3). Read from the original's table on its sixteen tuned daily
+  replays: it counts from the newest low it has drawn, the candidate included (94% of bars on its
+  own drawings; the rest are the metals). On Gold, Silver and the two miners' ETFs it also counts
+  from a low it drew nowhere: a candidate that went (too near the newest weekly low and not under
+  it), or an undercut that became only the reference low. `TierRun.HeldAt` of both weekly machines
+  is now that low; only the table's unconfirmed weekly cell reads it, so no drawing changes.
+- **Checked:** the cell, Cipher C against the original on every replayed bar of the 19 daily charts
+  (24,118 bars): 53.2% -> 91.7% exact. GDX goes to 100%; every chart is level or better. The other
+  three cells (days and weeks since the confirmed lows, days since the unconfirmed daily low) are
+  unchanged at 96.2, 88.8 and 97.5%.
+- **Tests:** two new (the candidate counted from when drawn, and after it is judged; a metal low
+  drawn nowhere counted from), and the "only what it knew then" test now covers HeldAt. Five
+  sabotages red: no drawn low, no candidate on the non-metals, no gone candidate, no reference, no
+  metal candidate.
+- **Caveats:** what is left in the cell is where Cipher C's weekly lows differ from the original's
+  (Coinbase, Riot, the dollar and oil on the newest-drawn rule; Gold, Silver and junior gold miners
+  most of all). Not seen in the app.
+
 ### Cipher C starts its count where the original does: on the chart's first bar, or the first bar of 2000 on an untuned symbol, as a low confirmed one hold later (2026-10-28)
 
 - **What changed (Cody's precise pass, "per-asset start dates").** The original writes "Start" under

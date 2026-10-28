@@ -129,6 +129,27 @@ public class CipherCWeeklyTests
     }
 
     /// <summary>
+    /// The unconfirmed weekly low (HeldAt, which the table's unconfirmed week count runs from) is the
+    /// newest low drawn: the newest weekly low until a candidate is drawn, then the candidate, and
+    /// after it is judged whichever low the judging made a weekly low. Read from the original's table
+    /// on the sixteen tuned daily replays.
+    /// </summary>
+    [Theory]
+    [InlineData(104, 82)]
+    [InlineData(105, 80)]
+    public void The_unconfirmed_weekly_low_is_the_newest_drawn_the_candidate_included(double judge, int after)
+    {
+        var w = Weekly(300, (10, 100, 20), (50, 110, 60), (80, 105, 90), (82, judge, 120));
+        Assert.Equal(-1, w.HeldAt[19]);
+        Assert.Equal(10, w.HeldAt[20]);
+        Assert.Equal(10, w.HeldAt[89]);
+        Assert.Equal(80, w.HeldAt[90]);
+        Assert.Equal(80, w.HeldAt[119]);
+        Assert.Equal(after, w.HeldAt[120]);
+        Assert.Equal(after, w.HeldAt[299]);
+    }
+
+    /// <summary>
     /// A far "double": the first daily low after a weekly low is a weekly low of its own when it is
     /// under that weekly low at least 1.25 daily cycles (27.5 bars) after it and the second daily
     /// low is not under it. The second then counts as the first after it, so the third is the
@@ -259,6 +280,27 @@ public class CipherCWeeklyTests
     }
 
     /// <summary>
+    /// On the metals the unconfirmed weekly low can be one drawn nowhere: a candidate that went (too
+    /// near the newest weekly low and not under it), or an undercut that became only the reference.
+    /// The original's table counts its unconfirmed weeks from those, as from a drawn one.
+    /// </summary>
+    [Fact]
+    public void A_metal_low_drawn_nowhere_is_the_unconfirmed_weekly_low()
+    {
+        var gone = Metal(300, (10, 100, 20), (30, 110, 40), (100, 105, 110), (120, 108, 130));
+        Assert.Equal(new[] { 10 }, gone.Lows);
+        Assert.Equal(10, gone.HeldAt[109]);
+        Assert.Equal(100, gone.HeldAt[110]);   // the candidate, drawn
+        Assert.Equal(100, gone.HeldAt[130]);   // gone, still counted from
+        Assert.Equal(100, gone.HeldAt[299]);
+
+        var reference = Metal(300, (10, 100, 20), (30, 110, 40), (60, 106, 70), (90, 104, 100));
+        Assert.Equal(new[] { 10 }, reference.Lows);
+        Assert.Equal(60, reference.HeldAt[99]);
+        Assert.Equal(90, reference.HeldAt[100]);   // the undercut, only the reference
+    }
+
+    /// <summary>
     /// A metal double: the first daily low after the reference, under it with the second not under
     /// the first, is a weekly low 70 bars or more from the newest; the reference need not be a
     /// weekly low (here an undercut that was too near to be one). Nearer, the second is the candidate.
@@ -332,6 +374,7 @@ public class CipherCWeeklyTests
             {
                 Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);
                 Assert.Equal(whole.CancelledLow[t], part.CancelledLow[t]);
+                Assert.Equal(whole.HeldAt[t], part.HeldAt[t]);
                 foreach (var (a, b) in new[] { (whole.Confirmed, part.Confirmed), (whole.Cancelled, part.Cancelled), (whole.Updated, part.Updated) })
                     Assert.Equal(a[t], b[t]);
             }

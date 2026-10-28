@@ -527,7 +527,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             /// <summary>Per bar: the confirmed low a failure on that bar closed under, or -1.</summary>
             public int[] ClosedUnder = Array.Empty<int>();
             /// <summary>Per bar: the low found and holding at the end of that bar (the pending low), or -1.
-            /// The weekly machines' is their newest weekly low, which the next one confirms.</summary>
+            /// The weekly machines' is the low the original's unconfirmed weekly count runs from: the
+            /// newest drawn, the candidate included (see <see cref="WeeklyFromDaily"/>'s Anchor).</summary>
             public int[] HeldAt = Array.Empty<int>();
             /// <summary>Per bar: the pending low a cancellation on that bar dropped, or -1.</summary>
             public int[] CancelledLow = Array.Empty<int>();
@@ -896,7 +897,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         }
                     }
                 }
-                Anchor(run, t, weekly, lows, ref anchor, ref replaced);
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand);
             }
             Publish(run, drawnOn, fixedOn);
             return run;
@@ -945,7 +946,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var lows = new double[n];
             for (int i = 0; i < n; i++) lows[i] = data[i].Low;
             double Low(int i) => lows[i];
-            int cand = -1, reference = -1, first = -1, count = 0, anchor = -1, last = -1;
+            int cand = -1, reference = -1, first = -1, count = 0, anchor = -1, last = -1, gone = -1;
             double replaced = double.NaN;
             for (int t = 0; t < n; t++)
             {
@@ -981,7 +982,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                         }
                         else
                         {
-                            if (!Make(cand, newBars, true)) drawnOn.Remove(cand);
+                            // A candidate that goes undrawn is still the low the table's unconfirmed
+                            // week count runs from, as a reference low drawn nowhere is.
+                            if (!Make(cand, newBars, true)) { drawnOn.Remove(cand); gone = cand; }
                             count = 1; first = d;
                         }
                         cand = -1;
@@ -991,7 +994,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         && (!doubleUnderNewest || Low(first) < Low(weekly[^1])) && Make(first, doubleBars, false)) { first = d; count = 1; }
                     else { cand = d; drawnOn[d] = t; }
                 }
-                Anchor(run, t, weekly, lows, ref anchor, ref replaced);
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand >= 0 ? cand : Math.Max(reference, gone));
             }
             Publish(run, drawnOn, fixedOn);
             return run;
@@ -1006,7 +1009,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // The original's confirmed weekly low is the one before the newest: Confirmed fires when it
         // moves on, with Updated the price of the low cancelled since.
-        private static void Anchor(TierRun run, int t, List<int> weekly, double[] lows, ref int anchor, ref double replaced)
+        private static void Anchor(TierRun run, int t, List<int> weekly, double[] lows, ref int anchor, ref double replaced, int drawn)
         {
             int now = weekly.Count > 1 ? weekly[^2] : -1;
             if (now > anchor)
@@ -1017,8 +1020,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             anchor = now;
             run.LastLowAt[t] = anchor;
-            // The newest weekly low, not confirmed until the next one is (the original's unconfirmed WCL).
-            run.HeldAt[t] = weekly.Count > 0 ? weekly[^1] : -1;
+            // The original's unconfirmed WCL, which its table's unconfirmed week count runs from: the
+            // newest low it has drawn, a candidate included, else the newest weekly low (on the metals
+            // also a newer low it drew nowhere, <paramref name="drawn"/>). Read from the original's
+            // table on the sixteen tuned daily replays (2026-10-28): 53 -> 92% of bars.
+            run.HeldAt[t] = Math.Max(drawn, weekly.Count > 0 ? weekly[^1] : -1);
         }
 
         private static void Publish(TierRun run, SortedDictionary<int, int> drawnOn, Dictionary<int, int> fixedOn)
