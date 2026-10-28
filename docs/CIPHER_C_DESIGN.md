@@ -1419,3 +1419,49 @@ Caveats:
   change once drawn (a dollar replay), and the box at that moment is the final one.
 - If one bar is the top of two cycles (an ending low's bar that is also the next cycle's highest),
   the later cycle's top replaces the earlier one on that bar; the original would draw both.
+
+## 29. The original's look (2026-10-28)
+
+Cody: *"please add all remaining visual elements from the original ... Remove our visuals and
+replace with the original."* Each piece was read from the original's own drawings on its charts
+(TradingView keeps a script's labels, lines, boxes, polylines and table cells in chart memory;
+colours as 0xAABBGGRR). Nothing below is from the original's code, which is not read.
+
+| Piece | The original | Cipher C |
+|---|---|---|
+| Daily, weekly, yearly low | ▲ over a disc with D / W / Y; green #4CAF50, blue #2962FF, gold #D5C110; the weekly under the daily, the yearly under the weekly | the same (`TriangleUpRing`, `MarkerStacksUnder`) |
+| Cycle length | 49D / 24W beside the daily and weekly lows | the same (`ValueLabelRenderer.LayoutBeside`) |
+| Dotted line at each low and top | through the chart, alpha 51 at lows | the same (`MarkLineAlpha`) |
+| Under the D | ✅ confirmed, 🔄 replaced a cancelled low, ❌ cancelled, ⏳ held now with LOW / MID / HIGH, Start on an orange plate | the same signs (`_badge` bits, `BadgeWords`) |
+| Daily confirmation | ✅ over a green ▼ at the bar's high | the same; ours keeps the marker padding |
+| Weekly / yearly confirmation, pending, cancelled, failed events | not drawn | not drawn by default; heard; can be drawn from Appearance |
+| Translated top | L / M / R in a disc over ▼; red #F23645, orange #FF9800, green #4CAF50; a box over the cycle at alpha 25, low to low, lowest low to the top | the same (`BoxAlpha`, `_boxStart`..`_boxBottom`) |
+| Timing windows | the live cycle's bands, alpha 51, into the future | the same; daily band decoded, weekly and yearly not |
+| Wave | yellow #FDD835 at 0xCC | the same level and height (below) |
+| Table | bottom right of the price pane, 7 × 5 | the same layout and cell colours, our words |
+
+**The wave.** One level for every hump: middle M = 0.8 × the close on the bar c of the newest daily
+confirmation; half-height h = 0.2 × (highest high − lowest low over the 100 bars ending at c);
+troughs at M − h on each low, crests at M + h, a cosine between, over the last 21 cycles and the
+live one, in linear price. On 68 of the original's 68 charts this is its wave to floating-point
+precision. On Heikin-Ashi the middle follows the Heikin-Ashi close (OHLC4) on c and the height does
+not change. The wave sits well below price on a chart that has risen since c, as the original's
+does.
+
+**The daily band.** From the last low: the first bar dated on or after the low's date plus the
+shortest cycle in calendar days (on a weekday chart a trading day is 7/5 of one), rounded, to the
+first bar on or after plus the longest, rounded down; counted on in trading days past the last
+bar. To the day on 7 of the 8 daily charts with one in view; the dollar index's is a day late at
+both ends. The weekly and yearly bands are drawn by the same rule, but the original's are not
+that: its weekly band starts weeks early and its yearly one follows its yearly date table
+(section 22). Undecoded.
+
+**The table.** Row 0: a status header (green, or red when the symbol has no tuned preset), the
+symbol's CYCLE COUNT over two columns, "Cycle low windows" over two. Rows 1-3: the count (from N
+days, or the default), the daily, weekly and yearly ranges (left blank when untuned), the
+timeframe (green when daily, red "switch to daily" otherwise), and on the right Confirmed with the
+days since the daily low and weeks since the weekly low. Rows 4-6: the symbols with a preset, and
+Pending with the days since the held daily low (✅ when none) and the weekly one. Cell fills
+#RRGGBBAA: header #4CAF4F69 (red #FF525269), count header #20C12B5C, dark #363A455C and #363A454B,
+range label #363A4519, value #787B8626, daily #4CAF4FA3, not daily #FF000066. Cipher C's counts are
+its day of the cycle, one more than the original's "days since"; its pending weekly cell is a dash.

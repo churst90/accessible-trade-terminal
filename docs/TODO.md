@@ -26,6 +26,20 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C is drawn as the original draws it (2026-10-28, built, NOT seen; see CHANGES and
+>   CIPHER_C_DESIGN section 29).** Lows with letter discs, dotted lines and 49D labels; checks,
+>   crosses, the clock, the grade and Start under the D; lettered tops with a box over each cycle;
+>   bands over the live windows; the original's yellow wave at its own level (decoded, 68 of 68
+>   charts); its table in the price pane's corner. Cody (or a sighted helper) to look at any daily
+>   chart next to the original. Open:
+>   - The weekly and yearly bands are undecoded (drawn by the daily rule); the dollar's daily band
+>     is a day late.
+>   - The table's pending weekly cell is not modelled; its words are ours (say if you want the
+>     original's wording instead).
+>   - Start is under Cipher C's first low, not always the original's; the confirmation triangle
+>     keeps the marker padding where the original's touches the high.
+>   - Not yet reviewed by an accessibility agent (none registered here). The table is aria-hidden,
+>     like the status lines.
 > - [ ] **Cipher C: a translated top is mid only exactly halfway (2026-10-28, built, NOT seen or
 >   heard; see CHANGES and CIPHER_C_DESIGN section 28).** On the original's boxes, 86.0% → 94.6% of
 >   its daily tops; as the app runs, 1,024 → 1,143 of its 1,244 tops on the tuned daily charts. Cody

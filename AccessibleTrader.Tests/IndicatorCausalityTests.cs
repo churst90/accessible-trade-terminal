@@ -608,6 +608,8 @@ namespace AccessibleTrader.Tests
             // Bitstamp BTC daily, prefix by prefix:
             // CipherCProviderTests.The_events_on_a_bar_do_not_change_when_later_bars_arrive.
             "CIPHER_C.YCL Confirmed",
+            // Its yearly window (2026-10-28) counts from a yearly low, so likewise.
+            "CIPHER_C.Yearly Timing Window",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",

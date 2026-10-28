@@ -38,6 +38,27 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public string? RibbonName { get; set; }
 
+        /// <summary>Opacity (0-255) of the <see cref="ComponentCompanions.BoxEnd"/> boxes this
+        /// component writes (Cipher C's translation box per cycle, its live timing window).
+        /// 0 = it draws none.</summary>
+        public int BoxAlpha { get; set; }
+
+        /// <summary>Opacity (0-255) of a dotted vertical line through the pane at each bar this
+        /// component has a value on (Cipher C's lines at its cycle lows and tops). 0 = none.</summary>
+        public int MarkLineAlpha { get; set; }
+
+        /// <summary>The colour of this component's <see cref="ComponentCompanions.Path"/> when it
+        /// is not the component's own (a yellow level wave on a green window). Null = its own.</summary>
+        public string? PathColorHex { get; set; }
+
+        /// <summary>A sibling marker this one is drawn beyond on a bar both mark, so the two do
+        /// not overlap: a weekly low's mark under the daily low's mark on the same bar.</summary>
+        public string? MarkerStacksUnder { get; set; }
+
+        /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> companion picks from,
+        /// separated by '|' ("LOW|MID|HIGH|Start"), printed under the marker. Visual only.</summary>
+        public string? BadgeWords { get; set; }
+
         /// <summary>
         /// For a <see cref="ComponentCausality.Lookahead"/> marker (a low painted on the bar it
         /// happened on, found later): the causal component that marks the bar it was confirmed on.

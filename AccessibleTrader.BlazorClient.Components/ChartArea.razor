@@ -148,6 +148,34 @@
         </div>
     }
 
+    @* The price pane's indicator tables (ChartInfoTable): Cipher C's cycle counts in the
+       bottom right corner, where TradingView scripts draw theirs. Real DOM text, aria-hidden and
+       pointer-events: none, as the status lines are: a VISUAL MIRROR of what the chart already
+       speaks (Alt+Shift+D reads the windows' counts and the preset; the pending low says how
+       long ago it was). Same bar as the status lines. *@
+    @if (BuildInfoTables() is { Tables.Count: > 0 } info)
+    {
+        <div class="chart-info-tables" aria-hidden="true"
+             style="position:absolute; right:calc(@(Pct(info.Right)) + 6px); bottom:calc(@(Pct(info.Bottom)) + 6px); pointer-events:none; z-index:7; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+            @foreach (var table in info.Tables)
+            {
+                <table class="chart-info-table" data-series="@table.SeriesId"
+                       style="border-collapse:separate; border-spacing:1px; color:@_statusInk; background:@_statusBacking; font-size:0.6875rem; line-height:1.3; border-radius:3px;">
+                    @foreach (var row in table.Rows)
+                    {
+                        <tr>
+                            @foreach (var cell in row)
+                            {
+                                <td colspan="@cell.ColSpan"
+                                    style="padding:1px 6px; text-align:center; white-space:nowrap; @(cell.Fill != null ? "background:" + cell.Fill + ";" : "") font-size:@(cell.Size > 0 ? "0.8125rem" : cell.Size < 0 ? "0.625rem" : "0.6875rem");">@cell.Text</td>
+                            }
+                        </tr>
+                    }
+                </table>
+            }
+        </div>
+    }
+
     @* Hover crosshair for sighted and low-vision users: a hairline at the hovered bar, a line at
        the pointer, and — TradingView's model, replacing the floating readout box (2026-10-17) —
        the bar's date as a label ON THE TIME AXIS at the hairline and the value at the pointer as
@@ -325,6 +353,32 @@
             // A visual mirror must never take the chart down with it.
             Logger.LogError(ex, "Status lines failed to build");
             return Array.Empty<ChartStatusLine.PlacedPane>();
+        }
+    }
+
+    /// <summary>
+    /// The price pane's indicator tables at the status lines' bar, with where its bottom right
+    /// corner is: the price axis's width from the right, the first divider (or the time axis)
+    /// from the bottom, as fractions of the chart.
+    /// </summary>
+    private (IReadOnlyList<IndicatorTable> Tables, double Right, double Bottom) BuildInfoTables()
+    {
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0) return (Array.Empty<IndicatorTable>(), 0, 0);
+        try
+        {
+            int bar = ChartStatusLine.ActiveBar(state.CurrentDataIndex, _hover?.BarIndex,
+                _hover != null && HoverTracker.HoverLeads, state.Data.Count);
+            var tables = ChartInfoTable.Build(state.ActiveSeries, bar);
+            double plotBottom = 1.0 - Math.Clamp(PaneLayout.AxisHeightFraction, 0f, 0.5f);
+            double paneBottom = PaneLayout.Dividers.Count > 0 ? Math.Min(PaneLayout.Dividers[0].DividerFraction, plotBottom) : plotBottom;
+            return (tables, Math.Clamp(PaneLayout.AxisWidthFraction, 0f, 0.9f), 1.0 - paneBottom);
+        }
+        catch (Exception ex)
+        {
+            // A visual mirror must never take the chart down with it.
+            Logger.LogError(ex, "Indicator tables failed to build");
+            return (Array.Empty<IndicatorTable>(), 0, 0);
         }
     }
 

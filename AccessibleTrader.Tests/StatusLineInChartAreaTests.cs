@@ -105,6 +105,46 @@ public sealed class StatusLineInChartAreaTests
             Assert.Contains(ChartStatusLine.FormatReading(v), line.TextContent);
     }
 
+    /// <summary>
+    /// Cipher C's cycle table is drawn in the price pane's corner, as the original draws its
+    /// table, hidden from the accessibility tree (what it shows is spoken) and transparent to
+    /// the mouse, and reads the cursor bar.
+    /// </summary>
+    [Fact]
+    public void Cipher_Cs_table_is_hidden_dom_text_reading_the_cursor_bar()
+    {
+        var bars = new List<Ohlcv>();
+        for (int i = 0; i < 400; i++)
+        {
+            double c = 80_000 + 4_000 * Math.Sin(2 * Math.PI * i / 60.0) + i * 5;
+            bars.Add(new Ohlcv(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(i), c - 50, c + 300, c - 300, c, 1000));
+        }
+        var data = new SeriesDataBuffer { SeriesId = "cc" };
+        foreach (var (k, v) in AccessibleTrader.Core.Services.Indicators.CipherCProvider.Compute(bars.ToArray(),
+                     new Dictionary<string, object> { ["__symbol"] = "BTCUSDT" }))
+            data.ComponentData[k] = v;
+        var series = new ChartSeries(new SeriesConfig { Id = "cc", Name = "Cipher C", IndicatorCode = "CIPHER_C", Pane = "Main" }, data);
+        using var rig = new Rig(s => s with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars), ViewportStartIndex = 300, CurrentDataIndex = 390,
+            ViewportRange = (70_000, 90_000), ActiveSeries = System.Collections.Immutable.ImmutableList.Create(series),
+        });
+        var block = rig.Cut.Find(".chart-info-tables");
+        Assert.Equal("true", block.GetAttribute("aria-hidden"));
+        Assert.Contains("pointer-events:none", block.GetAttribute("style")!.Replace(" ", ""));
+        var table = rig.Cut.Find(".chart-info-table");
+        Assert.Contains("BITCOIN CYCLE COUNT", table.TextContent);
+        Assert.Equal(7, table.QuerySelectorAll("tr").Length);
+        string Count() => rig.Cut.Find(".chart-info-table").QuerySelectorAll("tr")[2].QuerySelectorAll("td")[^1].TextContent;
+        string at390 = Count();
+        Assert.Matches("^[0-9]+$", at390);
+        rig.SetState(rig.State with { CurrentDataIndex = 380 });
+        Assert.NotEqual(at390, Count());
+
+        rig.SetState(rig.State with { ActiveSeries = System.Collections.Immutable.ImmutableList<ChartSeries>.Empty });
+        Assert.Empty(rig.Cut.FindAll(".chart-info-tables"));
+    }
+
     /// <summary>The line follows the keyboard cursor: an arrow key's move is a new reading.</summary>
     [Fact]
     public void The_status_line_follows_the_keyboard_cursor()

@@ -166,13 +166,10 @@ namespace AccessibleTrader.Core.Services.Rendering
             comp.DisplayType == ComponentDisplayType.ValueLabel ? s.GetComponentData(comp.Name) : s.GetComponentData(comp.Name + ComponentCompanions.Label);
 
         /// <summary>
-        /// Where they sit: a ValueLabel where it is anchored; a companion label on the other side of
-        /// the bar from its marker, so the two never cover each other (above the bar for a marker
-        /// drawn at its value).
+        /// Where they sit: a ValueLabel where it is anchored; a companion label beside its marker,
+        /// on the marker's side of the bar (<see cref="LayoutBeside"/>).
         /// </summary>
-        public static MarkerAnchor LabelAnchor(ComponentConfig comp) =>
-            comp.DisplayType == ComponentDisplayType.ValueLabel ? comp.MarkerAnchor
-            : comp.MarkerAnchor == MarkerAnchor.AboveBar ? MarkerAnchor.BelowBar : MarkerAnchor.AboveBar;
+        public static MarkerAnchor LabelAnchor(ComponentConfig comp) => comp.MarkerAnchor;
 
         /// <summary>
         /// Lays out one component's labels for the frame, without drawing: what
@@ -181,6 +178,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         public static IReadOnlyList<PlacedLabel> Layout(RenderContext ctx, ChartSeries s, ComponentConfig comp, out float fontPx)
         {
+            if (comp.DisplayType != ComponentDisplayType.ValueLabel) return LayoutBeside(ctx, s, comp, out fontPx);
             fontPx = 0f;
             var result = new List<PlacedLabel>();
             var data = LabelData(s, comp);
@@ -252,6 +250,72 @@ namespace AccessibleTrader.Core.Services.Rendering
                 bool hi = IsHighlighted(comp, s, abs, barCount);
                 var ink = Ink(ctx.Theme, RawColour(comp, s, abs, barCount));
                 result.Add(new PlacedLabel(abs, t, plate, cx, top + pad + ascent, ink, hi));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// A marker's <see cref="ComponentCompanions.Label"/> companion, printed to the right of the
+        /// marker at the height of its triangle (stacked, when the marker stacks under a
+        /// sibling), as the original prints 49D beside its ▲ — not over a neighbour's bar slot.
+        /// The font shrinks until every label clears the next labelled bar's marker, down to
+        /// <see cref="MinPx"/>; below that none is drawn (the same all-or-nothing rule as above).
+        /// </summary>
+        private static IReadOnlyList<PlacedLabel> LayoutBeside(RenderContext ctx, ChartSeries s, ComponentConfig comp, out float fontPx)
+        {
+            fontPx = 0f;
+            var result = new List<PlacedLabel>();
+            var data = LabelData(s, comp);
+            if (data == null || data.Length == 0 || ctx.Data == null || ctx.Data.Count == 0 || ctx.ViewportLength <= 0) return result;
+
+            float barWidth = ctx.Width / ctx.ViewportLength, halfBar = barWidth / 2f, d = ctx.Density;
+            int barCount = data.Length, first = FirstLabelledBar(s, barCount);
+            int visible = Math.Min(ctx.ViewportLength, ctx.Data.Count);
+            float h = ComponentPictures.TriangleHeight(ctx, comp);
+            var items = new List<(int I, int Abs, string Text, float Y)>();
+            for (int i = 0; i < visible; i++)
+            {
+                int abs = ctx.ViewportStart + i;
+                if (abs < first || abs >= barCount) continue;
+                string t = Text(data[abs], comp.MarkerText);
+                if (t.Length == 0) continue;
+                // The triangle's middle: it stands on its base, tip toward the bar.
+                float? baseY = ComponentPictures.BaseY(ctx, s, comp, i);
+                float y = baseY ?? StandardRenderers.ResolveMarkerY(ctx, comp, i, data[abs]);
+                items.Add((i, abs, t, y - h / 2f));
+            }
+            if (items.Count == 0) return result;
+
+            float pad = PadPx * d, gap = GapPx * d;
+            float size = Math.Min(PreferredPx * d, Math.Max(MinPx * d, h * 1.2f));
+            using var font = new SKFont(LabelTypeface, size);
+            // Room: from beside this marker to the half triangle before the next labelled bar.
+            float tightest = float.MaxValue, widest = 0;
+            for (int k = 0; k < items.Count; k++)
+            {
+                widest = Math.Max(widest, font.MeasureText(items[k].Text));
+                if (k + 1 < items.Count)
+                    tightest = Math.Min(tightest, (items[k + 1].I - items[k].I) * barWidth - h - 2 * gap);
+            }
+            if (widest > tightest)
+            {
+                size *= tightest / widest;
+                if (size < MinPx * d) return result;
+                font.Size = size;
+            }
+            fontPx = size;
+            var metrics = font.Metrics;
+            float ascent = -metrics.Ascent, textHeight = ascent + metrics.Descent;
+            var plateColour = PlateColour(ctx.Theme);
+            foreach (var (i, abs, t, cy) in items)
+            {
+                float w = font.MeasureText(t);
+                float left = i * barWidth + halfBar + h / 2f + gap;
+                float plateH = textHeight + 2 * pad;
+                float top = Math.Clamp(cy - plateH / 2f, ctx.Top, Math.Max(ctx.Top, ctx.Bottom - plateH));
+                var plate = new SKRect(left - pad, top, left + w + pad, top + plateH);
+                var ink = Ink(ctx.Theme, RawColour(comp, s, abs, barCount));
+                result.Add(new PlacedLabel(abs, t, plate, left + w / 2f, top + pad + ascent, ink, false));
             }
             return result;
         }

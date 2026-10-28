@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Rendering;
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
@@ -91,10 +92,13 @@ public sealed class CipherCProviderTests
             (Name: CipherCProvider.CompDcl, Shape: "TriangleUpRing", Color: CipherCProvider.DclHex, Text: "D", Size: 3f, Anchor: MarkerAnchor.BelowBar, Sound: "sine_bell"),
             (Name: CipherCProvider.CompWcl, Shape: "TriangleUpRing", Color: CipherCProvider.WclHex, Text: "W", Size: 4.5f, Anchor: MarkerAnchor.BelowBar, Sound: "dual_tone_bell"),
             (Name: CipherCProvider.CompYcl, Shape: "TriangleUpRing", Color: CipherCProvider.YclHex, Text: "Y", Size: 6f, Anchor: MarkerAnchor.BelowBar, Sound: "dual_tone_bell"),
-            (Name: CipherCProvider.CompDclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 4.5f, Anchor: MarkerAnchor.AboveBar, Sound: "sine_bell"),
+            (Name: CipherCProvider.CompDclConfirmed, Shape: "TriangleDown", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 3f, Anchor: MarkerAnchor.AboveBar, Sound: "sine_bell"),
             (Name: CipherCProvider.CompWclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 5.5f, Anchor: MarkerAnchor.AboveBar, Sound: "dual_tone_bell"),
             (Name: CipherCProvider.CompYclConfirmed, Shape: "CheckBox", Color: CipherCProvider.DclHex, Text: (string?)null, Size: 6.5f, Anchor: MarkerAnchor.AboveBar, Sound: "dual_tone_bell"),
             (Name: CipherCProvider.CompPending, Shape: "RefreshBox", Color: "#78909C", Text: (string?)null, Size: 4f, Anchor: MarkerAnchor.AboveBar, Sound: "triangle_bell"),
+            (Name: CipherCProvider.CompLeftTop, Shape: "TriangleDown", Color: "#F23645", Text: "L", Size: 3f, Anchor: MarkerAnchor.AboveBar, Sound: "triangle_bell"),
+            (Name: CipherCProvider.CompMidTop, Shape: "TriangleDown", Color: "#FF9800", Text: "M", Size: 3f, Anchor: MarkerAnchor.AboveBar, Sound: "triangle_bell"),
+            (Name: CipherCProvider.CompRightTop, Shape: "TriangleDown", Color: "#4CAF50", Text: "R", Size: 3f, Anchor: MarkerAnchor.AboveBar, Sound: "triangle_bell"),
         };
         foreach (var row in expected)
         {
@@ -107,6 +111,22 @@ public sealed class CipherCProviderTests
             Assert.Equal(row.Sound, component.DefaultSoundPatchId);
         }
 
+        // The original's colours (TradingView keeps them as 0xAABBGGRR; read 2026-10-28).
+        Assert.Equal("#4CAF50", CipherCProvider.DclHex);
+        Assert.Equal("#2962FF", CipherCProvider.WclHex);
+        Assert.Equal("#D5C110", CipherCProvider.YclHex);
+        // Its pictures: a faint dotted line at each low and an opaque one at each top, a faint box
+        // over each top's cycle; the weekly mark stacks under the daily, the yearly under the weekly.
+        foreach (var low in new[] { CipherCProvider.CompDcl, CipherCProvider.CompWcl, CipherCProvider.CompYcl })
+            Assert.Equal(51, components[low].MarkLineAlpha);
+        Assert.Equal(CipherCProvider.CompDcl, components[CipherCProvider.CompWcl].MarkerStacksUnder);
+        Assert.Equal(CipherCProvider.CompWcl, components[CipherCProvider.CompYcl].MarkerStacksUnder);
+        Assert.Equal("LOW|MID|HIGH|Start@#FF9800", components[CipherCProvider.CompDcl].BadgeWords);
+        foreach (var top in new[] { CipherCProvider.CompLeftTop, CipherCProvider.CompMidTop, CipherCProvider.CompRightTop })
+        {
+            Assert.Equal(255, components[top].MarkLineAlpha);
+            Assert.Equal(25, components[top].BoxAlpha);
+        }
     }
 
     /// <summary>
@@ -115,6 +135,10 @@ public sealed class CipherCProviderTests
     /// want. hiding and muting should be a user defined preferential function." The 10-21 build had
     /// 28, thirteen of them hidden and muted to keep internal numbers off the chart; those numbers
     /// are companions now (ComponentCompanions), said in the speech of the component they describe.
+    /// Sixteen with the yearly window (2026-10-28). Drawn as the original draws (Cody, 2026-10-27:
+    /// "Remove our visuals and replace with the original"): the events it never draws are heard
+    /// and not drawn by default — not hidden: they keep their stops and sounds, and Appearance
+    /// draws them.
     /// </summary>
     [Fact]
     public void Every_component_is_shown_and_heard_by_default()
@@ -126,23 +150,28 @@ public sealed class CipherCProviderTests
             CipherCProvider.CompDclConfirmed, CipherCProvider.CompWclConfirmed, CipherCProvider.CompYclConfirmed,
             CipherCProvider.CompPending, CipherCProvider.CompCancelled, CipherCProvider.CompFailed,
             CipherCProvider.CompLeftTop, CipherCProvider.CompMidTop, CipherCProvider.CompRightTop,
-            CipherCProvider.CompDailyWindow, CipherCProvider.CompWeeklyWindow,
+            CipherCProvider.CompDailyWindow, CipherCProvider.CompWeeklyWindow, CipherCProvider.CompYearlyWindow,
         }, m.Components.Select(c => c.Name));
         Assert.All(m.Components, c =>
         {
             Assert.True(c.IsVisible, $"{c.Name} is hidden");
             Assert.NotEqual(true, c.DefaultIsMuted);
         });
+        var undrawn = new[] { CipherCProvider.CompWclConfirmed, CipherCProvider.CompYclConfirmed, CipherCProvider.CompPending,
+                              CipherCProvider.CompCancelled, CipherCProvider.CompFailed };
+        Assert.Equal(undrawn, m.Components.Where(c => c.DefaultIsDrawn == false).Select(c => c.Name));
 
-        // A timing window is a count heard on every bar and a tint seen over the window — not a
-        // line on the price axis.
-        foreach (var name in new[] { CipherCProvider.CompDailyWindow, CipherCProvider.CompWeeklyWindow })
+        // A timing window is a count heard on every bar and a band drawn over the live window —
+        // not a line on the price axis. Its tint is ours, off by default.
+        foreach (var name in new[] { CipherCProvider.CompDailyWindow, CipherCProvider.CompWeeklyWindow, CipherCProvider.CompYearlyWindow })
         {
             var w = m.Components.Single(c => c.Name == name);
             Assert.True(w.IsCount);
-            Assert.Equal(ComponentDisplayType.Window, w.DisplayType);   // shaded and heard, the count never drawn
-            Assert.Equal("cycle arc", w.PathName);                     // its picture, named on landing
-            Assert.Equal(BackgroundTint.PriceChart, w.DefaultBackgroundTint);
+            Assert.Equal(ComponentDisplayType.Window, w.DisplayType);   // banded and heard, the count never drawn
+            Assert.Equal("cycle wave", w.PathName);                    // its picture, named on landing
+            Assert.Equal("#CCFDD835", w.PathColorHex);
+            Assert.Equal(51, w.BoxAlpha);
+            Assert.Equal(BackgroundTint.Off, w.DefaultBackgroundTint);
         }
         Assert.True(m.Components.Single(c => c.Name == CipherCProvider.CompDclConfirmed).IsCount);
         Assert.False(m.Components.Single(c => c.Name == CipherCProvider.CompDcl).IsCount);
@@ -263,8 +292,10 @@ public sealed class CipherCProviderTests
         var causalComponents = m.Components.Where(c => (c.Causality ?? m.Causality) == ComponentCausality.Causal).Select(c => c.Name).ToList();
         // The cycle arc (a window's _path) is a picture, not a reading: it is never said or
         // stopped on, and it is look-ahead by design (The_cycle_arc_is_drawn_between_known_lows).
+        // Nor is the live window's band: it is drawn from the last bar, over the cycle running now.
         var causal = whole.Keys.Where(k => (causalComponents.Contains(k) || ComponentCompanions.IsCompanionOf(k, causalComponents))
-            && !k.EndsWith(ComponentCompanions.Path, StringComparison.Ordinal)).ToList();
+            && !k.EndsWith(ComponentCompanions.Path, StringComparison.Ordinal)
+            && !k.EndsWith(ComponentCompanions.BoxStart, StringComparison.Ordinal) && !k.EndsWith(ComponentCompanions.BoxEnd, StringComparison.Ordinal)).ToList();
         Assert.Contains(CipherCProvider.CompDclConfirmed, causal);
         Assert.Contains(CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix, causal);
         Assert.Contains(CipherCProvider.CompDailyWindow + ComponentCompanions.Stops, causal);
@@ -293,8 +324,12 @@ public sealed class CipherCProviderTests
         // A component that never fired in these stretches was not checked at all. (No yearly low is
         // confirmed in them: the 2022 one is confirmed on bar ~4,100, outside every 400-bar stretch.)
         // Nor does the weekly window tint on a daily chart: the daily one's green would be covered.
+        // The yearly window's tint is off on a chart with a daily tier, as the weekly one's is, and
+        // no yearly window opens or closes in these stretches.
         var neverChecked = causal.Except(everCompared).Where(k => !k.StartsWith(CipherCProvider.CompYclConfirmed, StringComparison.Ordinal)
             && k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint
+            && k != CipherCProvider.CompYearlyWindow + ComponentCompanions.Tint
+            && k != CipherCProvider.CompYearlyWindow + ComponentCompanions.Stops
             && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix).ToList();
         Assert.True(neverChecked.Count == 0, "never compared: " + string.Join(", ", neverChecked));
         static bool Same(double a, double b) => double.IsNaN(a) ? double.IsNaN(b) : Math.Abs(a - b) < 1e-9;
@@ -303,8 +338,9 @@ public sealed class CipherCProviderTests
     /// <summary>
     /// <b>The cycle arc is the lowest tier's window's picture (2026-10-22).</b> Cody: "if the arc
     /// is more akin to the chart formation lines and drawings, then leave it as such, just a
-    /// drawing". One hump from each low to the next, its trough on the low's bar, every point
-    /// under that bar's candle; on the lowest tier's window, never both. Look-ahead, as CF's is: each arc ends at a low known only later,
+    /// drawing". One hump from each low to the next, its trough on the low's bar, on one level set
+    /// on the newest confirmation (the original's to the cent, 2026-10-28); on the lowest tier's
+    /// window, never both. Look-ahead, as CF's is: each arc ends at a low known only later,
     /// so a shorter history draws a different arc — which is why the causal test leaves it out.
     /// </summary>
     [Fact]
@@ -317,20 +353,37 @@ public sealed class CipherCProviderTests
 
         var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
         Assert.True(lows.Count > 50, $"{lows.Count} daily lows");
-        Assert.Equal(lows[0], Marked(arc).First());                 // nothing before the first low
-        for (int k = 0; k < lows.Count; k++)
+        // The original's wave spans its last 21 cycles and the live one, nothing before.
+        int first = lows.Count - 1 - CipherCProvider.WaveCycles;
+        Assert.Equal(lows[first], Marked(arc).First());
+        // The live hump runs from the last low for the cycle's mean length, cut at the last bar.
+        Assert.InRange(Marked(arc).Last(), lows[^1] + 1, bars.Count - 1);
+        // On one level: every trough the same.
+        foreach (int l in lows.Skip(first)) Assert.Equal(arc[lows[first]], arc[l], 6);
+        for (int k = first; k < lows.Count; k++)
         {
             int l = lows[k];
             Assert.True(arc[l] <= arc[l + 1], $"the arc rises out of the low on {bars[l].Date:yyyy-MM-dd}");
-            if (k > 0) Assert.True(arc[l] <= arc[l - 1], $"the arc comes down into the low on {bars[l].Date:yyyy-MM-dd}");
+            if (k > first) Assert.True(arc[l] <= arc[l - 1], $"the arc comes down into the low on {bars[l].Date:yyyy-MM-dd}");
         }
-        foreach (int i in Marked(arc))
-            Assert.True(arc[i] < bars[i].Low, $"the arc at {arc[i]:F0} is not under the candle on {bars[i].Date:yyyy-MM-dd} (low {bars[i].Low:F0})");
+        // Its level is set on the newest confirmation: the middle 0.8 of that bar's close, the
+        // troughs and crests a fifth of the 100 bars' range under and over it.
+        int set = Marked(r[CipherCProvider.CompDclConfirmed]).Last();
+        double range = bars.Skip(set - 99).Take(100).Max(b => b.High) - bars.Skip(set - 99).Take(100).Min(b => b.Low);
+        Assert.Equal(0.8 * bars[set].Close - 0.2 * range, arc[lows[first]], 6);
+        Assert.Equal(0.8 * bars[set].Close + 0.2 * range, Marked(arc).Max(i => arc[i]), 2);
+        // The range is 100 bars, no more, no less: a history cut after a confirmation where the
+        // 100th bar back holds the range's extreme, so 99 or 101 bars would give another wave.
+        double Range(int end, int count) => bars.Skip(end - count + 1).Take(count).Max(b => b.High) - bars.Skip(end - count + 1).Take(count).Min(b => b.Low);
+        int edge = Marked(r[CipherCProvider.CompDclConfirmed]).First(c => c > 200 && Range(c, 100) != Range(c, 99) && Range(c, 100) != Range(c, 101));
+        var cut = Run(bars.Take(edge + 1).ToList(), "BTC/USD");
+        Assert.Equal(edge, Marked(cut[CipherCProvider.CompDclConfirmed]).Last());
+        var cutArc = cut[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
+        Assert.Equal(0.8 * bars[edge].Close - 0.2 * Range(edge, 100), cutArc[Marked(cut[CipherCProvider.CompDcl]).Last()], 6);
 
-        // Look-ahead: on 3,000 bars the last arc runs on to where the next low is due, and the
-        // whole history puts that low elsewhere.
+        // Look-ahead: on 3,000 bars the wave sits elsewhere, its lows and level not yet known.
         var part = Run(bars.Take(3000).ToList(), "BTC/USD")[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
-        Assert.Contains(Enumerable.Range(2600, 400), i => Math.Abs(part[i] - arc[i]) > 1e-6);
+        Assert.Contains(Enumerable.Range(2600, 400), i => double.IsNaN(part[i]) != double.IsNaN(arc[i]) || Math.Abs(part[i] - arc[i]) > 1e-6);
 
         // A weekly chart counts its daily cycle in bars, so the arc is on its daily window too.
         var weekly = Run(Weekly(bars), "BTC/USD");
@@ -439,8 +492,12 @@ public sealed class CipherCProviderTests
             Assert.Equal(length[lows[k]], label[lows[k]]);
         }
         Assert.True(double.IsNaN(length[lows[0]]));
-        // The weekly count is not printed where the daily one is: they would print on one another.
-        Assert.False(r.ContainsKey(CipherCProvider.CompWcl + ComponentCompanions.Label));
+        // The weekly count is printed too, as the original prints it, beside the W mark under the D.
+        var weekly = Marked(r[CipherCProvider.CompWcl]).ToList();
+        Assert.True(weekly.Count > 5);
+        foreach (int w in weekly.Skip(1))
+            Assert.Equal(r[CipherCProvider.CompWcl + CipherCProvider.LengthSuffix][w], r[CipherCProvider.CompWcl + ComponentCompanions.Label][w]);
+        Assert.False(r.ContainsKey(CipherCProvider.CompYcl + ComponentCompanions.Label));
     }
 
     /// <summary>
@@ -542,6 +599,228 @@ public sealed class CipherCProviderTests
         Assert.Equal(1.0, r[CipherCProvider.InBarsKey][^1]);
         Assert.Equal(36.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
         Assert.Equal(110.0, r[CipherCProvider.CompWeeklyWindow + CipherCProvider.StartSuffix][^1]);
+    }
+
+    /// <summary>
+    /// The pictures beside the marks, as the original draws them. Under each daily low's D a
+    /// check; a cancelled low keeps its mark with a cross; the low held now a clock and its grade;
+    /// Start under the first low; a check over each confirmation. Each top's box runs from its
+    /// cycle's low to the next, from the cycle's lowest low to the top. The live windows' bands
+    /// are written once, on the last bar, from the last low plus the shortest and longest cycle
+    /// in calendar days.
+    /// </summary>
+    [Fact]
+    public void The_signs_the_top_boxes_and_the_bands_are_where_the_original_draws_them()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = Btc();
+        int n = bars.Count;
+        var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
+        var badge = r[CipherCProvider.CompDcl + ComponentCompanions.Badge];
+        var word = r[CipherCProvider.CompDcl + ComponentCompanions.BadgeWord];
+        var mark = r[CipherCProvider.CompDcl + ComponentCompanions.Mark];
+        foreach (int l in lows) Assert.True(((int)badge[l] & ComponentCompanions.BadgeCheck) != 0, $"a check under the low on {bars[l].Date:yyyy-MM-dd}");
+        Assert.Contains(lows, l => ((int)badge[l] & ComponentCompanions.BadgeRefresh) != 0);
+        Assert.Contains(lows, l => ((int)badge[l] & ComponentCompanions.BadgeRefresh) == 0);
+        var crossed = Enumerable.Range(0, n).Where(i => badge[i] == ComponentCompanions.BadgeCross).ToList();
+        Assert.NotEmpty(crossed);
+        var cancelledPrices = Marked(r[CipherCProvider.CompCancelled]).Select(i => r[CipherCProvider.CompCancelled][i]).ToHashSet();
+        foreach (int c in crossed)
+        {
+            Assert.True(double.IsNaN(r[CipherCProvider.CompDcl][c]));
+            Assert.Equal(bars[c].Low, mark[c]);
+            Assert.Contains(bars[c].Low, cancelledPrices);
+        }
+        var clocks = Enumerable.Range(0, n).Where(i => ((int)badge[i] & ComponentCompanions.BadgeClock) != 0).ToList();
+        Assert.True(clocks.Count <= 1);
+        foreach (int h in clocks)
+        {
+            Assert.Equal(bars[h].Low, mark[h]);
+            Assert.Equal(bars[h].Low, r[CipherCProvider.CompPending + CipherCProvider.LowestSuffix][Marked(r[CipherCProvider.CompPending]).Last()]);
+            Assert.InRange(word[h], 0, 2);
+        }
+        Assert.Equal(CipherCProvider.StartWord, word[lows[0]]);
+        foreach (int c in Marked(r[CipherCProvider.CompDclConfirmed]))
+            Assert.Equal(ComponentCompanions.BadgeCheck, r[CipherCProvider.CompDclConfirmed + ComponentCompanions.Badge][c]);
+
+        int boxes = 0;
+        var lowSet = lows.ToHashSet();
+        foreach (var comp in new[] { CipherCProvider.CompLeftTop, CipherCProvider.CompMidTop, CipherCProvider.CompRightTop })
+            foreach (int top in Marked(r[comp]))
+            {
+                int a = top + (int)r[comp + ComponentCompanions.BoxStart][top], b = top + (int)r[comp + ComponentCompanions.BoxEnd][top];
+                if (!lowSet.Contains(a)) continue;   // a weekly or yearly top
+                Assert.True(a <= top && top <= b);
+                Assert.Equal(lows[lows.IndexOf(a) + 1], b);
+                Assert.Equal(bars[top].High, r[comp + ComponentCompanions.BoxTop][top]);
+                Assert.Equal(bars.Skip(a).Take(b - a + 1).Min(x => x.Low), r[comp + ComponentCompanions.BoxBottom][top]);
+                boxes++;
+            }
+        Assert.True(boxes > 50, $"{boxes} daily top boxes");
+
+        // Bitcoin trades every day, 54-66 days: the band from the last low's date plus 54 days to plus 66.
+        var start = r[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxStart];
+        var end = r[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd];
+        Assert.Single(Marked(end));
+        Assert.Equal(lows[^1] + 54, n - 1 + (int)start[n - 1]);
+        Assert.Equal(lows[^1] + 66, n - 1 + (int)end[n - 1]);
+        Assert.Single(Marked(r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.BoxEnd]));
+
+        // On weekdays the Dow's 36-44 trading days are calendar days at 7/5 of one: 50 and 61 days
+        // on, the first weekday on or after.
+        var week = Weekdays(800, new DateTime(2022, 1, 3));
+        var dji = Run(week, "DJI");
+        int last = Marked(dji[CipherCProvider.CompDcl]).Last(), m = week.Count;
+        int OnOrAfter(int days) => OnOrAfterFrom(last, days);
+        int OnOrAfterFrom(int last, int days)
+        {
+            var target = week[last].Date.AddDays(days);
+            int k = last;
+            for (var d = week[last].Date; d < target || d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday; )
+            {
+                d = d.AddDays(1);
+                if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) k++;
+            }
+            return k;
+        }
+        Assert.Equal(OnOrAfter(50), m - 1 + (int)dji[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxStart][m - 1]);
+        Assert.Equal(OnOrAfter(61), m - 1 + (int)dji[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd][m - 1]);
+        // 61.6 days rounded down: on a history whose last low 61 and 62 days on are different weekdays.
+        static List<Ohlcv> Waves(int period)
+        {
+            var w = Weekdays(800, new DateTime(2022, 1, 3));
+            return w.Select((b, i) => { double c = 100 + 10 * Math.Sin(2 * Math.PI * i / period) + i * 0.02; return new Ohlcv(b.Date, c - 0.3, c + 1, c - 1, c, 1000); }).ToList();
+        }
+        var cutWeek = Enumerable.Range(37, 10).Select(Waves)
+            .Select(h => (h, r: Run(h, "DJI")))
+            .First(x =>
+            {
+                var l = Marked(x.r[CipherCProvider.CompDcl]).ToList();
+                return l.Count > 0 && x.h[l[^1]].Date.AddDays(61).DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+            });
+        {
+            int l = Marked(cutWeek.r[CipherCProvider.CompDcl]).Last(), mm = cutWeek.h.Count;
+            int k = l;
+            for (var d = cutWeek.h[l].Date; d < cutWeek.h[l].Date.AddDays(61) || d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday; )
+            {
+                d = d.AddDays(1);
+                if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) k++;
+            }
+            Assert.Equal(k, mm - 1 + (int)cutWeek.r[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd][mm - 1]);
+        }
+        // Gold's 22-28 are 30.8 and 39.2 days: the start rounded to 31, the end rounded down to 39.
+        var gold = Run(week, "XAUUSD");
+        int goldLast = Marked(gold[CipherCProvider.CompDcl]).Last();
+        Assert.Equal(OnOrAfterFrom(goldLast, 31), m - 1 + (int)gold[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxStart][m - 1]);
+        Assert.Equal(OnOrAfterFrom(goldLast, 39), m - 1 + (int)gold[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd][m - 1]);
+    }
+
+    private static IReadOnlyList<IReadOnlyList<TableCell>> Table(Dictionary<string, double[]> r, int index) =>
+        CipherCProvider.TableRows(n => r.TryGetValue(n, out var a) ? a : null, index);
+
+    private static string Cells(IReadOnlyList<TableCell> row) => string.Join(" | ", row.Select(c => c.Text));
+
+    /// <summary>
+    /// The table in the price pane's corner, laid out as the original's: seven rows of five
+    /// columns. On a tuned symbol's daily chart its headers are green, the middle block holds the
+    /// preset's ranges, the timeframe cell says daily is tuned, and the counts are the window
+    /// counts the speech says. The pending cell says how long ago the held low was, or a tick.
+    /// </summary>
+    [Fact]
+    public void The_table_on_a_tuned_daily_chart_shows_the_presets_ranges_and_the_counts()
+    {
+        var r = Btc();
+        int last = r[CipherCProvider.CompDailyWindow].Length - 1;
+        var rows = Table(r, last);
+        foreach (var row in rows) _out.WriteLine(Cells(row));
+        Assert.Equal(7, rows.Count);
+        Assert.All(rows, row => Assert.Equal(5, row.Sum(c => c.ColSpan)));
+        Assert.Equal(CipherCProvider.TableTuned, rows[0][0].Fill);
+        Assert.Equal("BITCOIN CYCLE COUNT", rows[0][1].Text);
+        Assert.Equal("Counted from 48 days", rows[1][0].Text);
+        Assert.Equal("54\u201366 days", rows[1][2].Text);
+        Assert.Equal("22\u201342 weeks", rows[2][2].Text);
+        Assert.Equal("4 years", rows[3][2].Text);
+        Assert.Equal(CipherCProvider.TableRightFrame, rows[3][0].Fill);
+        Assert.Equal("Daily cycle day:", rows[2][3].Text);
+        Assert.Equal(r[CipherCProvider.CompDailyWindow][last].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[2][4].Text);
+        Assert.Equal(r[CipherCProvider.CompWeeklyWindow][last].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[3][4].Text);
+        Assert.Contains("Bitcoin", rows[5][0].Text + rows[6][0].Text);
+
+        var ago = r[CipherCProvider.CompPending + CipherCProvider.LowestAgoSuffix];
+        int held = Enumerable.Range(0, ago.Length).Last(i => !double.IsNaN(ago[i]) && ago[i] > 1);
+        Assert.Equal($"{ago[held]} days ago", Table(r, held)[5][^1].Text);
+        int clear = Enumerable.Range(0, ago.Length).Last(i => double.IsNaN(ago[i]) && !double.IsNaN(r[CipherCProvider.PresetKey][i]));
+        Assert.Equal("\u2713", Table(r, clear)[5][^1].Text);
+    }
+
+    /// <summary>A symbol with no preset: the headers turn red and the ranges block is left
+    /// blank, as the original leaves it, and the count says it is the default.</summary>
+    [Fact]
+    public void The_table_on_a_symbol_with_no_preset_is_red_and_has_no_ranges()
+    {
+        var bars = Weekdays(800, new DateTime(2022, 1, 3));
+        var rows = Table(Run(bars, "SPY"), bars.Count - 1);
+        foreach (var row in rows) _out.WriteLine(Cells(row));
+        Assert.Equal(CipherCProvider.TableUntuned, rows[0][0].Fill);
+        Assert.Equal(CipherCProvider.TableUntuned, rows[0][2].Fill);
+        Assert.Equal("", rows[0][1].Text);
+        Assert.Equal("Default count, from 32 bars", rows[1][0].Text);
+        for (int k = 1; k <= 3; k++) Assert.True(rows[k][1].Text == "" && rows[k][2].Text == "", Cells(rows[k]));
+        Assert.All(rows, row => Assert.Equal(5, row.Sum(c => c.ColSpan)));
+    }
+
+    /// <summary>Off a daily chart the timeframe cell is the original's red warning and the
+    /// counts are in bars.</summary>
+    [Fact]
+    public void The_table_off_a_daily_chart_warns_and_counts_bars()
+    {
+        var bars = new List<Ohlcv>();
+        foreach (var day in Weekdays(1200, new DateTime(2020, 1, 6)))
+            for (int h = 0; h < 2; h++)
+            {
+                double c = 100 + 10 * Math.Sin(2 * Math.PI * bars.Count / 40.0) + bars.Count * 0.01;
+                bars.Add(new Ohlcv(day.Date.AddHours(13.5 + 4 * h), c - 0.3, c + 1, c - 1, c, 1000));
+            }
+        var rows = Table(Run(bars, "DJI"), bars.Count - 1);
+        Assert.Equal(CipherCProvider.TableWrongFrame, rows[3][0].Fill);
+        Assert.StartsWith("\u26A0 Not tuned for this timeframe", rows[3][0].Text);
+        Assert.Equal("Daily cycle bar:", rows[2][3].Text);
+        Assert.Equal("Weekly cycle bar:", rows[3][3].Text);
+    }
+
+    /// <summary>The chart draws the table for a shown Cipher C on the price pane only: not a
+    /// hidden one, not one moved to its own pane, not another indicator.</summary>
+    [Fact]
+    public void The_chart_draws_a_table_for_each_shown_Cipher_C_on_the_price_pane()
+    {
+        var r = Btc();
+        ChartSeries Series(string code, string pane, bool shown)
+        {
+            var config = new SeriesConfig { Id = code + pane + shown, Name = code, IndicatorCode = code, Pane = pane, IsVisible = shown };
+            var data = new SeriesDataBuffer { SeriesId = config.Id };
+            foreach (var (k, v) in r) data.ComponentData[k] = v;
+            return new ChartSeries(config, data);
+        }
+        var series = new[]
+        {
+            Series("CIPHER_C", "Main", true), Series("CIPHER_C", "Main", false),
+            Series("CIPHER_C", "Pane_CIPHER_C", true), Series("RSI", "Main", true),
+        };
+        var tables = ChartInfoTable.Build(series, r[CipherCProvider.PresetKey].Length - 1);
+        Assert.Equal(series[0].Name, Assert.Single(tables).SeriesId);
+        Assert.Equal(7, tables[0].Rows.Count);
+        Assert.Empty(ChartInfoTable.Build(series, -1));
+    }
+
+    /// <summary>No table before a chart has its preset (a bar outside the data).</summary>
+    [Fact]
+    public void There_is_no_table_outside_the_data()
+    {
+        var r = Btc();
+        Assert.Empty(Table(r, -1));
+        Assert.Empty(Table(r, r[CipherCProvider.PresetKey].Length));
+        Assert.Empty(CipherCProvider.TableRows(_ => null, 5));
     }
 
     /// <summary>And a daily chart counts days, with no warning.</summary>

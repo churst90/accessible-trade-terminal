@@ -4,6 +4,82 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C is drawn as the original draws it (2026-10-28)
+
+- **What changed:** Cipher C's look is replaced by the original's, read from the original's own
+  drawings on its charts (Cody: *"please add all remaining visual elements from the original ...
+  Remove our visuals and replace with the original"*). Speech, sounds, stops and readings are
+  unchanged, except that the yearly window is a new component (below).
+  - **Lows:** a triangle over a disc with the tier's letter cut out (D green, W blue, Y gold), a
+    faint dotted line through the chart at each, the cycle's length beside the daily and weekly
+    lows (49D, 24W; the weekly one is now printed beside the daily one on a shared bar), and the
+    weekly mark stacked under the daily one, the yearly under the weekly.
+  - **Signs under the daily low's D:** a check once confirmed, with a refresh sign over it when the
+    low replaced a cancelled one; a cancelled low keeps its mark with a red cross; the low being
+    held now has a clock, the refresh sign if one was cancelled since the last confirmed low, and
+    its grade (LOW, MID, HIGH); the first low says Start on an orange plate.
+  - **The daily confirmation** is a check over a green down triangle at the bar's high. The weekly
+    and yearly confirmations, the pending, cancelled and failed events are no longer drawn, since
+    the original draws none of them. They are still heard and are still stops. Each can be drawn
+    again from Appearance.
+  - **Translated tops:** the letter (L, M, R) in a disc over a down triangle, a dotted line at the
+    top, and a faint box over the cycle, from low to low and from its lowest low to the top.
+  - **Timing windows:** the live cycle's windows as faint bands running into the future, daily
+    green, weekly blue, yearly yellow. The tint inside the window is now off by default (it is
+    ours, not the original's). A new Yearly Timing Window component counts the year of the yearly
+    cycle and carries the yearly band.
+  - **The wave** is the original's yellow and level: middle 0.8 x the close on the bar of the
+    newest daily confirmation, troughs and crests a fifth of the 100 bars' range (to that bar) under
+    and over it, over the last 21 cycles and the live one. Before, it sat under the candles at a
+    height of our own.
+  - **The table:** the original's table in the price pane's bottom right corner, seven rows of
+    five columns in its cell colours, with our words. It shows whether the symbol has a tuned preset
+    (green headers, or red with the ranges block left blank), the preset's daily, weekly and yearly
+    ranges, whether the chart is daily (or the original's red "switch to daily"), the daily and
+    weekly cycle counts the speech says, how long ago the held daily low was, and the symbols with a
+    preset. It reads the bar the status lines read. It is real DOM text, aria-hidden and transparent
+    to the mouse, like the status lines: everything in it is spoken already.
+  - **Colours** are the original's: daily #4CAF50, weekly #2962FF, yearly #D5C110, tops #F23645 /
+    #FF9800 / #4CAF50, the wave #FDD835 at 0xCC. TradingView keeps them as 0xAABBGGRR, which is
+    how they were read.
+- **New knobs any indicator can use** (`ComponentConfig`, rebuilt from `IndicatorComponentMetadata`
+  on load): `BoxAlpha` (boxes from the `_boxStart`/`_boxEnd`/`_boxTop`/`_boxBottom` companions),
+  `MarkLineAlpha` (dotted lines), `PathColorHex`, `MarkerStacksUnder`, `BadgeWords` (with the
+  `_badge` bits and `_badgeWord` companions), and `DefaultIsDrawn`. Drawn by
+  `Rendering/ComponentPictures`; the table is `Rendering/ChartInfoTable` and
+  `CipherCProvider.TableRows`.
+- **Numbers (private captures):**
+  - The wave's level and height: to floating-point precision on 68 of the original's 68 charts.
+    On Heikin-Ashi its middle follows the Heikin-Ashi close and its height does not change (the Dow
+    live: the difference is exactly 0.8 x the change in the last close).
+  - The daily band: to the day on 7 of the 8 daily charts with one in view; the dollar index's is
+    one day late at both ends. It starts on the first bar on or after the last low's date plus the
+    shortest cycle in calendar days (a trading day is 7/5 of one), rounded, and ends on the first
+    on or after plus the longest, rounded down.
+- **Tests:** `The_signs_the_top_boxes_and_the_bands_are_where_the_original_draws_them`, the table's
+  five (`The_table_on_a_tuned_daily_chart_...`, `..._no_preset_is_red_...`,
+  `..._off_a_daily_chart_warns_...`, `There_is_no_table_outside_the_data`,
+  `The_chart_draws_a_table_for_each_shown_Cipher_C_on_the_price_pane`) and the bUnit
+  `Cipher_Cs_table_is_hidden_dom_text_reading_the_cursor_bar`; `The_cycle_arc_is_drawn_between_known_lows`
+  now pins the level, including a history cut where the 100th bar back holds the range's extreme;
+  `A_label_companion_prints_49D_beside_a_low_triangle`; the metadata test pins the colours, letters,
+  alphas and the undrawn events; the knob test moves every new knob. README 9683 tests.
+- **Sabotages red:** the wave's level 0.81, its range 99 and 101 bars, the oldest confirmation in
+  place of the newest; the band's start rounded down, its end rounded, the 7/5 calendar dropped;
+  no refresh sign, no cross, a wrong grade word, no Start, the top box's floor without the two
+  lows' bars; the table's untuned ranges shown, its timeframe cell always green, its headers always
+  green, its pending cell always a tick, aria-hidden removed, a table for a hidden Cipher C, a table
+  for one on its own pane; no boxes drawn, no dotted lines drawn.
+- **Caveats:**
+  - The weekly and yearly bands are drawn by the daily band's rule; the original's are not that
+    (its weekly band starts weeks early, its yearly one reads its yearly date table). Undecoded.
+  - Start is placed under Cipher C's first low, which is not the original's first low on every chart.
+  - The original's confirmation triangle touches the bar's high; ours keeps the marker padding.
+  - The table's words are ours. Its pending weekly cell is not modelled (a dash). Its counts are
+    Cipher C's day of the cycle, which is the original's "days since" + 1 (question in TODO).
+  - Not seen or heard in the app. The accessibility-lead review agent is not registered in this
+    environment, so no agent review was run.
+
 ### Cipher C: a translated top is mid only exactly halfway (2026-10-28)
 
 - **What changed:** `CipherCProvider.TranslatedTop` picks each finished cycle's top and its

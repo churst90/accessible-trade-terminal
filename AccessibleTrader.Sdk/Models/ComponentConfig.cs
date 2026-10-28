@@ -49,6 +49,25 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>The causal component that confirms this hindsight marker; provider-owned,
         /// rebuilt from <see cref="IndicatorComponentMetadata.ConfirmedBy"/> on every load.</summary>
         public string? ConfirmedBy { get; set; }
+        /// <summary>Opacity (0-255) of this component's <see cref="ComponentCompanions.BoxEnd"/>
+        /// boxes; provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.BoxAlpha"/>
+        /// on every load. 0 = no boxes.</summary>
+        public int BoxAlpha { get; set; }
+        /// <summary>Opacity (0-255) of a dotted vertical line through the whole pane at every bar
+        /// this component has a value on, in its colour, drawn under the candles; provider-owned,
+        /// rebuilt from <see cref="IndicatorComponentMetadata.MarkLineAlpha"/>. 0 = none.</summary>
+        public int MarkLineAlpha { get; set; }
+        /// <summary>The colour the <see cref="ComponentCompanions.Path"/> is drawn in, when it is
+        /// not the component's own; provider-owned, rebuilt from
+        /// <see cref="IndicatorComponentMetadata.PathColorHex"/>. Null = the component's colour.</summary>
+        public string? PathColorHex { get; set; }
+        /// <summary>A sibling marker this one is drawn beyond, on a bar both mark (a weekly low's
+        /// mark under the daily low's); provider-owned, rebuilt from
+        /// <see cref="IndicatorComponentMetadata.MarkerStacksUnder"/>. Null = at its own place.</summary>
+        public string? MarkerStacksUnder { get; set; }
+        /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> picks from, split on
+        /// '|'; provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.BadgeWords"/>.</summary>
+        public string? BadgeWords { get; set; }
         /// <summary>
         /// The USER's choice from Properties → Appearance → "Draw the {PathName}", or null when
         /// they have never chosen (draw it). The same split as <see cref="UserShowAxisLabel"/>.
@@ -366,7 +385,8 @@ namespace AccessibleTrader.Sdk.Models
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
-                PathName = PathName, RibbonName = RibbonName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath, UserIsAreaFill = UserIsAreaFill,
+                PathName = PathName, RibbonName = RibbonName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath,
+                BoxAlpha = BoxAlpha, MarkLineAlpha = MarkLineAlpha, PathColorHex = PathColorHex, MarkerStacksUnder = MarkerStacksUnder, BadgeWords = BadgeWords, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

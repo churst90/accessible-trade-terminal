@@ -306,6 +306,15 @@ public sealed class DeclaredKnobObservabilityTests
         buffer.ComponentData["upper"] = Values(offset: 8);
         buffer.ComponentData["lower"] = Values(offset: -8);
         buffer.ComponentData[canonicalName + ComponentCompanions.Path] = Values(offset: 4);
+        // Pictures a marker or a window carries (Cipher C): a check sign and the first word on
+        // every bar (BadgeWords), and one box over the last ten bars (BoxAlpha).
+        buffer.ComponentData[canonicalName + ComponentCompanions.Badge] = TheBars.Select(_ => (double)ComponentCompanions.BadgeCheck).ToArray();
+        buffer.ComponentData[canonicalName + ComponentCompanions.BadgeWord] = TheBars.Select(_ => 0d).ToArray();
+        var boxStart = TheBars.Select(_ => double.NaN).ToArray();
+        var boxEnd = TheBars.Select(_ => double.NaN).ToArray();
+        boxStart[^1] = -10; boxEnd[^1] = 0;
+        buffer.ComponentData[canonicalName + ComponentCompanions.BoxStart] = boxStart;
+        buffer.ComponentData[canonicalName + ComponentCompanions.BoxEnd] = boxEnd;
         return new ChartSeries(config, buffer);
     }
 
@@ -503,7 +512,10 @@ public sealed class DeclaredKnobObservabilityTests
                 "ColorHex" or "ColorHexSecondary" => s == "#FF00FF" ? "#00FFFF" : "#FF00FF",
                 // A parseable colour: an unparseable one falls back to the line colour, which
                 // reads as "nothing observed it".
-                "FillColorHex" => s == "#80FF00FF" ? "#8000FFFF" : "#80FF00FF",
+                "FillColorHex" or "PathColorHex" => s == "#80FF00FF" ? "#8000FFFF" : "#80FF00FF",
+                "BadgeWords" => s == "ONE|TWO" ? "TWO|ONE" : "ONE|TWO",
+                // A sibling this series has: a name with nothing behind it stacks under nothing.
+                "MarkerStacksUnder" => s == "upper" ? "lower" : "upper",
                 // Parseable too: an unparseable tint colour paints nothing, which on a side the
                 // fixture already leaves clear is indistinguishable from not being read.
                 "TintColorAboveHex" or "TintColorBelowHex" => s == "#40FF00FF" ? "#4000FFFF" : "#40FF00FF",
@@ -608,6 +620,11 @@ public sealed class DeclaredKnobObservabilityTests
         (ComponentDisplayType.Window, "window, shaded", c => c.BackgroundTint = BackgroundTint.ThisPane),
         // A histogram drawn as an area, whose value edge AreaEdge strokes (Cipher B's money flow).
         (ComponentDisplayType.Histogram, "histogram area", c => c.IsAreaFill = true),
+        // A ringed marker, whose signs, word (BadgeWords) and stacking (MarkerStacksUnder) no
+        // other shape draws (Cipher C's lows).
+        // At its value, 8 under the "upper" line it is perturbed to stack under: near enough that
+        // stacking moves it.
+        (ComponentDisplayType.TriangleUpRing, "ringed marker", _ => { }),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

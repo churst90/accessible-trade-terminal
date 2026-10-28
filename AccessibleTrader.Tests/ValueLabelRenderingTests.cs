@@ -431,16 +431,16 @@ public sealed class ValueLabelRenderingTests
         }
     }
 
-    // ── A label companion beside a marker (2026-10-22) ──────────────────────────────
+    // ── A label companion beside a marker (2026-10-22; beside it 2026-10-28) ────────
 
     /// <summary>
     /// Cipher C's cycle length is no longer a hidden component of its own: it is the daily low's
-    /// <see cref="ComponentCompanions.Label"/> companion, printed with the low's letter (49D) on the
-    /// other side of the bar from its triangle — above the high, since the triangle is under the
-    /// low. Read from the real renderer's pixels against the same chart without the companion.
+    /// <see cref="ComponentCompanions.Label"/> companion, printed with the low's letter (49D)
+    /// beside its triangle, to its right, as the original prints it — under the low, since the
+    /// triangle is. Read from the real renderer's pixels against the same chart without the companion.
     /// </summary>
     [Fact]
-    public void A_label_companion_prints_49D_above_a_low_whose_triangle_is_below()
+    public void A_label_companion_prints_49D_beside_a_low_triangle()
     {
         var bars = Bars();
         const int at = 20;
@@ -462,7 +462,7 @@ public sealed class ValueLabelRenderingTests
         var with = Cc(label: true);
         var dcl = with.Components.Single(c => c.Name == CipherCProvider.CompDcl);
         Assert.Equal(MarkerAnchor.BelowBar, dcl.MarkerAnchor);
-        Assert.Equal(MarkerAnchor.AboveBar, ValueLabelRenderer.LabelAnchor(dcl));
+        Assert.Equal(MarkerAnchor.BelowBar, ValueLabelRenderer.LabelAnchor(dcl));
         Assert.True(ValueLabelRenderer.HasCompanionLabel(with, dcl));
         Assert.False(ValueLabelRenderer.HasCompanionLabel(Cc(label: false), dcl));
 
@@ -470,20 +470,22 @@ public sealed class ValueLabelRenderingTests
         var f = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), with }, W, H, D, range: range);
         var plain = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), Cc(label: false) }, W, H, D, range: range);
         var ink = ValueLabelRenderer.Ink(f.Theme, SKColor.Parse(CipherCProvider.DclHex));
-        int x0 = (int)(f.X(at) - 2 * f.Slot), x1 = (int)(f.X(at) + 2 * f.Slot);
-        int high = (int)f.Y(bars[at].High);
-        int above = InkPixels(f.Bmp, ink, x0, x1, (int)f.PlotTop, high).Count;
-        Assert.True(above > 20, $"only {above} label pixels above the bar");
-        Assert.Empty(InkPixels(plain.Bmp, ink, x0, x1, (int)f.PlotTop, high));
+        int x0 = (int)(f.X(at) + f.Slot), x1 = (int)(f.X(at) + 6 * f.Slot);
+        int low = (int)f.Y(bars[at].Low);
+        int beside = InkPixels(f.Bmp, ink, x0, x1, low, (int)f.PlotBottom).Count;
+        Assert.True(beside > 20, $"only {beside} label pixels right of the triangle");
+        Assert.Empty(InkPixels(plain.Bmp, ink, x0, x1, low, (int)f.PlotBottom));
+        Assert.Empty(InkPixels(f.Bmp, ink, (int)(f.X(at) - 2 * f.Slot), (int)(f.X(at) + 2 * f.Slot), (int)f.PlotTop, (int)f.Y(bars[at].High)));
 
-        // The layout says the same: one plate, "49D", wholly above the high.
+        // The layout says the same: one plate, "49D", right of the bar, under the low.
         using var surface = SKSurface.Create(new SKImageInfo(W, H));
         var ctx = new RenderContext(surface.Canvas, new SKRect(0, f.PlotTop, W - f.Theme.AxisWidth * D, f.PlotBottom), bars,
             ViewportStart: 0, ViewportLength: bars.Count, Min: range.Min, Max: range.Max, IsLogScale: false,
             ItemWidth: f.Slot, Density: D, PaneName: "Main", LocalCursorIndex: -1, Theme: f.Theme);
         var placed = Assert.Single(ValueLabelRenderer.Layout(ctx, with, dcl, out _));
         Assert.Equal("49D", placed.Text);
-        Assert.True(placed.Plate.Bottom <= high, $"plate bottom {placed.Plate.Bottom} under the high at {high}");
+        Assert.True(placed.Plate.Left > f.X(at), $"plate left {placed.Plate.Left} not right of the bar at {f.X(at)}");
+        Assert.True(placed.Plate.Top >= low, $"plate top {placed.Plate.Top} over the low at {low}");
         Assert.Contains(ValueLabelRenderer.Plates(ctx, new[] { with }), p => p == placed.Plate);
     }
 

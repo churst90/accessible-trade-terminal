@@ -19,23 +19,34 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// summarised in docs/CIPHER_C_DESIGN.md). On the price chart:
     /// </para>
     /// <list type="bullet">
-    /// <item>A green triangle and D ring under each daily cycle low; a bigger blue triangle and W
-    /// ring under each weekly low; and a gold triangle and Y ring under each yearly low. Drawn on the
-    /// LOW's bar, so they are known only once confirmed (look-ahead, like CF's).</item>
-    /// <item>The cycle's length above each low, with CF's unit suffix: 49D for days and 24W for
-    /// weeks, counted inclusively as CF does. The suffix is printed, not spoken.</item>
-    /// <item>A green rounded check box on the bar a low is CONFIRMED, a grey-blue rounded refresh
-    /// box while one is pending, a red cross when a bar goes under a pending low before it is due
-    /// and cancels it (CF's red X), and an orange cross when price closes under a confirmed low,
-    /// which is a failed cycle (a confirmed low is never taken back).</item>
-    /// <item>Triangles over each finished cycle's top: red when it came before the cycle's midpoint
-    /// (left translated, bearish), orange exactly on it, green after it (right translated, bullish).</item>
-    /// <item>A soft green tint behind the bars where the daily cycle is inside its timing window
-    /// (blue for the weekly window on a chart with no daily cycle).</item>
-    /// <item>CF's yellow arcs, a level wave under the candles with a trough under each low of the
-    /// shortest running tier, drawn as that tier's timing window's picture
-    /// (<see cref="ComponentCompanions.Path"/>). Look-ahead: drawn between known lows, and the live
-    /// arc runs on to where the next low is due.</item>
+    /// <item>Redrawn as the original draws, in its colours (2026-10-28, read from its drawings
+    /// on its own charts; Cody: <i>"Remove our visuals and replace with the original"</i>):</item>
+    /// <item>A green triangle over a green disc with a D cut out under each daily cycle low, a blue
+    /// one with a W under it at a weekly low, a gold one with a Y under that at a yearly low, and
+    /// a faint dotted line through the chart at each, in the tier's colour. Drawn on the LOW's
+    /// bar, so they are known only once confirmed (look-ahead, like CF's).</item>
+    /// <item>The cycle's length beside each daily and weekly low, with CF's unit suffix: 49D for
+    /// days and 24W for weeks, counted inclusively as CF does. The suffix is printed, not spoken.</item>
+    /// <item>Under the daily low's D: a check box once it is confirmed, with a refresh sign over
+    /// it when it replaced a cancelled low; on a cancelled low, still drawn, a red cross; on the
+    /// low being held now, a clock, the refresh sign if one was cancelled since the last
+    /// confirmed low, and its grade (LOW, MID, HIGH); and Start, on an orange plate, under the
+    /// first low. On the bar a daily low is confirmed, a check over a green down triangle at the
+    /// bar's high. The weekly and yearly confirmations, the pending, cancelled and failed events
+    /// are heard but not drawn: the original draws none of them (each can be drawn from
+    /// Appearance).</item>
+    /// <item>Over each finished cycle's top, its letter in a disc over a down triangle: L in red
+    /// when it came before the cycle's midpoint (left translated, bearish), M in orange exactly
+    /// on it, R in green after it (right translated, bullish); a dotted line through the chart at
+    /// the top, and a faint box over the cycle from low to low, from its lowest low to the top.</item>
+    /// <item>The live cycle's timing windows as faint bands from their first day to their last,
+    /// running into the future: daily green, weekly blue, yearly yellow (the weekly and yearly
+    /// bands' bounds are ours: the original's are undecoded). A tint inside the window is ours,
+    /// off by default.</item>
+    /// <item>CF's yellow wave, a level wave under the candles with a trough under each low of the
+    /// shortest running tier, over its last 21 cycles, drawn as that tier's timing window's
+    /// picture (<see cref="ComponentCompanions.Path"/>). Look-ahead: drawn between known lows,
+    /// and the live hump runs on to the last bar. Its height and level are ours.</item>
     /// <item>The 10-bar simple moving average Camel trades against (CF's yellow line).</item>
     /// </list>
     ///
@@ -43,7 +54,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <b>Every component holds something to hear (2026-10-22).</b> Cody: <i>"Each component must
     /// hold value, simply hiding and muting it isn't what I want. hiding and muting should be a
     /// user defined preferential function ... a component which is only visual isn't any use to a
-    /// screen reader."</i> Twenty-eight components became fifteen. Nothing is hidden or muted by
+    /// screen reader."</i> Twenty-eight components became fifteen (sixteen with the yearly window, 2026-10-28). Nothing is hidden or muted by
     /// default. A number that only explains another component (a low's cycle length, a
     /// confirmation's low and age, a window's bounds) is a companion array of that component
     /// (<see cref="ComponentCompanions"/>) and is said WITH it, not a keyboard stop of its own. The
@@ -83,6 +94,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompRightTop      = "Right Translated Top";
         public const string CompDailyWindow   = "Daily Timing Window";
         public const string CompWeeklyWindow  = "Weekly Timing Window";
+        public const string CompYearlyWindow  = "Yearly Timing Window";
 
         // ── Companions (see ComponentCompanions) ───────────────────────────────
         /// <summary>A low's cycle length in its tier's unit: days counted inclusively (CF's 49D), weeks, or years.</summary>
@@ -133,13 +145,26 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const int DefaultSma = 10;
         public const double DefaultOverbought = 75, DefaultOversold = 10;
 
-        internal const string DclHex = "#00E676", WclHex = "#2979FF", YclHex = "#FFD600", SmaHex = "#FFEB3B", ArcHex = "#D4A72C";
+        // The original's own colours, read from its drawings (2026-10-28; TradingView keeps them as
+        // 0xAABBGGRR): its daily, weekly and yearly marks, its three tops, and its wave at 0xCC.
+        internal const string DclHex = "#4CAF50", WclHex = "#2962FF", YclHex = "#D5C110", SmaHex = "#FFEB3B", ArcHex = "#CCFDD835";
+        internal const string LeftTopHex = "#F23645", MidTopHex = "#FF9800", RightTopHex = "#4CAF50", StartHex = "#FF9800";
+        /// <summary>The live window bands: daily green, weekly blue, yearly yellow.</summary>
+        internal const string DailyBandHex = "#4CAF50", WeeklyBandHex = "#2962FF", YearlyBandHex = "#FDD835";
+        /// <summary>The original's dotted lines and bands are at alpha 51, its top boxes at 25.</summary>
+        internal const int LineAlpha = 51, BandAlpha = 51, TopBoxAlpha = 25;
+        /// <summary>The words printed under the daily low's signs, by <see cref="ComponentCompanions.BadgeWord"/>: a held low's grade, and the first low's Start plate.</summary>
+        internal const string DailyWords = "LOW|MID|HIGH|Start@" + StartHex;
+        internal const double StartWord = 3;
 
-        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order, string confirmedBy) => new()
+        private static IndicatorComponentMetadata Low(string name, string hex, float size, string tier, string markerText, string patch, double freq, int order,
+            string confirmedBy, string? stacksUnder = null, string? words = null) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUpRing, MarkerText = markerText, Role = ComponentRole.Signal,
             Causality = ComponentCausality.Lookahead, ConfirmedBy = confirmedBy, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
             DefaultColorHex = hex, DefaultThickness = size, DefaultDrawOrder = order,
+            // The original's dotted line through the chart at each low, faint, in the tier's colour.
+            MarkLineAlpha = LineAlpha, MarkerStacksUnder = stacksUnder, BadgeWords = words,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Midground,
             DefaultSoundPatchId = patch, DefaultBaseFrequency = freq, DefaultDecayMs = 400,
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
@@ -150,9 +175,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         // cross-series signal list on the candles fills it with the component's own value — the
         // low's price for a cancellation, the confluence score for a confirmation.
         private static IndicatorComponentMetadata Event(string name, ComponentDisplayType shape, MarkerAnchor anchor, string hex,
-            float size, string patch, double freq, PlaybackLayer layer, string speech, bool count = false) => new()
+            float size, string patch, double freq, PlaybackLayer layer, string speech, bool count = false, bool drawn = true) => new()
         {
-            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal, IsCount = count,
+            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal, IsCount = count, DefaultIsDrawn = drawn,
             Causality = ComponentCausality.Causal, DefaultMarkerAnchor = anchor,
             DefaultColorHex = hex, DefaultThickness = size,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = layer,
@@ -161,11 +186,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultSignalSpeechTemplate = speech,
         };
 
-        private static IndicatorComponentMetadata Top(string name, string hex, string speech) => new()
+        /// <summary>
+        /// A translated top, as the original draws it: its letter (L, M, R) in a disc over a down
+        /// triangle at the top's high, a dotted line through the chart at the top, and a faint box
+        /// over the cycle, from low to low and from the cycle's lowest low to the top
+        /// (<see cref="ComponentCompanions.BoxEnd"/>), all in the top's colour.
+        /// </summary>
+        private static IndicatorComponentMetadata Top(string name, string hex, string letter, string speech) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleDown, Role = ComponentRole.Signal,
-            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar,
-            DefaultColorHex = hex, DefaultThickness = 3f,
+            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.AboveBar, MarkerText = letter,
+            DefaultColorHex = hex, DefaultThickness = 3f, BoxAlpha = TopBoxAlpha, MarkLineAlpha = 255,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Background,
             DefaultSoundPatchId = "triangle_bell", DefaultBaseFrequency = 520, DefaultDecayMs = 200,
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
@@ -174,24 +205,27 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>
         /// A timing window (<see cref="ComponentDisplayType.Window"/>): its value is the cycle's
-        /// day (or week) count on every bar, which is what is heard; the tint is painted from its
-        /// <see cref="ComponentCompanions.Tint"/> companion (1 inside the window, 0 outside), and
-        /// Ctrl+Left/Right stops where the window opens and where it closes with no new low
-        /// (<see cref="ComponentCompanions.Stops"/>). The day count is never drawn: it is not a
-        /// price. The lowest running tier's window also carries the cycle arc
-        /// (<see cref="ComponentCompanions.Path"/>), drawn in its colour.
+        /// day (or week, or year) count on every bar, which is what is heard; Ctrl+Left/Right stops
+        /// where the window opens and where it closes with no new low
+        /// (<see cref="ComponentCompanions.Stops"/>). The count is never drawn: it is not a price.
+        /// Drawn as the original draws it: the live cycle's window as a faint band from its first
+        /// day to its last (<see cref="ComponentCompanions.BoxEnd"/> on the last bar, running into
+        /// the future), in the tier's colour. The lowest running tier's window also carries the
+        /// cycle wave (<see cref="ComponentCompanions.Path"/>), drawn in the original's yellow. A
+        /// tint inside the window (<see cref="ComponentCompanions.Tint"/>, 1 inside, 0 outside) is
+        /// ours, not the original's: off by default, a choice in Appearance.
         /// </summary>
-        private static IndicatorComponentMetadata Window(string name, string tintHex, string openSpeech) => new()
+        private static IndicatorComponentMetadata Window(string name, string bandHex, string tintHex, string openSpeech) => new()
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Window, Role = ComponentRole.Signal,
-            Causality = ComponentCausality.Causal, IsCount = true, DefaultColorHex = ArcHex, DefaultThickness = 1f,
-            PathName = "cycle arc",
+            Causality = ComponentCausality.Causal, IsCount = true, DefaultColorHex = bandHex, DefaultThickness = 3f,
+            BoxAlpha = BandAlpha, PathName = "cycle wave", PathColorHex = ArcHex,
             // New-bar narration says this on the bar the window opens ({value} = the count).
             DefaultSignalSpeechTemplate = openSpeech,
             DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
             DefaultPlaybackLayer = PlaybackLayer.Background,
-            // The whole 0x18 alpha at 1, nothing at 0.
-            DefaultBackgroundTint = BackgroundTint.PriceChart, DefaultTintColorAboveHex = tintHex, DefaultTintColorBelowHex = "#00000000",
+            // When switched on, the whole 0x18 alpha at 1, nothing at 0.
+            DefaultBackgroundTint = BackgroundTint.Off, DefaultTintColorAboveHex = tintHex, DefaultTintColorBelowHex = "#00000000",
             DefaultTintMidline = 0.5, DefaultTintFullAt = 1.0,
         };
 
@@ -210,12 +244,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // from the whole history; a cheap last-bar update would miss a cancellation.
                 RequiresFullRecalcOnTick = true,
                 Description =
-                    "Daily, weekly and yearly cycle lows on the price chart. Green triangles under daily cycle lows " +
-                    "with a ringed D, blue with a W under weekly, gold with a Y under yearly, each low's length with " +
-                    "its unit (49D, 24W), a green check box when a low is confirmed, a grey-blue refresh box while " +
-                    "one is pending, crosses when a pending low is cancelled or a cycle fails, translated-top triangles, and a " +
-                    "tint over the daily timing window, whose day count is read on every bar, with the cycle arcs " +
-                    "drawn under the candles from low to low. Cycle ranges are tuned " +
+                    "Daily, weekly and yearly cycle lows on the price chart. Green triangles over a D under daily cycle lows, " +
+                    "blue with a W under weekly, gold with a Y under yearly, a dotted line at each, each low's length beside " +
+                    "it (49D, 24W), a check under a confirmed daily low, a cross under a cancelled one, a clock and the " +
+                    "grade (LOW, MID, HIGH) under the low being held, a check over the bar a low is confirmed on, " +
+                    "lettered translated tops (L, M, R) with a box over each cycle, bands over the live timing windows, " +
+                    "whose counts are read on every bar, and a wave under the candles from low to low. Cycle ranges are tuned " +
                     "for sixteen assets (the S&P, Nasdaq, Dow, dollar index, gold, silver, oil, gold and silver " +
                     "miners, Bitcoin, Ethereum and four crypto stocks). Lows are drawn on the low's bar but known " +
                     "only when confirmed, after the low has held for half the shortest cycle. A map of cycle " +
@@ -252,36 +286,45 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
 
                     // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
-                    Low(CompYcl, YclHex, 6f,   "Yearly", "Y", "dual_tone_bell", 196, 0, CompYclConfirmed),
-                    Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1, CompWclConfirmed),
-                    Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2, CompDclConfirmed),
+                    // Biggest first, so the daily triangle is drawn over the weekly over the yearly;
+                    // on a bar with more than one, the weekly mark sits under the daily one and the
+                    // yearly under the weekly, as the original stacks them.
+                    Low(CompYcl, YclHex, 6f,   "Yearly", "Y", "dual_tone_bell", 196, 0, CompYclConfirmed, stacksUnder: CompWcl),
+                    Low(CompWcl, WclHex, 4.5f, "Weekly", "W", "dual_tone_bell", 262, 1, CompWclConfirmed, stacksUnder: CompDcl),
+                    Low(CompDcl, DclHex, 3f,   "Daily",  "D", "sine_bell",      330, 2, CompDclConfirmed, words: DailyWords),
 
                     // Value: the confluence score, 1 to 3 (a normal-length cycle, a close over the
                     // moving average, a close over the low bar's high), so a strategy can ask for
-                    // "DCL Confirmed at least 2".
-                    Event(CompDclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 4.5f, "sine_bell", 392, PlaybackLayer.Foreground,
+                    // "DCL Confirmed at least 2". The daily one is drawn as the original draws it, a
+                    // check over a down triangle at the bar's high; the weekly and yearly ones, and
+                    // the events below, are heard, not drawn (the original draws none of them),
+                    // and can be drawn from Appearance.
+                    Event(CompDclConfirmed, ComponentDisplayType.TriangleDown, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Foreground,
                           "Daily cycle low confirmed.", count: true),
                     Event(CompWclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 5.5f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
-                          "Weekly cycle low confirmed.", count: true),
+                          "Weekly cycle low confirmed.", count: true, drawn: false),
                     Event(CompYclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 6.5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
-                          "Yearly cycle low confirmed.", count: true),
+                          "Yearly cycle low confirmed.", count: true, drawn: false),
                     // Value: the close. The bar the daily tier names a low on (with no daily tier,
-                    // the bar the hidden cycle line reached oversold).
+                    // the bar the hidden cycle line reached oversold). On the chart the daily low
+                    // being held is drawn as a low with a clock and its grade (the DCL's mark).
                     Event(CompPending, ComponentDisplayType.RefreshBox, MarkerAnchor.AboveBar, "#78909C", 4f, "triangle_bell", 440, PlaybackLayer.Background,
-                          "Cycle low pending."),
-                    // Value: the price of the low closed under. Warnings, not sell signals.
+                          "Cycle low pending.", drawn: false),
+                    // Value: the price of the low closed under. Warnings, not sell signals. On the
+                    // chart the cancelled daily low keeps a low's mark with a red cross under it.
                     Event(CompCancelled, ComponentDisplayType.Cross, MarkerAnchor.BelowBar, "#FF1744", 3f, "triangle_bell", 220, PlaybackLayer.Midground,
-                          "Pending cycle low cancelled, a bar went under it before it was due."),
+                          "Pending cycle low cancelled, a bar went under it before it was due.", drawn: false),
                     Event(CompFailed, ComponentDisplayType.Cross, MarkerAnchor.AboveBar, "#FF6D00", 3f, "triangle_bell", 175, PlaybackLayer.Midground,
-                          "Cycle failed, price closed under the cycle low."),
+                          "Cycle failed, price closed under the cycle low.", drawn: false),
 
                     // Value: the top's high.
-                    Top(CompLeftTop,  "#FF5252", "Left translated top, bearish."),
-                    Top(CompMidTop,   "#FFA726", "Mid translated top."),
-                    Top(CompRightTop, "#66BB6A", "Right translated top, bullish."),
+                    Top(CompLeftTop,  LeftTopHex,  "L", "Left translated top, bearish."),
+                    Top(CompMidTop,   MidTopHex,   "M", "Mid translated top."),
+                    Top(CompRightTop, RightTopHex, "R", "Right translated top, bullish."),
 
-                    Window(CompDailyWindow, "#1800E676", "Daily timing window open, day {value}."),
-                    Window(CompWeeklyWindow, "#182979FF", "Weekly timing window open, week {value}."),
+                    Window(CompDailyWindow, DailyBandHex, "#184CAF50", "Daily timing window open, day {value}."),
+                    Window(CompWeeklyWindow, WeeklyBandHex, "#182962FF", "Weekly timing window open, week {value}."),
+                    Window(CompYearlyWindow, YearlyBandHex, "#18FDD835", "Yearly timing window open, year {value}."),
                 },
             }
         };
@@ -299,12 +342,18 @@ namespace AccessibleTrader.Core.Services.Indicators
             double[] A(string key) => o.TryGetValue(key, out var a) ? a : o[key] = CipherCEngine.Nan(n);
             foreach (var c in new[] { CompSma, CompYcl, CompWcl, CompDcl, CompDclConfirmed, CompWclConfirmed, CompYclConfirmed,
                                       CompPending, CompCancelled, CompFailed, CompLeftTop, CompMidTop, CompRightTop,
-                                      CompDailyWindow, CompWeeklyWindow })
+                                      CompDailyWindow, CompWeeklyWindow, CompYearlyWindow })
                 A(c);
             // The tint companions always exist, so a window with no tint of its own paints nothing
-            // rather than falling back to tinting by its day count.
-            A(CompDailyWindow + ComponentCompanions.Tint); A(CompWeeklyWindow + ComponentCompanions.Tint);
-            A(CompDailyWindow + ComponentCompanions.Path); A(CompWeeklyWindow + ComponentCompanions.Path);
+            // rather than falling back to tinting by its day count; so do the pictures' companions.
+            foreach (var c in new[] { CompDailyWindow, CompWeeklyWindow, CompYearlyWindow })
+                foreach (var k in new[] { ComponentCompanions.Tint, ComponentCompanions.Path, ComponentCompanions.BoxStart, ComponentCompanions.BoxEnd })
+                    A(c + k);
+            foreach (var c in new[] { CompLeftTop, CompMidTop, CompRightTop })
+                foreach (var k in new[] { ComponentCompanions.BoxStart, ComponentCompanions.BoxEnd, ComponentCompanions.BoxTop, ComponentCompanions.BoxBottom })
+                    A(c + k);
+            foreach (var k in new[] { ComponentCompanions.Badge, ComponentCompanions.BadgeWord, ComponentCompanions.Mark }) A(CompDcl + k);
+            A(CompDclConfirmed + ComponentCompanions.Badge);
             if (n == 0) return o;
 
             var p = parameters ?? new Dictionary<string, object>();
@@ -391,11 +440,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 foreach (int i in yLows) { AddLow(dLows, i); dConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
             }
 
-            // Each low: its price, its cycle's length (CF's count, drawn as the label), and how long
-            // after it was confirmed. The weekly label is drawn only where there is no daily one, so
-            // the two never print on top of each other.
+            // Each low: its price, its cycle's length (CF's count, drawn as the label beside its
+            // mark, daily and weekly as the original prints them; the yearly has none), and how
+            // long after it was confirmed.
             WriteLows(o, CompDcl, dLows, dConfirm, low, day, day, label: true, LengthInDays(clock));
-            WriteLows(o, CompWcl, wLows, wConfirm, low, week, week, label: !dTier.Active, (a, b) => Math.Round((b - a) / week.Bars));
+            WriteLows(o, CompWcl, wLows, wConfirm, low, week, week, label: true, (a, b) => Math.Round((b - a) / week.Bars));
             WriteLows(o, CompYcl, yLows, yConfirm, low, year, week, label: false, (a, b) => Math.Round((b - a) / year.Bars, 1));
 
             // The confirmations: their confluence, the low, its age, and the low a confirmation
@@ -444,9 +493,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // since the last confirmed low is marked as replacing it (the original's 🔄 on the
             // pending label: 880 of 884 such labels, 2026-10-27).
             double[] pendingGrade = A(CompPending + GradeSuffix), pendingReplaced = A(CompPending + ReplacedSuffix);
-            if (tierNo == 1)
+            var grade = tierNo == 1 ? Grade(data, high, low, close) : null;
+            if (grade != null)
             {
-                var grade = Grade(data, high, low, close);
                 double replacedSince = double.NaN;
                 for (int t = 0; t < n; t++)
                 {
@@ -471,7 +520,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (failedAt >= 0) failedSince[t] = Units(t - failedAt, ago);
             }
 
-            // Each finished cycle's top: where it came in the cycle, and how long the cycle was.
+            // The daily lows' signs, as the original draws them under its D: a check under each
+            // confirmed low, with a refresh sign over it when the low replaced a cancelled one; a
+            // cancelled low keeps its mark with a cross; the low being held now is marked with a
+            // clock, the refresh sign if it replaces a cancelled one, and its grade; and the first
+            // low says Start, where the count begins. Pictures: the speech is the confirmations',
+            // the pending and the cancelled components'.
+            if (grade != null) DailySigns(o, d, dLows, dConfirm, low, grade, n);
+
+            // Each finished cycle's top: where it came in the cycle, and how long the cycle was;
+            // and the original's box over the cycle, low to low, its lowest low to the top.
             var length = tierNo == 1 ? LengthInDays(clock) : tierNo == 2 ? (a, b) => Math.Round((b - a) / week.Bars) : (Func<int, int, double>)((a, b) => Math.Round((b - a) / year.Bars, 1));
             for (int k = 1; k < lowestLows.Count; k++)
             {
@@ -480,20 +538,42 @@ namespace AccessibleTrader.Core.Services.Indicators
                 o[comp][top] = high[top];
                 A(comp + DaySuffix)[top] = Math.Floor((top - a) / unit.Bars + 1e-9) + 1;
                 A(comp + LengthSuffix)[top] = length(a, b);
+                double floor = double.MaxValue;
+                for (int i = a; i <= b; i++) floor = Math.Min(floor, low[i]);
+                o[comp + ComponentCompanions.BoxStart][top] = a - top;
+                o[comp + ComponentCompanions.BoxEnd][top] = b - top;
+                o[comp + ComponentCompanions.BoxTop][top] = high[top];
+                o[comp + ComponentCompanions.BoxBottom][top] = floor;
             }
 
-            // Day and week counts against the timing windows — known on the bar.
+            // Day, week and year counts against the timing windows — known on the bar. Only one
+            // tint, the shortest tier's, if switched on.
+            double yearsInUnits = inBars ? clock.DaysPerYear : 1;
             WriteWindow(o, CompDailyWindow, d, dTier, day.Bars, dWindowMin, dMax, tint: true, n);
             WriteWindow(o, CompWeeklyWindow, w, wTier, week.Bars, wMin * weeksInUnits, wMax * weeksInUnits, tint: !dTier.Active, n);
+            WriteWindow(o, CompYearlyWindow, y, yTier, year.Bars, yMin * yearsInUnits, yMax * yearsInUnits, tint: !dTier.Active && !wTier.Active, n);
 
-            // The cycle arc, on the window of the tier the events belong to (a yearly-only chart
-            // has no window, so no arc). A picture, not a reading: what it shows — how far into
-            // the cycle each bar is — the window says as its day count. Look-ahead: each arc is
-            // drawn between two lows known only once confirmed, and the live arc runs on to where
-            // the next low is due.
-            if (tierNo <= 2)
-                DrawArcs(o[(tierNo == 1 ? CompDailyWindow : CompWeeklyWindow) + ComponentCompanions.Path],
-                    lowestLows, lowestTier, high, low, n);
+            // The live cycle's window as the original bands it: from the last low, the shortest
+            // and longest cycle on the calendar. Its daily band starts on the first bar on or
+            // after the low's date plus the shortest cycle in calendar days (a trading day is 7/5
+            // of one), rounded, and ends on the first on or after plus the longest, rounded down:
+            // the original's band to the day on 7 of the 8 daily charts with one in view (one shows
+            // only its start), 2026-10-28; the dollar index's is a day late at both ends. Its
+            // weekly and yearly bands are drawn the same way here, but the original's are not
+            // this (its weekly starts weeks early, its yearly reads its date table): undecoded.
+            // Off a daily chart, in bars.
+            bool everyDay = clock.TradesEveryDay;
+            double calendar = everyDay ? 1 : 7.0 / 5;
+            WriteBand(o, CompDailyWindow, d, dTier, data, n, inBars, dWindowMin * (inBars ? 1 : calendar), dMax * (inBars ? 1 : calendar), everyDay);
+            WriteBand(o, CompWeeklyWindow, w, wTier, data, n, inBars, wMin * (inBars ? clock.DaysPerWeek : 7), wMax * (inBars ? clock.DaysPerWeek : 7), everyDay);
+            WriteBand(o, CompYearlyWindow, y, yTier, data, n, inBars, yMin * (inBars ? clock.DaysPerYear : 365.25), yMax * (inBars ? clock.DaysPerYear : 365.25), everyDay);
+
+            // The cycle wave, on the window of the tier the events belong to. A picture, not a
+            // reading: what it shows — how far into the cycle each bar is — the window says as its
+            // count. Look-ahead: each hump is drawn between two lows known only once confirmed,
+            // and the live one runs on to the last bar.
+            DrawArcs(o[(tierNo == 1 ? CompDailyWindow : tierNo == 2 ? CompWeeklyWindow : CompYearlyWindow) + ComponentCompanions.Path],
+                lowestLows, lowestTier, lowest.ConfirmedAt, close, high, low, n);
 
             int presetIndex = IndexOf(preset);
             Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
@@ -633,65 +713,141 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// CF's yellow arcs: one hump from each low to the next, and a live one from the last low
-        /// to the middle of the window the next is due in. They sit as a level wave under the
-        /// candles (the vendor's demo frames), every hump the same height.
+        /// The live cycle's window as a band (<see cref="ComponentCompanions.BoxEnd"/> on the last
+        /// bar, in bars from it, running into the future): from the bar <paramref name="from"/>
+        /// days after the last low, rounded, to the bar <paramref name="to"/> days after it,
+        /// rounded down, each the first bar on or after that date. Off a daily chart
+        /// (<paramref name="inBars"/>) the two are bars from the low.
         /// </summary>
-        private static void DrawArcs(double[] arc, List<int> lows, CipherCEngine.TierBars tier, double[] high, double[] low, int n)
+        private static void WriteBand(Dictionary<string, double[]> o, string comp, CipherCEngine.TierRun run, CipherCEngine.TierBars tier,
+            ReadOnlySpan<Ohlcv> data, int n, bool inBars, double from, double to, bool everyDay)
+        {
+            if (!tier.Active || n == 0) return;
+            int last = run.LastLowAt[n - 1];
+            if (last < 0) return;
+            int a = inBars ? last + (int)Math.Round(from) : BarOnOrAfter(data, last, (int)Math.Round(from), everyDay);
+            int b = inBars ? last + (int)Math.Floor(to + 1e-9) : BarOnOrAfter(data, last, (int)Math.Floor(to + 1e-9), everyDay);
+            o[comp + ComponentCompanions.BoxStart][n - 1] = a - (n - 1);
+            o[comp + ComponentCompanions.BoxEnd][n - 1] = b - (n - 1);
+        }
+
+        /// <summary>
+        /// The first bar dated on or after <paramref name="days"/> calendar days from bar
+        /// <paramref name="from"/>'s date; past the last bar, counted on in the chart's trading
+        /// days (every day, or weekdays).
+        /// </summary>
+        internal static int BarOnOrAfter(ReadOnlySpan<Ohlcv> data, int from, int days, bool everyDay)
+        {
+            var target = data[from].Date.Date.AddDays(days);
+            for (int i = from; i < data.Length; i++) if (data[i].Date.Date >= target) return i;
+            int k = data.Length - 1;
+            var date = data[k].Date.Date;
+            while (date < target || !(everyDay || (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)))
+            {
+                date = date.AddDays(1);
+                if (everyDay || (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)) k++;
+            }
+            return k;
+        }
+
+        /// <summary>
+        /// The original's yellow wave: one hump from each low to the next, troughs at the lows and
+        /// crests halfway between, all on one level, over its last <see cref="WaveCycles"/>
+        /// cycles and the live one, which stops at the last bar. The level is set on the bar the
+        /// newest low was confirmed on: its middle 0.8 of that bar's close, its troughs and crests
+        /// a fifth of the range of the 100 bars to that bar (highest high less lowest low) under
+        /// and over it. The original's to the cent on 68 of its 68 charts, 2026-10-28; its middle
+        /// follows the close on a Heikin-Ashi chart (the average of the four prices) and its height
+        /// does not. So it sits under the candles, and moves only when a low is confirmed. In
+        /// price, not log. No confirmed low yet, no wave.
+        /// </summary>
+        private static void DrawArcs(double[] arc, List<int> lows, CipherCEngine.TierBars tier, IReadOnlyList<int> confirmedAt,
+            double[] close, double[] high, double[] low, int n)
         {
             if (lows.Count == 0) return;
-            var floor = ArcFloors(lows, high, low, n, out double hump);
-            for (int k = 1; k < lows.Count; k++)
-                DrawArc(arc, lows[k - 1], lows[k], lows[k] - lows[k - 1], floor[k - 1], floor[k], hump);
+            int set = -1;
+            foreach (int c in confirmedAt) if (c >= 0 && c < n) set = Math.Max(set, c);
+            if (set < 0) return;
+            double hi = double.MinValue, lo = double.MaxValue;
+            for (int i = Math.Max(0, set - WaveRangeBars + 1); i <= set; i++) { hi = Math.Max(hi, high[i]); lo = Math.Min(lo, low[i]); }
+            double middle = WaveLevel * close[set], half = WaveHeight * (hi - lo);
+            int first = Math.Max(0, lows.Count - 1 - WaveCycles);
+            for (int k = first + 1; k < lows.Count; k++)
+                DrawArc(arc, lows[k - 1], lows[k], lows[k] - lows[k - 1], middle, half);
             int a = lows[^1], due = Math.Max(1, (int)Math.Round(tier.MeanBars));
-            DrawArc(arc, a, Math.Min(n - 1, a + due), due, floor[^1], floor[^1], hump);
+            DrawArc(arc, a, Math.Min(n - 1, a + due), due, middle, half);
         }
 
-        /// <summary>
-        /// Where the arcs sit. The hump is a quarter of the median cycle's swing (log of its high
-        /// over its low), so it reads the same on any asset and timeframe and does not squeeze the
-        /// candles when the price pane fits it in. Each low's floor is one and a quarter humps under
-        /// the lowest low of the two cycles it joins, so every crest stays a quarter hump under the
-        /// candles. Returned in log price, one per low.
-        /// </summary>
-        private static double[] ArcFloors(List<int> lows, double[] high, double[] low, int n, out double hump)
-        {
-            var swings = new List<double>();
-            for (int k = 1; k < lows.Count; k++)
-            {
-                double hi = 0, lo = double.MaxValue;
-                for (int i = lows[k - 1]; i <= lows[k]; i++) { hi = Math.Max(hi, high[i]); lo = Math.Min(lo, low[i]); }
-                if (lo > 0) swings.Add(Math.Log(hi / lo));
-            }
-            swings.Sort();
-            hump = swings.Count > 0 ? 0.25 * swings[swings.Count / 2] : 0.05;
-            var floor = new double[lows.Count];
-            for (int k = 0; k < lows.Count; k++)
-            {
-                int from = k > 0 ? lows[k - 1] : lows[k], to = k + 1 < lows.Count ? lows[k + 1] : n - 1;
-                double lo = double.MaxValue;
-                for (int i = from; i <= to; i++) if (low[i] > 0) lo = Math.Min(lo, low[i]);
-                floor[k] = Math.Log(lo) - 1.25 * hump;
-            }
-            return floor;
-        }
+        /// <summary>The wave's middle, as a share of the close it is set on.</summary>
+        internal const double WaveLevel = 0.8;
+        /// <summary>The wave's half height, as a share of the range of <see cref="WaveRangeBars"/> bars.</summary>
+        internal const double WaveHeight = 0.2;
+        /// <summary>How many bars, to the confirmation, the wave's height is taken over.</summary>
+        internal const int WaveRangeBars = 100;
+
+        /// <summary>How many finished cycles the wave spans: the original draws 21 humps and the live one.</summary>
+        internal const int WaveCycles = 21;
 
         /// <summary>
-        /// One arc: from the floor at low <paramref name="a"/> to the floor at the far end,
-        /// <paramref name="span"/> bars later, rising a hump in the middle; rounded at both ends, as
-        /// CF draws them. The floor eases from one level to the next and is flat at each low, so the
-        /// trough stays on the low's bar. Drawn up to bar <paramref name="last"/>; the live arc's far
-        /// end is in the future.
+        /// One hump: from a trough at low <paramref name="a"/> (<paramref name="middle"/> less
+        /// <paramref name="half"/>) up to a crest halfway through its <paramref name="span"/> bars
+        /// and back down, rounded at both ends. Drawn up to bar <paramref name="last"/>; the live
+        /// hump's far end is in the future.
         /// </summary>
-        private static void DrawArc(double[] arc, int a, int last, int span, double fa, double fb, double hump)
+        private static void DrawArc(double[] arc, int a, int last, int span, double middle, double half)
         {
             if (span <= 0) return;
             for (int i = a; i <= last; i++)
             {
                 double t = Math.Min(1, (double)(i - a) / span);
-                double level = fa + (fb - fa) * t * t * t * (10 - 15 * t + 6 * t * t);
-                arc[i] = Math.Exp(level + hump * 0.5 * (1 - Math.Cos(2 * Math.PI * t)));
+                arc[i] = middle - half * Math.Cos(2 * Math.PI * t);
             }
+        }
+
+        /// <summary>
+        /// The daily low's signs (<see cref="ComponentCompanions.Badge"/>,
+        /// <see cref="ComponentCompanions.BadgeWord"/>, <see cref="ComponentCompanions.Mark"/>), as
+        /// the original draws them: a check under each confirmed low, a refresh sign over it when
+        /// its confirmation replaced a cancelled low; a cancelled low's mark with a cross; the low
+        /// held now with a clock, a refresh sign if a low was cancelled since the last confirmed
+        /// one, and its grade (LOW, MID, HIGH) on the last bar; Start under the first low; and a
+        /// check over each daily confirmation's down triangle.
+        /// </summary>
+        private static void DailySigns(Dictionary<string, double[]> o, CipherCEngine.TierRun d, List<int> lows, Dictionary<int, int> confirmedAt,
+            double[] low, double[] grade, int n)
+        {
+            var values = o[CompDcl];
+            var badge = o[CompDcl + ComponentCompanions.Badge];
+            var word = o[CompDcl + ComponentCompanions.BadgeWord];
+            var mark = o[CompDcl + ComponentCompanions.Mark];
+            foreach (int i in lows)
+            {
+                int bits = ComponentCompanions.BadgeCheck;
+                if (confirmedAt.TryGetValue(i, out int at) && at >= 0 && at < n && !double.IsNaN(d.Updated[at])) bits |= ComponentCompanions.BadgeRefresh;
+                badge[i] = bits;
+            }
+            double replacedSince = double.NaN;
+            for (int t = 0; t < n; t++)
+            {
+                if (!double.IsNaN(d.Confirmed[t])) replacedSince = double.NaN;
+                if (double.IsNaN(d.Cancelled[t])) continue;
+                replacedSince = d.Cancelled[t];
+                int c = d.CancelledLow[t];
+                if (c < 0 || !double.IsNaN(values[c])) continue;
+                mark[c] = low[c];
+                badge[c] = ComponentCompanions.BadgeCross;
+            }
+            int held = d.HeldAt[n - 1];
+            if (held >= 0 && double.IsNaN(values[held]))
+            {
+                mark[held] = low[held];
+                badge[held] = ComponentCompanions.BadgeClock | (double.IsNaN(replacedSince) ? 0 : ComponentCompanions.BadgeRefresh);
+                word[held] = grade[n - 1];
+            }
+            if (lows.Count > 0 && double.IsNaN(word[lows[0]])) word[lows[0]] = StartWord;
+            var confirmed = o[CompDclConfirmed];
+            var confirmedBadge = o[CompDclConfirmed + ComponentCompanions.Badge];
+            for (int t = 0; t < n; t++) if (!double.IsNaN(confirmed[t])) confirmedBadge[t] = ComponentCompanions.BadgeCheck;
         }
 
         private static void AddLow(List<int> lows, int i)
@@ -750,6 +906,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (daily != null) words.Add(daily);
             string? weekly = WindowWords("weekly cycle", weekWord, weekWords, At(CompWeeklyWindow), At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
             if (weekly != null) words.Add(weekly);
+            var (yearWord, yearWords) = Words(inBars, "year", "years");
+            string? yearly = WindowWords("yearly cycle", yearWord, yearWords, At(CompYearlyWindow), At(CompYearlyWindow + StartSuffix), At(CompYearlyWindow + EndSuffix));
+            if (yearly != null) words.Add(yearly);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
             {
@@ -890,6 +1049,65 @@ namespace AccessibleTrader.Core.Services.Indicators
             return text;
         }
 
+        /// <summary>
+        /// The original's table in the price pane's bottom right corner, at one bar, in our words:
+        /// whether the symbol has a tuned preset and the chart is daily, the preset's daily, weekly
+        /// and yearly ranges, where the daily and weekly cycles are (the window counts the speech
+        /// says), how long ago the pending low was, and the symbols with a preset. Laid out and
+        /// coloured as the original's (2026-10-28: its cells read from its chart memory). Its
+        /// pending weekly count is not modelled (a dash). Empty before the chart has a preset.
+        /// </summary>
+        public static IReadOnlyList<IReadOnlyList<Rendering.TableCell>> TableRows(Func<string, double[]?> component, int index)
+        {
+            double At(string name) => component(name) is { } a && index >= 0 && index < a.Length ? a[index] : double.NaN;
+            double value = At(PresetKey);
+            if (double.IsNaN(value)) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
+            bool tuned = value >= 0, inBars = At(InBarsKey) == 1;
+            int presetIndex = tuned ? (int)value : -1 - (int)value;
+            if (presetIndex < 0 || presetIndex >= CipherCEngine.Presets.Count) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
+            var preset = CipherCEngine.Presets[presetIndex];
+            string head = tuned ? TableTuned : TableUntuned;
+            string Count(double v) => double.IsNaN(v) ? "\u2014" : Num(v);
+            var (dayWord, _) = Words(inBars, "day", "days");
+            var (weekWord, _) = Words(inBars, "week", "weeks");
+            double pendingAgo = At(CompPending + LowestAgoSuffix);
+            var names = CipherCEngine.Presets.Select(p => p.Name).ToList();
+            int half = (names.Count + 1) / 2;
+
+            Rendering.TableCell C(string text, string? fill = null, int span = 1, int size = 0) => new(text, fill, span, size);
+            Rendering.TableCell Blank(int span = 1) => C("", null, span);
+            IEnumerable<Rendering.TableCell> Middle(string label, string range) =>
+                tuned ? new[] { C(label, TableLabel, size: -1), C(range, TableValue) } : new[] { Blank(), Blank() };
+            return new List<IReadOnlyList<Rendering.TableCell>>
+            {
+                new[] { C(tuned ? "\u2713 Tuned preset for this symbol" : "\u26A0 No preset for this symbol", head, size: 1),
+                        tuned ? C($"{preset.Name.ToUpperInvariant()} CYCLE COUNT", TableCountHead, 2, 1) : Blank(2),
+                        C("Cycle low windows", head, 2, 1) },
+                new[] { C(tuned ? $"Counted from {Num(preset.CountedDailyMin)} days" : $"Default count, from {Num(CipherCEngine.DefaultCountDailyMin)} bars", TableDark) }
+                    .Concat(Middle("Daily cycle range", $"{Dash(preset.DailyMin, preset.DailyMax)} days"))
+                    .Append(C("\u2713 Confirmed", null, 2)).ToArray(),
+                new[] { C("", TableDark) }
+                    .Concat(Middle("Weekly cycle range", $"{Dash(preset.WeeklyMin, preset.WeeklyMax)} weeks"))
+                    .Concat(new[] { C($"Daily cycle {dayWord}:"), C(Count(At(CompDailyWindow))) }).ToArray(),
+                new[] { inBars ? C("\u26A0 Not tuned for this timeframe, switch to daily", TableWrongFrame) : C("\u2713 Tuned timeframe: daily", TableRightFrame) }
+                    .Concat(Middle("Yearly cycle range", $"{Dash(preset.YearlyMin, preset.YearlyMax)} years"))
+                    .Concat(new[] { C($"Weekly cycle {weekWord}:"), C(Count(At(CompWeeklyWindow))) }).ToArray(),
+                new[] { C("Symbols with a preset", TableValue), Blank(2), C("\u25F7 Pending", null, 2) },
+                new[] { C(string.Join(", ", names.Take(half)), TableDark, size: -1), Blank(2),
+                        C("Daily low held:"), C(double.IsNaN(pendingAgo) ? "\u2713" : $"{Num(pendingAgo)} {(pendingAgo == 1 ? dayWord : dayWord + "s")} ago") },
+                new[] { C(string.Join(", ", names.Skip(half)), TableDarkLight, size: -1), Blank(2),
+                        C("Weekly low held:"), C("\u2014") },
+            };
+        }
+
+        // The original's cell fills, #RRGGBBAA.
+        internal const string TableTuned = "#4CAF4F69", TableUntuned = "#FF525269", TableCountHead = "#20C12B5C",
+            TableDark = "#363A455C", TableDarkLight = "#363A454B", TableLabel = "#363A4519", TableValue = "#787B8626",
+            TableRightFrame = "#4CAF4FA3", TableWrongFrame = "#FF000066";
+
+        /// <summary>"36\u201344", or "4" when a range is one value: the original's en dash.</summary>
+        private static string Dash(double min, double max) => min == max ? Num(min) : $"{Num(min)}\u2013{Num(max)}";
+
         private static string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
 
         /// <summary>"22 to 42", or "4" when a range is one value (Bitcoin's yearly cycle).</summary>
@@ -989,6 +1207,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     return WindowWords("daily cycle", dayWord, dayWords, value, At(CompDailyWindow + StartSuffix), At(CompDailyWindow + EndSuffix));
                 case CompWeeklyWindow:
                     return WindowWords("weekly cycle", weekWord, weekWords, value, At(CompWeeklyWindow + StartSuffix), At(CompWeeklyWindow + EndSuffix));
+                case CompYearlyWindow:
+                {
+                    var (yearWord, yearWords) = Words(inBars, "year", "years");
+                    return WindowWords("yearly cycle", yearWord, yearWords, value, At(CompYearlyWindow + StartSuffix), At(CompYearlyWindow + EndSuffix));
+                }
                 default:
                     return null;
             }

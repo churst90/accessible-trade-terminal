@@ -1326,33 +1326,40 @@ namespace AccessibleTrader.Core.Services.Rendering
             ?? SKTypeface.Default;
 
         /// <summary>
-        /// Renders the upward triangle and a lettered circle one triangle-height beyond it, away
-        /// from the bar. The ring is empty when <see cref="ComponentConfig.MarkerText"/> is null.
+        /// Renders the upward triangle and a lettered disc one triangle-height beyond it, away
+        /// from the bar: a filled disc in the marker's colour with its
+        /// <see cref="ComponentConfig.MarkerText"/> cut out in the chart's background (the
+        /// original's 🅓), or a plain ring when there is no letter. Under the disc, the bar's
+        /// <see cref="ComponentCompanions.Badge"/> signs and <see cref="ComponentCompanions.BadgeWord"/>
+        /// (<see cref="ComponentPictures.DrawBadges"/>). A marker that stacks under a sibling
+        /// (<see cref="ComponentConfig.MarkerStacksUnder"/>) starts beyond the sibling's far edge
+        /// on a bar both mark. A bar with no value but a <see cref="ComponentCompanions.Mark"/> is
+        /// drawn the same way.
         /// </summary>
         public static void RenderTriangleUpRing(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
-            var data = series.GetComponentData(comp.Name);
-            if (data == null || data.Length == 0) return;
+            var data = series.GetComponentData(comp.Name) ?? Array.Empty<double>();
+            var marks = series.GetComponentData(comp.Name + ComponentCompanions.Mark) ?? Array.Empty<double>();
+            if (data.Length == 0 && marks.Length == 0) return;
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar = barWidth / 2f;
-            float triangleHeight = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            float triangleHeight = ComponentPictures.TriangleHeight(ctx, comp);
             float ringRadius = triangleHeight * 0.45f;
-            float ringStroke = Math.Max(ctx.Density, triangleHeight * 0.065f);
-            using var textFont = string.IsNullOrEmpty(comp.MarkerText)
-                ? null
-                : new SKFont(MarkerTextTypeface, Math.Max(3f * ctx.Density, ringRadius * 1.4f));
+            var badges = series.GetComponentData(comp.Name + ComponentCompanions.Badge);
+            var words = series.GetComponentData(comp.Name + ComponentCompanions.BadgeWord);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
-                if (dataIdx >= data.Length) break;
-                double val = data[dataIdx];
+                if (dataIdx >= data.Length && dataIdx >= marks.Length) break;
+                // A bar with no value can still carry a mark (ComponentCompanions.Mark).
+                double val = ComponentPictures.MarkedValue(series, comp, dataIdx);
                 if (double.IsNaN(val)) continue;
 
                 float x = i * barWidth + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
-                var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
+                float y = ComponentPictures.BaseY(ctx, series, comp, i) ?? ResolveMarkerY(ctx, comp, i, val);
+                var color = (dataIdx < data.Length ? ResolveBarColor(comp, data, dataIdx) : null) ?? paint.Color;
 
                 using (var triangle = new SKPath())
                 {
@@ -1368,41 +1375,60 @@ namespace AccessibleTrader.Core.Services.Rendering
                     ctx.Canvas.DrawPath(triangle, trianglePaint);
                 }
 
-                // The ring's centre is one full triangle-height beyond the triangle's far edge.
+                // The disc's centre is one full triangle-height beyond the triangle's far edge.
                 // BelowBar goes down the screen; AboveBar goes up it. Value-anchored markers use
                 // the triangle's natural far side (below) because there is no bar to point away from.
-                float ringY = comp.MarkerAnchor == MarkerAnchor.AboveBar
-                    ? y - 2f * triangleHeight
-                    : y + triangleHeight;
-                using (var ringLease = SKPaintPool.Rent())
-                {
-                    var ringPaint = ringLease.Paint;
-                    ringPaint.Color = color;
-                    ringPaint.Style = SKPaintStyle.Stroke;
-                    ringPaint.StrokeWidth = ringStroke;
-                    ringPaint.StrokeCap = SKStrokeCap.Round;
-                    ringPaint.IsAntialias = true;
-                    ctx.Canvas.DrawCircle(x, ringY, ringRadius, ringPaint);
-                }
+                bool up = comp.MarkerAnchor == MarkerAnchor.AboveBar;
+                float ringY = up ? y - 2f * triangleHeight : y + triangleHeight;
+                LetterDisc(ctx, x, ringY, ringRadius, triangleHeight, comp.MarkerText, color);
 
-                if (textFont != null)
-                {
-                    var metrics = textFont.Metrics;
-                    float baseline = ringY - (metrics.Ascent + metrics.Descent) / 2f;
-                    using var textLease = SKPaintPool.Rent();
-                    var textPaint = textLease.Paint;
-                    textPaint.Color = color;
-                    textPaint.Style = SKPaintStyle.Fill;
-                    textPaint.IsAntialias = true;
-                    ctx.Canvas.DrawText(comp.MarkerText, x, baseline, SKTextAlign.Center, textFont, textPaint);
-                }
+                double bits = dataIdx < badges.Length ? badges[dataIdx] : double.NaN;
+                double wordIndex = dataIdx < words.Length ? words[dataIdx] : double.NaN;
+                string? word = ComponentPictures.BadgeWord(comp, wordIndex);
+                if (ComponentPictures.BadgeRows(bits) > 0 || word != null)
+                    ComponentPictures.DrawBadges(ctx, comp, x, up ? ringY - ringRadius : ringY + ringRadius, !up, triangleHeight, bits, word, color,
+                        ComponentPictures.BadgePlate(comp, wordIndex));
             }
+        }
+
+        /// <summary>
+        /// A marker's letter disc: filled in <paramref name="color"/> with the letter cut out in
+        /// the chart's background; with no letter, a plain ring.
+        /// </summary>
+        private static void LetterDisc(RenderContext ctx, float x, float y, float radius, float triangleHeight, string? letter, SKColor color)
+        {
+            using var discLease = SKPaintPool.Rent();
+            var disc = discLease.Paint;
+            disc.Color = color;
+            disc.IsAntialias = true;
+            if (string.IsNullOrEmpty(letter))
+            {
+                disc.Style = SKPaintStyle.Stroke;
+                disc.StrokeWidth = Math.Max(ctx.Density, triangleHeight * 0.065f);
+                disc.StrokeCap = SKStrokeCap.Round;
+                ctx.Canvas.DrawCircle(x, y, radius, disc);
+                return;
+            }
+            disc.Style = SKPaintStyle.Fill;
+            ctx.Canvas.DrawCircle(x, y, radius, disc);
+            using var font = new SKFont(MarkerTextTypeface, Math.Max(3f * ctx.Density, radius * 1.4f));
+            var metrics = font.Metrics;
+            float baseline = y - (metrics.Ascent + metrics.Descent) / 2f;
+            using var textLease = SKPaintPool.Rent();
+            var textPaint = textLease.Paint;
+            textPaint.Color = ctx.Theme.Background.WithAlpha(255);
+            textPaint.Style = SKPaintStyle.Fill;
+            textPaint.IsAntialias = true;
+            ctx.Canvas.DrawText(letter, x, baseline, SKTextAlign.Center, font, textPaint);
         }
 
         /// <summary>
         /// Renders a fixed downward-pointing triangle at each bar's value Y. Direction is always down,
         /// regardless of value sign — use when the indicator pre-determines bearish direction.
-        /// Size = comp.Thickness * 3 (same as Arrow).
+        /// Size = comp.Thickness * 3 (same as Arrow). With a <see cref="ComponentConfig.MarkerText"/>
+        /// a letter disc sits over it (the original's 🅡 over a right translated top's ▼), and a
+        /// bar's <see cref="ComponentCompanions.Badge"/> signs sit over that (its ✅ over a
+        /// confirmation's ▼).
         /// </summary>
         public static void RenderTriangleDown(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
@@ -1412,6 +1438,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth  = ctx.Width / ctx.ViewportLength;
             float halfBar   = barWidth / 2.0f;
             float arrowSize = ClampMarkerExtent(Math.Max(comp.Thickness * 3f, 6f) * ctx.Density, ctx);
+            var badges = series.GetComponentData(comp.Name + ComponentCompanions.Badge);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -1434,6 +1461,17 @@ namespace AccessibleTrader.Core.Services.Rendering
                 var p = lease.Paint;
                 p.Color = col; p.Style = SKPaintStyle.Fill; p.IsAntialias = true;
                 ctx.Canvas.DrawPath(path, p);
+
+                float edge = y;
+                if (!string.IsNullOrEmpty(comp.MarkerText))
+                {
+                    float radius = arrowSize * 0.45f;
+                    LetterDisc(ctx, x, y - arrowSize, radius, arrowSize, comp.MarkerText, col);
+                    edge = y - arrowSize - radius;
+                }
+                double bits = dataIdx < badges.Length ? badges[dataIdx] : double.NaN;
+                if (ComponentPictures.BadgeRows(bits) > 0)
+                    ComponentPictures.DrawBadges(ctx, comp, x, edge, down: false, arrowSize, bits, null, col);
             }
         }
 

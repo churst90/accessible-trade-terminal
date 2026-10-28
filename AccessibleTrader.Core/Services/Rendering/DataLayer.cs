@@ -62,6 +62,15 @@ namespace AccessibleTrader.Core.Services.Rendering
                         if (!DrawsFill(s.Config, fill)) continue;
                         StandardRenderers.RenderCloudFill(ctx, s, fill);
                     }
+
+                    // A component's boxes and full-height lines last (Cipher C's translation
+                    // boxes, live timing windows and dotted lines at its lows and tops).
+                    foreach (var comp in s.Components)
+                    {
+                        if (!comp.IsVisible || comp.IsEnabled == false || !comp.IsDrawn) continue;
+                        if (comp.BoxAlpha > 0) ComponentPictures.RenderBoxes(ctx, s, comp);
+                        if (comp.MarkLineAlpha > 0) ComponentPictures.RenderMarkLines(ctx, s, comp);
+                    }
                 }
             }
 
@@ -178,13 +187,17 @@ namespace AccessibleTrader.Core.Services.Rendering
                                 // for forward compatibility (e.g. new types added by plugins).
                                 break;
                         }
-                        // A marker's printed number (Cipher C's 49D over a daily low), drawn
-                        // after the marker on the other side of the bar.
+                        // A marker's printed number (Cipher C's 49D beside a daily low), drawn
+                        // after the marker, to its right.
                         if (ValueLabelRenderer.HasCompanionLabel(s, comp))
                             ValueLabelRenderer.Render(ctx, s, comp);
-                        // A picture the component carries (Cipher C's cycle arc on its window).
+                        // A picture the component carries (Cipher C's cycle wave on its window).
                         if (comp.DrawsPathInEffect())
+                        {
+                            if (!string.IsNullOrEmpty(comp.PathColorHex) && SKColor.TryParse(comp.PathColorHex, out var pathColour))
+                                paint.Color = pathColour;
                             StandardRenderers.RenderPath(ctx, s, comp, paint);
+                        }
                     }
                 }
 
