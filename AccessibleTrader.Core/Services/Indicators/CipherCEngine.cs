@@ -105,14 +105,18 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// longest weekly cycle (28 or 26) from the newest, nearer only in its place when lower. The
     /// weekly low it calls confirmed, which its week count runs from, is the one before the newest.
     /// On the original's own daily lows over its whole history (nineteen assets, weekly lows after
-    /// its first) this draws 646 of its 713 weekly lows with 66 others (F1 0.907, the rules before
-    /// 0.837): metals 0.848 (was 0.772), the rest 0.913 (was 0.843). On this engine's daily lows,
-    /// run from the chart's first bar, 0.839 (was 0.794). The machine counts daily lows, so a later
-    /// start can leave it a daily low out of step for a while (within 32 daily lows on the nineteen
-    /// assets' candles). The machine was read from the 2022-26 replays; before 2022 the non-metal
-    /// rule scores 0.912 there (the rules before 0.840). The metals' week margins were fitted on the
-    /// whole history; fitted on either side of 2022 alone they score 0.82 and 0.69 on the other
-    /// (the rule before, 0.81 and 0.68), so most of the metals' gain is in sample. After some
+    /// its first) this draws 699 of its 713 weekly lows with 14 others (F1 0.980): metals 0.848, the
+    /// rest 0.994 (643 of 646, 5 others: the Dow's first years and two live candidates; before 2022
+    /// 0.993, from 2022 0.995). On this engine's daily lows, run from the chart's first bar, 0.925
+    /// (metals 0.815, the rest 0.936). The deep double's rule (under the daily low before the weekly
+    /// low) was read from the original's whole-history drawings: after a candidate made a weekly low,
+    /// the next daily low was a weekly low too in 36 of 40 cases when under the daily low before the
+    /// weekly low and in 0 of 174 when not; the four exceptions are all under 16 bars after it, and
+    /// the 16 are fitted (15 and 18 score lower). The machine counts daily lows, so a later start can
+    /// leave it a daily low out of step for a while (within 32 daily lows on the nineteen assets'
+    /// candles). The machine was read from the 2022-26 replays. The metals' week margins were fitted
+    /// on the whole history; fitted on either side of 2022 alone they score 0.82 and 0.69 on the
+    /// other (the rule before, 0.81 and 0.68), so most of the metals' gain is in sample. After some
     /// candidates are made weekly lows the original moves its reference on by one daily low; nothing
     /// tried separates those cases (supplied from its replays they would add 2 weekly lows on gold).
     /// The original has no weekly-chart mode ("Timeframe Not Optimised"), so on a weekly chart the
@@ -139,7 +143,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle (rounded down) before it is confirmed
         public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
         public const double FarDoubleCycles  = 1.25;  // a first daily low under the weekly low this many shortest daily cycles after it is a weekly low too
-        public const double DoubleDepth      = 0.98;  // ... or one after a candidate made a weekly low this far under the weekly low before
+        public const int    DoubleMinBars    = 16;    // ... or one after a candidate made a weekly low, under the daily low before it, at least this many bars after it
         public const double WeeksShortOfMax  = 8;     // metals: a new weekly low this many weeks short of the longest weekly cycle from the newest
         public const double DoubleWeeksShortOfMax = 14; // metals: a double this many weeks short of it
 
@@ -791,7 +795,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// when the second is not under it and either F is under U at least
         /// <see cref="FarDoubleCycles"/> shortest daily cycles (<paramref name="dailyMin"/>) after it
         /// (off with <paramref name="farDoubles"/> false, Ether), or U was a candidate made a weekly
-        /// low, more than <see cref="DoubleDepth"/> under the weekly low before, and F is not under U.
+        /// low (so F, which judged it, is not under it) and F is under the daily low before U and at
+        /// least <see cref="DoubleMinBars"/> bars after U.
         /// <see cref="TierRun.Lows"/> are the weekly lows at the end (the live candidate among them),
         /// <see cref="TierRun.FoundAt"/> the bar each was drawn, <see cref="TierRun.ConfirmedAt"/> the
         /// bar each became a weekly low (-1 for the candidate). <see cref="TierRun.LastLowAt"/> is the
@@ -814,6 +819,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double Low(int i) => lows[i];
             int cand = -1, anchor = -1, last = -1;
             bool fromCandidate = false;                       // the newest weekly low was a candidate made one
+            int candPrev = -1, uPrev = -1;                    // the daily low before the candidate; before the newest weekly low, when fromCandidate
             double replaced = double.NaN;
             for (int t = 0; t < n; t++)
             {
@@ -833,7 +839,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         }
                         else
                         {
-                            Add(cand); after.Clear(); after.Add(d); fromCandidate = true;
+                            Add(cand); uPrev = candPrev; after.Clear(); after.Add(d); fromCandidate = true;
                         }
                         cand = -1;
                     }
@@ -843,12 +849,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                         if (after.Count == 2)
                         {
                             int u = weekly[^1], f = after[0], s = after[1];
-                            int before = weekly.Count > 1 ? weekly[^2] : -1;
                             bool doubled = Low(s) >= Low(f)
                                 && ((farDoubles && Low(f) < Low(u) && f - u >= FarDoubleCycles * dailyMin)
-                                    || (fromCandidate && before >= 0 && Low(u) < DoubleDepth * Low(before) && Low(f) >= Low(u)));
+                                    || (fromCandidate && uPrev >= 0 && Low(f) < Low(uPrev) && f - u >= DoubleMinBars));
                             if (doubled) { Add(f); after.RemoveAt(0); fromCandidate = false; }
-                            else { cand = s; drawnOn[s] = t; }
+                            else { cand = s; candPrev = f; drawnOn[s] = t; }
                         }
                     }
                 }

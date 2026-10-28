@@ -26,12 +26,21 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C's deep double compares with the daily low before the weekly low (2026-10-27,
+>   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 24).** Weekly F1 as the app
+>   runs 0.839 → 0.925 (non-metals 0.936, metals 0.815); on the original's own daily lows the
+>   non-metals are 0.994 (11 of 14 assets exact). Cody to look at Apple's and Ether's daily charts,
+>   where most of the gain is. Open:
+>   - Found and fitted (16 bars) on the whole history; not held out.
+>   - Marathon one weekly low worse (0.89 → 0.86).
+>   - The metals (GDXJ 0.55, Silver 0.70) and the non-metals' daily-low differences (EUR/USD, the
+>     dollar, the Nasdaq, Coinbase) are what is left of the weekly misses.
 > - [ ] **Cipher C's weekly tier is one state machine, and by weeks on the metals (2026-10-27,
 >   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 23).** Read from the
 >   original's replays (its table's two week counts, bar by bar). Weekly F1 as the app runs, from the
 >   chart's first bar, 0.794 → 0.839; on the original's own daily lows 0.837 → 0.907. Cody to look at
 >   a Dow and a gold daily chart: the weekly marks should now sit where the original's do. Open:
->   - Worse on GDXJ (0.76 → 0.55), Bitcoin, MicroStrategy, GDX, Apple and oil.
+>   - Worse on GDXJ (0.76 → 0.55), Bitcoin and GDX; MicroStrategy, Apple and oil are now better (section 24).
 >   - The metals' margins are mostly in sample.
 >   - The original sometimes moves its reference on by one daily low after a fixed candidate;
 >     nothing tried separates those cases (worth 2 weekly lows on gold).

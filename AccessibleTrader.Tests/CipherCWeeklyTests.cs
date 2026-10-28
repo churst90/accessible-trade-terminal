@@ -26,7 +26,7 @@ public class CipherCWeeklyTests
     public void The_rules_constants_are_the_ones_read_from_the_original()
     {
         Assert.Equal(1.25, CipherCEngine.FarDoubleCycles);
-        Assert.Equal(0.98, CipherCEngine.DoubleDepth);
+        Assert.Equal(16, CipherCEngine.DoubleMinBars);
         Assert.Equal(8, CipherCEngine.WeeksShortOfMax);
         Assert.Equal(14, CipherCEngine.DoubleWeeksShortOfMax);
     }
@@ -163,43 +163,54 @@ public class CipherCWeeklyTests
     }
 
     /// <summary>
-    /// A deep double: after a candidate is made a weekly low more than 2% under the weekly low
-    /// before it, the first daily low after it is a weekly low too when it is not under it and the
-    /// second is not under the first.
+    /// A deep double: after a candidate is made a weekly low, the first daily low after it (which
+    /// judged it, so is not under it) is a weekly low too when it is under the daily low before the
+    /// candidate, at least 16 bars after it, and the second is not under the first.
     /// </summary>
     [Theory]
-    [InlineData(97, true)]    // 3% under 100
-    [InlineData(98, false)]   // 2%: not more
-    public void A_first_daily_low_after_a_deep_weekly_low_made_from_a_candidate_is_a_double(double candidate, bool doubled)
+    [InlineData(70, 105, true)]    // 20 bars on, under 110
+    [InlineData(70, 110, false)]   // level with the daily low before: not under it
+    [InlineData(66, 105, true)]    // 16 bars on
+    [InlineData(65, 105, false)]   // 15 bars on
+    public void A_first_daily_low_after_a_candidate_made_a_weekly_low_and_under_the_daily_low_before_it_is_a_double(int first, double firstLow, bool doubled)
     {
         var w = Weekly(300,
-            (10, 100, 20), (30, 110, 40),
-            (50, candidate, 60),   // the candidate
-            (70, 98, 80),          // not under it: 50 is a weekly low; 70 the first after it
-            (90, 99, 100));        // the second, not under the first
+            (10, 100, 20),
+            (30, 110, 40),                    // the daily low before the candidate
+            (50, 100, 60),                    // the candidate
+            (first, firstLow, first + 10),    // not under it: 50 is a weekly low, this the first after it
+            (90, 112, 100));                  // the second, not under the first
+        Assert.Equal(100, w.Confirmed[first + 10]);
         if (doubled)
         {
-            Assert.Equal(new[] { 10, 50, 70 }, w.Lows);
-            Assert.Equal(new[] { 20, 80, 100 }, w.ConfirmedAt);
+            Assert.Equal(new[] { 10, 50, first }, w.Lows);
+            Assert.Equal(new[] { 20, first + 10, 100 }, w.ConfirmedAt);
             Assert.Equal(50, w.LastLowAt[100]);
-            Assert.Equal(candidate, w.Confirmed[100]);
+            Assert.Equal(100, w.Confirmed[100]);
         }
         else
         {
             Assert.Equal(new[] { 10, 50, 90 }, w.Lows);
-            Assert.Equal(new[] { 20, 80, -1 }, w.ConfirmedAt);
+            Assert.Equal(new[] { 20, first + 10, -1 }, w.ConfirmedAt);
             Assert.True(double.IsNaN(w.Confirmed[100]));
         }
     }
 
     /// <summary>A weekly low made by undercutting a candidate is not one made from a candidate: the
-    /// deep double does not follow it.</summary>
+    /// deep double does not follow it, though 70 is under the daily low before 52 (and the one before
+    /// the last candidate made a weekly low, 20), 18 bars on.</summary>
     [Fact]
     public void No_deep_double_follows_a_weekly_low_made_by_an_undercut()
     {
-        var w = Weekly(300, (10, 100, 20), (30, 110, 40), (50, 105, 60), (52, 97, 80), (70, 98, 90), (90, 99, 100));
-        Assert.Equal(new[] { 10, 52, 90 }, w.Lows);
-        Assert.Equal(new[] { 20, 80, -1 }, w.ConfirmedAt);
+        var w = Weekly(300,
+            (10, 100, 20), (20, 120, 30),
+            (30, 115, 40),    // the candidate
+            (40, 116, 50),    // not under it: 30 is a weekly low; 10 bars on, too near for a double
+            (50, 118, 60),    // the next candidate
+            (52, 97, 70),     // under it: cancelled, 52 is a weekly low
+            (70, 98, 80), (90, 99, 100));
+        Assert.Equal(new[] { 10, 30, 52, 90 }, w.Lows);
+        Assert.Equal(new[] { 20, 50, 70, -1 }, w.ConfirmedAt);
     }
 
     // ── Gold, Silver and the miners ──

@@ -1122,7 +1122,8 @@ whole-history drawings on nineteen assets (`strategy-lab-data/cf-tv-export/ctz/w
    - F is under U at least 1.25 shortest daily cycles after it (the far double; off on Ether:
      F1 0.82 with it, 0.88 without), or
    - U was a candidate made a weekly low, U is more than 2% under the weekly low before it, and F is
-     not under U (the deep double).
+     not under U (the deep double). **Superseded by section 24:** F under the daily low before U, at
+     least 16 bars after U.
 5. The confirmed weekly low, which the week count runs from, is the one before the newest.
 
 **Gold, Silver and the miners** (`CipherCEngine.WeeklyByWeeks`, `CyclePreset.WeeklyByWeeks`). The
@@ -1176,3 +1177,71 @@ weeks for Gold and Silver, 26 for the miners):
 match the Python models fed the C# daily lows. The weekly lows are equal on all nineteen, and so
 are the non-metal cancellations. On a metal bar that cancels both the candidate and U, the engine
 carries U.
+
+## 24. The deep double: under the daily low before the weekly low (2026-10-27)
+
+Replaces section 23's deep double (U more than 2% under the weekly low before it). The far double,
+the candidate and the metals are unchanged.
+
+**The rule** (`CipherCEngine.WeeklyFromDaily`, `CipherCEngine.DoubleMinBars`). U is a candidate
+made a weekly low; M is the daily low before U; F, the first daily low after U, judged U, so F is
+not under U. F is a weekly low of its own when the second daily low after U is not under F and:
+
+- F is under M, and
+- F is at least 16 bars after U.
+
+**How it was found.** On the original's whole-history drawings, every pair of weekly lows was
+listed with the daily lows around the newer one (`wg0.py`, `wg1.py`, `wg2.py`; the model is
+`wt3g.py`; all in the private lab's `ctz/weekly2`). The candidate cases split on one comparison:
+
+| After a candidate made a weekly low, second daily low not under the first | F under M | F not under M |
+|---|---|---|
+| F is a weekly low too | 36 | 0 |
+| F is not | 4 | 174 |
+
+On these 214 cases the 2% depth rule is wrong 24 times; F under M and at least 16 bars after U is
+wrong on none. The four exceptions in the table are all under 16 bars: two of the dollar's (14
+bars each) and two of Ether's (12 and 15). The cases are counted on the original's own lows, with
+"a candidate made a weekly low" read as one daily low between the two weekly lows (`wg2.py`).
+
+**The 16 bars are fitted.** On the original's own daily lows, non-metals:
+
+| Minimum bars, U to F | 0 | 13–14 | 15 | **16–17** | 18 | 20 | 22 |
+|---|---|---|---|---|---|---|---|
+| F1 | 0.978 | 0.985 | 0.990 | **0.994** | 0.991 | 0.985 | 0.981 |
+
+As a share of the shortest daily cycle, 0.8 scores 0.984; in weeks (3), 0.983. The far double's
+1.25 cycles is still the best (1.2: 0.979, 1.3: 0.993, 1.4: 0.961), and still off on Ether
+(on: 0.985).
+
+**Scores**, weekly lows after the original's first, exact / extra / missed, F1:
+
+| Daily lows fed in | Section 23 | This rule |
+|---|---|---|
+| The original's own, non-metals | 590 / 57 / 56, 0.913 | 643 / 5 / 3, 0.994 |
+| — before 2022 | 0.912 | 0.993 |
+| — from 2022 | 0.913 | 0.995 |
+| The original's own, all nineteen | 646 / 66 / 67, 0.907 | 699 / 14 / 14, 0.980 |
+| Cipher C's, from the chart's first bar (the app), all | 595 / 111 / 118, 0.839 | 657 / 51 / 56, 0.925 |
+| — non-metals | 0.841 | 0.936 |
+| — metals | 0.815 | 0.815 |
+
+- **On the original's own daily lows,** 11 of the 14 non-metal assets now match exactly. The rest:
+  the Dow's first years, 3 extra and 3 missed (one daily low out of step until an undercut), the
+  dollar 1 extra and oil 1 extra (both candidates at the live edge the original had not drawn yet).
+- **By asset, on Cipher C's own daily lows**, before → after:
+  - Better: Apple 0.73 → 1.00, MicroStrategy 0.86 → 1.00, Ether 0.69 → 0.97, Riot 0.71 → 0.89,
+    the S&P 0.81 → 0.94, Platinum 0.84 → 0.91, oil 0.90 → 0.94, the dollar 0.88 → 0.89, the Dow
+    0.985 → 0.992.
+  - Worse: Marathon 0.89 → 0.86 (one more extra).
+  - The same: the metals, Bitcoin, Coinbase, the Nasdaq, EUR/USD.
+- **Not held out.** The comparison was read from all the history at once, so the split by 2022 is
+  only a check that it holds on both sides, not a held-out test. Why the original compares with the
+  daily low before the weekly low is not known; no transcript or document describes it.
+- **The metals.** The same machine with this rule does not fit them (gold and Silver 0.61, the
+  miners 0.49–0.62 on the original's own daily lows): they keep `WeeklyByWeeks`.
+
+**Parity.** On the nineteen assets' candles (`ZzCipherCWeeklyParity`, not committed) the C# matches
+`wt3g.py` (minimum 16 bars) fed the C# daily lows (`wparcmp3.py`): weekly lows and cancellations
+equal on all nineteen. The app-path scores are `wcsscore.py`, before and after on the same
+candles.

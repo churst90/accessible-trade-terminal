@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: the deep double compares with the daily low before the weekly low (2026-10-27)
+
+- **What changed:** in `CipherCEngine.WeeklyFromDaily`, after a candidate is made a weekly low (U),
+  the first daily low after it (F) is a weekly low of its own when the second is not under F, F is
+  under the daily low before U, and F is at least `DoubleMinBars` (16) bars after U. This replaces
+  the deep double of the entry below (U more than 2% under the weekly low before it;
+  `DoubleDepth` is gone). The far double, the candidate and the metals' `WeeklyByWeeks` are
+  unchanged.
+- **Why:** on the original's whole-history drawings, the 214 cases after a candidate became a
+  weekly low (second daily low not under the first) split on one comparison: F was a weekly low in
+  36 of 40 cases when under the daily low before U and in 0 of 174 when not. The four exceptions
+  are all under 16 bars. The 2% rule got 24 of the 214 wrong. CIPHER_C_DESIGN section 24.
+- **Numbers (private captures),** weekly lows after the original's first, F1:
+  - On the original's own daily lows, non-metals 0.913 → 0.994 (643 exact, 5 extra, 3 missed; 11
+    of 14 assets exact). All nineteen 0.907 → 0.980. Before 2022 0.912 → 0.993, from 2022 0.913 →
+    0.995.
+  - As the app runs, on Cipher C's daily lows from the chart's first bar, 0.839 → 0.925 (657 / 51
+    / 56; non-metals 0.841 → 0.936; metals 0.815, unchanged).
+  - Better: Apple 0.73 → 1.00, MicroStrategy 0.86 → 1.00, Ether 0.69 → 0.97, Riot 0.71 → 0.89,
+    the S&P 0.81 → 0.94, Platinum 0.84 → 0.91, oil 0.90 → 0.94, the dollar and the Dow by 0.01.
+    Worse: Marathon 0.89 → 0.86 (one more extra).
+- **Tests:** `CipherCWeeklyTests`: the deep-double test is a theory over its edges (F under or not
+  under the daily low before U; 16 and 15 bars after U); the no-deep-double-after-an-undercut test
+  now has an earlier candidate made a weekly low, so it fails if the undercut does not clear the
+  rule; the constants test pins 16. On the nineteen assets' candles the C# matches the Python model
+  (uncommitted harness). Seven sabotages went red: `<=` for `<` against the daily low before U,
+  `>` for `>=` on the bars, 15 bars, the rule after any weekly low (not only a candidate made one),
+  the weekly low before U in place of the daily low before it, the second daily low remembered as
+  the one before the candidate, and no bar limit.
+- **Caveats:** the comparison and the 16 bars were read from all the history at once; the split by
+  2022 is a check on both halves, not a held-out test. Why the original compares with the daily
+  low before the weekly low is not known. The metals still do not fit this machine (0.49–0.62 with
+  it) and stay at 0.815 in the app; GDXJ 0.55 and Silver 0.70 are the weakest. The remaining app
+  misses on the non-metals come from Cipher C's daily lows (EUR/USD 0.88, the dollar 0.89, the
+  Nasdaq 0.90, Coinbase 0.88, Marathon 0.86), not this rule. Not seen or heard in the app.
+
 ### Cipher C: the weekly tier is one state machine, and by weeks on the metals (2026-10-27)
 
 - **What changed:** `CipherCEngine.WeeklyFromDaily` replaces `WeeklyFromTwoDaily`,
