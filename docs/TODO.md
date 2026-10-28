@@ -26,6 +26,16 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cycle Position, a new indicator (2026-10-28, built, NOT seen; see CHANGES and
+>   `docs/CYCLE_POSITION_DESIGN.md`).** Cipher C's picture with one rule for every asset and windows
+>   learned from the chart's own cycles. Its window held 61% of cycles, blind too, but it is twice
+>   as wide as Cipher C's and no sharper per day. Left:
+>   - Cody to compare it with Cipher C on a daily Bitcoin and an untuned chart (Google, AUDUSD), and
+>     to hear the bar detail and the table.
+>   - Should the "low had come" share be recalibrated above 65% (it says 90% when 2 in 3 have come)?
+>     That is a fitted map; not done.
+>   - Weekly from daily is always 2 daily cycles. Is a weekly window of its own worth anything?
+>   - Merge, push and deploy: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and
 >   CIPHER_C_DESIGN section 37).** Asked for by Cody so the yearly lows carry on after the original's
 >   hand-entered dates stop. Off by default: a tuned asset draws its dates, an untuned one none. On:

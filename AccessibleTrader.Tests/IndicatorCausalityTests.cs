@@ -308,6 +308,15 @@ namespace AccessibleTrader.Tests
             // measured in CipherCDailyTests.A_prepend_changes_the_daily_lows_briefly_and_the_weekly_chain_for_longer.
             "CIPHER_C.WCL Confirmed",
             "CIPHER_C.Weekly Timing Window",
+            // Cycle Position picks its weekly lows the same way (the same chain), and it LEARNS its
+            // windows from the chart's own past cycles: older bars are more cycles, so a window, and
+            // with it a confirmation's confluence (a normal length is one inside the learned window),
+            // can differ. Inherent to learning from the history on the chart; each bar still uses
+            // only cycles finished by it — pinned prefix by prefix in
+            // CyclePositionProviderTests.Nothing_on_a_bar_changes_when_later_bars_arrive.
+            "CYCLE_POSITION.DCL Confirmed",
+            "CYCLE_POSITION.WCL Confirmed",
+            "CYCLE_POSITION.Weekly Timing Window",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
@@ -610,6 +619,10 @@ namespace AccessibleTrader.Tests
             "CIPHER_C.YCL Confirmed",
             // Its yearly window (2026-10-28) counts from a yearly low, so likewise.
             "CIPHER_C.Yearly Timing Window",
+            // Cycle Position's yearly tier, the same: years of daily bars, pinned on Bitstamp BTC daily in
+            // CyclePositionProviderTests.Nothing_on_a_bar_changes_when_later_bars_arrive.
+            "CYCLE_POSITION.YCL Confirmed",
+            "CYCLE_POSITION.Yearly Timing Window",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",

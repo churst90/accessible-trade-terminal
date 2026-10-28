@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A new indicator, Cycle Position: where the chart is in its cycles (2026-10-28)
+
+- **What it is** (`docs/CYCLE_POSITION_DESIGN.md`): a separate indicator, Cycles tab, drawn with
+  all of Cipher C's marks. Cipher C is unchanged and stays the faithful copy of the original.
+- **The design:**
+  - One daily rule for every asset (the original's default). The one number per asset is the
+    shortest daily cycle: the symbol's own, else 32, or set by hand.
+  - Weekly lows picked from the daily lows, counted from the newest weekly low.
+  - Yearly lows found from the price.
+  - Each tier's window is learned from the chart's own past cycles (20th to 80th percentile, once 6
+    daily or 4 weekly or yearly cycles are known).
+  - EARLY / DUE / LATE under the held daily low, in place of LOW/MID/HIGH.
+  - Each bar says what share of past cycles still unconfirmed that far in had already made their
+    low.
+  - A running hit rate: each cycle scored against the window it began with.
+  - Which daily cycle of the weekly one this is.
+  - Cancelled lows and confirmation marks on by default.
+- **Results** (walk-forward on its own lows; blind = 18 held-out daily captures never looked at
+  before, scored once after the rules froze):
+  - The daily window held 60.3% of 8,638 cycles on 46 lab dailies, 60.8% blind. Every chart was
+    50-68%. Cipher C's fixed windows held 27.6% and 31.0%.
+  - **But the learned window is about twice as wide.** Narrowed to Cipher C's width, it holds 32-33%
+    against Cipher C's 28-31%: no sharper per unit of width. The gain is that it says how often it
+    holds, not that it holds more per day.
+  - "Low had come by now": calibrated up to about 65% (said 50-59%, came 58%), overstated above
+    (said 90%+, came 63-70%). Brier skill 0.27, blind 0.24.
+  - LATE bars: the low had already happened 70%, blind 65%. EARLY: 7%.
+  - Against the original's lows, blind, on its 12 untuned dailies: daily F1 .968, weekly .930
+    (Cipher C .969, .934). On tuned assets it is lower (daily .79-.90), because the per-asset rules
+    are left out on purpose. Yearly from the price: 28 of 57 within 30 days.
+- **Wiring:** registered in the Blazor, WebHost and lab hosts; its own table (`ChartInfoTable`) and
+  bar detail (`BarDetailService`).
+- **Refactor:** `CipherCProvider` was split so the new provider can share its drawing (`Draw` with a
+  `Plan`). Cipher C's output was checked byte-identical on the 39 captures before and after.
+- **Tests:** 11 new `CyclePositionProviderTests`. They cover:
+  - no repaint over six cuts of Bitcoin's history;
+  - learning worked by hand;
+  - hit rate, phase, nest and share properties;
+  - the count's three sources;
+  - Cipher C's components;
+  - bars off a daily chart.
+
+  `IndicatorCausalityTests` exempts its confirmations and windows from the prepend check (a learned
+  window depends on the history before it). README 9730 -> 9746 (with the five yearly-from-price tests, not yet counted).
+- **Sabotages:** twelve red. One survived at first (scoring against the window at a cycle's end);
+  the hand-worked test was added for it, and for the percentile interpolation.
+- **Caveats:**
+  - The weekly cycle is always 2 daily cycles, by construction.
+  - Most charts have too few yearly cycles to learn a yearly window.
+  - The accessibility-lead review agent is not registered here; not run.
+  - Local branch only: not pushed, not seen or heard in the app.
+
 ### Cipher C can find its yearly lows from the price (2026-10-28)
 
 - **What changed** (CIPHER_C_DESIGN section 37): a new setting on the Cycles tab, **Yearly lows found

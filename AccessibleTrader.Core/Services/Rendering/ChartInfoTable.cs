@@ -16,7 +16,7 @@ namespace AccessibleTrader.Core.Services.Rendering
     /// <summary>
     /// The tables the price pane's indicators draw in its bottom right corner, as TradingView
     /// scripts draw theirs: so far only Cipher C's, its cycle counts at the bar being read
-    /// (<see cref="CipherCProvider.TableRows"/>), with its own table switches. A visual mirror of what the chart already
+    /// (<see cref="CipherCProvider.TableRows"/>; Cycle Position's, <see cref="CyclePositionProvider.TableRows"/>), with its own table switches. A visual mirror of what the chart already
     /// speaks, as the status lines are, so the page marks it aria-hidden.
     /// </summary>
     public static class ChartInfoTable
@@ -26,9 +26,14 @@ namespace AccessibleTrader.Core.Services.Rendering
             var tables = new List<IndicatorTable>();
             foreach (var s in series)
             {
-                if (!s.IsVisible || s.IsDrawing || s.Pane != "Main"
-                    || !s.IndicatorCode.Equals(CipherCProvider.Code, StringComparison.OrdinalIgnoreCase)) continue;
-                var rows = CipherCProvider.TableRows(n => s.GetComponentData(n) is { Length: > 0 } a ? a : null, index, s.BuildParameterMap());
+                if (!s.IsVisible || s.IsDrawing || s.Pane != "Main") continue;
+                Func<string, double[]?> data = n => s.GetComponentData(n) is { Length: > 0 } a ? a : null;
+                IReadOnlyList<IReadOnlyList<TableCell>> rows;
+                if (s.IndicatorCode.Equals(CipherCProvider.Code, StringComparison.OrdinalIgnoreCase))
+                    rows = CipherCProvider.TableRows(data, index, s.BuildParameterMap());
+                else if (s.IndicatorCode.Equals(CyclePositionProvider.Code, StringComparison.OrdinalIgnoreCase))
+                    rows = CyclePositionProvider.TableRows(data, index, s.BuildParameterMap());
+                else continue;
                 if (rows.Count > 0) tables.Add(new IndicatorTable(s.Name, rows));
             }
             return tables;

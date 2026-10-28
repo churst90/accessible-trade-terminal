@@ -331,6 +331,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, MACloudProvider>();
             services.AddScoped<IIndicatorProvider, IchimokuProvider>();
             services.AddScoped<IIndicatorProvider, CipherCProvider>();
+            services.AddScoped<IIndicatorProvider, CyclePositionProvider>();
             services.AddScoped<IIndicatorProvider, CipherSProvider>();
             services.AddScoped<ICrossSeriesCache, CrossSeriesCache>();
             services.AddScoped<IIndicatorProvider, FundingRateProvider>();

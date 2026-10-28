@@ -408,6 +408,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 foreach (var w in Indicators.CipherCProvider.StateWords(series.GetComponentData, index, barDate))
                     yield return w;
             }
+            else if (code == Indicators.CyclePositionProvider.Code)
+            {
+                // Each tier's day against its learned window, the share of past cycles bottomed by
+                // now, the lower cycle it is in; on the focused series, the windows' hit rates.
+                foreach (var w in Indicators.CyclePositionProvider.StateWords(series.GetComponentData, index, barDate))
+                    yield return w;
+            }
         }
 
         private static double? LevelNamed(ChartSeries series, string name) =>
