@@ -39,6 +39,10 @@ All notable changes to this project will be documented in this file.
   it) and stay at 0.815 in the app; GDXJ 0.55 and Silver 0.70 are the weakest. The remaining app
   misses on the non-metals come from Cipher C's daily lows (EUR/USD 0.88, the dollar 0.89, the
   Nasdaq 0.90, Coinbase 0.88, Marathon 0.86), not this rule. Not seen or heard in the app.
+- **Held out, Heikin-Ashi bars** (the original's drawings on them were never used in fitting):
+  weekly F1 as the app runs, the Nasdaq 0.962 (0.821 before the weekly machine), gold 0.872
+  (0.698), the Dow 0.992, Bitcoin 0.900; on the original's own Heikin-Ashi daily lows the machine is
+  exact on the Dow, the Nasdaq and Bitcoin.
 
 ### Cipher C: the weekly tier is one state machine, and by weeks on the metals (2026-10-27)
 

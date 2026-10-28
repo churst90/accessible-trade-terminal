@@ -53,9 +53,10 @@
 >   Dow daily chart: lows cancelled later in the wait should now match. Open:
 >   - Fitted per asset. The Nasdaq, on the Dow's numbers, keeps its 6 late undercuts; why is unknown.
 >     GDXJ has one of each and keeps d / 3.
->   - The weekly tier on Heikin-Ashi bars, held out: weaker than on candles on the Nasdaq (0.894 →
->     0.821) and gold (0.744 → 0.698); the daily tier carries over (the Dow 0.914 → 0.923, gold 0.920
->     → 0.947). Not studied.
+>   - The weekly tier on Heikin-Ashi bars, held out: since the weekly machine and the deep double
+>     (section 24) the Nasdaq 0.962, gold 0.872, the Dow 0.992, Bitcoin 0.900 (was the Nasdaq 0.821,
+>     gold 0.698). On the original's own Heikin-Ashi daily lows the machine is exact on the Dow, the
+>     Nasdaq and Bitcoin, so Heikin-Ashi needs no rule of its own.
 >   - **Question for Cody: the yearly low.** The original's yearly mark (🅨) is a fixed date per
 >     tuned asset, not computed: Heikin-Ashi bars and every input leave all 23 checked dates where
 >     they are, and untuned assets draw none. Three choices: port the dates (the original's labels

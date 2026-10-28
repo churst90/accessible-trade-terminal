@@ -1173,6 +1173,21 @@ weeks for Gold and Silver, 26 for the miners):
   on by one daily low. Nothing tried separates those cases. Supplied from its replays, they add only
   2 weekly lows on gold (metals 0.848 → 0.879).
 
+**Held out: Heikin-Ashi bars.** The original's whole-history drawings on Heikin-Ashi bars (the Dow,
+the Nasdaq, Bitcoin, gold; never used in fitting) against Cipher C run on the same Heikin-Ashi bars
+from the first bar, weekly F1 (daily in brackets):
+
+| | Candles | Heikin-Ashi |
+|---|---|---|
+| The Dow | 0.992 (0.997) | 0.992 (0.997) |
+| The Nasdaq | 0.902 (0.987) | 0.962 (0.986) |
+| Bitcoin | 0.900 (0.978) | 0.900 (0.978) |
+| Gold (by weeks) | 0.900 (0.940) | 0.872 (0.968) |
+
+Before the weekly state machine the Heikin-Ashi weekly scores were the Nasdaq 0.821 and gold 0.698.
+On the original's own Heikin-Ashi daily lows the machine draws its weekly lows exactly on the Dow,
+the Nasdaq and Bitcoin (gold 0.829, as on candles). Scripts: `whasc.py`, `wha.py` in the lab.
+
 **Parity.** On the nineteen assets' candles (`ZzCipherCWeeklyParity`, not committed), the C# rules
 match the Python models fed the C# daily lows. The weekly lows are equal on all nineteen, and so
 are the non-metal cancellations. On a metal bar that cancels both the candidate and U, the engine
