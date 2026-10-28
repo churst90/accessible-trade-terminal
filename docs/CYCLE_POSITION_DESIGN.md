@@ -215,8 +215,10 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
 - **The windows are honest, not sharper.** Section 4.1.
 - **Above about 65% the "low had come" share overstates.** Section 4.2. It could be recalibrated
   on these charts (a fitted map from said to came), but that would be one more fitted table; not done.
-- **The weekly cycle is always two daily cycles,** by construction of the weekly-from-daily rule. It
-  says "daily cycle 1 or 2 of the weekly one", nothing more.
+- **A weekly cycle is 1 to 3 daily cycles, never more,** by construction of the weekly-from-daily
+  rule (about 2.25 on average; corrected 2026-10-28, this said "always two"). Its spoken nest says
+  only "daily cycle 1 or 2", so a third daily cycle is said as the second: a defect, left until the
+  weekly rule is decided (section 7).
 - **Too little yearly history to learn a yearly window** on most charts: Bitcoin's three yearly
   cycles since 2011 never reach the four needed.
 - **The shortest daily cycle is still per asset.** It is the one number per asset and cannot be read
@@ -260,3 +262,91 @@ Twelve sabotages, all red:
 `IndicatorCausalityTests` exempts the Cycle Position confirmations and weekly window from the
 prepend check. A learned window depends on how much history precedes it, so prepending bars
 changes it. The no-repaint property is what the provider's own test checks.
+
+## 7. Scored on the real low, and a weekly rule by time (2026-10-28)
+
+Cody: "a weekly cycle isn't always 2 daily ones, it could be anywhere from 3 to 5 ... the goal for
+the indicator is to be accurate to the numbers and the lows/highest/translation ... compare it to
+cf ... should it be based on how often the correct actual low is chosen?" No code changed; scratch
+scripts `lowscore.py`, `wsim.py`, `wsim2.py`.
+
+### 7.1 What section 4.1's percentages are
+
+They are how often a cycle's length fell in the window learned before it began, on the indicator's
+own lows. They do not say whether those were the right lows. The window is the 20th to 80th
+percentile, so it should hold about 6 in 10, not 8 in 10. A 10th to 90th percentile window holds
+about 80% (79.5% in the width study), 0.77 of the cycle's middle length wide.
+
+### 7.2 Is it the real low? Two scores
+
+- **Against the original's lows:** exact bar and within two bars, one to one, as F1. The two are
+  the same to the third decimal on daily charts, so the misses are whole lows, not bars.
+- **Against the price:** a low is the real low of its cycle when no bar between the cycle top
+  before it and the cycle top after it is lower. A top is the highest high between two lows of that
+  tier. The original's own labels are scored the same way.
+
+| Charts | Tier | Original | Cycle Position | Cipher C |
+|---|---|---|---|---|
+| Building set, daily charts | daily | 89.9% | 90.3% | 90.7% |
+| | weekly | 77.8% | 80.7% | 78.4% |
+| Blind set (cap17), daily charts | daily | 87.0% | 88.6% | 88.1% |
+| | weekly | 78.4% | 81.7% | 79.3% |
+
+All three pick the real daily low about 9 times in 10, and the real weekly low about 8 in 10. The
+original is no better at this than either copy. Where they differ is agreement with the original
+(section 4.5), not the price.
+
+**Tops.** Where both daily lows are the original's, the top is on the original's bar 99.8 to 100%
+of the time. The letter (left, middle, right) agrees 91.5% on the building set and 84.4% blind, the
+same for both copies. The original's own letters follow the bar-midpoint rule of its own lows 94.4%
+of the time on the building set since 2020, but only 81.7% on the 12 untuned blind charts (tuned
+92.3%). No fixed day and no calendar midpoint does better (75% and 81%). Some of the rest look like
+labels on a cycle that later changed (a top on bar 4 of 52 called right translated). Not decoded.
+
+### 7.3 How many daily cycles the original puts in a weekly one
+
+Counted on the original's own labels, daily charts:
+- **Most assets, 1 to 3.** About 9% hold 1, 52% hold 2, 36% hold 3 and 2% more on the blind set.
+- **Metals and miners, 3 to 10,** mostly 4 to 6. Their weekly rule is by weeks (`WeeklyByWeeks`).
+- **Cycle Position: 1 to 3.** About 2.25 on average.
+
+**The original's weekly lows mostly fall outside its own weekly table.** 335 of 1,353 weekly cycles
+(25%) land in the table's weekly range on the 36 daily charts. For example, the S&P table says 22 to
+31 weeks; its drawn weekly cycles have a median of 18 weeks, and 11 of 56 are in the table. The
+untuned default says 150 to 190 days; Google's median is 19 weeks, Doge's 12. Only the metals come
+near their table (medians 27 to 30 weeks against 20 to 28). On most assets the original's weekly low
+is every second daily low, as its count rule draws it, not the 3 to 5 daily cycles its table implies.
+
+### 7.4 A weekly rule by time
+
+The rule tried: the weekly low is the lowest daily low at least a gap after the newest weekly low,
+made one when the next daily low is not under it. A daily low under the weekly low before the gap
+either moves the weekly low to it ("replace") or is ignored. The gap is a fraction of the table's
+shortest weekly cycle. 36 daily charts, building and blind together; the original's daily lows and
+Cycle Position's.
+
+| Rule | Lows | Agrees with the original's weekly (F1) | Rest / metals | Real weekly low | Daily cycles per weekly |
+|---|---|---|---|---|---|
+| Count, as now | original's | .762 | .788 / .527 | 74.3% | 2 or 3 |
+| Gap 0.5 x min, replace | original's | .696 | .706 / .588 | 84.2% | 1–7, mostly 2–3 |
+| Gap 0.8 x min, replace | original's | .604 | .598 / .674 | 80.8% | 1–7, mostly 3–4 |
+| Gap 1.0 x min, replace | original's | .533 | .523 / .651 | 81.0% | 2–7+, mostly 3–5 |
+| Count, as now | Cycle Position's | .708 | .732 / .484 | 76.6% | 2 or 3 |
+| Gap 0.5 x min, replace | Cycle Position's | .665 | .676 / .542 | 85.7% | 1–7, mostly 2–3 |
+| Gap 0.8 x min, replace | Cycle Position's | .575 | .574 / .591 | 81.9% | 1–7, mostly 3–4 |
+
+("Count, as now" is a simplified replica without the engine's doubles; the engine's own count rule
+scores .994 on the original's daily lows away from the metals, section 4.5's lineage.)
+
+- **Every time rule agrees with the original less.** The longer the gap, the less, because the
+  original draws its weekly lows by count, not by its table.
+- **Every time rule picks the real weekly low more often:** 82 to 86% against 74 to 77%. The count
+  rule makes the second daily low the candidate however shallow it is.
+- **The number of daily cycles varies,** as Cody describes: 1 to 7 per weekly cycle. A gap of the
+  table's whole minimum gives mostly 3 to 5.
+- **On metals a time rule helps without a metals rule:** .53 to .65-.70 on the original's lows. The
+  engine's metals rule is still better there (.892).
+- **None lands in the table often.** At most 45% of the weekly cycles any rule draws fall inside the
+  table's range: weekly lengths spread too widely for a 22 to 31 week window.
+
+Not built. Which target the weekly tier should follow is Cody's call (TODO).

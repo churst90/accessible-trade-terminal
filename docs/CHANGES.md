@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: scored on the real low; the weekly rule studied (2026-10-28, docs only)
+
+- **Real low by price** (no bar lower between the tops either side). Daily: the original 87-90%,
+  Cycle Position 89-90%, Cipher C 88-91%. Weekly: 78%, 81-82%, 78-79%. None of the three is better
+  than the others at this.
+- **Tops:** where both daily lows agree, the same top bar 99.8-100%. The same letter 92% building,
+  84% blind. The original's own letters follow the midpoint rule only 82% on untuned charts.
+- **The original's weekly lows** fall in its own weekly table 25% of the time. On most assets it
+  draws 2 or 3 daily cycles per weekly cycle; only the metals draw 4 to 6.
+- **A weekly rule by time** picks the real weekly low more often (82-86% against 74-77%) and lets
+  the count vary (1-7). It agrees with the original's weekly lows less. Not built; Cody's call.
+- **Corrected:** CYCLE_POSITION_DESIGN said a weekly cycle is always two daily cycles; it is one to
+  three. The spoken nest still says only 1 or 2 (defect, in TODO).
+- Caveat: the blind captures (cap17) were scored again here; nothing was fitted on them.
+
 ### A new indicator, Cycle Position: where the chart is in its cycles (2026-10-28)
 
 - **What it is** (`docs/CYCLE_POSITION_DESIGN.md`): a separate indicator, Cycles tab, drawn with
