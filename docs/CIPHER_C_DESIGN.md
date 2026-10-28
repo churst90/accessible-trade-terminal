@@ -1308,3 +1308,19 @@ others, F1:
   an undercut within d / 3 of naming it, against 516 drops in the same position (price, grade, 🔄,
   the table's cells, the weekly label, the DSS, the path since naming; a boosted model reaches AUC
   0.66 only). Cipher C drops all of them.
+
+### Symbols the original does not tune, held out
+
+The original's daily marks on 36 captured charts it does not tune (stocks, ETFs, futures, CFDs,
+other feeds of the tuned assets; private bar replays, never fitted on) score the default count
+(section 17: 32 bars, the S&P's ranges) at pooled F1 0.949 with the d / 3 drop window (3,797 of
+3,999 marks, 204 others) against 0.905 dropping until due, and the window is better or level on
+every chart but two. So the default drops within d / 3, as built.
+
+The two exceptions are NASDAQ:COIN (0.408 on the default) and NASDAQ:MSTR (0.725), and they are
+not exceptions: the original tunes them, matching by ticker as it does on BATS:COIN and BATS:GDX
+(section 17). On their presets the same charts score 17 of 19 + 1 (0.919) and 25 of 28 + 2
+(0.909). Cipher C already gives them those presets (`PresetForSymbol` drops the exchange), so
+nothing changes; without them the default's pooled F1 is 0.955. The weakest default charts are
+other feeds of Bitcoin (COINBASE:BTCUSD 0.765, BINANCE:BTCUSDT 0.854), where the Bitcoin preset
+scores worse still (section 17).

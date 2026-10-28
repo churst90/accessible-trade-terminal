@@ -27,6 +27,10 @@ All notable changes to this project will be documented in this file.
   and no other (before, it allowed one miss and two extras); the faster-confirmation test builds its
   expected lows with the preset's drop rule. Sabotage: BTC without the flag turns the presets test and
   the weekly test red.
+- **Also checked, no change:** on 36 daily charts of symbols the original does not tune, the default
+  count's d / 3 window scores 0.949 against 0.905 until due, so the default keeps the window. The two
+  charts where it did badly, NASDAQ:COIN and NASDAQ:MSTR, are tuned by the original (by ticker), and
+  Cipher C already gives them their presets (0.919 and 0.909 there; section 25).
 - **Caveats:**
   - Bitcoin's 4-hour and weekly charts are one capture each; the weekly one has only 2 confirmed
     marks. The weekly chart still has one other low, and the original confirms nothing there after

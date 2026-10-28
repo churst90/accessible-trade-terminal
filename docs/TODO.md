@@ -36,6 +36,9 @@
 >   - Bitcoin weekly chart: one other low left; the original confirms nothing after its second mark.
 >   - The 17 early keeps on daily charts (an undercut within d / 3 that the original kept) stay
 >     unseparable from the 516 drops.
+>   - Checked, nothing to do: on 36 untuned daily charts the default keeps the d / 3 window (0.949
+>     against 0.905 until due); NASDAQ:COIN and NASDAQ:MSTR are tuned by ticker and already get
+>     their presets.
 > - [ ] **Cipher C's deep double compares with the daily low before the weekly low (2026-10-27,
 >   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 24).** Weekly F1 as the app
 >   runs 0.839 → 0.925 (non-metals 0.936, metals 0.815); on the original's own daily lows the
