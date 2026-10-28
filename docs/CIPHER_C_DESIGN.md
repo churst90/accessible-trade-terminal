@@ -568,6 +568,8 @@ replays (GDX, Bitcoin, Dow, SP:SPX, Nasdaq), 124 undercuts:
 
 ## 14. Weekly lows by counting daily lows: the dollar, the Dow, the S&P, the Nasdaq (2026-10-24)
 
+**Superseded (2026-10-27) by section 23**; kept as the record of what was tried.
+
 From the dollar on, the candle replays log every weekly label the original shows on every bar, and
 its table's two week counts ("Weeks Since Last WCL", the confirmed one, and the unconfirmed one).
 `strategy-lab-data/cf-tv-export/ctz/wcount.py` turns the counts back into weekly-low dates;
@@ -627,6 +629,8 @@ low on 21 of 27), Cipher C's daily lows 97 of 129 exact with 23 extra, check mar
 original's bar 13 of 17, weekly 31 of 57.
 
 ## 16. Weekly lows judged at the next daily low: Gold, Silver, the miners (2026-10-24)
+
+**Superseded (2026-10-27) by section 23**; kept as the record of what was tried.
 
 The 22-day assets (Gold, Silver, GDX, GDXJ, SILJ; all with a table shortest daily cycle of 22) did
 not fit either weekly rule. Their rule was read from GDXJ's candle replay, which logs every weekly
@@ -962,7 +966,7 @@ is fixed, as in Cipher C. A daily pending low's companions name the held low (`T
 
 Prepending history moves the weekly chain for longer than the old search did: the chain starts from
 the first bar, as the original's does. Pinned by a test (daily lows move only in the first 300 bars
-of 1400, weekly in the first 1100).
+of 1400; for the weekly chain since section 23, see "The start" there).
 
 ## 20. The pending low's LOW / MID / HIGH tag, and its 🔄 (2026-10-27)
 
@@ -1099,3 +1103,76 @@ above its week's low, and untuned assets (Platinum, Apple, EUR/USD) and the S&P,
 row in its table, draw none. They read as a table of dates per tuned asset. Cipher C's yearly tier
 is still its own computed one; porting the dates would put the original's labels in this public
 repo (TODO question for Cody).
+
+## 23. The weekly tier: one state machine, and by weeks on the metals (2026-10-27)
+
+Replaces sections 14 and 16 and the first rule's four-week margin. The rules were read from the
+original's candle replays (the table's two week counts, logged per bar, 2022–26) and checked on its
+whole-history drawings on nineteen assets (`strategy-lab-data/cf-tv-export/ctz/weekly2/`: `wt3.py`,
+`wt3f.py`, `wm3.py`, `we2e2.py`). Every step is acted on the bar a daily low is confirmed.
+
+**Everywhere but the metals** (`CipherCEngine.WeeklyFromDaily`). U is the newest weekly low.
+
+1. The second daily low after U is drawn at once as the candidate P.
+2. The next daily low judges it. Under P: P is cancelled, and that daily low is a weekly low at any
+   distance. Not under P: P is a weekly low, and that daily low counts as the first after it.
+3. A weekly low is never taken back.
+4. A "double": before P is drawn, the first daily low F after U is a weekly low of its own when the
+   second is not under F and either
+   - F is under U at least 1.25 shortest daily cycles after it (the far double; off on Ether:
+     F1 0.82 with it, 0.88 without), or
+   - U was a candidate made a weekly low, U is more than 2% under the weekly low before it, and F is
+     not under U (the deep double).
+5. The confirmed weekly low, which the week count runs from, is the one before the newest.
+
+**Gold, Silver and the miners** (`CipherCEngine.WeeklyByWeeks`, `CyclePreset.WeeklyByWeeks`). The
+same candidate, judged by distance from U, in weeks short of the table's longest weekly cycle (28
+weeks for Gold and Silver, 26 for the miners):
+
+- A new weekly low needs 8 weeks short of it (20 or 18 weeks). Nearer, a lower one takes U's place
+  and U is cancelled.
+- An undercut cancels the candidate, and the lower low is judged the same way. If it is neither far
+  enough nor under U, it is only the new reference, drawn nowhere.
+- A candidate neither far enough nor under U is dropped, not cancelled.
+- The double: the first daily low after the reference, under it, with the second not under it, is a
+  weekly low 14 weeks short (14 or 12 weeks) from U. Nearer, there is no double.
+
+**Scores**, weekly lows after the original's first, exact / extra / missed, F1:
+
+| Daily lows fed in | Rules before | These rules |
+|---|---|---|
+| The original's own | 582 / 96 / 131, 0.837 | 646 / 66 / 67, 0.907 |
+| — metals | 0.772 | 0.848 |
+| — the rest | 0.843 | 0.913 |
+| Cipher C's, from the chart's first bar (the app) | 0.794 | 0.838 (C#: 595 / 111 / 118, 0.839) |
+| — metals | 0.750 | 0.809 (C# 0.815) |
+| — the rest | 0.799 | 0.841 |
+
+- **Held out by time.** The machine was read from the 2022–26 replays. Before 2022, on the original's
+  daily lows, the non-metal rule scores 0.912 (the rules before, 0.840).
+- **The metals' margins were fitted on the whole history.** Fitted after 2022 only, they score 0.694
+  before 2022 (the rule before, 0.683). Fitted before 2022 only, they score 0.817–0.822 after (the
+  rule before, 0.814). Most of the metals' gain is in sample.
+- **By asset, on Cipher C's own daily lows**, before → after:
+  - Worse: GDXJ 0.76 → 0.55, Bitcoin 0.90 → 0.86, MicroStrategy 0.91 → 0.86, GDX 0.91 → 0.87,
+    Apple 0.74 → 0.72, oil 0.90 → 0.89.
+  - The same: the S&P 0.81.
+  - Better: the Dow 0.81 → 0.99, SILJ 0.75 → 0.96, gold 0.73 → 0.88, Coinbase 0.67 → 0.88,
+    EUR/USD 0.81 → 0.88, Silver 0.60 → 0.70, Ether 0.65 → 0.70, Platinum 0.78 → 0.84, and the rest
+    by 0.01–0.04.
+  - On the original's own daily lows GDXJ also falls, 1.00 → 0.78.
+- **The start.** The score from the chart's first bar (0.838) is below the one from the original's
+  first weekly low (0.855). The machine counts daily lows, so a different first daily low can leave
+  it one out of step until an undercut or a double brings it back. The original's earliest marks are
+  cut off by the chart's label limit, so where it starts cannot be read. Started 1–8 daily lows
+  later on real candles, the chain is back in step within 32 daily lows (most within 10). On the
+  test Bitcoin bars cut by 17–500, it agrees again by bar 1,188 of 5,416. On the 1,400-bar probe
+  series, with five weekly lows, it can stay out of step to the end.
+- **Not reproduced.** After some candidates are made weekly lows, the original moves its reference
+  on by one daily low. Nothing tried separates those cases. Supplied from its replays, they add only
+  2 weekly lows on gold (metals 0.848 → 0.879).
+
+**Parity.** On the nineteen assets' candles (`ZzCipherCWeeklyParity`, not committed), the C# rules
+match the Python models fed the C# daily lows. The weekly lows are equal on all nineteen, and so
+are the non-metal cancellations. On a metal bar that cancels both the candidate and U, the engine
+carries U.

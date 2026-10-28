@@ -327,15 +327,21 @@ public class CipherCDailyTests
 
     /// <summary>
     /// The daily tier starts from the chart's first bars, so older bars arriving in front can move
-    /// its first lows; it agrees again within 300 bars on every probe series. The weekly chain picked
-    /// from those lows keeps the difference longer (exempt from the 700-bar prepend guard in
-    /// <see cref="IndicatorCausalityTests"/>) but agrees again by bar 1,100 of 1,400.
+    /// its first lows; it agrees again within 300 bars on every probe series. The weekly tier picked
+    /// from those lows counts daily lows from the newest weekly low, so a different start can leave
+    /// it a daily low out of step until an undercut or a double brings it back: on the probe series
+    /// (five weekly lows in 1,400 bars) that can outlast the series (exempt from the 700-bar prepend
+    /// guard in <see cref="IndicatorCausalityTests"/>). On real bars it comes back: on Bitcoin's
+    /// 5,416 days, cut by 17 to 500 bars, on four presets' rules, by bar 1,200 (2026-10-27: 1,188).
     /// </summary>
     [Fact]
     public void A_prepend_changes_the_daily_lows_briefly_and_the_weekly_chain_for_longer()
     {
         string[] daily = { CipherCProvider.CompDclConfirmed, CipherCProvider.CompDailyWindow };
         string[] weekly = { CipherCProvider.CompWclConfirmed, CipherCProvider.CompWeeklyWindow };
+        static int LastDiff(Dictionary<string, double[]> part, Dictionary<string, double[]> whole, string c, int k) =>
+            Enumerable.Range(0, part[c].Length)
+                .LastOrDefault(j => !(double.IsNaN(part[c][j]) && double.IsNaN(whole[c][j + k])) && part[c][j] != whole[c][j + k], -1 - k) + k;
         int latestWeekly = -1;
         foreach (int flavour in CausalityProbeSeries.AllFlavours)
         {
@@ -344,104 +350,93 @@ public class CipherCDailyTests
             foreach (int k in new[] { 17, 40, 91, 140 })
             {
                 var part = CipherCProvider.Compute(full.Skip(k).ToArray(), new Dictionary<string, object>());
-                int LastDiff(string c) => Enumerable.Range(0, part[c].Length)
-                    .LastOrDefault(j => !(double.IsNaN(part[c][j]) && double.IsNaN(whole[c][j + k])) && part[c][j] != whole[c][j + k], -1 - k) + k;
-                foreach (var c in daily) Assert.True(LastDiff(c) < 300, $"series {flavour}, {k} prepended: {c} differs on bar {LastDiff(c)}");
+                foreach (var c in daily) Assert.True(LastDiff(part, whole, c, k) < 300, $"series {flavour}, {k} prepended: {c} differs on bar {LastDiff(part, whole, c, k)}");
+                foreach (var c in weekly) latestWeekly = Math.Max(latestWeekly, LastDiff(part, whole, c, k));
+            }
+        }
+        _out.WriteLine($"on the probe series the weekly chain agrees again after bar {latestWeekly}");
+        Assert.True(latestWeekly >= 700, "the weekly chain never outlasted the 700-bar guard; the exemption is not needed");
+
+        int latestReal = -1;
+        foreach (var key in new[] { "BTC", "DJI", "GOLD", "ETH" })
+        {
+            var prm = new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key };
+            var whole = CipherCProvider.Compute(Bars, prm);
+            foreach (int k in new[] { 17, 40, 91, 140, 300, 500 })
+            {
+                var part = CipherCProvider.Compute(Bars.Skip(k).ToArray(), prm);
                 foreach (var c in weekly)
                 {
-                    Assert.True(LastDiff(c) < 1100, $"series {flavour}, {k} prepended: {c} differs on bar {LastDiff(c)}");
-                    latestWeekly = Math.Max(latestWeekly, LastDiff(c));
+                    int last = LastDiff(part, whole, c, k);
+                    Assert.True(last < 1200, $"{key}, {k} bars cut: {c} differs on bar {last}");
+                    latestReal = Math.Max(latestReal, last);
                 }
             }
         }
-        _out.WriteLine($"the weekly chain agrees again after bar {latestWeekly}");
-        Assert.True(latestWeekly >= 700, "the weekly chain never outlasted the 700-bar guard; the exemption is not needed");
+        _out.WriteLine($"on Bitcoin's bars the weekly chain agrees again after bar {latestReal}");
+        Assert.True(latestReal > 700);
     }
 
     // ── The weekly tier on a daily chart is picked from these daily lows ──
 
     /// <summary>On a daily chart the weekly tier is picked from the daily lows
-    /// (<see cref="CipherCWeeklyTests"/>): on Bitcoin 22 − 4 weeks of 7 bars from the last kept one.
-    /// The cycle line's cross is not used on the daily tier at all.</summary>
-    [Fact]
-    public void Bitcoin_s_weekly_lows_are_picked_from_its_daily_lows()
-    {
-        var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
-        var daily = CipherCEngine.Tier(48, 66, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, 14, 14, 75, 10, false);
-        Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
-        Assert.NotEqual(Marked(CipherCEngine.Detect(Bars, daily, 75, 10).Confirmed), Marked(d.Confirmed));
-
-        var weekly = CipherCEngine.WeeklyFromDaily(d, Bars, 126, 48);
-        Assert.NotEmpty(Marked(weekly.Confirmed));
-        Assert.Equal(Marked(weekly.Confirmed), Marked(r[CipherCProvider.CompWclConfirmed]));
-        Assert.NotEqual(Marked(weekly.Confirmed), Marked(CipherCEngine.WeeklyFromDaily(d, Bars, 126 + 7 * 6, 48).Confirmed));
-    }
-
-    /// <summary>On the dollar, the Dow, the S&amp;P and the Nasdaq the weekly lows are picked by counting
-    /// daily lows instead (<see cref="CipherCEngine.WeeklyFromTwoDaily"/>), with a gap of two daily
-    /// cycles less two bars each. The others keep the pick above.</summary>
-    [Fact]
-    public void The_dow_picks_its_weekly_lows_by_counting_daily_lows()
-    {
-        var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "DJI" });
-        // The Dow's 36-44 trading days on a chart that trades every day: × 7/5.
-        var daily = CipherCEngine.Tier(36 * 7 / 5.0, 44 * 7 / 5.0, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, 10, 9, 75, 10, false, dropUntilDue: true);
-        Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
-
-        var byTwo = Marked(CipherCEngine.WeeklyFromTwoDaily(d, Bars, 2 * (daily.MinBars - 2)).Confirmed);
-        Assert.NotEmpty(byTwo);
-        Assert.Equal(byTwo, Marked(r[CipherCProvider.CompWclConfirmed]));
-        Assert.NotEqual(byTwo, Marked(CipherCEngine.WeeklyFromTwoDaily(d, Bars, 2 * (daily.MinBars - 2) + 8).Confirmed));
-        Assert.NotEqual(byTwo, Marked(CipherCEngine.WeeklyFromDaily(d, Bars, CipherCEngine.KeepBars(22, 7), daily.MinBars).Confirmed));
-        Assert.All(new[] { "SPX", "NDQ", "DJI", "DXY" }, k => Assert.True(CipherCEngine.Preset(k).WeeklyEveryTwoDaily));
-        Assert.All(CipherCEngine.Presets.Where(p => p.Key is not ("SPX" or "NDQ" or "DJI" or "DXY")), p => Assert.False(p.WeeklyEveryTwoDaily));
-    }
-
-    /// <summary>On Gold, Silver and the miners the weekly lows are a candidate judged at the next daily
-    /// low (<see cref="CipherCEngine.WeeklyFromNextDaily"/>), with gaps of 4.5, 4 and 6 of the table's
-    /// shortest daily cycle, Silver's table 22 too though it is counted from 24.</summary>
+    /// (<see cref="CipherCWeeklyTests"/>): on Gold, Silver and the miners by weeks from the newest
+    /// weekly low (8 and 14 weeks short of the table's longest weekly cycle, 28 or 26 weeks of 7
+    /// bars here), everywhere else by <see cref="CipherCEngine.WeeklyFromDaily"/>, with the far
+    /// "double" off only on Ether. Each preset's weekly lows are its rule's on its own daily lows,
+    /// and not the other rule's.</summary>
     [Theory]
-    [InlineData("GDX")]
-    [InlineData("SILVER")]
-    public void Gold_silver_and_the_miners_judge_a_weekly_candidate_at_the_next_daily_low(string key)
+    [InlineData("BTC", false, 0, 0, true)]
+    [InlineData("DJI", false, 0, 0, true)]
+    [InlineData("ETH", false, 0, 0, false)]
+    [InlineData("GOLD", true, 20 * 7, 14 * 7, true)]
+    [InlineData("SILVER", true, 20 * 7, 14 * 7, true)]
+    [InlineData("GDX", true, 18 * 7, 12 * 7, true)]
+    [InlineData("SILJ", true, 18 * 7, 12 * 7, true)]
+    public void Each_preset_picks_its_weekly_lows_from_its_daily_lows_by_its_rule(string key, bool byWeeks, double newBars, double doubleBars, bool farDoubles)
     {
         var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
         var preset = CipherCEngine.Preset(key);
-        // 22-28 trading days on a chart that trades every day: × 7/5.
-        double table = 22 * 7 / 5.0;
-        var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, 28 * 7 / 5.0, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, 9, 75, 10, true, dropUntilDue: preset.DropUntilDue);
-        Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
-
-        var next = CipherCEngine.WeeklyFromNextDaily(d, Bars, 4.5 * table, 4 * table, 6 * table);
-        Assert.NotEmpty(Marked(next.Confirmed));
-        Assert.Equal(Marked(next.Confirmed), Marked(r[CipherCProvider.CompWclConfirmed]));
-        Assert.NotEqual(Marked(next.Confirmed), Marked(CipherCEngine.WeeklyFromDaily(d, Bars, CipherCEngine.KeepBars(preset.WeeklyMin, 7), daily.MinBars).Confirmed));
-        Assert.All(new[] { "GOLD", "SILVER", "GDX", "GDXJ" }, k => Assert.True(CipherCEngine.Preset(k).WeeklyNextDaily));
-        Assert.All(CipherCEngine.Presets.Where(p => p.Key is not ("GOLD" or "SILVER" or "GDX" or "GDXJ")), p => Assert.False(p.WeeklyNextDaily));
-    }
-
-    /// <summary>The junior silver miners pick their weekly lows from the daily ones as the coins do,
-    /// and Ether does so without the "double"; every other preset keeps it.</summary>
-    [Theory]
-    [InlineData("SILJ", true)]
-    [InlineData("ETH", false)]
-    public void Silver_juniors_and_ether_pick_weekly_lows_from_the_daily_ones(string key, bool doubles)
-    {
-        var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
-        var preset = CipherCEngine.Preset(key);
+        Assert.Equal(byWeeks, preset.WeeklyByWeeks);
+        Assert.Equal(farDoubles, preset.WeeklyDoubles);
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
         var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
-        double keep = CipherCEngine.KeepBars(preset.WeeklyMin, 7);
-        var w = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, keep, daily.MinBars, doubles).Confirmed);
-        Assert.NotEmpty(w);
-        Assert.Equal(w, Marked(r[CipherCProvider.CompWclConfirmed]));
-        Assert.NotEqual(w, Marked(CipherCEngine.WeeklyFromDaily(d, Bars, keep, daily.MinBars, !doubles).Confirmed));
-        Assert.Equal(doubles, preset.WeeklyDoubles);
-        Assert.All(CipherCEngine.Presets.Where(p => p.Key != "ETH"), p => Assert.True(p.WeeklyDoubles));
+
+        var byDaily = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, farDoubles).Confirmed);
+        var weeks = Marked(CipherCEngine.WeeklyByWeeks(d, Bars, byWeeks ? newBars : 20 * 7, byWeeks ? doubleBars : 14 * 7).Confirmed);
+        var mine = byWeeks ? weeks : byDaily;
+        Assert.NotEmpty(mine);
+        Assert.Equal(mine, Marked(r[CipherCProvider.CompWclConfirmed]));
+        Assert.NotEqual(byDaily, weeks);
+    }
+
+    [Fact]
+    public void Only_the_metals_pick_weekly_lows_by_weeks_and_only_ether_has_no_far_double()
+    {
+        var metals = new[] { "GOLD", "SILVER", "GDX", "GDXJ", "SILJ" };
+        Assert.All(CipherCEngine.Presets, p => Assert.Equal(metals.Contains(p.Key), p.WeeklyByWeeks));
+        Assert.All(CipherCEngine.Presets, p => Assert.Equal(p.Key != "ETH", p.WeeklyDoubles));
+    }
+
+    /// <summary>The far double, the metals' new-low margin and their double each move the weekly lows on real bars.</summary>
+    [Fact]
+    public void The_far_double_and_the_metal_margins_matter_on_real_bars()
+    {
+        var btc = CipherCEngine.Preset("BTC");
+        var daily = CipherCEngine.Tier(btc.CountedDailyMin, btc.DailyMax, 1, CipherCEngine.MeasureBars(Bars));
+        var d = CipherCEngine.DetectDaily(Bars, daily, btc.DssLength, btc.DssSmooth, 75, 10, btc.PivotBreak);
+        Assert.NotEqual(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, true).Lows,
+                        CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, false).Lows);
+
+        var gold = CipherCEngine.Preset("GOLD");
+        var gd = CipherCEngine.Tier(gold.CountedDailyMin * 7 / 5.0, gold.DailyMax * 7 / 5.0, 1, CipherCEngine.MeasureBars(Bars));
+        var g = CipherCEngine.DetectDaily(Bars, gd, gold.DssLength, gold.DssSmooth, 75, 10, gold.PivotBreak, dropUntilDue: gold.DropUntilDue);
+        var lows = CipherCEngine.WeeklyByWeeks(g, Bars, 140, 98).Lows;
+        Assert.NotEqual(lows, CipherCEngine.WeeklyByWeeks(g, Bars, 140 + 7, 98).Lows);
+        Assert.NotEqual(lows, CipherCEngine.WeeklyByWeeks(g, Bars, 140 - 7, 98).Lows);
+        // The double's margin moves nothing here between 0 and 16 weeks; without the double gold's lows move.
+        Assert.NotEqual(lows, CipherCEngine.WeeklyByWeeks(g, Bars, 140, double.PositiveInfinity).Lows);
     }
 }

@@ -5,33 +5,31 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// Cipher C's weekly tier on a chart with a daily one picks its weekly lows from the daily lows as
-/// the original does (<see cref="CipherCEngine.WeeklyFromDaily"/>). The rule was read from the
-/// original's own labels in TradingView (trial, 2026-10-23): replayed bar by bar on GDX from
-/// October 2023, the Dow from October 2022 and Bitcoin from June 2022, it reproduces every weekly
-/// low the original drew and when. That data cannot be committed, so these tests drive the engine
-/// with hand-built daily lows, one branch of the rule each, and the expected lows are worked out
-/// here by hand from the rule, not read from the engine.
+/// the original does: <see cref="CipherCEngine.WeeklyFromDaily"/> everywhere but the metals,
+/// <see cref="CipherCEngine.WeeklyByWeeks"/> on Gold, Silver and the miners. The rules were read
+/// from the original's own labels in TradingView (trial, 2026-10-23 to 10-27): its candle replays
+/// and whole-history drawings on nineteen assets. That data cannot be committed, so these tests
+/// drive the engine with hand-built daily lows, one branch of a rule each, and the expected lows
+/// are worked out here by hand from the rule, not read from the engine.
 ///
 /// <para>
-/// Every case keeps a weekly low only when the daily low that judges it is 90 bars from the last
-/// kept one (GDX and the Dow: shortest weekly cycle 22 weeks, less 4, of 5 bars), and the daily
-/// shortest cycle is 22 bars.
+/// The shortest daily cycle is 22 bars, so a far "double" needs 1.25 × 22 = 27.5 bars. The metal
+/// cases use the gaps of a table whose weekly cycle ends at 28 weeks of 5 bars: a new weekly low
+/// 20 weeks (100 bars) from the newest, a double 14 weeks (70 bars).
 /// </para>
 /// </summary>
 public class CipherCWeeklyTests
 {
-    private const double Keep = 90, DailyMin = 22;
+    private const double DailyMin = 22, NewBars = 100, DoubleBars = 70;
 
-    /// <summary>The distance the original keeps a weekly low at: 90 bars on GDX and the Dow (22
-    /// weeks, 5 bars to the week), 126 on Bitcoin (22 weeks, 7). On GDX anything from 84 to 100
-    /// reproduces the original's weekly lows; 83 and 101 do not.</summary>
-    [Theory]
-    [InlineData(22, 5, 90)]
-    [InlineData(22, 7, 126)]
-    [InlineData(7, 7, 21)]    // Ethereum
-    [InlineData(3, 5, 0)]     // never below nothing
-    public void A_weekly_low_is_kept_four_weeks_short_of_the_shortest_weekly_cycle(double weeklyMin, double barsPerWeek, double bars) =>
-        Assert.Equal(bars, CipherCEngine.KeepBars(weeklyMin, barsPerWeek));
+    [Fact]
+    public void The_rules_constants_are_the_ones_read_from_the_original()
+    {
+        Assert.Equal(1.25, CipherCEngine.FarDoubleCycles);
+        Assert.Equal(0.98, CipherCEngine.DoubleDepth);
+        Assert.Equal(8, CipherCEngine.WeeksShortOfMax);
+        Assert.Equal(14, CipherCEngine.DoubleWeeksShortOfMax);
+    }
 
     /// <summary>A daily run whose lows are (bar, price, bar confirmed); every other bar's low is 1000.</summary>
     private static (CipherCEngine.TierRun Daily, Ohlcv[] Data) Daily(int n, params (int Bar, double Low, int At)[] lows)
@@ -54,400 +52,247 @@ public class CipherCWeeklyTests
         return (run, data);
     }
 
-    private static CipherCEngine.TierRun Weekly(int n, params (int Bar, double Low, int At)[] lows)
+    private static CipherCEngine.TierRun Weekly(int n, params (int Bar, double Low, int At)[] lows) => Weekly(n, true, lows);
+
+    private static CipherCEngine.TierRun Weekly(int n, bool farDoubles, params (int Bar, double Low, int At)[] lows)
     {
         var (daily, data) = Daily(n, lows);
-        return CipherCEngine.WeeklyFromDaily(daily, data, Keep, DailyMin);
+        return CipherCEngine.WeeklyFromDaily(daily, data, DailyMin, farDoubles);
+    }
+
+    private static CipherCEngine.TierRun Metal(int n, params (int Bar, double Low, int At)[] lows) => Metal(n, NewBars, DoubleBars, lows);
+
+    private static CipherCEngine.TierRun Metal(int n, double newBars, double doubleBars, params (int Bar, double Low, int At)[] lows)
+    {
+        var (daily, data) = Daily(n, lows);
+        return CipherCEngine.WeeklyByWeeks(daily, data, newBars, doubleBars);
     }
 
     private static int[] Marked(double[] a) => Enumerable.Range(0, a.Length).Where(i => !double.IsNaN(a[i])).ToArray();
 
+    // ── Everywhere but the metals ──
+
     /// <summary>
-    /// A daily low is drawn as the weekly candidate; the next daily low keeps it if that one is 90
-    /// bars from the kept weekly low, and removes it if not. The first low has nothing to be judged
-    /// from and is kept by the next. The original's week count runs from the kept weekly low before
-    /// the newest, so it starts once two are kept.
+    /// The first daily low is a weekly low. The second daily low after the newest weekly low is
+    /// drawn at once as the candidate; the next daily low judges it. One under it cancels it and is
+    /// itself a weekly low, here two bars on; one not under it (equal included) makes the candidate
+    /// a weekly low. The week count runs from the weekly low before the newest.
     /// </summary>
     [Theory]
-    [InlineData(99, false)]   // 89 bars from the kept low at 10: removed
-    [InlineData(100, true)]   // 90: kept
-    public void A_candidate_is_kept_only_when_the_next_daily_low_is_far_enough_from_the_last_kept_one(int checkpoint, bool kept)
+    [InlineData(104, true)]
+    [InlineData(105, false)]
+    public void The_next_daily_low_cancels_the_candidate_when_under_it_and_makes_it_a_weekly_low_when_not(double judge, bool undercut)
     {
         var w = Weekly(300,
-            (10, 100, 20),            // the first candidate
-            (50, 110, 60),            // keeps it
-            (70, 105, 80),            // the next candidate
-            (checkpoint, 108, 110),   // judges it
-            (150, 103, 160),          // a candidate
-            (180, 107, 190));         // judges it: far enough from the last kept low either way
-        if (kept)
+            (10, 100, 20),       // the first: a weekly low
+            (50, 110, 60),       // the first after it
+            (80, 105, 90),       // the second: the candidate, drawn on 90
+            (82, judge, 120));   // judges it
+        Assert.Equal(100, w.Confirmed[120]);   // the count starts from 10 once a second is made
+        Assert.Equal(new[] { 120 }, Marked(w.Confirmed));
+        Assert.Equal(-1, w.LastLowAt[119]);
+        Assert.Equal(10, w.LastLowAt[120]);
+        if (undercut)
         {
-            Assert.Equal(new[] { 10, 70, 150 }, w.Lows);
-            Assert.Equal(new[] { 60, 110, 190 }, w.ConfirmedAt);
-            Assert.Equal(new[] { 20, 80, 160 }, w.FoundAt);
-            Assert.Equal(new[] { 110, 190 }, Marked(w.Confirmed));      // 10, then 70, starts the count
-            Assert.Equal(10, w.LastLowAt[189]);
-            Assert.Equal(70, w.LastLowAt[190]);
+            Assert.Equal(new[] { 10, 82 }, w.Lows);
+            Assert.Equal(new[] { 20, 120 }, w.ConfirmedAt);
+            Assert.Equal(new[] { 20, 120 }, w.FoundAt);
+            Assert.Equal(new[] { 120 }, Marked(w.Cancelled));
+            Assert.Equal(105, w.Cancelled[120]);
+            Assert.Equal(80, w.CancelledLow[120]);
+            Assert.Equal(105, w.Updated[120]);
         }
         else
         {
-            Assert.Equal(new[] { 10, 150 }, w.Lows);
-            Assert.Equal(new[] { 60, 190 }, w.ConfirmedAt);
-            Assert.Equal(new[] { 190 }, Marked(w.Confirmed));
-            Assert.Equal(-1, w.LastLowAt[189]);
-            Assert.Equal(10, w.LastLowAt[190]);
-        }
-        Assert.Equal(100, w.Confirmed[w.LastLowAt.ToList().IndexOf(10)]);
-        Assert.Empty(Marked(w.Cancelled));
-    }
-
-    /// <summary>
-    /// A candidate under the newest kept weekly low, judged less than 90 bars from it, shows that
-    /// kept low was not the weekly low: it is dropped (a cancellation, at its price) and the
-    /// candidate judged again from the one before. Being under that one too, the next daily low
-    /// decides the "double": the low that judged it is kept as a second weekly low if it is under
-    /// the kept low before the candidate, and silently passed over if not. The next confirmation
-    /// says which kept low it replaces.
-    /// </summary>
-    [Theory]
-    [InlineData(99, true)]     // under the 100 low the candidate undercut: drawn
-    [InlineData(101, false)]   // over it: not drawn
-    public void A_kept_low_undercut_too_soon_is_dropped_and_the_low_after_decides_the_double(double checkpointLow, bool drawn)
-    {
-        var w = Weekly(400,
-            (10, 100, 20), (50, 110, 60),     // 10 kept at 60
-            (120, 103, 130), (150, 107, 160), // 120 kept at 160: the count runs from 10
-            (170, 95, 180),                   // a candidate under 120
-            (190, checkpointLow, 200),        // 70 bars from 120: 120 dropped, 170 kept (180 from 10)
-            (230, 102, 240),                  // the double
-            (260, 99.5, 270), (370, 104, 380)); // a candidate, kept 180 or 200 bars on
-        Assert.Equal(103, w.Cancelled[200]);
-        Assert.Equal(120, w.CancelledLow[200]);
-        Assert.Equal(new[] { 200 }, Marked(w.Cancelled));
-        Assert.DoesNotContain(120, w.Lows);
-        Assert.Equal(10, w.LastLowAt[200]);   // 10 is still the kept low before the newest (170)
-        if (drawn)
-        {
-            Assert.Equal(new[] { 10, 170, 190, 260 }, w.Lows);
-            Assert.Equal(new[] { 60, 200, 240, 380 }, w.ConfirmedAt);
-            // 190 kept on 240 moves the count onto 170, and that confirmation replaces 120.
-            Assert.Equal(170, w.LastLowAt[240]);
-            Assert.Equal(95, w.Confirmed[240]);
-            Assert.Equal(103, w.Updated[240]);
-            Assert.Equal(190, w.LastLowAt[380]);
-            Assert.True(double.IsNaN(w.Updated[380]));
-        }
-        else
-        {
-            Assert.Equal(new[] { 10, 170, 260 }, w.Lows);
-            Assert.Equal(new[] { 60, 200, 380 }, w.ConfirmedAt);
-            Assert.True(double.IsNaN(w.Confirmed[240]));
-            Assert.Equal(170, w.LastLowAt[380]);
-            Assert.Equal(103, w.Updated[380]);
+            Assert.Equal(new[] { 10, 80 }, w.Lows);
+            Assert.Equal(new[] { 20, 120 }, w.ConfirmedAt);
+            Assert.Equal(new[] { 20, 90 }, w.FoundAt);
+            Assert.Empty(Marked(w.Cancelled));
+            Assert.True(double.IsNaN(w.Updated[120]));
         }
     }
 
     /// <summary>
-    /// A daily low under the candidate takes its place: drawn and kept at once if 90 bars from the
-    /// kept low, not drawn if nearer (the original draws nothing for it). The daily low after a
-    /// replacement does nothing — unless it is lower still and a full daily cycle (22 bars) after
-    /// it, when it is judged as the low after a new weekly low is (the double above).
-    /// </summary>
-    [Theory]
-    [InlineData(225, true)]    // 25 bars after the replacement: judged, and kept by the next low
-    [InlineData(221, false)]   // 21: nothing; the next low is a new candidate
-    public void A_lower_daily_low_replaces_the_candidate_and_a_lower_one_a_daily_cycle_later_is_judged(int laterBar, bool judged)
-    {
-        var w = Weekly(400,
-            (10, 100, 20), (50, 110, 60),     // 10 kept
-            (120, 103, 130), (150, 107, 160), // 120 kept
-            (170, 101, 180),                  // a candidate
-            (200, 98, 210),                   // lower: replaces it; under 120 80 bars on, so 120 is
-                                              // dropped, and 200 is 190 from 10, so kept at once
-            (laterBar, 96, laterBar + 10),
-            (260, 97, 270));
-        Assert.Equal(103, w.Cancelled[210]);
-        Assert.Equal(210, w.ConfirmedAt[w.Lows.IndexOf(200)]);
-        Assert.DoesNotContain(170, w.Lows);
-        if (judged)
-        {
-            Assert.Equal(new[] { 10, 200, laterBar }, w.Lows);
-            Assert.Equal(270, w.ConfirmedAt[^1]);
-            Assert.Equal(200, w.LastLowAt[270]);
-            Assert.Equal(103, w.Updated[270]);
-        }
-        else
-        {
-            Assert.Equal(new[] { 10, 200, 260 }, w.Lows);
-            Assert.Equal(-1, w.ConfirmedAt[^1]);   // the live candidate, drawn on 270 and not kept yet
-            Assert.Equal(270, w.FoundAt[^1]);
-            Assert.Equal(10, w.LastLowAt[^1]);
-        }
-    }
-
-    /// <summary>
-    /// Ether's weekly lows have no "double" (<see cref="CyclePreset.WeeklyDoubles"/>): after a
-    /// lower weekly low the next daily low is a new candidate, not the judge of a second weekly
-    /// low, and a lower low a daily cycle after a replacement is not judged either. The two
-    /// scenarios above, with doubles off.
+    /// The live candidate is among the lows, drawn and not yet a weekly low (-1).
     /// </summary>
     [Fact]
-    public void Without_doubles_the_low_after_a_lower_weekly_low_is_a_new_candidate()
+    public void The_live_candidate_is_drawn_and_not_yet_a_weekly_low()
     {
-        var (d1, data1) = Daily(400,
-            (10, 100, 20), (50, 110, 60), (120, 103, 130), (150, 107, 160),
-            (170, 95, 180), (190, 99, 200), (230, 102, 240), (260, 99.5, 270), (370, 104, 380));
-        var w1 = CipherCEngine.WeeklyFromDaily(d1, data1, Keep, DailyMin, doubles: false);
-        Assert.Equal(new[] { 10, 170, 260 }, w1.Lows);          // with doubles 10, 170, 190, 260
-        Assert.Equal(new[] { 60, 200, 270 }, w1.ConfirmedAt);   // 230 is the candidate 260 replaces, kept at once
-
-        var (d2, data2) = Daily(400,
-            (10, 100, 20), (50, 110, 60), (120, 103, 130), (150, 107, 160),
-            (170, 101, 180), (200, 98, 210), (225, 96, 235), (260, 97, 270));
-        var w2 = CipherCEngine.WeeklyFromDaily(d2, data2, Keep, DailyMin, doubles: false);
-        Assert.Equal(new[] { 10, 200, 260 }, w2.Lows);          // with doubles 10, 200, 225
-        Assert.Equal(-1, w2.ConfirmedAt[^1]);
+        var w = Weekly(200, (10, 100, 20), (50, 110, 60), (80, 105, 90));
+        Assert.Equal(new[] { 10, 80 }, w.Lows);
+        Assert.Equal(new[] { 20, 90 }, w.FoundAt);
+        Assert.Equal(new[] { 20, -1 }, w.ConfirmedAt);
+        Assert.Empty(Marked(w.Confirmed));
     }
 
     /// <summary>
-    /// A replacement nearer than 90 bars to the kept low is not drawn, and the candidate it
-    /// replaced is gone too: the next daily low after it starts afresh.
+    /// A far "double": the first daily low after a weekly low is a weekly low of its own when it is
+    /// under that weekly low at least 1.25 daily cycles (27.5 bars) after it and the second daily
+    /// low is not under it. The second then counts as the first after it, so the third is the
+    /// candidate. Otherwise the second is the candidate, and the third makes it a weekly low.
     /// </summary>
     [Theory]
-    [InlineData(90, false)]    // 80 bars from the kept low at 10
-    [InlineData(100, true)]    // 90
-    public void A_replacement_too_near_the_kept_low_is_not_drawn(int replacement, bool kept)
+    [InlineData(38, 97, true)]    // 28 bars on, the second not under it: a double
+    [InlineData(37, 97, false)]   // 27 bars on
+    [InlineData(38, 94, false)]   // the second under it
+    public void A_first_daily_low_well_under_the_weekly_low_and_far_from_it_is_a_double(int first, double second, bool doubled)
+    {
+        var w = Weekly(300, (10, 100, 20), (first, 95, first + 10), (60, second, 70), (90, 99, 100));
+        if (doubled)
+        {
+            Assert.Equal(new[] { 10, first, 90 }, w.Lows);
+            Assert.Equal(new[] { 20, 70, -1 }, w.ConfirmedAt);
+            Assert.Equal(100, w.Confirmed[70]);
+        }
+        else
+        {
+            Assert.Equal(new[] { 10, 60 }, w.Lows);
+            Assert.Equal(new[] { 20, 100 }, w.ConfirmedAt);
+            Assert.Equal(new[] { 100 }, Marked(w.Confirmed));
+        }
+    }
+
+    /// <summary>Ether has no far double (<see cref="CyclePreset.WeeklyDoubles"/> false): the case
+    /// above that doubles draws the second daily low as the candidate instead.</summary>
+    [Fact]
+    public void Ether_has_no_far_double()
+    {
+        var w = Weekly(300, false, (10, 100, 20), (38, 95, 48), (60, 97, 70), (90, 99, 100));
+        Assert.Equal(new[] { 10, 60 }, w.Lows);
+        Assert.Equal(new[] { 20, 100 }, w.ConfirmedAt);
+    }
+
+    /// <summary>
+    /// A deep double: after a candidate is made a weekly low more than 2% under the weekly low
+    /// before it, the first daily low after it is a weekly low too when it is not under it and the
+    /// second is not under the first.
+    /// </summary>
+    [Theory]
+    [InlineData(97, true)]    // 3% under 100
+    [InlineData(98, false)]   // 2%: not more
+    public void A_first_daily_low_after_a_deep_weekly_low_made_from_a_candidate_is_a_double(double candidate, bool doubled)
     {
         var w = Weekly(300,
-            (10, 100, 20), (50, 110, 60),     // 10 kept
-            (70, 105, 80),                    // a candidate
-            (replacement, 102, replacement + 10),
-            (150, 104, 160),                  // after a replacement: nothing
-            (200, 106, 210));                 // the next candidate
-        Assert.Equal(kept ? new[] { 10, 100, 200 } : new[] { 10, 200 }, w.Lows);
-        Assert.Equal(kept ? new[] { 60, 110, -1 } : new[] { 60, -1 }, w.ConfirmedAt);
+            (10, 100, 20), (30, 110, 40),
+            (50, candidate, 60),   // the candidate
+            (70, 98, 80),          // not under it: 50 is a weekly low; 70 the first after it
+            (90, 99, 100));        // the second, not under the first
+        if (doubled)
+        {
+            Assert.Equal(new[] { 10, 50, 70 }, w.Lows);
+            Assert.Equal(new[] { 20, 80, 100 }, w.ConfirmedAt);
+            Assert.Equal(50, w.LastLowAt[100]);
+            Assert.Equal(candidate, w.Confirmed[100]);
+        }
+        else
+        {
+            Assert.Equal(new[] { 10, 50, 90 }, w.Lows);
+            Assert.Equal(new[] { 20, 80, -1 }, w.ConfirmedAt);
+            Assert.True(double.IsNaN(w.Confirmed[100]));
+        }
     }
+
+    /// <summary>A weekly low made by undercutting a candidate is not one made from a candidate: the
+    /// deep double does not follow it.</summary>
+    [Fact]
+    public void No_deep_double_follows_a_weekly_low_made_by_an_undercut()
+    {
+        var w = Weekly(300, (10, 100, 20), (30, 110, 40), (50, 105, 60), (52, 97, 80), (70, 98, 90), (90, 99, 100));
+        Assert.Equal(new[] { 10, 52, 90 }, w.Lows);
+        Assert.Equal(new[] { 20, 80, -1 }, w.ConfirmedAt);
+    }
+
+    // ── Gold, Silver and the miners ──
+
+    /// <summary>
+    /// The metals judge the same candidate by distance. Not undercut by the next daily low, it is a
+    /// new weekly low 100 bars or more from the newest; nearer, it takes the newest's place when
+    /// under it (cancelling it); else it is gone, not cancelled.
+    /// </summary>
+    [Theory]
+    [InlineData(110, 105, new[] { 10, 110 }, new[] { 20, 140 })]   // 100 bars on: a new weekly low
+    [InlineData(100, 95, new[] { 100 }, new[] { 130 })]           // 90, under 100: in its place
+    [InlineData(100, 105, new[] { 10 }, new[] { 20 })]            // 90, not under: gone
+    public void A_metal_candidate_is_a_new_weekly_low_far_enough_and_otherwise_replaces_only_a_higher_one(int bar, double low, int[] lows, int[] at)
+    {
+        var w = Metal(300, (10, 100, 20), (30, 110, 40), (bar, low, bar + 10), (bar + 20, 108, bar + 30));
+        Assert.Equal(lows, w.Lows);
+        Assert.Equal(at, w.ConfirmedAt);
+        if (lows.Length == 1 && lows[0] != 10)
+        {
+            Assert.Equal(100, w.Cancelled[130]);
+            Assert.Equal(10, w.CancelledLow[130]);
+        }
+        else Assert.Empty(Marked(w.Cancelled));
+        if (lows.Length == 2) Assert.Equal(100, w.Confirmed[140]);
+    }
+
+    /// <summary>
+    /// A metal candidate undercut by the next daily low is cancelled, and the lower low is judged
+    /// in its place: a new weekly low 100 bars on, in the newest's place when nearer and under it
+    /// (the cancellation then carries the newest), else only the new reference, drawn nowhere.
+    /// </summary>
+    [Theory]
+    [InlineData(110, 104, new[] { 10, 110 }, 106, 60)]
+    [InlineData(90, 99, new[] { 90 }, 100, 10)]
+    [InlineData(90, 104, new[] { 10 }, 106, 60)]
+    public void A_metal_candidate_undercut_is_cancelled_and_the_lower_low_judged_by_distance(int bar, double low, int[] lows, double cancelled, int cancelledLow)
+    {
+        var w = Metal(300, (10, 100, 20), (30, 110, 40), (60, 106, 70), (bar, low, bar + 10));
+        Assert.Equal(lows, w.Lows);
+        Assert.Equal(cancelled, w.Cancelled[bar + 10]);
+        Assert.Equal(cancelledLow, w.CancelledLow[bar + 10]);
+    }
+
+    /// <summary>
+    /// A metal double: the first daily low after the reference, under it with the second not under
+    /// the first, is a weekly low 70 bars or more from the newest; the reference need not be a
+    /// weekly low (here an undercut that was too near to be one). Nearer, the second is the candidate.
+    /// </summary>
+    [Theory]
+    [InlineData(80, true)]
+    [InlineData(79, false)]
+    public void A_metal_double_needs_seventy_bars(int first, bool doubled)
+    {
+        var w = Metal(300, (10, 100, 20), (first, 95, first + 10), (first + 20, 97, first + 30));
+        Assert.Equal(doubled ? new[] { 10, first } : new[] { 10, first + 20 }, w.Lows);
+        Assert.Equal(doubled ? new[] { 20, first + 30 } : new[] { 20, -1 }, w.ConfirmedAt);
+    }
+
+    [Fact]
+    public void A_metal_double_can_follow_a_reference_that_is_no_weekly_low()
+    {
+        var w = Metal(300, (10, 100, 20), (30, 110, 40), (60, 106, 70), (90, 104, 100), (120, 103, 130), (140, 105, 150));
+        Assert.Equal(new[] { 10, 120 }, w.Lows);   // 90 was the reference, 120 under it and 110 from 10
+        Assert.Equal(new[] { 20, 150 }, w.ConfirmedAt);
+    }
+
+    // ── Both ──
 
     /// <summary>
     /// Nothing the weekly tier says on a bar changes when later bars arrive: it acts only on the
-    /// daily confirmations up to that bar. Checked on every cut of the case that drops a kept low.
+    /// daily confirmations up to that bar. Checked on every cut of a case that cancels, replaces
+    /// and doubles, under both rules (the metals' with half the gaps, so the case makes weekly lows).
     /// </summary>
-    [Fact]
-    public void The_weekly_tier_says_on_each_bar_only_what_it_knew_then()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_weekly_tier_says_on_each_bar_only_what_it_knew_then(bool metal)
     {
         var lows = new (int Bar, double Low, int At)[]
         {
-            (10, 100, 20), (50, 110, 60), (120, 103, 130), (150, 107, 160), (170, 95, 180),
-            (190, 99, 200), (230, 102, 240), (260, 99.5, 270), (370, 104, 380),
+            (10, 100, 20), (30, 110, 40), (60, 106, 70), (90, 99, 100), (120, 97, 130), (140, 98, 150),
+            (170, 96, 180), (200, 101, 210), (230, 95, 240), (250, 99, 260), (290, 102, 300), (330, 94, 340),
+            (360, 98, 370), (390, 100, 400),
         };
-        var whole = Weekly(400, lows);
+        CipherCEngine.TierRun Run(int n, (int, double, int)[] l) => metal ? Metal(n, NewBars / 2, DoubleBars / 2, l) : Weekly(n, l);
+        var whole = Run(420, lows);
+        Assert.NotEmpty(Marked(whole.Cancelled));
         Assert.NotEmpty(Marked(whole.Updated));
-        for (int cut = 1; cut <= 400; cut++)
+        Assert.True(Marked(whole.Confirmed).Length >= 3);
+        for (int cut = 1; cut <= 420; cut++)
         {
-            var part = Weekly(cut, lows.Where(l => l.At < cut).ToArray());
-            for (int t = 0; t < cut; t++)
-            {
-                Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);
-                Assert.Equal(whole.CancelledLow[t], part.CancelledLow[t]);
-                foreach (var (a, b) in new[] { (whole.Confirmed, part.Confirmed), (whole.Cancelled, part.Cancelled), (whole.Updated, part.Updated) })
-                    Assert.Equal(a[t], b[t]);
-            }
-        }
-    }
-
-    // The weekly tier by counting daily lows (CipherCEngine.WeeklyFromTwoDaily): the dollar, the
-    // Dow, the S&P and the Nasdaq. Gap 40 = two daily cycles of 22 less two bars each.
-    private const double Gap = 2 * (DailyMin - 2);
-
-    private static CipherCEngine.TierRun ByTwo(int n, params (int Bar, double Low, int At)[] lows)
-    {
-        var (daily, data) = Daily(n, lows);
-        return CipherCEngine.WeeklyFromTwoDaily(daily, data, Gap);
-    }
-
-    /// <summary>
-    /// The first daily low after a new weekly low takes its place when it is lower, however near;
-    /// otherwise the weekly low stays. A low that took the place is never moved itself.
-    /// </summary>
-    [Theory]
-    [InlineData(95, new[] { 30 })]    // lower: takes the place
-    [InlineData(105, new[] { 10 })]   // higher: the weekly low stays
-    public void The_first_daily_low_after_a_new_weekly_low_takes_its_place_only_when_lower(double low, int[] expected)
-    {
-        var run = ByTwo(120, (10, 100, 20), (30, low, 40));
-        Assert.Equal(expected, run.Lows);
-        Assert.Equal(40, run.ConfirmedAt[0]);
-    }
-
-    [Fact]
-    public void A_daily_low_that_took_a_weekly_lows_place_is_not_moved_by_the_next_lower_one()
-    {
-        var run = ByTwo(120, (10, 100, 20), (30, 95, 40), (45, 90, 55));
-        Assert.Equal(new[] { 30 }, run.Lows);
-    }
-
-    /// <summary>
-    /// From the second daily low after the newest weekly low, a new one goes on the lowest of
-    /// them that is at least the gap after it; until one is, it waits for the next.
-    /// </summary>
-    [Theory]
-    [InlineData(50, new[] { 10, 50 })]       // 40 bars after: a new weekly low
-    [InlineData(49, new[] { 10, 80 })]       // 39: waits, and the next one is it
-    public void A_new_weekly_low_needs_the_gap_from_the_newest(int second, int[] expected)
-    {
-        var run = ByTwo(160, (10, 100, 20), (30, 110, 40), (second, 104, second + 10), (80, 108, 90));
-        Assert.Equal(expected, run.Lows);
-    }
-
-    /// <summary>
-    /// The new weekly low can be an earlier daily low than the one just confirmed: the lowest of
-    /// those far enough, drawn on the bar the later one is confirmed and fixed at once.
-    /// </summary>
-    [Fact]
-    public void A_new_weekly_low_goes_on_the_lowest_far_enough_daily_low_even_an_earlier_one()
-    {
-        var run = ByTwo(160, (10, 100, 20), (52, 104, 62), (70, 108, 80));
-        Assert.Equal(new[] { 10, 52 }, run.Lows);
-        Assert.Equal(80, run.FoundAt[1]);
-        Assert.Equal(80, run.ConfirmedAt[1]);
-    }
-
-    /// <summary>
-    /// The confirmed weekly low (the one the week count runs from) is the one before the newest. It
-    /// moves at a daily confirmation, but not on the bar a new weekly low is drawn on its own daily
-    /// low: then it waits for the next daily confirmation. That new weekly low can still move until
-    /// then (-1).
-    /// </summary>
-    [Fact]
-    public void The_confirmed_weekly_low_moves_at_the_daily_confirmation_after_a_new_one_is_drawn()
-    {
-        var lows = new (int Bar, double Low, int At)[] { (10, 100, 20), (30, 110, 40), (60, 108, 70), (90, 112, 100) };
-        var before = ByTwo(99, lows.Where(l => l.At < 99).ToArray());
-        Assert.Equal(new[] { 10, 60 }, before.Lows);
-        Assert.Equal(-1, before.ConfirmedAt[1]);
-        var run = ByTwo(120, lows);
-        Assert.Equal(-1, run.LastLowAt[99]);
-        Assert.Equal(10, run.LastLowAt[100]);
-        Assert.Equal(new[] { 100 }, Marked(run.Confirmed));
-        Assert.Equal(100, run.ConfirmedAt[1]);
-    }
-
-    [Fact]
-    public void The_weekly_tier_by_daily_lows_says_on_each_bar_only_what_it_knew_then()
-    {
-        var lows = new (int Bar, double Low, int At)[]
-        {
-            (10, 100, 20), (30, 95, 40), (50, 110, 60), (75, 104, 85), (100, 108, 110), (130, 90, 140),
-            (150, 99, 160), (170, 96, 180), (215, 102, 225), (240, 101, 250), (280, 94, 290),
-        };
-        var whole = ByTwo(320, lows);
-        Assert.True(whole.Lows.Count >= 4);
-        for (int cut = 1; cut <= 320; cut++)
-        {
-            var part = ByTwo(cut, lows.Where(l => l.At < cut).ToArray());
-            for (int t = 0; t < cut; t++)
-            {
-                Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);
-                Assert.Equal(whole.Confirmed[t], part.Confirmed[t]);
-            }
-        }
-    }
-
-    // The weekly tier on Gold, Silver and the miners (CipherCEngine.WeeklyFromNextDaily): a candidate
-    // judged at the next daily low. Gaps for a table shortest daily cycle of 22: 4.5, 4 and 6 of it.
-    private const double NextGap = 4.5 * DailyMin, NextLowerGap = 4 * DailyMin, NextFar = 6 * DailyMin;
-
-    // Daily lows confirmed after the last bar are left out: the series ends before them.
-    private static CipherCEngine.TierRun ByNext(int n, params (int Bar, double Low, int At)[] lows)
-    {
-        var (daily, data) = Daily(n, lows.Where(l => l.At < n).ToArray());
-        return CipherCEngine.WeeklyFromNextDaily(daily, data, NextGap, NextLowerGap, NextFar);
-    }
-
-    /// <summary>
-    /// After a weekly low the next daily low draws nothing; the one after is drawn as the
-    /// candidate, and the next daily low judges it: not lower, it is a weekly low when 99 bars or
-    /// more from the newest (bar 109 from bar 10), and gone when not (108). Kept, it is fixed on the
-    /// judging bar and the weekly low before it becomes the confirmed one there.
-    /// </summary>
-    [Theory]
-    [InlineData(109, new[] { 10, 109 })]
-    [InlineData(108, new[] { 10 })]
-    public void A_candidate_is_a_weekly_low_when_far_enough_and_the_next_daily_low_is_not_lower(int bar, int[] expected)
-    {
-        var lows = new (int Bar, double Low, int At)[] { (10, 100, 20), (40, 110, 50), (bar, 104, 125), (140, 108, 150) };
-        var drawn = ByNext(149, lows.Where(l => l.At < 149).ToArray());
-        Assert.Equal(new[] { 10, bar }, drawn.Lows);
-        Assert.Equal(-1, drawn.ConfirmedAt[1]);
-        var run = ByNext(170, lows);
-        Assert.Equal(expected, run.Lows);
-        Assert.Equal(expected.Length == 2 ? new[] { 150 } : Array.Empty<int>(), Marked(run.Confirmed));
-        if (expected.Length == 2) { Assert.Equal(125, run.FoundAt[1]); Assert.Equal(150, run.ConfirmedAt[1]); Assert.Equal(10, run.LastLowAt[150]); }
-    }
-
-    /// <summary>A candidate too near but lower than the newest weekly low takes its place.</summary>
-    [Fact]
-    public void A_near_candidate_lower_than_the_weekly_low_takes_its_place()
-    {
-        var run = ByNext(130, (10, 100, 20), (40, 110, 50), (70, 96, 80), (100, 104, 110));
-        Assert.Equal(new[] { 70 }, run.Lows);
-        Assert.Equal(100, run.Cancelled[110]);
-        Assert.Equal(10, run.CancelledLow[110]);
-    }
-
-    /// <summary>
-    /// A next daily low lower than the candidate replaces it: a weekly low itself when 88 bars or
-    /// more from the newest (98 from 10), nothing when not (97), and in the newest one's place when
-    /// lower than it.
-    /// </summary>
-    [Theory]
-    [InlineData(98, 102, new[] { 10, 98 })]
-    [InlineData(97, 102, new[] { 10 })]
-    [InlineData(97, 95, new[] { 97 })]
-    public void A_lower_next_daily_low_is_judged_on_its_own_gap(int bar, double low, int[] expected)
-    {
-        var run = ByNext(130, (10, 100, 20), (40, 110, 50), (70, 108, 80), (bar, low, 107));
-        Assert.Equal(expected, run.Lows);
-    }
-
-    /// <summary>
-    /// After a judgement the next daily low draws no candidate when the judging low undercut the
-    /// candidate, or the candidate was more than 132 bars (6 daily cycles) from the weekly low;
-    /// otherwise it does.
-    /// </summary>
-    [Theory]
-    [InlineData(102, 175, 160)]   // undercut: 130 is passed over, 160 drawn
-    [InlineData(109, 165, 130)]   // not: 130 drawn
-    public void A_judging_low_that_undercut_the_candidate_passes_over_the_next(double judge, int n, int drawn)
-    {
-        var run = ByNext(n, (10, 100, 20), (40, 110, 50), (70, 108, 80), (97, judge, 107), (130, 112, 140), (160, 114, 170));
-        Assert.Contains(drawn, run.Lows);
-        Assert.Equal(-1, run.ConfirmedAt[run.Lows.IndexOf(drawn)]);
-        Assert.DoesNotContain(drawn == 160 ? 130 : 160, run.Lows);
-    }
-
-    [Theory]
-    [InlineData(143, new[] { 10, 143 })]        // 133 bars from the weekly low: 200 is passed over
-    [InlineData(142, new[] { 10, 142, 200 })]   // 132: 200 drawn
-    public void A_far_candidate_passes_over_the_next(int cand, int[] expected)
-    {
-        var run = ByNext(220, (10, 100, 20), (40, 110, 50), (cand, 108, 160), (170, 109, 180), (200, 112, 210), (230, 114, 240));
-        Assert.Equal(expected, run.Lows);
-    }
-
-    [Fact]
-    public void The_weekly_tier_by_the_next_daily_low_says_on_each_bar_only_what_it_knew_then()
-    {
-        var lows = new (int Bar, double Low, int At)[]
-        {
-            (10, 100, 20), (30, 95, 40), (50, 110, 60), (75, 104, 85), (100, 108, 110), (130, 90, 140),
-            (150, 99, 160), (170, 96, 180), (215, 102, 225), (240, 101, 250), (280, 94, 290), (330, 97, 340),
-        };
-        var whole = ByNext(360, lows);
-        Assert.True(whole.Lows.Count >= 3);
-        for (int cut = 1; cut <= 360; cut++)
-        {
-            var part = ByNext(cut, lows.Where(l => l.At < cut).ToArray());
+            var part = Run(cut, lows.Where(l => l.At < cut).ToArray());
             for (int t = 0; t < cut; t++)
             {
                 Assert.Equal(whole.LastLowAt[t], part.LastLowAt[t]);

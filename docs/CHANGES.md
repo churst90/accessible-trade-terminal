@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: the weekly tier is one state machine, and by weeks on the metals (2026-10-27)
+
+- **What changed:** `CipherCEngine.WeeklyFromDaily` replaces `WeeklyFromTwoDaily`,
+  `WeeklyFromNextDaily` and `KeepBars`. The second daily low after the newest weekly low is drawn
+  as the candidate; the next daily low cancels it (undercut; that lower low is a weekly low at any
+  distance) or fixes it. Two "doubles" make the first daily low after a weekly low one of its own:
+  the far double (under it, 1.25 shortest daily cycles or more after it; off on Ether) and the deep
+  double (after a fixed candidate more than 2% under the weekly low before it). Gold, Silver and
+  the miners use `CipherCEngine.WeeklyByWeeks`, the same candidate judged in weeks: a new weekly low
+  8 weeks short of the longest weekly cycle, a nearer lower one replaces the newest, a double 14
+  weeks short. `CyclePreset` loses `WeeklyEveryTwoDaily` and `WeeklyNextDaily` and gains
+  `WeeklyByWeeks`; `WeeklyDoubles` (false on Ether) now switches the far double.
+- **Why:** read from the original's candle replays (its table's two week counts, bar by bar,
+  2022–26) and checked on its whole-history drawings on nineteen assets. CIPHER_C_DESIGN section 23;
+  sections 14 and 16 are superseded.
+- **Numbers (private captures),** weekly lows after the original's first, F1:
+  - On the original's own daily lows 0.837 → 0.907 (metals 0.772 → 0.848, the rest 0.843 → 0.913).
+  - As the app runs, on Cipher C's daily lows from the chart's first bar, 0.794 → 0.839
+    (595 exact, 111 extra, 118 missed; metals 0.815, the rest 0.841).
+  - Held out by time: before 2022 the non-metal rule scores 0.912 (the rules before, 0.840).
+  - Better: the Dow 0.81 → 0.99, SILJ 0.75 → 0.96, gold 0.73 → 0.88, Coinbase 0.67 → 0.88,
+    EUR/USD 0.81 → 0.88, Silver 0.60 → 0.70, Ether 0.65 → 0.70, Platinum 0.78 → 0.84; Marathon,
+    Riot, the Nasdaq and the dollar by 0.01–0.04.
+- **Tests:** `CipherCWeeklyTests` rewritten for the machine (cancel, candidate drawn live, far and
+  deep doubles at their edges, no deep double after an undercut, Ether's missing far double, the
+  metal new / replace / gone cases, undercuts, the 70-bar double, the bar-by-bar causality run on
+  both rules). `CipherCDailyTests` gains a per-preset theory (provider = the preset's rule, and the
+  rules differ), the flag map, and real-bar sensitivity of the far double and both metal margins;
+  the prepend test now asks the weekly tier to agree again on real bars cut by 17–500 (before bar
+  1,200). The provider causality test cuts after the last weekly replace. On the nineteen assets'
+  candles the C# matches the Python models (uncommitted harness). Nine sabotages went red (far
+  double 1.3, depth 0.97, 9 weeks short, an undercut adding no weekly low, Ether's far double on,
+  metals never replacing, the provider always passing far doubles, the provider taking metals by
+  daily lows, a fix not counted as a candidate). One stayed green and is an equivalent mutant: not
+  resetting the metal double's reference, which after a double can never double again anyway.
+- **Caveats:**
+  - Worse on six assets: GDXJ 0.76 → 0.55, Bitcoin 0.90 → 0.86, MicroStrategy 0.91 → 0.86, GDX
+    0.91 → 0.87, Apple 0.74 → 0.72, oil 0.90 → 0.89. The S&P is unchanged at 0.81.
+  - The metals' margins were fitted on the whole history; most of their gain is in sample (fitted
+    after 2022 only, 0.694 before it).
+  - The machine counts daily lows, so where the chart starts matters: it can run one daily low out
+    of step until an undercut or a double brings it back (within 32 daily lows on the nineteen
+    assets). The original's own start cannot be read; from its first weekly low the score would be
+    0.855.
+  - Not reproduced: the original sometimes moves its reference on by one daily low after a fixed
+    candidate; nothing tried separates those cases.
+  - On a metal bar that cancels both the candidate and the newest weekly low the engine reports one
+    cancel.
+  - Not seen or heard in the app.
+
 ### Cipher C: the Dow, the dollar, silver and Ether drop a pending low on any undercut before it is due (2026-10-27)
 
 - **What changed:** `CyclePreset.DropUntilDue` (on for DJI, DXY, SILVER and ETH). On those assets a

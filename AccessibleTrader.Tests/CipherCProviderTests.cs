@@ -271,14 +271,15 @@ public sealed class CipherCProviderTests
         var everCompared = new HashSet<string>();
         // Fixed cuts, plus one just after the last daily confirmation that replaced a cancelled
         // low: since confirmations wait out the hold (2026-10-22), cancellations are rare and no
-        // longer fall in the fixed stretches. The weekly tier drops no kept low anywhere on
-        // Bitcoin (it picks its lows from the daily ones, 2026-10-23), so its "replaces" never
-        // fires here; CipherCWeeklyTests checks it on every cut of a case that drops one.
+        // longer fall in the fixed stretches; likewise one just after the last weekly
+        // confirmation that replaced a candidate the next daily low undercut (2026-10-27).
         var cuts = new List<int> { 3000, 3800, 4500, 5200 };
         int lastReplaced = Marked(whole[CipherCProvider.CompDclConfirmed + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
         Assert.True(lastReplaced > 400, "no daily confirmation replaces a cancelled low on Bitcoin");
         cuts.Add(lastReplaced + 1);
-        Assert.Empty(Marked(whole[CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix]));
+        int lastWeeklyReplaced = Marked(whole[CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
+        Assert.True(lastWeeklyReplaced > 400, "no weekly confirmation replaces a cancelled low on Bitcoin");
+        cuts.Add(lastWeeklyReplaced + 1);
         foreach (int cut in cuts)
         {
             var part = Run(bars.Take(cut).ToList(), "BTC/USD");
@@ -650,7 +651,8 @@ public sealed class CipherCProviderTests
         Assert.Equal(32, aapl.Preset.CountedDailyMin);
         Assert.True(sol.Preset.CalendarDays);
         Assert.False(aapl.Preset.CalendarDays);
-        Assert.True(sol.Preset.WeeklyEveryTwoDaily);
+        Assert.False(sol.Preset.WeeklyByWeeks);
+        Assert.True(sol.Preset.WeeklyDoubles);
         Assert.Equal(("GOLD", true), Key(CipherCEngine.Resolve("GOLD", "AAPL", tradesEveryDay: false)));
         Assert.Equal(("ETH", true), Key(CipherCEngine.Resolve("", "ETH/USD", tradesEveryDay: true)));
         static (string, bool) Key((CyclePreset P, bool F) r) => (r.P.Key, r.F);

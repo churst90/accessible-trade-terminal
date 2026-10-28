@@ -26,6 +26,17 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C's weekly tier is one state machine, and by weeks on the metals (2026-10-27,
+>   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 23).** Read from the
+>   original's replays (its table's two week counts, bar by bar). Weekly F1 as the app runs, from the
+>   chart's first bar, 0.794 → 0.839; on the original's own daily lows 0.837 → 0.907. Cody to look at
+>   a Dow and a gold daily chart: the weekly marks should now sit where the original's do. Open:
+>   - Worse on GDXJ (0.76 → 0.55), Bitcoin, MicroStrategy, GDX, Apple and oil.
+>   - The metals' margins are mostly in sample.
+>   - The original sometimes moves its reference on by one daily low after a fixed candidate;
+>     nothing tried separates those cases (worth 2 weekly lows on gold).
+>   - Start-dependence: the machine counts daily lows, so a chart that starts elsewhere can run one
+>     daily low out of step for up to 32 daily lows.
 > - [ ] **Cipher C drops a pending low on any undercut before due on the Dow, the dollar, Silver and
 >   Ether (2026-10-27, built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 22).** Read
 >   from the original's cancelled marks in its whole-history drawings: daily F1 0.950 → 0.969 on the
@@ -106,13 +117,14 @@
     original keeps its unconfirmed low through a lower low 1–2 bars before due on 7 of 8; ignoring
     those bars helps GDX, S&P, Gold but costs the Dow 6 weekly lows, so not adopted.
   - **Weekly lows by counting daily lows (2026-10-24, built, NOT seen; CIPHER_C_DESIGN section 14).**
+    **Superseded 2026-10-27 by the weekly state machine (section 23).**
     The dollar, Dow, S&P and Nasdaq now pick weekly lows as the original does there (dollar weekly
     19 → 27 of 46, Nasdaq 33 → 38, Dow 39 → 40 with 4 fewer extras, S&P 30 → 29). Oil and Bitcoin
     do not fit and keep the old pick (Gold, Silver and the miners: next item).
     ~~The Bitcoin wiring test (CipherCSearchTests) passes a "Symbol" key the provider does not
     read.~~ Done 2026-10-27: the test moved to CipherCDailyTests and passes `__symbol`.
   - **Gold, Silver and the miners judge a weekly candidate at the next daily low (2026-10-24,
-    built, NOT seen; CIPHER_C_DESIGN section 16).** On the original's own daily lows 40 of 47 weekly
+    built, NOT seen; CIPHER_C_DESIGN section 16).** **Superseded 2026-10-27 (section 23).** On the original's own daily lows 40 of 47 weekly
     lows with 6 extra (old pick 43, 51 extra). End to end the extras fall 44 → 23 but exact 43 → 39
     of 72; SILJ, the held-out one, 9 → 6. Open: our daily lows flip the rule's rhythm; the passes it
     does not explain (GDXJ 2023-12-13, SILJ 2024-10-09, Gold 2025-01-26). Oil and Bitcoin keep the

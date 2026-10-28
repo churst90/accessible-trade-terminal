@@ -10,11 +10,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// when not 0, is the shortest daily cycle the original counts with where it differs from the
     /// range its table shows (Bitcoin: table 54–66 days, counted from 48; Coinbase and MicroStrategy:
     /// 40–90, counted from 51).
-    /// <see cref="WeeklyEveryTwoDaily"/> picks the weekly lows by
-    /// <see cref="CipherCEngine.WeeklyFromTwoDaily"/>, the rule the original follows on the dollar,
-    /// the Dow, the S&amp;P and the Nasdaq; <see cref="WeeklyNextDaily"/> by
-    /// <see cref="CipherCEngine.WeeklyFromNextDaily"/>, its rule on Gold, Silver, GDX and GDXJ; the
-    /// others keep <see cref="CipherCEngine.WeeklyFromDaily"/>, on Ether without its "double"
+    /// <see cref="WeeklyByWeeks"/> picks the weekly lows by <see cref="CipherCEngine.WeeklyByWeeks"/>,
+    /// the original's rule on Gold, Silver and the gold and silver miners; the others by
+    /// <see cref="CipherCEngine.WeeklyFromDaily"/>, on Ether without its far "double"
     /// (<see cref="WeeklyDoubles"/> false).
     /// <see cref="DssLength"/> and <see cref="DssSmooth"/> are the stochastic length and EMA length
     /// of the double-smoothed stochastic that names a daily low (<see cref="CipherCEngine.DetectDaily"/>);
@@ -27,8 +25,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         double DailyMin, double DailyMax,
         double WeeklyMin, double WeeklyMax,
         double YearlyMin, double YearlyMax,
-        bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyEveryTwoDaily = false,
-        bool WeeklyNextDaily = false, int DssLength = CipherCEngine.DefaultDssLength,
+        bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyByWeeks = false,
+        int DssLength = CipherCEngine.DefaultDssLength,
         int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true,
         bool DropUntilDue = false)
     {
@@ -95,29 +93,30 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// <para>
     /// <b>The weekly tier.</b> On a daily chart the original does not find weekly lows itself: it
-    /// picks them from its confirmed daily lows, each judged on the bar it is confirmed
-    /// (<see cref="WeeklyFromDaily"/>). A new daily low is the weekly candidate; it is kept when the
-    /// next daily low is at least the shortest weekly cycle less four weeks from the last kept low
-    /// (<see cref="KeepBars"/>), dropped if a lower one comes sooner, and a kept low undercut too
-    /// soon is dropped with it. After a weekly low lower than the one before, the next daily low
-    /// decides a "double". The weekly low it calls confirmed is the kept one before the newest.
-    /// Read from the original's labels in TradingView (2026-10-23): on its own daily lows, over
-    /// sixteen assets, this rule draws 317 of its weekly lows, 60 it does not and misses 60; on the
-    /// spans replayed bar by bar (GDX, Dow, Bitcoin) it draws exactly the original's. On Bitcoin
-    /// since May 2022 Cipher C's weekly lows are the original's wherever the daily lows agree. The
-    /// four-week margin is fitted (GDX allows 84 to 100 bars, Bitcoin any from 119 to 134), not
-    /// read. The original has no weekly-chart mode ("Timeframe Not Optimised"), so on a weekly
-    /// chart the weekly tier still finds its own lows with the cross and the hold.
-    /// On the dollar, the Dow, the S&amp;P and the Nasdaq the replays logged every weekly label per
-    /// bar, and they show a different rule, now used there (<see cref="CyclePreset.WeeklyEveryTwoDaily"/>,
-    /// <see cref="WeeklyFromTwoDaily"/>): the first daily low after a new weekly low takes its place
-    /// if lower; from the second, a new weekly low goes on the lowest daily low since that is two
-    /// shortest daily cycles less two bars each after the last.
-    /// On Gold, Silver, GDX and GDXJ (22-day tables) the original judges a candidate at the next
-    /// daily low instead (<see cref="CyclePreset.WeeklyNextDaily"/>, <see cref="WeeklyFromNextDaily"/>);
-    /// the junior silver miners keep the first rule, and Ether keeps it without the "double"
-    /// (<see cref="CyclePreset.WeeklyDoubles"/>). Both fitted on the 2022-26 replays and checked
-    /// before 2022; on the daily tier's own lows the sixteen assets' weekly F1 goes 0.799 -> 0.839.
+    /// picks them from its confirmed daily lows, each judged on the bar it is confirmed. Read from
+    /// its candle replays (the table's weeks since the confirmed and the unconfirmed weekly low,
+    /// logged per bar, 2016-26) and its whole-history drawings (2026-10-27). The second daily low
+    /// after the newest weekly low is drawn as the candidate and the next daily low judges it.
+    /// Everywhere but the metals (<see cref="WeeklyFromDaily"/>): a lower one cancels it and is a
+    /// weekly low itself; one not lower makes it a weekly low; a weekly low is never taken back; and
+    /// the first daily low after a weekly low is a weekly low too in two "double" cases. On Gold,
+    /// Silver and the miners (<see cref="CyclePreset.WeeklyByWeeks"/>, <see cref="WeeklyByWeeks"/>)
+    /// the same candidate is judged by distance: a new weekly low only 8 weeks short of the table's
+    /// longest weekly cycle (28 or 26) from the newest, nearer only in its place when lower. The
+    /// weekly low it calls confirmed, which its week count runs from, is the one before the newest.
+    /// On the original's own daily lows over its whole history (nineteen assets, weekly lows after
+    /// its first) this draws 646 of its 713 weekly lows with 66 others (F1 0.907, the rules before
+    /// 0.837): metals 0.848 (was 0.772), the rest 0.913 (was 0.843). On this engine's daily lows,
+    /// run from the chart's first bar, 0.839 (was 0.794). The machine counts daily lows, so a later
+    /// start can leave it a daily low out of step for a while (within 32 daily lows on the nineteen
+    /// assets' candles). The machine was read from the 2022-26 replays; before 2022 the non-metal
+    /// rule scores 0.912 there (the rules before 0.840). The metals' week margins were fitted on the
+    /// whole history; fitted on either side of 2022 alone they score 0.82 and 0.69 on the other
+    /// (the rule before, 0.81 and 0.68), so most of the metals' gain is in sample. After some
+    /// candidates are made weekly lows the original moves its reference on by one daily low; nothing
+    /// tried separates those cases (supplied from its replays they would add 2 weekly lows on gold).
+    /// The original has no weekly-chart mode ("Timeframe Not Optimised"), so on a weekly chart the
+    /// weekly tier still finds its own lows with the cross and the hold.
     /// </para>
     ///
     /// <para>
@@ -139,7 +138,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Read from the original in bar replay (see "The hold" in the class remarks) ──
         public const double HoldFraction     = 0.5;   // a found low holds this much of the shortest cycle (rounded down) before it is confirmed
         public const int    HoldFromBeforeMin = 2;    // the hold counts from no earlier than the last low + shortest cycle − this
-        public const double KeepWeeksBelowMin = 4;    // a weekly low is kept this many weeks short of the shortest weekly cycle from the last
+        public const double FarDoubleCycles  = 1.25;  // a first daily low under the weekly low this many shortest daily cycles after it is a weekly low too
+        public const double DoubleDepth      = 0.98;  // ... or one after a candidate made a weekly low this far under the weekly low before
+        public const double WeeksShortOfMax  = 8;     // metals: a new weekly low this many weeks short of the longest weekly cycle from the newest
+        public const double DoubleWeeksShortOfMax = 14; // metals: a double this many weeks short of it
 
         // ── The daily tier (see DetectDaily) ──
         public const int    DefaultDssLength = 10;   // the double-smoothed stochastic's length, where a preset names none
@@ -166,38 +168,35 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
-            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32, WeeklyEveryTwoDaily: true),
-            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true),
+            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32),
+            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf),
             // The Dow, the dollar, silver and Ether drop a pending low on any undercut before it is due
             // (DropUntilDue): on the original's full-history drawings (cancelled lows shown, 2026-10-27)
             // every undercut later than d / 3 after naming was a cancel there (Dow 13, dollar 8, silver 3,
             // Ether 2) and a keep on every other asset (64, the Nasdaq's 6 among them on the Dow's table).
-            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, WeeklyEveryTwoDaily: true, DropUntilDue: true),
+            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, DropUntilDue: true),
             // Its table says 15-24, but the original counts the dollar from 18 (candle replay, 2021-26,
             // 52 lows): confirmed 9 bars after the low on 39 of 52, a short cycle no sooner than the
             // last low + 25, a first label no sooner than the last low + 17.
-            new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18, WeeklyEveryTwoDaily: true,
+            new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18,
                 DssLength: 8, PivotBreak: true, DropUntilDue: true),
-            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
+            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true),
             // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
             // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
             // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
             // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
-            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyNextDaily: true, PivotBreak: true,
+            new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyByWeeks: true, PivotBreak: true,
                 DropUntilDue: true),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
-            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyNextDaily: true, DssLength: 8, PivotBreak: true),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyNextDaily: true, PivotBreak: true),
-            // The junior silver miners pick their weekly lows as the indices and coins do, not as the other
-            // metals (the original's 2022-26 replays: 13 of its 13 weekly lows on its own daily lows,
-            // 7 of 13 by the next daily low; fitted after 2022, 2 of 2 before).
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, PivotBreak: true),
+            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true),
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true),
             // Its table says 15-25, but the original counts Ethereum from 16 (candle replay, 2022-26, 75
             // lows): confirmed 8 bars after the low on 59 of 75 (15 and 16 both hold 8), a short cycle
             // no sooner than the last low + 22 (16 - 2 + 8; 15 would give 21), a first label no sooner
             // than the last low + 15.
-            // Ether's weekly lows have no "double" (on its own daily lows the original's weekly F1 0.71 -> 0.88;
-            // fitted on 2022-26, before 2022 0.71 -> 0.84).
+            // Ether's weekly lows have no far "double": with it, on the original's own daily lows over
+            // the whole history, its weekly lows score F1 0.82 against 0.88 without.
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false,
                 DropUntilDue: true),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
@@ -782,316 +781,199 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// How far, in bars, a daily low must be from the newest kept weekly low to keep a weekly
-        /// low: the shortest weekly cycle less <see cref="KeepWeeksBelowMin"/> weeks. Read from the
-        /// original: GDX and the Dow 90 (22 weeks of 5 bars; GDX allows 84 to 100), Bitcoin 126 (22
-        /// weeks of 7).
+        /// The weekly tier on a chart with a daily one, as the original picks it everywhere but the
+        /// metals (see "The weekly tier" in the class remarks): a machine driven only by the daily
+        /// run's confirmations, each acted on the bar it happens. The second daily low after the
+        /// newest weekly low U is drawn at once as the candidate P and judged by the next: a lower
+        /// one cancels P and is itself a new weekly low, at any distance; one not lower makes P a
+        /// weekly low and counts as the first daily low after it. A weekly low is never taken back.
+        /// Before P is drawn, the first daily low F after U is a weekly low of its own (a "double")
+        /// when the second is not under it and either F is under U at least
+        /// <see cref="FarDoubleCycles"/> shortest daily cycles (<paramref name="dailyMin"/>) after it
+        /// (off with <paramref name="farDoubles"/> false, Ether), or U was a candidate made a weekly
+        /// low, more than <see cref="DoubleDepth"/> under the weekly low before, and F is not under U.
+        /// <see cref="TierRun.Lows"/> are the weekly lows at the end (the live candidate among them),
+        /// <see cref="TierRun.FoundAt"/> the bar each was drawn, <see cref="TierRun.ConfirmedAt"/> the
+        /// bar each became a weekly low (-1 for the candidate). <see cref="TierRun.LastLowAt"/> is the
+        /// original's confirmed weekly low, the one before the newest, which its week count runs
+        /// from. Confirmed fires when that moves on, Cancelled on the bar a candidate is undercut
+        /// (carrying its price), and Updated on that same bar (the low the new one replaces).
         /// </summary>
-        public static double KeepBars(double weeklyMin, double barsPerWeek) =>
-            Math.Max(0, weeklyMin - KeepWeeksBelowMin) * barsPerWeek;
-
-        /// <summary>
-        /// The weekly tier on a chart with a daily one: the original's rule (see "The weekly tier"
-        /// in the class remarks), driven only by the daily run's confirmations, each acted on the
-        /// bar it happens. <paramref name="keepBars"/> is how far from the newest kept weekly low a
-        /// daily low must be to be kept as the next ((shortest weekly cycle − 4) weeks of bars);
-        /// <paramref name="dailyMin"/> the daily shortest cycle in bars. <see cref="TierRun.Lows"/>
-        /// are the weekly lows drawn at the end (the live candidate among them);
-        /// <see cref="TierRun.ConfirmedAt"/> the bar each was kept, or -1 for one not kept yet;
-        /// <see cref="TierRun.FoundAt"/> the bar each was drawn. <see cref="TierRun.LastLowAt"/> is
-        /// the original's confirmed weekly low: the kept weekly low before the newest, which its
-        /// week count runs from. Confirmed fires when that moves on, Cancelled on the bar a kept
-        /// weekly low is dropped (carrying its price), and Updated on the next confirmation after
-        /// one was (the price of the one dropped last). With <paramref name="doubles"/> false there
-        /// is no "double": a kept lower low is not judged by the next daily low, and a lower low a
-        /// daily cycle after a replacement is not judged either.
-        /// </summary>
-        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double keepBars, double dailyMin,
-                                              bool doubles = true)
+        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double dailyMin, bool farDoubles = true)
         {
             int n = data.Length;
-            var run = new TierRun
-            {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
-                Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
-            };
-            if (daily.LastLowAt.Length != n) return run;
-
-            var kept = new List<int>();                       // kept weekly lows, newest last
-            var drawnOn = new SortedDictionary<int, int>();   // drawn weekly low -> bar drawn
-            var keptOn = new Dictionary<int, int>();          // kept weekly low -> bar kept
-            var lows = new double[n];
-            for (int i = 0; i < n; i++) lows[i] = data[i].Low;
-            double Low(int i) => lows[i];
-            int Gap(int d) => kept.Count > 0 ? d - kept[^1] : int.MaxValue;
-            char phase = 'L';
-            int cand = -1, chk = -1, dprev = -1, anchor = -1;
-            double replaced = double.NaN;
-            for (int t = 0; t < n; t++)
-            {
-                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] >= 0)
-                {
-                    int d = daily.LastLowAt[t];
-                    void Keep(int i) { kept.Add(i); keptOn[i] = t; drawnOn.TryAdd(i, t); }
-                    void Drop()
-                    {
-                        int i = kept[^1];
-                        kept.RemoveAt(kept.Count - 1); drawnOn.Remove(i); keptOn.Remove(i);
-                        run.Cancelled[t] = replaced = Low(i);
-                        run.CancelledLow[t] = i;
-                    }
-                    switch (phase)
-                    {
-                        case 'L':
-                            // A new daily low is the weekly candidate, drawn at once.
-                            cand = d; drawnOn[d] = t; phase = 'C';
-                            break;
-                        case 'C' when Low(d) < Low(cand):
-                            // A lower one takes its place; a kept low it undercuts too soon was not
-                            // the weekly low. Far enough from the kept low, it is kept; if not, it
-                            // is not drawn at all.
-                            drawnOn.Remove(cand); cand = d;
-                            while (kept.Count > 1 && Low(d) < Low(kept[^1]) && Gap(d) < keepBars) Drop();
-                            if (Gap(d) >= keepBars) Keep(d);
-                            phase = 'S';
-                            break;
-                        case 'C':
-                            // The checkpoint: far enough from the kept low, the candidate is kept;
-                            // otherwise it is removed — unless it undercut a kept low too soon,
-                            // which is dropped and the candidate judged again.
-                            while (kept.Count > 1 && Gap(d) < keepBars && Low(cand) < Low(kept[^1])) Drop();
-                            if (Gap(d) >= keepBars)
-                            {
-                                bool lower = kept.Count > 0 && Low(cand) < Low(kept[^1]);
-                                dprev = kept.Count > 0 ? kept[^1] : -1;
-                                Keep(cand); chk = d;
-                                phase = lower && doubles ? 'D' : 'L';
-                            }
-                            else { drawnOn.Remove(cand); phase = 'L'; }
-                            break;
-                        case 'D':
-                            // After a lower weekly low the next daily low decides the "double": a
-                            // lower one is a new candidate; otherwise the checkpoint low is kept as
-                            // a second weekly low if it is under the kept low before.
-                            if (Low(d) < Low(chk)) { cand = d; drawnOn[d] = t; phase = 'C'; }
-                            else
-                            {
-                                if (Low(chk) < Low(dprev)) Keep(chk);
-                                phase = 'L';
-                            }
-                            break;
-                        default:   // 'S', after a replacement
-                            // A lower low a full daily cycle after the replacement is judged as a
-                            // checkpoint after a new weekly low.
-                            if (doubles && cand >= 0 && Low(d) < Low(cand) && d - cand >= dailyMin && kept.Count > 1)
-                            {
-                                chk = d; dprev = kept[^1] == cand ? kept[^2] : kept[^1];
-                                phase = 'D';
-                            }
-                            else phase = 'L';
-                            break;
-                    }
-                }
-                int now = kept.Count > 1 ? kept[^2] : -1;
-                if (now > anchor)
-                {
-                    run.Confirmed[t] = Low(now);
-                    run.Updated[t] = replaced;
-                    replaced = double.NaN;
-                }
-                anchor = now;
-                run.LastLowAt[t] = anchor;
-            }
-            foreach (var (i, on) in drawnOn)
-            {
-                run.Lows.Add(i); run.FoundAt.Add(on);
-                run.ConfirmedAt.Add(keptOn.TryGetValue(i, out int k) ? k : -1);
-            }
-            return run;
-        }
-
-        /// <summary>
-        /// The weekly tier on a chart with a daily one, as the original picks it on the dollar, the
-        /// Dow, the S&amp;P and the Nasdaq: by counting its confirmed daily lows after the newest
-        /// weekly low, each acted on the bar it is confirmed. The first daily low after a new weekly
-        /// low takes its place if it is lower (and is never moved itself); otherwise nothing happens.
-        /// From the second on, a new weekly low goes on the lowest of the daily lows since the newest
-        /// that is at least <paramref name="gapBars"/> after it (two shortest daily cycles less two
-        /// bars each: 2 × (shortest − 2)); until one is, it waits for the next. The weekly low it
-        /// calls confirmed (<see cref="TierRun.LastLowAt"/>, which its week count runs from) is the
-        /// one before the newest, moved on at each daily confirmation except one that draws a new
-        /// weekly low on its own bar. Read from the original's labels and table (weeks since the
-        /// confirmed and the unconfirmed weekly low) on the dollar's candle replay, 2022-26. Fed the
-        /// original's own daily lows it draws 22 of its 22 weekly lows there; with the same
-        /// 2 × (shortest − 2), 10 of 11 on the Dow, 10 of 11 on the Nasdaq and 11 of 13 on the S&amp;P
-        /// (at the original's default count there, 32). Oil, Gold, Silver, GDX and Bitcoin do not
-        /// fit it at this gap and keep <see cref="WeeklyFromDaily"/>. <see cref="TierRun.ConfirmedAt"/>
-        /// is the bar a weekly low can no longer move (the next daily confirmation, or at once for one
-        /// that moved or was drawn on an earlier low), -1 while it still can.
-        /// </summary>
-        public static TierRun WeeklyFromTwoDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double gapBars)
-        {
-            int n = data.Length;
-            var run = new TierRun
-            {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
-                Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
-            };
+            var run = NewRun(n);
             if (daily.LastLowAt.Length != n) return run;
 
             var weekly = new List<int>();                     // weekly lows, newest last
-            var drawnOn = new SortedDictionary<int, int>();   // weekly low -> bar drawn
-            var fixedOn = new Dictionary<int, int>();         // weekly low -> bar it can no longer move
-            var after = new List<int>();                      // daily lows confirmed after the newest
-            bool movable = false;                             // the newest was drawn on its own bar
-            int anchor = -1;
-            for (int t = 0; t < n; t++)
-            {
-                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] >= 0)
-                {
-                    int d = daily.LastLowAt[t];
-                    bool drewOwn = false;
-                    if (weekly.Count == 0)
-                    {
-                        weekly.Add(d); drawnOn[d] = t; movable = drewOwn = true;
-                    }
-                    else if (d > weekly[^1])
-                    {
-                        int u = weekly[^1];
-                        after.Add(d);
-                        if (after.Count == 1 && movable)
-                        {
-                            // The first daily low after a new weekly low: lower, it takes its place.
-                            movable = false;
-                            if (data[d].Low < data[u].Low)
-                            {
-                                drawnOn.Remove(u); weekly[^1] = d; drawnOn[d] = t; fixedOn[d] = t;
-                                after.Clear();
-                            }
-                            else fixedOn[u] = t;
-                        }
-                        else if (after.Count >= 2)
-                        {
-                            int best = -1;
-                            foreach (int x in after)
-                                if (x - u >= gapBars && (best < 0 || data[x].Low < data[best].Low)) best = x;
-                            if (best >= 0)
-                            {
-                                weekly.Add(best); drawnOn[best] = t;
-                                after.RemoveAll(x => x <= best);
-                                movable = drewOwn = after.Count == 0;
-                                if (!movable) fixedOn[best] = t;
-                            }
-                        }
-                    }
-                    // The confirmed weekly low is the one before the newest, except on the bar a
-                    // new one is drawn on its own daily low.
-                    int now = weekly.Count > 1 ? weekly[^2] : -1;
-                    if (!drewOwn && now > anchor) { run.Confirmed[t] = data[now].Low; anchor = now; }
-                }
-                run.LastLowAt[t] = anchor;
-            }
-            foreach (var (i, on) in drawnOn)
-            {
-                run.Lows.Add(i); run.FoundAt.Add(on);
-                run.ConfirmedAt.Add(fixedOn.TryGetValue(i, out int k) ? k : -1);
-            }
-            return run;
-        }
-
-        /// <summary>
-        /// The weekly tier on a chart with a daily one, as the original picks it on Gold, Silver
-        /// and the gold and silver miners (shortest daily cycle 22 in their tables), each daily
-        /// confirmation acted on the bar it happens. A daily low confirmed after the newest weekly
-        /// low U is drawn at once as a candidate F and judged at the next daily confirmation N. If
-        /// N is lower than F, N is a new weekly low when at least <paramref name="lowerGapBars"/>
-        /// after U, else it takes U's place if lower than U. If N is not lower, F is a new weekly
-        /// low when at least <paramref name="gapBars"/> after U, else it takes U's place if lower.
-        /// The confirmation after a judged N draws no candidate when N undercut F or F was more than
-        /// <paramref name="farBars"/> after U; the one after that does. The weekly low it calls
-        /// confirmed (<see cref="TierRun.LastLowAt"/>) is the one before the newest. Read from the
-        /// candle replays of GDXJ (2022-26) and checked on the others, fed the original's own daily
-        /// lows: 40 of its 47 weekly lows with 6 more (GDXJ 10/10, GDX 8/9, Gold 7/8, Silver 8/9,
-        /// SILJ 7/11 held out), against 43 with 51 more for <see cref="WeeklyFromDaily"/>. The three
-        /// gaps are fitted, as 4.5, 4 and 6 of the table's shortest daily cycle (99, 88, 132 bars at
-        /// 22; the fit allows 100-104, 85-88 and 130-140; Silver, counted from 24, fits the table's 22).
-        /// </summary>
-        public static TierRun WeeklyFromNextDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double gapBars, double lowerGapBars, double farBars)
-        {
-            int n = data.Length;
-            var run = new TierRun
-            {
-                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
-                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
-                Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
-            };
-            if (daily.LastLowAt.Length != n) return run;
-
-            var weekly = new List<int>();                     // weekly lows, newest last
-            var drawnOn = new SortedDictionary<int, int>();   // drawn weekly low -> bar drawn
+            var drawnOn = new SortedDictionary<int, int>();   // drawn low -> bar drawn
             var fixedOn = new Dictionary<int, int>();         // weekly low -> bar it became one
-            int cand = -1, anchor = -1;
-            bool skip = true;
-            double replaced = double.NaN;
+            var after = new List<int>();                      // daily lows since the newest, before a candidate
             var lows = new double[n];
             for (int i = 0; i < n; i++) lows[i] = data[i].Low;
             double Low(int i) => lows[i];
+            int cand = -1, anchor = -1, last = -1;
+            bool fromCandidate = false;                       // the newest weekly low was a candidate made one
+            double replaced = double.NaN;
             for (int t = 0; t < n; t++)
             {
-                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] >= 0)
+                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] > last)
                 {
-                    int d = daily.LastLowAt[t];
+                    int d = last = daily.LastLowAt[t];
                     void Add(int i) { weekly.Add(i); drawnOn.TryAdd(i, t); fixedOn[i] = t; }
-                    void Replace(int i)
+                    if (weekly.Count == 0) Add(d);
+                    else if (cand >= 0)
+                    {
+                        if (Low(d) < Low(cand))
+                        {
+                            // Undercut: the candidate is cancelled and the lower low is a weekly low.
+                            drawnOn.Remove(cand);
+                            run.Cancelled[t] = replaced = Low(cand); run.CancelledLow[t] = cand;
+                            Add(d); after.Clear(); fromCandidate = false;
+                        }
+                        else
+                        {
+                            Add(cand); after.Clear(); after.Add(d); fromCandidate = true;
+                        }
+                        cand = -1;
+                    }
+                    else
+                    {
+                        after.Add(d);
+                        if (after.Count == 2)
+                        {
+                            int u = weekly[^1], f = after[0], s = after[1];
+                            int before = weekly.Count > 1 ? weekly[^2] : -1;
+                            bool doubled = Low(s) >= Low(f)
+                                && ((farDoubles && Low(f) < Low(u) && f - u >= FarDoubleCycles * dailyMin)
+                                    || (fromCandidate && before >= 0 && Low(u) < DoubleDepth * Low(before) && Low(f) >= Low(u)));
+                            if (doubled) { Add(f); after.RemoveAt(0); fromCandidate = false; }
+                            else { cand = s; drawnOn[s] = t; }
+                        }
+                    }
+                }
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced);
+            }
+            Publish(run, drawnOn, fixedOn);
+            return run;
+        }
+
+        /// <summary>
+        /// The weekly tier on Gold, Silver and the gold and silver miners, where the original's
+        /// table ends the weekly cycle at 28 or 26 weeks: the same candidate as
+        /// <see cref="WeeklyFromDaily"/> (the second daily low after the reference low), judged by
+        /// distance from the newest weekly low U. <paramref name="newBars"/> is
+        /// <see cref="WeeksShortOfMax"/> weeks short of the longest weekly cycle, in bars;
+        /// <paramref name="doubleBars"/> <see cref="DoubleWeeksShortOfMax"/> short of it.
+        /// <list type="bullet">
+        ///   <item>A next daily low under the candidate cancels it. It is a new weekly low when
+        ///         <paramref name="newBars"/> or more from U, else it takes U's place when under U
+        ///         (U is cancelled), else it is only the new reference low, drawn nowhere.</item>
+        ///   <item>One not under it makes the candidate a weekly low on the same terms (far enough:
+        ///         a new one; nearer but under U: in U's place); else the candidate goes, not
+        ///         cancelled. That daily low is then the first after the reference.</item>
+        ///   <item>A "double": when the first daily low after the reference is under the reference
+        ///         and the second is not under the first, the first is a weekly low if at least
+        ///         <paramref name="doubleBars"/> from U.</item>
+        /// </list>
+        /// The original's first daily low after a weekly low is never judged against it. Its
+        /// re-anchoring after some candidates are made weekly lows (the next candidate one daily low
+        /// later) is not reproduced: nothing found separates those cases. The outputs are as
+        /// <see cref="WeeklyFromDaily"/>'s; on a bar that cancels both the candidate and U,
+        /// Cancelled carries U.
+        /// </summary>
+        public static TierRun WeeklyByWeeks(TierRun daily, ReadOnlySpan<Ohlcv> data, double newBars, double doubleBars)
+        {
+            int n = data.Length;
+            var run = NewRun(n);
+            if (daily.LastLowAt.Length != n) return run;
+
+            var weekly = new List<int>();                     // weekly lows, newest last
+            var drawnOn = new SortedDictionary<int, int>();   // drawn low -> bar drawn
+            var fixedOn = new Dictionary<int, int>();         // weekly low -> bar it became one
+            var lows = new double[n];
+            for (int i = 0; i < n; i++) lows[i] = data[i].Low;
+            double Low(int i) => lows[i];
+            int cand = -1, reference = -1, first = -1, count = 0, anchor = -1, last = -1;
+            double replaced = double.NaN;
+            for (int t = 0; t < n; t++)
+            {
+                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] > last)
+                {
+                    int d = last = daily.LastLowAt[t];
+                    void Add(int i) { weekly.Add(i); drawnOn.TryAdd(i, t); fixedOn[i] = t; }
+                    // A new weekly low far enough from the newest, or (when allowed) one in its place
+                    // when lower; either becomes the reference.
+                    bool Make(int i, double gap, bool replace)
                     {
                         int u = weekly[^1];
-                        drawnOn.Remove(u); fixedOn.Remove(u);
-                        run.Cancelled[t] = replaced = Low(u); run.CancelledLow[t] = u;
-                        weekly[^1] = i; drawnOn.TryAdd(i, t); fixedOn[i] = t;
-                    }
-                    if (weekly.Count == 0) Add(d);
-                    else if (d > weekly[^1])
-                    {
-                        if (cand >= 0)
+                        if (i - u >= gap) Add(i);
+                        else if (replace && Low(i) < Low(u))
                         {
-                            int u = weekly[^1];
-                            bool under = Low(d) < Low(cand);
-                            if (under)
-                            {
-                                drawnOn.Remove(cand);
-                                if (d - u >= lowerGapBars) Add(d);
-                                else if (Low(d) < Low(u)) Replace(d);
-                            }
-                            else
-                            {
-                                if (cand - u >= gapBars) Add(cand);
-                                else { drawnOn.Remove(cand); if (Low(cand) < Low(u)) Replace(cand); }
-                            }
-                            skip = under || cand - u > farBars;
-                            cand = -1;
+                            drawnOn.Remove(u); fixedOn.Remove(u);
+                            run.Cancelled[t] = replaced = Low(u); run.CancelledLow[t] = u;
+                            weekly[^1] = i; drawnOn.TryAdd(i, t); fixedOn[i] = t;
                         }
-                        else if (skip) skip = false;
-                        else { cand = d; drawnOn[d] = t; }
+                        else return false;
+                        reference = i;
+                        return true;
                     }
+                    if (weekly.Count == 0) { Add(d); reference = d; }
+                    else if (cand >= 0)
+                    {
+                        if (Low(d) < Low(cand))
+                        {
+                            drawnOn.Remove(cand);
+                            run.Cancelled[t] = replaced = Low(cand); run.CancelledLow[t] = cand;
+                            if (!Make(d, newBars, true)) reference = d;
+                            count = 0;
+                        }
+                        else
+                        {
+                            if (!Make(cand, newBars, true)) drawnOn.Remove(cand);
+                            count = 1; first = d;
+                        }
+                        cand = -1;
+                    }
+                    else if (++count == 1) first = d;
+                    else if (Low(first) < Low(reference) && Low(d) >= Low(first) && Make(first, doubleBars, false)) { first = d; count = 1; }
+                    else { cand = d; drawnOn[d] = t; }
                 }
-                int now = weekly.Count > 1 ? weekly[^2] : -1;
-                if (now > anchor)
-                {
-                    run.Confirmed[t] = Low(now);
-                    run.Updated[t] = replaced;
-                    replaced = double.NaN;
-                }
-                anchor = now;
-                run.LastLowAt[t] = anchor;
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced);
             }
+            Publish(run, drawnOn, fixedOn);
+            return run;
+        }
+
+        private static TierRun NewRun(int n) => new()
+        {
+            LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+            ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
+            Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
+        };
+
+        // The original's confirmed weekly low is the one before the newest: Confirmed fires when it
+        // moves on, with Updated the price of the low cancelled since.
+        private static void Anchor(TierRun run, int t, List<int> weekly, double[] lows, ref int anchor, ref double replaced)
+        {
+            int now = weekly.Count > 1 ? weekly[^2] : -1;
+            if (now > anchor)
+            {
+                run.Confirmed[t] = lows[now];
+                run.Updated[t] = replaced;
+                replaced = double.NaN;
+            }
+            anchor = now;
+            run.LastLowAt[t] = anchor;
+        }
+
+        private static void Publish(TierRun run, SortedDictionary<int, int> drawnOn, Dictionary<int, int> fixedOn)
+        {
             foreach (var (i, on) in drawnOn)
             {
                 run.Lows.Add(i); run.FoundAt.Add(on);
                 run.ConfirmedAt.Add(fixedOn.TryGetValue(i, out int k) ? k : -1);
             }
-            return run;
         }
 
         /// <summary>
