@@ -420,18 +420,37 @@ public class CipherCDailyTests
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
 
         var byDaily = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, farDoubles).Confirmed);
-        var weeks = Marked(CipherCEngine.WeeklyByWeeks(d, Bars, byWeeks ? newBars : 20 * 7, byWeeks ? doubleBars : 14 * 7).Confirmed);
+        var weeks = Marked(CipherCEngine.WeeklyByWeeks(d, Bars, byWeeks ? newBars : 20 * 7, byWeeks ? doubleBars : 14 * 7, preset.DoubleUnderNewest).Confirmed);
         var mine = byWeeks ? weeks : byDaily;
         Assert.NotEmpty(mine);
         Assert.Equal(mine, Marked(r[CipherCProvider.CompWclConfirmed]));
         Assert.NotEqual(byDaily, weeks);
     }
 
+    /// <summary>On the miners the provider hands the weekly tier the rule that a metal double must
+    /// be under the newest weekly low. Bitcoin's fixture has no such double over the newest forwards;
+    /// run backwards (dates kept in order) it has some, and the rule moves its weekly lows.</summary>
     [Fact]
-    public void Only_the_metals_pick_weekly_lows_by_weeks_and_only_ether_has_no_far_double()
+    public void The_miners_weekly_tier_doubles_only_under_the_newest_weekly_low()
+    {
+        var bars = Bars.Reverse().Select((b, i) => b with { Date = Bars[i].Date }).ToArray();
+        var r = CipherCProvider.Compute(bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "GDX" });
+        var preset = CipherCEngine.Preset("GDX");
+        var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, preset.DailyMax * 7 / 5.0, 1, CipherCEngine.MeasureBars(bars));
+        var d = CipherCEngine.DetectDaily(bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
+        var under = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: true).Confirmed);
+        var plain = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: false).Confirmed);
+        Assert.NotEqual(plain, under);
+        Assert.Equal(under, Marked(r[CipherCProvider.CompWclConfirmed]));
+    }
+
+    [Fact]
+    public void Only_the_metals_pick_weekly_lows_by_weeks_only_the_miners_double_under_the_newest_and_only_ether_has_no_far_double()
     {
         var metals = new[] { "GOLD", "SILVER", "GDX", "GDXJ", "SILJ" };
         Assert.All(CipherCEngine.Presets, p => Assert.Equal(metals.Contains(p.Key), p.WeeklyByWeeks));
+        var miners = new[] { "GDX", "GDXJ", "SILJ" };
+        Assert.All(CipherCEngine.Presets, p => Assert.Equal(miners.Contains(p.Key), p.DoubleUnderNewest));
         Assert.All(CipherCEngine.Presets, p => Assert.Equal(p.Key != "ETH", p.WeeklyDoubles));
     }
 

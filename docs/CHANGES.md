@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: on the miners a weekly double must be under the newest weekly low (2026-10-27)
+
+- **What changed:** `CyclePreset.DoubleUnderNewest`, on for GDX, GDXJ and SILJ. In
+  `CipherCEngine.WeeklyByWeeks` the "double" (the first daily low after the reference made a weekly
+  low because it is under the reference and the next daily low is not under it) also needs that
+  daily low under the newest weekly low. `CipherCProvider` passes the preset's flag. Gold and Silver
+  keep the plain double.
+- **Why:** the metals' weekly residue, on the original's own daily lows: of the five miner doubles
+  the original skipped the two that were not under the newest weekly low and drew two of the three
+  that were (CIPHER_C_DESIGN section 27). On Gold the same condition scores lower.
+- **Numbers (private captures), plain → under on the miners:**
+  - On the original's daily lows: metals' weekly F1 0.848 → 0.892 (GDX 10 + 2 → 11 + 0, GDXJ
+    9 + 3 → 10 + 1, SILJ unchanged); nineteen assets 699 → 701 of 713, others 14 → 10 (0.980 → 0.985).
+  - As the app runs on the nineteen captured daily charts: weekly 0.927 → 0.931 (metals 0.815 →
+    0.859; GDX 10 + 2 → 11 + 0, GDXJ 6 + 5 → 7 + 3); daily lows unchanged (0.974). No chart worse.
+- **Tests:** `A_miner_double_must_be_under_the_newest_weekly_low` (built case: over, level and under
+  the newest weekly low, flag on and off); `The_miners_weekly_tier_doubles_only_under_the_newest_weekly_low`
+  (Bitcoin's fixture run backwards, dates kept in order, on the GDX preset: the provider's weekly
+  marks are the rule's and differ from the plain double's); the presets test pins the flag to the
+  three miners. Sabotages red: the rule removed (3 tests), `<=` for `<` (the level case), the rule on
+  for every preset (3), the provider not passing the flag (the provider test), GDXJ's flag off (the
+  presets test). README 9665 tests.
+- **Caveats:**
+  - Very few events: five miner doubles, and one of them (junior gold miners) was drawn by the
+    original while over the newest weekly low, against the rule. Most of the gain is knock-on (the
+    machine stays in step afterwards). Found and scored on the same history.
+  - The held-out 4-hour and weekly charts have no miner double: no evidence either way.
+  - A daily low level with the newest weekly low is no double; untested against the original.
+  - Not seen or heard in the app.
+
 ### Cipher C: of two equal lows, the first is named (2026-10-27)
 
 - **What changed:** in `CipherCEngine.DetectDaily`, when two swing lows after the cycle's top are

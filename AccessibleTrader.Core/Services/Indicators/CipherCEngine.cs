@@ -18,7 +18,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// of the double-smoothed stochastic that names a daily low (<see cref="CipherCEngine.DetectDaily"/>);
     /// <see cref="PivotBreak"/> adds the second way to name one, the break of the last swing high;
     /// <see cref="DropUntilDue"/> lets an undercut drop a pending daily low at any time before it
-    /// is due, not only within d / 3 bars of naming it (the Dow, the dollar, silver and Ether).
+    /// is due, not only within d / 3 bars of naming it (the Dow, the dollar, silver and Ether);
+    /// <see cref="DoubleUnderNewest"/> lets a weekly-by-weeks "double" stand only under the newest
+    /// weekly low (the three miners).
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
@@ -28,7 +30,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyByWeeks = false,
         int DssLength = CipherCEngine.DefaultDssLength,
         int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true,
-        bool DropUntilDue = false)
+        bool DropUntilDue = false, bool DoubleUnderNewest = false)
     {
         /// <summary>The shortest daily cycle the detector counts with.</summary>
         public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
@@ -104,11 +106,12 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// the same candidate is judged by distance: a new weekly low only 8 weeks short of the table's
     /// longest weekly cycle (28 or 26) from the newest, nearer only in its place when lower. The
     /// weekly low it calls confirmed, which its week count runs from, is the one before the newest.
+    /// On the miners a double also needs its daily low under the newest weekly low.
     /// On the original's own daily lows over its whole history (nineteen assets, weekly lows after
-    /// its first) this draws 699 of its 713 weekly lows with 14 others (F1 0.980): metals 0.848, the
+    /// its first) this draws 701 of its 713 weekly lows with 10 others (F1 0.985): metals 0.892, the
     /// rest 0.994 (643 of 646, 5 others: the Dow's first years and two live candidates; before 2022
-    /// 0.993, from 2022 0.995). On this engine's daily lows, run from the chart's first bar, 0.925
-    /// (metals 0.815, the rest 0.936). The deep double's rule (under the daily low before the weekly
+    /// 0.993, from 2022 0.995). On this engine's daily lows, run from the chart's first bar, 0.931
+    /// (metals 0.859, the rest 0.939). The deep double's rule (under the daily low before the weekly
     /// low) was read from the original's whole-history drawings: after a candidate made a weekly low,
     /// the next daily low was a weekly low too in 36 of 40 cases when under the daily low before the
     /// weekly low and in 0 of 174 when not; the four exceptions are all under 16 bars after it, and
@@ -192,9 +195,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyByWeeks: true, PivotBreak: true,
                 DropUntilDue: true),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
-            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true),
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true),
+            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true, DoubleUnderNewest: true),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true),
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true),
             // Its table says 15-25, but the original counts Ethereum from 16 (candle replay, 2022-26, 75
             // lows): confirmed 8 bars after the low on 59 of 75 (15 and 16 both hold 8), a short cycle
             // no sooner than the last low + 22 (16 - 2 + 8; 15 would give 21), a first label no sooner
@@ -885,7 +888,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         ///         cancelled. That daily low is then the first after the reference.</item>
         ///   <item>A "double": when the first daily low after the reference is under the reference
         ///         and the second is not under the first, the first is a weekly low if at least
-        ///         <paramref name="doubleBars"/> from U.</item>
+        ///         <paramref name="doubleBars"/> from U and, with <paramref name="doubleUnderNewest"/>
+        ///         (the miners), under U as well. Read from the original's whole-history drawings: of
+        ///         the five miner doubles, four fit (two it skipped were not under U, two it drew were)
+        ///         and one does not (junior gold miners, drawn above U). Most of the gain is what
+        ///         follows: the machine stays in step with the original afterwards (GDX and GDXJ weekly
+        ///         lows 19 → 21 of 22, others 5 → 1). On Gold the same condition loses 2, so Gold and
+        ///         Silver keep the plain double. Level with U is untested.</item>
         /// </list>
         /// The original's first daily low after a weekly low is never judged against it. Its
         /// re-anchoring after some candidates are made weekly lows (the next candidate one daily low
@@ -893,7 +902,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <see cref="WeeklyFromDaily"/>'s; on a bar that cancels both the candidate and U,
         /// Cancelled carries U.
         /// </summary>
-        public static TierRun WeeklyByWeeks(TierRun daily, ReadOnlySpan<Ohlcv> data, double newBars, double doubleBars)
+        public static TierRun WeeklyByWeeks(TierRun daily, ReadOnlySpan<Ohlcv> data, double newBars, double doubleBars,
+            bool doubleUnderNewest = false)
         {
             int n = data.Length;
             var run = NewRun(n);
@@ -947,7 +957,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         cand = -1;
                     }
                     else if (++count == 1) first = d;
-                    else if (Low(first) < Low(reference) && Low(d) >= Low(first) && Make(first, doubleBars, false)) { first = d; count = 1; }
+                    else if (Low(first) < Low(reference) && Low(d) >= Low(first)
+                        && (!doubleUnderNewest || Low(first) < Low(weekly[^1])) && Make(first, doubleBars, false)) { first = d; count = 1; }
                     else { cand = d; drawnOn[d] = t; }
                 }
                 Anchor(run, t, weekly, lows, ref anchor, ref replaced);

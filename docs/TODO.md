@@ -26,6 +26,13 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C: on the miners a weekly double must be under the newest weekly low (2026-10-27,
+>   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 27).** Weekly F1 as the app
+>   runs 0.927 → 0.931 (metals 0.815 → 0.859), daily unchanged, no chart worse. Cody to look at GDX's
+>   and GDXJ's daily charts, where weekly marks moved. Open:
+>   - Five miner doubles in all, one against the rule; nothing held out tests it.
+>   - GDXJ is still the worst weekly chart (7 + 3, 4 missed as the app runs): the original moves its
+>     reference on by one daily low after some candidates, which nothing found separates.
 > - [ ] **Cipher C names the first of two equal lows (2026-10-27, built, NOT seen or heard; see
 >   CHANGES and CIPHER_C_DESIGN section 26).** Daily F1 as the app runs 0.970 → 0.974, weekly 0.926 →
 >   0.927; held-out sets up by six lows in all, no chart worse. Cody to look at Marathon's and SILJ's

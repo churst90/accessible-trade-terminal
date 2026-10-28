@@ -63,9 +63,12 @@ public class CipherCWeeklyTests
     private static CipherCEngine.TierRun Metal(int n, params (int Bar, double Low, int At)[] lows) => Metal(n, NewBars, DoubleBars, lows);
 
     private static CipherCEngine.TierRun Metal(int n, double newBars, double doubleBars, params (int Bar, double Low, int At)[] lows)
+        => Metal(n, newBars, doubleBars, false, lows);
+
+    private static CipherCEngine.TierRun Metal(int n, double newBars, double doubleBars, bool underNewest, params (int Bar, double Low, int At)[] lows)
     {
         var (daily, data) = Daily(n, lows);
-        return CipherCEngine.WeeklyByWeeks(daily, data, newBars, doubleBars);
+        return CipherCEngine.WeeklyByWeeks(daily, data, newBars, doubleBars, underNewest);
     }
 
     private static int[] Marked(double[] a) => Enumerable.Range(0, a.Length).Where(i => !double.IsNaN(a[i])).ToArray();
@@ -276,6 +279,27 @@ public class CipherCWeeklyTests
         var w = Metal(300, (10, 100, 20), (30, 110, 40), (60, 106, 70), (90, 104, 100), (120, 103, 130), (140, 105, 150));
         Assert.Equal(new[] { 10, 120 }, w.Lows);   // 90 was the reference, 120 under it and 110 from 10
         Assert.Equal(new[] { 20, 150 }, w.ConfirmedAt);
+    }
+
+    /// <summary>
+    /// On the miners a metal double also needs the first daily low under the newest weekly low.
+    /// The case above with 120 at 103 (over the weekly low at 10, 100) is no double there: 140 is
+    /// drawn as the candidate; at 100, level with it, neither. At 99 it is one. Read from the
+    /// original's drawings on the three miners: four of their five doubles fit (one, junior gold
+    /// miners, was drawn over it); on Gold the condition scores lower, so Gold and Silver keep the
+    /// plain double.
+    /// </summary>
+    [Theory]
+    [InlineData(103, false, true)]
+    [InlineData(103, true, false)]
+    [InlineData(100, true, false)]
+    [InlineData(99, true, true)]
+    public void A_miner_double_must_be_under_the_newest_weekly_low(double firstLow, bool underNewest, bool doubled)
+    {
+        var w = Metal(300, NewBars, DoubleBars, underNewest,
+            (10, 100, 20), (30, 110, 40), (60, 106, 70), (90, 104, 100), (120, firstLow, 130), (140, 105, 150));
+        Assert.Equal(doubled ? new[] { 10, 120 } : new[] { 10, 140 }, w.Lows);
+        Assert.Equal(doubled ? new[] { 20, 150 } : new[] { 20, -1 }, w.ConfirmedAt);
     }
 
     // ── Both ──

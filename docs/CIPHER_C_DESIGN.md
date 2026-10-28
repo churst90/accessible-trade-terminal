@@ -1348,3 +1348,36 @@ Pooled F1 on the original's daily lows, latest → first:
 
 No chart is worse on any set. Better as the app runs: Apple, Platinum, SILJ, Marathon, EUR/USD.
 
+
+## 27. The miners' double: under the newest weekly low (2026-10-27)
+
+On Gold, Silver and the miners the weekly tier counts weeks (section 23), and its "double" makes
+the first daily low after the reference a weekly low when it is under the reference, the next
+daily low is not under it, and it is far enough from the newest weekly low U. On the three miners
+(GDX, GDXJ, SILJ) the double now also needs that daily low under U (`CyclePreset.DoubleUnderNewest`).
+Gold and Silver keep the plain double.
+
+Found in the metals' weekly residue, on the original's own daily lows. The machine makes nine
+doubles there: four on Gold (all drawn by the original), five on the miners. Of the five, the
+original skipped the two that were not under U and drew two of the three that were; the fifth,
+on the junior gold miners, it drew while it was over U, which the rule does not do. Most of the
+gain is knock-on: after the rule's choice the machine stays in step with the original. On Gold
+the same condition draws 15 of its weekly lows with 5 others, against 17 with 3 without it, so
+it is not applied there.
+
+| Set (weekly lows: drawn by both + others, F1) | Plain double | Under U on the miners |
+|---|---|---|
+| The original's daily lows, metals | 56 + 9, 0.848 | 58 + 5, 0.892 |
+| The same, GDX / GDXJ / SILJ | 10 + 2 / 9 + 3 / 12 + 0 | 11 + 0 / 10 + 1 / 12 + 0 |
+| The same, nineteen assets | 699 + 14, 0.980 | 701 + 10, 0.985 |
+| As the app runs, nineteen captured daily charts, weekly lows | 660 + 51, 0.927 | 662 + 47, 0.931 |
+| The same, metals | 53 + 10, 0.815 | 55 + 6, 0.859 |
+| The same, GDX / GDXJ | 10 + 2 / 6 + 5 | 11 + 0 / 7 + 3 |
+| As the app runs, daily lows | 1,748 + 41, 0.974 | the same |
+
+No chart is worse. Caveats: very few events (five miner doubles, one against the rule), found
+and scored on the same history; the held-out 4-hour and weekly charts have no miner double, so
+they say nothing either way; a daily low level with U is no double, untested against the
+original. The tests pin the rule on a built case (over, level and under U) and on Bitcoin's
+fixture run backwards with the GDX preset, where the provider's weekly marks are the rule's and
+differ from the plain double's.

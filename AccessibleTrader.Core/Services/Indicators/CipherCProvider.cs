@@ -343,7 +343,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var w = !weeklyFromDaily ? CipherCEngine.Detect(data, wTier, ob, os)
                 : preset.WeeklyByWeeks ? CipherCEngine.WeeklyByWeeks(d, data,
                     Math.Max(0, wMax - CipherCEngine.WeeksShortOfMax) * barsPerWeek,
-                    Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek)
+                    Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek, preset.DoubleUnderNewest)
                 : CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, preset.WeeklyDoubles);
             var y = CipherCEngine.Detect(data, yTier, ob, os);
             // Off daily a week of the count is five or seven bars, not a week, so its lengths,
