@@ -360,7 +360,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Causality = ComponentCausality.Causal, DefaultColorHex = SmaHex, DefaultThickness = 3f, DefaultIsEnabled = false,
                             DefaultUsePolarityColoring = false, DefaultIsAreaFill = false, DefaultPlaybackLayer = PlaybackLayer.Background },
 
-                    // Biggest first, so the daily triangle is drawn over the weekly over the yearly.
                     // Biggest first, so the daily triangle is drawn over the weekly over the yearly;
                     // on a bar with more than one, the weekly mark sits under the daily one and the
                     // yearly under the weekly, as the original stacks them.
@@ -464,7 +463,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // 2026-10-27) is the swing-high break switched on for an asset that lacks it.
             bool pivotBreak = preset.PivotBreak || IndicatorParams.GetBool(p, ParamFasterConfirmation, false);
             // The count starts on the original's Start bar, as a low confirmed one hold later.
-            int start = CipherCEngine.StartBar(data, CipherCEngine.PresetForSymbol(Str(p, "__symbol")) != null);
+            var own = CipherCEngine.PresetForSymbol(Str(p, "__symbol"));
+            int start = CipherCEngine.StartBar(data, own);
             var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak, start,
                 preset.DropUntilDue, seedConfirmed: true);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
@@ -475,7 +475,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Math.Max(0, wMax - CipherCEngine.WeeksShortOfMax) * barsPerWeek,
                     Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek, preset.DoubleUnderNewest)
                 : CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, preset.WeeklyDoubles);
-            var y = CipherCEngine.Detect(data, yTier, ob, os);
+            // On a symbol the original tunes, its yearly lows are its table of dates (the symbol's,
+            // whatever count is chosen), unless the yearly range is set by hand; elsewhere they are
+            // found from the price.
+            var yDates = own?.YearlyLows is { Count: > 0 } table && Dbl(p, ParamYearlyMin, 0) <= 0 && Dbl(p, ParamYearlyMax, 0) <= 0 ? table : null;
+            var y = yDates != null && yTier.Active ? CipherCEngine.YearlyFromDates(data, yDates) : CipherCEngine.Detect(data, yTier, ob, os);
             // Off daily a week of the count is five or seven bars, not a week, so its lengths,
             // ages and windows are said in bars too.
             var day = inBars ? new Unit("daily", "bar", "bars", 1) : new Unit("daily", "day", "days", clock.BarsPerDay);
@@ -505,11 +509,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             int dReach = (int)Math.Round(dTier.MinBars / 2), wReach = (int)Math.Round(wTier.MinBars / 2);
             var dConfirm = Confirmations(d, null, 0, data);
             var wConfirm = Confirmations(w, dTier.Active && !weeklyFromDaily ? d.Lows : null, dReach, data);
-            var yConfirm = Confirmations(y, wTier.Active ? w.Lows : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data);
+            // A dated yearly low stands on its own bar: the original draws no D or W under most of
+            // them (119 of 151 stand alone), so it is neither moved onto a lower tier's low nor
+            // added to them.
+            var yLower = yDates != null ? null : wTier.Active ? w.Lows : dTier.Active ? d.Lows : null;
+            var yConfirm = Confirmations(y, yLower, wTier.Active ? wReach : dReach, data);
             var dLows = new List<int>(d.Lows);
             var wLows = dTier.Active && !weeklyFromDaily ? CipherCEngine.SnapTo(w.Lows, dLows, dReach, data) : new List<int>(w.Lows);
             var wDrawn = new List<int>(wLows);
-            var yLows = wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, wReach, data)
+            var yLows = yDates != null ? new List<int>(y.Lows)
+                      : wTier.Active ? CipherCEngine.SnapTo(y.Lows, wLows, wReach, data)
                       : dTier.Active ? CipherCEngine.SnapTo(y.Lows, dLows, dReach, data) : y.Lows;
             // And a higher low with no lower one near it is a lower low as well: a weekly cycle
             // low IS a daily cycle low. Picked from the daily lows, a weekly low is one already,
@@ -517,11 +526,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             // own, can miss a daily low the daily detector skipped. CF draws a D under every W; so
             // does this. A low added this way was confirmed by the higher tier, so it takes that
             // tier's confirmation.
-            if (wTier.Active) foreach (int i in yLows) { AddLow(wLows, i); wConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
+            var yUnder = yDates != null ? new List<int>() : yLows;
+            if (wTier.Active) foreach (int i in yUnder) { AddLow(wLows, i); wConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
             if (dTier.Active)
             {
                 foreach (int i in wLows) { AddLow(dLows, i); dConfirm.TryAdd(i, wConfirm.GetValueOrDefault(i, -1)); }
-                foreach (int i in yLows) { AddLow(dLows, i); dConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
+                foreach (int i in yUnder) { AddLow(dLows, i); dConfirm.TryAdd(i, yConfirm.GetValueOrDefault(i, -1)); }
             }
 
             // Each low: its price, its cycle's length (CF's count, drawn as the label beside its
@@ -540,7 +550,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteConfirmed(o, CompWclConfirmed, w, wTier, week, sma, close, high, low,
                 DrawnAt(w, dTier.Active && !weeklyFromDaily ? d.Lows : null, dReach, data));
             WriteConfirmed(o, CompYclConfirmed, y, yTier, week, sma, close, high, low,
-                DrawnAt(y, wTier.Active ? wDrawn : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data));
+                DrawnAt(y, yDates != null ? null : wTier.Active ? wDrawn : dTier.Active ? d.Lows : null, wTier.Active ? wReach : dReach, data));
 
             // The events and the tops belong to the shortest tier that runs.
             var (lowest, lowestTier, lowestLows, tierNo, unit, ago) =
@@ -648,8 +658,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // 2026-10-28: 82 of 85 daily ends and 15 of 17 weekly ends dated in the past to the
             // day, the misses where its low is not ours. Past the last bar its bars skip exchange
             // holidays and ours do not, so there its end is ours less the holidays in between.
-            // The yearly band is a year of 365.25 days here; the original's reads its date table:
-            // not this. Off a daily chart, in bars (not checked against the original).
+            // The yearly band, on a symbol with the original's dated yearly lows, runs from the
+            // preset's YearlyBandFromDays to YearlyBandToDays calendar days after the newest of
+            // those dates (DatedBand); elsewhere from yMin to yMax years of 365.25 days after the
+            // newest yearly low. Off a daily chart, in bars (not checked against the original).
             bool everyDay = clock.TradesEveryDay;
             double calendar = everyDay ? 1 : 7.0 / 5;
             static double Or(double band, double table) => band > 0 ? band : table;
@@ -659,7 +671,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             double bwMax = Override(p, ParamWeeklyMax, Or(preset.BandWeeklyMax, preset.WeeklyMax));
             WriteBand(o, CompDailyWindow, d, dTier, data, n, inBars, bdMin * (inBars ? 1 : calendar), bdMax * (inBars ? 1 : calendar), everyDay);
             WriteBand(o, CompWeeklyWindow, w, wTier, data, n, inBars, bwMin * (inBars ? clock.DaysPerWeek : 7 * calendar), bwMax * (inBars ? clock.DaysPerWeek : 7 * calendar), everyDay);
-            WriteBand(o, CompYearlyWindow, y, yTier, data, n, inBars, yMin * (inBars ? clock.DaysPerYear : 365.25), yMax * (inBars ? clock.DaysPerYear : 365.25), everyDay);
+            if (yDates != null && own!.YearlyBandToDays > 0)
+                DatedBand(o, CompYearlyWindow, yTier, yDates, data, n, inBars, own.YearlyBandFromDays, own.YearlyBandToDays, everyDay);
+            else
+                WriteBand(o, CompYearlyWindow, y, yTier, data, n, inBars, yMin * (inBars ? clock.DaysPerYear : 365.25), yMax * (inBars ? clock.DaysPerYear : 365.25), everyDay);
 
             // The cycle wave, on the window of the tier the events belong to. A picture, not a
             // reading: what it shows — how far into the cycle each bar is — the window says as its
@@ -944,15 +959,45 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
+        /// The yearly band on a symbol with the original's dated yearly lows: from the first bar
+        /// stamped on or after the newest date on the chart plus <paramref name="fromDays"/>
+        /// calendar days to the first on or after it plus <paramref name="toDays"/>. None before
+        /// the chart reaches the first date (the original draws none there).
+        /// </summary>
+        private static void DatedBand(Dictionary<string, double[]> o, string comp, CipherCEngine.TierBars tier,
+            IReadOnlyList<DateTime> dates, ReadOnlySpan<Ohlcv> data, int n, bool inBars, double fromDays, double toDays, bool everyDay)
+        {
+            if (!tier.Active || n == 0) return;
+            DateTime? newest = null;
+            foreach (var d in dates) if (d <= data[n - 1].Date && (newest is null || d > newest)) newest = d;
+            if (newest is not DateTime at) return;
+            var last = data[n - 1].Date;
+            var step = n > 1 ? data[n - 1].Date - data[n - 2].Date : TimeSpan.FromDays(1);
+            // Off a daily chart a date past the last bar is reached at the spacing of its last two
+            // bars (not checked against the original).
+            var ta = at.AddDays(fromDays); var tb = at.AddDays(toDays);
+            bool stepped = inBars && step > TimeSpan.Zero;
+            int a = stepped && ta > last ? n - 1 + (int)Math.Ceiling((ta - last) / step) : BarOnOrAfter(data, ta, 0, everyDay);
+            int b = stepped && tb > last ? n - 1 + (int)Math.Ceiling((tb - last) / step) : BarOnOrAfter(data, tb, 0, everyDay);
+            o[comp + ComponentCompanions.BoxStart][n - 1] = a - (n - 1);
+            o[comp + ComponentCompanions.BoxEnd][n - 1] = b - (n - 1);
+        }
+
+        /// <summary>
         /// The first bar stamped at or after <paramref name="days"/> calendar days from bar
         /// <paramref name="from"/>'s timestamp, time of day included (a winter low on bars stamped
         /// at the 14:30 UTC open lands a bar later on the 13:30 summer ones, as the original's);
         /// past the last bar, counted on in the chart's trading days (every day, or weekdays).
         /// </summary>
         internal static int BarOnOrAfter(ReadOnlySpan<Ohlcv> data, int from, int days, bool everyDay)
+            => BarOnOrAfter(data, data[from].Date.AddDays(days), from, everyDay);
+
+        /// <summary>The first bar stamped at or after <paramref name="target"/>, looked for from bar
+        /// <paramref name="from"/>; past the last bar, counted on in the chart's trading days (every
+        /// day, or weekdays), at the last bar's time of day.</summary>
+        internal static int BarOnOrAfter(ReadOnlySpan<Ohlcv> data, DateTime target, int from, bool everyDay)
         {
-            var target = data[from].Date.AddDays(days);
-            for (int i = from; i < data.Length; i++) if (data[i].Date >= target) return i;
+            for (int i = Math.Max(0, from); i < data.Length; i++) if (data[i].Date >= target) return i;
             int k = data.Length - 1;
             var date = data[k].Date;
             while (date < target || !(everyDay || (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)))

@@ -33,7 +33,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         int DssLength = CipherCEngine.DefaultDssLength,
         int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true,
         bool DropUntilDue = false, bool DoubleUnderNewest = false,
-        double BandDailyMin = 0, double BandDailyMax = 0, double BandWeeklyMin = 0, double BandWeeklyMax = 0)
+        double BandDailyMin = 0, double BandDailyMax = 0, double BandWeeklyMin = 0, double BandWeeklyMax = 0,
+        DateTime? Start = null, IReadOnlyList<DateTime>? YearlyLows = null,
+        double YearlyBandFromDays = 0, double YearlyBandToDays = 0)
     {
         /// <summary>The shortest daily cycle the detector counts with.</summary>
         public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
@@ -175,34 +177,59 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// estimates. SPX's table does not draw there, so SPX keeps the ranges read off Camel's
         /// videos. Crude oil's real table matches the original's crude oil lows worse than the
         /// estimate did (0.68 against 0.76 on exact bars); it is used because it is the original's.
+        /// Fifteen also carry the original's own dates, read off its chart in bar replay
+        /// (2026-10-27/28; published with Cody's agreement): the day its count starts (Start, its
+        /// "Start" label), its yearly lows (YearlyLows, a table: the same dates on Heikin-Ashi, none
+        /// before the first listed), and its yearly band, a fixed number of calendar days after the
+        /// newest of them (YearlyBand*Days: the same on every earlier yearly low replayed, Bitcoin's
+        /// three and Ether's two to the day, the Dow's, the Nasdaq's and oil's to a day or two and
+        /// the others within the exchange holidays TradingView skips). SPX shows neither.
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
             new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32),
-            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf),
+            new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf,
+                Start: Day(1985, 1, 31), YearlyLows: Days("1987-10-30 1990-10-12 1994-06-27 1998-10-08 2002-10-09 2006-07-14 2008-12-01 2011-10-04 2016-02-08 2020-03-23"),
+                YearlyBandFromDays: 2271, YearlyBandToDays: 2782),
             // The Dow, the dollar, silver and Ether drop a pending low on any undercut before it is due
             // (DropUntilDue): on the original's full-history drawings (cancelled lows shown, 2026-10-27)
             // every undercut later than d / 3 after naming was a cancel there (Dow 13, dollar 8, silver 3,
             // Ether 2) and a keep on every other asset (64, the Nasdaq's 6 among them on the Dow's table).
-            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, DropUntilDue: true),
+            new CyclePreset("DJI",    "Dow Jones",   36, 44, 22, 31, 4,   4,   false, FromCf, DropUntilDue: true,
+                Start: Day(1985, 1, 31), YearlyLows: Days("1962-06-25 1966-10-10 1970-05-28 1974-12-12 1978-03-01 1982-08-10 1987-10-19 1990-10-10 1994-04-04 1998-09-01 2002-10-10 2009-03-06 2011-10-04 2016-01-20 2020-03-23"),
+                YearlyBandFromDays: 2271, YearlyBandToDays: 2782),
             // Its table says 15-24, but the original counts the dollar from 18 (candle replay, 2021-26,
             // 52 lows): confirmed 9 bars after the low on 39 of 52, a short cycle no sooner than the
             // last low + 25, a first label no sooner than the last low + 17.
             new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18,
-                DssLength: 8, PivotBreak: true, DropUntilDue: true, BandDailyMin: 16, BandDailyMax: 25),
+                DssLength: 8, PivotBreak: true, DropUntilDue: true, BandDailyMin: 16, BandDailyMax: 25,
+                Start: Day(2016, 2, 16), YearlyLows: Days("1987-11-01 1992-07-20 1995-04-17 1998-10-08 2001-09-24 2005-01-02 2008-03-17 2011-05-04 2014-05-08 2018-02-16 2021-01-07 2023-12-26"),
+                YearlyBandFromDays: 1280, YearlyBandToDays: 1790),
             // Gold's and silver's weekly bands start 22 weeks on, though the table says 20 (2026-10-28).
             new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true,
-                BandWeeklyMin: 22),
+                BandWeeklyMin: 22,
+                Start: Day(2014, 1, 1), YearlyLows: Days("1976-08-23 1985-02-25 1993-03-29 2001-02-12 2008-10-20 2015-11-23 2022-10-17"),
+                YearlyBandFromDays: 3579, YearlyBandToDays: 4600),
             // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
             // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
             // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
             // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
             new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyByWeeks: true, PivotBreak: true,
-                DropUntilDue: true, BandWeeklyMin: 22),
-            new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
-            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true, DoubleUnderNewest: true),
-            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true),
-            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true),
+                DropUntilDue: true, BandWeeklyMin: 22,
+                Start: Day(2020, 3, 18), YearlyLows: Days("1976-01-26 1985-03-12 1993-03-02 2001-11-22 2008-10-26 2015-12-17 2022-09-01"),
+                YearlyBandFromDays: 3644, YearlyBandToDays: 4665),
+            new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf,
+                Start: Day(1985, 1, 31), YearlyLows: Days("1986-07-30 1990-07-19 1994-02-15 1998-12-13 2001-11-20 2009-01-15 2016-02-11 2020-04-19"),
+                YearlyBandFromDays: 2024, YearlyBandToDays: 2535),
+            new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true, DoubleUnderNewest: true,
+                Start: Day(2020, 3, 16), YearlyLows: Days("2008-10-27 2016-01-21 2022-09-27"),
+                YearlyBandFromDays: 3605, YearlyBandToDays: 4627),
+            new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true,
+                Start: Day(2020, 3, 13), YearlyLows: Days("2016-01-21 2022-09-26"),
+                YearlyBandFromDays: 3605, YearlyBandToDays: 4627),
+            new CyclePreset("SILJ",   "Junior silver miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true,
+                Start: Day(2020, 3, 18), YearlyLows: Days("2016-01-20 2022-09-26"),
+                YearlyBandFromDays: 3605, YearlyBandToDays: 4627),
             // Its table says 15-25, but the original counts Ethereum from 16 (candle replay, 2022-26, 75
             // lows): confirmed 8 bars after the low on 59 of 75 (15 and 16 both hold 8), a short cycle
             // no sooner than the last low + 22 (16 - 2 + 8; 15 would give 21), a first label no sooner
@@ -211,7 +238,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // the whole history, its weekly lows score F1 0.82 against 0.88 without.
             // Its weekly band runs 50 to 71 days on, a day past the table's 7 to 10 weeks at both ends.
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false,
-                DropUntilDue: true, BandWeeklyMin: 50.0 / 7, BandWeeklyMax: 71.0 / 7),
+                DropUntilDue: true, BandWeeklyMin: 50.0 / 7, BandWeeklyMax: 71.0 / 7,
+                Start: Day(2016, 7, 16), YearlyLows: Days("2018-04-01 2022-06-18"),
+                YearlyBandFromDays: 1306, YearlyBandToDays: 1671),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were
@@ -225,23 +254,33 @@ namespace AccessibleTrader.Core.Services.Indicators
             // original's confirmed lows match 0.989 against 0.944 (4-hour) and 0.800 against 0.667
             // (weekly) with it; on the daily chart it removes one extra low.
             new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48, DssLength: 14, DssSmooth: 14,
-                DropUntilDue: true),
+                DropUntilDue: true,
+                Start: Day(2022, 2, 23), YearlyLows: Days("2015-01-12 2018-12-17 2022-11-28"),
+                YearlyBandFromDays: 1143, YearlyBandToDays: 1508),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
             // Its table says 40-90 for both, but the original counts Coinbase and MicroStrategy from 51
             // (candle replays, 2021-26 and 2019-26): confirmed 25 bars after the low (half of 51,
             // rounded down; 50 would hold 25 too), a short cycle no sooner than the last low + 74
             // (51 - 2 + 25; 50 would give 73), on both. At 40 every one of ours came 5 bars early.
-            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51, DssLength: 14),
-            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51, DssLength: 14),
+            new CyclePreset("COIN",   "Coinbase",    40, 90, 24, 42, 4,   4,   false, FromCf, CountDailyMin: 51, DssLength: 14,
+                Start: Day(2021, 4, 14), YearlyLows: Days("2022-12-30"),
+                YearlyBandFromDays: 1557, YearlyBandToDays: 2068),
+            new CyclePreset("MSTR",   "MicroStrategy", 40, 90, 24, 42, 4, 4, false, FromCf, CountDailyMin: 51, DssLength: 14,
+                Start: Day(2019, 5, 20), YearlyLows: Days("2022-12-30"),
+                YearlyBandFromDays: 1557, YearlyBandToDays: 2068),
             // Its table says 36-44, but the original counts MARA from 38 (candle replay, 2022-26, 23 lows):
             // confirmed 19 bars after the low on 19, a short cycle no sooner than the last low + 55
             // (38 - 2 + 19; 55, 55, 56), a first label no sooner than + 37. At 36 every one came a bar early.
-            new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 38),
+            new CyclePreset("MARA",   "Marathon Digital", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 38,
+                Start: Day(2020, 3, 16), YearlyLows: Days("2016-01-12 2019-02-04 2022-07-05"),
+                YearlyBandFromDays: 1805, YearlyBandToDays: 2313),
             // RIOT shares MARA's table but is counted from 39 (candle replay, 2022-26, 23 lows): confirmed
             // 19 bars after the low on 19 (floor(39/2); 38 holds 19 too), a short cycle no sooner than the
             // last low + 56 (39 - 2 + 19; 56, 56, 56), a first label no sooner than + 38 (39 - 1).
-            new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 39),
+            new CyclePreset("RIOT",   "Riot Platforms", 36, 44, 22, 26, 4, 4, false, FromCf, CountDailyMin: 39,
+                Start: Day(2020, 3, 18), YearlyLows: Days("2016-03-10 2018-12-14 2022-12-30"),
+                YearlyBandFromDays: 1557, YearlyBandToDays: 2068),
         };
 
         /// <summary>
@@ -268,6 +307,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         };
 
         private static readonly string[] QuoteSuffixes = { "USDT", "USDC", "USD", "EUR", "GBP" };
+
+        private static DateTime Day(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+        private static DateTime[] Days(string dates) =>
+            dates.Split(' ').Select(d => DateTime.SpecifyKind(DateTime.ParseExact(d, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc)).ToArray();
 
         public static CyclePreset Preset(string key) => Presets.First(p => p.Key == key);
 
@@ -355,14 +398,60 @@ namespace AccessibleTrader.Core.Services.Indicators
         public static readonly DateTime UntunedStart = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         /// <summary>The bar the daily count starts on (<see cref="DetectDaily"/>'s confirmed seed):
-        /// the chart's first bar on a symbol with a preset of its own, otherwise the first bar on or
-        /// after <see cref="UntunedStart"/> (the first bar when there is none). The original starts
-        /// each tuned symbol on a date of its own; those are not carried here.</summary>
-        public static int StartBar(ReadOnlySpan<Ohlcv> data, bool tunedSymbol)
+        /// the first bar on or after the symbol's own preset's <see cref="CyclePreset.Start"/>, the
+        /// chart's first bar on a preset with none, and on a symbol with no preset of its own
+        /// (<paramref name="own"/> null) the first bar on or after <see cref="UntunedStart"/>. When
+        /// no bar is on or after the date, the bar after the last (<paramref name="data"/>'s
+        /// length): no daily count yet, as the original draws none before its Start (the Dow in
+        /// 1962, 2026-10-28; on an untuned symbol not seen).</summary>
+        public static int StartBar(ReadOnlySpan<Ohlcv> data, CyclePreset? own)
         {
-            if (tunedSymbol) return 0;
-            for (int i = 0; i < data.Length; i++) if (data[i].Date >= UntunedStart) return i;
-            return 0;
+            if (own != null && own.Start is null) return 0;
+            var from = own?.Start ?? UntunedStart;
+            int at = FirstBarOnOrAfter(data, from);
+            return at >= 0 ? at : data.Length;
+        }
+
+        /// <summary>The first bar stamped on or after <paramref name="date"/>, or -1 when none is.</summary>
+        public static int FirstBarOnOrAfter(ReadOnlySpan<Ohlcv> data, DateTime date)
+        {
+            for (int i = 0; i < data.Length; i++) if (data[i].Date >= date) return i;
+            return -1;
+        }
+
+        /// <summary>
+        /// The yearly tier as the original draws it on a symbol it tunes: its yearly lows are a
+        /// table of dates (<see cref="CyclePreset.YearlyLows"/>), the same on candles and
+        /// Heikin-Ashi, not found from the price (read 2026-10-27/28 in bar replay on fifteen
+        /// assets). Each is drawn on the first bar stamped on or after its date (00:00 UTC), on any
+        /// timeframe; one before the chart's first bar on the first bar (several there are one);
+        /// one after the last bar not at all. Each counts as confirmed on its own bar: the original
+        /// draws it there. No pending, cancelled or failed events.
+        /// </summary>
+        public static TierRun YearlyFromDates(ReadOnlySpan<Ohlcv> data, IReadOnlyList<DateTime> dates)
+        {
+            int n = data.Length;
+            var run = new TierRun
+            {
+                LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+                ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
+                Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
+            };
+            if (n == 0) return run;
+            foreach (var date in dates.OrderBy(d => d))
+            {
+                int at = FirstBarOnOrAfter(data, date);
+                if (at < 0 || (run.Lows.Count > 0 && run.Lows[^1] == at)) continue;
+                run.Lows.Add(at); run.ConfirmedAt.Add(at); run.FoundAt.Add(at);
+                run.Confirmed[at] = data[at].Low;
+            }
+            int last = -1, k = 0;
+            for (int t = 0; t < n; t++)
+            {
+                if (k < run.Lows.Count && run.Lows[k] == t) { last = t; k++; }
+                run.LastLowAt[t] = last;
+            }
+            return run;
         }
 
         // ── How long a bar is ─────────────────────────────────────────────────────────

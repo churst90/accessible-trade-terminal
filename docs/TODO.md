@@ -34,27 +34,28 @@
 >   chart next to the original. Open:
 >   - ~~The weekly and yearly bands are undecoded; the dollar's daily band is a day late~~: daily and
 >     weekly done 2026-10-28 (CHANGES, "daily and weekly bands are drawn where the original draws
->     them"; CIPHER_C_DESIGN section 33). Left: the yearly band (the date table question, section
->     22); exchange holidays past the last bar (our band's bar count is the original's plus the
->     holidays, the dates agree); one Nasdaq weekly start a day early; bands off a daily chart not
->     checked. **Question for Cody:** the dollar's table says 15-24 days but its band is 16-25,
->     Ether's band is a day longer than 7-10 weeks, Gold's and Silver's weekly band starts at 22
->     weeks against the table's 20. Cipher C now draws the bands as the original and keeps the
->     table's words. Is that the split you want?
+>     them"; CIPHER_C_DESIGN section 33); the yearly band done 2026-10-28 (CHANGES, "the original's
+>     dates"; section 34). Left: exchange holidays past the last bar (our band's bar count is the
+>     original's plus the holidays, the dates agree); one Nasdaq weekly start a day early; bands off
+>     a daily chart not checked. Cody asked (2026-10-28) whether the dollar's two numbers should
+>     match. The original itself shows both: its table says 15-24 days and its band is drawn at
+>     16-25. Likewise Ether's band is a day longer than 7-10 weeks, and Gold's and Silver's weekly
+>     bands start at 22 weeks against the table's 20. As a clone, Cipher C keeps the split: it draws
+>     the bands as the original does and keeps the table's words. Cody to say whether to make them
+>     the same anyway.
 >   - ~~The table's words are ours; its pending weekly cell is not modelled; Start under the first
 >     low; the confirmation keeps the padding~~: done 2026-10-28 (CHANGES, "marks touch the bar").
 >     The table now says the original's words and its days since; marks touch the bar; Start sits
 >     under the bar the count starts from.
 >   - Left for the precise pass (needs the original's numbers, after the simple items):
 >     - ~~the weekly and yearly bands; the dollar's daily band, a day late~~: daily and weekly done
->       2026-10-28 (above); yearly waits on the date table question;
+>       2026-10-28 (above); yearly done 2026-10-28 (section 34);
 >     - ~~per-asset start dates~~: done 2026-10-28 (CHANGES, "starts its count where the original
 >       does"). An untuned symbol starts on the first bar of 2000, a tuned one on the chart's first
->       bar, held as a low confirmed one hold later. **Question for Cody:** the original starts each
->       tuned symbol on a date of its own (many at the March 2020 low). Carrying those dates would
->       take its lows found from 1,817 to 1,826 of 1,894 and its extras from 105 to 86, and removes
->       Bitcoin's weekly extra low of September 2023. They are read off the original's chart. May
->       they go in the public repo, the same question as the yearly date table (section 22)?
+>       bar, held as a low confirmed one hold later. Since 2026-10-28 (Cody: yes) a tuned symbol starts
+>       on the original's own date (CHANGES, "the original's dates"; section 34): the model's 1,817 ->
+>       1,826 of 1,894 lows found, extras 105 -> 86, F1 .9523 -> .9595. The C# is not re-scored end
+>       to end. The S&P 500 has no date (its chart was never read);
 >     - ~~counting a dropped weekly low in the unconfirmed weekly cell~~: done 2026-10-28 (CHANGES,
 >       "unconfirmed week count runs from the newest weekly low drawn"). The cell counts from the
 >       newest low drawn, the candidate included, and on the metals from a low drawn nowhere;
@@ -64,8 +65,8 @@
 >   - ~~"Default Count Selected" is always shown; the original's words for a changed count are not
 >     read~~: done 2026-10-28 (CHANGES, "mirrors the original's settings"). A picked count says the
 >     original's words. Left: the original draws no yearly lows under a custom count (or on an
->     untuned symbol); Cipher C still finds its own. That waits on the yearly date table question
->     (section 22).
+>     untuned symbol); Cipher C still finds its own there. A tuned symbol's yearly lows are the
+>     original's dates since 2026-10-28 (section 34).
 > - [ ] **Cipher C mirrors the original's settings (2026-10-28, built, NOT seen; CHANGES and
 >   CIPHER_C_DESIGN section 30).** 27 display switches with its defaults, pictures only; the
 >   cancelled crosses and the confirmation mark are hidden by default, as in the original; the
@@ -150,11 +151,10 @@
 >     (section 24) the Nasdaq 0.962, gold 0.872, the Dow 0.992, Bitcoin 0.900 (was the Nasdaq 0.821,
 >     gold 0.698). On the original's own Heikin-Ashi daily lows the machine is exact on the Dow, the
 >     Nasdaq and Bitcoin, so Heikin-Ashi needs no rule of its own.
->   - **Question for Cody: the yearly low.** The original's yearly mark (🅨) is a fixed date per
->     tuned asset, not computed: Heikin-Ashi bars and every input leave all 23 checked dates where
->     they are, and untuned assets draw none. Three choices: port the dates (the original's labels
->     would then sit in this public repo), keep them in a private local file the app reads if
->     present, or keep Cipher C's own computed yearly tier (as now).
+>   - ~~**Question for Cody: the yearly low.**~~ Answered 2026-10-28: port the dates. Done (CHANGES,
+>     "the original's dates"; CIPHER_C_DESIGN section 34). A tuned asset's 🅨 lows are its dates,
+>     and its yearly band runs a fixed number of days from the newest. Caveat: the dates are
+>     hindsight, so a backtest on them reads the future.
 > - [ ] **Cipher C's Faster confirmation (2026-10-27, built, NOT seen or heard; see CHANGES and
 >   CIPHER_C_DESIGN section 21).** The original's "Faster Confirmation" input is the swing-high break
 >   switched on for an asset that lacks it. Read off its drawings: Bitcoin and Coinbase 1.000, Ether

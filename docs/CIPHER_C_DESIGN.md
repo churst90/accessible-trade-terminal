@@ -1552,8 +1552,7 @@ daily low read 0 there). Read off its captured charts:
   00:00 UTC, on every chart that has the label (16 of 16; the rest are past the original's
   500-label limit, so the label is gone).
 - **On a symbol it tunes** it is a date of its own. Many sit at the March 2020 low, a few in the
-  1980s, one on the asset's first bar. Those dates are not carried (TODO; the same question as the
-  yearly dates in section 22).
+  1980s, one on the asset's first bar. Carried since 2026-10-28 (section 34).
 
 **How the count runs from it.** Not from a low the original finds: the first low it names is often
 far from the lowest bar after Start. The count runs as if a low on the Start bar had been confirmed
@@ -1636,8 +1635,7 @@ Its future end is ours less the holidays in between, within one bar on 186 of 21
 on crypto, exact. Not modelled: the bands' dates agree, their bar counts on a weekday chart can
 differ by the holidays.
 
-**Not checked:** the bands off a daily chart (in bars), and the yearly band (the original reads a
-per-asset date table there, a question for Cody, section 22).
+**Not checked:** the bands off a daily chart (in bars). The yearly band is section 34.
 
 Tests: `The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks`,
 `The_bands_the_original_draws_off_its_table_and_on_an_untuned_symbol`,
@@ -1645,3 +1643,67 @@ Tests: `The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks`,
 anchor, 7 days a week, the candidate included, dates without the time of day, the dollar on its
 table, Ether on 7-10 weeks, Gold and Silver on 20, the untuned daily end at 52, the untuned bands in
 trading days, the untuned weekly start at 154.
+
+## 34. The original's dates: Start, the yearly lows and the yearly band (2026-10-28)
+
+Cody agreed (2026-10-28) that the dates read off the original's charts may go in this public
+repo: each tuned asset's Start date and its yearly (🅨) dates (section 22), and the yearly band's
+two numbers below. They are on `CyclePreset` (`Start`, `YearlyLows`, `YearlyBandFromDays`,
+`YearlyBandToDays`). The S&P 500 preset has none: the original's S&P chart was never read. Its
+other labels stay private.
+
+**Start.** A tuned asset's count starts on the first bar on or after its `Start` date (00:00 UTC),
+held as a low confirmed one hold later, as the untuned first-of-2000 start in section 31. A chart
+that ends before the date has no daily count: the original's Dow from 1962 draws no daily lows
+before its 1985 Start, though its 🅨 marks and yearly band are there. On the original's charts the
+Python model scores this .9595 (section 31's last-but-one row; .9523 before). The C# is not
+re-scored end to end.
+
+**The yearly lows.** On a tuned asset each 🅨 date is a yearly low on the first bar on or after it.
+A date before the chart's first bar sits on that bar, and a date after the last bar is not drawn
+yet. They stand alone: they are not snapped to a weekly low, not added to the weekly or daily lows,
+and confirmed on their own bar, with no pending, cancelled or failed yearly events
+(`CipherCEngine.YearlyFromDates`). Setting the yearly cycle's years by hand (`YearlyMinYears` or
+`YearlyMaxYears`) finds them from the price as before. That also happens on an untuned symbol,
+where the original draws none.
+
+**The yearly band** runs from the newest 🅨 date on or before the last bar, plus a fixed number of
+calendar days per asset, to that date plus a second number. It is read from the original's yellow
+band box at past dates (replays to each epoch, private `cfstart.mjs` output):
+
+| Asset | From | To | Checked |
+|---|---|---|---|
+| The Dow, the Nasdaq | 2271 | 2782 | the Dow at 8 epochs before 1994 within a day, the Nasdaq constant |
+| The dollar | 1280 | 1790 | consistent within the holidays |
+| Gold | 3579 | 4600 | consistent within the holidays |
+| Silver | 3644 | 4665 | |
+| GDX, GDXJ, SILJ | 3605 | 4627 | |
+| Oil | 2024 | 2535 | constant |
+| Marathon | 1805 | 2313 | consistent within the holidays |
+| Riot, MicroStrategy, Coinbase | 1557 | 2068 | Riot consistent within the holidays |
+| Bitcoin | 1143 | 1508 | 3 epochs, exact |
+| Ether | 1306 | 1671 | 2 epochs, exact |
+
+The widths are 511 days on most assets, 1021-1022 on the metals and miners, and 365 on crypto.
+Bitcoin's and Ether's windows today are both 14 January 2026 - 14 January 2027, a coincidence of
+their dates and offsets. "Consistent within the holidays" means that past the last bar the original's
+bar count is ours less the exchange holidays in between, as for the other bands (section 33). On a
+chart with no 🅨 date yet there is no yearly band. Off a daily chart a target past the last bar is
+reached in steps of the last bar's length.
+
+**Caveats.**
+- The 🅨 dates are hindsight: a yearly low is drawn on its date whatever the bars after it do. A
+  backtest that trades on the yearly lows of a tuned asset is reading the future.
+- Silver, the miners, MicroStrategy and Coinbase were read at one date only.
+- Under a custom count and on an untuned symbol the original draws no yearly lows; Cipher C still
+  finds its own there.
+
+Tests: `A_tuned_asset_counts_from_the_originals_start_date`,
+`A_tuned_assets_yearly_lows_are_the_originals_dates`,
+`A_tuned_assets_yearly_band_runs_a_fixed_number_of_days_from_its_newest_date`,
+`The_dated_count_does_not_change_when_later_bars_arrive`. The whole-history Bitcoin tests now run
+the preset on a chart with no symbol (`Whole`), so they still count from 2011. Sabotages, all red:
+the Start date ignored, a Start past the last bar on bar 0, the 🅨 lows added to the weekly and
+daily lows, the band from the oldest date, an offset a day long, a date before the chart not on its
+first bar. A guard against a seed past the last bar was found to change nothing (a sabotage removing
+it stayed green) and was removed.

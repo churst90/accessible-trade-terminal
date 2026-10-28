@@ -44,8 +44,20 @@ public sealed class CipherCProviderTests
         return CipherCProvider.Compute(bars.ToArray(), p);
     }
 
-    private static Dictionary<string, double[]>? _btc;
+    /// <summary>The Bitcoin count over the whole fixture, 2011 on: the BTC preset chosen on a chart
+    /// with no symbol, so the count starts on the first bar and the yearly lows are found from the
+    /// price. On "BTC/USD" the original's own dates start the count in February 2022 and place the
+    /// yearly lows (<see cref="CipherCEngine.CyclePreset.Start"/>).</summary>
+    private static Dictionary<string, double[]> Whole(IReadOnlyList<Ohlcv> bars, Dictionary<string, object>? extra = null)
+    {
+        var p = new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "BTC" };
+        foreach (var (k, v) in extra ?? new()) p[k] = v;
+        return Run(bars, null, p);
+    }
+
+    private static Dictionary<string, double[]>? _btc, _btcWhole;
     private static Dictionary<string, double[]> Btc() => _btc ??= Run(CipherSrSpeechTests.BtcDaily(), "BTC/USD");
+    private static Dictionary<string, double[]> BtcWhole() => _btcWhole ??= Whole(CipherSrSpeechTests.BtcDaily());
 
     /// <summary>A companion that may not exist: an inactive tier writes no bounds.</summary>
     private static double[] Of(Dictionary<string, double[]> r, string key) => r.TryGetValue(key, out var a) ? a : Array.Empty<double>();
@@ -294,7 +306,7 @@ public sealed class CipherCProviderTests
     public void The_events_on_a_bar_do_not_change_when_later_bars_arrive()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
-        var whole = Btc();
+        var whole = BtcWhole();
         var m = Meta();
         var causalComponents = m.Components.Where(c => (c.Causality ?? m.Causality) == ComponentCausality.Causal).Select(c => c.Name).ToList();
         // The cycle arc (a window's _path) is a picture, not a reading: it is never said or
@@ -320,7 +332,7 @@ public sealed class CipherCProviderTests
         cuts.Add(lastWeeklyReplaced + 1);
         foreach (int cut in cuts)
         {
-            var part = Run(bars.Take(cut).ToList(), "BTC/USD");
+            var part = Whole(bars.Take(cut).ToList());
             foreach (var c in causal)
                 for (int i = cut - 400; i < cut; i++)
                 {
@@ -354,7 +366,7 @@ public sealed class CipherCProviderTests
     public void The_cycle_arc_is_drawn_between_known_lows()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
-        var r = Btc();
+        var r = BtcWhole();
         var arc = r[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
         Assert.All(r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
 
@@ -383,17 +395,17 @@ public sealed class CipherCProviderTests
         // 100th bar back holds the range's extreme, so 99 or 101 bars would give another wave.
         double Range(int end, int count) => bars.Skip(end - count + 1).Take(count).Max(b => b.High) - bars.Skip(end - count + 1).Take(count).Min(b => b.Low);
         int edge = Marked(r[CipherCProvider.CompDclConfirmed]).First(c => c > 200 && Range(c, 100) != Range(c, 99) && Range(c, 100) != Range(c, 101));
-        var cut = Run(bars.Take(edge + 1).ToList(), "BTC/USD");
+        var cut = Whole(bars.Take(edge + 1).ToList());
         Assert.Equal(edge, Marked(cut[CipherCProvider.CompDclConfirmed]).Last());
         var cutArc = cut[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
         Assert.Equal(0.8 * bars[edge].Close - 0.2 * Range(edge, 100), cutArc[Marked(cut[CipherCProvider.CompDcl]).Last()], 6);
 
         // Look-ahead: on 3,000 bars the wave sits elsewhere, its lows and level not yet known.
-        var part = Run(bars.Take(3000).ToList(), "BTC/USD")[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
+        var part = Whole(bars.Take(3000).ToList())[CipherCProvider.CompDailyWindow + ComponentCompanions.Path];
         Assert.Contains(Enumerable.Range(2600, 400), i => double.IsNaN(part[i]) != double.IsNaN(arc[i]) || Math.Abs(part[i] - arc[i]) > 1e-6);
 
         // A weekly chart counts its daily cycle in bars, so the arc is on its daily window too.
-        var weekly = Run(Weekly(bars), "BTC/USD");
+        var weekly = Whole(Weekly(bars));
         Assert.Contains(weekly[CipherCProvider.CompDailyWindow + ComponentCompanions.Path], v => !double.IsNaN(v));
         Assert.All(weekly[CipherCProvider.CompWeeklyWindow + ComponentCompanions.Path], v => Assert.True(double.IsNaN(v)));
     }
@@ -427,7 +439,7 @@ public sealed class CipherCProviderTests
     public void Every_low_is_its_bars_low_and_is_confirmed_later()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
-        var r = Btc();
+        var r = BtcWhole();
         var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
         Assert.True(lows.Count > 60, $"only {lows.Count} daily cycle lows in fifteen years of Bitcoin");
         var lags = new List<int>();
@@ -524,7 +536,7 @@ public sealed class CipherCProviderTests
     [Fact]
     public void A_weekly_low_sits_on_a_daily_low_and_a_yearly_low_on_a_weekly_one()
     {
-        var r = Btc();
+        var r = BtcWhole();
         var d = Marked(r[CipherCProvider.CompDcl]).ToHashSet();
         var w = Marked(r[CipherCProvider.CompWcl]).ToList();
         var y = Marked(r[CipherCProvider.CompYcl]).ToList();
@@ -566,7 +578,7 @@ public sealed class CipherCProviderTests
     public void A_weekly_chart_counts_the_daily_cycle_in_its_bars()
     {
         var weeks = Weekly(CipherSrSpeechTests.BtcDaily());
-        var r = Run(weeks, "BTC/USD");
+        var r = Whole(weeks);
         Assert.Equal(1.0, r[CipherCProvider.InBarsKey][^1]);
         // Bitcoin's 54 to 66 days are 54 to 66 bars, and its weekly 22 to 42 weeks 154 to 294.
         Assert.Equal(54.0, r[CipherCProvider.CompDailyWindow + CipherCProvider.StartSuffix][^1]);
@@ -620,7 +632,7 @@ public sealed class CipherCProviderTests
     public void The_signs_the_top_boxes_and_the_bands_are_where_the_original_draws_them()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
-        var r = Btc();
+        var r = BtcWhole();
         int n = bars.Count;
         var lows = Marked(r[CipherCProvider.CompDcl]).ToList();
         var badge = r[CipherCProvider.CompDcl + ComponentCompanions.Badge];
@@ -841,6 +853,103 @@ public sealed class CipherCProviderTests
         // Summer low into winter: 13:30 plus the days is before 14:30, the same day.
         int may = Array.FindIndex(bars, b => b.Date.Date == new DateTime(2024, 5, 1));
         Assert.Equal(new DateTime(2024, 11, 6, 14, 30, 0), bars[CipherCProvider.BarOnOrAfter(bars, may, 189, everyDay: false)].Date);
+    }
+
+    // ── The original's dates (2026-10-28, published with Cody's agreement) ────────────────
+
+    /// <summary>The first bar dated on or after <paramref name="date"/>, or past the last bar the day it would land on.</summary>
+    private static int DateBar(IReadOnlyList<Ohlcv> h, DateTime date)
+    {
+        int k = 0;
+        while (k < h.Count && h[k].Date < date) k++;
+        return k < h.Count ? k : h.Count - 1 + (int)Math.Ceiling((date - h[^1].Date).TotalDays);
+    }
+
+    /// <summary>
+    /// The original starts each tuned asset's count on its own date: no daily low before it,
+    /// and none at all on a chart that ends before it. Bitcoin's is 23 February 2022.
+    /// </summary>
+    [Fact]
+    public void A_tuned_asset_counts_from_the_originals_start_date()
+    {
+        var h = CipherSrSpeechTests.BtcDaily();
+        var start = CipherCEngine.Preset("BTC").Start!.Value;
+        Assert.Equal(new DateTime(2022, 2, 23), start);
+        int at = CipherCEngine.FirstBarOnOrAfter(h.ToArray(), start);
+        Assert.True(at > 0, "the fixture starts after the date: the case is not pinned");
+        Assert.Equal(at, CipherCEngine.StartBar(h.ToArray(), CipherCEngine.Preset("BTC")));
+        var daily = Marked(Btc()[CipherCProvider.CompDcl]).ToList();
+        Assert.NotEmpty(daily);
+        Assert.True(daily[0] >= at, $"a daily low on {h[daily[0]].Date:yyyy-MM-dd}, before the start");
+        Assert.Contains(Marked(BtcWhole()[CipherCProvider.CompDcl]), i => i < at);
+        var before = Run(h.Take(at).ToList(), "BTC/USD");
+        Assert.Empty(Marked(before[CipherCProvider.CompDcl]));
+        Assert.Empty(Marked(before[CipherCProvider.CompDclConfirmed]));
+    }
+
+    /// <summary>
+    /// A tuned asset's yearly lows are the original's dates, each on the first bar dated on or
+    /// after it, a date before the chart on its first bar. Setting the yearly cycle's years finds
+    /// them from the price instead.
+    /// </summary>
+    [Fact]
+    public void A_tuned_assets_yearly_lows_are_the_originals_dates()
+    {
+        var h = CipherSrSpeechTests.BtcDaily();
+        var dates = CipherCEngine.Preset("BTC").YearlyLows!;
+        var expected = dates.Select(d => DateBar(h, d)).Where(i => i < h.Count).Distinct().ToList();
+        Assert.Equal(3, expected.Count);
+        Assert.Equal(expected, Marked(Btc()[CipherCProvider.CompYcl]).ToList());
+
+        // A date before the chart: its first bar.
+        var late = h.Where(b => b.Date >= new DateTime(2016, 6, 1)).ToList();
+        var lateY = Marked(Run(late, "BTC/USD")[CipherCProvider.CompYcl]).ToList();
+        Assert.Equal(new[] { 0, DateBar(late, new DateTime(2018, 12, 17)), DateBar(late, new DateTime(2022, 11, 28)) }, lateY);
+
+        var overridden = Marked(Run(h, "BTC/USD", new() { [CipherCProvider.ParamYearlyMin] = 3.0, [CipherCProvider.ParamYearlyMax] = 5.0 })[CipherCProvider.CompYcl]).ToList();
+        Assert.NotEqual(expected, overridden);
+    }
+
+    /// <summary>
+    /// A tuned asset's yearly band runs from its newest yearly date (on or before the last bar)
+    /// a fixed number of calendar days on: Bitcoin's 1143 to 1508, so from the 28 November 2022
+    /// low 14 January 2026 to 14 January 2027. Before its first date there is no band.
+    /// </summary>
+    [Fact]
+    public void A_tuned_assets_yearly_band_runs_a_fixed_number_of_days_from_its_newest_date()
+    {
+        var h = CipherSrSpeechTests.BtcDaily();
+        var own = CipherCEngine.Preset("BTC");
+        Assert.Equal((1143.0, 1508.0), (own.YearlyBandFromDays, own.YearlyBandToDays));
+        Assert.Equal(new DateTime(2026, 1, 14), new DateTime(2022, 11, 28).AddDays(1143));
+        void Check(IReadOnlyList<Ohlcv> bars, DateTime newest)
+        {
+            var r = Run(bars, "BTC/USD");
+            int n = bars.Count;
+            var start = r[CipherCProvider.CompYearlyWindow + ComponentCompanions.BoxStart];
+            var end = r[CipherCProvider.CompYearlyWindow + ComponentCompanions.BoxEnd];
+            _out.WriteLine($"to {bars[^1].Date:yyyy-MM-dd}: yearly band {start[n - 1]}..{end[n - 1]}");
+            Assert.Equal(DateBar(bars, newest.AddDays(1143)), n - 1 + (int)start[n - 1]);
+            Assert.Equal(DateBar(bars, newest.AddDays(1508)), n - 1 + (int)end[n - 1]);
+        }
+        Check(h, new DateTime(2022, 11, 28));
+        Check(h.Where(b => b.Date < new DateTime(2022, 11, 1)).ToList(), new DateTime(2018, 12, 17));
+        var early = Run(h.Where(b => b.Date < new DateTime(2015, 1, 1)).ToList(), "BTC/USD");
+        Assert.All(Of(early, CipherCProvider.CompYearlyWindow + ComponentCompanions.BoxEnd), v => Assert.True(double.IsNaN(v)));
+    }
+
+    /// <summary>The dated count and yearly lows on a bar do not change when later bars arrive.</summary>
+    [Fact]
+    public void The_dated_count_does_not_change_when_later_bars_arrive()
+    {
+        var h = CipherSrSpeechTests.BtcDaily();
+        var all = Btc();
+        foreach (var cut in new[] { h.FindIndex(b => b.Date >= new DateTime(2023, 6, 1)), h.Count - 200 })
+        {
+            var part = Run(h.Take(cut).ToList(), "BTC/USD");
+            foreach (var k in new[] { CipherCProvider.CompYcl, CipherCProvider.CompDcl, CipherCProvider.CompDclConfirmed, CipherCProvider.CompWcl })
+                Assert.Equal(Marked(all[k]).Where(i => i < cut - 200).ToList(), Marked(part[k]).Where(i => i < cut - 200).ToList());
+        }
     }
 
     private static IReadOnlyList<IReadOnlyList<TableCell>> Table(Dictionary<string, double[]> r, int index) =>

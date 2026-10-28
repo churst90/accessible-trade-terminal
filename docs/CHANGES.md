@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts from the original's dates and draws its yearly lows and band from them (2026-10-28)
+
+- **What changed (Cody, 2026-10-28: "add the original start date in the repo", and the yearly date
+  table "yes as well").** The dates read off the original's charts are now in the presets
+  (CIPHER_C_DESIGN section 34):
+  - Each tuned asset's count starts on the original's own Start date, the first bar on or after it.
+    A chart that ends before it has no daily count yet, as the original draws none before its Start.
+  - A tuned asset's yearly lows are the original's 🅨 dates, each on the first bar on or after it,
+    a date before the chart on its first bar. They stand alone, not added to the weekly or daily
+    lows. Setting the yearly years by hand finds them from the price, as before.
+  - The yearly band runs from the newest 🅨 date plus a fixed number of calendar days per asset to
+    the date plus a second number (Bitcoin 1143-1508: 14 January 2026 to 14 January 2027). This
+    was read from the original's band at past dates on ten assets.
+  - The S&P 500 has no dates: its chart was never read.
+- **Checked:** on the original's charts the Start dates take the model from F1 .9523 to .9595 (lows
+  found 1,817 -> 1,826 of 1,894, extras 105 -> 86). The C# is not re-scored end to end. The yearly
+  band holds exactly across epochs on Bitcoin (3) and Ether (2). The Dow (8 epochs before 1994) is
+  within a day; the dollar, Gold, Riot and Marathon are within the holidays the original skips past
+  the last bar.
+- **Tests:** four new (the Start, the dated yearly lows and their clamp, the yearly band, causality
+  of the dated count). The whole-history Bitcoin tests now run the preset on a chart with no
+  symbol, so they still count from 2011. Six sabotages red (section 34).
+  `A_count_component_is_a_whole_number_on_the_status_line` had failed since the moving average was
+  left out by default (96768f6b); it now includes the moving average first.
+- **Caveats:**
+  - The 🅨 dates are hindsight: a backtest that trades on a tuned asset's yearly lows reads the
+    future.
+  - Silver, the miners, MicroStrategy and Coinbase bands were read at one date only.
+  - Under a custom count and on untuned symbols the original draws no yearly lows; Cipher C still
+    finds its own there.
+  - The dollar's table still says 15-24 while its band is 16-25, as the original shows them.
+  - Not seen or heard in the app.
+
 ### Cipher C's daily and weekly bands are drawn where the original draws them (2026-10-28)
 
 - **What changed (Cody's precise pass, "the weekly and yearly bands" and "the dollar's daily band,

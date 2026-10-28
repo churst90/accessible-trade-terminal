@@ -670,6 +670,8 @@ public sealed class ValueLabelRenderingTests
         var meta = new CipherCProvider().GetIndicators()[0];
         var factory = new IndicatorModelFactory(DbsiChartHarness.Styling(), new MockIndicatorPreferencesService());
         var s = factory.CreateSeriesFromMetadata(meta, meta.Name, "Main", new List<(string, string)>(), null);
+        // The moving average is left out by default, as the original's is: included here.
+        Assert.True(ComponentInclusion.SetIncluded(s.Config, CipherCProvider.CompSma, true, meta.Components.Select(c => c.Name).ToList()));
         foreach (var c in s.Components) s.Data.ComponentData[c.Name] = new[] { double.NaN };
         s.Data.ComponentData[CipherCProvider.CompDailyWindow] = new[] { 47.0 };
         s.Data.ComponentData[CipherCProvider.CompSma] = new[] { 47.0 };

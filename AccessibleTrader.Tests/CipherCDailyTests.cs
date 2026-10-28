@@ -513,12 +513,12 @@ public class CipherCDailyTests
         int start = Array.FindIndex(bars, b => b.Date >= new DateTime(2000, 1, 1));
         Assert.True(start > 100);
         Assert.True(bars[start - 1].Date < new DateTime(2000, 1, 1));
-        Assert.Equal(start, CipherCEngine.StartBar(bars, tunedSymbol: false));
-        Assert.Equal(0, CipherCEngine.StartBar(bars, tunedSymbol: true));
-        Assert.Equal(0, CipherCEngine.StartBar(Bars, tunedSymbol: false));
+        Assert.Equal(start, CipherCEngine.StartBar(bars, null));
+        Assert.Equal(0, CipherCEngine.StartBar(bars, CipherCEngine.Preset("SPX")));
+        Assert.Equal(0, CipherCEngine.StartBar(Bars, null));
 
         var untuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "XYZ" });
-        var tuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD", [CipherCProvider.ParamPreset] = "SPX" });
+        var tuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "SPX" });
         Assert.DoesNotContain(Marked(untuned[CipherCProvider.CompDclConfirmed]), t => t < start + 16);
         Assert.Contains(Marked(tuned[CipherCProvider.CompDclConfirmed]), t => t < start);
     }
