@@ -22,7 +22,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <see cref="DoubleUnderNewest"/> lets a weekly-by-weeks "double" stand only under the newest
     /// weekly low (the three miners). <see cref="BandDailyMin"/> and the other three Band ranges,
     /// in the table's days and weeks, are where the original's live band differs from its table
-    /// (the dollar's daily band, Ether's weekly, the start of gold's and silver's weekly); 0 is the table's.
+    /// (the dollar's daily band, Ether's weekly, the start of gold's and silver's weekly, the
+    /// Nasdaq's weekly a day later at both ends); 0 is the table's.
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
@@ -189,6 +190,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32),
             new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf,
+                BandWeeklyMin: 217 / 9.8, BandWeeklyMax: 305 / 9.8,
                 Start: Day(1985, 1, 31), YearlyLows: Days("1987-10-30 1990-10-12 1994-06-27 1998-10-08 2002-10-09 2006-07-14 2008-12-01 2011-10-04 2016-02-08 2020-03-23"),
                 YearlyBandFromDays: 2271, YearlyBandToDays: 2782),
             // The Dow, the dollar, silver and Ether drop a pending low on any undercut before it is due

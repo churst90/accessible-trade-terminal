@@ -650,14 +650,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The live cycle's window as the original bands it: from the newest low, the shortest
             // and longest cycle on the calendar. A band starts on the first bar stamped at or after
             // the low bar's time plus the shortest cycle in calendar days (a trading day is 7/5 of
-            // one, a week 7 of them), rounded, and ends on the first at or after plus the longest,
-            // rounded down. The daily band runs from the newest daily low, the weekly from the
+            // one, a week 7 of them), rounded, and ends that many days plus the window's length,
+            // rounded, on. The daily band runs from the newest daily low, the weekly from the
             // newest weekly low (a candidate not included). Some presets' bands are not their
             // tables' ranges (the preset's Band ranges), and an untuned symbol's are calendar days
             // on any calendar (CipherCEngine.Fallback). Read from the original's bands on 21 assets,
             // 2026-10-28: 82 of 85 daily ends and 15 of 17 weekly ends dated in the past to the
-            // day, the misses where its low is not ours. Past the last bar its bars skip exchange
-            // holidays and ours do not, so there its end is ours less the holidays in between.
+            // day, the misses where its low is not ours. Past the last bar the bars are the ones the
+            // chart would print (CipherCFutureClock: its session's time of day with daylight
+            // saving, and the US holidays it skipped last time): 70 of 70 future daily ends and 115
+            // of 128 weekly to the bar, against 56 and 37 at the last bar's time on weekdays.
             // The yearly band, on a symbol with the original's dated yearly lows, runs from the
             // preset's YearlyBandFromDays to YearlyBandToDays calendar days after the newest of
             // those dates (DatedBand); elsewhere from yMin to yMax years of 365.25 days after the
@@ -942,8 +944,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// The live cycle's window as a band (<see cref="ComponentCompanions.BoxEnd"/> on the last
         /// bar, in bars from it, running into the future): from the bar <paramref name="from"/>
         /// days after the newest low (<see cref="CipherCEngine.TierRun.NewestAt"/> on a weekly
-        /// machine, else the last low), rounded, to the bar <paramref name="to"/> days after it,
-        /// rounded down, each the first bar on or after that date. Off a daily chart
+        /// machine, else the last low), rounded, to the bar that many days plus the window's length
+        /// (<paramref name="to"/> less <paramref name="from"/>), rounded, after it, each the first
+        /// bar on or after that date (2026-10-28: the original's weekly ends, 115 of 128 future ones
+        /// against 101 rounding <paramref name="to"/> down; its daily ends the same either way). Off a daily chart
         /// (<paramref name="inBars"/>) the two are bars from the low.
         /// </summary>
         private static void WriteBand(Dictionary<string, double[]> o, string comp, CipherCEngine.TierRun run, CipherCEngine.TierBars tier,
@@ -953,7 +957,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int last = run.NewestAt.Length == n ? run.NewestAt[n - 1] : run.LastLowAt[n - 1];
             if (last < 0) return;
             int a = inBars ? last + (int)Math.Round(from) : BarOnOrAfter(data, last, (int)Math.Round(from), everyDay);
-            int b = inBars ? last + (int)Math.Floor(to + 1e-9) : BarOnOrAfter(data, last, (int)Math.Floor(to + 1e-9), everyDay);
+            int b = inBars ? last + (int)Math.Floor(to + 1e-9) : BarOnOrAfter(data, last, (int)Math.Round(from) + (int)Math.Round(to - from), everyDay);
             o[comp + ComponentCompanions.BoxStart][n - 1] = a - (n - 1);
             o[comp + ComponentCompanions.BoxEnd][n - 1] = b - (n - 1);
         }
@@ -987,25 +991,18 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// The first bar stamped at or after <paramref name="days"/> calendar days from bar
         /// <paramref name="from"/>'s timestamp, time of day included (a winter low on bars stamped
         /// at the 14:30 UTC open lands a bar later on the 13:30 summer ones, as the original's);
-        /// past the last bar, counted on in the chart's trading days (every day, or weekdays).
+        /// past the last bar, the bars <see cref="CipherCFutureClock"/> says the chart would print.
         /// </summary>
         internal static int BarOnOrAfter(ReadOnlySpan<Ohlcv> data, int from, int days, bool everyDay)
             => BarOnOrAfter(data, data[from].Date.AddDays(days), from, everyDay);
 
         /// <summary>The first bar stamped at or after <paramref name="target"/>, looked for from bar
-        /// <paramref name="from"/>; past the last bar, counted on in the chart's trading days (every
-        /// day, or weekdays), at the last bar's time of day.</summary>
+        /// <paramref name="from"/>; past the last bar, counted on by <see cref="CipherCFutureClock"/>
+        /// (the chart's trading days at its session's time of day).</summary>
         internal static int BarOnOrAfter(ReadOnlySpan<Ohlcv> data, DateTime target, int from, bool everyDay)
         {
             for (int i = Math.Max(0, from); i < data.Length; i++) if (data[i].Date >= target) return i;
-            int k = data.Length - 1;
-            var date = data[k].Date;
-            while (date < target || !(everyDay || (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)))
-            {
-                date = date.AddDays(1);
-                if (everyDay || (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)) k++;
-            }
-            return k;
+            return new CipherCFutureClock(data, everyDay).BarOnOrAfter(target, data.Length - 1);
         }
 
         /// <summary>

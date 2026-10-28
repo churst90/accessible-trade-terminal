@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's bands past the last bar land where the original's do (2026-10-28)
+
+- **What changed** (CIPHER_C_DESIGN section 36): a band whose end is past the last bar is now
+  counted on the bars the chart would print, not every weekday at the last bar's time.
+  `CipherCFutureClock` reads them from the chart's own bars, with no symbol table. It keeps each
+  weekday's session time in UTC or US-Eastern with daylight saving: stocks open at 13:30 UTC in
+  summer and 14:30 in winter, and futures-style sessions are stamped on Sunday evening. It also
+  skips the US holidays the chart had no bar on the last time they fell on a weekday.
+- **The far end** is the rounded start plus the window's length, rounded (the Dow's weekly
+  216 + 88 = 304 days, was 303; Gold's and Silver's 216 + 59 = 275, was 274). The Nasdaq's weekly
+  band is a day later at both ends than the Dow's (217-305 days), as the original draws it.
+- **Result against the original's band ends past the last bar** (21 assets, four dates each),
+  exact to the bar: daily 56 → 70 of 70, weekly 37 → 115 of 128, yearly 25 of 36. Ends dated
+  in the past: daily 82 of 82 unchanged, weekly 15 → 16 of 16.
+- **Tests:** six new `CipherCFutureClockTests`; the band tests' Dow, Gold and Silver ends move a
+  day, and the Nasdaq is added. Seven sabotages red (section 36).
+- **Caveats:**
+  - 13 weekly misses are anchors that are not ours (the dollar, the metals, Oil, MicroStrategy),
+    plus one EURUSD end a bar early.
+  - Not modelled in the yearly misses: NYSE's unscheduled 9 January 2025 closure, and
+    TradingView's holiday list seeming to stop after 2027 (2028 targets are 4-7 bars off).
+    Coinbase, MicroStrategy and Riot are a bar late, unexplained.
+  - Only US holidays. Off a daily chart the bands are in bars, unchecked.
+  - Local branch only: not pushed, not seen or heard in the app.
+
 ### Cipher C's weekly tier starts on the original's Start bar; the app scored end to end (2026-10-28)
 
 - **Scored end to end** (CIPHER_C_DESIGN section 35): the app's lows on the original's 39 captures

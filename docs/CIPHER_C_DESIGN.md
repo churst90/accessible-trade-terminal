@@ -1607,7 +1607,8 @@ own lows from its labels at the same dates.
 
 - **The time of day counts.** A band starts on the first bar stamped at or after the low bar's
   timestamp plus the shortest cycle in calendar days, rounded, and ends on the first at or after
-  plus the longest, rounded down. US stocks' daily bars are stamped at the open, 14:30 UTC in
+  that many days plus the window's length (longest less shortest), rounded (section 36; before,
+  the longest rounded down, which gives the same daily ends). US stocks' daily bars are stamped at the open, 14:30 UTC in
   winter and 13:30 in summer, so a winter low's band lands a bar later in summer than the date
   alone would. That was the "day late" on the dollar index, whose bars carry mixed open stamps,
   and on several stocks. `CipherCProvider.BarOnOrAfter` compares full timestamps.
@@ -1630,10 +1631,9 @@ Against the original, ends dated in the past (on the chart): daily 48 of 58 (tun
 on Marathon and Solana, one weekly low on Oil) and one weekly start a day early on the Nasdaq,
 unexplained.
 
-**Past the last bar** the original's future bars skip exchange holidays; ours count every weekday.
-Its future end is ours less the holidays in between, within one bar on 186 of 218 future ends;
-on crypto, exact. Not modelled: the bands' dates agree, their bar counts on a weekday chart can
-differ by the holidays.
+**Past the last bar** the original's future bars skip exchange holidays and keep the session's
+time of day with daylight saving. When this section was written ours counted every weekday at the
+last bar's time, within one bar on 186 of 218 future ends; section 36 models both.
 
 **Not checked:** the bands off a daily chart (in bars). The yearly band is section 34.
 
@@ -1687,7 +1687,8 @@ band box at past dates (replays to each epoch, private `cfstart.mjs` output):
 The widths are 511 days on most assets, 1021-1022 on the metals and miners, and 365 on crypto.
 Bitcoin's and Ether's windows today are both 14 January 2026 - 14 January 2027, a coincidence of
 their dates and offsets. "Consistent within the holidays" means that past the last bar the original's
-bar count is ours less the exchange holidays in between, as for the other bands (section 33). On a
+bar count was ours less the exchange holidays in between; section 36 now skips them (what is left is
+there). On a
 chart with no 🅨 date yet there is no yearly band. Off a daily chart a target past the last bar is
 reached in steps of the last bar's length.
 
@@ -1751,4 +1752,56 @@ neither, GDX, GDXJ, Silver and SILJ each lose one.
   capture of the original starts after its Start date.
 - What is left on daily charts: 41 of the original's 580 weekly lows missed, 34 extras, most on
   Gold, Silver and the miners (the metals' re-anchoring, section 23) and the dollar.
+
+## 36. Bars past the last one: the chart's own clock (2026-10-28)
+
+A band whose end is past the last bar is drawn that many future bars on, so its bar depends on
+which future bars the chart prints. Read from the original's band ends past the last bar (the same
+captures as section 33, 21 assets at four dates), TradingView prints them as the exchange would:
+
+- **At the session's time of day, in the exchange's zone, with daylight saving.** New York stocks
+  and the Nasdaq at 09:30 US-Eastern (13:30 UTC in summer, 14:30 in winter); gold, silver, oil
+  and the dollar at the evening open, 18:00 (the dollar 19:00, Sundays 17:00) US-Eastern, the
+  Monday session stamped on the Sunday, none on Friday; crypto at midnight UTC.
+- **Skipping the US holidays the chart skipped.** A holiday is skipped when the chart has no bar
+  on it the last time it fell on a weekday. The newest time only: the Dow traded Juneteenth 2021
+  and has closed for it since. On the captures: stocks and the Nasdaq all ten; gold New Year, Good
+  Friday and Christmas; EURUSD Christmas (and New Year from 2025); the dollar by year; crypto none.
+
+`CipherCFutureClock` reads this from the chart's own bars, with no symbol or exchange table: each
+weekday's most common time of day over the last 260 bars, in UTC or US-Eastern, whichever keeps
+95% of them (UTC on a tie); a chart stamped on Sundays and never on Fridays is a session stamped
+the evening before. Neither zone at 95%: the last bar's time of day on weekdays, as before.
+
+**The band's far end** is the rounded start plus the window's length rounded (Coinbase's weekly
+235 + 176 = 411 days, the miners' 216 + 39 = 255), not the longest rounded down. Daily ends are the
+same either way; weekly future ends were 96 of 128 rounding down, 107 rounding the longest, 115 this
+way. The Nasdaq's weekly band is a day later than the Dow's at both ends (217 and 305 days on 22-31
+weeks), on all seven of its ends that share our anchor: a preset exception, unexplained.
+
+Future ends against the original, exact to the bar (dates in the past were already 82 of 82 daily,
+15 of 16 weekly; now 16 of 16):
+
+| Future ends | Before | Now |
+|---|---|---|
+| Daily | 56 of 70 | **70 of 70** |
+| Weekly | 37 of 129 | **115 of 128** |
+| Yearly | | 25 of 36 |
+
+**What is left, not modelled.**
+- Weekly: 13 ends whose anchor is not ours (the dollar in 2023, Gold and Silver, Oil, one
+  MicroStrategy end) and one EURUSD end a bar early.
+- Yearly: NYSE's unscheduled closure of 9 January 2025 (President Carter's funeral) puts the
+  Nasdaq's 2023 and 2024 replays a bar later; a live chart never has an unannounced closure ahead of
+  it. TradingView's holidays seem to stop after 2027: targets in 2028 are 4-7 bars off, which
+  depends on today's date. Coinbase, MicroStrategy and Riot (one shared date) are a bar late,
+  unexplained.
+- Only US holidays are checked; a chart on another exchange's calendar steps through its holidays.
+- Off a daily chart the bands are in bars and the clock is not used for them (not checked).
+
+Tests: `CipherCFutureClockTests` (a stock chart across the clock change, holidays skipped and not,
+the newest Juneteenth, a Sunday-stamped session with Good Friday, crypto, no session time), and the
+Dow's, Gold's, Silver's and the Nasdaq's ends in the band tests. Sabotages, all red: the two newest
+occurrences read, UTC only, no Sunday shift, holidays found but not skipped, the far end rounded
+down, the far end the longest rounded, the Nasdaq on the Dow's band.
 

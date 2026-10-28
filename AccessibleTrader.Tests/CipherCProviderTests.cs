@@ -745,8 +745,10 @@ public sealed class CipherCProviderTests
     /// Read from the original's bands at four dates on each of sixteen assets: its weekly band starts
     /// the first bar on or after the newest weekly low (the one after the confirmed one, a candidate
     /// not included) plus the shortest cycle in weeks at 7 days a week, times 7/5 off crypto, rounded;
-    /// it ends at the longest rounded down. Bitcoin's 22-42 weeks: 154 and 294 days; the Dow's 22-31
-    /// on weekdays: 216 and 303. Before, the band ran from the confirmed weekly low at 7 days a week.
+    /// it ends that many days plus the window's length, rounded (2026-10-28: 115 of 128 future ends,
+    /// against 101 rounding the longest down). Bitcoin's 22-42 weeks: 154 and 294 days; the Dow's
+    /// 22-31 on weekdays: 216 and 216 + 88 = 304. Before, the band ran from the confirmed weekly low
+    /// at 7 days a week.
     /// </summary>
     [Fact]
     public void The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks()
@@ -760,7 +762,7 @@ public sealed class CipherCProviderTests
             candidate |= CheckWeeklyBand(part, Run(part, "BTC/USD"), 154, 294);
         }
         var week = Weekdays(800, new DateTime(2022, 1, 3));
-        candidate |= CheckWeeklyBand(week, Run(week, "DJI"), 216, 303);
+        candidate |= CheckWeeklyBand(week, Run(week, "DJI"), 216, 304);
         Assert.True(candidate, "no candidate drawn after the newest weekly low: the case is not pinned");
     }
 
@@ -817,7 +819,9 @@ public sealed class CipherCProviderTests
     /// <b>Where the original's bands differ from its table, and an untuned symbol's (2026-10-28).</b>
     /// Read from its bands on twenty-one assets. The dollar's daily band is 16-25 days (its table
     /// says 15-24): 22 and 35 calendar days. Ether's weekly band is 50-71 days (7-10 weeks would be
-    /// 49-70). Gold's and Silver's weekly bands start at 22 weeks (the table says 20): 216 days.
+    /// 49-70). Gold's and Silver's weekly bands start at 22 weeks (the table says 20): 216 days, to
+    /// 216 + 59. The Nasdaq's weekly band is a day later at both ends than the Dow's on the same
+    /// 22-31 weeks: 217 and 305, on all seven of its ends that share our anchor (unexplained).
     /// An untuned symbol's bands are calendar days on any calendar: daily 40-50 from the newest
     /// daily low, weekly 150-190 from the newest weekly low, on weekdays and on crypto alike.
     /// </summary>
@@ -828,8 +832,9 @@ public sealed class CipherCProviderTests
         var btc = CipherSrSpeechTests.BtcDaily();
         CheckDailyBand(week, Run(week, "DXY"), 22, 35);
         CheckWeeklyBand(btc, Run(btc, "ETH/USD"), 50, 71);
-        CheckWeeklyBand(week, Run(week, "XAUUSD"), 216, 274);
-        CheckWeeklyBand(week, Run(week, "XAGUSD"), 216, 274);
+        CheckWeeklyBand(week, Run(week, "XAUUSD"), 216, 275);
+        CheckWeeklyBand(week, Run(week, "XAGUSD"), 216, 275);
+        CheckWeeklyBand(week, Run(week, "NDQ"), 217, 305);
         var ko = Run(week, "KO");
         CheckDailyBand(week, ko, 40, 50);
         CheckWeeklyBand(week, ko, 150, 190);

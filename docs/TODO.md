@@ -35,9 +35,12 @@
 >   - ~~The weekly and yearly bands are undecoded; the dollar's daily band is a day late~~: daily and
 >     weekly done 2026-10-28 (CHANGES, "daily and weekly bands are drawn where the original draws
 >     them"; CIPHER_C_DESIGN section 33); the yearly band done 2026-10-28 (CHANGES, "the original's
->     dates"; section 34). Left: exchange holidays past the last bar (our band's bar count is the
->     original's plus the holidays, the dates agree); one Nasdaq weekly start a day early; bands off
->     a daily chart not checked. Cody asked (2026-10-28) whether the dollar's two numbers should
+>     dates"; section 34). ~~Exchange holidays past the last bar; one Nasdaq weekly start a day
+>     early~~: done 2026-10-28 (CHANGES, "bands past the last bar land where the original's do";
+>     section 36): future ends daily 70 of 70, weekly 115 of 128, yearly 25 of 36. Left: weekly
+>     misses where its anchor is not ours; yearly misses from NYSE's unscheduled 2025 closure and
+>     TradingView's holidays stopping after 2027 (not modelled), and Coinbase/MicroStrategy/Riot a
+>     bar late (unexplained); bands off a daily chart not checked. Cody asked (2026-10-28) whether the dollar's two numbers should
 >     match. The original itself shows both: its table says 15-24 days and its band is drawn at
 >     16-25. Likewise Ether's band is a day longer than 7-10 weeks, and Gold's and Silver's weekly
 >     bands start at 22 weeks against the table's 20. As a clone, Cipher C keeps the split: it draws
