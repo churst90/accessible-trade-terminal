@@ -1260,3 +1260,51 @@ As a share of the shortest daily cycle, 0.8 scores 0.984; in weeks (3), 0.983. T
 `wt3g.py` (minimum 16 bars) fed the C# daily lows (`wparcmp3.py`): weekly lows and cancellations
 equal on all nineteen. The app-path scores are `wcsscore.py`, before and after on the same
 candles.
+
+## 25. Off the daily chart, held out: the drop split checked, and Bitcoin drops until due (2026-10-27)
+
+On a 4-hour or weekly chart the original shows its daily table with "Timeframe Not Optimised,
+Switch to Daily" and runs its daily count on the chart's own bars (section 18). Its confirmed daily
+marks there (bar replays on candles, 2022–26, private) were never used to fit anything, so they are a
+held-out test of the daily engine, and in particular of section 22's split between assets that drop a
+pending low on any undercut before it is due and assets that drop only within d / 3 of naming it.
+`ctz/tfscore.py` runs the Python replica of `DetectDaily` (which the C# matches) on each chart and
+counts the original's confirmed marks from its first.
+
+Each chart under both rules, the original's marks on the replica's bar / theirs + the replica's
+others, F1:
+
+| Chart | Section 22 says | 4-hour, d / 3 | 4-hour, until due | Weekly, d / 3 | Weekly, until due |
+|---|---|---|---|---|---|
+| The Dow | until due | 103/108 + 11, 0.928 | 107/108 + 3, **0.982** | 42/48 + 6, 0.875 | 42/48 + 5, **0.884** |
+| The dollar | until due | 124/132 + 16, 0.912 | 129/132 + 4, **0.974** | 20/22 + 3, 0.889 | 20/22 + 1, **0.930** |
+| Silver | until due | 125/146 + 28, 0.836 | 135/146 + 9, **0.931** | 10/11 + 3, 0.833 | 11/11 + 0, **1.000** |
+| Ether | until due | 127/130 + 7, 0.962 | 126/130 + 6, 0.962 | 24/24 + 1, 0.980 | 24/24 + 1, 0.980 |
+| The Nasdaq | d / 3 | 107/116 + 7, **0.930** | 99/116 + 11, 0.876 | 45/48 + 1, **0.957** | 42/48 + 4, 0.894 |
+| Gold | d / 3 | 143/149 + 6, **0.960** | 134/149 + 10, 0.915 | 25/25 + 0, **1.000** | 24/25 + 1, 0.960 |
+| GDX | d / 3 | 111/119 + 6, **0.941** | 99/119 + 11, 0.865 | 13/13 + 0, 1.000 | 13/13 + 0, 1.000 |
+| Oil | d / 3 | 114/121 + 6, **0.946** | 97/121 + 15, 0.833 | 45/47 + 2, **0.957** | 42/47 + 3, 0.913 |
+| Coinbase | d / 3 | 25/27 + 14, **0.758** | 21/27 + 17, 0.646 | 2/4 + 1, **0.571** | 1/4 + 1, 0.333 |
+| Bitcoin | undecided | 84/88 + 6, 0.944 | 87/88 + 1, **0.989** | 2/2 + 2, 0.667 | 2/2 + 1, **0.800** |
+
+- **The split holds out of sample.** Every asset section 22 put on drop-until-due scores better or
+  the same with it on both timeframes; every asset it left on d / 3 scores worse with it (or the
+  same, GDX weekly). The split was read from daily drawings only.
+- **Bitcoin drops until due** (`CyclePreset.DropUntilDue`, now on for BTC). On its daily chart it
+  never undercuts a pending low later than d / 3 and before due, so the daily drawings could not
+  tell; the 4-hour and weekly charts both say until due. On the daily chart it removes the one extra
+  low it had on the whole history (F1 0.9681 → 0.9683; Heikin-Ashi held out 0.9793 → 0.9804). As the
+  app runs on the captured Bitcoin daily candles (from the chart's first bar), its daily lows go 22
+  of 22 with 1 other → 22 of 22 with none, and its weekly lows 9 of 10 with 1 other → 10 of 10 with
+  none. Pooled over the nineteen captured daily charts, weekly F1 0.924 → 0.926, daily 0.970 → 0.970.
+- **Pooled off-daily**, with Bitcoin until due: 4-hour 0.947 → 0.950 (1,084 of 1,136, 62 others),
+  weekly 0.942 → 0.944 (229 of 244, 12 others).
+- **What is left there.** Coinbase's 4-hour chart: the original's marks skip half a year where the
+  replica has three lows, then the original confirms
+  nothing for 659 bars; the replica keeps finding lows. Neither rule explains it. Bitcoin's weekly
+  chart: the original confirms nothing after its second mark and holds one pending low with 🔄;
+  until due takes one of the replica's two others away, not both.
+- **Still not separable on the daily chart:** the 17 times the original kept a pending low through
+  an undercut within d / 3 of naming it, against 516 drops in the same position (price, grade, 🔄,
+  the table's cells, the weekly label, the DSS, the path since naming; a boosted model reaches AUC
+  0.66 only). Cipher C drops all of them.

@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: Bitcoin drops a pending low on any undercut before it is due (2026-10-27)
+
+- **What changed:** `CyclePreset.DropUntilDue` is on for BTC too (the Dow, the dollar, Silver and
+  Ether already had it). On Bitcoin a bar under the pending daily low at any time before it comes
+  due now drops it; before, only within d / 3 bars of naming it.
+- **Why:** Bitcoin's daily chart never undercuts a pending low between d / 3 and due, so the
+  original's daily drawings could not decide it (entry below). Its 4-hour and weekly charts, where
+  the original runs its daily count on the chart's bars and which were never used to fit anything,
+  do: the original's confirmed marks there match 0.989 against 0.944 (4-hour) and 0.800 against 0.667
+  (weekly) with it. The same held-out charts confirm the earlier split: the Dow, the dollar and Silver
+  score better until due on both timeframes, Ether the same, and the Nasdaq, gold, GDX, oil and
+  Coinbase worse (CIPHER_C_DESIGN section 25).
+- **Numbers (private captures):**
+  - Bitcoin's captured daily candles as the app runs: daily lows 22 of 22 with 1 other → none
+    other, weekly lows 9 of 10 with 1 other → 10 of 10 with none.
+  - Pooled over the nineteen captured daily charts: weekly F1 0.924 → 0.926, daily unchanged (0.970).
+  - Whole history (probe), daily F1 0.9681 → 0.9683; Heikin-Ashi held out 0.9793 → 0.9804.
+  - Off the daily chart, pooled: 4-hour 0.947 → 0.950, weekly 0.942 → 0.944.
+- **Tests:** the presets test now expects BTC among the drop-until-due assets; the Bitcoin weekly
+  test in `CipherCProviderTests` now pins all ten of the original's weekly lows to the fixture's end
+  and no other (before, it allowed one miss and two extras); the faster-confirmation test builds its
+  expected lows with the preset's drop rule. Sabotage: BTC without the flag turns the presets test and
+  the weekly test red.
+- **Caveats:**
+  - Bitcoin's 4-hour and weekly charts are one capture each; the weekly one has only 2 confirmed
+    marks. The weekly chart still has one other low, and the original confirms nothing there after
+    its second mark.
+  - Coinbase's 4-hour chart (0.758) is unexplained: the original confirms nothing for its last 659
+    bars.
+  - Not seen or heard in the app.
+
 ### Cipher C: the deep double compares with the daily low before the weekly low (2026-10-27)
 
 - **What changed:** in `CipherCEngine.WeeklyFromDaily`, after a candidate is made a weekly low (U),

@@ -210,7 +210,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             // last low + 47 (dMin - 1), it confirms 24 bars after the low on 19 of 24, and a short
             // cycle's confirmation waits until the last low + 70 (1.5 dMin - 2), on 4 of 5. At 54 every
             // one of ours came 3 bars late; at 48, 20 of 22 land on its bar and 22 of 25 lows match (19).
-            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48, DssLength: 14, DssSmooth: 14),
+            // Bitcoin drops a pending low on any undercut before it is due, as the Dow does: its daily
+            // chart never undercuts a pending low late in the window, so only the 4-hour and weekly
+            // charts (the original runs the daily count on their bars) can tell, and there the
+            // original's confirmed lows match 0.989 against 0.944 (4-hour) and 0.800 against 0.667
+            // (weekly) with it; on the daily chart it removes one extra low.
+            new CyclePreset("BTC",    "Bitcoin",     54, 66, 22, 42, 4,   4,   true,  FromCf, CountDailyMin: 48, DssLength: 14, DssSmooth: 14,
+                DropUntilDue: true),
             // TradingView counts stock bars, so these CF daily ranges are treated as trading days;
             // that interpretation is an inference from the stock charts, not an explicit CF note.
             // Its table says 40-90 for both, but the original counts Coinbase and MicroStrategy from 51

@@ -278,7 +278,7 @@ public class CipherCDailyTests
         {
             Assert.Equal(want.TryGetValue(p.Key, out var v) ? v : (10, 9), (p.DssLength, p.DssSmooth));
             Assert.Equal(p.Key is "GDX" or "GDXJ" or "GOLD" or "SILVER" or "SILJ" or "DXY", p.PivotBreak);
-            Assert.Equal(p.Key is "DJI" or "DXY" or "SILVER" or "ETH", p.DropUntilDue);
+            Assert.Equal(p.Key is "DJI" or "DXY" or "SILVER" or "ETH" or "BTC", p.DropUntilDue);
         }
         Assert.Equal(32, CipherCEngine.Preset("SPX").CountedDailyMin);
         var f = CipherCEngine.Fallback(true);
@@ -319,7 +319,7 @@ public class CipherCDailyTests
             { [CipherCProvider.ParamPreset] = key, [CipherCProvider.ParamFasterConfirmation] = true });
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var tier = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var broken = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, true);
+        var broken = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, true, dropUntilDue: preset.DropUntilDue);
         Assert.Equal(Marked(broken.Confirmed), Marked(on[CipherCProvider.CompDclConfirmed]));
         if (preset.PivotBreak) Assert.Equal(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
         else Assert.NotEqual(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
