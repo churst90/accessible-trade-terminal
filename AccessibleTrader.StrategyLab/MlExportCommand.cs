@@ -38,7 +38,8 @@ public static class MlExportCommand
         // Cipher C was an oscillator with a Cycle Sine and a Lead Sine until 2026-10-21; it is now
         // the CF-style cycle-low indicator and its causal continuous outputs are the day count
         // since the last confirmed daily cycle low and whether that count is in the timing window
-        // (since 2026-10-22 the Daily Timing Window's value and its tint companion).
+        // (since 2026-10-22 the Daily Timing Window's value and its tint companion; since
+        // 2026-10-28 the days since the low, 0 on its bar, one less than before).
         ("CIPHER_C", "Daily Timing Window",      "c_dcl_day"),
         ("CIPHER_C", "Daily Timing Window_tint", "c_in_window"),
         ("HURST",    "Hurst",            "hurst"),

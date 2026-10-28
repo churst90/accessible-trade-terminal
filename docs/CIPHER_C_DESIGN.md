@@ -89,7 +89,7 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 7 | Live confirmation marker above price | Same square as 4 |
 | 8 | LOW / MID / HIGH on the pending label, bar by bar | The pending low's `_grade` companion (0, 1, 2) on every bar it is held, spoken with the pending (section 20). The Confirmed components' own confluence (1 to 3) is ours: the original tags no confirmed low |
 | 9 | Cycle count "49D" | Printed over the low with a D / W suffix (49D / 24W) from the low's label companion; spoken with the low ("A 49 day cycle") |
-| 10 | Green daily Future Cycle Low Range band | Daily Timing Window: the cycle's day count, green tint while inside its window (past only) |
+| 10 | Green daily Future Cycle Low Range band | Daily Timing Window: the days since the last daily low, green tint while inside its window (past only) |
 | 11 | Blue weekly FCLR band | Weekly Timing Window: the week count, blue tint inside its window (weekly charts) |
 | 12 | Yellow low-to-low arcs | The Timing Window's drawing (`_path`): drawn, named on landing, not a stop (see below) |
 | 13 | Yellow SMA line | 10-bar SMA, the one Camel trades against |
@@ -122,13 +122,13 @@ speech, with no keyboard stop or sound of their own. Examples are from the Bitco
 | Component | Its value | Said when landed on |
 |---|---|---|
 | SMA | the 10-bar average | the average, as any line |
-| DCL / WCL / YCL | the low's price | "Daily cycle low, 64955.00. A 52 day cycle. Confirmed 6 days later." |
+| DCL / WCL / YCL | the low's price | "Daily cycle low, 64955.00. A 52 day cycle. Confirmed 6 days later." On a bar with only a mark (2026-10-28): "Daily cycle low, unconfirmed: the low of 59100.00, mid confluence, 10 days since it." or "Daily cycle low cancelled: the low of 7325.37, undercut before it was confirmed."; marks are Ctrl+Left/Right stops |
 | DCL / WCL / YCL Confirmed | confluence, 1 to 3 | "Weekly cycle low confirmed, low confluence: the low of 59930.00, 8.7 weeks ago. It replaces the cancelled low of 80537.00." |
-| Cycle Low Pending | the bar's close | "Daily cycle low pending on day 76, mid confluence: the low of 59100.00, 7 days ago. It replaces the cancelled low of 61000.00." (the last sentence only after a cancellation; the low the daily tier names; with no daily tier, "… the cycle line reached oversold on week N. Lowest low since the last cycle low: …") |
+| Cycle Low Pending | the bar's close | "Daily cycle low pending 76 days after the last cycle low, mid confluence: the low of 59100.00, 7 days ago. It replaces the cancelled low of 61000.00." (the last sentence only after a cancellation; the low the daily tier names; with no daily tier, "… the cycle line reached oversold N weeks after the last cycle low. Lowest low since the last cycle low: …") |
 | Cycle Low Cancelled | the pending low it went under | "Daily pending cycle low cancelled: a low of 75285.00, under the pending low of 76000.00 from 4 days ago." |
 | Cycle Failed | the cycle low it closed under | "Daily cycle failed: closed at …, under the cycle low of … from N days ago." |
 | Left / Mid / Right Translated Top | the top's high | "Left translated top, bearish: high 126272.00, day 36 of an 82 day cycle." |
-| Daily / Weekly Timing Window | the day (week) of the cycle | "daily cycle day 79, 13 days past its window"; Ctrl+Left/Right stops where the window opens and closes |
+| Daily / Weekly / Yearly Timing Window | the days (weeks, years) since the last low, 0 on its bar, as the original's table (was the day of the cycle, one more, until 2026-10-28) | "78 days since the last daily cycle low, 13 days past its window"; Ctrl+Left/Right stops where the window opens and closes |
 
 **Navigable or context.** A dated event on one bar is a component (a low, a confirmation, a
 cancellation, a failure, a top). A state that lasts over many bars is one component with a value on
@@ -958,8 +958,9 @@ step (a lower next daily low replaces a fresh weekly low): without it Apple gain
 every-two asset and the other two held-out ones collapse. Cipher C still draws these lows.
 
 **The original's table, bar by bar** (`ctz/tabcmp.py`, `ctz/unc2.py`, `ctz/wconf_t.py`). "Days since
-last DCL" is t − low; the daily window's count is t − low + 1, the day of the cycle, so it reads one
-more on every bar where the lows agree. "Days since unconfirmed DCL" is t − the pending low, and it
+last DCL" is t − low; the daily window's count was t − low + 1, the day of the cycle, so it read one
+more on every bar where the lows agree (since 2026-10-28 it is t − low, as the original's; the window
+still opens at the cycle's day dmin). "Days since unconfirmed DCL" is t − the pending low, and it
 keeps counting a dropped low until the next naming. Cipher C's pending lows reproduce it on 96.4% of
 rows. The original's weekly low is confirmed only on a daily confirmation, once the next weekly low
 is fixed, as in Cipher C. A daily pending low's companions name the held low (`TierRun.HeldAt`).
@@ -1473,12 +1474,14 @@ Since Last WCL :", and "👇 Finetuned Assets Listed Below 👇" over the preset
 stocks and metals, then the crypto ones from Ether).
 
 The counts are the original's: confirmed, the bars since the last daily low (its own bar is 0), so
-Cipher C's day of the cycle less one, and the weeks since the last confirmed weekly low.
+the timing window's value, and the weeks since the last confirmed weekly low.
 Unconfirmed, the bars since the daily low held now; a check when none is held (on a confirmation,
 until the next low is named); after a cancellation it keeps counting from the dropped low's bar,
 until a new low is named. The unconfirmed weekly cell is the weeks since the newest weekly low (the
 one not yet confirmed), in the preset's week. Not modelled: the original counts a dropped weekly low
 on, and it says something other than "Default Count Selected" when a count is changed (not read).
+Both unconfirmed counts are spoken in the state words, "12 days since the unconfirmed daily low",
+"3 weeks since the unconfirmed weekly low" (2026-10-28).
 
 **Marks touch the bar.** The original's lows point up at the bar's low and its daily confirmation
 down at the high, the tip about two pixels off. `MarkerTouchesBar` puts the tip there (the gap is

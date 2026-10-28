@@ -48,9 +48,11 @@
 >     - replays of Coinbase 4h and Bitcoin weekly (TradingView must have a visible window; the
 >       trial ends about 11-05).
 >   - "Default Count Selected" is always shown; the original's words for a changed count are not read.
->   - Question for Cody: the table's unconfirmed days and weeks are not spoken anywhere (the table
->     is aria-hidden, like the status lines). Add them as a reading? Speech also still says the day of
->     the cycle, one more than the table's "days since" (question below).
+>   - ~~Question for Cody: the table's unconfirmed days and weeks are not spoken; speech says the day
+>     of the cycle~~: done 2026-10-28 (Cody: "yes speak them", "make them match"; CHANGES, "days
+>     since"). Everything says days since; the counts are in the state words; the held and cancelled
+>     marks are spoken and are Ctrl+Left/Right stops. Left: the landing signal count counts lows
+>     only, not marks.
 >   - Not yet reviewed by an accessibility agent (none registered here).
 > - [ ] **Cipher C: a translated top is mid only exactly halfway (2026-10-28, built, NOT seen or
 >   heard; see CHANGES and CIPHER_C_DESIGN section 28).** On the original's boxes, 86.0% → 94.6% of
@@ -168,8 +170,7 @@
 >     the low's day as day 1, so it is one more on every bar where the lows agree (every row on GDX,
 >     SPX, NDQ, MSTR and the held-out EUR/USD and Apple). Its window opens at day dmin, the bar the
 >     original may first name a low (t − last ≥ dmin − 1), so the window is right; only the number said
->     differs. Question for Cody: say the original's number (days since) instead of the day of the
->     cycle? Its "days since unconfirmed DCL" is the bars since the pending low; after a drop it keeps
+>     differs. ~~Question for Cody: say the original's number (days since)?~~ Done 2026-10-28. Its "days since unconfirmed DCL" is the bars since the pending low; after a drop it keeps
 >     counting the dropped low until a new one is named (✅ only after a confirmation). With that, Cipher
 >     C's pending lows give the original's cell on 96.4% of 24,100 rows (every row on 6 of 19 assets);
 >     the rest are bars where the lows differ. Weekly "weeks since": the original confirms a weekly low

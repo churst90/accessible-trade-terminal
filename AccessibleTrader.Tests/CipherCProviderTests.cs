@@ -438,7 +438,7 @@ public sealed class CipherCProviderTests
             int at = ConfirmedAt(CipherCProvider.CompDclConfirmed, c);
             if (at > c)
             {
-                Assert.Equal(1, r[CipherCProvider.CompDailyWindow][at] - (at - c));
+                Assert.Equal(0, r[CipherCProvider.CompDailyWindow][at] - (at - c));
                 Assert.Equal(at - c, r[CipherCProvider.CompDcl + CipherCProvider.AfterSuffix][c]);
                 Assert.Equal(at - c, r[CipherCProvider.CompDclConfirmed + CipherCProvider.AgoSuffix][at]);
                 lags.Add(at - c);
@@ -580,8 +580,8 @@ public sealed class CipherCProviderTests
 
         var words = CipherCProvider.StateWords(n => r.TryGetValue(n, out var a) ? a : null, weeks.Count - 1, weeks[^1].Date);
         _out.WriteLine(string.Join(". ", words));
-        Assert.Contains(words, s => s.StartsWith("daily cycle bar ", StringComparison.Ordinal));
-        Assert.Contains(words, s => s.StartsWith("weekly cycle bar ", StringComparison.Ordinal));
+        Assert.Contains(words, s => System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9]+ bars? since the last daily cycle low"));
+        Assert.Contains(words, s => System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9]+ bars? since the last weekly cycle low"));
         Assert.Contains(words, s => s.StartsWith("the last daily pending cycle low was cancelled", StringComparison.Ordinal) && s.EndsWith(" bars ago", StringComparison.Ordinal));
         Assert.Contains(words, s => s.EndsWith("Not tuned for this timeframe: its days are counted as this chart's bars; switch to daily for the tuned count", StringComparison.Ordinal));
         var p = new CipherCProvider();
@@ -764,9 +764,10 @@ public sealed class CipherCProviderTests
         Assert.Equal("\u2705 Optimised Timeframe - Daily \u2705", rows[3][0].Text);
         Assert.Equal("Days since Last DCL :", rows[2][3].Text);
         Assert.Equal("Weeks Since Last WCL :", rows[3][3].Text);
-        string Less1(double v) => (v - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Equal(Less1(r[CipherCProvider.CompDailyWindow][last]), rows[2][4].Text);
-        Assert.Equal(Less1(r[CipherCProvider.CompWeeklyWindow][last]), rows[3][4].Text);
+        // The window's value is the original's "days since" (2026-10-28), as the table prints it.
+        string Num(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(Num(r[CipherCProvider.CompDailyWindow][last]), rows[2][4].Text);
+        Assert.Equal(Num(r[CipherCProvider.CompWeeklyWindow][last]), rows[3][4].Text);
         Assert.Equal("\U0001F558 Unconfirmed \U0001F558", rows[4][^1].Text);
         Assert.StartsWith("SPX, ", rows[5][0].Text);
         Assert.StartsWith("ETH, BTC", rows[6][0].Text);
@@ -842,7 +843,7 @@ public sealed class CipherCProviderTests
         Assert.Equal(CipherCProvider.TableWrongFrame, rows[3][0].Fill);
         Assert.Equal("\u26A0\uFE0F Timeframe Not Optimised, Switch to Daily \u26A0\uFE0F", rows[3][0].Text);
         Assert.Equal("Days since Last DCL :", rows[2][3].Text);
-        Assert.Equal((r[CipherCProvider.CompDailyWindow][^1] - 1).ToString(System.Globalization.CultureInfo.InvariantCulture), rows[2][4].Text);
+        Assert.Equal(r[CipherCProvider.CompDailyWindow][^1].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[2][4].Text);
     }
 
     /// <summary>The chart draws the table for a shown Cipher C on the price pane only: not a
@@ -887,7 +888,7 @@ public sealed class CipherCProviderTests
         var r = Run(bars, "DJI");
         Assert.Equal(0.0, r[CipherCProvider.InBarsKey][^1]);
         var words = CipherCProvider.StateWords(n => r.TryGetValue(n, out var a) ? a : null, bars.Count - 1, bars[^1].Date);
-        Assert.Contains(words, s => s.StartsWith("daily cycle day ", StringComparison.Ordinal));
+        Assert.Contains(words, s => System.Text.RegularExpressions.Regex.IsMatch(s, "^[0-9]+ days? since the last daily cycle low"));
         Assert.DoesNotContain(words, s => s.Contains("Not tuned", StringComparison.Ordinal));
     }
 
@@ -1165,14 +1166,94 @@ public sealed class CipherCProviderTests
     // ── 6. Speech ─────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(20, 36, 44, "daily cycle day 20, its window opens in 16 days")]
-    [InlineData(35, 36, 44, "daily cycle day 35, its window opens in 1 day")]
-    [InlineData(40, 36, 44, "daily cycle day 40, in its window, 4 days left")]
-    [InlineData(43, 36, 44, "daily cycle day 43, in its window, 1 day left")]
-    [InlineData(44, 36, 44, "daily cycle day 44, the last day of its window")]
-    [InlineData(50, 36, 44, "daily cycle day 50, 6 days past its window")]
-    public void The_day_count_is_said_against_the_window(double count, double start, double end, string expected)
-        => Assert.Equal(expected, CipherCProvider.WindowWords("daily cycle", "day", "days", count, start, end));
+    // The value is days since the low (0 on its bar); the window counts the low's own day, so
+    // 35 days since is day 36 of the cycle, the window's first.
+    [InlineData(19, 36, 44, "19 days since the last daily cycle low, its window opens in 16 days")]
+    [InlineData(34, 36, 44, "34 days since the last daily cycle low, its window opens in 1 day")]
+    [InlineData(39, 36, 44, "39 days since the last daily cycle low, in its window, 4 days left")]
+    [InlineData(42, 36, 44, "42 days since the last daily cycle low, in its window, 1 day left")]
+    [InlineData(43, 36, 44, "43 days since the last daily cycle low, the last day of its window")]
+    [InlineData(49, 36, 44, "49 days since the last daily cycle low, 6 days past its window")]
+    [InlineData(1, 36, 44, "1 day since the last daily cycle low, its window opens in 34 days")]
+    public void The_day_count_is_said_against_the_window(double since, double start, double end, string expected)
+        => Assert.Equal(expected, CipherCProvider.WindowWords("daily cycle", "day", "days", since, start, end));
+
+    /// <summary>The original's unconfirmed counts, spoken as its table prints them; none when none is held (-1).</summary>
+    [Theory]
+    [InlineData("daily", "day", "days", 12, "12 days since the unconfirmed daily low")]
+    [InlineData("daily", "day", "days", 1, "1 day since the unconfirmed daily low")]
+    [InlineData("daily", "day", "days", 0, "0 days since the unconfirmed daily low")]
+    [InlineData("weekly", "week", "weeks", 3, "3 weeks since the unconfirmed weekly low")]
+    [InlineData("daily", "bar", "bars", 7, "7 bars since the unconfirmed daily low")]
+    [InlineData("daily", "day", "days", -1, null)]
+    [InlineData("weekly", "week", "weeks", double.NaN, null)]
+    public void The_unconfirmed_counts_are_said_as_the_table_prints_them(string tier, string unit, string units, double since, string? expected)
+        => Assert.Equal(expected, CipherCProvider.HeldWords(tier, unit, units, since));
+
+    /// <summary>
+    /// On the Bitcoin fixture, the state words (Alt+Shift+D, the bar detail) carry the table's
+    /// unconfirmed counts when a low is held, and the held low's own bar, which has a mark but no
+    /// confirmed low, speaks the mark: the low, its grade and the same count as the table.
+    /// </summary>
+    [Fact]
+    public void The_held_low_and_its_count_are_spoken()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = Btc();
+        int n = bars.Count, last = n - 1;
+        var held = r[CipherCProvider.HeldDaysKey];
+        var words = CipherCProvider.StateWords(k => r.TryGetValue(k, out var a) ? a : null, last, bars[last].Date);
+        var rows = CipherCProvider.TableRows(k => r.TryGetValue(k, out var a) ? a : null, last);
+        if (held[last] >= 0)
+        {
+            Assert.Contains(words, s => s == CipherCProvider.HeldWords("daily", "day", "days", held[last]));
+            Assert.Equal(held[last].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[5][^1].Text);
+        }
+        else Assert.DoesNotContain(words, s => s.Contains("unconfirmed daily", StringComparison.Ordinal));
+
+        var mark = r[CipherCProvider.CompDcl + ComponentCompanions.Mark];
+        var badge = r[CipherCProvider.CompDcl + ComponentCompanions.Badge];
+        var marked = Marked(mark).ToList();
+        Assert.NotEmpty(marked);
+        foreach (int t in marked)
+        {
+            Assert.True(double.IsNaN(r[CipherCProvider.CompDcl][t]));
+            string? said = Provider.GetComponentSpeech(CipherCProvider.CompDcl, double.NaN, bars[t], r, t);
+            _out.WriteLine($"{t}: {said}");
+            Assert.NotNull(said);
+            if (((int)badge[t] & ComponentCompanions.BadgeCross) != 0)
+                Assert.Matches("^Daily cycle low cancelled: the low of [0-9,.]+, undercut before it was confirmed\\.$", said);
+            else
+            {
+                Assert.Matches("^Daily cycle low, unconfirmed: the low of [0-9,.]+, (low|mid|high) confluence, [0-9]+ days? since it\\.", said);
+                Assert.Contains($", {CipherCProvider.HeldWords("daily", "day", "days", held[last])!.Split(' ')[0]} ", said);
+            }
+        }
+        // A bar with neither a low nor a mark says nothing.
+        int plain = Enumerable.Range(0, n).First(t => double.IsNaN(mark[t]) && double.IsNaN(r[CipherCProvider.CompDcl][t]));
+        Assert.Null(Provider.GetComponentSpeech(CipherCProvider.CompDcl, double.NaN, bars[plain], r, plain));
+    }
+
+    /// <summary>A built cancelled and held mark, each in words (the refresh sign too).</summary>
+    [Fact]
+    public void A_mark_says_held_or_cancelled()
+    {
+        var at = new Dictionary<string, double>
+        {
+            [CipherCProvider.CompDcl + ComponentCompanions.Mark] = 41200,
+            [CipherCProvider.CompDcl + ComponentCompanions.Badge] = ComponentCompanions.BadgeClock | ComponentCompanions.BadgeRefresh,
+            [CipherCProvider.CompDcl + ComponentCompanions.BadgeWord] = 1,
+        };
+        double At(string k) => at.TryGetValue(k, out var v) ? v : double.NaN;
+        Assert.Equal("Daily cycle low, unconfirmed: the low of 41200.00, mid confluence, 12 days since it. A low was cancelled since the last confirmed one.",
+            CipherCProvider.MarkWords(At, 12, inBars: false));
+        Assert.Equal("Daily cycle low, unconfirmed: the low of 41200.00, mid confluence, 1 bar since it. A low was cancelled since the last confirmed one.",
+            CipherCProvider.MarkWords(At, 1, inBars: true));
+        at[CipherCProvider.CompDcl + ComponentCompanions.Badge] = ComponentCompanions.BadgeCross;
+        Assert.Equal("Daily cycle low cancelled: the low of 41200.00, undercut before it was confirmed.", CipherCProvider.MarkWords(At, 12, inBars: false));
+        at.Remove(CipherCProvider.CompDcl + ComponentCompanions.Mark);
+        Assert.Null(CipherCProvider.MarkWords(At, 12, inBars: false));
+    }
 
     [Fact]
     public void A_tier_that_does_not_run_says_nothing_and_one_with_no_low_yet_says_so()
@@ -1190,7 +1271,7 @@ public sealed class CipherCProviderTests
         int t = Marked(r[CipherCProvider.CompDclConfirmed]).Last();
         var fact = Provider.GetDetailFact(CipherCProvider.Code, bars.ToArray(), r, t, new());
         _out.WriteLine(fact);
-        Assert.StartsWith("Daily cycle day ", fact);
+        Assert.Matches("^[0-9]+ days? since the last daily cycle low", fact);
         Assert.Matches("Daily cycle low confirmed, (high|mid|low) confluence", fact);
         Assert.Contains(". Bitcoin ranges", fact);
         Assert.Contains("yearly 4 years", fact);   // not "4 to 4"
@@ -1288,7 +1369,7 @@ public sealed class CipherCProviderTests
         new BarDetailService(bus, null).AnnounceDetails(state);
         var said = bus.Log.OfType<AnnouncementEvent>().Last().Message;
         _out.WriteLine(said);
-        Assert.Matches("daily cycle day [0-9]+, ", said);
+        Assert.Matches("[0-9]+ days? since the last daily cycle low, ", said);
     }
 
     // ── 7b. What each component says (2026-10-22) ──────────────────────────────────
@@ -1421,7 +1502,7 @@ public sealed class CipherCProviderTests
         int last = pending[^1];
         string said = Provider.GetComponentSpeech(CipherCProvider.CompPending, r[CipherCProvider.CompPending][last], bars[last], r, last)!;
         _out.WriteLine(said);
-        Assert.Matches("^Daily cycle low pending on day [0-9]+, (low|mid|high) confluence: the low of [0-9,.]+, [0-9]+ days? ago\\.( It replaces the cancelled low of [0-9,.]+\\.)?$", said);
+        Assert.Matches("^Daily cycle low pending [0-9]+ days? after the last cycle low, (low|mid|high) confluence: the low of [0-9,.]+, [0-9]+ days? ago\\.( It replaces the cancelled low of [0-9,.]+\\.)?$", said);
         Assert.DoesNotContain("oversold", said);
     }
 
@@ -1511,11 +1592,11 @@ public sealed class CipherCProviderTests
             [CipherCProvider.CompPending + CipherCProvider.GradeSuffix] = new[] { 1.0 },
             [CipherCProvider.CompPending + CipherCProvider.ReplacedSuffix] = new[] { 48.25 },
         };
-        Assert.Equal("Daily cycle low pending on day 76, mid confluence: the low of 45.50, 7 days ago. It replaces the cancelled low of 48.25.",
+        Assert.Equal("Daily cycle low pending 76 days after the last cycle low, mid confluence: the low of 45.50, 7 days ago. It replaces the cancelled low of 48.25.",
             Provider.GetComponentSpeech(CipherCProvider.CompPending, 50, bar, data, 0));
         data[CipherCProvider.CompPending + CipherCProvider.GradeSuffix] = new[] { 2.0 };
         data[CipherCProvider.CompPending + CipherCProvider.ReplacedSuffix] = new[] { double.NaN };
-        Assert.Equal("Daily cycle low pending on day 76, high confluence: the low of 45.50, 7 days ago.",
+        Assert.Equal("Daily cycle low pending 76 days after the last cycle low, high confluence: the low of 45.50, 7 days ago.",
             Provider.GetComponentSpeech(CipherCProvider.CompPending, 50, bar, data, 0));
     }
 
@@ -1603,7 +1684,7 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>
-    /// A timing window's value is the day count on every bar; its tint is 1 inside the window;
+    /// A timing window's value is the days since the last low on every bar (0 on the low's own); its tint is 1 inside the window;
     /// Ctrl+Left/Right stops where it opens (1) and where it closes with no new low (0), nowhere
     /// else. On a daily chart the weekly window does not tint — the daily one's green would be
     /// covered.
@@ -1621,7 +1702,8 @@ public sealed class CipherCProviderTests
         for (int t = 1; t < count.Length; t++)
         {
             if (double.IsNaN(count[t]) || double.IsNaN(count[t - 1])) continue;
-            Assert.Equal(count[t] >= start && count[t] <= end ? 1.0 : 0.0, tint[t]);
+            // The value is days since the low; the window counts the low's own day (day 1).
+            Assert.Equal(count[t] + 1 >= start && count[t] + 1 <= end ? 1.0 : 0.0, tint[t]);
             bool newCycle = count[t] <= count[t - 1];
             bool open = tint[t] == 1 && (tint[t - 1] == 0 || newCycle);
             bool close = tint[t] == 0 && tint[t - 1] == 1 && !newCycle;
@@ -1635,7 +1717,7 @@ public sealed class CipherCProviderTests
         Assert.NotEmpty(Marked(r[CipherCProvider.CompWeeklyWindow]));
 
         int first = Enumerable.Range(0, stops.Length).Last(t => stops[t] == 1);
-        Assert.Matches("^daily cycle day [0-9]+, its [0-9.]+ to [0-9.]+ day window opens, [0-9]+ days left$",
+        Assert.Matches("^[0-9]+ days since the last daily cycle low, its [0-9.]+ to [0-9.]+ day window opens, [0-9]+ days left$",
             Provider.GetComponentSpeech(CipherCProvider.CompDailyWindow, count[first], CipherSrSpeechTests.BtcDaily()[first], r, first));
     }
 

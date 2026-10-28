@@ -331,9 +331,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Top(CompMidTop,   MidTopHex,   "M", "Mid translated top."),
                     Top(CompRightTop, RightTopHex, "R", "Right translated top, bullish."),
 
-                    Window(CompDailyWindow, DailyBandHex, "#184CAF50", "Daily timing window open, day {value}."),
-                    Window(CompWeeklyWindow, WeeklyBandHex, "#182962FF", "Weekly timing window open, week {value}."),
-                    Window(CompYearlyWindow, YearlyBandHex, "#18FDD835", "Yearly timing window open, year {value}."),
+                    Window(CompDailyWindow, DailyBandHex, "#184CAF50", "Daily timing window open, {value} days since the last daily low."),
+                    Window(CompWeeklyWindow, WeeklyBandHex, "#182962FF", "Weekly timing window open, {value} weeks since the last weekly low."),
+                    Window(CompYearlyWindow, YearlyBandHex, "#18FDD835", "Yearly timing window open, {value} years since the last yearly low."),
                 },
             }
         };
@@ -724,8 +724,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 int last = run.LastLowAt[t];
                 if (last < 0) continue;
+                // The window is in the cycle's length, both lows counted (day 1 is the low's own);
+                // the count is the original's "days since", 0 on the low's bar (2026-10-28).
                 double units = Math.Floor((t - last) / barsPerUnit + 1e-9) + 1;
-                count[t] = units;
+                count[t] = units - 1;
                 inWindow[t] = units >= min && units <= max ? 1 : 0;
                 bool sameCycle = t > 0 && run.LastLowAt[t - 1] == last;
                 bool wasIn = t > 0 && inWindow[t - 1] == 1;
@@ -937,6 +939,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             var (yearWord, yearWords) = Words(inBars, "year", "years");
             string? yearly = WindowWords("yearly cycle", yearWord, yearWords, At(CompYearlyWindow), At(CompYearlyWindow + StartSuffix), At(CompYearlyWindow + EndSuffix));
             if (yearly != null) words.Add(yearly);
+            // The original's unconfirmed counts, from the table's lower half.
+            if (HeldWords("daily", dayWord, dayWords, At(HeldDaysKey)) is { } heldDaily) words.Add(heldDaily);
+            if (HeldWords("weekly", weekWord, weekWords, At(HeldWeeksKey)) is { } heldWeekly) words.Add(heldWeekly);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
             {
@@ -958,12 +963,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             return words;
         }
 
-        internal static string? WindowWords(string cycle, string unit, string units, double count, double start, double end)
+        /// <summary>
+        /// Where a cycle is against its window, from its count (<paramref name="since"/>, the
+        /// original's "days since", 0 on the low's bar) and the window's bounds (the cycle's length,
+        /// both lows counted, so the low's own day is day 1): "23 days since the last daily cycle
+        /// low, its window opens in 13 days".
+        /// </summary>
+        internal static string? WindowWords(string cycle, string unit, string units, double since, double start, double end)
         {
             if (double.IsNaN(start)) return null;          // the tier does not run on this chart
-            if (double.IsNaN(count)) return $"no {cycle} low confirmed yet";
+            if (double.IsNaN(since)) return $"no {cycle} low confirmed yet";
             string Units(double v) => Math.Abs(v - 1) < 1e-9 ? unit : units;
-            string head = $"{cycle} {unit} {Num(count)}";
+            double count = since + 1;                      // the day of the cycle, in the window's terms
+            string head = $"{Num(since)} {Units(since)} since the last {cycle} low";
             if (count < start)
             {
                 double inN = Math.Ceiling(start - count);
@@ -980,6 +992,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             double past = Math.Ceiling(count - end);
             return $"{head}, {Num(past)} {Units(past)} past its window";
         }
+
+        /// <summary>
+        /// The original's unconfirmed counts, as its table shows them (<see cref="HeldDaysKey"/>,
+        /// <see cref="HeldWeeksKey"/>): "12 days since the unconfirmed daily low". Null when no
+        /// low is held (the original's check mark).
+        /// </summary>
+        internal static string? HeldWords(string tier, string unit, string units, double since)
+            => double.IsNaN(since) || since < 0 ? null
+             : $"{Num(since)} {(Math.Abs(since - 1) < 1e-9 ? unit : units)} since the unconfirmed {tier} low";
 
         public static string ConfluenceWord(double score) => score >= 3 ? "high" : score >= 2 ? "mid" : "low";
 
@@ -1043,6 +1064,31 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>A unit's words, or "bar" and "bars" when the chart is not daily and the counts run in bars.</summary>
         private static (string, string) Words(bool inBars, string unit, string units) => inBars ? ("bar", "bars") : (unit, units);
 
+        /// <summary>
+        /// What a daily low's mark says (<see cref="ComponentCompanions.Mark"/>): the low held now,
+        /// "Daily cycle low, unconfirmed: the low of 41200.00, low confluence, 12 days since it", with
+        /// the original's refresh sign as "a low was cancelled since the last confirmed one"; a
+        /// cancelled low, "Daily cycle low cancelled: the low of 41200.00, undercut before it was
+        /// confirmed". <paramref name="heldDays"/> is the table's count at the chart's last bar.
+        /// Null on a bar with no mark.
+        /// </summary>
+        internal static string? MarkWords(Func<string, double> at, double heldDays, bool inBars)
+        {
+            double mark = at(CompDcl + ComponentCompanions.Mark);
+            if (double.IsNaN(mark)) return null;
+            int badge = double.IsNaN(at(CompDcl + ComponentCompanions.Badge)) ? 0 : (int)at(CompDcl + ComponentCompanions.Badge);
+            if ((badge & ComponentCompanions.BadgeCross) != 0)
+                return $"Daily cycle low cancelled: the low of {Price(mark)}, undercut before it was confirmed.";
+            var (dayWord, dayWords) = Words(inBars, "day", "days");
+            double grade = at(CompDcl + ComponentCompanions.BadgeWord);
+            string s = $"Daily cycle low, unconfirmed: the low of {Price(mark)}"
+                     + (double.IsNaN(grade) || grade == StartWord ? "" : $", {GradeWord(grade)} confluence")
+                     + (double.IsNaN(heldDays) || heldDays < 0 ? "" : $", {Span(heldDays, dayWord, dayWords)} since it")
+                     + ".";
+            if ((badge & ComponentCompanions.BadgeRefresh) != 0) s += " A low was cancelled since the last confirmed one.";
+            return s;
+        }
+
         private static string Span(double v, string unit, string units) => $"{Num(v)} {(Math.Abs(v - 1) < 1e-9 ? unit : units)}";
 
         /// <summary>The preset a chart used, in words, from the value of <see cref="PresetKey"/>;
@@ -1082,8 +1128,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// and layout, coloured as it is (2026-10-28: its cells read from its chart memory):
         /// whether the symbol has a tuned preset and the chart is daily, the preset's daily, weekly
         /// and yearly ranges, the days since the last confirmed daily low and weeks since the last
-        /// confirmed weekly low (the window counts the speech says, less one: the original counts
-        /// from 0 on the low's bar), the same for the unconfirmed ones (<see cref="HeldDaysKey"/>,
+        /// confirmed weekly low (the windows' counts, 0 on the low's bar, as the original counts),
+        /// the same for the unconfirmed ones (<see cref="HeldDaysKey"/>,
         /// <see cref="HeldWeeksKey"/>), and the symbols with a preset. Empty before the chart has
         /// a preset.
         /// </summary>
@@ -1098,7 +1144,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var preset = CipherCEngine.Presets[presetIndex];
             string head = tuned ? TableTuned : TableUntuned;
             // The original prints NaN where it has no count yet; a dash here.
-            string Since(double count) => double.IsNaN(count) ? "\u2014" : Num(Math.Max(0, count - 1));
+            string Since(double count) => double.IsNaN(count) ? "\u2014" : Num(count);
             string Held(double v) => double.IsNaN(v) ? "\u2014" : v < 0 ? "\u2705" : Num(v);
             var keys = CipherCEngine.Presets.Select(p => p.Key).ToList();
             int split = keys.IndexOf("ETH") is var e && e > 0 ? e : (keys.Count + 1) / 2;   // the stock and metal symbols, then the crypto ones
@@ -1159,8 +1205,11 @@ namespace AccessibleTrader.Core.Services.Indicators
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
-            if (double.IsNaN(value)) return null;
             double At(string name) => allComponentData.TryGetValue(name, out var a) && dataIndex >= 0 && dataIndex < a.Length ? a[dataIndex] : double.NaN;
+            // A daily low's bar with no confirmed low on it can still carry the original's mark:
+            // the low held now (clock) or a cancelled one (cross).
+            if (double.IsNaN(value))
+                return componentName == CompDcl ? MarkWords(At, allComponentData.TryGetValue(HeldDaysKey, out var hd) && hd.Length > 0 ? hd[^1] : double.NaN, At(InBarsKey) == 1) : null;
             string tier = TierWord(At(EventsTierKey));
             bool inBars = At(InBarsKey) == 1;
             var (unit, units) = AgoUnit(At(EventsTierKey), inBars);
@@ -1192,9 +1241,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
                 case CompPending:
                 {
-                    double count = tier == "daily" ? At(CompDailyWindow) : tier == "weekly" ? At(CompWeeklyWindow) : double.NaN;
-                    string countUnit = tier == "weekly" ? weekWord : dayWord;
-                    string on = double.IsNaN(count) ? "" : $" on {countUnit} {Num(count)}";
+                    double since = tier == "daily" ? At(CompDailyWindow) : tier == "weekly" ? At(CompWeeklyWindow) : double.NaN;
+                    var (sinceUnit, sinceUnits) = tier == "weekly" ? (weekWord, weekWords) : (dayWord, dayWords);
+                    string on = double.IsNaN(since) ? "" : $" {Span(since, sinceUnit, sinceUnits)} after the last cycle low";
                     double lowest = At(CompPending + LowestSuffix), lowestAgo = At(CompPending + LowestAgoSuffix);
                     // The daily tier names the low it will confirm.
                     if (tier == "daily")

@@ -1283,7 +1283,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>
         /// A <see cref="ComponentDisplayType.Window"/> that opened or closed on the bar that just
-        /// closed (Cody, 2026-10-22): "Daily timing window open, day 38." / "Daily Timing Window
+        /// closed (Cody, 2026-10-22): "Daily timing window open, 37 days since the last daily low." / "Daily Timing Window
         /// closed." The bars are its <see cref="ComponentCompanions.Stops"/> companion when it has
         /// one — Cipher C's stops leave out a window ended by a new low, which its confirmation
         /// says — else where it is open (<see cref="WindowSpans"/>), the shading's own answer.

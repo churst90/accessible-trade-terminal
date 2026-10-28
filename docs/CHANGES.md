@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C says the original's "days since", and speaks its unconfirmed counts and marks (2026-10-28)
+
+- **What changed (Cody, 2026-10-28: "speech, switch to whichever one is more accurate and make them
+  match", and on the unconfirmed counts, "yes speak them").**
+  - **Days since, everywhere.** The timing windows' value (Daily, Weekly and Yearly Timing Window)
+    is now the original's number: the days (weeks, years; bars off a daily chart) since the last
+    low, 0 on the low's own bar. Before, it was the day of the cycle, one more. Speech, the status
+    line, the bar detail, Alt+Shift+D, new-bar narration and the table now say the same number:
+    "40 days since the last daily cycle low, in its window, 4 days left" (was "daily cycle day 41,
+    …"); "Daily timing window open, 35 days since the last daily low." (was "…, day 36."); a pending
+    low, "Daily cycle low pending 76 days after the last cycle low, mid confluence: …" (was "on day
+    77"). The window itself is unchanged (it still counts the low's own day as day 1, which is what
+    the original's window does; section 29 of CIPHER_C_DESIGN). **Breaking for saved strategies and
+    the ML export:** a rule on Daily Timing Window's value, or the `c_dcl_day` column, is one lower
+    than before; `SignalCatalog`'s notes say so.
+  - **The unconfirmed counts are spoken.** The table's lower cells, the days since the low held now
+    and the weeks since the newest weekly low, are in the state words (Alt+Shift+D, the bar
+    detail): "12 days since the unconfirmed daily low", "3 weeks since the unconfirmed weekly low";
+    nothing when none is held (the table's ✅). `CipherCProvider.HeldWords`.
+  - **The marks are spoken and are stops.** The held low's clock mark and a cancelled low's cross
+    are drawn on bars with no confirmed low, so arrowing said nothing there and Ctrl+Left/Right
+    skipped them. On Daily Cycle Low the held low now says "Daily cycle low, unconfirmed: the low of
+    59100.00, mid confluence, 10 days since it." (the count as the table prints it, plus "A low was
+    cancelled since the last confirmed one." with the refresh sign), a cancelled one "Daily cycle low
+    cancelled: the low of 7325.37, undercut before it was confirmed." (`CipherCProvider.MarkWords`).
+    `IndicatorCrossingEngine.DoSparseSignalJump` treats a marker's `ComponentCompanions.Mark` bars
+    as stops too, for any indicator.
+- **Also fixed:** `BackgroundTintTests.Cipher_C_tints_only_the_bars_inside_its_timing_window` had
+  been red since d82c20a6 (the original's window green, and the tint off by default); it now
+  switches the tint on and expects the new green.
+- **Tests:** new `The_unconfirmed_counts_are_said_as_the_table_prints_them` (7 cases),
+  `The_held_low_and_its_count_are_spoken` (Bitcoin fixture: state words, table cell and every
+  mark's speech), `A_mark_says_held_or_cancelled`, `CrossingMessageTests.A_markers_mark_only_bars_are_stops_too`;
+  the window, pending, detail, table and tint tests moved to days since. Sabotages, all red: count
+  as the day of the cycle (2 tests); no held words; no mark speech; the held count read at the
+  mark's bar instead of the last; a cross spoken as held (2); no mark stops; the pending count one
+  more; the window arithmetic on days since instead of the cycle's day (several window cases).
+- **Caveats:** the weekly tier's marks (none drawn) and the Start plate are not spoken; the
+  signal count said on landing on Daily Cycle Low counts lows only, not marks. Not seen or heard in
+  the app; no accessibility agent registered here to review it.
+
 ### Cipher C's marks touch the bar, Start sits where the count starts, and the table says the original's words (2026-10-28)
 
 - **What changed:** three of the open points in the entry below.

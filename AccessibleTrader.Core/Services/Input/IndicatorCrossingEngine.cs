@@ -258,6 +258,15 @@ namespace AccessibleTrader.Core.Services.Input
             double[]? stops = null, string noun = "signals")
         {
             var compData = stops ?? focusedSeries.GetComponentData(focusedComp.Name);
+            // A marker's bars with only a mark on them (ComponentCompanions.Mark: Cipher C's held
+            // and cancelled daily lows) are stops too, as they are drawn.
+            if (stops == null && focusedSeries.GetComponentData(focusedComp.Name + ComponentCompanions.Mark) is { Length: > 0 } marks
+                && compData is { Length: > 0 })
+            {
+                var merged = (double[])compData.Clone();
+                for (int i = 0; i < merged.Length && i < marks.Length; i++) if (double.IsNaN(merged[i])) merged[i] = marks[i];
+                compData = merged;
+            }
             if (compData == null || compData.Length == 0)
             {
                 string compName = focusedComp.DisplayName ?? focusedComp.Name;

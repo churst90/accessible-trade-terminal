@@ -252,10 +252,10 @@ public sealed class BackgroundTintTests
     // ── Cipher C: a timing window tints from its companion ──────────────────────────
 
     /// <summary>
-    /// Cipher C's Daily Timing Window holds the day count (1 to 40 here), which is what is heard,
+    /// Cipher C's Daily Timing Window holds the days since the last low (1 to 40 here), which is what is heard,
     /// and tints the price chart from its <see cref="ComponentCompanions.Tint"/> companion: green on
-    /// bars 20 to 29, inside the window, and nothing elsewhere. Tinted by its own value instead,
-    /// every bar from day 1 would be green.
+    /// bars 20 to 29, inside the window, and nothing elsewhere, once switched on (it is off by
+    /// default, as the original). Tinted by its own value instead, every bar from day 1 would be green.
     /// </summary>
     [Fact]
     public void Cipher_C_tints_only_the_bars_inside_its_timing_window()
@@ -265,12 +265,15 @@ public sealed class BackgroundTintTests
         var series = FromProvider(new CipherCProvider(), CipherCProvider.Code, new() { [CipherCProvider.CompDailyWindow] = count });
         series.Data.ComponentData[CipherCProvider.CompDailyWindow + ComponentCompanions.Tint] = inside;
         var window = series.Components.Single(c => c.Name == CipherCProvider.CompDailyWindow);
+        // Off by default since the original's look (d82c20a6); the user switches it on.
+        Assert.Equal(BackgroundTint.Off, window.BackgroundTintInEffect());
+        window.UserBackgroundTint = BackgroundTint.PriceChart;
         Assert.Same(series.Data.ComponentData[CipherCProvider.CompDailyWindow + ComponentCompanions.Tint], BackgroundTintPainter.TintSource(series, window));
 
         using var f = Render(Candles(), series);
         using var reference = Render(Candles(), FromProvider(new CipherCProvider(), CipherCProvider.Code, new()));
         var rows = OpenPriceRows(f);
-        var green = SKColor.Parse("#1800E676");
+        var green = SKColor.Parse("#184CAF50");   // the original's window green (d82c20a6)
         foreach (int bar in new[] { 20, 25, 29 })
             Assert.True(TintedShare(f, reference, bar, rows, green) > 0.9, $"bar {bar}, inside the window, is not tinted");
         foreach (int bar in new[] { 0, 10, 19, 30, 39 })

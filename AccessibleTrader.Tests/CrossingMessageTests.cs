@@ -136,6 +136,48 @@ public class CrossingMessageTests
         Assert.Equal(9, store.State.CurrentDataIndex);
     }
 
+    /// <summary>
+    /// A marker's bars that carry only a <see cref="ComponentCompanions.Mark"/> (Cipher C's held
+    /// and cancelled daily lows, drawn with no low value) are Ctrl+Left/Right stops as well as
+    /// its lit bars: lows on 2 and 8, marks on 5 and 10, stops 2, 5, 8, 10.
+    /// </summary>
+    [Fact]
+    public void A_markers_mark_only_bars_are_stops_too()
+    {
+        var (engine, bus, store) = Build();
+        var config = new SeriesConfig { Id = "cc", IndicatorCode = "CIPHER_C", Name = "Cipher C", FriendlyName = "Cipher C", Pane = "Main" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Daily Cycle Low", DisplayName = "Daily Cycle Low", DisplayType = ComponentDisplayType.TriangleUpRing,
+            Role = ComponentRole.Signal, IsVisible = true,
+        });
+        var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "cc" });
+        var lows = Enumerable.Repeat(double.NaN, 12).ToArray();
+        lows[2] = 90; lows[8] = 95;
+        var marks = Enumerable.Repeat(double.NaN, 12).ToArray();
+        marks[5] = 92; marks[10] = 97;
+        series.Data.ComponentData["Daily Cycle Low"] = lows;
+        series.Data.ComponentData["Daily Cycle Low" + ComponentCompanions.Mark] = marks;
+        store.Dispatch(new UpdateSettingsAction(st => st with
+        {
+            Data = Bars(12),
+            ActiveSeries = ImmutableList.Create(series),
+            FocusedSeriesId = series.Id,
+            FocusedComponentIndex = 0,
+            CurrentDataIndex = 0,
+        }));
+        var landed = new List<int>();
+        for (int k = 0; k < 5; k++)
+        {
+            engine.HandleCrossJump(SystemCommand.NavRightJump);
+            landed.Add(store.State.CurrentDataIndex);
+        }
+        Assert.Equal(new[] { 2, 5, 8, 10, 10 }, landed);
+        engine.HandleCrossJump(SystemCommand.NavLeftJump);
+        Assert.Equal(8, store.State.CurrentDataIndex);
+        Assert.True(double.IsNaN(series.Data.ComponentData["Daily Cycle Low"][5]), "the jump must not write the marks into the lows");
+    }
+
     private static ChartSeries Candles()
     {
         var config = new SeriesConfig
