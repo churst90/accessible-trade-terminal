@@ -72,7 +72,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string NestSuffix = "_nest";
         /// <summary>Per bar, on each window: the cycle's day (week, year to a tenth) the bar is in, the low's own being 1 (0.1 on the yearly).</summary>
         public const string DayOfSuffix = "_dayOf";
-        /// <summary>Per bar, on the weekly window: 1 when <see cref="NestSuffix"/> counts from a weekly candidate not yet a weekly low.</summary>
+        /// <summary>Per bar, on the weekly window: 1 when a weekly candidate, not yet a weekly low, is drawn after the low <see cref="NestSuffix"/> counts from.</summary>
         public const string NestHeldSuffix = "_nestHeld";
         /// <summary>The shortest daily cycle counted with (in the chart's days, or bars off a daily chart), and where it came from: 0 the default, 1 the symbol's own, 2 set by hand.</summary>
         public const string LengthKey = "__cp_length", LengthSourceKey = "__cp_length_source";
@@ -89,6 +89,12 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const double DefaultDailySpan = 1.25;
         /// <summary>The default weekly window, in shortest daily cycles.</summary>
         public const double DefaultWeeklyFrom = 3, DefaultWeeklyTo = 5;
+        /// <summary>
+        /// A weekly low is the lowest daily low at least this share of the shortest weekly cycle
+        /// after the one before (<see cref="CipherCEngine.WeeklyByTime"/>): the symbol's own
+        /// shortest weekly cycle, else <see cref="DefaultWeeklyFrom"/> shortest daily ones.
+        /// </summary>
+        public const double WeeklyGapShare = 0.5;
         public const double DefaultYearlyYears = 4, DefaultYearlySpread = 0.25;
         public const double DssOverbought = 75, DssOversold = 10;
         /// <summary>The yearly window's steps per year.</summary>
@@ -194,7 +200,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             var d = CipherCEngine.DetectDaily(data, dTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
                 DssOverbought, DssOversold, pivotBreak: false);
             bool weeklyFromDaily = dTier.Active && wTier.Active;
-            var w = weeklyFromDaily ? CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, true, d.Start)
+            double shortestWeekly = set <= 0 && own != null ? own.WeeklyMin * clock.DaysPerWeek * clock.BarsPerDay : wTier.MinBars;
+            var w = weeklyFromDaily ? CipherCEngine.WeeklyByTime(d, data, WeeklyGapShare * shortestWeekly, d.Start)
                                     : CipherCEngine.Detect(data, wTier, DssOverbought, DssOversold);
             if (weeklyFromDaily) CountFromNewest(w, data, d.Start);
             var y = yTier.Active ? CipherCEngine.YearlyFromPrice(data, years) : CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>());
@@ -275,14 +282,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
 
             // Nesting: which daily cycle of the weekly one, which weekly of the yearly.
-            // Picked from the daily lows, a weekly cycle is one or two daily cycles: the second daily
-            // low after a weekly low is drawn as the candidate, so the count runs from it, flagged.
-            var wFrom = weeklyFromDaily ? w.HeldAt.Select(h => h == d.Start ? -1 : h).ToArray() : w.LastLowAt;
-            Nest(A(CompWeeklyWindow + NestSuffix), wFrom, d, wTier.Active && dTier.Active, n);
+            // Picked from the daily lows by time, a weekly cycle is one daily cycle or several (two
+            // or three most often, up to six or seven), counted from the newest weekly low, the one
+            // the week count runs from. A candidate drawn since, not yet a weekly low, is flagged.
+            Nest(A(CompWeeklyWindow + NestSuffix), w.LastLowAt, d, wTier.Active && dTier.Active, n);
             if (weeklyFromDaily && dTier.Active)
             {
                 var held = A(CompWeeklyWindow + NestHeldSuffix);
-                for (int t = 0; t < n; t++) if (wFrom[t] >= 0) held[t] = wFrom[t] != w.LastLowAt[t] ? 1 : 0;
+                for (int t = 0; t < n; t++) if (w.LastLowAt[t] >= 0) held[t] = w.HeldAt[t] > w.LastLowAt[t] ? 1 : 0;
             }
             Nest(A(CompYearlyWindow + NestSuffix), y.LastLowAt, w, yTier.Active && wTier.Active, n);
 
@@ -293,7 +300,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// Moves a weekly run picked from the daily lows (<see cref="CipherCEngine.WeeklyFromDaily"/>)
+        /// Moves a weekly run picked from the daily lows (<see cref="CipherCEngine.WeeklyByTime"/>)
         /// to count from its newest weekly low (<see cref="CipherCEngine.TierRun.NewestAt"/>) rather
         /// than the one before it, as the original counts: a weekly low is confirmed on the bar it
         /// becomes one, and the weekly window runs from it. The count's seed is not a low.
@@ -489,7 +496,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             s += phase == 0 ? $", early: its window is {window}" : phase == 1 ? $", due: in its window, {window}" : $", late: past its window, {window}";
             if (at(comp + NestSuffix) is var nest && !double.IsNaN(nest))
                 s += comp != CompWeeklyWindow ? $", weekly cycle {Num(nest)} of it"
-                   : at(comp + NestHeldSuffix) == 1 ? $", daily cycle {Num(nest)} of the next weekly cycle, its low drawn but not yet confirmed"
+                   : at(comp + NestHeldSuffix) == 1 ? $", daily cycle {Num(nest)} of it, a new weekly low drawn but not yet confirmed"
                    : $", daily cycle {Num(nest)} of it";
             return s;
         }
@@ -579,7 +586,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Row("Window", c => (At(c + LearnedSuffix) == 1 ? "" : "default ") + (At(c + StartSuffix) == At(c + EndSuffix) ? Num(At(c + StartSuffix)) : $"{Num(At(c + StartSuffix))}–{Num(At(c + EndSuffix))}")),
                 Row("Window held", c => At(c + ScoredSuffix) is var s && !(s > 0) ? null : $"{Num(At(c + HitsSuffix))} of {Num(s)}"),
                 Row("Lower cycle", c => double.IsNaN(At(c + NestSuffix)) ? null
-                    : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? " of next" : "")}"),
+                    : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? ", new drawn" : "")}"),
                 new[] { C("Unconfirmed low", TableLabel, -1), C(Held(At(HeldDaysKey)), TableValue), C(Held(At(HeldWeeksKey)), TableValue), C("", null) },
             };
         }

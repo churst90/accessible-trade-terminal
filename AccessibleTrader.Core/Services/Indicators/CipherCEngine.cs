@@ -1207,6 +1207,84 @@ namespace AccessibleTrader.Core.Services.Indicators
             return run;
         }
 
+        /// <summary>
+        /// A weekly tier picked from the daily lows by time alone, for Cycle Position (Cody's
+        /// choice B, 2026-10-28): a weekly cycle is however many daily cycles fit, not a count.
+        /// Every daily low is taken on the bar it is confirmed, against the newest weekly low U:
+        /// <list type="bullet">
+        ///   <item>Nearer to U than <paramref name="gapBars"/>: a lower one takes U's place (U is
+        ///         cancelled); any other is passed over.</item>
+        ///   <item>At least <paramref name="gapBars"/> from U: the candidate, drawn, when there is
+        ///         none or it is under the candidate (which is cancelled).</item>
+        ///   <item>Otherwise (not under the candidate) the candidate becomes a weekly low on that
+        ///         bar, and the daily low is the next candidate when it is itself
+        ///         <paramref name="gapBars"/> from the new weekly low.</item>
+        /// </list>
+        /// So the weekly low is the lowest daily low past the gap, known when the next one holds
+        /// above it. A <paramref name="seed"/> (the daily count's start) is the first U, drawn
+        /// nowhere; a lower daily low inside the gap takes its place as a drawn weekly low. The
+        /// outputs are as <see cref="WeeklyFromDaily"/>'s. Simulated on the original's 36 daily
+        /// captures with half the shortest weekly cycle as the gap: its weekly lows 76.6 → 85.7%
+        /// real lows, agreement with the original's .708 → .665 (CYCLE_POSITION_DESIGN section 7.4).
+        /// </summary>
+        public static TierRun WeeklyByTime(TierRun daily, ReadOnlySpan<Ohlcv> data, double gapBars, int seed = -1)
+        {
+            int n = data.Length;
+            var run = NewRun(n);
+            if (daily.LastLowAt.Length != n) return run;
+
+            var weekly = new List<int>();                     // weekly lows, newest last
+            var drawnOn = new SortedDictionary<int, int>();   // drawn low -> bar drawn
+            var fixedOn = new Dictionary<int, int>();         // weekly low -> bar it became one
+            var lows = new double[n];
+            for (int i = 0; i < n; i++) lows[i] = data[i].Low;
+            double Low(int i) => lows[i];
+            int cand = -1, anchor = -1, last = -1;
+            double replaced = double.NaN;
+            if (seed >= 0 && seed < n) weekly.Add(seed);
+            for (int t = 0; t < n; t++)
+            {
+                if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] > last)
+                {
+                    int d = last = daily.LastLowAt[t];
+                    void Add(int i) { weekly.Add(i); drawnOn.TryAdd(i, t); fixedOn[i] = t; }
+                    if (weekly.Count == 0) Add(d);
+                    else if (d - weekly[^1] < gapBars)
+                    {
+                        int u = weekly[^1];
+                        if (Low(d) < Low(u))
+                        {
+                            if (u == seed) { weekly.RemoveAt(weekly.Count - 1); seed = -1; }
+                            else
+                            {
+                                drawnOn.Remove(u); fixedOn.Remove(u); weekly.RemoveAt(weekly.Count - 1);
+                                run.Cancelled[t] = replaced = Low(u); run.CancelledLow[t] = u;
+                            }
+                            Add(d);
+                        }
+                    }
+                    else if (cand < 0 || Low(d) < Low(cand))
+                    {
+                        if (cand >= 0)
+                        {
+                            drawnOn.Remove(cand);
+                            run.Cancelled[t] = replaced = Low(cand); run.CancelledLow[t] = cand;
+                        }
+                        cand = d; drawnOn[d] = t;
+                    }
+                    else
+                    {
+                        Add(cand);
+                        cand = d - cand >= gapBars ? d : -1;
+                        if (cand >= 0) drawnOn[cand] = t;
+                    }
+                }
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand, seed);
+            }
+            Publish(run, drawnOn, fixedOn);
+            return run;
+        }
+
         private static TierRun NewRun(int n) => new()
         {
             LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(), NewestAt = Enumerable.Repeat(-1, n).ToArray(),

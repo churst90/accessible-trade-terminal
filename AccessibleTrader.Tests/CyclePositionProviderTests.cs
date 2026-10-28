@@ -224,26 +224,89 @@ public sealed class CyclePositionProviderTests
     }
 
     /// <summary>
-    /// Weekly lows are picked from the daily lows, so a weekly cycle holds one or two daily cycles:
-    /// the nest is 1 or 2, it is 1 again after each weekly low, and while it counts from a weekly
-    /// candidate not yet a weekly low it says so.
+    /// Weekly lows are picked from the daily lows by time, so a weekly cycle holds however many
+    /// daily cycles fit: the nest counts 1, 2, 3 and on, one step at a time, from the newest weekly
+    /// low. A weekly low is known when the next daily low holds above it, so a new weekly cycle is
+    /// usually in its second daily cycle when the count starts again (in its first when a lower
+    /// daily low took the newest's place). A weekly candidate drawn since is flagged.
+    /// Bitcoin's weekly lows are each at least half its shortest weekly cycle (22 weeks of 7 days)
+    /// after the one before.
     /// </summary>
     [Fact]
-    public void The_daily_cycle_of_the_weekly_one_is_one_or_two()
+    public void The_daily_cycle_of_the_weekly_one_counts_on_from_one()
     {
         var r = Btc();
         var nest = r[W + CyclePositionProvider.NestSuffix];
         var held = r[W + CyclePositionProvider.NestHeldSuffix];
-        var values = Marked(nest).Select(t => nest[t]).Distinct().OrderBy(v => v).ToList();
-        Assert.Equal(new List<double> { 1, 2 }, values);
+        Assert.Equal(1, Marked(nest).Select(t => nest[t]).Min());
+        Assert.True(Marked(nest).Select(t => nest[t]).Max() >= 4, "no weekly cycle held four daily cycles");
         Assert.Contains(1.0, held);
         Assert.Contains(0.0, held);
         int resets = 0;
         for (int t = 1; t < nest.Length; t++)
-            if (!double.IsNaN(nest[t]) && !double.IsNaN(nest[t - 1]) && nest[t] < nest[t - 1]) { Assert.Equal(1, nest[t]); resets++; }
+        {
+            if (double.IsNaN(nest[t]) || double.IsNaN(nest[t - 1])) continue;
+            if (nest[t] < nest[t - 1]) { Assert.InRange(nest[t], 1, 2); resets++; }
+            else Assert.True(nest[t] - nest[t - 1] <= 1, $"bar {t}: the nest jumped {nest[t - 1]} -> {nest[t]}");
+        }
         Assert.True(resets >= 10, $"only {resets} weekly cycles began");
+        var weekly = Marked(r[CipherCProvider.CompWcl]);
+        Assert.True(weekly.Count >= 10);
+        double gap = CyclePositionProvider.WeeklyGapShare * 22 * 7;
+        for (int k = 1; k < weekly.Count; k++)
+            Assert.True(weekly[k] - weekly[k - 1] >= gap, $"weekly lows on bars {weekly[k - 1]} and {weekly[k]} are under {gap} bars apart");
         // The yearly tier counts its weekly cycles.
-        Assert.True(Marked(r[Y + CyclePositionProvider.NestSuffix]).Select(t => r[Y + CyclePositionProvider.NestSuffix][t]).Max() >= 4);
+        Assert.True(Marked(r[Y + CyclePositionProvider.NestSuffix]).Select(t => r[Y + CyclePositionProvider.NestSuffix][t]).Max() >= 3);
+    }
+
+    /// <summary>A daily run whose lows are (bar, price, bar confirmed); every other bar's low is 1000.</summary>
+    private static (CipherCEngine.TierRun Daily, Ohlcv[] Data) DailyRun(int n, params (int Bar, double Low, int At)[] lows)
+    {
+        var data = Enumerable.Range(0, n).Select(i => new Ohlcv(new DateTime(2020, 1, 1).AddDays(i), 1000, 1000, 1000, 1000, 0)).ToArray();
+        var run = new CipherCEngine.TierRun
+        {
+            LastLowAt = Enumerable.Repeat(-1, n).ToArray(), ClosedUnder = Enumerable.Repeat(-1, n).ToArray(),
+            Confirmed = CipherCEngine.Nan(n), Cancelled = CipherCEngine.Nan(n), Updated = CipherCEngine.Nan(n),
+            Pending = CipherCEngine.Nan(n), Failed = CipherCEngine.Nan(n),
+        };
+        foreach (var (bar, low, at) in lows)
+        {
+            data[bar] = data[bar] with { Low = low };
+            run.Confirmed[at] = low;
+            for (int t = at; t < n; t++) run.LastLowAt[t] = bar;
+            run.Lows.Add(bar); run.ConfirmedAt.Add(at); run.FoundAt.Add(at);
+        }
+        return (run, data);
+    }
+
+    /// <summary>
+    /// The weekly rule by time, worked by hand with a 40-bar gap. 10 is the first weekly low; 30,
+    /// lower and inside the gap, takes its place; 50, inside the gap and not lower, is passed over;
+    /// 75, past the gap, is the candidate; 95, under it, cancels it and is the candidate; 115, not
+    /// under it, makes 95 a weekly low and, only 20 bars on, is not a candidate; 140 is.
+    /// </summary>
+    [Fact]
+    public void A_weekly_low_is_the_lowest_daily_low_past_the_gap()
+    {
+        var (daily, data) = DailyRun(160, (10, 100, 15), (30, 95, 35), (50, 98, 55), (75, 97, 80), (95, 96, 100), (115, 99, 120), (140, 99.5, 145));
+        var w = CipherCEngine.WeeklyByTime(daily, data, 40);
+        Assert.Equal(new[] { 30, 95, 140 }, w.Lows);
+        Assert.Equal(new[] { 35, 120, -1 }, w.ConfirmedAt);
+        Assert.Equal(new[] { 35, 100 }, Marked(w.Cancelled));
+        Assert.Equal(100, w.Cancelled[35]); Assert.Equal(10, w.CancelledLow[35]);
+        Assert.Equal(97, w.Cancelled[100]); Assert.Equal(75, w.CancelledLow[100]);
+        Assert.Equal(95, w.NewestAt[159]); Assert.Equal(140, w.HeldAt[159]);
+        Assert.Equal(30, w.LastLowAt[159]);
+        Assert.Equal(-1, w.LastLowAt[119]);
+
+        // A seed is the first newest weekly low, drawn nowhere: a daily low inside the gap above it
+        // is passed over, one under it takes its place, drawn, and nothing is cancelled.
+        var (d2, data2) = DailyRun(160, (10, 100, 15), (30, 95, 35), (75, 97, 80), (95, 99, 100));
+        data2[0] = data2[0] with { Low = 96 };
+        var seeded = CipherCEngine.WeeklyByTime(d2, data2, 40, seed: 0);
+        Assert.Equal(new[] { 30, 75 }, seeded.Lows);
+        Assert.Equal(new[] { 35, 100 }, seeded.ConfirmedAt);
+        Assert.Empty(Marked(seeded.Cancelled));
     }
 
     /// <summary>What the bar detail says: the day of each cycle, the share, the window and its hit rate, and where the count came from.</summary>

@@ -34,14 +34,12 @@
 >     to hear the bar detail and the table.
 >   - Should the "low had come" share be recalibrated above 65% (it says 90% when 2 in 3 have come)?
 >     That is a fitted map; not done.
->   - **Weekly rule: Cody's call (2026-10-28, CYCLE_POSITION_DESIGN section 7).** A weekly cycle is 1
-    to 3 daily cycles today (not "always 2"). The original's weekly lows mostly fall outside its own
-    weekly table (25%; S&P median 18 weeks against 22 to 31). A rule by time gives 1 to 7 daily cycles
-    and picks the real weekly low more often (82-86% against 74-77%). But it agrees with the
-    original's weekly lows less (.67 against .71 at the shortest gap, .58 at 0.8 of the table). Follow
-    the original's drawings, or Camel's 3 to 5?
-  - The spoken nest says only "daily cycle 1 or 2": a third is said as the second. Fix with the
-    weekly rule.
+>   - **Weekly rule by time BUILT (Cody chose B, 2026-10-28; CYCLE_POSITION_DESIGN section 7.5).**
+    The lowest daily low at least half the shortest weekly cycle after the newest weekly low. It picks
+    the real weekly low about 85% of the time (was 81%; the original 78%). Its weekly lows agree with
+    the original's less (building dailies .725 -> .626; untuned blind .928 -> .716). A weekly cycle is
+    now 1 to 8 daily cycles, mostly 2 to 4. The nest counts from the newest weekly low ("daily cycle
+    3 of it, a new weekly low drawn but not yet confirmed"). Cody to hear the nest on a daily chart.
   - Translation letters: the original's follow the bar-midpoint rule only 82% on untuned blind
     charts (94% tuned, since 2020). The rest are not decoded; both copies share this.
 >   - Merge, push and deploy: Cody's go-ahead.

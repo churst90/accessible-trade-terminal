@@ -40,8 +40,12 @@ It cannot be read off the price. Over the 46 lab dailies, price swing spacing wa
 every asset whatever the original's cycle, with a rank correlation of about 0. The table and bar
 detail say which source was used.
 
-**Weekly lows** are picked from the daily lows. The second daily low after a weekly low is the
-candidate, and the next daily low judges it. The weekly count runs from the newest weekly low.
+**Weekly lows** are picked from the daily lows by time (`CipherCEngine.WeeklyByTime`; Cody chose
+this, option B of section 7, on 2026-10-28; before, it was the original's count rule). The weekly
+low is the lowest daily low at least a gap after the newest weekly low. It becomes a weekly low when
+the next daily low is not under it. A daily low under the newest weekly low before the gap takes its
+place. The gap is half the shortest weekly cycle: the symbol's own (Bitcoin 22 weeks), else 3
+shortest daily cycles. The weekly count runs from the newest weekly low.
 
 **Yearly lows** come from the price (`CipherCEngine.YearlyFromPrice`). A yearly low is the lowest
 low for 0.15 of a cycle on both sides, at least 0.8 of a cycle after the last. The cycle length is
@@ -77,8 +81,11 @@ first low was confirmed), and only if that window was learned. The running count
 daily window has held 14 of 24 cycles, 58%".
 
 **Nesting.**
-- Daily cycle 1 or 2 of the weekly one. While the count runs from a weekly candidate not yet a
-  weekly low, it says so: "of the next weekly cycle, its low drawn but not yet confirmed".
+- Daily cycle k of the weekly one, counted from the newest weekly low: 1 to 11 on the captures,
+  mostly 2 to 4. A weekly low is known when the next daily low holds above it, so a new weekly
+  cycle starts its count at 2, or at 1 when a lower daily low took the newest's place. While a
+  candidate is drawn after the newest weekly low, it says so: "daily cycle 3 of it, a new weekly
+  low drawn but not yet confirmed" (table: "daily 3, new drawn").
 - Weekly cycle k of the yearly one.
 
 **Drawn.** Cipher C's picture, all of it:
@@ -133,6 +140,9 @@ Three data sets. The rules were frozen before the third was opened.
 | Weekly window held | 60.2% (3,749) | 62.5% (1,642) |
 | Yearly window held | 55.0% (111) | 47.2% (108) |
 | Cipher C's fixed daily windows, on its own lows | 27.6% | 31.0% |
+
+The weekly rows were measured under the old count rule; under the time rule (section 7.5) the
+weekly window holds 61.2% on the building captures and 60.7% blind.
 
 A 20th to 80th percentile window should hold about 60%. It does, on every chart, including the
 blind ones.
@@ -199,7 +209,10 @@ So LATE does not mean "the low is surely in". About a third of the time the low 
 | Building set, weekly charts | D / W | .860 / .682 | .972 / .835 |
 | Building set, 4-hour charts | D / W | .820 / .613 | .951 / .799 |
 
-On assets the original does not tune, Cycle Position finds the same lows as the original: one rule
+The weekly column is the old count rule's. Under the time rule it agrees less (section 7.5:
+untuned blind .716, building dailies .626) and picks the real weekly low more often.
+
+On assets the original does not tune, Cycle Position's daily lows are the original's: one rule
 already is the original's rule there. The gap is all on tuned assets:
 - per-asset smoothing;
 - the metals' pivot break;
@@ -215,10 +228,9 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
 - **The windows are honest, not sharper.** Section 4.1.
 - **Above about 65% the "low had come" share overstates.** Section 4.2. It could be recalibrated
   on these charts (a fitted map from said to came), but that would be one more fitted table; not done.
-- **A weekly cycle is 1 to 3 daily cycles, never more,** by construction of the weekly-from-daily
-  rule (about 2.25 on average; corrected 2026-10-28, this said "always two"). Its spoken nest says
-  only "daily cycle 1 or 2", so a third daily cycle is said as the second: a defect, left until the
-  weekly rule is decided (section 7).
+- **The weekly lows no longer follow the original's.** The time rule picks the real weekly low
+  more often but agrees with the original's weekly lows less, most on untuned assets, where the old
+  count rule matched them (section 7.5). The gap's half is chosen from a simulation, not fitted.
 - **Too little yearly history to learn a yearly window** on most charts: Bitcoin's three yearly
   cycles since 2011 never reach the four needed.
 - **The shortest daily cycle is still per asset.** It is the one number per asset and cannot be read
@@ -230,7 +242,7 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
 
 ## 6. Tests
 
-`CyclePositionProviderTests`, 11 tests:
+`CyclePositionProviderTests`, 12 tests:
 - **Nothing on a bar changes when later bars arrive.** Bitcoin daily is cut at six points. This
   covers every causal component and companion except the arc and the live band.
 - **A window is learned from enough past cycles,** and is the default before.
@@ -239,7 +251,11 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
 - **The hit rate only grows** and never exceeds the cycles scored.
 - **The phase is the day against the window.**
 - **"Low had come" needs three past cycles,** and counts only those still unconfirmed.
-- **The weekly nest is 1 or 2,** and resets.
+- **The weekly nest counts on from 1,** one step at a time, restarting at 1 or 2; at least 4
+  on Bitcoin; Bitcoin's weekly lows at least half of 22 weeks apart.
+- **The weekly rule worked by hand** (`WeeklyByTime`): replace inside the gap, pass over, the
+  candidate, undercut and cancelled, confirmed, no candidate inside the gap; a seed passed over and
+  replaced, nothing cancelled.
 - **The bar detail's words.**
 - **The count's three sources** (default, symbol's own, set by hand).
 - **The same components as Cipher C,** with the misses on.
@@ -259,16 +275,26 @@ Twelve sabotages, all red:
 - confirmation day without the confirmation;
 - percentile without interpolation.
 
+Seven more for the weekly rule by time (2026-10-28), all red: no replace inside the gap; the next
+candidate ignoring the gap; an undercut candidate not cancelled; a zero gap; the symbol's own
+weekly cycle ignored; the nest counted from the candidate (the old way, never past 2); the old count
+rule. ("nest from the newest weekly low" above was a sabotage of the old rule, where the nest ran
+from the candidate; it is now the rule.)
+
 `IndicatorCausalityTests` exempts the Cycle Position confirmations and weekly window from the
 prepend check. A learned window depends on how much history precedes it, so prepending bars
-changes it. The no-repaint property is what the provider's own test checks.
+changes it. The no-repaint property is what the provider's own test checks. Since the weekly rule by time (7.5)
+the weekly window's count passes the prepend check on the guard's probe series, so its exemption was
+removed (the guard fails an exemption that is no longer needed); the daily and weekly confirmations
+and the yearly tier stay exempt.
 
 ## 7. Scored on the real low, and a weekly rule by time (2026-10-28)
 
 Cody: "a weekly cycle isn't always 2 daily ones, it could be anywhere from 3 to 5 ... the goal for
 the indicator is to be accurate to the numbers and the lows/highest/translation ... compare it to
-cf ... should it be based on how often the correct actual low is chosen?" No code changed; scratch
-scripts `lowscore.py`, `wsim.py`, `wsim2.py`.
+cf ... should it be based on how often the correct actual low is chosen?" Sections 7.1 to 7.4 were
+studied with no code changed (scratch scripts `lowscore.py`, `wsim.py`, `wsim2.py`, `wsim3.py`);
+Cody then chose option B, built in 7.5.
 
 ### 7.1 What section 4.1's percentages are
 
@@ -308,7 +334,7 @@ labels on a cycle that later changed (a top on bar 4 of 52 called right translat
 Counted on the original's own labels, daily charts:
 - **Most assets, 1 to 3.** About 9% hold 1, 52% hold 2, 36% hold 3 and 2% more on the blind set.
 - **Metals and miners, 3 to 10,** mostly 4 to 6. Their weekly rule is by weeks (`WeeklyByWeeks`).
-- **Cycle Position: 1 to 3.** About 2.25 on average.
+- **Cycle Position under the count rule: 1 to 3,** about 2.25 on average (before 7.5).
 
 **The original's weekly lows mostly fall outside its own weekly table.** 335 of 1,353 weekly cycles
 (25%) land in the table's weekly range on the 36 daily charts. For example, the S&P table says 22 to
@@ -349,4 +375,39 @@ scores .994 on the original's daily lows away from the metals, section 4.5's lin
 - **None lands in the table often.** At most 45% of the weekly cycles any rule draws fall inside the
   table's range: weekly lengths spread too widely for a 22 to 31 week window.
 
-Not built. Which target the weekly tier should follow is Cody's call (TODO).
+Three options were put to Cody: A, follow the original's drawings (the count rule); B, the time
+rule with a short gap (0.5 x the shortest weekly cycle); C, the time rule with the gap the window's
+start. Cody: "Let's do b".
+
+The gap as built: half the symbol's own shortest weekly cycle, else half of 3 shortest daily cycles.
+Simulated first (`wsim3.py`, 36 daily charts, Cycle Position's daily lows): tuned .638 / 87.3% real,
+untuned .678 / 84.3%. Half of the untuned 150 days scored about the same (.690 / 84.3%); 3 shortest
+daily cycles was kept as it needs no new number.
+
+### 7.5 Built: the weekly rule by time (option B)
+
+`CipherCEngine.WeeklyByTime(daily, data, gapBars, seed)`, called by Cycle Position only. Cipher C
+is unchanged. The daily count's start is the first newest weekly low, drawn nowhere. Re-dumped over
+every capture (`dumpe2eL.sh` with `AT_CC_PROVIDER=cp`), scored by `lowscore.py`:
+
+| Captures | Chart | Agrees with the original's weekly (F1), count → time | Real weekly low, count → time | Original's real weekly low |
+|---|---|---|---|---|
+| Building set | daily | .725 → .626 | 80.7 → **85.9%** | 77.8% |
+| | weekly | .682 → .558 | 77.3 → **82.4%** | 70.5% |
+| | 4-hour | .615 → .581 | 78.2 → **84.1%** | 79.2% |
+| Blind set | daily | .869 → .692 | 81.7 → **85.8%** | 78.4% |
+| Blind, 12 untuned dailies | daily | .928 → .716 | 81.6 → 85.2% | 79.5% |
+| Blind, tuned dailies | daily | .691 → .620 | 81.9 → 87.6% | 74.7% |
+| Blind | 4-hour | .615 → .631 | 80.5 → 81.2% | 73.4% |
+
+- **It picks the real weekly low about 85% of the time,** against 81% before and 78% for the
+  original, on every set. The simulation said 85.7%.
+- **It agrees with the original less,** as the simulation said: most on untuned assets, where the
+  count rule was the original's own rule (.928 → .716).
+- **Fewer weekly lows:** 696 → 608 on the building dailies (the original draws 544), and known
+  sooner: a median 10 bars after the low, the original 27.
+- **The weekly cycle holds 1 to 8 daily cycles** (closing low counted), mostly 2 to 4: building
+  dailies 1:12% 2:47% 3:22% 4:10% 5:5% 6+:4%. Before: 1 to 3 only.
+- **The learned weekly window holds as before:** 62.2 → 61.2% on the building captures, 61.5 →
+  60.7% blind. The daily and yearly tiers are unchanged.
+- The blind 1-week charts have only a handful of weekly lows (5 to 9); their numbers mean little.

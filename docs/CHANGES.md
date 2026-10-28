@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: weekly lows by time (2026-10-28, Cody's option B)
+
+- **The rule** (`CipherCEngine.WeeklyByTime`, Cycle Position only; Cipher C is unchanged). The
+  weekly low is the lowest daily low at least a gap after the newest weekly low. It becomes one when
+  the next daily low is not under it. A daily low under the newest weekly low inside the gap takes
+  its place, and the old one is cancelled. The gap is half the shortest weekly cycle: the symbol's
+  own, else 3 shortest daily cycles.
+- **Real weekly low** (no lower bar between the tops either side), count rule → time rule:
+  - building dailies 80.7 → 85.9%;
+  - blind dailies 81.7 → 85.8%;
+  - weekly charts 77.3 → 82.4%;
+  - 4-hour charts 78.2 → 84.1%.
+
+  The original scores 70-79%.
+- **Agreement with the original's weekly lows drops:**
+  - building dailies .725 → .626;
+  - blind dailies .869 → .692;
+  - untuned blind .928 → .716, where the count rule was the original's own.
+- **A weekly cycle now holds 1 to 8 daily cycles,** mostly 2 to 4 (was 1 to 3).
+- **The spoken nest and the table** count from the newest weekly low. A drawn candidate is said as
+  "a new weekly low drawn but not yet confirmed" (table "new drawn"). Previously it ran from the
+  candidate and never passed 2 (fixed).
+- The learned weekly window still holds about 61%.
+- **Tests:** the "one or two" test is replaced by "counts on from one" (Bitcoin: at least 4, weekly
+  lows at least 77 days apart). New hand-worked `WeeklyByTime` test. CyclePosition 11 → 12. Seven
+  sabotages red. The weekly window's prepend exemption in `IndicatorCausalityTests` is removed: the
+  guard reported it no longer needed (its count now passes the prepend check on the probe series).
+- Caveats:
+  - the gap's half was chosen from a simulation on the same captures, not fitted further;
+  - the blind captures were scored again;
+  - not seen or heard in the app;
+  - the accessibility-lead review agent is not registered here, so it was not run.
+
 ### Cycle Position: scored on the real low; the weekly rule studied (2026-10-28, docs only)
 
 - **Real low by price** (no bar lower between the tops either side). Daily: the original 87-90%,
