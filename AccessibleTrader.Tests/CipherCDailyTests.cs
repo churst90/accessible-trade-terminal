@@ -312,7 +312,7 @@ public class CipherCDailyTests
         var r = CipherCProvider.Compute(Bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = key });
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var tier = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
+        var d = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, 0, preset.DropUntilDue, seedConfirmed: true);
         Assert.True(d.Lows.Count > 30);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
         Assert.NotEqual(Marked(d.Confirmed), Marked(CipherCEngine.DetectDaily(Bars, tier, 10, 9, 75, 10, !preset.PivotBreak).Confirmed));
@@ -334,7 +334,7 @@ public class CipherCDailyTests
             { [CipherCProvider.ParamPreset] = key, [CipherCProvider.ParamFasterConfirmation] = true });
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var tier = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var broken = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, true, dropUntilDue: preset.DropUntilDue);
+        var broken = CipherCEngine.DetectDaily(Bars, tier, preset.DssLength, preset.DssSmooth, 75, 10, true, 0, preset.DropUntilDue, seedConfirmed: true);
         Assert.Equal(Marked(broken.Confirmed), Marked(on[CipherCProvider.CompDclConfirmed]));
         if (preset.PivotBreak) Assert.Equal(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
         else Assert.NotEqual(Marked(off[CipherCProvider.CompDclConfirmed]), Marked(on[CipherCProvider.CompDclConfirmed]));
@@ -416,7 +416,7 @@ public class CipherCDailyTests
         Assert.Equal(farDoubles, preset.WeeklyDoubles);
         double scale = preset.CalendarDays ? 1 : 7 / 5.0;
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * scale, preset.DailyMax * scale, 1, CipherCEngine.MeasureBars(Bars));
-        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
+        var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, 0, preset.DropUntilDue, seedConfirmed: true);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
 
         var byDaily = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, farDoubles).Confirmed);
@@ -437,7 +437,7 @@ public class CipherCDailyTests
         var r = CipherCProvider.Compute(bars, new Dictionary<string, object> { [CipherCProvider.ParamPreset] = "GDX" });
         var preset = CipherCEngine.Preset("GDX");
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, preset.DailyMax * 7 / 5.0, 1, CipherCEngine.MeasureBars(bars));
-        var d = CipherCEngine.DetectDaily(bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, dropUntilDue: preset.DropUntilDue);
+        var d = CipherCEngine.DetectDaily(bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, 0, preset.DropUntilDue, seedConfirmed: true);
         var under = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: true).Confirmed);
         var plain = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: false).Confirmed);
         Assert.NotEqual(plain, under);
@@ -472,5 +472,54 @@ public class CipherCDailyTests
         Assert.NotEqual(lows, CipherCEngine.WeeklyByWeeks(g, Bars, 140 - 7, 98).Lows);
         // The double's margin moves nothing here between 0 and 16 weeks; without the double gold's lows move.
         Assert.NotEqual(lows, CipherCEngine.WeeklyByWeeks(g, Bars, 140, double.PositiveInfinity).Lows);
+    }
+    /// <summary>The count starts on the original's Start bar as if a low there had been confirmed one
+    /// hold later, so the first cycle's top is looked for from the bar before that, not from the bar
+    /// after the start (read off the original's Start label and first lows on its captured charts,
+    /// 2026-10-28: against the old start, the lowest bar of the first shortest cycle, it gains 5 of
+    /// its lows and drops 4 extras there, and is worse on none).</summary>
+    [Fact]
+    public void The_count_starts_on_the_start_bar_as_a_low_confirmed_one_hold_later()
+    {
+        // A wave with a spike high on bar 2 and a dip on bar 3; a 10-bar cycle holds 5 bars. Counted
+        // from a plain start, the spike is the first top and the dip is named; from a start confirmed
+        // on bar 5 the top is looked for from bar 4, and the wave's own low on bar 14 is named.
+        var bars = Enumerable.Range(0, 80).Select(i =>
+        {
+            double l = i == 0 ? 80 : i == 3 ? 86 : 100 + 8 * Math.Sin(i / 3.0);
+            return new Ohlcv(new DateTime(2024, 1, 1).AddDays(i), l + 1, i == 2 ? 140 : l + 3, l, l + 2, 0);
+        }).ToArray();
+        var tier = new CipherCEngine.TierBars(10, 20, true);
+        var confirmed = CipherCEngine.DetectDaily(bars, tier, 10, 9, 75, 10, false, 0, seedConfirmed: true);
+        var plain = CipherCEngine.DetectDaily(bars, tier, 10, 9, 75, 10, false, 0);
+        Assert.Equal(0, confirmed.Start);
+        Assert.Equal(3, plain.Lows[0]);
+        Assert.Equal(14, confirmed.Lows[0]);
+        Assert.Equal(plain.Lows.Skip(1), confirmed.Lows.Skip(1));
+        // The provider counts so too (an untuned symbol whose bars are all after 2000 starts on bar 0).
+        var r = CipherCProvider.Compute(bars, new Dictionary<string, object>
+            { [CipherCProvider.ParamPreset] = "SPX", [CipherCProvider.ParamDailyMin] = 10.0, [CipherCProvider.ParamDailyMax] = 20.0 });
+        Assert.Equal(Marked(confirmed.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
+        Assert.NotEqual(Marked(plain.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
+    }
+
+    /// <summary>A symbol with a preset of its own is counted from the chart's first bar; any other
+    /// from the first bar on or after 1 January 2000, as the original starts those.</summary>
+    [Fact]
+    public void An_untuned_symbol_is_counted_from_the_first_bar_of_2000()
+    {
+        // The Bitcoin fixture moved back twelve years, so 2000 falls in its second year.
+        var bars = Bars.Select(b => b with { Date = b.Date.AddYears(-12) }).ToArray();
+        int start = Array.FindIndex(bars, b => b.Date >= new DateTime(2000, 1, 1));
+        Assert.True(start > 100);
+        Assert.True(bars[start - 1].Date < new DateTime(2000, 1, 1));
+        Assert.Equal(start, CipherCEngine.StartBar(bars, tunedSymbol: false));
+        Assert.Equal(0, CipherCEngine.StartBar(bars, tunedSymbol: true));
+        Assert.Equal(0, CipherCEngine.StartBar(Bars, tunedSymbol: false));
+
+        var untuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "XYZ" });
+        var tuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD", [CipherCProvider.ParamPreset] = "SPX" });
+        Assert.DoesNotContain(Marked(untuned[CipherCProvider.CompDclConfirmed]), t => t < start + 16);
+        Assert.Contains(Marked(tuned[CipherCProvider.CompDclConfirmed]), t => t < start);
     }
 }

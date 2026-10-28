@@ -41,8 +41,13 @@
 >   - Left for the precise pass (needs the original's numbers, after the simple items):
 >     - the weekly and yearly bands (above);
 >     - the dollar's daily band, a day late;
->     - per-asset start dates: the untuned count starts from 2000-01-01, the original's start is
->       not read per asset;
+>     - ~~per-asset start dates~~: done 2026-10-28 (CHANGES, "starts its count where the original
+>       does"). An untuned symbol starts on the first bar of 2000, a tuned one on the chart's first
+>       bar, held as a low confirmed one hold later. **Question for Cody:** the original starts each
+>       tuned symbol on a date of its own (many at the March 2020 low). Carrying those dates would
+>       take its lows found from 1,817 to 1,826 of 1,894 and its extras from 105 to 86, and removes
+>       Bitcoin's weekly extra low of September 2023. They are read off the original's chart. May
+>       they go in the public repo, the same question as the yearly date table (section 22)?
 >     - counting a dropped weekly low on in the unconfirmed weekly cell (Cipher C counts from its
 >       newest weekly low);
 >     - replays of Coinbase 4h and Bitcoin weekly (TradingView must have a visible window; the

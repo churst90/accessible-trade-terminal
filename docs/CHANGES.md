@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C starts its count where the original does: on the chart's first bar, or the first bar of 2000 on an untuned symbol, as a low confirmed one hold later (2026-10-28)
+
+- **What changed (Cody's precise pass, "per-asset start dates").** The original writes "Start" under
+  the bar its count starts from. Read on its captured charts: on a symbol it does not tune, that is
+  the first bar on or after 1 January 2000 (UTC), on every chart that has the label (16 of 16; the
+  others are past its 500-label limit). The count then runs as if a low on the Start bar had been
+  confirmed one hold (half the shortest cycle) later, so the first cycle's top is looked for from
+  the bar before that, not from the bar after Start.
+  - Cipher C's daily tier started from the lowest bar of the first shortest cycle, and looked for
+    the first top from the bar after it. It now starts on the chart's first bar on a tuned symbol,
+    on the first bar on or after 1 January 2000 on any other, and holds the start as a confirmed low
+    (`CipherCEngine.StartBar`, `DetectDaily(seedConfirmed: true)`). DSS is still worked out over the
+    whole history.
+  - **Checked:** a line-for-line Python model of the daily tier with this start matches
+    `DetectDaily` exactly, every low on all 39 captured charts. Scored from the original's Start bar
+    on its charts that have one, the original's lows found / extra lows: the old start 1,812 of 1,894
+    with 109 extras (F1 .9499), the new 1,817 with 105 (F1 .9523). No chart is worse.
+- **Not carried: the original's start dates on the symbols it tunes.** On those it starts on a date
+  of its own (many at the March 2020 low, some in the 1980s); with those dates the same model
+  scores 1,826 with 86 extras (F1 .9595), and Bitcoin's weekly extra low of September 2023 goes
+  away. The dates are read off the original's chart, so they wait for Cody's word, as the yearly
+  date table does. Until then a tuned symbol starts on the chart's first bar.
+- **Caveats:** confirmed one hold later and one hold and a bar later score the same on the
+  original's charts (F1 .9595 both, with its dates); one hold was kept, the same as a real low's
+  confirmation, and no test tells them apart. Starting with no confirmed low, or confirmed on the
+  Start bar or a bar later, scores .9564. The original names its first low one bar earlier than this
+  on Bitcoin's weekly chart (46 bars from Start, not 47), probably on the bar still forming; not
+  modelled. On the Bitcoin daily fixture the new start moves nothing.
+- Tests: `CipherCDailyTests.The_count_starts_on_the_start_bar_as_a_low_confirmed_one_hold_later`
+  (built bars: a spike high on bar 2 and a dip on bar 3; from a plain start the dip is named, from
+  the confirmed start the wave's own low on bar 14; the provider counts the same way) and
+  `An_untuned_symbol_is_counted_from_the_first_bar_of_2000` (the fixture moved back twelve years).
+  The provider-versus-engine tests now start their expected runs on the confirmed first bar.
+  Sabotages, red: the start not held as confirmed; an untuned symbol started on the first bar;
+  after 2000-01-01 rather than on it; tuned and untuned swapped; the provider not passing the held
+  start. Green, as expected: one hold and a bar later (see caveats).
+- Not seen or heard in the app. No accessibility agent is registered here to review it.
+
 ### Cipher C mirrors the original's settings: its display switches, the table's sections, the moving average's source and offset, and the custom count's words (2026-10-28)
 
 - **What changed (Cody, 2026-10-28: "all trading view cf settings should be mirrored", "is the

@@ -462,7 +462,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The original's "Faster Confirmation" (read off its drawings on the Dow and Bitcoin,
             // 2026-10-27) is the swing-high break switched on for an asset that lacks it.
             bool pivotBreak = preset.PivotBreak || IndicatorParams.GetBool(p, ParamFasterConfirmation, false);
-            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak, dropUntilDue: preset.DropUntilDue);
+            // The count starts on the original's Start bar, as a low confirmed one hold later.
+            int start = CipherCEngine.StartBar(data, CipherCEngine.PresetForSymbol(Str(p, "__symbol")) != null);
+            var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak, start,
+                preset.DropUntilDue, seedConfirmed: true);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
             // picks them; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;

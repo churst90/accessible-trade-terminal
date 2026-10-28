@@ -325,6 +325,22 @@ namespace AccessibleTrader.Core.Services.Indicators
             return (Fallback(tradesEveryDay), false);
         }
 
+        /// <summary>The first day counted on a symbol with no preset of its own: the original starts
+        /// those on the first bar on or after 1 January 2000 (UTC), read off its Start label on
+        /// sixteen charts, 2026-10-28.</summary>
+        public static readonly DateTime UntunedStart = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        /// <summary>The bar the daily count starts on (<see cref="DetectDaily"/>'s confirmed seed):
+        /// the chart's first bar on a symbol with a preset of its own, otherwise the first bar on or
+        /// after <see cref="UntunedStart"/> (the first bar when there is none). The original starts
+        /// each tuned symbol on a date of its own; those are not carried here.</summary>
+        public static int StartBar(ReadOnlySpan<Ohlcv> data, bool tunedSymbol)
+        {
+            if (tunedSymbol) return 0;
+            for (int i = 0; i < data.Length; i++) if (data[i].Date >= UntunedStart) return i;
+            return 0;
+        }
+
         // ── How long a bar is ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -665,10 +681,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// Everything it publishes per bar is decided from that bar and earlier ones. The low before
         /// the first cycle is the lowest bar of the first shortest cycle, or <paramref name="seed"/>;
         /// it is where the count starts, not a low of its own (not in <see cref="TierRun.Lows"/>).
+        /// With <paramref name="seedConfirmed"/> the seed is the original's Start bar: the count
+        /// starts there as if a low there had been confirmed one hold later, so the first top is
+        /// looked for from the bar before that (the provider's start, <see cref="StartBar"/>).
         /// </summary>
         public static TierRun DetectDaily(ReadOnlySpan<Ohlcv> data, TierBars tier, int dssLength, int dssSmooth,
                                           double overbought, double oversold, bool pivotBreak, int seed = -1,
-                                          bool dropUntilDue = false)
+                                          bool dropUntilDue = false, bool seedConfirmed = false)
         {
             int n = data.Length;
             var run = new TierRun
@@ -700,7 +719,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool cancelledSince = false;
             double replaced = double.NaN;
             int last = seed, held = -1, named = 0, origin = 0, dropBar = -1, failedFor = -1;
-            int confirmedAt = int.MinValue / 2, lastOrigin = int.MinValue / 2;
+            int confirmedAt = seedConfirmed ? seed + hold : int.MinValue / 2, lastOrigin = int.MinValue / 2;
             bool real = false;   // last is a low of its own, not the seed
             for (int t = seed + 1; t < n; t++)
             {

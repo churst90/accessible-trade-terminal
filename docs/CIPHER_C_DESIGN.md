@@ -1548,3 +1548,40 @@ Not mirrored:
   Appearance, the US data table, cancelled weekly lows (not modelled), and the alerts (Cipher C's
   are the app's).
 - The adjustment group (cycle length, fast and slow factors) and the arcs' geometry: section 21.
+
+## 31. Where the count starts (2026-10-28)
+
+The original writes "Start" under the bar its count starts from (the table's days since the last
+daily low read 0 there). Read off its captured charts:
+
+- **On a symbol it does not tune** the Start bar is the first bar on or after 1 January 2000,
+  00:00 UTC, on every chart that has the label (16 of 16; the rest are past the original's
+  500-label limit, so the label is gone).
+- **On a symbol it tunes** it is a date of its own. Many sit at the March 2020 low, a few in the
+  1980s, one on the asset's first bar. Those dates are not carried (TODO; the same question as the
+  yearly dates in section 22).
+
+**How the count runs from it.** Not from a low the original finds: the first low it names is often
+far from the lowest bar after Start. The count runs as if a low on the Start bar had been confirmed
+one hold later (half the shortest cycle, rounded down), so the first top is looked for from the bar
+before that (`Candidate`'s top search starts at the confirmation bar less one). The DSS is worked
+out over the whole history; a warm-up from Start, as a script's would be, changes nothing.
+
+On the original's charts that have a Start label, scored from it (lows found of its 1,894, extras,
+F1), with a Python model that matches `DetectDaily` low for low:
+
+| Start | Found | Extra | F1 |
+|---|---|---|---|
+| The old start: the lowest bar of the first shortest cycle | 1,812 | 109 | .9499 |
+| First bar; first of 2000 untuned; held as confirmed (built) | 1,817 | 105 | .9523 |
+| The original's Start, not held | 1,820 | 92 | .9564 |
+| The original's Start, held one hold (or one hold and a bar) | 1,826 | 86 | .9595 |
+| The original's Start, held a third of the cycle | 1,821 | 91 | .9569 |
+
+Held on the Start bar or the bar after scores the same as not held. No chart is worse under the
+built start than under the old one. On Bitcoin's weekly chart the original's own Start removes an
+extra low of September 2023: from Start, the November 2022 low is named on the bar before it is
+due, its origin is that bar, and the next search waits until December 2023. The original names
+that low one bar earlier than the model (46 bars from Start, not 47), probably on the bar still
+forming; not modelled.
+
