@@ -1656,8 +1656,8 @@ other labels stay private.
 held as a low confirmed one hold later, as the untuned first-of-2000 start in section 31. A chart
 that ends before the date has no daily count: the original's Dow from 1962 draws no daily lows
 before its 1985 Start, though its 🅨 marks and yearly band are there. On the original's charts the
-Python model scores this .9595 (section 31's last-but-one row; .9523 before). The C# is not
-re-scored end to end.
+Python model scores this .9595 (section 31's last-but-one row; .9523 before). The C# end to end is
+in section 35.
 
 **The yearly lows.** On a tuned asset each 🅨 date is a yearly low on the first bar on or after it.
 A date before the chart's first bar sits on that bar, and a date after the last bar is not drawn
@@ -1707,3 +1707,48 @@ the Start date ignored, a Start past the last bar on bar 0, the 🅨 lows added 
 daily lows, the band from the oldest date, an offset a day long, a date before the chart not on its
 first bar. A guard against a seed past the last bar was found to change nothing (a sabotage removing
 it stayed green) and was removed.
+
+## 35. The weekly tier starts on the Start bar, and the C# end to end (2026-10-28)
+
+**Scored end to end.** The app's own lows (the provider run on each capture's candles, the
+original's Start dates and presets) against the original's final labels on 39 captures: 16 tuned
+daily, 11 weekly and 11 four-hour charts, plus Platinum untuned. Each window runs from the Start label, or
+from the tier's first label when there is none (the 500-label limit drops early ones). F1, with
+found / the original's + extras:
+
+| Tier | Before the dates (526fb373) | Dates (b34910a6) | + weekly from Start (this) |
+|---|---|---|---|
+| Daily lows, daily charts | .9441 (1612/1753 +50) | .9469 (1614 +42) | .9469 |
+| Weekly lows, daily charts | .9177 (530/580 +45) | .9074 (524 +51) | **.9350** (539 +34) |
+| Yearly lows, daily charts | .2308 (6/27 +19) | 1.000 (27/27) | 1.000 |
+| Daily lows, weekly charts | .9374 (232/248 +15) | .9715 (239 +5) | .9715 |
+| Weekly lows, weekly charts | .7857 (77/97 +22) | .7755 (76 +23) | **.8351** (81 +16) |
+| Yearly lows, weekly charts | .000 (0/38 +3) | 1.000 (38/38) | 1.000 |
+| Daily lows, 4-hour charts | .9498 (1087/1139 +63) | .9506 (1087 +61) | .9506 |
+| Weekly lows, 4-hour charts | .7935 (317/395 +87) | .7945 (317 +86) | **.7990** (318 +83) |
+| Yearly lows, 4-hour charts | .1429 (2/10 +16) | 1.000 (10/10) | 1.000 |
+
+**Why the dates cost weekly lows.** Before them the count ran from the chart's first bar, so the
+weekly chain was settled by the Start. From the Start, the weekly tier made the first daily low after
+it a weekly low at once (as it does on a chart's first daily low). The original does not: on each
+of the eleven tuned daily charts with a Start label, its first weekly low after Start is what its
+rule gives when the Start bar is the newest weekly low U. It is the second daily low after the
+Start (the candidate) made a weekly low by the next on nine; on Gold a double after the candidate
+was undercut; on Coinbase a far double from the Start (its first daily low 66 bars after the Start,
+under it, 1.25 × 51 = 64). Ours matched on two of eleven before, all eleven now.
+
+**The rule.** `WeeklyFromDaily` and `WeeklyByWeeks` take the daily run's Start as `seed`: the first
+U (and on the metals the first reference low), drawn nowhere, never a confirmation of its own. The
+week count runs from it once the first weekly low is made. On the metals a candidate judged not
+lower is a weekly low however near the Start it is; a low undercutting the candidate is judged by
+distance as before. With the Start far enough for both, Gold loses 2 of its weekly lows; with
+neither, GDX, GDXJ, Silver and SILJ each lose one.
+
+**Caveats.**
+- Worse than before the dates: Coinbase on 4 hours (12 → 11 of 13) and weekly (2 → 1 of 2).
+- A chart that starts after the Start date seeds the weekly tier on its first bar, which is then a
+  weekly low drawn nowhere (before, the first daily low was the first weekly low). Unchecked: no
+  capture of the original starts after its Start date.
+- What is left on daily charts: 41 of the original's 580 weekly lows missed, 34 extras, most on
+  Gold, Silver and the miners (the metals' re-anchoring, section 23) and the dollar.
+

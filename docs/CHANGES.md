@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's weekly tier starts on the original's Start bar; the app scored end to end (2026-10-28)
+
+- **Scored end to end** (CIPHER_C_DESIGN section 35): the app's lows on the original's 39 captures
+  (16 tuned daily, 11 weekly, 11 four-hour, plus Platinum untuned), against its final labels. The
+  dates (previous entry) made every yearly low exact (daily charts 6 → 27 of 27, weekly 0 → 38 of
+  38, 4-hour 2 → 10 of 10) and lifted the daily lows (F1 on daily charts .9441 → .9469, on weekly
+  charts .9374 → .9715). They cost weekly lows (daily charts .9177 → .9074).
+- **What changed:** the weekly tier now starts on the same Start bar as the daily count. The Start
+  is the first weekly low the rule judges from, drawn nowhere, so the first daily low after it is
+  no longer a weekly low by itself; the second is the candidate, as after any weekly low. On the
+  metals a candidate made a weekly low may be any distance from the Start. Found from the
+  original's first weekly low after its Start label: it is what this rule gives on all eleven tuned
+  daily charts that have one (ours before: two).
+- **Result:** weekly lows on daily charts .9074 → .9350 (539 of 580, extras 51 → 34; .9177 before
+  the dates), on weekly charts .7755 → .8351, on 4-hour charts .7945 → .7990. Daily and yearly lows
+  unchanged.
+- **Tests:** two new (the weekly tier from the Start, drawn nowhere; the metals' Start far enough
+  for a candidate only). The weekly-rule test passes the Start; the weekly band test also checks
+  Bitcoin cut back a month at a time, as the full chart no longer ends on a candidate. Seven
+  sabotages red: no seed (daily rule, metals), the seed confirming, the metals' Start never far
+  enough or far enough for an undercut too, and the provider passing no seed (either rule).
+- **Caveats:**
+  - Coinbase is worse than before the dates on 4 hours (12 → 11 of 13) and weekly (2 → 1 of 2).
+  - On a chart that starts after the Start date the first bar is the seed. Unchecked: no capture
+    of the original starts after its Start date.
+  - Not seen or heard in the app.
+
 ### Cipher C counts from the original's dates and draws its yearly lows and band from them (2026-10-28)
 
 - **What changed (Cody, 2026-10-28: "add the original start date in the repo", and the yearly date
@@ -19,7 +46,7 @@ All notable changes to this project will be documented in this file.
     was read from the original's band at past dates on ten assets.
   - The S&P 500 has no dates: its chart was never read.
 - **Checked:** on the original's charts the Start dates take the model from F1 .9523 to .9595 (lows
-  found 1,817 -> 1,826 of 1,894, extras 105 -> 86). The C# is not re-scored end to end. The yearly
+  found 1,817 -> 1,826 of 1,894, extras 105 -> 86). The C# end to end is in the next entry. The yearly
   band holds exactly across epochs on Bitcoin (3) and Ether (2). The Dow (8 epochs before 1994) is
   within a day; the dollar, Gold, Riot and Marathon are within the holidays the original skips past
   the last bar.

@@ -468,13 +468,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             var d = CipherCEngine.DetectDaily(data, dTier, preset.DssLength, preset.DssSmooth, ob, os, pivotBreak, start,
                 preset.DropUntilDue, seedConfirmed: true);
             // With a daily tier the weekly lows are picked from the daily ones, as the original
-            // picks them; on a weekly chart the weekly tier finds its own.
+            // picks them, from the same Start; on a weekly chart the weekly tier finds its own.
             bool weeklyFromDaily = dTier.Active && wTier.Active;
             var w = !weeklyFromDaily ? CipherCEngine.Detect(data, wTier, ob, os)
                 : preset.WeeklyByWeeks ? CipherCEngine.WeeklyByWeeks(d, data,
                     Math.Max(0, wMax - CipherCEngine.WeeksShortOfMax) * barsPerWeek,
-                    Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek, preset.DoubleUnderNewest)
-                : CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, preset.WeeklyDoubles);
+                    Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek, preset.DoubleUnderNewest, d.Start)
+                : CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, preset.WeeklyDoubles, d.Start);
             // On a symbol the original tunes, its yearly lows are its table of dates (the symbol's,
             // whatever count is chosen), unless the yearly range is set by hand; elsewhere they are
             // found from the price.

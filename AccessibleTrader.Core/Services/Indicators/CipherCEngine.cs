@@ -953,6 +953,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// (off with <paramref name="farDoubles"/> false, Ether), or U was a candidate made a weekly
         /// low (so F, which judged it, is not under it) and F is under the daily low before U and at
         /// least <see cref="DoubleMinBars"/> bars after U.
+        /// With a <paramref name="seed"/> (the daily run's Start, the original's Start bar) the seed is
+        /// the first U, drawn nowhere and no confirmation of its own, so the first daily low after it
+        /// is judged as after any weekly low; without one the first daily low is the first weekly low.
         /// <see cref="TierRun.Lows"/> are the weekly lows at the end (the live candidate among them),
         /// <see cref="TierRun.FoundAt"/> the bar each was drawn, <see cref="TierRun.ConfirmedAt"/> the
         /// bar each became a weekly low (-1 for the candidate). <see cref="TierRun.LastLowAt"/> is the
@@ -960,7 +963,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// from. Confirmed fires when that moves on, Cancelled on the bar a candidate is undercut
         /// (carrying its price), and Updated on that same bar (the low the new one replaces).
         /// </summary>
-        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double dailyMin, bool farDoubles = true)
+        public static TierRun WeeklyFromDaily(TierRun daily, ReadOnlySpan<Ohlcv> data, double dailyMin, bool farDoubles = true,
+            int seed = -1)
         {
             int n = data.Length;
             var run = NewRun(n);
@@ -977,6 +981,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool fromCandidate = false;                       // the newest weekly low was a candidate made one
             int candPrev = -1, uPrev = -1;                    // the daily low before the candidate; before the newest weekly low, when fromCandidate
             double replaced = double.NaN;
+            if (seed >= 0 && seed < n) weekly.Add(seed);
             for (int t = 0; t < n; t++)
             {
                 if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] > last)
@@ -1013,7 +1018,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         }
                     }
                 }
-                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand);
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand, seed);
             }
             Publish(run, drawnOn, fixedOn);
             return run;
@@ -1043,6 +1048,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         ///         lows 19 → 21 of 22, others 5 → 1). On Gold the same condition loses 2, so Gold and
         ///         Silver keep the plain double. Level with U is untested.</item>
         /// </list>
+        /// A <paramref name="seed"/> is the first U and reference low as in <see cref="WeeklyFromDaily"/>;
+        /// a candidate judged not lower is a weekly low however near it is (an undercutting low is not).
         /// The original's first daily low after a weekly low is never judged against it. Its
         /// re-anchoring after some candidates are made weekly lows (the next candidate one daily low
         /// later) is not reproduced: nothing found separates those cases. The outputs are as
@@ -1050,7 +1057,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// Cancelled carries U.
         /// </summary>
         public static TierRun WeeklyByWeeks(TierRun daily, ReadOnlySpan<Ohlcv> data, double newBars, double doubleBars,
-            bool doubleUnderNewest = false)
+            bool doubleUnderNewest = false, int seed = -1)
         {
             int n = data.Length;
             var run = NewRun(n);
@@ -1064,6 +1071,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double Low(int i) => lows[i];
             int cand = -1, reference = -1, first = -1, count = 0, anchor = -1, last = -1, gone = -1;
             double replaced = double.NaN;
+            if (seed >= 0 && seed < n) { weekly.Add(seed); reference = seed; }
             for (int t = 0; t < n; t++)
             {
                 if (!double.IsNaN(daily.Confirmed[t]) && daily.LastLowAt[t] > last)
@@ -1072,10 +1080,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     void Add(int i) { weekly.Add(i); drawnOn.TryAdd(i, t); fixedOn[i] = t; }
                     // A new weekly low far enough from the newest, or (when allowed) one in its place
                     // when lower; either becomes the reference.
-                    bool Make(int i, double gap, bool replace)
+                    bool Make(int i, double gap, bool replace, bool fromSeed = false)
                     {
                         int u = weekly[^1];
-                        if (i - u >= gap) Add(i);
+                        if (i - u >= gap || (fromSeed && u == seed)) Add(i);
                         else if (replace && Low(i) < Low(u))
                         {
                             drawnOn.Remove(u); fixedOn.Remove(u);
@@ -1100,7 +1108,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         {
                             // A candidate that goes undrawn is still the low the table's unconfirmed
                             // week count runs from, as a reference low drawn nowhere is.
-                            if (!Make(cand, newBars, true)) { drawnOn.Remove(cand); gone = cand; }
+                            if (!Make(cand, newBars, true, fromSeed: true)) { drawnOn.Remove(cand); gone = cand; }
                             count = 1; first = d;
                         }
                         cand = -1;
@@ -1110,7 +1118,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         && (!doubleUnderNewest || Low(first) < Low(weekly[^1])) && Make(first, doubleBars, false)) { first = d; count = 1; }
                     else { cand = d; drawnOn[d] = t; }
                 }
-                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand >= 0 ? cand : Math.Max(reference, gone));
+                Anchor(run, t, weekly, lows, ref anchor, ref replaced, cand >= 0 ? cand : Math.Max(reference, gone), seed);
             }
             Publish(run, drawnOn, fixedOn);
             return run;
@@ -1125,10 +1133,11 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // The original's confirmed weekly low is the one before the newest: Confirmed fires when it
         // moves on, with Updated the price of the low cancelled since.
-        private static void Anchor(TierRun run, int t, List<int> weekly, double[] lows, ref int anchor, ref double replaced, int drawn)
+        private static void Anchor(TierRun run, int t, List<int> weekly, double[] lows, ref int anchor, ref double replaced, int drawn,
+            int seed)
         {
             int now = weekly.Count > 1 ? weekly[^2] : -1;
-            if (now > anchor)
+            if (now > anchor && now != seed)
             {
                 run.Confirmed[t] = lows[now];
                 run.Updated[t] = replaced;

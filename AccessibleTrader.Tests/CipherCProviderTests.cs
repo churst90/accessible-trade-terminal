@@ -751,10 +751,17 @@ public sealed class CipherCProviderTests
     [Fact]
     public void The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks()
     {
-        bool btcCandidate = CheckWeeklyBand(CipherSrSpeechTests.BtcDaily(), Btc(), 154, 294);
+        var btc = CipherSrSpeechTests.BtcDaily();
+        bool candidate = CheckWeeklyBand(btc, Btc(), 154, 294);
+        // Bitcoin cut back a month at a time, to a chart whose newest weekly low has a candidate after it.
+        for (int cut = btc.Count - 30; cut > btc.Count - 360; cut -= 30)
+        {
+            var part = btc.Take(cut).ToList();
+            candidate |= CheckWeeklyBand(part, Run(part, "BTC/USD"), 154, 294);
+        }
         var week = Weekdays(800, new DateTime(2022, 1, 3));
-        bool djiCandidate = CheckWeeklyBand(week, Run(week, "DJI"), 216, 303);
-        Assert.True(btcCandidate || djiCandidate, "no candidate drawn after the newest weekly low: the case is not pinned");
+        candidate |= CheckWeeklyBand(week, Run(week, "DJI"), 216, 303);
+        Assert.True(candidate, "no candidate drawn after the newest weekly low: the case is not pinned");
     }
 
     /// <summary>The first bar dated on or after <paramref name="days"/> days from bar <paramref name="from"/>, or past the last bar the weekday (or day) it would land on.</summary>

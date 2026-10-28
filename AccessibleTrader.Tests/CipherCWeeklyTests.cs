@@ -71,6 +71,63 @@ public class CipherCWeeklyTests
         return CipherCEngine.WeeklyByWeeks(daily, data, newBars, doubleBars, underNewest);
     }
 
+    /// <summary>The weekly tier of a daily run that starts on <paramref name="seed"/> (the original's
+    /// Start bar), whose low there is <paramref name="seedLow"/>.</summary>
+    private static CipherCEngine.TierRun Seeded(bool metal, int seed, double seedLow, params (int Bar, double Low, int At)[] lows)
+    {
+        var (daily, data) = Daily(300, lows);
+        data[seed] = data[seed] with { Low = seedLow };
+        daily.Start = seed;
+        return metal ? CipherCEngine.WeeklyByWeeks(daily, data, NewBars, DoubleBars, seed: seed)
+                     : CipherCEngine.WeeklyFromDaily(daily, data, DailyMin, seed: seed);
+    }
+
+    /// <summary>
+    /// <b>The weekly tier starts on the original's Start bar (2026-10-28).</b> The Start is the
+    /// weekly low the first weekly cycle runs from, drawn nowhere: the first daily low after it is
+    /// not a weekly low by itself, the second is the candidate, as after any weekly low. Read from
+    /// the original's first weekly low after its Start label on the eleven tuned daily charts that
+    /// have one: ours now matches on all eleven (before, on two). It is the candidate on nine; on
+    /// Gold a double after the candidate was undercut, on Coinbase a far double from its Start.
+    /// The week count runs from the Start once the first weekly low is made, and the Start is no
+    /// confirmation of its own. Weekly lows end to end on daily charts .907 → .935 (.918 before the
+    /// dated Start), on weekly charts .776 → .835, on 4-hour charts .795 → .799.
+    /// </summary>
+    [Fact]
+    public void The_weekly_tier_runs_from_the_start_bar_drawn_nowhere()
+    {
+        (int, double, int)[] lows = { (10, 100, 20), (50, 110, 60), (80, 120, 90) };
+        var w = Seeded(false, 5, 200, lows);
+        Assert.Equal(new[] { 50 }, w.Lows);
+        Assert.Equal(new[] { 60 }, w.FoundAt);
+        Assert.Equal(new[] { 90 }, w.ConfirmedAt);
+        Assert.Empty(Marked(w.Confirmed));
+        Assert.Equal(-1, w.LastLowAt[89]);
+        Assert.Equal(5, w.LastLowAt[90]);
+        Assert.Equal(5, w.NewestAt[5]);
+
+        // Without a Start the first daily low is the first weekly low.
+        Assert.Equal(new[] { 10, 80 }, Weekly(300, lows).Lows);
+    }
+
+    /// <summary>
+    /// On the metals a candidate judged not lower is a weekly low however near the Start it is (the
+    /// Start is as far as it needs to be): GDX, GDXJ, Silver and the junior silver miners each draw
+    /// one more of the original's weekly lows. A daily low that undercuts the candidate is not: near
+    /// the Start and not under it, it is only the reference low, as near any weekly low (Gold's
+    /// first after its Start is such a case, 2 of its weekly lows lost when it is).
+    /// </summary>
+    [Theory]
+    [InlineData(120, true)]
+    [InlineData(105, false)]
+    public void On_the_metals_the_start_is_far_enough_for_a_candidate_made_a_weekly_low(double judge, bool made)
+    {
+        var w = Seeded(true, 5, 50, (10, 100, 20), (30, 110, 40), (45, judge, 55));
+        Assert.Equal(made ? new[] { 30 } : Array.Empty<int>(), w.Lows);
+        Assert.Equal(made ? 5 : -1, w.LastLowAt[299]);
+        Assert.Equal(made ? 30 : 5, w.NewestAt[299]);
+    }
+
     private static int[] Marked(double[] a) => Enumerable.Range(0, a.Length).Where(i => !double.IsNaN(a[i])).ToArray();
 
     // ── Everywhere but the metals ──

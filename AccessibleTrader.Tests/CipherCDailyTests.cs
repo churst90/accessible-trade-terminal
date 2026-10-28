@@ -419,8 +419,8 @@ public class CipherCDailyTests
         var d = CipherCEngine.DetectDaily(Bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, 0, preset.DropUntilDue, seedConfirmed: true);
         Assert.Equal(Marked(d.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
 
-        var byDaily = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, farDoubles).Confirmed);
-        var weeks = Marked(CipherCEngine.WeeklyByWeeks(d, Bars, byWeeks ? newBars : 20 * 7, byWeeks ? doubleBars : 14 * 7, preset.DoubleUnderNewest).Confirmed);
+        var byDaily = Marked(CipherCEngine.WeeklyFromDaily(d, Bars, daily.MinBars, farDoubles, d.Start).Confirmed);
+        var weeks = Marked(CipherCEngine.WeeklyByWeeks(d, Bars, byWeeks ? newBars : 20 * 7, byWeeks ? doubleBars : 14 * 7, preset.DoubleUnderNewest, d.Start).Confirmed);
         var mine = byWeeks ? weeks : byDaily;
         Assert.NotEmpty(mine);
         Assert.Equal(mine, Marked(r[CipherCProvider.CompWclConfirmed]));
@@ -438,8 +438,8 @@ public class CipherCDailyTests
         var preset = CipherCEngine.Preset("GDX");
         var daily = CipherCEngine.Tier(preset.CountedDailyMin * 7 / 5.0, preset.DailyMax * 7 / 5.0, 1, CipherCEngine.MeasureBars(bars));
         var d = CipherCEngine.DetectDaily(bars, daily, preset.DssLength, preset.DssSmooth, 75, 10, preset.PivotBreak, 0, preset.DropUntilDue, seedConfirmed: true);
-        var under = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: true).Confirmed);
-        var plain = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: false).Confirmed);
+        var under = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: true, seed: d.Start).Confirmed);
+        var plain = Marked(CipherCEngine.WeeklyByWeeks(d, bars, 18 * 7, 12 * 7, doubleUnderNewest: false, seed: d.Start).Confirmed);
         Assert.NotEqual(plain, under);
         Assert.Equal(under, Marked(r[CipherCProvider.CompWclConfirmed]));
     }
