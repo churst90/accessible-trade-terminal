@@ -48,7 +48,11 @@
 >     last weekly low, against a 24–42 week range; no other chart stalls like this. A bar replay from
 >     November 2024 would show how it starts, but it needs a TradingView window on screen (all three
 >     were minimised on 2026-10-27, and a minimised window does not compute a new chart).
->   - Bitcoin weekly chart: one other low left; the original confirms nothing after its second mark.
+>   - Bitcoin weekly chart: one other low left (September 2023, 42 bars after the original's first mark);
+>     the original confirms nothing between its two marks, 89 bars apart. A count of 52 bars or more
+>     would match this chart, but the 48-bar count is best on all ten weekly and ten 4-hour charts
+>     (Bitcoin 4-hour 87 of 88 at 48, 69 of 88 at 53), so the count is not the cause. Without a
+>     replay of this chart it stays one unexplained case, like the 15 daily namings the original skips.
 >   - The 17 early keeps on daily charts (an undercut within d / 3 that the original kept) stay
 >     unseparable from the 516 drops.
 >   - Checked, nothing to do: on 36 untuned daily charts the default keeps the d / 3 window (0.949
