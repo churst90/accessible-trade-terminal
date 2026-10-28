@@ -45,8 +45,8 @@ public sealed class CipherCProviderTests
     }
 
     /// <summary>The Bitcoin count over the whole fixture, 2011 on: the BTC preset chosen on a chart
-    /// with no symbol, so the count starts on the first bar and the yearly lows are found from the
-    /// price. On "BTC/USD" the original's own dates start the count in February 2022 and place the
+    /// with no symbol, so the count starts on the first bar and there are no yearly lows unless
+    /// <see cref="CipherCProvider.ParamYearlyFromPrice"/> finds them from the price. On "BTC/USD" the original's own dates start the count in February 2022 and place the
     /// yearly lows (<see cref="CipherCEngine.CyclePreset.Start"/>).</summary>
     private static Dictionary<string, double[]> Whole(IReadOnlyList<Ohlcv> bars, Dictionary<string, object>? extra = null)
     {
@@ -305,8 +305,11 @@ public sealed class CipherCProviderTests
     [Fact]
     public void The_events_on_a_bar_do_not_change_when_later_bars_arrive()
     {
+        // Yearly lows found from the price (2026-10-28), so their confirmations are checked too:
+        // with no symbol the chart has no dates of its own.
         var bars = CipherSrSpeechTests.BtcDaily();
-        var whole = BtcWhole();
+        var fromPrice = new Dictionary<string, object> { [CipherCProvider.ParamYearlyFromPrice] = true };
+        var whole = Whole(bars, fromPrice);
         var m = Meta();
         var causalComponents = m.Components.Where(c => (c.Causality ?? m.Causality) == ComponentCausality.Causal).Select(c => c.Name).ToList();
         // The cycle arc (a window's _path) is a picture, not a reading: it is never said or
@@ -330,9 +333,13 @@ public sealed class CipherCProviderTests
         int lastWeeklyReplaced = Marked(whole[CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix]).LastOrDefault(-1);
         Assert.True(lastWeeklyReplaced > 400, "no weekly confirmation replaces a cancelled low on Bitcoin");
         cuts.Add(lastWeeklyReplaced + 1);
+        // And one just after the last yearly low found from the price is confirmed.
+        int lastYearly = Marked(whole[CipherCProvider.CompYclConfirmed]).LastOrDefault(-1);
+        Assert.True(lastYearly > 400, "no yearly low found from the price on Bitcoin");
+        cuts.Add(lastYearly + 1);
         foreach (int cut in cuts)
         {
-            var part = Whole(bars.Take(cut).ToList());
+            var part = Whole(bars.Take(cut).ToList(), fromPrice);
             foreach (var c in causal)
                 for (int i = cut - 400; i < cut; i++)
                 {
@@ -340,13 +347,13 @@ public sealed class CipherCProviderTests
                     Assert.True(Same(part[c][i], whole[c][i]), $"{c} on {bars[i].Date:yyyy-MM-dd}: {part[c][i]} with {cut} bars, {whole[c][i]} with all");
                 }
         }
-        // A component that never fired in these stretches was not checked at all. (No yearly low is
-        // confirmed in them: the 2022 one is confirmed on bar ~4,100, outside every 400-bar stretch.)
-        // Nor does the weekly window tint on a daily chart: the daily one's green would be covered.
-        // The yearly window's tint is off on a chart with a daily tier, as the weekly one's is, and
-        // no yearly window opens or closes in these stretches.
-        var neverChecked = causal.Except(everCompared).Where(k => !k.StartsWith(CipherCProvider.CompYclConfirmed, StringComparison.Ordinal)
-            && k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint
+        // A component that never fired in these stretches was not checked at all. The weekly
+        // window does not tint on a daily chart: the daily one's green would be covered. The
+        // yearly window's tint is off on a chart with a daily tier, as the weekly one's is, and
+        // no yearly window opens or closes in these stretches. A yearly low is never a replacement:
+        // nothing cancels one.
+        var neverChecked = causal.Except(everCompared).Where(k => k != CipherCProvider.CompWeeklyWindow + ComponentCompanions.Tint
+            && k != CipherCProvider.CompYclConfirmed + CipherCProvider.ReplacedSuffix
             && k != CipherCProvider.CompYearlyWindow + ComponentCompanions.Tint
             && k != CipherCProvider.CompYearlyWindow + ComponentCompanions.Stops
             && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix).ToList();
@@ -539,7 +546,9 @@ public sealed class CipherCProviderTests
         var r = BtcWhole();
         var d = Marked(r[CipherCProvider.CompDcl]).ToHashSet();
         var w = Marked(r[CipherCProvider.CompWcl]).ToList();
-        var y = Marked(r[CipherCProvider.CompYcl]).ToList();
+        // Bitcoin's dated yearly lows are on its own bars, so the claim is checked on the ones found from the price.
+        var y = Marked(Whole(CipherSrSpeechTests.BtcDaily(), new() { [CipherCProvider.ParamYearlyFromPrice] = true })[CipherCProvider.CompYcl]).ToList();
+        Assert.True(y.Count >= 3, $"{y.Count} yearly lows");
         _out.WriteLine($"{d.Count} daily, {w.Count} weekly, {y.Count} yearly");
         Assert.NotEmpty(w);
         Assert.All(w, i => Assert.Contains(i, d));

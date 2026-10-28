@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C can find its yearly lows from the price (2026-10-28)
+
+- **What changed** (CIPHER_C_DESIGN section 37): a new setting on the Cycles tab, **Yearly lows found
+  from price**, off by default. The original's yearly lows are hand-entered dates that stop at its
+  newest (December 2023 at the latest). With the switch on, a tuned asset keeps those dates and
+  carries on after them. An untuned asset finds all of them.
+- **The rule** (`CipherCEngine.YearlyFromPrice`):
+  - A yearly low is a bar with no lower or equal low in the 0.15 of the yearly cycle before it, and
+    no lower one in the 0.15 after it. Of equal lows, the first counts.
+  - It is confirmed on the first bar 0.15 of a cycle after it, not before (219 days on a 4-year cycle).
+  - The next search starts 0.8 of a cycle on.
+  - The yellow band moves on from a low found after the dates.
+  - A yearly range set by hand also finds them from the price, as before.
+- **Fitted on the original's own 151 dates:** one step ahead, 41 of 64 within 30 days; held out,
+  17 of 31 and 22 of 33.
+- **What it adds today:** the Dow and the Nasdaq 2025-04-07, Oil 2023-05-01 and 2025-12-15, Marathon
+  2026-02-05.
+- **Behaviour change:** an untuned symbol now draws no yearly lows unless the switch is on, as the
+  original. Before, the old detector drew them.
+- **Tests:** five new `CipherCYearlyTests`. Changed tests:
+  - The causality test runs the whole Bitcoin history with the switch on.
+  - The yearly-on-weekly claim is now checked on lows that exist (it was vacuous).
+  - CipherC tests 281 -> 286.
+- **Sabotages:** ten red. Not moving a found low onto a weekly low stayed green: Bitcoin's found
+  lows already sit on weekly lows.
+- **Caveats:**
+  - About 6 in 10 one step ahead: a guess at the original's next date, not a reading of it.
+  - A found low is drawn 7 months after it on a 4-year cycle.
+  - Local branch only: not pushed, not seen or heard in the app.
+
 ### Cipher C's bands past the last bar land where the original's do (2026-10-28)
 
 - **What changed** (CIPHER_C_DESIGN section 36): a band whose end is past the last bar is now

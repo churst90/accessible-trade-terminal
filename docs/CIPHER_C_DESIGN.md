@@ -1537,7 +1537,8 @@ Not mirrored:
 - The original with the switch on and the selection left at NONE: on a tuned symbol it keeps the
   symbol's count but drops the yearly lows and shows the custom-count words.
 - Under a custom count the original draws no yearly lows (its yearly lows are a per-asset date
-  table, section 22; it draws none on an untuned symbol either). Cipher C still finds its own.
+  table, section 22; it draws none on an untuned symbol either). Cipher C keeps a tuned symbol's
+  dates under a custom count, and draws none on an untuned symbol unless section 37's switch is on.
 - Sizes, glyph choices, the mascot, icon heights, line styles and widths, per-part colours beyond
   Appearance, the US data table, cancelled weekly lows (not modelled), and the alerts (Cipher C's
   are the app's).
@@ -1663,9 +1664,9 @@ in section 35.
 A date before the chart's first bar sits on that bar, and a date after the last bar is not drawn
 yet. They stand alone: they are not snapped to a weekly low, not added to the weekly or daily lows,
 and confirmed on their own bar, with no pending, cancelled or failed yearly events
-(`CipherCEngine.YearlyFromDates`). Setting the yearly cycle's years by hand (`YearlyMinYears` or
-`YearlyMaxYears`) finds them from the price as before. That also happens on an untuned symbol,
-where the original draws none.
+(`CipherCEngine.YearlyFromDates`). An untuned symbol has none, as the original draws. The
+"Yearly lows found from price" switch (off by default) and a yearly range set by hand find them
+from the price instead (section 37).
 
 **The yearly band** runs from the newest 🅨 date on or before the last bar, plus a fixed number of
 calendar days per asset, to that date plus a second number. It is read from the original's yellow
@@ -1696,8 +1697,8 @@ reached in steps of the last bar's length.
 - The 🅨 dates are hindsight: a yearly low is drawn on its date whatever the bars after it do. A
   backtest that trades on the yearly lows of a tuned asset is reading the future.
 - Silver, the miners, MicroStrategy and Coinbase were read at one date only.
-- Under a custom count and on an untuned symbol the original draws no yearly lows; Cipher C still
-  finds its own there.
+- The dates stop at the newest the original had when it was read (December 2023 at the latest).
+  Section 37's switch finds the yearly lows after them.
 
 Tests: `A_tuned_asset_counts_from_the_originals_start_date`,
 `A_tuned_assets_yearly_lows_are_the_originals_dates`,
@@ -1805,3 +1806,79 @@ Dow's, Gold's, Silver's and the Nasdaq's ends in the band tests. Sabotages, all 
 occurrences read, UTC only, no Sunday shift, holidays found but not skipped, the far end rounded
 down, the far end the longest rounded, the Nasdaq on the Dow's band.
 
+## 37. Yearly lows found from the price (2026-10-28)
+
+Cody: "it would be helpful to have the yearly lows be a switch to have the indicator pick the low
+rather than hand entered since I won't have access to the indicator after these 2 weeks". The
+original's yearly lows are hand-entered dates (section 34). They stop at its newest, and nothing
+says when, or whether, its author adds the next. A switch on the Cycles tab, **Yearly lows found
+from price** (`YearlyFromPrice`, off by default), finds them from the price
+(`CipherCEngine.YearlyFromPrice`):
+
+- On a tuned asset the original's dates come first, as section 34 draws them. The search starts
+  0.8 of the yearly cycle after the newest (`YearlyGapCycles`; the cycle is the middle of the
+  preset's yearly range, 4 years on the Dow).
+- On an untuned asset, or with a yearly range set by hand, every yearly low is found. The search
+  starts 0.15 of a cycle after the first bar.
+- A bar is a yearly low when no low in the 0.15 of a cycle before it (`YearlyPivotCycles`; 219 days
+  on a 4-year cycle) is at or below it, and none in the 0.15 after is below it. Of equal lows, the
+  first counts. The bars are scanned in order, and the first that qualifies is taken.
+- It is known 0.15 of a cycle after it: confirmed on the first bar at or after that date, and not
+  before. Then the search jumps 0.8 of a cycle on.
+- A low found after the dates stands on its own bar, as a dated one does. On an untuned asset a
+  found low is moved onto the nearest weekly low, as before.
+- The yearly band moves on from a low found after the dates, by the same per-asset days as from a
+  dated one.
+
+**Why these numbers.** The pivot rule was fitted on the original's 151 🅨 dates, with each asset's
+dates before the newest used to predict it (private `yrule2.py`):
+- One step ahead, 41 of 64 within 30 days.
+- On held-out assets, 17 of 31 and 22 of 33.
+- About 6 in 10 match.
+
+The misses are judgement calls: a date the price does not mark as a two-sided low. For example,
+the original's yellow band on the Dow is 6.2-7.6 years from its newest date, though its own dates
+are about 4 years apart. So the dates were left as the default, and the switch adds what a fixed
+rule can find, consistently, after them.
+
+**What it adds today** on the captured charts: the Dow and the Nasdaq 7 April 2025, Oil 1 May
+2023 and 15 December 2025, Marathon 5 February 2026. Bitcoin's fixture ends in June 2026, before a
+low after November 2022 could be known, so on it the switch adds none.
+
+**Caveats.**
+- Six in ten one step ahead is a guess at the original's next date, not a reading of it.
+- A found low is drawn 0.15 of a cycle (7 months on 4 years) after it. Until then the band runs
+  from the dated one before it.
+- On an untuned asset the cycle is the S&P preset's, 3.5-4.5 years: the middle, 4.
+- **Behaviour change:** an untuned symbol used to draw yearly lows from the old detector. Now it
+  draws none unless the switch is on, as the original.
+- Not seen in the app.
+
+Tests (`CipherCYearlyTests`):
+- `A_yearly_low_is_the_first_low_that_stays_lowest_for_a_while_known_that_long_after`
+- `The_first_yearly_low_needs_a_full_look_back_and_equal_lows_count_the_first`, which also checks
+  a search that starts partway through a flat low.
+- `After_the_originals_dates_the_next_yearly_low_is_found_from_the_newest`
+- `The_switch_finds_yearly_lows_from_price_and_keeps_the_originals_dates`
+- `A_yearly_low_found_after_the_dates_moves_the_band_on`
+
+Changed tests:
+- The causality test now runs the whole Bitcoin history with the switch on, including a cut after
+  the last yearly confirmation.
+- The yearly-on-weekly claim is checked on Bitcoin's found lows (2015-01-14, 2018-12-15 and
+  2022-11-21, all weekly lows). Before, it was checked on none.
+
+Sabotages, all red:
+- the gap 0.5;
+- the radius 0.3;
+- the look-back tie `<`;
+- the look-ahead tie `<=`;
+- confirmed on the low's own bar;
+- no look-back at the chart's start;
+- the band not moved on;
+- untuned assets drawing by default;
+- the switch ignored;
+- the dates dropped when the switch is on.
+
+One stayed green: not moving a found low onto a weekly low. On Bitcoin the found lows already sit
+exactly on weekly lows, so the claim holds without it.

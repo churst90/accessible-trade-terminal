@@ -26,6 +26,16 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and
+>   CIPHER_C_DESIGN section 37).** Asked for by Cody so the yearly lows carry on after the original's
+>   hand-entered dates stop. Off by default: a tuned asset draws its dates, an untuned one none. On:
+>   the dates first, then a two-sided price low found from 0.8 of a cycle after the newest. It is known
+>   0.15 of a cycle (7 months on 4 years) after it, and the yellow band moves on from it. Fitted on the
+>   original's own dates: about 6 in 10 one step ahead within 30 days. Today it adds the Dow and the
+>   Nasdaq 2025-04-07, Oil 2023-05-01 and 2025-12-15, and Marathon 2026-02-05. Behaviour change: an
+>   untuned symbol no longer draws yearly lows by default. Cody to decide:
+>   - Should the switch default on?
+>   - Look at a Dow daily chart with it on.
 > - [ ] **Cipher C is drawn as the original draws it (2026-10-28, built, NOT seen; see CHANGES and
 >   CIPHER_C_DESIGN section 29).** Lows with letter discs, dotted lines and 49D labels; checks,
 >   crosses, the clock, the grade and Start under the D; lettered tops with a box over each cycle;
@@ -70,9 +80,9 @@
 >       trial ends about 11-05).
 >   - ~~"Default Count Selected" is always shown; the original's words for a changed count are not
 >     read~~: done 2026-10-28 (CHANGES, "mirrors the original's settings"). A picked count says the
->     original's words. Left: the original draws no yearly lows under a custom count (or on an
->     untuned symbol); Cipher C still finds its own there. A tuned symbol's yearly lows are the
->     original's dates since 2026-10-28 (section 34).
+>     original's words. Left: the original draws no yearly lows under a custom count; Cipher C keeps
+>     a tuned symbol's dates there. A tuned symbol's yearly lows are the original's dates since
+>     2026-10-28 (section 34); an untuned symbol draws none unless the switch below is on.
 > - [ ] **Cipher C mirrors the original's settings (2026-10-28, built, NOT seen; CHANGES and
 >   CIPHER_C_DESIGN section 30).** 27 display switches with its defaults, pictures only; the
 >   cancelled crosses and the confirmation mark are hidden by default, as in the original; the

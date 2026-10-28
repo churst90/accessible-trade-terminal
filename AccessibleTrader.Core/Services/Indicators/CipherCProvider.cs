@@ -151,6 +151,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string ParamOverbought = "Overbought";
         public const string ParamOversold   = "Oversold";
         public const string ParamFasterConfirmation = "FasterConfirmation";
+        public const string ParamYearlyFromPrice = "YearlyFromPrice";
         public const string ParamSmaSource  = "SmaSource";
         public const string ParamSmaOffset  = "SmaOffset";
 
@@ -344,11 +345,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamSmaOffset, DisplayName = "Moving average offset", DataType = typeof(int), DefaultValue = 0.0, Step = 1,
                             Description = "Bars to shift the line by, right if above 0. 0 by default." },
                     new() { Name = ParamOverbought, DisplayName = "Confirm level", DataType = typeof(double), DefaultValue = DefaultOverbought, MinValue = 1, MaxValue = 99, Step = 1,
-                            Description = "75 by default. A daily low is named only while the hidden stochastic is below this. On a weekly chart's own weekly tier and the yearly tier, a low is confirmed when the hidden cycle line climbs through it after reaching the arm level." },
+                            Description = "75 by default. A daily low is named only while the hidden stochastic is below this. On a weekly chart's own weekly tier, a low is confirmed when the hidden cycle line climbs through it after reaching the arm level." },
                     new() { Name = ParamOversold, DisplayName = "Arm level", DataType = typeof(double), DefaultValue = DefaultOversold, MinValue = 0, MaxValue = 99, Step = 1,
-                            Description = "10 by default. A daily low is named only while the hidden stochastic is above this. On a weekly chart's own weekly tier and the yearly tier, the hidden cycle line must reach it before the next low can be confirmed." },
+                            Description = "10 by default. A daily low is named only while the hidden stochastic is above this. On a weekly chart's own weekly tier, the hidden cycle line must reach it before the next low can be confirmed." },
                     new() { Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
                             Description = "Off by default. On, a daily low is also named when price breaks the last swing high, as it always is on gold, silver, the miners and the dollar, so lows are named sooner and some cycles end on a different low." },
+                    new() { Name = ParamYearlyFromPrice, DisplayName = "Yearly lows found from price", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default: the yearly lows are the original's own dates for each of its assets, which stop at the newest (December 2023 on the dollar, earlier elsewhere), and an asset it does not tune has none. On, the yearly lows after the newest date are found from the price, and all of them on an asset with no dates: the first low at least 0.8 of a yearly cycle after the last that stays the lowest for 0.15 of a cycle on both sides, known that long after it (about 7 months on a 4-year cycle). Setting the yearly cycle's years by hand finds every one from the price." },
                 }.Concat(Switches.Select(w => new IndicatorParameterMetadata
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
@@ -476,10 +479,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Math.Max(0, wMax - CipherCEngine.DoubleWeeksShortOfMax) * barsPerWeek, preset.DoubleUnderNewest, d.Start)
                 : CipherCEngine.WeeklyFromDaily(d, data, dTier.MinBars, preset.WeeklyDoubles, d.Start);
             // On a symbol the original tunes, its yearly lows are its table of dates (the symbol's,
-            // whatever count is chosen), unless the yearly range is set by hand; elsewhere they are
-            // found from the price.
-            var yDates = own?.YearlyLows is { Count: > 0 } table && Dbl(p, ParamYearlyMin, 0) <= 0 && Dbl(p, ParamYearlyMax, 0) <= 0 ? table : null;
-            var y = yDates != null && yTier.Active ? CipherCEngine.YearlyFromDates(data, yDates) : CipherCEngine.Detect(data, yTier, ob, os);
+            // whatever count is chosen), and on any other it draws none. "Yearly lows found from
+            // price" finds the ones after the newest date from the price (CipherCEngine.YearlyFromPrice),
+            // and every one on a symbol with no dates; a yearly range set by hand finds them all.
+            bool byHand = Dbl(p, ParamYearlyMin, 0) > 0 || Dbl(p, ParamYearlyMax, 0) > 0;
+            bool fromPrice = byHand || IndicatorParams.GetBool(p, ParamYearlyFromPrice, false);
+            var yDates = own?.YearlyLows is { Count: > 0 } table && !byHand ? table : null;
+            var y = !yTier.Active ? CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>())
+                : fromPrice ? CipherCEngine.YearlyFromPrice(data, (yMin + yMax) / 2, yDates)
+                : CipherCEngine.YearlyFromDates(data, yDates ?? (IReadOnlyList<DateTime>)Array.Empty<DateTime>());
             // Off daily a week of the count is five or seven bars, not a week, so its lengths,
             // ages and windows are said in bars too.
             var day = inBars ? new Unit("daily", "bar", "bars", 1) : new Unit("daily", "day", "days", clock.BarsPerDay);
@@ -662,8 +670,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // of 128 weekly to the bar, against 56 and 37 at the last bar's time on weekdays.
             // The yearly band, on a symbol with the original's dated yearly lows, runs from the
             // preset's YearlyBandFromDays to YearlyBandToDays calendar days after the newest of
-            // those dates (DatedBand); elsewhere from yMin to yMax years of 365.25 days after the
-            // newest yearly low. Off a daily chart, in bars (not checked against the original).
+            // those dates, or of the yearly lows found from the price after them (DatedBand);
+            // elsewhere from yMin to yMax years of 365.25 days after the newest yearly low. Off a daily chart, in bars (not checked against the original).
             bool everyDay = clock.TradesEveryDay;
             double calendar = everyDay ? 1 : 7.0 / 5;
             static double Or(double band, double table) => band > 0 ? band : table;
@@ -674,7 +682,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteBand(o, CompDailyWindow, d, dTier, data, n, inBars, bdMin * (inBars ? 1 : calendar), bdMax * (inBars ? 1 : calendar), everyDay);
             WriteBand(o, CompWeeklyWindow, w, wTier, data, n, inBars, bwMin * (inBars ? clock.DaysPerWeek : 7 * calendar), bwMax * (inBars ? clock.DaysPerWeek : 7 * calendar), everyDay);
             if (yDates != null && own!.YearlyBandToDays > 0)
-                DatedBand(o, CompYearlyWindow, yTier, yDates, data, n, inBars, own.YearlyBandFromDays, own.YearlyBandToDays, everyDay);
+            {
+                // A yearly low found from the price after the dates moves the band on as a dated one would.
+                var anchors = new List<DateTime>(yDates);
+                for (int k = 0; k < y.Lows.Count; k++) if (y.ConfirmedAt[k] != y.Lows[k]) anchors.Add(data[y.Lows[k]].Date);
+                DatedBand(o, CompYearlyWindow, yTier, anchors, data, n, inBars, own.YearlyBandFromDays, own.YearlyBandToDays, everyDay);
+            }
             else
                 WriteBand(o, CompYearlyWindow, y, yTier, data, n, inBars, yMin * (inBars ? clock.DaysPerYear : 365.25), yMax * (inBars ? clock.DaysPerYear : 365.25), everyDay);
 

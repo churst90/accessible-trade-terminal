@@ -414,11 +414,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             return at >= 0 ? at : data.Length;
         }
 
-        /// <summary>The first bar stamped on or after <paramref name="date"/>, or -1 when none is.</summary>
-        public static int FirstBarOnOrAfter(ReadOnlySpan<Ohlcv> data, DateTime date)
+        /// <summary>The first bar stamped on or after <paramref name="date"/>, looked for from bar
+        /// <paramref name="from"/>, or -1 when none is.</summary>
+        public static int FirstBarOnOrAfter(ReadOnlySpan<Ohlcv> data, DateTime date, int from = 0)
         {
-            for (int i = 0; i < data.Length; i++) if (data[i].Date >= date) return i;
-            return -1;
+            int lo = Math.Max(0, from), hi = data.Length;            // the bars are in time order
+            while (lo < hi) { int mid = (lo + hi) >>> 1; if (data[mid].Date >= date) hi = mid; else lo = mid + 1; }
+            return lo < data.Length ? lo : -1;
         }
 
         /// <summary>
@@ -454,6 +456,85 @@ namespace AccessibleTrader.Core.Services.Indicators
                 run.LastLowAt[t] = last;
             }
             return run;
+        }
+
+        /// <summary>How soon after a yearly low the next may come, in yearly cycles (<see cref="YearlyFromPrice"/>).</summary>
+        public const double YearlyGapCycles = 0.8;
+
+        /// <summary>How long, in yearly cycles, a yearly low must stay the lowest low on both sides of it (<see cref="YearlyFromPrice"/>).</summary>
+        public const double YearlyPivotCycles = 0.15;
+
+        /// <summary>
+        /// The yearly tier found from the price, for a symbol with no dates of its own or past the
+        /// newest of them (2026-10-28, Cody: the original's dates stop where its table does). The
+        /// next yearly low is the first bar at least <see cref="YearlyGapCycles"/> of a cycle
+        /// (<paramref name="years"/> of 365.25 days) after the last whose low stays the lowest for
+        /// <see cref="YearlyPivotCycles"/> of a cycle on both sides (the first of equal lows); it is
+        /// confirmed on the first bar that far past it. With no low before it, the first is looked
+        /// for from that far into the chart. Calendar time, so the same on every timeframe. Started
+        /// from each of the original's own dates on fifteen assets this lands within 30 days of its
+        /// next one 41 times in 64 (fitted on either half of the assets, 17 of 31 and 22 of 33 on
+        /// the other); the misses are mostly dates that are not the lowest low around them.
+        /// With <paramref name="dates"/> the original's dated lows come first, as
+        /// <see cref="YearlyFromDates"/>, and the search starts from the newest of them.
+        /// </summary>
+        public static TierRun YearlyFromPrice(ReadOnlySpan<Ohlcv> data, double years, IReadOnlyList<DateTime>? dates = null)
+        {
+            int n = data.Length;
+            var run = dates is { Count: > 0 } ? YearlyFromDates(data, dates) : YearlyFromDates(data, Array.Empty<DateTime>());
+            if (n == 0 || !(years > 0)) return run;
+            var low = new double[n];
+            for (int i = 0; i < n; i++) low[i] = data[i].Low;
+            var min = new RangeMin(low);
+            double cycle = years * 365.25;
+            var radius = TimeSpan.FromDays(cycle * YearlyPivotCycles);
+            var gap = TimeSpan.FromDays(cycle * YearlyGapCycles);
+            int prev = run.Lows.Count > 0 ? run.Lows[^1] : -1;
+            int from = prev >= 0 ? FirstBarOnOrAfter(data, data[prev].Date + gap) : FirstBarOnOrAfter(data, data[0].Date + radius);
+            for (int i = Math.Max(from, prev + 1); from >= 0 && i < n; i++)
+            {
+                int confirm = FirstBarOnOrAfter(data, data[i].Date + radius, i);
+                if (confirm < 0) break;                                    // not known yet
+                int before = FirstBarOnOrAfter(data, data[i].Date - radius);
+                int after = data[confirm].Date > data[i].Date + radius ? confirm - 1 : confirm;
+                if ((before < i && min.Of(before, i - 1) <= low[i]) || (after > i && min.Of(i + 1, after) < low[i])) continue;
+                run.Lows.Add(i); run.ConfirmedAt.Add(confirm); run.FoundAt.Add(confirm);
+                run.Confirmed[confirm] = low[i];
+                from = FirstBarOnOrAfter(data, data[i].Date + gap, i);
+                if (from < 0) break;
+                i = from - 1;
+            }
+            // Each low is known from the bar it is confirmed on (a dated low's own).
+            for (int t = 0, k = 0, last = -1; t < n; t++)
+            {
+                while (k < run.Lows.Count && run.ConfirmedAt[k] <= t) last = run.Lows[k++];
+                run.LastLowAt[t] = last;
+            }
+            return run;
+        }
+
+        /// <summary>The lowest of a range of values in constant time (a sparse table).</summary>
+        private sealed class RangeMin
+        {
+            private readonly double[][] _t;
+            internal RangeMin(double[] x)
+            {
+                int levels = 1;
+                while ((1 << levels) <= x.Length) levels++;
+                _t = new double[levels][];
+                _t[0] = x;
+                for (int k = 1; k < levels; k++)
+                {
+                    int span = 1 << k, m = x.Length - span + 1;
+                    _t[k] = new double[Math.Max(0, m)];
+                    for (int i = 0; i < m; i++) _t[k][i] = Math.Min(_t[k - 1][i], _t[k - 1][i + span / 2]);
+                }
+            }
+            internal double Of(int a, int b)
+            {
+                int k = 31 - System.Numerics.BitOperations.LeadingZeroCount((uint)(b - a + 1));
+                return Math.Min(_t[k][a], _t[k][b - (1 << k) + 1]);
+            }
         }
 
         // ── How long a bar is ─────────────────────────────────────────────────────────
