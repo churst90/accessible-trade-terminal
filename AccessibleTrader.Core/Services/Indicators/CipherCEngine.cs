@@ -20,7 +20,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <see cref="DropUntilDue"/> lets an undercut drop a pending daily low at any time before it
     /// is due, not only within d / 3 bars of naming it (the Dow, the dollar, silver and Ether);
     /// <see cref="DoubleUnderNewest"/> lets a weekly-by-weeks "double" stand only under the newest
-    /// weekly low (the three miners).
+    /// weekly low (the three miners). <see cref="BandDailyMin"/> and the other three Band ranges,
+    /// in the table's days and weeks, are where the original's live band differs from its table
+    /// (the dollar's daily band, Ether's weekly, the start of gold's and silver's weekly); 0 is the table's.
     /// </summary>
     public sealed record CyclePreset(
         string Key, string Name,
@@ -30,7 +32,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         bool CalendarDays, string Source, double CountDailyMin = 0, bool WeeklyByWeeks = false,
         int DssLength = CipherCEngine.DefaultDssLength,
         int DssSmooth = CipherCEngine.DefaultDssSmooth, bool PivotBreak = false, bool WeeklyDoubles = true,
-        bool DropUntilDue = false, bool DoubleUnderNewest = false)
+        bool DropUntilDue = false, bool DoubleUnderNewest = false,
+        double BandDailyMin = 0, double BandDailyMax = 0, double BandWeeklyMin = 0, double BandWeeklyMax = 0)
     {
         /// <summary>The shortest daily cycle the detector counts with.</summary>
         public double CountedDailyMin => CountDailyMin > 0 ? CountDailyMin : DailyMin;
@@ -186,14 +189,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             // 52 lows): confirmed 9 bars after the low on 39 of 52, a short cycle no sooner than the
             // last low + 25, a first label no sooner than the last low + 17.
             new CyclePreset("DXY",    "Dollar index", 15, 24, 16, 20, 3,  3,   false, FromCf, CountDailyMin: 18,
-                DssLength: 8, PivotBreak: true, DropUntilDue: true),
-            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true),
+                DssLength: 8, PivotBreak: true, DropUntilDue: true, BandDailyMin: 16, BandDailyMax: 25),
+            // Gold's and silver's weekly bands start 22 weeks on, though the table says 20 (2026-10-28).
+            new CyclePreset("GOLD",   "Gold",        22, 28, 20, 28, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true,
+                BandWeeklyMin: 22),
             // Silver's table says 22-28, as Gold's does, but the original counts it from 24 (bar replay
             // on candles, 2021-26, 40 lows): it confirms 12 bars after the low on 33 of 40, a short
             // cycle no sooner than the last low + 34, a first label no sooner than the last low + 23.
             // Gold, from the same table, confirms at 11 on 37 of 44. At 22 none of ours landed on its bar.
             new CyclePreset("SILVER", "Silver",      22, 28, 20, 28, 8,   8,   false, FromCf, CountDailyMin: 24, WeeklyByWeeks: true, PivotBreak: true,
-                DropUntilDue: true),
+                DropUntilDue: true, BandWeeklyMin: 22),
             new CyclePreset("USOIL",  "Crude oil",   36, 44, 16, 20, 3,   3,   false, FromCf),
             new CyclePreset("GDX",    "Gold miners", 22, 28, 22, 26, 8,   8,   false, FromCf, WeeklyByWeeks: true, DssLength: 8, PivotBreak: true, DoubleUnderNewest: true),
             new CyclePreset("GDXJ",   "Junior gold miners", 22, 28, 22, 26, 8, 8, false, FromCf, WeeklyByWeeks: true, PivotBreak: true, DoubleUnderNewest: true),
@@ -204,8 +209,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             // than the last low + 15.
             // Ether's weekly lows have no far "double": with it, on the original's own daily lows over
             // the whole history, its weekly lows score F1 0.82 against 0.88 without.
+            // Its weekly band runs 50 to 71 days on, a day past the table's 7 to 10 weeks at both ends.
             new CyclePreset("ETH",    "Ethereum",    15, 25, 7,  10, 4,   4,   true,  FromCf, CountDailyMin: 16, DssLength: 9, WeeklyDoubles: false,
-                DropUntilDue: true),
+                DropUntilDue: true, BandWeeklyMin: 50.0 / 7, BandWeeklyMax: 71.0 / 7),
             // CF's own BTC table (reviewer videos, 7-9 Aug 2025) reads 22-42 weeks; Camel says 28-32 on
             // his 2026 streams. The indicator is what Cipher C copies, so the table wins.
             // Its table says 54-66 days, but the original counts Bitcoin as if the shortest cycle were
@@ -295,10 +301,28 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>
         /// What a symbol that is none of the sixteen gets: the S&amp;P's ranges and weekly rule,
         /// counted from <see cref="DefaultCountDailyMin"/> bars. Its days are the chart's own, so a
-        /// chart that trades every day counts 32 bars too, not 32 × 7/5.
+        /// chart that trades every day counts 32 bars too, not 32 × 7/5. Its live bands are the
+        /// original's untuned ones, the same calendar days on any chart: daily
+        /// <see cref="UntunedDailyBandDays"/>, weekly <see cref="UntunedWeeklyBandDays"/>.
         /// </summary>
         public static CyclePreset Fallback(bool tradesEveryDay)
-            => Preset("SPX") with { CountDailyMin = DefaultCountDailyMin, CalendarDays = tradesEveryDay };
+        {
+            double cal = tradesEveryDay ? 1 : 7.0 / 5;
+            return Preset("SPX") with
+            {
+                CountDailyMin = DefaultCountDailyMin, CalendarDays = tradesEveryDay,
+                BandDailyMin = UntunedDailyBandDays.From / cal, BandDailyMax = UntunedDailyBandDays.To / cal,
+                BandWeeklyMin = UntunedWeeklyBandDays.From / (7 * cal), BandWeeklyMax = UntunedWeeklyBandDays.To / (7 * cal),
+            };
+        }
+
+        /// <summary>
+        /// The original's live bands on a symbol it does not tune, in calendar days from the newest
+        /// confirmed daily low and the newest weekly low, on stocks, the euro and coins alike (read
+        /// 2026-10-28 on the S&amp;P, Apple, Tesla, Coca-Cola, the euro and Solana at four dates each:
+        /// daily 23 of 24 exact, weekly every one whose anchor was in view). Its table shows none.
+        /// </summary>
+        public static readonly (double From, double To) UntunedDailyBandDays = (40, 50), UntunedWeeklyBandDays = (150, 190);
 
         /// <summary>Whether a preset setting picks a count rather than leaving it to the symbol (Auto, empty, or no such count).</summary>
         public static bool IsChosen(string? choice)
@@ -532,6 +556,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             public int[] HeldAt = Array.Empty<int>();
             /// <summary>Per bar: the pending low a cancellation on that bar dropped, or -1.</summary>
             public int[] CancelledLow = Array.Empty<int>();
+            /// <summary>Per bar, the weekly machines only: the newest weekly low, a candidate not
+            /// included, which the original's weekly band is counted from; empty elsewhere.</summary>
+            public int[] NewestAt = Array.Empty<int>();
         }
 
         /// <summary>
@@ -1002,7 +1029,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static TierRun NewRun(int n) => new()
         {
-            LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(),
+            LastLowAt = Enumerable.Repeat(-1, n).ToArray(), HeldAt = Enumerable.Repeat(-1, n).ToArray(), NewestAt = Enumerable.Repeat(-1, n).ToArray(),
             ClosedUnder = Enumerable.Repeat(-1, n).ToArray(), CancelledLow = Enumerable.Repeat(-1, n).ToArray(),
             Confirmed = Nan(n), Cancelled = Nan(n), Updated = Nan(n), Pending = Nan(n), Failed = Nan(n),
         };
@@ -1024,7 +1051,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // newest low it has drawn, a candidate included, else the newest weekly low (on the metals
             // also a newer low it drew nowhere, <paramref name="drawn"/>). Read from the original's
             // table on the sixteen tuned daily replays (2026-10-28): 53 -> 92% of bars.
-            run.HeldAt[t] = Math.Max(drawn, weekly.Count > 0 ? weekly[^1] : -1);
+            run.NewestAt[t] = weekly.Count > 0 ? weekly[^1] : -1;
+            run.HeldAt[t] = Math.Max(drawn, run.NewestAt[t]);
         }
 
         private static void Publish(TierRun run, SortedDictionary<int, int> drawnOn, Dictionary<int, int> fixedOn)

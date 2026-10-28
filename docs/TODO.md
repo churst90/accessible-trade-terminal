@@ -32,15 +32,22 @@
 >   bands over the live windows; the original's yellow wave at its own level (decoded, 68 of 68
 >   charts); its table in the price pane's corner. Cody (or a sighted helper) to look at any daily
 >   chart next to the original. Open:
->   - The weekly and yearly bands are undecoded (drawn by the daily rule); the dollar's daily band
->     is a day late.
+>   - ~~The weekly and yearly bands are undecoded; the dollar's daily band is a day late~~: daily and
+>     weekly done 2026-10-28 (CHANGES, "daily and weekly bands are drawn where the original draws
+>     them"; CIPHER_C_DESIGN section 33). Left: the yearly band (the date table question, section
+>     22); exchange holidays past the last bar (our band's bar count is the original's plus the
+>     holidays, the dates agree); one Nasdaq weekly start a day early; bands off a daily chart not
+>     checked. **Question for Cody:** the dollar's table says 15-24 days but its band is 16-25,
+>     Ether's band is a day longer than 7-10 weeks, Gold's and Silver's weekly band starts at 22
+>     weeks against the table's 20. Cipher C now draws the bands as the original and keeps the
+>     table's words. Is that the split you want?
 >   - ~~The table's words are ours; its pending weekly cell is not modelled; Start under the first
 >     low; the confirmation keeps the padding~~: done 2026-10-28 (CHANGES, "marks touch the bar").
 >     The table now says the original's words and its days since; marks touch the bar; Start sits
 >     under the bar the count starts from.
 >   - Left for the precise pass (needs the original's numbers, after the simple items):
->     - the weekly and yearly bands (above);
->     - the dollar's daily band, a day late;
+>     - ~~the weekly and yearly bands; the dollar's daily band, a day late~~: daily and weekly done
+>       2026-10-28 (above); yearly waits on the date table question;
 >     - ~~per-asset start dates~~: done 2026-10-28 (CHANGES, "starts its count where the original
 >       does"). An untuned symbol starts on the first bar of 2000, a tuned one on the chart's first
 >       bar, held as a low confirmed one hold later. **Question for Cody:** the original starts each

@@ -1438,7 +1438,7 @@ colours as 0xAABBGGRR). Nothing below is from the original's code, which is not 
 | Daily confirmation | ✅ over a green ▼ touching the bar's high | the same |
 | Weekly / yearly confirmation, pending, cancelled, failed events | not drawn | not drawn by default; heard; can be drawn from Appearance |
 | Translated top | L / M / R in a disc over ▼; red #F23645, orange #FF9800, green #4CAF50; a box over the cycle at alpha 25, low to low, lowest low to the top | the same (`BoxAlpha`, `_boxStart`..`_boxBottom`) |
-| Timing windows | the live cycle's bands, alpha 51, into the future | the same; daily band decoded, weekly and yearly not |
+| Timing windows | the live cycle's bands, alpha 51, into the future | the same; daily and weekly bands as the original's (section 33), yearly not |
 | Wave | yellow #FDD835 at 0xCC | the same level and height (below) |
 | Table | bottom right of the price pane, 7 × 5 | the same layout, cell colours, words and counts |
 
@@ -1450,13 +1450,8 @@ precision. On Heikin-Ashi the middle follows the Heikin-Ashi close (OHLC4) on c 
 not change. The wave sits well below price on a chart that has risen since c, as the original's
 does.
 
-**The daily band.** From the last low: the first bar dated on or after the low's date plus the
-shortest cycle in calendar days (on a weekday chart a trading day is 7/5 of one), rounded, to the
-first bar on or after plus the longest, rounded down; counted on in trading days past the last
-bar. To the day on 7 of the 8 daily charts with one in view; the dollar index's is a day late at
-both ends. The weekly and yearly bands are drawn by the same rule, but the original's are not
-that: its weekly band starts weeks early and its yearly one follows its yearly date table
-(section 22). Undecoded.
+**The bands.** The daily and weekly bands are the original's (section 33); the yearly band is a year
+of 365.25 days from the yearly low, and the original's follows its yearly date table (section 22).
 
 **The table.** Row 0: a status header (green, or red when the symbol has no tuned preset), the
 symbol's CYCLE COUNT over two columns, "Cycle low windows" over two. Rows 1-3: the count (from N
@@ -1477,9 +1472,8 @@ The counts are the original's: confirmed, the bars since the last daily low (its
 the timing window's value, and the weeks since the last confirmed weekly low.
 Unconfirmed, the bars since the daily low held now; a check when none is held (on a confirmation,
 until the next low is named); after a cancellation it keeps counting from the dropped low's bar,
-until a new low is named. The unconfirmed weekly cell is the weeks since the newest weekly low (the
-one not yet confirmed), in the preset's week. Not modelled: the original counts a dropped weekly low
-on. A count picked in the settings has its own words (section 30).
+until a new low is named. The unconfirmed weekly cell is the weeks since the newest weekly low drawn
+(the candidate included; on the metals also a low drawn nowhere, section 32), in the preset's week. A count picked in the settings has its own words (section 30).
 Both unconfirmed counts are spoken in the state words, "12 days since the unconfirmed daily low",
 "3 weeks since the unconfirmed weekly low" (2026-10-28).
 
@@ -1604,3 +1598,50 @@ tuned daily replays, against the weekly lows it had drawn by each bar:
 C's cell against the original's, every replayed bar of the 19 daily charts: 53.2% -> 91.7% exact
 (the newest-drawn rule alone 86.6%, with the reference only 89.7%). What is left follows from Cipher
 C's weekly lows where they differ from the original's.
+
+## 33. The daily and weekly bands (2026-10-28)
+
+Read from the original's band boxes (their colour, first and last bar; a last bar past the chart
+is a count of future bars) at four dates on each of 21 daily charts: the 9 earlier assets and 12
+new ones (tuned and untuned stocks, metals, crypto, a currency pair). The anchors are the original's
+own lows from its labels at the same dates.
+
+- **The time of day counts.** A band starts on the first bar stamped at or after the low bar's
+  timestamp plus the shortest cycle in calendar days, rounded, and ends on the first at or after
+  plus the longest, rounded down. US stocks' daily bars are stamped at the open, 14:30 UTC in
+  winter and 13:30 in summer, so a winter low's band lands a bar later in summer than the date
+  alone would. That was the "day late" on the dollar index, whose bars carry mixed open stamps,
+  and on several stocks. `CipherCProvider.BarOnOrAfter` compares full timestamps.
+- **The weekly band runs from the newest weekly low**, the one after the confirmed one, a candidate
+  not included (`TierRun.NewestAt`), not from the confirmed one, at the weeks times 7 calendar days
+  (times 7/5 off crypto). Before, it ran from the confirmed weekly low at 7 days a week, which is
+  why it looked "weeks early".
+- **Where a band is not the table's range** (`CyclePreset.BandDailyMin` and the other three):
+  the dollar's daily band is 16-25 trading days though its table says 15-24; Ether's weekly band
+  is 50-71 days, a day longer at both ends than 7-10 weeks; Gold's and Silver's weekly bands start
+  at 22 weeks though the table says 20 (the end, 28, is the table's).
+- **An untuned symbol** (S&P-like fallback: Apple, Tesla, Coca-Cola, EURUSD, Solana were read) has
+  bands in calendar days on any calendar: daily 40-50 days from the newest daily low (19 of 20
+  ends on weekday charts, 4 of 4 on Solana), weekly 150-190 days from the newest weekly low (4 of
+  4 on Solana, and every weekday end whose low was in view). `CipherCEngine.Fallback` writes them
+  as Band ranges (`UntunedDailyBandDays`, `UntunedWeeklyBandDays`).
+
+Against the original, ends dated in the past (on the chart): daily 48 of 58 (tuned only) -> 82 of
+85 (all 21); weekly 4 of 10 -> 15 of 17. The misses are lows that are not ours (one daily low each
+on Marathon and Solana, one weekly low on Oil) and one weekly start a day early on the Nasdaq,
+unexplained.
+
+**Past the last bar** the original's future bars skip exchange holidays; ours count every weekday.
+Its future end is ours less the holidays in between, within one bar on 186 of 218 future ends;
+on crypto, exact. Not modelled: the bands' dates agree, their bar counts on a weekday chart can
+differ by the holidays.
+
+**Not checked:** the bands off a daily chart (in bars), and the yearly band (the original reads a
+per-asset date table there, a question for Cody, section 22).
+
+Tests: `The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks`,
+`The_bands_the_original_draws_off_its_table_and_on_an_untuned_symbol`,
+`A_band_counts_days_from_the_low_bars_time_of_day`. Sabotages, all red: the confirmed weekly low as
+anchor, 7 days a week, the candidate included, dates without the time of day, the dollar on its
+table, Ether on 7-10 weeks, Gold and Silver on 20, the untuned daily end at 52, the untuned bands in
+trading days, the untuned weekly start at 154.

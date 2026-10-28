@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's daily and weekly bands are drawn where the original draws them (2026-10-28)
+
+- **What changed (Cody's precise pass, "the weekly and yearly bands" and "the dollar's daily band,
+  a day late").** Read from the original's band boxes at four dates on each of 21 daily charts
+  (CIPHER_C_DESIGN section 33):
+  - A band's days count from the low bar's timestamp, time of day included. US stocks' bars are
+    stamped 14:30 UTC in winter and 13:30 in summer, so a winter low's band lands a bar later in
+    summer. That was the dollar's "day late" and several stocks' (`BarOnOrAfter`).
+  - The weekly band runs from the newest weekly low (a candidate not included, `TierRun.NewestAt`),
+    not the confirmed one, and counts weeks of 7 calendar days (7/5 off crypto), not 7 bars.
+  - Presets whose band is not their table's range carry Band ranges: the dollar's daily band 16-25
+    (table 15-24), Ether's weekly 50-71 days, Gold's and Silver's weekly start 22 weeks (table 20).
+    The table and the counts still say the table's ranges.
+  - An untuned symbol's bands are calendar days on any calendar: daily 40-50 days, weekly 150-190.
+- **Checked:** band ends dated on the chart, Cipher C against the original: daily 48 of 58 (tuned
+  only) -> 82 of 85 (all 21 assets); weekly 4 of 10 -> 15 of 17.
+- **Tests:** two new (the preset exceptions and untuned bands on weekdays and crypto; the time of
+  day), and the weekly-band test from the start of this pass. Eleven sabotages red, listed in
+  section 33.
+- **Caveats:**
+  - The misses are lows that are not ours (Marathon's and Solana's daily lows, Oil's weekly low)
+    and one Nasdaq weekly start a day early, unexplained.
+  - Past the last bar the original's bars skip exchange holidays and ours do not: there its band's
+    bar count is ours less the holidays in between (within one bar on 186 of 218 future ends; crypto
+    exact). The dates agree.
+  - The yearly band is unchanged (a year of 365.25 days): the original's reads its per-asset date
+    table, which waits on Cody's answer (section 22).
+  - Off a daily chart (bands in bars) not checked against the original. Not seen in the app.
+
 ### Cipher C's unconfirmed week count runs from the newest weekly low drawn, the candidate included (2026-10-28)
 
 - **What changed (Cody's precise pass, "counting a dropped weekly low in the unconfirmed weekly

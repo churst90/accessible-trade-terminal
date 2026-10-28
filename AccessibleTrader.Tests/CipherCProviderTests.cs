@@ -728,6 +728,121 @@ public sealed class CipherCProviderTests
         Assert.Equal(OnOrAfterFrom(goldLast, 39), m - 1 + (int)gold[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd][m - 1]);
     }
 
+    /// <summary>
+    /// <b>The weekly band runs from the newest weekly low, at 7/5 of a day per trading day (2026-10-28).</b>
+    /// Read from the original's bands at four dates on each of sixteen assets: its weekly band starts
+    /// the first bar on or after the newest weekly low (the one after the confirmed one, a candidate
+    /// not included) plus the shortest cycle in weeks at 7 days a week, times 7/5 off crypto, rounded;
+    /// it ends at the longest rounded down. Bitcoin's 22-42 weeks: 154 and 294 days; the Dow's 22-31
+    /// on weekdays: 216 and 303. Before, the band ran from the confirmed weekly low at 7 days a week.
+    /// </summary>
+    [Fact]
+    public void The_weekly_band_runs_from_the_newest_weekly_low_in_calendar_weeks()
+    {
+        bool btcCandidate = CheckWeeklyBand(CipherSrSpeechTests.BtcDaily(), Btc(), 154, 294);
+        var week = Weekdays(800, new DateTime(2022, 1, 3));
+        bool djiCandidate = CheckWeeklyBand(week, Run(week, "DJI"), 216, 303);
+        Assert.True(btcCandidate || djiCandidate, "no candidate drawn after the newest weekly low: the case is not pinned");
+    }
+
+    /// <summary>The first bar dated on or after <paramref name="days"/> days from bar <paramref name="from"/>, or past the last bar the weekday (or day) it would land on.</summary>
+    private static int BandBar(IReadOnlyList<Ohlcv> h, int from, int days)
+    {
+        var target = h[from].Date.AddDays(days);
+        int k = from;
+        while (k < h.Count && h[k].Date < target) k++;
+        if (k < h.Count) return k;
+        bool everyDay = h.Skip(h.Count - 10).Any(b => b.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
+        var d = h[^1].Date;
+        k = h.Count - 1;
+        while (d < target || (!everyDay && d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday))
+        {
+            d = d.AddDays(1);
+            if (everyDay || d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) k++;
+        }
+        return k;
+    }
+
+    /// <summary>
+    /// The weekly band from the newest weekly low: the W after the confirmed one (the one before
+    /// the newest); a W after it is a candidate. Returns whether one was drawn.
+    /// </summary>
+    private bool CheckWeeklyBand(IReadOnlyList<Ohlcv> h, Dictionary<string, double[]> r, int fromDays, int toDays)
+    {
+        int n = h.Count;
+        var weekly = Marked(r[CipherCProvider.CompWcl]).ToList();
+        var confirms = r[CipherCProvider.CompWclConfirmed + ComponentCompanions.Confirms];
+        int at = Marked(confirms).Last(), confirmed = at - (int)confirms[at];
+        Assert.Contains(confirmed, weekly);
+        int newest = weekly.First(i => i > confirmed);
+        var start = r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.BoxStart];
+        var end = r[CipherCProvider.CompWeeklyWindow + ComponentCompanions.BoxEnd];
+        _out.WriteLine($"newest weekly low {h[newest].Date:yyyy-MM-dd}, weekly band {start[n - 1]}..{end[n - 1]}");
+        Assert.Equal(BandBar(h, newest, fromDays), n - 1 + (int)start[n - 1]);
+        Assert.Equal(BandBar(h, newest, toDays), n - 1 + (int)end[n - 1]);
+        return weekly[^1] > newest;
+    }
+
+    /// <summary>The daily band from the newest daily low.</summary>
+    private void CheckDailyBand(IReadOnlyList<Ohlcv> h, Dictionary<string, double[]> r, int fromDays, int toDays)
+    {
+        int n = h.Count, last = Marked(r[CipherCProvider.CompDcl]).Last();
+        var start = r[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxStart];
+        var end = r[CipherCProvider.CompDailyWindow + ComponentCompanions.BoxEnd];
+        _out.WriteLine($"newest daily low {h[last].Date:yyyy-MM-dd}, daily band {start[n - 1]}..{end[n - 1]}");
+        Assert.Equal(BandBar(h, last, fromDays), n - 1 + (int)start[n - 1]);
+        Assert.Equal(BandBar(h, last, toDays), n - 1 + (int)end[n - 1]);
+    }
+
+    /// <summary>
+    /// <b>Where the original's bands differ from its table, and an untuned symbol's (2026-10-28).</b>
+    /// Read from its bands on twenty-one assets. The dollar's daily band is 16-25 days (its table
+    /// says 15-24): 22 and 35 calendar days. Ether's weekly band is 50-71 days (7-10 weeks would be
+    /// 49-70). Gold's and Silver's weekly bands start at 22 weeks (the table says 20): 216 days.
+    /// An untuned symbol's bands are calendar days on any calendar: daily 40-50 from the newest
+    /// daily low, weekly 150-190 from the newest weekly low, on weekdays and on crypto alike.
+    /// </summary>
+    [Fact]
+    public void The_bands_the_original_draws_off_its_table_and_on_an_untuned_symbol()
+    {
+        var week = Weekdays(800, new DateTime(2022, 1, 3));
+        var btc = CipherSrSpeechTests.BtcDaily();
+        CheckDailyBand(week, Run(week, "DXY"), 22, 35);
+        CheckWeeklyBand(btc, Run(btc, "ETH/USD"), 50, 71);
+        CheckWeeklyBand(week, Run(week, "XAUUSD"), 216, 274);
+        CheckWeeklyBand(week, Run(week, "XAGUSD"), 216, 274);
+        var ko = Run(week, "KO");
+        CheckDailyBand(week, ko, 40, 50);
+        CheckWeeklyBand(week, ko, 150, 190);
+        var sol = Run(btc, "SOL/USD");
+        CheckDailyBand(btc, sol, 40, 50);
+        CheckWeeklyBand(btc, sol, 150, 190);
+    }
+
+    /// <summary>
+    /// <b>A band's day counts from the low bar's time of day (2026-10-28).</b> The original lands
+    /// on the first bar stamped at or after the low's timestamp plus the days: on a stock whose
+    /// daily bars open 14:30 UTC in winter and 13:30 in summer, a winter low's band lands a bar
+    /// later in summer than its date alone would (the bars "a day late" on the dollar and US stocks).
+    /// </summary>
+    [Fact]
+    public void A_band_counts_days_from_the_low_bars_time_of_day()
+    {
+        var bars = Weekdays(300, new DateTime(2024, 1, 2)).Select(b =>
+        {
+            bool summer = b.Date >= new DateTime(2024, 3, 11) && b.Date < new DateTime(2024, 11, 4);
+            return b with { Date = b.Date.Date.AddHours(summer ? 13.5 : 14.5) };
+        }).ToArray();
+        int from = Array.FindIndex(bars, b => b.Date.Date == new DateTime(2024, 1, 10));          // a Wednesday, 14:30
+        int got = CipherCProvider.BarOnOrAfter(bars, from, 98, everyDay: false);                    // Wednesday 17 April, 13:30
+        Assert.Equal(new DateTime(2024, 4, 18, 13, 30, 0), bars[got].Date);
+        int winter = CipherCProvider.BarOnOrAfter(bars, from, 21, everyDay: false);                 // still winter: the same day
+        Assert.Equal(new DateTime(2024, 1, 31, 14, 30, 0), bars[winter].Date);
+        // Summer low into winter: 13:30 plus the days is before 14:30, the same day.
+        int may = Array.FindIndex(bars, b => b.Date.Date == new DateTime(2024, 5, 1));
+        Assert.Equal(new DateTime(2024, 11, 6, 14, 30, 0), bars[CipherCProvider.BarOnOrAfter(bars, may, 189, everyDay: false)].Date);
+    }
+
     private static IReadOnlyList<IReadOnlyList<TableCell>> Table(Dictionary<string, double[]> r, int index) =>
         CipherCProvider.TableRows(n => r.TryGetValue(n, out var a) ? a : null, index);
 
