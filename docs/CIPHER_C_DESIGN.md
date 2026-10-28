@@ -912,7 +912,7 @@ the detector counts in bars:
    it and the bar is above the low's own high. Read from a GDX replay with the overbought input at
    1, where every naming is this way: 59 of 59 named, no false bar of 461. On the other assets it
    names far too early, and on Platinum it costs 0.939 → 0.807, so it is per preset.
-3. **The low.** The lowest one-bar swing low after the cycle's top, the top being the highest one-bar
+3. **The low.** The lowest one-bar swing low (the first of equal ones, section 26) after the cycle's top, the top being the highest one-bar
    swing high from the later of the bar after the last low and the bar before the last low was
    confirmed (the highest bar there if there is none), at most 99 bars back, and after any pending low
    dropped since.
@@ -1324,3 +1324,27 @@ not exceptions: the original tunes them, matching by ticker as it does on BATS:C
 nothing changes; without them the default's pooled F1 is 0.955. The weakest default charts are
 other feeds of Bitcoin (COINBASE:BTCUSD 0.765, BINANCE:BTCUSDT 0.854), where the Bitcoin preset
 scores worse still (section 17).
+
+## 26. Equal lows: the first is named (2026-10-27)
+
+When two swing lows after the cycle's top are equally low, the original names the first; Cipher C
+named the latest. Found in the daily residue: five of the misses were a low of the original's with
+an extra of Cipher C's a few bars later at exactly the same price (Marathon 2.06, SILJ 10.82,
+Platinum 580 and 675, Apple 0.25). The rule that makes a bar a swing low is unchanged (no higher
+than the bar before, lower than the bar after); taking the first bar of a flat bottom instead is
+worse (0.9683 → 0.9631), and so is the first of equal swing highs for the top (0.9716).
+
+Pooled F1 on the original's daily lows, latest → first:
+
+| Set | Latest | First |
+|---|---|---|
+| Whole-history daily, nineteen charts, replica (1,838 lows) | 1,773 + 51, 0.9683 | 1,780 + 45, 0.9719 |
+| Heikin-Ashi, held out (435) | 426 + 8, 0.9804 | the same |
+| As the app runs, nineteen captured daily charts: daily | 1,741 + 47, 0.970 | 1,748 + 41, 0.974 |
+| The same, weekly lows | 659 + 52, 0.926 | 660 + 51, 0.927 |
+| Off the daily chart, held out: 4-hour (1,136) | 1,084, 0.950 | 1,085, 0.951 |
+| Off the daily chart, held out: weekly (244) | 229, 0.944 | the same |
+| Untuned daily charts, held out (36; Coinbase and MicroStrategy on their presets) | 3,804, 0.9541 | 3,809, 0.9554 |
+
+No chart is worse on any set. Better as the app runs: Apple, Platinum, SILJ, Marathon, EUR/USD.
+

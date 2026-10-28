@@ -742,7 +742,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>
         /// The low a naming bar <paramref name="t"/> names, or <paramref name="t"/> for none: the
-        /// lowest swing low (no higher than the bar before, lower than the bar after; the latest of
+        /// lowest swing low (no higher than the bar before, lower than the bar after; the first of
         /// equal ones) after the cycle's top and after any pending low dropped since, at most
         /// <see cref="CandidateBack"/> bars back. The top is the highest one-bar swing high (no lower
         /// than the bar before, higher than the bar after) from the last low, or from the bar before
@@ -768,7 +768,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 if (k - 1 >= last + 1 && low[k] > low[k - 1]) continue;
                 if (!(low[k] < low[k + 1])) continue;
-                if (c == t || low[k] <= low[c]) c = k;
+                if (c == t || low[k] < low[c]) c = k;
             }
             return c;
         }

@@ -142,6 +142,21 @@ public class CipherCDailyTests
         Assert.Equal(Marked(from3.Pending), Marked(byDefault.Pending));
     }
 
+    /// <summary>Of two equal swing lows the naming bar names the FIRST. On the Bitcoin fixture bars 162
+    /// and 166 (27 and 31 January 2012) both low at 3.80, with higher lows between; bar 169 names
+    /// bar 162. The original keeps the first of equal lows (2026-10-27: on its whole-history daily lows,
+    /// the first gains 7 lows and loses 6 extras against the latest, and loses none).</summary>
+    [Fact]
+    public void The_first_of_equal_swing_lows_is_named()
+    {
+        Assert.Equal(3.80, Low[162], 9);
+        Assert.Equal(3.80, Low[166], 9);
+        var r = Bitcoin();
+        Assert.Equal(162, r.HeldAt[169]);
+        Assert.Contains(162, r.Lows);
+        Assert.DoesNotContain(166, r.Lows);
+    }
+
     /// <summary>Without the pivot break every low is named on a bar whose DSS is above its trigger
     /// and between 10 and 75, at least 47 bars after the last low; and the window does not wait:
     /// on most cycles the bar it opens or soon after names one.</summary>
