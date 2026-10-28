@@ -281,7 +281,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (t.Length == 0) continue;
                 // The triangle's middle: it stands on its base, tip toward the bar.
                 float? baseY = ComponentPictures.BaseY(ctx, s, comp, i);
-                float y = baseY ?? StandardRenderers.ResolveMarkerY(ctx, comp, i, data[abs]);
+                float y = baseY ?? StandardRenderers.ResolveMarkerY(ctx, comp, i, data[abs], h);
                 items.Add((i, abs, t, y - h / 2f));
             }
             if (items.Count == 0) return result;
@@ -312,7 +312,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float w = font.MeasureText(t);
                 float left = i * barWidth + halfBar + h / 2f + gap;
                 float plateH = textHeight + 2 * pad;
-                float top = Math.Clamp(cy - plateH / 2f, ctx.Top, Math.Max(ctx.Top, ctx.Bottom - plateH));
+                float centred = cy - plateH / 2f;
+                // Under the bar, never over the triangle's tip: a marker touching the bar
+                // (MarkerTouchesBar) has its tip a couple of pixels under the low.
+                if (comp.MarkerAnchor == MarkerAnchor.BelowBar) centred = Math.Max(centred, cy - h / 2f);
+                float top = Math.Clamp(centred, ctx.Top, Math.Max(ctx.Top, ctx.Bottom - plateH));
                 var plate = new SKRect(left - pad, top, left + w + pad, top + plateH);
                 var ink = Ink(ctx.Theme, RawColour(comp, s, abs, barCount));
                 result.Add(new PlacedLabel(abs, t, plate, left + w / 2f, top + pad + ascent, ink, false));

@@ -367,6 +367,7 @@ namespace AccessibleTrader.Core.Services
                 MarkLineAlpha = meta.MarkLineAlpha,
                 PathColorHex = meta.PathColorHex,
                 MarkerStacksUnder = meta.MarkerStacksUnder,
+                MarkerTouchesBar = meta.MarkerTouchesBar,
                 BadgeWords   = meta.BadgeWords,
                 IsCount      = meta.IsCount,
                 Role         = role,

@@ -65,6 +65,10 @@ namespace AccessibleTrader.Sdk.Models
         /// mark under the daily low's); provider-owned, rebuilt from
         /// <see cref="IndicatorComponentMetadata.MarkerStacksUnder"/>. Null = at its own place.</summary>
         public string? MarkerStacksUnder { get; set; }
+        /// <summary>A below-bar or above-bar marker drawn a couple of pixels clear of the bar's
+        /// low or high, not padded off it by a share of its range; provider-owned, rebuilt from
+        /// <see cref="IndicatorComponentMetadata.MarkerTouchesBar"/>.</summary>
+        public bool MarkerTouchesBar { get; set; }
         /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> picks from, split on
         /// '|'; provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.BadgeWords"/>.</summary>
         public string? BadgeWords { get; set; }
@@ -386,7 +390,7 @@ namespace AccessibleTrader.Sdk.Models
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
                 PathName = PathName, RibbonName = RibbonName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath,
-                BoxAlpha = BoxAlpha, MarkLineAlpha = MarkLineAlpha, PathColorHex = PathColorHex, MarkerStacksUnder = MarkerStacksUnder, BadgeWords = BadgeWords, UserIsAreaFill = UserIsAreaFill,
+                BoxAlpha = BoxAlpha, MarkLineAlpha = MarkLineAlpha, PathColorHex = PathColorHex, MarkerStacksUnder = MarkerStacksUnder, MarkerTouchesBar = MarkerTouchesBar, BadgeWords = BadgeWords, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

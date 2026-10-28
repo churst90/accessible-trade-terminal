@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C's marks touch the bar, Start sits where the count starts, and the table says the original's words (2026-10-28)
+
+- **What changed:** three of the open points in the entry below.
+  - **Marks touch the bar.** A daily, weekly or yearly low's triangle points up at the bar's low
+    with its tip about two pixels under it, and the daily confirmation's down triangle points at the
+    bar's high the same way, as the original draws them. Before, both sat a share of the bar's range
+    away (the marker padding every other indicator keeps). New knob `MarkerTouchesBar`
+    (`IndicatorComponentMetadata` → `ComponentConfig`); `StandardRenderers.ResolveMarkerY` measures
+    the gap from the triangle's tip, so the base sits under the tip and not on the bar. The 49D label
+    beside a low never rises over the tip.
+  - **Start** is drawn under the bar the daily count starts from (the lowest bar before the first
+    low, `CipherCEngine` `TierRun.Start`), on its own orange plate with no triangle. Before, it was
+    under the first low.
+  - **The table** says the original's words and numbers: "✅ Finetuned Asset Detected ✅" (or
+    "⚠️ Unoptimised Asset Detected ⚠️"), "<symbol> CYCLE COUNT", "Cycle Low Windows", "Default
+    Count Selected", "Daily / Weekly / Yearly Cycle Range", "✅ Optimised Timeframe - Daily ✅" (or
+    "⚠️ Timeframe Not Optimised, Switch to Daily ⚠️"), "✅ Confirmed ✅" and "🕘 Unconfirmed 🕘"
+    with "Days since Last DCL :" and "Weeks Since Last WCL :", "👇 Finetuned Assets Listed Below 👇"
+    and the preset symbols in two rows (stocks and metals, then the crypto ones from Ether). Its
+    confirmed counts are the days and weeks since the low (the low's own bar 0), one less than the
+    day of the cycle Cipher C speaks. The unconfirmed cells are new: the days since the low held
+    now (a check when none is held, as after a confirmation, and still counting from the dropped
+    low's bar after a cancellation, as the original does), and the weeks since the newest,
+    unconfirmed weekly low, in the preset's week.
+- **Not changed:** speech still says the day of the cycle (one more than the table); question in TODO.
+- **Tests:** `A_Cipher_C_low_touches_the_bars_low`, `A_Cipher_C_confirmation_touches_the_bars_high`
+  (the tip within 3 px of the bar's edge, no marker ink inside the bar, the padded mark lower) and
+  `Start_is_drawn_alone_under_the_bar_the_count_starts_from` (real renderer pixels); the signs test
+  pins Start at the lowest bar before the first low and alone there; the three table tests pin the
+  words, the counts as days since, the unconfirmed run, the check on a confirmation, the count
+  carried across a cancellation and the weekly cell; the metadata test pins which marks touch; the
+  knob sweep gains a ringed marker under the bar. README 9686 tests.
+- **Sabotages red (22):** the touching gap ignored (pixel tests and the knob sweep), the triangle's
+  reach left out of the ringed and the down triangle, the lows and the confirmation not touching,
+  the factory and the clone dropping the knob, the label allowed over the tip, Start not drawn
+  alone, Start under the first low, the count's start not recorded, the count not less one, the
+  unconfirmed count reset on a cancellation, no check after a confirmation, the weekly cell from the
+  oldest weekly low, the symbol rows split in half, three header words changed.
+- **Caveats:**
+  - "Default Count Selected" is always shown. The original's wording when a preset's count is
+    changed is not read (Cipher C's count is not a setting).
+  - The unconfirmed weekly cell counts from Cipher C's newest weekly low. The original counts a
+    dropped weekly low on, which Cipher C does not model.
+  - On one 4-hour chart the original's header names another symbol's count; not copied.
+  - Not seen in the app. The accessibility-lead review agent is not registered in this environment,
+    so no agent review was run. The table stays aria-hidden: everything in it is spoken already,
+    except the unconfirmed counts (question in TODO).
+
 ### Cipher C is drawn as the original draws it (2026-10-28)
 
 - **What changed:** Cipher C's look is replaced by the original's, read from the original's own

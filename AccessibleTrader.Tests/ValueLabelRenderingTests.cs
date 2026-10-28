@@ -489,6 +489,110 @@ public sealed class ValueLabelRenderingTests
         Assert.Contains(ValueLabelRenderer.Plates(ctx, new[] { with }), p => p == placed.Plate);
     }
 
+    /// <summary>Cipher C as the factory builds it, every component NaN but what <paramref name="set"/> writes.</summary>
+    private static ChartSeries CipherC(IReadOnlyList<Ohlcv> bars, Action<ChartSeries> set)
+    {
+        var meta = new CipherCProvider().GetIndicators()[0];
+        var factory = new IndicatorModelFactory(DbsiChartHarness.Styling(), new MockIndicatorPreferencesService());
+        var s = factory.CreateSeriesFromMetadata(meta, meta.Name, "Main", new List<(string, string)>(), null);
+        foreach (var c in s.Components) s.Data.ComponentData[c.Name] = Enumerable.Repeat(double.NaN, bars.Count).ToArray();
+        set(s);
+        return s;
+    }
+
+    /// <summary>The first row at or under <paramref name="from"/> with the ink in the bar's column.</summary>
+    private static int FirstInkUnder(DbsiChartHarness.Frame f, SKColor ink, int at, int from)
+    {
+        int x = (int)f.X(at);
+        for (int y = from; y < (int)f.PlotBottom; y++)
+            for (int dx = -1; dx <= 1; dx++)
+                if (Near(f.Bmp.GetPixel(x + dx, y), ink)) return y;
+        return int.MaxValue;
+    }
+
+    /// <summary>
+    /// A Cipher C low points up at the bar's low and touches it, as the original's label does:
+    /// its tip a couple of pixels under the low, whatever the bar's range. Padded off the bar
+    /// (MarkerTouchesBar off) it sits a share of the bar's range lower. Real renderer pixels.
+    /// </summary>
+    [Fact]
+    public void A_Cipher_C_low_touches_the_bars_low()
+    {
+        var bars = Bars();
+        const int at = 20;
+        var touching = CipherC(bars, s => s.Data.ComponentData[CipherCProvider.CompDcl][at] = bars[at].Low);
+        var dcl = touching.Components.Single(c => c.Name == CipherCProvider.CompDcl);
+        Assert.True(dcl.MarkerTouchesBar);
+        var padded = CipherC(bars, s => s.Data.ComponentData[CipherCProvider.CompDcl][at] = bars[at].Low);
+        padded.Components.Single(c => c.Name == CipherCProvider.CompDcl).MarkerTouchesBar = false;
+
+        var range = DbsiChartHarness.MainRange(bars, new[] { DbsiChartHarness.Candles() }, 0, bars.Count);
+        var green = SKColor.Parse(CipherCProvider.DclHex);
+        var t = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), touching }, W, H, D, range: range);
+        var p = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), padded }, W, H, D, range: range);
+        int low = (int)Math.Ceiling(t.Y(bars[at].Low));
+        int tip = FirstInkUnder(t, green, at, low), paddedTip = FirstInkUnder(p, green, at, low);
+
+        Assert.True(tip - low >= 0 && tip - low <= (int)(3 * D) + 1, $"low {low}, tip {tip} touching, {paddedTip} padded");
+        Assert.True(paddedTip > tip + D, $"padded tip {paddedTip} not under the touching tip {tip}");
+        // Touching, not overlapping: no green over the low (the tip, not the base, is at the bar).
+        int over = FirstInkUnder(t, green, at, low - (int)(12 * D));
+        Assert.True(over >= low, $"marker ink at row {over}, over the bar's low {low}");
+    }
+
+    /// <summary>The daily confirmation's down triangle points at the bar's high, touching it.</summary>
+    [Fact]
+    public void A_Cipher_C_confirmation_touches_the_bars_high()
+    {
+        var bars = Bars();
+        const int at = 20;
+        var s = CipherC(bars, c => c.Data.ComponentData[CipherCProvider.CompDclConfirmed][at] = 3);
+        Assert.True(s.Components.Single(c => c.Name == CipherCProvider.CompDclConfirmed).MarkerTouchesBar);
+        var range = DbsiChartHarness.MainRange(bars, new[] { DbsiChartHarness.Candles() }, 0, bars.Count);
+        var f = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, range: range);
+        var green = SKColor.Parse(CipherCProvider.DclHex);
+        int high = (int)Math.Floor(f.Y(bars[at].High)), x = (int)f.X(at);
+        int tip = -1;
+        for (int y = high; y > (int)f.PlotTop && tip < 0; y--)
+            for (int dx = -1; dx <= 1; dx++)
+                if (Near(f.Bmp.GetPixel(x + dx, y), green)) { tip = y; break; }
+        Assert.True(tip >= 0 && high - tip <= (int)(3 * D) + 1, $"high {high}, the triangle's tip {tip}");
+        // Touching, not overlapping: no green under the high.
+        for (int y = high + 1; y <= high + (int)(12 * D); y++)
+            for (int dx = -1; dx <= 1; dx++)
+                Assert.False(Near(f.Bmp.GetPixel(x + dx, y), green), $"marker ink at row {y}, under the bar's high {high}");
+    }
+
+    /// <summary>
+    /// The original's Start: an orange plate with white text under the bar the count starts
+    /// from, alone, no triangle or disc there (the bar has the word and no low).
+    /// </summary>
+    [Fact]
+    public void Start_is_drawn_alone_under_the_bar_the_count_starts_from()
+    {
+        var bars = Bars();
+        const int at = 20;
+        ChartSeries Cc(bool word) => CipherC(bars, s =>
+        {
+            if (!word) return;
+            var w = Enumerable.Repeat(double.NaN, bars.Count).ToArray();
+            w[at] = CipherCProvider.StartWord;
+            s.Data.ComponentData[CipherCProvider.CompDcl + ComponentCompanions.BadgeWord] = w;
+        });
+        var range = DbsiChartHarness.MainRange(bars, new[] { DbsiChartHarness.Candles() }, 0, bars.Count);
+        var f = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), Cc(word: true) }, W, H, D, range: range);
+        var plain = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), Cc(word: false) }, W, H, D, range: range);
+        var orange = SKColor.Parse(CipherCProvider.StartHex);
+        int low = (int)Math.Ceiling(f.Y(bars[at].Low));
+        int x0 = (int)(f.X(at) - 3 * f.Slot), x1 = (int)(f.X(at) + 3 * f.Slot);
+        var plate = InkPixels(f.Bmp, orange, x0, x1, low, (int)f.PlotBottom, tol: 6);
+        Assert.True(plate.Count > 20, $"only {plate.Count} Start plate pixels under the low");
+        Assert.InRange(plate.Min(q => q.Y) - low, 0, (int)(3 * D) + 1);
+        Assert.Contains(InkPixels(f.Bmp, SKColors.White, x0, x1, low, (int)f.PlotBottom, tol: 6), q => q.Y >= plate.Min(z => z.Y));
+        Assert.Empty(InkPixels(plain.Bmp, orange, x0, x1, low, (int)f.PlotBottom, tol: 6));
+        Assert.Empty(InkPixels(f.Bmp, SKColor.Parse(CipherCProvider.DclHex), x0, x1, 0, (int)f.PlotBottom));
+    }
+
     // ── The status line ──────────────────────────────────────────────────────────
 
     [Fact]

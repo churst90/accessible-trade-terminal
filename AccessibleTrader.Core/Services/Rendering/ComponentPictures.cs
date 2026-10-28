@@ -142,12 +142,12 @@ namespace AccessibleTrader.Core.Services.Rendering
             int k = ctx.ViewportStart + i;
             double v = MarkedValue(series, comp, k);
             if (double.IsNaN(v)) return null;
-            float own = StandardRenderers.ResolveMarkerY(ctx, comp, i, v);
+            float h = TriangleHeight(ctx, comp), gap = BadgeGap(h);
+            float own = StandardRenderers.ResolveMarkerY(ctx, comp, i, v, h);
             var sibling = Sibling(series, comp);
             if (sibling == null || depth > 4) return own;
             float? edge = FarEdge(ctx, series, sibling, i, depth + 1);
             if (edge == null) return own;
-            float h = TriangleHeight(ctx, comp), gap = BadgeGap(h);
             return comp.MarkerAnchor == MarkerAnchor.AboveBar
                 ? Math.Min(own, edge.Value - gap)
                 : Math.Max(own, edge.Value + gap + h);

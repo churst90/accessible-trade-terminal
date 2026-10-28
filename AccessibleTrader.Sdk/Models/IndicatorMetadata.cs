@@ -55,6 +55,11 @@ namespace AccessibleTrader.Sdk.Models
         /// not overlap: a weekly low's mark under the daily low's mark on the same bar.</summary>
         public string? MarkerStacksUnder { get; set; }
 
+        /// <summary>A below-bar or above-bar marker drawn touching the bar, a couple of pixels
+        /// clear of its low or high (a label pointing at the price), instead of padded off it by
+        /// a share of the bar's range. False = padded.</summary>
+        public bool MarkerTouchesBar { get; set; }
+
         /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> companion picks from,
         /// separated by '|' ("LOW|MID|HIGH|Start"), printed under the marker. Visual only.</summary>
         public string? BadgeWords { get; set; }

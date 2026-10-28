@@ -117,8 +117,15 @@ public sealed class CipherCProviderTests
         Assert.Equal("#D5C110", CipherCProvider.YclHex);
         // Its pictures: a faint dotted line at each low and an opaque one at each top, a faint box
         // over each top's cycle; the weekly mark stacks under the daily, the yearly under the weekly.
+        // The lows and the daily confirmation point at the bar, touching it; the tops do not (where
+        // the original puts its letter over a top is not known).
         foreach (var low in new[] { CipherCProvider.CompDcl, CipherCProvider.CompWcl, CipherCProvider.CompYcl })
+        {
             Assert.Equal(51, components[low].MarkLineAlpha);
+            Assert.True(components[low].MarkerTouchesBar, low);
+        }
+        Assert.True(components[CipherCProvider.CompDclConfirmed].MarkerTouchesBar);
+        Assert.False(components[CipherCProvider.CompLeftTop].MarkerTouchesBar);
         Assert.Equal(CipherCProvider.CompDcl, components[CipherCProvider.CompWcl].MarkerStacksUnder);
         Assert.Equal(CipherCProvider.CompWcl, components[CipherCProvider.CompYcl].MarkerStacksUnder);
         Assert.Equal("LOW|MID|HIGH|Start@#FF9800", components[CipherCProvider.CompDcl].BadgeWords);
@@ -604,7 +611,7 @@ public sealed class CipherCProviderTests
     /// <summary>
     /// The pictures beside the marks, as the original draws them. Under each daily low's D a
     /// check; a cancelled low keeps its mark with a cross; the low held now a clock and its grade;
-    /// Start under the first low; a check over each confirmation. Each top's box runs from its
+    /// Start alone under the bar the count starts from; a check over each confirmation. Each top's box runs from its
     /// cycle's low to the next, from the cycle's lowest low to the top. The live windows' bands
     /// are written once, on the last bar, from the last low plus the shortest and longest cycle
     /// in calendar days.
@@ -639,7 +646,13 @@ public sealed class CipherCProviderTests
             Assert.Equal(bars[h].Low, r[CipherCProvider.CompPending + CipherCProvider.LowestSuffix][Marked(r[CipherCProvider.CompPending]).Last()]);
             Assert.InRange(word[h], 0, 2);
         }
-        Assert.Equal(CipherCProvider.StartWord, word[lows[0]]);
+        // Start alone, as the original's own plate, under the bar the count starts from: the
+        // lowest of the first bars, before the first low, with no low or mark of its own.
+        int startBar = Assert.Single(Enumerable.Range(0, n), i => word[i] == CipherCProvider.StartWord);
+        Assert.True(startBar < lows[0], $"Start on bar {startBar}, the first low on {lows[0]}");
+        Assert.True(double.IsNaN(r[CipherCProvider.CompDcl][startBar]) && double.IsNaN(mark[startBar]));
+        Assert.True(double.IsNaN(badge[startBar]));
+        for (int i = 0; i < startBar; i++) Assert.True(bars[i].Low > bars[startBar].Low, $"bar {i} is lower than Start's");
         foreach (int c in Marked(r[CipherCProvider.CompDclConfirmed]))
             Assert.Equal(ComponentCompanions.BadgeCheck, r[CipherCProvider.CompDclConfirmed + ComponentCompanions.Badge][c]);
 
@@ -721,41 +734,82 @@ public sealed class CipherCProviderTests
     private static string Cells(IReadOnlyList<TableCell> row) => string.Join(" | ", row.Select(c => c.Text));
 
     /// <summary>
-    /// The table in the price pane's corner, laid out as the original's: seven rows of five
-    /// columns. On a tuned symbol's daily chart its headers are green, the middle block holds the
-    /// preset's ranges, the timeframe cell says daily is tuned, and the counts are the window
-    /// counts the speech says. The pending cell says how long ago the held low was, or a tick.
+    /// The table in the price pane's corner, laid out as the original's and in its words: seven
+    /// rows of five columns. On a tuned symbol's daily chart its headers are green, the middle
+    /// block holds the preset's ranges, the timeframe cell says daily is optimised. Confirmed:
+    /// the days and weeks since the last confirmed lows, the window counts the speech says less
+    /// one (the original counts the low's own bar as 0). Unconfirmed: the days since the held
+    /// low, counting on every bar, still since a dropped low until the next is named, and a check
+    /// from a confirmation until then; the weeks since the newest weekly low.
     /// </summary>
     [Fact]
     public void The_table_on_a_tuned_daily_chart_shows_the_presets_ranges_and_the_counts()
     {
         var r = Btc();
-        int last = r[CipherCProvider.CompDailyWindow].Length - 1;
+        int n = r[CipherCProvider.CompDailyWindow].Length, last = n - 1;
         var rows = Table(r, last);
         foreach (var row in rows) _out.WriteLine(Cells(row));
         Assert.Equal(7, rows.Count);
         Assert.All(rows, row => Assert.Equal(5, row.Sum(c => c.ColSpan)));
         Assert.Equal(CipherCProvider.TableTuned, rows[0][0].Fill);
-        Assert.Equal("BITCOIN CYCLE COUNT", rows[0][1].Text);
-        Assert.Equal("Counted from 48 days", rows[1][0].Text);
+        Assert.Equal("\u2705 Finetuned Asset Detected \u2705", rows[0][0].Text);
+        Assert.Equal("BTC CYCLE COUNT", rows[0][1].Text);
+        Assert.Equal("Cycle Low Windows", rows[0][2].Text);
+        Assert.Equal("Default Count Selected", rows[1][0].Text);
         Assert.Equal("54\u201366 days", rows[1][2].Text);
+        Assert.Equal("\u2705 Confirmed \u2705", rows[1][3].Text);
         Assert.Equal("22\u201342 weeks", rows[2][2].Text);
         Assert.Equal("4 years", rows[3][2].Text);
         Assert.Equal(CipherCProvider.TableRightFrame, rows[3][0].Fill);
-        Assert.Equal("Daily cycle day:", rows[2][3].Text);
-        Assert.Equal(r[CipherCProvider.CompDailyWindow][last].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[2][4].Text);
-        Assert.Equal(r[CipherCProvider.CompWeeklyWindow][last].ToString(System.Globalization.CultureInfo.InvariantCulture), rows[3][4].Text);
-        Assert.Contains("Bitcoin", rows[5][0].Text + rows[6][0].Text);
+        Assert.Equal("\u2705 Optimised Timeframe - Daily \u2705", rows[3][0].Text);
+        Assert.Equal("Days since Last DCL :", rows[2][3].Text);
+        Assert.Equal("Weeks Since Last WCL :", rows[3][3].Text);
+        string Less1(double v) => (v - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(Less1(r[CipherCProvider.CompDailyWindow][last]), rows[2][4].Text);
+        Assert.Equal(Less1(r[CipherCProvider.CompWeeklyWindow][last]), rows[3][4].Text);
+        Assert.Equal("\U0001F558 Unconfirmed \U0001F558", rows[4][^1].Text);
+        Assert.StartsWith("SPX, ", rows[5][0].Text);
+        Assert.StartsWith("ETH, BTC", rows[6][0].Text);
+        Assert.Equal("Days since Last DCL :", rows[5][^2].Text);
+        Assert.Equal("Weeks Since Last WCL :", rows[6][^2].Text);
 
+        // Unconfirmed daily: on a pending bar, how long ago the named low was; then one more each
+        // bar while nothing happens; a check on each confirmation.
+        var pending = r[CipherCProvider.CompPending];
         var ago = r[CipherCProvider.CompPending + CipherCProvider.LowestAgoSuffix];
-        int held = Enumerable.Range(0, ago.Length).Last(i => !double.IsNaN(ago[i]) && ago[i] > 1);
-        Assert.Equal($"{ago[held]} days ago", Table(r, held)[5][^1].Text);
-        int clear = Enumerable.Range(0, ago.Length).Last(i => double.IsNaN(ago[i]) && !double.IsNaN(r[CipherCProvider.PresetKey][i]));
-        Assert.Equal("\u2713", Table(r, clear)[5][^1].Text);
+        var confirmed = r[CipherCProvider.CompDclConfirmed];
+        var cancelled = r[CipherCProvider.CompCancelled];
+        bool Quiet(int i) => double.IsNaN(pending[i]) && double.IsNaN(confirmed[i]) && double.IsNaN(cancelled[i]);
+        int checkedRuns = 0;
+        for (int p = 0; p + 3 < n; p++)
+        {
+            if (double.IsNaN(pending[p]) || double.IsNaN(ago[p]) || !Quiet(p + 1) || !Quiet(p + 2)) continue;
+            Assert.Equal(ago[p].ToString(System.Globalization.CultureInfo.InvariantCulture), Table(r, p)[5][^1].Text);
+            Assert.Equal((ago[p] + 2).ToString(System.Globalization.CultureInfo.InvariantCulture), Table(r, p + 2)[5][^1].Text);
+            checkedRuns++;
+        }
+        Assert.True(checkedRuns > 20, $"only {checkedRuns} pending runs checked");
+        foreach (int c in Marked(confirmed)) Assert.Equal("\u2705", Table(r, c)[5][^1].Text);
+        // After a drop it counts on from the dropped low (one more each quiet bar).
+        int carried = 0;
+        foreach (int c in Marked(cancelled))
+        {
+            if (c + 1 >= n || !Quiet(c + 1) || !double.TryParse(Table(r, c)[5][^1].Text, out double before)) continue;
+            Assert.Equal((before + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), Table(r, c + 1)[5][^1].Text);
+            carried++;
+        }
+        Assert.True(carried > 0, "no drop followed by a quiet bar");
+
+        // Unconfirmed weekly: whole weeks since one of the drawn weekly lows, never more than
+        // since the last confirmed one.
+        var wcl = Marked(r[CipherCProvider.CompWcl]).ToList();
+        int weekly = int.Parse(rows[6][^1].Text, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Contains(wcl, l => Math.Floor((last - l) / 7.0) == weekly);
+        Assert.True(weekly <= r[CipherCProvider.CompWeeklyWindow][last] - 1);
     }
 
     /// <summary>A symbol with no preset: the headers turn red and the ranges block is left
-    /// blank, as the original leaves it, and the count says it is the default.</summary>
+    /// blank, as the original leaves it.</summary>
     [Fact]
     public void The_table_on_a_symbol_with_no_preset_is_red_and_has_no_ranges()
     {
@@ -764,14 +818,15 @@ public sealed class CipherCProviderTests
         foreach (var row in rows) _out.WriteLine(Cells(row));
         Assert.Equal(CipherCProvider.TableUntuned, rows[0][0].Fill);
         Assert.Equal(CipherCProvider.TableUntuned, rows[0][2].Fill);
+        Assert.Equal("\u26A0\uFE0F Unoptimised Asset Detected \u26A0\uFE0F", rows[0][0].Text);
         Assert.Equal("", rows[0][1].Text);
-        Assert.Equal("Default count, from 32 bars", rows[1][0].Text);
+        Assert.Equal("Default Count Selected", rows[1][0].Text);
         for (int k = 1; k <= 3; k++) Assert.True(rows[k][1].Text == "" && rows[k][2].Text == "", Cells(rows[k]));
         Assert.All(rows, row => Assert.Equal(5, row.Sum(c => c.ColSpan)));
     }
 
-    /// <summary>Off a daily chart the timeframe cell is the original's red warning and the
-    /// counts are in bars.</summary>
+    /// <summary>Off a daily chart the timeframe cell is the original's red warning; the counts
+    /// are in bars, under the original's own words.</summary>
     [Fact]
     public void The_table_off_a_daily_chart_warns_and_counts_bars()
     {
@@ -782,11 +837,12 @@ public sealed class CipherCProviderTests
                 double c = 100 + 10 * Math.Sin(2 * Math.PI * bars.Count / 40.0) + bars.Count * 0.01;
                 bars.Add(new Ohlcv(day.Date.AddHours(13.5 + 4 * h), c - 0.3, c + 1, c - 1, c, 1000));
             }
-        var rows = Table(Run(bars, "DJI"), bars.Count - 1);
+        var r = Run(bars, "DJI");
+        var rows = Table(r, bars.Count - 1);
         Assert.Equal(CipherCProvider.TableWrongFrame, rows[3][0].Fill);
-        Assert.StartsWith("\u26A0 Not tuned for this timeframe", rows[3][0].Text);
-        Assert.Equal("Daily cycle bar:", rows[2][3].Text);
-        Assert.Equal("Weekly cycle bar:", rows[3][3].Text);
+        Assert.Equal("\u26A0\uFE0F Timeframe Not Optimised, Switch to Daily \u26A0\uFE0F", rows[3][0].Text);
+        Assert.Equal("Days since Last DCL :", rows[2][3].Text);
+        Assert.Equal((r[CipherCProvider.CompDailyWindow][^1] - 1).ToString(System.Globalization.CultureInfo.InvariantCulture), rows[2][4].Text);
     }
 
     /// <summary>The chart draws the table for a shown Cipher C on the price pane only: not a

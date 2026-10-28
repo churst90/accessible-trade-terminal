@@ -128,6 +128,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string PresetKey = "__preset";
         /// <summary>1 when the chart is not daily and the counts run in its bars, as the original runs them there; 0 on a daily chart.</summary>
         public const string InBarsKey = "__in_bars";
+        /// <summary>
+        /// The original table's unconfirmed counts, per bar. Daily: whole days (bars, off a daily
+        /// chart) since the daily low being held; after a drop, still since the dropped low until
+        /// the next is named; -1 from a confirmation until then (the original's check). Weekly:
+        /// whole weeks since the newest weekly low. NaN before there is one.
+        /// </summary>
+        public const string HeldDaysKey = "__held_days", HeldWeeksKey = "__held_weeks";
 
         // ── Parameters ─────────────────────────────────────────────────────────
         public const string ParamPreset     = "Preset";
@@ -162,6 +169,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             Name = name, DisplayName = name, DisplayType = ComponentDisplayType.TriangleUpRing, MarkerText = markerText, Role = ComponentRole.Signal,
             Causality = ComponentCausality.Lookahead, ConfirmedBy = confirmedBy, DefaultMarkerAnchor = MarkerAnchor.BelowBar,
+            // The original's low is a label pointing up at the bar's low, touching it.
+            MarkerTouchesBar = true,
             DefaultColorHex = hex, DefaultThickness = size, DefaultDrawOrder = order,
             // The original's dotted line through the chart at each low, faint, in the tier's colour.
             MarkLineAlpha = LineAlpha, MarkerStacksUnder = stacksUnder, BadgeWords = words,
@@ -175,9 +184,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         // cross-series signal list on the candles fills it with the component's own value — the
         // low's price for a cancellation, the confluence score for a confirmation.
         private static IndicatorComponentMetadata Event(string name, ComponentDisplayType shape, MarkerAnchor anchor, string hex,
-            float size, string patch, double freq, PlaybackLayer layer, string speech, bool count = false, bool drawn = true) => new()
+            float size, string patch, double freq, PlaybackLayer layer, string speech, bool count = false, bool drawn = true, bool touches = false) => new()
         {
-            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal, IsCount = count, DefaultIsDrawn = drawn,
+            Name = name, DisplayName = name, DisplayType = shape, Role = ComponentRole.Signal, IsCount = count, DefaultIsDrawn = drawn, MarkerTouchesBar = touches,
             Causality = ComponentCausality.Causal, DefaultMarkerAnchor = anchor,
             DefaultColorHex = hex, DefaultThickness = size,
             DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = layer,
@@ -296,11 +305,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // Value: the confluence score, 1 to 3 (a normal-length cycle, a close over the
                     // moving average, a close over the low bar's high), so a strategy can ask for
                     // "DCL Confirmed at least 2". The daily one is drawn as the original draws it, a
-                    // check over a down triangle at the bar's high; the weekly and yearly ones, and
+                    // check over a down triangle pointing at the bar's high, touching it; the weekly and yearly ones, and
                     // the events below, are heard, not drawn (the original draws none of them),
                     // and can be drawn from Appearance.
                     Event(CompDclConfirmed, ComponentDisplayType.TriangleDown, MarkerAnchor.AboveBar, DclHex, 3f, "sine_bell", 392, PlaybackLayer.Foreground,
-                          "Daily cycle low confirmed.", count: true),
+                          "Daily cycle low confirmed.", count: true, touches: true),
                     Event(CompWclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 5.5f, "dual_tone_bell", 294, PlaybackLayer.Foreground,
                           "Weekly cycle low confirmed.", count: true, drawn: false),
                     Event(CompYclConfirmed, ComponentDisplayType.CheckBox, MarkerAnchor.AboveBar, DclHex, 6.5f, "dual_tone_bell", 220, PlaybackLayer.Foreground,
@@ -523,8 +532,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // The daily lows' signs, as the original draws them under its D: a check under each
             // confirmed low, with a refresh sign over it when the low replaced a cancelled one; a
             // cancelled low keeps its mark with a cross; the low being held now is marked with a
-            // clock, the refresh sign if it replaces a cancelled one, and its grade; and the first
-            // low says Start, where the count begins. Pictures: the speech is the confirmations',
+            // clock, the refresh sign if it replaces a cancelled one, and its grade; and Start
+            // under the bar the count begins from, the seed, which is not a low. Pictures: the speech is the confirmations',
             // the pending and the cancelled components'.
             if (grade != null) DailySigns(o, d, dLows, dConfirm, low, grade, n);
 
@@ -574,6 +583,23 @@ namespace AccessibleTrader.Core.Services.Indicators
             // and the live one runs on to the last bar.
             DrawArcs(o[(tierNo == 1 ? CompDailyWindow : tierNo == 2 ? CompWeeklyWindow : CompYearlyWindow) + ComponentCompanions.Path],
                 lowestLows, lowestTier, lowest.ConfirmedAt, close, high, low, n);
+
+            // The table's unconfirmed counts (HeldDaysKey, HeldWeeksKey).
+            double[] heldDays = A(HeldDaysKey), heldWeeks = A(HeldWeeksKey);
+            if (dTier.Active)
+            {
+                int held = -2;   // -2 none yet, -1 confirmed and nothing named since
+                for (int t = 0; t < n; t++)
+                {
+                    if (d.HeldAt[t] >= 0) held = d.HeldAt[t];
+                    else if (!double.IsNaN(d.Confirmed[t])) held = -1;
+                    if (held >= 0) heldDays[t] = Math.Floor((t - held) / day.Bars + 1e-9);
+                    else if (held == -1) heldDays[t] = -1;
+                }
+            }
+            if (wTier.Active)
+                for (int t = 0; t < n; t++)
+                    if (w.HeldAt[t] >= 0) heldWeeks[t] = Math.Floor((t - w.HeldAt[t]) / week.Bars + 1e-9);
 
             int presetIndex = IndexOf(preset);
             Array.Fill(A(PresetKey), fineTuned ? presetIndex : -1 - presetIndex);
@@ -810,7 +836,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// the original draws them: a check under each confirmed low, a refresh sign over it when
         /// its confirmation replaced a cancelled low; a cancelled low's mark with a cross; the low
         /// held now with a clock, a refresh sign if a low was cancelled since the last confirmed
-        /// one, and its grade (LOW, MID, HIGH) on the last bar; Start under the first low; and a
+        /// one, and its grade (LOW, MID, HIGH) on the last bar; Start, alone, under the bar the
+        /// count starts from (<see cref="CipherCEngine.TierRun.Start"/>); and a
         /// check over each daily confirmation's down triangle.
         /// </summary>
         private static void DailySigns(Dictionary<string, double[]> o, CipherCEngine.TierRun d, List<int> lows, Dictionary<int, int> confirmedAt,
@@ -844,7 +871,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 badge[held] = ComponentCompanions.BadgeClock | (double.IsNaN(replacedSince) ? 0 : ComponentCompanions.BadgeRefresh);
                 word[held] = grade[n - 1];
             }
-            if (lows.Count > 0 && double.IsNaN(word[lows[0]])) word[lows[0]] = StartWord;
+            // The original's Start: its own plate under the bar the count starts from, with no low drawn there.
+            if (d.Start >= 0 && d.Start < n && double.IsNaN(word[d.Start])) word[d.Start] = StartWord;
             var confirmed = o[CompDclConfirmed];
             var confirmedBadge = o[CompDclConfirmed + ComponentCompanions.Badge];
             for (int t = 0; t < n; t++) if (!double.IsNaN(confirmed[t])) confirmedBadge[t] = ComponentCompanions.BadgeCheck;
@@ -1050,12 +1078,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// The original's table in the price pane's bottom right corner, at one bar, in our words:
+        /// The original's table in the price pane's bottom right corner, at one bar, in its words
+        /// and layout, coloured as it is (2026-10-28: its cells read from its chart memory):
         /// whether the symbol has a tuned preset and the chart is daily, the preset's daily, weekly
-        /// and yearly ranges, where the daily and weekly cycles are (the window counts the speech
-        /// says), how long ago the pending low was, and the symbols with a preset. Laid out and
-        /// coloured as the original's (2026-10-28: its cells read from its chart memory). Its
-        /// pending weekly count is not modelled (a dash). Empty before the chart has a preset.
+        /// and yearly ranges, the days since the last confirmed daily low and weeks since the last
+        /// confirmed weekly low (the window counts the speech says, less one: the original counts
+        /// from 0 on the low's bar), the same for the unconfirmed ones (<see cref="HeldDaysKey"/>,
+        /// <see cref="HeldWeeksKey"/>), and the symbols with a preset. Empty before the chart has
+        /// a preset.
         /// </summary>
         public static IReadOnlyList<IReadOnlyList<Rendering.TableCell>> TableRows(Func<string, double[]?> component, int index)
         {
@@ -1067,36 +1097,34 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (presetIndex < 0 || presetIndex >= CipherCEngine.Presets.Count) return Array.Empty<IReadOnlyList<Rendering.TableCell>>();
             var preset = CipherCEngine.Presets[presetIndex];
             string head = tuned ? TableTuned : TableUntuned;
-            string Count(double v) => double.IsNaN(v) ? "\u2014" : Num(v);
-            var (dayWord, _) = Words(inBars, "day", "days");
-            var (weekWord, _) = Words(inBars, "week", "weeks");
-            double pendingAgo = At(CompPending + LowestAgoSuffix);
-            var names = CipherCEngine.Presets.Select(p => p.Name).ToList();
-            int half = (names.Count + 1) / 2;
+            // The original prints NaN where it has no count yet; a dash here.
+            string Since(double count) => double.IsNaN(count) ? "\u2014" : Num(Math.Max(0, count - 1));
+            string Held(double v) => double.IsNaN(v) ? "\u2014" : v < 0 ? "\u2705" : Num(v);
+            var keys = CipherCEngine.Presets.Select(p => p.Key).ToList();
+            int split = keys.IndexOf("ETH") is var e && e > 0 ? e : (keys.Count + 1) / 2;   // the stock and metal symbols, then the crypto ones
 
             Rendering.TableCell C(string text, string? fill = null, int span = 1, int size = 0) => new(text, fill, span, size);
             Rendering.TableCell Blank(int span = 1) => C("", null, span);
             IEnumerable<Rendering.TableCell> Middle(string label, string range) =>
                 tuned ? new[] { C(label, TableLabel, size: -1), C(range, TableValue) } : new[] { Blank(), Blank() };
+            const string SinceDcl = "Days since Last DCL :", SinceWcl = "Weeks Since Last WCL :";
             return new List<IReadOnlyList<Rendering.TableCell>>
             {
-                new[] { C(tuned ? "\u2713 Tuned preset for this symbol" : "\u26A0 No preset for this symbol", head, size: 1),
-                        tuned ? C($"{preset.Name.ToUpperInvariant()} CYCLE COUNT", TableCountHead, 2, 1) : Blank(2),
-                        C("Cycle low windows", head, 2, 1) },
-                new[] { C(tuned ? $"Counted from {Num(preset.CountedDailyMin)} days" : $"Default count, from {Num(CipherCEngine.DefaultCountDailyMin)} bars", TableDark) }
-                    .Concat(Middle("Daily cycle range", $"{Dash(preset.DailyMin, preset.DailyMax)} days"))
-                    .Append(C("\u2713 Confirmed", null, 2)).ToArray(),
+                new[] { C(tuned ? "\u2705 Finetuned Asset Detected \u2705" : "\u26A0\uFE0F Unoptimised Asset Detected \u26A0\uFE0F", head, size: 1),
+                        tuned ? C($"{preset.Key} CYCLE COUNT", TableCountHead, 2, 1) : Blank(2),
+                        C("Cycle Low Windows", head, 2, 1) },
+                new[] { C("Default Count Selected", TableDark) }
+                    .Concat(Middle("Daily Cycle Range", $"{Dash(preset.DailyMin, preset.DailyMax)} days"))
+                    .Append(C("\u2705 Confirmed \u2705", null, 2)).ToArray(),
                 new[] { C("", TableDark) }
-                    .Concat(Middle("Weekly cycle range", $"{Dash(preset.WeeklyMin, preset.WeeklyMax)} weeks"))
-                    .Concat(new[] { C($"Daily cycle {dayWord}:"), C(Count(At(CompDailyWindow))) }).ToArray(),
-                new[] { inBars ? C("\u26A0 Not tuned for this timeframe, switch to daily", TableWrongFrame) : C("\u2713 Tuned timeframe: daily", TableRightFrame) }
-                    .Concat(Middle("Yearly cycle range", $"{Dash(preset.YearlyMin, preset.YearlyMax)} years"))
-                    .Concat(new[] { C($"Weekly cycle {weekWord}:"), C(Count(At(CompWeeklyWindow))) }).ToArray(),
-                new[] { C("Symbols with a preset", TableValue), Blank(2), C("\u25F7 Pending", null, 2) },
-                new[] { C(string.Join(", ", names.Take(half)), TableDark, size: -1), Blank(2),
-                        C("Daily low held:"), C(double.IsNaN(pendingAgo) ? "\u2713" : $"{Num(pendingAgo)} {(pendingAgo == 1 ? dayWord : dayWord + "s")} ago") },
-                new[] { C(string.Join(", ", names.Skip(half)), TableDarkLight, size: -1), Blank(2),
-                        C("Weekly low held:"), C("\u2014") },
+                    .Concat(Middle("Weekly Cycle Range", $"{Dash(preset.WeeklyMin, preset.WeeklyMax)} weeks"))
+                    .Concat(new[] { C(SinceDcl), C(Since(At(CompDailyWindow))) }).ToArray(),
+                new[] { inBars ? C("\u26A0\uFE0F Timeframe Not Optimised, Switch to Daily \u26A0\uFE0F", TableWrongFrame) : C("\u2705 Optimised Timeframe - Daily \u2705", TableRightFrame) }
+                    .Concat(Middle("Yearly Cycle Range", $"{Dash(preset.YearlyMin, preset.YearlyMax)} years"))
+                    .Concat(new[] { C(SinceWcl), C(Since(At(CompWeeklyWindow))) }).ToArray(),
+                new[] { C("\U0001F447 Finetuned Assets Listed Below \U0001F447", TableValue), Blank(2), C("\U0001F558 Unconfirmed \U0001F558", null, 2) },
+                new[] { C(string.Join(", ", keys.Take(split)), TableDark, size: -1), Blank(2), C(SinceDcl), C(Held(At(HeldDaysKey))) },
+                new[] { C(string.Join(", ", keys.Skip(split)), TableDarkLight, size: -1), Blank(2), C(SinceWcl), C(Held(At(HeldWeeksKey))) },
             };
         }
 

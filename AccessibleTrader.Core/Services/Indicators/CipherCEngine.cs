@@ -489,6 +489,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             public List<int> FoundAt { get; } = new();
             /// <summary>Per bar: the newest confirmed low known ON that bar, or -1.</summary>
             public int[] LastLowAt = Array.Empty<int>();
+            /// <summary>The bar the count starts from (the daily tier's seed, not a low of its own), or -1.</summary>
+            public int Start = -1;
             /// <summary>
             /// Events, by the bar they happen on. Confirmed, Cancelled and Failed carry the price of
             /// the low concerned (Cancelled: the pending low a lower bar undercut; Failed: the
@@ -501,7 +503,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Failed = Array.Empty<double>();
             /// <summary>Per bar: the confirmed low a failure on that bar closed under, or -1.</summary>
             public int[] ClosedUnder = Array.Empty<int>();
-            /// <summary>Per bar: the low found and holding at the end of that bar (the pending low), or -1.</summary>
+            /// <summary>Per bar: the low found and holding at the end of that bar (the pending low), or -1.
+            /// The weekly machines' is their newest weekly low, which the next one confirms.</summary>
             public int[] HeldAt = Array.Empty<int>();
             /// <summary>Per bar: the pending low a cancellation on that bar dropped, or -1.</summary>
             public int[] CancelledLow = Array.Empty<int>();
@@ -685,6 +688,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 seed = 0;
                 for (int i = 1; i < Math.Min(n, (int)Math.Round(dmin)); i++) if (low[i] < low[seed]) seed = i;
             }
+            run.Start = seed;
 
             bool cancelledSince = false;
             double replaced = double.NaN;
@@ -987,6 +991,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
             anchor = now;
             run.LastLowAt[t] = anchor;
+            // The newest weekly low, not confirmed until the next one is (the original's unconfirmed WCL).
+            run.HeldAt[t] = weekly.Count > 0 ? weekly[^1] : -1;
         }
 
         private static void Publish(TierRun run, SortedDictionary<int, int> drawnOn, Dictionary<int, int> fixedOn)

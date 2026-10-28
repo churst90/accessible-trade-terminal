@@ -625,6 +625,9 @@ public sealed class DeclaredKnobObservabilityTests
         // At its value, 8 under the "upper" line it is perturbed to stack under: near enough that
         // stacking moves it.
         (ComponentDisplayType.TriangleUpRing, "ringed marker", _ => { }),
+        // The same under the bar, where MarkerTouchesBar moves it from a padded place to the bar's
+        // low (at its value there is no bar to touch).
+        (ComponentDisplayType.TriangleUpRing, "ringed marker under the bar", c => c.MarkerAnchor = MarkerAnchor.BelowBar),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

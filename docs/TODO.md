@@ -34,12 +34,24 @@
 >   chart next to the original. Open:
 >   - The weekly and yearly bands are undecoded (drawn by the daily rule); the dollar's daily band
 >     is a day late.
->   - The table's pending weekly cell is not modelled; its words are ours (say if you want the
->     original's wording instead).
->   - Start is under Cipher C's first low, not always the original's; the confirmation triangle
->     keeps the marker padding where the original's touches the high.
->   - Not yet reviewed by an accessibility agent (none registered here). The table is aria-hidden,
->     like the status lines.
+>   - ~~The table's words are ours; its pending weekly cell is not modelled; Start under the first
+>     low; the confirmation keeps the padding~~: done 2026-10-28 (CHANGES, "marks touch the bar").
+>     The table now says the original's words and its days since; marks touch the bar; Start sits
+>     under the bar the count starts from.
+>   - Left for the precise pass (needs the original's numbers, after the simple items):
+>     - the weekly and yearly bands (above);
+>     - the dollar's daily band, a day late;
+>     - per-asset start dates: the untuned count starts from 2000-01-01, the original's start is
+>       not read per asset;
+>     - counting a dropped weekly low on in the unconfirmed weekly cell (Cipher C counts from its
+>       newest weekly low);
+>     - replays of Coinbase 4h and Bitcoin weekly (TradingView must have a visible window; the
+>       trial ends about 11-05).
+>   - "Default Count Selected" is always shown; the original's words for a changed count are not read.
+>   - Question for Cody: the table's unconfirmed days and weeks are not spoken anywhere (the table
+>     is aria-hidden, like the status lines). Add them as a reading? Speech also still says the day of
+>     the cycle, one more than the table's "days since" (question below).
+>   - Not yet reviewed by an accessibility agent (none registered here).
 > - [ ] **Cipher C: a translated top is mid only exactly halfway (2026-10-28, built, NOT seen or
 >   heard; see CHANGES and CIPHER_C_DESIGN section 28).** On the original's boxes, 86.0% → 94.6% of
 >   its daily tops; as the app runs, 1,024 → 1,143 of its 1,244 tops on the tuned daily charts. Cody

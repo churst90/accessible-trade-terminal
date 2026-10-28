@@ -133,7 +133,7 @@ public sealed class StatusLineInChartAreaTests
         Assert.Equal("true", block.GetAttribute("aria-hidden"));
         Assert.Contains("pointer-events:none", block.GetAttribute("style")!.Replace(" ", ""));
         var table = rig.Cut.Find(".chart-info-table");
-        Assert.Contains("BITCOIN CYCLE COUNT", table.TextContent);
+        Assert.Contains("BTC CYCLE COUNT", table.TextContent);
         Assert.Equal(7, table.QuerySelectorAll("tr").Length);
         string Count() => rig.Cut.Find(".chart-info-table").QuerySelectorAll("tr")[2].QuerySelectorAll("td")[^1].TextContent;
         string at390 = Count();

@@ -1429,16 +1429,17 @@ colours as 0xAABBGGRR). Nothing below is from the original's code, which is not 
 
 | Piece | The original | Cipher C |
 |---|---|---|
-| Daily, weekly, yearly low | ▲ over a disc with D / W / Y; green #4CAF50, blue #2962FF, gold #D5C110; the weekly under the daily, the yearly under the weekly | the same (`TriangleUpRing`, `MarkerStacksUnder`) |
+| Daily, weekly, yearly low | ▲ over a disc with D / W / Y, its tip touching the bar's low; green #4CAF50, blue #2962FF, gold #D5C110; the weekly under the daily, the yearly under the weekly | the same (`TriangleUpRing`, `MarkerStacksUnder`, `MarkerTouchesBar`) |
 | Cycle length | 49D / 24W beside the daily and weekly lows | the same (`ValueLabelRenderer.LayoutBeside`) |
 | Dotted line at each low and top | through the chart, alpha 51 at lows | the same (`MarkLineAlpha`) |
-| Under the D | ✅ confirmed, 🔄 replaced a cancelled low, ❌ cancelled, ⏳ held now with LOW / MID / HIGH, Start on an orange plate | the same signs (`_badge` bits, `BadgeWords`) |
-| Daily confirmation | ✅ over a green ▼ at the bar's high | the same; ours keeps the marker padding |
+| Under the D | ✅ confirmed, 🔄 replaced a cancelled low, ❌ cancelled, ⏳ held now with LOW / MID / HIGH | the same signs (`_badge` bits, `BadgeWords`) |
+| Start | an orange plate alone under the bar the count starts from | the same: the lowest bar before the first low (`TierRun.Start`) |
+| Daily confirmation | ✅ over a green ▼ touching the bar's high | the same |
 | Weekly / yearly confirmation, pending, cancelled, failed events | not drawn | not drawn by default; heard; can be drawn from Appearance |
 | Translated top | L / M / R in a disc over ▼; red #F23645, orange #FF9800, green #4CAF50; a box over the cycle at alpha 25, low to low, lowest low to the top | the same (`BoxAlpha`, `_boxStart`..`_boxBottom`) |
 | Timing windows | the live cycle's bands, alpha 51, into the future | the same; daily band decoded, weekly and yearly not |
 | Wave | yellow #FDD835 at 0xCC | the same level and height (below) |
-| Table | bottom right of the price pane, 7 × 5 | the same layout and cell colours, our words |
+| Table | bottom right of the price pane, 7 × 5 | the same layout, cell colours, words and counts |
 
 **The wave.** One level for every hump: middle M = 0.8 × the close on the bar c of the newest daily
 confirmation; half-height h = 0.2 × (highest high − lowest low over the 100 bars ending at c);
@@ -1463,5 +1464,23 @@ timeframe (green when daily, red "switch to daily" otherwise), and on the right 
 days since the daily low and weeks since the weekly low. Rows 4-6: the symbols with a preset, and
 Pending with the days since the held daily low (✅ when none) and the weekly one. Cell fills
 #RRGGBBAA: header #4CAF4F69 (red #FF525269), count header #20C12B5C, dark #363A455C and #363A454B,
-range label #363A4519, value #787B8626, daily #4CAF4FA3, not daily #FF000066. Cipher C's counts are
-its day of the cycle, one more than the original's "days since"; its pending weekly cell is a dash.
+range label #363A4519, value #787B8626, daily #4CAF4FA3, not daily #FF000066. The words are the
+original's (since 2026-10-28; before, ours): "✅ Finetuned Asset Detected ✅" / "⚠️ Unoptimised Asset
+Detected ⚠️", "<symbol> CYCLE COUNT", "Cycle Low Windows", "Default Count Selected", "Daily / Weekly /
+Yearly Cycle Range", "✅ Optimised Timeframe - Daily ✅" / "⚠️ Timeframe Not Optimised, Switch to
+Daily ⚠️", "✅ Confirmed ✅" and "🕘 Unconfirmed 🕘", each with "Days since Last DCL :" and "Weeks
+Since Last WCL :", and "👇 Finetuned Assets Listed Below 👇" over the preset symbols in two rows (the
+stocks and metals, then the crypto ones from Ether).
+
+The counts are the original's: confirmed, the bars since the last daily low (its own bar is 0), so
+Cipher C's day of the cycle less one, and the weeks since the last confirmed weekly low.
+Unconfirmed, the bars since the daily low held now; a check when none is held (on a confirmation,
+until the next low is named); after a cancellation it keeps counting from the dropped low's bar,
+until a new low is named. The unconfirmed weekly cell is the weeks since the newest weekly low (the
+one not yet confirmed), in the preset's week. Not modelled: the original counts a dropped weekly low
+on, and it says something other than "Default Count Selected" when a count is changed (not read).
+
+**Marks touch the bar.** The original's lows point up at the bar's low and its daily confirmation
+down at the high, the tip about two pixels off. `MarkerTouchesBar` puts the tip there (the gap is
+measured from the tip, so the triangle's height is added); other markers keep the padding of a
+share of the bar's range.

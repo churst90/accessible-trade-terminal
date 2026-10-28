@@ -1267,19 +1267,34 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// candle it describes, and disagrees with the speech and audio layers, which already
         /// follow the transform.
         /// </para>
+        /// <para>
+        /// With <see cref="ComponentConfig.MarkerTouchesBar"/> a bar-anchored marker points at the
+        /// bar's low or high a couple of pixels clear of it, whatever the bar's range:
+        /// <paramref name="reach"/> is how far the marker reaches from the returned y toward the
+        /// bar (a triangle's height, its tip toward the bar), so its tip is what touches.
+        /// </para>
         /// </summary>
-        internal static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
+        internal static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val, float reach = 0f)
         {
             if (comp.MarkerAnchor == MarkerAnchor.Value || i < 0 || i >= ctx.Data.Count)
                 return ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
 
             var bar = ctx.Data[i];
+            bool below = comp.MarkerAnchor == MarkerAnchor.BelowBar;
+            if (comp.MarkerTouchesBar)
+            {
+                // A label pointing at the price: the bar's low or high, a fixed couple of pixels clear.
+                float edge = ChartMath.MapY(below ? bar.Low : bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float gap = 2f * ctx.Density + reach;
+                return below ? edge + gap : edge - gap;
+            }
+
             double range = bar.High - bar.Low;
             // Pad by a share of the bar's own range so the gap looks consistent at any zoom, with
             // a floor for doji bars whose range is ~0.
             double pad = range > 0 ? range * 0.35 : Math.Abs(bar.Close) * 0.002;
 
-            double anchor = comp.MarkerAnchor == MarkerAnchor.BelowBar ? bar.Low - pad : bar.High + pad;
+            double anchor = below ? bar.Low - pad : bar.High + pad;
             return ChartMath.MapY(anchor, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
         }
 
@@ -1334,7 +1349,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// (<see cref="ComponentPictures.DrawBadges"/>). A marker that stacks under a sibling
         /// (<see cref="ComponentConfig.MarkerStacksUnder"/>) starts beyond the sibling's far edge
         /// on a bar both mark. A bar with no value but a <see cref="ComponentCompanions.Mark"/> is
-        /// drawn the same way.
+        /// drawn the same way; one with neither but a word has the word alone, at the bar.
         /// </summary>
         public static void RenderTriangleUpRing(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
@@ -1355,10 +1370,23 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (dataIdx >= data.Length && dataIdx >= marks.Length) break;
                 // A bar with no value can still carry a mark (ComponentCompanions.Mark).
                 double val = ComponentPictures.MarkedValue(series, comp, dataIdx);
-                if (double.IsNaN(val)) continue;
-
                 float x = i * barWidth + halfBar;
-                float y = ComponentPictures.BaseY(ctx, series, comp, i) ?? ResolveMarkerY(ctx, comp, i, val);
+                if (double.IsNaN(val))
+                {
+                    // Nor a mark, but a word: the word alone, at the marker's place (the original's
+                    // Start under the bar its count starts from).
+                    double alone = dataIdx < words.Length ? words[dataIdx] : double.NaN;
+                    string? only = ComponentPictures.BadgeWord(comp, alone);
+                    if (only != null && comp.MarkerAnchor != MarkerAnchor.Value)
+                    {
+                        bool above = comp.MarkerAnchor == MarkerAnchor.AboveBar;
+                        ComponentPictures.DrawBadges(ctx, comp, x, ResolveMarkerY(ctx, comp, i, double.NaN), !above, triangleHeight, double.NaN, only,
+                            paint.Color, ComponentPictures.BadgePlate(comp, alone));
+                    }
+                    continue;
+                }
+
+                float y = ComponentPictures.BaseY(ctx, series, comp, i) ?? ResolveMarkerY(ctx, comp, i, val, triangleHeight);
                 var color = (dataIdx < data.Length ? ResolveBarColor(comp, data, dataIdx) : null) ?? paint.Color;
 
                 using (var triangle = new SKPath())
@@ -1448,7 +1476,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = ResolveMarkerY(ctx, comp, i, val, arrowSize);
 
                 using var path = new SKPath();
                 path.MoveTo(x,                    y + arrowSize);
