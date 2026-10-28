@@ -95,7 +95,7 @@ Thirteen visible parts, plus the legend line (`CF Cycle Trading Indicator [camel
 | 13 | Yellow SMA line | 10-bar SMA, the one Camel trades against |
 
 Added, from the 1.0 docs rather than the frames: left, mid and right translated tops (triangles over
-each finished cycle's top) and Cycle Failed (a close under a low after its minimum gap, the cycle
+each finished cycle's top; mid only exactly halfway, section 28) and Cycle Failed (a close under a low after its minimum gap, the cycle
 school's "failed cycle").
 
 **The arcs (row 12) were removed on 2026-10-22 and came back the same day as a drawing.** Cody first:
@@ -1381,3 +1381,41 @@ they say nothing either way; a daily low level with U is no double, untested aga
 original. The tests pin the rule on a built case (over, level and under U) and on Bitcoin's
 fixture run backwards with the GDX preset, where the provider's weekly marks are the rule's and
 differ from the plain double's.
+
+## 28. Translated tops: mid only exactly halfway (2026-10-28)
+
+The original colours each finished cycle's box by where its top came, and puts the matching letter
+over the top. Read against its own boxes, the rule is plain:
+
+- **The top** is the cycle's highest high with both lows' bars included, the first of equal highs.
+  This is the bar the original marks on 7,524 of its 7,529 daily tops (Cipher C's old pick left out
+  the two lows' bars; the original puts the top on a starting low's bar 42 times and on an ending
+  low's bar 39 times).
+- **Mid** only when the top is exactly halfway in bars (twice its distance from the starting low
+  equals the cycle's length); **left** before that, **right** after it. Cipher C had called
+  anything from 45% to 55% of the way through mid, so it drew many more mid tops than the original,
+  which draws about 2%.
+
+`CipherCProvider.TranslatedTop` is the rule, for every tier.
+
+| Set (tops in a box with one top) | 45-55% middle band | Exact midpoint |
+|---|---|---|
+| The original's daily boxes, all captures | 6,476 of 7,529 (86.0%) | 7,120 (94.6%) |
+| The same, 4-hour | 971 of 1,244 (78.1%) | 1,080 (86.8%) |
+| The same, weekly | 218 of 239 | 236 |
+| The sixteen tuned daily charts | 1,078 of 1,228 | 1,188 (96.7%) |
+| As the app runs, the sixteen tuned daily charts: a top on the original's bar with its letter | 1,024 of its 1,244 | 1,143 |
+
+Caveats:
+
+- The misses cluster on a few charts: the dollar (94 of 113 daily, 64 of 129 on 4 hours), SILJ
+  (52 of 60), Silver and Coinbase on 4 hours (118 of 144, 91 of 156), and three untuned daily charts
+  (NVDA 82 of 130, UUP 75 of 118, AMZN 105 of 130). Every other tuned chart is at 97% or better.
+  On those charts the original often calls a late top left (twelve bars into a fourteen-bar cycle),
+  and sometimes an early one right.
+- Nothing tried explains them: the highest close or body, the time or calendar-day midpoint, half
+  the minimum count, half the previous cycle, the top as known when the next low was named, and
+  whether the ending low is under the starting low all score lower. The original's labels never
+  change once drawn (a dollar replay), and the box at that moment is the final one.
+- If one bar is the top of two cycles (an ending low's bar that is also the next cycle's highest),
+  the later cycle's top replaces the earlier one on that bar; the original would draw both.

@@ -26,6 +26,12 @@
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
 >      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
+> - [ ] **Cipher C: a translated top is mid only exactly halfway (2026-10-28, built, NOT seen or
+>   heard; see CHANGES and CIPHER_C_DESIGN section 28).** On the original's boxes, 86.0% → 94.6% of
+>   its daily tops; as the app runs, 1,024 → 1,143 of its 1,244 tops on the tuned daily charts. Cody
+>   to look at the triangles' colours on any daily chart: far fewer orange (mid) tops. Open:
+>   - The dollar, SILJ, Silver and Coinbase on 4 hours, and NVDA, UUP and AMZN daily: the original
+>     often calls a late top left there. Unexplained.
 > - [ ] **Cipher C: on the miners a weekly double must be under the newest weekly low (2026-10-27,
 >   built, NOT seen or heard; see CHANGES and CIPHER_C_DESIGN section 27).** Weekly F1 as the app
 >   runs 0.927 → 0.931 (metals 0.815 → 0.859), daily unchanged, no chart worse. Cody to look at GDX's

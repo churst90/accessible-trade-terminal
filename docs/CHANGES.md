@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C: a translated top is mid only exactly halfway (2026-10-28)
+
+- **What changed:** `CipherCProvider.TranslatedTop` picks each finished cycle's top and its
+  translation, on every tier. The top is the highest high with both lows' bars included (was:
+  the bars between them only), the first of equal highs. It is mid only when it is exactly halfway
+  in bars, left before, right after (was: 45-55% of the way through was mid). A top on the starting
+  low's bar is drawn now; it used to be skipped.
+- **Why:** this is the original's rule, read from its own boxes and the letters over their tops
+  (CIPHER_C_DESIGN section 28). It draws about 2% of tops mid; the band drew many more.
+- **Numbers (private captures), band → exact midpoint:**
+  - On the original's boxes: daily 86.0% → 94.6% of 7,529 tops, 4-hour 78.1% → 86.8% of 1,244,
+    weekly 218 → 236 of 239. The top's bar: 7,524 of 7,529.
+  - As the app runs on the sixteen tuned daily charts, a top on the original's bar with its letter:
+    1,024 → 1,143 of the original's 1,244.
+- **Tests:** `A_top_is_the_first_highest_high_and_mid_only_exactly_halfway` (ten built cases: before,
+  at and after halfway, 45% and 55%, equal highs, a top on either low's bar, odd lengths);
+  `A_top_says_its_high_and_where_it_came_in_its_cycle` now rebuilds every top on Bitcoin's fixture
+  from its two lows; `A_mid_top_says_its_day_and_cycle` keeps the mid top's words, since Bitcoin's
+  fixture no longer has a mid top. README 9676 tests. Sabotages red: the band back (3 tests), the ending low's bar
+  left out, the last of equal highs, an exact half called left, the starting low's bar left out
+  (2). The provider skipping a top on an ending low's bar stays green: no top on Bitcoin's fixture
+  falls there.
+- **Caveats:**
+  - The misses cluster on a few charts: the dollar (94 of 113 daily, 64 of 129 on 4 hours), SILJ,
+    Silver and Coinbase on 4 hours, and three untuned daily charts. There the original often calls
+    a late top left; nothing tried explains it (section 28).
+  - When one bar is the top of two cycles, the later one's top replaces the earlier one there.
+  - Not seen in the app: the triangles' colours move on many tops.
+
 ### Cipher C: on the miners a weekly double must be under the newest weekly low (2026-10-27)
 
 - **What changed:** `CyclePreset.DoubleUnderNewest`, on for GDX, GDXJ and SILJ. In

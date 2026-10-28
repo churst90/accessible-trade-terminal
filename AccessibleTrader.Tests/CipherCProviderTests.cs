@@ -1002,6 +1002,9 @@ public sealed class CipherCProviderTests
             var comp = series.Components[i];
             // The last bar it has a value on.
             var marked = Marked(r[comp.Name]).ToList();
+            // A mid top needs a top exactly halfway, which this chart never has (the original draws
+            // 2% of its tops mid); A_mid_top_says_its_day_and_cycle covers its words.
+            if (comp.Name == CipherCProvider.CompMidTop && marked.Count == 0) continue;
             Assert.NotEmpty(marked);
             int at = marked[^1];
             string said = Landing(series, bars, engine, i, at);
@@ -1197,22 +1200,71 @@ public sealed class CipherCProviderTests
             Provider.GetComponentSpeech(CipherCProvider.CompDclConfirmed, 3, bar, data, 0));
     }
 
+    /// <summary>
+    /// Each finished cycle's top is its highest high with both lows' bars included, the first of
+    /// equal highs, and it is mid only exactly halfway in bars (left before, right after) — the
+    /// original's rule, which its own boxes and triangles follow on 94.6% of its daily tops
+    /// (our old 0.45-0.55 middle band: 86.0%).
+    /// </summary>
     [Fact]
     public void A_top_says_its_high_and_where_it_came_in_its_cycle()
     {
         var bars = CipherSrSpeechTests.BtcDaily();
         var r = Btc();
         var dcl = Marked(r[CipherCProvider.CompDcl]).ToList();
-        foreach (var comp in new[] { CipherCProvider.CompLeftTop, CipherCProvider.CompMidTop, CipherCProvider.CompRightTop })
-            foreach (int t in Marked(r[comp]))
-            {
-                int a = dcl.Last(i => i < t), b = dcl.First(i => i > t);
-                Assert.Equal(t - a + 1, r[comp + CipherCProvider.DaySuffix][t]);
-                Assert.Equal(b - a + 1, r[comp + CipherCProvider.LengthSuffix][t]);
-            }
+        var expected = new Dictionary<int, (string Comp, int A, int B)>();
+        for (int k = 1; k < dcl.Count; k++)
+        {
+            int a = dcl[k - 1], b = dcl[k], hi = a;
+            for (int i = a + 1; i <= b; i++) if ((double)bars[i].High > (double)bars[hi].High) hi = i;
+            int twice = 2 * (hi - a);
+            expected[hi] = (twice < b - a ? CipherCProvider.CompLeftTop : twice > b - a ? CipherCProvider.CompRightTop : CipherCProvider.CompMidTop, a, b);
+        }
+        var comps = new[] { CipherCProvider.CompLeftTop, CipherCProvider.CompMidTop, CipherCProvider.CompRightTop };
+        Assert.Equal(expected.Keys.OrderBy(i => i), comps.SelectMany(c => Marked(r[c])).OrderBy(i => i));
+        foreach (var (t, (comp, a, b)) in expected)
+        {
+            Assert.Equal((double)bars[t].High, r[comp][t]);
+            Assert.Equal(t - a + 1, r[comp + CipherCProvider.DaySuffix][t]);
+            Assert.Equal(b - a + 1, r[comp + CipherCProvider.LengthSuffix][t]);
+        }
+        // The band would have called some of these mid; the exact midpoint calls almost none.
+        Assert.Contains(expected, e => e.Value.Comp != CipherCProvider.CompMidTop && Math.Abs((double)(e.Key - e.Value.A) / (e.Value.B - e.Value.A) - 0.5) <= 0.05);
         int top = Marked(r[CipherCProvider.CompLeftTop]).Last();
         Assert.Matches("^Left translated top, bearish: high [0-9,.]+, day [0-9]+ of an? [0-9]+ day cycle\\.$",
             Provider.GetComponentSpeech(CipherCProvider.CompLeftTop, r[CipherCProvider.CompLeftTop][top], bars[top], r, top));
+    }
+
+    [Theory]
+    [InlineData(new double[] { 5, 6, 9, 7, 6, 5, 4 }, 2, CipherCProvider.CompLeftTop)]      // before halfway
+    [InlineData(new double[] { 5, 6, 7, 9, 6, 5, 4 }, 3, CipherCProvider.CompMidTop)]       // exactly halfway
+    [InlineData(new double[] { 5, 6, 7, 8, 9, 5, 4 }, 4, CipherCProvider.CompRightTop)]     // after halfway
+    [InlineData(new double[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, 9, CipherCProvider.CompLeftTop)]   // 45%: left, not a middle band's mid
+    [InlineData(new double[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, 11, CipherCProvider.CompRightTop)] // 55%: right
+    [InlineData(new double[] { 5, 6, 8, 7, 8, 5, 4 }, 2, CipherCProvider.CompLeftTop)]      // first of equal highs
+    [InlineData(new double[] { 5, 4, 3, 3, 2, 2, 9 }, 6, CipherCProvider.CompRightTop)]     // on the ending low's bar
+    [InlineData(new double[] { 9, 4, 3, 3, 2, 2, 1 }, 0, CipherCProvider.CompLeftTop)]      // on the starting low's bar
+    [InlineData(new double[] { 5, 6, 7, 8, 9, 5 }, 4, CipherCProvider.CompRightTop)]        // odd length: 4 of 5 is right
+    [InlineData(new double[] { 5, 6, 9, 8, 7, 5 }, 2, CipherCProvider.CompLeftTop)]         // odd length: 2 of 5 is left
+    public void A_top_is_the_first_highest_high_and_mid_only_exactly_halfway(double[] high, int top, string comp)
+    {
+        Assert.Equal((top, comp), CipherCProvider.TranslatedTop(high, 0, high.Length - 1));
+    }
+
+    [Fact]
+    public void A_mid_top_says_its_day_and_cycle()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = new Dictionary<string, double[]>(Btc());
+        int t = Marked(r[CipherCProvider.CompRightTop]).Last();
+        foreach (var suffix in new[] { "", CipherCProvider.DaySuffix, CipherCProvider.LengthSuffix })
+        {
+            var mid = r.TryGetValue(CipherCProvider.CompMidTop + suffix, out var had) ? (double[])had.Clone() : Enumerable.Repeat(double.NaN, bars.Count).ToArray();
+            mid[t] = r[CipherCProvider.CompRightTop + suffix][t];
+            r[CipherCProvider.CompMidTop + suffix] = mid;
+        }
+        Assert.Matches("^Mid translated top: high [0-9,.]+, day [0-9]+ of an? [0-9]+ day cycle\\.$",
+            Provider.GetComponentSpeech(CipherCProvider.CompMidTop, r[CipherCProvider.CompMidTop][t], bars[t], r, t));
     }
 
     /// <summary>

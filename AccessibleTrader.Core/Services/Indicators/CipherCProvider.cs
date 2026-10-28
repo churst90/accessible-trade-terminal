@@ -28,8 +28,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// box while one is pending, a red cross when a bar goes under a pending low before it is due
     /// and cancels it (CF's red X), and an orange cross when price closes under a confirmed low,
     /// which is a failed cycle (a confirmed low is never taken back).</item>
-    /// <item>Triangles over each finished cycle's top: red when it came early (left translated,
-    /// bearish), orange in the middle, green late (right translated, bullish).</item>
+    /// <item>Triangles over each finished cycle's top: red when it came before the cycle's midpoint
+    /// (left translated, bearish), orange exactly on it, green after it (right translated, bullish).</item>
     /// <item>A soft green tint behind the bars where the daily cycle is inside its timing window
     /// (blue for the weekly window on a chart with no daily cycle).</item>
     /// <item>CF's yellow arcs, a level wave under the candles with a trough under each low of the
@@ -476,11 +476,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int k = 1; k < lowestLows.Count; k++)
             {
                 int a = lowestLows[k - 1], b = lowestLows[k];
-                int top = a;
-                for (int i = a + 1; i < b; i++) if (high[i] > high[top]) top = i;
-                if (top == a) continue;
-                double ratio = (double)(top - a) / (b - a);
-                string comp = ratio < 0.45 ? CompLeftTop : ratio > 0.55 ? CompRightTop : CompMidTop;
+                var (top, comp) = TranslatedTop(high, a, b);
                 o[comp][top] = high[top];
                 A(comp + DaySuffix)[top] = Math.Floor((top - a) / unit.Bars + 1e-9) + 1;
                 A(comp + LengthSuffix)[top] = length(a, b);
@@ -812,6 +808,21 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// oscillator under zero. A chart without volume (the original's index, dollar, gold, silver
         /// and oil charts) gets no VWAP point and is never high, as the original's never are.
         /// </summary>
+        /// <summary>
+        /// The top of the cycle from low <paramref name="a"/> to low <paramref name="b"/> and its
+        /// translation. The top is the highest high with both lows' bars included, the first of equal
+        /// highs; it is mid only exactly halfway in bars, left before, right after. This is the
+        /// original's rule: its boxes and triangles follow it on 94.6% of its daily tops, where a
+        /// middle band of 45-55% followed 86.0% (2026-10-28).
+        /// </summary>
+        internal static (int Top, string Component) TranslatedTop(double[] high, int a, int b)
+        {
+            int top = a;
+            for (int i = a + 1; i <= b; i++) if (high[i] > high[top]) top = i;
+            int twice = 2 * (top - a);
+            return (top, twice < b - a ? CompLeftTop : twice > b - a ? CompRightTop : CompMidTop);
+        }
+
         internal static double[] Grade(ReadOnlySpan<Ohlcv> data, double[] high, double[] low, double[] close)
         {
             int n = data.Length;
