@@ -70,6 +70,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             public double[] Touch = Array.Empty<double>(), Left = Array.Empty<double>(), Above = Array.Empty<double>(), Rise = Array.Empty<double>(),
                             Structure = Array.Empty<double>(), Sma = Array.Empty<double>(), Dss = Array.Empty<double>(), Sar = Array.Empty<double>(),
                             Break = Array.Empty<double>(), Low = Array.Empty<double>();
+            /// <summary>The bar of the low read on each bar, or -1.</summary>
+            public int[] Subject = Array.Empty<int>();
 
             internal void Size(int n)
             {
@@ -152,6 +154,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         private static void Read(Reading r, Series s, int[] subject, Func<int, int, double> left, Forest model, double cycle)
         {
             int n = s.N;
+            r.Subject = subject;
             // The running confirmations since the low, carried bar to bar while it stays the same low.
             int c = -1, last = -1, sma = 0, st = 0, dss = 0, sar = 0, brk = 0;
             double reference = double.PositiveInfinity, maxClose = double.NegativeInfinity, minLow = double.PositiveInfinity;

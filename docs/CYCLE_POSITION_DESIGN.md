@@ -809,3 +809,47 @@ The green one changes nothing: no cycle runs from the Start on any of the 31 cha
 at first: the tie, the window's bar, the top's own bar, the band edges and the line-deleting entry.
 The edge cases were added for the first four (the 31 charts have 229 ties and 631 bars on an edge),
 and the fifth was a harness entry error.
+
+### 9.8 "Less reliable on this chart": the weekly reading's record
+
+The plan was to keep a record, bar by bar, of how the first "very high" calls on a chart had turned
+out, and to say "less reliable on this chart" where under about 85% of 5 or more were right. That
+was measured first, on the 31 daily charts, by asking whether a chart's own record so far told
+anything about its next calls:
+
+| Record so far | Next calls right, flagged | Next calls right, not flagged |
+|---|---|---|
+| daily, all calls, under 85% of 5+ | 91.1% (90 calls, 11 charts) | 96.8% |
+| daily, last 10, under 85% | 95.4% (324) | 96.8% |
+| weekly, all calls, under 85% of 5+ | 95.8% (48) | 95.4% |
+| weekly, last 10, under 85% | 96.3% (164) | 95.5% |
+
+**Nothing to say about wrong calls.** On a flagged chart the next calls were still right 91 to 96% of
+the time, and the last-10 records told nothing. So no "less reliable" is said about wrong calls.
+
+**What a chart's record does tell: weekly lows it missed.** On some charts many weekly lows are
+confirmed without any "very high" weekly reading before them: Ether 34 of 74 had one, SILJ 20 of 36,
+Gold 106 of 176, DXY 99 of 177, against 197 of 239 on the S&P 500. That carries over. Where under
+60% of at least 5 weekly lows so far had one, the next weekly lows had one 58% of the time, against
+75% elsewhere (each half of the charts: 68 against 76%, 48 against 74%; under 50%: 54 against 75%).
+The daily reading caught 99% of daily lows on every chart, so it has no such record to give.
+
+So the weekly reading says it, where it holds: "weekly low is in: high, 88%, for the low of ...;
+...; on this chart weekly lows often come without it: 34 of 74 so far had a very high reading by
+their confirmation". The table's weekly cell adds ", often missed here". The count is of weekly
+lows confirmed up to the bar, each counted as called when a "very high" weekly reading of that low
+came on or before its confirmation bar (`CyclePositionProvider.Record`; outputs `_called` and
+`_calledOf` on the weekly window, causal). It is said on about 6% of the days with a weekly reading
+on the 31 charts: most of the history on Ether and SILJ, about half on GDXJ, Dogecoin and Marathon,
+28% on Bitcoin (its early years), none on most indices and currencies.
+
+Caveats: the 60% and the 5 were picked from three and two tried on these same charts. It is a
+count, so it is right on any chart, but that it carries over was measured on daily charts only.
+
+Test: `The_weekly_record_counts_lows_called_very_high_by_their_confirmation` works made-up arrays
+(a call on the confirmation bar counts, one after or of another low does not, 0.95 counts), the
+edges (3 of 5 and 4 lows are not said), and on Bitcoin the count low by low from the weekly tier,
+the words and the cell on every bar with a weekly reading (said on over 50 bars, more than 50 of
+them beside a daily reading that must not say it, and not said on over 50). 14 sabotages, all red;
+one ("the note on the daily and yearly readings too") was green until the test checked the other
+readings.

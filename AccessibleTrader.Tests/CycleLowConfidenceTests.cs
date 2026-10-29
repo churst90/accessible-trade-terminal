@@ -366,4 +366,54 @@ public sealed class CycleLowConfidenceTests
         Assert.Contains($"weekly low is in: {cell}, for the low of ", arrowed);
         Assert.Contains("above the low", arrowed);
     }
+    /// <summary>
+    /// The weekly reading's record: on each bar, of the weekly lows confirmed so far, how many had a
+    /// "very high" reading of that low on or before their confirmation bar, worked low by low from the
+    /// weekly tier (not bar by bar as the app does). Made-up arrays: a call on the confirmation bar
+    /// counts, one after does not, nor one of another low; 0.95 is "very high". Where under 60% of at
+    /// least 5 lows were called, the weekly reading says so and its table cell says "often missed
+    /// here"; 3 of 5 is not under, nor are 4 lows with none called.
+    /// </summary>
+    [Fact]
+    public void The_weekly_record_counts_lows_called_very_high_by_their_confirmation()
+    {
+        int[] last = { -1, -1, 1, 1, 1, 5, 5, 5, 7, 7 };
+        int[] subject = { 1, 1, -1, 5, 5, 5, 7, 9, 9, 9 };
+        double[] chance = { 0.5, 0.95, double.NaN, 0.2, 0.3, 0.97, 0.4, 0.99, 0.99, 0.99 };
+        var (called, of) = CyclePositionProvider.Record(last, subject, chance);
+        Assert.Equal(new double[] { 0, 0, 1, 1, 1, 2, 2, 2, 2, 2 }, called);
+        Assert.Equal(new double[] { 0, 0, 1, 1, 1, 2, 2, 2, 3, 3 }, of);
+
+        Func<string, double> At(double c, double m) => k => k == W + CyclePositionProvider.CalledSuffix ? c : k == W + CyclePositionProvider.CalledOfSuffix ? m : double.NaN;
+        Assert.True(CyclePositionProvider.OftenMissed(At(2, 5)));
+        Assert.False(CyclePositionProvider.OftenMissed(At(3, 5)));
+        Assert.False(CyclePositionProvider.OftenMissed(At(0, 4)));
+
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        var tr = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
+        var subj = CycleLowConfidence.WeeklySubject(new CycleLowConfidence.Series(bars), tr.D, tr.W, tr.WeeklyGap);
+        var wChance = r[W + CyclePositionProvider.LowInSuffix];
+        var lows = tr.W.LastLowAt.Where(a => a >= 0).Distinct()
+            .Select(a => (Confirmed: Array.IndexOf(tr.W.LastLowAt, a), Low: a))
+            .Select(x => (x.Confirmed, Called: Enumerable.Range(0, x.Confirmed + 1).Any(t => subj[t] == x.Low && wChance[t] >= 0.95))).ToList();
+        Assert.True(lows.Count > 20);
+        Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+        int flagged = 0, plain = 0, besideDaily = 0;
+        for (int t = 0; t < bars.Length; t++)
+        {
+            int m = lows.Count(x => x.Confirmed <= t), k = lows.Count(x => x.Confirmed <= t && x.Called);
+            Assert.Equal(k, r[W + CyclePositionProvider.CalledSuffix][t]);
+            Assert.Equal(m, r[W + CyclePositionProvider.CalledOfSuffix][t]);
+            if (double.IsNaN(wChance[t])) continue;
+            bool flag = m >= 5 && k < 0.6 * m;
+            string note = $"; on this chart weekly lows often come without it: {k} of {m} so far had a very high reading by their confirmation";
+            var state = CyclePositionProvider.StateWords(comp, t);
+            var said = Assert.Single(state, w => w.StartsWith("weekly low is in", StringComparison.Ordinal));
+            string cell = CyclePositionProvider.TableRows(comp, t).Single(row => row[0].Text == "Low is in")[2].Text;
+            if (flag) { flagged++; Assert.EndsWith(note, said); Assert.Single(state, w => w.Contains("often come without it")); Assert.EndsWith(", often missed here", cell); if (state.Any(w => w.StartsWith("low is in: ", StringComparison.Ordinal))) besideDaily++; }
+            else { plain++; Assert.DoesNotContain(state, w => w.Contains("often come without it")); Assert.DoesNotContain("often missed", cell); }
+        }
+        Assert.True(flagged > 50 && plain > 50 && besideDaily > 50, $"{flagged} flagged ({besideDaily} beside a daily reading), {plain} not");
+    }
 }

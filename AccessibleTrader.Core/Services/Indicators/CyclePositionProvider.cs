@@ -94,6 +94,18 @@ namespace AccessibleTrader.Core.Services.Indicators
             LowInLowSuffix = "_lowInLow";
         /// <summary>Per bar after a confirmed daily low: "Low expected", the chance (0-1) a new daily low is drawn within the next <see cref="ExpectedDaysSuffix"/> days.</summary>
         public const string ExpectedSuffix = "_lowExpected", ExpectedDaysSuffix = "_lowExpectedDays";
+        /// <summary>
+        /// The weekly reading's record on the chart so far (2026-10-28): of the weekly lows confirmed up to
+        /// each bar, how many had a "very high" weekly reading before (or on) their confirmation. Where
+        /// under <see cref="RecordShare"/> of at least <see cref="RecordMin"/> did, the weekly reading says
+        /// that weekly lows often come here without it. Measured on 31 daily charts: the next weekly lows
+        /// on charts so flagged had it 58% of the time, against 75% elsewhere (each half of the charts:
+        /// 68 against 76%, 48 against 74%). A chart's record of wrong calls told nothing (flagged charts'
+        /// next calls were right 96% of the time, against 95%), nor did the daily record, so neither is said.
+        /// </summary>
+        public const string CalledSuffix = "_called", CalledOfSuffix = "_calledOf";
+        internal const double RecordShare = 0.6;
+        internal const int RecordMin = 5;
 
         /// <summary>
         /// Per bar a daily low is held, on the daily window: the original's confluence grade (0 low,
@@ -365,6 +377,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
                 o[CompDailyWindow + ExpectedSuffix] = lc.Expected;
                 o[CompDailyWindow + ExpectedDaysSuffix] = lc.ExpectedDays;
+                if (weekly) (o[CompWeeklyWindow + CalledSuffix], o[CompWeeklyWindow + CalledOfSuffix]) = Record(w.LastLowAt, lc.Weekly.Subject, lc.Weekly.Chance);
             }
 
             // The original's confluence grade, while a daily low is held, with its two points.
@@ -846,6 +859,33 @@ namespace AccessibleTrader.Core.Services.Indicators
             return s;
         }
 
+        /// <summary>
+        /// For each bar, of the lows <paramref name="lastLowAt"/> has confirmed so far, how many a reading
+        /// (<paramref name="chance"/> of the low <paramref name="subject"/>) had called "very high" by their
+        /// confirmation bar; and how many lows there were.
+        /// </summary>
+        internal static (double[] Called, double[] Of) Record(int[] lastLowAt, int[] subject, double[] chance)
+        {
+            int n = lastLowAt.Length, called = 0, of = 0;
+            if (subject.Length != n || chance.Length != n) return (CipherCEngine.Nan(n), CipherCEngine.Nan(n));
+            var c = new double[n]; var m = new double[n];
+            var first = new HashSet<int>(); var seen = new HashSet<int>();
+            for (int t = 0; t < n; t++)
+            {
+                if (subject[t] >= 0 && chance[t] >= VeryHigh) first.Add(subject[t]);
+                if (lastLowAt[t] is var a && a >= 0 && seen.Add(a)) { of++; if (first.Contains(a)) called++; }
+                c[t] = called; m[t] = of;
+            }
+            return (c, m);
+        }
+
+        /// <summary>The share a reading is "very high" from.</summary>
+        internal static readonly double VeryHigh = CycleLowConfidence.Bands.Single(b => b.Word == "very high").From;
+
+        /// <summary>True where the weekly reading's record (<see cref="Record"/>) is under the share it is said from.</summary>
+        internal static bool OftenMissed(Func<string, double> at) =>
+            at(CompWeeklyWindow + CalledOfSuffix) is var of && of >= RecordMin && at(CompWeeklyWindow + CalledSuffix) < RecordShare * of;
+
         /// <summary>"high, 88%": the Low is in word and share on the window <paramref name="comp"/>, or null where it has no low to read.</summary>
         internal static string? LowInWord(Func<string, double> at, string comp = CompDailyWindow)
         {
@@ -880,7 +920,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompYearlyWindow => $"yearly low is in: {word}, for the low of {Price(V(LowInLowSuffix))}",
                 _ => $"low is in: {word}",
             };
-            if (same) return $"{head}; about {Span(left, day, days)} to its weekly confirmation; a {chance} chance at random of going back to it first";
+            string record = comp == CompWeeklyWindow && OftenMissed(at)
+                ? $"; on this chart weekly lows often come without it: {Num(V(CalledSuffix))} of {Num(V(CalledOfSuffix))} so far had a very high reading by their confirmation"
+                : "";
+            if (same) return $"{head}; about {Span(left, day, days)} to its weekly confirmation; a {chance} chance at random of going back to it first{record}";
             string s = $"{head}; about {Span(left, day, days)} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
                      + $"up {Num(V(LowInRiseSuffix))} average ranges; a {chance} chance at random of going back to it first";
             if (comp == CompYearlyWindow) return s;
@@ -890,7 +933,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (V(LowInDssSuffix) > 0) on.Add("the stochastic over its trigger");
             if (V(LowInSarSuffix) > 0) on.Add("the SAR under price");
             if (V(LowInBreakSuffix) > 0) on.Add("a close above the 10 before it");
-            return s + "; " + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on));
+            return s + "; " + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on)) + record;
         }
 
         /// <summary>
@@ -1117,7 +1160,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new[]
                 {
                     C("Low is in", TableLabel, -1), C(LowInWord(At) ?? (double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? "" : Dash), TableValue),
-                    C(component(CompWeeklyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompWeeklyWindow) ?? Dash, TableValue),
+                    C(component(CompWeeklyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompWeeklyWindow) is { } wl ? wl + (OftenMissed(At) ? ", often missed here" : "") : Dash, TableValue),
                     C(component(CompYearlyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompYearlyWindow) ?? Dash, TableValue),
                 },
                 new[] { C("Confluence", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + StartSuffix)) ? ""

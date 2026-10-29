@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: "weekly lows often come without it" on charts where they do (2026-10-28)
+
+- **What**: the "less reliable on this chart" note Cody approved, built where it was measured to hold (CYCLE_POSITION_DESIGN
+  section 9.8). Where under 60% of at least 5 weekly lows confirmed so far had a "very high" weekly reading by their
+  confirmation, the weekly Low is in reading adds "on this chart weekly lows often come without it: 34 of 74 so far had
+  a very high reading by their confirmation". The table's weekly cell adds ", often missed here". On 31 daily charts the
+  next weekly lows on charts so flagged had one 58% of the time, against 75% (halves 68/76, 48/74). It is said on about
+  6% of read days, mostly Ether, SILJ, GDXJ, Dogecoin and Marathon.
+- **Not built, by measurement**: a note about wrong calls. A chart's record of first "very high" calls told nothing
+  about its next calls: daily 91% against 97% right on only 90 calls, weekly 96 against 95%, and the last 10 calls told
+  nothing. The daily reading catches 99% of daily lows everywhere, so it gets no note either.
+- **Caveats**: 60% and 5 were chosen on these charts; that the record carries over is measured on daily charts only.
+  Not seen or heard in the app; the accessibility-lead agent is not registered here.
+- **Tests**: `The_weekly_record_counts_lows_called_very_high_by_their_confirmation` (made-up arrays, edges, and
+  Bitcoin low by low with the words and cell on every bar). Two new causal outputs are in the causality test.
+  14 sabotages, all red. README 9790.
+
 ### Cycle Position: the half-cycle low (2026-10-28)
 
 - **What**: the half-cycle low, from the pieces Cody approved (CYCLE_POSITION_DESIGN section 9.7). In each daily cycle

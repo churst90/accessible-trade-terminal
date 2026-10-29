@@ -75,10 +75,12 @@
 >     NOT seen or heard: off-daily Low is in, the weekly reading said once, the confluence grade
 >     (9.1-9.3); the next window's dates, the top so far, a failed cycle's warning (9.4-9.6); the
 >     half-cycle low and how much of the rise it gave back (9.7; its projection of the next low was
->     measured no better than the window and not built). Cody to hear on a daily Bitcoin: the "Next
->     low", "Top so far" and "Half-cycle low" rows, arrowing the daily window, a failure mark, a
->     half-cycle mark. Left: "less reliable on this chart", a mark and alert at "very high", backtest
->     hooks, per-asset rules and Start/yearly-date switches.
+>     measured no better than the window and not built); "weekly lows often come without it" where
+>     they do (9.8; a note about wrong calls was measured useless and not built). Cody to hear on a
+>     daily Bitcoin: the "Next low", "Top so far" and "Half-cycle low" rows, arrowing the daily
+>     window, a failure mark, a half-cycle mark; on a daily Ether, the weekly Low is in cell and
+>     words. Left: a mark and alert at "very high", backtest hooks, per-asset rules and
+>     Start/yearly-date switches.
 >     Caveat: intraday dates past the last bar do not read holidays or clock changes.
 >   - Merged to main and pushed (2026-10-28, Cody asked). Deploy to the VPS: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and

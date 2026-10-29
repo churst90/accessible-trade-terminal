@@ -57,7 +57,7 @@ public sealed class CyclePositionProviderTests
                      D + CyclePositionProvider.TopWaitingSuffix, D + CyclePositionProvider.TopLeftSuffix, D + CyclePositionProvider.TopFailsSuffix,
                      D + CyclePositionProvider.TopFailsOtherSuffix, D + CyclePositionProvider.LeftTopsSuffix, D + CyclePositionProvider.RightTopsSuffix,
                      D + CyclePositionProvider.HalfSuffix, D + CyclePositionProvider.HalfDaySuffix, D + CyclePositionProvider.HalfGaveSuffix,
-                     D + CyclePositionProvider.HalfFailsSuffix })
+                     D + CyclePositionProvider.HalfFailsSuffix, W + CyclePositionProvider.CalledSuffix, W + CyclePositionProvider.CalledOfSuffix })
             Assert.Contains(k, causal);
         // Fixed cuts, plus one just after the last yearly low is confirmed and one just after a
         // daily window is first learned.
