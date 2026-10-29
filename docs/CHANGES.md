@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: the half-cycle low (2026-10-28)
+
+- **What**: the half-cycle low, from the pieces Cody approved (CYCLE_POSITION_DESIGN section 9.7). In each daily cycle
+  it is the first low from 0.3 to 0.7 of the usual cycle in that is above the cycle's low and the lowest for an eighth of
+  the shortest cycle each side. It is marked with a small up triangle on its bar, found that many bars later. A switch
+  "Half-cycle lows" (on) hides the marks. Found in 69% of daily cycles on 31 daily charts.
+- **Said**: from when it is found until the next daily low, with how much of the rise before it it gave back and how
+  often cycles that gave back as much failed: under 50% 18%, 50-70% 31%, 70-80% 43%, 80%+ 49%, against 30% of all.
+  On the two halves of the charts these were 18/17, 31/30, 43/43 and 44-51/49-56%. It is in the state words, the
+  arrowed daily window, a table row "Half-cycle low" and the mark's speech. The share is left out once the cycle has
+  failed.
+- **Not built, by measurement**: the planned projection of the next daily low from it. At the learned window's span it
+  held 59.5% against 58.4%, and 59.4% against 60.0%, so it added nothing to the window.
+- **Caveats**: the failure rates are fitted on these 31 charts, not held out (the halves agree within 6 points). Daily
+  tier only. Not seen or heard in the app; the accessibility-lead agent is not registered here.
+- **Tests**: `The_half_cycle_low_is_found_as_defined_and_said_with_its_depth` (by hand, plus one-bar edge cases),
+  `The_half_cycle_low_is_said_as_shown`, `The_half_cycle_lows_switch_hides_only_their_marks`. The components test is
+  now "Cipher C's, then its own". 24 sabotages, 23 red (the green one changes nothing). Recomputed independently on 31
+  charts: no difference. README 9789.
+
 ### Cycle Position: the next window's dates, the top so far, a failed cycle's warning (2026-10-28)
 
 - **What**: three more of the pieces Cody approved, CYCLE_POSITION_DESIGN sections 9.4-9.6.

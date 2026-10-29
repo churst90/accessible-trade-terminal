@@ -55,7 +55,9 @@ public sealed class CyclePositionProviderTests
                      D + CyclePositionProvider.ConfluenceSuffix, D + CyclePositionProvider.AoSuffix, D + CyclePositionProvider.VwapSuffix,
                      D + CyclePositionProvider.TopSuffix, D + CyclePositionProvider.TopDaySuffix, D + CyclePositionProvider.TopCameSuffix,
                      D + CyclePositionProvider.TopWaitingSuffix, D + CyclePositionProvider.TopLeftSuffix, D + CyclePositionProvider.TopFailsSuffix,
-                     D + CyclePositionProvider.TopFailsOtherSuffix, D + CyclePositionProvider.LeftTopsSuffix, D + CyclePositionProvider.RightTopsSuffix })
+                     D + CyclePositionProvider.TopFailsOtherSuffix, D + CyclePositionProvider.LeftTopsSuffix, D + CyclePositionProvider.RightTopsSuffix,
+                     D + CyclePositionProvider.HalfSuffix, D + CyclePositionProvider.HalfDaySuffix, D + CyclePositionProvider.HalfGaveSuffix,
+                     D + CyclePositionProvider.HalfFailsSuffix })
             Assert.Contains(k, causal);
         // Fixed cuts, plus one just after the last yearly low is confirmed and one just after a
         // daily window is first learned.
@@ -359,8 +361,11 @@ public sealed class CyclePositionProviderTests
     {
         var mine = Provider.GetIndicators().Single();
         var cc = new CipherCProvider().GetIndicators().Single();
-        Assert.Equal(cc.Components.Select(c => c.Name), mine.Components.Select(c => c.Name));
-        Assert.Equal(cc.Components.Select(c => c.Causality), mine.Components.Select(c => c.Causality));
+        // Cipher C's, then its own: the half-cycle low, drawn on its bar and found later.
+        var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead) };
+        Assert.Equal(cc.Components.Select(c => c.Name).Concat(own.Select(c => c.Item1)), mine.Components.Select(c => c.Name));
+        Assert.Equal(cc.Components.Select(c => c.Causality).Concat(own.Select(c => (ComponentCausality?)c.Item2)), mine.Components.Select(c => c.Causality));
+        Assert.True(On(CyclePositionProvider.ParamHalfLows));
         bool On(string name) => (bool)mine.Parameters.Single(p => p.Name == name).DefaultValue!;
         Assert.True(On(CipherCProvider.ParamCancelledLows));
         Assert.True(On(CipherCProvider.ParamConfirmationMark));
@@ -651,5 +656,161 @@ public sealed class CyclePositionProviderTests
         Assert.Equal(lead.Count(c => c.Lead == c.Len), r[D + CyclePositionProvider.MidTopsSuffix][^1]);
         Assert.Equal(lead.Count(c => c.Lead > c.Len), r[D + CyclePositionProvider.RightTopsSuffix][^1]);
         Assert.Equal(lead.Count(c => c.Lead < c.Len), r[D + CyclePositionProvider.LeftTopsSuffix][^1]);
+    }
+
+    /// <summary>
+    /// The half-cycle low, from its definition, cycle by cycle: from each confirmed daily low
+    /// <c>a</c> (not the Start), the first bar from 0.3 to 0.7 of the usual cycle in (the window's
+    /// middle on the bar <c>a</c> became the newest low) whose low is above <c>a</c>'s, under every
+    /// low of the k bars before it and no higher than every low of the k after (k = an eighth of the
+    /// shortest cycle, at least 2). It is marked on its bar, found k bars on or when <c>a</c> is
+    /// confirmed, whichever is later, and from then to the next daily low it is said with the share
+    /// of the rise before it that it gave back and, until the cycle fails, the failure share of
+    /// cycles that gave back as much (18, 31, 43, 49% from 0, 50, 70 and 80%).
+    /// </summary>
+    [Fact]
+    public void The_half_cycle_low_is_found_as_defined_and_said_with_its_depth()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var lows = HalfByHand(bars, Btc());
+        Assert.True(lows.Count > 50 && lows.Count(c => c.Gave >= 0.8) > 3, $"{lows.Count} half-cycle lows on Bitcoin");
+        // A window that moves at nearly every new low (its full range): the middle is the one on
+        // the bar the cycle's low became the newest, not the bar before.
+        var wide = new Dictionary<string, object> { [CyclePositionProvider.ParamBandFrom] = 0.0, [CyclePositionProvider.ParamBandTo] = 100.0 };
+        HalfByHand(bars, Run(bars, extra: wide), wide);
+
+        // Cases Bitcoin's own bars do not have, made by changing one bar and worked again by hand.
+        // A tie after it: the next bar's low equal to the half-cycle low's (229 on 31 charts).
+        var c0 = lows[lows.Count / 2];
+        var tie = (Ohlcv[])bars.Clone();
+        var nb = tie[c0.Half + 1];
+        tie[c0.Half + 1] = new Ohlcv(nb.Date, Math.Max(nb.Open, tie[c0.Half].Low), Math.Max(nb.High, tie[c0.Half].Low), tie[c0.Half].Low, Math.Max(nb.Close, tie[c0.Half].Low), nb.Volume);
+        Assert.Contains(HalfByHand(tie, Run(tie)), c => c.Half == c0.Half);
+        // Its own bar's high over the top before it: the top it gave back from includes it.
+        var own = (Ohlcv[])bars.Clone();
+        var hb = own[c0.Half];
+        own[c0.Half] = new Ohlcv(hb.Date, hb.Open, c0.Top * 1.01, hb.Low, hb.Close, hb.Volume);
+        Assert.Contains(HalfByHand(own, Run(own)), c => c.Half == c0.Half && c.Top == own[c0.Half].High);
+        // Exactly on each band's edge (631 bars on 31 charts): the higher band.
+        foreach (double edge in new[] { 0.5, 0.7, 0.8 })
+        {
+            bool hit = false;
+            foreach (var c in lows.OrderBy(c => Math.Abs(c.Gave - edge)).Take(12))
+            {
+                var e = (Ohlcv[])bars.Clone();
+                var b = e[c.Half];
+                double low = c.Top - edge * (c.Top - bars[c.Low].Low);
+                if (low > Math.Min(b.Open, b.Close)) continue;
+                e[c.Half] = new Ohlcv(b.Date, b.Open, b.High, low, b.Close, b.Volume);
+                if (HalfByHand(e, Run(e)).Any(x => x.Half == c.Half && x.Gave == edge)) { hit = true; break; }
+            }
+            Assert.True(hit, $"no half-cycle low made to give back exactly {edge}");
+        }
+    }
+
+    /// <summary>
+    /// Works the half-cycle lows by hand from their definition on <paramref name="bars"/> and
+    /// checks every value <paramref name="r"/> holds for them, bar by bar; returns each one found.
+    /// </summary>
+    private static List<(int Low, int Half, double Top, double Gave)> HalfByHand(Ohlcv[] bars, Dictionary<string, double[]> r, Dictionary<string, object>? extra = null)
+    {
+        var p = new Dictionary<string, object> { ["__symbol"] = "BTC/USD" };
+        foreach (var (key0, v) in extra ?? new()) p[key0] = v;
+        var tiers = CyclePositionProvider.BuildTiers(bars, p);
+        var d = tiers.D;
+        int n = bars.Length, k = Math.Max(2, (int)Math.Round(tiers.L / 8, MidpointRounding.AwayFromZero));
+        var marks = new double[n]; var lag = new double[n]; var price = new double[n]; var day = new double[n]; var gave = new double[n]; var fails = new double[n];
+        foreach (var a0 in new[] { marks, lag, price, day, gave, fails }) Array.Fill(a0, double.NaN);
+        var found = new List<(int Low, int Half, double Top, double Gave)>();
+        for (int t0 = 0; t0 < n;)
+        {
+            int a = d.LastLowAt[t0];
+            if (a < 0 || a == d.Start) { t0++; continue; }
+            int t1 = t0;
+            while (t1 < n && d.LastLowAt[t1] == a) t1++;
+            double mid = (r[D + CipherCProvider.StartSuffix][t0] + r[D + CipherCProvider.EndSuffix][t0]) / 2;
+            int? h = Enumerable.Range(0, n).Cast<int?>().FirstOrDefault(c => c >= a + 0.3 * mid && c >= a + k && c <= a + 0.7 * mid && c + k < n
+                && bars[c!.Value].Low > bars[a].Low
+                && Enumerable.Range(c.Value - k, k).All(j => bars[j].Low > bars[c.Value].Low)
+                && Enumerable.Range(c.Value + 1, k).All(j => bars[j].Low >= bars[c.Value].Low));
+            int at = h is { } hh ? Math.Max(t0, hh + k) : n;
+            if (at < t1)
+            {
+                int hv = h!.Value;
+                marks[hv] = bars[hv].Low; lag[hv] = at - hv;
+                double top = Enumerable.Range(a, hv - a + 1).Max(i => bars[i].High), g = (top - bars[hv].Low) / (top - bars[a].Low);
+                found.Add((a, hv, top, g));
+                int failedAt = Enumerable.Range(t0, t1 - t0).FirstOrDefault(i => !double.IsNaN(d.Failed[i]) && d.ClosedUnder[i] == a, int.MaxValue);
+                for (int t = at; t < t1; t++)
+                {
+                    price[t] = bars[hv].Low; day[t] = hv - a + 1; gave[t] = g;
+                    if (t < failedAt) fails[t] = g < 0.5 ? 18 : g < 0.7 ? 31 : g < 0.8 ? 43 : 49;
+                }
+            }
+            t0 = t1;
+        }
+        foreach (var (key, want) in new[]
+                 {
+                     (CyclePositionProvider.CompHalfLow, marks), (CyclePositionProvider.CompHalfLow + CyclePositionProvider.HalfFoundSuffix, lag),
+                     (D + CyclePositionProvider.HalfSuffix, price), (D + CyclePositionProvider.HalfDaySuffix, day),
+                     (D + CyclePositionProvider.HalfGaveSuffix, gave), (D + CyclePositionProvider.HalfFailsSuffix, fails),
+                 })
+            for (int t = 0; t < n; t++)
+                Assert.True(double.IsNaN(want[t]) ? double.IsNaN(r[key][t]) : Math.Abs(want[t] - r[key][t]) < 1e-12, $"{key} on {bars[t].Date:yyyy-MM-dd}: {r[key][t]}, by hand {want[t]}");
+        // A cycle that failed after its half-cycle low keeps the low but no longer the share.
+        if (extra == null) Assert.Contains(Enumerable.Range(0, n), t => !double.IsNaN(gave[t]) && double.IsNaN(fails[t]));
+        return found;
+    }
+
+    /// <summary>The half-cycle low said as the table shows it, in the bar's words, the daily window's and its own mark's.</summary>
+    [Fact]
+    public void The_half_cycle_low_is_said_as_shown()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+        int t = Marked(r[D + CyclePositionProvider.HalfFailsSuffix]).Last(i => !double.IsNaN(r[D][i]));
+        double V(string x) => r[D + x][t];
+        string pct = Math.Round(100 * V(CyclePositionProvider.HalfGaveSuffix)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        double f = V(CyclePositionProvider.HalfFailsSuffix);
+        string band = f switch { 18 => "under 50%", 31 => "50 to 70%", 43 => "70 to 80%", 49 => "80% or more", _ => throw new Xunit.Sdk.XunitException($"fails {f}") };
+        string said = Assert.Single(CyclePositionProvider.StateWords(comp, t), w => w.StartsWith("half-cycle low: ", StringComparison.Ordinal));
+        Assert.Equal($"half-cycle low: {SpeechPriceFormatter.FormatPrice(V(CyclePositionProvider.HalfSuffix))} on day {V(CyclePositionProvider.HalfDaySuffix)}, giving back {pct}% of the rise before it; "
+            + $"cycles whose half-cycle low gave back {band} went on to fail {f}% of the time, against 30% of all", said);
+        Assert.Equal($"day {V(CyclePositionProvider.HalfDaySuffix)}, gave {pct}%, fails {f}%",
+            CyclePositionProvider.TableRows(comp, t).Single(row => row[0].Text == "Half-cycle low")[1].Text);
+        Assert.EndsWith("; " + said, Provider.GetComponentSpeech(D, r[D][t], bars[t], r, t));
+        // Every band in words.
+        foreach (var (fails, words) in new[] { (18.0, "under 50%"), (31.0, "50 to 70%"), (43.0, "70 to 80%"), (49.0, "80% or more") })
+        {
+            Func<string, double> at = k => k == D + CyclePositionProvider.HalfSuffix ? 100 : k == D + CyclePositionProvider.HalfGaveSuffix ? 0.6
+                : k == D + CyclePositionProvider.HalfFailsSuffix ? fails : k == D + CyclePositionProvider.HalfDaySuffix ? 20 : double.NaN;
+            Assert.EndsWith($"gave back {words} went on to fail {fails}% of the time, against 30% of all", CyclePositionProvider.HalfWords(at));
+        }
+        // Once the cycle has failed: the low and its depth, no share.
+        int failed = Marked(r[D + CyclePositionProvider.HalfGaveSuffix]).Last(i => double.IsNaN(r[D + CyclePositionProvider.HalfFailsSuffix][i]));
+        string after = Assert.Single(CyclePositionProvider.StateWords(comp, failed), w => w.StartsWith("half-cycle low: ", StringComparison.Ordinal));
+        Assert.EndsWith("% of the rise before it", after);
+        Assert.DoesNotContain("fails", CyclePositionProvider.TableRows(comp, failed).Single(row => row[0].Text == "Half-cycle low")[1].Text);
+        // The mark: its low, its day in the cycle and how much later it was found.
+        int h = Marked(r[CyclePositionProvider.CompHalfLow]).Last();
+        Assert.Equal($"Half-cycle low: the low of {SpeechPriceFormatter.FormatPrice(bars[h].Low)}, {CipherCProvider.A(r[D][h] + 1)} {r[D][h] + 1} day into the daily cycle, found {r[CyclePositionProvider.CompHalfLow + CyclePositionProvider.HalfFoundSuffix][h]} days later.",
+            Provider.GetComponentSpeech(CyclePositionProvider.CompHalfLow, r[CyclePositionProvider.CompHalfLow][h], bars[h], r, h));
+    }
+
+    /// <summary>The half-cycle lows' switch hides their marks, not what is said: on by default, nothing hidden.</summary>
+    [Fact]
+    public void The_half_cycle_lows_switch_hides_only_their_marks()
+    {
+        var on = Btc();
+        var off = Run(CipherSrSpeechTests.BtcDaily(), extra: new() { [CyclePositionProvider.ParamHalfLows] = false });
+        var marked = Marked(on[CyclePositionProvider.CompHalfLow]);
+        Assert.NotEmpty(marked);
+        string hide = CyclePositionProvider.CompHalfLow + ComponentCompanions.Hide;
+        Assert.All(on[hide], v => Assert.True(double.IsNaN(v)));
+        for (int t = 0; t < off[hide].Length; t++)
+            Assert.Equal(marked.Contains(t) ? ComponentCompanions.HideMarker : double.NaN, off[hide][t]);
+        Assert.Equal(on[CyclePositionProvider.CompHalfLow], off[CyclePositionProvider.CompHalfLow]);
+        Assert.Equal(on[D + CyclePositionProvider.HalfFailsSuffix], off[D + CyclePositionProvider.HalfFailsSuffix]);
     }
 }

@@ -751,3 +751,61 @@ after a failure, the share from the cycles known by the bar, the chart's counts)
 (a cycle is known when the later of its two lows is confirmed, and the later is never confirmed
 first). Four were green at first (the mid count, the last bar's date, the table's weekly and yearly
 cells, an ineffective top sabotage) and tests were added.
+
+### 9.7 The half-cycle low, and how much of the rise it gave back
+
+In each daily cycle from a confirmed low `a` (not the Start), the half-cycle low is the first bar `h`
+from 0.3 to 0.7 of the usual cycle in (the learned window's middle on the bar `a` became the newest
+low) whose low is above `a`'s, under every low of the `k` bars before it and no higher than every low
+of the `k` bars after (`k` = an eighth of the shortest daily cycle, at least 2; 6 on Bitcoin). It is
+known `k` bars on, or when `a` is confirmed if that is later, so it is a mark drawn on its bar and
+found later (component "Half Cycle Low", Lookahead, a small up triangle, switch "Half-cycle lows" on
+by default; strategies refuse it as they refuse every Lookahead mark). Found in 69% of daily cycles
+(5,286 of 7,678 on 31 daily charts).
+
+**The projection was dropped.** The plan was to project the next daily low from it. Measured on the
+same 5,267 cycles, 0.3 to 0.85 of the usual cycle after it held 55.7% against the learned window's
+59.3%. Fitted on half the charts and scored on the other half, at the same span as the learned
+window, it held 59.5% against 58.4%, and 59.4% against 60.0%. Wider ranges held more only because
+they were wider. It adds nothing to the window, so no projection is said.
+
+**What it does tell: how much of the rise it gave back.** The share of the rise from the cycle's low
+to its highest high up to the half-cycle low (its own bar included) that the half-cycle low gave back
+told how often the cycle went on to fail. These are cycles not failed when it was found, 5,223 on the
+31 charts:
+
+| Gave back | Failed, charts A | Failed, charts B | Said (pooled) |
+|---|---|---|---|
+| under 50% | 18.3% (1,276) | 17.4% (1,024) | 18% |
+| 50 to 70% | 31.2% (753) | 30.2% (646) | 31% |
+| 70 to 80% | 43.0% (298) | 42.5% (315) | 43% |
+| 80% or more | 43.8 / 50.6% (509) | 49.1 / 55.6% (402) | 49% |
+| all | 29.4% | 30.0% | 30% |
+
+It adds to the top's reading (9.5). Where both are said, cycles whose half-cycle low gave back 80% or
+more failed 44.0% and 51.5% of the time, while the top's stage rate said 32%. Measured another way, a
+half-cycle low under 2% above the cycle's low failed 45.7% against 22.5%; the share of the rise is
+used because it does not depend on the asset's volatility.
+
+It is said from the bar it is found until the next daily low: "half-cycle low: 74,912.00 on day 32,
+giving back 32% of the rise before it; cycles whose half-cycle low gave back under 50% went on to
+fail 18% of the time, against 30% of all". The failure share is left out once the cycle has failed.
+It appears in the state words, the arrowed daily window, the table row "Half-cycle low" ("day 32,
+gave 32%, fails 18%") and the mark's own speech ("Half-cycle low: the low of 74,912.00, a 32 day into
+the daily cycle, found 6 days later.").
+
+An independent Python recomputation from the bars and the app's daily lows on all 31 charts matched
+the app on every bar (marks, lags, prices, days, shares, failure rates). The rates said equal the
+rates seen there: 18 → 17.9, 31 → 30.7, 43 → 42.7, 49 → 49.2. They are fitted on these charts; the
+two halves agree within 6 points.
+
+Tests: `The_half_cycle_low_is_found_as_defined_and_said_with_its_depth` works the definition by hand,
+cycle by cycle, on Bitcoin and on Bitcoin with a 0 to 100 window, which moves at nearly every new low.
+It also covers cases made by changing one bar: a tie after the low, the low's own high over the top
+before it, and a give-back exactly on each band's edge. `The_half_cycle_low_is_said_as_shown` covers
+the words, every band, after a failure, the table and the mark. `The_half_cycle_lows_switch_hides_only_their_marks`
+covers the switch. The components test now reads "Cipher C's, then its own". 24 sabotages, 23 red.
+The green one changes nothing: no cycle runs from the Start on any of the 31 charts. Five were green
+at first: the tie, the window's bar, the top's own bar, the band edges and the line-deleting entry.
+The edge cases were added for the first four (the 31 charts have 229 ties and 631 bars on an edge),
+and the fifth was a harness entry error.

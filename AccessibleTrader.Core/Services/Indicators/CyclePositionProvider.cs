@@ -144,6 +144,28 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         internal static string DatesKey(string comp, bool closes) => (closes ? "__cp_closes_" : "__cp_opens_") + comp;
         public const string BarSecondsKey = "__cp_bar_seconds";
+        /// <summary>The half-cycle low: a mark on its bar, found <see cref="HalfPivotShare"/>-th of the shortest cycle later.</summary>
+        public const string CompHalfLow = "Half Cycle Low";
+        /// <summary>
+        /// On the daily window, from the bar the half-cycle low is found until the next daily low:
+        /// its price, its day, the share of the rise from the cycle's low to its top so far that it
+        /// gave back, and (while the cycle has not failed) how often cycles whose half-cycle low
+        /// gave back that much failed.
+        /// </summary>
+        public const string HalfSuffix = "_half", HalfDaySuffix = "_halfDay", HalfGaveSuffix = "_halfGave", HalfFailsSuffix = "_halfFails";
+        /// <summary>Where in the cycle a half-cycle low is looked for, in usual cycles; the pivot's reach, the shortest cycle over this.</summary>
+        internal const double HalfFrom = 0.3, HalfTo = 0.7, HalfPivotShare = 8;
+        /// <summary>
+        /// The share of daily cycles that failed after their half-cycle low gave back this much of
+        /// the rise, on 31 daily charts' 5,223 cycles not failed when it was found (2026-10-28; the
+        /// same on each half of the charts within 6 points); <see cref="HalfFailsBase"/> over all of them.
+        /// </summary>
+        internal static readonly (double From, double To, double Fails)[] HalfFails = { (0, 0.5, 18), (0.5, 0.7, 31), (0.7, 0.8, 43), (0.8, double.PositiveInfinity, 49) };
+        internal const double HalfFailsBase = 30;
+        public const string ParamHalfLows = "HalfCycleLows";
+        /// <summary>On the half-cycle low's own bar: how many bars later it was found.</summary>
+        public const string HalfFoundSuffix = "_found";
+        internal const string HalfLowHex = "#80CBC4";
         /// <summary>The last bar's own date, on the last bar (an OLE Automation date), for whether a window is open yet.</summary>
         public const string NowKey = "__cp_now";
 
@@ -184,7 +206,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     ParamCancelledLows => (w.Name, w.Display, true, "On by default. A daily low undercut before it was confirmed keeps its mark, with a red cross."),
                     ParamConfirmationMark => (w.Name, w.Display, true, "On by default. A check over a down triangle on the bar each daily low is confirmed on: where it became known."),
                     _ => w,
-                }).ToArray();
+                })
+                .Append((ParamHalfLows, "Half-cycle lows", true,
+                    "On by default. A small up triangle under each daily cycle's half-cycle low: the first low from 0.3 to 0.7 of the usual cycle in that is above the cycle's low and the lowest for an eighth of the shortest cycle each side. Drawn on its bar, known that many bars later."))
+                .ToArray();
 
         public List<IndicatorMetadata> GetIndicators() => new()
         {
@@ -224,8 +249,20 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
                 })).ToList(),
-                Components = Components(Words),
+                Components = Components(Words).Append(HalfLowComponent).ToList(),
             }
+        };
+
+        /// <summary>The half-cycle low's mark: a small up triangle under the bar, in the daily band's green. Value: its low.</summary>
+        internal static IndicatorComponentMetadata HalfLowComponent => new()
+        {
+            Name = CompHalfLow, DisplayName = CompHalfLow, DisplayType = ComponentDisplayType.TriangleUp, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Lookahead, DefaultMarkerAnchor = MarkerAnchor.BelowBar, MarkerTouchesBar = true,
+            DefaultColorHex = HalfLowHex, DefaultThickness = 2f, DefaultDrawOrder = 3,
+            DefaultEnvelopeType = "Ping", DefaultPlaybackLayer = PlaybackLayer.Background,
+            DefaultSoundPatchId = "triangle_bell", DefaultBaseFrequency = 370, DefaultDecayMs = 250,
+            DefaultPitchMapping = PitchMapping.None, DefaultAmplitudeMapping = AmplitudeMapping.None,
+            DefaultSignalSpeechTemplate = "Half-cycle low.",
         };
 
         // ── Calculation ────────────────────────────────────────────────────────
@@ -236,6 +273,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             var o = Outputs(n);
             double[] A(string key) => o.TryGetValue(key, out var a) ? a : o[key] = CipherCEngine.Nan(n);
+            A(CompHalfLow); A(CompHalfLow + ComponentCompanions.Hide);
             if (n == 0) return o;
             // A bar's stamp; past the last bar, the one the chart would print.
             List<DateTime>? future = null;
@@ -385,6 +423,8 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // The daily cycle's top so far, and what its place has meant on past cycles.
             if (dTier.Active) Tops(o, A, data, d, dLearn, n);
+            // The half-cycle low, and how much of the rise it gave back.
+            if (dTier.Active) HalfLows(A, data, d, dLearn, L, n);
 
             // Nesting: which daily cycle of the weekly one, which weekly of the yearly.
             // Picked from the daily lows by time, a weekly cycle is one daily cycle or several (two
@@ -401,6 +441,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             Array.Fill(A(LengthKey), L);
             Array.Fill(A(LengthSourceKey), tiers.LengthSource);
             ApplyDisplay(o, p, n);
+            if (!IndicatorParams.GetBool(p, ParamHalfLows, true))
+            {
+                double[] half = o[CompHalfLow], hide = o[CompHalfLow + ComponentCompanions.Hide];
+                for (int t = 0; t < n; t++)
+                    if (!double.IsNaN(half[t])) hide[t] = ComponentCompanions.Hidden(hide, t) | ComponentCompanions.HideMarker;
+            }
             return o;
         }
 
@@ -536,6 +582,64 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (failedFor == a) continue;
                 foreach (var (from, to, onLeft, onRight) in TopFails)
                     if (day >= from * mid && day < to * mid) { fails[t] = left ? onLeft : onRight; other[t] = left ? onRight : onLeft; }
+            }
+        }
+
+        /// <summary>
+        /// The half-cycle low: in each daily cycle from a confirmed low <c>a</c>, the first bar
+        /// <c>h</c> from 0.3 to 0.7 of the usual cycle in (the window's middle when <c>a</c> was
+        /// confirmed) whose low is above <c>a</c>'s and the lowest for <c>k</c> bars each side
+        /// (lower than every bar before it, no higher than every bar after; <c>k</c> = an eighth
+        /// of the shortest daily cycle, at least 2). Known <c>k</c> bars on (or when <c>a</c> is
+        /// confirmed), so it is a mark on <c>h</c> found later, and from then the next daily low is
+        /// said with how much of the rise from the cycle's low to its top it gave back, which has
+        /// told how often the cycle failed (<see cref="HalfFails"/>). Found in 69% of daily cycles
+        /// on 31 daily charts. A next daily low projected from it held no more often than the
+        /// learned window at the same span (59.5% against 58.4%), so none is said.
+        /// </summary>
+        private static void HalfLows(Func<string, double[]> A, ReadOnlySpan<Ohlcv> data, CipherCEngine.TierRun d, Learned learn, double L, int n)
+        {
+            int k = Math.Max(2, (int)Math.Round(L / HalfPivotShare, MidpointRounding.AwayFromZero));
+            var low = new double[n];
+            for (int t = 0; t < n; t++) low[t] = data[t].Low;
+            double[] mark = A(CompHalfLow), lag = A(CompHalfLow + HalfFoundSuffix), price = A(CompDailyWindow + HalfSuffix), dayOut = A(CompDailyWindow + HalfDaySuffix),
+                     gaveOut = A(CompDailyWindow + HalfGaveSuffix), fails = A(CompDailyWindow + HalfFailsSuffix);
+            int cycle = -1, found = -1, last = -1, failedFor = -1;
+            double gave = double.NaN;
+            double mid = double.NaN;
+            bool Pivot(int h)
+            {
+                if (h - k < 0 || h + k >= n || low[h] <= low[cycle]) return false;
+                for (int j = h - k; j < h; j++) if (low[j] <= low[h]) return false;
+                for (int j = h + 1; j <= h + k; j++) if (low[j] < low[h]) return false;
+                return true;
+            }
+            for (int t = 0; t < n; t++)
+            {
+                if (!double.IsNaN(d.Failed[t])) failedFor = d.ClosedUnder[t];
+                int a = d.LastLowAt[t];
+                if (a < 0 || a == d.Start) { cycle = -1; continue; }
+                if (a != cycle)
+                {
+                    cycle = a; found = -1; mid = (learn.Start[t] + learn.End[t]) / 2;
+                    last = a + (int)Math.Floor(HalfTo * mid);
+                    for (int h = Math.Max(a + (int)Math.Ceiling(HalfFrom * mid), a + k); h <= Math.Min(last, t - k) && found < 0; h++)
+                        if (Pivot(h)) found = h;
+                }
+                else if (found < 0 && t - k <= last && t - k >= Math.Max(a + (int)Math.Ceiling(HalfFrom * mid), a + k) && Pivot(t - k)) found = t - k;
+                if (found < 0) continue;
+                if (double.IsNaN(mark[found]))
+                {
+                    lag[found] = t - found;
+                    double top = data[a].High;
+                    for (int i = a + 1; i <= found; i++) top = Math.Max(top, data[i].High);
+                    gave = (top - low[found]) / (top - low[a]);
+                }
+                mark[found] = low[found];
+                price[t] = low[found];
+                dayOut[t] = found - a + 1;
+                gaveOut[t] = gave;
+                if (failedFor != a) fails[t] = HalfFails.First(b => gave >= b.From && gave < b.To).Fails;
             }
         }
 
@@ -866,6 +970,38 @@ namespace AccessibleTrader.Core.Services.Indicators
             return s;
         }
 
+        /// <summary>
+        /// "half-cycle low: 61,200.00 on day 24, giving back 82% of the rise before it; cycles
+        /// whose half-cycle low gave back 80% or more went on to fail 49% of the time, against 30%
+        /// of all": from the bar the half-cycle low is found until the next daily low; the failure
+        /// share left out once the cycle has failed.
+        /// </summary>
+        internal static string? HalfWords(Func<string, double> at)
+        {
+            double price = at(CompDailyWindow + HalfSuffix);
+            if (double.IsNaN(price)) return null;
+            var (day, _) = Unit(at(InBarsKey) == 1, "day", "days");
+            double gave = at(CompDailyWindow + HalfGaveSuffix);
+            string s = $"half-cycle low: {Price(price)} on {day} {Num(at(CompDailyWindow + HalfDaySuffix))}, giving back {Num(Math.Round(100 * gave))}% of the rise before it";
+            if (at(CompDailyWindow + HalfFailsSuffix) is var f && !double.IsNaN(f))
+            {
+                var b = HalfFails.First(x => x.Fails == f);
+                string band = double.IsInfinity(b.To) ? $"{Num(100 * b.From)}% or more" : b.From == 0 ? $"under {Num(100 * b.To)}%" : $"{Num(100 * b.From)} to {Num(100 * b.To)}%";
+                s += $"; cycles whose half-cycle low gave back {band} went on to fail {Num(f)}% of the time, against {Num(HalfFailsBase)}% of all";
+            }
+            return s;
+        }
+
+        /// <summary>The table's "Half-cycle low" cell: "day 24, gave 82%, fails 49%".</summary>
+        internal static string? HalfCell(Func<string, double> at)
+        {
+            double price = at(CompDailyWindow + HalfSuffix);
+            if (double.IsNaN(price)) return null;
+            string s = $"{(at(InBarsKey) == 1 ? "bar" : "day")} {Num(at(CompDailyWindow + HalfDaySuffix))}, gave {Num(Math.Round(100 * at(CompDailyWindow + HalfGaveSuffix)))}%";
+            if (at(CompDailyWindow + HalfFailsSuffix) is var f && !double.IsNaN(f)) s += $", fails {Num(f)}%";
+            return s;
+        }
+
         /// <summary>"this chart's daily tops: 40 left, 2 mid, 61 right": its finished daily cycles by translation, known by the bar.</summary>
         internal static string? TopCountWords(Func<string, double> at)
         {
@@ -909,6 +1045,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             foreach (var (tier, comp) in new[] { ("daily", CompDailyWindow), ("weekly", CompWeeklyWindow), ("yearly", CompYearlyWindow) })
                 if (NextWords(tier, At, comp) is { } next) words.Add(next);
             if (TopWords(At) is { } top) words.Add(top);
+            if (HalfWords(At) is { } half) words.Add(half);
             if (HeldWords("daily", day, days, At(HeldDaysKey)) is { } heldDaily) words.Add(heldDaily);
             if (LowInWords(At) is { } lowIn) words.Add(lowIn);
             if (ConfluenceWords(At) is { } confluence) words.Add(confluence);
@@ -975,6 +1112,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? ", new drawn" : "")}"),
                 Row("Next low", c => NextCell(At, c)),
                 new[] { C("Top so far", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + StartSuffix)) ? "" : TopCell(At) ?? Dash, TableValue), C("", null), C("", null) },
+                new[] { C("Half-cycle low", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + StartSuffix)) ? "" : HalfCell(At) ?? Dash, TableValue), C("", null), C("", null) },
                 new[] { C("Unconfirmed low", TableLabel, -1), C(Held(At(HeldDaysKey)), TableValue), C(Held(At(HeldWeeksKey)), TableValue), C("", null) },
                 new[]
                 {
@@ -1019,7 +1157,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 LowInWords(At, comp) is not { } lowIn ? position : position == null ? lowIn : position + "; " + lowIn;
             switch (componentName)
             {
-                case CompDailyWindow: return With(With(PositionWords("daily cycle", day, days, At, CompDailyWindow), NextWords("daily", At, CompDailyWindow)), TopWords(At));
+                case CompDailyWindow: return With(With(With(PositionWords("daily cycle", day, days, At, CompDailyWindow), NextWords("daily", At, CompDailyWindow)), TopWords(At)), HalfWords(At));
+                case CompHalfLow when !double.IsNaN(value):
+                    return $"Half-cycle low: the low of {Price(value)}, {A(At(CompDailyWindow) + 1)} {Num(At(CompDailyWindow) + 1)} {day} into the daily cycle, found {Span(At(CompHalfLow + HalfFoundSuffix), day, days)} later.";
                 case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return WithLowIn(With(PositionWords("weekly cycle", u, us, At, CompWeeklyWindow), NextWords("weekly", At, CompWeeklyWindow)), CompWeeklyWindow); }
                 case CompYearlyWindow: { var (u, us) = Unit(inBars, "year", "years"); return WithLowIn(With(PositionWords("yearly cycle", u, us, At, CompYearlyWindow), NextWords("yearly", At, CompYearlyWindow)), CompYearlyWindow); }
                 case CompFailed when At(EventsTierKey) == 1 && !double.IsNaN(value):
