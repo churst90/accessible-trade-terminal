@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: weekly and yearly "low is in" (2026-10-28)
+
+- **What**: Cody asked to "fit the weekly and yearly bottoms as well". On daily charts, the "Low is
+  in" row's weekly and yearly columns now say how likely the weekly and the yearly low being made is
+  to become one, in the same five words. The bar's state words say it too ("weekly low is in: high,
+  88%, for the low of 59,100.00; about 62 days to its confirmation; ..."), and so does arrowing the
+  weekly or yearly window. The yearly reading names no confirmations.
+- **Which low**: weekly, the held daily low that would become the weekly low (past the gap and under
+  the drawn candidate, or inside the gap and under the newest weekly low), else the drawn candidate
+  (`CycleLowConfidence.WeeklySubject`). Yearly, the earliest low still standing that is the lowest
+  for 0.15 of a cycle before it, from 0.8 of a cycle after the newest yearly low, as Cycle Position
+  finds its yearly lows (`YearlySubject`), counted in calendar days.
+- **The models** (generated into `CycleLowConfidence.Tiers.Model.cs`): weekly, the daily reading's
+  12 inputs on its own low and a clock of a cycle and a half, 200 trees of depth 3. Yearly, four
+  inputs (the touch chance, the rise, how far price came back, the time held), 100 trees of depth 2.
+  Fitted on Cycle Position's own lows on 30 daily charts; Bitcoin held out.
+- **Results**, every chart scored unseen (CYCLE_POSITION_DESIGN section 8.5): the first weekly
+  "very high" is right 94.6% (2,108 of 2,229), catches 72% of weekly lows, a median 12 days early;
+  yearly 94.5% (274 of 290), 84%, about 40 days early. Daily, for comparison, 96.6% and 99% across
+  the same 31 charts. Bitcoin: weekly 15 of 15 since 2020, yearly 3 of 3.
+- **Caveats**: weak on Marathon (weekly "very high" days 71% real), Gold (76 of 163 weekly lows
+  caught), Silver and US oil (yearly 8 of 23 and 15 of 43 caught). Weekly lows confirmed fast are
+  often missed: the weekly low is confirmed when the next daily low holds above it. When the weekly
+  reading reads the same low as the daily one, the confirmations are said twice. Yearly lows are few
+  (328). On the 31 captured charts, 58 of 311,422 days differ from the study by a last-digit
+  difference in the touch chance that falls on a tree split. Daily charts only.
+- **Exactness**: averages are summed in numpy's pairwise order. Bitcoin's close on 2012-06-26 is
+  exactly its 10-day average, so the order decides that bar's side.
+- **Tests**: `CycleLowConfidenceTests` gains 6 tests and one hand-worked weekly case:
+  - the study's own weekly and yearly chances to 1e-9 on Bitcoin, on exactly its 4,085 and 1,266
+    days (`Fixtures/CycleLowConfidenceTiersReference.cs`);
+  - all 40 weekly and 3 yearly lows read before they are confirmed;
+  - the weekly and yearly lows read worked by hand, ties included;
+  - calendar days, not hours;
+  - no yearly cycle, no yearly reading;
+  - speech = table.
+- **Sabotages**: 15 of 17 red. The two green ones change nothing: no yearly tree splits held time
+  above 0.91, so its cap of 2 never acts; on a daily chart the weekly tier always runs, so its gate
+  cannot close. README 9779. Not seen or heard in the app; the accessibility-lead agent is not
+  registered here.
+
 ### Cycle Position: "Low is in" and "Low expected", in words (2026-10-28)
 
 - **Low is in**, daily charts, on each day a daily low is held: how likely Cycle Position is to

@@ -519,9 +519,71 @@ Timing alone (the cycle's age against its past) is AUC .52-.57: the price state 
   the honest one, and it holds.
 - **Bitcoin's 39 lows since 2020** are few.
 - **Low expected is weak**: its "likely" is right about half the time.
-- **Daily charts only.** Both were fitted on daily bars; off a daily chart neither is read.
+- **Daily charts only.** Both were fitted on daily bars; off a daily chart neither is read (nor the
+  weekly and yearly readings of section 8.5).
 - **Low expected reads on past the newest confirmed low**, where the study (which needed the next
   low as its label) stopped; there it is the same model on bars the study could not score.
+
+### 8.5 Weekly and yearly "Low is in" (2026-10-28)
+
+Cody: "try and fit the weekly and yearly bottoms as well". The same reading for the weekly and the
+yearly low being made, on daily charts, in the table's weekly and yearly columns of the "Low is in"
+row, the bar's state words ("weekly low is in: high, 88%, for the low of 59,100.00; about 62 days to
+its confirmation; ..."), and arrowing the weekly or yearly window adds it to the window's words.
+
+**Which low it reads** (`CycleLowConfidence.WeeklySubject`, `YearlySubject`):
+- **Weekly**: U the newest weekly low, C the drawn candidate (a daily low past the gap after U, not
+  yet a weekly low), h the held daily low. It reads h when h is past the gap and strictly under C (or
+  there is no C), as h would take C's place; else C; else h when it is inside the gap and under U, as
+  it would take U's place. Days left: `low + L + round(L/2) − today` (at least 1).
+- **Yearly**: the earliest low still standing that is the lowest for 0.15 of a yearly cycle before it
+  (the first of equal lows), found from 0.8 of a cycle after the newest yearly low, and dropped when a
+  later low is strictly under it, as `YearlyFromPrice` finds them. In calendar days (the bar's date),
+  so a stock's or a currency's session hours do not move it. Days left: the bars in 0.15 of a cycle,
+  from the low.
+
+**What it reads**: weekly, the daily reading's 12 inputs on its own subject and clock, its own trees
+(200, depth 3, only-up on the evidence). Yearly: only four, the touch chance, the rise, how far price
+came back, and how long it has been held in 0.15-cycle units (capped at 2); 100 trees of depth 2, at
+least 200 days a leaf. Both mapped to a share (isotonic). The yearly reading names no confirmations.
+
+**Results**, every chart scored unseen (two halves, each fitted on the other; Bitcoin from the fit on
+the other 30): the first day each low reaches "very high":
+
+| | first "very high" right | lows caught | median days early (per chart) | "very high" days real |
+|---|---|---|---|---|
+| Daily | 96.6% (7,526 of 7,792) | 99% (7,526 of 7,625) | 7 (2 to 10) | 98.4% |
+| Weekly | 94.6% (2,108 of 2,229) | 72% (2,108 of 2,948) | 12 (8 to 31) | 96.2% |
+| Yearly | 94.5% (274 of 290) | 84% (274 of 328) | 40 (15 to 246) | 96.8% |
+
+- **Per chart**: daily, "very high" days are real 97-100% on every chart. Weekly mostly 92-100%;
+  Marathon 71%, Silver juniors 88%, Riot 91%; Gold catches 76 of 163 weekly lows, GDX 23 of 48.
+  Yearly 87-100%; Silver catches 8 of 23 yearly lows, US oil 15 of 43, Gold 11 of 20.
+- **Split checks**: weekly, fit on one half and scored on the other, AUC .835 and .851, "very high"
+  96% real both ways; Bitcoin 2020+ AUC .85, first "very high" 15 of 15. Yearly, "very high" 98% and
+  96% real, first "very high" right 97.1% and 89.9%; Bitcoin 3 of 3.
+- **Weekly lows not caught** are mostly ones confirmed fast: the weekly low is confirmed when the
+  next daily low is not under it, often before the reading reaches "very high".
+- **Tried and adding nothing**: weekly extras (the daily reading's own chance, the daily low's
+  confirmation, the nest, the candidate's age), other horizons for the clock, and bigger yearly input
+  sets (the confirmations, the cycle's age, the window).
+
+**Parity**: the C# is the study's to 1e-9 on Bitcoin, on exactly its bars: 4,085 days with a
+weekly low to read, 1,266 with a yearly one (`Fixtures/CycleLowConfidenceTiersReference.cs`). Sums of
+averages are added in numpy's order (pairwise), since on 2012-06-26 Bitcoin's close is exactly its
+10-day average and the order decides the side. On all 31 captured charts, 57 of 241,519 weekly
+days and 1 of 69,903 yearly days differ from the study. Each is a last-digit difference in the touch
+chance (C#'s error function against Python's) that falls on a tree's split.
+
+**Caveats**:
+- It forecasts Cycle Position's own weekly and yearly lows, which come from its own rules (section
+  7.5 for the weekly), not the original's.
+- When the weekly reading reads the same low as the daily one, its confirmations repeat the daily
+  ones'.
+- Weekly lows with few days to their confirmation are often confirmed before "very high": a "high"
+  there is worth hearing.
+- The metals and oil are the weak charts; yearly lows are few (328 on 31 charts).
+- Daily charts only; the 58 last-digit differences above.
 
 ### 8.4 Cipher B's big green dot against the cycle lows (research, 2026-10-28)
 

@@ -84,11 +84,14 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// before its confirmation, the days left to it, percent above the low, average ranges risen,
         /// and the bars since the low each confirmation has run (a higher low's high broken, closes
         /// above the 10-day average, the stochastic over its trigger, the SAR under price, the first
-        /// close above the 10 before it), 0 when off.
+        /// close above the 10 before it), 0 when off; and the low's price. The same on the weekly
+        /// window for the weekly low being made and on the yearly window for the yearly one (the
+        /// yearly window has no confirmations: the share, touch, days left, above, risen and the low).
         /// </summary>
         public const string LowInSuffix = "_lowIn", LowInTouchSuffix = "_lowInTouch", LowInLeftSuffix = "_lowInLeft",
             LowInAboveSuffix = "_lowInAbove", LowInRiseSuffix = "_lowInRise", LowInStructureSuffix = "_lowInStructure",
-            LowInSmaSuffix = "_lowInSma", LowInDssSuffix = "_lowInDss", LowInSarSuffix = "_lowInSar", LowInBreakSuffix = "_lowInBreak";
+            LowInSmaSuffix = "_lowInSma", LowInDssSuffix = "_lowInDss", LowInSarSuffix = "_lowInSar", LowInBreakSuffix = "_lowInBreak",
+            LowInLowSuffix = "_lowInLow";
         /// <summary>Per bar after a confirmed daily low, daily charts only: "Low expected", the chance (0-1) a new daily low is drawn within the next <see cref="ExpectedDaysSuffix"/> days.</summary>
         public const string ExpectedSuffix = "_lowExpected", ExpectedDaysSuffix = "_lowExpectedDays";
 
@@ -188,38 +191,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             var p = new Dictionary<string, object>(parameters ?? new Dictionary<string, object>());
             foreach (var sw in Switches) p.TryAdd(sw.Name, sw.On);
 
-            var chartClock = CipherCEngine.MeasureBars(data);
-            var own = CipherCEngine.PresetForSymbol(Str(p, "__symbol"));
-            // Off a daily chart the daily count runs in the chart's own bars, as Cipher C's does.
-            bool inBars = Math.Abs(chartClock.BarsPerDay - 1) > 1e-6;
-            var clock = inBars ? new CipherCEngine.BarClock(1, own?.CalendarDays ?? chartClock.TradesEveryDay) : chartClock;
-            double dayScale = own == null ? 1 : (clock.TradesEveryDay ? 7.0 : 5.0) / (own.CalendarDays ? 7.0 : 5.0);
-
-            double set = Dbl(p, ParamDailyCycle, 0);
-            double L = set > 0 ? set : own != null ? own.CountedDailyMin * dayScale : CipherCEngine.DefaultCountDailyMin;
-            double years = Dbl(p, ParamYearlyCycle, 0) is var ys && ys > 0 ? ys
-                : own != null ? (own.YearlyMin + own.YearlyMax) / 2 : DefaultYearlyYears;
-            // The default yearly window, until four yearly cycles are known: the symbol's own range,
-            // at least a quarter either side of its middle (Bitcoin's is 4 to 4 years).
-            bool ownYears = own != null && !(Dbl(p, ParamYearlyCycle, 0) > 0);
-            double yMin = Math.Min(ownYears ? own!.YearlyMin : years, years * (1 - DefaultYearlySpread));
-            double yMax = Math.Max(ownYears ? own!.YearlyMax : years, years * (1 + DefaultYearlySpread));
+            var tiers = BuildTiers(data, p);
+            var (clock, inBars, L, years, yMin, yMax) = (tiers.Clock, tiers.InBars, tiers.L, tiers.Years, tiers.YMin, tiers.YMax);
+            var (dTier, wTier, yTier, d, w, y, weeklyFromDaily) = (tiers.DTier, tiers.WTier, tiers.YTier, tiers.D, tiers.W, tiers.Y, tiers.WeeklyFromDaily);
             double qFrom = Math.Clamp(Dbl(p, ParamBandFrom, DefaultBandFrom), 0, 100) / 100;
             double qTo = Math.Clamp(Dbl(p, ParamBandTo, DefaultBandTo), 0, 100) / 100;
             if (qTo < qFrom) (qFrom, qTo) = (qTo, qFrom);
-
-            var dTier = CipherCEngine.Tier(L, L * DefaultDailySpan, 1, clock);
-            var wTier = CipherCEngine.Tier(DefaultWeeklyFrom * L, DefaultWeeklyTo * L, clock.DaysPerWeek, clock);
-            var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
-
-            var d = CipherCEngine.DetectDaily(data, dTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
-                DssOverbought, DssOversold, pivotBreak: false);
-            bool weeklyFromDaily = dTier.Active && wTier.Active;
-            double shortestWeekly = set <= 0 && own != null ? own.WeeklyMin * clock.DaysPerWeek * clock.BarsPerDay : wTier.MinBars;
-            var w = weeklyFromDaily ? CipherCEngine.WeeklyByTime(d, data, WeeklyGapShare * shortestWeekly, d.Start)
-                                    : CipherCEngine.Detect(data, wTier, DssOverbought, DssOversold);
-            if (weeklyFromDaily) CountFromNewest(w, data, d.Start);
-            var y = yTier.Active ? CipherCEngine.YearlyFromPrice(data, years) : CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>());
 
             // Each tier's unit, in bars. Off a daily chart every tier counts in the chart's bars, as
             // Cipher C's does. On one the yearly window is learned in tenths of a year (whole years
@@ -264,14 +241,24 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Low is in, and Low expected: fitted on daily charts, so daily charts only.
             if (dTier.Active && !inBars)
             {
-                var lc = CycleLowConfidence.Compute(data, d, L, A(CompDailyWindow + StartSuffix), A(CompDailyWindow + EndSuffix));
-                foreach (var (suffix, values) in new[]
-                         {
-                             (LowInSuffix, lc.Chance), (LowInTouchSuffix, lc.Touch), (LowInLeftSuffix, lc.Left), (LowInAboveSuffix, lc.Above),
-                             (LowInRiseSuffix, lc.Rise), (LowInStructureSuffix, lc.Structure), (LowInSmaSuffix, lc.Sma), (LowInDssSuffix, lc.Dss),
-                             (LowInSarSuffix, lc.Sar), (LowInBreakSuffix, lc.Break), (ExpectedSuffix, lc.Expected), (ExpectedDaysSuffix, lc.ExpectedDays),
-                         })
-                    o[CompDailyWindow + suffix] = values;
+                bool weekly = weeklyFromDaily && w.NewestAt.Length == n;
+                var lc = CycleLowConfidence.Compute(data, d, L, A(CompDailyWindow + StartSuffix), A(CompDailyWindow + EndSuffix),
+                    weekly ? w : null, tiers.WeeklyGap, yTier.Active ? y : null, years);
+                foreach (var (comp, r, on) in new[] { (CompDailyWindow, (CycleLowConfidence.Reading)lc, true), (CompWeeklyWindow, lc.Weekly, weekly), (CompYearlyWindow, lc.Yearly, yTier.Active) })
+                {
+                    if (!on) continue;
+                    foreach (var (suffix, values) in new[]
+                             {
+                                 (LowInSuffix, r.Chance), (LowInTouchSuffix, r.Touch), (LowInLeftSuffix, r.Left), (LowInAboveSuffix, r.Above),
+                                 (LowInRiseSuffix, r.Rise), (LowInLowSuffix, r.Low), (LowInStructureSuffix, r.Structure), (LowInSmaSuffix, r.Sma),
+                                 (LowInDssSuffix, r.Dss), (LowInSarSuffix, r.Sar), (LowInBreakSuffix, r.Break),
+                             })
+                        // The yearly reading counts no confirmations: it does not read them.
+                        if (comp != CompYearlyWindow || suffix is LowInSuffix or LowInTouchSuffix or LowInLeftSuffix or LowInAboveSuffix or LowInRiseSuffix or LowInLowSuffix)
+                            o[comp + suffix] = values;
+                }
+                o[CompDailyWindow + ExpectedSuffix] = lc.Expected;
+                o[CompDailyWindow + ExpectedDaysSuffix] = lc.ExpectedDays;
             }
 
             // Where each bar is against its learned window, and how often the window has held.
@@ -322,9 +309,56 @@ namespace AccessibleTrader.Core.Services.Indicators
             Nest(A(CompYearlyWindow + NestSuffix), y.LastLowAt, w, yTier.Active && wTier.Active, n);
 
             Array.Fill(A(LengthKey), L);
-            Array.Fill(A(LengthSourceKey), set > 0 ? 2 : own != null ? 1 : 0);
+            Array.Fill(A(LengthSourceKey), tiers.LengthSource);
             ApplyDisplay(o, p, n);
             return o;
+        }
+
+        /// <summary>
+        /// The three tiers one run reads, and the numbers they were built from: the shortest daily
+        /// cycle <see cref="Tiers.L"/>, the yearly cycle, the weekly gap (<see cref="WeeklyGapShare"/>
+        /// of the shortest weekly cycle, in bars). <see cref="Compute"/>, Low is in and the lab
+        /// harnesses all start here, so they read the same lows.
+        /// </summary>
+        internal sealed record Tiers(CipherCEngine.BarClock Clock, bool InBars, double L, double LengthSource, double Years, double YMin, double YMax,
+            CipherCEngine.TierBars DTier, CipherCEngine.TierBars WTier, CipherCEngine.TierBars YTier,
+            CipherCEngine.TierRun D, CipherCEngine.TierRun W, CipherCEngine.TierRun Y, bool WeeklyFromDaily, double WeeklyGap);
+
+        /// <summary>Builds <see cref="Tiers"/> from the bars and the filled-in parameters.</summary>
+        internal static Tiers BuildTiers(ReadOnlySpan<Ohlcv> data, Dictionary<string, object> p)
+        {
+            var chartClock = CipherCEngine.MeasureBars(data);
+            var own = CipherCEngine.PresetForSymbol(Str(p, "__symbol"));
+            // Off a daily chart the daily count runs in the chart's own bars, as Cipher C's does.
+            bool inBars = Math.Abs(chartClock.BarsPerDay - 1) > 1e-6;
+            var clock = inBars ? new CipherCEngine.BarClock(1, own?.CalendarDays ?? chartClock.TradesEveryDay) : chartClock;
+            double dayScale = own == null ? 1 : (clock.TradesEveryDay ? 7.0 : 5.0) / (own.CalendarDays ? 7.0 : 5.0);
+
+            double set = Dbl(p, ParamDailyCycle, 0);
+            double L = set > 0 ? set : own != null ? own.CountedDailyMin * dayScale : CipherCEngine.DefaultCountDailyMin;
+            double years = Dbl(p, ParamYearlyCycle, 0) is var ys && ys > 0 ? ys
+                : own != null ? (own.YearlyMin + own.YearlyMax) / 2 : DefaultYearlyYears;
+            // The default yearly window, until four yearly cycles are known: the symbol's own range,
+            // at least a quarter either side of its middle (Bitcoin's is 4 to 4 years).
+            bool ownYears = own != null && !(Dbl(p, ParamYearlyCycle, 0) > 0);
+            double yMin = Math.Min(ownYears ? own!.YearlyMin : years, years * (1 - DefaultYearlySpread));
+            double yMax = Math.Max(ownYears ? own!.YearlyMax : years, years * (1 + DefaultYearlySpread));
+
+            var dTier = CipherCEngine.Tier(L, L * DefaultDailySpan, 1, clock);
+            var wTier = CipherCEngine.Tier(DefaultWeeklyFrom * L, DefaultWeeklyTo * L, clock.DaysPerWeek, clock);
+            var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
+
+            var d = CipherCEngine.DetectDaily(data, dTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
+                DssOverbought, DssOversold, pivotBreak: false);
+            bool weeklyFromDaily = dTier.Active && wTier.Active;
+            double shortestWeekly = set <= 0 && own != null ? own.WeeklyMin * clock.DaysPerWeek * clock.BarsPerDay : wTier.MinBars;
+            double gap = WeeklyGapShare * shortestWeekly;
+            var w = weeklyFromDaily ? CipherCEngine.WeeklyByTime(d, data, gap, d.Start)
+                                    : CipherCEngine.Detect(data, wTier, DssOverbought, DssOversold);
+            if (weeklyFromDaily) CountFromNewest(w, data, d.Start);
+            var y = yTier.Active ? CipherCEngine.YearlyFromPrice(data, years) : CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>());
+            return new Tiers(clock, inBars, L, set > 0 ? 2 : own != null ? 1 : 0, years, yMin, yMax, dTier, wTier, yTier, d, w, y,
+                weeklyFromDaily, weeklyFromDaily ? gap : double.NaN);
         }
 
         /// <summary>
@@ -529,33 +563,43 @@ namespace AccessibleTrader.Core.Services.Indicators
             return s;
         }
 
-        /// <summary>"high, 88%": the Low is in word and share, or null where no daily low is held.</summary>
-        internal static string? LowInWord(Func<string, double> at)
+        /// <summary>"high, 88%": the Low is in word and share on the window <paramref name="comp"/>, or null where it has no low to read.</summary>
+        internal static string? LowInWord(Func<string, double> at, string comp = CompDailyWindow)
         {
-            double p = at(CompDailyWindow + LowInSuffix);
+            double p = at(comp + LowInSuffix);
             return double.IsNaN(p) ? null : $"{CycleLowConfidence.Word(p)}, {Num(Math.Round(100 * p))}%";
         }
 
         /// <summary>
         /// "low is in: high, 88%; about 9 days to its confirmation; 14% above the low, up 3.2 average
         /// ranges; a 5% chance at random of going back to it first; confirming: a higher low's high
-        /// broken, closes above the 10-day average, ...": the word and the facts it was read from.
+        /// broken, closes above the 10-day average, ...": the word and the facts it was read from. On
+        /// the weekly and yearly windows, "weekly low is in: ..., for the low of 61,200; ..." (the low
+        /// it reads need not be the held daily one); the yearly reading names no confirmations, as it
+        /// does not read them.
         /// </summary>
-        internal static string? LowInWords(Func<string, double> at)
+        internal static string? LowInWords(Func<string, double> at, string comp = CompDailyWindow)
         {
-            if (LowInWord(at) is not { } word) return null;
-            double V(string suffix) => at(CompDailyWindow + suffix);
+            if (LowInWord(at, comp) is not { } word) return null;
+            double V(string suffix) => at(comp + suffix);
             double left = V(LowInLeftSuffix), touch = V(LowInTouchSuffix);
             string chance = touch < 0.01 ? "under 1%" : $"{Num(Math.Round(100 * touch))}%";
+            string head = comp switch
+            {
+                CompWeeklyWindow => $"weekly low is in: {word}, for the low of {Price(V(LowInLowSuffix))}",
+                CompYearlyWindow => $"yearly low is in: {word}, for the low of {Price(V(LowInLowSuffix))}",
+                _ => $"low is in: {word}",
+            };
+            string s = $"{head}; about {Span(left, "day", "days")} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
+                     + $"up {Num(V(LowInRiseSuffix))} average ranges; a {chance} chance at random of going back to it first";
+            if (comp == CompYearlyWindow) return s;
             var on = new List<string>();
             if (V(LowInStructureSuffix) > 0) on.Add("a higher low's high broken");
             if (V(LowInSmaSuffix) > 0) on.Add("closes above the 10-day average");
             if (V(LowInDssSuffix) > 0) on.Add("the stochastic over its trigger");
             if (V(LowInSarSuffix) > 0) on.Add("the SAR under price");
             if (V(LowInBreakSuffix) > 0) on.Add("a close above the 10 before it");
-            return $"low is in: {word}; about {Span(left, "day", "days")} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
-                 + $"up {Num(V(LowInRiseSuffix))} average ranges; a {chance} chance at random of going back to it first; "
-                 + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on));
+            return s + "; " + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on));
         }
 
         /// <summary>"a new daily low in the next 8 days: likely, 42%", on each bar after a confirmed daily low.</summary>
@@ -598,6 +642,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (LowInWords(At) is { } lowIn) words.Add(lowIn);
             if (ExpectedWords(At) is { } expected) words.Add(expected);
             if (HeldWords("weekly", week, weeks, At(HeldWeeksKey)) is { } heldWeekly) words.Add(heldWeekly);
+            foreach (var comp in new[] { CompWeeklyWindow, CompYearlyWindow })
+                if (LowInWords(At, comp) is { } tierLowIn) words.Add(tierLowIn);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
                 if (!double.IsNaN(At(comp))) words.Add($"{tier} cycle low confirmed, {ConfluenceWord(At(comp))} confluence");
@@ -654,7 +700,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Row("Lower cycle", c => double.IsNaN(At(c + NestSuffix)) ? null
                     : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? ", new drawn" : "")}"),
                 new[] { C("Unconfirmed low", TableLabel, -1), C(Held(At(HeldDaysKey)), TableValue), C(Held(At(HeldWeeksKey)), TableValue), C("", null) },
-                new[] { C("Low is in", TableLabel, -1), C(LowInWord(At) ?? (double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? "" : Dash), TableValue), C("", null), C("", null) },
+                new[]
+                {
+                    C("Low is in", TableLabel, -1), C(LowInWord(At) ?? (double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? "" : Dash), TableValue),
+                    C(component(CompWeeklyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompWeeklyWindow) ?? Dash, TableValue),
+                    C(component(CompYearlyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompYearlyWindow) ?? Dash, TableValue),
+                },
                 new[] { C("Low expected", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? ""
                     : $"{CycleLowConfidence.ExpectedWord(At(CompDailyWindow + ExpectedSuffix))}, {Num(At(CompDailyWindow + ExpectedDaysSuffix))} days", TableValue), C("", null), C("", null) },
             };
@@ -673,11 +724,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             double Last(string name) => allComponentData.TryGetValue(name, out var a) && a.Length > 0 ? a[^1] : double.NaN;
             bool inBars = At(InBarsKey) == 1;
             var (day, days) = Unit(inBars, "day", "days");
+            // The weekly and yearly windows say their low is in reading after their position.
+            string? WithLowIn(string? position, string comp) =>
+                LowInWords(At, comp) is not { } lowIn ? position : position == null ? lowIn : position + "; " + lowIn;
             switch (componentName)
             {
                 case CompDailyWindow: return PositionWords("daily cycle", day, days, At, CompDailyWindow);
-                case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return PositionWords("weekly cycle", u, us, At, CompWeeklyWindow); }
-                case CompYearlyWindow: { var (u, us) = Unit(inBars, "year", "years"); return PositionWords("yearly cycle", u, us, At, CompYearlyWindow); }
+                case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return WithLowIn(PositionWords("weekly cycle", u, us, At, CompWeeklyWindow), CompWeeklyWindow); }
+                case CompYearlyWindow: { var (u, us) = Unit(inBars, "year", "years"); return WithLowIn(PositionWords("yearly cycle", u, us, At, CompYearlyWindow), CompYearlyWindow); }
                 case CompDcl when double.IsNaN(value):
                 {
                     double mark = At(CompDcl + ComponentCompanions.Mark);

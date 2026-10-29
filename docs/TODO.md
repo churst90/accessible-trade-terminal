@@ -59,10 +59,20 @@
 >     - Keep Low expected, or drop it as too weak to say?
 >     - Should "very high" also be an alert, or a mark on the chart?
 >     - Off daily charts neither is read. Fit them on 4-hour or weekly bars too?
+>   - **Weekly and yearly "low is in" BUILT (2026-10-28, NOT seen or heard; CYCLE_POSITION_DESIGN
+>     section 8.5).** The "Low is in" row's weekly and yearly columns, the state words and the
+>     arrowed window. Unseen: weekly first "very high" right 94.6%, 72% of weekly lows caught, 12 days
+>     early; yearly 94.5%, 84%, about 40 days. Cody to hear it on a daily Bitcoin. Questions:
+>     - When the weekly reading reads the same low as the daily one, the confirmations are said
+>       twice. Drop them from the weekly sentence then?
+>     - Weak charts: Marathon (weekly), Gold (weekly lows caught 76 of 163), Silver and US oil
+>       (yearly). Say "less reliable on this chart" there, or leave it?
+>     - Weekly lows confirmed fast are missed (72% caught): should "high" be the word to act on for
+>       the weekly?
 >   - Cipher B's big green dot against the cycle lows (research, section 8.4): about half the
 >     yearly lows, 30% of weekly and 21% of daily lows have a dot within 2 bars (chance 7%). But a dot
 >     does not say the low will hold (58% with, 64% without). No change made.
->   - Merge, push and deploy: Cody's go-ahead.
+>   - Merged to main and pushed (2026-10-28, Cody asked). Deploy to the VPS: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and
 >   CIPHER_C_DESIGN section 37).** Asked for by Cody so the yearly lows carry on after the original's
 >   hand-entered dates stop. Off by default: a tuned asset draws its dates, an untuned one none. On:
