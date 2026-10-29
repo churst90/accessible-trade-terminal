@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: a mark at "very high", and lines for strategies and alerts (2026-10-28)
+
+- **What**: the "alert or mark at very high" and "backtest hooks" Cody approved (CYCLE_POSITION_DESIGN section 9.9).
+  A green diamond under the first bar on which a low's daily "Low is in" reading reaches very high, a blue one for the
+  weekly reading, once a low ("Low is in: very high, 97%, for the low of 59,100.00."); switch "Very high marks", on by
+  default. Six lines, off, undrawn and muted by default so the chart is unchanged: the daily, weekly and yearly reading
+  and Low expected in percent, and a daily and weekly "very high call" (the share on the marked bar, 0 elsewhere).
+  Alerts read them though they are not drawn ("Very high call is above 0" alerts once a low); strategies get the marks
+  as events and the lines as lines. 31 daily charts: 7,868 daily and 2,332 weekly marks, 270 bars with both.
+- **Why call lines**: an alert on the share crossing 95 would fire 8,424 times for 7,868 daily calls and 4,209 for 2,332
+  weekly ones, and miss calls made on a low's first reading.
+- **Caveats**: not seen or heard in the app; the accessibility-lead agent is not registered here. The Low expected line
+  uses the learned daily window, so older bars can change it (listed in the prepend guard beside the confirmations).
+  The strategy catalog reads check-box marks (Cycle Position's and Cipher C's confirmations) as lines, not events: a
+  TODO question. Test `The_very_high_marks_and_lines_are_the_first_very_high_bar_of_each_low`; 20 sabotages red (the
+  Low expected line's speech was green until tested). README 9791.
+
 ### Cycle Position: "weekly lows often come without it" on charts where they do (2026-10-28)
 
 - **What**: the "less reliable on this chart" note Cody approved, built where it was measured to hold (CYCLE_POSITION_DESIGN

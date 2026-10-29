@@ -79,8 +79,11 @@
 >     they do (9.8; a note about wrong calls was measured useless and not built). Cody to hear on a
 >     daily Bitcoin: the "Next low", "Top so far" and "Half-cycle low" rows, arrowing the daily
 >     window, a failure mark, a half-cycle mark; on a daily Ether, the weekly Low is in cell and
->     words. Left: a mark and alert at "very high", backtest hooks, per-asset rules and
->     Start/yearly-date switches.
+>     words. A mark at "very high" (daily green, weekly blue) and six undrawn lines for strategies
+>     and alerts (9.9); Cody to hear a mark arrowed on a daily Bitcoin and to try an alert "Very
+>     high call is above 0". Question for Cody: the strategy catalog reads check-box marks (Cycle
+>     Position's and Cipher C's confirmations) as lines, not events; make them events? Left:
+>     per-asset rules and Start/yearly-date switches.
 >     Caveat: intraday dates past the last bar do not read holidays or clock changes.
 >   - Merged to main and pushed (2026-10-28, Cody asked). Deploy to the VPS: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and

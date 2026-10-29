@@ -317,6 +317,9 @@ namespace AccessibleTrader.Tests
             // count no longer needs excusing since the rule by time (2026-10-28): the guard said so.
             "CYCLE_POSITION.DCL Confirmed",
             "CYCLE_POSITION.WCL Confirmed",
+            // Its "Low expected" line (2026-10-28) reads the learned daily window, so likewise; the
+            // same reading under the daily window is pinned prefix by prefix there.
+            "CYCLE_POSITION.Low Expected",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
@@ -623,6 +626,8 @@ namespace AccessibleTrader.Tests
             // CyclePositionProviderTests.Nothing_on_a_bar_changes_when_later_bars_arrive.
             "CYCLE_POSITION.YCL Confirmed",
             "CYCLE_POSITION.Yearly Timing Window",
+            // And its yearly "low is in" line (2026-10-28), read from the yearly lows.
+            "CYCLE_POSITION.Yearly Low Is In",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",

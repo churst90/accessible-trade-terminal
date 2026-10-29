@@ -853,3 +853,38 @@ the words and the cell on every bar with a weekly reading (said on over 50 bars,
 them beside a daily reading that must not say it, and not said on over 50). 14 sabotages, all red;
 one ("the note on the daily and yearly readings too") was green until the test checked the other
 readings.
+
+### 9.9 A mark at "very high", and lines for strategies and alerts
+
+Cody approved "an alert or mark at very high" and "backtest hooks" as nice to haves. Built:
+
+**Two marks.** "Low is in: very high" (green diamond under the bar, `Very High`) and "Weekly low is
+in: very high" (blue, `Weekly Very High`) sit on the first bar on which a low's daily or weekly
+reading reaches "very high" (95%), once for each low: the value is that bar's low, the companion
+`_share` the reading. Arrowed: "Low is in: very high, 97%, for the low of 59,100.00." The switch
+"Very high marks" (on by default) hides them. On the 31 daily charts that is 7,868 daily and 2,332
+weekly marks (Bitcoin 93 and 29), 270 bars carrying both; the yearly reading gets no mark.
+
+**Six lines for strategies and alerts**, causal, off, undrawn and muted by default (as the DBSI
+"Control" line), so they change nothing on the chart: "Low is in, %", "Weekly low is in, %", "Yearly
+low is in, %" (each reading x 100), "Low expected, %", and "Very high call" / "Weekly very high
+call" (the reading in percent on the marked bar, 0 on every other bar). Arrowed, each says its
+reading's words. The alert dialog lists every component, drawn or not, and the alert engine reads
+them whether shown or not, so "Very high call crosses above 94" or "is above 0" alerts once a low.
+Strategies get the two marks as events ("fired") and the six as lines.
+
+Why separate call lines and not just an alert on "Low is in, %" crossing 95: the share moves around
+95. On the 31 charts a crossing alert would fire 8,424 times for the 7,868 daily calls and 4,209
+times for the 2,332 weekly ones, and miss the calls made on a low's first reading (no bar before to
+cross from; about 7% of daily calls).
+
+Caveats: Low expected's line reads the learned daily window, so older bars can change it (the
+prepend guard lists it with the confirmations, for the same reason); each bar still uses only
+cycles finished by then. Cycle Position's confirmations are check boxes, which the strategy catalog
+reads as lines, not events (a TODO question). Not seen or heard in the app.
+
+Test: `The_very_high_marks_and_lines_are_the_first_very_high_bar_of_each_low` works made-up readings
+(the first bar of each low at or over 0.95, no mark for no low, a later low marked again), then on
+Bitcoin every bar of both marks, shares and call lines against the readings, all six lines, the
+speech of each, the switch (only the marks' hide companions change), and the catalog kinds. 20
+sabotages, all red; one (the Low expected line's speech) was green until the test said it.

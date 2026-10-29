@@ -178,6 +178,28 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>On the half-cycle low's own bar: how many bars later it was found.</summary>
         public const string HalfFoundSuffix = "_found";
         internal const string HalfLowHex = "#80CBC4";
+
+        /// <summary>
+        /// The "very high" calls (2026-10-28): a diamond under the first bar each low's daily or weekly
+        /// "low is in" reading reaches very high (the bar it was said on, so it is causal: strategies read
+        /// it as Fired). Value: that bar's low; companion <see cref="ShareSuffix"/>, the share. Switch
+        /// <see cref="ParamVeryHighMarks"/>.
+        /// </summary>
+        public const string CompVeryHigh = "Very High", CompWeeklyVeryHigh = "Weekly Very High";
+        public const string ShareSuffix = "_share";
+        public const string ParamVeryHighMarks = "VeryHighMarks";
+        internal const string VeryHighHex = "#00E676", WeeklyVeryHighHex = "#448AFF";
+
+        /// <summary>
+        /// For strategies and alerts (2026-10-28), left out, undrawn and muted: the daily, weekly and
+        /// yearly "low is in" shares and "Low expected", in percent, where they are read; and the
+        /// calls: the share in percent on a "very high" call's bar and 0 on every other, so an alert
+        /// "crosses above 50" says each call once. (An alert on the share itself crossing 95 would miss
+        /// 7% of daily calls, read first after a bar with no reading, and repeat: on 31 daily charts
+        /// 8,424 daily and 4,209 weekly crossings for 7,868 and 2,332 calls.)
+        /// </summary>
+        public const string CompLowInLine = "Low Is In", CompWeeklyLowInLine = "Weekly Low Is In", CompYearlyLowInLine = "Yearly Low Is In",
+            CompExpectedLine = "Low Expected", CompCallLine = "Very High Call", CompWeeklyCallLine = "Weekly Very High Call";
         /// <summary>The last bar's own date, on the last bar (an OLE Automation date), for whether a window is open yet.</summary>
         public const string NowKey = "__cp_now";
 
@@ -219,6 +241,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     ParamConfirmationMark => (w.Name, w.Display, true, "On by default. A check over a down triangle on the bar each daily low is confirmed on: where it became known."),
                     _ => w,
                 })
+                .Append((ParamVeryHighMarks, "Very high marks", true,
+                    "On by default. A diamond under the bar on which a low's daily (green) or weekly (blue) low is in reading first reaches very high."))
                 .Append((ParamHalfLows, "Half-cycle lows", true,
                     "On by default. A small up triangle under each daily cycle's half-cycle low: the first low from 0.3 to 0.7 of the usual cycle in that is above the cycle's low and the lowest for an eighth of the shortest cycle each side. Drawn on its bar, known that many bars later."))
                 .ToArray();
@@ -261,7 +285,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
                 })).ToList(),
-                Components = Components(Words).Append(HalfLowComponent).ToList(),
+                Components = Components(Words).Append(HalfLowComponent).Concat(HookComponents).ToList(),
             }
         };
 
@@ -277,6 +301,30 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultSignalSpeechTemplate = "Half-cycle low.",
         };
 
+        /// <summary>The "very high" marks, then the lines for strategies and alerts.</summary>
+        internal static IEnumerable<IndicatorComponentMetadata> HookComponents => new IndicatorComponentMetadata[]
+        {
+            Mark(CompVeryHigh, "Low is in: very high", VeryHighHex, "Low is in: very high."),
+            Mark(CompWeeklyVeryHigh, "Weekly low is in: very high", WeeklyVeryHighHex, "Weekly low is in: very high."),
+            Hook(CompLowInLine, "Low is in, %"), Hook(CompWeeklyLowInLine, "Weekly low is in, %"), Hook(CompYearlyLowInLine, "Yearly low is in, %"),
+            Hook(CompExpectedLine, "Low expected, %"), Hook(CompCallLine, "Very high call"), Hook(CompWeeklyCallLine, "Weekly very high call"),
+        };
+
+        private static IndicatorComponentMetadata Mark(string name, string display, string hex, string said) => new()
+        {
+            Name = name, DisplayName = display, DisplayType = ComponentDisplayType.Diamond, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Causal, DefaultMarkerAnchor = MarkerAnchor.BelowBar, MarkerTouchesBar = true,
+            DefaultColorHex = hex, DefaultThickness = 2f, DefaultDrawOrder = 3, DefaultPlaybackLayer = PlaybackLayer.Foreground,
+            DefaultSignalSpeechTemplate = said,
+        };
+
+        private static IndicatorComponentMetadata Hook(string name, string display) => new()
+        {
+            Name = name, DisplayName = display, DisplayType = ComponentDisplayType.Line, Role = ComponentRole.Signal,
+            Causality = ComponentCausality.Causal, DefaultIsEnabled = false, DefaultIsDrawn = false, DefaultIsMuted = true,
+            DefaultColorHex = "#9E9E9E",
+        };
+
         // ── Calculation ────────────────────────────────────────────────────────
 
         /// <summary>Everything one run decides, by component name and companion key. Public for the tests and the lab.</summary>
@@ -286,6 +334,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             var o = Outputs(n);
             double[] A(string key) => o.TryGetValue(key, out var a) ? a : o[key] = CipherCEngine.Nan(n);
             A(CompHalfLow); A(CompHalfLow + ComponentCompanions.Hide);
+            foreach (var c in new[] { CompVeryHigh, CompWeeklyVeryHigh }) { A(c); A(c + ShareSuffix); A(c + ComponentCompanions.Hide); }
+            foreach (var c in new[] { CompLowInLine, CompWeeklyLowInLine, CompYearlyLowInLine, CompExpectedLine, CompCallLine, CompWeeklyCallLine }) A(c);
             if (n == 0) return o;
             // A bar's stamp; past the last bar, the one the chart would print.
             List<DateTime>? future = null;
@@ -378,6 +428,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 o[CompDailyWindow + ExpectedSuffix] = lc.Expected;
                 o[CompDailyWindow + ExpectedDaysSuffix] = lc.ExpectedDays;
                 if (weekly) (o[CompWeeklyWindow + CalledSuffix], o[CompWeeklyWindow + CalledOfSuffix]) = Record(w.LastLowAt, lc.Weekly.Subject, lc.Weekly.Chance);
+                foreach (var (r, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompLowInLine, true), (lc.Weekly, CompWeeklyLowInLine, weekly), (lc.Yearly, CompYearlyLowInLine, yearly) })
+                    if (on) o[line] = r.Chance.Select(v => 100 * v).ToArray();
+                o[CompExpectedLine] = lc.Expected.Select(v => 100 * v).ToArray();
+                foreach (var (r, mark, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompVeryHigh, CompCallLine, true), (lc.Weekly, CompWeeklyVeryHigh, CompWeeklyCallLine, weekly) })
+                    if (on) VeryHighCalls(data, r, o[mark], o[mark + ShareSuffix], o[line]);
             }
 
             // The original's confluence grade, while a daily low is held, with its two points.
@@ -454,6 +509,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             Array.Fill(A(LengthKey), L);
             Array.Fill(A(LengthSourceKey), tiers.LengthSource);
             ApplyDisplay(o, p, n);
+            if (!IndicatorParams.GetBool(p, ParamVeryHighMarks, true))
+                foreach (var c in new[] { CompVeryHigh, CompWeeklyVeryHigh })
+                {
+                    double[] mark = o[c], hide = o[c + ComponentCompanions.Hide];
+                    for (int t = 0; t < n; t++)
+                        if (!double.IsNaN(mark[t])) hide[t] = ComponentCompanions.Hidden(hide, t) | ComponentCompanions.HideMarker;
+                }
             if (!IndicatorParams.GetBool(p, ParamHalfLows, true))
             {
                 double[] half = o[CompHalfLow], hide = o[CompHalfLow + ComponentCompanions.Hide];
@@ -879,6 +941,23 @@ namespace AccessibleTrader.Core.Services.Indicators
             return (c, m);
         }
 
+        /// <summary>
+        /// The first bar each low's reading (<paramref name="r"/>) is "very high", once a low: its mark
+        /// (the bar's low) and share; and the call line, the share in percent there and 0 on every other bar.
+        /// </summary>
+        internal static void VeryHighCalls(ReadOnlySpan<Ohlcv> data, CycleLowConfidence.Reading r, double[] mark, double[] share, double[] line)
+        {
+            int n = data.Length;
+            if (r.Subject.Length != n || r.Chance.Length != n) return;
+            var called = new HashSet<int>();
+            for (int t = 0; t < n; t++)
+            {
+                line[t] = 0;
+                if (r.Subject[t] < 0 || !(r.Chance[t] >= VeryHigh) || !called.Add(r.Subject[t])) continue;
+                mark[t] = data[t].Low; share[t] = r.Chance[t]; line[t] = 100 * r.Chance[t];
+            }
+        }
+
         /// <summary>The share a reading is "very high" from.</summary>
         internal static readonly double VeryHigh = CycleLowConfidence.Bands.Single(b => b.Word == "very high").From;
 
@@ -1201,6 +1280,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             switch (componentName)
             {
                 case CompDailyWindow: return With(With(With(PositionWords("daily cycle", day, days, At, CompDailyWindow), NextWords("daily", At, CompDailyWindow)), TopWords(At)), HalfWords(At));
+                case CompVeryHigh or CompWeeklyVeryHigh when !double.IsNaN(At(componentName + ShareSuffix)):
+                {
+                    string tier = componentName == CompVeryHigh ? CompDailyWindow : CompWeeklyWindow;
+                    return $"{(componentName == CompVeryHigh ? "Low" : "Weekly low")} is in: very high, {Num(Math.Round(100 * At(componentName + ShareSuffix)))}%, "
+                         + $"for the low of {Price(At(tier + LowInLowSuffix))}.";
+                }
+                case CompLowInLine or CompWeeklyLowInLine or CompYearlyLowInLine:
+                    return LowInWords(At, componentName == CompLowInLine ? CompDailyWindow : componentName == CompWeeklyLowInLine ? CompWeeklyWindow : CompYearlyWindow)
+                           ?? "no low to read";
+                case CompExpectedLine: return ExpectedWords(At) ?? "no confirmed daily low yet";
+                case CompCallLine or CompWeeklyCallLine:
+                    return value > 0 ? $"{(componentName == CompCallLine ? "daily" : "weekly")} very high call, {Num(Math.Round(value))}%"
+                                     : $"no {(componentName == CompCallLine ? "daily" : "weekly")} very high call on this bar";
                 case CompHalfLow when !double.IsNaN(value):
                     return $"Half-cycle low: the low of {Price(value)}, {A(At(CompDailyWindow) + 1)} {Num(At(CompDailyWindow) + 1)} {day} into the daily cycle, found {Span(At(CompHalfLow + HalfFoundSuffix), day, days)} later.";
                 case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return WithLowIn(With(PositionWords("weekly cycle", u, us, At, CompWeeklyWindow), NextWords("weekly", At, CompWeeklyWindow)), CompWeeklyWindow); }

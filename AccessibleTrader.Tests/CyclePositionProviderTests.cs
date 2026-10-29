@@ -83,9 +83,10 @@ public sealed class CyclePositionProviderTests
         // window opens or closes in these stretches, and nothing replaces a yearly low. Bitcoin's
         // yearly window is never learned (A_window_is_learned_...), so its share, flag and hit rate
         // stay 0 or empty: the same code is checked on the daily and weekly windows. With the
-        // confirmation mark on by default nothing is hidden on it.
+        // confirmation mark and the very high marks on by default nothing is hidden on them.
         var unlearned = new[] { CyclePositionProvider.BottomedSuffix, CyclePositionProvider.LearnedSuffix, CyclePositionProvider.HitsSuffix,
-            CyclePositionProvider.ScoredSuffix }.Select(x => Y + x).Append(CipherCProvider.CompDclConfirmed + ComponentCompanions.Hide).ToHashSet();
+            CyclePositionProvider.ScoredSuffix }.Select(x => Y + x).Append(CipherCProvider.CompDclConfirmed + ComponentCompanions.Hide)
+            .Append(CyclePositionProvider.CompVeryHigh + ComponentCompanions.Hide).Append(CyclePositionProvider.CompWeeklyVeryHigh + ComponentCompanions.Hide).ToHashSet();
         var neverChecked = causal.Except(everCompared).Where(k => !unlearned.Contains(k) && k != W + ComponentCompanions.Tint
             && k != Y + ComponentCompanions.Tint && k != Y + ComponentCompanions.Stops
             && k != CipherCProvider.CompYclConfirmed + CipherCProvider.ReplacedSuffix
@@ -361,11 +362,21 @@ public sealed class CyclePositionProviderTests
     {
         var mine = Provider.GetIndicators().Single();
         var cc = new CipherCProvider().GetIndicators().Single();
-        // Cipher C's, then its own: the half-cycle low, drawn on its bar and found later.
-        var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead) };
+        // Cipher C's, then its own: the half-cycle low, drawn on its bar and found later; the very
+        // high marks, on the bar they are said on; and the lines for strategies and alerts, left out.
+        var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead),
+                          (CyclePositionProvider.CompVeryHigh, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyVeryHigh, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyLowInLine, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompYearlyLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompExpectedLine, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal) };
         Assert.Equal(cc.Components.Select(c => c.Name).Concat(own.Select(c => c.Item1)), mine.Components.Select(c => c.Name));
         Assert.Equal(cc.Components.Select(c => c.Causality).Concat(own.Select(c => (ComponentCausality?)c.Item2)), mine.Components.Select(c => c.Causality));
         Assert.True(On(CyclePositionProvider.ParamHalfLows));
+        Assert.True(On(CyclePositionProvider.ParamVeryHighMarks));
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 3))
+            Assert.True(c.DisplayType == ComponentDisplayType.Line && c.DefaultIsEnabled == false && c.DefaultIsDrawn == false && c.DefaultIsMuted == true, c.Name);
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 1).Take(2))
+            Assert.True(c.DisplayType == ComponentDisplayType.Diamond && c.DefaultIsEnabled != false && c.DefaultIsDrawn != false, c.Name);
         bool On(string name) => (bool)mine.Parameters.Single(p => p.Name == name).DefaultValue!;
         Assert.True(On(CipherCProvider.ParamCancelledLows));
         Assert.True(On(CipherCProvider.ParamConfirmationMark));
