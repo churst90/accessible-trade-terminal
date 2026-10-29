@@ -36,8 +36,13 @@ public sealed class DbsiScoreModelParityTests
 
     /// <summary>
     /// Rules the 35 charts never reach fire on <see cref="DbsiCoverageCharts"/>' windows of real candles: the bear
-    /// near-zero flag's rise of 5 and its flat-bar exception (gold), the bear cross term's 36.5 and the wide-gap 17.34
-    /// edges (Dow). The generator refuses to write the fixture unless breaking each rule changes a score on a window.
+    /// EMA(5)/EMA(11) cross's lengths, its off-run bar and the zero-line bonus read at the run's own cross bar (gold
+    /// 2004 and the rest; the 35 charts catch these too), the bear cross term's 36.5 and the wide-gap 17.34
+    /// edges (Dow), the bull Q value carried through a run of 1-2 bars but not 3 (Dow 1967, gold 1949) and only
+    /// when a Q bar came just before the run (Dow 1904), and the near-zero cross bound 5.6 (Dow 1953, Bitcoin hourly Heikin-Ashi), and the hidden arm's edges: a bull Q bar
+    /// while it is down (gold 1967), the override's d2 &gt;= 0, the armed pinned top, the EMA state on the wide-gap terms
+    /// and the 2-bar term's kept ARM (Dow, gold). The generator refuses to write the fixture
+    /// unless breaking each rule changes a score on a window.
     /// </summary>
     public static IEnumerable<object[]> CoverageWindows() => DbsiCoverageCharts.All.Keys.Select(k => new object[] { k });
 

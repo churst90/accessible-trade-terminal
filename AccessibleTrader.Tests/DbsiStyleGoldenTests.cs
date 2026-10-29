@@ -83,9 +83,9 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"the twenty, previous integer model: {prev}");
         _out.WriteLine($"the twenty, linear model: {lin}");
         Assert.Equal(897, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.848) < 0.002 && Math.Abs(f.Within1 - 0.883) < 0.002
-                    && Math.Abs(f.Within2 - 0.933) < 0.002 && Math.Abs(f.Rmse - 1.26) < 0.01, f.ToString());
-        Assert.Equal((84, 77, 5), (f.High, f.HighPrinted, f.FalseHigh));
+        Assert.True(Math.Abs(f.Exact - 0.881) < 0.002 && Math.Abs(f.Within1 - 0.906) < 0.002
+                    && Math.Abs(f.Within2 - 0.941) < 0.002 && Math.Abs(f.Rmse - 1.18) < 0.01, f.ToString());
+        Assert.Equal((84, 81, 5), (f.High, f.HighPrinted, f.FalseHigh));
         // gen8.py, the previous shipped model: 55.1%, 66.7%, 80.4%, 2.16, 65 of 84 and 12 false.
         Assert.True(Math.Abs(prev.Exact - 0.551) < 0.002 && Math.Abs(prev.Within2 - 0.804) < 0.002 && prev.FalseHigh == 12, prev.ToString());
         Assert.True(f.Exact >= prev.Exact + 0.10 && f.Within1 > prev.Within1 && f.Within2 > prev.Within2 && f.Rmse < prev.Rmse,
@@ -95,7 +95,7 @@ public sealed class DbsiStyleGoldenTests
         var (differ, same) = SideInControl(Pooled(Fitted, c => Labelled(c, Run(c))));
         var (_, ps) = SideInControl(Pooled(Fitted, c => Printed(c.PreviousBull, c.PreviousBear)));
         _out.WriteLine($"side in control: {same} of {differ}, previous {ps}");
-        Assert.Equal((422, 418, 399), (differ, same, ps));   // 99%; gen8 95%
+        Assert.Equal((422, 419, 399), (differ, same, ps));   // 99%; gen8 95%
     }
 
     [Fact]
@@ -109,9 +109,9 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"livestream, linear model: {lin}");
         Assert.Equal(lin.N, f.N);
         Assert.Equal(prev.N, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.837) < 0.003 && Math.Abs(f.Within1 - 0.862) < 0.003
-                    && Math.Abs(f.Within2 - 0.896) < 0.003 && Math.Abs(f.Rmse - 2.26) < 0.01, f.ToString());
-        Assert.Equal((48, 45, 3), (f.High, f.HighPrinted, f.FalseHigh));
+        Assert.True(Math.Abs(f.Exact - 0.850) < 0.003 && Math.Abs(f.Within1 - 0.870) < 0.003
+                    && Math.Abs(f.Within2 - 0.901) < 0.003 && Math.Abs(f.Rmse - 2.23) < 0.01, f.ToString());
+        Assert.Equal((48, 46, 2), (f.High, f.HighPrinted, f.FalseHigh));
         // gen8.py: 48.5%, 58.7%, 78.1%, 2.80, 38 of 48 and 6 false; the linear model 20.4%, 67.1% within 2, 10 false.
         Assert.True(Math.Abs(prev.Exact - 0.485) < 0.003 && Math.Abs(prev.Within2 - 0.781) < 0.003 && prev.FalseHigh == 6, prev.ToString());
         Assert.True(Math.Abs(lin.Exact - 0.204) < 0.003 && Math.Abs(lin.Within2 - 0.671) < 0.003 && lin.FalseHigh == 10, lin.ToString());
@@ -124,7 +124,7 @@ public sealed class DbsiStyleGoldenTests
         var (_, ps) = SideInControl(Pooled(Livestream, c => Printed(c.PreviousBull, c.PreviousBear)));
         var (ld, ls) = SideInControl(Pooled(Livestream, c => Printed(c.LinearBull, c.LinearBear)));
         _out.WriteLine($"side in control: {same} of {differ}, previous {ps}, linear {ls} of {ld}");
-        Assert.Equal((262, 256, 247, 243), (differ, same, ps, ls));   // 98%; gen8 and the linear model 93-94%
+        Assert.Equal((262, 258, 247, 243), (differ, same, ps, ls));   // 98%; gen8 and the linear model 93-94%
     }
 
     /// <summary>

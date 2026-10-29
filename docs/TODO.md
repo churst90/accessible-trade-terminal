@@ -504,6 +504,45 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
+  - **Cipher DBSI's Q value, the bears' EMA(5)/EMA(11) cross and the hidden arm on off-run bars (2026-10-29, all three
+    built in worktree `att-dbsi-qsc`, branch `dbsi-qsc`, NOT committed, merged or pushed, NOT seen or heard; see
+    CHANGES).** Cody to say: commit and merge them? With all three, the ten veto sets are 98.3% exact (95.4% on main). The off Q bar's worth is
+    4 − (slow stochastic + its last bar, latched at the Q start, over 18 bull / 80 bear). Bulls also lose 1 at K > 61
+    rising ≤ 6.25, and a bull Q after a 1-2 bar run that followed a Q keeps the old Q's value. The near-zero bound is
+    now 5.6. Ten veto sets 95.4% → 96.0% exact, none worse; every held-out set the same or better; the twenty 85.5%.
+    Still open:
+    - One Bitcoin bear run, 2026-10-21..25, is now 2 short where it was 1 short. Either the vendor gives Q a 5 there
+      or it has a +1 we lack. Not found.
+    - A bull flat dead bar after a break, where the vendor drops the step: 26 drops against about 1,200 holds. No
+      feature separates them (same shape on Bitcoin, held and dropped).
+    - Bear onset extras on threshold edges: wide-gap xc +2 false 2025-02-23, zero-line +6 missed 2026-10-23.
+    - S&P 500 daily Start sweep (50 windows on our misses): the emulator agrees at 99.1% of Start ages (26,699, all 50 windows) on a chart it
+      was never fitted on. Nine bear runs are 2 short on their dead bars. Not decided at the cross (checked 2026-10-29 against
+      the emulator's own value: 2 short at every Start age): a flag set on the bar, like the near-zero flag, on a
+      condition not found. A wider near-zero band (side WT up to 15) gains 44 bars and loses 14, so it is not adopted.
+      Best found: the flag also fires when the side WT rises from -4.8 or below to above 10: 38 bars better on the
+      main, veto and unseen sets, none worse, held-out 9 better (one twin 2 worse), twin charts mixed, and -4 or -5
+      instead of -4.8 each make a set worse, so it is a fit, not the rule.
+      FOUND and PORTED 2026-10-29 (Cody: "merge the best new findings into the c# model"; same worktree, NOT
+      committed): the missing input is a bearish EMA(close, 5) / EMA(close, 11) cross
+      (`dbsi8/zj_nocont.py`). It sets the dead-bar +2 (held until Stoch RSI falls over 2 bars, replacing the near-zero
+      side-WT jump), gives +2 on an off-run bar on the cross bar, and is the bear zero-line bonus: +6 (+4 on a cross
+      term) when the run's WT cross bar is an EMA cross bar, replacing the five fitted triggers and the continuation
+      zero-cross. Against qsC: 660 bars better on the main, veto and unseen sets, none worse; every held-out better (+306,
+      MSFT_15 94.7 -> 96.2%); every twin's bear side better, mirrors too (about +970); bull unchanged; Start emulator =
+      model at full history, S&P 500 grid all ages 90.95 -> 93.17%. Optional extra `zl_g.py` (+2 on an alive cross bar
+      with WT gap <= 10.5 and Stoch RSI D <= 63): +83 more, f20HA 1 worse, thresholds fitted, so NOT ported (the
+      no-set-worse rule). zf_v3 is superseded.
+      THEN the hidden arm, PORTED 2026-10-29 (same worktree, NOT committed; `dbsi8/zq_s2.py`): off-run bars with V0 on
+      and raw Stoch RSI not falling score the votes, the streak and the hidden arm (or the Q value if larger); a bull Q
+      bar is worth the hidden arm + 1; the bears' wide-gap, near-zero and second cross terms only while EMA 5 < EMA 11,
+      plus at least 2 within 2 bars of the EMA cross. About ten fitted terms and the bears' Q turn gone. Ten veto sets
+      96.9 -> 98.3% (misses bull 602 -> 349, bear 564 -> 292), none worse anywhere; held-outs MSFT_15 97.7, BSTP_5 98.4,
+      BSTP_1 97.0, BTC_60_ha 98.7%; twins +1,300 none worse; the twenty's false 17+ 4 -> 5 (the one figure worse).
+      Not yet: the Start-grid emulator (start_zj.py) moved to it. The search for the rest goes on: bull off bars 323
+      wrong (the biggest group: DBSI 2 higher with V0 off and Stoch RSI falling, 67 bars), bear off bars 209 (4 higher
+      with Stoch RSI flat and V0 off, 49).
+    - Cody to look at Bitcoin daily and 1h Heikin-Ashi once merged.
   - **Cipher DBSI rebuilt from every rule found (2026-10-26, merged and pushed 2026-10-27,
     NOT deployed, NOT seen or heard in the app; see CHANGES).** One clean model (`DbsiScoreModel`, a port of the study's
     `dbsi8/clean_dbsi.py` with the ARM memory, the bear near-zero flag and the deep-jump zero-line way, frozen as
@@ -512,7 +551,8 @@
     mined: Microsoft 15m 94.2%, Bitstamp 5m 95.3%, Bitstamp 1m 94.0%. Cody to look at Bitcoin 1h Heikin-Ashi and any daily chart: the printed
     numbers should now sit on Market Cipher DBSI's own more than nine times in ten. Still open:
     - The misses left are mostly raw Stoch RSI leaving its 0 or 100 pin a bar early or late, and the
-      dead-run step that rides on it. A brute-force search of other indicators found no missing input.
+      dead-run step that rides on it. A brute-force search of other indicators found no missing input (a later
+      search over moving-average crosses found one, 2026-10-29: the bears' EMA(5)/EMA(11) cross, above).
     - The rule "cross from WT above 36.5 with the 81-bar stochastic above 81.5" (+4) never fires on the
       35 digitised charts, so the repository's tests cannot see it (sabotage at 30 stayed green); only
       the private sets pin it. Likewise the summation order (numpy pairwise) flips no score there; a

@@ -3,7 +3,8 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <summary>
     /// The Cipher DBSI score (2026-10-26): every rule found by reading Market Cipher DBSI's own numbers
     /// (an hourly, a fifteen-minute and a daily set of them, kept out of this repository), written once
-    /// from the bull side. A line-for-line port of the study's <c>dbsi8/clean_dbsi.py</c>: the golden
+    /// from the bull side. A line-for-line port of the study's <c>dbsi8/clean_dbsi.py</c> (since 2026-10-29
+    /// its successor <c>zq_s2.py</c>, with the Q value, the bears' EMA cross and the hidden arm): the golden
     /// test replays that file's scores on every bar of the 35 digitised charts, so any change here must
     /// be made there first.
     ///
@@ -14,7 +15,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     /// <list type="bullet">
     /// <item><b>Off</b> — no WaveTrend run (the side's wt1 is not above its 3-bar average): the votes, the
-    /// gap's widening streak, the Q value (<see cref="QState"/>) and the Stoch RSI terms.</item>
+    /// gap's widening streak, the Q value (<see cref="QState"/>) and the Stoch RSI terms; with V0 on and raw
+    /// Stoch RSI not falling over 2 bars, only the votes, the streak and the hidden arm (the ARM a run
+    /// starting on this bar would carry, <see cref="ArmHidden"/>) or the Q value if larger.</item>
     /// <item><b>Alive</b> — a run whose gap has widened on every bar since the cross: the votes, the run's
     /// level, 3 plus one per bar, the ARM the run carries (<see cref="Arm"/>), and, for bears, terms read
     /// at the cross (<see cref="BearCrossTerms"/>).</item>
@@ -120,6 +123,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             var sk1 = LagSelf(sk, 1); var sk2 = LagSelf(sk, 2);
             var d2 = new double[n]; for (int i = 0; i < n; i++) d2[i] = sk[i] - sk2[i];           // raw Stoch RSI change over 2 bars
             var sk1v = LagV(sk, 1, 50); var sk2v = LagV(sk, 2, 50); var K1v = LagV(K, 1, 50);
+            // bears: the EMA(5) of the side's close crossing above its EMA(11), i.e. EMA(close, 5) crossing below EMA(close, 11)
+            // (xe), and the bars it stays crossed (ep)
+            bool[]? xe = null, ep = null;
+            if (!bull)
+            {
+                var e5 = Ema(C, 5); var e11 = Ema(C, 11); xe = new bool[n]; ep = new bool[n];
+                for (int i = 0; i < n; i++) ep[i] = e5[i] - e11[i] > 0;
+                for (int i = 1; i < n; i++) xe[i] = ep[i] && !ep[i - 1];
+            }
 
             // ---- votes
             var k40 = Sma(Stoch(C, H, L, 40), 2); var (wS, _) = WaveTrend(H, L, C); var gS = Sub(wS, Sma(wS, 3));
@@ -152,58 +164,52 @@ namespace AccessibleTrader.Core.Services.Indicators
             var sw60 = new double[n]; for (int i = 0; i < n; i++) sw60[i] = B(sw1[Math.Max(cx[i], 1)] > 60);   // crossed with side WT above 60
             // the Q value: what an off bar in Q scores, and what a run crossing straight out of Q inherits
             var qv = new double[n];
-            var qLow = bull ? OnsetLatch(q, sk.Select((x, i) => Math.Max(x, sk1v[i])).ToArray()) : OnsetLatch(q, K);
+            // raw Stoch RSI plus its last bar on the Q's first bar, over 18 (bulls) or 80 (bears) takes 1 off; a bull Q
+            // right after a run of 1-2 bars that crossed straight out of Q keeps that Q's value. Bulls count from the hidden
+            // arm (its value + 1, nothing while it is down); bears from 4.
+            var hid0 = ArmHidden(d2, s2, s2T, R.Step);
+            var skSum = new double[n]; for (int i = 0; i < n; i++) skSum[i] = sk[i] + sk1v[i];
+            var qLow = bull ? OnsetLatchCarry(q, skSum, w.Run, 2) : OnsetLatch(q, skSum);
             for (int i = 0; i < n; i++)
-                if (q[i]) qv[i] = bull ? 4 - B(qLow[i] > 18) - B(K[i] > 61 && dK[i] <= 6.25) : 4 - B(qLow[i] > 41);
+                if (q[i]) qv[i] = bull ? (hid0[i] > 0 ? hid0[i] + 1 - B(qLow[i] > 18) : 0) : 4 - B(qLow[i] > 80);
 
             var s = new double[n];
             // ============================================================ OFF bars
-            var Kl = Lag(K, 1);
-            var v0on = new int[n];
-            for (int i = 0, v0s = 0; i < n; i++)
+            for (int i = 0; i < n; i++)
             {
-                v0s = V[0][i] ? v0s + 1 : 0;
                 if (!off[i]) continue;
-                bool nq = !q[i];
-                // V0 just turned on (1-3 bars), raw Stoch RSI rising over 2 and high: bulls +2, bears +3
-                double dw = i == 0 ? 0 : sw1[i] - sw1[i - 1]; if (double.IsNaN(dw)) dw = 0;
-                if (nq && v0s >= 1 && v0s <= 3 && D[i] < 92 && w.Since[i] <= 99 && d2[i] > 0)
-                    v0on[i] = bull ? (sk[i] >= 59 && K[i] > 65 && dw > -2.1 && st11[i] <= 80 ? 2 : 0) : (sk[i] >= 40 && sk[i] > K[i] && K[i] > -1 ? 3 : 0);
-                double x = votes[i] + stt[i] + v0on[i] + qv[i];
-                // fresh V0 on a close-up with stoch11 low and K in [25,60): bulls +3
-                if (bull && w.Since[i] >= 2 && cp[i] && V[0][i] && st11[i] < 54 && Kl[i] >= 25 && Kl[i] < 60 && i > 0 && !V[0][i - 1]) x += 3;
-                // no Q, V0 on, close down, raw Stoch RSI peaked last bar: a missed one-bar Q
-                if (nq && V[0][i] && !cp[i] && sk[i] >= sk2[i] && sk[i] < sk1[i] && !V[3][i])
-                    x += bull ? (sk1[i] > k1[i] ? 3 : 0) : (sk[i] <= K[i] ? 4 : 0);
-                if (bull && nq && !V[5][i] && sk[i] > sk2[i] && st11[i] >= 80 && V[0][i]) x += 2;
-                if (sk[i] >= 100) x += bull ? 2 : 3;                                 // raw Stoch RSI pinned at the top
+                bool nq = !q[i], armed = hid0[i] > 0;
+                double x = votes[i] + stt[i] + qv[i];
+                if (sk[i] >= 100 && armed) x += bull ? 2 : 3;                        // raw Stoch RSI pinned at the top, armed
                 // Q just ended with raw Stoch RSI on its floor, on a raw floor double touch (0, up, 0)
                 bool qend = nq && q1[i] && sk[i] <= 0 && K1v[i] <= 3.5;
                 if (qend && sk2v[i] <= 0) x += V[5][i] ? 4 : 6;
+                // the same floor touch outside Q, armed: the hidden arm, +2 more without the Stoch RSI vote
+                if (nq && !q1[i] && sk[i] <= 0 && sk2v[i] <= 0 && sk1[i] > 0 && armed) x += hid0[i] + 2 * B(!V[5][i]);
                 // a missed Q: raw Stoch RSI crossed K from a low K on a down close
                 bool mx = nq && !q1[i] && sk[i] > K[i] && sk1v[i] <= K1v[i] && !cp[i] && K1v[i] < (bull ? 50 : 45) && w.Since[i] >= 2
                           && sk[i] > (bull ? -1 : 2) && sk2v[i] <= (bull ? 54 : 101);
                 if (mx) x += 4 - (bull && sk[i] > 18 ? 1 : 0);
                 // a one-bar Q that ended: its value carried one bar
                 double dsr1 = i >= 2 ? sk[i - 1] - sk[i - 2] : 0, dkh = i >= 1 ? K[i] - K[i - 1] : 0;
-                if (nq && q1[i] && !q2[i] && dsr1 > 6 && dkh > -5 && !qend && st11[i] <= 47) x += 4 - (bull && sk1v[i] > 18 ? 1 : 0) + 2 * (V[5][i] ? 0 : 1);
+                if (nq && q1[i] && !q2[i] && dsr1 > 6 && dkh > -5 && !qend && armed) x += 4 - (bull && sk1v[i] > 18 ? 1 : 0) + 2 * (V[5][i] ? 0 : 1);
                 x = Math.Max(Floor, x);
                 if (bull)
                 {
-                    if (nq && !V[5][i] && sk[i] - sk2[i] > 4 && sk1[i] > 49 && sk[i] < 100 && st11[i] < 80 && K[i] <= 67.5 && V[0][i]) x += 2;
-                    if (nq && cp[i] && (double.IsNaN(sw1[i]) ? -999 : sw1[i]) > 50 && d2[i] > 0 && sk[i] < 100 && v0on[i] <= 1 && V[5][i]) x += 2;
+                    if (nq && cp[i] && (double.IsNaN(sw1[i]) ? -999 : sw1[i]) > 50 && d2[i] > 0 && sk[i] < 100 && V[5][i]) x += 2;
                     if (nq && d2[i] > 0 && !cp[i] && sk1[i] > 77.2 && w.Since[i] >= 2) x -= 1;   // up over 2 from high but close down
                 }
-                else if (nq && d2[i] > 0 && sk[i] - sk1[i] < -6 && sk2[i] > 32 && v0on[i] == 0) x -= 1;
+                else if (nq && d2[i] > 0 && sk[i] - sk1[i] < -6 && sk2[i] > 32) x -= 1;
                 // raw Stoch RSI rising over 2: +3 just after a run when the score is low; bears also at any distance on a
-                // close-up with K not dropping, raw Stoch RSI off its pin and no V0 bonus
-                if (d2[i] > 0 && nq && ((x <= 0.5 && w.Since[i] <= 2) || (!bull && cp[i] && dK[i] > -3 && sk[i] < 100 && v0on[i] == 0))) x += 3;
+                // close-up with K not dropping and raw Stoch RSI off its pin
+                if (d2[i] > 0 && nq && ((x <= 0.5 && w.Since[i] <= 2) || (!bull && cp[i] && dK[i] > -3 && sk[i] < 100))) x += 3;
                 if (bull)
                 {
                     if (nq && d2[i] > 0.07 && !cp[i] && K[i] > 60 && dK[i] < 8 && w.Since[i] <= 1 && V[5][i]) x -= 1;   // run just ended, close down
                     if (nq && sk[i] >= 100 && st11[i] <= 79 && d2[i] > 0 && w.Since[i] >= 1) x -= 2;   // rose to the pin, stoch11 not high
                 }
-                else if (nq && sk[i] >= 100 && v0on[i] >= 3) x -= 3;                 // pinned with the V0 bonus
+                // V0 on and raw Stoch RSI not falling over 2: the hidden arm (or the Q value, if larger) on the votes, nothing else
+                if (V[0][i] && d2[i] >= 0) x = votes[i] + stt[i] + Math.Max(hid0[i], qv[i]);
                 s[i] = x;                                                            // (not floored again)
             }
 
@@ -212,16 +218,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 0; i < n; i++)
                 if (al[i]) s[i] = votes[i] + lb[i] + 3 + w.Count[i] + arm[i] + sw60[i] - 2 * B(cpo[i] && flatK[i]);
             bool[]? zl = null; double[]? xo = null;
-            if (!bull) BearCrossTerms(s, sw1, sg, sk, sk1, D, RS, st11, st81raw, sw60, w, al, cx, kept, out zl, out xo);
+            if (!bull) BearCrossTerms(s, sw1, sg, D, RS, st81raw, sw60, xe!, ep!, al, cx, kept, out zl, out xo);
             for (int i = 0; i < n; i++) if (al[i]) s[i] = Math.Max(Floor, s[i]);
-            if (!bull)
-            {
-                QTurn(s, sw1, q, off, al, kept);
-                ContinuationCross(s, sw1, st11, RS, sk, w, al, zl!, xo!, kept);
-            }
 
             // ============================================================ DEAD bars: the held step
-            DeadStep(bull, s, votes, lb, stt, s2, s2T, d2, V, sw1, w, al, dead, R);
+            DeadStep(s, votes, lb, stt, s2, s2T, d2, V, xe, w, al, dead, R);
             var cp1 = LagB(cp);
             for (int i = 0; i < n; i++)
             {
@@ -230,6 +231,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (!(i == 0 || cp1[i]) && sk[i] >= 100 && (i >= 2 ? sk[i - 2] : 100) < 100 && flatK[i] && V[5][i]) s[i] -= 2;
                 if (!bull && sw60[i] == 1 && d2[i] < 0) s[i] += 1;                   // bears: a WT > 60 cross survives a raw Stoch RSI fall
             }
+            if (!bull) for (int i = 0; i < n; i++) if (off[i] && xe![i]) s[i] += 2;   // bears: an off-run bar on the EMA cross bar
             return s;
         }
 
@@ -319,99 +321,38 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>
         /// Bears' alive terms, added to <paramref name="s"/> on alive bars. Read at the cross: +4 with the
         /// 81-bar stochastic high and WT high the bar before; +2 on a widening jump with D and RSI low at the
-        /// cross; +2 near the zero line (unless D was high at the cross). The zero-line cross: a run that
-        /// starts near the zero line (after an off stretch that reached below it, raw Stoch RSI high with a WT
-        /// jump, raw Stoch RSI off its floor with RSI up, a WT jump to just below zero, or, with no cross term,
-        /// a WT jump of 10+ from as deep as -32 with a wide gap, raw Stoch RSI 95+ and RSI 52+) is worth 6, 4 on
-        /// top of a cross term. The near-zero and zero-line points need the ARM kept; with no cross term at
-        /// all, a wide gap near zero adds +2 twice.
+        /// cross; +2 near the zero line (unless D was high at the cross). The zero-line cross: a run whose WT
+        /// cross bar is also a bearish EMA(5)/EMA(11) cross bar (<paramref name="xe"/>) is worth 6, 4 on top
+        /// of a cross term. The near-zero and zero-line points need the ARM kept; with no cross term at all,
+        /// a wide gap near zero adds +2 twice.
         /// <paramref name="zl"/> is the zero-line cross, <paramref name="xo"/> the cross terms before it.
         /// </summary>
-        private static void BearCrossTerms(double[] s, double[] sw1, double[] sg, double[] sk, double[] sk1, double[] D, double[] RS, double[] st11,
-            double[] st81raw, double[] sw60, RunState w, bool[] al, int[] cx, bool[] kept, out bool[] zl, out double[] xo)
+        private static void BearCrossTerms(double[] s, double[] sw1, double[] sg, double[] D, double[] RS,
+            double[] st81raw, double[] sw60, bool[] xe, bool[] ep, bool[] al, int[] cx, bool[] kept, out bool[] zl, out double[] xo)
         {
             int n = s.Length;
-            var sm = Sma(sw1, 3); var RS2 = LagSelf(RS, 2); var sw1p = LagSelf(sw1, 1);
+            var sm = Sma(sw1, 3);
             var xc = new double[n]; var nz = new double[n]; xo = new double[n];
             for (int i = 0; i < n; i++)
             {
                 int x = cx[i], x1 = Math.Max(x, 1);
                 bool hi = 100 - D[x] > 60;                                           // unflipped D at the cross
                 double st81 = double.IsNaN(st81raw[x1]) ? 50 : 100 - st81raw[x1];
-                xc[i] = 4 * B(st81 > 81.5 && sw1[x1 - 1] > 36.5) + 2 * B(sw1[i] - sm[i] > 13 && sw1[i] > -22 && D[x1] <= 34 && RS[x1] <= 58);
-                nz[i] = 2 * B(!hi && sw1[i] > -2 && sw1[x] < 6);
+                xc[i] = 4 * B(st81 > 81.5 && sw1[x1 - 1] > 36.5) + 2 * B(sw1[i] - sm[i] > 13 && sw1[i] > -22 && D[x1] <= 34 && RS[x1] <= 58 && ep[i]);
+                nz[i] = 2 * B(!hi && sw1[i] > -2 && sw1[x] < 5.6 && ep[i]);
                 xo[i] = xc[i] + sw60[i] + nz[i];
             }
-            // the zero-line cross, from the run's start
-            zl = new bool[n];
-            double pmin = double.PositiveInfinity; bool g1 = false, g2 = false;
-            for (int i = 0; i < n; i++)
+            zl = new bool[n];                                                        // the zero-line cross: the run crossed on an EMA cross bar
+            for (int i = 0; i < n; i++) zl[i] = al[i] && xe[cx[i]];
+            for (int i = 0, since = 999; i < n; i++)
             {
-                if (w.Run[i] && (i == 0 || !w.Run[i - 1]))
-                {
-                    g1 = sw1[i] >= -8.5 && sw1[i] <= 18 && pmin <= 999 && sk[i] >= 62 && st11[i] <= 54 && (i == 0 || sw1[i] - sw1[i - 1] >= 7);
-                    g2 = sw1[i] >= 0 && sw1[i] <= 20 && pmin <= -1 && sg[i] >= 2;
-                }
-                if (!w.Run[i])
-                {
-                    if (i > 0 && w.Run[i - 1]) pmin = double.PositiveInfinity;
-                    if (sw1[i] < pmin) pmin = sw1[i];                                   // a NaN never lowers it
-                    g1 = g2 = false;
-                }
-                zl[i] = al[i] && w.Run[i] && (g1 || g2);
-            }
-            for (int i = 0; i < n; i++)
-            {
-                if (!al[i]) continue;
-                int x = cx[i];
-                double sgx = double.IsNaN(sg[x]) ? 0 : sg[x];
-                bool c3 = sk1[x] <= 2.65 && RS[x] - RS2[x] > 7.2 && sw1[x] <= 40 && sw1[x] > -3 && xo[x] <= 0.5 && sk[x] >= 50;   // off the floor, RSI up
-                bool c4 = sw1[x] > -18 && sw1[x] <= 0 && sgx > 10.69 && sw1[x] - sw1p[x] > 14 && sk[x] >= 90 && st11[x] > 45;  // jump to just below zero
-                bool c5 = sw1[x] >= -32 && sw1[x] <= 5 && sw1[x] - sw1p[x] >= 10 && sk[x] >= 95 && sgx >= 10 && RS[x] >= 52 && xo[x] <= 0.5;  // deep jump, wide gap, RSI over 52
-                if (c3 || c4 || c5) zl[i] = true;
-            }
-            for (int i = 0; i < n; i++)
-            {
+                since = xe[i] ? 0 : Math.Min(999, since + 1);                        // bars since the EMA cross
                 if (!al[i]) continue;
                 bool nox = !zl[i] && xo[i] == 0;                                     // no cross term at all
                 double sgz = double.IsNaN(sg[i]) ? 0 : sg[i], g = sw1[i] - sm[i]; if (double.IsNaN(g)) g = 99;
-                double wg = 2 * B(sg[i] > 17.34 && sw1[i] <= 27.5 && nox) + 2 * B(sw1[i] > -10 && sw1[i] <= 25 && sgz > 10.5 && g <= 17 && nox);
+                double wg = 2 * B(sg[i] > 17.34 && sw1[i] <= 27.5 && nox && ep[i]) + 2 * B(sw1[i] > -10 && sw1[i] <= 25 && sgz > 10.5 && g <= 17 && nox && ep[i]);
+                wg = Math.Max(wg, 2 * B(nox && since <= 2 && kept[i]));          // within 2 bars of the EMA cross, ARM kept
                 s[i] += xc[i] + ((zl[i] ? (xo[i] > 0.5 ? 4 : 6) : 0) + nz[i]) * B(kept[i]) + wg;
-            }
-        }
-
-        /// <summary>Bears: a Q bar with side WT turning up near the zero line gives +2, held through the Q and the alive run after it (alive bars only while the ARM is kept).</summary>
-        private static void QTurn(double[] s, double[] sw1, bool[] q, bool[] off, bool[] al, bool[] kept)
-        {
-            bool on = false;
-            for (int i = 0; i < s.Length; i++)
-            {
-                double sp = i == 0 ? sw1[0] : sw1[i - 1], dw = sw1[i] - sp;
-                if (off[i] && q[i] && dw > 4.2 && sp > -3 && sp <= 18) on = true;
-                else if (!((off[i] && q[i]) || al[i])) on = false;
-                if (on && (off[i] || kept[i])) s[i] += 2;
-            }
-        }
-
-        /// <summary>
-        /// Bears' continuation zero-cross: an alive run whose previous bar, and the whole off stretch before
-        /// it, had side WT above 0, starting low with RSI up and raw Stoch RSI on its floor 2 bars back:
-        /// +6 (+4 when a cross term is on) on its alive bars while the ARM is kept, after the off/alive merge.
-        /// </summary>
-        private static void ContinuationCross(double[] s, double[] sw1, double[] st11, double[] RS, double[] sk, RunState w, bool[] al, bool[] zl, double[] xo, bool[] kept)
-        {
-            double pm = double.PositiveInfinity; bool on = false;
-            for (int i = 3; i < s.Length; i++)
-            {
-                if (!w.Run[i])
-                {
-                    if (w.Run[i - 1]) pm = double.PositiveInfinity;
-                    if (sw1[i] < pm) pm = sw1[i];
-                    on = false; continue;
-                }
-                if (!w.Run[i - 1])
-                    on = al[i] && !zl[i] && sw1[i - 1] > 0 && pm > 0 && sw1[i] <= 18 && st11[i] <= 52 && RS[i] - RS[i - 2] > 5 && sk[i - 2] <= 8;
-                if (on && al[i] && kept[i]) s[i] += xo[i] > 0.5 ? 4 : 6;
             }
         }
 
@@ -420,19 +361,18 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// alive bar's extras (less its count) carry over minus 3, unless raw Stoch RSI fell over 2 bars.
         /// After it the step is dropped when raw Stoch RSI fell over 2, re-armed as the ARM is (the side's
         /// step, +1 when its SMA2 is at most <paramref name="s2T"/>) when it rose, and held when flat (a flat
-        /// bar with no step left reads −2 if the Stoch RSI vote is on). Bears also carry a near-zero flag worth
-        /// +2: set when side WT climbs by 5 or more into −15..10 with the gap and ALMA votes on and raw Stoch
-        /// RSI not falling (not on a flat bar reading −2), held until raw Stoch RSI falls.
+        /// bar with no step left reads −2 if the Stoch RSI vote is on). Bears (<paramref name="xe"/> given) also
+        /// carry a flag worth +2: set on a bearish EMA(5)/EMA(11) cross bar, held until raw Stoch RSI falls.
         /// </summary>
-        private static void DeadStep(bool bull, double[] s, double[] votes, double[] lb, double[] stt, double[] s2, double s2T, double[] d2, bool[][] V,
-            double[] sw1, RunState w, bool[] al, bool[] dead, RunSettings R)
+        private static void DeadStep(double[] s, double[] votes, double[] lb, double[] stt, double[] s2, double s2T, double[] d2, bool[][] V,
+            bool[]? xe, RunState w, bool[] al, bool[] dead, RunSettings R)
         {
             bool zf = false;
             for (int i = 1; i < s.Length; i++)
             {
                 if (!dead[i]) { zf = false; continue; }
                 double rest = votes[i] + lb[i] + stt[i];
-                bool tz = !bull && d2[i] >= 0 && V[4][i] && V[1][i] && -15 <= sw1[i] && sw1[i] <= 10 && sw1[i] - sw1[i - 1] >= 5;
+                bool tz = xe != null && xe[i];
                 if (al[i - 1])
                 {
                     zf = tz;
@@ -443,7 +383,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (d2[i] < 0) dv = 0;
                 else if (d2[i] > 0) dv = Math.Max(dp, R.Step + B(s2[i] <= s2T));
                 else dv = dp > 0 ? dp : -2 * B(V[5][i]);
-                if (tz && dv >= 0) zf = true;
+                if (tz) zf = true;
                 else if (d2[i] < 0) zf = false;
                 s[i] = Math.Max(Floor, rest + dv + 2 * B(zf));
             }
@@ -519,6 +459,25 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             var o = new double[q.Length];
             for (int i = 0; i < q.Length; i++) o[i] = q[i] && (i == 0 || !q[i - 1]) ? x[i] : q[i] ? o[i - 1] : 0;
+            return o;
+        }
+
+        /// <summary><see cref="OnsetLatch"/>, but a Q episode starting right after a run of 1 to <paramref name="maxRun"/> bars
+        /// that itself crossed straight out of Q keeps that earlier episode's value.</summary>
+        private static double[] OnsetLatchCarry(bool[] q, double[] x, bool[] run, int maxRun)
+        {
+            var o = new double[q.Length]; double? last = null;
+            for (int i = 0; i < q.Length; i++)
+            {
+                if (q[i] && (i == 0 || !q[i - 1]))
+                {
+                    int j = i - 1, len = 0;
+                    while (j >= 0 && run[j]) { j--; len++; }
+                    o[i] = len >= 1 && len <= maxRun && j >= 0 && q[j] && last.HasValue ? last.Value : x[i];
+                }
+                else o[i] = q[i] ? o[i - 1] : 0;
+                if (q[i]) last = o[i];
+            }
             return o;
         }
 

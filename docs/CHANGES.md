@@ -4,6 +4,116 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI: the hidden arm on off-run bars, and the bears' EMA state (2026-10-29, built, NOT merged, NOT seen or heard)
+
+- **What**: off-run bars with V0 on (close above the close 2 bars back) and raw Stoch RSI not falling over 2 bars now
+  score the votes, the streak and the hidden arm (the ARM a run starting on that bar would carry; the Q value if that
+  is larger), and nothing else. A bull Q bar is worth the hidden arm + 1 (less the latched 1), and nothing while the
+  hidden arm is down. The pinned-top (+2/+3) and the bar-after-Q terms need the hidden arm up. A new floor touch
+  outside Q (raw Stoch RSI 0, up, 0) adds the hidden arm, and 2 more without the Stoch RSI vote. Bears: the cross
+  term's second part, the near-zero term and both wide-gap terms count only while EMA 5 is below EMA 11, and an alive
+  bar within 2 bars of that EMA cross, ARM kept and no cross term, gets at least 2. This replaced about ten fitted
+  terms: the V0 bonus (1-3 bars after V0 turned on), the fresh-V0 +3, the missed one-bar Q, two bull V0 +2s, the
+  bull K > 61 Q discount, the bear pinned-with-V0 −3, and the bears' Q turn (+2 for a Q bar with WT turning up near
+  the zero line).
+- **How it was found**: a search of the bars still wrong after the EMA cross, under Cody's "keep searching for that
+  last rule": the off-run misses lined up with the hidden arm, which the alive bars already used.
+- **Measured** (the EMA cross model just below -> now): the ten veto sets 96.9% -> 98.3% exact pooled
+  (35,866 -> 36,391 of 37,032), each 96.0-99.2% (Apple daily lowest), none worse; within 2 99.17% -> 99.72%, RMSE
+  0.42 -> 0.28. Misses: bulls 602 -> 349 (1.9%), bears 564 -> 292 (1.6%). Every main and unseen set better or the
+  same. Never mined: Microsoft 15m 96.2% -> 97.7%, Bitstamp 5m 97.0% -> 98.4%, Bitstamp 1m 95.1% -> 97.0%, Bitstamp
+  daily 96.9% -> 98.4% (mirrored 95.9 -> 97.6, shifted 96.9 -> 98.4, scaled 96.8 -> 98.3), hourly Bitcoin
+  Heikin-Ashi 97.8% -> 98.7%. The hourly weeks 96.8% -> 98.3%. Twin charts: all 56 side/twin cells better or the
+  same, about 1,300 bars. The twenty 86.7% -> 88.1% exact, within 2 93.9% -> 94.1% (17+ printed 79 -> 81 of 84, but
+  false 4 -> 5); the fifteen 83.9% -> 85.0%, within 2 90.0% -> 90.1% (17+ still 46 of 48, false 3 -> 2). Side in
+  control: the twenty 418 -> 419 of 422, the fifteen 256 -> 258 of 262. Every term reads only this bar and earlier ones.
+- **Not taken**: the bear Q value as the hidden arm within 4 bars of a run (Microsoft 15m 1 bar worse, fitted).
+- **Tests**: `DbsiCleanScores`, `DbsiDigitisedCharts` and `DbsiCoverageCharts` regenerated from the study's
+  `zq_s2.py`. One coverage window added, gold 1967-1970: the only bull Q bar with the hidden arm down on gold, the
+  Dow, the S&P or Bitcoin hourly, apart from one Bitcoin hourly bar. `DbsiStyleGoldenTests` pins moved to the figures
+  above. The generator also refuses to write unless the override's `>=` as `>`, the pinned top without the arm, the
+  EMA state dropped from the wide-gap terms, the 2-bar term without the kept ARM, and the Q bar counted while the
+  arm is down each change a score. 40 C# sabotages: the 22 of the EMA cross re-made on this model and 18 new ones, 39 red. The new ones: the bull
+  Q value from 4 instead of the hidden arm, or counted while the arm is down; the pinned top, the bar after Q and the
+  floor touch without the arm; the floor touch dropped, without its Stoch RSI-vote +2, or inside the bar after Q; the
+  override with `>` for `>=`, without the Q value, without V0; the EMA state dropped from the cross term, the near-zero
+  term and each wide-gap term; the 2-bar term at 1 or 3 bars, without the kept ARM, with a cross term. The green one
+  is still `>=` for `>` in the cross test (equivalent, as before). One test more (the new window): README count updated. `DbsiStyleProvider`'s measured figures updated.
+- **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here. The
+  Start-grid emulator is not yet updated to this model, so the S&P 500 Start-grid figure is the EMA cross model's.
+
+### Cipher DBSI: the bears' EMA(5)/EMA(11) cross, the input the bear rules were standing in for (2026-10-29, built, NOT merged, NOT seen or heard)
+
+- **What**: a bearish cross, EMA(close, 5) crossing below EMA(close, 11) (on the bears' upside-down candles, the
+  side's EMA 5 crossing above its EMA 11), now drives three bear rules. (1) On a dead bar it sets the +2 flag, held
+  until raw Stoch RSI falls over 2 bars; this replaces the near-zero flag (side WT climbing 5 or more into −15 to 10,
+  not on a flat-hold bar). (2) An off-run bar on the cross bar gets +2. (3) The zero-line bonus (+6, or +4 on top of
+  a cross term) goes to a run whose own WT cross bar is an EMA cross bar. This replaces five fitted triggers (two
+  jump conditions and three cross shapes) and the continuation zero-cross term, which turned out to be proxies for it.
+  Bulls are unchanged: the same search on the bull side found nothing.
+- **How it was found**: Cody: "could it not be in the price data we already have? ... ema's, oscillators". The
+  study scanned 705 price features on the bear dead bars DBSI scores 2 higher than we do, then moving-average crosses
+  of every length pair. EMA 5/11 flagged 224 of 225 of those bars, with 1 false. Cody: "merge the best new findings
+  into the c# model and keep searching for that last rule".
+- **Measured** (the Q value model just below -> now): the ten veto sets 96.0% -> 96.9% exact pooled
+  (35,535 -> 35,866 of 37,032), each 95.5-98.1%, none worse; within 2 98.75% -> 99.17%, RMSE 0.57 -> 0.42. Bear
+  misses 895 -> 564; bull 602, unchanged. The main and unseen sets: none worse either (+660 bars over all of them).
+  Never mined: Microsoft 15m 94.7% -> 96.2%, Bitstamp 5m 95.6% -> 97.0%, Bitstamp 1m 94.0% -> 95.1%, Bitstamp daily
+  96.0% -> 96.9% (mirrored 95.3 -> 95.9, shifted 96.0 -> 96.9, scaled 95.9 -> 96.8), hourly Bitcoin Heikin-Ashi
+  97.0% -> 97.8%. The hourly weeks 96.4% -> 96.8%. Twin charts: every bear side better, the mirrors too (about 970
+  bars). The twenty 85.5% -> 86.7% exact (17+ printed 77 -> 79 of 84, false still 4); the fifteen 83.7% -> 83.9%
+  (17+ 45 -> 46 of 48, false still 3). The S&P 500 Start grid, never fitted on: the emulator matches 93.2% of all
+  Start ages (was 91.0%) and 99.3% of the good-bar ages (was 99.1%).
+- **Not taken**: a fourth rule, +2 on an alive bar on the cross bar with the WT gap at most 10.5 and Stoch RSI D at
+  most 63. It gains 83 more but makes the twenty 1 bar worse, and its thresholds are fitted. Holding the flag on
+  alive bars, merging it with the wide-gap term, and reading the cross a bar early or late were all worse.
+- **Tests**: `DbsiCleanScores`, `DbsiDigitisedCharts` and `DbsiCoverageCharts` regenerated from the study's
+  `zj_nocont.py`; `DbsiStyleGoldenTests` pins moved to the figures above. The coverage windows are the same seven.
+  The generator now also refuses to write unless EMA 6 or 12, dropping the off-run +2, and reading the zero-line
+  bonus a bar early each change a score on them; the earlier sabotages, re-made on the new model, are still caught.
+  22 C# sabotages: the twelve Q-value ones and ten new ones, 21 red. The new ones: EMA 6 and 12, the cross without
+  the bar before, the flag only when the step holds, the flag off on the break bar, the flag never cleared, no off-run
+  +2, the zero-line bonus a bar early and also on the bar's own cross. The green one, `>=` for `>` in the cross test,
+  is equivalent: the gap is exactly 0 only on the first bar, inside the warm-up. `DbsiStyleProvider`'s measured
+  figures updated, and its "no missing input" sentence corrected. No new tests; README count unchanged.
+- **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here.
+  Not re-checked: whether the Bitcoin bear run of 2026-10-21 to 25 (the Q value's caveat) moved.
+
+### Cipher DBSI: the Q value, worked out from the Start grid (2026-10-29, built, NOT merged, NOT seen or heard)
+
+- **What**: what an off "Q" bar scores, and what a run that crosses straight out of Q inherits. The Q bar's worth is
+  4, less 1 when the slow stochastic plus its value a bar before, latched where the Q episode began, is over 18
+  (bulls) or over 80 (bears). Bulls also lose 1 when the 81-bar K is over 61 and rose no more than 6.25. This
+  replaces the bulls' "the larger of the two over 18" and the bears' "K at the start over 41". A bull Q episode that
+  starts right after a run of 1 or 2 bars, which itself started right after a Q bar, keeps the earlier Q's latched
+  value. Also the bear near-zero cross bound moves from 6 to 5.6.
+- **How it was found**: the 2026-10-28 reopening (Cody: a fresh look, all three pieces approved). A Start
+  emulator (the study's `start_dbsi.py`: indicators over the whole history, the counting loops from the Start) now
+  agrees with Market Cipher DBSI's own numbers at 98.4-99% of the Start ages swept on the Dow and Bitcoin. Where it
+  disagreed, the age showed which earlier bar the number depends on, and that pointed at the Q bar.
+- **Measured** (clean v5 -> now): the ten veto sets 95.4% -> 96.0% exact pooled (35,326 -> 35,535 of 37,032;
+  bull misses 684 -> 602, bear 1,022 -> 895), each 94.5-97.7%, none worse. The hourly weeks 96.1% -> 96.4%. Never
+  mined: Microsoft 15m 94.2% -> 94.7%, Bitstamp 5m 95.3% -> 95.6%, Bitstamp 1m 94.0% (same); Bitstamp daily
+  95.5% -> 96.0% (mirrored 94.9 -> 95.3, shifted 95.5 -> 96.0, scaled 95.4 -> 95.9); hourly Bitcoin Heikin-Ashi
+  96.7% -> 97.0%. The twenty digitised charts 84.8% -> 85.5% exact, false 17+ 5 -> 4; the fifteen unchanged (83.7%).
+  The Start grids: on Bitcoin the emulator agrees at 171 more bar-and-Start pairs (96.30% -> 96.72% of all); on the
+  Dow, unchanged.
+- **Thresholds are sharp**: bull 17 or 19 instead of 18 and bear 79 or 84 instead of 80 each lose bars. The carry
+  through 0, 1 or 3 bars, carrying on bears, and carrying without the Q bar before the run each lose bars too
+  (dropping that last condition: 11 fewer). The near-zero bound from 5.5 to 5.7 scores the same; 5.6 was taken.
+- **Caveat**: one Bitcoin bear run, 2026-10-21 to 25, gets worse. It is in four harvests of one feed and was already
+  1 short; it is now 2 short. On those harvests within 1 drops from 99.0% to 95.1% (Bitstamp daily from TradingView)
+  and from 99.1% to 95.7% (Coinbase daily). Either the vendor gives Q a 5 there, or it has a +1 we lack.
+- **Tests**: `DbsiCleanScores` regenerated (7 charts change), `DbsiDigitisedCharts`, `DbsiStyleGoldenTests`
+  (twenty 0.848 -> 0.855, false 17+ 5 -> 4). Five new coverage windows in `DbsiCoverageCharts`, of real candles where the
+  new rules fire and the 35 charts do not reach them: Dow 1967 and gold 1949 (carry 0, 1, 3), Dow 1953 and hourly
+  Bitcoin Heikin-Ashi 2026 (near-zero 5 and 6), Dow 1904 (carry without a Q bar before the run). 12 C# sabotages,
+  all red: bear 79 and 84, bull 17 and 19, the sum as a maximum, carry 0/1/3, carry on bears, carry without the
+  Q bar before, near-zero 5 and 6. `DbsiStyleProvider`'s measured figures updated. The old "bears about twice as
+  often as bulls" was wrong: even on v5 it was 1.5 times. README 9797.
+- **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here.
+  The study files (`dbsi8/clean_dbsi_qsC.py`, the emulator) stay in the private study.
+
 ### Cycle Position: Cipher C's per-asset rules, Start date and yearly dates, as switches (2026-10-28)
 
 - **What**: the last of the Cipher C pieces Cody approved (CYCLE_POSITION_DESIGN section 9.10). Four check boxes in
