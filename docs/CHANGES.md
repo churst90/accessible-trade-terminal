@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Cipher DBSI: the hidden arm on off-run bars, and the bears' EMA state (2026-10-29, built, NOT merged, NOT seen or heard)
+### Cipher DBSI: the hidden arm on off-run bars, and the bears' EMA state (2026-10-29, merged and pushed, NOT seen or heard)
 
 - **What**: off-run bars with V0 on (close above the close 2 bars back) and raw Stoch RSI not falling over 2 bars now
   score the votes, the streak and the hidden arm (the ARM a run starting on that bar would carry; the Q value if that
@@ -42,7 +42,7 @@ All notable changes to this project will be documented in this file.
 - **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here. The
   Start-grid emulator is not yet updated to this model, so the S&P 500 Start-grid figure is the EMA cross model's.
 
-### Cipher DBSI: the bears' EMA(5)/EMA(11) cross, the input the bear rules were standing in for (2026-10-29, built, NOT merged, NOT seen or heard)
+### Cipher DBSI: the bears' EMA(5)/EMA(11) cross, the input the bear rules were standing in for (2026-10-29, merged and pushed, NOT seen or heard)
 
 - **What**: a bearish cross, EMA(close, 5) crossing below EMA(close, 11) (on the bears' upside-down candles, the
   side's EMA 5 crossing above its EMA 11), now drives three bear rules. (1) On a dead bar it sets the +2 flag, held
@@ -79,7 +79,7 @@ All notable changes to this project will be documented in this file.
 - **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here.
   Not re-checked: whether the Bitcoin bear run of 2026-10-21 to 25 (the Q value's caveat) moved.
 
-### Cipher DBSI: the Q value, worked out from the Start grid (2026-10-29, built, NOT merged, NOT seen or heard)
+### Cipher DBSI: the Q value, worked out from the Start grid (2026-10-29, merged and pushed, NOT seen or heard)
 
 - **What**: what an off "Q" bar scores, and what a run that crosses straight out of Q inherits. The Q bar's worth is
   4, less 1 when the slow stochastic plus its value a bar before, latched where the Q episode began, is over 18

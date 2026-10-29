@@ -505,8 +505,8 @@
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
   - **Cipher DBSI's Q value, the bears' EMA(5)/EMA(11) cross and the hidden arm on off-run bars (2026-10-29, all three
-    built in worktree `att-dbsi-qsc`, branch `dbsi-qsc`, NOT committed, merged or pushed, NOT seen or heard; see
-    CHANGES).** Cody to say: commit and merge them? With all three, the ten veto sets are 98.3% exact (95.4% on main). The off Q bar's worth is
+    merged and pushed, VPS not deployed, NOT seen or heard; see
+    CHANGES).** With all three, the ten veto sets are 98.3% exact (95.4% on main). The off Q bar's worth is
     4 − (slow stochastic + its last bar, latched at the Q start, over 18 bull / 80 bear). Bulls also lose 1 at K > 61
     rising ≤ 6.25, and a bull Q after a 1-2 bar run that followed a Q keeps the old Q's value. The near-zero bound is
     now 5.6. Ten veto sets 95.4% → 96.0% exact, none worse; every held-out set the same or better; the twenty 85.5%.
@@ -523,8 +523,8 @@
       Best found: the flag also fires when the side WT rises from -4.8 or below to above 10: 38 bars better on the
       main, veto and unseen sets, none worse, held-out 9 better (one twin 2 worse), twin charts mixed, and -4 or -5
       instead of -4.8 each make a set worse, so it is a fit, not the rule.
-      FOUND and PORTED 2026-10-29 (Cody: "merge the best new findings into the c# model"; same worktree, NOT
-      committed): the missing input is a bearish EMA(close, 5) / EMA(close, 11) cross
+      FOUND and PORTED 2026-10-29 (Cody: "merge the best new findings into the c# model"; merged and
+      pushed): the missing input is a bearish EMA(close, 5) / EMA(close, 11) cross
       (`dbsi8/zj_nocont.py`). It sets the dead-bar +2 (held until Stoch RSI falls over 2 bars, replacing the near-zero
       side-WT jump), gives +2 on an off-run bar on the cross bar, and is the bear zero-line bonus: +6 (+4 on a cross
       term) when the run's WT cross bar is an EMA cross bar, replacing the five fitted triggers and the continuation
@@ -533,7 +533,7 @@
       model at full history, S&P 500 grid all ages 90.95 -> 93.17%. Optional extra `zl_g.py` (+2 on an alive cross bar
       with WT gap <= 10.5 and Stoch RSI D <= 63): +83 more, f20HA 1 worse, thresholds fitted, so NOT ported (the
       no-set-worse rule). zf_v3 is superseded.
-      THEN the hidden arm, PORTED 2026-10-29 (same worktree, NOT committed; `dbsi8/zq_s2.py`): off-run bars with V0 on
+      THEN the hidden arm, PORTED 2026-10-29 (merged and pushed; `dbsi8/zq_s2.py`): off-run bars with V0 on
       and raw Stoch RSI not falling score the votes, the streak and the hidden arm (or the Q value if larger); a bull Q
       bar is worth the hidden arm + 1; the bears' wide-gap, near-zero and second cross terms only while EMA 5 < EMA 11,
       plus at least 2 within 2 bars of the EMA cross. About ten fitted terms and the bears' Q turn gone. Ten veto sets
