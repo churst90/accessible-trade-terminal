@@ -42,9 +42,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
-    /// <b>How close it is, measured.</b> DBSI's exact number on 96.0–99.2% of bars of the ten veto sets
-    /// (98.3% pooled, 37,032 numbers), within 2 on 99.6–100%, typical error about 0.3 points; on the
-    /// three held-out sets 97.7% (Microsoft 15-minute), 98.4% and 97.0% (Bitstamp 5- and 1-minute). The
+    /// <b>How close it is, measured.</b> DBSI's exact number on 96.0–99.5% of bars of the ten veto sets
+    /// (98.5% pooled, 37,032 numbers), within 2 on 99.6–100%, typical error about 0.3 points; on the
+    /// three held-out sets 97.9% (Microsoft 15-minute), 98.5% and 97.0% (Bitstamp 5- and 1-minute). The
     /// hourly chart's last seven weeks: 98.3% exact (the 2026-10-25 model, gen8: 59.6%). The digitised
     /// charts, read by eye and noisier: the twenty 88.1% exact, 94.1% within 2 (gen8 55.1%, 80.4%); the
     /// fifteen livestream charts 85.0%, 90.1% (gen8 48.5%, 78.1%; the linear model before it 20.4%, 67.1%). <c>DbsiStyleGoldenTests</c> replays the
@@ -52,12 +52,13 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> About 1 bar in 60 is not DBSI's exact number, bulls and bears alike (1.9% and 1.6% on the ten veto sets). The misses left are
+    /// <b>The known shortfall.</b> About 1 bar in 65 is not DBSI's exact number, bulls and bears alike (1.6% and 1.4% on the ten veto sets). The misses left are
     /// timing: raw Stoch RSI pinned at 0 or 100 for a bar or two, where a one-bar difference in when it
     /// lets go moves a few points, and the dead-run step that holds or drops on it. A first brute-force
     /// search of other indicators found no missing input; a later one over moving-average crosses found
     /// one, the bears' EMA(5)/EMA(11) cross (2026-10-29), which replaced five fitted triggers, and the
-    /// hidden arm on off-run bars then replaced about ten more. So some
+    /// hidden arm on off-run bars then replaced about ten more (and, for bulls, a flag after a deep run that
+    /// ended high, 2026-10-29). So some
     /// of the remaining corrections may still stand in for an input not yet found. On the fifteen
     /// livestream charts it prints 17 or more on 46 of DBSI's
     /// 48 such readings and on 2 where DBSI does not (gen8 38 and 6). Many corrections are small and

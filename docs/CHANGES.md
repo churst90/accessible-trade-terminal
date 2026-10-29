@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI: the bear Q value from the hidden arm, a floor touch inside Q, and the bulls' deep-run flag (2026-10-29, merged and pushed, NOT seen or heard)
+
+- **What**: three more rules from the search of the bars still wrong after the hidden arm (Cody: "yes port ztc and
+  push"). (1) A bear Q bar is worth nothing while the hidden arm is down, and on a Q's first bar with V0 off it is
+  worth the hidden arm itself instead of 4 less the latched 1. (2) Both sides: an off-run bar in a Q that was on the
+  bar before too, with raw Stoch RSI touching its floor (0, up, 0), the hidden arm up and no Stoch RSI vote, gets +2.
+  (3) Bulls only: after a deep run (one that crossed below −60) ends with the bull side's WT above 60, off-run and
+  alive bars get +2; the flag carries through each later run that crosses and ends with WT above 60, and drops
+  otherwise. All 15 such bull stretches on the sets were 2 short; the bear side has none wrong.
+- **Measured** (the hidden arm model just below -> now): the ten veto sets 98.27% -> 98.48% exact pooled (36,391 ->
+  36,469 of 37,032), each 96.0-99.5%, none worse; within 2 99.72% -> 99.73%, RMSE 0.28 -> 0.26. Misses: bulls 349 ->
+  302, bears 292 -> 261. Every main and unseen set better or the same (the hourly discovery set +46, the hourly
+  Bitcoin set +31). Never mined: Microsoft 15m 97.7% -> 97.9%, Bitstamp 5m 98.4% -> 98.5%, Bitstamp 1m the same
+  (97.0%), Bitstamp daily 98.4% -> 98.7% (mirrored, shifted, scaled each +8 bars), hourly Bitcoin Heikin-Ashi 98.7% ->
+  99.0%. The hourly weeks 98.3% (+1 bar). Twin charts: +192 bars, no cell worse. The twenty and the fifteen unchanged.
+  Every term reads only this bar and earlier ones.
+- **Caveat**: on the ten veto sets the flag's carry through later runs (3) adds nothing; its gains are on the hourly
+  sets it was found on (+43, mostly one event) and 11 bars on hourly Bitcoin Heikin-Ashi, never mined.
+- **Not taken**: the flag carried with a stricter start rule, or on off-run bars only (Bitcoin daily 3 and 4 bars worse).
+- **Tests**: `DbsiCleanScores` and `DbsiCoverageCharts` regenerated from the study's `zt_c2.py` (the 35 charts' printed
+  scores did not change, so the golden pins stay). One coverage window added, gold 1980-1981: a bear Q bar with the
+  hidden arm down, the hidden arm on a bear Q's first bar with V0 off, and the flag read on the bar a run ends; the
+  generator refuses to write unless breaking each of those changes a score. 17 new C# sabotages, all red: the bear Q
+  value without its hidden-arm gate, without the hidden-arm branch, without its Q-before or V0 condition, from 3; the
+  floor touch dropped, without its Stoch RSI-vote condition, outside Q; the flag's off-run and alive +2s dropped, its
+  end at 55, its carry dropped, its start at 70 or never checked, read on the bar before or on the run's last bar, and
+  on the bear side too. The 21 earlier Python sabotages the 35 charts miss were re-made on this model and are still caught. Two of the floor touch's
+  conditions cannot change a score: Q on the bar before (a Q cannot start on a close-up bar with raw Stoch RSI at 0)
+  and raw Stoch RSI at 0 two bars back (Q is never on while it fell over 2 bars); the hidden-arm condition needs raw
+  Stoch RSI equal 3 bars and 1 bar back, which no history has. One test more (the new window): README count updated.
+  `DbsiStyleProvider`'s measured figures updated.
+- **Not done**: not seen or heard in the app; the accessibility-lead agent is not registered here; the Start-grid
+  emulator not moved to this model.
+
 ### Cipher DBSI: the hidden arm on off-run bars, and the bears' EMA state (2026-10-29, merged and pushed, NOT seen or heard)
 
 - **What**: off-run bars with V0 on (close above the close 2 bars back) and raw Stoch RSI not falling over 2 bars now
@@ -39,7 +73,7 @@ All notable changes to this project will be documented in this file.
   override with `>` for `>=`, without the Q value, without V0; the EMA state dropped from the cross term, the near-zero
   term and each wide-gap term; the 2-bar term at 1 or 3 bars, without the kept ARM, with a cross term. The green one
   is still `>=` for `>` in the cross test (equivalent, as before). One test more (the new window): README count updated. `DbsiStyleProvider`'s measured figures updated.
-- **Not done**: not merged; not seen or heard in the app; the accessibility-lead agent is not registered here. The
+- **Not done**: not seen or heard in the app; the accessibility-lead agent is not registered here. The
   Start-grid emulator is not yet updated to this model, so the S&P 500 Start-grid figure is the EMA cross model's.
 
 ### Cipher DBSI: the bears' EMA(5)/EMA(11) cross, the input the bear rules were standing in for (2026-10-29, merged and pushed, NOT seen or heard)

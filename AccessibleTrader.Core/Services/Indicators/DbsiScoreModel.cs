@@ -4,7 +4,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// The Cipher DBSI score (2026-10-26): every rule found by reading Market Cipher DBSI's own numbers
     /// (an hourly, a fifteen-minute and a daily set of them, kept out of this repository), written once
     /// from the bull side. A line-for-line port of the study's <c>dbsi8/clean_dbsi.py</c> (since 2026-10-29
-    /// its successor <c>zq_s2.py</c>, with the Q value, the bears' EMA cross and the hidden arm): the golden
+    /// its successors, now <c>zt_c2.py</c>, with the Q value, the bears' EMA cross, the hidden arm and the bulls' deep-run flag): the golden
     /// test replays that file's scores on every bar of the 35 digitised charts, so any change here must
     /// be made there first.
     ///
@@ -166,12 +166,27 @@ namespace AccessibleTrader.Core.Services.Indicators
             var qv = new double[n];
             // raw Stoch RSI plus its last bar on the Q's first bar, over 18 (bulls) or 80 (bears) takes 1 off; a bull Q
             // right after a run of 1-2 bars that crossed straight out of Q keeps that Q's value. Bulls count from the hidden
-            // arm (its value + 1, nothing while it is down); bears from 4.
+            // arm (its value + 1); bears from 4, or the hidden arm itself on a Q's first bar with V0 off; neither while the
+            // hidden arm is down.
             var hid0 = ArmHidden(d2, s2, s2T, R.Step);
             var skSum = new double[n]; for (int i = 0; i < n; i++) skSum[i] = sk[i] + sk1v[i];
             var qLow = bull ? OnsetLatchCarry(q, skSum, w.Run, 2) : OnsetLatch(q, skSum);
             for (int i = 0; i < n; i++)
-                if (q[i]) qv[i] = bull ? (hid0[i] > 0 ? hid0[i] + 1 - B(qLow[i] > 18) : 0) : 4 - B(qLow[i] > 80);
+                if (q[i] && hid0[i] > 0) qv[i] = bull ? hid0[i] + 1 - B(qLow[i] > 18) : !q1[i] && !V[0][i] ? hid0[i] : 4 - B(qLow[i] > 80);
+
+            // bulls: after a deep run (crossed below -60) that ended with side WT above 60, carried through each later run
+            // that crosses and ends with side WT above 60
+            var fl = new bool[n];
+            if (bull)
+            {
+                bool on = false;
+                for (int i = 1; i < n; i++)
+                {
+                    if (w.Run[i] && !w.Run[i - 1]) on = on && sw1[i] > 60;
+                    if (!w.Run[i] && w.Run[i - 1]) on = (on || w.Deep[i - 1]) && sw1[i] > 60;
+                    fl[i] = on;
+                }
+            }
 
             var s = new double[n];
             // ============================================================ OFF bars
@@ -210,13 +225,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
                 // V0 on and raw Stoch RSI not falling over 2: the hidden arm (or the Q value, if larger) on the votes, nothing else
                 if (V[0][i] && d2[i] >= 0) x = votes[i] + stt[i] + Math.Max(hid0[i], qv[i]);
+                // a raw floor touch (0, up, 0) inside Q, armed, without the Stoch RSI vote: +2
+                if (q[i] && q1[i] && sk[i] <= 0 && sk2v[i] <= 0 && sk1[i] > 0 && armed && !V[5][i]) x += 2;
+                if (fl[i]) x += 2;                                                   // bulls: after a deep run that ended high
                 s[i] = x;                                                            // (not floored again)
             }
 
             // ============================================================ ALIVE bars: the ARM a run carries
             var (arm, kept) = Arm(bull, d2, s2, s2T, K, q, qv, al, R.Step);
             for (int i = 0; i < n; i++)
-                if (al[i]) s[i] = votes[i] + lb[i] + 3 + w.Count[i] + arm[i] + sw60[i] - 2 * B(cpo[i] && flatK[i]);
+                if (al[i]) s[i] = votes[i] + lb[i] + 3 + w.Count[i] + arm[i] + sw60[i] - 2 * B(cpo[i] && flatK[i]) + 2 * B(fl[i]);
             bool[]? zl = null; double[]? xo = null;
             if (!bull) BearCrossTerms(s, sw1, sg, D, RS, st81raw, sw60, xe!, ep!, al, cx, kept, out zl, out xo);
             for (int i = 0; i < n; i++) if (al[i]) s[i] = Math.Max(Floor, s[i]);

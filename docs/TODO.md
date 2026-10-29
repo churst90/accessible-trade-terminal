@@ -504,9 +504,9 @@
     (the Q; trigger unresolved, left out), alive rows without it about 1.8 under, 17+ printed on 21
     of 48 real ones; the hourly BTC 60 HA harvest (after cap4) will be a new held-out set. With the
     exact money flow (2026-10-24) the same settings still win: exact 31%, ±2 71.5%, false 17+ 3.
-  - **Cipher DBSI's Q value, the bears' EMA(5)/EMA(11) cross and the hidden arm on off-run bars (2026-10-29, all three
-    merged and pushed, VPS not deployed, NOT seen or heard; see
-    CHANGES).** With all three, the ten veto sets are 98.3% exact (95.4% on main). The off Q bar's worth is
+  - **Cipher DBSI's Q value, the bears' EMA(5)/EMA(11) cross, the hidden arm on off-run bars and the zt_c2 rules
+    (2026-10-29, all merged and pushed, VPS not deployed, NOT seen or heard; see
+    CHANGES).** With all of them, the ten veto sets are 98.5% exact (95.4% before). The off Q bar's worth is
     4 − (slow stochastic + its last bar, latched at the Q start, over 18 bull / 80 bear). Bulls also lose 1 at K > 61
     rising ≤ 6.25, and a bull Q after a 1-2 bar run that followed a Q keeps the old Q's value. The near-zero bound is
     now 5.6. Ten veto sets 95.4% → 96.0% exact, none worse; every held-out set the same or better; the twenty 85.5%.
@@ -539,9 +539,17 @@
       plus at least 2 within 2 bars of the EMA cross. About ten fitted terms and the bears' Q turn gone. Ten veto sets
       96.9 -> 98.3% (misses bull 602 -> 349, bear 564 -> 292), none worse anywhere; held-outs MSFT_15 97.7, BSTP_5 98.4,
       BSTP_1 97.0, BTC_60_ha 98.7%; twins +1,300 none worse; the twenty's false 17+ 4 -> 5 (the one figure worse).
-      Not yet: the Start-grid emulator (start_zj.py) moved to it. The search for the rest goes on: bull off bars 323
-      wrong (the biggest group: DBSI 2 higher with V0 off and Stoch RSI falling, 67 bars), bear off bars 209 (4 higher
-      with Stoch RSI flat and V0 off, 49).
+      THEN `dbsi8/zt_c2.py`, PORTED 2026-10-29 (Cody: "yes port ztc and push"; merged and pushed): the bear Q value 0
+      while the hidden arm is down and the hidden arm itself on a Q's first bar with V0 off; +2 for a floor touch
+      inside Q (armed, no Stoch RSI vote); bulls +2 on off and alive bars after a deep run that ended with WT above 60,
+      carried through later runs that cross and end above 60. Ten veto sets 98.27 -> 98.48% (misses bull 302, bear
+      261), none worse; every held-out the same or better (BTC_60_ha 99.0%); twins +192 none worse; the twenty and
+      the fifteen unchanged. The flag's carry adds nothing on the veto sets (gains on the hourly sets it was found on).
+      Not yet: the Start-grid emulator (start_zj.py) moved to the latest model. The search for the rest goes on (Cody:
+      "there must be something in the price data we're missing"): 563 wrong bars on the veto sets, thin over every
+      state (bull dead +1/-1, bull alive and first-dead +1, bear dead -1); one group, bear off bars 4 higher with Stoch
+      RSI pinned at the floor just before a Q, is outnumbered about 50 to 1 by bars in the same state that score
+      right.
     - Cody to look at Bitcoin daily and 1h Heikin-Ashi once merged.
   - **Cipher DBSI rebuilt from every rule found (2026-10-26, merged and pushed 2026-10-27,
     NOT deployed, NOT seen or heard in the app; see CHANGES).** One clean model (`DbsiScoreModel`, a port of the study's

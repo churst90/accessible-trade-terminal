@@ -41,7 +41,8 @@ public sealed class DbsiScoreModelParityTests
     /// edges (Dow), the bull Q value carried through a run of 1-2 bars but not 3 (Dow 1967, gold 1949) and only
     /// when a Q bar came just before the run (Dow 1904), and the near-zero cross bound 5.6 (Dow 1953, Bitcoin hourly Heikin-Ashi), and the hidden arm's edges: a bull Q bar
     /// while it is down (gold 1967), the override's d2 &gt;= 0, the armed pinned top, the EMA state on the wide-gap terms
-    /// and the 2-bar term's kept ARM (Dow, gold). The generator refuses to write the fixture
+    /// and the 2-bar term's kept ARM (Dow, gold), and a bear Q bar with the hidden arm down or on a Q's first bar with V0 off,
+    /// and the bulls' deep-run flag read on the bar a run ends and carried through later runs (gold 1980, Dow 1948). The generator refuses to write the fixture
     /// unless breaking each rule changes a score on a window.
     /// </summary>
     public static IEnumerable<object[]> CoverageWindows() => DbsiCoverageCharts.All.Keys.Select(k => new object[] { k });
