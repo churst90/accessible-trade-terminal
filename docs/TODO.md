@@ -1,3 +1,11 @@
+> - [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/HYPERLIQUID_RESEARCH.md`).**
+>   Questions for Cody before anything is built:
+>   - Are you a US resident or citizen? If so, live trading (phase 4), and in practice testnet
+>     (phase 2), break Hyperliquid's terms until the Payward/Bitnomial route opens.
+>   - Is this for your own trading, or a feature for the terminal's users?
+>   - Is a read-only data provider (phase 1: funding, open interest, HIP-3 stock perps) worth building on its own?
+>   - Hand-written signing, Nethereum, or JKorf's HyperLiquid.Net?
+>   - Should we watch Payward/Bitnomial and Kraken Pro instead?
 > - [ ] **The Market Cipher tests on the exact Ciphers: DONE, still No edge (2026-10-25; see CHANGES
 >   and `docs/EXACT_CIPHERS_RERUN_FINDINGS.md`).** Left:
 >   - The only lead from the whole Market Cipher series is the crypto 4h trigger-wave entry, and it

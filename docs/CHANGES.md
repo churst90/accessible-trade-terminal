@@ -1161,6 +1161,18 @@ All notable changes to this project will be documented in this file.
 - **Not decoded:** oil's weekly chart. The old pick is 55 of 57 on oil's daily chart but 14 of 23
   on its weekly one, whatever its gap.
 
+### Hyperliquid research: can the terminal trade on it, with leverage? (2026-10-25)
+
+- `docs/HYPERLIQUID_RESEARCH.md`, saved from the Claude Doc
+  https://claude.ai/artifact/ArWAdoRPAWy62CMESyVmgD. Research only. No code or tests changed.
+- Leverage, from the live `meta` API on 2026-10-25: BTC 40x, ETH 25x, SOL and XRP 20x, most of the
+  178 crypto perps 3x to 10x. HIP-3 markets: stocks 20x, EUR and JPY 50x.
+- Verdict: technically very feasible. The API fits the Kraken Futures provider pattern, and an
+  agent key can trade but cannot withdraw. Legally it is not open to a US resident today; the terms
+  bar US persons, and the Payward/Bitnomial US route is not live yet.
+- Caveat: the terms page refused automated requests, so the US restriction comes from secondhand
+  guides and the CEO's own statement. Candle depth was measured on BTC only.
+
 ### Cipher C off the daily chart counts in the chart's bars, as the original does; a two-bar session is no longer read as daily bars (2026-10-25)
 
 - **What changed** (`CipherCProvider.Compute`, `InBarsKey`, `PresetWords`; `CipherCEngine.MeasureBars`;
