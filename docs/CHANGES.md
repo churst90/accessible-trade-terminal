@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: Cipher C's per-asset rules, Start date and yearly dates, as switches (2026-10-28)
+
+- **What**: the last of the Cipher C pieces Cody approved (CYCLE_POSITION_DESIGN section 9.10). Four check boxes in
+  Cycle Position's settings, all off by default, so nothing changes until one is turned on. "Asset's own confirmation
+  rules": on a symbol Cipher C tunes, the daily lows confirm by its rules for it (the swing-high break on gold, silver,
+  the miners and the dollar; dropping a held low on any undercut before it is due on the Dow, the dollar, silver, Ether
+  and Bitcoin; the symbol's own stochastic lengths). "Faster confirmation": the swing-high break on any symbol. "Count
+  from the asset's start date": no low before Cipher C's Start date, the Start held as a confirmed low. "Yearly lows
+  from the asset's dates": the symbol's yearly date table, then from the price after the newest.
+- **Measured**, each alone on the captured charts: the asset's rules bring the lows much closer to the original's
+  (daily F1 .907 -> .968 building, .950 -> .969 blind; 4-hour .824 -> .953) but picking the real low is mixed (building
+  daily 90.3 -> 90.6%, blind 88.7 -> 88.3%; blind weekly 85.8 -> 84.9%). Faster confirmation is worse on both. The Start
+  date and yearly dates change almost nothing on these scores.
+- **Why off by default**: none is clearly better at the real low, and the rules would change the lows the "Low is in"
+  models were fitted on. A TODO question for Cody (it would need the models refitted).
+- **Caveats**: not seen or heard in the app; the accessibility-lead agent is not registered here. Holding the Start as
+  confirmed changes nothing on Bitcoin's own dates, so the test moves the bars to a start where it does. Test
+  `Cipher_Cs_asset_rules_and_dates_are_off_until_switched_on`; 15 sabotages, 14 red (the green one set a maximum on a
+  check box, which nothing reads). README 9792.
+
 ### Cycle Position: a mark at "very high", and lines for strategies and alerts (2026-10-28)
 
 - **What**: the "alert or mark at very high" and "backtest hooks" Cody approved (CYCLE_POSITION_DESIGN section 9.9).

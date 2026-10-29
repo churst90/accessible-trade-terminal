@@ -82,8 +82,12 @@
 >     words. A mark at "very high" (daily green, weekly blue) and six undrawn lines for strategies
 >     and alerts (9.9); Cody to hear a mark arrowed on a daily Bitcoin and to try an alert "Very
 >     high call is above 0". Question for Cody: the strategy catalog reads check-box marks (Cycle
->     Position's and Cipher C's confirmations) as lines, not events; make them events? Left:
->     per-asset rules and Start/yearly-date switches.
+>     Position's and Cipher C's confirmations) as lines, not events; make them events? Cipher C's
+>     per-asset rules, Start date and yearly dates as four check boxes, all off by default (9.10):
+>     Cody to try "Asset's own confirmation rules" on a daily Gold or Bitcoin. Question for Cody:
+>     the rules bring the lows much closer to the original's (daily F1 .907 -> .968) but picking the
+>     real low is mixed (blind daily 88.7 -> 88.3%, weekly 85.8 -> 84.9%); turn them on by default?
+>     That changes the lows the "Low is in" models were fitted on, so they would be refitted.
 >     Caveat: intraday dates past the last bar do not read holidays or clock changes.
 >   - Merged to main and pushed (2026-10-28, Cody asked). Deploy to the VPS: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and

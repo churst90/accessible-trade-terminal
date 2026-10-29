@@ -188,6 +188,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompVeryHigh = "Very High", CompWeeklyVeryHigh = "Weekly Very High";
         public const string ShareSuffix = "_share";
         public const string ParamVeryHighMarks = "VeryHighMarks";
+        /// <summary>Cipher C's per-asset rules and dates, each off by default (CYCLE_POSITION_DESIGN section 9.10).</summary>
+        public const string ParamAssetRules = "AssetRules", ParamFasterConfirmation = CipherCProvider.ParamFasterConfirmation,
+            ParamStartDate = "StartDate", ParamYearlyDates = "YearlyDates";
         internal const string VeryHighHex = "#00E676", WeeklyVeryHighHex = "#448AFF";
 
         /// <summary>
@@ -281,6 +284,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "What it averages: open, high, low, close, hl2, hlc3, hlcc4, ohlc4 or volume. Close by default." },
                     new() { Name = ParamSmaOffset, DisplayName = "Moving average offset", DataType = typeof(int), DefaultValue = 0.0, Step = 1,
                             Description = "Bars to shift the line by, right if above 0. 0 by default." },
+                    new() { Name = ParamAssetRules, DisplayName = "Asset's own confirmation rules", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default. On, a symbol Cipher C tunes confirms its daily lows by Cipher C's rules for it: the swing-high break on gold, silver, the miners and the dollar, dropping a held low on any undercut before it is due on the Dow, the dollar, silver, Ether and Bitcoin, and the symbol's own stochastic lengths." },
+                    new() { Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default. On, a daily low is also confirmed when price breaks the last swing high, so lows are confirmed sooner and some cycles end on a different low." },
+                    new() { Name = ParamStartDate, DisplayName = "Count from the asset's start date", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default: the count starts at the chart's first bars. On, it starts on Cipher C's Start date for the symbol (the first bar from 2000 on a symbol it does not tune), held as a confirmed low." },
+                    new() { Name = ParamYearlyDates, DisplayName = "Yearly lows from the asset's dates", DataType = typeof(bool), DefaultValue = false,
+                            Description = "Off by default: every yearly low is found from the price. On, a symbol Cipher C tunes takes its table of yearly-low dates, and the yearly lows after the newest date are found from the price." },
                 }.Concat(Switches.Select(w => new IndicatorParameterMetadata
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
@@ -559,15 +570,21 @@ namespace AccessibleTrader.Core.Services.Indicators
             var wTier = CipherCEngine.Tier(DefaultWeeklyFrom * L, DefaultWeeklyTo * L, clock.DaysPerWeek, clock);
             var yTier = CipherCEngine.Tier(yMin * clock.DaysPerYear, yMax * clock.DaysPerYear, clock.DaysPerYear, clock);
 
-            var d = CipherCEngine.DetectDaily(data, dTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
-                DssOverbought, DssOversold, pivotBreak: false);
+            // Cipher C's per-asset rules and Start date, where switched on.
+            bool rules = own != null && IndicatorParams.GetBool(p, ParamAssetRules, false);
+            bool fromStart = IndicatorParams.GetBool(p, ParamStartDate, false);
+            var d = CipherCEngine.DetectDaily(data, dTier, rules ? own!.DssLength : CipherCEngine.DefaultDssLength,
+                rules ? own!.DssSmooth : CipherCEngine.DefaultDssSmooth, DssOverbought, DssOversold,
+                pivotBreak: rules && own!.PivotBreak || IndicatorParams.GetBool(p, ParamFasterConfirmation, false),
+                seed: fromStart ? CipherCEngine.StartBar(data, own) : -1, dropUntilDue: rules && own!.DropUntilDue, seedConfirmed: fromStart);
             bool weeklyFromDaily = dTier.Active && wTier.Active;
             double shortestWeekly = set <= 0 && own != null ? own.WeeklyMin * clock.DaysPerWeek * clock.BarsPerDay : wTier.MinBars;
             double gap = WeeklyGapShare * shortestWeekly;
             var w = weeklyFromDaily ? CipherCEngine.WeeklyByTime(d, data, gap, d.Start)
                                     : CipherCEngine.Detect(data, wTier, DssOverbought, DssOversold);
             if (weeklyFromDaily) CountFromNewest(w, data, d.Start);
-            var y = yTier.Active ? CipherCEngine.YearlyFromPrice(data, years) : CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>());
+            var yDates = IndicatorParams.GetBool(p, ParamYearlyDates, false) && own?.YearlyLows is { Count: > 0 } table ? table : null;
+            var y = yTier.Active ? CipherCEngine.YearlyFromPrice(data, years, yDates) : CipherCEngine.YearlyFromDates(data, Array.Empty<DateTime>());
             return new Tiers(clock, inBars, L, set > 0 ? 2 : own != null ? 1 : 0, years, yMin, yMax, dTier, wTier, yTier, d, w, y,
                 weeklyFromDaily, weeklyFromDaily ? gap : double.NaN);
         }

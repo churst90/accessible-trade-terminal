@@ -888,3 +888,53 @@ Test: `The_very_high_marks_and_lines_are_the_first_very_high_bar_of_each_low` wo
 Bitcoin every bar of both marks, shares and call lines against the readings, all six lines, the
 speech of each, the switch (only the marks' hide companions change), and the catalog kinds. 20
 sabotages, all red; one (the Low expected line's speech) was green until the test said it.
+
+### 9.10 Cipher C's per-asset rules, Start date and yearly dates, as switches (off by default)
+
+Four check boxes in Cycle Position's Advanced settings, each off by default, so the chart, the lows
+and every reading are unchanged until one is turned on:
+
+- **"Asset's own confirmation rules"**: on a symbol Cipher C tunes (its 16 presets), the daily lows
+  confirm by Cipher C's rules for it: the swing-high break (gold, silver, the miners, the dollar),
+  dropping a held low on any undercut before it is due (the Dow, the dollar, silver, Ether,
+  Bitcoin), and the symbol's own stochastic lengths. A symbol with no preset is unchanged.
+- **"Faster confirmation"**: the swing-high break on any symbol (Cipher C's own switch of that name).
+- **"Count from the asset's start date"**: no low before Cipher C's Start date for the symbol (the
+  first bar from 2000 on a symbol it does not tune), and the Start bar held as a confirmed low.
+- **"Yearly lows from the asset's dates"**: a symbol with a yearly date table takes its yearly lows
+  on those dates, then from the price after the newest (CipherCEngine.YearlyFromPrice with the
+  dates). Off, every yearly low is found from the price.
+
+Measured with each switch on alone over the captures (the building set of 39 and the blind set of
+28, as in section 7), against the original's lows (F1, exact bar) and on picking the real low by
+price (section 7's score):
+
+| Switch | Daily F1 vs the original (building / blind) | Real daily low | Real weekly low |
+|---|---|---|---|
+| none (default) | 1D .907 / .950, 4h .824 / .851, 1W .859 / .843 | 1D 90.3 / 88.7%, 4h 87.1 / 86.5% | 1D 85.9 / 85.8%, 4h 84.1 / 81.2% |
+| Asset's rules | 1D .968 / .969, 4h .953 / .964, 1W .931 / .941 | 1D 90.6 / 88.3%, 4h 87.9 / 86.6% | 1D 86.3 / 84.9%, 4h 85.6 / 84.9% |
+| Faster confirmation | 1D .820 / .829, 4h .802 / .891 | 1D 88.7 / 87.1%, 4h 85.6 / 86.7% | 1D 83.7 / 82.9% |
+| Start date | 1D .908 / .950, 4h .825 / .857 | 1D 90.3 / 88.7% | 1D 86.1 / 85.8% |
+| Yearly dates | 1D .906 / .950 | 1D 90.2 / 88.6% | 1D 85.7 / 85.6% |
+
+The asset's rules bring the lows much closer to the original's (the weekly F1 too, 1D .626 -> .652
+building, .692 -> .693 blind), but picking the real low is mixed: up a little on the building set
+and the 4-hour charts, down on the blind daily charts (88.7 -> 88.3% daily, 85.8 -> 84.9% weekly).
+Faster confirmation is worse on both counts, as in Cipher C. The Start date and yearly dates change
+almost nothing on these scores; the yearly lows themselves are not scored, since the dates are the
+original's own.
+
+Why all four stay off by default: none is clearly better at the real low, and turning the asset's
+rules on would change the lows the "Low is in" models were fitted on (section 8) and the tests that
+hold them to the study to 1e-9 on Bitcoin. Turning them on by default would need the models refitted
+on the new lows: a TODO question for Cody.
+
+Test: `Cipher_Cs_asset_rules_and_dates_are_off_until_switched_on`: the four settings (check boxes,
+off, said "Off by default"); all off = no settings; on Bitcoin the rules = Cipher C's daily search
+with Bitcoin's stochastic and drop-until-due, and differ from off; gold's preset = the swing-high
+break with gold's stochastic; faster confirmation on Bitcoin and an untuned symbol = the swing-high
+break; the Start date (2022-02-23) leaves no daily or weekly low at or before it; the Start held as
+confirmed (on Bitcoin's own dates holding it changes nothing, so the bars are moved to put
+2013-04-19, where it does, on the Start date); the yearly dates = YearlyFromPrice with Bitcoin's
+three dates, each one a yearly low; an untuned symbol unchanged; and the readings still computed
+with all four on. 15 sabotages, 14 red; the green one set a maximum on a check box, which nothing reads.

@@ -356,6 +356,107 @@ public sealed class CyclePositionProviderTests
         Assert.Equal(50, hand[D + CipherCProvider.EndSuffix][first]);
     }
 
+    /// <summary>
+    /// Cipher C's per-asset rules and dates (CYCLE_POSITION_DESIGN section 9.10): each off by
+    /// default, and on, the count Cipher C's own rule gives, on a symbol it tunes only.
+    /// </summary>
+    [Fact]
+    public void Cipher_Cs_asset_rules_and_dates_are_off_until_switched_on()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        Dictionary<string, object> P(string symbol, params string[] on)
+        {
+            var p = new Dictionary<string, object> { ["__symbol"] = symbol };
+            foreach (var k in on) p[k] = true;
+            return p;
+        }
+        string[] all = { CyclePositionProvider.ParamAssetRules, CyclePositionProvider.ParamFasterConfirmation,
+                         CyclePositionProvider.ParamStartDate, CyclePositionProvider.ParamYearlyDates };
+        var meta = new CyclePositionProvider().GetIndicators()[0].Parameters;
+        foreach (var name in all)
+        {
+            var m = meta.Single(x => x.Name == name);
+            Assert.Equal(typeof(bool), m.DataType);
+            Assert.Equal(false, m.DefaultValue);
+            Assert.StartsWith("Off by default", m.Description);
+        }
+        var off = CyclePositionProvider.BuildTiers(bars, P("BTC/USD"));
+        var allOff = P("BTC/USD"); foreach (var k in all) allOff[k] = false;
+        Assert.Equal(off.D.Lows, CyclePositionProvider.BuildTiers(bars, allOff).D.Lows);
+        var own = CipherCEngine.PresetForSymbol("BTC/USD")!;
+        Assert.True(own.DropUntilDue && own.DssLength != CipherCEngine.DefaultDssLength && !own.PivotBreak);
+
+        // The asset's rules: Bitcoin's stochastic lengths and drop-until-due.
+        var ruled = CyclePositionProvider.BuildTiers(bars, P("BTC/USD", CyclePositionProvider.ParamAssetRules));
+        var expect = CipherCEngine.DetectDaily(bars, off.DTier, own.DssLength, own.DssSmooth, CyclePositionProvider.DssOverbought,
+            CyclePositionProvider.DssOversold, pivotBreak: false, dropUntilDue: true);
+        Assert.Equal(expect.Lows, ruled.D.Lows);
+        Assert.Equal(expect.ConfirmedAt, ruled.D.ConfirmedAt);
+        Assert.NotEqual(off.D.Lows, ruled.D.Lows);
+        // Gold's: the swing-high break and its stochastic length, no drop-until-due (on Bitcoin's bars).
+        var gold = CipherCEngine.PresetForSymbol("GOLD")!;
+        Assert.True(gold.PivotBreak && !gold.DropUntilDue && gold.DssLength != CipherCEngine.DefaultDssLength);
+        var goldOff = CyclePositionProvider.BuildTiers(bars, P("GOLD"));
+        var goldRuled = CyclePositionProvider.BuildTiers(bars, P("GOLD", CyclePositionProvider.ParamAssetRules));
+        var goldExpect = CipherCEngine.DetectDaily(bars, goldOff.DTier, gold.DssLength, gold.DssSmooth, CyclePositionProvider.DssOverbought,
+            CyclePositionProvider.DssOversold, pivotBreak: true);
+        Assert.Equal(goldExpect.Lows, goldRuled.D.Lows);
+        Assert.Equal(goldExpect.ConfirmedAt, goldRuled.D.ConfirmedAt);
+        // Faster confirmation: the swing-high break, on any symbol.
+        foreach (var sym in new[] { "BTC/USD", "XYZ" })
+        {
+            var plain = CyclePositionProvider.BuildTiers(bars, P(sym));
+            var fast = CyclePositionProvider.BuildTiers(bars, P(sym, CyclePositionProvider.ParamFasterConfirmation));
+            var pivot = CipherCEngine.DetectDaily(bars, plain.DTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
+                CyclePositionProvider.DssOverbought, CyclePositionProvider.DssOversold, pivotBreak: true);
+            Assert.Equal(pivot.Lows, fast.D.Lows);
+            Assert.Equal(pivot.ConfirmedAt, fast.D.ConfirmedAt);
+            Assert.NotEqual(plain.D.ConfirmedAt, fast.D.ConfirmedAt);
+        }
+        // The Start date: Bitcoin's is 2022-02-23; no low of any tier before it.
+        var started = CyclePositionProvider.BuildTiers(bars, P("BTC/USD", CyclePositionProvider.ParamStartDate));
+        int start = started.D.Start;
+        Assert.Equal(new DateTime(2022, 2, 23), bars[start].Date.Date);
+        Assert.True(bars[start - 1].Date.Date < new DateTime(2022, 2, 23));
+        Assert.Contains(off.D.Lows, l => l < start);
+        Assert.NotEmpty(started.D.Lows);
+        Assert.All(started.D.Lows, l => Assert.True(l > start));
+        Assert.All(started.W.Lows, l => Assert.True(l > start));
+        // ... and the Start bar held as a confirmed low, as Cipher C holds it. On Bitcoin's own dates holding it
+        // changes nothing, so the bars are moved a fixed number of days to put 2013-04-19, where it does, on the Start.
+        var shift = new DateTime(2022, 2, 23) - bars.First(b => b.Date.Date >= new DateTime(2013, 4, 19)).Date.Date;
+        var moved = bars.Select(b => b with { Date = b.Date + shift }).ToArray();
+        var movedStarted = CyclePositionProvider.BuildTiers(moved, P("BTC/USD", CyclePositionProvider.ParamStartDate));
+        int movedStart = movedStarted.D.Start;
+        Assert.Equal(new DateTime(2022, 2, 23), moved[movedStart].Date.Date);
+        var held = CipherCEngine.DetectDaily(moved, movedStarted.DTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
+            CyclePositionProvider.DssOverbought, CyclePositionProvider.DssOversold, pivotBreak: false, seed: movedStart, seedConfirmed: true);
+        var notHeld = CipherCEngine.DetectDaily(moved, movedStarted.DTier, CipherCEngine.DefaultDssLength, CipherCEngine.DefaultDssSmooth,
+            CyclePositionProvider.DssOverbought, CyclePositionProvider.DssOversold, pivotBreak: false, seed: movedStart);
+        Assert.Equal(held.Lows, movedStarted.D.Lows);
+        Assert.Equal(held.ConfirmedAt, movedStarted.D.ConfirmedAt);
+        Assert.Equal(held.HeldAt, movedStarted.D.HeldAt);
+        Assert.False(notHeld.ConfirmedAt.SequenceEqual(held.ConfirmedAt) && notHeld.HeldAt.SequenceEqual(held.HeldAt) && notHeld.Lows.SequenceEqual(held.Lows),
+            "held or not, the Start gives the same count on the moved bars");
+        // The yearly dates: Bitcoin's three, then from the price after the newest.
+        var dated = CyclePositionProvider.BuildTiers(bars, P("BTC/USD", CyclePositionProvider.ParamYearlyDates));
+        var days = own.YearlyLows!.Select(d => CipherCEngine.FirstBarOnOrAfter(bars, d)).ToArray();
+        Assert.Equal(3, days.Length);
+        Assert.All(days, at => Assert.Contains(at, dated.Y.Lows));
+        Assert.Equal(CipherCEngine.YearlyFromPrice(bars, off.Years, own.YearlyLows).Lows, dated.Y.Lows);
+        Assert.Equal(CipherCEngine.YearlyFromPrice(bars, off.Years).Lows, off.Y.Lows);
+        Assert.NotEqual(off.Y.Lows, dated.Y.Lows);
+        // On a symbol Cipher C does not tune, the asset's rules and dates change nothing.
+        var untuned = CyclePositionProvider.BuildTiers(bars, P("XYZ"));
+        var untunedOn = CyclePositionProvider.BuildTiers(bars, P("XYZ", CyclePositionProvider.ParamAssetRules, CyclePositionProvider.ParamYearlyDates));
+        Assert.Equal(untuned.D.Lows, untunedOn.D.Lows);
+        Assert.Equal(untuned.D.ConfirmedAt, untunedOn.D.ConfirmedAt);
+        Assert.Equal(untuned.Y.Lows, untunedOn.Y.Lows);
+        // And the whole indicator runs with every one on.
+        var r = CyclePositionProvider.Compute(bars, P("BTC/USD", all));
+        Assert.Contains(r[CyclePositionProvider.CompLowInLine], v => v > 0);
+    }
+
     /// <summary>The same marks as Cipher C: every component of Cipher C, by the same name; the misses shown by default.</summary>
     [Fact]
     public void It_draws_with_Cipher_Cs_marks_and_shows_its_misses()
