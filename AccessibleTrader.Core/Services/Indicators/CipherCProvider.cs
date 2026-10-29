@@ -1324,15 +1324,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         public static string GradeWord(double grade) => grade >= 2 ? "high" : grade >= 1 ? "mid" : "low";
 
         /// <summary>
-        /// The original's LOW/MID/HIGH tag on each bar (0-2): the Awesome Oscillator, SMA 5 less SMA
-        /// 34 of hl2, above zero, plus the close above the VWAP of hlc3 anchored at each calendar
-        /// month. NaN before the oscillator has 34 bars. Fitted to the original's pending labels:
-        /// 98.7% of 7,486 labelled bars on sixteen assets (2022-2026), 98.8% on fourteen held out
-        /// in time (2020-2022); every miss is the original one grade higher on a single bar with the
-        /// oscillator under zero. A chart without volume (the original's index, dollar, gold, silver
-        /// and oil charts) gets no VWAP point and is never high, as the original's never are.
-        /// </summary>
-        /// <summary>
         /// The top of the cycle from low <paramref name="a"/> to low <paramref name="b"/> and its
         /// translation. The top is the highest high with both lows' bars included, the first of equal
         /// highs; it is mid only exactly halfway in bars, left before, right after. This is the
@@ -1347,10 +1338,32 @@ namespace AccessibleTrader.Core.Services.Indicators
             return (top, twice < b - a ? CompLeftTop : twice > b - a ? CompRightTop : CompMidTop);
         }
 
+        /// <summary>
+        /// The original's LOW/MID/HIGH tag on each bar (0-2): the Awesome Oscillator, SMA 5 less SMA
+        /// 34 of hl2, above zero, plus the close above the VWAP of hlc3 anchored at each calendar
+        /// month. NaN before the oscillator has 34 bars. Fitted to the original's pending labels:
+        /// 98.7% of 7,486 labelled bars on sixteen assets (2022-2026), 98.8% on fourteen held out
+        /// in time (2020-2022); every miss is the original one grade higher on a single bar with the
+        /// oscillator under zero. A chart without volume (the original's index, dollar, gold, silver
+        /// and oil charts) gets no VWAP point and is never high, as the original's never are.
+        /// </summary>
         internal static double[] Grade(ReadOnlySpan<Ohlcv> data, double[] high, double[] low, double[] close)
         {
+            var (ao, vwap) = GradeParts(data, high, low, close);
+            var g = CipherCEngine.Nan(data.Length);
+            for (int i = 0; i < g.Length; i++)
+                if (!double.IsNaN(ao[i])) g[i] = (ao[i] > 0 ? 1 : 0) + (vwap[i] > 0 ? 1 : 0);
+            return g;
+        }
+
+        /// <summary>
+        /// <see cref="Grade"/>'s two points on each bar: the Awesome Oscillator (NaN before 34 bars),
+        /// and the close against the month's VWAP: 1 above, 0 not, NaN with no volume this month yet.
+        /// </summary>
+        internal static (double[] Ao, double[] VwapAbove) GradeParts(ReadOnlySpan<Ohlcv> data, double[] high, double[] low, double[] close)
+        {
             int n = data.Length;
-            var g = CipherCEngine.Nan(n);
+            var ao = CipherCEngine.Nan(n); var above = CipherCEngine.Nan(n);
             double s5 = 0, s34 = 0, cumPv = 0, cumV = 0;
             int month = -1;
             double Hl2(int k) => (high[k] + low[k]) / 2;
@@ -1364,12 +1377,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (m != month) { month = m; cumPv = cumV = 0; }
                 double v = data[i].Volume;
                 if (!double.IsNaN(v) && v > 0) { cumPv += (high[i] + low[i] + close[i]) / 3 * v; cumV += v; }
-                if (i < 33) continue;
-                double score = s5 / 5 - s34 / 34 > 0 ? 1 : 0;
-                if (cumV > 0 && close[i] > cumPv / cumV) score++;
-                g[i] = score;
+                if (cumV > 0) above[i] = close[i] > cumPv / cumV ? 1 : 0;
+                if (i >= 33) ao[i] = s5 / 5 - s34 / 34;
             }
-            return g;
+            return (ao, above);
         }
 
         private static string TierWord(double tier) => tier switch { 2 => "weekly", 3 => "yearly", _ => "daily" };

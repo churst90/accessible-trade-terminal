@@ -51,7 +51,8 @@ public sealed class CyclePositionProviderTests
         foreach (var k in new[] { D + CyclePositionProvider.BottomedSuffix, D + CyclePositionProvider.HitsSuffix, D + CipherCProvider.StartSuffix,
                      W + CyclePositionProvider.NestSuffix, Y + CyclePositionProvider.PhaseSuffix,
                      D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix,
-                     W + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInLowSuffix, Y + CyclePositionProvider.LowInSuffix })
+                     W + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInLowSuffix, Y + CyclePositionProvider.LowInSuffix,
+                     D + CyclePositionProvider.ConfluenceSuffix, D + CyclePositionProvider.AoSuffix, D + CyclePositionProvider.VwapSuffix })
             Assert.Contains(k, causal);
         // Fixed cuts, plus one just after the last yearly low is confirmed and one just after a
         // daily window is first learned.
@@ -389,5 +390,44 @@ public sealed class CyclePositionProviderTests
         Assert.Matches(@"Bar \d+ of the daily cycle", fact);
         Assert.DoesNotContain("Day ", fact);
         Assert.Contains("counted as bars", fact);
+    }
+
+    /// <summary>
+    /// The original's confluence grade, while a daily low is held: Cipher C's own grade on those
+    /// bars and on no others, its points summed (the Awesome Oscillator above zero, the close above
+    /// the month's VWAP), said as the table shows it: "confluence: mid, the Awesome Oscillator above
+    /// zero, the close not above this month's VWAP"; with no volume, no VWAP point.
+    /// </summary>
+    [Fact]
+    public void The_confluence_grade_is_the_originals_while_a_low_is_held()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        var grade = CipherCProvider.Grade(bars, bars.Select(b => b.High).ToArray(), bars.Select(b => b.Low).ToArray(), bars.Select(b => b.Close).ToArray());
+        var tiers = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
+        var c = r[D + CyclePositionProvider.ConfluenceSuffix];
+        for (int t = 0; t < bars.Length; t++)
+            Assert.Equal(tiers.D.HeldAt[t] >= 0 ? grade[t] : double.NaN, c[t]);
+        foreach (int g in new[] { 0, 1, 2 }) Assert.Contains(Marked(c), t => c[t] == g);
+        for (int t = 0; t < bars.Length; t++)
+            if (!double.IsNaN(c[t])) Assert.Equal((r[D + CyclePositionProvider.AoSuffix][t] > 0 ? 1 : 0) + (r[D + CyclePositionProvider.VwapSuffix][t] > 0 ? 1 : 0), c[t]);
+
+        Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+        string Cell(int t) => CyclePositionProvider.TableRows(comp, t).Single(row => row[0].Text == "Confluence")[1].Text;
+        int mid = Marked(c).Last(t => c[t] == 1);
+        Assert.Equal("MID", Cell(mid));
+        string said = Assert.Single(CyclePositionProvider.StateWords(comp, mid), w => w.StartsWith("confluence: ", StringComparison.Ordinal));
+        Assert.Equal("confluence: mid, the Awesome Oscillator " + (r[D + CyclePositionProvider.AoSuffix][mid] > 0 ? "above zero, the close not above" : "not above zero, the close above")
+            + " this month's VWAP", said);
+        int free = Marked(r[D + CipherCProvider.StartSuffix]).Last(t => double.IsNaN(c[t]));
+        Assert.Equal("—", Cell(free));
+        Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, free), w => w.StartsWith("confluence", StringComparison.Ordinal));
+
+        var dry = Run(bars.Select(b => new Ohlcv(b.Date, b.Open, b.High, b.Low, b.Close, 0)).ToList());
+        Func<string, double[]?> dryComp = k => dry.TryGetValue(k, out var a) ? a : null;
+        var dc = dry[D + CyclePositionProvider.ConfluenceSuffix];
+        Assert.DoesNotContain(Marked(dc), t => dc[t] == 2);
+        int held = Marked(dc)[^1];
+        Assert.EndsWith("no volume, so no VWAP", Assert.Single(CyclePositionProvider.StateWords(dryComp, held), w => w.StartsWith("confluence: ", StringComparison.Ordinal)));
     }
 }

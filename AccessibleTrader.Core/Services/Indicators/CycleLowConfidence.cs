@@ -39,7 +39,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// <para>The study scripts (Python) are reproduced exactly: features, trees and calibration are
     /// pinned by CycleLowConfidenceTests on Bitcoin's daily history (averages summed in numpy's
-    /// pairwise order, as one Bitcoin close is exactly its 10-day average). Daily charts only.</para>
+    /// pairwise order, as one Bitcoin close is exactly its 10-day average). Fitted on daily charts, in
+    /// bars; Cycle Position reads them on 4-hour and weekly charts too, where they held unseen (the
+    /// yearly one, in calendar days, not on 4-hour charts).</para>
     /// </summary>
     internal static partial class CycleLowConfidence
     {

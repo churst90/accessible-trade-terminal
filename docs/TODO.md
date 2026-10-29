@@ -57,14 +57,13 @@
 >     expected (a new daily low in the next L/6 days) is weak: "likely" is right about half the time.
 >     Cody to hear both on a daily Bitcoin (arrow along a held low; the table's two new rows). Questions:
 >     - Keep Low expected, or drop it as too weak to say?
->     - Should "very high" also be an alert, or a mark on the chart?
->     - Off daily charts neither is read. Fit them on 4-hour or weekly bars too?
+>     - Off daily charts: now read in bars (2026-10-28, checked unseen on 4-hour and weekly charts,
+>       CYCLE_POSITION_DESIGN 9.1). Cody to hear one on a 4-hour Bitcoin.
 >   - **Weekly and yearly "low is in" BUILT (2026-10-28, NOT seen or heard; CYCLE_POSITION_DESIGN
 >     section 8.5).** The "Low is in" row's weekly and yearly columns, the state words and the
 >     arrowed window. Unseen: weekly first "very high" right 94.6%, 72% of weekly lows caught, 12 days
 >     early; yearly 94.5%, 84%, about 40 days. Cody to hear it on a daily Bitcoin. Questions:
->     - When the weekly reading reads the same low as the daily one, the confirmations are said
->       twice. Drop them from the weekly sentence then?
+>     - Same low as the daily: now said once (DONE 2026-10-28, section 9.2).
 >     - Weak charts: Marathon (weekly), Gold (weekly lows caught 76 of 163), Silver and US oil
 >       (yearly). Say "less reliable on this chart" there, or leave it?
 >     - Weekly lows confirmed fast are missed (72% caught): should "high" be the word to act on for

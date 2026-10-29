@@ -78,7 +78,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string LengthKey = "__cp_length", LengthSourceKey = "__cp_length_source";
 
         /// <summary>
-        /// Per bar, on the daily window, daily charts only (<see cref="CycleLowConfidence"/>): "Low is
+        /// Per bar, on the daily window (<see cref="CycleLowConfidence"/>; off a daily chart in its bars): "Low is
         /// in", the share (0-1) of held daily lows like this one that were confirmed, on each bar a
         /// daily low is held; and its reasons: the chance (0-1) a random walk goes back to the low
         /// before its confirmation, the days left to it, percent above the low, average ranges risen,
@@ -92,8 +92,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             LowInAboveSuffix = "_lowInAbove", LowInRiseSuffix = "_lowInRise", LowInStructureSuffix = "_lowInStructure",
             LowInSmaSuffix = "_lowInSma", LowInDssSuffix = "_lowInDss", LowInSarSuffix = "_lowInSar", LowInBreakSuffix = "_lowInBreak",
             LowInLowSuffix = "_lowInLow";
-        /// <summary>Per bar after a confirmed daily low, daily charts only: "Low expected", the chance (0-1) a new daily low is drawn within the next <see cref="ExpectedDaysSuffix"/> days.</summary>
+        /// <summary>Per bar after a confirmed daily low: "Low expected", the chance (0-1) a new daily low is drawn within the next <see cref="ExpectedDaysSuffix"/> days.</summary>
         public const string ExpectedSuffix = "_lowExpected", ExpectedDaysSuffix = "_lowExpectedDays";
+
+        /// <summary>
+        /// Per bar a daily low is held, on the daily window: the original's confluence grade (0 low,
+        /// 1 mid, 2 high: <see cref="CipherCProvider.Grade"/>) and its two points: the Awesome
+        /// Oscillator, and the close against this month's VWAP (1 above, 0 not, NaN with no volume).
+        /// Said as context: held lows graded high were confirmed more often (92% against 74% for
+        /// low, on 31 daily charts), but within each "Low is in" band the grade adds nothing.
+        /// </summary>
+        public const string ConfluenceSuffix = "_confluence", AoSuffix = "_ao", VwapSuffix = "_vwap";
 
         /// <summary>The words under the held daily low (<see cref="ComponentCompanions.BadgeWord"/>), and the count's Start plate.</summary>
         internal const string Words = "EARLY|DUE|LATE|Start@" + StartHex;
@@ -238,13 +247,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             };
             Draw(o, data, p, plan);
 
-            // Low is in, and Low expected: fitted on daily charts, so daily charts only.
-            if (dTier.Active && !inBars)
+            // Low is in, and Low expected. Fitted on daily charts and counted in bars, they hold
+            // unseen on 4-hour and weekly charts (2026-10-28: the first "very high" right 96.5% on 15
+            // 4-hour charts, 97.1% on 15 weekly ones, against 96.6% on the daily); the yearly reading
+            // is in calendar days and holds on weekly charts (121 of 123), not on 4-hour ones (19 of 26).
+            if (dTier.Active)
             {
+                bool yearly = yTier.Active && !(inBars && CipherCEngine.MeasureBars(data).BarsPerDay > 1 + 1e-6);
                 bool weekly = weeklyFromDaily && w.NewestAt.Length == n;
                 var lc = CycleLowConfidence.Compute(data, d, L, A(CompDailyWindow + StartSuffix), A(CompDailyWindow + EndSuffix),
-                    weekly ? w : null, tiers.WeeklyGap, yTier.Active ? y : null, years);
-                foreach (var (comp, r, on) in new[] { (CompDailyWindow, (CycleLowConfidence.Reading)lc, true), (CompWeeklyWindow, lc.Weekly, weekly), (CompYearlyWindow, lc.Yearly, yTier.Active) })
+                    weekly ? w : null, tiers.WeeklyGap, yearly ? y : null, years);
+                foreach (var (comp, r, on) in new[] { (CompDailyWindow, (CycleLowConfidence.Reading)lc, true), (CompWeeklyWindow, lc.Weekly, weekly), (CompYearlyWindow, lc.Yearly, yearly) })
                 {
                     if (!on) continue;
                     foreach (var (suffix, values) in new[]
@@ -259,6 +272,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
                 o[CompDailyWindow + ExpectedSuffix] = lc.Expected;
                 o[CompDailyWindow + ExpectedDaysSuffix] = lc.ExpectedDays;
+            }
+
+            // The original's confluence grade, while a daily low is held, with its two points.
+            if (dTier.Active)
+            {
+                var high = new double[n]; var low = new double[n]; var close = new double[n];
+                for (int t = 0; t < n; t++) { high[t] = data[t].High; low[t] = data[t].Low; close[t] = data[t].Close; }
+                var (ao, vwap) = GradeParts(data, high, low, close);
+                double[] grade = A(CompDailyWindow + ConfluenceSuffix), aoOut = A(CompDailyWindow + AoSuffix), vwapOut = A(CompDailyWindow + VwapSuffix);
+                for (int t = 0; t < n; t++)
+                {
+                    if (d.HeldAt[t] < 0 || double.IsNaN(ao[t])) continue;
+                    aoOut[t] = ao[t]; vwapOut[t] = vwap[t];
+                    grade[t] = (ao[t] > 0 ? 1 : 0) + (vwap[t] > 0 ? 1 : 0);
+                }
             }
 
             // Where each bar is against its learned window, and how often the window has held.
@@ -576,37 +604,59 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// broken, closes above the 10-day average, ...": the word and the facts it was read from. On
         /// the weekly and yearly windows, "weekly low is in: ..., for the low of 61,200; ..." (the low
         /// it reads need not be the held daily one); the yearly reading names no confirmations, as it
-        /// does not read them.
+        /// does not read them. Off a daily chart the clock is in bars (the yearly one stays in days).
+        /// With <paramref name="besideDaily"/> (said after the daily reading), a weekly reading of the
+        /// same low as the daily one says so and leaves out what the daily one has just said: how far
+        /// above the low and the confirmations.
         /// </summary>
-        internal static string? LowInWords(Func<string, double> at, string comp = CompDailyWindow)
+        internal static string? LowInWords(Func<string, double> at, string comp = CompDailyWindow, bool besideDaily = false)
         {
             if (LowInWord(at, comp) is not { } word) return null;
             double V(string suffix) => at(comp + suffix);
+            bool inBars = at(InBarsKey) == 1;
+            var (day, days) = comp == CompYearlyWindow ? ("day", "days") : Unit(inBars, "day", "days");
             double left = V(LowInLeftSuffix), touch = V(LowInTouchSuffix);
             string chance = touch < 0.01 ? "under 1%" : $"{Num(Math.Round(100 * touch))}%";
+            bool same = besideDaily && comp == CompWeeklyWindow && at(CompDailyWindow + LowInLowSuffix) is var dl && dl == V(LowInLowSuffix);
             string head = comp switch
             {
+                CompWeeklyWindow when same => $"weekly low is in: {word}, the same low as the daily reading",
                 CompWeeklyWindow => $"weekly low is in: {word}, for the low of {Price(V(LowInLowSuffix))}",
                 CompYearlyWindow => $"yearly low is in: {word}, for the low of {Price(V(LowInLowSuffix))}",
                 _ => $"low is in: {word}",
             };
-            string s = $"{head}; about {Span(left, "day", "days")} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
+            if (same) return $"{head}; about {Span(left, day, days)} to its weekly confirmation; a {chance} chance at random of going back to it first";
+            string s = $"{head}; about {Span(left, day, days)} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
                      + $"up {Num(V(LowInRiseSuffix))} average ranges; a {chance} chance at random of going back to it first";
             if (comp == CompYearlyWindow) return s;
             var on = new List<string>();
             if (V(LowInStructureSuffix) > 0) on.Add("a higher low's high broken");
-            if (V(LowInSmaSuffix) > 0) on.Add("closes above the 10-day average");
+            if (V(LowInSmaSuffix) > 0) on.Add($"closes above the 10-{day} average");
             if (V(LowInDssSuffix) > 0) on.Add("the stochastic over its trigger");
             if (V(LowInSarSuffix) > 0) on.Add("the SAR under price");
             if (V(LowInBreakSuffix) > 0) on.Add("a close above the 10 before it");
             return s + "; " + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on));
         }
 
+        /// <summary>
+        /// "confluence: mid, the Awesome Oscillator above zero, the close under this month's VWAP",
+        /// while a daily low is held; "no volume, so no VWAP" on a chart without it.
+        /// </summary>
+        internal static string? ConfluenceWords(Func<string, double> at)
+        {
+            double g = at(CompDailyWindow + ConfluenceSuffix);
+            if (double.IsNaN(g)) return null;
+            double ao = at(CompDailyWindow + AoSuffix), vwap = at(CompDailyWindow + VwapSuffix);
+            return $"confluence: {GradeWord(g)}, the Awesome Oscillator {(ao > 0 ? "above" : "not above")} zero, "
+                 + (double.IsNaN(vwap) ? "no volume, so no VWAP" : $"the close {(vwap > 0 ? "above" : "not above")} this month's VWAP");
+        }
+
         /// <summary>"a new daily low in the next 8 days: likely, 42%", on each bar after a confirmed daily low.</summary>
         internal static string? ExpectedWords(Func<string, double> at)
         {
             double p = at(CompDailyWindow + ExpectedSuffix), k = at(CompDailyWindow + ExpectedDaysSuffix);
-            return double.IsNaN(p) ? null : $"a new daily low in the next {Span(k, "day", "days")}: {CycleLowConfidence.ExpectedWord(p)}, {Num(Math.Round(100 * p))}%";
+            var (day, days) = Unit(at(InBarsKey) == 1, "day", "days");
+            return double.IsNaN(p) ? null : $"a new daily low in the next {Span(k, day, days)}: {CycleLowConfidence.ExpectedWord(p)}, {Num(Math.Round(100 * p))}%";
         }
 
         /// <summary>"the daily window has held 14 of 24 cycles": each cycle against the window it began with.</summary>
@@ -640,10 +690,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (PositionWords(cycle, u, us, At, comp) is { } s) words.Add(s);
             if (HeldWords("daily", day, days, At(HeldDaysKey)) is { } heldDaily) words.Add(heldDaily);
             if (LowInWords(At) is { } lowIn) words.Add(lowIn);
+            if (ConfluenceWords(At) is { } confluence) words.Add(confluence);
             if (ExpectedWords(At) is { } expected) words.Add(expected);
             if (HeldWords("weekly", week, weeks, At(HeldWeeksKey)) is { } heldWeekly) words.Add(heldWeekly);
             foreach (var comp in new[] { CompWeeklyWindow, CompYearlyWindow })
-                if (LowInWords(At, comp) is { } tierLowIn) words.Add(tierLowIn);
+                if (LowInWords(At, comp, besideDaily: true) is { } tierLowIn) words.Add(tierLowIn);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
                 if (!double.IsNaN(At(comp))) words.Add($"{tier} cycle low confirmed, {ConfluenceWord(At(comp))} confluence");
@@ -706,8 +757,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     C(component(CompWeeklyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompWeeklyWindow) ?? Dash, TableValue),
                     C(component(CompYearlyWindow + LowInSuffix) == null ? "" : LowInWord(At, CompYearlyWindow) ?? Dash, TableValue),
                 },
+                new[] { C("Confluence", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + StartSuffix)) ? ""
+                    : double.IsNaN(At(CompDailyWindow + ConfluenceSuffix)) ? Dash : GradeWord(At(CompDailyWindow + ConfluenceSuffix)).ToUpperInvariant(), TableValue), C("", null), C("", null) },
                 new[] { C("Low expected", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? ""
-                    : $"{CycleLowConfidence.ExpectedWord(At(CompDailyWindow + ExpectedSuffix))}, {Num(At(CompDailyWindow + ExpectedDaysSuffix))} days", TableValue), C("", null), C("", null) },
+                    : $"{CycleLowConfidence.ExpectedWord(At(CompDailyWindow + ExpectedSuffix))}, {Span(At(CompDailyWindow + ExpectedDaysSuffix), inBars ? "bar" : "day", inBars ? "bars" : "days")}", TableValue), C("", null), C("", null) },
             };
         }
 
@@ -749,6 +802,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     s += ".";
                     // Its Low is in, read on the last bar as its days since are.
                     if (LowInWords(Last) is { } lowIn) s += " " + char.ToUpperInvariant(lowIn[0]) + lowIn[1..] + ".";
+                    if (ConfluenceWords(Last) is { } confluence) s += " " + char.ToUpperInvariant(confluence[0]) + confluence[1..] + ".";
                     if ((badge & ComponentCompanions.BadgeRefresh) != 0) s += " A low was dropped since the last confirmed one.";
                     return s;
                 }

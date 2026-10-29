@@ -243,7 +243,7 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
 
 ## 6. Tests
 
-`CyclePositionProviderTests`, 12 tests:
+`CyclePositionProviderTests`, 12 tests (section 9's pieces add their own, listed there):
 - **Nothing on a bar changes when later bars arrive.** Bitcoin daily is cut at six points. This
   covers every causal component and companion except the arc and the live band.
 - **A window is learned from enough past cycles,** and is the default before.
@@ -285,7 +285,7 @@ from the candidate; it is now the rule.)
 `CycleLowConfidenceTests`, 7 tests (25 cases), for section 8: the error function; both chances
 the study's to 1e-9 on Bitcoin, on exactly its bars; Low is in only while a low is held (and a
 dropped low checked); the two sets of bands; the speech says what the table shows; neither read off
-a daily chart. The causality test above now names both chances. Thirteen sabotages, all red: the
+a daily chart (replaced in section 9.1 by "read in bars"). The causality test above now names both chances. Thirteen sabotages, all red: the
 error function's constant, a band edge each, a calibration point (twice; a point under 1% was green,
 no Bitcoin day reaches it), a tree threshold, Low expected's intercept, either sentence dropped from
 the speech, read off a daily chart, the table's dash, and past cycles read 30 days early (the
@@ -519,8 +519,8 @@ Timing alone (the cycle's age against its past) is AUC .52-.57: the price state 
   the honest one, and it holds.
 - **Bitcoin's 39 lows since 2020** are few.
 - **Low expected is weak**: its "likely" is right about half the time.
-- **Daily charts only.** Both were fitted on daily bars; off a daily chart neither is read (nor the
-  weekly and yearly readings of section 8.5).
+- **Fitted on daily charts.** Off a daily chart they are now read in the chart's bars, checked unseen
+  on 4-hour and weekly charts (section 9.1); the yearly reading is not read on 4-hour charts.
 - **Low expected reads on past the newest confirmed low**, where the study (which needed the next
   low as its label) stopped; there it is the same model on bars the study could not score.
 
@@ -578,12 +578,12 @@ chance (C#'s error function against Python's) that falls on a tree's split.
 **Caveats**:
 - It forecasts Cycle Position's own weekly and yearly lows, which come from its own rules (section
   7.5 for the weekly), not the original's.
-- When the weekly reading reads the same low as the daily one, its confirmations repeat the daily
-  ones'.
+- When the weekly reading reads the same low as the daily one, the state words now say "the same low
+  as the daily reading" and leave out what the daily one has just said (section 9.2).
 - Weekly lows with few days to their confirmation are often confirmed before "very high": a "high"
   there is worth hearing.
 - The metals and oil are the weak charts; yearly lows are few (328 on 31 charts).
-- Daily charts only; the 58 last-digit differences above.
+- Fitted on daily charts (section 9.1 for 4-hour and weekly); the 58 last-digit differences above.
 
 ### 8.4 Cipher B's big green dot against the cycle lows (research, 2026-10-28)
 
@@ -605,3 +605,69 @@ within ±2 bars; chance is the dots moved by a random shift (20 each):
 - **A dot does not say the low will hold**: lows with a dot held 58%, without 64%. A deep washout is
   undercut more often, as section 4's "low expected" flags were.
 - **The dot comes a bar or two after the low** (median +1: it is a cross).
+
+## 9. Making it complete (2026-10-28, all approved by Cody)
+
+Cody, after hearing the list of what Cipher C has that Cycle Position does not, what a complete cycle
+indicator needs and the nice-to-haves: "i approve all of your suggestions, fixes and nice to haves.
+please incorperate all of these into the indicator". Each piece below was measured before it was
+said; numbers are on the 31 daily charts, 15 4-hour and 15 weekly charts captured for the study,
+with Cycle Position's own lows and default settings.
+
+### 9.1 "Low is in" and "Low expected" off daily charts
+
+The models count in bars (the clock, the volatility and the confirmations are all bar counts), so
+the daily ones were scored, without refitting, on 4-hour and weekly charts they never saw:
+
+| Chart | very high: confirmed | first "very high" right | median bars early | Low expected AUC, "likely" right |
+|---|---|---|---|---|
+| Daily (31, partly fitted on) | 98.6% | 96.6% (7,603 of 7,868) | 6 | .767, 48% |
+| 4-hour (15, unseen) | 98.4% | 96.5% (2,032 of 2,105) | 5 | .757, 48% |
+| Weekly (15, unseen) | 98.7% | 97.1% (763 of 786) | 6 | .758, 44% |
+
+The other bands hold as well (4-hour: high 87.5% confirmed, medium 72.9%, low 47.2%, likely to fail
+16.8%; weekly 89.5, 76.0, 53.3, 18.8). The weekly reading: first "very high" right 92.6% on 4-hour
+charts (479 of 517) and 94.5% on weekly ones (206 of 218), against 94.7% on daily. The yearly
+reading counts calendar days: on weekly charts 121 of 123 right, on 4-hour ones only 19 of 26, so
+it is not read on charts with more than one bar a day.
+
+So all of them are now read off daily charts, said in bars ("about 6 bars to its confirmation",
+"closes above the 10-bar average", "a new daily low in the next 5 bars"); the yearly reading keeps
+days. Caveat: the 4-hour and weekly captures are the same 15 assets as part of the daily fit, on
+other bars; that is unseen bars, not unseen assets.
+
+### 9.2 The weekly reading of the daily low, said once
+
+When the weekly reading reads the same low as the daily one (the same price), the state words,
+which say the daily reading first, say "weekly low is in: high, 88%, the same low as the daily
+reading; about 41 days to its weekly confirmation; a 3% chance at random of going back to it first",
+leaving out how far above the low and the confirmations. Arrowing the weekly window, where the daily
+reading is not said, says it whole.
+
+### 9.3 The confluence grade (LOW, MID, HIGH)
+
+The original's grade under the held daily low (CIPHER_C_DESIGN: the Awesome Oscillator of hl2 above
+zero, plus the close above the month's VWAP; no volume, no VWAP point, never high), now said beside
+the phase: a table row "Confluence", the state words and the held low's speech: "confluence: mid,
+the Awesome Oscillator above zero, the close not above this month's VWAP". Measured on every day a
+daily low was held:
+
+| Grade | daily: days, confirmed | 4-hour | weekly |
+|---|---|---|---|
+| LOW | 44,102, 74.4% | 10,337, 73.0% | 3,911, 78.5% |
+| MID | 48,198, 87.7% | 8,235, 86.7% | 5,229, 90.6% |
+| HIGH | 17,998, 92.1% | 8,138, 92.0% | 684, 94.4% |
+
+Inside each "Low is in" band the grade adds nothing (daily very high: 98.5, 98.6, 98.8%; high 88.8,
+86.5, 88.7%; medium 71.7, 70.2, 68.9%). It is said as context; "Low is in" already carries it.
+
+Tests for 9.1-9.3: `Off_a_daily_chart_they_are_read_in_bars` (Bitcoin's candles stamped every 4
+hours read exactly the chances they read stamped daily, said in bars; no yearly reading on them, one
+stamped weekly), `A_weekly_reading_of_the_daily_low_is_not_said_twice`, and
+`The_confluence_grade_is_the_originals_while_a_low_is_held` (Cipher C's grade on exactly the held
+days, its points, the words, the dash, no volume). Twelve sabotages red: read daily only, the
+yearly gate, both units, the de-dup's two conditions, the grade on every bar, the VWAP point, the
+no-volume words, the words dropped, the table cell's case. One was green at first: the 4-hour yearly
+gate was written twice, so either alone was redundant; it is one gate now, and the test also checks
+the table's yearly cell.
+

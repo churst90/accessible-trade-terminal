@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: "Low is in" off daily charts, the weekly reading said once, the confluence grade (2026-10-28)
+
+- **What**: the first three of the pieces Cody approved ("i approve all of your suggestions, fixes
+  and nice to haves"), CYCLE_POSITION_DESIGN section 9.
+- **Off daily charts**: "Low is in" (daily and weekly) and "Low expected" are now read on 4-hour and
+  weekly charts too, said in bars. They count in bars, so the daily models were scored, without
+  refitting, on 15 4-hour and 15 weekly charts: the first "very high" right 96.5% and 97.1% (daily
+  96.6%), a median 5-6 bars early; every band holds; Low expected about as weak (AUC .76). The yearly
+  reading (calendar days) is read on weekly charts (121 of 123 right) but not on 4-hour ones (19 of 26).
+- **Said once**: when the weekly reading reads the same low as the daily one, the state words say "the
+  same low as the daily reading" and leave out the distance above the low and the confirmations, as
+  the daily reading has just said them. Arrowing the weekly window says it whole.
+- **Confluence**: the original's LOW/MID/HIGH grade, while a daily low is held, with its two reasons:
+  a "Confluence" row in the table, the state words and the held low's speech ("confluence: mid, the
+  Awesome Oscillator above zero, the close not above this month's VWAP"; "no volume, so no VWAP").
+  Held lows graded high were confirmed 92% of days, low 74%; inside each "Low is in" band it adds
+  nothing, so it is context, not evidence. Cipher C's grade is split into its two points
+  (`CipherCProvider.GradeParts`), unchanged.
+- **Caveats**: the 4-hour and weekly captures are the same 15 assets the daily fit partly used, on
+  other bars. Not seen or heard in the app.
+- **Tests**: `Off_a_daily_chart_they_are_read_in_bars` replaces `Off_a_daily_chart_neither_is_read`
+  (the same candles stamped 4-hourly read the same chances as stamped daily, said in bars; no yearly
+  on 4-hour, yearly on weekly); `A_weekly_reading_of_the_daily_low_is_not_said_twice`;
+  `The_confluence_grade_is_the_originals_while_a_low_is_held`. Twelve sabotages red (one green at
+  first, a gate written twice; made one gate).
+
 ### Cycle Position: weekly and yearly "low is in" (2026-10-28)
 
 - **What**: Cody asked to "fit the weekly and yearly bottoms as well". On daily charts, the "Low is
