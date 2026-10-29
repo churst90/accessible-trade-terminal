@@ -104,6 +104,49 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         public const string ConfluenceSuffix = "_confluence", AoSuffix = "_ao", VwapSuffix = "_vwap";
 
+        /// <summary>
+        /// Per bar after a confirmed daily low (not the count's seed), on the daily window: the
+        /// cycle's top so far (the highest high since the low, the first of equal highs) and its
+        /// day; of the past cycles on this chart still unconfirmed this far, the share (0-100)
+        /// whose top had come by this day, and how many (once the window is learned and
+        /// <see cref="MinWaiting"/> ran this far); from half the window's middle on, 1 when the
+        /// top so far came before the middle (left-translated so far), 0 after; and, until the
+        /// cycle fails, how often cycles at this stage with the top on this side and on the other
+        /// went on to fail (<see cref="TopFails"/>). And this chart's finished daily cycles by
+        /// translation, as each became known: left, mid, right.
+        /// </summary>
+        public const string TopSuffix = "_top", TopDaySuffix = "_topDay", TopCameSuffix = "_topCame", TopWaitingSuffix = "_topWaiting",
+            TopLeftSuffix = "_topLeft", TopFailsSuffix = "_topFails", TopFailsOtherSuffix = "_topFailsOther",
+            LeftTopsSuffix = "_leftTops", MidTopsSuffix = "_midTops", RightTopsSuffix = "_rightTops";
+
+        /// <summary>
+        /// How often a daily cycle not yet failed went on to fail (a close under its low before
+        /// the next low was confirmed), by how far in it is (its day over the middle of its window,
+        /// from, to) and where its top so far came: before the middle, after it. Measured on Cycle
+        /// Position's own lows on 31 daily charts (2026-10-28; 15 4-hour and 15 weekly charts within
+        /// 4 points; either half of the charts within 1).
+        /// </summary>
+        internal static readonly (double From, double To, double Left, double Right)[] TopFails =
+            { (0.5, 0.8, 35, 18), (0.8, 1.0, 26, 14), (1.0, 1.25, 16, 10) };
+
+        /// <summary>
+        /// After a failed daily cycle, how often the next daily low was a weekly low, and after one
+        /// that held: 3,182 failed and 4,465 held cycles on 31 daily charts (2026-10-28; 4-hour 52
+        /// and 25, weekly 50 and 28).
+        /// </summary>
+        internal const double FailedWeeklyNext = 56, HeldWeeklyNext = 26;
+
+        /// <summary>
+        /// The live window's first and last bar on each window, on the last bar only: their
+        /// dates as OLE Automation dates; past the last bar, the bars the chart would print
+        /// (<see cref="CipherCFutureClock"/>), where the band is drawn. <see cref="BarSecondsKey"/>
+        /// is the chart's bar length, for how the dates are said.
+        /// </summary>
+        internal static string DatesKey(string comp, bool closes) => (closes ? "__cp_closes_" : "__cp_opens_") + comp;
+        public const string BarSecondsKey = "__cp_bar_seconds";
+        /// <summary>The last bar's own date, on the last bar (an OLE Automation date), for whether a window is open yet.</summary>
+        public const string NowKey = "__cp_now";
+
         /// <summary>The words under the held daily low (<see cref="ComponentCompanions.BadgeWord"/>), and the count's Start plate.</summary>
         internal const string Words = "EARLY|DUE|LATE|Start@" + StartHex;
 
@@ -194,6 +237,17 @@ namespace AccessibleTrader.Core.Services.Indicators
             var o = Outputs(n);
             double[] A(string key) => o.TryGetValue(key, out var a) ? a : o[key] = CipherCEngine.Nan(n);
             if (n == 0) return o;
+            // A bar's stamp; past the last bar, the one the chart would print.
+            List<DateTime>? future = null;
+            bool everyDay = false;
+            var bars0 = data.ToArray();
+            DateTime BarStamp(int i)
+            {
+                if (i < n) return bars0[Math.Max(0, i)].Date;
+                if (future == null || future.Count < i - n + 1)
+                    future = FutureStamps(bars0, Math.Max(i - n + 1, 2 * (future?.Count ?? 0)), everyDay);
+                return future[i - n];
+            }
 
             // The switches this indicator starts differently from Cipher C's, filled in so the
             // shared drawing reads them.
@@ -201,6 +255,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             foreach (var sw in Switches) p.TryAdd(sw.Name, sw.On);
 
             var tiers = BuildTiers(data, p);
+            everyDay = tiers.Clock.TradesEveryDay;
             var (clock, inBars, L, years, yMin, yMax) = (tiers.Clock, tiers.InBars, tiers.L, tiers.Years, tiers.YMin, tiers.YMax);
             var (dTier, wTier, yTier, d, w, y, weeklyFromDaily) = (tiers.DTier, tiers.WTier, tiers.YTier, tiers.D, tiers.W, tiers.Y, tiers.WeeklyFromDaily);
             double qFrom = Math.Clamp(Dbl(p, ParamBandFrom, DefaultBandFrom), 0, 100) / 100;
@@ -321,8 +376,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                     int a = newest + (int)Math.Round((learn.Start[n - 1] - 1) * bars), b = newest + (int)Math.Round(learn.End[n - 1] * bars) - 1;
                     o[comp + ComponentCompanions.BoxStart][n - 1] = a - (n - 1);
                     o[comp + ComponentCompanions.BoxEnd][n - 1] = b - (n - 1);
+                    A(DatesKey(comp, false))[n - 1] = BarStamp(a).ToOADate();
+                    A(DatesKey(comp, true))[n - 1] = BarStamp(b).ToOADate();
                 }
             }
+            Array.Fill(A(BarSecondsKey), Math.Round(86400 / CipherCEngine.MeasureBars(data).BarsPerDay));
+            A(NowKey)[n - 1] = data[n - 1].Date.ToOADate();
+
+            // The daily cycle's top so far, and what its place has meant on past cycles.
+            if (dTier.Active) Tops(o, A, data, d, dLearn, n);
 
             // Nesting: which daily cycle of the weekly one, which weekly of the yearly.
             // Picked from the daily lows by time, a weekly cycle is one daily cycle or several (two
@@ -412,6 +474,95 @@ namespace AccessibleTrader.Core.Services.Indicators
                 }
             }
             w.LastLowAt = last; w.Confirmed = confirmed; w.Updated = updated;
+        }
+
+        /// <summary>
+        /// The daily cycle's top so far on each bar (<see cref="TopSuffix"/> and the rest): the
+        /// highest high since the newest confirmed daily low, where it came against the middle of
+        /// the learned window, and the past cycles' tops on this chart, each known when its cycle's
+        /// second low is confirmed (the finished cycle's top is <see cref="CipherCProvider.TranslatedTop"/>'s).
+        /// </summary>
+        private static void Tops(Dictionary<string, double[]> o, Func<string, double[]> A, ReadOnlySpan<Ohlcv> data,
+            CipherCEngine.TierRun d, Learned learn, int n)
+        {
+            var high = new double[n];
+            for (int t = 0; t < n; t++) high[t] = data[t].High;
+            // The finished cycles: known on, the top's day, the day their next low was confirmed on, the top's side.
+            var lows = new List<(int Bar, int At)>();
+            for (int k = 0; k < d.Lows.Count; k++) if (d.ConfirmedAt[k] >= 0) lows.Add((d.Lows[k], d.ConfirmedAt[k]));
+            lows.Sort();
+            var past = new List<(int At, double TopDay, double ConfirmedDay, string Side)>();
+            for (int k = 1; k < lows.Count; k++)
+            {
+                var (a, b) = (lows[k - 1].Bar, lows[k].Bar);
+                var (top, side) = TranslatedTop(high, a, b);
+                past.Add((Math.Max(lows[k - 1].At, lows[k].At), top - a + 1, Math.Max(b, lows[k].At) - a + 1, side));
+            }
+            past.Sort((x, y) => x.At.CompareTo(y.At));
+
+            double[] topOut = A(CompDailyWindow + TopSuffix), dayOut = A(CompDailyWindow + TopDaySuffix), came = A(CompDailyWindow + TopCameSuffix),
+                     waiting = A(CompDailyWindow + TopWaitingSuffix), leftOut = A(CompDailyWindow + TopLeftSuffix),
+                     fails = A(CompDailyWindow + TopFailsSuffix), other = A(CompDailyWindow + TopFailsOtherSuffix),
+                     lefts = A(CompDailyWindow + LeftTopsSuffix), mids = A(CompDailyWindow + MidTopsSuffix), rights = A(CompDailyWindow + RightTopsSuffix);
+            int cycle = -1, tp = -1, failedFor = -1, next = 0, l = 0, m = 0, r = 0;
+            for (int t = 0; t < n; t++)
+            {
+                for (; next < past.Count && past[next].At <= t; next++)
+                    if (past[next].Side == CompLeftTop) l++; else if (past[next].Side == CompRightTop) r++; else m++;
+                lefts[t] = l; mids[t] = m; rights[t] = r;
+                if (!double.IsNaN(d.Failed[t])) failedFor = d.ClosedUnder[t];
+                int a = d.LastLowAt[t];
+                if (a < 0 || a == d.Start) continue;
+                if (a != cycle) { cycle = a; tp = a; for (int i = a + 1; i <= t; i++) if (high[i] > high[tp]) tp = i; }
+                else if (high[t] > high[tp]) tp = t;
+                double day = t - a + 1, mid = (learn.Start[t] + learn.End[t]) / 2;
+                topOut[t] = high[tp];
+                dayOut[t] = tp - a + 1;
+                if (learn.IsLearned[t])
+                {
+                    int c = 0, still = 0;
+                    for (int k = 0; k < next; k++)
+                    {
+                        if (past[k].ConfirmedDay <= day) continue;
+                        still++;
+                        if (past[k].TopDay <= day) c++;
+                    }
+                    waiting[t] = still;
+                    if (still >= MinWaiting) came[t] = Math.Round(100.0 * c / still);
+                }
+                if (day < 0.5 * mid) continue;
+                bool left = 2 * (tp - a) < mid;
+                leftOut[t] = left ? 1 : 0;
+                if (failedFor == a) continue;
+                foreach (var (from, to, onLeft, onRight) in TopFails)
+                    if (day >= from * mid && day < to * mid) { fails[t] = left ? onLeft : onRight; other[t] = left ? onRight : onLeft; }
+            }
+        }
+
+        /// <summary>
+        /// The stamps of the next <paramref name="count"/> bars past the last: on a daily chart the
+        /// ones <see cref="CipherCFutureClock"/> says it would print (its trading days at its
+        /// session's time, as Cipher C dates its bands); on any other, the last week's bar times
+        /// again, a week on each time (a weekly chart's bar a week on), so an intraday chart keeps
+        /// its sessions and weekends. Holidays and daylight saving are not read off an intraday chart.
+        /// </summary>
+        internal static List<DateTime> FutureStamps(Ohlcv[] bars, int count, bool everyDay)
+        {
+            var clock = CipherCEngine.MeasureBars(bars);
+            if (Math.Abs(clock.BarsPerDay - 1) <= 1e-6) return new CipherCFutureClock(bars, everyDay).Future(count).ToList();
+            var last = bars[^1].Date;
+            var gaps = new List<double>();
+            for (int i = Math.Max(1, bars.Length - 50); i < bars.Length; i++) gaps.Add((bars[i].Date - bars[i - 1].Date).TotalDays);
+            gaps.Sort();
+            double period = Math.Max(7, gaps.Count == 0 ? 7 : Math.Round(gaps[gaps.Count / 2]));
+            var template = new List<TimeSpan>();
+            for (int i = bars.Length - 1; i >= 0 && last - bars[i].Date < TimeSpan.FromDays(period); i--) template.Add(bars[i].Date - last);
+            template.Reverse();   // offsets from the last bar, the oldest first, the last bar's own (0) last
+            var r = new List<DateTime>(count);
+            for (int week = 1; r.Count < count; week++)
+                foreach (var off in template)
+                    if (r.Count < count) r.Add(last + off + TimeSpan.FromDays(period * week));
+            return r;
         }
 
         /// <summary>A cycle from bar <paramref name="a"/> to <paramref name="b"/> in a tier's units, both ends counted: the low's own day is day 1.</summary>
@@ -659,6 +810,73 @@ namespace AccessibleTrader.Core.Services.Indicators
             return double.IsNaN(p) ? null : $"a new daily low in the next {Span(k, day, days)}: {CycleLowConfidence.ExpectedWord(p)}, {Num(Math.Round(100 * p))}%";
         }
 
+        /// <summary>
+        /// "the next daily low's window opens November 3 2026 and closes November 14 2026", "the
+        /// daily window is open, to November 14 2026", or "the daily window closed October 20
+        /// 2026": the live window's dates, said on the last bar only (where they are known).
+        /// </summary>
+        internal static string? NextWords(string tier, Func<string, double> at, string comp)
+        {
+            double opens = at(DatesKey(comp, false)), closes = at(DatesKey(comp, true)), now = at(NowKey);
+            if (double.IsNaN(opens) || double.IsNaN(closes) || double.IsNaN(now)) return null;
+            double sec = at(BarSecondsKey);
+            return opens > now ? $"the next {tier} low's window opens {DateWords(opens, sec)} and closes {DateWords(closes, sec)}"
+                 : closes >= now ? $"the {tier} window is open, to {DateWords(closes, sec)}"
+                 : $"the {tier} window closed {DateWords(closes, sec)}";
+        }
+
+        /// <summary>A stored date as said: the bar's own date on a daily or longer chart, the user's clock on an intraday one.</summary>
+        internal static string DateWords(double oa, double barSeconds, string? format = null)
+        {
+            bool intraday = barSeconds < 86400;
+            var d = SpeechTimeFormatter.ToBarDisplay(DateTime.SpecifyKind(DateTime.FromOADate(oa), DateTimeKind.Utc), (int)(double.IsNaN(barSeconds) ? 86400 : barSeconds));
+            return d.ToString(format ?? (intraday ? "MMMM d, HH:mm" : SpeechTimeFormatter.LongDateFormat), CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>The table's "Next low" cell: "Nov 3–Nov 14", "now–Nov 14", "closed Oct 20"; a year on the weekly and yearly.</summary>
+        internal static string? NextCell(Func<string, double> at, string comp)
+        {
+            double opens = at(DatesKey(comp, false)), closes = at(DatesKey(comp, true)), now = at(NowKey), sec = at(BarSecondsKey);
+            if (double.IsNaN(opens) || double.IsNaN(closes) || double.IsNaN(now)) return null;
+            string f = comp == CompYearlyWindow ? "MMM yyyy" : sec < 86400 ? "MMM d HH:mm" : comp == CompWeeklyWindow ? "MMM d yyyy" : "MMM d";
+            string D(double v) => DateWords(v, sec, f);
+            return opens > now ? $"{D(opens)}–{D(closes)}" : closes >= now ? $"now–{D(closes)}" : $"closed {D(closes)}";
+        }
+
+        /// <summary>
+        /// "top so far: 64,000 on day 9, before the cycle's middle (day 26 of about 52), left-translated so far;
+        /// cycles this far in with the top this early went on to fail 35% of the time, against 18%
+        /// with a later top; the top had come by this day in 75% of 12 past cycles this far in
+        /// unconfirmed": the daily cycle's top so far, on each bar after a confirmed daily low.
+        /// </summary>
+        internal static string? TopWords(Func<string, double> at)
+        {
+            double top = at(CompDailyWindow + TopSuffix);
+            if (double.IsNaN(top)) return null;
+            var (day, days) = Unit(at(InBarsKey) == 1, "day", "days");
+            string s = $"top so far: {Price(top)} on {day} {Num(at(CompDailyWindow + TopDaySuffix))}";
+            double left = at(CompDailyWindow + TopLeftSuffix), mid = (at(CompDailyWindow + StartSuffix) + at(CompDailyWindow + EndSuffix)) / 2;
+            if (!double.IsNaN(left))
+                s += $", {(left == 1 ? "before" : "after")} the cycle's middle ({day} {Num(mid / 2)} of about {Num(mid)}), {(left == 1 ? "left" : "right")}-translated so far";
+            if (at(CompDailyWindow + TopFailsSuffix) is var f && !double.IsNaN(f))
+                s += $"; cycles this far in with the top this {(left == 1 ? "early" : "late")} went on to fail {Num(f)}% of the time, "
+                   + $"against {Num(at(CompDailyWindow + TopFailsOtherSuffix))}% with {(left == 1 ? "a later" : "an earlier")} top";
+            if (at(CompDailyWindow + TopCameSuffix) is var c && !double.IsNaN(c))
+                s += $"; the top had come by this {day} in {Num(c)}% of {Num(at(CompDailyWindow + TopWaitingSuffix))} past cycles this far in unconfirmed";
+            return s;
+        }
+
+        /// <summary>"this chart's daily tops: 40 left, 2 mid, 61 right": its finished daily cycles by translation, known by the bar.</summary>
+        internal static string? TopCountWords(Func<string, double> at)
+        {
+            double l = at(CompDailyWindow + LeftTopsSuffix), m = at(CompDailyWindow + MidTopsSuffix), r = at(CompDailyWindow + RightTopsSuffix);
+            return double.IsNaN(l) || l + m + r == 0 ? null : $"this chart's daily tops: {Num(l)} left, {Num(m)} mid, {Num(r)} right";
+        }
+
+        /// <summary>After a failed daily cycle: what it has meant for the next daily low.</summary>
+        internal static string FailedWords =>
+            $"so a weekly low is likely next: after a failed daily cycle the next daily low was a weekly low {Num(FailedWeeklyNext)}% of the time, against {Num(HeldWeeklyNext)}% after one that held";
+
         /// <summary>"the daily window has held 14 of 24 cycles": each cycle against the window it began with.</summary>
         internal static string? HitWords(string tier, Func<string, double> at, string comp)
         {
@@ -688,6 +906,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                          ("yearly cycle", year, yearsW, CompYearlyWindow),
                      })
                 if (PositionWords(cycle, u, us, At, comp) is { } s) words.Add(s);
+            foreach (var (tier, comp) in new[] { ("daily", CompDailyWindow), ("weekly", CompWeeklyWindow), ("yearly", CompYearlyWindow) })
+                if (NextWords(tier, At, comp) is { } next) words.Add(next);
+            if (TopWords(At) is { } top) words.Add(top);
             if (HeldWords("daily", day, days, At(HeldDaysKey)) is { } heldDaily) words.Add(heldDaily);
             if (LowInWords(At) is { } lowIn) words.Add(lowIn);
             if (ConfluenceWords(At) is { } confluence) words.Add(confluence);
@@ -704,14 +925,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!double.IsNaN(At(CompCancelled))) words.Add($"{events} pending cycle low cancelled");
             else if (At(CompCancelled + SinceSuffix) is var cs && !double.IsNaN(cs))
                 words.Add($"the last {events} pending cycle low was cancelled {Span(cs, unit, units)} ago");
-            if (!double.IsNaN(At(CompFailed))) words.Add($"{events} cycle failed");
+            string failedWhy = events == "daily" ? ", " + FailedWords : "";
+            if (!double.IsNaN(At(CompFailed))) words.Add($"{events} cycle failed{failedWhy}");
             else if (At(CompFailed + SinceSuffix) is var fs && !double.IsNaN(fs))
-                words.Add($"the {events} cycle failed {Span(fs, unit, units)} ago");
+                words.Add($"the {events} cycle failed {Span(fs, unit, units)} ago{failedWhy}");
 
             if (barDate != null)
             {
                 foreach (var (tier, comp) in new[] { ("daily", CompDailyWindow), ("weekly", CompWeeklyWindow), ("yearly", CompYearlyWindow) })
                     if (HitWords(tier, At, comp) is { } h) words.Add(h);
+                if (TopCountWords(At) is { } tops) words.Add(tops);
                 double len = At(LengthKey);
                 if (!double.IsNaN(len))
                     words.Add($"daily cycles counted from {Span(len, day, days)}, " + At(LengthSourceKey) switch
@@ -750,6 +973,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Row("Window held", c => At(c + ScoredSuffix) is var s && !(s > 0) ? null : $"{Num(At(c + HitsSuffix))} of {Num(s)}"),
                 Row("Lower cycle", c => double.IsNaN(At(c + NestSuffix)) ? null
                     : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? ", new drawn" : "")}"),
+                Row("Next low", c => NextCell(At, c)),
+                new[] { C("Top so far", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + StartSuffix)) ? "" : TopCell(At) ?? Dash, TableValue), C("", null), C("", null) },
                 new[] { C("Unconfirmed low", TableLabel, -1), C(Held(At(HeldDaysKey)), TableValue), C(Held(At(HeldWeeksKey)), TableValue), C("", null) },
                 new[]
                 {
@@ -762,6 +987,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new[] { C("Low expected", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? ""
                     : $"{CycleLowConfidence.ExpectedWord(At(CompDailyWindow + ExpectedSuffix))}, {Span(At(CompDailyWindow + ExpectedDaysSuffix), inBars ? "bar" : "day", inBars ? "bars" : "days")}", TableValue), C("", null), C("", null) },
             };
+        }
+
+        /// <summary>The table's "Top so far" cell: "day 9, LEFT, came 75%"; "failed" once the cycle has, with the next low's weekly share.</summary>
+        internal static string? TopCell(Func<string, double> at)
+        {
+            double top = at(CompDailyWindow + TopSuffix);
+            if (double.IsNaN(top)) return null;
+            string s = $"{(at(InBarsKey) == 1 ? "bar" : "day")} {Num(at(CompDailyWindow + TopDaySuffix))}";
+            if (at(CompDailyWindow + TopLeftSuffix) is var l && !double.IsNaN(l)) s += l == 1 ? ", LEFT" : ", RIGHT";
+            if (at(CompDailyWindow + TopCameSuffix) is var c && !double.IsNaN(c)) s += $", came {Num(c)}%";
+            return s;
         }
 
         private readonly CipherCProvider _drawn = new();
@@ -778,13 +1014,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             bool inBars = At(InBarsKey) == 1;
             var (day, days) = Unit(inBars, "day", "days");
             // The weekly and yearly windows say their low is in reading after their position.
+            static string? With(string? s, string? more) => more == null ? s : s == null ? more : s + "; " + more;
             string? WithLowIn(string? position, string comp) =>
                 LowInWords(At, comp) is not { } lowIn ? position : position == null ? lowIn : position + "; " + lowIn;
             switch (componentName)
             {
-                case CompDailyWindow: return PositionWords("daily cycle", day, days, At, CompDailyWindow);
-                case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return WithLowIn(PositionWords("weekly cycle", u, us, At, CompWeeklyWindow), CompWeeklyWindow); }
-                case CompYearlyWindow: { var (u, us) = Unit(inBars, "year", "years"); return WithLowIn(PositionWords("yearly cycle", u, us, At, CompYearlyWindow), CompYearlyWindow); }
+                case CompDailyWindow: return With(With(PositionWords("daily cycle", day, days, At, CompDailyWindow), NextWords("daily", At, CompDailyWindow)), TopWords(At));
+                case CompWeeklyWindow: { var (u, us) = Unit(inBars, "week", "weeks"); return WithLowIn(With(PositionWords("weekly cycle", u, us, At, CompWeeklyWindow), NextWords("weekly", At, CompWeeklyWindow)), CompWeeklyWindow); }
+                case CompYearlyWindow: { var (u, us) = Unit(inBars, "year", "years"); return WithLowIn(With(PositionWords("yearly cycle", u, us, At, CompYearlyWindow), NextWords("yearly", At, CompYearlyWindow)), CompYearlyWindow); }
+                case CompFailed when At(EventsTierKey) == 1 && !double.IsNaN(value):
+                {
+                    string? s = _drawn.GetComponentSpeech(componentName, value, bar, allComponentData, dataIndex);
+                    return s == null ? null : s.TrimEnd('.') + ", " + FailedWords + ".";
+                }
                 case CompDcl when double.IsNaN(value):
                 {
                     double mark = At(CompDcl + ComponentCompanions.Mark);

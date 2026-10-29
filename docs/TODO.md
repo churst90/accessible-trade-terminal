@@ -71,6 +71,13 @@
 >   - Cipher B's big green dot against the cycle lows (research, section 8.4): about half the
 >     yearly lows, 30% of weekly and 21% of daily lows have a dot within 2 bars (chance 7%). But a dot
 >     does not say the low will hold (58% with, 64% without). No change made.
+>   - **Making it complete (Cody approved all, 2026-10-28; CYCLE_POSITION_DESIGN section 9).** Built,
+>     NOT seen or heard: off-daily Low is in, the weekly reading said once, the confluence grade
+>     (9.1-9.3); the next window's dates, the top so far, a failed cycle's warning (9.4-9.6). Cody to
+>     hear on a daily Bitcoin: the "Next low" and "Top so far" rows, arrowing the daily window, a
+>     failure mark. Left: half-cycle lows and their projection, "less reliable on this chart", a mark
+>     and alert at "very high", backtest hooks, per-asset rules and Start/yearly-date switches.
+>     Caveat: intraday dates past the last bar do not read holidays or clock changes.
 >   - Merged to main and pushed (2026-10-28, Cody asked). Deploy to the VPS: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and
 >   CIPHER_C_DESIGN section 37).** Asked for by Cody so the yearly lows carry on after the original's

@@ -52,7 +52,10 @@ public sealed class CyclePositionProviderTests
                      W + CyclePositionProvider.NestSuffix, Y + CyclePositionProvider.PhaseSuffix,
                      D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix,
                      W + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInLowSuffix, Y + CyclePositionProvider.LowInSuffix,
-                     D + CyclePositionProvider.ConfluenceSuffix, D + CyclePositionProvider.AoSuffix, D + CyclePositionProvider.VwapSuffix })
+                     D + CyclePositionProvider.ConfluenceSuffix, D + CyclePositionProvider.AoSuffix, D + CyclePositionProvider.VwapSuffix,
+                     D + CyclePositionProvider.TopSuffix, D + CyclePositionProvider.TopDaySuffix, D + CyclePositionProvider.TopCameSuffix,
+                     D + CyclePositionProvider.TopWaitingSuffix, D + CyclePositionProvider.TopLeftSuffix, D + CyclePositionProvider.TopFailsSuffix,
+                     D + CyclePositionProvider.TopFailsOtherSuffix, D + CyclePositionProvider.LeftTopsSuffix, D + CyclePositionProvider.RightTopsSuffix })
             Assert.Contains(k, causal);
         // Fixed cuts, plus one just after the last yearly low is confirmed and one just after a
         // daily window is first learned.
@@ -84,7 +87,10 @@ public sealed class CyclePositionProviderTests
         var neverChecked = causal.Except(everCompared).Where(k => !unlearned.Contains(k) && k != W + ComponentCompanions.Tint
             && k != Y + ComponentCompanions.Tint && k != Y + ComponentCompanions.Stops
             && k != CipherCProvider.CompYclConfirmed + CipherCProvider.ReplacedSuffix
-            && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix).ToList();
+            && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix
+            // A top exactly at a cycle's middle is rare (122 of 7,647 daily cycles on 31 charts):
+            // the count is exempt only while Bitcoin has none.
+            && !(k == D + CyclePositionProvider.MidTopsSuffix && whole[k].All(v => v == 0))).ToList();
         Assert.True(neverChecked.Count == 0, "never compared: " + string.Join(", ", neverChecked));
         static bool Same(double a, double b) => double.IsNaN(a) ? double.IsNaN(b) : Math.Abs(a - b) < 1e-9;
     }
@@ -429,5 +435,221 @@ public sealed class CyclePositionProviderTests
         Assert.DoesNotContain(Marked(dc), t => dc[t] == 2);
         int held = Marked(dc)[^1];
         Assert.EndsWith("no volume, so no VWAP", Assert.Single(CyclePositionProvider.StateWords(dryComp, held), w => w.StartsWith("confluence: ", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// The live windows' dates are the dates of the bars the band spans, past the last bar too: on
+    /// a daily chart the bars Cipher C's clock would print (Bitcoin trades every day); on a 4-hour
+    /// chart around the clock, four hours a bar on. Said as the window stands against the last
+    /// bar: before it "opens … and closes …", in it "is open, to …", after it "closed …".
+    /// </summary>
+    [Fact]
+    public void The_next_windows_dates_are_the_bars_its_band_spans()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        // Cut a day after a daily low is confirmed, so the next window lies past the last bar.
+        var conf = Marked(Btc()[CipherCProvider.CompDclConfirmed]);
+        int cut = conf[^2] + 2;
+        var part = bars.Take(cut).ToList();
+        var r = Run(part);
+        var clock = new CipherCFutureClock(part.ToArray(), everyDay: true);
+        int n = part.Count;
+        DateTime Stamp(int i) => i < n ? part[i].Date : clock.Future(i - n + 1).Last();
+        foreach (var comp in new[] { D, W, Y })
+        {
+            int a = n - 1 + (int)r[comp + ComponentCompanions.BoxStart][n - 1], b = n - 1 + (int)r[comp + ComponentCompanions.BoxEnd][n - 1];
+            Assert.Equal(Stamp(a).ToOADate(), r[CyclePositionProvider.DatesKey(comp, false)][n - 1]);
+            Assert.Equal(Stamp(b).ToOADate(), r[CyclePositionProvider.DatesKey(comp, true)][n - 1]);
+            Assert.All(r[CyclePositionProvider.DatesKey(comp, false)].Take(n - 1), v => Assert.True(double.IsNaN(v)));
+        }
+        int da = n - 1 + (int)r[D + ComponentCompanions.BoxStart][n - 1];
+        Assert.True(da >= n, "the daily window should open past the last bar here");
+        Func<string, double[]?> comp0 = k => r.TryGetValue(k, out var v) ? v : null;
+        string next = Assert.Single(CyclePositionProvider.StateWords(comp0, n - 1), w => w.StartsWith("the next daily low's window", StringComparison.Ordinal));
+        Assert.Equal($"the next daily low's window opens {Stamp(da):MMMM d yyyy} and closes {Stamp(n - 1 + (int)r[D + ComponentCompanions.BoxEnd][n - 1]):MMMM d yyyy}", next);
+        string cell = CyclePositionProvider.TableRows(comp0, n - 1).Single(row => row[0].Text == "Next low")[1].Text;
+        Assert.Equal($"{Stamp(da):MMM d}–{Stamp(n - 1 + (int)r[D + ComponentCompanions.BoxEnd][n - 1]):MMM d}", cell);
+
+        // The whole history, against its own last bar: each tier's words and cell as its stored dates stand.
+        var whole = Btc();
+        Func<string, double[]?> all = k => whole.TryGetValue(k, out var v) ? v : null;
+        var lastRow = CyclePositionProvider.TableRows(all, bars.Count - 1).Single(row => row[0].Text == "Next low");
+        foreach (var (tier, comp, col, fmt) in new[] { ("daily", D, 1, "MMM d"), ("weekly", W, 2, "MMM d yyyy"), ("yearly", Y, 3, "MMM yyyy") })
+        {
+            DateTime o = DateTime.FromOADate(whole[CyclePositionProvider.DatesKey(comp, false)][^1]), c = DateTime.FromOADate(whole[CyclePositionProvider.DatesKey(comp, true)][^1]);
+            DateTime now = bars[^1].Date;
+            string want = o > now ? $"the next {tier} low's window opens {o:MMMM d yyyy} and closes {c:MMMM d yyyy}"
+                : c >= now ? $"the {tier} window is open, to {c:MMMM d yyyy}" : $"the {tier} window closed {c:MMMM d yyyy}";
+            Assert.Contains(want, CyclePositionProvider.StateWords(all, bars.Count - 1));
+            string F(DateTime x) => x.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(o > now ? $"{F(o)}–{F(c)}" : c >= now ? $"now–{F(c)}" : $"closed {F(c)}", lastRow[col].Text);
+        }
+
+        // In the window and after it, from the same stored dates.
+        double opens = r[CyclePositionProvider.DatesKey(D, false)][n - 1], closes = r[CyclePositionProvider.DatesKey(D, true)][n - 1];
+        Func<double, Func<string, double>> At = now => k => k == CyclePositionProvider.NowKey ? now : k == CyclePositionProvider.BarSecondsKey ? 86400
+            : k == CyclePositionProvider.DatesKey(D, false) ? opens : k == CyclePositionProvider.DatesKey(D, true) ? closes : double.NaN;
+        Assert.Equal($"the daily window is open, to {DateTime.FromOADate(closes):MMMM d yyyy}", CyclePositionProvider.NextWords("daily", At(opens), D));
+        Assert.Equal($"the daily window is open, to {DateTime.FromOADate(closes):MMMM d yyyy}", CyclePositionProvider.NextWords("daily", At(closes), D));
+        Assert.Equal($"the daily window closed {DateTime.FromOADate(closes):MMMM d yyyy}", CyclePositionProvider.NextWords("daily", At(closes + 1), D));
+        Assert.Equal($"closed {DateTime.FromOADate(closes):MMM d}", CyclePositionProvider.NextCell(At(closes + 1), D));
+        Assert.Null(CyclePositionProvider.NextWords("weekly", At(closes), W));
+
+        // Four-hour bars around the clock: the bar four hours on, again and again.
+        var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var four = part.Select((x, i) => new Ohlcv { Date = start.AddHours(4 * i), Open = x.Open, High = x.High, Low = x.Low, Close = x.Close, Volume = x.Volume }).ToArray();
+        var future = CyclePositionProvider.FutureStamps(four, 500, everyDay: true);
+        for (int k = 0; k < future.Count; k++) Assert.Equal(start.AddHours(4 * (n + k)), future[k]);
+        var r4 = Run(four, symbol: null);
+        int b4 = n - 1 + (int)r4[D + ComponentCompanions.BoxEnd][n - 1];
+        Assert.Equal(start.AddHours(4 * b4).ToOADate(), r4[CyclePositionProvider.DatesKey(D, true)][n - 1], 9);
+        // Intraday, the time is said, on the user's clock as every intraday bar is.
+        string? said4 = CyclePositionProvider.NextWords("daily", k => r4.TryGetValue(k, out var v) ? v[n - 1] : double.NaN, D);
+        Assert.NotNull(said4);
+        Assert.EndsWith(SpeechTimeFormatter.ToBarDisplay(start.AddHours(4 * b4), 4 * 3600).ToString("MMMM d, HH:mm", System.Globalization.CultureInfo.InvariantCulture), said4);
+    }
+
+    /// <summary>
+    /// A weekday chart's 4-hour bars (six a day, Monday to Friday): the next week's bars are this
+    /// week's again, a week on, the weekend skipped.
+    /// </summary>
+    [Fact]
+    public void Past_the_last_bar_an_intraday_chart_keeps_its_sessions()
+    {
+        var bars = new List<Ohlcv>();
+        for (var day = new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc); bars.Count < 300; day = day.AddDays(1))
+            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+                for (int h = 0; h < 6; h++) bars.Add(new Ohlcv(day.AddHours(4 * h), 1, 1, 1, 1, 0));
+        var future = CyclePositionProvider.FutureStamps(bars.ToArray(), 61, everyDay: false);
+        Assert.Equal(61, future.Count);
+        Assert.All(future, t => Assert.True(t.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday), $"{t} is a weekend"));
+        Assert.True(future.Zip(future.Skip(1)).All(p => p.Second > p.First));
+        Assert.Equal(bars[^1].Date.AddDays(3).AddHours(-20), future[0]);   // Friday 20:00, then Monday 00:00
+        Assert.Equal(future[0].AddDays(7), future[30]);
+    }
+
+    /// <summary>
+    /// The daily cycle's top so far, worked from the bars: the highest high since the last
+    /// confirmed daily low (the first of equal highs), the day it came on, whether it came before
+    /// the cycle's middle (from half the window on), and the failure rates for its stage, said only
+    /// while the cycle has not failed. The "top had come" share is the past cycles, known by the
+    /// bar and not yet confirmed this far in, whose top had come by this day (from three of them).
+    /// </summary>
+    [Fact]
+    public void The_top_so_far_is_worked_from_the_bars_and_past_cycles()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        var tiers = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
+        var d = tiers.D;
+        var lows = Enumerable.Range(0, d.Lows.Count).Where(k => d.ConfirmedAt[k] >= 0).Select(k => (Bar: d.Lows[k], At: d.ConfirmedAt[k])).OrderBy(x => x.Bar).ToList();
+        var past = lows.Zip(lows.Skip(1), (x, y) => (At: Math.Max(x.At, y.At),
+            Top: Enumerable.Range(x.Bar, y.Bar - x.Bar + 1).Aggregate((i, j) => bars[j].High > bars[i].High ? j : i) - x.Bar + 1,
+            Conf: Math.Max(y.Bar, y.At) - x.Bar + 1)).ToList();
+        var failedFor = new HashSet<int>();
+        int seenLeft = 0, seenRight = 0, seenFails = 0, seenCame = 0;
+        for (int t = 0; t < bars.Length; t++)
+        {
+            int a = d.LastLowAt[t];
+            if (!double.IsNaN(d.Failed[t])) failedFor.Add(d.ClosedUnder[t]);
+            if (a < 0 || a == d.Start) { Assert.True(double.IsNaN(r[D + CyclePositionProvider.TopSuffix][t])); continue; }
+            int tp = Enumerable.Range(a, t - a + 1).Aggregate((i, j) => bars[j].High > bars[i].High ? j : i);
+            Assert.Equal(bars[tp].High, r[D + CyclePositionProvider.TopSuffix][t]);
+            Assert.Equal(tp - a + 1, r[D + CyclePositionProvider.TopDaySuffix][t]);
+            double day = t - a + 1, mid = (r[D + CipherCProvider.StartSuffix][t] + r[D + CipherCProvider.EndSuffix][t]) / 2;
+            double left = r[D + CyclePositionProvider.TopLeftSuffix][t], fails = r[D + CyclePositionProvider.TopFailsSuffix][t];
+            if (day < 0.5 * mid) { Assert.True(double.IsNaN(left)); Assert.True(double.IsNaN(fails)); }
+            else
+            {
+                Assert.Equal(2 * (tp - a) < mid ? 1 : 0, left);
+                if (left == 1) seenLeft++; else seenRight++;
+                var stage = CyclePositionProvider.TopFails.Where(s => day >= s.From * mid && day < s.To * mid).ToList();
+                if (failedFor.Contains(a) || stage.Count == 0) Assert.True(double.IsNaN(fails));
+                else
+                {
+                    seenFails++;
+                    Assert.Equal(left == 1 ? stage[0].Left : stage[0].Right, fails);
+                    Assert.Equal(left == 1 ? stage[0].Right : stage[0].Left, r[D + CyclePositionProvider.TopFailsOtherSuffix][t]);
+                }
+            }
+            double came = r[D + CyclePositionProvider.TopCameSuffix][t];
+            if (r[D + CyclePositionProvider.LearnedSuffix][t] == 1)
+            {
+                var still = past.Where(c => c.At <= t && c.Conf > day).ToList();
+                Assert.Equal(still.Count, r[D + CyclePositionProvider.TopWaitingSuffix][t]);
+                if (still.Count >= CyclePositionProvider.MinWaiting) { seenCame++; Assert.Equal(Math.Round(100.0 * still.Count(c => c.Top <= day) / still.Count), came); }
+                else Assert.True(double.IsNaN(came));
+            }
+            else Assert.True(double.IsNaN(came));
+        }
+        Assert.True(seenLeft > 300 && seenRight > 300 && seenFails > 300 && seenCame > 1000, $"{seenLeft} {seenRight} {seenFails} {seenCame}");
+        // The chart's finished cycles by where their top came (the first of equal highs; exactly
+        // halfway is mid), counted once both lows are confirmed: on the last bar, every one.
+        var sides = lows.Zip(lows.Skip(1), (x, y) => (Lead: 2 * (Enumerable.Range(x.Bar, y.Bar - x.Bar + 1).Aggregate((i, j) => bars[j].High > bars[i].High ? j : i) - x.Bar), Len: y.Bar - x.Bar)).ToList();
+        Assert.Equal(sides.Count(c => c.Lead < c.Len), r[D + CyclePositionProvider.LeftTopsSuffix][^1]);
+        Assert.Equal(sides.Count(c => c.Lead == c.Len), r[D + CyclePositionProvider.MidTopsSuffix][^1]);
+        Assert.Equal(sides.Count(c => c.Lead > c.Len), r[D + CyclePositionProvider.RightTopsSuffix][^1]);
+        int known = 3000;
+        Assert.Equal(past.Count(c => c.At <= known), r[D + CyclePositionProvider.LeftTopsSuffix][known] + r[D + CyclePositionProvider.MidTopsSuffix][known] + r[D + CyclePositionProvider.RightTopsSuffix][known]);
+        Assert.Contains($"this chart's daily tops: {r[D + CyclePositionProvider.LeftTopsSuffix][^1]} left, {r[D + CyclePositionProvider.MidTopsSuffix][^1]} mid, {r[D + CyclePositionProvider.RightTopsSuffix][^1]} right",
+            CyclePositionProvider.StateWords(k => r.TryGetValue(k, out var v) ? v : null, bars.Length - 1, bars[^1].Date));
+        Assert.True(failedFor.Count > 5);
+    }
+
+    /// <summary>
+    /// The top so far, said as the table shows it, and a failed daily cycle's warning, in the
+    /// bar's words and the failure mark's speech: the next daily low was a weekly one 56% of the
+    /// time after a failed daily cycle, 26% after one that held (Cycle Position's lows on 31 daily
+    /// charts, 3,182 and 4,465 cycles).
+    /// </summary>
+    [Fact]
+    public void The_top_and_a_failed_cycle_are_said_as_shown()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+        int t = Marked(r[D + CyclePositionProvider.TopFailsSuffix]).Last(i => r[D + CyclePositionProvider.TopLeftSuffix][i] == 1 && !double.IsNaN(r[D + CyclePositionProvider.TopCameSuffix][i]) && !double.IsNaN(r[D][i]));
+        double V(string x) => r[D + x][t];
+        double mid = (V(CipherCProvider.StartSuffix) + V(CipherCProvider.EndSuffix)) / 2;
+        string said = Assert.Single(CyclePositionProvider.StateWords(comp, t), w => w.StartsWith("top so far: ", StringComparison.Ordinal));
+        Assert.Equal($"top so far: {SpeechPriceFormatter.FormatPrice(V(CyclePositionProvider.TopSuffix))} on day {V(CyclePositionProvider.TopDaySuffix)}, before the cycle's middle (day {(mid / 2).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} of about {mid.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}), left-translated so far; "
+            + $"cycles this far in with the top this early went on to fail {V(CyclePositionProvider.TopFailsSuffix)}% of the time, against {V(CyclePositionProvider.TopFailsOtherSuffix)}% with a later top; "
+            + $"the top had come by this day in {V(CyclePositionProvider.TopCameSuffix)}% of {V(CyclePositionProvider.TopWaitingSuffix)} past cycles this far in unconfirmed", said);
+        Assert.Equal($"day {V(CyclePositionProvider.TopDaySuffix)}, LEFT, came {V(CyclePositionProvider.TopCameSuffix)}%",
+            CyclePositionProvider.TableRows(comp, t).Single(row => row[0].Text == "Top so far")[1].Text);
+        Assert.EndsWith("; " + said, Provider.GetComponentSpeech(D, r[D][t], bars[t], r, t));
+
+        const string why = "so a weekly low is likely next: after a failed daily cycle the next daily low was a weekly low 56% of the time, against 26% after one that held";
+        int f = Marked(r[CipherCProvider.CompFailed]).Last(i => r[CipherCProvider.EventsTierKey][i] == 1);
+        Assert.Contains("daily cycle failed, " + why, CyclePositionProvider.StateWords(comp, f));
+        Assert.EndsWith(", " + why + ".", Provider.GetComponentSpeech(CipherCProvider.CompFailed, r[CipherCProvider.CompFailed][f], bars[f], r, f)!);
+        Assert.Contains(CyclePositionProvider.StateWords(comp, f + 1), w => w.StartsWith("the daily cycle failed 1 day ago, so a weekly low", StringComparison.Ordinal));
+        // Measured on daily cycles only: a weekly cycle's failure says nothing more.
+        Func<string, double[]?> weekly = k => k == CipherCProvider.EventsTierKey ? new[] { 2.0 } : k == CipherCProvider.CompFailed ? new[] { 1.0 } : null;
+        Assert.Contains("weekly cycle failed", CyclePositionProvider.StateWords(weekly, 0));
+    }
+
+    /// <summary>
+    /// A top exactly halfway between two lows is mid-translated, counted apart from the left and
+    /// the right ones. Bitcoin has none, so one is made: a cycle's middle bar raised above it.
+    /// </summary>
+    [Fact]
+    public void A_top_exactly_halfway_is_counted_as_mid()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var d = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" }).D;
+        var lows = Enumerable.Range(0, d.Lows.Count).Where(k => d.ConfirmedAt[k] >= 0).Select(k => d.Lows[k]).Order().ToList();
+        int k0 = Enumerable.Range(1, lows.Count - 1).First(k => (lows[k] - lows[k - 1]) % 2 == 0 && lows[k - 1] > 2000);
+        int middle = (lows[k0 - 1] + lows[k0]) / 2;
+        double peak = Enumerable.Range(lows[k0 - 1], lows[k0] - lows[k0 - 1] + 1).Max(i => bars[i].High);
+        bars[middle] = new Ohlcv(bars[middle].Date, bars[middle].Open, peak * 1.001, bars[middle].Low, bars[middle].Close, bars[middle].Volume);
+        var r = Run(bars);
+        var d2 = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" }).D;
+        var lows2 = Enumerable.Range(0, d2.Lows.Count).Where(k => d2.ConfirmedAt[k] >= 0).Select(k => d2.Lows[k]).Order().ToList();
+        var lead = lows2.Zip(lows2.Skip(1), (a, b) => (Lead: 2 * (Enumerable.Range(a, b - a + 1).Aggregate((i, j) => bars[j].High > bars[i].High ? j : i) - a), Len: b - a)).ToList();
+        Assert.Contains(lead, c => c.Lead == c.Len);
+        Assert.Equal(lead.Count(c => c.Lead == c.Len), r[D + CyclePositionProvider.MidTopsSuffix][^1]);
+        Assert.Equal(lead.Count(c => c.Lead > c.Len), r[D + CyclePositionProvider.RightTopsSuffix][^1]);
+        Assert.Equal(lead.Count(c => c.Lead < c.Len), r[D + CyclePositionProvider.LeftTopsSuffix][^1]);
     }
 }

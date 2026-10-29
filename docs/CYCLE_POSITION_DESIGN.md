@@ -671,3 +671,83 @@ no-volume words, the words dropped, the table cell's case. One was green at firs
 gate was written twice, so either alone was redundant; it is one gate now, and the test also checks
 the table's yearly cell.
 
+
+### 9.4 The next window's dates, past the last bar
+
+Each tier's live window (the band from the newest low) is now said with its dates, on the last bar,
+in the state words and when the window is arrowed: before it "the next daily low's window opens
+November 3 2026 and closes November 14 2026", inside it "the daily window is open, to November 14
+2026", after it "the daily window closed June 11 2026". A table row "Next low" shows the same:
+"Nov 3–Nov 14", "now–Jul 16 2026" (weekly, with the year), "now–Nov 2027" (yearly, month and year),
+"closed Jun 11".
+
+The dates are those of the bars the band spans. Past the last bar, on a daily chart they are the bars
+Cipher C's future clock would print (CipherCFutureClock: the trading days at the session's time, the
+US holidays the chart has skipped skipped again), so they are the same dates Cipher C draws its bands
+to. On any other chart (`CyclePositionProvider.FutureStamps`) the bars of the last week (the last
+bar's own period, at least 7 days) are repeated a period on, again and again: a 4-hour chart keeps
+its sessions and its weekends, a weekly chart steps a week. Caveat: on an intraday chart holidays
+and daylight saving are not read, so a date past a holiday or a clock change can be a bar out.
+Intraday dates are said with the time, on the user's clock ("November 3, 14:00"), as every intraday
+bar is. Stored on the last bar only (`__cp_opens_<window>`, `__cp_closes_<window>`, an OLE
+Automation date) beside the last bar's own date, so the words do not depend on the band being drawn.
+
+### 9.5 The cycle's top so far, and what its place has meant
+
+On each bar after a confirmed daily low (not from the Start seed), the daily cycle's top so far:
+the highest high since the low (the first of equal highs), the day it came on, and from half the
+usual cycle on (the window's middle, `(start + end) / 2`, is the usual cycle), whether it came before
+the cycle's middle (half the usual cycle) or after: left- or right-translated so far. Said in the
+state words and the arrowed daily window: "top so far: 82833.00 on day 39, after the cycle's middle
+(day 30.5 of about 61), right-translated so far; cycles this far in with the top this late went on to
+fail 14% of the time, against 26% with an earlier top; the top had come by this day in 98% of 58 past
+cycles this far in unconfirmed". Table row "Top so far": "day 39, RIGHT, came 98%".
+
+What it has meant, measured on the app's own lows (31 daily charts; 4-hour and weekly within 4
+points; the two halves of the charts within 1-3): of cycles not yet failed, the share that went on to
+fail, by how far in (day over the usual cycle) and the top's side so far:
+
+| How far in | top left so far | top right so far |
+|---|---|---|
+| 0.5 to 0.8 | 34.6% | 17.7% |
+| 0.8 to 1.0 | 25.8% | 13.7% |
+| 1.0 to 1.25 | 16.0% | 10.1% |
+| beyond | about equal | about equal |
+
+These are said rounded (35/18, 26/14, 16/10) at those stages, and not once the cycle has failed. The
+app's readings scored the same way on the same charts: said 35%, failed 35.1%; 26, 26.6; 18, 18.0;
+16, 17.1; 14, 13.9; 10, 10.4. They are fitted on these charts, not held out.
+
+"The top had come by this day": of the past cycles known by the bar (both lows confirmed) and not
+yet confirmed this far in, the share whose top had come by this day; once the window is learned and
+three such cycles wait. Scored against whether this cycle's top had come by then: said 45%, came
+44.9%; 55, 55.0; 65, 64.7; 75, 74.9; 85, 86.1; 96, 95.5. Under 20% it is rare and not calibrated
+(99 days in all, 59-68% came).
+
+The chart's finished cycles by where their top came are said in the bar detail: "this chart's daily
+tops: 40 left, 2 mid, 61 right" (on 31 daily charts 3,019 left, 4,506 right, 122 mid). The app's
+values were recomputed independently from the dumped bars and lows on all 31 daily charts (308,515
+bars): no difference.
+
+### 9.6 A failed daily cycle: a weekly low is likely next
+
+When a daily cycle fails (a close under its low), the state words and the failure mark's speech now
+say "daily cycle failed, so a weekly low is likely next: after a failed daily cycle the next daily
+low was a weekly low 56% of the time, against 26% after one that held", until the next daily low is
+confirmed ("the daily cycle failed 12 days ago, so ..."). Measured on the app's own lows: daily
+charts 55.8% (3,182 failures) against 26.5% (4,465 cycles that held); 4-hour 52.3 / 24.9; weekly
+49.8 / 28.2; the two halves of the daily charts 56.8 / 26.7 and 54.8 / 26.2. 41.6% of daily cycles
+fail. Only the daily tier's failure says it; a weekly cycle's failure was not measured.
+
+Tests for 9.4-9.6: `The_next_windows_dates_are_the_bars_its_band_spans` (on Bitcoin cut a day after
+a confirmation: each tier's dates are its band's bars, past the last bar Cipher C's clock's; the
+words and cells before, in and after the window; the whole history against its own last bar; 4-hour
+bars around the clock four hours a bar on, said with the time), `Past_the_last_bar_an_intraday_chart_keeps_its_sessions`
+(weekday 4-hour bars: no weekend, the next week a week on), `The_top_so_far_is_worked_from_the_bars_and_past_cycles`
+(every Bitcoin bar: the top and its day, the side from half the cycle, the stage's rates and none
+after a failure, the share from the cycles known by the bar, the chart's counts),
+`A_top_exactly_halfway_is_counted_as_mid` (Bitcoin has none, so one is made), and
+`The_top_and_a_failed_cycle_are_said_as_shown`. 31 sabotages, 30 red; the green one changes nothing
+(a cycle is known when the later of its two lows is confirmed, and the later is never confirmed
+first). Four were green at first (the mid count, the last bar's date, the table's weekly and yearly
+cells, an ineffective top sabotage) and tests were added.

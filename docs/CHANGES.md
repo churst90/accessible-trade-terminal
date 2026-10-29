@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: the next window's dates, the top so far, a failed cycle's warning (2026-10-28)
+
+- **What**: three more of the pieces Cody approved, CYCLE_POSITION_DESIGN sections 9.4-9.6.
+- **Next window's dates**: each tier's live window is said with its dates on the last bar ("the next
+  daily low's window opens November 3 2026 and closes November 14 2026"; "the weekly window is open,
+  to July 16 2026"; "the daily window closed June 11 2026"), in the state words and the arrowed
+  window, and in a new table row "Next low". Past the last bar a daily chart's dates are Cipher C's
+  future clock's (trading days, its holidays); other charts repeat their last week's bar times a week
+  on (`CyclePositionProvider.FutureStamps`).
+- **Top so far**: after a confirmed daily low, the highest high since, its day, whether it came before
+  the cycle's middle (from half the usual cycle on), how often cycles at this stage with the top this
+  early or late went on to fail (35/18%, 26/14%, 16/10%, said 35% → failed 35.1% on the same charts),
+  and the share of past cycles whose top had come by this day (said 75% → came 74.9%). A table row
+  "Top so far", and the chart's tops by side in the bar detail ("40 left, 2 mid, 61 right").
+- **Failed cycle**: "daily cycle failed, so a weekly low is likely next: after a failed daily cycle the
+  next daily low was a weekly low 56% of the time, against 26% after one that held" (31 daily charts,
+  3,182 failures; 4-hour 52/25, weekly 50/28), in the state words and the failure mark's speech, until
+  the next daily low is confirmed.
+- **Caveats**: the failure rates and the weekly-next shares are fitted on these charts, not held out.
+  Intraday dates past the last bar do not read holidays or clock changes, so they can be a bar out.
+  The "top had come" share under 20% is rare and not calibrated. Not seen or heard in the app; the
+  accessibility-lead agent is not registered here.
+- **Tests**: `The_next_windows_dates_are_the_bars_its_band_spans`,
+  `Past_the_last_bar_an_intraday_chart_keeps_its_sessions`,
+  `The_top_so_far_is_worked_from_the_bars_and_past_cycles`, `A_top_exactly_halfway_is_counted_as_mid`,
+  `The_top_and_a_failed_cycle_are_said_as_shown`; the causality test covers the new values. 31
+  sabotages, 30 red (the green one changes nothing). The app's values were recomputed independently
+  on all 31 daily charts: no difference. README 9786.
+
 ### Cycle Position: "Low is in" off daily charts, the weekly reading said once, the confluence grade (2026-10-28)
 
 - **What**: the first three of the pieces Cody approved ("i approve all of your suggestions, fixes
