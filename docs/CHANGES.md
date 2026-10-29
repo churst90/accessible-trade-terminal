@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cycle Position: "Low is in" and "Low expected", in words (2026-10-28)
+
+- **Low is in**, daily charts, on each day a daily low is held: how likely Cycle Position is to
+  confirm it, said as *likely to fail*, *low*, *medium*, *high* or *very high* with the share, then
+  its reasons: about how many days to the confirmation, how far above the low (percent and average
+  ranges), the chance at random of going back to it first, and which confirmations are on (a higher
+  low's high broken, closes above the 10-day average, the stochastic over its trigger, the SAR under
+  price, a close above the 10 before it). In the table ("Low is in" row), the bar's state words and
+  the held low's speech. Small boosted trees on 12 inputs, the score mapped to a share
+  (`CycleLowConfidence`, model generated into `CycleLowConfidence.Model.cs`). Fitted on 30 daily
+  charts' Cycle Position lows; Bitcoin held out.
+- **Low expected**, daily charts, each day after a confirmed low: the chance of a new daily low in
+  the next L/6 days (Bitcoin 8), *unlikely*, *possible* or *likely*. A fitted logistic on 19 inputs.
+- **Results** (CYCLE_POSITION_DESIGN section 8): fit on 15 charts, scored on the other 15, the words
+  hold (very high 98% confirmed, high 86%, medium 70%, low 50%, likely to fail 16%); the first "very
+  high" is right 96%, catches 4,088 of 4,119 lows, a median 7 days before the confirmation. Bitcoin
+  2020+: 95% right, 39 of 39, 9 days early, 2 false. Low expected: AUC .78-.79; "likely" right
+  45-59%.
+- **Caveats**: it forecasts Cycle Position's own confirmation, not a big turn; the share map was
+  fitted on the training charts; a dropped low is not read (refitted without those days); Low
+  expected is weak; daily charts only.
+- **Research, no change**: Cipher B's big green dot sits within 2 bars of 21% of daily, 30% of
+  weekly and 47% of yearly lows (chance 7%), but lows with a dot held less often (58% against 64%).
+- **Tests**: `CycleLowConfidenceTests` (7 tests, 25 cases): the study's own numbers to 1e-9 on
+  Bitcoin (`Fixtures/CycleLowConfidenceReference.cs`), the bands, the speech matching the table,
+  daily only; the causality test names both chances. Thirteen sabotages red. Not seen or heard in the
+  app; the accessibility-lead agent is not registered here.
+
 ### Cycle Position: weekly lows by time (2026-10-28, Cody's option B)
 
 - **The rule** (`CipherCEngine.WeeklyByTime`, Cycle Position only; Cipher C is unchanged). The

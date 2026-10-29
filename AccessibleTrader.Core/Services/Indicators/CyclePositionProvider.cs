@@ -77,6 +77,21 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>The shortest daily cycle counted with (in the chart's days, or bars off a daily chart), and where it came from: 0 the default, 1 the symbol's own, 2 set by hand.</summary>
         public const string LengthKey = "__cp_length", LengthSourceKey = "__cp_length_source";
 
+        /// <summary>
+        /// Per bar, on the daily window, daily charts only (<see cref="CycleLowConfidence"/>): "Low is
+        /// in", the share (0-1) of held daily lows like this one that were confirmed, on each bar a
+        /// daily low is held; and its reasons: the chance (0-1) a random walk goes back to the low
+        /// before its confirmation, the days left to it, percent above the low, average ranges risen,
+        /// and the bars since the low each confirmation has run (a higher low's high broken, closes
+        /// above the 10-day average, the stochastic over its trigger, the SAR under price, the first
+        /// close above the 10 before it), 0 when off.
+        /// </summary>
+        public const string LowInSuffix = "_lowIn", LowInTouchSuffix = "_lowInTouch", LowInLeftSuffix = "_lowInLeft",
+            LowInAboveSuffix = "_lowInAbove", LowInRiseSuffix = "_lowInRise", LowInStructureSuffix = "_lowInStructure",
+            LowInSmaSuffix = "_lowInSma", LowInDssSuffix = "_lowInDss", LowInSarSuffix = "_lowInSar", LowInBreakSuffix = "_lowInBreak";
+        /// <summary>Per bar after a confirmed daily low, daily charts only: "Low expected", the chance (0-1) a new daily low is drawn within the next <see cref="ExpectedDaysSuffix"/> days.</summary>
+        public const string ExpectedSuffix = "_lowExpected", ExpectedDaysSuffix = "_lowExpectedDays";
+
         /// <summary>The words under the held daily low (<see cref="ComponentCompanions.BadgeWord"/>), and the count's Start plate.</summary>
         internal const string Words = "EARLY|DUE|LATE|Start@" + StartHex;
 
@@ -245,6 +260,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
             };
             Draw(o, data, p, plan);
+
+            // Low is in, and Low expected: fitted on daily charts, so daily charts only.
+            if (dTier.Active && !inBars)
+            {
+                var lc = CycleLowConfidence.Compute(data, d, L, A(CompDailyWindow + StartSuffix), A(CompDailyWindow + EndSuffix));
+                foreach (var (suffix, values) in new[]
+                         {
+                             (LowInSuffix, lc.Chance), (LowInTouchSuffix, lc.Touch), (LowInLeftSuffix, lc.Left), (LowInAboveSuffix, lc.Above),
+                             (LowInRiseSuffix, lc.Rise), (LowInStructureSuffix, lc.Structure), (LowInSmaSuffix, lc.Sma), (LowInDssSuffix, lc.Dss),
+                             (LowInSarSuffix, lc.Sar), (LowInBreakSuffix, lc.Break), (ExpectedSuffix, lc.Expected), (ExpectedDaysSuffix, lc.ExpectedDays),
+                         })
+                    o[CompDailyWindow + suffix] = values;
+            }
 
             // Where each bar is against its learned window, and how often the window has held.
             foreach (var (comp, run, tier, learn, bars, steps) in new[]
@@ -501,6 +529,42 @@ namespace AccessibleTrader.Core.Services.Indicators
             return s;
         }
 
+        /// <summary>"high, 88%": the Low is in word and share, or null where no daily low is held.</summary>
+        internal static string? LowInWord(Func<string, double> at)
+        {
+            double p = at(CompDailyWindow + LowInSuffix);
+            return double.IsNaN(p) ? null : $"{CycleLowConfidence.Word(p)}, {Num(Math.Round(100 * p))}%";
+        }
+
+        /// <summary>
+        /// "low is in: high, 88%; about 9 days to its confirmation; 14% above the low, up 3.2 average
+        /// ranges; a 5% chance at random of going back to it first; confirming: a higher low's high
+        /// broken, closes above the 10-day average, ...": the word and the facts it was read from.
+        /// </summary>
+        internal static string? LowInWords(Func<string, double> at)
+        {
+            if (LowInWord(at) is not { } word) return null;
+            double V(string suffix) => at(CompDailyWindow + suffix);
+            double left = V(LowInLeftSuffix), touch = V(LowInTouchSuffix);
+            string chance = touch < 0.01 ? "under 1%" : $"{Num(Math.Round(100 * touch))}%";
+            var on = new List<string>();
+            if (V(LowInStructureSuffix) > 0) on.Add("a higher low's high broken");
+            if (V(LowInSmaSuffix) > 0) on.Add("closes above the 10-day average");
+            if (V(LowInDssSuffix) > 0) on.Add("the stochastic over its trigger");
+            if (V(LowInSarSuffix) > 0) on.Add("the SAR under price");
+            if (V(LowInBreakSuffix) > 0) on.Add("a close above the 10 before it");
+            return $"low is in: {word}; about {Span(left, "day", "days")} to its confirmation; {Num(V(LowInAboveSuffix))}% above the low, "
+                 + $"up {Num(V(LowInRiseSuffix))} average ranges; a {chance} chance at random of going back to it first; "
+                 + (on.Count == 0 ? "no confirmations yet" : "confirming: " + string.Join(", ", on));
+        }
+
+        /// <summary>"a new daily low in the next 8 days: likely, 42%", on each bar after a confirmed daily low.</summary>
+        internal static string? ExpectedWords(Func<string, double> at)
+        {
+            double p = at(CompDailyWindow + ExpectedSuffix), k = at(CompDailyWindow + ExpectedDaysSuffix);
+            return double.IsNaN(p) ? null : $"a new daily low in the next {Span(k, "day", "days")}: {CycleLowConfidence.ExpectedWord(p)}, {Num(Math.Round(100 * p))}%";
+        }
+
         /// <summary>"the daily window has held 14 of 24 cycles": each cycle against the window it began with.</summary>
         internal static string? HitWords(string tier, Func<string, double> at, string comp)
         {
@@ -531,6 +595,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                      })
                 if (PositionWords(cycle, u, us, At, comp) is { } s) words.Add(s);
             if (HeldWords("daily", day, days, At(HeldDaysKey)) is { } heldDaily) words.Add(heldDaily);
+            if (LowInWords(At) is { } lowIn) words.Add(lowIn);
+            if (ExpectedWords(At) is { } expected) words.Add(expected);
             if (HeldWords("weekly", week, weeks, At(HeldWeeksKey)) is { } heldWeekly) words.Add(heldWeekly);
 
             foreach (var (comp, tier) in new[] { (CompDclConfirmed, "daily"), (CompWclConfirmed, "weekly"), (CompYclConfirmed, "yearly") })
@@ -588,6 +654,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Row("Lower cycle", c => double.IsNaN(At(c + NestSuffix)) ? null
                     : $"{(c == CompWeeklyWindow ? "daily" : "weekly")} {Num(At(c + NestSuffix))}{(c == CompWeeklyWindow && At(c + NestHeldSuffix) == 1 ? ", new drawn" : "")}"),
                 new[] { C("Unconfirmed low", TableLabel, -1), C(Held(At(HeldDaysKey)), TableValue), C(Held(At(HeldWeeksKey)), TableValue), C("", null) },
+                new[] { C("Low is in", TableLabel, -1), C(LowInWord(At) ?? (double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? "" : Dash), TableValue), C("", null), C("", null) },
+                new[] { C("Low expected", TableLabel, -1), C(double.IsNaN(At(CompDailyWindow + ExpectedSuffix)) ? ""
+                    : $"{CycleLowConfidence.ExpectedWord(At(CompDailyWindow + ExpectedSuffix))}, {Num(At(CompDailyWindow + ExpectedDaysSuffix))} days", TableValue), C("", null), C("", null) },
             };
         }
 
@@ -624,6 +693,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                         s += $", {PhaseWord(word)} against its window of {days} {Num(Last(CompDailyWindow + StartSuffix))} to {Num(Last(CompDailyWindow + EndSuffix))}";
                     if (!double.IsNaN(held) && held >= 0) s += $", {Span(held, day, days)} since it";
                     s += ".";
+                    // Its Low is in, read on the last bar as its days since are.
+                    if (LowInWords(Last) is { } lowIn) s += " " + char.ToUpperInvariant(lowIn[0]) + lowIn[1..] + ".";
                     if ((badge & ComponentCompanions.BadgeRefresh) != 0) s += " A low was dropped since the last confirmed one.";
                     return s;
                 }

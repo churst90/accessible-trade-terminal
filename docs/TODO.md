@@ -42,6 +42,18 @@
     3 of it, a new weekly low drawn but not yet confirmed"). Cody to hear the nest on a daily chart.
   - Translation letters: the original's follow the bar-midpoint rule only 82% on untuned blind
     charts (94% tuned, since 2020). The rest are not decoded; both copies share this.
+>   - **"Low is in" and "Low expected" BUILT (2026-10-28, NOT seen or heard; CYCLE_POSITION_DESIGN
+>     section 8).** On daily charts: Low is in says how likely the held daily low is to be confirmed,
+>     in words (likely to fail / low / medium / high / very high) with its reasons; on unseen charts
+>     the first "very high" is right 96% of the time, a median 7 days before the confirmation. Low
+>     expected (a new daily low in the next L/6 days) is weak: "likely" is right about half the time.
+>     Cody to hear both on a daily Bitcoin (arrow along a held low; the table's two new rows). Questions:
+>     - Keep Low expected, or drop it as too weak to say?
+>     - Should "very high" also be an alert, or a mark on the chart?
+>     - Off daily charts neither is read. Fit them on 4-hour or weekly bars too?
+>   - Cipher B's big green dot against the cycle lows (research, section 8.4): about half the
+>     yearly lows, 30% of weekly and 21% of daily lows have a dot within 2 bars (chance 7%). But a dot
+>     does not say the low will hold (58% with, 64% without). No change made.
 >   - Merge, push and deploy: Cody's go-ahead.
 > - [ ] **Cipher C: "Yearly lows found from price" (2026-10-28, built, NOT seen; see CHANGES and
 >   CIPHER_C_DESIGN section 37).** Asked for by Cody so the yearly lows carry on after the original's

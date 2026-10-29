@@ -7,7 +7,7 @@ without a bunch of patch work but that is well designed, something that works fo
 possible, uses all the same symbols and markers as cipher c does."
 
 The code is `CyclePositionProvider` (Core/Services/Indicators). It reuses `CipherCEngine` for the
-daily rule and Cipher C's `Draw` for everything drawn. The tests are `CyclePositionProviderTests`.
+daily rule and Cipher C's `Draw` for everything drawn. The tests are `CyclePositionProviderTests` and `CycleLowConfidenceTests`.
 Cipher C is unchanged and stays the faithful copy of the original.
 
 ## 1. What was agreed
@@ -237,6 +237,7 @@ on 28 of 57. When they miss, they pick a different low entirely (the Dow and the
   from the price. Untuned symbols get 32.
 - **The lab set and the building captures were looked at while building.** The blind numbers are
   one scoring of 28 captures.
+- **Low is in and Low expected** have their own caveats (section 8.3).
 - **Not seen or heard in the app.** The accessibility-lead review agent the project's hook asks for
   is not registered in this environment; not run.
 
@@ -280,6 +281,15 @@ candidate ignoring the gap; an undercut candidate not cancelled; a zero gap; the
 weekly cycle ignored; the nest counted from the candidate (the old way, never past 2); the old count
 rule. ("nest from the newest weekly low" above was a sabotage of the old rule, where the nest ran
 from the candidate; it is now the rule.)
+
+`CycleLowConfidenceTests`, 7 tests (25 cases), for section 8: the error function; both chances
+the study's to 1e-9 on Bitcoin, on exactly its bars; Low is in only while a low is held (and a
+dropped low checked); the two sets of bands; the speech says what the table shows; neither read off
+a daily chart. The causality test above now names both chances. Thirteen sabotages, all red: the
+error function's constant, a band edge each, a calibration point (twice; a point under 1% was green,
+no Bitcoin day reaches it), a tree threshold, Low expected's intercept, either sentence dropped from
+the speech, read off a daily chart, the table's dash, and past cycles read 30 days early (the
+causality test).
 
 `IndicatorCausalityTests` exempts the Cycle Position confirmations and weekly window from the
 prepend check. A learned window depends on how much history precedes it, so prepending bars
@@ -411,3 +421,125 @@ every capture (`dumpe2eL.sh` with `AT_CC_PROVIDER=cp`), scored by `lowscore.py`:
 - **The learned weekly window holds as before:** 62.2 → 61.2% on the building captures, 61.5 →
   60.7% blind. The daily and yearly tiers are unchanged.
 - The blind 1-week charts have only a handful of weekly lows (5 to 9); their numbers mean little.
+
+## 8. "Low is in" and "Low expected" (2026-10-28)
+
+Cody: "figure out anything that can help call and confirm lows with a confidence score ... the user
+doesn't need to know 15 points", then "build it". Two readings on daily charts only, said as words:
+
+- **Low is in**, on each day a daily low is held and not yet confirmed: the chance that Cycle
+  Position will confirm it. Said as *likely to fail* (under 20%), *low* (under 60%), *medium* (under
+  80%), *high* (under 95%) or *very high*, with the share, and with the facts it was read from:
+  the days left until the confirmation, how far price is above the low (percent and average ranges),
+  the chance at random of price going back to the low first, and which confirmations are on.
+- **Low expected**, on each day after a confirmed daily low: the chance of a new daily low within
+  the next k days, k = the shortest daily cycle ÷ 6 (Bitcoin 8). Said as *unlikely* (under 15%),
+  *possible* (under 35%) or *likely*.
+
+Both are in the table (a "Low is in" row and a "Low expected" row, daily column), in the bar's
+state words, and the held low's own speech adds its Low is in sentence.
+
+### 8.1 What they read
+
+`CycleLowConfidence` (Core/Services/Indicators), the model in `CycleLowConfidence.Model.cs`
+(generated). Everything is read from bars up to the day.
+
+**Low is in**: small boosted trees (200 trees of depth 3; only-up constraints on the eight evidence
+inputs), then a fitted map (isotonic) from score to share. Twelve inputs:
+- **The chance at random of going back to the low first**: a random walk's chance of touching the
+  low before Cycle Position's confirmation, `2·Φ(−ln(close/low) / (vol·√days left))`, with a 20-day
+  high-low range volatility. Days left run to Cycle Position's own clock:
+  `max(low, previous low + L − 2) + round(L/2)`. This alone is most of it (section 8.2).
+- **How far price has risen off the low** in 14-day average ranges, and how far it has come back
+  toward it.
+- **How long each confirmation has been on**, as points by share of the shortest cycle: a higher
+  low with the high between them broken; closes above the 10-day average; the stochastic (DSS 13, 8)
+  over its 5-bar trigger; the SAR under price; a close above the 10 before it; and the days held.
+- Two products (the touch chance with structure, and with the rise) and the days left.
+
+**Low expected**: a fitted logistic on 19 inputs: how often this chart's past cycles of this age
+ended within k days (its own last 40 cycles, plus 10 cycles' worth of the 30 assets' 1,178), the
+position in the learned window, how far price is under the cycle's top (ranges and percent),
+whether the cycle has closed under its own low, the close against the 10-day average and its slope,
+a new 10-day low, where the top was, the DSS, both WaveTrends, an 81-bar stochastic, and whether a
+low is held and for how long.
+
+### 8.2 How they were tested
+
+The label is Cycle Position's own: does it confirm the held low (Low is in), or draw a real daily low
+in the next k days (Low expected). Only days a low is held and still standing are scored; days
+after the confirmation are left out (the answer is known by then). 31 daily charts with Cycle
+Position's lows. Bitcoin is held out of the shipped fit. A split check fits on 15 charts and scores
+the other 15.
+
+**Low is in, the words** (share of held days, and of those how many were confirmed):
+
+| | likely to fail | low | medium | high | very high |
+|---|---|---|---|---|---|
+| 15 unseen charts (fit on 15) | 2% → 16% | 16% → 50% | 13% → 70% | 24% → 86% | 45% → 98% |
+| Bitcoin 2020+ (fit on 30) | 1% → 12% | 21% → 50% | 14% → 74% | 25% → 87% | 40% → 99% |
+
+**Calling it**: the first day each held low reaches a word:
+
+| | first "high" | first "very high" |
+|---|---|---|
+| 15 unseen | 85% right, 4,118 of 4,119 caught, a median 11 days before the confirmation, 721 false | 96% right, 4,088 of 4,119, 7 days before, 162 false |
+| Bitcoin 2020+ | 81% right, 39 of 39, 15 days, 9 false | 95% right, 39 of 39, 9 days, 2 false |
+
+- **In the comparison of models** (the 15-and-15 split, before the exact clock and the refit), the touch chance alone gave AUC .888 on unseen charts; a logistic on everything .915; these
+  trees .938, the same as an unconstrained boosted ceiling (.940). A pure random walk tops out
+  around .92, so structure and the rise add real information.
+- **Tried and adding nothing**: depth, lowest-of, under the previous low, 50/200 averages, the
+  window, the cycle's age, oscillator states at the low, the weekly window's state, stochastic,
+  RSI, 1-hour bars, timeframe multipliers.
+- **A false "very high"** is mostly a real breakdown (the next cycle about 2.9 ranges lower), not a
+  near miss.
+
+**Low expected**: weak.
+
+| | AUC | unlikely | possible | likely |
+|---|---|---|---|---|
+| 15 unseen (fit on 15) | .781 | 66% of days → 7% had a low | 23% → 22% | 12% → 45% |
+| Bitcoin (fit on 30) | .788 | 67% → 7% | 25% → 20% | 7% → 59% |
+
+Timing alone (the cycle's age against its past) is AUC .52-.57: the price state carries it.
+
+**Parity**: the C# is the study's to 1e-9 on Bitcoin's 2,129 held days and 5,229 scored days
+(`CycleLowConfidenceTests`, against the study's own numbers in `Fixtures/CycleLowConfidenceReference.cs`).
+
+### 8.3 Caveats
+
+- **It forecasts Cycle Position's own rule**, not a big turn: "very high" means Cycle Position is
+  very likely to confirm the low (no undercut before its clock runs out). The touch chance is close
+  to modelling that rule itself.
+- **A dropped low is not read.** When the held low is undercut and dropped, Low is in goes away until
+  a new low is held (the days-since count still carries the old one). The first fit included
+  those days (21% of rows, all failures); it was refitted without them; the words are about the same.
+- **The map from score to share was fitted on the same 30 charts** as the trees; the split check is
+  the honest one, and it holds.
+- **Bitcoin's 39 lows since 2020** are few.
+- **Low expected is weak**: its "likely" is right about half the time.
+- **Daily charts only.** Both were fitted on daily bars; off a daily chart neither is read.
+- **Low expected reads on past the newest confirmed low**, where the study (which needed the next
+  low as its label) stopped; there it is the same model on bars the study could not score.
+
+### 8.4 Cipher B's big green dot against the cycle lows (research, 2026-10-28)
+
+Cody asked whether Cycle Position's lows line up with Cipher B's big green dots (a WaveTrend cross
+up with the fast wave under −60). The same 31 daily charts with default settings, candles, a dot
+within ±2 bars; chance is the dots moved by a random shift (20 each):
+
+| Lows | with a dot | chance |
+|---|---|---|
+| Daily lows that held (7,700) | 21% | 7% |
+| Weekly lows (3,016) | 30% | 7% |
+| Yearly lows (290) | 47% (58% within ±5) | 7% |
+| Daily lows later dropped (4,661) | 26% | 7% |
+
+- **Most cycle lows have no dot.** The dot needs a deep oversold wave. It is three times chance at a
+  daily low and more at the bigger lows: about half of the yearly lows have one.
+- **About 41% of dots sit within 2 bars of a low that held, 70% of a low found at all** (3.6x
+  chance): the dot marks a bottom being made.
+- **A dot does not say the low will hold**: lows with a dot held 58%, without 64%. A deep washout is
+  undercut more often, as section 4's "low expected" flags were.
+- **The dot comes a bar or two after the low** (median +1: it is a cross).

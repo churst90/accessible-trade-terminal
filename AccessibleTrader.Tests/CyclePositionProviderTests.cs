@@ -49,7 +49,8 @@ public sealed class CyclePositionProviderTests
             && !k.EndsWith(ComponentCompanions.Path, StringComparison.Ordinal)
             && !k.EndsWith(ComponentCompanions.BoxStart, StringComparison.Ordinal) && !k.EndsWith(ComponentCompanions.BoxEnd, StringComparison.Ordinal)).ToList();
         foreach (var k in new[] { D + CyclePositionProvider.BottomedSuffix, D + CyclePositionProvider.HitsSuffix, D + CipherCProvider.StartSuffix,
-                     W + CyclePositionProvider.NestSuffix, Y + CyclePositionProvider.PhaseSuffix })
+                     W + CyclePositionProvider.NestSuffix, Y + CyclePositionProvider.PhaseSuffix,
+                     D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix })
             Assert.Contains(k, causal);
         // Fixed cuts, plus one just after the last yearly low is confirmed and one just after a
         // daily window is first learned.
