@@ -105,6 +105,9 @@ where *AroonUp* crossed 50 and announce it as the Oscillator's Midpoint cross. A
 declares no list — or declares an empty one, as the marker and state components do to silence the
 earcon — keeps every line, because a jump key with nothing to aim at is a worse answer than a jump
 to the pane's own line.
+Cipher B's Wave Gap and Money Flow name the zero line only (2026-10-31): until then they named none,
+were given every line, and the key on them stopped at the waves' ±53/±60 and said "overbought". Those
+lines are Market Cipher B's overbought and oversold for the two waves, where the key still uses them.
 
 ---
 

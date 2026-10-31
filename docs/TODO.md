@@ -1,3 +1,7 @@
+> - [ ] **Cipher B's Wave Gap and Money Flow: RSI's voice, zero-only jumps (2026-10-31, built, NOT heard; see CHANGES).**
+>   Cody to arrow both on a daily chart and say whether they now sound like RSI on each side of zero, and press
+>   Ctrl+Left/Right on each: it should say "Zero line cross", never overbought or oversold. Question: they now
+>   click at each zero cross, like the blue waves. Keep the click, or remove it?
 > - [ ] **Cipher B has Market Cipher B 2.4.0's six settings, colours and lines (2026-10-31, built, NOT seen or heard; see CHANGES).**
 >   Settings: Use Current Chart Resolution, Different Timeframe, Over Bought Level 1, Trigger 1, Over Sold
 >   Level 1 (= the buy dot's threshold), Trigger 2 (= where the money-flow bar sits). Each line IS its setting.

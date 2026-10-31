@@ -1407,7 +1407,9 @@ slow; Market Cipher B labels it "VWAP", which it is not) over both, the money fl
 above zero and red below over that, and along the bottom a money-flow bar, green while money flows
 in and dark red while it flows out; hiding Money Flow hides that bar too. The Wave Gap and Money
 Flow are read, arrowed and heard as waves, pitched by their value on the pane's scale like the
-blue waves; Properties, Appearance, **Read as** makes either a histogram instead, pitched by its
+blue waves, in the oscillator voice RSI has (a square tinge above zero, triangle warmth below), with a
+click as they cross zero; Ctrl+Left/Right on either jumps between its zero crosses (the ±53 and ±60
+lines are the waves' overbought and oversold, not theirs); Properties, Appearance, **Read as** makes either a histogram instead, pitched by its
 side with a grit that grows with its size. Read as changes only what you hear and how it is
 named and arrowed; the picture stays the same. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on

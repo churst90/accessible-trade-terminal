@@ -76,6 +76,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>The 0–100 RSI and Stochastic lines' own extremes: undrawn levels at 80 and 20.</summary>
         internal static readonly string[] LineLevels = { "Stoch Overbought", "Stoch Oversold" };
 
+        /// <summary>The Wave Gap's and Money Flow's one line: zero. They have no overbought or
+        /// oversold; the ±53/±60 lines are the waves'.</summary>
+        internal static readonly string[] ZeroOnly = { "Zero" };
+
         /// <summary>The settings, named as Market Cipher B 2.4.0 names its inputs (see Parameters).</summary>
         public const string ParamUseChartTimeframe = "UseChartTimeframe", ParamOtherTimeframe = "OtherTimeframe",
                             ParamOBLevel1 = "OBLevel1", ParamTrigger1 = "Trigger1",
@@ -132,7 +136,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // read correctly as well"). WAVE, the default: an Oscillator painted as the
                     // area above (DefaultAreaBySign), sounded as a wave — pitch follows the value
                     // on the pane's own ±100 scale, the scale it is drawn on — with no levels
-                    // (it has no overbought or oversold) and a click at each zero cross.
+                    // (it has no overbought or oversold) but zero: a click at each zero cross,
+                    // and Ctrl+Left/Right jumps between zero crosses.
                     // HISTOGRAM, Properties → Appearance → Read as: the same picture, read and
                     // navigated as a histogram and sounded by the bar rule (constant loudness,
                     // grit by size, direction pitch). The picture is the wave's in both forms.
@@ -152,10 +157,17 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultEnvelopeType = "Sustain",
-                            DefaultWaveform = "square", DefaultAboveWaveform = "square", DefaultBelowWaveform = "sawtooth",
+                            // No waveform of its own: the oscillator voice from the profile, as
+                            // RSI's (sine, a square tinge above zero, triangle warmth below). Until
+                            // 2026-10-31 it declared square above / sawtooth below, and Money Flow
+                            // the reverse (Cody: "have reversed sounds and the sounds aren't the
+                            // oscillator sound ... like the rsi").
                             DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "Wave Gap. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>(),
+                            // Its one line is zero. Left empty, a component answers to every line
+                            // in the pane, so Ctrl+Left/Right on it jumped to the waves' ±53/±60
+                            // (Cody: "why do I hear over sold and over bought ... on the wave gap?").
+                            SubscribedLevelNames = ZeroOnly,
                             // The histogram form: the same picture, sounded and navigated as a
                             // histogram (only the type, sound and speech are a form's).
                             OtherForm = new() { Name = CompWtHistogram, DisplayName = DisplayWaveGap, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
@@ -168,7 +180,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 // (constant loudness, grit ∝ magnitude) from the sonification
                                 // profile, like MACD's and volume's.
                                 SpeechTemplate = "Wave Gap. {value:F1}.",
-                                SubscribedLevelNames = Array.Empty<string>() } },
+                                SubscribedLevelNames = ZeroOnly } },
 
                     // ── The two waves: areas from zero, painted first (DrawOrder −2) ──
                     new() { Name = CompWT1,           DisplayName = DisplayWT1, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
@@ -270,10 +282,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultEnvelopeType = "Sustain",
-                            DefaultWaveform = "sawtooth", DefaultAboveWaveform = "sawtooth", DefaultBelowWaveform = "square",
+                            // The oscillator voice and the zero line only, as the Wave Gap's above.
                             DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "Money Flow. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>(),
+                            SubscribedLevelNames = ZeroOnly,
                             OtherForm = new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
                                 FormName = "histogram",
                                 DefaultPlaybackLayer = PlaybackLayer.Background,
@@ -281,7 +293,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 DefaultBullishFrequency = 300.0,
                                 DefaultBearishFrequency = 100.0,
                                 SpeechTemplate = "Money Flow. {value:F1}.",
-                                SubscribedLevelNames = Array.Empty<string>() } },
+                                SubscribedLevelNames = ZeroOnly } },
 
                     // ── WaveTrend crossover dots ────────────────────────────
                     // Skia reads an 8-digit hex as #AARRGGBB. These were written #RRGGBBAA

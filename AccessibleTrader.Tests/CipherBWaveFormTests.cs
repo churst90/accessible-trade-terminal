@@ -62,7 +62,7 @@ public sealed class CipherBWaveFormTests
         Assert.Equal(ComponentDisplayType.Oscillator, c.DisplayType);
         Assert.True(c.IsAreaFill && c.AreaBySign, $"{c.Name}: not a filled area by sign");
         Assert.Equal(PitchMapping.Value, c.PitchMapping);
-        Assert.Empty(c.SubscribedLevelNames ?? Array.Empty<string>());
+        Assert.Equal(new[] { "Zero" }, c.SubscribedLevelNames);   // zero only: no ±53/±60 (the waves')
     }
 
     private static void IsHistogram(ComponentConfig c)
@@ -70,7 +70,7 @@ public sealed class CipherBWaveFormTests
         Assert.Equal(ComponentDisplayType.Histogram, c.DisplayType);
         Assert.True(c.IsAreaFill && c.AreaBySign, $"{c.Name}: the histogram form is not drawn as the wave");
         Assert.Equal(PitchMapping.Direction, c.PitchMapping);
-        Assert.Empty(c.SubscribedLevelNames ?? Array.Empty<string>());
+        Assert.Equal(new[] { "Zero" }, c.SubscribedLevelNames);   // zero only: no ±53/±60 (the waves')
     }
 
     [Fact]

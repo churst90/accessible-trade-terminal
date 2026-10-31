@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's Wave Gap and Money Flow sound like RSI and jump between their zero crosses (2026-10-31, NOT heard)
+
+- **Why**: Cody: "the wave gap and the money flow have reversed sounds and the sounds aren't the oscillator sound
+  triangle above and sine below like the rsi. and why do I hear over sold and over bought when I do control
+  left/right on the wave gap? ... is this accurate?" Not on those two. The ±53/±60 lines are Market Cipher B's
+  overbought and oversold for the wave trend (its Over Bought/Over Sold Level and Trigger inputs), so on the two
+  waves the jumps are right. The Wave Gap and Money Flow have no such lines; their one line is zero.
+- **Sound**: the two wave forms declared their own waveforms, the Wave Gap square above zero and sawtooth below,
+  Money Flow sawtooth above and square below: opposite to each other, and neither the oscillator voice. Both now
+  take the profile's oscillator voice, as RSI does: a sine with a square tinge above the midline (zero for them)
+  and triangle warmth below. Pitch, loudness and the histogram form are unchanged.
+- **Ctrl+Left/Right**: both answered to no line, and a component with an empty list is given every line in the
+  pane, so the key on either jumped to the waves' ±53 and ±60 and said "overbought"/"oversold". Both forms of
+  both now answer to the zero line only (`CipherBProvider.ZeroOnly`): the key jumps between zero crosses and says
+  "Zero line cross at ...".
+- **New**: in the wave form they now click as they cross zero, as the blue waves and RSI's midline do. Until
+  today they had no click at all (the empty list also silenced it). They still do not click or roughen at ±53/±60.
+- Charts saved before today get both changes on open (waveforms and the level list come from the indicator, not
+  the save). Caveat: a Cipher B sound default saved as the indicator's default before today would keep the old
+  waveforms; none is saved on this machine.
+- Tests: CipherBWaveGapVoiceTests (same waveform fields and same timbre as RSI either side of the midline; a click
+  at zero and none at ±53/±60, no roughness past them; Ctrl+Right lands on the zero cross, not +53, in both
+  forms); CipherBWaveFormTests now pins the zero-only list. 10 sabotages, 10 red. Local slice (Cipher B,
+  indicators, providers, crossing, oscillator, knobs, audio, narration, levels, workspace) 3099 green; full suite
+  on CI. Not heard in the app; the accessibility-lead agent is not registered here.
+
 ### Cipher B has Market Cipher B 2.4.0's settings, colours and lines, and nothing else (2026-10-31, NOT seen or heard)
 
 - **Why**: Cody: "the code for cipher b should be clean, tight and accurate to spec with all options found in the
