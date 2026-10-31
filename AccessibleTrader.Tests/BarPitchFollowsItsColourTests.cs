@@ -56,27 +56,33 @@ public sealed class BarPitchFollowsItsColourTests
         foreach (var provider in IndicatorProviderFixture.AllProviders())
         foreach (var meta in provider.GetIndicators())
         {
-            ChartSeries s;
-            try { s = factory.CreateSeriesFromMetadata(meta, meta.Name, meta.DefaultPane, new List<(string, string)>(), null); }
+            // Each form a component can be shown as ("Read as": Cipher B's two are bars only as
+            // histograms; their first form is a wave pitched by value).
+            var built = new List<ChartSeries>();
+            try { built.Add(factory.CreateSeriesFromMetadata(meta, meta.Name, meta.DefaultPane, new List<(string, string)>(), null)); }
             catch { continue; }   // metadata that cannot build a series is another test's business
-            if (s.IsProfile) continue;   // pitched per price bin, not per bar (SonifyProfile)
-            foreach (var c in s.Components)
+            if (ComponentForms.HasOtherForm(meta)) built.Add(ComponentForms.InOtherForm(factory, meta));
+            foreach (var s in built)
             {
-                if (c.PitchMapping is not (PitchMapping.Direction or PitchMapping.PriceDirection)) continue;
-                if (c.BullishFrequency == c.BearishFrequency) continue;
-                if (c.PitchMapping == PitchMapping.Direction && c.ReferenceLevel is double r && r != 0) continue; // its own anchor
-                double above = c.ColorBaseline + 10, below = c.ColorBaseline - 10;
-                // Not coloured by the candle (the colour does not change with it), and either
-                // coloured by its own sign (the colour flips with the value) or a bar that is one
-                // colour on both sides — Cipher B's WT Histogram, yellow since 2026-10-17, whose
-                // only sign is the one it is drawn on and spoken with. Either way the candle has
-                // nothing to say about it.
-                var aUp   = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(above, s, c, 0), theme, Up);
-                var aDown = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(above, s, c, 0), theme, Down);
-                var bUp   = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(below, s, c, 0), theme, Up);
-                bool isBar = c.DisplayType is ComponentDisplayType.Histogram or ComponentDisplayType.Bar
-                             or ComponentDisplayType.ZeroArea or ComponentDisplayType.ZeroDot;
-                if (aUp == aDown && (aUp != bUp || isBar)) yield return (s, c);
+                if (s.IsProfile) continue;   // pitched per price bin, not per bar (SonifyProfile)
+                foreach (var c in s.Components)
+                {
+                    if (c.PitchMapping is not (PitchMapping.Direction or PitchMapping.PriceDirection)) continue;
+                    if (c.BullishFrequency == c.BearishFrequency) continue;
+                    if (c.PitchMapping == PitchMapping.Direction && c.ReferenceLevel is double r && r != 0) continue; // its own anchor
+                    double above = c.ColorBaseline + 10, below = c.ColorBaseline - 10;
+                    // Not coloured by the candle (the colour does not change with it), and either
+                    // coloured by its own sign (the colour flips with the value) or a bar that is one
+                    // colour on both sides — Cipher B's WT Histogram, yellow since 2026-10-17, whose
+                    // only sign is the one it is drawn on and spoken with. Either way the candle has
+                    // nothing to say about it.
+                    var aUp   = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(above, s, c, 0), theme, Up);
+                    var aDown = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(above, s, c, 0), theme, Down);
+                    var bUp   = ChartRenderer.ReadingColor(new ChartRenderer.CrosshairReading(below, s, c, 0), theme, Up);
+                    bool isBar = c.DisplayType is ComponentDisplayType.Histogram or ComponentDisplayType.Bar
+                                 or ComponentDisplayType.ZeroArea or ComponentDisplayType.ZeroDot;
+                    if (aUp == aDown && (aUp != bUp || isBar)) yield return (s, c);
+                }
             }
         }
     }
@@ -99,13 +105,15 @@ public sealed class BarPitchFollowsItsColourTests
         Assert.True(wrong.Count == 0, string.Join("\n", wrong));
     }
 
-    /// <summary>Cody's two, named, so the fleet sweep cannot quietly skip them.</summary>
+    /// <summary>Cody's two, named, so the fleet sweep cannot quietly skip them (shown as histograms;
+    /// shown as waves, their first form, they are pitched by value, CipherBWaveFormTests).</summary>
     [Theory]
-    [InlineData("WT Histogram")]
+    [InlineData("Wave Gap")]   // the WT Histogram, named for what it is since 2026-10-30
     [InlineData("Money Flow")]
     public void Cipher_b_bars_are_in_the_sweep(string component)
     {
-        Assert.Contains(SignColouredBars(), x => x.Series.IndicatorCode == "CIPHER_B" && (x.Comp.DisplayName ?? x.Comp.Name) == component);
+        Assert.Contains(SignColouredBars(), x => x.Series.IndicatorCode == "CIPHER_B" && (x.Comp.DisplayName ?? x.Comp.Name) == component
+        && x.Comp.DisplayType == ComponentDisplayType.Histogram);
     }
 
     /// <summary>Volume is coloured by the candle, so it is heard by the candle — unchanged.</summary>

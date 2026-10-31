@@ -55,6 +55,8 @@ namespace AccessibleTrader.Core.Services
         public BackgroundTint? UserBackgroundTint { get; set; }
         public bool?   UserIsAreaFill     { get; set; }
         public bool?   UserDrawPath       { get; set; }
+        /// <summary>"Read as" (ComponentConfig.UserDisplayType); null = the indicator's first form.</summary>
+        public ComponentDisplayType? UserDisplayType { get; set; }
     }
 
     /// <summary>

@@ -1,3 +1,12 @@
+> - [ ] **Cipher B's Wave Gap and Money Flow are read as waves by default (2026-10-30, built, NOT seen or heard; see CHANGES).**
+>   Both are now pitched on the pane's ±100 scale with no leap at zero. Properties has a "Read as" setting for each
+>   (Wave / Histogram) that changes only the type word, navigation, sound and speech; the picture is the same, and
+>   hiding Money Flow hides its red/green bar too. The WT Histogram is named "Wave Gap". Money Flow says its signed
+>   number. Cody to arrow along both on a daily Bitcoin and say whether:
+>   - the wave sounds right;
+>   - "Wave Gap" is a good name, and "Read as" a clear name for the setting;
+>   - the histogram form's grit is now loud enough.
+>   Open: sound settings saved as defaults in one form also apply in the other. Should each form keep its own?
 > - [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/HYPERLIQUID_RESEARCH.md`).**
 >   Questions for Cody before anything is built:
 >   - Are you a US resident or citizen? If so, live trading (phase 4), and in practice testnet

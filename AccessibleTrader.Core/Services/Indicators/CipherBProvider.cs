@@ -14,7 +14,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// flow not (correlation 0.97). The per-element evidence is in the comments below.
     ///
     /// <para><b>What MCB draws, and is shown by default:</b> the fast and slow WaveTrend waves (light-
-    /// and dark-blue areas), MCB's "VWAP" (our WT Histogram, WT1 − WT2, one yellow area), the money
+    /// and dark-blue areas), MCB's "VWAP" (our Wave Gap, WT1 − WT2, one yellow area), the money
     /// flow (lime/red area) and the money-flow bar along the bottom, a small dot at every wave cross,
     /// the big green "Buy dot" (Oversold Crossover), the 0–100 "RSI" and "Stochastic" lines (drawn,
     /// muted), and plain level lines at ±60, ±53 and zero. There is no gold dot: Market Cipher B
@@ -58,6 +58,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <see cref="CompMoneyFlowWave"/> — and the keys the app's speech formatter hands this
         /// provider's speech its data under (see <see cref="SpeechValue"/>).</summary>
         internal const string DisplayWT1 = "Wave Trend Fast", DisplayMoneyFlow = "Money Flow";
+        /// <summary>What the user hears and sees for <see cref="CompWtHistogram"/> (the name kept
+        /// for saved charts, strategies and alerts): the gap between the two waves, WT1 − WT2.
+        /// Named 2026-10-30 (Cody: "what is a more appropriate name for it").</summary>
+        internal const string DisplayWaveGap = "Wave Gap";
         public const string CompCrossBull    = "WaveTrend Cross Bull";
         public const string CompCrossBear    = "WaveTrend Cross Bear";
         /// <summary>MCB's big green buy dot (BuyDotMode = MCB), or the gated crossover (Gated). Named
@@ -151,7 +155,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
 
-                    // ── WT Histogram — MCB's "VWAP" wave ─────────────────────
+                    // ── Wave Gap (component name "WT Histogram") — MCB's "VWAP" plot ──
                     // This is WT1 − WT2. Real MCB's "VWAP" has the same sign as WT1 − WT2 on 96%
                     // of bars (BTCUSD 1D Bitstamp HA, Jul 2021 – Aug 2022, digitised from a
                     // TradingView chart whose status line reads "MarketCipher B (2.2.6, …)"), so
@@ -167,31 +171,51 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // 73% opacity within 6 per channel. The green/red pair also sat on top of
                     // Money Flow's (#00E676 / #FF1744), so the two keys and the two sets of bars
                     // looked alike (docs/TODO.md, 2026-10-16).
-                    // Shape (2026-10-17): an AREA from zero (DefaultIsAreaFill on a Histogram), at
-                    // MCB's ~73% opacity (#BA = 186), painted OVER the two waves (DrawOrder −1; the
-                    // waves are −2) as MCB paints it — while it stays FIRST in the declared order,
-                    // so the keyboard still meets it first. It stays a Histogram because the
-                    // display type picks the sonification profile (bar rule: constant loudness,
-                    // grit ∝ magnitude).
-                    // Audio: Background, Direction pitch — positive rising = bullish,
-                    // negative falling = bearish. Colour is not read by audio or speech.
-                    new() { Name = CompWtHistogram,   DisplayName = "WT Histogram", DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
+                    // Shape (2026-10-17): an AREA from zero at MCB's ~73% opacity (#BA = 186),
+                    // painted OVER the two waves (DrawOrder −1; the waves are −2) as MCB paints it
+                    // — while it stays FIRST in the declared order, so the keyboard still meets it
+                    // first. Colour is not read by audio or speech.
+                    // Two forms (2026-10-30, Cody: "perhaps a toggle here would be best, with the
+                    // waves being the default view ... it's a yellow filled area so this should
+                    // read correctly as well"). WAVE, the default: an Oscillator painted as the
+                    // area above (DefaultAreaBySign), sounded as a wave — pitch follows the value
+                    // on the pane's own ±100 scale, the scale it is drawn on — with no levels
+                    // (it has no overbought or oversold) and a click at each zero cross.
+                    // HISTOGRAM, Properties → Appearance → Read as: the same picture, read and
+                    // navigated as a histogram and sounded by the bar rule (constant loudness,
+                    // grit by size, direction pitch). The picture is the wave's in both forms.
+                    // Heard as "Wave Gap": it is the gap between the fast and slow waves
+                    // (WT1 − WT2), as MACD's histogram is the gap between its two lines. Not a
+                    // volume-weighted price, whatever the original calls its plot.
+                    new() { Name = CompWtHistogram,   DisplayName = DisplayWaveGap, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
+                            FormName = "wave",
                             DefaultColorHex = "#BAFFEB3B", DefaultColorHexSecondary = "#BAFFEB3B",
-                            DefaultIsAreaFill = true, DefaultDrawOrder = -1,
+                            DefaultIsAreaFill = true, DefaultAreaBySign = true, DefaultDrawOrder = -1,
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
                             DefaultReferenceLevel = 0.0,
+                            DefaultUsePolarityColoring = false,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultPitchMapping = PitchMapping.Direction,
-                            DefaultBullishFrequency = 360.0,
-                            DefaultBearishFrequency = 140.0,
-                            // No amplitude override: a histogram takes the shared bar rule
-                            // (constant loudness, grit ∝ magnitude) from the sonification
-                            // profile, like MACD's and volume's. Until 2026-09-11 this said
-                            // ReferenceDeviation, which made Cipher B the one histogram whose
-                            // bars got LOUDER as they grew.
-                            SpeechTemplate = "WT Histogram. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>() },
+                            DefaultPitchMapping = PitchMapping.Value,
+                            DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultEnvelopeType = "Sustain",
+                            DefaultWaveform = "square", DefaultAboveWaveform = "square", DefaultBelowWaveform = "sawtooth",
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            SpeechTemplate = "Wave Gap. {value:F1}.",
+                            SubscribedLevelNames = Array.Empty<string>(),
+                            // The histogram form: the same picture, sounded and navigated as a
+                            // histogram (only the type, sound and speech are a form's).
+                            OtherForm = new() { Name = CompWtHistogram, DisplayName = DisplayWaveGap, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
+                                FormName = "histogram",
+                                DefaultPlaybackLayer = PlaybackLayer.Background,
+                                DefaultPitchMapping = PitchMapping.Direction,
+                                DefaultBullishFrequency = 360.0,
+                                DefaultBearishFrequency = 140.0,
+                                // No amplitude override: a histogram takes the shared bar rule
+                                // (constant loudness, grit ∝ magnitude) from the sonification
+                                // profile, like MACD's and volume's.
+                                SpeechTemplate = "Wave Gap. {value:F1}.",
+                                SubscribedLevelNames = Array.Empty<string>() } },
 
                     // ── The two waves: areas from zero, painted first (DrawOrder −2) ──
                     new() { Name = CompWT1,           DisplayName = DisplayWT1, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
@@ -244,8 +268,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // VuManChu-style raw-candle average through a signed square root × 175. Formula
                     // and fit evidence at its computation in Calculate. Clamped to ±100.
                     //
-                    // A Histogram (the display type picks the sonification profile: bar rule) drawn
-                    // as an area from zero, coloured by its sign against ColorBaseline 0.
+                    // An area from zero, coloured by its sign against ColorBaseline 0.
                     //
                     // Colours from MCB, not from VuManChu (#3EE145 / #FF3D2E). MCB's money-flow
                     // area is a lime green and a pure red at about 50% opacity: solved from its
@@ -255,7 +278,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // channel). #FF1100 is a red MCB itself uses (its Stoch line's label). The red
                     // over the blue wave is the maroon-pink that guides call MCB's "pink" area.
                     // Until 2026-10-17 this was #00E676 / #FF1744, a pair almost identical to
-                    // the WT Histogram's.
+                    // the Wave Gap's.
                     // Shape (2026-10-17): an AREA at MCB's ~50% (#80), painted OVER the VWAP and the
                     // waves as MCB paints it (DrawOrder 0, after their −1 and −2).
                     // The two tones per side are compositing, not two areas: dark green over the
@@ -264,25 +287,36 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // same window (2026-10-22). What was missing is the rim: MCB strokes the area's
                     // value edge in the same 50% colour, so the edge composites to about 75% over
                     // ~2 px (measured 0.65-0.74) — the brighter outline along the top of the wave.
-                    new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
+                    // Two forms, as the Wave Gap's above (2026-10-30): a WAVE by default (sounded
+                    // on the pane's scale) or a HISTOGRAM (the bar rule), one picture in both: the
+                    // area (a green/red line when unfilled) and the Money Flow Bar band along the
+                    // bottom, which is hidden with it.
+                    new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
+                            FormName = "wave",
                             DefaultColorHex = "#803FFF00", DefaultColorHexSecondary = "#80FF1100",
-                            DefaultIsAreaFill = true,
+                            DefaultIsAreaFill = true, DefaultAreaBySign = true,
                             DefaultAreaEdge = true,
                             DefaultThickness = 2f,
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
                             DefaultReferenceLevel = 0.0,
+                            DefaultUsePolarityColoring = true,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultPitchMapping = PitchMapping.Direction,
-                            DefaultBullishFrequency = 300.0,
-                            DefaultBearishFrequency = 100.0,
-                            // No amplitude override: a histogram takes the shared bar rule
-                            // (constant loudness, grit ∝ magnitude) from the sonification
-                            // profile, like MACD's and volume's. Until 2026-09-11 this said
-                            // ReferenceDeviation, which made Cipher B the one histogram whose
-                            // bars got LOUDER as they grew.
+                            DefaultPitchMapping = PitchMapping.Value,
+                            DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultEnvelopeType = "Sustain",
+                            DefaultWaveform = "sawtooth", DefaultAboveWaveform = "sawtooth", DefaultBelowWaveform = "square",
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "Money Flow. {value:F1}.",
-                            SubscribedLevelNames = Array.Empty<string>() },
+                            SubscribedLevelNames = Array.Empty<string>(),
+                            OtherForm = new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Histogram, Role = ComponentRole.Signal,
+                                FormName = "histogram",
+                                DefaultPlaybackLayer = PlaybackLayer.Background,
+                                DefaultPitchMapping = PitchMapping.Direction,
+                                DefaultBullishFrequency = 300.0,
+                                DefaultBearishFrequency = 100.0,
+                                SpeechTemplate = "Money Flow. {value:F1}.",
+                                SubscribedLevelNames = Array.Empty<string>() } },
 
                     // ── WaveTrend crossover dots ────────────────────────────
                     // Skia reads an 8-digit hex as #AARRGGBB. These were written #RRGGBBAA
@@ -1300,7 +1334,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 CompWT1            => GetWTValueSpeech(value),
                 CompWT2            => GetWTValueSpeech(value),
-                CompWtHistogram    => $"{value:F1}, {(value >= 0 ? "positive" : "negative")}",
+                CompWtHistogram    => $"{value:F1}",
                 CompWT1Anchor      => $"{value:F1}",
                 CompWT2Anchor      => $"{value:F1}",
                 CompAnchorPolarity => value > 0 ? "bullish" : (value < 0 ? "bearish" : "neutral"),
@@ -1319,15 +1353,13 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static string GetMFWaveSpeech(double value)
         {
-            // Which side the money flow is on, then the number drawn — "buying pressure, 18.0".
-            // It used to say "18% buying pressure", but the value is not a percentage of anything
-            // (180 × a 60-bar average of candle body over range in MCB mode), so the "%" claimed a
-            // meaning it does not have (Cody, 2026-10-17: "Money flow wording, fix this"). Same
-            // number, same precision as the status line and Alt+Shift+D print.
+            // The number drawn, signed, as the waves say theirs: "minus 18.0" is "-18.0" to a
+            // screen reader. It said "selling pressure, 18.0" until 2026-10-30 (Cody: "why does
+            // money flow say x buying pressure or y selling pressure yes wt gives just a raw
+            // number"): the side is the sign, and "pressure" claimed a meaning the number does
+            // not have. Same precision as the status line and Alt+Shift+D.
             if (double.IsNaN(value)) return "no data";
-            if (value == 0) return "neutral, 0.0";
-            string side = value > 0 ? "buying" : "selling";
-            return $"{side} pressure, {Math.Abs(value).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}";
+            return value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         /// <summary>The wave's value, with "overbought" / "oversold" past ±53 — the default
@@ -1397,7 +1429,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!double.IsNaN(histVal))
             {
                 string hDir = histVal >= 0 ? "bullish" : "bearish";
-                sb.Append($"WT Histogram {hDir} at {histVal:F1}. ");
+                sb.Append($"Wave Gap {hDir} at {histVal:F1}. ");
             }
             if (!double.IsNaN(ancVal))
             {

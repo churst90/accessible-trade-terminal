@@ -225,6 +225,24 @@ namespace AccessibleTrader.Sdk.Models
         public bool IsAreaFillInEffect() => UserIsAreaFill ?? IsAreaFill;
 
         /// <summary>
+        /// The USER's choice from Properties → Appearance → "Read as", or null when they have
+        /// never chosen (the indicator's first form). Names the display type of the form chosen;
+        /// a value that is neither of the component's forms is the first form. What the form
+        /// decides — <see cref="DisplayType"/> (the type word and how it is navigated), the sound
+        /// and the speech template — is rebuilt from that form's metadata on every load
+        /// (<c>IndicatorModelFactory.BuildForm</c>), so only the choice is kept. The picture is
+        /// the same in every form.
+        /// Cody, 2026-10-30: "perhaps a toggle here would be best, with the waves being the
+        /// default view".
+        /// </summary>
+        public ComponentDisplayType? UserDisplayType { get; set; }
+
+        /// <summary>Painted as a filled histogram is, though not one; see
+        /// <see cref="IndicatorComponentMetadata.DefaultAreaBySign"/>. Rebuilt from metadata on
+        /// every load.</summary>
+        public bool AreaBySign { get; set; }
+
+        /// <summary>
         /// The INDICATOR's choice of whether this component's newest value is a label on its
         /// pane's value axis — rebuilt from
         /// <see cref="IndicatorComponentMetadata.DefaultShowAxisLabel"/> on every load, so a
@@ -402,7 +420,7 @@ namespace AccessibleTrader.Sdk.Models
                 IsMuted = IsMuted, IsVisible = IsVisible, ProviderIsVisible = ProviderIsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
-                FillColorHex = FillColorHex, AreaEdge = AreaEdge, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
+                FillColorHex = FillColorHex, AreaEdge = AreaEdge, AreaBySign = AreaBySign, UserDisplayType = UserDisplayType, DrawOrder = DrawOrder, ColorAboveComponent = ColorAboveComponent,
                 BackgroundTint = BackgroundTint, UserBackgroundTint = UserBackgroundTint,
                 TintColorAboveHex = TintColorAboveHex, TintColorBelowHex = TintColorBelowHex,
                 TintMidline = TintMidline, TintFullAt = TintFullAt,

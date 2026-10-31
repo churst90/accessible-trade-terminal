@@ -133,6 +133,13 @@ public sealed class DeclaredKnobObservabilityTests
             + "single bar's picture, sound or reading, so none of these channels can see it; "
             + "HindsightNarrationTests pins it (and its removal was shown to turn them red).",
 
+        ["UserDisplayType"] =
+            "Not read while a frame is drawn or sounded: it is the form the user chose (\"Read as\", "
+            + "Cipher B's Wave Gap and Money Flow), read by IndicatorModelFactory when the series is "
+            + "built (layer 1, FormOf) and by IndicatorModelFactory.ApplyForm when the dialog switches "
+            + "it. Both rewrite DisplayType and the form's own fields, which every channel reads. "
+            + "CipherBWaveFormTests pins both readers.",
+
         ["RibbonName"] =
             "Read only by NarrationScanner on a bar close: shown price-pane lines that share a ribbon "
             + "name are narrated as one band (\"entered the ribbon\", \"left the ribbon above\") instead "
@@ -620,6 +627,9 @@ public sealed class DeclaredKnobObservabilityTests
         (ComponentDisplayType.Window, "window, shaded", c => c.BackgroundTint = BackgroundTint.ThisPane),
         // A histogram drawn as an area, whose value edge AreaEdge strokes (Cipher B's money flow).
         (ComponentDisplayType.Histogram, "histogram area", c => c.IsAreaFill = true),
+        // A wave drawn as a filled area, which AreaBySign fills by sign as a histogram area is
+        // filled (Cipher B's Wave Gap and Money Flow, shown as a wave).
+        (ComponentDisplayType.Oscillator, "wave area", c => c.IsAreaFill = true),
         // A ringed marker, whose signs, word (BadgeWords) and stacking (MarkerStacksUnder) no
         // other shape draws (Cipher C's lows).
         // At its value, 8 under the "upper" line it is perturbed to stack under: near enough that

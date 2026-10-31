@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Fixtures;
@@ -36,7 +37,11 @@ public sealed class CipherBBarGritTests
             new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService()),
             new MockIndicatorPreferencesService());
         var meta = new CipherBProvider().GetIndicators()[0];
-        var s = factory.CreateSeriesFromMetadata(meta, meta.Name, meta.DefaultPane, new List<(string, string)>(), null);
+        // Read as histograms: grit is the bars' texture. Read as waves (their first form,
+        // 2026-10-30) they are pitched by value instead (CipherBWaveFormTests).
+        var s = ComponentForms.InOtherForm(factory, meta);
+        Assert.All(new[] { CipherBProvider.CompMoneyFlowWave, CipherBProvider.CompWtHistogram },
+            n => Assert.Equal(ComponentDisplayType.Histogram, s.Components.Single(c => c.Name == n).DisplayType));
         var results = new Dictionary<string, double[]>();
         new CipherBProvider().Calculate("CIPHER_B", bars.ToArray(), new Dictionary<string, object>(), new IndicatorResultBuffer(results, bars.Count));
         foreach (var (k, v) in results) s.Data.ComponentData[k] = v;

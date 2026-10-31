@@ -52,7 +52,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // Zone bands first (widest, most background-like fills).
                     foreach (var band in s.Config.ZoneBands)
                     {
-                        if (!band.IsVisible) continue;
+                        if (!band.IsVisible || !SignShown(s, band)) continue;
                         StandardRenderers.RenderZoneBand(ctx, s, band);
                     }
 
@@ -119,14 +119,24 @@ namespace AccessibleTrader.Core.Services.Rendering
                             case ComponentDisplayType.Area:
                             case ComponentDisplayType.Oscillator:
                             case ComponentDisplayType.Gradient:
-                                StandardRenderers.RenderLine(ctx, s, comp, paint);
+                                // A filled wave painted as a filled histogram is (Cipher B's
+                                // Money Flow and Wave Gap), one area per side.
+                                if (comp.AreaBySign && comp.IsAreaFillInEffect())
+                                    StandardRenderers.RenderDirectionalBars(ctx, s, comp);
+                                else
+                                    StandardRenderers.RenderLine(ctx, s, comp, paint);
                                 break;
                             case ComponentDisplayType.Bar:
                             case ComponentDisplayType.Histogram:
                                 // All bars are directionally colored: candle-direction (ColorSource.PriceAction,
                                 // e.g. volume) or value-sign (ColorSource.Value, e.g. MACD histogram).
                                 // The renderer selects the correct rule from comp.ColorSource.
-                                StandardRenderers.RenderDirectionalBars(ctx, s, comp);
+                                // A wave shown to the screen reader as a histogram keeps the
+                                // wave's picture (AreaBySign): unfilled, it is the wave's line.
+                                if (comp.AreaBySign && !comp.IsAreaFillInEffect())
+                                    StandardRenderers.RenderLine(ctx, s, comp, paint);
+                                else
+                                    StandardRenderers.RenderDirectionalBars(ctx, s, comp);
                                 break;
                             case ComponentDisplayType.Dot:
                                 StandardRenderers.RenderDot(ctx, s, comp, paint);
@@ -233,6 +243,16 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// otherwise, so for everything else this IS the declared order.</summary>
         /// <summary>A cloud fill is drawn when it is visible and neither of its edges is a part the
         /// user left out (SeriesConfig.ExcludedComponents): the band goes with its edge.</summary>
+        /// <summary>
+        /// A band coloured by a component's sign (Cipher B's Money Flow Bar) is part of that
+        /// component's picture: hidden, undrawn, switched off or left out, the band goes with it.
+        /// Cody, 2026-10-30: "hiding the money flow should hide both".
+        /// </summary>
+        internal static bool SignShown(ChartSeries s, ZoneBandConfig band) =>
+            string.IsNullOrEmpty(band.SignComponentName)
+            || s.Components.FirstOrDefault(c => c.Name == band.SignComponentName) is { IsVisible: true, IsDrawn: true } c
+               && c.IsEnabled != false;
+
         internal static bool DrawsFill(SeriesConfig config, CloudFillConfig fill) =>
             fill.IsVisible && !config.IsExcluded(fill.UpperComponentName) && !config.IsExcluded(fill.LowerComponentName);
 

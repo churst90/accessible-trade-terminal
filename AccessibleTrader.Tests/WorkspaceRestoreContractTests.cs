@@ -114,6 +114,9 @@ public class WorkspaceRestoreContractTests
         "UserDrawPath",   // Properties → Draw the {PathName} (2026-10-22): the choice to hide a
                           // component's picture, such as Cipher C's cycle arc. PathName itself
                           // is the indicator's.
+        "UserDisplayType", // Properties → Read as (2026-10-30): which of a component's two
+                          // forms. The CHOICE only: everything the form decides is rebuilt from
+                          // that form's metadata.
     };
 
     // ── The gate: no property may be unclassified ────────────────────────────────

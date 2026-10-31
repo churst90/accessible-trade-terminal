@@ -122,8 +122,8 @@ fourth below the body — E4 on an up bar, E3 on a down bar, against the body's 
 A3 — so the bed is audibly under the candle rather than on it, and neither lands on a
 wick. Until 2.11.0 volume played on the body's own pitch, which is why a busy bar
 could sound like one thick note instead of two. Volume takes its up or down tone from the candle
-because it is coloured by the candle; every other bar — MACD's histogram, Cipher B's WT Histogram
-and Money Flow, PPO, CMF, Force Index — takes it from its own value, the higher tone above zero
+because it is coloured by the candle; every other bar — MACD's histogram, Cipher B's Wave Gap
+and Money Flow when read as histograms, PPO, CMF, Force Index — takes it from its own value, the higher tone above zero
 and the lower below, the side it is drawn on and the sign you hear spoken. (Until October 2026
 those followed the candle too, so a negative bar under an up candle sounded positive.) And when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
@@ -1402,9 +1402,14 @@ it passed through quickly.
 
 **Multi-signal and structure.** **Cipher B** combines a wave oscillator and money flow into one
 pane. It is drawn the way Market Cipher B draws it: the fast wave a light-blue area with the
-dark-blue slow wave in front of it, a yellow "VWAP" area (the fast wave minus the slow) over both,
-the money flow as a green area above zero and red below over that, and along the bottom a
-money-flow bar, green while money flows in and dark red while it flows out. Small green and red
+dark-blue slow wave in front of it, a yellow area we call the **Wave Gap** (the fast wave minus the
+slow; Market Cipher B labels it "VWAP", which it is not) over both, the money flow as a green area
+above zero and red below over that, and along the bottom a money-flow bar, green while money flows
+in and dark red while it flows out; hiding Money Flow hides that bar too. The Wave Gap and Money
+Flow are read, arrowed and heard as waves, pitched by their value on the pane's scale like the
+blue waves; Properties, Appearance, **Read as** makes either a histogram instead, pitched by its
+side with a grit that grows with its size. Read as changes only what you hear and how it is
+named and arrowed; the picture stays the same. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
 every upward cross of the waves with the fast wave below −60; narration says "Buy dot, waves
 crossed up from oversold". The money flow reads no volume: for each candle it takes the typical price (high, low and close
@@ -1426,8 +1431,8 @@ through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
 on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
 extremes, heard but not drawn. The levels are plain grey lines, solid at ±60 and zero, dotted at ±53;
-the waves turn rough past ±53 and rougher past ±60. Money Flow is spoken by its side and its number,
-"buying pressure, 18.0" or "selling pressure, 12.4".
+the waves turn rough past ±53 and rougher past ±60. Money Flow and the Wave Gap are spoken by their
+signed number, "18.0" or "-12.4".
 
 **What Cipher B leaves out.** Its own extra signals, which Market Cipher B does not show, are
 computed but left out: the red Overbought Crossover, the regular and hidden divergences with their

@@ -10,6 +10,10 @@ namespace AccessibleTrader.Core.Services
         List<(string Name, string DisplayName, string Value, string Type)> GetUiParameters(ChartSeries series, IndicatorMetadata? meta);
         string GenerateInstanceName(IndicatorMetadata meta, IEnumerable<string> parameterValues);
         ComponentConfig CreateComponentConfig(string indicatorCode, string componentName);
+        /// <summary>Rebuilds what <paramref name="comp"/>'s form decides from the indicator's
+        /// metadata for the form its <see cref="ComponentConfig.UserDisplayType"/> chooses; see
+        /// <see cref="IndicatorModelFactory.ApplyForm"/>.</summary>
+        void ApplyForm(IndicatorMetadata indicator, ComponentConfig comp);
     }
 
     public class IndicatorModelFactory : IIndicatorModelFactory
@@ -159,8 +163,14 @@ namespace AccessibleTrader.Core.Services
             // Layer 1: always generate fresh configs from provider metadata.
             //          This ensures new metadata defaults (colors, audio, shapes) are never
             //          silently overridden by a stale all-or-nothing workspace save.
+            //          Built from the FORM chosen ("Read as", UserDisplayType): the chart's
+            //          own choice, else the one saved as this indicator's default, else the
+            //          first form. Choosing here, before layers 2 and 3, keeps their order.
+            var prefs = _prefsService.GetPreferences(meta.Code);
             var sourceComponents = meta.Components
-                .Select(mc => CreateComponentConfigFromMeta(meta, mc))
+                .Select(mc => BuildForm(meta, mc,
+                    componentOverrides?.FirstOrDefault(o => o.Name == mc.Name)?.UserDisplayType
+                    ?? prefs?.FirstOrDefault(p => p.Name == mc.Name)?.UserDisplayType))
                 .ToList();
 
             // Layer 2: restore lightweight per-component user state from the workspace save
@@ -218,13 +228,13 @@ namespace AccessibleTrader.Core.Services
                     // PathName came from metadata above.
                     fresh.UserIsAreaFill = saved.UserIsAreaFill;
                     fresh.UserDrawPath   = saved.UserDrawPath;
+                    fresh.UserDisplayType = saved.UserDisplayType;
                 }
             }
 
             // Layer 3: apply explicit user preferences saved via Properties dialog.
             //          These take priority over both metadata defaults and workspace state,
             //          and are the only way to permanently persist appearance / audio changes.
-            var prefs = _prefsService.GetPreferences(meta.Code);
             if (prefs != null)
             {
                 foreach (var fresh in sourceComponents)
@@ -240,6 +250,8 @@ namespace AccessibleTrader.Core.Services
                         fresh.UserIsAreaFill = pref.UserIsAreaFill;
                     if (fresh.UserDrawPath is null && pref.UserDrawPath is not null)
                         fresh.UserDrawPath = pref.UserDrawPath;
+                    if (fresh.UserDisplayType is null && pref.UserDisplayType is not null)
+                        fresh.UserDisplayType = pref.UserDisplayType;
                     if (pref.ColorHex          != null) fresh.ColorHex          = pref.ColorHex;
                     if (pref.ColorHexSecondary  != null) fresh.ColorHexSecondary  = pref.ColorHexSecondary;
                     if (pref.Thickness         != null) fresh.Thickness         = pref.Thickness.Value;
@@ -341,6 +353,65 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The form of <paramref name="mc"/> that <paramref name="chosen"/> names: its
+        /// <see cref="IndicatorComponentMetadata.OtherForm"/> when the display type is that form's,
+        /// else the first form (never chosen, or a type neither form has).
+        /// </summary>
+        public static IndicatorComponentMetadata FormOf(IndicatorComponentMetadata mc, ComponentDisplayType? chosen) =>
+            chosen is { } t && mc.OtherForm is { } other && other.DisplayType == t && t != mc.DisplayType ? other : mc;
+
+        /// <summary>
+        /// <paramref name="mc"/> built in the form <paramref name="chosen"/> names. The PICTURE is
+        /// always the first form's — every field of it — and the chosen form brings only what
+        /// the screen reader is given: the display type (the type word, how it is navigated),
+        /// the sound and the speech (<see cref="TakeForm"/>). Cody, 2026-10-30: "the toggle …
+        /// shouldn't change what is visually shown, only what component type the screen reader
+        /// sees and navigates on".
+        /// </summary>
+        private ComponentConfig BuildForm(IndicatorMetadata indicator, IndicatorComponentMetadata mc, ComponentDisplayType? chosen)
+        {
+            var comp = CreateComponentConfigFromMeta(indicator, mc);
+            var form = FormOf(mc, chosen);
+            if (!ReferenceEquals(form, mc)) TakeForm(comp, CreateComponentConfigFromMeta(indicator, form));
+            return comp;
+        }
+
+        /// <summary>
+        /// What a form decides, copied from <paramref name="from"/>: the display type, the sound
+        /// and the speech. Nothing drawn — colours, fill, edge, thickness, paint order, baseline,
+        /// polarity colouring and reference level stay as they are — nor the pitch multiplier,
+        /// which is the user's.
+        /// </summary>
+        private static void TakeForm(ComponentConfig to, ComponentConfig from)
+        {
+            to.DisplayType = from.DisplayType;
+            to.Waveform = from.Waveform; to.AboveReferenceWaveform = from.AboveReferenceWaveform;
+            to.BelowReferenceWaveform = from.BelowReferenceWaveform; to.EnvelopeType = from.EnvelopeType;
+            to.AmplitudeMapping = from.AmplitudeMapping; to.PitchMapping = from.PitchMapping;
+            to.BaseFrequency = from.BaseFrequency; to.BullishFrequency = from.BullishFrequency;
+            to.BearishFrequency = from.BearishFrequency;
+            to.TriggerBoundaryClick = from.TriggerBoundaryClick; to.NoiseAmount = from.NoiseAmount;
+            to.PlaybackLayer = from.PlaybackLayer; to.DeviationNorm = from.DeviationNorm;
+            to.SubscribedLevelNames = from.SubscribedLevelNames; to.SpeechTemplate = from.SpeechTemplate;
+            to.SignalSpeechTemplate = from.SignalSpeechTemplate; to.DecayMs = from.DecayMs;
+            to.SoundPatchId = from.SoundPatchId;
+        }
+
+        /// <summary>
+        /// "Read as", changed in Properties: the display type, sound and speech of the form
+        /// <see cref="ComponentConfig.UserDisplayType"/> chooses, from the metadata, as a load
+        /// would build them (<see cref="BuildForm"/>). The picture is not touched, and neither is
+        /// what the user set on the component (visibility, inclusion, mute, volume, pitch
+        /// multiplier, narration, colours, the User* choices).
+        /// </summary>
+        public void ApplyForm(IndicatorMetadata indicator, ComponentConfig comp)
+        {
+            var mc = indicator.Components.FirstOrDefault(m => m.Name == comp.Name);
+            if (mc?.OtherForm == null) return;
+            TakeForm(comp, BuildForm(indicator, mc, comp.UserDisplayType));
+        }
+
+        /// <summary>
         /// Builds a ComponentConfig from indicator metadata, preferring the metadata's optional
         /// Default* and audio hint fields over global role/type-based StylingService defaults.
         /// DataMapping, UpperComponentName, LowerComponentName, and IsVisible are applied from metadata.
@@ -433,6 +504,7 @@ namespace AccessibleTrader.Core.Services
                 IsAreaFill         = meta.DefaultIsAreaFill ?? false,
                 FillColorHex       = meta.DefaultFillColorHex ?? string.Empty,
                 AreaEdge           = meta.DefaultAreaEdge ?? false,
+                AreaBySign         = meta.DefaultAreaBySign ?? false,
                 DrawOrder          = meta.DefaultDrawOrder ?? 0,
                 ColorAboveComponent = meta.DefaultColorAboveComponent ?? string.Empty,
                 // Background tint — the indicator's declaration, rebuilt on every load. The user's

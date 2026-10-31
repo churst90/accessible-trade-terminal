@@ -183,7 +183,8 @@ public sealed class AreaFillEdgeTests
             }
             case "money-flow sign band":
             {
-                var c = Comp("v", ComponentDisplayType.Line); c.IsVisible = false;
+                // Visible: hiding the component the bar follows hides the bar (Cipher B's Money Flow).
+                var c = Comp("v", ComponentDisplayType.Line);
                 cfg.Components.Add(c); buf.ComponentData["v"] = Values(-40);
                 cfg.ZoneBands.Add(new ZoneBandConfig
                 {

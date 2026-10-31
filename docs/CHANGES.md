@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's Wave Gap and Money Flow: read as waves by default, as histograms by choice; the picture is the same (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
+
+- **Why**: Cody: "The wt histogram jumps to os/ob levels even though it doesn't have them ... histograms shouldn't have
+  over bought/over sold levels, so we need to pick one display type", then "the money flow I think does show the waves
+  plus the red/green bar, so perhaps a toggle here would be best, with the waves being the default view ... it's a
+  yellow filled area so this should read correctly as well. whatever scale thee two are set to should be what is read
+  out". Both were Histograms pitched by side: two fixed notes (WT Histogram 360/140 Hz, Money Flow 300/100 Hz) that
+  leap more than an octave at every zero cross, the low ones below the blue waves' whole 200-1000 Hz scale. That leap
+  is the "jump" Cody heard; there were no levels behind it. Then, on the first build (which drew the histogram form as
+  columns): "the toggle for the money flow shouldn't change what is visually shown, only what component type the
+  screen reader sees and navigates on ... both should be on screen visually. hiding the money flow should hide both
+  the waves and histogram".
+- **What**: each has a "Read as" setting in Properties (Wave / Histogram), Wave by default. It changes only what the
+  screen reader is given: the type word, how it is navigated, the sound and the speech. **The picture is the same in
+  both forms**: the filled area (drawn pixel for pixel as before; unfilled, its line), and for Money Flow the red/green
+  Money Flow Bar along the bottom.
+  - **Wave**: sounded on the pane's own ±100 scale (Value pitch, like the blue waves), no levels, constant loudness,
+    square above zero and triangle or sawtooth below.
+  - **Histogram**: pitched by side, with the bar grit from the commit below.
+  - **Hiding Money Flow hides the Money Flow Bar too** (hidden, switched off, undrawn or left out). Before, the bar
+    stayed on screen with Money Flow hidden; it now goes with any band coloured by a component's sign.
+  - Saved per chart (the workspace) and as the indicator's default (Save as Defaults). A chart saved before today
+    opens as the wave.
+- **Names and speech**: the WT Histogram is shown and spoken as "Wave Gap" (it is the fast wave less the slow one;
+  Market Cipher B calls it "VWAP", which it is not). Its component name stays "WT Histogram", so saved charts,
+  strategies and alerts that name it still find it. Money Flow says its signed number ("18.0", "-12.3"), as the Wave
+  Gap does; no "buying pressure" or "selling pressure".
+- **How**: a component's metadata can carry a second form (`IndicatorComponentMetadata.OtherForm`, `FormName`) that
+  declares only its type, sound and speech. The user's choice is `ComponentConfig.UserDisplayType`. The factory builds
+  the first form and takes only the type, sound and speech from the chosen one (`IndicatorModelFactory.BuildForm`,
+  `TakeForm`), before restoring the saved state; the dialog's switch does the same on its copy (`ApplyForm`) and leaves
+  the picture and the pitch multiplier as the user set them. A filled Line or Oscillator with `AreaBySign` is drawn by
+  the directional area renderer the histogram area used; a Histogram with `AreaBySign` unfilled is drawn as its line.
+  A zone band with a `SignComponentName` is drawn only while that component is (`DataLayer.SignShown`).
+- **Caveats**:
+  - Sound settings saved as defaults in one form (waveform, base frequency, noise) apply in the other form too.
+  - The component's type word is still "oscillator" in the wave form, as for the blue waves; the dialog says "Wave".
+  - The crosshair badge ranks a histogram's reading below a line's, so with both forms on screen the badge may lead
+    with a different part in the histogram form; the chip colour is the same.
+  - Not seen or heard in the app.
+  - The accessibility-lead agent is not registered here.
+- **Tests**:
+  - `CipherBWaveFormTests`: the default is the wave, and the WT Histogram is named Wave Gap. The wave's pitch rises
+    with its value and does not leap at zero, while the histogram keeps its two notes. A chart saved as histograms and
+    histograms saved as the default both build histograms. The switch works both ways and keeps the user's colour,
+    thickness and fill. Only the type, sound and speech fields differ between the forms (every serialised field
+    compared). Both forms draw the same frame, filled and unfilled, loaded or switched; the wave draws the same pixels
+    as the old histogram area. The Money Flow Bar is drawn, and is gone when Money Flow is hidden, switched off,
+    undrawn or left out, in both forms.
+  - `CipherBMoneyFlowSpeechTests`: the signed number for both parts.
+  - The grit and pitch-by-side tests now build the histogram form (`ComponentForms`).
+  - The knob sweep has a filled-wave cell, and names the factory as `UserDisplayType`'s reader.
+  - `AreaFillEdgeTests`' sign-band fixture had its sign component hidden (as Money Flow was); it is now visible,
+    since a hidden component's band is no longer drawn. README 9819.
+  - 26 sabotages, 25 red. The green one (the histogram form not taking its speech template) is equivalent: both forms
+    declare the same template.
+
 ### A bar's grit is its size against the biggest bar of its own kind in view (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
 
 - **What**: Cody: "keep the money flow and wt histogram sonified as a histogram, but do double check the grittiness

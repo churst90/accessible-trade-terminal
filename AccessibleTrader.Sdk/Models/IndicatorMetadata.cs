@@ -286,6 +286,33 @@ namespace AccessibleTrader.Sdk.Models
         public bool? DefaultAreaEdge { get; set; }
 
         /// <summary>
+        /// A filled line or oscillator painted exactly as a filled histogram is: one area per run
+        /// on each side of <see cref="ColorBaseline"/>, from its reference level, in
+        /// <see cref="DefaultColorHex"/> above and <see cref="DefaultColorHexSecondary"/> below,
+        /// with no line along it unless <see cref="DefaultAreaEdge"/>; unfilled, its line. For a
+        /// component whose <see cref="OtherForm"/> is a histogram: the picture is the same in
+        /// both forms. Null or false = drawn as a line.
+        /// </summary>
+        public bool? DefaultAreaBySign { get; set; }
+
+        /// <summary>
+        /// Another way this component can be shown, chosen per chart in Properties → Appearance →
+        /// "Read as" (<c>ComponentConfig.UserDisplayType</c>): the same values under the same
+        /// <see cref="Name"/>, with its own <see cref="DisplayType"/> (which must differ from this
+        /// one's), sound and speech template. Only what the screen reader is given: the picture
+        /// is always THIS declaration's, and the other form's drawing fields are never read
+        /// (<c>IndicatorModelFactory.BuildForm</c>). Null = shown one way only. Cipher B's Money
+        /// Flow and Wave Gap: a wave by default, a histogram as the other form (Cody, 2026-10-30:
+        /// "the toggle … shouldn't change what is visually shown, only what component type the
+        /// screen reader sees and navigates on").
+        /// </summary>
+        public IndicatorComponentMetadata? OtherForm { get; set; }
+
+        /// <summary>What the "Read as" choice calls this form ("wave", "histogram"). Null = the
+        /// display type's spoken word.</summary>
+        public string? FormName { get; set; }
+
+        /// <summary>
         /// Paint order within the series: lower draws first. Null = 0. Only the DRAWING order —
         /// components keep their declared order everywhere else (keyboard navigation, speech,
         /// sonification, the status line). Lets an indicator put a wave behind a histogram it

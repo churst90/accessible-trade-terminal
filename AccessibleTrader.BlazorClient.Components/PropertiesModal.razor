@@ -260,6 +260,26 @@
                                 var cid = "app-" + Slug(comp.Name);
                                 <fieldset>
                                     <legend>Component: @CompLabel(comp)</legend>
+                                    @* READ AS, 2026-10-30 (Cody: Money Flow and the Wave Gap "a
+                                       toggle here would be best, with the waves being the default
+                                       view", then "shouldn't change what is visually shown, only
+                                       what component type the screen reader sees and navigates
+                                       on"). Only on a component that has two forms. Changing it
+                                       changes at once the type word, the navigation, the sound and
+                                       the speech — never the picture — and records the USER's
+                                       choice (UserDisplayType); never touching it is the first form. *@
+                                    @if (FormsOf(comp) is { } forms)
+                                    {
+                                        <div class="modal-row">
+                                            <label for="@(cid)-form">Read as</label>
+                                            <select id="@(cid)-form" aria-label="Read as for @CompLabel(comp)"
+                                                    value="@comp.DisplayType"
+                                                    @onchange="e => SetForm(comp, e.Value?.ToString())">
+                                                <option value="@forms.First.DisplayType">@FormWord(forms.First)</option>
+                                                <option value="@forms.Other.DisplayType">@FormWord(forms.Other)</option>
+                                            </select>
+                                        </div>
+                                    }
                                     @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle
                                         || comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar)
                                     {
@@ -326,6 +346,7 @@
                                     {
                                         var fillText = comp.DisplayType is AccessibleTrader.Sdk.Models.ComponentDisplayType.Histogram
                                             or AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar
+                                            && !comp.AreaBySign
                                             ? "Draw as a filled area" : "Fill under the line";
                                         <div class="modal-row">
                                             <label for="@(cid)-area-fill">
@@ -1115,6 +1136,7 @@
     private List<IndicatorParameterMetadata> _paramMeta = new();
     /// <summary>The indicator's component names in its own order (the Parts list and where an included part goes back).</summary>
     private List<string> _componentOrder = new();
+    private IndicatorMetadata? _indicatorMeta;
     private string? _error;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;
@@ -1148,6 +1170,7 @@
         // Look up parameter metadata for display names, descriptions, and validation.
         _paramMeta = new();
         _componentOrder = new();
+        _indicatorMeta = null;
         if (!string.IsNullOrEmpty(_series.Config?.IndicatorCode))
         {
             var allMeta = IndicatorService.GetAvailableIndicators();
@@ -1157,6 +1180,7 @@
                 _paramMeta = meta.Parameters;
             if (meta?.Components != null)
                 _componentOrder = meta.Components.Select(c => c.Name).ToList();
+            _indicatorMeta = meta;
         }
 
         // Seed every declared string parameter the series has not set yet with its metadata
@@ -1473,6 +1497,28 @@
         StateHasChanged();
     }
 
+    /// <summary>The component's two forms, first then other, or null when it has one.</summary>
+    private (IndicatorComponentMetadata First, IndicatorComponentMetadata Other)? FormsOf(ComponentConfig comp) =>
+        _indicatorMeta?.Components.FirstOrDefault(m => m.Name == comp.Name) is { OtherForm: { } other } first
+            ? (first, other) : null;
+
+    /// <summary>"Wave", "Histogram": the form's own word, capitalised for the list.</summary>
+    private static string FormWord(IndicatorComponentMetadata form)
+    {
+        var w = form.FormName ?? form.DisplayType.ToString();
+        return w.Length == 0 ? w : char.ToUpperInvariant(w[0]) + w[1..];
+    }
+
+    /// <summary>Records the user's "Read as" choice and rebuilds the form on the dialog's copy,
+    /// so Save applies it and Cancel leaves the chart as it was.</summary>
+    private void SetForm(ComponentConfig comp, string? value)
+    {
+        if (_indicatorMeta == null || !Enum.TryParse<ComponentDisplayType>(value, out var type)) return;
+        comp.UserDisplayType = type;
+        Factory.ApplyForm(_indicatorMeta, comp);
+        StateHasChanged();
+    }
+
     private void SaveAsDefaults()
     {
         if (_series == null) return;
@@ -1501,6 +1547,7 @@
                 UserBackgroundTint = c.UserBackgroundTint,
                 UserIsAreaFill    = c.UserIsAreaFill,
                 UserDrawPath      = c.UserDrawPath,
+                UserDisplayType   = c.UserDisplayType,
             })
             .ToList();
 
