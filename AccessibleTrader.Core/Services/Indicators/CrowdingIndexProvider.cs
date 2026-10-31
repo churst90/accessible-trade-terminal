@@ -130,7 +130,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultEnvelopeType = "Sustain",
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultNoiseAmount = 0.10f,
                             DefaultTriggerBoundaryClick = true,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultIsAreaFill = false,
@@ -202,7 +201,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             return new()
             {
                 new("Long Crowded",   2.0, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Long Pressure",  1.0, "#FF8888", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Neutral",        0.0, "#666666", DashStyle.Dash,
@@ -210,7 +209,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Short Pressure",-1.0, "#88FFFF", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Short Crowded", -2.0, "#22FFFF", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             };
         }
 

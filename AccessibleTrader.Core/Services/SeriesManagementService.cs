@@ -647,8 +647,8 @@ namespace AccessibleTrader.Core.Services
         /// is drawn always comes from the indicator (no dialog edits it); and every other field
         /// still equal to the baseline the level last saw (<see cref="LevelConfig.ProviderDefaults"/>)
         /// takes the indicator's current value, while a field the user changed is kept. A level
-        /// saved before the baseline existed knows only the defaults listed in
-        /// <see cref="RetiredDefaults"/> — anything else on it is treated as the user's.</para>
+        /// saved before the baseline existed knows only the zone textures listed in
+        /// <see cref="RetiredTextures.ZoneNoise"/> — anything else on it is treated as the user's.</para>
         /// </summary>
         internal static void HealSavedLevels(ChartSeries series, string codeUp, Indicators.IIndicatorEngine? engine)
         {
@@ -660,7 +660,15 @@ namespace AccessibleTrader.Core.Services
                 var lvl = series.Levels.FirstOrDefault(l => !l.IsUserDefined && l.Name == desc.Name);
                 if (lvl == null) { series.Levels.Add(FromDescriptor(desc, desc.Value)); continue; }
 
-                var was = lvl.ProviderDefaults ?? RetiredDefaults(codeUp, desc.Name);
+                // No baseline (saved before 2026-10-17): only a texture KNOWN to have been a default
+                // is the indicator's (RetiredTextures); everything else on the level is the user's.
+                if (lvl.ProviderDefaults == null
+                    && RetiredTextures.IsRetiredZoneNoise(codeUp, desc.Name, lvl.ZoneNoiseAmount, lvl.ZoneNoiseType))
+                {
+                    lvl.ZoneNoiseAmount = desc.ZoneNoiseAmount;
+                    lvl.ZoneNoiseType   = desc.ZoneNoiseType;
+                }
+                var was = lvl.ProviderDefaults ?? new LevelDefaults();
                 if (was.Value is double v && Math.Abs(lvl.Value - v) < 1e-9) lvl.Value = desc.Value;
                 if (was.ColorHex is { } c && string.Equals(lvl.ColorHex, c, StringComparison.OrdinalIgnoreCase)) lvl.ColorHex = desc.ColorHex;
                 if (was.Dash is { } d && lvl.DashStyle == d) lvl.DashStyle = desc.Dash;
@@ -679,19 +687,6 @@ namespace AccessibleTrader.Core.Services
             }
             ParameterBinding.Apply(series.Config);
         }
-
-        /// <summary>
-        /// The baseline for a level saved before <see cref="LevelConfig.ProviderDefaults"/> existed:
-        /// only defaults a provider is KNOWN to have retired, so a saved value equal to one of them
-        /// was never the user's choice. Everything else is unknown and left alone.
-        /// </summary>
-        private static LevelDefaults RetiredDefaults(string codeUp, string levelName) => (codeUp, levelName) switch
-        {
-            // Cipher B, 2026-10-17: ±53 0.10 → 0.30 and ±60 0.20 → 0.45 (the waves' own 0.15 hid them).
-            ("CIPHER_B", "Overbought" or "Oversold")     => new LevelDefaults { ZoneNoiseAmount = 0.10f },
-            ("CIPHER_B", "Extreme OB" or "Extreme OS")   => new LevelDefaults { ZoneNoiseAmount = 0.20f },
-            _ => new LevelDefaults(),
-        };
 
         private void InjectDefaultLevels(ChartSeries series, string codeUp, Dictionary<string, double> parameters)
             => InjectDefaultLevels(series, codeUp, parameters, _indicatorEngine, _indicatorPrefs);
@@ -726,8 +721,11 @@ namespace AccessibleTrader.Core.Services
                 if (lp.IsVisible.HasValue)        target.IsVisible       = lp.IsVisible.Value;
                 if (lp.PlayEarcon.HasValue)       target.PlayEarcon      = lp.PlayEarcon.Value;
                 if (lp.EarconVolume.HasValue)     target.EarconVolume    = lp.EarconVolume.Value;
-                if (lp.ZoneNoiseAmount.HasValue)  target.ZoneNoiseAmount = lp.ZoneNoiseAmount.Value;
-                if (lp.ZoneNoiseType != null)     target.ZoneNoiseType   = lp.ZoneNoiseType;
+                // A zone texture saved as the default it then was is not a choice (RetiredTextures).
+                bool retiredZone = lp.ZoneNoiseAmount is { } zna
+                    && RetiredTextures.IsRetiredZoneNoise(codeUp, lp.Name, zna, lp.ZoneNoiseType);
+                if (lp.ZoneNoiseAmount.HasValue && !retiredZone) target.ZoneNoiseAmount = lp.ZoneNoiseAmount.Value;
+                if (lp.ZoneNoiseType != null && !retiredZone)    target.ZoneNoiseType   = lp.ZoneNoiseType;
                 if (lp.ColorHex != null)          target.ColorHex        = lp.ColorHex;
                 if (lp.Thickness.HasValue)        target.Thickness       = lp.Thickness.Value;
                 if (lp.DashStyle.HasValue)        target.DashStyle       = lp.DashStyle.Value;

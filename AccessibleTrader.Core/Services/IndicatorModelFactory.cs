@@ -267,7 +267,9 @@ namespace AccessibleTrader.Core.Services
                     if (pref.Volume            != null) fresh.Volume            = pref.Volume.Value;
                     if (pref.FreqMultiplier    != null) fresh.FreqMultiplier    = pref.FreqMultiplier.Value;
                     if (pref.BaseFrequency     != null) fresh.BaseFrequency     = pref.BaseFrequency.Value;
-                    if (pref.NoiseAmount       != null) fresh.NoiseAmount       = pref.NoiseAmount.Value;
+                    // A texture saved as the default it then was is not a choice (RetiredTextures).
+                    if (pref.NoiseAmount       != null && !RetiredTextures.IsRetiredBaseNoise(meta.Code, fresh.Name, pref.NoiseAmount.Value))
+                        fresh.NoiseAmount = pref.NoiseAmount.Value;
                     // Defaults saved while the part was hidden by default (the same change as layer 2):
                     // it stays left out, and its saved "hidden" does not follow it in when included.
                     if (pref.IsVisible == false && ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut(

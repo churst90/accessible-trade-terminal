@@ -58,6 +58,16 @@ namespace AccessibleTrader.Core.Services.Audio
         }
 
         /// <summary>
+        /// True when the component has an overbought or oversold zone that textures: a visible level
+        /// it subscribes to, with that role and a zone texture. Such a component is clean outside its
+        /// zones (Cody, 2026-10-31: "there should only be texturing ... within those extreme zones").
+        /// </summary>
+        internal static bool HasZoneTexture(ChartSeries series, ComponentConfig comp) =>
+            series.Config.Levels.Any(lc => lc.IsVisible && lc.ZoneNoiseAmount > 0f
+                && lc.EffectiveRole is LevelRole.Overbought or LevelRole.Oversold
+                && ComponentSubscribesTo(comp, lc.Name));
+
+        /// <summary>
         /// Returns true when the component subscribes to the named level.
         /// Used by the earcon-crossing check in ISonificationStrategy to gate boundary clicks.
         /// </summary>

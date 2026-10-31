@@ -62,9 +62,10 @@ public sealed class SavedLevelsHealTests
         Assert.False(L(s, "Stoch Overbought").IsDrawn);
         Assert.Equal(80, L(s, "Stoch Overbought").Value);
         Assert.Equal(20, L(s, "Stoch Oversold").Value);
-        Assert.Equal(0.30f, L(s, "Overbought").ZoneNoiseAmount);
-        Assert.Equal(0.30f, L(s, "Oversold").ZoneNoiseAmount);
+        Assert.Equal(0.25f, L(s, "Overbought").ZoneNoiseAmount);   // 0.30 until 2026-10-31
+        Assert.Equal(0.25f, L(s, "Oversold").ZoneNoiseAmount);
         Assert.Equal(0.45f, L(s, "Extreme OB").ZoneNoiseAmount);
+        Assert.Equal("pink", L(s, "Extreme OB").ZoneNoiseType);   // white until 2026-10-31
         Assert.False(L(s, "Zero").IsVisible);                      // his choice stands
         Assert.All(s.Levels, l => Assert.NotNull(l.ProviderDefaults));
     }
@@ -90,10 +91,10 @@ public sealed class SavedLevelsHealTests
         ob.ProviderDefaults = new LevelDefaults { Value = 53, ZoneNoiseAmount = 0.30f, ColorHex = "#8C8C96", Dash = DashStyle.Dot,
             PlayEarcon = true, EarconVolume = 0.6f, ZoneNoiseType = "white", LabelsKnown = true };
         ob.Value = 55;                 // moved by the user
-        ob.ZoneNoiseAmount = 0.25f;    // set by the user
+        ob.ZoneNoiseAmount = 0.20f;    // set by the user
         var s = Restore(withBaseline);
         Assert.Equal(55, L(s, "Overbought").Value);
-        Assert.Equal(0.25f, L(s, "Overbought").ZoneNoiseAmount);
+        Assert.Equal(0.20f, L(s, "Overbought").ZoneNoiseAmount);
 
         // No baseline (an old save) and a value that was never a default: also the user's.
         var legacy = CodysSavedLevels();

@@ -98,7 +98,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultEnvelopeType = "Sustain",
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultNoiseAmount = 0.08f,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             SpeechTemplate = "OI {value:F0} dollars.",
                             IsVisible = true },

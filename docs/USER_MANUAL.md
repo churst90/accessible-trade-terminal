@@ -128,7 +128,7 @@ and the lower below, the side it is drawn on and the sign you hear spoken. (Unti
 those followed the candle too, so a negative bar under an up candle sounded positive.) And when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
-tone so the extremity itself is audible. It is a pronounced roughness, not a faint
+tone so the extremity itself is audible. Inside the normal range there is no texture at all. It is a pronounced roughness, not a faint
 wash, and you can set how strong it is per level with the **Zone Texture** slider in
 an indicator's properties (P), under Reference Levels. You learn to hear "deep
 oversold" the way a sighted trader sees a line pinned to the bottom of its range.
@@ -1433,8 +1433,9 @@ through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
 on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
 extremes, heard but not drawn. The levels are Market Cipher B's white lines: solid at ±60 (thicker)
-and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent; the waves turn
-rough past ±53 and rougher past ±60. Money Flow and the Wave Gap are spoken by their
+and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent. The waves are
+clean inside ±53; past ±53 a soft noise texture comes in, and past ±60 the same noise grows louder.
+No part of Cipher B has a texture in its normal range. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".
 
 **Nothing that Market Cipher B does not draw.** Until 31 October 2026 Cipher B also computed parts of

@@ -84,7 +84,8 @@ public sealed class CipherBStochasticZonesTests
     /// <summary>
     /// The waves keep the pane's ±53 / ±60 — the new zones are the two lines' alone — and the ±53
     /// zone is now HEARD on them: three steps, clean → rough past ±53 → rougher past ±60. Until
-    /// 2026-10-17 the ±53 texture (0.10) sat under the waves' own 0.15 and was never played.
+    /// 2026-10-17 the ±53 texture (0.10) sat under the waves' own 0.15 and was never played; since
+    /// 2026-10-31 the waves have no texture of their own (CipherBZoneTextureTests).
     /// </summary>
     [Theory]
     [InlineData("Wave Trend Fast")]

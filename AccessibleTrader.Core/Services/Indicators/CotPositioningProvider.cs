@@ -132,7 +132,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultEnvelopeType = "Sustain",
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultNoiseAmount = 0.10f,
                             DefaultTriggerBoundaryClick = true,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultIsAreaFill = false,
@@ -214,11 +213,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             return new()
             {
                 new("Crowded Long",  DefaultExtremeZ, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
                 new("Neutral", 0.00, "#666666", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.7f),
                 new("Crowded Short", -DefaultExtremeZ, "#22FFFF", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.20f, ZoneNoiseType: "white"),
+                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             };
         }
 

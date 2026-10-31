@@ -1,3 +1,13 @@
+> - [ ] **Texture only in the extreme zones (2026-10-31, built, NOT heard; see CHANGES).** Cody to arrow Cipher B's
+>   waves on a daily chart: no texture inside ±53, a soft pink noise from ±53 to ±60, the same noise louder past
+>   ±60; and RSI, clean from 30 to 70. Is 0.25 / 0.45 the right step between the two zones?
+>   Questions: (1) Fear & Greed, Crowding Index, COT and Funding Rate's extreme lines (Extreme Greed/Fear, Long/
+>   Short Crowded, Crowded Long/Short, Extreme Long/Short) have never played their zone texture: they are not
+>   overbought/oversold lines. Make them count as overbought/oversold? That would also make them say
+>   "overbought"/"oversold" and give Ctrl+Left/Right their crossings. (2) Fear & Greed's line still has the line
+>   tinge on every bar (it has no overbought/oversold zone); remove it there too? (3) Every line without zones
+>   (MACD, Signal lines, Aroon) keeps a faint brown tinge, the price line's timbre: keep? Caveat: an indicator
+>   default saved on the VPS with a texture other than the old defaults is kept as the user's choice.
 > - [ ] **Cipher B's Wave Gap and Money Flow: RSI's voice, zero-only jumps (2026-10-31, built, NOT heard; see CHANGES).**
 >   Cody to arrow both on a daily chart and say whether they now sound like RSI on each side of zero, and press
 >   Ctrl+Left/Right on each: it should say "Zero line cross", never overbought or oversold. Question: they now

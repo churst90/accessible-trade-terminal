@@ -293,7 +293,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultColorHex = "#42A5F5",   // sky blue — the metronome
                         DefaultThickness = 2.0f,
                         DefaultTriggerBoundaryClick = true,
-                        DefaultNoiseAmount = 0.06f,
                         SpeechTemplate = "{name}. {value:F1}.",
                     },
                     new()
@@ -315,7 +314,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                         ColorBaseline = 50.0,
                         DefaultReferenceLevel = 50.0,   // MFI runs 0..100 about 50, same as the ColorBaseline above
                         DefaultThickness = 1.5f,
-                        DefaultNoiseAmount = 0.05f,
                         SubscribedLevelNames = Array.Empty<string>(),
                         SpeechTemplate = "{name}. {value:F1}.",
                     },

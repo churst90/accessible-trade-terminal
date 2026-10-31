@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Texture only in the extreme zones: Cipher B's waves clean inside ±53, the same soft noise past ±53 and louder past ±60 (2026-10-31, NOT heard)
+
+- **Why**: Cody: "there should only be texturing, i.e. the white noise under the sound, within those extreme zones.
+  In the case of cipher b, there are 2 lines, correct, -53 -60 53 and 60. my idea was to have the softer texturing
+  between the 53 and 60 and above/below the 60/-60 lines have the louder more prominent white noise. As of right now
+  though, I am hearing the softer white noise all the time, are we making sure this is being set correctly? the
+  normal rsi may also be effected... perhaps instead of the louder white noise, we can just amplify the softer
+  noise". Yes, ±53 and ±60 are the two lines. He was right: the two waves carried a texture of their own
+  (0.15 pink) on every bar, and their zones switched to a different, harsher WHITE noise (0.30 past ±53, 0.45
+  past ±60).
+- **Cipher B**: the waves have no texture of their own. Clean inside ±53; 0.25 pink between ±53 and ±60; the same
+  pink at 0.45 past ±60. RSI and Stochastic (80/20, unchanged at 0.45 pink) and the other parts are clean in
+  their normal range.
+- **The plain RSI** was already right: clean from 30 to 70, pink past them. Pinned now.
+- **The others**: eight more components had a texture of their own on every bar, now removed: Fear & Greed's
+  Sentiment, Crowding Index's score, COT's z-score, Funding Rate (0.10 each), Top/Bottom Detector's Capitulation
+  and Distribution (0.05), Pulse's Fast Trigger (0.06) and MFI (0.05), Open Interest (0.08). Every zone is pink
+  now: the four sentiment indicators' extreme lines were white 0.20, now pink 0.45.
+- **Lines with zones**: every part drawn as a plain line had a faint brown tinge (0.05) on every bar, the price
+  line's timbre, and in a zone it turned the zone's noise brown. A line with an overbought/oversold zone
+  (Pulse's Fast Trigger and Anchor) no longer has it: clean between 70 and 30, the zone's pink past them
+  (`AudioZoneHelper.HasZoneTexture`). Lines without zones (MACD and the like, the price line) keep it.
+- **Saved charts and saved defaults**: a level saved at an old default takes the new one. With a baseline it is
+  healed field by field as before; a level saved before levels kept baselines (2026-10-17) is healed only when it
+  holds a texture KNOWN to have been a default (`RetiredTextures.ZoneNoise`: Cipher B's 0.10/0.30 and 0.20/0.45
+  white, the sentiment extremes' 0.20 white). "Save as default" writes every field, so an indicator default saved
+  before today holds the old values whether or not anyone touched them: a saved value equal to a retired default
+  is read as never chosen (`RetiredTextures`), any other value is kept. Cody's own saved Cipher B opens clean
+  inside ±53 and pink in both zones. If only the amount of a level was changed, the type still follows the
+  indicator (pink).
+- **Not fixed (a question in TODO)**: Fear & Greed, Crowding Index, COT and Funding Rate's extreme lines declare a
+  zone texture but are not named overbought/oversold, so it has never played. Before today their only texture was
+  the one on every bar; now they have none outside the line tinge (Fear & Greed's line keeps it). Making those
+  lines count as overbought/oversold would also change what they say and where Ctrl+Left/Right goes.
+- Tests: CipherBZoneTextureTests (both waves at 0, ±10, ±30, ±52.9, ±54, ±59.9, ±61, ±90; Cipher B's other parts;
+  the plain RSI; Pulse's lines and MACD's tinge; Fear & Greed's line keeps its tinge; Funding Rate clean; a fleet guard: no component of any indicator
+  declares a texture of its own and no zone is white, over 30+ textured levels; Cody's save; baseline-less old
+  levels; a chosen texture kept; old saved defaults, both waves). CipherBLookTests and SavedLevelsHealTests updated.
+  18 sabotages, 18 red (two were green until the tests covered them: Wave Trend 2's old saved default, and the
+  zone check's role test). Not heard in the app; the accessibility-lead agent is not registered here.
+
 ### Cipher B's Wave Gap and Money Flow sound like RSI and jump between their zero crosses (2026-10-31, NOT heard)
 
 - **Why**: Cody: "the wave gap and the money flow have reversed sounds and the sounds aren't the oscillator sound

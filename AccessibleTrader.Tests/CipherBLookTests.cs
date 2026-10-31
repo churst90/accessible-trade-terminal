@@ -266,8 +266,8 @@ public sealed class CipherBLookTests
 
         (string Name, double Value, float Vol, float Noise)[] heard =
         {
-            ("Extreme OB", 60, 0.8f, 0.45f), ("Overbought", 53, 0.6f, 0.30f), ("Zero", 0, 0.7f, 0f),
-            ("Oversold", -53, 0.6f, 0.30f), ("Extreme OS", -60, 0.8f, 0.45f),
+            ("Extreme OB", 60, 0.8f, 0.45f), ("Overbought", 53, 0.6f, 0.25f), ("Zero", 0, 0.7f, 0f),
+            ("Oversold", -53, 0.6f, 0.25f), ("Extreme OS", -60, 0.8f, 0.45f),
         };
         foreach (var (name, value, vol, noise) in heard)
         {

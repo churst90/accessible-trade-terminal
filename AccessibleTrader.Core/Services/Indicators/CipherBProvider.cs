@@ -204,7 +204,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
-                            DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
+                            // No texture of its own (was 0.15 until 2026-10-31): the waves are clean
+                            // inside ±53 and textured only in the zones (CipherBZoneTextureTests).
+                            DefaultTriggerBoundaryClick = true,
                             SpeechTemplate = "Wave Trend 1. Oscillator. {value:F1}.",
                             DefaultIsAreaFill = true, DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
@@ -231,7 +233,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPitchMapping = PitchMapping.Value,
-                            DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
+                            DefaultTriggerBoundaryClick = true,   // no texture of its own, as the fast wave
                             SpeechTemplate = "Wave Trend 2. Oscillator. {value:F1}.",
                             DefaultIsAreaFill = true, DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
@@ -879,23 +881,26 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // 2026-10-17 to 2026-10-31; white on a light theme is the open question in
                 // docs/TODO.md. Until 2026-10-17 they were red/green.
                 //
-                // Zone texture 0.30 at ±53 and 0.45 at ±60 (was 0.10 / 0.20). The waves carry a base
-                // texture of 0.15 of their own and the engine plays the STRONGER of base and zone, so
-                // 0.10 was never heard: between ±53 and ±60 the waves sounded exactly as they did at
-                // zero, and the zone only began at ±60. Found answering Cody's 2026-10-17 "shouldn't
-                // the os/ob zones be -53 and 53?" — now three audible steps: clean, rough past ±53,
-                // rougher past ±60 (0.45 is a plain Stochastic's zone texture).
+                // Zone texture: clean inside ±53, soft past ±53, the SAME soft noise louder past ±60.
+                // Cody, 2026-10-31: "there should only be texturing ... within those extreme zones ...
+                // the softer texturing between the 53 and 60 and above/below the 60/-60 lines ...
+                // instead of the louder white noise, we can just amplify the softer noise which isn't
+                // so hard on the ears". So pink in both tiers, 0.25 then 0.45 (0.45 pink is a plain
+                // RSI's zone), and the waves no longer carry a base texture of their own: until
+                // today they did (0.15, all the time, which is what he heard everywhere) and the
+                // zones were white noise at 0.30 / 0.45. Before 2026-10-17 the zones were 0.10 /
+                // 0.20 white, which the base 0.15 hid.
                 //
                 // The names stay as they were (saved charts, alerts and strategies find levels by
                 // name, and the names give the roles).
-                new("Extreme OB",  60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+                new("Extreme OB",  60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink",
                     Thickness: 2f, ValueParameter: ParamOBLevel1),
-                new("Overbought",  53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+                new("Overbought",  53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.25f, ZoneNoiseType: "pink",
                     ValueParameter: ParamTrigger1),
                 new("Zero",         0.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+                new("Oversold",   -53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.25f, ZoneNoiseType: "pink",
                     ValueParameter: ParamTrigger2),
-                new("Extreme OS", -60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+                new("Extreme OS", -60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink",
                     Thickness: 2f, ValueParameter: ParamOSLevel1),
                 // MCB's "100%" line at the pane's top: drawn, silent, no component listens to it.
                 new(Level100, 100.0, DottedWhite, DashStyle.Dot),
