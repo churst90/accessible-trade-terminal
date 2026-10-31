@@ -1,12 +1,11 @@
-using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.StrategyLab.Catalogue;
 
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// The 2026-07 seeds: the trend-following benchmark and the COT-gated Cipher
-    /// reversal. Pins the condition wiring — especially the signal-descriptor
+    /// The 2026-07 seeds: the trend-following benchmark (and the COT-gated Cipher
+    /// reversal, until it was retired on 2026-10-31). Pins the condition wiring — especially the signal-descriptor
     /// strings, which fail SILENTLY at evaluation time if they drift from the
     /// indicator component names.
     /// </summary>
@@ -40,40 +39,10 @@ namespace AccessibleTrader.Tests
             Assert.False(spec.IsAutoActivate);
         }
 
-        [Fact]
-        public void CotGatedSeed_ReferencesTheRealZScoreComponent()
-        {
-            var spec = Seed(StrategyCatalogue.LongV23cCipherBCotId);
-            var leaves = Leaves(spec.Conditions).ToList();
-
-            // The gate must reference the component name exactly as the indicator
-            // registers it — a rename on either side silently kills the strategy.
-            var cotLeaf = Assert.Single(leaves, l => l.SignalDescriptorId.StartsWith("COT_POSITIONING."));
-            Assert.Equal($"COT_POSITIONING.{CotPositioningProvider.CompZScore}", cotLeaf.SignalDescriptorId);
-            Assert.Equal(LeafOperator.LessThan, cotLeaf.Operator);
-            Assert.Equal(1.5, cotLeaf.Value); // matches the indicator's extreme threshold
-
-            // Still a v23-family reversal: trigger trio + anchor gate present, plus
-            // the Faber bull-regime gate the 2026-07 battery validated for this combo.
-            Assert.Contains(leaves, l => l.SignalDescriptorId == "CIPHER_B.Oversold Crossover");
-            Assert.Contains(leaves, l => l.SignalDescriptorId == "CIPHER_B.Anchor Wave");
-            Assert.Contains(leaves, l => l.SignalDescriptorId == "REGIME.AboveSma200"
-                                         && l.Operator == LeafOperator.GreaterThan);
-        }
+        // The COT-gated v23c seed's test went with it: retired 2026-10-31 with Cipher B's Anchor
+        // Wave, its required regime gate. Its verdict is in CatalogueProvenance's retired list.
 
         // The v24 Cycle Low Reversal spec's two tests went with it: retired 2026-10-22 with Loukas
         // Cycle Detection, its entry event. Its verdict is in CatalogueProvenance's retired list.
-
-        [Fact]
-        public void CotZScoreDescriptor_ResolvesAgainstTheIndicatorMetadata()
-        {
-            // End-to-end name check: the component the seed references must exist
-            // in the indicator's registered metadata (what SignalCatalog scans).
-            var provider = new CotPositioningProvider(
-                NSubstitute.Substitute.For<ICrossSeriesCache>());
-            var components = provider.GetIndicators().Single().Components.Select(c => c.Name).ToList();
-
-            Assert.Contains(CotPositioningProvider.CompZScore, components);
-        }
     }
 }

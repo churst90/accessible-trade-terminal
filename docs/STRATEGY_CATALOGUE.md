@@ -7,7 +7,7 @@ Adopted 2026-08-01, completing the split begun in
 
 | | holds | ships to |
 |---|---|---|
-| **AccessibleTrader.StrategyLab** (`Catalogue/`) | 24 strategy specs with their provenance, plus the retirement record for 6 more | nobody — it is a research tool |
+| **AccessibleTrader.StrategyLab** (`Catalogue/`) | 10 strategy specs with their provenance, plus the retirement record for 20 more | nobody — it is a research tool |
 | **AccessibleTrader.Core** | the engine, the library, the bundle **format** | the app |
 | **the terminal** | an **empty** library on first launch | the user |
 
@@ -32,8 +32,8 @@ verdict. Negative verdicts are recorded, not softened.
 `Fragile` and `Falsified` are outcomes, not rungs — `catalogue export --min-evidence` never sweeps
 them in, and naming one requires an explicit `--id`.
 
-The catalogue holds **24** specs: **1** control-tested, **5** walk-forward, **9** in-sample-only,
-**7** untested, **2** fragile. The one control-tested entry is the plain trend baseline, whose
+The catalogue holds **10** specs: **1** control-tested, **2** walk-forward, **2** in-sample-only,
+**4** untested, **1** fragile (it held 24 until the retirements below). The one control-tested entry is the plain trend baseline, whose
 verdict is that the family works while its own fitted parameters carry no information. That is the
 honest state of five months of strategy work, and it is the reason the terminal stopped shipping
 these as a starting library.
@@ -45,9 +45,19 @@ keeps each one's id, name, retirement date and the sentence that killed it, and
 one gets "this failed, here is why" rather than "unknown id". Deleting a falsified strategy is
 housekeeping; forgetting that it failed is how it gets reinvented.
 
+Two more went because their signal went, not because they failed: Pulse Reversal (2026-10-21, the old
+Cipher C) and v24 Cycle Low Reversal (2026-10-22, Loukas Cycle Detection). **Twelve more on
+2026-10-31**: v14, v15, v18 and the v23 family (v23, v23r, v23rf, v23p, v23h, v23hs, v23a, v23or,
+v23c), when Cipher B's parts that Market Cipher B does not draw were removed (Cody: "remove all of
+that old code from cipher b"). Each needed one of them in a leaf it could not do without: the hidden
+divergences (v14, v18), the Bullish Divergence (v15), or the Anchor Wave regime gate (every v23).
+Their verdicts are kept as they were while live, evidence level unchanged, prefixed with why the spec
+can no longer fire. The catalogue version is now `2026-10-31.1`.
+
 ### Two caveats that recur
 
-**Battery promotion is not out-of-sample.** Several v23 variants were promoted from an 89-cell gate
+**Battery promotion is not out-of-sample.** Several v23 variants (retired 2026-10-31) and the Faber
+pulse cell were promoted from an 89-cell gate
 battery for being the best cells. Choosing the best of N is a decision made in-sample even when each
 cell was individually walked forward — the winner's number is a maximum over 89 draws, not an
 estimate. All of them read `InSampleOnly`.

@@ -58,17 +58,19 @@ namespace AccessibleTrader.Tests
         public void Score_FullStackAlignedLong_ReachesVeryHigh()
         {
             // Maximum-confluence long: Hurst mean-reverting + at support + AVWAP bias up
-            // + below SMA200 capitulation context + negative funding (contrarian).
+            // + below SMA200 capitulation context + negative funding (contrarian). Hurst 0.20, not
+            // the 0.30 used before: Cipher B's Anchor Wave (8 points) was removed on 2026-10-31, and
+            // the same stack at 0.30 is 83, "high".
             var ctx = new TradeRanker.SignalContext(
                 OrderSide.Buy,
-                HurstValue: 0.30,
+                HurstValue: 0.20,
                 AvwapBias: 1.0,
                 PivotZone: -1.0,
-                AnchorWave: -60.0,
                 AboveSma200: 1.0,
                 Funding: -0.001,
                 TimeframeMinutes: "1440");
             int score = TradeRanker.Score(ctx);
+            Assert.Equal(83, TradeRanker.Score(ctx with { HurstValue = 0.30 }));
             Assert.True(score >= 85, $"Expected >= 85 (very high band), got {score}");
             Assert.Equal("very high", TradeRanker.ConfidenceBand(score));
         }
@@ -82,7 +84,6 @@ namespace AccessibleTrader.Tests
                 HurstValue: 0.70,
                 AvwapBias: -1.0,
                 PivotZone: 1.0,
-                AnchorWave: 60.0,
                 AboveSma200: -1.0,
                 Funding: 0.001,
                 TimeframeMinutes: "60");

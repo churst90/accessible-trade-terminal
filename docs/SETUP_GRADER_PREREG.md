@@ -1,5 +1,9 @@
 # Setup grader for the Cipher B Buy dot: pre-registration
 
+> **2026-10-31: the grader no longer runs.** Its rules read Cipher B parts that were removed that day
+> because Market Cipher B does not draw them (the divergences and the red Overbought Crossover). `setup-grader` now refuses and exits 2;
+> to re-run it, build commit 2e86d377. The results stand.
+>
 > **2026-10-18: results are in `docs/SETUP_GRADER_FINDINGS.md`.** Verdict: No edge in both classes;
 > grade A had 0 (crypto) and 2 (equities) development-era triggers, so its tests were not testable.
 > Nothing below this line was edited after results existed.

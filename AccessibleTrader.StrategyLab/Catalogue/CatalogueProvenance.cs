@@ -16,7 +16,7 @@ namespace AccessibleTrader.StrategyLab.Catalogue
     /// <para>Three caveats recur and are quoted into the individual verdicts they apply to:</para>
     /// <list type="number">
     ///   <item>
-    ///     <b>Battery promotion is not out-of-sample.</b> Several v23 variants were promoted from
+    ///     <b>Battery promotion is not out-of-sample.</b> Several v23 variants (retired 2026-10-31) were promoted from
     ///     the 89-cell gate battery because they were the best cells. Choosing the best of N cells
     ///     is a decision made in-sample even when each individual cell was walked forward — the
     ///     rolling-window number for the winner is a maximum over 89 draws, not an estimate.
@@ -25,7 +25,7 @@ namespace AccessibleTrader.StrategyLab.Catalogue
     ///     <b>Cipher SR repaints.</b> The SR-proximity edge was traced to a 15-bar lookahead. It
     ///     was corrected inside <c>ConfluenceCommand</c>, but the PROVIDER still repaints, so any
     ///     backtest of a spec whose entry stack contains a CIPHER_SR leaf is optimistic by an
-    ///     unmeasured amount. Seven specs here are in that position.
+    ///     unmeasured amount. Three specs here are in that position.
     ///   </item>
     ///   <item>
     ///     <b>The Cipher confluence family as a whole walked forward to break-even</b> across
@@ -87,33 +87,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "versions — the variant looking best is the family's upper tail by construction.",
                 Source: "StrategyLab walk"),
 
-            [StrategyCatalogue.LongV14HiddenBullSma200Id] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "BTC 4h, first half only, isolation diagnostic (2026-04-11)",
-                Controls: "bootstrap CI on the half it was selected from",
-                Verdict: "Passed strict CI on H1 with 20 trades — but H1 is the half the signal was picked " +
-                         "on, and the second half was never run. This is a candidate, not a result.",
-                Source: "StrategyLab diagnostic"),
-
-            [StrategyCatalogue.LongV15BlueDotBullDivId] = new(
-                StrategyEvidenceLevel.Untested,
-                TestedOn: "never run",
-                Controls: "none",
-                Verdict: "Built as the confluence of the two highest-R survivors and never evaluated. The " +
-                         "stated rationale — divergence explains why the cross matters — is a story, not evidence.",
-                Source: null),
-
-            // ── Asymmetric short ────────────────────────────────────────────────────────
-            [StrategyCatalogue.ShortV18RefinedShortId] = new(
-                StrategyEvidenceLevel.WalkForward,
-                TestedOn: "BTC 4h and daily, split-half walk-forward (2026-04)",
-                Controls: "walk-forward; no null arm",
-                Verdict: "The only short in the catalogue to survive walk-forward. Its shape matches the " +
-                         "separate finding that BTC short signals only work in a confirmed bear regime with " +
-                         "longs still paying funding; every short built on a reversal trigger alone is " +
-                         "negative. Never compared against a random-entry null.",
-                Source: "StrategyLab walk"),
-
             // ── Top/bottom detector ─────────────────────────────────────────────────────
             [StrategyCatalogue.LongV22CapitulationBottomId] = new(
                 StrategyEvidenceLevel.Untested,
@@ -147,76 +120,7 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "plausible untested spec here, which is not the same as a promising one.",
                 Source: null),
 
-            // ── v23 weekly reversal family ──────────────────────────────────────────────
-            [StrategyCatalogue.LongV23CipherBWeeklyId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "BTC 4h and daily (2026-04)",
-                Controls: "none beyond a single backtest",
-                Verdict: "Positive total P&L with marginal per-trade R — counter-trend entries in deep bear " +
-                         "markets eat the bull-regime wins. Every later v23 variant is an attempt to fix " +
-                         "that, which makes this the base case rather than a strategy to run.",
-                Source: "StrategyLab run"),
-
-            [StrategyCatalogue.LongV23rCipherBFaberId] = new(
-                StrategyEvidenceLevel.Untested,
-                TestedOn: "never run as a spec",
-                Controls: "none",
-                Verdict: "The Faber gate on v23 base. The gate is well supported elsewhere and the " +
-                         "hypothesis is reasonable, but this combination was never actually run.",
-                Source: null),
-
-            [StrategyCatalogue.ShortV23rfCipherBFundingId] = new(
-                StrategyEvidenceLevel.Untested,
-                TestedOn: "never run",
-                Controls: "none",
-                Verdict: "Transplants v18's funding-crowding gate onto v23's short after the two plain " +
-                         "shorts failed. The reasoning is sound and the spec is still a hypothesis.",
-                Source: null),
-
-            [StrategyCatalogue.LongV23pCipherBPivotsId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "ETH daily 6 windows, BTC daily 15 windows (2026-04 battery round 4)",
-                Controls: "rolling-window per cell — but the cell was CHOSEN for winning",
-                Verdict: "ETH 100% of windows positive at +0.523R, the best cell anywhere in the battery. " +
-                         "That is a maximum over 89 cells; the selection is in-sample even though each cell " +
-                         "was walked forward. Needs a fresh out-of-sample asset before it means anything.",
-                Source: "StrategyLab battery round 4"),
-
-            [StrategyCatalogue.LongV23hCipherBHurstId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "BTC daily, rolling windows (2026-04 battery)",
-                Controls: "rolling-window per cell; selection over cells not controlled",
-                Verdict: "71% of windows positive at +0.411R, 65% better per-trade R than v23 base. The " +
-                         "mechanism — only fire reversals when Hurst says the regime mean-reverts — is one " +
-                         "of the few gates here with a reason to exist beyond the numbers, which is the " +
-                         "argument for testing it properly rather than for trusting it now.",
-                Source: "StrategyLab battery"),
-
-            [StrategyCatalogue.ShortV23hCipherBHurstId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "KAS 4h, rolling windows (2026-04 battery)",
-                Controls: "rolling-window per cell; selection over cells not controlled",
-                Verdict: "62% of windows positive at +0.207R on a single low-cap altcoin — the weakest " +
-                         "evidence base of any promoted cell, on the side of the market where every other " +
-                         "short in this catalogue has failed.",
-                Source: "StrategyLab battery"),
-
-            [StrategyCatalogue.LongV23aCipherBAvwapId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "ETH daily, BTC daily, rolling windows (2026-04 battery round 6)",
-                Controls: "rolling-window per cell; selection over cells not controlled",
-                Verdict: "ETH 100% of windows positive at +0.277R; BTC 80% at +0.203R. Same battery-selection " +
-                         "caveat, and the 'soft' variant was chosen over the strict one because it fired more " +
-                         "often — a second in-sample choice on top of the first.",
-                Source: "StrategyLab battery round 6"),
-
-            [StrategyCatalogue.LongV23orCipherBOrConfId] = new(
-                StrategyEvidenceLevel.InSampleOnly,
-                TestedOn: "ETH daily, BTC daily, rolling windows (2026-04 battery round 8)",
-                Controls: "rolling-window per cell; selection over cells not controlled",
-                Verdict: "Broader coverage than v23a or v23p alone with per-trade R between them, which is " +
-                         "what an OR of two gates should do arithmetically. Third-order battery selection.",
-                Source: "StrategyLab battery round 8"),
+            // ── v23 weekly reversal family: retired 2026-10-31 (see the retired list) ─────
 
             // ── The baseline everything else must beat ──────────────────────────────────
             [StrategyCatalogue.LongTrendBaselineId] = new(
@@ -232,16 +136,6 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "secular-growth names holding wins; long-only FX has no edge at all.",
                 Source: "StrategyLab cross-asset trend study; BTC walk-forward"),
 
-            [StrategyCatalogue.LongV23cCipherBCotId] = new(
-                StrategyEvidenceLevel.Fragile,
-                TestedOn: "10 assets, era-sliced gate battery (2026-07-13); COT re-tested separately (2026-07)",
-                Controls: "era slicing; per-asset validity checks; later a dedicated COT study",
-                Verdict: "Best cell in the battery (QQQ Faber+COT: 94% hit, +5.01%/20d, t=5.65) from 10 " +
-                         "assets times many gates — and the COT half later tested as carrying no forward " +
-                         "information from either data source, leaving the Faber regime gate doing the work. " +
-                         "Per-asset validity is real and narrow: do NOT use on BTC (every gate reduced the " +
-                         "edge; CME positioning is basis-trade contaminated) or FX.",
-                Source: "StrategyLab gate battery; COT positioning study"),
         };
 
         /// <summary>
@@ -335,6 +229,128 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                          "swing-low stop got run over by cycle-low retests, and the Cipher trigger improved the " +
                          "WEAKER half. Not re-tested on Cipher C's DCL Confirmed.",
                 Source: "StrategyLab walk (Wave 4)")),
+
+            // Retired because its signal is gone (2026-10-31, Cody: "remove all of that old code from
+            // cipher b"): each read a Cipher B part Market Cipher B does not draw, in a leaf the spec
+            // needs. The verdict is the one it carried while live, so its evidence level is unchanged.
+            new("builtin.long.v14-hidden-bull-sma200", "Trend Continuation — Hidden Bull + SMA200 (Long) [v14]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "BTC 4h, first half only, isolation diagnostic (2026-04-11)",
+                Controls: "bootstrap CI on the half it was selected from",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its trigger, Cipher B's Hidden Bull Continuation no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Passed strict CI on H1 with 20 trades — but H1 is the half the signal was picked " +
+                         "on, and the second half was never run. This is a candidate, not a result.",
+                Source: "StrategyLab diagnostic")),
+
+            new("builtin.long.v15-blue-dot-bull-div", "Reversal Confluence — Blue Dot + Divergence (Long) [v15]", "2026-10-31", new(
+                StrategyEvidenceLevel.Untested,
+                TestedOn: "never run",
+                Controls: "none",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: one of its two required leaves, Cipher B's Bullish Divergence no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Built as the confluence of the two highest-R survivors and never evaluated. The " +
+                         "stated rationale — divergence explains why the cross matters — is a story, not evidence.",
+                Source: "never run while live; retired in the 2026-10-31 Cipher B removal")),
+
+            new("builtin.short.v18-refined", "Bear-Rally Fade — Hidden Bear + Bear Regime + Crowded Funding (Short) [v18]", "2026-10-31", new(
+                StrategyEvidenceLevel.WalkForward,
+                TestedOn: "BTC 4h and daily, split-half walk-forward (2026-04)",
+                Controls: "walk-forward; no null arm",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its trigger, Cipher B's Hidden Bear Continuation no longer exists, so " +
+                         "the spec cannot fire. While live: " + "The only short in the catalogue to survive walk-forward. Its shape matches the " +
+                         "separate finding that BTC short signals only work in a confirmed bear regime with " +
+                         "longs still paying funding; every short built on a reversal trigger alone is " +
+                         "negative. Never compared against a random-entry null.",
+                Source: "StrategyLab walk")),
+
+            new("builtin.long.v23-cipherb-weekly", "Cipher Reversal — Universal (Long) [v23]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "BTC 4h and daily (2026-04)",
+                Controls: "none beyond a single backtest",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Positive total P&L with marginal per-trade R — counter-trend entries in deep bear " +
+                         "markets eat the bull-regime wins. Every later v23 variant is an attempt to fix " +
+                         "that, which makes this the base case rather than a strategy to run.",
+                Source: "StrategyLab run")),
+
+            new("builtin.long.v23r-cipherb-faber", "Cipher Reversal + Trend Filter — BTC/ETH 4h (Long) [v23r]", "2026-10-31", new(
+                StrategyEvidenceLevel.Untested,
+                TestedOn: "never run as a spec",
+                Controls: "none",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "The Faber gate on v23 base. The gate is well supported elsewhere and the " +
+                         "hypothesis is reasonable, but this combination was never actually run.",
+                Source: "never run while live; retired in the 2026-10-31 Cipher B removal")),
+
+            new("builtin.short.v23rf-cipherb-funding", "Cipher Reversal + Bear + Crowded Funding (Short) [v23rf, negative edge]", "2026-10-31", new(
+                StrategyEvidenceLevel.Untested,
+                TestedOn: "never run",
+                Controls: "none",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Overbought Crossover and Bearish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Transplants v18's funding-crowding gate onto v23's short after the two plain " +
+                         "shorts failed. The reasoning is sound and the spec is still a hypothesis.",
+                Source: "never run while live; retired in the 2026-10-31 Cipher B removal")),
+
+            new("builtin.long.v23p-cipherb-pivots", "Cipher Reversal at Pivot Support — BTC/ETH Daily (Long) [v23p]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "ETH daily 6 windows, BTC daily 15 windows (2026-04 battery round 4)",
+                Controls: "rolling-window per cell — but the cell was CHOSEN for winning",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "ETH 100% of windows positive at +0.523R, the best cell anywhere in the battery. " +
+                         "That is a maximum over 89 cells; the selection is in-sample even though each cell " +
+                         "was walked forward. Needs a fresh out-of-sample asset before it means anything.",
+                Source: "StrategyLab battery round 4")),
+
+            new("builtin.long.v23h-cipherb-hurst", "Cipher Reversal in Mean-Reverting Regime (Long) [v23h]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "BTC daily, rolling windows (2026-04 battery)",
+                Controls: "rolling-window per cell; selection over cells not controlled",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "71% of windows positive at +0.411R, 65% better per-trade R than v23 base. The " +
+                         "mechanism — only fire reversals when Hurst says the regime mean-reverts — is one " +
+                         "of the few gates here with a reason to exist beyond the numbers, which is the " +
+                         "argument for testing it properly rather than for trusting it now.",
+                Source: "StrategyLab battery")),
+
+            new("builtin.short.v23h-cipherb-hurst", "Cipher Reversal in Mean-Reverting Regime (Short) [v23hs]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "KAS 4h, rolling windows (2026-04 battery)",
+                Controls: "rolling-window per cell; selection over cells not controlled",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Overbought Crossover and Bearish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "62% of windows positive at +0.207R on a single low-cap altcoin — the weakest " +
+                         "evidence base of any promoted cell, on the side of the market where every other " +
+                         "short in this catalogue has failed.",
+                Source: "StrategyLab battery")),
+
+            new("builtin.long.v23a-cipherb-avwap", "Cipher Reversal + AVWAP Bias — BTC/ETH Daily (Long) [v23a]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "ETH daily, BTC daily, rolling windows (2026-04 battery round 6)",
+                Controls: "rolling-window per cell; selection over cells not controlled",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "ETH 100% of windows positive at +0.277R; BTC 80% at +0.203R. Same battery-selection " +
+                         "caveat, and the 'soft' variant was chosen over the strict one because it fired more " +
+                         "often — a second in-sample choice on top of the first.",
+                Source: "StrategyLab battery round 6")),
+
+            new("builtin.long.v23or-cipherb-orconf", "Cipher Reversal + AVWAP-or-Pivot Confluence — BTC/ETH Daily (Long) [v23or]", "2026-10-31", new(
+                StrategyEvidenceLevel.InSampleOnly,
+                TestedOn: "ETH daily, BTC daily, rolling windows (2026-04 battery round 8)",
+                Controls: "rolling-window per cell; selection over cells not controlled",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Broader coverage than v23a or v23p alone with per-trade R between them, which is " +
+                         "what an OR of two gates should do arithmetically. Third-order battery selection.",
+                Source: "StrategyLab battery round 8")),
+
+            new("builtin.long.v23c-cipherb-cot", "Cipher Reversal + Trend + COT Gates — Metals/Indices Daily (Long) [v23c]", "2026-10-31", new(
+                StrategyEvidenceLevel.Fragile,
+                TestedOn: "10 assets, era-sliced gate battery (2026-07-13); COT re-tested separately (2026-07)",
+                Controls: "era slicing; per-asset validity checks; later a dedicated COT study",
+                Verdict: "Retired with Cipher B's parts Market Cipher B does not draw: its required Anchor Wave gate (and the Bullish Divergence in its trigger) no longer exists, so " +
+                         "the spec cannot fire. While live: " + "Best cell in the battery (QQQ Faber+COT: 94% hit, +5.01%/20d, t=5.65) from 10 " +
+                         "assets times many gates — and the COT half later tested as carrying no forward " +
+                         "information from either data source, leaving the Faber regime gate doing the work. " +
+                         "Per-asset validity is real and narrow: do NOT use on BTC (every gate reduced the " +
+                         "edge; CME positioning is basis-trade contaminated) or FX.",
+                Source: "StrategyLab gate battery; COT positioning study")),
         };
 
         /// <summary>Every retired spec, newest housekeeping first in file order.</summary>

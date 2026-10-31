@@ -229,5 +229,22 @@ namespace AccessibleTrader.Tests
             foreach (var ((era, cg, _), st) in run.StrataL)
                 Assert.All(st.Rows, i => { Assert.Equal(cg, run.CgL[i]); Assert.Equal(era, run.Era[i]); });
         }
+
+        /// <summary>
+        /// The three setup graders refuse to run since 2026-10-31: their pre-registered rules read
+        /// Cipher B's divergences and Overbought Crossover, which went that day (Cody: "remove all
+        /// of that old code from cipher b"), and a run today would be a different experiment under
+        /// the same name. Refused before any snapshot is read, so a folder that does not exist is
+        /// enough; without the refusal each run fails on the missing snapshots instead.
+        /// </summary>
+        [Fact]
+        public async Task The_graders_refuse_to_run_without_Cipher_Bs_removed_parts()
+        {
+            var nowhere = TestTemp.NewPath("no-snapshots-");
+            Assert.Equal(2, await SetupGraderCommand.RunAsync(nowhere, countsOnly: true));
+            Assert.Equal(2, await SetupGraderMc2Command.RunAsync(nowhere, countsOnly: true));
+            Assert.Equal(2, await SetupGraderMc3Command.RunAsync(nowhere, countsOnly: true));
+            Assert.False(Directory.Exists(nowhere));
+        }
     }
 }

@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                         StandardRenderers.RenderZoneBand(ctx, s, band);
                     }
 
-                    // Cloud fills second (Ichimoku, WT Fill, EMA Fill, etc.).
+                    // Cloud fills second (Ichimoku, EMA Fill, etc.).
                     foreach (var fill in s.Config.CloudFills)
                     {
                         if (!DrawsFill(s.Config, fill)) continue;

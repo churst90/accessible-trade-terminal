@@ -5,37 +5,24 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
-/// Which Cipher B every lab command computes: the current one (Market Cipher B, refitted
-/// 2026-10-17) or the one every lab result recorded before 2026-10-17 was computed on.
+/// Which candles every lab command computes the Ciphers on (<c>--cipher-candles ha|candles</c>),
+/// set in the one place every command goes through — the <see cref="IIndicatorEngine"/> the lab
+/// host hands out — so no command can miss it and silently compare candles against candles.
 ///
 /// <para>
-/// WHY A LAB-WIDE SWITCH AND NOT A PER-COMMAND FLAG. A re-run that is meant to say "the indicator
-/// changed and this is how much the verdict moved" has to hold everything except the indicator
-/// fixed: same snapshots, same harness, same seeds. The Cipher B refit kept its old behaviour
-/// behind three parameters (<c>WTSignalPeriod = 4</c>, <c>MoneyFlowMode = Legacy</c>,
-/// <c>BuyDotMode = Gated</c>; a fourth, <c>GoldDotMode = Confluence</c>, went with the gold dot on
-/// 2026-10-22, so no profile reproduces a gold-dot result any more), but the lab computes Cipher B in at
-/// least six places (gate, confluence, asset-profile, ml-export, the strategy workspace, ...), each
-/// building its own parameter dictionary. Threading a flag through each of them is six chances to
-/// miss one, and a missed one silently compares NEW against NEW. So the switch sits in the one
-/// place every one of them goes through — the <see cref="IIndicatorEngine"/> the lab host hands
-/// out — and <c>--cipherb old</c> on any command line selects it.
-/// </para>
-///
-/// <para>
-/// Verified 2026-10-17: with <c>--cipherb old</c>, gate, confluence (1h/4h/1d/2d) and asset-profile
-/// (1d/4h) print output identical line for line to the lab built from the commit before the refit
-/// (aca73a1d) — so "old" is the pre-refit indicator, not an approximation of it.
-/// </para>
-///
-/// <para>
-/// A caller that sets one of the parameters explicitly (e.g. <c>--set CIPHER_B.WTSignalPeriod=5</c>)
-/// keeps its value: the profile fills only what the caller left unset, so a deliberate research
-/// override is never quietly replaced.
+/// <c>--cipherb old</c> selected the Cipher B every lab result before 2026-10-17 was computed on
+/// (<c>WTSignalPeriod = 4</c>, <c>MoneyFlowMode = Legacy</c>, <c>BuyDotMode = Gated</c>; verified
+/// then to print line for line what the pre-refit lab printed). The two modes were removed from
+/// Cipher B on 2026-10-31 (Cody: "remove all of that old code from cipher b"), so it is refused,
+/// as <c>--cipherb-gold</c> has been since the gold dot went on 2026-10-22: a run asked for the old
+/// indicator would otherwise compare today's against itself and say so in no way. <c>--cipherb
+/// new</c> is still accepted and changes nothing. Old results stay reproducible from the commits
+/// that recorded them.
 /// </para>
 /// </summary>
 public static class LabCipherProfile
 {
+    /// <summary>The old/new Cipher B switch: <c>new</c> is accepted, <c>old</c> refused since 2026-10-31.</summary>
     public const string Flag = "--cipherb";
     /// <summary>The gold dot's switch, refused since Cipher B's gold dot was removed (2026-10-22): a
     /// run asked to compare gold rules would otherwise compare nothing and say so in no way.</summary>
@@ -54,36 +41,21 @@ public static class LabCipherProfile
     /// from the key; the indicator service converts the bars for the others).</summary>
     public static bool CiphersOnHeikinAshi { get; set; }
 
-    /// <summary>True when lab commands compute the pre-2026-10-17 Cipher B (wave, money flow, buy dot).</summary>
-    public static bool CipherBOld { get; set; }
-
-    /// <summary>The parameters that reproduce Cipher B's wave, money flow and buy dot as they were
-    /// before 2026-10-17 (see the "Older behaviour behind parameters" note on <see cref="CipherBProvider"/>).</summary>
-    public static IReadOnlyDictionary<string, object> OldCipherBParameters { get; } = new Dictionary<string, object>
-    {
-        ["WTSignalPeriod"] = 4.0,
-        ["MoneyFlowMode"] = "Legacy",
-        ["BuyDotMode"] = "Gated",
-    };
-
-    /// <summary>True when nothing was switched: every command computes today's Cipher B, and the
-    /// Ciphers on real candles.</summary>
-    public static bool IsDefault => !CipherBOld && !CiphersOnHeikinAshi;
+    /// <summary>True when nothing was switched: the Ciphers on real candles.</summary>
+    public static bool IsDefault => !CiphersOnHeikinAshi;
 
     public static string Describe() =>
-        (CipherBOld
-            ? "Cipher B profile: OLD (pre-2026-10-17: WTSignalPeriod=4, MoneyFlowMode=Legacy, BuyDotMode=Gated)"
-            : "Cipher B profile: NEW (2026-10-17 Market Cipher B defaults: WTSignalPeriod=3, MoneyFlowMode=MCB, BuyDotMode=MCB)")
-        + "; no gold dot (removed 2026-10-22)"
+        "Cipher B: Market Cipher B (no old profile since 2026-10-31; no gold dot since 2026-10-22)"
         + (CiphersOnHeikinAshi
             ? "\nCipher candles: HEIKIN-ASHI (exploratory) — Cipher A, Cipher B and Cipher SR computed as on a Heikin-Ashi chart; entries, stops, ATR and fills on the real bars"
             : "");
 
     /// <summary>
-    /// Removes <c>--cipherb old|new</c> from the argument list (so no command's own parser sees an
-    /// unknown flag) and sets the profile. Any other value is an error rather than a silent default
-    /// — a typo here would otherwise run the comparison against itself. <c>--cipherb-gold</c> is an
-    /// error: there is no gold dot to switch.
+    /// Removes <c>--cipherb new</c> and <c>--cipher-candles ha|candles</c> from the argument list (so no
+    /// command's own parser sees an unknown flag) and sets the profile. Any other value is an error
+    /// rather than a silent default — a typo here would otherwise run the comparison against itself.
+    /// <c>--cipherb old</c> and <c>--cipherb-gold</c> are errors: there is no old Cipher B or gold dot
+    /// to switch to.
     /// </summary>
     public static string[] Consume(string[] args)
     {
@@ -108,34 +80,28 @@ public static class LabCipherProfile
             const string flag = Flag;
             if (i + 1 >= args.Length) throw new ArgumentException($"{flag} needs a value: old or new");
             var v = args[++i];
-            bool old = v.ToLowerInvariant() switch
-            {
-                "old" => true,
-                "new" => false,
-                _ => throw new ArgumentException($"{flag} must be 'old' or 'new', not '{v}'"),
-            };
-            CipherBOld = old;
+            if (string.Equals(v, "old", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"{flag} old was removed with Cipher B's old modes on 2026-10-31; there is no old Cipher B to switch to");
+            if (!string.Equals(v, "new", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"{flag} must be 'new' (the only Cipher B since 2026-10-31), not '{v}'");
         }
         return rest.ToArray();
     }
 
-    /// <summary>The parameters the engine should hand an indicator: the caller's, plus the old
-    /// Cipher B profile's for any the caller left unset, plus the Heikin-Ashi key for a Cipher under
-    /// <c>--cipher-candles ha</c> unless the caller set it. A new dictionary when anything is added;
-    /// the caller's is untouched.</summary>
+    /// <summary>The parameters the engine should hand an indicator: the caller's, plus the Heikin-Ashi
+    /// key for a Cipher under <c>--cipher-candles ha</c> unless the caller set it. A new dictionary
+    /// when anything is added; the caller's is untouched.</summary>
     public static Dictionary<string, object> Apply(string code, Dictionary<string, object> parameters)
     {
-        bool oldB = CipherBOld && string.Equals(code, "CIPHER_B", StringComparison.OrdinalIgnoreCase);
         bool ha = CiphersOnHeikinAshi && HeikinAshiCodes.Contains(code, StringComparer.OrdinalIgnoreCase);
-        if (!oldB && !ha) return parameters;
+        if (!ha) return parameters;
         var merged = new Dictionary<string, object>(parameters);
-        if (oldB) foreach (var (k, v) in OldCipherBParameters) merged.TryAdd(k, v);
-        if (ha) merged.TryAdd(IndicatorCandles.HeikinAshiKey, 1.0);
+        merged.TryAdd(IndicatorCandles.HeikinAshiKey, 1.0);
         return merged;
     }
 
     /// <summary>Back to the defaults (tests).</summary>
-    public static void Reset() { CipherBOld = false; CiphersOnHeikinAshi = false; }
+    public static void Reset() { CiphersOnHeikinAshi = false; }
 }
 
 /// <summary>

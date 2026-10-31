@@ -41,8 +41,11 @@ public sealed class SettingTextNamesOnlyTheSettingTests
     }
 
     [Fact]
-    public void Cipher_Bs_saved_MCB_choices_restore_as_Standard_and_compute_the_same()
+    public void Cipher_Bs_saved_mode_choices_are_dropped_on_restore_and_change_nothing()
     {
+        // The modes were names for Cipher B's calculation ("MCB", then "Standard") beside the older
+        // Legacy / Gated / Percentile ones; all three went on 2026-10-31 with Cipher B's parts
+        // Market Cipher B does not draw, so a save's choice is dropped and computes the same.
         var meta = new CipherBProvider().GetIndicators();
         var saved = JsonConvert.DeserializeObject<SeriesConfig>(CodysCipherBSave.Json)!;
         Assert.Equal("MCB", saved.StringParameters["MoneyFlowMode"]);
@@ -50,25 +53,25 @@ public sealed class SettingTextNamesOnlyTheSettingTests
 
         WorkspaceInitializer.MigrateSeriesConfig(saved, meta);
 
-        Assert.Equal("Standard", saved.StringParameters["MoneyFlowMode"]);
-        Assert.Equal("Standard", saved.StringParameters["BuyDotMode"]);
+        Assert.False(saved.StringParameters.ContainsKey("MoneyFlowMode"));
+        Assert.False(saved.StringParameters.ContainsKey("BuyDotMode"));
+        Assert.False(saved.StringParameters.ContainsKey("ThresholdMode"));
         var p = meta[0].Parameters;
-        Assert.Equal("Standard", p.Single(x => x.Name == "MoneyFlowMode").DefaultValue);
-        Assert.Equal("Standard", p.Single(x => x.Name == "BuyDotMode").DefaultValue);
+        Assert.DoesNotContain(p, x => x.Name is "MoneyFlowMode" or "BuyDotMode" or "ThresholdMode");
 
-        // The word is only a name: "MCB", "Standard" and no value at all are one calculation, and
-        // Legacy / Gated (the other choices) are not, so the comparison can see a difference.
         var bars = CausalityProbeSeries.Bars(0, 1400);
         var none = Run(bars);
-        var mcb = Run(bars, ("MoneyFlowMode", "MCB"), ("BuyDotMode", "MCB"));
-        var std = Run(bars, ("MoneyFlowMode", "Standard"), ("BuyDotMode", "Standard"));
-        var other = Run(bars, ("MoneyFlowMode", "Legacy"), ("BuyDotMode", "Gated"));
-        foreach (var (k, v) in none)
+        foreach (var choices in new[]
+                 {
+                     new (string, object)[] { ("MoneyFlowMode", "MCB"), ("BuyDotMode", "MCB") },
+                     new (string, object)[] { ("MoneyFlowMode", "Standard"), ("BuyDotMode", "Standard") },
+                     new (string, object)[] { ("MoneyFlowMode", "Legacy"), ("BuyDotMode", "Gated"), ("ThresholdMode", "Percentile") },
+                 })
         {
-            Assert.Equal(v, mcb[k]);
-            Assert.Equal(v, std[k]);
+            var r = Run(bars, choices);
+            Assert.Equal(none.Keys.OrderBy(k => k), r.Keys.OrderBy(k => k));
+            foreach (var (k, v) in none) Assert.Equal(v, r[k]);
         }
-        Assert.NotEqual(none[CipherBProvider.CompMoneyFlowWave], other[CipherBProvider.CompMoneyFlowWave]);
     }
 
     private static Dictionary<string, double[]> Run(IReadOnlyList<Ohlcv> bars, params (string Key, object Value)[] p)

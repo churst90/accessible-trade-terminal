@@ -93,7 +93,9 @@ public static class GateCommand
             var z = TradingCrossCommand.ZScore(bars, ZWindow);
 
             var buys = Exact(cipherB, CipherBProvider.CompBlue);
-            var sells = Exact(cipherB, CipherBProvider.CompRed);
+            // Market Cipher B has no sell dot: its own red dot is every bearish WaveTrend cross
+            // (the "Overbought Crossover" this read until 2026-10-31 was ours and was removed).
+            var sells = Exact(cipherB, CipherBProvider.CompCrossBear);
 
             AddTrades(trades, "cipherB-long", bars, atr, buys, true, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));
             AddTrades(trades, "cipherB-short", bars, atr, sells, false, crossGate, maGate, z, snap.Symbol, ClassOf(Path.GetFileName(file)));

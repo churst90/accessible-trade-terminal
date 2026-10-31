@@ -53,22 +53,34 @@ namespace AccessibleTrader.Core.Services.Strategies
         internal static readonly IReadOnlyDictionary<string, string> Retired = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
             // Cody's 2026-10-17 report: hidden stops that said ±53, which the levels already say.
-            // See CipherBProvider.ThresholdObKey.
+            // Their numbers stayed as companion arrays until Percentile mode went on 2026-10-31.
             ["CIPHER_B.Adaptive OB"] = "Cipher B's Adaptive OB was removed on 2026-10-17; compare Wave Trend Fast with your overbought level (53 by default) instead",
             ["CIPHER_B.Adaptive OS"] = "Cipher B's Adaptive OS was removed on 2026-10-17; compare Wave Trend Fast with your oversold level (-53 by default) instead",
 
             // 2026-10-22: Market Cipher B has no gold dot (Cody: "it isn't faithful"). Its rule is kept,
             // unused, in GoldDot.
-            ["CIPHER_B.Triple Confluence Buy"] = "Cipher B's Gold dot (Triple Confluence Buy) was removed on 2026-10-22 because Market Cipher B has no gold dot; the nearest is Cipher B's Buy dot (Oversold Crossover), or Bullish Divergence for a divergence from oversold",
+            ["CIPHER_B.Triple Confluence Buy"] = "Cipher B's Gold dot (Triple Confluence Buy) was removed on 2026-10-22 because Market Cipher B has no gold dot; the nearest is Cipher B's Buy dot (Oversold Crossover)",
+
+            // 2026-10-31 (Cody: "remove all of that old code from cipher b"): Cipher B's parts that
+            // Market Cipher B does not draw. Market Cipher B's own dots stay: the Buy dot (Oversold
+            // Crossover) and the small WaveTrend Cross Bull / Bear dots.
+            ["CIPHER_B.Overbought Crossover"] = "Cipher B's Overbought Crossover (the red sell dot) was removed on 2026-10-31 because Market Cipher B has no sell dot; the nearest is WaveTrend Cross Bear, the small red dot on every wave cross down",
+            ["CIPHER_B.Bullish Divergence"] = "Cipher B's Bullish Divergence was removed on 2026-10-31 with Cipher B's other parts Market Cipher B does not draw; there is no replacement",
+            ["CIPHER_B.Bearish Divergence"] = "Cipher B's Bearish Divergence was removed on 2026-10-31 with Cipher B's other parts Market Cipher B does not draw; there is no replacement",
+            ["CIPHER_B.Hidden Bull Continuation"] = "Cipher B's Hidden Bull Continuation was removed on 2026-10-31 with Cipher B's other parts Market Cipher B does not draw; there is no replacement",
+            ["CIPHER_B.Hidden Bear Continuation"] = "Cipher B's Hidden Bear Continuation was removed on 2026-10-31 with Cipher B's other parts Market Cipher B does not draw; there is no replacement",
+            ["CIPHER_B.Anchor Wave"] = "Cipher B's Anchor Wave was removed on 2026-10-31 because Market Cipher B has no slow wave; read Wave Trend Fast instead",
+            ["CIPHER_B.Anchor Wave 2"] = "Cipher B's Anchor Wave 2 was removed on 2026-10-31 because Market Cipher B has no slow wave; read Wave Trend Slow instead",
+            ["CIPHER_B.Anchor Polarity"] = "Cipher B's Anchor Polarity was removed on 2026-10-31 because Market Cipher B has no slow wave; there is no replacement",
 
             // 2026-10-17: Cipher A rebuilt from measurements of real Market Cipher A (an EMA ribbon and
             // seven symbols). Its old all-WaveTrend components went; each message names the nearest
             // thing that still exists. See CipherAProvider.
             ["CIPHER_A.Buy Signal"] = "Cipher A's Buy Signal was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; the same wave cross up from oversold is Cipher B's Oversold Crossover, and Cipher A's bullish symbols are now Green Dot, Blue Triangle and Yellow Diamond",
-            ["CIPHER_A.Sell Signal"] = "Cipher A's Sell Signal was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; the same wave cross down from overbought is Cipher B's Overbought Crossover, and Cipher A's wave cross down is now its Red Diamond",
-            ["CIPHER_A.Bullish Divergence"] = "Cipher A's Bullish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A, which draws no divergences; use Cipher B's Bullish Divergence",
-            ["CIPHER_A.Bearish Divergence"] = "Cipher A's Bearish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A, which draws no divergences; use Cipher B's Bearish Divergence",
-            ["CIPHER_A.Overbought Bearish Divergence"] = "Cipher A's Overbought Bearish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; its Blood Diamond is now a Red Diamond and a Red X on the same candle, and the nearest divergence is Cipher B's Bearish Divergence",
+            ["CIPHER_A.Sell Signal"] = "Cipher A's Sell Signal was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; the nearest is Cipher B's WaveTrend Cross Bear (the small red dot, every wave cross down), and Cipher A's wave cross down is now its Red Diamond",
+            ["CIPHER_A.Bullish Divergence"] = "Cipher A's Bullish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A, which draws no divergences; Cipher B's went too on 2026-10-31, so there is no replacement",
+            ["CIPHER_A.Bearish Divergence"] = "Cipher A's Bearish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A, which draws no divergences; Cipher B's went too on 2026-10-31, so there is no replacement",
+            ["CIPHER_A.Overbought Bearish Divergence"] = "Cipher A's Overbought Bearish Divergence was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; its Blood Diamond is now a Red Diamond and a Red X on the same candle (Cipher B's divergences went on 2026-10-31)",
             ["CIPHER_A.Manipulation"] = "Cipher A's Manipulation (gold X) was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; Market Cipher A's Yellow X is a bearish warning, now Cipher A's Yellow X, and there is no replacement for the old oversold-with-positive-money-flow signal",
             ["CIPHER_A.Exhaustion"] = "Cipher A's Exhaustion was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; Market Cipher A's Red X is now Cipher A's Red X (EMA 5 crossing below EMA 11), and there is no replacement for the old overbought-with-negative-money-flow signal",
             ["CIPHER_A.WT Momentum"] = "Cipher A's WT Momentum was removed on 2026-10-17 when Cipher A was rebuilt to match Market Cipher A; read Cipher B's Wave Trend instead",

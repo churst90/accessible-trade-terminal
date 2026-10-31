@@ -650,7 +650,7 @@ list must never pose as a complete one.
   `"true"`, and `IndicatorModelFactory` required `double.TryParse`. Fixed with
   `TryParseParamValue`, which accepts bools first. This had been quietly disabling
   Cipher SR's AdaptiveBreak (a setting removed in the 2026-10-17 rebuild) and Cipher B's
-  UseAnchorSuppression as well.
+  UseAnchorSuppression (removed 2026-10-31 with Cipher B's other non-Market-Cipher-B parts) as well.
 - **`CipherSrLevelProvider` had a 15-bar lookahead** relative to the provider it mirrors.
   Backtest-only; live was unaffected because live never has the future bars. Correcting
   it turned +0.739R at p=0.0002 into −0.095R at p=0.23 — a reminder that a spectacular

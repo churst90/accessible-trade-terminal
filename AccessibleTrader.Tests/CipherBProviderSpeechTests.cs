@@ -19,7 +19,8 @@ namespace AccessibleTrader.Tests;
 /// before any template by <c>SpeechFormatter.ProviderSpeechStrategy</c>) reads the fast wave and the
 /// money flow out of the data it is handed, by component NAME ("Wave Trend", "Money Flow Wave"). The
 /// formatter hands that data keyed by DISPLAY name ("Wave Trend Fast", "Money Flow"), so every lookup
-/// missed: on every cross dot, buy and sell dot, divergence and gold dot the "Wave Trend −63.2" clause
+/// missed: on every cross dot, buy and sell dot, divergence and gold dot (the sell dot, divergences and
+/// gold dot have since been removed) the "Wave Trend −63.2" clause
 /// was silently dropped, and gold never said "Money flow positive". Every provider-level test passed,
 /// because they call the provider with name-keyed data. And the gold dot claimed "Trend and volatility
 /// confirmed" on every bar, though it needs only 3 of its 4 conditions — ADX and ATR may both be the
@@ -41,8 +42,8 @@ public sealed class CipherBProviderSpeechTests
         var meta = new CipherBProvider().GetIndicators()[0];
         var series = Factory.CreateSeriesFromMetadata(meta, "Cipher B", "Pane_CIPHER_B",
             new List<(string, string)>(), componentOverrides: null);
-        // Every part included: the red dot and the divergences are left out by default (2026-10-23)
-        // and say this once the user includes them.
+        // Every part included (since 2026-10-31 nothing is left out by default; the red dot and the
+        // divergences that were are removed).
         var order = meta.Components.Select(c => c.Name).ToList();
         foreach (var name in series.Config.ExcludedComponents.Select(c => c.Name).ToList())
             ComponentInclusion.SetIncluded(series.Config, name, true, order);
@@ -82,9 +83,6 @@ public sealed class CipherBProviderSpeechTests
     [InlineData(CipherBProvider.CompCrossBull)]
     [InlineData(CipherBProvider.CompCrossBear)]
     [InlineData(CipherBProvider.CompBlue)]
-    [InlineData(CipherBProvider.CompRed)]
-    [InlineData(CipherBProvider.CompBullDiv)]
-    [InlineData(CipherBProvider.CompBearDiv)]
     public void A_dot_says_the_wave_trend_at_its_bar(string component)
     {
         var (series, bars, engine, results) = Chart();

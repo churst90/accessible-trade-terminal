@@ -46,13 +46,10 @@ namespace AccessibleTrader.Core.Services
         public static bool? RetiredComponentDefault(string indicatorCode, string componentName) =>
             (indicatorCode.ToUpperInvariant(), componentName) switch
             {
-                // Cipher B, 2026-10-17: shown by default since they were written; hidden to match
-                // stock Market Cipher B (CipherBProvider, "Our own signals, HIDDEN by default").
-                // (The gold dot, "Triple Confluence Buy", was here too until it was removed from
-                // Cipher B on 2026-10-22; a save that still lists it has nothing to apply it to.)
-                ("CIPHER_B", CipherBProvider.CompRed
-                           or CipherBProvider.CompBullDiv or CipherBProvider.CompBearDiv
-                           or CipherBProvider.CompHidBull or CipherBProvider.CompHidBear) => true,
+                // Cipher B's own signals (Overbought Crossover and the four divergences), shown by
+                // default until 2026-10-17, were here until they were removed from Cipher B on
+                // 2026-10-31, as the gold dot was on 2026-10-22: a save that still lists them has
+                // nothing to apply it to.
                 _ => null,
             };
 
@@ -65,9 +62,10 @@ namespace AccessibleTrader.Core.Services
         /// not "shown": every part left out by default is shown once included, so a save made
         /// since records true and its Include box is the user's). Then the part is left out
         /// when the save holds it hidden, or shown only because its retired default showed it
-        /// (Cipher B's own signals before 2026-10-17); a part the user had shown stays, and so does
+        /// (Cipher B's own signals before 2026-10-17, since removed); a part the user had shown stays, and so does
         /// one the user had given a background tint, which shades even while the part is hidden
-        /// (Cipher B's Anchor Polarity on the price chart) and would stop if it were left out.
+        /// (as Cipher B's Anchor Polarity could on the price chart, until it was removed on
+        /// 2026-10-31) and would stop if it were left out.
         /// </summary>
         /// <param name="nowDefaultIsEnabled">The indicator's <c>DefaultIsEnabled</c> for the part now.</param>
         /// <param name="savedIsVisible">The visibility the workspace file holds.</param>
@@ -86,9 +84,9 @@ namespace AccessibleTrader.Core.Services
         public static bool? RetiredCloudFillDefault(string indicatorCode, string fillDisplayName) =>
             (indicatorCode.ToUpperInvariant(), fillDisplayName) switch
             {
-                // Cipher B, 2026-10-17: both shown by default until that day. WT Fill was hidden in
-                // the morning (65ea3d68), Anchor Fill in the evening.
-                ("CIPHER_B", "Anchor Fill" or "WT Fill") => true,
+                // Cipher B's Anchor Fill and WT Fill, shown by default until 2026-10-17, were here
+                // until both were removed on 2026-10-31; a save that still holds them drops them
+                // (WorkspaceInitializer.MigrateSeriesConfig).
                 _ => null,
             };
     }

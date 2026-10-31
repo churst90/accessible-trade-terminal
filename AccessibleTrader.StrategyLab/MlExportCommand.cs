@@ -33,8 +33,7 @@ public static class MlExportCommand
         ("CIPHER_B", "Wave Trend 2",     "wt2"),
         ("CIPHER_B", "WT Histogram",     "wt_hist"),
         ("CIPHER_B", "Money Flow Wave",  "mfw"),
-        ("CIPHER_B", "Anchor Wave",      "anchor"),
-        ("CIPHER_B", "Anchor Wave 2",    "anchor2"),
+        // "anchor"/"anchor2" (Anchor Wave, Anchor Wave 2) went with Cipher B's own parts on 2026-10-31.
         // Cipher C was an oscillator with a Cycle Sine and a Lead Sine until 2026-10-21; it is now
         // the CF-style cycle-low indicator and its causal continuous outputs are the day count
         // since the last confirmed daily cycle low and whether that count is in the timing window
@@ -94,9 +93,7 @@ public static class MlExportCommand
             }
             Console.Write($"  · {snap.Symbol,-10} {bars.Count,6} bars … ");
             var host = LabHost.Build();
-            var honest = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase)
-            { ["CIPHER_B"] = new Dictionary<string, object> { ["DivergenceConfirmLag"] = 1.0 } };
-            var state = await WorkspaceFactory.BuildAsync(host.Services, snap, parameterOverrides: honest);
+            var state = await WorkspaceFactory.BuildAsync(host.Services, snap);
 
             var cols = Features.Select(f => ReadComponent(state, f.Code, f.Comp)).ToArray();
             var markerCols = Markers.Select(m => ReadComponent(state, m.Code, m.Comp)).ToArray();

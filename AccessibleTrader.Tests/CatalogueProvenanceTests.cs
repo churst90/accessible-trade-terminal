@@ -99,8 +99,8 @@ namespace AccessibleTrader.Tests
         public void RetiredSpecsKeepTheirVerdict()
         {
             // Deleting a falsified strategy is housekeeping; forgetting that it failed is how it
-            // gets reinvented. Six specs were retired on 2026-08-01 — their code is gone and their
-            // verdicts are not. Every retirement must carry a dated, sourced verdict.
+            // gets reinvented. Six specs were retired on 2026-08-01, two more in 2026-10 and twelve on
+            // 2026-10-31 — their code is gone and their verdicts are not. Every retirement must carry a dated, sourced verdict.
             Assert.NotEmpty(CatalogueProvenance.Retired);
             Assert.All(CatalogueProvenance.Retired, r =>
             {

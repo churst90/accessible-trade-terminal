@@ -156,6 +156,12 @@ public static class SetupGraderMc3Command
     {
         Console.WriteLine("SETUP GRADER ROUND 3, MARKET CIPHER WITH CIPHER SR LOCATION — pre-registered in docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
+        // Its pre-registered rules read Cipher B's divergences (exit X4, the bearish divergence), which were removed on
+        // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment
+        // under the same name. Its results stand; to re-run it, build commit 2e86d377.
+        Console.WriteLine("Refusing to run: the pre-registered rules read Cipher B parts removed on 2026-10-31 (exit X4's bearish divergence); build commit 2e86d377 to re-run it.");
+        return 2;
+#pragma warning disable CS0162 // the frozen run below, kept for the record
         if (!LabCipherProfile.IsDefault)
         {
             Console.WriteLine("The pre-registration fixes the shipped (MCB) Cipher B defaults. Refusing to run another profile.");

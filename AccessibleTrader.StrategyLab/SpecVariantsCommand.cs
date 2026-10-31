@@ -72,12 +72,8 @@ public static class SpecVariantsCommand
     /// <c>--all</c>; every other spec runs on BTC and ETH daily.</summary>
     private static readonly Dictionary<string, string[]> RecordedOn = new()
     {
-        ["builtin.long.v14-hidden-bull-sma200"] = new[] { "bitstamp_BTC_USDT_4h.json" },
-        ["builtin.short.v18-refined"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_BTC_USDT_1d.json" },
-        ["builtin.long.v23-cipherb-weekly"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_BTC_USDT_1d.json" },
-        ["builtin.long.v23r-cipherb-faber"] = new[] { "bitstamp_BTC_USDT_4h.json", "bitstamp_ETH_USDT_4h.json" },
-        ["builtin.short.v23h-cipherb-hurst"] = new[] { "mexc_KAS_USDT_4h.json" },
-        ["builtin.long.v23c-cipherb-cot"] = new[] { "twelvedata_XAU_USD_1d.json", "twelvedata_SPY_1d.json", "twelvedata_QQQ_1d.json" },
+        // v14, v18 and the v23 family were here until they were retired on 2026-10-31 with the
+        // Cipher B parts they read.
         ["builtin.long.capitulation-buy"] = new[] { "bitstamp_BTC_USDT_1d.json", "bitstamp_ETH_USDT_1d.json",
                                                     "bitstamp_XRP_USDT_1d.json", "bitstamp_LTC_USDT_1d.json" },
     };

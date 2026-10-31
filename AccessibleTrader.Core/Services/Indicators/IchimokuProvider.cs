@@ -24,7 +24,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// One cloud fill (Kumo):
     ///   Bullish (green) when Senkou A > Senkou B; bearish (red) when Senkou B > Senkou A.
     ///   Semi-transparent fill between the two Senkou lines gives visual cloud depth.
-    ///   Cloud sonification: 520/180 Hz — distinct from EMA Fill (440/220) and WT Fill (480/200).
+    ///   Cloud sonification: 520/180 Hz — distinct from EMA Fill (440/220) and Cipher B's old WT Fill (480/200).
     ///
     /// Displacement handling:
     ///   Senkou arrays are shifted forward by Displacement bars — index i holds the value
@@ -199,7 +199,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // Bullish (green) when Senkou A > Senkou B, bearish (red) when Senkou B > Senkou A.
                 // Semi-transparent (60 in hex alpha) so price candles remain visible through the cloud.
                 // Sonification: 520 Hz bullish / 180 Hz bearish — distinct registers from EMA Fill (440/220)
-                // and WT Fill (480/200).
+                // and Cipher B's old WT Fill (480/200, removed 2026-10-31).
                 DefaultCloudFills = new List<CloudFillConfig>
                 {
                     new()

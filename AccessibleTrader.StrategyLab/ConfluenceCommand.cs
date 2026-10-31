@@ -34,7 +34,7 @@ public static class ConfluenceCommand
     private sealed record Trade(StructureState State, bool Long, double R, bool NearSrLevel);
 
     public static async Task<int> RunAsync(string snapshotDir, string? only, string tf, int permutations,
-        string bullComponent = CipherBProvider.CompBlue, string bearComponent = CipherBProvider.CompRed,
+        string bullComponent = CipherBProvider.CompCrossBull, string bearComponent = CipherBProvider.CompCrossBear,
         double srGateAtr = 0.5, int srLag = -1)
     {
         Console.WriteLine($"Signal pair: bull='{bullComponent}'  bear='{bearComponent}'  SR gate={srGateAtr} ATR" +
@@ -73,7 +73,9 @@ public static class ConfluenceCommand
             // EXACT names, and a SYMMETRIC pair. An earlier version matched on fragments and
             // silently paired "Triple Confluence Buy" (the gold dot) against "Bearish Divergence"
             // — two different kinds of signal — which made the short-side comparison meaningless.
-            // Oversold/Overbought Crossover are the canonical mirrored Cipher B dots.
+            // Market Cipher B's own mirrored pair is its small green and red dots, the WaveTrend
+            // crosses (its buy dot has no sell twin; the "Overbought Crossover" that was the default
+            // bear here until 2026-10-31 was ours and was removed).
             var buys = Exact(cipherB, bullComponent);
             var sells = Exact(cipherB, bearComponent);
             // LOOKAHEAD CORRECTION. CipherSrProvider starts a zone line at pivotBar + 1, but a

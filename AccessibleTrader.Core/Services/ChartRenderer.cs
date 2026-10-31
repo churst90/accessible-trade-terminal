@@ -278,8 +278,8 @@ namespace AccessibleTrader.Core.Services
 
                 _frameFormations = formations;
                 // Background tints are declared per component now (BackgroundTintPainter), not
-                // found here by name: Cipher B's "Anchor Polarity" and Top/Bottom Detector's
-                // "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
+                // found here by name: Cipher B's "Anchor Polarity" (removed from Cipher B on 2026-10-31) and
+                // Top/Bottom Detector's "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
                 _frameSeries = seriesList;
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();

@@ -14,7 +14,7 @@ public interface IIndicatorContextAnalyzer
     /// Context for ONE named component at ONE bar — what an alert needs. <see cref="Analyze"/>
     /// answers for the first registered component at the reading cursor, which is right for
     /// describing the bar the user is on and wrong for an alert twice over: it ignored the
-    /// component the alert named (a Cipher B "Anchor Wave" alert read the Wave Trend) and it
+    /// component the alert named (a Cipher B "Anchor Wave" alert, when it existed, read the Wave Trend) and it
     /// watched wherever the arrow keys had left the cursor instead of the market. A null
     /// <paramref name="componentName"/> keeps <see cref="Analyze"/>'s choice of component.
     /// </summary>

@@ -21,29 +21,20 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// draws none (removed 2026-10-22, Cody: "it isn't faithful"); its rule and look are kept, with
     /// no indicator using them, in <see cref="GoldDot"/>.</para>
     ///
-    /// <para><b>What is ours, computed but hidden by default</b> (none of it appears on any of those
-    /// MCB charts, where our rules fire it several times each): the red Overbought Crossover,
-    /// regular and hidden divergences (with their pivot-to-pivot lines), the
-    /// higher-timeframe anchor waves, Anchor Polarity and the Anchor Fill cloud, and the WT Fill band.
-    /// Hidden components stay keyboard stops, strategy and alert inputs; they are not drawn, sounded
-    /// or narrated until shown (H on the component, Properties, or Ctrl+Alt+Shift+K).</para>
-    ///
-    /// <para><b>Older behaviour behind parameters.</b> WTSignalPeriod = 4, MoneyFlowMode = Legacy,
-    /// BuyDotMode = Gated reproduce every number this indicator produced before 2026-10-17
-    /// except the gold dot, removed 2026-10-22; saved
-    /// backtests used them. The parameters themselves are declared, with descriptions, in
-    /// <see cref="GetIndicators"/> — the one list of them, so it cannot drift from this one.</para>
-    ///
-    /// <para><b>Gates that are ours, not MCB's</b> (they decide the hidden signals and the Gated buy
-    /// dot): an N-bar confirmation and cooldown on the gated crossovers, anchor-wave suppression of
-    /// counter-trend dots, a true-range conviction test and a depth gate on divergences,
-    /// and timeframe-aware scaling of all of them. ThresholdMode = Percentile replaces the fixed ±OBLevel
-    /// those gates use with rolling percentiles of the fast wave.</para>
+    /// <para><b>Nothing that is not Market Cipher B's</b> (removed 2026-10-31, Cody: "Yes remove all
+    /// of that old code from cipher b"): the red Overbought Crossover, the regular and hidden
+    /// divergences with their pivot-to-pivot lines, the higher-timeframe anchor waves, Anchor
+    /// Polarity, the Anchor Fill and WT Fill bands, and the older behaviour behind parameters (the
+    /// Legacy money flow, the Gated buy dot, percentile thresholds, confirmation and cooldown bars,
+    /// anchor suppression and timeframe-aware gates). None appears on any MCB chart or in MCB
+    /// 2.4.0's data window. A strategy or alert that names a removed part is told so
+    /// (SignalCatalog.Retired); a saved chart drops them on load (IndicatorModelFactory, layer 1,
+    /// and WorkspaceInitializer for the two bands).</para>
     ///
     /// <para><b>Retired</b> (still in old saves and old docs): Stoch %K/%D, Laguerre RSI, Trigger
     /// Wave and a rolling-VWAP deviation (before 2026-10; the 2026-10-17 "RSI" / "Stochastic" lines
     /// are MCB's own, not these); the red/green OB/OS zone shading; the Adaptive OB / Adaptive OS
-    /// components (now the companion arrays <see cref="ThresholdObKey"/> / <see cref="ThresholdOsKey"/>).</para>
+    /// components; the gold dot (2026-10-22); and everything listed above (2026-10-31).</para>
     /// </summary>
     public class CipherBProvider : IIndicatorProvider, IComputesHeikinAshiItself
     {
@@ -64,12 +55,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         internal const string DisplayWaveGap = "Wave Gap";
         public const string CompCrossBull    = "WaveTrend Cross Bull";
         public const string CompCrossBear    = "WaveTrend Cross Bear";
-        /// <summary>MCB's big green buy dot (BuyDotMode = MCB), or the gated crossover (Gated). Named
-        /// "Blue" for the colour it had until 2026-10-17; the name is kept because strategies,
-        /// alerts and tests reference it. Heard and shown as <see cref="DisplayBuyDot"/>.</summary>
+        /// <summary>MCB's big green buy dot. Named "Blue" for the colour it had until 2026-10-17;
+        /// the name is kept because strategies, alerts and tests reference it. Heard and shown as
+        /// <see cref="DisplayBuyDot"/>.</summary>
         public const string CompBlue         = "Oversold Crossover";
-        /// <summary>The red gated sell dot — ours, hidden by default.</summary>
-        public const string CompRed          = "Overbought Crossover";
         // The gold dot ("Triple Confluence Buy", shown as "Gold dot") was removed on 2026-10-22:
         // Market Cipher B has none. A strategy or alert that names it is told why
         // (SignalCatalog.Retired); its rule and look are in GoldDot.
@@ -87,32 +76,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>The 0–100 RSI and Stochastic lines' own extremes: undrawn levels at 80 and 20.</summary>
         internal static readonly string[] LineLevels = { "Stoch Overbought", "Stoch Oversold" };
 
-        public const string CompBullDiv      = "Bullish Divergence";
-        public const string CompBearDiv      = "Bearish Divergence";
-        public const string CompHidBull      = "Hidden Bull Continuation";
-        public const string CompHidBear      = "Hidden Bear Continuation";
-        public const string CompWT1Anchor    = "Anchor Wave";
-        public const string CompWT2Anchor    = "Anchor Wave 2";
-        public const string CompAnchorPolarity = "Anchor Polarity";
-        /// <summary>
-        /// The overbought / oversold thresholds the dots are gated on, per bar: ±OBLevel in Fixed
-        /// mode, the floored rolling percentiles of the fast wave in Percentile mode.
-        ///
-        /// <para>COMPANION ARRAYS, not components (like the divergences' <c>_anchorIdx</c>). Until
-        /// 2026-10-17 they were two hidden Oscillator components, "Adaptive OB" and "Adaptive OS".
-        /// Cody's 2026-10-17 report: "the adaptive os/ob components, do I really need these?
-        /// they're hidden, don't the reference lines cover this already". Hidden components are
-        /// still keyboard stops, so Ctrl+Up/Down through Cipher B landed on "Hidden. Adaptive OB.
-        /// Oscillator. 53.0" and its twin — in the default Fixed mode a constant ±53 on every bar,
-        /// the number the ±53 reference lines already say. The numbers are kept because Percentile
-        /// mode gates the dots on them and the bar detail (GetDetailFact) reads them; nothing
-        /// navigates to them. A saved chart drops the two components on load because a series is
-        /// rebuilt from this metadata (IndicatorModelFactory, layer 1); a strategy or alert that
-        /// named them is told so (SignalCatalog.Retired, AlertEvaluator). CipherBAdaptiveThresholdTests.</para>
-        /// </summary>
-        public const string ThresholdObKey   = CompWT1 + "_adaptiveOb";
-        /// <inheritdoc cref="ThresholdObKey"/>
-        public const string ThresholdOsKey   = CompWT1 + "_adaptiveOs";
+        // The red Overbought Crossover, the four divergences, the anchor waves, Anchor Polarity and
+        // the adaptive-threshold arrays were removed on 2026-10-31 (see the class summary); their
+        // names live on only in SignalCatalog.Retired.
         public const string CompMcbRsi       = "RSI";
         public const string CompMcbStoch     = "Stochastic";
 
@@ -130,31 +96,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 RangeMin = -100, RangeMax = 100,
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    // ── Anchor Waves — a 5×-period WaveTrend pair: the higher-timeframe regime ──
-                    // Ours, not MCB's (no anchor appears on any MCB chart). Left out by default; they still feed
-                    // Anchor Polarity, the anchor suppression of the gated dots, and the Anchor Fill
-                    // cloud (hidden by default since 2026-10-17; it draws only while both waves are included).
-                    new() { Name = CompWT1Anchor,     DisplayName = "Anchor Wave Fast", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#78909C", DefaultThickness = 2.0f, DefaultIsEnabled = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultWaveform = "triangle",
-                            DefaultAboveWaveform = "triangle", DefaultBelowWaveform = "sine",
-                            DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
-                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-                    new() { Name = CompWT2Anchor,     DisplayName = "Anchor Wave Slow", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#1A237E", DefaultThickness = 2.5f, DefaultIsEnabled = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultWaveform = "sine",
-                            DefaultAboveWaveform = "triangle", DefaultBelowWaveform = "sine",
-                            DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultNoiseAmount = 0.15f, DefaultTriggerBoundaryClick = true,
-                            DefaultIsAreaFill = false, DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-
                     // ── Wave Gap (component name "WT Histogram") — MCB's "VWAP" plot ──
                     // This is WT1 − WT2. Real MCB's "VWAP" has the same sign as WT1 − WT2 on 96%
                     // of bars (BTCUSD 1D Bitstamp HA, Jul 2021 – Aug 2022, digitised from a
@@ -262,11 +203,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SubscribedLevelNames = WaveLevels },
 
                     // ── Money Flow — a smoothed typical-price deviation ratio, centred on zero ──
-                    // Volumeless (it works where volume is synthetic). MoneyFlowMode = MCB (default):
-                    // 200/3 × the average over MFPeriod bars of each candle's hlc3 less its 5-bar mean,
-                    // divided by the 5-bar mean size of that difference; Legacy: the
-                    // VuManChu-style raw-candle average through a signed square root × 175. Formula
-                    // and fit evidence at its computation in Calculate. Clamped to ±100.
+                    // Volumeless (it works where volume is synthetic): 200/3 × the average over
+                    // MFPeriod bars of each candle's hlc3 less its 5-bar mean, divided by the 5-bar
+                    // mean size of that difference. Formula and fit evidence at its computation in
+                    // Calculate. Clamped to ±100.
                     //
                     // An area from zero, coloured by its sign against ColorBaseline 0.
                     //
@@ -346,34 +286,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
 
-                    // The adaptive OB/OS thresholds are not components since 2026-10-17 — see
-                    // ThresholdObKey for why (Cody's 2026-10-17 report).
-
-                    // ── Anchor Polarity — +1/0/-1, left out by default, strategy-friendly ──
-                    new() { Name = CompAnchorPolarity, DisplayName = "Anchor Polarity", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#9E9E9E", DefaultThickness = 1.0f, DefaultIsEnabled = false,
-                            DefaultPlaybackLayer = PlaybackLayer.Background,
-                            DefaultReferenceLevel = 0.0, DefaultEnvelopeType = "Sustain",
-                            SpeechTemplate = "Anchor polarity. {value:F0}.",
-                            SubscribedLevelNames = WaveLevels,
-                            // A background tint is OFFERED, not painted: Market Cipher B paints
-                            // nothing on the price chart (Cody, 2026-10-17: "make the background
-                            // tint like the real cipher b"). Properties → Background tint → Price
-                            // chart brings back the higher-timeframe regime shading this used to
-                            // force on (teal at +1, soft red at -1, at 0x16 alpha). Midline is the
-                            // ColorBaseline, 0.
-                            DefaultBackgroundTint = BackgroundTint.Off,
-                            DefaultTintColorAboveHex = "#1626A69A",
-                            DefaultTintColorBelowHex = "#16EF5350" },
+                    // The adaptive OB/OS thresholds are not components since 2026-10-17 (Cody's report: hidden
+                    // stops that said ±53), and their mode went on 2026-10-31.
 
                     // ── Signal dots ─────────────────────────────────────────
                     // MCB's big green buy dot: opaque #3FFF00 (sampled exactly in the 2.2.6 chart),
-                    // drawn in the money-flow bar. Was blue (#0BBCF5) on the wave until 2026-10-17;
-                    // see BuyDotMode for the rule.
+                    // drawn in the money-flow bar. Was blue (#0BBCF5) on the wave until 2026-10-17.
                     // Spoken "Buy dot, waves crossed up from oversold" (was "Oversold crossover, long
-                    // signal"): true of both rules — MCB's fires on a cross up with the fast wave below
-                    // −BuyDotLevel (−60), Gated on a cross up with the fast wave below the OS
-                    // threshold for ConfirmBars bars.
+                    // signal"): it fires on a cross up with the fast wave below −BuyDotLevel (−60).
                     new() { Name = CompBlue,          DisplayName = DisplayBuyDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
                             DefaultColorHex = "#3FFF00", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
@@ -386,88 +306,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultSignalSpeechTemplate = "Buy dot, waves crossed up from oversold",
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
-                    //
-                    // ── Our own signals, LEFT OUT by default (hidden 2026-10-17, left out 2026-10-23) ─────────────────────────
-                    // Cody: "finish disabling the elements on cipher b to make it similar to stock
-                    // market cipher's config". The red Overbought Crossover and the
-                    // four divergences appear on none of the five dated MCB
-                    // charts (the vendor's product image, "MarketCipher B (2.2.6, …)" BTCUSD 1D, and
-                    // three 2022–2023 BTC charts) — while our rules fire them on those same bars: red
-                    // 6/1/1/2, divergences 9/4/3/6 across S2–S5. MCB's red marks are
-                    // the small cross dots above. Computed, keyboard stops, strategy and alert inputs
-                    // as before; left out, so not drawn, sounded, narrated or a keyboard stop until included
-                    // (Properties → Appearance → Parts; hidden and still a stop until 2026-10-23). A chart saved
-                    // when they were visible by default follows the new default unless its user had
-                    // changed them (IndicatorModelFactory, layer 2; ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut).
-                    new() { Name = CompRed,           DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            DefaultIsEnabled = false,
-                            DefaultColorHex = "#FF1744", DefaultThickness = 5.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "sine_bell",
-                            DefaultDecayMs = 350,
-                            DefaultBaseFrequency = 210.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Overbought crossover, short signal",
-                            DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-                    // ── Divergence dots (left out by default — see the Overbought Crossover) ──
-                    // A divergence dot also draws a slanted line back to its first pivot (the
-                    // _anchorIdx / _anchorY companions); a dot left out or hidden draws neither.
-                    new() { Name = CompBullDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            DefaultIsEnabled = false,
-                            DefaultColorHex = "#00E676", DefaultThickness = 3.5f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 230,
-                            DefaultBaseFrequency = 620.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Bullish divergence",
-                            DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-                    new() { Name = CompBearDiv,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            DefaultIsEnabled = false,
-                            DefaultColorHex = "#FF1744", DefaultThickness = 3.5f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 230,
-                            DefaultBaseFrequency = 310.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Bearish divergence",
-                            DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-                    new() { Name = CompHidBull,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            DefaultIsEnabled = false,
-                            DefaultColorHex = "#26C6DA", DefaultThickness = 3.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 180,
-                            DefaultBaseFrequency = 520.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Hidden bullish continuation",
-                            DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-                    new() { Name = CompHidBear,       DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal,
-                            DefaultIsEnabled = false,
-                            DefaultColorHex = "#FF9800", DefaultThickness = 3.0f,
-                            DefaultEnvelopeType = "Ping",
-                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
-                            DefaultSoundPatchId = "triangle_bell",
-                            DefaultDecayMs = 180,
-                            DefaultBaseFrequency = 360.0,
-                            DefaultPitchMapping = PitchMapping.None,
-                            DefaultAmplitudeMapping = AmplitudeMapping.None,
-                            DefaultSignalSpeechTemplate = "Hidden bearish continuation",
-                            DefaultUsePolarityColoring = false,
-                            SubscribedLevelNames = WaveLevels },
-
                     // ── MCB's two stochastic lines (added 2026-10-17, MUTED by default) ──────
                     // Drawn because Market Cipher B draws them; muted (DefaultIsMuted) so they add no
                     // voice to the chart Cody already hears — they are navigable and speak their value
@@ -499,34 +337,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SubscribedLevelNames = LineLevels,   // their own undrawn 80/20, not the waves' ±53/±60
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
                 },
-                DefaultCloudFills = new List<CloudFillConfig>
-                {
-                    new() { UpperComponentName = CompWT1Anchor, LowerComponentName = CompWT2Anchor,
-                            BullishColorHex = "#881A237E", BearishColorHex = "#88880E4F",
-                            // Hidden by default since 2026-10-17: MCB has no anchor band (it showed as
-                            // a dark navy ribbon through the waves). Hidden, its chart-playback bell
-                            // is silent too (AudioSequencer.FireCloudVoices reads IsVisible).
-                            DisplayName = "Anchor Fill", IsVisible = false,
-                            Sonification = new CloudSonificationConfig(
-                                BullishFrequency: 160f,
-                                BearishFrequency: 110f,
-                                SoundPatchId: "sine_bell",
-                                DecayMs: 400,
-                                MaxVolume: 0.30f) },
-                    // WT Fill is purely visual. The two boundary components (WT1 / WT2)
-                    // each sonify independently as Oscillator voices; a third cloud voice
-                    // between them would duplicate information the user already hears.
-                    // Rule of thumb: clouds sonify only when the cloud represents a
-                    // regime signal the boundary components don't individually carry
-                    // (e.g. Anchor Fill = HTF regime, Ichimoku Kumo = trend direction).
-                    new() { UpperComponentName = CompWT1, LowerComponentName = CompWT2,
-                            BullishColorHex = "#590BBCF5", BearishColorHex = "#40FF1744",
-                            // Hidden by default since 2026-10-17: Market Cipher B has no band between
-                            // its waves — its look is the two overlapping areas, which now cover this.
-                            DisplayName = "WT Fill", IsVisible = false,
-                            Sonification = null },
-
-                },
+                // No cloud fills: the Anchor Fill and WT Fill bands, hidden by default since 2026-10-17,
+                // were removed on 2026-10-31 (Market Cipher B draws neither). A saved chart drops them
+                // on load (WorkspaceInitializer).
                 DefaultZoneBands = new List<ZoneBandConfig>
                 {
                     // Market Cipher B's money-flow bar: a strip along the bottom of the pane, green
@@ -551,66 +364,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Description = "Bars averaged for the Money Flow. 60 by default; fewer makes it quicker and rougher." },
                     new() { Name = "WTSignalPeriod", DisplayName = "WT Slow Wave Smoothing",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10,  Step = 1,
                             Description = "Bars in the simple average that makes the slow wave from the fast one. 3 by default." },
-                    new() { IsAdvanced = true, Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "Standard", DataType = typeof(string),
-                            Description = "Standard (the default) = 200/3 x the average over Money Flow Period bars of each candle's typical price (high + low + close) / 3 less its 5-bar mean, divided by the 5-bar mean size of that difference. Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts." },
-                    new() { IsAdvanced = true, Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "Standard", DataType = typeof(string),
-                            Description = "Standard (the default) = a green dot on every cross up with the fast wave below minus Buy Dot Level. Gated = only a confirmed, cooled-down oversold crossover the anchor wave allows." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "How deep the fast wave must be for a buy dot: below minus this at the cross. 60 by default." },
-                    new() { Name = "OBLevel",        DisplayName = "OB/OS Threshold",        DefaultValue = 53.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
-                            Description = "Fixed-mode OB/OS level for the gated dots and divergences. In Percentile mode it is used only until the rolling window has warmed up." },
-                    // Signal logic
-                    new() { Name = "PivotBars",      DisplayName = "Divergence Pivot Bars",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10, Step = 1 },
-                    // Anchor waves
-                    new() { IsAdvanced = true, Name = "AnchorMultiplier", DisplayName = "Anchor Wave Multiplier", DefaultValue = 5.0, DataType = typeof(int), MinValue = 2, MaxValue = 10, Step = 1,
-                            Description = "Period multiplier for the anchor WT pair (default 5 = 5× WT periods)." },
-
-                    // Adaptive thresholds
-                    new() { IsAdvanced = true, Name = "ThresholdMode",    DisplayName = "Threshold Mode",        DefaultValue = "Fixed", DataType = typeof(string),
-                            Description = "Fixed = ±OBLevel. Percentile = rolling OB/OS envelopes that adapt to the instrument." },
-                    new() { IsAdvanced = true, Name = "AdaptiveLookback", DisplayName = "Adaptive Lookback",     DefaultValue = 500.0, DataType = typeof(int), MinValue = 50, MaxValue = 2000, Step = 50,
-                            Description = "Window length for percentile-based thresholds. Longer = more stable, slower to adapt." },
-                    new() { IsAdvanced = true, Name = "UpperPercentile",  DisplayName = "Upper Percentile",      DefaultValue = 0.95, DataType = typeof(double), MinValue = 0.80, MaxValue = 0.99, Step = 0.01 },
-                    new() { IsAdvanced = true, Name = "LowerPercentile",  DisplayName = "Lower Percentile",      DefaultValue = 0.05, DataType = typeof(double), MinValue = 0.01, MaxValue = 0.20, Step = 0.01 },
-                    new() { IsAdvanced = true, Name = "MinThresholdFloor",DisplayName = "Min Threshold Floor",   DefaultValue = 40.0, DataType = typeof(double), MinValue = 20, MaxValue = 80, Step = 1,
-                            Description = "|Minimum| threshold used in Percentile mode to prevent whipsaw in compressed regimes." },
-
-                    // Signal quality gates
-                    new() { IsAdvanced = true, Name = "ConfirmBars",    DisplayName = "Confirmation Bars",     DefaultValue = 2.0, DataType = typeof(int), MinValue = 1, MaxValue = 5, Step = 1,
-                            Description = "Bars the fast wave must stay past OS/OB before a gated dot fires: the red Overbought Crossover and the Gated buy dot (1 = immediate, 2 = sustained)." },
-                    new() { IsAdvanced = true, Name = "CooldownBars",   DisplayName = "Cooldown Bars",         DefaultValue = 0.0, DataType = typeof(int), MinValue = 0, MaxValue = 50, Step = 1,
-                            Description = "Suppress further same-side dots for N bars after one fires. 0 = auto (uses WT1Period)." },
-                    new() { IsAdvanced = true, Name = "UseAnchorSuppression", DisplayName = "Anchor Suppression", DefaultValue = true, DataType = typeof(bool),
-                            Description = "When ON, the Gated buy dot is suppressed while Anchor Wave is strongly bearish, and the red dot while it is strongly bullish. Prevents counter-trend entries against a clear higher-TF regime." },
-                    new() { IsAdvanced = true, Name = "AnchorSuppressDepth", DisplayName = "Anchor Suppress Depth", DefaultValue = 40.0, DataType = typeof(double), MinValue = 10, MaxValue = 80, Step = 5,
-                            Description = "Anchor Wave must exceed ±this value to count as 'strongly directional' for suppression. Lower values suppress more often." },
-                    new() { IsAdvanced = true, Name = "TfAware",        DisplayName = "Timeframe-Aware Gates", DefaultValue = true, DataType = typeof(bool),
-                            Description = "When ON, Cipher B reads the chart's timeframe (or, failing that, the bars' spacing) and scales the divergence gates and the Legacy money flow's period accordingly. Default values are daily-tuned; intraday TFs need a looser MF/conviction or signals fire too rarely. Turn OFF to use literal parameter values." },
                 }
             }
         };
 
         // ── Calculation ───────────────────────────────────────────────────────
-
-        /// <summary>
-        /// The chart's declared timeframe in minutes from the orchestrator's <c>__timeframe</c>
-        /// hint, or 0 when it is absent or unparseable.
-        ///
-        /// <para>Unlike a median over the loaded bars, this number does not move when more
-        /// history arrives — which is the whole point, because every gate in this indicator is
-        /// downstream of it.</para>
-        /// </summary>
-        private static double TimeframeHintMinutes(Dictionary<string, object> parameters)
-        {
-            if (parameters == null) return 0;
-            if (!parameters.TryGetValue("__timeframe", out var raw)) return 0;
-            string? tf = raw?.ToString();
-            if (string.IsNullOrWhiteSpace(tf)) return 0;
-
-            long ms = AccessibleTrader.Sdk.Models.TimeframeUtility.ToMilliseconds(tf);
-            return ms > 0 ? ms / 60000.0 : 0;
-        }
-
 
         public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
@@ -619,141 +379,22 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (n < 10) return;
 
             // Parameters
-            int    wt1Period     = GetInt(parameters, "WT1Period",      9);
-            int    wt2Period     = GetInt(parameters, "WT2Period",      12);
-            int    mfPeriod      = GetInt(parameters, "MFPeriod",       60);
-            // The period as declared, before the timeframe-aware scaling below shortens it on
-            // intraday charts. The MCB money flow uses it unscaled: a 30-minute MCB chart
-            // (TradingView idea LfGIzkND) fits a 60-bar average best (r 0.907 at 60; the 24 bars
-            // the scaling chose flipped sign 25 times in 230 bars where MCB flipped 4).
-            int    mfPeriodDeclared = mfPeriod;
+            int    wt1Period      = GetInt(parameters, "WT1Period",      9);
+            int    wt2Period      = GetInt(parameters, "WT2Period",      12);
+            // Not timeframe-scaled: MCB keeps 60 on 15m and 30m charts (a 30-minute MCB chart,
+            // TradingView idea LfGIzkND, fits a 60-bar average best, r 0.907).
+            int    mfPeriod       = GetInt(parameters, "MFPeriod",       60);
             int    wtSignalPeriod = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
-            bool   mcbMoneyFlow   = !string.Equals(GetStr(parameters, "MoneyFlowMode", "Standard"), "Legacy", StringComparison.OrdinalIgnoreCase);
-            bool   mcbBuyDot      = !string.Equals(GetStr(parameters, "BuyDotMode", "Standard"), "Gated", StringComparison.OrdinalIgnoreCase);
             double buyDotLevel    = Math.Abs(GetDbl(parameters, "BuyDotLevel", 60.0));
-            double obLevel       = GetDbl(parameters, "OBLevel",        53.0);
-            int    pivotBars     = GetInt(parameters, "PivotBars",      3);
-            int    anchorMult    = GetInt(parameters, "AnchorMultiplier", 5);
-
-            string thresholdMode = GetStr(parameters, "ThresholdMode", "Fixed");
-            int    adaptiveLook  = GetInt(parameters, "AdaptiveLookback", 500);
-            double upperPct      = GetDbl(parameters, "UpperPercentile", 0.95);
-            double lowerPct      = GetDbl(parameters, "LowerPercentile", 0.05);
-            double minFloor      = GetDbl(parameters, "MinThresholdFloor", 40.0);
-
-            int    confirmBars   = Math.Max(1, GetInt(parameters, "ConfirmBars", 2));
-            int    cooldownBars  = GetInt(parameters, "CooldownBars", 0);
-            if (cooldownBars <= 0) cooldownBars = wt1Period;
-
-            // Anchor suppression: blocks the GATED crossovers (the Gated buy dot and
-            // the red dot) when the anchor wave is strongly opposed to their direction. A
-            // strongly bearish anchor (negative polarity AND deeper than the threshold) means
-            // the higher-TF regime is bearish, so a buy fired in it is usually a counter-trend
-            // trap. Same logic inverted for the red dot. MCB's own buy dot ignores it.
-            bool   useAnchorSuppression = IndicatorParams.GetBool(parameters, "UseAnchorSuppression", true);
-            double anchorSuppressDepth  = GetDbl(parameters, "AnchorSuppressDepth", 40.0);
-
-            bool adaptive = string.Equals(thresholdMode, "Percentile", StringComparison.OrdinalIgnoreCase);
-
-            // ── Timeframe-aware gate scaling ──────────────────────────────────
-            // The defaults (MF 60, divergence pivot 3, conviction 0.85x) were tuned
-            // on BTC daily. They produce very few divergences on intraday timeframes
-            // because trend strength is naturally weaker per-bar at lower TFs. When TfAware is
-            // enabled (default) we take the bar interval (below) and scale the
-            // gates — looser on intraday, slightly tighter on weekly+. These gates
-            // decide only our own signals (the divergences) and
-            // the LEGACY money flow's period; the MCB money flow, the waves and
-            // MCB's buy dot are timeframe-independent. Buckets (defaults shown):
-            //   <  60m   : intraday-fast  (MF 24, pivot 2, conv 0.65)
-            //   60m–4h   : intraday       (MF 32, pivot 2, conv 0.70)
-            //   4h–12h   : intraday-slow  (MF 40, pivot 2, conv 0.75)
-            //   12h–3d   : daily          (MF 60, pivot 3, conv 0.85) — base
-            //   >  3d    : weekly+        (MF 60, pivot 3, conv 0.90)
-            // (Until 2026-10-22 they also scaled the Confluence gold dot's ADX, ATR and RSI gates.)
-            // The divergence depth gate takes the same buckets further down.
-            bool tfAware = IndicatorParams.GetBool(parameters, "TfAware", true);
-            int  tfBucket = 3;  // 0=ifast, 1=intraday, 2=islow, 3=daily, 4=weekly+
-            int  intervalMin = 1440;
-            if (tfAware)   // n >= 10 already holds (see the top of Calculate)
-            {
-                // The CHART's declared timeframe first, the series median only as a fallback.
-                //
-                // This used to sample the first hundred bars (Math.Min(100, n - 1) counted from
-                // index 0), so the timeframe the whole indicator tunes itself for was decided by
-                // where the array started — a scroll-back moved the sample and silently re-tuned
-                // bars already on the chart. That was fixed by widening the sample to EVERY
-                // delta, which is far more robust but still a function of the data loaded: on a
-                // series with weekends, halts or a missing-bar artifact the median can still
-                // move when more history arrives, and every gate below is downstream of it
-                // (mfPeriod, pivotBars, convictionMult, divergenceDepth). Prepending history
-                // could still change a historical bar's divergence.
-                //
-                // The orchestrator already stamps the chart's own timeframe as a __timeframe
-                // hint, and that number cannot move when more bars arrive. It is the honest
-                // answer to "what timeframe is this"; the median is a guess at it. The median
-                // stays as the fallback for callers that do not stamp the hint — the strategy
-                // backtester and the causality harness among them.
-                double fromHint = TimeframeHintMinutes(parameters);
-                if (fromHint > 0)
-                {
-                    intervalMin = (int)Math.Round(fromHint);
-                }
-                else
-                {
-                    double median = IndicatorMath.MedianBarIntervalMinutes(data);
-                    if (median > 0) intervalMin = (int)Math.Round(median);
-                }
-                if      (intervalMin <  60)   tfBucket = 0;
-                else if (intervalMin <  240)  tfBucket = 1;
-                else if (intervalMin <  720)  tfBucket = 2;
-                else if (intervalMin <  4320) tfBucket = 3;
-                else                          tfBucket = 4;
-
-                // Apply the bucket: the pivot window is clamped toward the bucket's value and the
-                // legacy money-flow period is scaled in proportion.
-                switch (tfBucket)
-                {
-                    case 0: // intraday-fast (<1h)
-                        mfPeriod    = Math.Max(8,  mfPeriod * 24 / 60);
-                        pivotBars   = Math.Max(2,  pivotBars - 1);
-                        break;
-                    case 1: // intraday (1h–4h)
-                        mfPeriod    = Math.Max(12, mfPeriod * 32 / 60);
-                        pivotBars   = Math.Max(2,  pivotBars - 1);
-                        break;
-                    case 2: // intraday-slow (4h–12h)
-                        mfPeriod    = Math.Max(20, mfPeriod * 40 / 60);
-                        // Drop pivot bars to 2 on 4h-12h. Cycles on these TFs happen
-                        // in 5-10 bars — a 3-bar pivot window only resolves clean
-                        // 7-bar peaks and misses most shallow swings where
-                        // divergences form. A 12h chart of a 40% drawdown produced
-                        // only 1 bull div and 1 bear div at pivotBars=3; pivotBars=2
-                        // should ~2x that density.
-                        pivotBars   = Math.Max(2,  pivotBars - 1);
-                        break;
-                    case 3: // daily (12h–3d): base values, no scaling
-                        break;
-                    case 4: // weekly+ (>3d): mfPeriod and pivotBars unchanged
-                        break;
-                }
-            }
-            // The conviction multiplier for divergences (used inside the pivot
-            // loops below) is derived from the same bucket so all gates scale
-            // together. 0.65 / 0.70 / 0.75 / 0.85 / 0.90.
-            double convictionMult = tfAware
-                ? (tfBucket == 0 ? 0.65 : tfBucket == 1 ? 0.70 : tfBucket == 2 ? 0.75 : tfBucket == 4 ? 0.90 : 0.85)
-                : 0.85;
 
             // ── Source series ─────────────────────────────────────────────────
             var close = new double[n];
-            var open  = new double[n];
             var high  = new double[n];
             var low   = new double[n];
             var hlc3  = new double[n];
             for (int i = 0; i < n; i++)
             {
                 close[i] = data[i].Close;
-                open[i]  = data[i].Open;
                 high[i]  = data[i].High;
                 low[i]   = data[i].Low;
                 hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
@@ -771,11 +412,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (IndicatorCandles.IsHeikinAshi(parameters))
             {
                 var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
-                close = new double[n]; open = new double[n]; high = new double[n]; low = new double[n]; hlc3 = new double[n];
                 for (int i = 0; i < n; i++)
                 {
                     close[i] = ha[i].Close;
-                    open[i]  = ha[i].Open;
                     high[i]  = ha[i].High;
                     low[i]   = ha[i].Low;
                     hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
@@ -789,7 +428,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             // dots 164/182 times against 121/182 for SMA4 (within one bar: 175/182 vs 158/182), fitted
             // MCB's slow-wave body better on all four (RMSE 6.5/8.2/6.2/3.8 vs 7.2/8.6/7.6/5.9)
             // and made MCB's VWAP equal WT1 − WT2 at slope 1.00–1.06 instead of 0.69–0.74.
-            // WTSignalPeriod = 4 restores every cross, dot and divergence of the old default.
             var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wt1Period, wt2Period, wtSignalPeriod);
 
             // WT Histogram = WT1 − WT2 (MCB's "VWAP")
@@ -797,76 +435,24 @@ namespace AccessibleTrader.Core.Services.Indicators
             for (int i = 0; i < n; i++)
                 wtHist[i] = (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i])) ? double.NaN : wt1[i] - wt2[i];
 
-            // ── Anchor Waves: the same WaveTrend on AnchorMultiplier× the periods ──────────
-            var (wt1Anc, wt2Anc) = WaveTrendMath.Compute(
-                hlc3, wt1Period * anchorMult, wt2Period * anchorMult, AnchorSlowWavePeriod);
-
-            // Anchor polarity: +1 if fast > slow, -1 if fast < slow, 0 if equal, NaN in warm-up
-            var ancPol = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                if (double.IsNaN(wt1Anc[i]) || double.IsNaN(wt2Anc[i])) { ancPol[i] = double.NaN; continue; }
-                ancPol[i] = wt1Anc[i] > wt2Anc[i] ? 1.0 : (wt1Anc[i] < wt2Anc[i] ? -1.0 : 0.0);
-            }
-
             // ── Money Flow ───────────────────────────────────────────────────
-            // clv = each chart candle's (close − open) / (high − low), in [−1, +1] (0 for a bar with no
-            // range). The Legacy money flow averages it.
-            var clv = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                double range = high[i] - low[i];
-                if (range < 1e-10) { clv[i] = 0.0; continue; }
-                double r = (close[i] - open[i]) / range;
-                if (r > 1.0) r = 1.0;
-                else if (r < -1.0) r = -1.0;
-                clv[i] = r;
-            }
-
-            double[] mfSmooth;
-            if (mcbMoneyFlow)
-            {
-                // ── MCB money flow (MoneyFlowMode = MCB, the default since 2026-10-17) ──────────
-                // 200/3 × SMA(d / SMA(|d|, 5), MFPeriod), d = hlc3 − SMA(hlc3, 5), on the chart's
-                // candles (Heikin-Ashi on a Heikin-Ashi chart), linear, clamped to ±100. EXACT against
-                // Market Cipher B 2.4.0's plotted money flow (2026-10-24): TVC:DJI 1D since 1896
-                // (32,585 bars), BTCUSD 1D on candles and on Heikin-Ashi (5,446 each), BTCUSD 15m
-                // (5,009), every finished bar to the five decimals TradingView prints, the first
-                // value on bar 68 as MCB's (4 + 4 + 59 bars of warm-up). Found by recovering MCB's
-                // per-bar input from its line (the 60-bar SMA makes each step 1/60 of the newest
-                // input less the one 60 back; one unknown offset per bar-of-60, fitted) and fitting
-                // that input as a weighted sum of the last ten candles' prices: high, low and close
-                // weigh alike, the open almost nothing, and the four bars before weigh a quarter
-                // each against the newest, nothing older — hlc3 less its 5-bar mean.
-                // Earlier fits, superseded: 68 × SMA60(Heikin-Ashi body / SMA5 |body|) (2026-10-23,
-                // error ~1.8, starting 4 bars early) and 146 × SMA60(Heikin-Ashi body / SMA5 range).
-                // The constant 200/3 came out of the fit (66.6667 on every series), not assumed.
-                // No constant offset. The period is NOT timeframe-scaled (mfPeriodDeclared): MCB
-                // keeps 60 on 15m and 30m. On a Heikin-Ashi chart the candles here are already
-                // Heikin-Ashi (see above), which is what MCB reads there: exact on both charts.
-                mfSmooth = McbMoneyFlowShare(high, low, close, mfPeriodDeclared);
-            }
-            else
-            {
-                // ── Legacy money flow (MoneyFlowMode = Legacy; the default before 2026-10-17) ───
-                // SMA(clv, MFPeriod) on raw candles, the period shortened on intraday charts by the
-                // timeframe scaling above, displayed through a signed square root × 175 (below).
-                mfSmooth = IndicatorMath.Sma(clv, mfPeriod);
-            }
-            var mfDisplay = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                if (double.IsNaN(mfSmooth[i])) { mfDisplay[i] = double.NaN; continue; }
-                double r = mfSmooth[i];
-                // Legacy only: sign(r) × √|r| pulls the small daily averages (±0.05..0.15) up toward
-                // ±1 without moving a zero crossing — the reshaping MCB mode dropped (see above).
-                double scaled = mcbMoneyFlow
-                    ? r * McbMoneyFlowScale
-                    : Math.Sign(r) * Math.Sqrt(Math.Abs(r)) * LegacyMoneyFlowScale;
-                if (scaled >  MoneyFlowClamp) scaled =  MoneyFlowClamp;
-                if (scaled < -MoneyFlowClamp) scaled = -MoneyFlowClamp;
-                mfDisplay[i] = scaled;
-            }
+            // 200/3 × SMA(d / SMA(|d|, 5), MFPeriod), d = hlc3 − SMA(hlc3, 5), on the chart's
+            // candles (Heikin-Ashi on a Heikin-Ashi chart), linear, clamped to ±100. EXACT against
+            // Market Cipher B 2.4.0's plotted money flow (2026-10-24): TVC:DJI 1D since 1896
+            // (32,585 bars), BTCUSD 1D on candles and on Heikin-Ashi (5,446 each), BTCUSD 15m
+            // (5,009), every finished bar to the five decimals TradingView prints, the first
+            // value on bar 68 as MCB's (4 + 4 + 59 bars of warm-up). Found by recovering MCB's
+            // per-bar input from its line (the 60-bar SMA makes each step 1/60 of the newest
+            // input less the one 60 back; one unknown offset per bar-of-60, fitted) and fitting
+            // that input as a weighted sum of the last ten candles' prices: high, low and close
+            // weigh alike, the open almost nothing, and the four bars before weigh a quarter
+            // each against the newest, nothing older — hlc3 less its 5-bar mean.
+            // Earlier fits, superseded: 68 × SMA60(Heikin-Ashi body / SMA5 |body|) (2026-10-23,
+            // error ~1.8, starting 4 bars early) and 146 × SMA60(Heikin-Ashi body / SMA5 range).
+            // The constant 200/3 came out of the fit (66.6667 on every series), not assumed.
+            // No constant offset. Until 2026-10-31 a Legacy formula (a signed square root × 175 of
+            // the average close-location value) sat behind the Money Flow Formula setting.
+            var mfDisplay = McbMoneyFlow(high, low, close, mfPeriod);
 
             // ── MCB "RSI" and "Stochastic" lines (drawn, muted by default) ──────────────────
             // Market Cipher B draws two 0–100 lines in the wave pane: a thin magenta one it titles
@@ -879,52 +465,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             var mcbRsi   = WaveTrendMath.SmoothedStochastic(close, high, low, McbRsiLength, McbLineSmoothing);
             var mcbStoch = WaveTrendMath.SmoothedStochastic(close, high, low, McbStochLength, McbLineSmoothing);
 
-            // ── Adaptive OB/OS ───────────────────────────────────────────────
-            // In Fixed mode, emit constant ±obLevel lines. In Percentile mode,
-            // compute rolling percentiles of WT1 over AdaptiveLookback bars with a
-            // floor at MinThresholdFloor to prevent whipsaw in compressed regimes.
-            var adaptiveOb = new double[n];
-            var adaptiveOs = new double[n];
-            if (adaptive)
-            {
-                int warmup = Math.Max(50, adaptiveLook / 4);
-                var obRaw = RollingQuantile.Compute(wt1, adaptiveLook, upperPct, warmup);
-                var osRaw = RollingQuantile.Compute(wt1, adaptiveLook, lowerPct, warmup);
-                for (int i = 0; i < n; i++)
-                {
-                    adaptiveOb[i] = double.IsNaN(obRaw[i]) ? obLevel : Math.Max(obRaw[i],  minFloor);
-                    adaptiveOs[i] = double.IsNaN(osRaw[i]) ? -obLevel : Math.Min(osRaw[i], -minFloor);
-                }
-            }
-            else
-            {
-                Array.Fill(adaptiveOb,  obLevel);
-                Array.Fill(adaptiveOs, -obLevel);
-            }
-
             // ── Signal dots ──────────────────────────────────────────────────
-            // Two buy rules run side by side: MCB's (mcbBuy, the default Oversold Crossover) and
-            // the older GATED one (gatedBuy — confirmation, cooldown, anchor suppression), which
-            // is the Oversold Crossover in BuyDotMode = Gated. The red Overbought Crossover is gated the same way.
             var crossBullSignal = new double[n];
             var crossBearSignal = new double[n];
-            var gatedBuySignal  = new double[n];
-            var redSignal       = new double[n];
+            var mcbBuy          = new double[n];
             Array.Fill(crossBullSignal, double.NaN);
             Array.Fill(crossBearSignal, double.NaN);
-            Array.Fill(gatedBuySignal, double.NaN);
-            Array.Fill(redSignal,  double.NaN);
-            var mcbBuy = new double[n];
             Array.Fill(mcbBuy, double.NaN);
-
-            // Cooldowns, in bars.
-            int gatedBuyCd = 0, redCd = 0;
 
             for (int i = 1; i < n; i++)
             {
-                if (gatedBuyCd > 0) gatedBuyCd--;
-                if (redCd      > 0) redCd--;
-
                 if (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i]) ||
                     double.IsNaN(wt1[i - 1]) || double.IsNaN(wt2[i - 1])) continue;
 
@@ -943,376 +493,32 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // and 68 of 68 on Heikin-Ashi, no extra. Testing the slow wave instead (this
                 // indicator before 2026-10-23, from screenshots) adds 10 and 7 dots that MCB never drew.
                 if (crossUp && wt1[i] < -buyDotLevel) mcbBuy[i] = McbBuyDotY;
-
-                double obHere = adaptiveOb[i];
-                double osHere = adaptiveOs[i];
-
-                // The gated buy: a cross up with the fast wave below OS, after ConfirmBars bars
-                // below it (N-bar confirmation; the cross bar itself is the last of them), outside
-                // the cooldown, and not against a strongly bearish anchor. The anchor is a 5×-period
-                // WaveTrend, i.e. the higher-timeframe regime; a buy while it is strongly bearish
-                // is usually a counter-trend entry.
-                bool buyAnchorOk = !useAnchorSuppression
-                    || double.IsNaN(wt1Anc[i])
-                    || !(ancPol[i] < 0 && wt1Anc[i] < -anchorSuppressDepth);
-
-                if (crossUp && gatedBuyCd == 0 && wt1[i] < osHere && buyAnchorOk)
-                {
-                    bool sustained = true;
-                    for (int k = 1; k < confirmBars && (i - k) >= 0; k++)
-                    {
-                        if (double.IsNaN(wt1[i - k]) || wt1[i - k] > osHere) { sustained = false; break; }
-                    }
-                    if (sustained)
-                    {
-                        gatedBuySignal[i] = wt2[i] - GatedDotOffset;
-                        gatedBuyCd = cooldownBars;
-
-                    }
-                }
-
-                // The red dot: the mirror image — a cross down with the fast wave above OB after
-                // ConfirmBars bars above it, outside its cooldown, not against a strongly bullish
-                // anchor.
-                bool redAnchorOk = !useAnchorSuppression
-                    || double.IsNaN(wt1Anc[i])
-                    || !(ancPol[i] > 0 && wt1Anc[i] > anchorSuppressDepth);
-
-                if (crossDown && redCd == 0 && wt1[i] > obHere && redAnchorOk)
-                {
-                    bool sustained = true;
-                    for (int k = 1; k < confirmBars && (i - k) >= 0; k++)
-                    {
-                        if (double.IsNaN(wt1[i - k]) || wt1[i - k] < obHere) { sustained = false; break; }
-                    }
-                    if (sustained)
-                    {
-                        redSignal[i] = wt2[i] + GatedDotOffset;
-                        redCd = cooldownBars;
-                    }
-                }
-            }
-
-            // ── Divergences (ours; hidden by default — MCB draws none) ────────
-            // Regular and hidden, bullish and bearish, from two detectors: pivots of the fast
-            // wave, and (regular only) consecutive crosses near the zones. Both require
-            // "conviction": the second bar's true range at least convictionMult × its average.
-            var bullDiv = new double[n];
-            var bearDiv = new double[n];
-            var hidBull = new double[n];
-            var hidBear = new double[n];
-            Array.Fill(bullDiv, double.NaN);
-            Array.Fill(bearDiv, double.NaN);
-            Array.Fill(hidBull, double.NaN);
-            Array.Fill(hidBear, double.NaN);
-
-            // Companion arrays that record the first-pivot bar index (_anchorIdx)
-            // and the same offset Y (_anchorY) for every fired divergence. NaN on
-            // bars that don't fire. Read by the renderer (StandardRenderers.RenderDot)
-            // to draw the slanted pivot-to-pivot line beside the dot — the "divergence
-            // from where to where" a dot alone loses. Not MCB's: no MCB chart shows one.
-            var bullDivIdx = new double[n];
-            var bearDivIdx = new double[n];
-            var hidBullIdx = new double[n];
-            var hidBearIdx = new double[n];
-            var bullDivY = new double[n];
-            var bearDivY = new double[n];
-            var hidBullY = new double[n];
-            var hidBearY = new double[n];
-            Array.Fill(bullDivIdx, double.NaN);
-            Array.Fill(bearDivIdx, double.NaN);
-            Array.Fill(hidBullIdx, double.NaN);
-            Array.Fill(hidBearIdx, double.NaN);
-            Array.Fill(bullDivY, double.NaN);
-            Array.Fill(bearDivY, double.NaN);
-            Array.Fill(hidBullY, double.NaN);
-            Array.Fill(hidBearY, double.NaN);
-
-            // Rolling True Range SMA to gate "conviction" on the 2nd pivot / cross: at least 20
-            // bars, or four fast-wave channel periods when that is longer.
-            var tr = IndicatorMath.TrueRange(data);
-            int trWin = Math.Max(20, wt1Period * 4);
-            var trAvg = IndicatorMath.Sma(tr, trWin);
-            // TF-scaled conviction (convictionMult, set with the timeframe bucket above): daily
-            // 0.85× (the original loosened value), intraday 0.65–0.75× (more permissive — fewer
-            // high-TR bars per cycle on smaller TFs), weekly 0.90× (closer to strict).
-            bool Conviction(int bar) =>
-                !double.IsNaN(tr[bar]) && !double.IsNaN(trAvg[bar]) && tr[bar] >= trAvg[bar] * convictionMult;
-
-            int start = pivotBars;
-            int end   = n - pivotBars;
-            var pivotLowIdx  = new List<int>();
-            var pivotHighIdx = new List<int>();
-
-            // Pivot detection on WT1 (reverted from WT2). A/B test confirmed WT2
-            // pivots kill Hidden Bull Continuation on 4h and 1d-ETH (20+ trades
-            // per half dropped to 0), and produce worse R on Bullish Divergence
-            // 4h (+0.324/+0.114 → -0.104/-0.023). WT2 is smoother, but that
-            // smoothness eliminates the shallow-pullback pivots that hidden
-            // continuations require — and the regular divergence depth gate
-            // (below) is sufficient to filter noise without needing smoother
-            // pivots.
-            for (int i = start; i < end; i++)
-            {
-                if (double.IsNaN(wt1[i])) continue;
-                bool isLow = true, isHigh = true;
-                for (int j = i - pivotBars; j <= i + pivotBars; j++)
-                {
-                    if (j == i || double.IsNaN(wt1[j])) continue;
-                    if (wt1[j] < wt1[i]) isLow  = false;
-                    if (wt1[j] > wt1[i]) isHigh = false;
-                }
-                if (isLow)  pivotLowIdx.Add(i);
-                if (isHigh) pivotHighIdx.Add(i);
-            }
-
-            // Divergence depth gate. Both pivots must be past this threshold for a
-            // divergence to fire. Scaled by TF: intraday uses 25-30 (WT cycles have
-            // smaller amplitude on smaller TFs), daily uses 35, weekly uses 40.
-            // Eliminates "two shallow wiggles with price drift" false positives
-            // that pure pivot-based detection is prone to.
-            double divergenceDepth = tfAware
-                ? (tfBucket <= 1 ? 25.0 : tfBucket == 2 ? 30.0 : tfBucket == 4 ? 40.0 : 35.0)
-                : 35.0;
-
-            for (int k = 1; k < pivotLowIdx.Count; k++)
-            {
-                int prev = pivotLowIdx[k - 1], curr = pivotLowIdx[k];
-                if (double.IsNaN(close[prev]) || double.IsNaN(close[curr])) continue;
-
-                bool conviction = Conviction(curr);
-
-                // Depth gate on regular bull divergences only: both WT1 pivots
-                // must be past -depth. The depth gate does NOT apply to hidden
-                // continuations — by design, hidden bull fires on a shallower
-                // second pivot (the WT pulled back but not to the full extreme),
-                // which is exactly the pattern the depth gate would filter out.
-                bool deepEnough = wt1[prev] < -divergenceDepth && wt1[curr] < -divergenceDepth;
-
-                if (close[curr] < close[prev] && wt1[curr] > wt1[prev] && conviction && deepEnough)
-                {
-                    bullDiv[curr] = wt1[curr] - DivergenceDotOffset;
-                    bullDivIdx[curr] = prev;
-                    bullDivY[curr]   = wt1[prev] - DivergenceDotOffset;
-                }
-                if (close[curr] > close[prev] && wt1[curr] < wt1[prev] && conviction)
-                {
-                    hidBull[curr] = wt1[curr] - DivergenceDotOffset;
-                    hidBullIdx[curr] = prev;
-                    hidBullY[curr]   = wt1[prev] - DivergenceDotOffset;
-                }
-            }
-            for (int k = 1; k < pivotHighIdx.Count; k++)
-            {
-                int prev = pivotHighIdx[k - 1], curr = pivotHighIdx[k];
-                if (double.IsNaN(close[prev]) || double.IsNaN(close[curr])) continue;
-
-                bool conviction = Conviction(curr);
-
-                // Depth gate on regular bear divergences only: both WT1 pivots
-                // must be past +depth. Hidden bear continuations are unconstrained
-                // (shallow second pivot is the signal itself).
-                bool deepEnough = wt1[prev] > divergenceDepth && wt1[curr] > divergenceDepth;
-
-                if (close[curr] > close[prev] && wt1[curr] < wt1[prev] && conviction && deepEnough)
-                {
-                    bearDiv[curr] = wt1[curr] + DivergenceDotOffset;
-                    bearDivIdx[curr] = prev;
-                    bearDivY[curr]   = wt1[prev] + DivergenceDotOffset;
-                }
-                if (close[curr] < close[prev] && wt1[curr] > wt1[prev] && conviction)
-                {
-                    hidBear[curr] = wt1[curr] + DivergenceDotOffset;
-                    hidBearIdx[curr] = prev;
-                    hidBearY[curr]   = wt1[prev] + DivergenceDotOffset;
-                }
-            }
-
-            // ── Shallow / cross-based divergence detector (parallel to pivot-based) ──
-            // The pivot-based detector requires WT1 to be a clean local extreme over
-            // the full pivotBars window — fine for major divergences but misses the
-            // 2-bar swing setups that fire frequently in trending markets. The
-            // XRP/USDT 1d screenshot showed a 60% drawdown with only 1 bear div firing
-            // because most of the bear setups formed on shallow swings. This shallow
-            // detector walks consecutive WT cross-down events near or in OB (within
-            // ShallowCrossZoneMargin of the threshold) and flags any pair where the
-            // second cross has a higher price than the first while the second WT
-            // cross-down is at a lower WT value — the textbook bear div shape, just
-            // measured at the cross instead of at the pivot; cross-ups near OS mirror it.
-            //
-            // Conviction filter: same TF-scaled multiplier. Cooldown is wt1Period to
-            // prevent same-cycle double-counting against the pivot-based detector.
-            //
-            // Bars the SHALLOW detector wrote, so the confirmation-lag shift below can leave
-            // them alone. The shallow detector stamps at the WT CROSSOVER bar, which is already
-            // causal — nothing about it needs future bars to confirm — whereas the pivot-based
-            // detector genuinely does. Shifting both together moved every shallow divergence to
-            // a bar where its condition did not occur.
-            var shallowBear = new bool[n];
-            var shallowBull = new bool[n];
-
-            int lastCrossUpIdx = -1, lastCrossDownIdx = -1;
-            int shallowBearCd = 0, shallowBullCd = 0;
-            for (int i = 1; i < n; i++)
-            {
-                if (shallowBearCd > 0) shallowBearCd--;
-                if (shallowBullCd > 0) shallowBullCd--;
-                if (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i]) ||
-                    double.IsNaN(wt1[i - 1]) || double.IsNaN(wt2[i - 1])) continue;
-
-                bool xUp   = wt1[i - 1] < wt2[i - 1] && wt1[i] >= wt2[i];
-                bool xDown = wt1[i - 1] > wt2[i - 1] && wt1[i] <= wt2[i];
-
-                if (xDown && wt1[i] > adaptiveOb[i] - ShallowCrossZoneMargin)  // near or in OB
-                {
-                    if (lastCrossDownIdx >= 0 && shallowBearCd == 0)
-                    {
-                        int prev = lastCrossDownIdx;
-                        bool priceHigher = close[i] > close[prev];
-                        bool wtLower     = wt1[i]    < wt1[prev];
-                        bool conviction  = Conviction(i);
-                        // Only fire if pivot-based detector hasn't already marked this bar.
-                        if (priceHigher && wtLower && conviction && double.IsNaN(bearDiv[i]))
-                        {
-                            bearDiv[i] = wt1[i] + DivergenceDotOffset;
-                            bearDivIdx[i] = prev;
-                            bearDivY[i]   = wt1[prev] + DivergenceDotOffset;
-                            shallowBear[i] = true;
-                            shallowBearCd = wt1Period;
-                        }
-                    }
-                    lastCrossDownIdx = i;
-                }
-
-                if (xUp && wt1[i] < adaptiveOs[i] + ShallowCrossZoneMargin)  // near or in OS
-                {
-                    if (lastCrossUpIdx >= 0 && shallowBullCd == 0)
-                    {
-                        int prev = lastCrossUpIdx;
-                        bool priceLower = close[i] < close[prev];
-                        bool wtHigher   = wt1[i]    > wt1[prev];
-                        bool conviction = Conviction(i);
-                        if (priceLower && wtHigher && conviction && double.IsNaN(bullDiv[i]))
-                        {
-                            bullDiv[i] = wt1[i] - DivergenceDotOffset;
-                            bullDivIdx[i] = prev;
-                            bullDivY[i]   = wt1[prev] - DivergenceDotOffset;
-                            shallowBull[i] = true;
-                            shallowBullCd = wt1Period;
-                        }
-                    }
-                    lastCrossUpIdx = i;
-                }
             }
 
             // ── Write to buffer ───────────────────────────────────────────────
             WriteToBuffer(buffer, CompWT1,            wt1,             n);
             WriteToBuffer(buffer, CompWT2,            wt2,             n);
             WriteToBuffer(buffer, CompWtHistogram,    wtHist,          n);
-            WriteToBuffer(buffer, CompWT1Anchor,      wt1Anc,          n);
-            WriteToBuffer(buffer, CompWT2Anchor,      wt2Anc,          n);
-            WriteToBuffer(buffer, CompAnchorPolarity, ancPol,          n);
-            // Companion arrays, not components (ThresholdObKey says why).
-            WriteToBuffer(buffer, ThresholdObKey,     adaptiveOb,      n);
-            WriteToBuffer(buffer, ThresholdOsKey,     adaptiveOs,      n);
             WriteToBuffer(buffer, CompMoneyFlowWave,  mfDisplay,       n);
             WriteToBuffer(buffer, CompCrossBull,      crossBullSignal, n);
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);
-            // BuyDotMode = MCB (default since 2026-10-17): MCB's rule above. Gated: the old
-            // confirmed + cooled-down + anchor-gated crossover, which matched 3 of MCB's 11 green
-            // dots.
-            WriteToBuffer(buffer, CompBlue,           mcbBuyDot ? mcbBuy : gatedBuySignal, n);
+            WriteToBuffer(buffer, CompBlue,           mcbBuy,          n);
             WriteToBuffer(buffer, CompMcbRsi,         mcbRsi,          n);
             WriteToBuffer(buffer, CompMcbStoch,       mcbStoch,        n);
-            WriteToBuffer(buffer, CompRed,            redSignal,       n);
-            // ── Look-ahead honesty: divergence confirmation lag ──────────────────
-            // A pivot at bar p is only CONFIRMED after seeing wt1[p+1..p+pivotBars]
-            // (the right-shoulder check in the pivot loop above). But the marker is
-            // stamped at p. A strategy that reads the marker at bar p is therefore
-            // trading on information that does not exist until p+pivotBars — entering
-            // at the exact pivot low with hindsight. That look-ahead inflates every
-            // divergence-based backtest (audit 2026-06-12).
-            //
-            // DivergenceConfirmLag shifts every divergence marker forward to the bar
-            // it is actually confirmable (p+pivotBars) so backtest == live == chart all
-            // see the divergence at the same, honest bar. DEFAULT ON since the 2026-06-12
-            // audit: with it OFF, a backtest reading the pivot-stamped marker enters at
-            // the bar's low using future bars, while LIVE never sees the marker at the
-            // current bar at all (it only appears pivotBars later) — backtest and live
-            // disagree by construction. ON fixes both. The line-geometry companions
-            // (_anchorIdx/_anchorY) are shifted in lockstep so the drawn pivot-to-pivot
-            // line still anchors correctly from the (now confirmation-bar) marker.
-            // Power users who want the pivot-stamped dot for chart review only can set
-            // DivergenceConfirmLag=false (an undeclared parameter: not in Properties, reachable
-            // from code and StrategyLab --set), accepting that any strategy reading those
-            // markers in backtest is then look-ahead-biased.
-            //
-            // ── The SHALLOW detector is exempt ────────────────────────────────────
-            // Everything above is true of the PIVOT-based detector, whose marker at bar p is
-            // only confirmable at p+pivotBars. The shallow cross-based detector added later
-            // writes at the WT CROSSOVER bar and is already causal — nothing about it needs a
-            // future bar. Shifting the COMBINED arrays moved every shallow divergence to a bar
-            // where its condition did not occur: detected at bar 400, stamped at bar 403 with
-            // the default pivotBars of 3 (2 under TF-aware scaling). The _anchorIdx/_anchorY
-            // companions moved in lockstep, so the drawn pivot-to-pivot line landed late too.
-            // Every shallow divergence — a strategy leaf, an earcon and a spoken marker —
-            // fired later than the market event it describes.
-            //
-            // IndicatorCausalityTests cannot catch this: a marker that is LATE is still causal.
-            // The long comment above describes only the pivot detector; the shallow one was
-            // added afterwards and nobody re-read the shift.
-            bool confirmLag = IndicatorParams.GetBool(parameters, "DivergenceConfirmLag", true);
-            if (confirmLag && pivotBars > 0)
-            {
-                bullDiv = ShiftMarkersForwardExcept(bullDiv, shallowBull, pivotBars, n);
-                bearDiv = ShiftMarkersForwardExcept(bearDiv, shallowBear, pivotBars, n);
-                hidBull = ShiftMarkersForward(hidBull, pivotBars, n);
-                hidBear = ShiftMarkersForward(hidBear, pivotBars, n);
-                bullDivIdx = ShiftMarkersForwardExcept(bullDivIdx, shallowBull, pivotBars, n);
-                bearDivIdx = ShiftMarkersForwardExcept(bearDivIdx, shallowBear, pivotBars, n);
-                hidBullIdx = ShiftMarkersForward(hidBullIdx, pivotBars, n);
-                hidBearIdx = ShiftMarkersForward(hidBearIdx, pivotBars, n);
-                bullDivY = ShiftMarkersForwardExcept(bullDivY, shallowBull, pivotBars, n);
-                bearDivY = ShiftMarkersForwardExcept(bearDivY, shallowBear, pivotBars, n);
-                hidBullY = ShiftMarkersForward(hidBullY, pivotBars, n);
-                hidBearY = ShiftMarkersForward(hidBearY, pivotBars, n);
-            }
-
-            WriteToBuffer(buffer, CompBullDiv,        bullDiv,         n);
-            WriteToBuffer(buffer, CompBearDiv,        bearDiv,         n);
-            WriteToBuffer(buffer, CompHidBull,        hidBull,         n);
-            WriteToBuffer(buffer, CompHidBear,        hidBear,         n);
-            // Companion "_anchorIdx" / "_anchorY" arrays holding the first-pivot
-            // bar index and the same-offset Y value for every fired divergence.
-            // Picked up by <c>StandardRenderers.RenderDot</c> to draw the slanted
-            // pivot-to-pivot line that makes the divergence geometry legible to
-            // sighted users. (Ours: no Market Cipher B chart shows one.)
-            WriteToBuffer(buffer, CompBullDiv + "_anchorIdx", bullDivIdx, n);
-            WriteToBuffer(buffer, CompBearDiv + "_anchorIdx", bearDivIdx, n);
-            WriteToBuffer(buffer, CompHidBull + "_anchorIdx", hidBullIdx, n);
-            WriteToBuffer(buffer, CompHidBear + "_anchorIdx", hidBearIdx, n);
-            WriteToBuffer(buffer, CompBullDiv + "_anchorY",   bullDivY,   n);
-            WriteToBuffer(buffer, CompBearDiv + "_anchorY",   bearDivY,   n);
-            WriteToBuffer(buffer, CompHidBull + "_anchorY",   hidBullY,   n);
-            WriteToBuffer(buffer, CompHidBear + "_anchorY",   hidBearY,   n);
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
-        /// <summary>Bars of warm-up before values stop changing: dominated by the anchor pair's
-        /// EMAs (four × their combined periods), or the percentile window when that is longer. A
-        /// generous upper bound, not a derivation.</summary>
+        /// <summary>Bars of warm-up before values stop changing: the waves' EMAs (four × their
+        /// combined periods) plus the money flow's average. A generous upper bound, not a
+        /// derivation. (It was the anchor pair's, five times longer, until 2026-10-31.)</summary>
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
         {
-            int wt1    = GetInt(parameters, "WT1Period",        9);
-            int wt2    = GetInt(parameters, "WT2Period",        12);
-            int mf     = GetInt(parameters, "MFPeriod",         60);
-            int anchor = GetInt(parameters, "AnchorMultiplier", 5);
-            int adapt  = GetInt(parameters, "AdaptiveLookback", 500);
-            int ancP1  = wt1 * anchor;
-            int ancP2  = wt2 * anchor;
-            return Math.Max(200, Math.Max((ancP1 + ancP2) * 4 + mf, adapt));
+            int wt1 = GetInt(parameters, "WT1Period", 9);
+            int wt2 = GetInt(parameters, "WT2Period", 12);
+            int mf  = GetInt(parameters, "MFPeriod",  60);
+            return Math.Max(200, (wt1 + wt2) * 4 + mf + McbStochLength);
         }
 
         /// <summary>
@@ -1335,18 +541,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompWT1            => GetWTValueSpeech(value),
                 CompWT2            => GetWTValueSpeech(value),
                 CompWtHistogram    => $"{value:F1}",
-                CompWT1Anchor      => $"{value:F1}",
-                CompWT2Anchor      => $"{value:F1}",
-                CompAnchorPolarity => value > 0 ? "bullish" : (value < 0 ? "bearish" : "neutral"),
                 CompMoneyFlowWave  => GetMFWaveSpeech(value),
                 CompCrossBull      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 CompCrossBear      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 CompBlue           => GetSignalDotSpeech(bar, allComponentData, dataIndex),
-                CompRed            => GetSignalDotSpeech(bar, allComponentData, dataIndex),
-                CompBullDiv        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "bullish"),
-                CompBearDiv        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "bearish"),
-                CompHidBull        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "hidden bullish"),
-                CompHidBear        => GetDivergenceSpeech(bar, allComponentData, dataIndex, "hidden bearish"),
                 _ => null
             };
         }
@@ -1362,9 +560,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             return value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        /// <summary>The wave's value, with "overbought" / "oversold" past ±53 — the default
-        /// OBLevel, FIXED here: this speech is not handed the parameters, so a changed OBLevel or
-        /// Percentile mode does not move these words (the {zone} words of the level path do).</summary>
+        /// <summary>The wave's value, with "overbought" / "oversold" past ±53, the pane's
+        /// Overbought / Oversold levels.</summary>
         private static string GetWTValueSpeech(double value)
         {
             if (value > 53)  return $"{value:F1}, overbought";
@@ -1379,13 +576,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             return $"Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
         }
 
-        private static string GetDivergenceSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx, string kind)
-        {
-            double wt1 = SpeechValue(data, CompWT1, DisplayWT1, idx);
-            string wtStr = double.IsNaN(wt1) ? "" : $" Wave Trend {wt1:F1}.";
-            return $"{kind} divergence, confirmed on pivot. Price {SpeechPriceFormatter.FormatPrice(bar.Close)}.{wtStr}";
-        }
-
         /// <summary>
         /// A one-sentence summary of the bar. NOT spoken anywhere in the app today: Alt+Shift+D
         /// (BarDetailService) bypasses every provider's detail fact and reads the visible
@@ -1397,31 +587,17 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase) || index < 0) return string.Empty;
 
-            double obLevel = GetDbl(parameters, "OBLevel", 53.0);
             double wt1Val  = GetVal(results, CompWT1,          index);
             double mfVal   = GetVal(results, CompMoneyFlowWave, index);
             double histVal = GetVal(results, CompWtHistogram,  index);
             double blueVal = GetVal(results, CompBlue,         index);
-            double redVal  = GetVal(results, CompRed,          index);
-            double bullVal = GetVal(results, CompBullDiv,      index);
-            double bearVal = GetVal(results, CompBearDiv,      index);
-            double hidBull = GetVal(results, CompHidBull,      index);
-            double hidBear = GetVal(results, CompHidBear,      index);
-            double ancVal  = GetVal(results, CompWT1Anchor,    index);
-            double ancPol  = GetVal(results, CompAnchorPolarity, index);
-            double obVal   = GetVal(results, ThresholdObKey,   index);
-            double osVal   = GetVal(results, ThresholdOsKey,   index);
-
-            // Effective OB/OS at this bar — may be fixed or adaptive.
-            double effectiveOb = !double.IsNaN(obVal) ? obVal :  obLevel;
-            double effectiveOs = !double.IsNaN(osVal) ? osVal : -obLevel;
 
             var sb = new StringBuilder();
 
             if (!double.IsNaN(wt1Val))
             {
-                string zone = wt1Val > effectiveOb ? ", overbought"
-                            : wt1Val < effectiveOs ? ", oversold"
+                string zone = wt1Val > OverboughtLevel ? ", overbought"
+                            : wt1Val < -OverboughtLevel ? ", oversold"
                             :                        "";
                 string dir = wt1Val >= 0 ? "above zero" : "below zero";
                 sb.Append($"Wave Trend {dir}{zone} at {wt1Val:F1}. ");
@@ -1431,26 +607,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 string hDir = histVal >= 0 ? "bullish" : "bearish";
                 sb.Append($"Wave Gap {hDir} at {histVal:F1}. ");
             }
-            if (!double.IsNaN(ancVal))
-            {
-                string ancDir = ancPol > 0 ? "bullish" : (ancPol < 0 ? "bearish" : "neutral");
-                sb.Append($"Anchor {ancDir}. ");
-            }
             if (!double.IsNaN(mfVal))
             {
                 string mfDir = mfVal > 0.0 ? "positive" : "negative";
                 sb.Append($"Money flow {mfDir}. ");
             }
 
-            var signals = new List<string>();
-            // The red dot needs a cross down, so it never shares a bar with the buy dot.
-            if (!double.IsNaN(blueVal))  signals.Add(DisplayBuyDot);
-            else if (!double.IsNaN(redVal))  signals.Add("Short signal");
-            if (!double.IsNaN(bullVal)) signals.Add("Bullish divergence");
-            if (!double.IsNaN(bearVal)) signals.Add("Bearish divergence");
-            if (!double.IsNaN(hidBull)) signals.Add("Hidden bull");
-            if (!double.IsNaN(hidBear)) signals.Add("Hidden bear");
-            if (signals.Count > 0) sb.Append(string.Join(", ", signals) + ".");
+            if (!double.IsNaN(blueVal)) sb.Append(DisplayBuyDot + ".");
 
             return sb.Length > 0 ? sb.ToString().TrimEnd() : string.Empty;
         }
@@ -1464,12 +627,11 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−92..−100).</summary>
         internal const double McbBuyDotY = -96.0;
 
-        /// <summary>The anchor pair's slow wave: a 4-bar SMA, the main pair's pre-2026-10-17 period.
-        /// Deliberately NOT <c>WTSignalPeriod</c>: the anchor is ours (no MCB evidence to fit), and
-        /// Anchor Polarity and the anchor suppression of the gated dots are measured on SMA4.</summary>
-        private const int AnchorSlowWavePeriod = 4;
+        /// <summary>The pane's Overbought / Oversold level, ±53: the wave speech and the bar summary
+        /// say "overbought" / "oversold" past it.</summary>
+        private const double OverboughtLevel = 53.0;
 
-        /// <summary>The MCB-mode money flow as Cipher B draws it: 200/3 × <see cref="McbMoneyFlowShare"/>,
+        /// <summary>The money flow as Cipher B draws it: 200/3 × <see cref="McbMoneyFlowShare"/>,
         /// clamped to ±100. Cipher A's Yellow Diamond reads it (2026-10-23).</summary>
         public static double[] McbMoneyFlow(double[] high, double[] low, double[] close, int period)
         {
@@ -1507,23 +669,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             return IndicatorMath.Sma(share, period);
         }
 
-        /// <summary>Money-flow display scales: MCB mode's linear 200/3 (exact; see Calculate) and the
-        /// Legacy mode's 175 after its signed square root (VuManChu's constant). Both are clamped to
+        /// <summary>The money flow's display scale, a linear 200/3 (exact; see Calculate), clamped to
         /// ±<see cref="MoneyFlowClamp"/> so a rare run of extreme values stays inside the pane.</summary>
-        private const double McbMoneyFlowScale = 200.0 / 3.0, LegacyMoneyFlowScale = 175.0, MoneyFlowClamp = 100.0;
+        private const double McbMoneyFlowScale = 200.0 / 3.0, MoneyFlowClamp = 100.0;
         private const int McbMoneyFlowTypicalBars = 5;
-
-        /// <summary>How far from the SLOW wave a gated dot is drawn: the red Overbought Crossover 5
-        /// above it, the Gated buy dot 5 below it, clear of the cross dot that sits on it.</summary>
-        private const double GatedDotOffset = 5.0;
-
-        /// <summary>How far from the fast wave a divergence dot (and its line's anchor) is drawn: 4
-        /// below a bullish pivot, 4 above a bearish one.</summary>
-        private const double DivergenceDotOffset = 4.0;
-
-        /// <summary>The shallow divergence detector counts a cross "near or in" the zone when the fast
-        /// wave is within this many points of the OB / OS threshold.</summary>
-        private const double ShallowCrossZoneMargin = 10.0;
 
         // ── Buffer / parameter helpers ────────────────────────────────────────
 
@@ -1593,49 +742,5 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
-        private static string GetStr(Dictionary<string, object> p, string k, string def) => p.TryGetValue(k, out var v) && v is string s ? s : def;
-
-        /// <summary>
-        /// Moves sparse markers from the pivot bar to the bar the pivot could first be confirmed.
-        /// The implementation moved to <see cref="IndicatorMath.ShiftMarkersForward"/> when Cipher A
-        /// needed the same fix; this stays as the name Cipher B's own code and tests already use.
-        /// </summary>
-        internal static double[] ShiftMarkersForward(double[] src, int lag, int n) =>
-            IndicatorMath.ShiftMarkersForward(src, lag, n);
-
-        /// <summary>
-        /// <see cref="ShiftMarkersForward"/>, except that bars flagged in
-        /// <paramref name="exempt"/> stay exactly where they are.
-        ///
-        /// <para>The confirmation lag exists because a PIVOT at bar p is only confirmable at
-        /// p+lag. The shallow cross-based detector stamps at the crossover bar and is already
-        /// causal, so shifting it moves the marker to a bar where its condition did not occur.
-        /// The two detectors write into the same arrays, so the exemption has to travel
-        /// alongside the data.</para>
-        ///
-        /// <para>A shifted marker that lands on an exempt bar does not overwrite it: the
-        /// exempt marker is the one that describes something that actually happened there.</para>
-        /// </summary>
-        internal static double[] ShiftMarkersForwardExcept(double[] src, bool[] exempt, int lag, int n)
-        {
-            var dst = new double[n];
-            Array.Fill(dst, double.NaN);
-
-            // Exempt bars first, so they own their slot.
-            for (int i = 0; i < n && i < src.Length; i++)
-            {
-                if (i < exempt.Length && exempt[i] && !double.IsNaN(src[i]))
-                    dst[i] = src[i];
-            }
-
-            for (int i = 0; i < n && i < src.Length; i++)
-            {
-                if (double.IsNaN(src[i])) continue;
-                if (i < exempt.Length && exempt[i]) continue;   // already placed, unshifted
-                int j = i + lag;
-                if (j < n && double.IsNaN(dst[j])) dst[j] = src[i];
-            }
-            return dst;
-        }
     }
 }

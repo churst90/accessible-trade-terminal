@@ -6,13 +6,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// The StrategyLab's <c>--cipherb old|new</c> switch (LabCipherProfile). The 2026-10-17 re-run of
-    /// every Cipher-B-dependent lab result is an OLD-versus-NEW comparison on identical data; if the
-    /// switch silently did nothing, every "delta" would be NEW minus NEW = 0 and would read as "the
-    /// refit changed nothing". So the load-bearing test here goes through the engine the lab host
-    /// actually resolves — the same path gate, confluence, asset-profile and the strategy workspace
-    /// use — and requires (a) old and new to differ, and (b) old to equal Cipher B computed with the
-    /// pre-2026-10-17 parameters spelled out by hand.
+    /// The StrategyLab's Cipher switches (LabCipherProfile). <c>--cipher-candles ha</c> must compute each
+    /// Cipher as a Heikin-Ashi chart does, through the engine the lab host actually resolves — the same
+    /// path gate, confluence, asset-profile and the strategy workspace use — or the "Heikin-Ashi" run
+    /// is the candle run again. <c>--cipherb old</c> (the pre-2026-10-17 Cipher B) and
+    /// <c>--cipherb-gold</c> are refused: the old modes went on 2026-10-31 and the gold dot on
+    /// 2026-10-22, and a run asked to compare them would compare today's Cipher B with itself.
     /// </summary>
     [Collection(nameof(LabCipherProfileTests))]
     [CollectionDefinition(nameof(LabCipherProfileTests), DisableParallelization = true)]
@@ -36,53 +35,24 @@ namespace AccessibleTrader.Tests
             return bars;
         }
 
-        private static Dictionary<string, double[]> ViaLabEngine(List<Ohlcv> bars, bool old)
-        {
-            LabCipherProfile.CipherBOld = old;
-            try
-            {
-                var engine = LabHost.Build().Services.GetRequiredService<IIndicatorEngine>();
-                return engine.CalculateAsync("CIPHER_B", bars, new Dictionary<string, object>(), default).Result;
-            }
-            finally { LabCipherProfile.Reset(); }
-        }
-
-        private static Dictionary<string, double[]> Direct(List<Ohlcv> bars, Dictionary<string, object> p)
-        {
-            var engine = LabHost.Build().Services.GetRequiredService<IndicatorEngine>();
-            return engine.CalculateAsync("CIPHER_B", bars, p, default).Result;
-        }
-
-        private static readonly string[] Pinned =
-        {
-            CipherBProvider.CompWT2, CipherBProvider.CompMoneyFlowWave, CipherBProvider.CompBlue,
-        };
-
         private static bool Same(double[] a, double[] b) =>
             a.Length == b.Length && a.Zip(b).All(p => p.First.Equals(p.Second)); // NaN.Equals(NaN) is true
 
         [Fact]
-        public void Old_IsThePreRefitCipherB_AndDiffersFromNew_ThroughTheLabEngine()
+        public void OldFlag_IsRefused_BecauseThereIsNoOldCipherB()
         {
-            var bars = Bars();
-            var oldRes = ViaLabEngine(bars, old: true);
-            var newRes = ViaLabEngine(bars, old: false);
-            var byHand = Direct(bars, new Dictionary<string, object>
+            // Cipher B's old modes (MoneyFlowMode Legacy, BuyDotMode Gated) were removed on 2026-10-31.
+            // A run that asks for the old indicator must stop and say so, not compare today's Cipher B
+            // with itself and report "no difference".
+            try
             {
-                ["WTSignalPeriod"] = 4.0, ["MoneyFlowMode"] = "Legacy", ["BuyDotMode"] = "Gated",
-            });
-            var defaults = Direct(bars, new Dictionary<string, object>());
-
-            foreach (var c in Pinned)
-            {
-                Assert.True(Same(oldRes[c], byHand[c]), $"--cipherb old must equal the pre-refit parameters on '{c}'");
-                Assert.True(Same(newRes[c], defaults[c]), $"--cipherb new must equal today's defaults on '{c}'");
+                var ex = Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "gate", "--cipherb", "old" }));
+                Assert.Contains("removed", ex.Message);
+                Assert.True(LabCipherProfile.IsDefault);
+                Assert.DoesNotContain("MoneyFlowMode", LabCipherProfile.Apply("CIPHER_B", new Dictionary<string, object>()).Keys);
+                Assert.DoesNotContain("BuyDotMode", LabCipherProfile.Apply("CIPHER_B", new Dictionary<string, object>()).Keys);
             }
-            // The property the re-run rests on: the switch changes the numbers. Wave and money flow
-            // differ on every non-warmup bar; the buy dot fires on different bars.
-            Assert.False(Same(oldRes[CipherBProvider.CompWT2], newRes[CipherBProvider.CompWT2]));
-            Assert.False(Same(oldRes[CipherBProvider.CompMoneyFlowWave], newRes[CipherBProvider.CompMoneyFlowWave]));
-            Assert.False(Same(oldRes[CipherBProvider.CompBlue], newRes[CipherBProvider.CompBlue]));
+            finally { LabCipherProfile.Reset(); }
         }
 
         [Fact]
@@ -94,25 +64,9 @@ namespace AccessibleTrader.Tests
             {
                 var ex = Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "gate", "--cipherb-gold", "old" }));
                 Assert.Contains("removed", ex.Message);
-                var res = ViaLabEngine(Bars(), old: true);
+                var res = Calc("CIPHER_B", Bars(), new Dictionary<string, object>(), viaLab: true);
                 Assert.DoesNotContain("Triple Confluence Buy", res.Keys);
                 Assert.DoesNotContain("GoldDotMode", LabCipherProfile.Apply("CIPHER_B", new Dictionary<string, object>()).Keys);
-            }
-            finally { LabCipherProfile.Reset(); }
-        }
-
-        [Fact]
-        public void CallerParameter_WinsOverTheProfile()
-        {
-            LabCipherProfile.CipherBOld = true;
-            try
-            {
-                var p = LabCipherProfile.Apply("CIPHER_B", new Dictionary<string, object> { ["WTSignalPeriod"] = 6.0 });
-                Assert.Equal(6.0, p["WTSignalPeriod"]);
-                Assert.Equal("Legacy", p["MoneyFlowMode"]);
-                Assert.Equal("Gated", p["BuyDotMode"]);
-                var other = new Dictionary<string, object>();
-                Assert.Same(other, LabCipherProfile.Apply("CIPHER_A", other));
             }
             finally { LabCipherProfile.Reset(); }
         }
@@ -175,10 +129,11 @@ namespace AccessibleTrader.Tests
         {
             try
             {
-                var rest = LabCipherProfile.Consume(new[] { "gate", "--cipherb", "old", "--tf", "1d" });
+                var rest = LabCipherProfile.Consume(new[] { "gate", "--cipherb", "new", "--tf", "1d" });
                 Assert.Equal(new[] { "gate", "--tf", "1d" }, rest);
-                Assert.True(LabCipherProfile.CipherBOld);
+                Assert.True(LabCipherProfile.IsDefault);
                 Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "--cipherb", "olde" }));
+                Assert.Throws<ArgumentException>(() => LabCipherProfile.Consume(new[] { "--cipherb" }));
                 rest = LabCipherProfile.Consume(new[] { "cipher-a-battery", "--cipher-candles", "ha", "--snapshots", "x" });
                 Assert.Equal(new[] { "cipher-a-battery", "--snapshots", "x" }, rest);
                 Assert.True(LabCipherProfile.CiphersOnHeikinAshi);

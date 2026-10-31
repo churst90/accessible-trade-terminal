@@ -128,13 +128,16 @@ public static class SetupGraderMc2Command
     {
         Console.WriteLine("SETUP GRADER ROUND 2, MARKET CIPHER — pre-registered in docs/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
+        // Its pre-registered rules read Cipher B's divergences (exit X4, the bearish divergence), which were removed on
+        // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment
+        // under the same name. Its results stand; to re-run it, build commit 2e86d377.
+        Console.WriteLine("Refusing to run: the pre-registered rules read Cipher B parts removed on 2026-10-31 (exit X4's bearish divergence); build commit 2e86d377 to re-run it.");
+        return 2;
+#pragma warning disable CS0162 // the frozen run below, kept for the record
         // --cipher-candles ha alone is allowed: the exploratory part of
         // docs/EXACT_CIPHERS_RERUN_PREREG.md (section 6). It is never the pre-registered run.
-        if (LabCipherProfile.CipherBOld)
-        {
-            Console.WriteLine("The pre-registration fixes the shipped (MCB) Cipher B defaults. Refusing to run another profile.");
-            return 2;
-        }
+        // (--cipherb old, the one other profile the pre-registration refused, is refused by the lab
+        // itself since 2026-10-31.)
         if (LabCipherProfile.CiphersOnHeikinAshi)
             Console.WriteLine("EXPLORATORY: the Ciphers on Heikin-Ashi candles. Not the pre-registered run; its verdicts can say only \"worth its own pre-registration on new data\" or \"nothing\" (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6).");
         Console.WriteLine($"Snapshots: {Path.GetFullPath(snapshotDir)} (read only)");

@@ -179,7 +179,6 @@ public static class CipherABatteryCommand
             new("Cipher A Yellow X", false, Marker(a, CipherAProvider.CompYellowX), true),
             new("Cipher B Green Dot", true, bGreen, false),
             new("Cipher B WT Cross Bull", true, Marker(b, CipherBProvider.CompCrossBull), false),
-            new("Cipher B Red Dot", false, Marker(b, CipherBProvider.CompRed), false),
             new("Cipher B WT Cross Bear", false, bBearX, false),
         };
 

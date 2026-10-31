@@ -26,9 +26,9 @@ namespace AccessibleTrader.Tests;
 /// (Ctrl+Up/Down walks every component in the pane), so arrowing through Cipher B landed on
 /// "Hidden. Adaptive OB …" and "Hidden. Adaptive OS …" — in the default Fixed threshold mode a
 /// constant ±53 on every bar, the same number the ±53 reference lines already say. In Percentile
-/// mode they are the thresholds the dots are gated on, so the NUMBERS are kept, as companion
-/// arrays the provider writes beside the wave (<c>CipherBProvider.ThresholdObKey</c>) — not
-/// as components, so not as stops.</para>
+/// mode they were the thresholds the dots were gated on, so the numbers were kept as companion
+/// arrays until 2026-10-31, when Percentile mode itself was removed (Market Cipher B's levels are
+/// fixed).</para>
 /// </summary>
 public sealed class CipherBAdaptiveThresholdTests
 {
@@ -129,33 +129,28 @@ public sealed class CipherBAdaptiveThresholdTests
 
     // ── The numbers are still there for the dots ────────────────────────────────────
 
-    private static Dictionary<string, double[]> Calculate(string mode)
-    {
-        var bars = CausalityProbeSeries.Bars(CausalityProbeSeries.HourlyFlavours.First(), 900);
-        var results = new Dictionary<string, double[]>();
-        new CipherBProvider().Calculate("CIPHER_B", System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars),
-            new Dictionary<string, object> { ["ThresholdMode"] = mode, ["AdaptiveLookback"] = 200 },
-            new IndicatorResultBuffer(results, bars.Count));
-        return results;
-    }
-
     /// <summary>
-    /// Removing the components did not remove the thresholds: Fixed mode is ±OBLevel on every bar,
-    /// and Percentile mode moves (the floor and the dot gating on them are pinned in
-    /// CipherBSignalRulesTests).
+    /// The thresholds themselves went with Percentile mode on 2026-10-31 (Cody: "remove all of that
+    /// old code from cipher b"): Market Cipher B's levels are fixed, so the provider writes no
+    /// threshold arrays and no old component names, and a leftover ThresholdMode does nothing.
     /// </summary>
     [Fact]
-    public void The_thresholds_are_still_computed_as_companion_arrays()
+    public void No_threshold_arrays_are_written_and_the_old_mode_does_nothing()
     {
-        var fixedMode = Calculate("Fixed");
-        Assert.All(fixedMode[CipherBProvider.ThresholdObKey], v => Assert.Equal(53.0, v));
-        Assert.All(fixedMode[CipherBProvider.ThresholdOsKey], v => Assert.Equal(-53.0, v));
-
-        var pct = Calculate("Percentile");
-        Assert.True(pct[CipherBProvider.ThresholdOsKey].Distinct().Count() > 1,
-            "in Percentile mode the oversold threshold never moved");
-        Assert.False(fixedMode.ContainsKey("Adaptive OB") || fixedMode.ContainsKey("Adaptive OS"),
-            "the provider still writes the old component names");
+        var bars = CausalityProbeSeries.Bars(CausalityProbeSeries.HourlyFlavours.First(), 900);
+        Dictionary<string, double[]> Run(Dictionary<string, object> p)
+        {
+            var results = new Dictionary<string, double[]>();
+            new CipherBProvider().Calculate("CIPHER_B", System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars),
+                p, new IndicatorResultBuffer(results, bars.Count));
+            return results;
+        }
+        var plain = Run(new Dictionary<string, object>());
+        var old = Run(new Dictionary<string, object> { ["ThresholdMode"] = "Percentile", ["AdaptiveLookback"] = 200 });
+        Assert.DoesNotContain(plain.Keys, k => k.Contains("adaptive", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(plain.Keys.OrderBy(k => k), old.Keys.OrderBy(k => k));
+        foreach (var k in plain.Keys)
+            Assert.True(plain[k].Zip(old[k]).All(z => z.First.Equals(z.Second)), $"ThresholdMode changed '{k}'");
     }
 
     // ── A strategy or alert that named them is told so ──────────────────────────────

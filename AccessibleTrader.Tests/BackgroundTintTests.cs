@@ -77,25 +77,10 @@ public sealed class BackgroundTintTests
         return s;
     }
 
-    /// <summary>+1 and -1 in runs of five bars; never 0, the midline.</summary>
-    private static readonly double[] Polarity = Enumerable.Range(0, N).Select(i => (i / 5) % 2 == 0 ? 1.0 : -1.0).ToArray();
     private static readonly double[] AllNaN = Enumerable.Repeat(double.NaN, N).ToArray();
 
-    /// <summary>Cipher B with Anchor Polarity's data. Anchor Polarity is left out by default
-    /// (2026-10-23); <paramref name="included"/> includes it under Parts and hides its line with H,
-    /// as a user who wants only its tint does.</summary>
-    private static ChartSeries CipherB(double[] polarity, BackgroundTint? userTint = null, bool included = true)
-    {
-        var s = FromProvider(new CipherBProvider(), "CIPHER_B", new() { [CipherBProvider.CompAnchorPolarity] = polarity });
-        s.Data.ComponentData[CipherBProvider.CompAnchorPolarity] = polarity;
-        if (!included) return s;
-        var order = new CipherBProvider().GetIndicators()[0].Components.Select(c => c.Name).ToList();
-        Assert.True(ComponentInclusion.SetIncluded(s.Config, CipherBProvider.CompAnchorPolarity, true, order));
-        var anchor = s.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
-        anchor.IsVisible = false;
-        anchor.UserBackgroundTint = userTint;
-        return s;
-    }
+    /// <summary>Cipher B as the chart adds it, every component NaN.</summary>
+    private static ChartSeries CipherB() => FromProvider(new CipherBProvider(), "CIPHER_B", new());
 
     /// <summary>Distribution Confidence across both sides of 0.5, with NaN gaps, an exact 0.5 and
     /// a value past 1.0 (the ramp's clamp).</summary>
@@ -247,7 +232,11 @@ public sealed class BackgroundTintTests
         return (top + (int)((bottom - top) * 0.36), top + (int)((bottom - top) * 0.64));
     }
 
-    private static readonly SKColor AnchorBull = SKColor.Parse("#1626A69A"), AnchorBear = SKColor.Parse("#16EF5350");
+    /// <summary>The MACD histogram's own colours at the borrowed strength: teal at or above its
+    /// ColorBaseline of 0, red below.</summary>
+    private static SKColor HistogramTint(int bar) =>
+        (Histogram[bar] >= 0 ? SKColor.Parse("#26A69A") : SKColor.Parse("#EF5350"))
+            .WithAlpha(BackgroundTintPainter.BorrowedColourAlpha);
 
     // ── Cipher C: a timing window tints from its companion ──────────────────────────
 
@@ -360,67 +349,48 @@ public sealed class BackgroundTintTests
         Untouched(off, reference, off.Rows("Main"), "price pane with the drawing switched off");
     }
 
-    // ── Cipher B: Anchor Polarity ───────────────────────────────────────────────────
+    // ── Cipher B ────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Like Market Cipher B, nothing is painted behind the price chart by default — and nothing
-    /// behind Cipher B's own pane either. The reference has no polarity data at all, so any tint
-    /// shows up as a difference.
+    /// behind Cipher B's own pane either: no part, included or left out, declares a tint. (Anchor
+    /// Polarity, whose tint could be switched on, went with Cipher B's other parts Market Cipher B
+    /// does not draw on 2026-10-31.)
     /// </summary>
     [Fact]
     public void Cipher_B_tints_nothing_by_default()
     {
-        var series = CipherB(Polarity, included: false);
-        // Left out by default, still computed (strategies read it); and its own default tint is Off,
-        // so including it changes nothing either.
-        var anchor = series.Config.ExcludedComponents.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
-        Assert.Equal(BackgroundTint.Off, anchor.BackgroundTintInEffect());
-
-        using var f = Render(Candles(), series);
-        using var reference = Render(Candles(), CipherB(AllNaN, included: false));
-        Untouched(f, reference, f.Rows("Main"), "price pane");
-        Untouched(f, reference, f.Rows("Pane_CIPHER_B"), "Cipher B pane");
+        var series = CipherB();
+        Assert.All(series.Components.Concat(series.Config.ExcludedComponents),
+            c => Assert.Equal(BackgroundTint.Off, c.BackgroundTintInEffect()));
+        Assert.DoesNotContain(series.Components.Concat(series.Config.ExcludedComponents), c => c.Name == "Anchor Polarity");
     }
 
     /// <summary>
-    /// Set to Price chart, Anchor Polarity shades the price chart by its sign in the colours the
-    /// old hardcoded tint used — WHILE THE LINE STAYS HIDDEN. The stopgap tied the tint to the
-    /// line's visibility; the tint is its own switch now.
+    /// A hidden component still tints: set to Price chart, the MACD histogram shades the price
+    /// chart by its sign in its own colours WHILE ITS BARS STAY HIDDEN. The tint is its own switch,
+    /// not tied to the line's visibility (pinned on Cipher B's Anchor Polarity until 2026-10-31).
     /// </summary>
     [Fact]
-    public void Anchor_polarity_set_to_price_chart_shades_the_price_chart_by_its_sign_with_the_line_still_hidden()
+    public void A_hidden_component_set_to_price_chart_shades_the_price_chart_with_its_line_still_hidden()
     {
-        var series = CipherB(Polarity, BackgroundTint.PriceChart);
-        Assert.False(series.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity).IsVisible);
-
-        using var f = Render(Candles(), series);
-        using var reference = Render(Candles(), CipherB(Polarity));
+        ChartSeries Hidden(BackgroundTint? tint)
+        {
+            var s = Macd(tint);
+            s.Components.Single(c => c.Name == "Histogram").IsVisible = false;
+            return s;
+        }
+        using var f = Render(Candles(), Hidden(BackgroundTint.PriceChart));
+        using var reference = Render(Candles(), Hidden(null));
         var rows = OpenPriceRows(f);
-        foreach (int bar in new[] { 2, 7, 12, 17, 33, 37 })
+        foreach (int bar in new[] { 1, 5, 9, 14, 18, 33 })
         {
-            var want = Polarity[bar] > 0 ? AnchorBull : AnchorBear;
+            var want = HistogramTint(bar);
             double share = TintedShare(f, reference, bar, rows, want);
-            Assert.True(share > 0.8, $"bar {bar} (polarity {Polarity[bar]}): only {share:P0} of the price pane is {want} over the background");
+            Assert.True(share > 0.8, $"bar {bar} (histogram {Histogram[bar]}): only {share:P0} of the price pane is {want} over the background");
         }
-        Untouched(f, reference, f.Rows("Pane_CIPHER_B"), "Cipher B pane (the tint went to the price chart)");
+        Untouched(f, reference, f.Rows("Pane_Macd"), "MACD pane (the tint went to the price chart)");
         StatusBandIsClear(f, reference, "Main");
-    }
-
-    /// <summary>Set to This pane, the shading moves to Cipher B's own pane and the price chart is clean.</summary>
-    [Fact]
-    public void Anchor_polarity_set_to_this_pane_shades_cipher_b_pane_and_not_the_price_chart()
-    {
-        using var f = Render(Candles(), CipherB(Polarity, BackgroundTint.ThisPane));
-        using var reference = Render(Candles(), CipherB(Polarity));
-        Untouched(f, reference, f.Rows("Main"), "price pane");
-        StatusBandIsClear(f, reference, "Pane_CIPHER_B");
-        var rows = MiddleRows(f, "Pane_CIPHER_B");
-        foreach (int bar in new[] { 2, 7, 12, 17 })
-        {
-            var want = Polarity[bar] > 0 ? AnchorBull : AnchorBear;
-            double share = TintedShare(f, reference, bar, rows, want);
-            Assert.True(share > 0.8, $"bar {bar}: only {share:P0} of the Cipher B pane is {want} over the background");
-        }
     }
 
     // ── Top/Bottom Detector: Distribution Confidence ────────────────────────────────
@@ -501,8 +471,7 @@ public sealed class BackgroundTintTests
         var rows = (top + 4, top + (int)((bottom - top) * 0.30));   // above the ±1 histogram bars
         foreach (int bar in new[] { 1, 5, 9, 14, 18 })
         {
-            var want = (Histogram[bar] >= 0 ? SKColor.Parse("#26A69A") : SKColor.Parse("#EF5350"))
-                .WithAlpha(BackgroundTintPainter.BorrowedColourAlpha);
+            var want = HistogramTint(bar);
             double share = TintedShare(f, reference, bar, rows, want);
             Assert.True(share > 0.8, $"bar {bar} (histogram {Histogram[bar]}): only {share:P0} of the MACD pane is {want} over the background");
         }
@@ -545,9 +514,8 @@ public sealed class BackgroundTintTests
     }
 
     /// <summary>The user's choice comes back as made — Off on a component whose indicator tints,
-    /// Price chart on one whose indicator does not. Anchor Polarity, hidden by default when this
-    /// was saved and left out by default since 2026-10-23, stays included: its tint is the user's
-    /// and a left-out part tints nothing (ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut).</summary>
+    /// Price chart on a hidden one whose indicator does not (the MACD histogram; Cipher B's Anchor
+    /// Polarity until 2026-10-31).</summary>
     [Fact]
     public void A_users_tint_choice_survives_a_restore()
     {
@@ -557,11 +525,12 @@ public sealed class BackgroundTintTests
         Assert.Equal(BackgroundTint.Off,
             restoredTbd.Components.Single(c => c.Name == TopBottomDetectorProvider.CompDistribution).BackgroundTintInEffect());
 
-        var cb = new SeriesConfig { Id = "cb-1", IndicatorCode = "CIPHER_B", Pane = "Pane_CIPHER_B" };
-        cb.Components.Add(new ComponentConfig { Name = CipherBProvider.CompAnchorPolarity, IsVisible = false, UserBackgroundTint = BackgroundTint.PriceChart });
-        var restoredCb = Restore(cb, new CipherBProvider(), "CIPHER_B");
-        var anchor = restoredCb.Components.Single(c => c.Name == CipherBProvider.CompAnchorPolarity);
-        Assert.Equal(BackgroundTint.PriceChart, anchor.BackgroundTintInEffect());
-        Assert.Equal(BackgroundTint.Off, anchor.BackgroundTint);   // the indicator's own default is untouched
+        var macd = new SeriesConfig { Id = "macd-1", IndicatorCode = "Macd", Pane = "Pane_Macd" };
+        macd.Components.Add(new ComponentConfig { Name = "Histogram", IsVisible = false, UserBackgroundTint = BackgroundTint.PriceChart });
+        var restoredMacd = Restore(macd, new SkenderZeroCrossProvider(), "Macd");
+        var hist = restoredMacd.Components.Single(c => c.Name == "Histogram");
+        Assert.Equal(BackgroundTint.PriceChart, hist.BackgroundTintInEffect());
+        Assert.False(hist.IsVisible);
+        Assert.Equal(BackgroundTint.Off, hist.BackgroundTint);   // the indicator's own default is untouched
     }
 }

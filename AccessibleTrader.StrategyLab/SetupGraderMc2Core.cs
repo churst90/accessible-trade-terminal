@@ -133,7 +133,8 @@ internal static class SetupGraderMc2Core
             BuyDot = Mark(Get(cb, CipherBProvider.CompBlue, n)),
             BullX = Mark(Get(cb, CipherBProvider.CompCrossBull, n)),
             BearX = Mark(Get(cb, CipherBProvider.CompCrossBear, n)),
-            BearDiv = Mark(Get(cb, CipherBProvider.CompBearDiv, n)),
+            // Removed from Cipher B on 2026-10-31; the graders whose exit X4 reads it refuse to run.
+            BearDiv = new bool[n],
             Htf = htf, HMf = hMf, HWt1 = hWt1, HRsi = hRsi, HBuyDot = hDot,
             CtxH = ctxH, Ctx = ctx, HtfDotRecent = recent,
         };

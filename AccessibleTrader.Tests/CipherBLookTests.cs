@@ -158,7 +158,9 @@ public sealed class CipherBLookTests
     /// declared in the same order, and the two new lines come LAST. Only the paint order changed.
     /// The one exception is a removal: "Adaptive OB" and "Adaptive OS" (between WaveTrend Cross
     /// Bear and Anchor Polarity) stopped being components on 2026-10-17 — Cody's report, see
-    /// CipherBAdaptiveThresholdTests — so this list is the old eighteen minus those two.
+    /// CipherBAdaptiveThresholdTests — so this list is the old eighteen minus those two. On
+    /// 2026-10-31 the parts Market Cipher B does not draw went too (the anchor waves, Anchor
+    /// Polarity, the red Overbought Crossover and the four divergences); the rest keep their order.
     /// </summary>
     [Fact]
     public void Keyboard_order_is_unchanged_and_the_new_lines_come_last()
@@ -166,10 +168,9 @@ public sealed class CipherBLookTests
         var names = new CipherBProvider().GetIndicators()[0].Components.Select(c => c.Name).ToList();
         string[] before =
         {
-            "Anchor Wave", "Anchor Wave 2", "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
-            "WaveTrend Cross Bull", "WaveTrend Cross Bear", "Anchor Polarity",
-            "Oversold Crossover", "Overbought Crossover", "Bullish Divergence",
-            "Bearish Divergence", "Hidden Bull Continuation", "Hidden Bear Continuation",
+            "WT Histogram", "Wave Trend", "Wave Trend 2", "Money Flow Wave",
+            "WaveTrend Cross Bull", "WaveTrend Cross Bear",
+            "Oversold Crossover",
         };
         Assert.Equal(before.Concat(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch }), names);
     }

@@ -1434,19 +1434,18 @@ extremes, heard but not drawn. The levels are plain grey lines, solid at ±60 an
 the waves turn rough past ±53 and rougher past ±60. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".
 
-**What Cipher B leaves out.** Its own extra signals, which Market Cipher B does not show, are
-computed but left out: the red Overbought Crossover, the regular and hidden divergences with their
-slanted lines, and the anchor waves and Anchor Polarity. A part left out is not drawn, heard,
-spoken or reached with Ctrl+Up and Ctrl+Down, and is not in Alt+Shift+D, the status line or the
-Alerts dialog's list; strategies built on them still fire. To bring one in, tick its Include box
-under Properties, Appearance, Parts (Ctrl+Alt+Shift+K, which shows what you hid with H, does not
-include parts). The Anchor Fill cloud is hidden too, under Properties, Appearance, Cloud Fills, and
-draws only once both anchor waves are included. A chart saved before these defaults changed takes
-them when it opens, except for anything you showed yourself, which stays in and shown.
+**Nothing that Market Cipher B does not draw.** Until 31 October 2026 Cipher B also computed parts of
+its own, left out by default: a red Overbought Crossover, regular and hidden divergences with their
+slanted lines, two slower anchor waves with an Anchor Polarity and an Anchor Fill, and a WT Fill
+between the waves, with settings for older formulas ("Money Flow Formula" Legacy, "Buy Dot Rule"
+Gated, a percentile threshold mode). They are gone: Cipher B is now only what Market Cipher B shows,
+and looks exactly as it did. A chart saved with any of them opens without them; a strategy or alert
+built on one says it was removed and names the nearest part that remains (WaveTrend Cross Bear, the
+small red dot on every wave cross down, for the Overbought Crossover; Wave Trend Fast and Slow for the
+anchor waves; nothing for the divergences). "WT Slow Wave Smoothing" stays in Properties: 3 by
+default, as Market Cipher B; 4 gives Cipher B's slow wave from before 17 October 2026.
 
-Properties keeps the older behaviour within reach: "WT Slow Wave Smoothing" 4, "Money Flow Formula"
-Legacy and "Buy Dot Rule" Gated reproduce Cipher B's numbers from before October 2026 (all but the
-gold dot). **Market Structure** labels swing highs and lows as higher or lower than the last and
+**Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
 from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
 Cipher SR and Cipher DBSI, our versions of Market Cipher's price-chart
@@ -1526,8 +1525,7 @@ component's **Background tint** — Off, This pane or Price chart — which shad
 behind each bar by whether that component's value is at or above its midline (the hint under it
 says where and at which value; it is for sighted viewers only, nothing is spoken or sounded, and it
 works even when the line itself is hidden: Top/Bottom Detector tints the price chart red where
-Distribution Confidence is 0.5 or more, and Cipher B's Anchor Polarity can tint but is left out
-by default, like Market Cipher: include it under Parts first);
+Distribution Confidence is 0.5 or more);
 Appearance also holds **Parts**, an "Include" box for each part of an indicator with more than one — leave a part
 out and it is gone from the chart: not drawn, heard, spoken or reached with the arrow keys, until you
 include it again (at least one part has to stay in, and the last box will not untick);

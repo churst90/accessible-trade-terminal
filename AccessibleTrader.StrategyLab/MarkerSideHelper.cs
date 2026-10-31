@@ -6,7 +6,8 @@ namespace AccessibleTrader.StrategyLab;
 /// Classifies a Cipher MarkerFire signal as bullish (→ buy long) or bearish (→ sell short) by
 /// keyword. Cipher providers don't expose this on the descriptor itself, but the component
 /// names follow consistent conventions: anything with "Bull", "Buy", "Oversold", "Triple
-/// Confluence Buy", "Hidden Bull", "Bullish Divergence", or "Manipulation" is a long entry;
+/// Confluence Buy", "Hidden Bull", "Bullish Divergence", or "Manipulation" is a long entry (several of
+/// these parts have since been removed; the keywords stay for old catalogue rows);
 /// anything with "Bear", "Sell", "Overbought", "Hidden Bear", "Bearish Divergence",
 /// "Exhaustion", or the "Blood Diamond" is a short entry.
 ///

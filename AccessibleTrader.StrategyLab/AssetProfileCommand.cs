@@ -17,7 +17,7 @@ namespace AccessibleTrader.StrategyLab;
 ///     asset matured (BTC, ETH); ≈1 or &gt;1 = still young/expanding (SOL, KAS).
 ///   • Regime character — mean Hurst, % of bars trending (H&gt;0.55) vs mean-reverting
 ///     (H&lt;0.45), and % of bars in a bull regime (close &gt; SMA200).
-///   • Setup edge, LONG and SHORT — a curated probe of Cipher-B reversal setups run
+///   • Setup edge, LONG and SHORT — Market Cipher B's own dots (the WaveTrend crosses, the buy dot) run
 ///     through rolling walk-forward windows, reporting mean per-trade R and the
 ///     fraction of windows positive (the suite's robustness metric).
 ///
@@ -86,15 +86,7 @@ public static class AssetProfileCommand
             Console.Write($"  · {snapshot.Symbol,-10} {bars.Count,5} bars  building indicators… ");
             var host = LabHost.Build();
             WorkspaceState state;
-            // Always profile with look-ahead-honest divergence markers — a research
-            // tool that reports DEPLOYABLE edge must never read a divergence at its
-            // pivot bar (only confirmable pivotBars later). See CipherBProvider
-            // DivergenceConfirmLag + the 2026-06-12 look-ahead audit.
-            var honest = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["CIPHER_B"] = new Dictionary<string, object> { ["DivergenceConfirmLag"] = 1.0 }
-            };
-            try { state = await WorkspaceFactory.BuildAsync(host.Services, snapshot, parameterOverrides: honest); }
+            try { state = await WorkspaceFactory.BuildAsync(host.Services, snapshot); }
             catch (Exception ex) { Console.WriteLine($"FAILED ({ex.Message})"); continue; }
             var factory = host.Services.GetRequiredService<IConfigurableStrategyFactory>();
             var backtester = host.Services.GetRequiredService<IStrategyBacktester>();
@@ -231,33 +223,14 @@ public static class AssetProfileCommand
 
         return new List<Probe>
         {
-            // LONG probes.
-            new("L:v23", OrderSide.Buy, G("p-v23l", LogicOperator.And,
-                G("p-v23l-t", LogicOperator.Or,
-                    Fired("p-v23l-wt", "CIPHER_B.WaveTrend Cross Bull", 2),
-                    Fired("p-v23l-blue", "CIPHER_B.Oversold Crossover", 2),
-                    Fired("p-v23l-div", "CIPHER_B.Bullish Divergence", 2)),
-                Lt("p-v23l-anc", "CIPHER_B.Anchor Wave", 0))),
-            new("L:div", OrderSide.Buy, G("p-divl", LogicOperator.And,
-                Fired("p-divl-d", "CIPHER_B.Bullish Divergence", 2),
-                Lt("p-divl-anc", "CIPHER_B.Anchor Wave", 0))),
-            new("L:blue", OrderSide.Buy, G("p-bluel", LogicOperator.And,
-                Fired("p-bluel-b", "CIPHER_B.Oversold Crossover", 2),
-                Lt("p-bluel-anc", "CIPHER_B.Anchor Wave", 0))),
-
-            // SHORT probes (mirror).
-            new("S:v23", OrderSide.Sell, G("p-v23s", LogicOperator.And,
-                G("p-v23s-t", LogicOperator.Or,
-                    Fired("p-v23s-wt", "CIPHER_B.WaveTrend Cross Bear", 2),
-                    Fired("p-v23s-red", "CIPHER_B.Overbought Crossover", 2),
-                    Fired("p-v23s-div", "CIPHER_B.Bearish Divergence", 2)),
-                Gt("p-v23s-anc", "CIPHER_B.Anchor Wave", 0))),
-            new("S:div", OrderSide.Sell, G("p-divs", LogicOperator.And,
-                Fired("p-divs-d", "CIPHER_B.Bearish Divergence", 2),
-                Gt("p-divs-anc", "CIPHER_B.Anchor Wave", 0))),
-            new("S:red", OrderSide.Sell, G("p-reds", LogicOperator.And,
-                Fired("p-reds-r", "CIPHER_B.Overbought Crossover", 2),
-                Gt("p-reds-anc", "CIPHER_B.Anchor Wave", 0))),
+            // Market Cipher B's own dots (2026-10-31: the probes that read Cipher B's Anchor Wave,
+            // divergences and Overbought Crossover went with them; they are in git history).
+            new("L:wtx", OrderSide.Buy, G("p-wtxl", LogicOperator.Or,
+                Fired("p-wtxl-wt", "CIPHER_B.WaveTrend Cross Bull", 2))),
+            new("L:blue", OrderSide.Buy, G("p-bluel", LogicOperator.Or,
+                Fired("p-bluel-b", "CIPHER_B.Oversold Crossover", 2))),
+            new("S:wtx", OrderSide.Sell, G("p-wtxs", LogicOperator.Or,
+                Fired("p-wtxs-wt", "CIPHER_B.WaveTrend Cross Bear", 2))),
         };
     }
 
@@ -270,8 +243,8 @@ public static class AssetProfileCommand
         Console.WriteLine($"    │ Vol maturation : early {fp.VolEarly,5:F0}%  → late {fp.VolLate,5:F0}%   ratio {fp.VolMaturationRatio,4:F2}  ({MaturationLabel(fp.VolMaturationRatio)})");
         Console.WriteLine($"    │ Regime         : meanHurst {fp.MeanHurst,4:F2}  trending {fp.PctTrending,4:P0}  meanRev {fp.PctMeanReverting,4:P0}  bull {fp.PctBullRegime,4:P0}");
         Console.WriteLine($"    │ Buy&hold       : drift {fp.AnnualDriftPct,6:F0}%/yr   maxDD {fp.BuyHoldMaxDdPct,4:F0}%");
-        Console.WriteLine($"    │ LONG edge      : v23 {Fmt(fp.Probes.GetValueOrDefault("L:v23"))}  div {Fmt(fp.Probes.GetValueOrDefault("L:div"))}  blue {Fmt(fp.Probes.GetValueOrDefault("L:blue"))}");
-        Console.WriteLine($"    │ SHORT edge     : v23 {Fmt(fp.Probes.GetValueOrDefault("S:v23"))}  div {Fmt(fp.Probes.GetValueOrDefault("S:div"))}  red  {Fmt(fp.Probes.GetValueOrDefault("S:red"))}");
+        Console.WriteLine($"    │ LONG edge      : wtx {Fmt(fp.Probes.GetValueOrDefault("L:wtx"))}  blue {Fmt(fp.Probes.GetValueOrDefault("L:blue"))}");
+        Console.WriteLine($"    │ SHORT edge     : wtx {Fmt(fp.Probes.GetValueOrDefault("S:wtx"))}");
         Console.WriteLine($"    └─────────────────────────────────────────────────────────────────────");
     }
 
@@ -299,27 +272,27 @@ public static class AssetProfileCommand
         Console.WriteLine("══════════════════════════════════════════════════════════════════════════════════════");
 
         Console.WriteLine("\nSorted by volatility maturation (most-matured first):");
-        Console.WriteLine($"  {"Asset",-8} {"ratio",6} {"Hurst",6} {"bull%",6}   {"L:v23",9} {"L:div",9} {"L:blue",9}   {"S:v23",9} {"S:div",9} {"S:red",9}");
+        Console.WriteLine($"  {"Asset",-8} {"ratio",6} {"Hurst",6} {"bull%",6}   {"L:wtx",9} {"L:blue",9}   {"S:wtx",9}");
         foreach (var fp in fps.OrderBy(f => double.IsNaN(f.VolMaturationRatio) ? 99 : f.VolMaturationRatio))
         {
             Console.WriteLine($"  {fp.Symbol,-8} {fp.VolMaturationRatio,6:F2} {fp.MeanHurst,6:F2} {fp.PctBullRegime,6:P0}   " +
-                $"{Fmt(fp.Probes.GetValueOrDefault("L:v23")),9} {Fmt(fp.Probes.GetValueOrDefault("L:div")),9} {Fmt(fp.Probes.GetValueOrDefault("L:blue")),9}   " +
-                $"{Fmt(fp.Probes.GetValueOrDefault("S:v23")),9} {Fmt(fp.Probes.GetValueOrDefault("S:div")),9} {Fmt(fp.Probes.GetValueOrDefault("S:red")),9}");
+                $"{Fmt(fp.Probes.GetValueOrDefault("L:wtx")),9} {Fmt(fp.Probes.GetValueOrDefault("L:blue")),9}   " +
+                $"{Fmt(fp.Probes.GetValueOrDefault("S:wtx")),9}");
         }
 
         // Aggregate thread tests: does long edge correlate with anything?
         Console.WriteLine("\nThread tests (mean over assets where the probe had ≥3 valid windows):");
-        ThreadLine(fps, "L:v23"); ThreadLine(fps, "L:div"); ThreadLine(fps, "L:blue");
-        ThreadLine(fps, "S:v23"); ThreadLine(fps, "S:div"); ThreadLine(fps, "S:red");
+        ThreadLine(fps, "L:wtx"); ThreadLine(fps, "L:blue"); ThreadLine(fps, "S:wtx");
 
-        // Correlation of long-divergence edge vs maturation ratio (the headline question).
-        var paired = fps.Where(f => f.Probes.TryGetValue("L:div", out var p) && p.ValidWindows >= 3 && !double.IsNaN(f.VolMaturationRatio))
-            .Select(f => (x: f.VolMaturationRatio, y: f.Probes["L:div"].MeanER)).ToList();
+        // Correlation of the Buy dot's long edge vs maturation ratio (the headline question; it read the
+        // divergence-long probe until Cipher B's divergences were removed on 2026-10-31).
+        var paired = fps.Where(f => f.Probes.TryGetValue("L:blue", out var p) && p.ValidWindows >= 3 && !double.IsNaN(f.VolMaturationRatio))
+            .Select(f => (x: f.VolMaturationRatio, y: f.Probes["L:blue"].MeanER)).ToList();
         if (paired.Count >= 3)
         {
             double corr = Pearson(paired.Select(p => p.x).ToArray(), paired.Select(p => p.y).ToArray());
-            Console.WriteLine($"\n  corr(vol-maturation-ratio, L:div meanER) = {corr,5:F2}  over {paired.Count} assets");
-            Console.WriteLine("    (positive ⇒ divergence-long pays MORE on still-expanding assets; negative ⇒ pays more on matured ones)");
+            Console.WriteLine($"\n  corr(vol-maturation-ratio, L:blue meanER) = {corr,5:F2}  over {paired.Count} assets");
+            Console.WriteLine("    (positive ⇒ the Buy dot long pays MORE on still-expanding assets; negative ⇒ pays more on matured ones)");
         }
     }
 

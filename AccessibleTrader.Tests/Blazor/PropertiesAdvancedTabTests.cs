@@ -12,13 +12,15 @@ namespace AccessibleTrader.Tests.Blazor;
 
 /// <summary>
 /// Settings the original indicator has no input for go on an Advanced tab (Cody, 2026-10-23), so
-/// General holds what the original offers. Cipher B is the case he named: its legacy money flow,
-/// gated buy dot, adaptive thresholds, anchor suppression and cooldown are ours, not Market
-/// Cipher B's.
+/// General holds what the original offers. Cipher B was the case he named: its legacy money flow,
+/// gated buy dot, adaptive thresholds, anchor suppression and cooldown were ours, not Market
+/// Cipher B's. They were removed on 2026-10-31, so Cipher B has no Advanced tab now and Cipher
+/// DBSI (its Heikin-Ashi switch and label count are ours) is the case these tests use.
 /// </summary>
 public class PropertiesAdvancedTabTests
 {
     private static IndicatorMetadata CipherBMeta() => new CipherBProvider().GetIndicators()[0];
+    private static IndicatorMetadata DbsiMeta() => new DbsiStyleProvider().GetIndicators()[0];
 
     private static IRenderedComponent<AccessibleTrader.BlazorClient.Components.PropertiesModal> Open(BlazorTestHarness h, IndicatorMetadata meta)
     {
@@ -37,19 +39,17 @@ public class PropertiesAdvancedTabTests
         cut.FindAll("#props-tabpanel label").Select(l => l.TextContent.Trim()).ToList();
 
     [Fact]
-    public void Cipher_B_s_own_settings_are_on_Advanced_and_the_originals_inputs_on_General()
+    public void Cipher_DBSI_s_own_settings_are_on_Advanced_and_the_originals_inputs_on_General()
     {
         using var h = new BlazorTestHarness();
-        var cut = Open(h, CipherBMeta());
+        var cut = Open(h, DbsiMeta());
 
         cut.WaitForAssertion(() =>
         {
             var general = Labels(cut);
-            Assert.Contains("Money Flow Period", general);
-            Assert.Contains("Buy Dot Level", general);
-            Assert.DoesNotContain("Money Flow Formula", general);
-            Assert.DoesNotContain("Buy Dot Rule", general);
-            Assert.DoesNotContain("Cooldown Bars", general);
+            Assert.Contains("Trend length", general);
+            Assert.DoesNotContain("Compute on Heikin-Ashi candles", general);
+            Assert.DoesNotContain("Label the newest N bars", general);
         });
 
         cut.Find("button#props-tab-advanced").Click();
@@ -58,10 +58,23 @@ public class PropertiesAdvancedTabTests
         {
             Assert.Equal("true", cut.Find("button#props-tab-advanced").GetAttribute("aria-selected"));
             var advanced = Labels(cut);
-            foreach (var p in CipherBMeta().Parameters.Where(p => p.IsAdvanced))
+            var ours = DbsiMeta().Parameters.Where(p => p.IsAdvanced).ToList();
+            Assert.NotEmpty(ours);
+            foreach (var p in ours)
                 Assert.Contains(p.DisplayName, advanced);
-            Assert.DoesNotContain("Money Flow Period", advanced);
+            Assert.DoesNotContain("Trend length", advanced);
         });
+    }
+
+    [Fact]
+    public void Cipher_B_has_no_Advanced_tab_since_its_own_settings_went()
+    {
+        Assert.DoesNotContain(CipherBMeta().Parameters, p => p.IsAdvanced);
+        using var h = new BlazorTestHarness();
+        var cut = Open(h, CipherBMeta());
+
+        cut.WaitForAssertion(() => Assert.Contains("Money Flow Period", Labels(cut)));
+        Assert.Empty(cut.FindAll("button#props-tab-advanced"));
     }
 
     [Fact]
@@ -84,7 +97,7 @@ public class PropertiesAdvancedTabTests
     public void The_arrow_keys_reach_the_Advanced_tab_and_wrap_from_it()
     {
         using var h = new BlazorTestHarness();
-        var cut = Open(h, CipherBMeta());
+        var cut = Open(h, DbsiMeta());
         var tablist = cut.WaitForElement("[role='tablist']");
 
         tablist.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "End" });

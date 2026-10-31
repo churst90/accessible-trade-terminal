@@ -732,15 +732,14 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            // Cipher B's default Money Flow Formula and Buy Dot Rule were saved as "MCB" until
-            // 2026-10-30, when the value was renamed "Standard" (settings name no other product).
-            // The calculation reads anything but Legacy / Gated as the default either way; this
-            // keeps an old save from showing the retired word in its settings.
+            // Cipher B's Money Flow Formula, Buy Dot Rule and Threshold Mode were removed on
+            // 2026-10-31 with their old choices (Legacy, Gated, Percentile; Cody: "remove all of
+            // that old code from cipher b"). Nothing reads them, so a save that holds them drops
+            // them rather than carrying a setting no dialog shows.
             if (codeUp == "CIPHER_B")
             {
-                foreach (var key in new[] { "MoneyFlowMode", "BuyDotMode" })
-                    if (config.StringParameters.TryGetValue(key, out var v) && string.Equals(v, "MCB", StringComparison.OrdinalIgnoreCase))
-                        config.StringParameters[key] = "Standard";
+                foreach (var key in new[] { "MoneyFlowMode", "BuyDotMode", "ThresholdMode" })
+                    config.StringParameters.Remove(key);
             }
 
             // Remove stale Cloud-type components (they are now handled by CloudFills).
@@ -793,6 +792,15 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
+            // A cloud fill is never authored by the user either — only a provider declares one, and the
+            // user can only show or hide it — so a saved fill the indicator no longer declares is a
+            // stale default, and it goes (as the fixed zone bands below). Cipher B's Anchor Fill and
+            // WT Fill were removed on 2026-10-31: Market Cipher B draws neither, and a save that had
+            // WT Fill shown would otherwise keep shading between the two waves.
+            config.CloudFills.RemoveAll(f => !meta.DefaultCloudFills.Any(d =>
+                f.UpperComponentName.Equals(d.UpperComponentName, StringComparison.OrdinalIgnoreCase) &&
+                f.LowerComponentName.Equals(d.LowerComponentName, StringComparison.OrdinalIgnoreCase)));
+
             foreach (var fill in meta.DefaultCloudFills)
             {
                 var saved = config.CloudFills.FirstOrDefault(f =>
@@ -809,7 +817,8 @@ namespace AccessibleTrader.Core.Services
                 // Saved fills are restored wholesale (MaterializeSaved), so this is where a changed
                 // DEFAULT visibility reaches them: shown or hidden as the indicator now declares,
                 // unless the user had changed it (ProviderDefaultVisibility). Cipher B's Anchor
-                // Fill, hidden by default on 2026-10-17, is the case that needed it.
+                // Fill, hidden by default on 2026-10-17, was the case that needed it (removed
+                // 2026-10-31).
                 saved.IsVisible = ProviderDefaultVisibility.Resolve(
                     saved.IsVisible, saved.ProviderIsVisible, fill.IsVisible,
                     ProviderDefaultVisibility.RetiredCloudFillDefault(config.IndicatorCode ?? "", fill.DisplayName));

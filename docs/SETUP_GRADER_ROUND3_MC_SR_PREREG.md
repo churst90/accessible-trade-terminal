@@ -1,5 +1,9 @@
 # Setup grader round 3, Market Cipher with Cipher SR location: pre-registration
 
+> **2026-10-31: the grader no longer runs.** Its rules read Cipher B parts that were removed that day
+> because Market Cipher B does not draw them (the bearish divergence in exit X4). `setup-grader-mc3` now refuses and exits 2;
+> to re-run it, build commit 2e86d377. The results stand.
+>
 > **2026-10-18: run.** Results are in `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`: No edge in crypto
 > 4h, crypto daily and equities; nothing passed the cross-round Holm or the placebo gate. Nothing below
 > this line was edited after the results existed.

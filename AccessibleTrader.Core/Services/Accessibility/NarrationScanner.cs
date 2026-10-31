@@ -1411,16 +1411,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             // Component-specific overrides — avoids generic "overbought/oversold" labels
             // where those terms don't reflect the underlying meaning.
-            if (componentName.Equals("Anchor Wave", StringComparison.OrdinalIgnoreCase))
-                return current switch
-                {
-                    ZoneStatus.Overbought => $"{seriesName}: Anchor wave overbought.",
-                    ZoneStatus.Oversold   => $"{seriesName}: Anchor wave oversold.",
-                    ZoneStatus.Normal when previous is ZoneStatus.Overbought or ZoneStatus.Oversold
-                                          => $"{seriesName}: Anchor wave returning to neutral.",
-                    _ => null
-                };
-
             if (componentName.Equals("Trigger Wave", StringComparison.OrdinalIgnoreCase))
                 return current switch
                 {

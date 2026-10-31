@@ -106,8 +106,8 @@ try
             GetFlag(args.Skip(1).ToArray(), "--only"),
             GetFlag(args.Skip(1).ToArray(), "--tf") ?? "1d",
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--perms"), out var cf) ? cf : 5000,
-            GetFlag(args.Skip(1).ToArray(), "--bull") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompBlue,
-            GetFlag(args.Skip(1).ToArray(), "--bear") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompRed,
+            GetFlag(args.Skip(1).ToArray(), "--bull") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompCrossBull,
+            GetFlag(args.Skip(1).ToArray(), "--bear") ?? AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompCrossBear,
             double.TryParse(GetFlag(args.Skip(1).ToArray(), "--srgate"), out var sg2) ? sg2 : 0.5,
             int.TryParse(GetFlag(args.Skip(1).ToArray(), "--sr-lag"), out var srl) ? srl : -1),
         "favourability" => await FavourabilityCommand.RunAsync(
@@ -599,8 +599,8 @@ static async Task<int> HandleRollingWindow(string[] a)
 
 // Parses repeatable `--set CODE.Param=Value` flags into per-indicator parameter
 // overrides for WorkspaceFactory. Numeric values become double (what GetDbl/GetInt
-// readers expect); everything else stays a string (e.g. ThresholdMode=Percentile).
-// Example: --set CIPHER_B.ThresholdMode=Percentile --set CIPHER_B.AdaptiveLookback=250
+// readers expect); everything else stays a string.
+// Example: --set CIPHER_B.WT1Period=10 --set CIPHER_B.WT2Period=21
 static Dictionary<string, Dictionary<string, object>>? ParseSetOverrides(string[] a)
 {
     Dictionary<string, Dictionary<string, object>>? result = null;

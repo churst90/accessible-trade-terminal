@@ -8,7 +8,7 @@ namespace AccessibleTrader.Core.Services.Rendering
     ///
     /// <para>
     /// Until 2026-10-17 the renderer found its two tints by component NAME: Cipher B's
-    /// "Anchor Polarity" (teal/red on the price chart by sign) and Top/Bottom Detector's
+    /// "Anchor Polarity" (teal/red on the price chart by sign; removed from Cipher B on 2026-10-31) and Top/Bottom Detector's
     /// "Distribution Confidence" (red on the price chart at 0.5 and over, deepening to 1.0). Cody:
     /// <i>"shouldn't this, if tinting is all it does, be a property in the indicator properties?
     /// which means shading/tinting should be something any indicator can do."</i> Both are now
@@ -37,7 +37,7 @@ namespace AccessibleTrader.Core.Services.Rendering
     public static class BackgroundTintPainter
     {
         /// <summary>The strength of a tint that borrows the component's own colours (0x16, the
-        /// old Anchor Polarity tint's): a whisper, so candles keep their colour on top of it.</summary>
+        /// strength of the old Anchor Polarity tint): a whisper, so candles keep their colour on top of it.</summary>
         public const byte BorrowedColourAlpha = 22;
 
         /// <summary>Every price-chart tint on the chart, whichever pane its component is drawn in.

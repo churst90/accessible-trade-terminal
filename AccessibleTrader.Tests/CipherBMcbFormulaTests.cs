@@ -71,7 +71,8 @@ public sealed class CipherBMcbFormulaTests
     /// nothing else — no confirmation, no cooldown, no anchor gate — drawn in the money-flow bar.
     /// Read from MCB 2.4.0's own "Green Dot" column on BTCUSD 1D (2026-10-23): 64 of 64 on candles,
     /// 68 of 68 on Heikin-Ashi, no extra; the slow-wave test used before added 10 and 7.
-    /// BuyDotMode = Gated keeps the older gated rule.
+    /// The older gated rule (BuyDotMode = Gated) was removed on 2026-10-31: an old save's
+    /// "Gated" now draws the same dots.
     /// </summary>
     [Fact]
     public void The_buy_dot_is_every_cross_up_with_the_fast_wave_below_minus_60()
@@ -89,7 +90,7 @@ public sealed class CipherBMcbFormulaTests
             var dots = Fired(mcb[CipherBProvider.CompBlue]);
             Assert.Equal(expected, dots);
             Assert.All(dots, i => Assert.Equal(CipherBProvider.McbBuyDotY, mcb[CipherBProvider.CompBlue][i]));
-            Assert.NotEqual(Fired(gated[CipherBProvider.CompBlue]), dots);
+            Assert.Equal(dots, Fired(gated[CipherBProvider.CompBlue]));
             if (!Crosses(i => slow[i] <= -60).SequenceEqual(expected)) slowRuleDiffers++;
             total += dots.Count;
         }
@@ -135,7 +136,8 @@ public sealed class CipherBMcbFormulaTests
     /// five-bar mean is measured against the mean size of the last five such steps, so a run of
     /// steady rising candles reads the full 200/3 whatever their size, and the same run at ten times
     /// the price reads the same. The legacy square root of the raw candle's body share gave
-    /// 175 × √0.1 = 55 here.
+    /// 175 × √0.1 = 55 here; that mode was removed on 2026-10-31, and an old save's "Legacy" now
+    /// reads the same 200/3.
     /// </summary>
     [Fact]
     public void Money_flow_reads_200_over_3_on_steady_candles_whatever_their_size()
@@ -152,7 +154,7 @@ public sealed class CipherBMcbFormulaTests
         // The typical price climbs 0.2 a bar: it sits 0.4 above its 5-bar mean every bar, ratio 1.
         Assert.Equal(200.0 / 3.0, mf[250], 6);
         Assert.Equal(mf[250], big[250], 6);
-        Assert.Equal(175 * Math.Sqrt(0.1), legacy[250], 6);
+        Assert.Equal(mf, legacy);
     }
 
     /// <summary>
@@ -203,8 +205,9 @@ public sealed class CipherBMcbFormulaTests
 
     /// <summary>
     /// MCB keeps its 60-bar money-flow window on intraday charts (a 30-minute MCB chart fits 60 best;
-    /// the 24 bars our timeframe scaling chose flipped sign 25 times where MCB flipped 4). In MCB
-    /// mode the chart's timeframe no longer changes money flow; in Legacy mode it still does.
+    /// the 24 bars our timeframe scaling chose flipped sign 25 times where MCB flipped 4). The
+    /// chart's timeframe does not change money flow, and since Legacy mode was removed on
+    /// 2026-10-31 an old save's "Legacy" does not bring the scaling back.
     /// </summary>
     [Fact]
     public void Money_flow_keeps_its_window_on_intraday_charts()
@@ -215,7 +218,8 @@ public sealed class CipherBMcbFormulaTests
         Assert.Equal(d1, m30);
         var l30 = Run(bars, ("__timeframe", "30m"), ("MoneyFlowMode", "Legacy"))[CipherBProvider.CompMoneyFlowWave];
         var l1 = Run(bars, ("__timeframe", "1d"), ("MoneyFlowMode", "Legacy"))[CipherBProvider.CompMoneyFlowWave];
-        Assert.NotEqual(l1, l30);
+        Assert.Equal(m30, l30);
+        Assert.Equal(m30, l1);
     }
 
     // ── The two stochastic lines ──────────────────────────────────────────────────

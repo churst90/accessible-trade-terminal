@@ -143,6 +143,12 @@ public static class SetupGraderCommand
     {
         Console.WriteLine("SETUP GRADER — pre-registered in docs/SETUP_GRADER_PREREG.md (0597d7de), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
+        // Its pre-registered rules read Cipher B's divergences (the grades' divergence layer) and its red dot (Overbought Crossover), which were removed on
+        // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment
+        // under the same name. Its results stand; to re-run it, build commit 2e86d377.
+        Console.WriteLine("Refusing to run: the pre-registered rules read Cipher B parts removed on 2026-10-31 (the divergences, the Overbought Crossover); build commit 2e86d377 to re-run it.");
+        return 2;
+#pragma warning disable CS0162 // the frozen run below, kept for the record
         if (!LabCipherProfile.IsDefault)
         {
             Console.WriteLine("The pre-registration fixes the current (NEW) Cipher B. Refusing to run another profile.");

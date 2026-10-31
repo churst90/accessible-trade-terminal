@@ -55,7 +55,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 TrendLookbackBars = 3,
                 SpeechTemplate = "{value:F6}, {trend}"
             });
-            // ── Cipher B — four components each narrated independently ────────────
+            // ── Cipher B — each component narrated independently ──────────────────
             // Wave Trend: primary oscillator; OB/OS at ±53 matching MC-B reference levels.
             RegisterDefinition(new IndicatorContextDefinition
             {
@@ -64,15 +64,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 TrendLookbackBars = 3,
                 SpeechTemplate = "{value:F1}, {zone}"
             });
-            // Anchor Wave: slow macro WT (5× period); same ±53 thresholds.
-            // Speech uses "Macro wave" prefix so the user can distinguish setup vs entry layer.
-            RegisterDefinition(new IndicatorContextDefinition
-            {
-                IndicatorCode = "CIPHER_B", ComponentName = "Anchor Wave",
-                OverboughtThreshold = 53, OversoldThreshold = -53,
-                TrendLookbackBars = 5,
-                SpeechTemplate = "{value:F1}, {zone}"
-            });
+            // (Anchor Wave, the slow macro wave, was defined here until it was removed from Cipher B
+            // on 2026-10-31: Market Cipher B has no such wave.)
             // (The "Trigger Wave" definition that sat here named a component Cipher B does not
             // have — see the note above.)
             // Money Flow Wave: zero-centred (positive = money flowing in), about ±40 on a daily

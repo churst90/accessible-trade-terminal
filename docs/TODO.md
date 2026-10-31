@@ -1,3 +1,19 @@
+> - [ ] **Cipher B is only what Market Cipher B draws (2026-10-31, built, NOT seen or heard; see CHANGES).**
+>   Removed (Cody: "remove all of that old code from cipher b"): the red Overbought Crossover, the regular
+>   and hidden divergences, Anchor Wave, Anchor Wave 2, Anchor Polarity, Anchor Fill, WT Fill, and the
+>   Legacy money flow, Gated buy dot and Percentile threshold settings with the parameters only they read.
+>   Kept: the waves, Wave Gap, Money Flow, both cross dots, the Buy dot, RSI and Stochastic lines, and
+>   "WT Slow Wave Smoothing" (my call: it is MCB's own smoothing, 3 by default). The picture is unchanged:
+>   58 rendered frames (4 charts at several zooms) byte-identical before and after. Left:
+>   - Cody to open his saved Cipher B and check that it looks and sounds as before, with nothing extra
+>     in Properties → Parts and no Advanced tab.
+>   - Twelve catalogue strategies needed a removed part in a required condition and were retired with
+>     their verdicts kept (v14, v15, v18 and the v23 family). Agree, or rebuild any on Market Cipher B's
+>     parts?
+>   - The three setup graders now refuse to run (their pre-registered rules read the divergences or the
+>     red dot); build 2e86d377 to re-run one. OK?
+>   - `TradeRanker` lost its anchor-wave input (8 points); it has no callers in the app, but its very-high
+>     band now needs Hurst at or below about 0.27. Delete it, or keep it?
 > - [ ] **Cipher B's Wave Gap and Money Flow are read as waves by default (2026-10-30, built, NOT seen or heard; see CHANGES).**
 >   Both are now pitched on the pane's ±100 scale with no leap at zero. Properties has a "Read as" setting for each
 >   (Wave / Histogram) that changes only the type word, navigation, sound and speech; the picture is the same, and
@@ -37,12 +53,12 @@
 >        Faster confirmation is on Advanced. Should the original's trigger and slow DSS adjustments be
 >        settings too? Today each preset's DSS is fixed.
 >   3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted
->      (built, NOT seen; see CHANGES). Cody to open his saved Cipher B and check that Ctrl+Down
->      no longer stops on the divergences or anchor waves, and that Properties → Parts lists them.
+>      (built, NOT seen; see CHANGES). Cody to open an indicator with default-off parts (Ichimoku's
+>      Kumo Polarity) and check that Ctrl+Down skips them and Properties → Parts lists them. (Cipher
+>      B's divergences and anchor waves, the first example, were removed on 2026-10-31.)
 >      Questions:
 >      - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
 >      - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
->      - Cipher B's Anchor Fill needs both anchor waves included; include them with the fill?
 > - [ ] **Cycle Position, a new indicator (2026-10-28, built, NOT seen; see CHANGES and
 >   `docs/CYCLE_POSITION_DESIGN.md`).** Cipher C's picture with one rule for every asset and windows
 >   learned from the chart's own cycles. Its window held 61% of cycles, blind too, but it is twice
@@ -1148,7 +1164,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - [ ] If the design is ever revised (a new pre-registration): drop the "low due" rule (B5 found it
 >   adds nothing), and note that leaving out positioning or macro raised alert precision.
 >
-> **Open (Cody, 2026-10-18: "don't rename yet"):** Cipher B's hidden "Anchor Wave" components are OUR 5×-period
+> **Closed 2026-10-31: the Anchor Waves were removed with Cipher B's other non-MCB parts.** Was open (Cody, 2026-10-18: "don't rename yet"): Cipher B's hidden "Anchor Wave" components are OUR 5×-period
 > WaveTrend (a higher-timeframe proxy feeding the Gated dot and Anchor Polarity), not the Market Cipher traders'
 > anchor wave (the first deep wave past −60, read off the main waves; the trigger wave is the next higher-low cross
 > below zero). Not a maths bug — the round-2 tests read anchor/trigger from the main waves. Later: rename the
@@ -1445,8 +1461,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - **Other state sentences:** only DSS speaks its state. Cipher B's existing sentence reads hidden
 >   components and repeats signals; RSI's and others' restate the numbers. Rewrite them as words-only
 >   state like DSS's, indicator by indicator?
-> - **Hidden keyboard stops:** Anchor Wave Fast/Slow and Anchor Polarity are still hidden Ctrl+Up/Down
->   stops with real values (StrategyLab uses them). Skip hidden components in that walk?
+> - **Hidden keyboard stops:** closed. Cipher B's Anchor Wave Fast/Slow and Anchor Polarity, the
+>   example here, were removed on 2026-10-31; left-out parts are skipped since 2026-10-23.
 > - **S/R zone bands** now stop at the last bar; S/R boxes are often projected right on purpose —
 >   one-line revert in `RenderZoneBand`.
 > - Strategies: only removed signals are announced; causality refusals and HTF load failures are
@@ -13707,7 +13723,7 @@ charting products. Against it sits a large body of undisciplined provider code.
   (`Period`). Verified consequences: `SymbolCompareProvider.BuildRequest` (`:161-162`) returns `null` on
   an empty symbol, so **`COMPARE` and `COMPARE_RATIO` render blank forever** — which is why they sit in
   `IndicatorCausalityTests.NotExercisedByTheseSeries:375-376`; `CipherBProvider.cs:477` always sees
-  `"Fixed"`, so **Percentile mode and its four feeding parameters (`AdaptiveLookback`,
+  `"Fixed"`, so (Cipher B's half closed 2026-10-31: Threshold Mode and these parameters were removed) **Percentile mode and its four feeding parameters (`AdaptiveLookback`,
   `UpperPercentile`, `LowerPercentile`, `MinThresholdFloor`) are dead** and `Adaptive OB`/`Adaptive OS`
   can only ever be the constant ±`OBLevel`; `MACloudProvider.cs:94-95` always uses EMA so the MA-type
   selector documented at `:22-23` does nothing; `PivotLevels` can only ever be Daily.

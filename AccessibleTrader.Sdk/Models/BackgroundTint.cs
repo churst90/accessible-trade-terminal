@@ -8,8 +8,8 @@ namespace AccessibleTrader.Sdk.Models
     /// <para>
     /// Visual only: a tint is never spoken, sounded or narrated. It is the component's own data
     /// drawn a second way, so it is a switch of its own and does NOT follow the component's
-    /// <see cref="ComponentConfig.IsVisible"/> — Cipher B's Anchor Polarity is a hidden data line
-    /// that can still tint, and hiding a line must not take a tint the user asked for with it.
+    /// <see cref="ComponentConfig.IsVisible"/> — a hidden data line (as Cipher B's Anchor Polarity
+    /// was, until 2026-10-31) can still tint, and hiding a line must not take a tint the user asked for with it.
     /// See <see cref="ComponentConfig.BackgroundTint"/> for the rest of the shape.
     /// </para>
     ///

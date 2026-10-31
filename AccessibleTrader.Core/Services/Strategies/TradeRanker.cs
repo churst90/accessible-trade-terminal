@@ -37,7 +37,6 @@ namespace AccessibleTrader.Core.Services.Strategies
             double HurstValue          = double.NaN, // HURST.Hurst, range 0..1
             double AvwapBias           = double.NaN, // ANCHORED_VWAP.AVWAP Bias, -1/0/+1
             double PivotZone           = double.NaN, // PIVOTS.Pivot Zone, -1/0/+1
-            double AnchorWave          = double.NaN, // CIPHER_B.Anchor Wave
             double AboveSma200         = double.NaN, // REGIME.AboveSma200 (signed dist from MA)
             double Funding             = double.NaN, // BNVISION_FUNDING.Funding raw
             string? TimeframeMinutes   = null        // bar interval label, optional weight
@@ -80,15 +79,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 s += Math.Clamp(zoneAlign * 12.0, -8.0, 12.0);
             }
 
-            // Anchor wave: confirms regime washout (longs want negative anchor =
-            // recent capitulation; shorts want positive = recent rally).
-            if (!double.IsNaN(ctx.AnchorWave))
-            {
-                double anchorSign = ctx.Side == OrderSide.Buy ? -ctx.AnchorWave : ctx.AnchorWave;
-                // Anchor wave magnitude is roughly ±100 in fixed mode. Normalise.
-                double normalised = Math.Clamp(anchorSign / 60.0, -1.0, 1.0);
-                s += normalised * 8.0;
-            }
+            // (Cipher B's Anchor Wave was read here, worth 8, until it was removed from Cipher B on
+            // 2026-10-31 — not part of Market Cipher B.)
 
             // Faber regime: longs want price > SMA200, shorts want price < SMA200.
             if (!double.IsNaN(ctx.AboveSma200))

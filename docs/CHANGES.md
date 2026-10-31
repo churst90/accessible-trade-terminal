@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B is only what Market Cipher B draws: its own extra parts and old settings removed; the picture is the same (2026-10-31, branch cipher-settings-text, NOT pushed, NOT seen or heard)
+
+- **Why**: Cody: "anything not in the original, please remove as well....unless you can think of a good reason not
+  to....", then "Yes remove all of that old code from cipher b ... gert rid of all of that....", then "just make sure
+  that visually it doesn't change the way cipher b looks to the original mc b". All of it was left out or hidden by
+  default (Market Cipher B draws none of it), so on a default chart none of it showed.
+- **Removed**: the red "Overbought Crossover" dot (our own gated sell rule; MCB has no sell dot), the regular and
+  hidden divergences with their pivot lines, Anchor Wave, Anchor Wave 2, Anchor Polarity, the Anchor Fill and WT Fill
+  clouds, and the settings only they or the old formulas read: Money Flow Formula (Legacy), Buy Dot Rule (Gated),
+  Threshold Mode (Percentile, with its lookback, percentiles and floor), Confirm Bars, Cooldown Bars, anchor
+  suppression and depth, timeframe awareness, pivot bars, anchor multiplier, OB level and the divergence confirmation
+  lag. Cipher B's Properties has five settings now (WT Channel Period, WT Average Period, Money Flow Period, WT Slow
+  Wave Smoothing, Buy Dot Level), no Advanced tab and no cloud fills.
+- **Kept**: both waves, the Wave Gap, Money Flow and its bar, the small cross dots (WaveTrend Cross Bull / Bear), the
+  Buy dot ("Oversold Crossover"), the RSI and Stochastic lines. "WT Slow Wave Smoothing" stays (my call): it is MCB's
+  own slow-wave smoothing, 3 by default, and 4 still gives the slow wave from before 2026-10-17.
+- **The picture is unchanged**: Cipher B rendered before (2e86d377) and after on 4 charts at several zooms, 58 frames:
+  every frame identical, all 58 PNGs byte for byte; the list of drawn parts and every kept part's values identical.
+- **Saved charts, strategies, alerts**:
+  - A saved chart drops the Anchor Fill and WT Fill (a fill the indicator no longer declares is pruned on restore,
+    any indicator) and the three mode settings (`WorkspaceInitializer.MigrateSeriesConfig`).
+  - Strategies and alerts on a removed part say it was removed and name the nearest part (`SignalCatalog.Retired`):
+    WaveTrend Cross Bear for the red dot, Wave Trend Fast / Slow for the anchor waves, nothing for the divergences
+    and Anchor Polarity. A spec that reads one only inside an OR still fires on its other conditions.
+  - **Twelve catalogue strategies retired** (v14, v15, v18 and the v23 family, `CatalogueProvenance` retired list,
+    verdicts kept): each needed a removed part in a required condition. Catalogue version 2026-10-31.1.
+- **The lab**: `--cipherb old` is refused (there is no old Cipher B); the three setup graders refuse to run and exit
+  2 (their pre-registered rules read the divergences or the red dot; build 2e86d377 to re-run one; results stand).
+  Research commands that defaulted to the red dot for the short side use MCB's cross-down dot. `TradeRanker` lost its
+  anchor-wave input (8 points; it has no callers in the app); its top band now needs Hurst at or below about 0.27.
+- **Caveats**:
+  - Twelve strategies are gone from the catalogue; anyone who imported one keeps their copy, which now names the
+    removed part and never fires on it.
+  - The setup graders' results can no longer be reproduced on this build.
+  - Not seen or heard in the app. The accessibility-lead agent is not registered here.
+- **Tests**: CipherBTimingTests and DivergenceConfirmLagTests deleted (they tested removed parts); the metadata,
+  look, stock-visibility, signal-rule, adaptive-threshold, lab-profile, tint and left-out-parts tests rewritten on what
+  remains; `CipherBWaveTrendParityTests` keeps every kept output's pre-removal hash (none re-pinned) and drops the
+  removed ones; `CipherBMcbFormulaTests` checks the old mode values change nothing; new
+  `SetupGraderTests.The_graders_refuse_to_run_without_Cipher_Bs_removed_parts`. 13 sabotages, 12 red; the green one
+  (accepting `old` at the second check) cannot be reached, as `old` throws first. Whole suite 9763: 9762 green, and the
+  scan guard's one red (the new test used the system temp path) fixed and both classes re-run green. README 9758.
+
 ### Cipher B's Wave Gap and Money Flow: read as waves by default, as histograms by choice; the picture is the same (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
 
 - **Why**: Cody: "The wt histogram jumps to os/ob levels even though it doesn't have them ... histograms shouldn't have

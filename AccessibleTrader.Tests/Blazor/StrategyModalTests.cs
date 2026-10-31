@@ -148,7 +148,7 @@ public class StrategyModalTests
 
     private static StrategySpec PickSeed() =>
         StrategyCatalogue.AllSpecs()
-            .First(s => s.Id == StrategyCatalogue.LongV23pCipherBPivotsId);
+            .First(s => s.Id == StrategyCatalogue.LongV13BlueDotSma200Id);
 
     /// <summary>
     /// Modal renders nothing until OpenStrategiesEvent fires. Baseline:

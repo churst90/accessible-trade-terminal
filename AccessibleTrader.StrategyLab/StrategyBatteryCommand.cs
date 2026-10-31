@@ -11,21 +11,24 @@ namespace AccessibleTrader.StrategyLab;
 /// curated battery rather than a brute-force sweep. The test grid is designed to answer
 /// three specific questions:
 ///
-///   1. Does the published cipher 3-stage long setup (Anchor washed + Trigger > 0 + MFW NEGATIVE
+///   1. Did the published cipher 3-stage long setup (Anchor washed + Trigger > 0 + MFW NEGATIVE
 ///      + entry pulse) survive walk-forward with bootstrap CIs?
 ///
 ///   2. Does the contrarian Money Flow direction (NEGATIVE per the published setup) outperform the naive
 ///      "buy when MF is bullish" v1 reading (POSITIVE)?
 ///
-///   3. Does the symmetric short setup (Anchor in OB + Trigger &lt; 0 + MFW POSITIVE +
-///      bear pulse) work, or is the long-only edge an artifact of BTC's secular uptrend?
+///   3. Did the symmetric short setup (Anchor in OB + Trigger &lt; 0 + MFW POSITIVE +
+///      bear pulse) work, or was the long-only edge an artifact of BTC's secular uptrend?
+///
+/// Questions 1 and 3 and the v23-v27 rounds read Cipher B's Anchor Wave, divergences and
+/// Overbought Crossover, which were removed on 2026-10-31 (not Market Cipher B's); their cells
+/// went with them and are in git history. Question 2 keeps its Money Flow cell.
 ///
 /// Each cell is reported with H1/H2 trade count, R-expectancy, 95% bootstrap CI lower
 /// bound, and a SURVIVOR flag if both halves clear CI-lo &gt; 0 with at least 5 trades each
 /// (relaxed from the sweep's 10-trade gate because these setups are intentionally rare).
 ///
-/// All cells use Cipher B Money Flow Wave's true zero (-80 raw) and Cipher B Anchor Wave's
-/// natural zero (0 raw). The published cipher long stages are encoded as published in
+/// The Money Flow cells use <see cref="MfBaseline"/>. The catalogue's strategies are in
 /// Catalogue/StrategyCatalogue.cs (formerly Core's BuiltInStrategySeeds).
 /// </summary>
 public static class StrategyBatteryCommand
@@ -104,9 +107,10 @@ public static class StrategyBatteryCommand
             Fired($"{idPrefix}-abuy", "CIPHER_A.Buy Signal", withinBars: 5),
             Fired($"{idPrefix}-srsup", "CIPHER_SR.Support", withinBars: 5));
 
-        // Symmetric bear entry pulse for the short side battery.
+        // Symmetric bear entry pulse for the short side battery. Its Cipher B leaf, the red dot
+        // ("Overbought Crossover", ours, not Market Cipher B's), was removed on 2026-10-31; a
+        // re-run is the same OR without it.
         ConditionGroup BearEntryPulse(string idPrefix) => Group($"{idPrefix}-pulse", LogicOperator.Or,
-            Fired($"{idPrefix}-red", "CIPHER_B.Overbought Crossover", withinBars: 5),
             Fired($"{idPrefix}-asell", "CIPHER_A.Sell Signal", withinBars: 5),
             Fired($"{idPrefix}-aexh", "CIPHER_A.Exhaustion", withinBars: 5),
             Fired($"{idPrefix}-srres", "CIPHER_SR.Resistance", withinBars: 5));
@@ -120,45 +124,10 @@ public static class StrategyBatteryCommand
             OrderSide.Buy,
             BullEntryPulse("c1")));
 
-        // 2. Anchor sign only (v12 thesis): Anchor < 0 AND bull pulse.
-        cells.Add(("v12: Anchor Wave < 0 AND bull pulse",
-            OrderSide.Buy,
-            Group("c2", LogicOperator.And,
-                Lt("c2-anc", "CIPHER_B.Anchor Wave", 0),
-                BullEntryPulse("c2"))));
 
-        // 3. Anchor washed (cipher stage 1): Anchor < -53 AND bull pulse.
-        cells.Add(("Cipher S1: Anchor Wave < -53 AND bull pulse",
-            OrderSide.Buy,
-            Group("c3", LogicOperator.And,
-                Lt("c3-anc", "CIPHER_B.Anchor Wave", -53),
-                BullEntryPulse("c3"))));
 
-        // 4. Stages 1+2: Anchor washed AND Trigger > 0 AND bull pulse.
-        cells.Add(("Cipher S1+S2: Anchor < -53 AND Trigger > 0 AND pulse",
-            OrderSide.Buy,
-            Group("c4", LogicOperator.And,
-                Lt("c4-anc", "CIPHER_B.Anchor Wave", -53),
-                Gt("c4-trg", "CIPHER_B.Trigger Wave", 0),
-                BullEntryPulse("c4"))));
 
-        // 5. FULL cipher long (S1+S2+S3 contrarian MFW negative): the published setup.
-        cells.Add(("Cipher FULL: Anc<-53 AND Trg>0 AND MFW<0(base) AND pulse",
-            OrderSide.Buy,
-            Group("c5", LogicOperator.And,
-                Lt("c5-anc", "CIPHER_B.Anchor Wave", -53),
-                Gt("c5-trg", "CIPHER_B.Trigger Wave", 0),
-                Lt("c5-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),  // raw < -80 = below visual zero
-                BullEntryPulse("c5"))));
 
-        // 6. v1 inverse (the "naive" reading the published method explicitly rejects): same gates but MFW POSITIVE.
-        cells.Add(("v1 NAIVE: Anc<-53 AND Trg>0 AND MFW>0(base) AND pulse",
-            OrderSide.Buy,
-            Group("c6", LogicOperator.And,
-                Lt("c6-anc", "CIPHER_B.Anchor Wave", -53),
-                Gt("c6-trg", "CIPHER_B.Trigger Wave", 0),
-                Gt("c6-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),
-                BullEntryPulse("c6"))));
 
         // 7. Just MFW sign filter, no anchor: bull pulse AND MFW < 0(base) (the contrarian-MF idea on its own).
         cells.Add(("MFW negative only: bull pulse AND MFW < 0(base)",
@@ -187,15 +156,6 @@ public static class StrategyBatteryCommand
                 Gt("c8b-ema", "REGIME.AboveEma200", 0),
                 BullEntryPulse("c8b"))));
 
-        // 8c. Cipher FULL + SMA200 — does the regime filter rescue the published stages?
-        cells.Add(("Cipher FULL + Close>SMA200",
-            OrderSide.Buy,
-            Group("c8c", LogicOperator.And,
-                Gt("c8c-sma", "REGIME.AboveSma200", 0),
-                Lt("c8c-anc", "CIPHER_B.Anchor Wave", -53),
-                Gt("c8c-trg", "CIPHER_B.Trigger Wave", 0),
-                Lt("c8c-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),
-                BullEntryPulse("c8c"))));
 
         // CIPHER_C cells below (Bottom/Top Single/Double/Triple) are a historical record of the
         // oscillator Cipher C. It was rebuilt on 2026-10-21 as a cycle-low indicator after Camel
@@ -790,28 +750,8 @@ public static class StrategyBatteryCommand
             OrderSide.Sell,
             BearEntryPulse("c9")));
 
-        // 10. Symmetric cipher short S1: Anchor > +53 AND bear pulse.
-        cells.Add(("Cipher SHORT S1: Anchor Wave > +53 AND bear pulse",
-            OrderSide.Sell,
-            Group("c10", LogicOperator.And,
-                Gt("c10-anc", "CIPHER_B.Anchor Wave", 53),
-                BearEntryPulse("c10"))));
 
-        // 11. Symmetric cipher short FULL: Anchor > +53 AND Trigger < 0 AND MFW > 0(base) AND bear pulse.
-        cells.Add(("Cipher SHORT FULL: Anc>+53 AND Trg<0 AND MFW>0(base) AND pulse",
-            OrderSide.Sell,
-            Group("c11", LogicOperator.And,
-                Gt("c11-anc", "CIPHER_B.Anchor Wave", 53),
-                Lt("c11-trg", "CIPHER_B.Trigger Wave", 0),
-                Gt("c11-mfw", "CIPHER_B.Money Flow Wave", MfBaseline),
-                BearEntryPulse("c11"))));
 
-        // 12. v12-symmetric for shorts: Anchor > 0 AND bear pulse.
-        cells.Add(("v12-sym SHORT: Anchor Wave > 0 AND bear pulse",
-            OrderSide.Sell,
-            Group("c12", LogicOperator.And,
-                Gt("c12-anc", "CIPHER_B.Anchor Wave", 0),
-                BearEntryPulse("c12"))));
 
         // 13. SHORT pulse + Close < SMA200 — only short when below the regime filter.
         cells.Add(("SHORT pulse + Close<SMA200 (regime-gated)",
@@ -874,580 +814,17 @@ public static class StrategyBatteryCommand
             Group("c-tbd-short", LogicOperator.Or,
                 Fired("c-tbd-top", "TOP_BOTTOM_DETECTOR.Top Confirmed", withinBars: 2))));
 
-        // === v23 — Cipher B Weekly Reversal (oscillator-based, survives aggregation) ===
-        // Walk-windows said v23r-LONG ETH 1d cleared the visual "this works" bar at
-        // +0.534R / 4-of-6 / n=15. Rolling-window testing subjects the same setup to the strict
-        // bootstrap-CI gate the suite uses to flag "deployable" cells. Bare v23 is
-        // the same trigger without the Faber filter — useful for distinguishing
-        // "trigger has edge" from "Faber gate is providing the edge."
+        // === v23-v27 — Cipher B Weekly Reversal and its confluence rounds ===
+        // Removed 2026-10-31 with the Cipher B parts they read (Anchor Wave, the four
+        // divergences, Overbought Crossover; Cody: "remove all of that old code from cipher b").
+        // The catalogue strategies built on them keep their verdicts in
+        // Catalogue/CatalogueProvenance.cs's retired table; the cells and their round notes are
+        // in git history. What remains of the rounds is Market Cipher B's own buy dot, alone:
 
-        // Bull entry pulse for v23 — bare WT cross OR Blue dot OR Bull Divergence,
-        // all FiredWithin 2 bars (matching the seed's WithinNBars semantics).
-        ConditionGroup V23BullTrigger(string idPrefix) => Group($"{idPrefix}-trig", LogicOperator.Or,
-            Fired($"{idPrefix}-wtx", "CIPHER_B.WaveTrend Cross Bull", withinBars: 2),
-            Fired($"{idPrefix}-blue", "CIPHER_B.Oversold Crossover", withinBars: 2),
-            Fired($"{idPrefix}-bdiv", "CIPHER_B.Bullish Divergence", withinBars: 2));
-
-        ConditionGroup V23BearTrigger(string idPrefix) => Group($"{idPrefix}-trig", LogicOperator.Or,
-            Fired($"{idPrefix}-wtx", "CIPHER_B.WaveTrend Cross Bear", withinBars: 2),
-            Fired($"{idPrefix}-red", "CIPHER_B.Overbought Crossover", withinBars: 2),
-            Fired($"{idPrefix}-sdiv", "CIPHER_B.Bearish Divergence", withinBars: 2));
-
-        // v23 base — trigger + Anchor regime gate.
-        cells.Add(("v23 LONG: trigger + Anchor<0",
-            OrderSide.Buy,
-            Group("c-v23l", LogicOperator.And,
-                V23BullTrigger("c-v23l"),
-                Lt("c-v23l-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        cells.Add(("v23 SHORT: trigger + Anchor>0",
-            OrderSide.Sell,
-            Group("c-v23s", LogicOperator.And,
-                V23BearTrigger("c-v23s"),
-                Gt("c-v23s-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        // v23r — same plus Faber regime gate.
-        cells.Add(("v23r LONG: trigger + Anchor<0 + SMA200>0",
-            OrderSide.Buy,
-            Group("c-v23rl", LogicOperator.And,
-                V23BullTrigger("c-v23rl"),
-                Lt("c-v23rl-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23rl-sma", "REGIME.AboveSma200", 0))));
-
-        cells.Add(("v23r SHORT: trigger + Anchor>0 + SMA200<0",
-            OrderSide.Sell,
-            Group("c-v23rs", LogicOperator.And,
-                V23BearTrigger("c-v23rs"),
-                Gt("c-v23rs-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rs-sma", "REGIME.AboveSma200", 0))));
-
-        // v23rf — bear trigger + Anchor>0 + SMA200<0 + funding>0 (crowded long contrarian).
-        cells.Add(("v23rf SHORT: trigger + Anchor>0 + SMA200<0 + Fund>0",
-            OrderSide.Sell,
-            Group("c-v23rfs", LogicOperator.And,
-                V23BearTrigger("c-v23rfs"),
-                Gt("c-v23rfs-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rfs-sma", "REGIME.AboveSma200", 0),
-                Gt("c-v23rfs-fund", "BNVISION_FUNDING.Funding", 0))));
-
-        // v23rf2 — same as v23rf but using FundingZScore > +0.5 (relatively-positive
-        // vs rolling 14-period mean, not raw positive). Hypothesis: in bear regime
-        // funding is usually negative, so raw>0 almost never fires. But FundingZ>0
-        // captures the brief micro-bounces where funding has been deeply negative
-        // and is now recovering toward zero — exactly when shorts should fade rallies.
-        cells.Add(("v23rf2 SHORT: trigger + Anchor>0 + SMA200<0 + FundZ>0.5",
-            OrderSide.Sell,
-            Group("c-v23rf2s", LogicOperator.And,
-                V23BearTrigger("c-v23rf2s"),
-                Gt("c-v23rf2s-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rf2s-sma", "REGIME.AboveSma200", 0),
-                Gt("c-v23rf2s-fz",  "BNVISION_FUNDING.FundingZScore", 0.5))));
-
-        // v23rf3 — looser FundingZ gate (>0).
-        cells.Add(("v23rf3 SHORT: trigger + Anchor>0 + SMA200<0 + FundZ>0",
-            OrderSide.Sell,
-            Group("c-v23rf3s", LogicOperator.And,
-                V23BearTrigger("c-v23rf3s"),
-                Gt("c-v23rf3s-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rf3s-sma", "REGIME.AboveSma200", 0),
-                Gt("c-v23rf3s-fz",  "BNVISION_FUNDING.FundingZScore", 0.0))));
-
-        // === v23+ — Cipher confluence experiments (KAS/TAO investigation) ===
-        // Tests whether adding orthogonal Cipher signals to v23 LONG actually lifts
-        // edge or just dilutes it. the original cipher methodology's "Trilogy" thesis says A+B+SR all
-        // firing together = highest-conviction setup. Cipher C is independent cycle
-        // detection; should add signal regardless of TF since it's bar-relative.
-
-        // v23+A: v23 LONG trigger + CIPHER_A.Buy Signal within 5 bars (Trilogy A piece).
-        cells.Add(("v23+A LONG: trigger + Anchor<0 + CipherA.Buy(5)",
-            OrderSide.Buy,
-            Group("c-v23a", LogicOperator.And,
-                V23BullTrigger("c-v23a"),
-                Lt("c-v23a-anc", "CIPHER_B.Anchor Wave", 0),
-                Fired("c-v23a-abuy", "CIPHER_A.Buy Signal", withinBars: 5))));
-
-        // v23+SR: v23 LONG trigger + CIPHER_SR.Support within 5 bars (Trilogy SR piece).
-        cells.Add(("v23+SR LONG: trigger + Anchor<0 + CipherSR.Support(5)",
-            OrderSide.Buy,
-            Group("c-v23sr", LogicOperator.And,
-                V23BullTrigger("c-v23sr"),
-                Lt("c-v23sr-anc", "CIPHER_B.Anchor Wave", 0),
-                Fired("c-v23sr-srs", "CIPHER_SR.Support", withinBars: 5))));
-
-        // v23+ASR: v23 LONG trigger + Cipher A Buy + Cipher SR Support (full Trilogy).
-        cells.Add(("v23+ASR LONG: trigger + Anchor<0 + A.Buy + SR.Support",
-            OrderSide.Buy,
-            Group("c-v23asr", LogicOperator.And,
-                V23BullTrigger("c-v23asr"),
-                Lt("c-v23asr-anc", "CIPHER_B.Anchor Wave", 0),
-                Fired("c-v23asr-abuy", "CIPHER_A.Buy Signal", withinBars: 5),
-                Fired("c-v23asr-srs",  "CIPHER_SR.Support", withinBars: 5))));
-
-        // v23+C: v23 LONG trigger + any CIPHER_C bottom (S/D/T) within 5 bars.
-        cells.Add(("v23+C LONG: trigger + Anchor<0 + CipherC.Bottom(any,5)",
-            OrderSide.Buy,
-            Group("c-v23c", LogicOperator.And,
-                V23BullTrigger("c-v23c"),
-                Lt("c-v23c-anc", "CIPHER_B.Anchor Wave", 0),
-                Group("c-v23c-cb", LogicOperator.Or,
-                    Fired("c-v23c-cbs", "CIPHER_C.Bottom Single", withinBars: 5),
-                    Fired("c-v23c-cbd", "CIPHER_C.Bottom Double", withinBars: 5),
-                    Fired("c-v23c-cbt", "CIPHER_C.Bottom Triple", withinBars: 5)))));
-
-        // v23+EMA200: same as v23r-Faber but using EMA200 (faster to react than SMA200).
-        cells.Add(("v23+EMA200 LONG: trigger + Anchor<0 + EMA200>0",
-            OrderSide.Buy,
-            Group("c-v23ema", LogicOperator.And,
-                V23BullTrigger("c-v23ema"),
-                Lt("c-v23ema-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23ema-ema", "REGIME.AboveEma200", 0))));
-
-        // v23+ALL: trigger + Anchor + SMA200 + Cipher A Buy + Cipher SR Support + Cipher C bottom.
-        // Maximal-confluence stress test — does stacking ALL the orthogonal signals beat
-        // bare v23 or does it dilute via over-restriction?
-        cells.Add(("v23+ALL LONG: trigger + Anchor + SMA200 + A.Buy + SR + C.Bot",
-            OrderSide.Buy,
-            Group("c-v23all", LogicOperator.And,
-                V23BullTrigger("c-v23all"),
-                Lt("c-v23all-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23all-sma", "REGIME.AboveSma200", 0),
-                Fired("c-v23all-abuy", "CIPHER_A.Buy Signal", withinBars: 5),
-                Fired("c-v23all-srs",  "CIPHER_SR.Support", withinBars: 5),
-                Group("c-v23all-cb", LogicOperator.Or,
-                    Fired("c-v23all-cbs", "CIPHER_C.Bottom Single", withinBars: 5),
-                    Fired("c-v23all-cbd", "CIPHER_C.Bottom Double", withinBars: 5),
-                    Fired("c-v23all-cbt", "CIPHER_C.Bottom Triple", withinBars: 5)))));
-
-        // === v23 + new universal-price-action indicators (2026-04-27 e7) ===
-
-        // v23+AVWAP: v23 LONG trigger + close above the AVWAP-from-low (institutional
-        // bull bias). The AVWAP from a swing low rises slowly; price holding above it
-        // means every bar since the low has accumulated at lower prices on average →
-        // bullish positioning. Bias > 0 means close above BOTH high-anchor and low-anchor.
-        cells.Add(("v23+AVWAP LONG: trigger + Anchor<0 + AVWAP.Bias>0",
-            OrderSide.Buy,
-            Group("c-v23avwap", LogicOperator.And,
-                V23BullTrigger("c-v23avwap"),
-                Lt("c-v23avwap-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23avwap-bias", "ANCHORED_VWAP.AVWAP Bias", 0.5))));
-
-        // v23+HURST: v23 LONG trigger + Hurst < 0.45 (mean-reverting regime).
-        // Reversal strategies should outperform in mean-reverting regimes; this
-        // gate explicitly filters out trending regimes where reversals get run over.
-        cells.Add(("v23+HURST LONG: trigger + Anchor<0 + Hurst<0.45",
-            OrderSide.Buy,
-            Group("c-v23hurst", LogicOperator.And,
-                V23BullTrigger("c-v23hurst"),
-                Lt("c-v23hurst-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23hurst-h",   "HURST.Hurst", 0.45))));
-
-        // v23+PIVOTS: v23 LONG trigger + price near a support pivot zone.
-        // PivotZone = -1 when close within ATR-tolerance of S1/S2/S3/CamL3/CamL4.
-        cells.Add(("v23+PIVOTS LONG: trigger + Anchor<0 + Zone=-1 (at support)",
-            OrderSide.Buy,
-            Group("c-v23pivot", LogicOperator.And,
-                V23BullTrigger("c-v23pivot"),
-                Lt("c-v23pivot-anc",  "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23pivot-zone", "PIVOTS.Pivot Zone", -0.5))));
-
-        // v23+HURST SHORT: bear trigger + mean-reverting regime.
-        cells.Add(("v23+HURST SHORT: trigger + Anchor>0 + Hurst<0.45",
-            OrderSide.Sell,
-            Group("c-v23hurst-s", LogicOperator.And,
-                V23BearTrigger("c-v23hurst-s"),
-                Gt("c-v23hurst-s-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23hurst-s-h",   "HURST.Hurst", 0.45))));
-
-        // v23+AVWAP SHORT: bear trigger + AVWAP bias < 0 (close below both anchors).
-        cells.Add(("v23+AVWAP SHORT: trigger + Anchor>0 + AVWAP.Bias<0",
-            OrderSide.Sell,
-            Group("c-v23avwap-s", LogicOperator.And,
-                V23BearTrigger("c-v23avwap-s"),
-                Gt("c-v23avwap-s-anc",  "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23avwap-s-bias", "ANCHORED_VWAP.AVWAP Bias", -0.5))));
-
-        // v23+PIVOTS SHORT: bear trigger + at-resistance.
-        cells.Add(("v23+PIVOTS SHORT: trigger + Anchor>0 + Zone=+1 (at resistance)",
-            OrderSide.Sell,
-            Group("c-v23pivot-s", LogicOperator.And,
-                V23BearTrigger("c-v23pivot-s"),
-                Gt("c-v23pivot-s-anc",  "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23pivot-s-zone", "PIVOTS.Pivot Zone", 0.5))));
-
-        // === Round 6: AVWAP soft + BTC strength gates ===
-
-        // v23+AVWAPS LONG: same as v23+AVWAP but using the SOFT bias (close above
-        // either anchor counts). More fires, lower per-fire conviction — the
-        // softer/stricter tradeoff is itself the question.
-        cells.Add(("v23+AVWAPS LONG: trigger + Anchor<0 + AVWAP.BiasSoft>0",
-            OrderSide.Buy,
-            Group("c-v23avwaps", LogicOperator.And,
-                V23BullTrigger("c-v23avwaps"),
-                Lt("c-v23avwaps-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23avwaps-bias", "ANCHORED_VWAP.AVWAP Bias Soft", 0.5))));
-
-        cells.Add(("v23+AVWAPS SHORT: trigger + Anchor>0 + AVWAP.BiasSoft<0",
-            OrderSide.Sell,
-            Group("c-v23avwaps-s", LogicOperator.And,
-                V23BearTrigger("c-v23avwaps-s"),
-                Gt("c-v23avwaps-s-anc",  "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23avwaps-s-bias", "ANCHORED_VWAP.AVWAP Bias Soft", -0.5))));
-
-        // v23+BTCD LONG: altcoin bull cipher trigger + Anchor<0 + BtcRatioMomentum > 0
-        // (asset has been outperforming BTC over the last 14 bars). Hypothesis:
-        // altcoins that are gaining on BTC at the moment of the cipher reversal are
-        // the ones with the cleanest setups. NaN-on-BTC will skip cleanly.
-        cells.Add(("v23+BTCD LONG: trigger + Anchor<0 + BtcRatioMomentum>0",
-            OrderSide.Buy,
-            Group("c-v23btcd", LogicOperator.And,
-                V23BullTrigger("c-v23btcd"),
-                Lt("c-v23btcd-anc",  "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v23btcd-mom", "BTC_STRENGTH.BtcRatioMomentum", 0.0))));
-
-        // v23+BTCD SHORT: bear trigger + BtcRatioMomentum < 0 (asset losing to BTC).
-        cells.Add(("v23+BTCD SHORT: trigger + Anchor>0 + BtcRatioMomentum<0",
-            OrderSide.Sell,
-            Group("c-v23btcd-s", LogicOperator.And,
-                V23BearTrigger("c-v23btcd-s"),
-                Gt("c-v23btcd-s-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23btcd-s-mom", "BTC_STRENGTH.BtcRatioMomentum", 0.0))));
-
-        // === Round 7: inverted BTC-strength + new hypotheses ===
-
-        // INV-BTCD LONG: bull cipher fire + Anchor<0 + BtcRatioMomentum < -0.05.
-        // Contrarian thesis — altcoin LONG when asset is oversold vs BTC. KAS/TAO
-        // local-bottoms typically coincide with worst-vs-BTC moments; this gate
-        // catches that pattern instead of the previous (failed) pro-trend one.
-        cells.Add(("INV-BTCD LONG: trigger + Anchor<0 + BtcRatioMomentum<-0.05",
-            OrderSide.Buy,
-            Group("c-invbtcd", LogicOperator.And,
-                V23BullTrigger("c-invbtcd"),
-                Lt("c-invbtcd-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-invbtcd-mom", "BTC_STRENGTH.BtcRatioMomentum", -0.05))));
-
-        // INV-BTCD softer: < -0.02 to broaden the sample.
-        cells.Add(("INV-BTCD2 LONG: trigger + Anchor<0 + BtcRatioMomentum<-0.02",
-            OrderSide.Buy,
-            Group("c-invbtcd2", LogicOperator.And,
-                V23BullTrigger("c-invbtcd2"),
-                Lt("c-invbtcd2-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-invbtcd2-mom", "BTC_STRENGTH.BtcRatioMomentum", -0.02))));
-
-        // BTCD-WIDE LONG: gate is `BtcRatioMomentum > -999` — should always be true
-        // when data is non-NaN. Diagnostic to confirm whether the BTC_STRENGTH series
-        // is being read at all by the leaf evaluator. If this cell fires same count
-        // as bare v23 (~368 on KAS 4h), the series is fine and the prior 0-trade
-        // results are about the gate threshold; if 0, the leaf isn't reading it.
-        cells.Add(("BTCD-WIDE LONG: trigger + Anchor<0 + BtcRatioMomentum>-999",
-            OrderSide.Buy,
-            Group("c-btcd-wide", LogicOperator.And,
-                V23BullTrigger("c-btcd-wide"),
-                Lt("c-btcd-wide-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-btcd-wide-mom", "BTC_STRENGTH.BtcRatioMomentum", -999.0))));
-
-        // INV-BTCD SHORT: bear cipher + asset over-extended vs BTC (gained too fast).
-        cells.Add(("INV-BTCD SHORT: trigger + Anchor>0 + BtcRatioMomentum>+0.05",
-            OrderSide.Sell,
-            Group("c-invbtcd-s", LogicOperator.And,
-                V23BearTrigger("c-invbtcd-s"),
-                Gt("c-invbtcd-s-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-invbtcd-s-mom", "BTC_STRENGTH.BtcRatioMomentum", 0.05))));
-
-        // RANGE-EXP LONG: cipher trigger + Anchor<0 + bar's ATR > 1.5× recent median.
-        // Hypothesis: capitulation candles have outsized range. Gate on the bar
-        // being a volatility expansion event filters out range-bound nothing-burgers.
-        // Uses Cipher B's own WT range as a proxy (no direct ATR signal in catalog).
-        // Skip — leaves this as documented future work; needs an ATR signal exposed.
-
-        // MA-STACK LONG: cipher trigger + Anchor<0 + SMA200 + price above EMA200
-        // (compound trend confirmation). The SMA + EMA being aligned is a stronger
-        // bull regime signal than either alone.
-        cells.Add(("MA-STACK LONG: trigger + Anchor<0 + SMA200>0 + EMA200>0",
-            OrderSide.Buy,
-            Group("c-mastack", LogicOperator.And,
-                V23BullTrigger("c-mastack"),
-                Lt("c-mastack-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-mastack-sma", "REGIME.AboveSma200", 0),
-                Gt("c-mastack-ema", "REGIME.AboveEma200", 0))));
-
-        // CONFLUENCE LONG: cipher trigger + Anchor + Pivots support + Hurst mean-revert.
-        // Stack the two best individual gates from round 4. Risk: over-restriction.
-        cells.Add(("CONFLUENCE LONG: trigger + Anchor<0 + Pivots support + Hurst<0.45",
-            OrderSide.Buy,
-            Group("c-conf", LogicOperator.And,
-                V23BullTrigger("c-conf"),
-                Lt("c-conf-anc",  "CIPHER_B.Anchor Wave", 0),
-                Lt("c-conf-piv",  "PIVOTS.Pivot Zone", -0.5),
-                Lt("c-conf-h",    "HURST.Hurst", 0.45))));
-
-        // OR-CONF LONG: cipher trigger + Anchor + (AVWAPS bull OR Pivots support).
-        // The OR variant of CONFLUENCE — broaden the gate by accepting EITHER
-        // institutional reference level. Tests if the union beats either alone.
-        cells.Add(("OR-CONF LONG: trigger + Anchor<0 + (AVWAPS>0.5 OR Pivots<-0.5)",
-            OrderSide.Buy,
-            Group("c-orconf", LogicOperator.And,
-                V23BullTrigger("c-orconf"),
-                Lt("c-orconf-anc", "CIPHER_B.Anchor Wave", 0),
-                Group("c-orconf-or", LogicOperator.Or,
-                    Gt("c-orconf-avwap", "ANCHORED_VWAP.AVWAP Bias Soft", 0.5),
-                    Lt("c-orconf-piv",   "PIVOTS.Pivot Zone", -0.5)))));
-
-        // ── ETH 4h SHORT investigation cells (round 9, 2026-04-27) ────────────────
-        // v23r SHORT works on ETH 1d (100%/2) and BTC 4h (81%/16/+0.459R) but fails
-        // on ETH 4h (47%/70/-0.009R). Hypothesis: ETH intraday bear rallies are more
-        // persistent than BTC's, so the bare bear-cipher trigger fires too early.
-        // These cells layer additional confluence on top of v23r SHORT to test
-        // whether a confirmation signal lifts ETH 4h into deployable territory.
-
-        // v23r-ASELL SHORT: + Cipher A.Sell within 5 bars (multi-indicator agreement).
-        cells.Add(("v23r-ASELL SHORT: v23r + Cipher A.Sell within 5",
-            OrderSide.Sell,
-            Group("c-v23rsasell", LogicOperator.And,
-                V23BearTrigger("c-v23rsasell"),
-                Gt("c-v23rsasell-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rsasell-sma", "REGIME.AboveSma200", 0),
-                Fired("c-v23rsasell-asell", "CIPHER_A.Sell Signal", withinBars: 5))));
-
-        // v23r-AEXH SHORT: + Cipher A.Exhaustion within 5 bars (rare exhaustion confluence).
-        cells.Add(("v23r-AEXH SHORT: v23r + Cipher A.Exhaustion within 5",
-            OrderSide.Sell,
-            Group("c-v23rsaexh", LogicOperator.And,
-                V23BearTrigger("c-v23rsaexh"),
-                Gt("c-v23rsaexh-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rsaexh-sma", "REGIME.AboveSma200", 0),
-                Fired("c-v23rsaexh-aexh", "CIPHER_A.Exhaustion", withinBars: 5))));
-
-        // v23r-SRRES SHORT: + Cipher SR.Resistance within 5 bars (resistance-tagged short).
-        cells.Add(("v23r-SRRES SHORT: v23r + Cipher SR.Resistance within 5",
-            OrderSide.Sell,
-            Group("c-v23rssrr", LogicOperator.And,
-                V23BearTrigger("c-v23rssrr"),
-                Gt("c-v23rssrr-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v23rssrr-sma", "REGIME.AboveSma200", 0),
-                Fired("c-v23rssrr-sr", "CIPHER_SR.Resistance", withinBars: 5))));
-
-        // ── v24 — VOL_REGIME gate cells (round 10, 2026-06-12) ────────────────────
-        // Era-robustness hypothesis: the v2-v23 universal decay pattern (every cell
-        // worse in recent windows) is partly CALIBRATION decay, not signal death —
-        // reversal entries still work when volatility is elevated relative to the
-        // asset's own era baseline, and the dead trades are the low-relative-vol
-        // ones that barely existed in early-BTC conditions. VOL_REGIME.VolRatio
-        // (30/365-bar realized-vol ratio) is stationary across eras by construction.
-        // Combo evidence (BTC 1d halves): WT Cross Bull + Ratio>1.0 left H1 alone
-        // and lifted H2 +0.046→+0.241 R/tr. ETH halves did not replicate at 0.9 —
-        // rolling windows are the referee.
-        //
-        // ROUND-10 VERDICT (same day): FALSIFIED as a hard gate. BTC 1d: v24
-        // (ratio>0.9) doubled per-trade R (+0.248→+0.445) but cut n 27→6/window,
-        // zero CI-pass; the falsification cell (compression) was mediocre as
-        // predicted. ETH 1d: the FALSIFICATION cell won (100% pos, +0.543R,
-        // HIGH-CONV) while elevated-vol did nothing — the exact mirror of BTC.
-        // Opposite-sign "best gates" per asset on 6-15 windows = fitted noise,
-        // not signal. v23 base stayed the top cell on BOTH assets. Conclusion
-        // matches the suite's standing lesson: filter restraint beats stacked
-        // confluence; a binary vol gate destroys more (trade count → CI power)
-        // than its conditioning gains. Cells retained as the documented negative
-        // result. Next angle: era-adaptation INSIDE the trigger (Cipher B
-        // ThresholdMode=Percentile) which moves entries instead of discarding
-        // them, and vol-target SIZING which needs no gate at all.
-
-        // v24 LONG — the headline candidate: v23 trigger + Anchor gate + elevated vol.
-        cells.Add(("v24 LONG: trigger + Anchor<0 + VolRatio>0.9",
-            OrderSide.Buy,
-            Group("c-v24l", LogicOperator.And,
-                V23BullTrigger("c-v24l"),
-                Lt("c-v24l-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v24l-vr", "VOL_REGIME.VolRatio", 0.9))));
-
-        // Stricter variant — washout-quality entries only.
-        cells.Add(("v24s LONG: trigger + Anchor<0 + VolRatio>1.1",
-            OrderSide.Buy,
-            Group("c-v24sl", LogicOperator.And,
-                V23BullTrigger("c-v24sl"),
-                Lt("c-v24sl-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v24sl-vr", "VOL_REGIME.VolRatio", 1.1))));
-
-        // Vol gate WITHOUT the Anchor gate — isolates whether the vol gate carries
-        // edge on its own or only composes with the oscillator regime.
-        cells.Add(("v24x LONG: trigger + VolRatio>0.9 (no Anchor)",
-            OrderSide.Buy,
-            Group("c-v24xl", LogicOperator.And,
-                V23BullTrigger("c-v24xl"),
-                Gt("c-v24xl-vr", "VOL_REGIME.VolRatio", 0.9))));
-
-        // Percentile-rank form — even more era-stationary than the ratio (pure rank
-        // within the trailing distribution; no threshold units at all).
-        cells.Add(("v24p LONG: trigger + Anchor<0 + VolPctile>0.5",
-            OrderSide.Buy,
-            Group("c-v24pl", LogicOperator.And,
-                V23BullTrigger("c-v24pl"),
-                Lt("c-v24pl-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v24pl-pct", "VOL_REGIME.VolPercentile", 0.5))));
-
-        // Short-side mirror — shorts have never survived without the bear+funding
-        // gate, so this is exploratory rather than expected to pass.
-        cells.Add(("v24 SHORT: trigger + Anchor>0 + VolRatio>1.0",
-            OrderSide.Sell,
-            Group("c-v24sh", LogicOperator.And,
-                V23BearTrigger("c-v24sh"),
-                Gt("c-v24sh-anc", "CIPHER_B.Anchor Wave", 0),
-                Gt("c-v24sh-vr", "VOL_REGIME.VolRatio", 1.0))));
-
-        // FALSIFICATION cell — compression-gated reversals. The combo run said this
-        // destroys the edge (H1 +0.450→-0.449 on the blue dot). If rolling-window
-        // disagrees and this cell ranks well, the elevated-vol interpretation above
-        // is wrong and the v24 family should not be promoted.
-        cells.Add(("v24c LONG (falsif.): trigger + Anchor<0 + VolState<0",
-            OrderSide.Buy,
-            Group("c-v24cl", LogicOperator.And,
-                V23BullTrigger("c-v24cl"),
-                Lt("c-v24cl-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v24cl-vs", "VOL_REGIME.VolState", 0))));
-
-        // ── v25 — percentile-mode threshold isolation cells (round 11, 2026-06-12) ──
-        // Round 10 vol-GATE was falsified (n-starvation). This is the inside-the-
-        // trigger angle: run the SAME cell against a percentile-mode Cipher B via
-        // `--set CIPHER_B.ThresholdMode=Percentile`, which replaces the fixed ±53
-        // OB/OS levels with the rolling 5th/95th percentile of WaveTrend's OWN recent
-        // distribution (era-adaptive by construction). It MOVES entry levels instead
-        // of discarding trades, so the trade count survives.
-        //
-        // CRITICAL: the v23/v24 cells are threshold-INSENSITIVE because their trigger
-        // OR's in the raw "WaveTrend Cross Bull" leg, which already captures every
-        // blue-dot bar (a blue dot is just a WT cross that lands in OS). To actually
-        // see the percentile effect the trigger must ISOLATE the threshold-dependent
-        // signal — blue dot (Oversold Crossover) alone, divergence alone. These
-        // cells do that. Run each twice: once bare (fixed mode) and once with
-        // --set CIPHER_B.ThresholdMode=Percentile; the delta is the era-adaptation.
-
-        // Blue dot ALONE + Anchor regime gate. The pure oversold-crossover entry.
-        cells.Add(("v25 BLUE-ONLY LONG: OversoldCross within 2 + Anchor<0",
-            OrderSide.Buy,
-            Group("c-v25bl", LogicOperator.And,
-                Fired("c-v25bl-blue", "CIPHER_B.Oversold Crossover", withinBars: 2),
-                Lt("c-v25bl-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        // Blue dot ALONE, no anchor gate — maximum sensitivity to the threshold.
         cells.Add(("v25 BLUE-BARE LONG: OversoldCross within 2 (no gate)",
             OrderSide.Buy,
             Group("c-v25bbl", LogicOperator.Or,
                 Fired("c-v25bbl-blue", "CIPHER_B.Oversold Crossover", withinBars: 2))));
-
-        // Bullish divergence ALONE + Anchor gate. Divergence detection keys off the
-        // adaptive OS band too (the "near OS" gate at line ~982 of the provider).
-        cells.Add(("v25 DIV-ONLY LONG: BullDiv within 2 + Anchor<0",
-            OrderSide.Buy,
-            Group("c-v25dl", LogicOperator.And,
-                Fired("c-v25dl-div", "CIPHER_B.Bullish Divergence", withinBars: 2),
-                Lt("c-v25dl-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        // Short-side blue-dot mirror (overbought crossover alone + anchor>0).
-        cells.Add(("v25 RED-ONLY SHORT: OverboughtCross within 2 + Anchor>0",
-            OrderSide.Sell,
-            Group("c-v25rs", LogicOperator.And,
-                Fired("c-v25rs-red", "CIPHER_B.Overbought Crossover", withinBars: 2),
-                Gt("c-v25rs-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        // ── v26 — Bullish-Divergence focus (round 11 follow-up) ───────────────────
-        // The percentile experiment's real payoff: isolating signals surfaced
-        // Bullish Divergence + Anchor<0 as the strongest cross-asset cell in the
-        // suite (FIXED mode) — BTC +0.794R/100%/HIGH-CONV (9 win), ETH +0.480R/83%,
-        // LTC +0.853R/100%/HIGH-CONV (3 win). Its only weakness is rarity: ~6
-        // trades/window, fires 0 trades on XRP/BCH.
-        //
-        // ROUND-11 VERDICT (width-5 follow-up):
-        //  • The anchor gate is REDUNDANT — on BTC DIV-W5 and DIV-BARE-W5 are
-        //    byte-identical, because every bullish divergence already forms in
-        //    oversold (Anchor<0). The divergence signal alone IS the edge.
-        //  • Widening within-2 → within-5 does NOT lift trade count (divergence is
-        //    just rare: ~5.6/window either way) and DEGRADES quality (BTC
-        //    +0.794→+0.636, ETH +0.480→collapsed to 50% marginal). within-2 timing
-        //    matters; keep it tight.
-        //  • DIV-FABER = 0 trades — divergences never coincide with price>SMA200
-        //    (they form at bottoms, below the 200MA). Structurally a bottom-fisher,
-        //    incompatible with trend filters.
-        //  DISPOSITION: a genuine high-quality, irreducibly LOW-FREQUENCY signal.
-        //  Promote as a peak-conviction overlay for liquid majors (BTC/ETH/LTC),
-        //  cleanest form = "Bullish Divergence within 2" alone (no gate needed).
-        //  NOT a standalone strategy — too few trades to stand on its own CI.
-        //  Same category as v23p pivots: conviction over coverage.
-
-        cells.Add(("v26 DIV-W5 LONG: BullDiv within 5 + Anchor<0",
-            OrderSide.Buy,
-            Group("c-v26d5", LogicOperator.And,
-                Fired("c-v26d5-div", "CIPHER_B.Bullish Divergence", withinBars: 5),
-                Lt("c-v26d5-anc", "CIPHER_B.Anchor Wave", 0))));
-
-        // Divergence with NO anchor gate at width 5 — isolates the divergence
-        // signal's own standalone edge at a usable trade count.
-        cells.Add(("v26 DIV-BARE-W5 LONG: BullDiv within 5 (no gate)",
-            OrderSide.Buy,
-            Group("c-v26d5b", LogicOperator.Or,
-                Fired("c-v26d5b-div", "CIPHER_B.Bullish Divergence", withinBars: 5))));
-
-        // Divergence + Faber regime (the most empirically robust gate in the suite)
-        // instead of the Anchor oscillator gate — tests whether the trend filter
-        // composes better than the oscillator-state filter on the divergence entry.
-        cells.Add(("v26 DIV-FABER LONG: BullDiv within 5 + SMA200>0",
-            OrderSide.Buy,
-            Group("c-v26df", LogicOperator.And,
-                Fired("c-v26df-div", "CIPHER_B.Bullish Divergence", withinBars: 5),
-                Gt("c-v26df-sma", "REGIME.AboveSma200", 0))));
-
-        // ── v27 — CONFLUENCE LADDER (round 13, 2026-06-12, post look-ahead fix) ───
-        // Tests the user's core buy thesis directly and measures the MARGINAL value of
-        // each confluence layer on signal quality (per-trade R) vs frequency:
-        //   "buy when a cycle indicator is at the bottom AND a Cipher B buy fires AND
-        //    we're at Cipher SR support."
-        // Plus the open question: does SENTIMENT (Fear&Greed, funding) add anything?
-        // All run with honest divergence (DivergenceConfirmLag default ON). The v23
-        // base cell above is the control; these layer onto the same trigger + Anchor.
-        ConditionGroup CipherCBottom(string id) => Group(id, LogicOperator.Or,
-            Fired($"{id}-s", "CIPHER_C.Bottom Single", withinBars: 5),
-            Fired($"{id}-d", "CIPHER_C.Bottom Double", withinBars: 5),
-            Fired($"{id}-t", "CIPHER_C.Bottom Triple", withinBars: 5));
-
-        // v27 +SR — price-structure layer alone (Cipher B buy at support).
-        cells.Add(("v27 +SR LONG: v23 + SR.Support within 5",
-            OrderSide.Buy,
-            Group("c-v27sr", LogicOperator.And,
-                V23BullTrigger("c-v27sr"),
-                Lt("c-v27sr-anc", "CIPHER_B.Anchor Wave", 0),
-                Fired("c-v27sr-sup", "CIPHER_SR.Support", withinBars: 5))));
-
-        // v27 FULL — THE THESIS: Cipher B buy + cycle bottom + at support.
-        cells.Add(("v27 FULL LONG: v23 + CipherC.Bottom + SR.Support",
-            OrderSide.Buy,
-            Group("c-v27full", LogicOperator.And,
-                V23BullTrigger("c-v27full"),
-                Lt("c-v27full-anc", "CIPHER_B.Anchor Wave", 0),
-                CipherCBottom("c-v27full-cb"),
-                Fired("c-v27full-sup", "CIPHER_SR.Support", withinBars: 7))));
-
-        // Sentiment layers (the open question).
-        cells.Add(("v27 +FEAR LONG: v23 + FearGreed.Sentiment<30",
-            OrderSide.Buy,
-            Group("c-v27fg", LogicOperator.And,
-                V23BullTrigger("c-v27fg"),
-                Lt("c-v27fg-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v27fg-s", "FEAR_GREED.Sentiment", 30.0))));
-
-        cells.Add(("v27 +NEGFUND LONG: v23 + Funding<0",
-            OrderSide.Buy,
-            Group("c-v27nf", LogicOperator.And,
-                V23BullTrigger("c-v27nf"),
-                Lt("c-v27nf-anc", "CIPHER_B.Anchor Wave", 0),
-                Lt("c-v27nf-f", "BNVISION_FUNDING.Funding", 0.0))));
-
-        // v27 FULL+FEAR — does sentiment ADD to the price confluence, or just thin it?
-        cells.Add(("v27 FULL+FEAR LONG: v23 + CipherC + SR + Sentiment<40",
-            OrderSide.Buy,
-            Group("c-v27ff", LogicOperator.And,
-                V23BullTrigger("c-v27ff"),
-                Lt("c-v27ff-anc", "CIPHER_B.Anchor Wave", 0),
-                CipherCBottom("c-v27ff-cb"),
-                Fired("c-v27ff-sup", "CIPHER_SR.Support", withinBars: 7),
-                Lt("c-v27ff-s", "FEAR_GREED.Sentiment", 40.0))));
 
         return cells;
     }

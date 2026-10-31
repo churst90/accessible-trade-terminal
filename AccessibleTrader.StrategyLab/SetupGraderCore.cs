@@ -294,8 +294,6 @@ internal static class SetupGraderCore
         var crossBear = Mark(Arr(cb, CipherBProvider.CompCrossBear));
         var shortTrig = new bool[n];
         for (int i = 0; i < n; i++) shortTrig[i] = crossBear[i] && !double.IsNaN(wt2[i]) && wt2[i] >= ShortTriggerLevel;
-        var bullDiv = Arr(cb, CipherBProvider.CompBullDiv); var hidBull = Arr(cb, CipherBProvider.CompHidBull);
-        var bearDiv = Arr(cb, CipherBProvider.CompBearDiv); var hidBear = Arr(cb, CipherBProvider.CompHidBear);
 
         var htf = Aggregate(bars, cfg.BucketOf, cfg.BucketLen, cfg.LowerTf, cfg.Calendar);
         var trend = BodyTrend(htf.Bars);
@@ -332,10 +330,12 @@ internal static class SetupGraderCore
             Wt2 = wt2,
             BuyOnset = Onset(Arr(cb, CipherBProvider.CompBlue)),
             ShortTrig = shortTrig,
-            RedOnset = Onset(Arr(cb, CipherBProvider.CompRed)),
+            // The red dot (Overbought Crossover) and the regular and hidden divergences were
+            // removed from Cipher B on 2026-10-31; the graders that read them refuse to run.
+            RedOnset = new bool[n],
             CrossBear = crossBear,
-            BullMark = Enumerable.Range(0, n).Select(i => !double.IsNaN(bullDiv[i]) || !double.IsNaN(hidBull[i])).ToArray(),
-            BearMark = Enumerable.Range(0, n).Select(i => !double.IsNaN(bearDiv[i]) || !double.IsNaN(hidBear[i])).ToArray(),
+            BullMark = new bool[n],
+            BearMark = new bool[n],
             Htf = htf, Trend = trend, HtfEma10 = ema10, HtfMf = hMf, PhaseAt = phaseAt,
         };
     }
