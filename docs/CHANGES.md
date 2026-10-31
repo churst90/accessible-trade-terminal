@@ -61,7 +61,9 @@ All notable changes to this project will be documented in this file.
   Apply re-binding) was redundant, every typed setting already binds, and that code is removed.
   Different Timeframe checked against TradingView: MCB on Dow Jones daily with "W", 31,858 of 32,522 bars exact (1e-6),
   the misses warm-up (gone by mid-1898) and holiday-short weeks before about 2000, where TradingView shows the week a
-  bar later; one miss since 2000. README 9792. The accessibility-lead agent is not registered here.
+  bar later; one miss since 2000. The first push (2cc42d00) failed CI on one test: the timeframe switch was read by a
+  private boolean reader, which the IndicatorBoolParameterReachabilityTests guard forbids; it now uses the shared
+  IndicatorParams.GetBool (fixed in the next commit; my local slices had not included that guard). README 9792. The accessibility-lead agent is not registered here.
 
 ### Cipher B is only what Market Cipher B draws: its own extra parts and old settings removed; the picture is the same (2026-10-31, pushed ba7b67f5, NOT seen or heard)
 

@@ -596,7 +596,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// compute on the chart's own bars.</summary>
         internal static string? HigherTimeframe(ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters)
         {
-            if (GetBool(parameters, ParamUseChartTimeframe, true)) return null;
+            if (IndicatorParams.GetBool(parameters, ParamUseChartTimeframe, true)) return null;
             string? tf = ToTimeframeToken(GetStr(parameters, ParamOtherTimeframe, "60"));
             if (tf == null) return null;
             long chartMs = parameters.TryGetValue("__timeframe", out var ct) && ct is string cts
@@ -652,7 +652,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
         {
             int bars = (WaveChannelBars + WaveAverageBars) * 4 + MoneyFlowBars + McbStochLength;
-            if (GetBool(parameters, ParamUseChartTimeframe, true)) return bars;
+            if (IndicatorParams.GetBool(parameters, ParamUseChartTimeframe, true)) return bars;
             string? tf = ToTimeframeToken(GetStr(parameters, ParamOtherTimeframe, "60"));
             long chartMs = parameters.TryGetValue("__timeframe", out var ct) && ct is string cts
                 ? TimeframeUtility.ToMilliseconds(cts) : 0;
@@ -904,8 +904,6 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static double GetDbl(Dictionary<string, object> p, string k, double def) =>
             p.TryGetValue(k, out var v) && v is not string ? Convert.ToDouble(v) : def;
-        private static bool GetBool(Dictionary<string, object> p, string k, bool def) =>
-            !p.TryGetValue(k, out var v) ? def : v is bool b ? b : v is string ? def : Convert.ToDouble(v) != 0;
         private static string GetStr(Dictionary<string, object> p, string k, string def) =>
             p.TryGetValue(k, out var v) ? Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture) ?? def : def;
     }
