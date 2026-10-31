@@ -76,6 +76,15 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>The 0–100 RSI and Stochastic lines' own extremes: undrawn levels at 80 and 20.</summary>
         internal static readonly string[] LineLevels = { "Stoch Overbought", "Stoch Oversold" };
 
+        /// <summary>The settings, named as Market Cipher B 2.4.0 names its inputs (see Parameters).</summary>
+        public const string ParamUseChartTimeframe = "UseChartTimeframe", ParamOtherTimeframe = "OtherTimeframe",
+                            ParamOBLevel1 = "OBLevel1", ParamTrigger1 = "Trigger1",
+                            ParamOSLevel1 = "OSLevel1", ParamTrigger2 = "Trigger2";
+
+        /// <summary>MCB's fixed periods: the fast wave's channel and average (9, 12), the slow wave's
+        /// SMA (3) and the money flow's average (60). MCB offers no setting for any of them.</summary>
+        internal const int WaveChannelBars = 9, WaveAverageBars = 12, SlowWaveBars = 3, MoneyFlowBars = 60;
+
         // The red Overbought Crossover, the four divergences, the anchor waves, Anchor Polarity and
         // the adaptive-threshold arrays were removed on 2026-10-31 (see the class summary); their
         // names live on only in SignalCatalog.Retired.
@@ -93,7 +102,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 DefaultPane = "Pane_CIPHER_B",
                 // The wave trend lives in ±100 and the OB/OS levels sit at ±53/±60; the axis
                 // never shrinks inside this. Was a by-name floor in ViewportRangeCalculator.
-                RangeMin = -100, RangeMax = 100,
+                // −103 is the bottom of Market Cipher B's money-flow bar (Trigger 2 − 50), which
+                // its pane's scale includes (2026-10-31; was −100).
+                RangeMin = -103, RangeMax = 100,
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // ── Wave Gap (component name "WT Histogram") — MCB's "VWAP" plot ──
@@ -130,7 +141,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // volume-weighted price, whatever the original calls its plot.
                     new() { Name = CompWtHistogram,   DisplayName = DisplayWaveGap, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             FormName = "wave",
-                            DefaultColorHex = "#BAFFEB3B", DefaultColorHexSecondary = "#BAFFEB3B",
+                            // MCB 2.4.0 declares rgba(255,235,59,0.75) (2026-10-31; was #BA, 73%).
+                            DefaultColorHex = "#BFFFEB3B", DefaultColorHexSecondary = "#BFFFEB3B",
                             DefaultIsAreaFill = true, DefaultAreaBySign = true, DefaultDrawOrder = -1,
                             DefaultColorSource = ColorSource.Value,
                             ColorBaseline = 0.0,
@@ -166,8 +178,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                             // #0D47A1 at 90% over #90CAF9 on all three channels, and the rim samples
                             // #90C6F6–#90C8F8 in the official product image and the 2.2.6 chart.
                             // Was a white line (#FFFFFF) until 2026-10-17.
-                            DefaultColorHex = "#90CAF9", DefaultThickness = 2.0f,
-                            DefaultFillColorHex = "#FF90CAF9", DefaultDrawOrder = -2,
+                            // 2026-10-31: MCB 2.4.0's own declaration, an area of rgba(144,202,249,0.7)
+                            // with a 1-pixel line (its plot styles, read from the script's published
+                            // description and checked in a render of TVC:DJI 1D: where only the fast
+                            // wave shows, #6C96BA = 70% #90CAF9 over the pane). The opaque #90CAF9 and
+                            // 2-pixel edge were fitted to 2.2.6 screenshots.
+                            DefaultColorHex = "#B390CAF9", DefaultThickness = 1.0f,
+                            DefaultFillColorHex = "#B390CAF9", DefaultDrawOrder = -2,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultWaveform = "triangle",
                             DefaultAboveWaveform = "triangle",
@@ -188,8 +205,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                             // fast one (after every peak) a body-coloured edge would vanish; #1E88E5
                             // holds 3.6:1 or more on every theme but SteelGray (2.1:1, recorded in
                             // CipherBLookTests). Was a cyan line (#00D9FF) until 2026-10-17.
-                            DefaultColorHex = "#1E88E5", DefaultThickness = 1.0f,
-                            DefaultFillColorHex = "#E60D47A1", DefaultDrawOrder = -2,
+                            // 2026-10-31: MCB 2.4.0's own declaration, rgba(13,71,161,0.7) for the area
+                            // AND its 1-pixel line (inside both waves #295EA8 = 70% #0D47A1 over 70%
+                            // #90CAF9 over the pane, as rendered). The #1E88E5 edge above was our
+                            // contrast choice, not MCB's; it went with Cody's "true to spec" (the
+                            // contrast question is in docs/TODO.md).
+                            DefaultColorHex = "#B30D47A1", DefaultThickness = 1.0f,
+                            DefaultFillColorHex = "#B30D47A1", DefaultDrawOrder = -2,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultWaveform = "sine",
                             DefaultAboveWaveform = "triangle",
@@ -233,7 +255,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // bottom, which is hidden with it.
                     new() { Name = CompMoneyFlowWave, DisplayName = DisplayMoneyFlow, DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal,
                             FormName = "wave",
-                            DefaultColorHex = "#803FFF00", DefaultColorHexSecondary = "#80FF1100",
+                            // MCB 2.4.0 declares rgba(63,255,0,0.4) / rgba(255,17,0,0.4), a 2-pixel
+                            // area (2026-10-31; was #80, 50%, fitted to 2.2.6 screenshots). Over the
+                            // waves its render reads #329E65 / #7F3F65, as these composite.
+                            DefaultColorHex = "#663FFF00", DefaultColorHexSecondary = "#66FF1100",
                             DefaultIsAreaFill = true, DefaultAreaBySign = true,
                             DefaultAreaEdge = true,
                             DefaultThickness = 2f,
@@ -265,8 +290,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // TradingView's red #FF5252 and lime #00E676 at about 85% (the official
                     // product image composites to #D9524F / #06D27D over #131722), so that is
                     // what these are now, written the way Skia reads them.
+                    // 2026-10-31: MCB 2.4.0's declared colours, which replace that 2.2.6 fit: up
+                    // rgba(63,255,0,0.8), down rgba(255,0,0,0.65), 3-pixel circles on the slow wave
+                    // (the down dot over the blue wave renders #B4213B, as this composites).
                     new() { Name = CompCrossBull,     DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#D900E676", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
+                            DefaultColorHex = "#CC3FFF00", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSoundPatchId = "sine_bell",
                             DefaultDecayMs = 100,
@@ -276,7 +304,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultUsePolarityColoring = false,
                             SubscribedLevelNames = WaveLevels },
                     new() { Name = CompCrossBear,     DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#D9FF5252", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
+                            DefaultColorHex = "#A6FF0000", DefaultThickness = 3.0f, DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSoundPatchId = "sine_bell",
                             DefaultDecayMs = 100,
@@ -293,9 +321,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // MCB's big green buy dot: opaque #3FFF00 (sampled exactly in the 2.2.6 chart),
                     // drawn in the money-flow bar. Was blue (#0BBCF5) on the wave until 2026-10-17.
                     // Spoken "Buy dot, waves crossed up from oversold" (was "Oversold crossover, long
-                    // signal"): it fires on a cross up with the fast wave below −BuyDotLevel (−60).
+                    // signal"): it fires on a cross up with the fast wave below Over Sold Level 1 (−60).
+                    // 2026-10-31: MCB 2.4.0 declares rgba(63,255,0,0.8) at the bottom of the pane.
                     new() { Name = CompBlue,          DisplayName = DisplayBuyDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
-                            DefaultColorHex = "#3FFF00", DefaultThickness = 5.0f,
+                            DefaultColorHex = "#CC3FFF00", DefaultThickness = 5.0f,
                             DefaultEnvelopeType = "Ping",
                             DefaultPlaybackLayer = PlaybackLayer.Foreground,
                             DefaultSoundPatchId = "sine_bell",
@@ -351,21 +380,38 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // The red "OB Zone" (53..100) and green "OS Zone" (−100..−53) shading that were
                     // here until 2026-10-17 are gone: MCB shades nothing — its levels are plain lines
                     // (GetDefaultLevels). A saved chart drops them on load (WorkspaceInitializer).
-                    new() { DisplayName = "Money Flow Bar", ColorHex = "#4D3FFF00", NegativeColorHex = "#4DFF1100",
+                    //
+                    // 2026-10-31, from MCB 2.4.0: its only fill, "Plots Background", between two hidden
+                    // plots at Trigger 2 − 40 and Trigger 2 − 50 (−93 and −103 by default; setting
+                    // Trigger 2 to −30 on TradingView moved them to −70 and −80), coloured
+                    // rgba(63,255,0,0.4) / rgba(255,17,0,0.4) by the money flow's sign (renders
+                    // #257415 / #721515). Was 30% at −92…−100, fitted to 2.2.6 screenshots. Placed by
+                    // Trigger 2 through ParameterBinding.
+                    new() { DisplayName = "Money Flow Bar", ColorHex = "#663FFF00", NegativeColorHex = "#66FF1100",
                             SignComponentName = CompMoneyFlowWave,
-                            FixedTop = -92.0, FixedBottom = -100.0, IsVisible = true },
+                            FixedTop = -93.0, FixedBottom = -103.0, IsVisible = true,
+                            AnchorParameter = ParamTrigger2, AnchorValue = -53.0 },
                 },
+                // Market Cipher B 2.4.0's inputs and nothing else (2026-10-31, Cody: "all options found
+                // in the trading view version also in our version, true to spec"), each tried on
+                // TradingView to see what it moves. Its "Version" text input is a label (2.4.0) that
+                // changes nothing, so it is not offered. The wave, money-flow and line periods are
+                // MCB's fixed numbers (9, 12, 3, 60, 40, 81): MCB offers no setting for them, and the
+                // four this indicator offered went (a saved chart drops them on load).
                 Parameters = new List<IndicatorParameterMetadata>
                 {
-                    // Wave Trend core
-                    new() { Name = "WT1Period",      DisplayName = "WT Channel Period",      DefaultValue = 9.0,  DataType = typeof(int),    MinValue = 2,  MaxValue = 60,  Step = 1 },
-                    new() { Name = "WT2Period",      DisplayName = "WT Average Period",      DefaultValue = 12.0, DataType = typeof(int),    MinValue = 2,  MaxValue = 60,  Step = 1 },
-                    new() { Name = "MFPeriod",       DisplayName = "Money Flow Period",      DefaultValue = 60.0, DataType = typeof(int),    MinValue = 5,  MaxValue = 200, Step = 1,
-                            Description = "Bars averaged for the Money Flow. 60 by default; fewer makes it quicker and rougher." },
-                    new() { Name = "WTSignalPeriod", DisplayName = "WT Slow Wave Smoothing",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10,  Step = 1,
-                            Description = "Bars in the simple average that makes the slow wave from the fast one. 3 by default." },
-                    new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
-                            Description = "How deep the fast wave must be for a buy dot: below minus this at the cross. 60 by default." },
+                    new() { Name = ParamUseChartTimeframe, DisplayName = "Use Current Chart Resolution", DefaultValue = true, DataType = typeof(bool),
+                            Description = "On: computed on the chart's own bars. Off: computed on the timeframe below, each bar showing the last value finished by then. On by default." },
+                    new() { Name = ParamOtherTimeframe, DisplayName = "Different Timeframe", DefaultValue = "60", DataType = typeof(string),
+                            Description = "The timeframe used when Use Current Chart Resolution is off: minutes (60, 240) or D, W, M. One no longer than the chart's uses the chart's own bars. 60 by default." },
+                    new() { Name = ParamOBLevel1, DisplayName = "Over Bought Level 1", DefaultValue = 60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
+                            Description = "The upper solid line. 60 by default." },
+                    new() { Name = ParamTrigger1, DisplayName = "Trigger 1", DefaultValue = 53.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
+                            Description = "The upper dotted line. 53 by default." },
+                    new() { Name = ParamOSLevel1, DisplayName = "Over Sold Level 1", DefaultValue = -60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
+                            Description = "The lower solid line. A buy dot is a cross up with the fast wave below it. -60 by default." },
+                    new() { Name = ParamTrigger2, DisplayName = "Trigger 2", DefaultValue = -53.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
+                            Description = "The lower dotted line. The money flow bar runs from 40 to 50 below it. -53 by default." },
                 }
             }
         };
@@ -378,92 +424,50 @@ namespace AccessibleTrader.Core.Services.Indicators
             int n = data.Length;
             if (n < 10) return;
 
-            // Parameters
-            int    wt1Period      = GetInt(parameters, "WT1Period",      9);
-            int    wt2Period      = GetInt(parameters, "WT2Period",      12);
-            // Not timeframe-scaled: MCB keeps 60 on 15m and 30m charts (a 30-minute MCB chart,
-            // TradingView idea LfGIzkND, fits a 60-bar average best, r 0.907).
-            int    mfPeriod       = GetInt(parameters, "MFPeriod",       60);
-            int    wtSignalPeriod = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
-            double buyDotLevel    = Math.Abs(GetDbl(parameters, "BuyDotLevel", 60.0));
+            double osLevel1 = GetDbl(parameters, ParamOSLevel1, -60.0);
+            bool heikinAshi = IndicatorCandles.IsHeikinAshi(parameters);
+            string? otherTf = HigherTimeframe(data, parameters);
 
-            // ── Source series ─────────────────────────────────────────────────
-            var close = new double[n];
-            var high  = new double[n];
-            var low   = new double[n];
-            var hlc3  = new double[n];
-            for (int i = 0; i < n; i++)
+            Core core;
+            if (otherTf == null)
+                core = ComputeCore(data.ToArray(), heikinAshi);
+            else
             {
-                close[i] = data[i].Close;
-                high[i]  = data[i].High;
-                low[i]   = data[i].Low;
-                hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
-            }
-
-            // On a Heikin-Ashi chart Market Cipher B reads Heikin-Ashi candles, as every
-            // TradingView indicator does. Read from MCB 2.4.0's own plotted values on BTCUSD 1D
-            // Bitstamp, 5,513 bars, once on a Heikin-Ashi chart and once on candles (2026-10-23):
-            // the waves, VWAP and both 0–100 lines equal these formulas on the chart's candles to
-            // the five decimals TradingView prints. (The 2026-10-22 screenshot digitising had the
-            // two lines on the real bars; the exact values say otherwise.) The money flow too
-            // (2026-10-24, exact on both charts). This provider is handed the raw bars
-            // (IComputesHeikinAshiItself) and turns them into Heikin-Ashi itself when the chart
-            // shows Heikin-Ashi.
-            if (IndicatorCandles.IsHeikinAshi(parameters))
-            {
-                var ha = ChartMath.CalculateHeikinAshi(data.ToArray().ToList());
+                // "Use Current Chart Resolution" off: MCB computes everything on the other
+                // timeframe's bars and shows each on the chart bar that finishes it; the bars before
+                // show the period before, and the newest bar the period still forming. Read on
+                // TradingView (2026-10-31, TVC:DJI 1D with the input off and "W"): every plotted
+                // value steps on the last daily bar of each week, the crosses and buy dots fall on
+                // those bars, and a timeframe no longer than the chart's gives the chart's own values.
+                // The other timeframe's bars are built from the chart's (ResamplerService, weeks from
+                // Monday 00:00 UTC, months from the 1st), then turned into Heikin-Ashi on a
+                // Heikin-Ashi chart.
+                var raw = data.ToArray();
+                var other = new ResamplerService().Resample(raw.ToList(), otherTf);
+                var oc = ComputeCore(other.ToArray(), heikinAshi);
+                core = Core.Empty(n);
+                int k = -1;
+                long current = long.MinValue;
+                var otherStarts = new Dictionary<long, int>(other.Count);
+                for (int j = 0; j < other.Count; j++) otherStarts[Ticks(other[j].Date)] = j;
                 for (int i = 0; i < n; i++)
                 {
-                    close[i] = ha[i].Close;
-                    high[i]  = ha[i].High;
-                    low[i]   = ha[i].Low;
-                    hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
+                    long bucket = Ticks(TimeframeUtility.GetPeriodStart(raw[i].Date, otherTf));
+                    if (bucket != current) { current = bucket; k = otherStarts[bucket]; }
+                    bool finishes = i == n - 1
+                        || Ticks(TimeframeUtility.GetPeriodStart(raw[i + 1].Date, otherTf)) != bucket;
+                    int src = finishes ? k : k - 1;
+                    if (src < 0) continue;
+                    core.Wt1[i] = oc.Wt1[src]; core.Wt2[i] = oc.Wt2[src]; core.Mf[i] = oc.Mf[src];
+                    core.Rsi[i] = oc.Rsi[src]; core.Stoch[i] = oc.Stoch[src];
                 }
             }
-
-            // ── Wave Trend ────────────────────────────────────────────────────
-            // The slow wave is a WTSignalPeriod-bar SMA of the fast one: 3 since 2026-10-17, 4
-            // before. Against four Market Cipher B screenshots (BTC 1D Bitstamp HA x2, BTCUSDT 1D
-            // Binance, BTCUSDT 30m Binance), SMA3 put the WT crosses on the very bar of MCB's cross
-            // dots 164/182 times against 121/182 for SMA4 (within one bar: 175/182 vs 158/182), fitted
-            // MCB's slow-wave body better on all four (RMSE 6.5/8.2/6.2/3.8 vs 7.2/8.6/7.6/5.9)
-            // and made MCB's VWAP equal WT1 − WT2 at slope 1.00–1.06 instead of 0.69–0.74.
-            var (wt1, wt2) = WaveTrendMath.Compute(hlc3, wt1Period, wt2Period, wtSignalPeriod);
+            var (wt1, wt2) = (core.Wt1, core.Wt2);
 
             // WT Histogram = WT1 − WT2 (MCB's "VWAP")
             var wtHist = new double[n];
             for (int i = 0; i < n; i++)
                 wtHist[i] = (double.IsNaN(wt1[i]) || double.IsNaN(wt2[i])) ? double.NaN : wt1[i] - wt2[i];
-
-            // ── Money Flow ───────────────────────────────────────────────────
-            // 200/3 × SMA(d / SMA(|d|, 5), MFPeriod), d = hlc3 − SMA(hlc3, 5), on the chart's
-            // candles (Heikin-Ashi on a Heikin-Ashi chart), linear, clamped to ±100. EXACT against
-            // Market Cipher B 2.4.0's plotted money flow (2026-10-24): TVC:DJI 1D since 1896
-            // (32,585 bars), BTCUSD 1D on candles and on Heikin-Ashi (5,446 each), BTCUSD 15m
-            // (5,009), every finished bar to the five decimals TradingView prints, the first
-            // value on bar 68 as MCB's (4 + 4 + 59 bars of warm-up). Found by recovering MCB's
-            // per-bar input from its line (the 60-bar SMA makes each step 1/60 of the newest
-            // input less the one 60 back; one unknown offset per bar-of-60, fitted) and fitting
-            // that input as a weighted sum of the last ten candles' prices: high, low and close
-            // weigh alike, the open almost nothing, and the four bars before weigh a quarter
-            // each against the newest, nothing older — hlc3 less its 5-bar mean.
-            // Earlier fits, superseded: 68 × SMA60(Heikin-Ashi body / SMA5 |body|) (2026-10-23,
-            // error ~1.8, starting 4 bars early) and 146 × SMA60(Heikin-Ashi body / SMA5 range).
-            // The constant 200/3 came out of the fit (66.6667 on every series), not assumed.
-            // No constant offset. Until 2026-10-31 a Legacy formula (a signed square root × 175 of
-            // the average close-location value) sat behind the Money Flow Formula setting.
-            var mfDisplay = McbMoneyFlow(high, low, close, mfPeriod);
-
-            // ── MCB "RSI" and "Stochastic" lines (drawn, muted by default) ──────────────────
-            // Market Cipher B draws two 0–100 lines in the wave pane: a thin magenta one it titles
-            // "RSI" and a thicker green/red one titled "Sto RSI". Neither is an RSI. Searched
-            // against MCB 2.4.0's plotted values (BTCUSD 1D, 5,513 bars, candle and Heikin-Ashi
-            // charts) over stochastics, RSIs and smoothings of 2–100 bars on four sources: "RSI" is
-            // a 40-bar stochastic of the CLOSE smoothed by SMA2 and "Sto RSI" an 81-bar one, also
-            // SMA2, both exact (RMSE 0.000003); the next best were 1.3 and 0.7 points off. Before
-            // 2026-10-23 these were fitted to a digitised screenshot: hlc3, 40/80 bars, SMA3.
-            var mcbRsi   = WaveTrendMath.SmoothedStochastic(close, high, low, McbRsiLength, McbLineSmoothing);
-            var mcbStoch = WaveTrendMath.SmoothedStochastic(close, high, low, McbStochLength, McbLineSmoothing);
 
             // ── Signal dots ──────────────────────────────────────────────────
             var crossBullSignal = new double[n];
@@ -486,39 +490,175 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (crossUp)   crossBullSignal[i] = wt2[i];
                 if (crossDown) crossBearSignal[i] = wt2[i];
 
-                // MCB's big green buy dot: a cross up with the FAST wave below −BuyDotLevel (MCB's
-                // OS input, −60), nothing else — no confirmation bars, no cooldown, no anchor gate.
-                // Drawn in the money-flow bar along the bottom of the pane, where MCB draws it.
-                // Against MCB 2.4.0's own "Green Dot" column on BTCUSD 1D: 64 of 64 dots on candles
-                // and 68 of 68 on Heikin-Ashi, no extra. Testing the slow wave instead (this
-                // indicator before 2026-10-23, from screenshots) adds 10 and 7 dots that MCB never drew.
-                if (crossUp && wt1[i] < -buyDotLevel) mcbBuy[i] = McbBuyDotY;
+                // MCB's big green buy dot: a cross up with the FAST wave below Over Sold Level 1
+                // (−60), nothing else — no confirmation bars, no cooldown, no anchor gate. Against
+                // MCB 2.4.0's own "Green Dot" column on BTCUSD 1D: 64 of 64 dots on candles and 68 of
+                // 68 on Heikin-Ashi, no extra; with the input at −40 on TVC:DJI 1D, every dot MCB drew
+                // (2026-10-31). Testing the slow wave instead (this indicator before 2026-10-23, from
+                // screenshots) adds 10 and 7 dots that MCB never drew. MCB pins the dot to the
+                // pane's bottom edge in pixels; it is drawn here at a fixed value inside the
+                // money-flow bar, which is where that edge falls with the default Trigger 2.
+                if (crossUp && wt1[i] < osLevel1) mcbBuy[i] = McbBuyDotY;
             }
 
             // ── Write to buffer ───────────────────────────────────────────────
             WriteToBuffer(buffer, CompWT1,            wt1,             n);
             WriteToBuffer(buffer, CompWT2,            wt2,             n);
             WriteToBuffer(buffer, CompWtHistogram,    wtHist,          n);
-            WriteToBuffer(buffer, CompMoneyFlowWave,  mfDisplay,       n);
+            WriteToBuffer(buffer, CompMoneyFlowWave,  core.Mf,         n);
             WriteToBuffer(buffer, CompCrossBull,      crossBullSignal, n);
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);
             WriteToBuffer(buffer, CompBlue,           mcbBuy,          n);
-            WriteToBuffer(buffer, CompMcbRsi,         mcbRsi,          n);
-            WriteToBuffer(buffer, CompMcbStoch,       mcbStoch,        n);
+            WriteToBuffer(buffer, CompMcbRsi,         core.Rsi,        n);
+            WriteToBuffer(buffer, CompMcbStoch,       core.Stoch,      n);
         }
+
+        /// <summary>The per-bar values Market Cipher B computes from candles; the dots and the Wave
+        /// Gap follow from the two waves.</summary>
+        private sealed record Core(double[] Wt1, double[] Wt2, double[] Mf, double[] Rsi, double[] Stoch)
+        {
+            public static Core Empty(int n)
+            {
+                double[] Nan() { var a = new double[n]; Array.Fill(a, double.NaN); return a; }
+                return new Core(Nan(), Nan(), Nan(), Nan(), Nan());
+            }
+        }
+
+        private static Core ComputeCore(Ohlcv[] bars, bool heikinAshi)
+        {
+            int n = bars.Length;
+            // On a Heikin-Ashi chart Market Cipher B reads Heikin-Ashi candles, as every
+            // TradingView indicator does. Read from MCB 2.4.0's own plotted values on BTCUSD 1D
+            // Bitstamp, 5,513 bars, once on a Heikin-Ashi chart and once on candles (2026-10-23):
+            // the waves, VWAP and both 0–100 lines equal these formulas on the chart's candles to
+            // the five decimals TradingView prints. (The 2026-10-22 screenshot digitising had the
+            // two lines on the real bars; the exact values say otherwise.) The money flow too
+            // (2026-10-24, exact on both charts). This provider is handed the raw bars
+            // (IComputesHeikinAshiItself) and turns them into Heikin-Ashi itself when the chart
+            // shows Heikin-Ashi.
+            if (heikinAshi && n > 0) bars = ChartMath.CalculateHeikinAshi(bars.ToList()).ToArray();
+
+            var close = new double[n];
+            var high  = new double[n];
+            var low   = new double[n];
+            var hlc3  = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                close[i] = bars[i].Close;
+                high[i]  = bars[i].High;
+                low[i]   = bars[i].Low;
+                hlc3[i]  = (high[i] + low[i] + close[i]) / 3.0;
+            }
+
+            // ── Wave Trend ────────────────────────────────────────────────────
+            // The slow wave is a 3-bar SMA of the fast one (4 before 2026-10-17). Against four
+            // Market Cipher B screenshots (BTC 1D Bitstamp HA x2, BTCUSDT 1D Binance, BTCUSDT 30m
+            // Binance), SMA3 put the WT crosses on the very bar of MCB's cross dots 164/182 times
+            // against 121/182 for SMA4 (within one bar: 175/182 vs 158/182), fitted MCB's
+            // slow-wave body better on all four (RMSE 6.5/8.2/6.2/3.8 vs 7.2/8.6/7.6/5.9) and made
+            // MCB's VWAP equal WT1 − WT2 at slope 1.00–1.06 instead of 0.69–0.74; MCB 2.4.0's
+            // plotted values later matched exactly.
+            var (wt1, wt2) = WaveTrendMath.Compute(hlc3, WaveChannelBars, WaveAverageBars, SlowWaveBars);
+
+            // ── Money Flow ───────────────────────────────────────────────────
+            // 200/3 × SMA(d / SMA(|d|, 5), 60), d = hlc3 − SMA(hlc3, 5), on the chart's
+            // candles (Heikin-Ashi on a Heikin-Ashi chart), linear, clamped to ±100. EXACT against
+            // Market Cipher B 2.4.0's plotted money flow (2026-10-24): TVC:DJI 1D since 1896
+            // (32,585 bars), BTCUSD 1D on candles and on Heikin-Ashi (5,446 each), BTCUSD 15m
+            // (5,009), every finished bar to the five decimals TradingView prints, the first
+            // value on bar 68 as MCB's (4 + 4 + 59 bars of warm-up). Found by recovering MCB's
+            // per-bar input from its line (the 60-bar SMA makes each step 1/60 of the newest
+            // input less the one 60 back; one unknown offset per bar-of-60, fitted) and fitting
+            // that input as a weighted sum of the last ten candles' prices: high, low and close
+            // weigh alike, the open almost nothing, and the four bars before weigh a quarter
+            // each against the newest, nothing older — hlc3 less its 5-bar mean.
+            // Earlier fits, superseded: 68 × SMA60(Heikin-Ashi body / SMA5 |body|) (2026-10-23,
+            // error ~1.8, starting 4 bars early) and 146 × SMA60(Heikin-Ashi body / SMA5 range).
+            // The constant 200/3 came out of the fit (66.6667 on every series), not assumed.
+            // No constant offset. Not timeframe-scaled: MCB keeps 60 on 15m and 30m charts.
+            var mf = McbMoneyFlow(high, low, close, MoneyFlowBars);
+
+            // ── MCB "RSI" and "Stochastic" lines (drawn, muted by default) ──────────────────
+            // Market Cipher B draws two 0–100 lines in the wave pane: a thin magenta one it titles
+            // "RSI" and a thicker green/red one titled "Sto RSI". Neither is an RSI. Searched
+            // against MCB 2.4.0's plotted values (BTCUSD 1D, 5,513 bars, candle and Heikin-Ashi
+            // charts) over stochastics, RSIs and smoothings of 2–100 bars on four sources: "RSI" is
+            // a 40-bar stochastic of the CLOSE smoothed by SMA2 and "Sto RSI" an 81-bar one, also
+            // SMA2, both exact (RMSE 0.000003); the next best were 1.3 and 0.7 points off. Before
+            // 2026-10-23 these were fitted to a digitised screenshot: hlc3, 40/80 bars, SMA3.
+            var rsi   = WaveTrendMath.SmoothedStochastic(close, high, low, McbRsiLength, McbLineSmoothing);
+            var stoch = WaveTrendMath.SmoothedStochastic(close, high, low, McbStochLength, McbLineSmoothing);
+            return new Core(wt1, wt2, mf, rsi, stoch);
+        }
+
+        /// <summary>The timeframe to compute on when "Use Current Chart Resolution" is off and the
+        /// other timeframe is longer than the chart's, as an app token (1h, 4h, 1d, 1w, 1M); null to
+        /// compute on the chart's own bars.</summary>
+        internal static string? HigherTimeframe(ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters)
+        {
+            if (GetBool(parameters, ParamUseChartTimeframe, true)) return null;
+            string? tf = ToTimeframeToken(GetStr(parameters, ParamOtherTimeframe, "60"));
+            if (tf == null) return null;
+            long chartMs = parameters.TryGetValue("__timeframe", out var ct) && ct is string cts
+                ? TimeframeUtility.ToMilliseconds(cts) : 0;
+            if (chartMs <= 0) chartMs = MedianSpacingMs(data);
+            return chartMs > 0 && TimeframeUtility.ToMilliseconds(tf) > chartMs ? tf : null;
+        }
+
+        /// <summary>TradingView's timeframe text as an app token: a plain number is minutes
+        /// ("60" → 1h, "240" → 4h, "1440" → 1d), "D" / "W" / "M" with an optional count are days,
+        /// weeks and months; an app token (15m, 4h, 1d, 1w, 1M) passes through. Null for anything
+        /// else, seconds included.</summary>
+        internal static string? ToTimeframeToken(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            string t = text.Trim();
+            if (t.All(char.IsDigit))
+            {
+                if (!int.TryParse(t, out int minutes) || minutes <= 0) return null;
+                return minutes % 1440 == 0 ? $"{minutes / 1440}d"
+                     : minutes % 60 == 0   ? $"{minutes / 60}h"
+                     :                       $"{minutes}m";
+            }
+            var m = System.Text.RegularExpressions.Regex.Match(t, @"^(\d*)([DdWwM])$");
+            if (m.Success)
+            {
+                int count = m.Groups[1].Value.Length == 0 ? 1 : int.Parse(m.Groups[1].Value);
+                if (count <= 0) return null;
+                string unit = m.Groups[2].Value switch { "D" or "d" => "d", "W" or "w" => "w", _ => "M" };
+                return $"{count}{unit}";
+            }
+            return TimeframeUtility.IsValid(t) ? t : null;
+        }
+
+        private static long MedianSpacingMs(ReadOnlySpan<Ohlcv> data)
+        {
+            if (data.Length < 2) return 0;
+            var gaps = new long[data.Length - 1];
+            for (int i = 1; i < data.Length; i++) gaps[i - 1] = (long)(data[i].Date - data[i - 1].Date).TotalMilliseconds;
+            Array.Sort(gaps);
+            return gaps[gaps.Length / 2];
+        }
+
+        private static long Ticks(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).Ticks;
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
             => Calculate(code, data, parameters, buffer);
 
         /// <summary>Bars of warm-up before values stop changing: the waves' EMAs (four × their
-        /// combined periods) plus the money flow's average. A generous upper bound, not a
-        /// derivation. (It was the anchor pair's, five times longer, until 2026-10-31.)</summary>
+        /// combined periods) plus the money flow's average and the longer line's window, 225. A
+        /// generous upper bound, not a derivation. (It was the anchor pair's, five times longer,
+        /// until 2026-10-31.) On another timeframe that many of ITS bars, in chart bars.</summary>
         public int GetStabilityWindow(string code, Dictionary<string, object> parameters)
         {
-            int wt1 = GetInt(parameters, "WT1Period", 9);
-            int wt2 = GetInt(parameters, "WT2Period", 12);
-            int mf  = GetInt(parameters, "MFPeriod",  60);
-            return Math.Max(200, (wt1 + wt2) * 4 + mf + McbStochLength);
+            int bars = (WaveChannelBars + WaveAverageBars) * 4 + MoneyFlowBars + McbStochLength;
+            if (GetBool(parameters, ParamUseChartTimeframe, true)) return bars;
+            string? tf = ToTimeframeToken(GetStr(parameters, ParamOtherTimeframe, "60"));
+            long chartMs = parameters.TryGetValue("__timeframe", out var ct) && ct is string cts
+                ? TimeframeUtility.ToMilliseconds(cts) : 0;
+            long otherMs = tf == null ? 0 : TimeframeUtility.ToMilliseconds(tf);
+            if (chartMs <= 0 || otherMs <= chartMs) return bars;
+            return (int)Math.Min(int.MaxValue / 2, (long)bars * ((otherMs + chartMs - 1) / chartMs));
         }
 
         /// <summary>
@@ -592,13 +732,15 @@ namespace AccessibleTrader.Core.Services.Indicators
             double histVal = GetVal(results, CompWtHistogram,  index);
             double blueVal = GetVal(results, CompBlue,         index);
 
+            double trigger1 = GetDbl(parameters, ParamTrigger1, OverboughtLevel);
+            double trigger2 = GetDbl(parameters, ParamTrigger2, -OverboughtLevel);
             var sb = new StringBuilder();
 
             if (!double.IsNaN(wt1Val))
             {
-                string zone = wt1Val > OverboughtLevel ? ", overbought"
-                            : wt1Val < -OverboughtLevel ? ", oversold"
-                            :                        "";
+                string zone = wt1Val > trigger1 ? ", overbought"
+                            : wt1Val < trigger2 ? ", oversold"
+                            :                     "";
                 string dir = wt1Val >= 0 ? "above zero" : "below zero";
                 sb.Append($"Wave Trend {dir}{zone} at {wt1Val:F1}. ");
             }
@@ -624,11 +766,12 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// site): "RSI" 40 bars, "Stochastic" 81, each smoothed by <see cref="McbLineSmoothing"/>.</summary>
         internal const int McbRsiLength = 40, McbStochLength = 81, McbLineSmoothing = 2;
 
-        /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−92..−100).</summary>
+        /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−93..−103 by default).</summary>
         internal const double McbBuyDotY = -96.0;
 
-        /// <summary>The pane's Overbought / Oversold level, ±53: the wave speech and the bar summary
-        /// say "overbought" / "oversold" past it.</summary>
+        /// <summary>The default Trigger 1 / Trigger 2, ±53. The wave speech says "overbought" /
+        /// "oversold" past it whatever the settings (the speech is not handed them; see docs/TODO.md);
+        /// the bar summary reads the settings.</summary>
         private const double OverboughtLevel = 53.0;
 
         /// <summary>The money flow as Cipher B draws it: 200/3 × <see cref="McbMoneyFlowShare"/>,
@@ -702,17 +845,27 @@ namespace AccessibleTrader.Core.Services.Indicators
             return arr[idx];
         }
 
+        /// <summary>The undrawn 80/20 levels' colour (seen only in Properties).</summary>
         internal const string LevelGrey = "#8C8C96";
+        /// <summary>MCB 2.4.0's level colours: rgba(255,255,255,0.4) for the solid lines,
+        /// rgba(255,255,255,0.5) for the dotted ones.</summary>
+        internal const string SolidWhite = "#66FFFFFF", DottedWhite = "#80FFFFFF";
+        /// <summary>MCB's dotted line at +100, named as MCB titles it.</summary>
+        internal const string Level100 = "100%";
 
         public List<LevelDescriptor> GetDefaultLevels(string code)
         {
             if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase)) return new();
             return new()
             {
-                // Market Cipher B's levels are plain neutral lines: solid at ±60 and at zero, dotted
-                // at ±53 (the 2.2.6 chart). MCB draws them near-white, which vanishes on a light
-                // chart; #8C8C96 keeps 3.2:1 or more against every theme but SteelGray (2.3:1).
-                // Until 2026-10-17 they were red/green (dotted ±60, dashed ±53, dashed zero).
+                // Market Cipher B 2.4.0's lines, as it declares them (2026-10-31, Cody: "true to
+                // spec"): ±60 solid white at 40%, 2 pixels; ±53 white at 50% in circles (drawn
+                // dotted); zero solid white at 40%, 1 pixel; and a dotted 50% white "100%" line at
+                // +100. Each of ±60 and ±53 IS its setting (ValueParameter): Over Bought Level 1,
+                // Trigger 1, Over Sold Level 1, Trigger 2. They were #8C8C96, our contrast choice
+                // for light themes (3.2:1 or more against every theme but SteelGray), from
+                // 2026-10-17 to 2026-10-31; white on a light theme is the open question in
+                // docs/TODO.md. Until 2026-10-17 they were red/green.
                 //
                 // Zone texture 0.30 at ±53 and 0.45 at ±60 (was 0.10 / 0.20). The waves carry a base
                 // texture of 0.15 of their own and the engine plays the STRONGER of base and zone, so
@@ -720,11 +873,20 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // zero, and the zone only began at ±60. Found answering Cody's 2026-10-17 "shouldn't
                 // the os/ob zones be -53 and 53?" — now three audible steps: clean, rough past ±53,
                 // rougher past ±60 (0.45 is a plain Stochastic's zone texture).
-                new("Extreme OB",  60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
-                new("Overbought",  53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
-                new("Zero",         0.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
-                new("Oversold",   -53.0, LevelGrey, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
-                new("Extreme OS", -60.0, LevelGrey, DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
+                //
+                // The names stay as they were (saved charts, alerts and strategies find levels by
+                // name, and the names give the roles).
+                new("Extreme OB",  60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+                    Thickness: 2f, ValueParameter: ParamOBLevel1),
+                new("Overbought",  53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+                    ValueParameter: ParamTrigger1),
+                new("Zero",         0.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
+                new("Oversold",   -53.0, DottedWhite, DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+                    ValueParameter: ParamTrigger2),
+                new("Extreme OS", -60.0, SolidWhite,  DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+                    Thickness: 2f, ValueParameter: ParamOSLevel1),
+                // MCB's "100%" line at the pane's top: drawn, silent, no component listens to it.
+                new(Level100, 100.0, DottedWhite, DashStyle.Dot),
 
                 // The RSI and Stochastic lines' OWN extremes. They run 0–100 on this −100…+100 pane
                 // (as MCB draws them), where the waves' ±53 means "just above the middle" and −53 is
@@ -740,7 +902,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             };
         }
 
-        private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
-        private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
+        private static double GetDbl(Dictionary<string, object> p, string k, double def) =>
+            p.TryGetValue(k, out var v) && v is not string ? Convert.ToDouble(v) : def;
+        private static bool GetBool(Dictionary<string, object> p, string k, bool def) =>
+            !p.TryGetValue(k, out var v) ? def : v is bool b ? b : v is string ? def : Convert.ToDouble(v) != 0;
+        private static string GetStr(Dictionary<string, object> p, string k, string def) =>
+            p.TryGetValue(k, out var v) ? Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture) ?? def : def;
     }
 }

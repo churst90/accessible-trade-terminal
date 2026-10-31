@@ -4,7 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Cipher B is only what Market Cipher B draws: its own extra parts and old settings removed; the picture is the same (2026-10-31, branch cipher-settings-text, NOT pushed, NOT seen or heard)
+### Cipher B has Market Cipher B 2.4.0's settings, colours and lines, and nothing else (2026-10-31, NOT seen or heard)
+
+- **Why**: Cody: "the code for cipher b should be clean, tight and accurate to spec with all options found in the
+  trading view version also in our version, true to spec." Each input of MCB 2.4.0 was changed on TradingView to see
+  what it moves, and its declared plot styles were read from the chart (TradingView trial).
+- **Settings** are MCB's six, under MCB's names, on General (no Advanced tab): Use Current Chart Resolution (on),
+  Different Timeframe ("60"), Over Bought Level 1 (60), Trigger 1 (53), Over Sold Level 1 (−60), Trigger 2 (−53).
+  MCB's "Version" input is a label (2.4.0) that changes nothing, so it is not offered. Gone: WT Channel Period,
+  WT Average Period, Money Flow Period, WT Slow Wave Smoothing and Buy Dot Level. MCB offers none of them; its
+  periods are fixed (9, 12, 3, 60; the lines 40 and 81), and those are what Cipher B uses.
+- **One number, one meaning** (as in MCB): Over Sold Level 1 is the −60 line AND the buy dot's threshold; Trigger 2
+  is the dotted −53 line AND where the money-flow bar sits (40 to 50 below it). Over Bought Level 1 and Trigger 1 are
+  the +60 and +53 lines. Changing a setting on General moves its line, typing a line's value on Levels changes its
+  setting, and Save keeps them together. How: `LevelDescriptor.ValueParameter` / `LevelConfig.ValueParameter` and
+  `ZoneBandConfig.AnchorParameter` / `AnchorValue`; `ParameterBinding.Apply` (new, Sdk) puts the lines and the band
+  where the settings say, on a new series, a restored one, Reset and each setting typed in Properties. The zero line is not a setting.
+- **Different Timeframe**: with Use Current Chart Resolution off, Cipher B is computed on the other timeframe's bars
+  (built from the chart's) and each chart bar shows the last value finished by then: a period's value appears on the
+  chart bar that finishes it, earlier bars show the period before, and the newest bar shows the period still forming.
+  TradingView's text is read as minutes (60 → 1 hour, 240 → 4 hours) or D, W, M (with or without a number). A
+  timeframe no longer than the chart's gives the chart's own values. Dots appear only on a period's last bar.
+  Warm-up is counted in the other timeframe's bars (225 of them).
+- **Look**, as MCB 2.4.0 declares it: fast wave rgba(144,202,249,0.7) and slow wave rgba(13,71,161,0.7), both 1-pixel
+  lines over their areas (the fast wave was opaque #90CAF9 at 2 pixels and the slow had a #1E88E5 edge, ours); Wave
+  Gap 75% yellow (was 73%); Money Flow 40% green/red (was 50%); cross dots up 80% green, down 65% red (were #00E676 /
+  #FF5252 at 85%); buy dot 80% green; the money-flow bar 40% at −93…−103 (was 30% at −92…−100, fitted to 2.2.6
+  screenshots). Lines: ±60 solid white 40% at 2 pixels, ±53 dotted white 50%, zero solid white 40%, and MCB's dotted
+  "100%" line at +100 (new; drawn and silent, no component listens to it). The lines were grey #8C8C96 (our contrast
+  choice for light themes). The pane's scale now reaches −103, the bar's bottom.
+- **MCB's fills, answering Cody's question**: MCB's only `fill()` is "Plots Background", the money-flow bar. Its other
+  coloured areas are its plots' own area style (the waves, Wave Gap, Money Flow), which Cipher B draws the same way.
+  The WT Fill and Anchor Fill removed earlier today were ours. On TradingView a user cannot add a fill between two
+  plots; the Style tab only shows, hides and recolours the fills a script declares. So nothing was missing.
+- **Saved charts** open with MCB's six settings and nothing else (`WorkspaceInitializer.MigrateCipherBSettings`):
+  undeclared keys dropped, missing ones added at their defaults; a Buy Dot Level moved from 60 becomes Over Sold
+  Level 1 (45 → −45); a ±53/±60 line moved before the lines were settings gives its setting its value. A saved fixed
+  band the provider declares takes the declaration's colour and place (only its shown/hidden is the user's).
+  A saved chart that changed a removed period now draws with MCB's period: its picture changes.
+- **Lab**: `--set CIPHER_B.WT1Period=…` examples now name settings that exist.
+- **Caveats**: the waves' spoken "overbought"/"oversold" still uses ±53 whatever Trigger 1/2 say (the bar summary reads
+  the settings); the pane's floor is fixed at −103, so with Trigger 2 below −53 the bar is clipped; the buy dot is
+  drawn at the fixed −96; minute timeframes below the chart's are not supported (MCB would compute them from the lower
+  timeframe); 4-hour and daily buckets are aligned to UTC, not the exchange session, on stocks; Different Timeframe
+  on a Heikin-Ashi chart is not checked against TradingView; white lines on light themes and the translucent waves on
+  SteelGray (fast wave 2.995:1, just under 3:1) are questions in docs/TODO.md.
+- **Tests**: new CipherBMcbInputsTests (binding, idempotence, lines and bar placed by the settings, buy-dot threshold
+  −60/−40/−20, saved-chart migration three ways, 17 timeframe texts, the longer-timeframe rule, the period-end step
+  on weekday bars against resampled weekly bars, chart-or-shorter = own values, warm-up × 7, a numeric-looking
+  timeframe stays text) and CipherBBoundLevelPropertiesTests (the dialog both ways and Save; the zero line keeps its
+  own value); PropertiesAdvancedTabTests checks the six labels; CipherBLookTests floor 2.99 on SteelGray only;
+  DeclaredBounds CIPHER_B (−103, 100); restore tests: Cody's saved chart with moved settings opens with its lines on
+  those settings and MCB's look (±60 solid 2 px, ±53 dotted 1 px), and a user's own line width stays while the
+  extreme lines heal to 2 px. 29 sabotages, 28 red; three (the heal keeping the binding, the width copied, the
+  binding on restore) were green until the restore tests were added, then red; the one still green (Properties'
+  Apply re-binding) was redundant, every typed setting already binds, and that code is removed.
+  Different Timeframe checked against TradingView: MCB on Dow Jones daily with "W", 31,858 of 32,522 bars exact (1e-6),
+  the misses warm-up (gone by mid-1898) and holiday-short weeks before about 2000, where TradingView shows the week a
+  bar later; one miss since 2000. README 9792. The accessibility-lead agent is not registered here.
+
+### Cipher B is only what Market Cipher B draws: its own extra parts and old settings removed; the picture is the same (2026-10-31, pushed ba7b67f5, NOT seen or heard)
 
 - **Why**: Cody: "anything not in the original, please remove as well....unless you can think of a good reason not
   to....", then "Yes remove all of that old code from cipher b ... gert rid of all of that....", then "just make sure

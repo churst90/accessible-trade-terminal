@@ -1,3 +1,18 @@
+> - [ ] **Cipher B has Market Cipher B 2.4.0's six settings, colours and lines (2026-10-31, built, NOT seen or heard; see CHANGES).**
+>   Settings: Use Current Chart Resolution, Different Timeframe, Over Bought Level 1, Trigger 1, Over Sold
+>   Level 1 (= the buy dot's threshold), Trigger 2 (= where the money-flow bar sits). Each line IS its setting.
+>   Gone: the four periods and Buy Dot Level (MCB has none). Questions for Cody:
+>   1. **White lines on light themes.** MCB's lines are white at 40-50%; on Paper / HighContrastLight they are
+>      faint. Keep MCB's white everywhere, or use the old grey #8C8C96 on light themes only?
+>   2. **SteelGray**: MCB's translucent fast wave is 2.995:1 against SteelGray (just under 3:1; the test floor
+>      is 2.99 there). Accept, or make the waves opaque on that one theme?
+>   3. The **periods** went (MCB offers none). Anyone who had changed one sees MCB's period now. OK?
+>   4. MCB's **"Version"** input is a label that changes nothing; left out. OK?
+>   Open, mine: the waves' spoken "overbought"/"oversold" still uses ±53 whatever Trigger 1/2 say; the pane's
+>   floor is fixed at −103, so Trigger 2 below −53 clips the bar; the buy dot is drawn at the fixed −96; a
+>   Different Timeframe shorter than the chart's falls back to the chart (MCB would compute from the lower
+>   timeframe); 4-hour and daily buckets are UTC-aligned, not session-aligned, on stocks; Different Timeframe
+>   on Heikin-Ashi not checked against TradingView.
 > - [ ] **Cipher B is only what Market Cipher B draws (2026-10-31, built, NOT seen or heard; see CHANGES).**
 >   Removed (Cody: "remove all of that old code from cipher b"): the red Overbought Crossover, the regular
 >   and hidden divergences, Anchor Wave, Anchor Wave 2, Anchor Polarity, Anchor Fill, WT Fill, and the

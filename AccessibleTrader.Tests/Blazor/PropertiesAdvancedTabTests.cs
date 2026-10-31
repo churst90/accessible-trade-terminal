@@ -73,7 +73,11 @@ public class PropertiesAdvancedTabTests
         using var h = new BlazorTestHarness();
         var cut = Open(h, CipherBMeta());
 
-        cut.WaitForAssertion(() => Assert.Contains("Money Flow Period", Labels(cut)));
+        // Market Cipher B 2.4.0's six inputs, all on General.
+        cut.WaitForAssertion(() => Assert.Contains("Trigger 2", Labels(cut)));
+        foreach (var name in new[] { "Use Current Chart Resolution", "Different Timeframe", "Over Bought Level 1",
+                                     "Trigger 1", "Over Sold Level 1", "Trigger 2" })
+            Assert.Contains(name, Labels(cut));
         Assert.Empty(cut.FindAll("button#props-tab-advanced"));
     }
 

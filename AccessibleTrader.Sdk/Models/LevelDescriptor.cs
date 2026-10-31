@@ -47,6 +47,18 @@ namespace AccessibleTrader.Sdk.Models
         /// undrawn 80/20 levels of their own (Cody, 2026-10-17: "80 / 20", "sound only", "yes, they
         /// should be narrated").
         /// </summary>
-        bool IsDrawn = true
+        bool IsDrawn = true,
+
+        /// <summary>Line width in pixels, as the level is first drawn.</summary>
+        float Thickness = 1f,
+
+        /// <summary>
+        /// The indicator parameter this level's value IS, or null for a fixed level. A bound level
+        /// takes its value from that parameter whenever the parameter is set (creation, restore,
+        /// Properties), so one number drives both the line and the calculation that reads it:
+        /// Cipher B's "Over Sold Level 1" is both its −60 line and the buy dot's threshold, as in
+        /// Market Cipher B (2026-10-31). See <see cref="ParameterBinding"/>.
+        /// </summary>
+        string? ValueParameter = null
     );
 }

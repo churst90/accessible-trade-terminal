@@ -158,6 +158,12 @@ namespace AccessibleTrader.Core.Services
             };
 
             ApplyParameters(config, parameters);
+            // A text setting stays text even when it reads as a number: Cipher B's timeframe is "60"
+            // by default and "D" or "W" by choice, and stored as the number 60 it would be offered
+            // as a number field that cannot take "D" (2026-10-31).
+            foreach (var pm in meta.Parameters.Where(p => p.DataType == typeof(string)))
+                if (config.Parameters.Remove(pm.Name, out double asNumber))
+                    config.StringParameters[pm.Name] = asNumber.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
 
             // ── 3-layer component merge ─────────────────────────────────────────────
             // Layer 1: always generate fresh configs from provider metadata.

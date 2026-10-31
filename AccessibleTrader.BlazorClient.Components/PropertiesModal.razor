@@ -505,8 +505,11 @@
                                             </div>
                                             <div class="modal-row">
                                                 <label for="@(lid)-value">Value</label>
+                                                @* A level bound to a setting (LevelConfig.ValueParameter, e.g. Cipher B's
+                                                   Over Sold Level 1) edits that setting: the line and the calculation
+                                                   that reads it move together. *@
                                                 <input id="@(lid)-value" type="number" step="any" aria-label="Value of level @level.Name" value="@level.Value"
-                                                       @onchange='e => { if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double v)) level.Value = v; }' />
+                                                       @onchange='e => SetLevelValue(level, e.Value?.ToString())' />
                                                 <label for="@(lid)-color">Color</label>
                                                 <input id="@(lid)-color" type="color" aria-label="Color of level @level.Name" value="@level.ColorHex"
                                                        @onchange='e => level.ColorHex = e.Value?.ToString() ?? "#888"' />
@@ -1371,6 +1374,20 @@
         if (pm?.MaxValue.HasValue == true && v > pm.MaxValue.Value) v = pm.MaxValue.Value;
 
         _params[key] = v;
+        if (_series != null) ParameterBinding.Apply(_series.Levels, _series.ZoneBands, _params);
+    }
+
+    /// <summary>A level's Value field: a bound level sets its setting (and so every line and band
+    /// bound to it), any other level its own value.</summary>
+    private void SetLevelValue(LevelConfig level, string? raw)
+    {
+        if (!string.IsNullOrEmpty(level.ValueParameter) && _params.ContainsKey(level.ValueParameter))
+        {
+            UpdateParam(level.ValueParameter, raw);
+            return;
+        }
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double v))
+            level.Value = v;
     }
 
     private void Apply()

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Core.Services.Indicators;
 
 namespace AccessibleTrader.Core.Services
 {
@@ -732,16 +733,6 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            // Cipher B's Money Flow Formula, Buy Dot Rule and Threshold Mode were removed on
-            // 2026-10-31 with their old choices (Legacy, Gated, Percentile; Cody: "remove all of
-            // that old code from cipher b"). Nothing reads them, so a save that holds them drops
-            // them rather than carrying a setting no dialog shows.
-            if (codeUp == "CIPHER_B")
-            {
-                foreach (var key in new[] { "MoneyFlowMode", "BuyDotMode", "ThresholdMode" })
-                    config.StringParameters.Remove(key);
-            }
-
             // Remove stale Cloud-type components (they are now handled by CloudFills).
             var cloudComps = config.Components
                 .Where(c => c.DisplayType == ComponentDisplayType.Cloud)
@@ -752,6 +743,8 @@ namespace AccessibleTrader.Core.Services
             var meta = allMeta.FirstOrDefault(m =>
                 m.Code.Equals(config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
             if (meta == null) return;
+
+            if (codeUp == "CIPHER_B") MigrateCipherBSettings(config, meta);
 
             // THE PANE IS DERIVED, NOT RESTORED — the same rule as the name (see MaterializeSaved).
             //
@@ -833,6 +826,24 @@ namespace AccessibleTrader.Core.Services
             config.ZoneBands.RemoveAll(b => b.IsFixedMode && !meta.DefaultZoneBands.Any(d =>
                 d.IsFixedMode && d.DisplayName.Equals(b.DisplayName, StringComparison.OrdinalIgnoreCase)));
 
+            // And for the same reason a saved fixed band the provider still declares takes the
+            // declaration's look and place; only whether it is shown is the user's. Cipher B's
+            // Money Flow Bar moved from 30% at −92…−100 to Market Cipher B 2.4.0's 40% at
+            // −93…−103 on 2026-10-31, and placed by Trigger 2 (ParameterBinding moves it there).
+            foreach (var saved in config.ZoneBands.Where(b => b.IsFixedMode))
+            {
+                var d = meta.DefaultZoneBands.FirstOrDefault(x => x.IsFixedMode
+                    && x.DisplayName.Equals(saved.DisplayName, StringComparison.OrdinalIgnoreCase));
+                if (d == null) continue;
+                saved.ColorHex = d.ColorHex;
+                saved.NegativeColorHex = d.NegativeColorHex;
+                saved.SignComponentName = d.SignComponentName;
+                saved.FixedTop = d.FixedTop;
+                saved.FixedBottom = d.FixedBottom;
+                saved.AnchorParameter = d.AnchorParameter;
+                saved.AnchorValue = d.AnchorValue;
+            }
+
             // Merge missing zone bands from current metadata defaults. Matched on the component
             // AND the name: every fixed band has an empty ComponentName, so matching on that alone
             // let the first saved fixed band stand in for every new one.
@@ -843,6 +854,50 @@ namespace AccessibleTrader.Core.Services
                     b.DisplayName.Equals(band.DisplayName, StringComparison.OrdinalIgnoreCase));
                 if (!exists)
                     config.ZoneBands.Add(band.Clone());
+            }
+        }
+
+        /// <summary>
+        /// A saved Cipher B's settings brought to Market Cipher B 2.4.0's (2026-10-31, Cody: "all
+        /// options found in the trading view version also in our version, true to spec").
+        ///
+        /// <para>Only what the indicator declares survives: the settings that went on 2026-10-31
+        /// (Money Flow Formula, Buy Dot Rule, Threshold Mode and the numbers only they read, then
+        /// the four wave and money-flow periods MCB does not offer) would otherwise be listed in
+        /// Properties under their raw keys, doing nothing. A declared setting the save lacks is
+        /// added at its default, or Properties would not show it. The old Buy Dot Level (60, how
+        /// deep below zero) becomes Over Sold Level 1 (−60), the same threshold, when it was moved
+        /// from 60.</para>
+        ///
+        /// <para>The four lines are their settings now (LevelDescriptor.ValueParameter), so a line
+        /// the user moved before that gives its setting its value: otherwise the setting's default
+        /// would move it back on load.</para>
+        /// </summary>
+        internal static void MigrateCipherBSettings(SeriesConfig config, IndicatorMetadata meta)
+        {
+            if (!config.Parameters.ContainsKey(CipherBProvider.ParamOSLevel1)
+                && config.Parameters.TryGetValue("BuyDotLevel", out double buyDot) && !double.IsNaN(buyDot)
+                && Math.Abs(Math.Abs(buyDot) - 60) > 1e-9)
+                config.Parameters[CipherBProvider.ParamOSLevel1] = -Math.Abs(buyDot);
+            foreach (var bound in new CipherBProvider().GetDefaultLevels("CIPHER_B").Where(d => d.ValueParameter != null))
+            {
+                if (config.Parameters.ContainsKey(bound.ValueParameter!)) continue;
+                var saved = config.Levels.FirstOrDefault(l => !l.IsUserDefined && l.Name == bound.Name);
+                if (saved != null && !double.IsNaN(saved.Value)) config.Parameters[bound.ValueParameter!] = saved.Value;
+            }
+
+            var declared = new HashSet<string>(meta.Parameters.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+            foreach (var key in config.Parameters.Keys.Where(k => !declared.Contains(k)).ToList())
+                config.Parameters.Remove(key);
+            foreach (var key in config.StringParameters.Keys.Where(k => !declared.Contains(k)).ToList())
+                config.StringParameters.Remove(key);
+
+            foreach (var p in meta.Parameters)
+            {
+                if (config.Parameters.ContainsKey(p.Name) || config.StringParameters.ContainsKey(p.Name)) continue;
+                if (p.DataType == typeof(string)) config.StringParameters[p.Name] = Convert.ToString(p.DefaultValue, System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                else if (p.DataType == typeof(bool)) config.Parameters[p.Name] = p.DefaultValue is true ? 1 : 0;
+                else config.Parameters[p.Name] = Convert.ToDouble(p.DefaultValue ?? 0.0, System.Globalization.CultureInfo.InvariantCulture);
             }
         }
     }

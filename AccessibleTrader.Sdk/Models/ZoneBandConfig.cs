@@ -43,6 +43,17 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Colour for bars where <see cref="SignComponentName"/> is negative.</summary>
         public string NegativeColorHex { get; set; } = "";
 
+        /// <summary>
+        /// Fixed mode only: the indicator parameter the band is placed by, or empty for a band that
+        /// stays put. The band keeps its height and moves with the parameter: it sits at
+        /// <see cref="FixedTop"/> / <see cref="FixedBottom"/> while the parameter equals
+        /// <see cref="AnchorValue"/>. Cipher B's Money Flow Bar spans Trigger 2 − 40 to Trigger 2 − 50,
+        /// as Market Cipher B's does (2026-10-31). See <see cref="ParameterBinding"/>.
+        /// </summary>
+        public string AnchorParameter { get; set; } = "";
+        /// <summary>The value of <see cref="AnchorParameter"/> the band's top and bottom are for.</summary>
+        public double AnchorValue { get; set; } = double.NaN;
+
         /// <summary>True when both <see cref="FixedTop"/> and <see cref="FixedBottom"/> are set to real values.</summary>
         public bool IsFixedMode =>
             !double.IsNaN(FixedTop) && !double.IsNaN(FixedBottom);
@@ -58,6 +69,8 @@ namespace AccessibleTrader.Sdk.Models
             DisplayName   = DisplayName,
             SignComponentName = SignComponentName,
             NegativeColorHex  = NegativeColorHex,
+            AnchorParameter   = AnchorParameter,
+            AnchorValue       = AnchorValue,
         };
     }
 }

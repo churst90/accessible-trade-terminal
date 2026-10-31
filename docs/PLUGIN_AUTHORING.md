@@ -894,9 +894,19 @@ public record LevelDescriptor(
     string ZoneNoiseType  = "pink",
     string? AboveLabel    = null,    // a named band above the line ("strong trend")
     string? BelowLabel    = null,
-    bool IsDrawn          = true     // false = heard, spoken and narrated, but not painted
+    bool IsDrawn          = true,    // false = heard, spoken and narrated, but not painted
+    float Thickness       = 1f,      // line width in pixels, as first drawn
+    string? ValueParameter = null    // the parameter this level's value IS (see below)
 );
 ```
+
+**A level that is a setting.** When one of your parameters is a threshold the calculation reads,
+name it in the level's `ValueParameter` instead of duplicating the number. The level then takes the
+parameter's value on creation, on restore, on Reset and whenever the user changes the setting in
+Properties (typing a new value on the Levels tab changes the setting too), so the drawn line and
+the number the calculation uses never disagree (`ParameterBinding`). A fixed-mode zone band can do
+the same with `ZoneBandConfig.AnchorParameter` / `AnchorValue`: it moves by the parameter's change,
+keeping its height (Cipher B's money-flow bar sits at Trigger 2 − 40 … − 50).
 
 The audio fields default to off, so declare only what you use — but remember that
 for a blind user the earcons and zone noise are the levels: a line that only draws
@@ -950,12 +960,20 @@ public List<LevelDescriptor> GetDefaultLevels(string code)
     if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase)) return new();
     return new()
     {
-        // Market Cipher B's plain neutral levels: solid at ±60 and zero, dotted at ±53.
-        new("Extreme OB",  60.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
-        new("Overbought",  53.0, "#8C8C96", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
-        new("Zero",         0.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
-        new("Oversold",   -53.0, "#8C8C96", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white"),
-        new("Extreme OS", -60.0, "#8C8C96", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white"),
+        // Market Cipher B 2.4.0's lines: solid white at 40% (±60 two pixels, zero one), dotted
+        // white at 50% at ±53 and at +100 ("100%"). Each of ±60 and ±53 is one of the indicator's
+        // settings (ValueParameter): changing the setting moves the line, and the line is the number
+        // the calculation reads (Over Sold Level 1 is also the buy dot's threshold).
+        new("Extreme OB",  60.0, "#66FFFFFF", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+            Thickness: 2f, ValueParameter: "OBLevel1"),
+        new("Overbought",  53.0, "#80FFFFFF", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+            ValueParameter: "Trigger1"),
+        new("Zero",         0.0, "#66FFFFFF", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.7f),
+        new("Oversold",   -53.0, "#80FFFFFF", DashStyle.Dot,   PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.30f, ZoneNoiseType: "white",
+            ValueParameter: "Trigger2"),
+        new("Extreme OS", -60.0, "#66FFFFFF", DashStyle.Solid, PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "white",
+            Thickness: 2f, ValueParameter: "OSLevel1"),
+        new("100%",       100.0, "#80FFFFFF", DashStyle.Dot),   // drawn, silent
 
         // The 0–100 RSI and Stochastic lines' own extremes: heard, not drawn.
         new("Stoch Overbought", 80.0, "#8C8C96", DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.6f,

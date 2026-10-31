@@ -38,25 +38,15 @@ WaveTrend Cross Bear 019A7CB729BBBA90436B4776F221D9A56439426262430CBF3075B291623
 WaveTrend Cross Bull D6FA12A828AC0088EEB05A29B4EA750716287CB57D8A8369BE11DADA3A71E0BB
 """;
 
-    private const string SignalFourFingerprint = """
-Money Flow Wave 5C2937388E774984D4A41F887441782637F8376F89B095805ADC2EDC4E99F3D8
-Oversold Crossover D9B44D3110355D90097749387BBED63425BB034F59858A9BAE35119B50553E41
-RSI 03BBF0ADD69C6F74FF7D246FC3C7D162DA3A55CF7100BD6A5B27946068A9C9EC
-Stochastic 9A6DE42668BA1181C67EF7ED68E1D5B62B03E5ECA19FF20467E5B3D0FBE8180B
-WT Histogram 03A6675B03C78661F2E6A513BF91864D5582D78C1037540B7DDA2E1C3C891484
-Wave Trend 519CD85E36890F5427642B66A5722D15E1DBB0397E0B79C445CACA30A00C0210
-Wave Trend 2 3C5AA9C53D471CF2AEE8A5ADBED06F7D9F60B018B4850A5DAE5059E9902EDFF5
-WaveTrend Cross Bear 561109E8078015BEA43E165842AEEED0A61ECF89ECC88F2AE8B1043E69EF83F8
-WaveTrend Cross Bull E07F2A91BA0322550EC7E36C6404B072D167088130F74A589F35613C7F186AFB
-""";
-
     [Fact]
     public void Every_output_array_matches_the_pre_refactor_fingerprint()
     {
         var cases = new[]
         {
             (Name: "defaults", Parameters: new Dictionary<string, object>(), Expected: DefaultsFingerprint),
-            (Name: "WTSignalPeriod=4", Parameters: new Dictionary<string, object> { ["WTSignalPeriod"] = 4.0 }, Expected: SignalFourFingerprint),
+            // The periods are MCB's fixed numbers since 2026-10-31: an old saved setting changes nothing.
+            (Name: "WTSignalPeriod=4", Parameters: new Dictionary<string, object> { ["WTSignalPeriod"] = 4.0 }, Expected: DefaultsFingerprint),
+            (Name: "WT1Period=10, MFPeriod=30", Parameters: new Dictionary<string, object> { ["WT1Period"] = 10.0, ["MFPeriod"] = 30.0 }, Expected: DefaultsFingerprint),
             (Name: "AnchorMultiplier=2", Parameters: new Dictionary<string, object> { ["AnchorMultiplier"] = 2.0 }, Expected: DefaultsFingerprint),
         };
 

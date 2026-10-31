@@ -32,15 +32,17 @@ public sealed class CipherBMcbFormulaTests
 
     /// <summary>
     /// The slow wave is the mean of the LAST THREE fast-wave values (MCB's crosses landed on our
-    /// cross bar 164/182 times with 3, 121/182 with the old 4); WTSignalPeriod = 4 brings 4 back.
+    /// cross bar 164/182 times with 3, 121/182 with the old 4). MCB has no setting for it, and
+    /// since 2026-10-31 neither does Cipher B: a saved chart's old "WTSignalPeriod" of 4 is ignored.
     /// </summary>
     [Theory]
-    [InlineData(null, 3)]
-    [InlineData(4, 4)]
-    public void The_slow_wave_averages_the_last_three_fast_values_by_default(int? setting, int window)
+    [InlineData(null)]
+    [InlineData(4)]
+    public void The_slow_wave_averages_the_last_three_fast_values(int? oldSetting)
     {
+        const int window = 3;
         var bars = CausalityProbeSeries.Bars(0, 400);
-        var r = setting is { } s ? Run(bars, ("WTSignalPeriod", s)) : Run(bars);
+        var r = oldSetting is { } s ? Run(bars, ("WTSignalPeriod", s)) : Run(bars);
         var fast = r[CipherBProvider.CompWT1]; var slow = r[CipherBProvider.CompWT2];
         int checkedBars = 0;
         for (int i = 100; i < 400; i++)

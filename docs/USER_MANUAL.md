@@ -1411,7 +1411,7 @@ blue waves; Properties, Appearance, **Read as** makes either a histogram instead
 side with a grit that grows with its size. Read as changes only what you hear and how it is
 named and arrowed; the picture stays the same. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
-every upward cross of the waves with the fast wave below −60; narration says "Buy dot, waves
+every upward cross of the waves with the fast wave below Over Sold Level 1 (−60 by default); narration says "Buy dot, waves
 crossed up from oversold". The money flow reads no volume: for each candle it takes the typical price (high, low and close
 averaged), how far that sits from its average over the last five candles, and that distance against
 its own average size over the same five; it averages this over the last 60 candles. A run of
@@ -1430,8 +1430,9 @@ the top half of the pane, as Market Cipher draws them); they are the last two st
 through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20, click
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
 on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
-extremes, heard but not drawn. The levels are plain grey lines, solid at ±60 and zero, dotted at ±53;
-the waves turn rough past ±53 and rougher past ±60. Money Flow and the Wave Gap are spoken by their
+extremes, heard but not drawn. The levels are Market Cipher B's white lines: solid at ±60 (thicker)
+and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent; the waves turn
+rough past ±53 and rougher past ±60. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".
 
 **Nothing that Market Cipher B does not draw.** Until 31 October 2026 Cipher B also computed parts of
@@ -1442,8 +1443,21 @@ Gated, a percentile threshold mode). They are gone: Cipher B is now only what Ma
 and looks exactly as it did. A chart saved with any of them opens without them; a strategy or alert
 built on one says it was removed and names the nearest part that remains (WaveTrend Cross Bear, the
 small red dot on every wave cross down, for the Overbought Crossover; Wave Trend Fast and Slow for the
-anchor waves; nothing for the divergences). "WT Slow Wave Smoothing" stays in Properties: 3 by
-default, as Market Cipher B; 4 gives Cipher B's slow wave from before 17 October 2026.
+anchor waves; nothing for the divergences).
+
+**Cipher B's settings are Market Cipher B's six**, on Properties' General tab, with its names:
+**Use Current Chart Resolution** (on) and **Different Timeframe** ("60"): turn the first off and
+Cipher B is computed on the other timeframe, minutes (60, 240) or D, W, M; each value then shows on
+the chart candle that finishes its period, the candles before it show the period before, and the
+newest candle shows the period still forming. A timeframe no longer than the chart's gives the
+chart's own values. **Over Bought Level 1** (60), **Trigger 1** (53), **Over Sold Level 1** (−60)
+and **Trigger 2** (−53) are the four lines: change one and its line moves, and type a value for a
+line on the Levels tab and its setting changes with it. Over Sold Level 1 is also the buy dot's
+threshold, and the money-flow bar sits 40 to 50 below Trigger 2, as in Market Cipher B. The wave
+and money-flow periods (9, 12, 3 and 60) are fixed, as Market Cipher B fixes them; Cipher B had
+settings for them until 31 October 2026, and a chart saved with one opens with Market Cipher B's
+number. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
+Triggers are.
 
 **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away

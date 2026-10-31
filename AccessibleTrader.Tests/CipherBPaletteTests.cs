@@ -111,8 +111,9 @@ public sealed class CipherBPaletteTests
     /// <summary>
     /// <b>The bear cross dot drew grey and the bull one a faint pale green.</b> Skia reads an
     /// 8-digit hex as #AARRGGBB; the provider wrote #RRGGBBAA. Parsed the way the renderer parses
-    /// them (StylingService.GetPaint), the dots must be MCB's lime #00E676 and red #FF5252, and
-    /// mostly opaque.
+    /// them (StylingService.GetPaint), the dots must be Market Cipher B 2.4.0's declared colours
+    /// (2026-10-31; they were a 2.2.6 screenshot fit, #00E676 / #FF5252 at 85%): up
+    /// rgba(63,255,0,0.8), down rgba(255,0,0,0.65).
     /// </summary>
     [Fact]
     public void The_cross_dots_parse_to_mcb_lime_and_red()
@@ -121,9 +122,7 @@ public sealed class CipherBPaletteTests
         var bull = Parsed(s, CipherBProvider.CompCrossBull);
         var bear = Parsed(s, CipherBProvider.CompCrossBear);
 
-        Assert.Equal((byte)0x00, bull.Red); Assert.Equal((byte)0xE6, bull.Green); Assert.Equal((byte)0x76, bull.Blue);
-        Assert.Equal((byte)0xFF, bear.Red); Assert.Equal((byte)0x52, bear.Green); Assert.Equal((byte)0x52, bear.Blue);
-        Assert.True(bull.Alpha >= 0xC0, $"bull cross dot alpha {bull.Alpha} — barely visible");
-        Assert.True(bear.Alpha >= 0xC0, $"bear cross dot alpha {bear.Alpha} — barely visible");
+        Assert.Equal((0x3F, 0xFF, 0x00, 0xCC), ((int)bull.Red, (int)bull.Green, (int)bull.Blue, (int)bull.Alpha));
+        Assert.Equal((0xFF, 0x00, 0x00, 0xA6), ((int)bear.Red, (int)bear.Green, (int)bear.Blue, (int)bear.Alpha));
     }
 }

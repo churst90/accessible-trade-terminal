@@ -48,7 +48,10 @@ public sealed class DeclaredBoundsTests
         new object[] { "Adx", 0.0, 100.0 },        new object[] { "Chop", 0.0, 100.0 },
         new object[] { "Stc", 0.0, 100.0 },        new object[] { "Cmo", -100.0, 100.0 },
         new object[] { "ConnorsRsi", 0.0, 100.0 }, new object[] { "Aroon", -100.0, 100.0 },
-        new object[] { "CIPHER_B", -100.0, 100.0 }, new object[] { "FEAR_GREED", 0.0, 100.0 },
+        new object[] { "FEAR_GREED", 0.0, 100.0 },
+        // 2026-10-31: Cipher B's waves are ±100; its axis reaches −103, the bottom of Market Cipher
+        // B's money-flow bar (Trigger 2 − 50 by default), which sits inside MCB's own scale.
+        new object[] { "CIPHER_B", -103.0, 100.0 },
         // 2026-09-12: three more that are bounded by construction and were not saying so.
         new object[] { "Cmf", -1.0, 1.0 },
         new object[] { "PULSE", 0.0, 100.0 },
@@ -244,7 +247,8 @@ public sealed class DeclaredBoundsTests
     {
         var cb = Built("CIPHER_B", Ramp(40, -40, 60));
         var range = new ViewportRangeCalculator().Calculate(StateWith(40, cb)).PaneRanges[cb.Pane];
-        Assert.Equal((-100.0, 100.0), range);
+        // −103 since 2026-10-31: the bottom of Market Cipher B's money-flow bar, inside its scale.
+        Assert.Equal((-103.0, 100.0), range);
 
         // A hand-built Cipher B series with no declared bounds — a fixture, an old snapshot —
         // still gets the floor, so the old behaviour is a subset of the new.

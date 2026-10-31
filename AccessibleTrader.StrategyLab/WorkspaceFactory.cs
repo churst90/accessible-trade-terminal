@@ -146,7 +146,7 @@ public static class WorkspaceFactory
                     parameters["TimeframeAdaptive"] = 1;
                 }
 
-                // Research-knob overrides (e.g. --set CIPHER_B.WT1Period=10 from
+                // Research-knob overrides (e.g. --set CIPHER_A.WT1Period=10 from
                 // rolling-window). Applied last so they win over the defaults above —
                 // this is how experiments load the SAME battery cells against a
                 // differently-parameterised indicator instead of duplicating cell

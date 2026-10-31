@@ -109,6 +109,10 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public LevelDefaults? ProviderDefaults { get; set; }
 
+        /// <summary>The parameter whose value this level is (see <see cref="LevelDescriptor.ValueParameter"/>);
+        /// null for a fixed level. Always the indicator's (no dialog edits it).</summary>
+        public string? ValueParameter { get; set; }
+
         // ── Per-level audio behavior ─────────────────────────────────────────
         /// <summary>When true, crossing this level fires an earcon click.</summary>
         [ObservableProperty] private bool _playEarcon = false;
@@ -228,6 +232,7 @@ namespace AccessibleTrader.Sdk.Models
                 AboveLabel      = AboveLabel,
                 BelowLabel      = BelowLabel,
                 ProviderDefaults = ProviderDefaults?.Copy(),
+                ValueParameter  = ValueParameter,
             };
         }
     }
@@ -246,6 +251,9 @@ namespace AccessibleTrader.Sdk.Models
         public float? EarconVolume { get; set; }
         public float? ZoneNoiseAmount { get; set; }
         public string? ZoneNoiseType { get; set; }
+        /// <summary>Null on a baseline recorded before levels declared a width (2026-10-31), when every
+        /// provider level was drawn 1 pixel wide.</summary>
+        public float? Thickness { get; set; }
         /// <summary>False when the band labels are unknown (pre-2026-10-17); they may be null when known.</summary>
         public bool LabelsKnown { get; set; }
         public string? AboveLabel { get; set; }
@@ -255,6 +263,7 @@ namespace AccessibleTrader.Sdk.Models
         {
             Value = d.Value, ColorHex = d.ColorHex, Dash = d.Dash, PlayEarcon = d.PlayEarcon,
             EarconVolume = d.EarconVolume, ZoneNoiseAmount = d.ZoneNoiseAmount, ZoneNoiseType = d.ZoneNoiseType,
+            Thickness = d.Thickness,
             LabelsKnown = true, AboveLabel = d.AboveLabel, BelowLabel = d.BelowLabel,
         };
 

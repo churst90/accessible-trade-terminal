@@ -619,6 +619,8 @@ namespace AccessibleTrader.Core.Services
             Value           = value,
             ColorHex        = desc.ColorHex,
             DashStyle       = desc.Dash,
+            Thickness       = desc.Thickness,
+            ValueParameter  = desc.ValueParameter,
             IsVisible       = true,
             IsDrawn         = desc.IsDrawn,
             PlayEarcon      = desc.PlayEarcon,
@@ -668,9 +670,14 @@ namespace AccessibleTrader.Core.Services
                 if (was.ZoneNoiseType is { } zt && string.Equals(lvl.ZoneNoiseType, zt, StringComparison.OrdinalIgnoreCase)) lvl.ZoneNoiseType = desc.ZoneNoiseType;
                 if (was.LabelsKnown && lvl.AboveLabel == was.AboveLabel) lvl.AboveLabel = desc.AboveLabel;
                 if (was.LabelsKnown && lvl.BelowLabel == was.BelowLabel) lvl.BelowLabel = desc.BelowLabel;
+                // A baseline from before levels declared a width (2026-10-31) was drawn 1 pixel wide.
+                float? wasThick = was.Thickness ?? (lvl.ProviderDefaults != null ? 1f : null);
+                if (wasThick is { } th && Math.Abs(lvl.Thickness - th) < 1e-6) lvl.Thickness = desc.Thickness;
                 lvl.IsDrawn = desc.IsDrawn;
+                lvl.ValueParameter = desc.ValueParameter;
                 lvl.ProviderDefaults = LevelDefaults.From(desc);
             }
+            ParameterBinding.Apply(series.Config);
         }
 
         /// <summary>
@@ -726,6 +733,10 @@ namespace AccessibleTrader.Core.Services
                 if (lp.DashStyle.HasValue)        target.DashStyle       = lp.DashStyle.Value;
                 if (lp.CrossDirection.HasValue)   target.CrossDirection  = lp.CrossDirection.Value;
             }
+
+            // A level that IS a parameter (Cipher B's four) shows the parameter, whatever a saved
+            // level preference said; so does a band placed by one.
+            ParameterBinding.Apply(series.Config);
         }
 
         /// <summary>

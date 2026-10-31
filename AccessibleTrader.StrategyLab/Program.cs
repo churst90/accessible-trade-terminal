@@ -354,7 +354,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab setup-grader --snapshots <dir> [--counts-only]   # pre-registered (docs/SETUP_GRADER_PREREG.md)");
     Console.WriteLine("  StrategyLab setup-grader-mc2 --snapshots <dir> [--counts-only]   # round 2, Market Cipher school (docs/SETUP_GRADER_ROUND2_MC_PREREG.md)");
     Console.WriteLine("  StrategyLab setup-grader-mc3 --snapshots <dir> [--counts-only] [--priors exact]   # round 3 (--priors exact: rounds 1-2 as re-run on the exact Ciphers), Market Cipher with Cipher SR location (docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md)");
-    Console.WriteLine("  Any command: --cipherb old  computes Cipher B as before 2026-10-17 (WTSignalPeriod 4, Legacy money flow, Gated buy dot; the gold dot was removed 2026-10-22)");
+    Console.WriteLine("  Any command: --cipherb old  refused since 2026-10-31 (the pre-2026-10-17 Cipher B's settings were removed; build 2e86d377 to re-run it)");
     Console.WriteLine("  Any command: --cipher-candles ha  computes Cipher A, Cipher B and Cipher SR as on a Heikin-Ashi chart (exploratory; entries, stops, ATR and fills stay on the real bars)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");
     Console.WriteLine("  StrategyLab catalogue list [--status <level>] [--verbose]        # specs + what the evidence is");
@@ -600,7 +600,7 @@ static async Task<int> HandleRollingWindow(string[] a)
 // Parses repeatable `--set CODE.Param=Value` flags into per-indicator parameter
 // overrides for WorkspaceFactory. Numeric values become double (what GetDbl/GetInt
 // readers expect); everything else stays a string.
-// Example: --set CIPHER_B.WT1Period=10 --set CIPHER_B.WT2Period=21
+// Example: --set CIPHER_B.OSLevel1=-53 --set CIPHER_A.WT1Period=10
 static Dictionary<string, Dictionary<string, object>>? ParseSetOverrides(string[] a)
 {
     Dictionary<string, Dictionary<string, object>>? result = null;
