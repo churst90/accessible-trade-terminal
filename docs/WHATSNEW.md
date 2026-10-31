@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Settings say what they do and their default, nothing else.** The Properties dialog no longer
+  tells you which other product a Cipher, DSS or DBSI-style default matches, or what a setting did
+  before. Cipher B's default Money Flow Formula and Buy Dot Rule are now called "Standard"; a saved
+  chart that said "MCB" opens with "Standard" and draws exactly the same.
 - **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20.** It was rebuilt from
   every rule found in DBSI's own labels on Bitcoin, Ethereum, gold, the Dow, the S&P 500 and Apple,
   hourly to daily. On ten charts no rule was found on, it prints DBSI's exact number 94 to 97% of the

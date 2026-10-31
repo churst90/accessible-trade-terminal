@@ -732,6 +732,17 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
+            // Cipher B's default Money Flow Formula and Buy Dot Rule were saved as "MCB" until
+            // 2026-10-30, when the value was renamed "Standard" (settings name no other product).
+            // The calculation reads anything but Legacy / Gated as the default either way; this
+            // keeps an old save from showing the retired word in its settings.
+            if (codeUp == "CIPHER_B")
+            {
+                foreach (var key in new[] { "MoneyFlowMode", "BuyDotMode" })
+                    if (config.StringParameters.TryGetValue(key, out var v) && string.Equals(v, "MCB", StringComparison.OrdinalIgnoreCase))
+                        config.StringParameters[key] = "Standard";
+            }
+
             // Remove stale Cloud-type components (they are now handled by CloudFills).
             var cloudComps = config.Components
                 .Where(c => c.DisplayType == ComponentDisplayType.Cloud)

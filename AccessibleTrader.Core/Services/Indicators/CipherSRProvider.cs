@@ -196,10 +196,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = "VolumeMA", DisplayName = "VolumeMA", DataType = typeof(int), DefaultValue = (double)DefaultVolumeMa,
                             MinValue = 0, MaxValue = 100,
-                            Description = "Market Cipher SR's VolumeMA: a level is taken only from a bar whose volume is above the average of the last this-many bars (itself included). 0 takes every pivot." },
+                            Description = $"A level is taken only from a bar whose volume is above the average of the last this-many bars (itself included). {DefaultVolumeMa} by default; 0 takes every pivot." },
                     new() { Name = "RangeDays", DisplayName = "H/L Pivot Days Back", DataType = typeof(int), DefaultValue = (double)DefaultRangeDays,
                             MinValue = 1, MaxValue = 30,
-                            Description = "Market Cipher SR's H/L Pivot Days Back: how many UTC days the Range High and Low cover, today included. Intraday charts only." },
+                            Description = $"How many UTC days the Range High and Low cover, today included. {DefaultRangeDays} by default. Intraday charts only." },
                 },
             }
         };

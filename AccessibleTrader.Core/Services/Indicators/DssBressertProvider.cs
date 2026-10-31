@@ -126,13 +126,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = ParamStoch, DisplayName = "Stochastic Periods", DataType = typeof(int),
                             DefaultValue = DefaultStochPeriods, MinValue = 2, Step = 1,
-                            Description = "Bars in both stochastic windows. 13 is the MetaTrader default; TradingView scripts and NinjaTrader use 10." },
+                            Description = "Bars in both stochastic windows. 13 by default." },
                     new() { Name = ParamEma, DisplayName = "EMA Periods", DataType = typeof(int),
                             DefaultValue = DefaultEmaPeriods, MinValue = 1, Step = 1,
-                            Description = "Length of both EMA smoothings. 8 is the MetaTrader default; TradingView scripts use 9, NinjaTrader 3." },
+                            Description = "Length of both EMA smoothings. 8 by default." },
                     new() { Name = ParamTrigger, DisplayName = "Trigger Periods", DataType = typeof(int),
                             DefaultValue = DefaultTriggerPeriods, MinValue = 1, Step = 1,
-                            Description = "Length of the trigger line, an EMA of the DSS. 5 in the TradingView scripts." },
+                            Description = "Length of the trigger line, an EMA of the DSS. 5 by default." },
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {

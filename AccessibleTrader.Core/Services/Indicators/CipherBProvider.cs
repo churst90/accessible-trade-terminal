@@ -514,15 +514,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "WT1Period",      DisplayName = "WT Channel Period",      DefaultValue = 9.0,  DataType = typeof(int),    MinValue = 2,  MaxValue = 60,  Step = 1 },
                     new() { Name = "WT2Period",      DisplayName = "WT Average Period",      DefaultValue = 12.0, DataType = typeof(int),    MinValue = 2,  MaxValue = 60,  Step = 1 },
                     new() { Name = "MFPeriod",       DisplayName = "Money Flow Period",      DefaultValue = 60.0, DataType = typeof(int),    MinValue = 5,  MaxValue = 200, Step = 1,
-                            Description = "SMA length for the body/range Money Flow. 60 produces the slow glass-wave shape matching real MCB." },
+                            Description = "Bars averaged for the Money Flow. 60 by default; fewer makes it quicker and rougher." },
                     new() { Name = "WTSignalPeriod", DisplayName = "WT Slow Wave Smoothing",  DefaultValue = 3.0,  DataType = typeof(int),    MinValue = 1,  MaxValue = 10,  Step = 1,
-                            Description = "SMA length of the slow wave over the fast one. 3 = Market Cipher B (its crosses land on our crosses' bar 164 of 182 times). 4 = this indicator before 2026-10-17, which every saved backtest used." },
-                    new() { IsAdvanced = true, Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "MCB", DataType = typeof(string),
-                            Description = "MCB = 200/3 x average over Money Flow Period bars of each candle's typical price (high + low + close) / 3 less its 5-bar mean, divided by the 5-bar mean size of that difference (Market Cipher B's own, exact). Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts (before 2026-10-17)." },
-                    new() { IsAdvanced = true, Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "MCB", DataType = typeof(string),
-                            Description = "MCB = a green dot on every cross up with the fast wave below -Buy Dot Level (Market Cipher B's rule). Gated = the confirmed, cooled-down, anchor-gated oversold crossover used before 2026-10-17." },
+                            Description = "Bars in the simple average that makes the slow wave from the fast one. 3 by default." },
+                    new() { IsAdvanced = true, Name = "MoneyFlowMode",  DisplayName = "Money Flow Formula",     DefaultValue = "Standard", DataType = typeof(string),
+                            Description = "Standard (the default) = 200/3 x the average over Money Flow Period bars of each candle's typical price (high + low + close) / 3 less its 5-bar mean, divided by the 5-bar mean size of that difference. Legacy = signed square root x 175 of the raw-candle average, with the period shortened on intraday charts." },
+                    new() { IsAdvanced = true, Name = "BuyDotMode",     DisplayName = "Buy Dot Rule",           DefaultValue = "Standard", DataType = typeof(string),
+                            Description = "Standard (the default) = a green dot on every cross up with the fast wave below minus Buy Dot Level. Gated = only a confirmed, cooled-down oversold crossover the anchor wave allows." },
                     new() { Name = "BuyDotLevel",    DisplayName = "Buy Dot Level",          DefaultValue = 60.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
-                            Description = "MCB buy-dot depth: the fast wave must be below minus this at the cross. 60 = Market Cipher B's default." },
+                            Description = "How deep the fast wave must be for a buy dot: below minus this at the cross. 60 by default." },
                     new() { Name = "OBLevel",        DisplayName = "OB/OS Threshold",        DefaultValue = 53.0, DataType = typeof(double), MinValue = 20, MaxValue = 100, Step = 1,
                             Description = "Fixed-mode OB/OS level for the gated dots and divergences. In Percentile mode it is used only until the rolling window has warmed up." },
                     // Signal logic
@@ -594,8 +594,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             // the scaling chose flipped sign 25 times in 230 bars where MCB flipped 4).
             int    mfPeriodDeclared = mfPeriod;
             int    wtSignalPeriod = Math.Max(1, GetInt(parameters, "WTSignalPeriod", 3));
-            bool   mcbMoneyFlow   = !string.Equals(GetStr(parameters, "MoneyFlowMode", "MCB"), "Legacy", StringComparison.OrdinalIgnoreCase);
-            bool   mcbBuyDot      = !string.Equals(GetStr(parameters, "BuyDotMode", "MCB"), "Gated", StringComparison.OrdinalIgnoreCase);
+            bool   mcbMoneyFlow   = !string.Equals(GetStr(parameters, "MoneyFlowMode", "Standard"), "Legacy", StringComparison.OrdinalIgnoreCase);
+            bool   mcbBuyDot      = !string.Equals(GetStr(parameters, "BuyDotMode", "Standard"), "Gated", StringComparison.OrdinalIgnoreCase);
             double buyDotLevel    = Math.Abs(GetDbl(parameters, "BuyDotLevel", 60.0));
             double obLevel       = GetDbl(parameters, "OBLevel",        53.0);
             int    pivotBars     = GetInt(parameters, "PivotBars",      3);

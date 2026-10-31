@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Settings say what they do and their default, nothing else (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
+
+- **What**: Cody: "The indicator properties of cipher b general tab mentions market cipher b and functionality
+  before....strip out that text. Settings are for the setting name and description and value, that's it. No MCB's
+  default, just default". Every setting description the Properties dialog prints that named another product (Market
+  Cipher A/B/SR, VuManChu, TradingView, MetaTrader, NinjaTrader), a trader, "the original", or what the indicator did
+  before a date now says only what the setting does and its default: Cipher A (3), Cipher B (5), Cipher SR (2), Cipher
+  C (2), DSS Bressert (3), DBSI-style (5). Cipher B's default Money Flow Formula and Buy Dot Rule, the value "MCB", are
+  now "Standard"; a saved chart holding "MCB" is rewritten to "Standard" on restore (WorkspaceInitializer), and the
+  calculation reads anything but Legacy / Gated as the default either way, so no number changes.
+- **Not changed**: the indicators' own one-paragraph descriptions (the Add Indicator list, not Properties) still say
+  what Cipher A and Cipher SR were measured against; code comments and the StrategyLab profile text are unchanged.
+- **Tests**: `SettingTextNamesOnlyTheSettingTests`: no parameter description or string default of any indicator names
+  another product, a trader, the original or a date; Cody's saved Cipher B restores "MCB" as "Standard", and "MCB",
+  "Standard" and no value compute the same series (Legacy / Gated differ, so the check can see a difference). Five
+  sabotages red: Cipher B's buy-dot text back, the "MCB" default back, the migration removed, DSS's TradingView text
+  back, "MCB" computing differently. The accessibility-lead agent is not registered here (text only, no new UI).
+
 ### Cipher DBSI: the bear Q value from the hidden arm, a floor touch inside Q, and the bulls' deep-run flag (2026-10-29, merged and pushed, NOT seen or heard)
 
 - **What**: three more rules from the search of the bars still wrong after the hidden arm (Cody: "yes port ztc and

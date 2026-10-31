@@ -339,7 +339,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { IsAdvanced = true, Name = ParamYearlyMax, DisplayName = "Yearly cycle longest (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
                             Description = "0 = the preset's." },
                     new() { Name = ParamSma, DisplayName = "Moving average length", DataType = typeof(int), DefaultValue = (double)DefaultSma, MinValue = 2, Step = 1,
-                            Description = "The simple moving average drawn on price, 10 by default. It is left out until included, as the original's is off." },
+                            Description = "The simple moving average drawn on price, 10 by default. It is left out until included." },
                     new() { Name = ParamSmaSource, DisplayName = "Moving average source", DataType = typeof(string), DefaultValue = "close",
                             Description = "What it averages: open, high, low, close, hl2, hlc3, hlcc4, ohlc4 or volume. Close by default." },
                     new() { Name = ParamSmaOffset, DisplayName = "Moving average offset", DataType = typeof(int), DefaultValue = 0.0, Step = 1,
@@ -351,7 +351,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
                             Description = "Off by default. On, a daily low is also named when price breaks the last swing high, as it always is on gold, silver, the miners and the dollar, so lows are named sooner and some cycles end on a different low." },
                     new() { Name = ParamYearlyFromPrice, DisplayName = "Yearly lows found from price", DataType = typeof(bool), DefaultValue = false,
-                            Description = "Off by default: the yearly lows are the original's own dates for each of its assets, which stop at the newest (December 2023 on the dollar, earlier elsewhere), and an asset it does not tune has none. On, the yearly lows after the newest date are found from the price, and all of them on an asset with no dates: the first low at least 0.8 of a yearly cycle after the last that stays the lowest for 0.15 of a cycle on both sides, known that long after it (about 7 months on a 4-year cycle). Setting the yearly cycle's years by hand finds every one from the price." },
+                            Description = "Off by default: the yearly lows are set dates for each tuned asset, which stop at the newest (December 2023 on the dollar, earlier elsewhere), and an asset with no tuned count has none. On, the yearly lows after the newest date are found from the price, and all of them on an asset with no dates: the first low at least 0.8 of a yearly cycle after the last that stays the lowest for 0.15 of a cycle on both sides, known that long after it (about 7 months on a 4-year cycle). Setting the yearly cycle's years by hand finds every one from the price." },
                 }.Concat(Switches.Select(w => new IndicatorParameterMetadata
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
