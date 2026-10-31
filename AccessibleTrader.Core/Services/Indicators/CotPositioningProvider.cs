@@ -213,11 +213,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             return new()
             {
                 new("Crowded Long",  DefaultExtremeZ, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
                 new("Neutral", 0.00, "#666666", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.7f),
                 new("Crowded Short", -DefaultExtremeZ, "#22FFFF", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
             };
         }
 

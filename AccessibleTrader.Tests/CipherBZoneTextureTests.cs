@@ -155,16 +155,30 @@ public sealed class CipherBZoneTextureTests
     }
 
     /// <summary>
-    /// Funding rate lost its 0.10 of its own and is clean in its normal range. Its Extreme Long /
-    /// Extreme Short lines declare a zone texture but are not named overbought/oversold, so no zone
-    /// texture plays past them either (nor did it before 2026-10-31): an open question in TODO.
+    /// COT, Crowding Index and Funding Rate have no texture anywhere, past their extreme lines too, and
+    /// those lines are not overbought/oversold lines. Cody, 2026-10-31: "no, cot, crowd funding should
+    /// not use the texturing or over sold/ob lines". Until then each part had 0.10 of its own on every
+    /// bar, and each extreme line declared a zone texture that never played (not an extreme by role).
     /// </summary>
-    [Fact]
-    public void Funding_rate_is_clean_in_its_normal_range()
+    [Theory]
+    [InlineData("COT_POSITIONING", CotPositioningProvider.CompZScore, 0.5, 2.5)]
+    [InlineData("CROWDING_INDEX", CrowdingIndexProvider.CompCrowdingScore, 0.5, 3.0)]
+    [InlineData("FUNDING_RATE", FundingRateProvider.CompFundingRate, 0.02, 0.08)]
+    public void Cot_crowding_and_funding_have_no_texture_and_no_overbought_or_oversold_line(
+        string code, string part, double inside, double past)
     {
-        var s = Fresh(new FundingRateProvider(Substitute.For<ICrossSeriesCache>()), "FUNDING_RATE");
-        Assert.Equal((0f, "none"), Texture(s, FundingRateProvider.CompFundingRate, 0.02));
-        Assert.Equal((0f, "none"), Texture(s, FundingRateProvider.CompFundingRate, -0.03));
+        var xs = Substitute.For<ICrossSeriesCache>();
+        IIndicatorProvider p = code switch
+        {
+            "COT_POSITIONING" => new CotPositioningProvider(xs),
+            "CROWDING_INDEX"  => new CrowdingIndexProvider(xs),
+            _                 => new FundingRateProvider(xs),
+        };
+        Assert.All(p.GetDefaultLevels(code), l => Assert.Equal(0f, l.ZoneNoiseAmount));
+        var s = Fresh(p, code);
+        Assert.NotEmpty(s.Levels);
+        Assert.All(s.Levels, l => Assert.DoesNotContain(l.EffectiveRole, new[] { LevelRole.Overbought, LevelRole.Oversold }));
+        foreach (var v in new[] { inside, -inside, past, -past }) Assert.Equal((0f, "none"), Texture(s, part, v));
     }
 
     // ── Saved charts and saved defaults ────────────────────────────────────────────────

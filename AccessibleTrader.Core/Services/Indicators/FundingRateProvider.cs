@@ -179,7 +179,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             return new()
             {
                 new("Extreme Long",  0.05, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
                 new("Mild Long",     0.01, "#FF8888", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Zero",          0.00, "#666666", DashStyle.Dash,
@@ -187,7 +187,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Mild Short",   -0.01, "#88FFFF", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Extreme Short",-0.05, "#22FFFF", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
             };
         }
 

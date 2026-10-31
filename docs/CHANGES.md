@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### COT, Crowding Index and Funding Rate have no texture, and their extreme lines stay plain lines (2026-10-31, NOT heard)
+
+- **Why**: Cody, answering the question left by the entry below: "no, cot, crowd funding should not use the
+  texturing or over sold/ob lines".
+- **What changed**: their extreme lines (COT's Crowded Long/Short, Crowding Index's Long/Short Crowded, Funding
+  Rate's Extreme Long/Short) no longer declare a zone texture. It had never played, because the lines are not
+  overbought/oversold lines, so nothing sounds different: the three are clean on every bar, past their extremes
+  too. The lines keep their bells, their speech and their Ctrl+Left/Right behaviour; they are not made
+  overbought/oversold lines.
+- **Saved charts**: a level saved with the old 0.20 white heals to the new default (none), as before; the 0.45 pink
+  default pushed this morning (d786f762) was never deployed, and a level saved with it since carries it as its
+  baseline and heals the same way.
+- **Tests**: `Cot_crowding_and_funding_have_no_texture_and_no_overbought_or_oversold_line` (three cases) replaces
+  the Funding Rate test: no level declares a texture, no level is an overbought/oversold line, and the part is clean
+  inside and past its extremes. Two sabotages, both red: a texture put back on Funding Rate's Extreme Long, and
+  COT's Crowded Long renamed so it reads as an overbought line. Indicator/Provider/Level/Sonification slice 2509
+  green; full suite on CI. The accessibility-lead agent is not registered here.
+- **Still open**: Fear & Greed (Cody did not name it) keeps its extreme lines' texture, which does not play, and
+  the line tinge; a question in TODO.
+
 ### Texture only in the extreme zones: Cipher B's waves clean inside ±53, the same soft noise past ±53 and louder past ±60 (2026-10-31, NOT heard)
 
 - **Why**: Cody: "there should only be texturing, i.e. the white noise under the sound, within those extreme zones.
