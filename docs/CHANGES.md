@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A bar's grit is its size against the biggest bar of its own kind in view (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
+
+- **What**: Cody: "keep the money flow and wt histogram sonified as a histogram, but do double check the grittiness
+  as it's hard to hear". Measured first: grit (the sub-octave sawtooth that carries a bar's size, 0 to 0.30) was the
+  bar's size against the PANE's peak, and Cipher B's pane is fixed at ±100 while its bars are far smaller. On
+  Bitstamp's Bitcoin daily history the WT Histogram's median bar is 5.5, so grit 0.016 (nine in ten under 0.045), and
+  Money Flow's 17.6, grit 0.053; on Coinbase's 15-minute bars 0.020 and 0.037. Nothing in view reached the top, so
+  every bar was nearly a clean tone. Grit is now the bar's size against the biggest bar of the same component in view
+  (`DefaultSonificationStrategy.VisibleBarPeak`), on playback and when arrowing: the biggest bar in view gets the full
+  0.30, the median bar 0.07-0.14. Still a histogram: constant loudness, direction pitch, grit for size. Volume and
+  MACD take the same rule; volume's pane already fit its bars, so it barely changes. A bar read straight from the
+  candles (no series data) keeps the pane's peak.
+- **Tests**: `CipherBBarGritTests` (Bitcoin daily and 15-minute, every 100-bar view, both bars, both paths: each bar's
+  grit is 0.30 x its size over the view's biggest, the biggest is 0.30, the median at least 0.06). Five sabotages red:
+  the pane's peak back, the arrowing path not passing its bar, the playback path not passing it, the peak taken over
+  the whole history, the peak taken over half the view. 86 audio tests green. Interface change:
+  `ISonificationStrategy.CreateAudioPoint` takes an optional `dataIndex`; three test doubles updated. Not heard in the
+  app; the accessibility-lead agent is not registered here.
+
 ### Settings say what they do and their default, nothing else (2026-10-30, branch cipher-settings-text, NOT pushed, NOT seen or heard)
 
 - **What**: Cody: "The indicator properties of cipher b general tab mentions market cipher b and functionality

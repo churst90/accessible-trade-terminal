@@ -116,7 +116,7 @@ public sealed class PriceLineTransformAudioTests
         public Ohlcv? LastPoint { get; private set; }
 
         public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point,
-            int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false)
+            int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
         {
             LastPoint = point;
             return new AudioPoint(comp.BaseFrequency, 1.0f, comp.Waveform, 0.0, "Sustain");

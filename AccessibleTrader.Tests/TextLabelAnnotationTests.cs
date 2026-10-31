@@ -472,7 +472,7 @@ namespace AccessibleTrader.Tests
         private sealed class NoOpSonification : ISonificationStrategy
         {
             public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point,
-                int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false)
+                int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
                 => new AudioPoint(comp.BaseFrequency, 1.0f, comp.Waveform, 0.2, "Sustain");
 
             public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex,

@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Cipher B's Money Flow and WT Histogram are easier to hear.** A bar's roughness now measures it
+  against the biggest bar of its own kind on screen, not the whole Cipher B pane, so the biggest
+  Money Flow or histogram bar in view is fully rough and small ones stay smooth. Before, nearly
+  every bar played almost clean. Volume and MACD follow the same rule.
 - **Settings say what they do and their default, nothing else.** The Properties dialog no longer
   tells you which other product a Cipher, DSS or DBSI-style default matches, or what a setting did
   before. Cipher B's default Money Flow Formula and Buy Dot Rule are now called "Standard"; a saved

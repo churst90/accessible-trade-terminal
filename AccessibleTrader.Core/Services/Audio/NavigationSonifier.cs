@@ -543,7 +543,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 prevVal = data[dataIndex - 1];
             }
             
-            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal, isLogScale);
+            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal, isLogScale, dataIndex);
         }
 
         /// <summary>

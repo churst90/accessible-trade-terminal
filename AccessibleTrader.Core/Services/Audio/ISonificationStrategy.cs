@@ -8,7 +8,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// True when this component's pane is drawn on the logarithmic scale, so a level-pitched
         /// component's pitch follows the picture. See <see cref="ChartMath.NormalizedPosition"/>.
         /// </param>
-        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false);
+        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1);
         AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false);
         /// <summary>
         /// Maps a specific component at dataIndex to an AudioPoint.
@@ -40,17 +40,49 @@ namespace AccessibleTrader.Core.Services.Audio
         /// <summary>
         /// <b>The one grit rule for every bar-shaped component</b> — volume bars, MACD and Cipher B
         /// histograms, open-interest deltas, anything drawn as a bar from a baseline. The
-        /// sub-octave saw weight is the bar's magnitude against the pane's peak: a bar at the top
-        /// of the pane carries full weight (0.30), a stub is a clean sine. Magnitude, not position
-        /// in the visible range: the smallest visible volume bar is still a bar of some size, and
-        /// a histogram below zero is as big as its distance from zero. Loudness never encodes size
-        /// (see SonificationProfileProvider); this is what does.
+        /// sub-octave saw weight is the bar's magnitude against the biggest bar of the SAME
+        /// component in view (<paramref name="barPeak"/>): the biggest bar carries full weight
+        /// (0.30), a stub is a clean sine. Magnitude, not position in the visible range: the
+        /// smallest visible volume bar is still a bar of some size, and a histogram below zero is
+        /// as big as its distance from zero. Loudness never encodes size (see
+        /// SonificationProfileProvider); this is what does.
+        ///
+        /// <para>Until 2026-10-30 the scale was the PANE's peak. That is the bars' own peak for
+        /// volume, whose pane fits its bars, but not where bars share a pane with bigger lines or
+        /// the pane has fixed bounds: Cipher B's pane is ±100 and its bars are far smaller, so on
+        /// Bitcoin daily and 15-minute charts the WT Histogram's median bar got 0.02 of 0.30 and
+        /// nine in ten under 0.05, and Money Flow's median 0.02-0.05 (Cody: "do double check the
+        /// grittiness as it's hard to hear"). The pane's peak is still the scale when there is no
+        /// series data to measure (a bar read straight from the candles).</para>
         /// </summary>
-        internal static float BarGrit(double val, (double Min, double Max) viewportRange)
+        internal static float BarGrit(double val, (double Min, double Max) viewportRange, double? barPeak = null)
         {
-            double absMax = Math.Max(Math.Abs(viewportRange.Max), Math.Abs(viewportRange.Min));
+            double absMax = barPeak is double peak && peak > 0
+                ? peak
+                : Math.Max(Math.Abs(viewportRange.Max), Math.Abs(viewportRange.Min));
             double magnitudeNorm = absMax > 0 ? Math.Clamp(Math.Abs(val) / absMax, 0.0, 1.0) : 0.0;
             return (float)(0.30 * magnitudeNorm);
+        }
+
+        /// <summary>
+        /// The biggest magnitude of a component's bars in view: the bars from
+        /// <c>dataIndex - relativeIndex</c> (the viewport's first bar) for
+        /// <paramref name="viewportWidth"/> bars (the viewport's length, which is what callers pass
+        /// as the pan width). Null when the component has no data there or the bar is unknown.
+        /// </summary>
+        internal static double? VisibleBarPeak(ChartSeries series, ComponentConfig comp, int dataIndex, int relativeIndex, int viewportWidth)
+        {
+            if (dataIndex < 0) return null;
+            var data = series.GetComponentData(comp.Name);
+            int start = Math.Max(0, dataIndex - relativeIndex);
+            int end = Math.Min(data.Length, start + Math.Max(1, viewportWidth));
+            double peak = 0;
+            for (int i = start; i < end; i++)
+            {
+                double v = data[i];
+                if (!double.IsNaN(v) && Math.Abs(v) > peak) peak = Math.Abs(v);
+            }
+            return peak > 0 ? peak : null;
         }
 
         /// <summary>
@@ -93,7 +125,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// itself, which is the value the user is listening to.</summary>
         internal const float DrawingNoiseAmount = 0.22f;
 
-        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false)
+        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
         {
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
 
@@ -405,7 +437,7 @@ namespace AccessibleTrader.Core.Services.Audio
                     noiseAmt = Math.Max(noiseAmt, 0.06f);
                     noiseType = "brown";
                     squareMix = 0.10f;   // same "bar" character as the candle body (a sibling timbre)
-                    subSawMix = BarGrit(val, viewportRange);
+                    subSawMix = BarGrit(val, viewportRange, VisibleBarPeak(series, comp, dataIndex, relativeIndex, viewportWidth));
                 }
                 else if (isWickComp)
                 {
@@ -457,7 +489,7 @@ namespace AccessibleTrader.Core.Services.Audio
                     // + the SAME grit rule as volume: warm sub-octave weight ∝ magnitude, on the
                     // same scale. Loudness is constant (AmplitudeMapping.None in the profile).
                     squareMix = 0.18f;
-                    subSawMix = BarGrit(val, viewportRange);
+                    subSawMix = BarGrit(val, viewportRange, VisibleBarPeak(series, comp, dataIndex, relativeIndex, viewportWidth));
                 }
             }
 
@@ -497,7 +529,7 @@ namespace AccessibleTrader.Core.Services.Audio
             double val = (dataIndex < compData.Length) ? compData[dataIndex] : point.Close;
             double? prevVal = (dataIndex > 0 && dataIndex - 1 < compData.Length) ? compData[dataIndex - 1] : null;
 
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex);
         }
 
         public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
@@ -542,7 +574,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
 
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex);
         }
 
         /// <summary>
