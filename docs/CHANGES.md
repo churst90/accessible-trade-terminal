@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fear & Greed has no texture at all (2026-10-31, NOT heard)
+
+- **Why**: asked whether Fear & Greed should lose its texture and its line tinge like COT, Crowding Index and
+  Funding Rate, Cody said: "yes clear that".
+- **What changed**: the Sentiment line no longer has the faint brown tinge every plain line has (the price line's
+  timbre), so it is clean on every bar. A new component switch does this, `NoLineTinge`
+  (`IndicatorComponentMetadata` → `ComponentConfig`, provider-owned, rebuilt from the indicator on every load);
+  Fear & Greed's Sentiment is the only part that sets it. Extreme Greed and Extreme Fear no longer declare a zone
+  texture (it had never played) and stay plain lines, not overbought/oversold lines: their bells, speech and
+  Ctrl+Left/Right are unchanged. Nothing else about the line changed: still drawn as a line, still triangle
+  above 50 and sine below.
+- **Tests**: `Fear_and_greed_has_no_texture_and_no_overbought_or_oversold_line` replaces the test that pinned
+  the tinge. `A_textured_level_that_is_not_overbought_or_oversold_leaves_the_line_tinge` keeps the role check
+  in `AudioZoneHelper.HasZoneTexture` guarded (the old test was its guard). Six sabotages, all red: the switch
+  off on Fear & Greed, the factory not copying it, the sound ignoring it, Extreme Greed's texture back, the
+  role check removed, and `ComponentConfig.Clone` dropping it (an existing clone guard). Slice of 2941
+  (Indicator/Provider/Level/Sonification/Audio/Component/Clone/Knob) green; full suite on CI. The
+  accessibility-lead agent is not registered here.
+- **Still open**: every other line without zones (MACD, Signal lines, Aroon) keeps the tinge; question (3) in TODO.
+
 ### COT, Crowding Index and Funding Rate have no texture, and their extreme lines stay plain lines (2026-10-31, NOT heard)
 
 - **Why**: Cody, answering the question left by the entry below: "no, cot, crowd funding should not use the

@@ -416,8 +416,9 @@ namespace AccessibleTrader.Core.Services.Audio
                     // Not on a line with overbought/oversold zones (Pulse's Fast Trigger and Anchor):
                     // there the only texture is the zone's, so it is clean outside them (Cody,
                     // 2026-10-31; until then the tinge sounded on every bar, and turned the zone's
-                    // own noise brown).
-                    if (!AudioZoneHelper.HasZoneTexture(series, comp))
+                    // own noise brown). Nor on a line that has no texture at all (NoLineTinge:
+                    // Fear & Greed's Sentiment, Cody 2026-10-31).
+                    if (!comp.NoLineTinge && !AudioZoneHelper.HasZoneTexture(series, comp))
                     {
                         noiseAmt = Math.Max(noiseAmt, 0.05f);
                         noiseType = "brown";

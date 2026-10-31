@@ -69,6 +69,9 @@ namespace AccessibleTrader.Sdk.Models
         /// low or high, not padded off it by a share of its range; provider-owned, rebuilt from
         /// <see cref="IndicatorComponentMetadata.MarkerTouchesBar"/>.</summary>
         public bool MarkerTouchesBar { get; set; }
+        /// <summary>A line sounded without the plain line's brown tinge; provider-owned, rebuilt from
+        /// <see cref="IndicatorComponentMetadata.NoLineTinge"/>.</summary>
+        public bool NoLineTinge { get; set; }
         /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> picks from, split on
         /// '|'; provider-owned, rebuilt from <see cref="IndicatorComponentMetadata.BadgeWords"/>.</summary>
         public string? BadgeWords { get; set; }
@@ -408,7 +411,7 @@ namespace AccessibleTrader.Sdk.Models
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
                 MarkerAnchor = MarkerAnchor, MarkerText = MarkerText, IsCount = IsCount,
                 PathName = PathName, RibbonName = RibbonName, IsHindsight = IsHindsight, ConfirmedBy = ConfirmedBy, UserDrawPath = UserDrawPath,
-                BoxAlpha = BoxAlpha, MarkLineAlpha = MarkLineAlpha, PathColorHex = PathColorHex, MarkerStacksUnder = MarkerStacksUnder, MarkerTouchesBar = MarkerTouchesBar, BadgeWords = BadgeWords, UserIsAreaFill = UserIsAreaFill,
+                BoxAlpha = BoxAlpha, MarkLineAlpha = MarkLineAlpha, PathColorHex = PathColorHex, MarkerStacksUnder = MarkerStacksUnder, MarkerTouchesBar = MarkerTouchesBar, NoLineTinge = NoLineTinge, BadgeWords = BadgeWords, UserIsAreaFill = UserIsAreaFill,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

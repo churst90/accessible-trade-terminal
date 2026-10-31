@@ -142,14 +142,35 @@ public sealed class CipherBZoneTextureTests
     }
 
     /// <summary>
-    /// Fear &amp; Greed's line keeps the line tinge: its Extreme Greed / Extreme Fear lines are not
-    /// overbought/oversold lines, so their zone texture cannot play and the line has no zone to be
-    /// clean outside of (a question in TODO). Its own 0.10 is gone.
+    /// Fear &amp; Greed has no texture at all: not the plain line's brown tinge, and not past Extreme Greed
+    /// or Extreme Fear, which stay plain lines, not overbought/oversold lines. Cody, 2026-10-31, asked
+    /// whether to clear both: "yes clear that". Until then its line had 0.10 of its own on every bar,
+    /// then the 0.05 tinge, and each extreme line declared a zone texture that never played.
     /// </summary>
     [Fact]
-    public void Fear_and_greeds_line_keeps_the_line_tinge_until_its_extremes_count_as_zones()
+    public void Fear_and_greed_has_no_texture_and_no_overbought_or_oversold_line()
+    {
+        var p = new FearGreedProvider(Substitute.For<ICrossSeriesCache>());
+        Assert.All(p.GetDefaultLevels("FEAR_GREED"), l => Assert.Equal(0f, l.ZoneNoiseAmount));
+        var s = Fresh(p, "FEAR_GREED");
+        Assert.NotEmpty(s.Levels);
+        Assert.All(s.Levels, l => Assert.DoesNotContain(l.EffectiveRole, new[] { LevelRole.Overbought, LevelRole.Oversold }));
+        foreach (double v in new[] { 5.0, 20, 35, 50, 65, 80, 95 })
+            Assert.Equal((0f, "none"), Texture(s, FearGreedProvider.CompSentiment, v));
+    }
+
+    /// <summary>
+    /// A textured level that is not an overbought/oversold line does not make a line clean: the zone
+    /// cannot play there, so the line keeps its tinge (only a real zone takes the tinge's place).
+    /// </summary>
+    [Fact]
+    public void A_textured_level_that_is_not_overbought_or_oversold_leaves_the_line_tinge()
     {
         var s = Fresh(new FearGreedProvider(Substitute.For<ICrossSeriesCache>()), "FEAR_GREED");
+        s.Components.Single(c => c.Name == FearGreedProvider.CompSentiment).NoLineTinge = false;
+        var greed = s.Levels.Single(l => l.Name == "Extreme Greed");
+        greed.ZoneNoiseAmount = 0.45f;
+        greed.ZoneNoiseType = "pink";
         Assert.Equal((0.05f, "brown"), Texture(s, FearGreedProvider.CompSentiment, 50));
         Assert.Equal((0.05f, "brown"), Texture(s, FearGreedProvider.CompSentiment, 90));
     }

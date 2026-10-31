@@ -78,6 +78,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultBelowWaveform = "sine",
                             DefaultReferenceLevel = 50.0,
                             DefaultEnvelopeType = "Sustain",
+                            NoLineTinge = true,
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultTriggerBoundaryClick = true,
@@ -155,7 +156,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             return new()
             {
                 new("Extreme Greed", 80.0, "#FF2222", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
                 new("Greed",         60.0, "#FF8888", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Neutral",       50.0, "#666666", DashStyle.Dash,
@@ -163,7 +164,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Fear",          40.0, "#88FFFF", DashStyle.Dash,
                     PlayEarcon: true, EarconVolume: 0.5f),
                 new("Extreme Fear",  20.0, "#22FFFF", DashStyle.Dot,
-                    PlayEarcon: true, EarconVolume: 0.8f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                    PlayEarcon: true, EarconVolume: 0.8f),
             };
         }
 

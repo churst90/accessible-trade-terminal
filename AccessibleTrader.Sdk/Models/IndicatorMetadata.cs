@@ -60,6 +60,10 @@ namespace AccessibleTrader.Sdk.Models
         /// a share of the bar's range. False = padded.</summary>
         public bool MarkerTouchesBar { get; set; }
 
+        /// <summary>A line sounded without the faint brown tinge every plain line has (the price
+        /// line's timbre), so it has no texture at all. Fear &amp; Greed's Sentiment (Cody, 2026-10-31).</summary>
+        public bool NoLineTinge { get; set; }
+
         /// <summary>The words a <see cref="ComponentCompanions.BadgeWord"/> companion picks from,
         /// separated by '|' ("LOW|MID|HIGH|Start"), printed under the marker. Visual only.</summary>
         public string? BadgeWords { get; set; }
