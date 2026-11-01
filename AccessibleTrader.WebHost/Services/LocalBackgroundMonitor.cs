@@ -289,6 +289,11 @@ namespace AccessibleTrader.WebHost.Services
                 NoteFeedRecovered(watch.Symbol, watch.Timeframe);
                 if (bars.Count < 2) continue;
 
+                // A list fetched in the seconds after a bar closed can be missing that bar, or
+                // carry a placeholder new bar at a stale price. Nothing is observed, announced or
+                // evaluated from it; the next poll tries again. See VenueSettling.
+                if (_settling.ShouldSkip(WatchKey(watch), bars, LastBarSeen(watch))) continue;
+
                 // The chart is OBSERVED on every poll — covered or not — so the ladder's memory
                 // of what has already been said, and the alerts' memory of last poll's values,
                 // are warm at hand-off. Whether anything is SPOKEN is decided below, by ownership.
@@ -905,9 +910,21 @@ namespace AccessibleTrader.WebHost.Services
                 }
                 if (newest <= previous) return false;   // nothing closed since last poll
                 _lastBarSeen[key] = newest;
+                // The bar that was forming last poll is still not in the list after
+                // VenueSettling's retries. bars[^2] is then a bar already announced, so this
+                // close is noted and NOT said again.
+                if (bars[^2].Date < previous) return false;
             }
             return true;
         }
+
+        private DateTime? LastBarSeen(Watch watch)
+        {
+            lock (_lastBarSeen)
+                return _lastBarSeen.TryGetValue(WatchKey(watch), out var seen) ? seen : null;
+        }
+
+        private readonly VenueSettling _settling = new();
 
         /// <summary>
         /// The bar-close sentence, with the narration ladder behind it when there is one — ONE
@@ -1075,6 +1092,7 @@ namespace AccessibleTrader.WebHost.Services
             lock (_lastBarSeen)
                 foreach (var key in _lastBarSeen.Keys.Where(k => !keep.Contains(k)).ToList())
                     _lastBarSeen.Remove(key);
+            _settling.Prune(keep);
 
             // The "this host cannot build that indicator" latch is keyed by watch too, and a
             // chart that is gone should be able to say it again if it comes back with the same

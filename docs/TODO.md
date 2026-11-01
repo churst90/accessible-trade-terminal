@@ -1,9 +1,13 @@
-> - [ ] **Browser closed: charts on a timeframe the venue lacks are watched again (2026-10-31, built, NOT seen; see CHANGES).**
->   Cody's 24-minute BTCUSDT chart on Bitstamp was never fetched with the browser closed. Left: Cody restarts
->   his terminal on this build, closes the browser, and checks that a bar-close notification arrives for the
->   24-minute tab every 24 minutes, and the 4-hour and 1-day tabs when they close. Open, mine: the hosted
->   monitor's dead-feed count is still per symbol; the earlier log showed one 1-hour close announced twice,
->   four hours apart, with different opens (not looked into).
+> - [ ] **Browser closed: a bar close is said once, with its real open, when Bitstamp answers mid-update (2026-11-01, built, NOT heard; see CHANGES).**
+>   Bitstamp's list in the first seconds after a close can lack the bar that just closed, or carry a
+>   zero-volume placeholder at a stale price. That is where the doubled "1h: close 77401.41 at 07:00" and the
+>   wrong "New bar: open" prices came from. Left: Cody restarts his terminal on this build, closes the
+>   browser, and listens to a few 1-hour and 4-hour closes: each hour said once, in order, none skipped.
+>   Open, mine: the new bar's open is provisional on Bitstamp for its first seconds (the last close until
+>   the first trade), so it can still be a few dollars off; other venues were not polled.
+> - [x] **Browser closed: charts on a timeframe the venue lacks are watched again (2026-10-31, built; Cody
+>   2026-11-01: "the 24 minute now reads when the browser is closed, works good"; deployed to the VPS).**
+>   Open, mine: the hosted monitor's dead-feed count is still per symbol.
 > - [ ] **Texture only in the extreme zones (2026-10-31, built, NOT heard; see CHANGES).** Cody to arrow Cipher B's
 >   waves on a daily chart: no texture inside ±53, a soft pink noise from ±53 to ±60, the same noise louder past
 >   ±60; and RSI, clean from 30 to 70. Is 0.25 / 0.45 the right step between the two zones?

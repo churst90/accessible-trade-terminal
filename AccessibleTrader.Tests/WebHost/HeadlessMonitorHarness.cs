@@ -69,6 +69,10 @@ internal sealed class HeadlessMonitorHarness : IDisposable
     private readonly ISettingsManager _settings;
     private int _clock;   // hours since StartHour; the newest bar is always forming
 
+    /// <summary>Rewrites what the provider answers, while set: a venue's list caught in the
+    /// seconds after a bar closed (see <c>VenueSettling</c>).</summary>
+    public Func<List<Ohlcv>, List<Ohlcv>>? Tamper;
+
     /// <param name="savedSeries">The saved tab's series configs.</param>
     /// <param name="timeframe">The saved tab's timeframe (and the alerts', when they name one).</param>
     /// <param name="alerts">What <c>LoadAlerts</c> returns. Empty by default.</param>
@@ -101,6 +105,7 @@ internal sealed class HeadlessMonitorHarness : IDisposable
                 var (o, hi, lo, c) = barAt?.Invoke(h) ?? (p, p, p, p);
                 bars.Add(new Ohlcv(T0.AddHours(h), o, hi, lo, c, v));
             }
+            if (Tamper != null) bars = Tamper(bars);
             return (bars, new List<(long, double)>());
         });
 

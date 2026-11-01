@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### With the browser closed, a bar close is said once, with its real open, when the venue answers mid-update (2026-11-01, NOT heard)
+
+- **Why**: Cody's terminal log from 2026-10-31, browser closed, BTCUSDT on Bitstamp: "1h: close 77401.41 at 07:00"
+  said twice an hour apart, the 08:00 close never said, and several "New bar: open" prices that were not the
+  bar's open. The 4-hour tab said its 07:00 close twice too. Cody had several workspaces open, but the
+  monitor holds only one 1-hour watch, so this was not two workspaces. Polling Bitstamp's btcusd hourly and
+  4-hour lists every 5 seconds across 04:00 UTC on 2026-11-01 showed the cause. At 04:00:01 the hourly list
+  had 999 bars: 02:00, then 04:00, no 03:00. At 04:00:04 the 03:00 bar was back, but the 04:00 bar read
+  open = close = 77429.98 with zero volume, a price from five hours earlier (the market was at 77658). By
+  04:00:08 both lists were right. The monitor polls once a minute and announces `bars[^2]` the first time
+  it sees a newer bar. Caught in the first case, it re-announced the 02:00 bar, and every later poll saw
+  04:00 as already seen, so 03:00 was never said. Caught in the second, it read the stale price as the new
+  bar's open.
+- **What changed**: `VenueSettling` (new) recognises both shapes, when the last poll saw a bar forming: the
+  forming bar is missing while a newer one is present, or the new bar has zero volume on a feed whose previous
+  bar has volume. The local monitor sets such a list aside before observing, announcing or evaluating
+  anything, and the next poll, a minute later, tries again. One new bar is set aside at most twice. After
+  that the list is believed: a quiet market can open a bar with no trades, and that bar is real. If the
+  forming bar is still missing then, the close is noted and not announced, so the bar before it is never said
+  twice. The hosted monitor (VPS alerts) sets the same lists aside, as an empty list (skipped quietly), not a
+  failed fetch (which reports a dead feed). Its price alerts compare the newest close with the one before, so
+  the stale placeholder could have fired a false cross. That was not observed, only reasoned.
+- **Caveats**: a close that lands in the window is now said up to a minute later. The two shapes were seen
+  on Bitstamp only, at one boundary. Other venues were not polled. The new bar's open on Bitstamp is
+  provisional for its first seconds: open = the last close until the first trade, revised afterwards (the
+  07:00 bar read 77470.99 at first, 77456.44 later). The guard does not cover that, so an open read in those
+  seconds can be off by a few dollars. The hosted monitor's newest-bar memory is not pruned, at one entry
+  per alerted chart. The hosted guard is tested by calling it directly; its call in the poll is not.
+- **Tests**: `VenueSettlingTests` (new, 12): six shapes (missing bar, placeholder, ordinary close, several
+  closes after a sleep, a feed with no volume, no new bar); at most `MaxSkips` skips; no seed, no skip; the
+  hosted monitor returns empty and then the list; and through the real poll (`HeadlessMonitorHarness`, new
+  `Tamper` hook): a missing bar is said on the next poll exactly as an untampered run says it, and once; a
+  placeholder's open is not read; a bar that never comes back is not announced as the bar before it, and the
+  next close is said. Nine sabotages, each red: the local skip call (2 fail), the silent note (1), the
+  missing-bar clause (3), the placeholder clause (2), its volume condition (1), the skip cap (1), the
+  new-bar check (1), the hosted skip (1), the hosted memory (1). A slice of 222 monitor tests is green
+  locally. The full suite runs on CI. The accessibility-lead agent is not registered here; this change has
+  no UI.
+
 ### With the browser closed, a chart on a timeframe the venue lacks is watched again (2026-10-31, NOT seen)
 
 - **Why**: Cody: "I have background monitoring on and I'm not getting any alerts for my 24 minute chart" and

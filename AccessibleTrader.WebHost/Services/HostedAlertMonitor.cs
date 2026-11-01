@@ -48,6 +48,12 @@ namespace AccessibleTrader.WebHost.Services
         // re-fire on each cycle.
         private readonly Dictionary<string, AlertEvaluator> _evaluators = new(StringComparer.Ordinal);
 
+        // The newest bar each fetched chart showed last poll, for VenueSettling: a list fetched
+        // in the seconds after a bar closed can lack that bar or carry a placeholder at a stale
+        // price, and an alert reads bars[^1] against bars[^2].
+        private readonly Dictionary<string, DateTime> _newestSeen = new(StringComparer.OrdinalIgnoreCase);
+        private readonly VenueSettling _settling = new();
+
         public HostedAlertMonitor(
             IServiceScopeFactory scopes,
             Core.Services.DemoPolicy demo,
@@ -196,6 +202,7 @@ namespace AccessibleTrader.WebHost.Services
                 if (!barsCache.TryGetValue(key, out var bars))
                 {
                     bars = await FetchBarsAsync(data, watch, ct);
+                    if (HasComparableBars(bars)) bars = SetAsideIfUnsettled(key, bars!);
                     barsCache[key] = bars; // nulls cached too — one failed fetch per poll, not per user
                 }
 
@@ -258,6 +265,21 @@ namespace AccessibleTrader.WebHost.Services
         /// </para>
         /// </summary>
         internal static bool HasComparableBars(IReadOnlyList<Ohlcv>? bars) => bars is { Count: >= 2 };
+
+        /// <summary>
+        /// The list as fetched, or an EMPTY list when it looks caught while the venue was still
+        /// settling (see <see cref="VenueSettling"/>). Empty, not null: null is a failed fetch
+        /// and reports a dead feed; empty is skipped quietly by <see cref="HasComparableBars"/>
+        /// and the next poll tries again.
+        /// </summary>
+        internal List<Ohlcv> SetAsideIfUnsettled((string Provider, string Symbol, string Timeframe, string Market) chart, List<Ohlcv> bars)
+        {
+            string key = $"{chart.Provider}|{chart.Market}|{chart.Symbol}|{chart.Timeframe}";
+            DateTime? previous = _newestSeen.TryGetValue(key, out var seen) ? seen : null;
+            if (_settling.ShouldSkip(key, bars, previous)) return new List<Ohlcv>();
+            _newestSeen[key] = bars[^1].Date;
+            return bars;
+        }
 
         // ── Dead-feed detection ──────────────────────────────────────────────
         //
