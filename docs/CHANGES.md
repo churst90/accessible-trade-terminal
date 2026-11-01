@@ -30,7 +30,7 @@ All notable changes to this project will be documented in this file.
   does): a 24m request goes out as 3m and every bar is whole and on a 24-minute boundary; a native 4h request
   goes out unchanged; at the venue's 1000-bar cap the partial oldest bar is dropped. `LocalBackgroundMonitorTests.
   A_dead_chart_is_reported_even_while_another_timeframe_on_its_symbol_works` (new). Three sabotages, each red:
-  the old direct fetch (2 fail), no drop (1 fails), the count keyed per symbol (1 fails). Full suite on CI.
+  the old direct fetch (2 fail), no drop (1 fails), the count keyed per symbol (1 fails). Full suite green on CI; 9819 tests.
   The accessibility-lead agent is not registered here.
 
 ### Noise means a zone: no line or volume bar has a texture outside one (2026-10-31, NOT heard)
