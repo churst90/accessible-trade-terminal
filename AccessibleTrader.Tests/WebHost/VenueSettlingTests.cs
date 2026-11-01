@@ -12,6 +12,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// did ("1h: close 77401.41 at 07:00" twice, no 08:00), and read the placeholder's stale price
 /// as "New bar: open". See <see cref="VenueSettling"/>.
 /// </summary>
+[Collection("CircuitCoverage")]
 public sealed class VenueSettlingTests
 {
     private static readonly DateTime T = new(2026, 11, 1, 3, 0, 0, DateTimeKind.Utc);

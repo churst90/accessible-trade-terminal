@@ -40,8 +40,9 @@ All notable changes to this project will be documented in this file.
   next close is said. Nine sabotages, each red: the local skip call (2 fail), the silent note (1), the
   missing-bar clause (3), the placeholder clause (2), its volume condition (1), the skip cap (1), the
   new-bar check (1), the hosted skip (1), the hosted memory (1). A slice of 222 monitor tests is green
-  locally. The full suite runs on CI. The accessibility-lead agent is not registered here; this change has
-  no UI.
+  locally. On the first push CI's enrollment guard failed (1 of 9836): the new class polls the monitor but
+  had not joined the `CircuitCoverage` collection, so it could run beside the pretend-browser tests. It has
+  now. The accessibility-lead agent is not registered here; this change has no UI.
 
 ### With the browser closed, a chart on a timeframe the venue lacks is watched again (2026-10-31, NOT seen)
 
