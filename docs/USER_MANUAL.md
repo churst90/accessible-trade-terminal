@@ -132,6 +132,9 @@ tone so the extremity itself is audible. Inside the normal range there is no tex
 wash, and you can set how strong it is per level with the **Zone Texture** slider in
 an indicator's properties (P), under Reference Levels. You learn to hear "deep
 oversold" the way a sighted trader sees a line pinned to the bottom of its range.
+Noise always means a zone: a line with no overbought or oversold zone, such as MACD, its
+Signal line or Aroon, the price line, and the volume bars are clean on every bar. (Until
+October 2026 each of them carried a faint brown noise all the time.)
 
 On top of the continuous tones, discrete events ring as short bells, and each event
 type has its own bell so you can tell them apart by ear: a smooth sine bell for

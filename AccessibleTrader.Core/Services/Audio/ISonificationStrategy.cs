@@ -408,21 +408,14 @@ namespace AccessibleTrader.Core.Services.Audio
                                     || comp.DisplayType == ComponentDisplayType.Bar;
                 if (comp.DisplayType == ComponentDisplayType.Line)
                 {
-                    // Price line: warmth (triangle) + a touch of definition (square) + a tinge of
-                    // brown noise. No saw — the line is a single continuous voice; grit would imply
-                    // a second note. This gives the line real character while staying mellow.
+                    // Price line: warmth (triangle) + a touch of definition (square). No saw — the
+                    // line is a single continuous voice; grit would imply a second note. No noise
+                    // either: noise means a zone (overbought, oversold), so a line is clean outside
+                    // one. Cody, 2026-10-31: "the noise coloring should only happen in zones such as
+                    // over bought or over sold, as it signifies that zone. Having it always on would
+                    // lose its meaning." Until then every line had a 0.05 brown tinge on every bar.
                     triangleMix = 0.10f;
                     squareMix = 0.08f;
-                    // Not on a line with overbought/oversold zones (Pulse's Fast Trigger and Anchor):
-                    // there the only texture is the zone's, so it is clean outside them (Cody,
-                    // 2026-10-31; until then the tinge sounded on every bar, and turned the zone's
-                    // own noise brown). Nor on a line that has no texture at all (NoLineTinge:
-                    // Fear & Greed's Sentiment, Cody 2026-10-31).
-                    if (!comp.NoLineTinge && !AudioZoneHelper.HasZoneTexture(series, comp))
-                    {
-                        noiseAmt = Math.Max(noiseAmt, 0.05f);
-                        noiseType = "brown";
-                    }
                 }
                 else if (isBodyComp)
                 {
@@ -440,10 +433,9 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
                 else if (comp.Role == ComponentRole.Volume)
                 {
-                    // Brown-noise tinge + warm sub-octave grit ∝ bar size; loudness is constant so
-                    // texture alone carries intensity (a quiet bar stays clean, a big bar has weight).
-                    noiseAmt = Math.Max(noiseAmt, 0.06f);
-                    noiseType = "brown";
+                    // Warm sub-octave grit ∝ bar size; loudness is constant so texture alone carries
+                    // intensity (a quiet bar stays clean, a big bar has weight). No noise: noise means
+                    // a zone (Cody, 2026-10-31); until then the bed had a 0.06 brown tinge on every bar.
                     squareMix = 0.10f;   // same "bar" character as the candle body (a sibling timbre)
                     subSawMix = BarGrit(val, viewportRange, VisibleBarPeak(series, comp, dataIndex, relativeIndex, viewportWidth));
                 }

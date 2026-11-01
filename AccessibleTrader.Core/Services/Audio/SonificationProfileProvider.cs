@@ -36,8 +36,7 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (role == ComponentRole.Wick || displayType == ComponentDisplayType.Wick)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.None, 440, 1.0, false, "Ping");
 
-        // 3a. Volume bars: base SINE with a brown-noise tinge and a SUB-OCTAVE saw weight ∝ bar
-        //     size (both set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as
+        // 3a. Volume bars: base SINE with a SUB-OCTAVE saw weight ∝ bar size (set in DefaultSonificationStrategy.CreateAudioPoint) so intensity reads as
         //     GRIT, not loudness — quiet bars stay clearly audible instead of dropping toward
         //     silence. Sub-octave rather than same-octave: the latter fizzes. A sustained envelope
         //     makes it a continuous bed during playback.
@@ -53,7 +52,7 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         // 3b. Histograms and other bars: THE SAME RULE AS VOLUME. Loudness is constant and the
         //     bar's magnitude is carried by the sub-octave saw weight set in CreateAudioPoint
         //     (one helper, BarGrit, for volume and histogram alike). Only the fixed character
-        //     differs — a reedier square here, a brown-noise tinge on the volume bed — so the two
+        //     differs — a reedier square here, a softer one on the volume bed, and a fourth lower — so the two
         //     never blur together when both sound during playback.
         //
         //     Until 2026-09-11 this arm said AmplitudeMapping.Size, so a MACD or Cipher B

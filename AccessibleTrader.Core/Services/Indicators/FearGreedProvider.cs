@@ -78,7 +78,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultBelowWaveform = "sine",
                             DefaultReferenceLevel = 50.0,
                             DefaultEnvelopeType = "Sustain",
-                            NoLineTinge = true,
                             DefaultPitchMapping = PitchMapping.Value,
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultTriggerBoundaryClick = true,

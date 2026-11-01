@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Noise means a zone: no line or volume bar has a texture outside one (2026-10-31, NOT heard)
+
+- **Why**: Cody, answering question (3) (should MACD, Signal lines and Aroon keep the faint brown tinge?): "no,
+  macd and others should not have the brown noise tinge. the noise coloring should only happen in zones such as
+  over bought or over sold, as it signifies that zone. Having it always on would lose its meaning."
+- **What changed**: the sound code gave every Line component a 0.05 brown noise on every bar (the price line's
+  timbre), unless the line had a textured overbought/oversold zone. That tinge is gone, so MACD, Signal lines,
+  Aroon and the price line are clean on every bar; their triangle and square colouring is unchanged. On the same
+  rule, the volume bed's constant 0.06 brown noise is gone too (it still carries its sub-octave weight by bar
+  size, and differs from the histogram by its softer square and its pitch). This one was not asked about: Cody
+  can ask for it back. The `NoLineTinge` switch from the Fear & Greed entry below, and
+  `AudioZoneHelper.HasZoneTexture`, had no use left and are removed (neither was released). Not changed: the
+  brown texture while a window is open (it marks a state, like a zone), a drawing's pink texture, the Flute
+  sound theme's breath, and any noise a user puts in their own sound patch.
+- **Tests**: `No_indicator_component_sounds_noise_outside_a_zone` (new): every component of every indicator,
+  with its zones' texture taken away, sounds no noise at -80, -1, 0, 0.5, 50 and 80. MACD's check in
+  `Pulses_lines_are_clean_between_70_and_30` now pins it clean; `VolumeCarriesNoNoise` replaces
+  `VolumeCarriesABrownNoiseTinge`; `A_textured_level_that_is_not_overbought_or_oversold_adds_no_texture`
+  replaces the test that leaned on the old switch and still guards the zone role check.
+  `TheHistogramAndTheVolumeBedAreDistinctInstruments` no longer compares their noise. Two sabotages, both red:
+  the line tinge back (5 tests fail, the new guard among them) and the volume tinge back (2 fail). Slice of 3111
+  (Indicator/Provider/Level/Sonification/Audio/Component/Clone/Timbre/Volume/Window/Doc) green; full suite on CI;
+  9815 tests. The accessibility-lead agent is not registered here.
+
 ### Fear & Greed has no texture at all (2026-10-31, NOT heard)
 
 - **Why**: asked whether Fear & Greed should lose its texture and its line tinge like COT, Crowding Index and
@@ -22,7 +46,7 @@ All notable changes to this project will be documented in this file.
   role check removed, and `ComponentConfig.Clone` dropping it (an existing clone guard). Slice of 2941
   (Indicator/Provider/Level/Sonification/Audio/Component/Clone/Knob) green; full suite on CI. The
   accessibility-lead agent is not registered here.
-- **Still open**: every other line without zones (MACD, Signal lines, Aroon) keeps the tinge; question (3) in TODO.
+- **Still open**: every other line without zones (MACD, Signal lines, Aroon) keeps the tinge; question (3) in TODO (answered: the entry above removes it).
 
 ### COT, Crowding Index and Funding Rate have no texture, and their extreme lines stay plain lines (2026-10-31, NOT heard)
 

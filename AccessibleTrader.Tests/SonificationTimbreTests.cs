@@ -130,16 +130,18 @@ public sealed class SonificationTimbreTests
             $"a big volume bar must carry more weight; got {quiet.SubSawMix} vs {heavy.SubSawMix}");
     }
 
-    /// <summary>The volume bed is brown-tinged — that is what separates it from the body.</summary>
+    /// <summary>
+    /// The volume bed has no noise, quiet bar or big: noise means an overbought or oversold zone
+    /// (Cody, 2026-10-31: "the noise coloring should only happen in zones ... Having it always on
+    /// would lose its meaning"). Until then the bed had a 0.06 brown tinge on every bar.
+    /// </summary>
     [Fact]
-    public void VolumeCarriesABrownNoiseTinge()
+    public void VolumeCarriesNoNoise()
     {
         var vol = Component(ComponentDisplayType.Bar, ComponentRole.Volume, "Volume", "volume");
 
-        var point = Play(vol, Bar(50, 51, 49, 50, v: 50), 50);
-
-        Assert.True(point.NoiseAmount > 0f, "the volume bed carries a noise tinge");
-        Assert.Equal("brown", point.NoiseType);
+        foreach (double v in new[] { 5.0, 50, 95 })
+            Assert.Equal(0f, Play(vol, Bar(50, 51, 49, 50, v: v), v).NoiseAmount);
     }
 
     // ── Oscillators ─────────────────────────────────────────────────────────────────
@@ -306,7 +308,6 @@ public sealed class SonificationTimbreTests
         var v = Play(vol, Bar(50, 51, 49, 50, v: 50), 50);
 
         Assert.NotEqual(h.SquareMix, v.SquareMix);
-        Assert.True(v.NoiseAmount > h.NoiseAmount, "only the volume bed is brown-tinged");
 
         // This test is about TIMBRE only. It compares everything except pitch, and the helper
         // above hard-codes one 440/220 pair onto both components — so until 2026-09-19 it was

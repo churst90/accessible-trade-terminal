@@ -3,8 +3,8 @@
 >   ±60; and RSI, clean from 30 to 70. Is 0.25 / 0.45 the right step between the two zones?
 >   Questions: (1) and (2) ANSWERED and built (see CHANGES): COT, Crowding Index, Funding Rate and Fear & Greed
 >   have no texture, their extreme lines are not overbought/oversold lines, and Fear & Greed's line lost the
->   tinge. (3) Every line without zones
->   (MACD, Signal lines, Aroon) keeps a faint brown tinge, the price line's timbre: keep? Caveat: an indicator
+>   tinge. (3) ANSWERED and built: no line keeps the brown tinge (MACD, Signal lines, Aroon, the price line),
+>   and the volume bed lost its brown tinge too, on the same rule (noise means a zone). Caveat: an indicator
 >   default saved on the VPS with a texture other than the old defaults is kept as the user's choice.
 > - [ ] **Cipher B's Wave Gap and Money Flow: RSI's voice, zero-only jumps (2026-10-31, built, NOT heard; see CHANGES).**
 >   Cody to arrow both on a daily chart and say whether they now sound like RSI on each side of zero, and press

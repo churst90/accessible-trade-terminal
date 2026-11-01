@@ -125,7 +125,8 @@ public sealed class CipherBZoneTextureTests
     /// <summary>
     /// Pulse's two lines answer to its 70/30 zones: clean between them (they had a brown line tinge on
     /// every bar, and Fast Trigger 0.06 of its own too), the zone's pink past them. A line with no
-    /// zones keeps its tinge, as MACD's does.
+    /// zones, as MACD's, is clean everywhere (Cody, 2026-10-31: "macd and others should not have the
+    /// brown noise tinge").
     /// </summary>
     [Theory]
     [InlineData(PulseProvider.CompWtFast)]
@@ -138,7 +139,7 @@ public sealed class CipherBZoneTextureTests
         Assert.Equal((0.10f, "pink"), Texture(s, line, 20));
 
         var macd = Fresh(new SkenderZeroCrossProvider(), "Macd");
-        Assert.Equal((0.05f, "brown"), Texture(macd, "Macd", 0.5));
+        foreach (var v in new[] { -2.0, 0, 0.5, 2 }) Assert.Equal((0f, "none"), Texture(macd, "Macd", v));
     }
 
     /// <summary>
@@ -160,19 +161,50 @@ public sealed class CipherBZoneTextureTests
     }
 
     /// <summary>
-    /// A textured level that is not an overbought/oversold line does not make a line clean: the zone
-    /// cannot play there, so the line keeps its tinge (only a real zone takes the tinge's place).
+    /// A textured level that is not an overbought/oversold line adds no texture: noise means an
+    /// overbought or oversold zone, and nothing else (Cody, 2026-10-31).
     /// </summary>
     [Fact]
-    public void A_textured_level_that_is_not_overbought_or_oversold_leaves_the_line_tinge()
+    public void A_textured_level_that_is_not_overbought_or_oversold_adds_no_texture()
     {
         var s = Fresh(new FearGreedProvider(Substitute.For<ICrossSeriesCache>()), "FEAR_GREED");
-        s.Components.Single(c => c.Name == FearGreedProvider.CompSentiment).NoLineTinge = false;
         var greed = s.Levels.Single(l => l.Name == "Extreme Greed");
         greed.ZoneNoiseAmount = 0.45f;
         greed.ZoneNoiseType = "pink";
-        Assert.Equal((0.05f, "brown"), Texture(s, FearGreedProvider.CompSentiment, 50));
-        Assert.Equal((0.05f, "brown"), Texture(s, FearGreedProvider.CompSentiment, 90));
+        Assert.Equal((0f, "none"), Texture(s, FearGreedProvider.CompSentiment, 50));
+        Assert.Equal((0f, "none"), Texture(s, FearGreedProvider.CompSentiment, 90));
+    }
+
+    /// <summary>
+    /// The rule behind all of it, for every indicator: with its zones' texture taken away, no
+    /// component sounds any noise at any value. Noise means an overbought or oversold zone; a line,
+    /// histogram or bar is clean outside one. Cody, 2026-10-31: "the noise coloring should only happen
+    /// in zones such as over bought or over sold, as it signifies that zone. Having it always on would
+    /// lose its meaning." Until then every Line component had a 0.05 brown tinge on every bar.
+    /// </summary>
+    [Fact]
+    public void No_indicator_component_sounds_noise_outside_a_zone()
+    {
+        var noisy = new List<string>();
+        int lines = 0;
+        var strategy = new DefaultSonificationStrategy(new SoundPatchRegistry());
+        foreach (var p in IndicatorProviderFixture.AllProviders())
+            foreach (var m in p.GetIndicators())
+            {
+                var s = Fresh(p, m.Code);
+                foreach (var l in s.Levels) l.ZoneNoiseAmount = 0f;
+                foreach (var c in s.Components)
+                {
+                    if (c.DisplayType == ComponentDisplayType.Line) lines++;
+                    foreach (double v in new[] { -80.0, -1, 0, 0.5, 50, 80 })
+                    {
+                        var a = strategy.CreateAudioPoint(s, c, v, Bar, 5, 10, (-100, 100), 1f);
+                        if (a.NoiseAmount > 0f) { noisy.Add($"{m.Code}.{c.Name} {a.NoiseAmount} {a.NoiseType} at {v}"); break; }
+                    }
+                }
+            }
+        Assert.True(lines >= 30, $"only {lines} line components found: the scan proves nothing");
+        Assert.Empty(noisy);
     }
 
     /// <summary>
