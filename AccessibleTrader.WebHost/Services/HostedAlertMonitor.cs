@@ -306,9 +306,9 @@ namespace AccessibleTrader.WebHost.Services
             {
                 var provider = await data.GetProviderAsync(watch.Provider);
                 if (provider == null) return null;
-                var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
-                    watch.Market, watch.Symbol, watch.Timeframe, Limit: 3));
-                return ohlcv;
+                // A timeframe the venue does not serve is built the way the chart builds it.
+                return await BackgroundBarFetch.FetchAsync(
+                    provider, new ResamplerService(), watch.Market, watch.Symbol, watch.Timeframe, 3);
             }
             catch (Exception ex)
             {

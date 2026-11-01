@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### With the browser closed, a chart on a timeframe the venue lacks is watched again (2026-10-31, NOT seen)
+
+- **Why**: Cody: "I have background monitoring on and I'm not getting any alerts for my 24 minute chart" and
+  "browser closed but it's still running and I'm only getting new bar close notifications for like one or so
+  workspaces". His last session holds three BTCUSDT tabs on Bitstamp: 1 day, 4 hours and 24 minutes. The
+  browser-closed monitor asked Bitstamp for 24-minute bars; Bitstamp has none (step=1440 answers "Not a valid
+  choice", checked by hand), so every poll of that tab failed at debug level. The chart itself works because it
+  builds 24-minute bars from 3-minute ones; the monitor did not. The failure was never reported either: the
+  dead-feed count was kept per symbol, and the 1-day tab on the same symbol succeeding reset it on every poll.
+  The 1-day and 4-hour tabs were watched all along; neither had closed since the browser closed.
+- **What changed**: `BackgroundBarFetch` (new) is the one fetch for `LocalBackgroundMonitor` and
+  `HostedAlertMonitor`. A native timeframe is asked for as it is. Any other timeframe is built from the largest
+  native timeframe that divides it, through the same resampler the chart uses, with one extra bar fetched and
+  the oldest built bar dropped (it usually starts mid-period, so its open, high and low would be wrong). The
+  local monitor's dead-feed count is now kept per chart (symbol and timeframe), and its report says
+  "Background monitoring stopped for BTCUSDT 24m ... Alerts, bar closes and narration on this chart are not
+  being watched." Every browser-closed path is fixed by this: bar closes, narration, alerts, and the hosted
+  monitor's alerts on the VPS.
+- **Caveats**: the hosted monitor's dead-feed count is still per user and symbol. The poll loop passing the
+  timeframe to the per-chart count is not covered by a test, only the count itself. Not checked against a
+  live Bitstamp poll yet: Cody's terminal runs the old build until it is restarted. The in-browser background
+  tabs fetch through the chart's own path and were never affected.
+- **Tests**: `BackgroundBarFetchTests` (new, 3; the fake provider refuses a non-native step as Bitstamp
+  does): a 24m request goes out as 3m and every bar is whole and on a 24-minute boundary; a native 4h request
+  goes out unchanged; at the venue's 1000-bar cap the partial oldest bar is dropped. `LocalBackgroundMonitorTests.
+  A_dead_chart_is_reported_even_while_another_timeframe_on_its_symbol_works` (new). Three sabotages, each red:
+  the old direct fetch (2 fail), no drop (1 fails), the count keyed per symbol (1 fails). Full suite on CI.
+  The accessibility-lead agent is not registered here.
+
 ### Noise means a zone: no line or volume bar has a texture outside one (2026-10-31, NOT heard)
 
 - **Why**: Cody, answering question (3) (should MACD, Signal lines and Aroon keep the faint brown tinge?): "no,

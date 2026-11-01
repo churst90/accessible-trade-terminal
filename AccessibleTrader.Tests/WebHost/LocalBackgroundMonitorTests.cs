@@ -367,6 +367,27 @@ public class LocalBackgroundMonitorTests
     }
 
     /// <summary>
+    /// Failures are counted per CHART. Cody, 2026-10-31: his 24-minute BTCUSDT tab failed on
+    /// every poll, and every poll his 1-day tab on the same symbol succeeded a moment later. On
+    /// one counter per symbol that success reset the count, so the dead chart was never reported.
+    /// </summary>
+    [Fact]
+    public void A_dead_chart_is_reported_even_while_another_timeframe_on_its_symbol_works()
+    {
+        var monitor = Monitor(out var presenter);
+
+        for (int poll = 0; poll < 3; poll++)
+        {
+            monitor.NoteFeedFailure("BTCUSDT", "Bitstamp", "24m");
+            monitor.NoteFeedRecovered("BTCUSDT", "1d");
+        }
+
+        string said = Assert.Single(Stopped(presenter));
+        Assert.Contains("BTCUSDT 24m", said);
+        Assert.Empty(Resumed(presenter));
+    }
+
+    /// <summary>
     /// Recovery is spoken, but only when the failure was — this is the half the hosted monitor
     /// deliberately does not have. A user who heard "alerts on this symbol are not being
     /// watched" has no other way to learn they are live again; a user who heard nothing must

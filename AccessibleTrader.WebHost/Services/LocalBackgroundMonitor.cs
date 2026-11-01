@@ -286,7 +286,7 @@ namespace AccessibleTrader.WebHost.Services
 
                 var bars = await FetchAsync(provider, watch, limit);
                 if (bars == null) continue;
-                NoteFeedRecovered(watch.Symbol);
+                NoteFeedRecovered(watch.Symbol, watch.Timeframe);
                 if (bars.Count < 2) continue;
 
                 // The chart is OBSERVED on every poll — covered or not — so the ladder's memory
@@ -435,20 +435,22 @@ namespace AccessibleTrader.WebHost.Services
             Announce("Background monitoring is working again.");
         }
 
-        /// <summary>One fetch, with the dead-feed bookkeeping. Null on failure.</summary>
+        /// <summary>One fetch, with the dead-feed bookkeeping. Null on failure. A timeframe the
+        /// venue does not serve is built the way the chart builds it — see
+        /// <see cref="BackgroundBarFetch"/>.</summary>
         private async Task<List<Ohlcv>?> FetchAsync(IMarketDataProvider provider, Watch watch, int limit)
         {
             try
             {
-                var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
-                    watch.Market, watch.Symbol, watch.Timeframe, Limit: limit));
-                return ohlcv;
+                var resampler = _session.Services.GetService<IResamplerService>() ?? new ResamplerService();
+                return await BackgroundBarFetch.FetchAsync(
+                    provider, resampler, watch.Market, watch.Symbol, watch.Timeframe, limit);
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Background fetch failed for {Symbol} on {Provider}.",
-                    watch.Symbol, watch.Provider);
-                NoteFeedFailure(watch.Symbol, watch.Provider);
+                _logger.LogDebug(ex, "Background fetch failed for {Symbol} {Timeframe} on {Provider}.",
+                    watch.Symbol, watch.Timeframe, watch.Provider);
+                NoteFeedFailure(watch.Symbol, watch.Provider, watch.Timeframe);
                 return null;
             }
         }
@@ -468,29 +470,44 @@ namespace AccessibleTrader.WebHost.Services
         /// The escalation, the once-only latch and the reset — shared with
         /// <see cref="HostedAlertMonitor"/>, which used to carry its own copy of all three.
         /// Keyed on symbol alone: this monitor serves one desktop user.
+        ///
+        /// <para>Keyed per CHART (symbol and timeframe) when the caller knows the timeframe, which
+        /// the poll loop always does. Keyed on the symbol alone, a 24-minute tab whose every fetch
+        /// failed was reset to zero by the 1-day tab on the same symbol succeeding a moment later,
+        /// so it never reached the threshold and was never reported (Cody, 2026-10-31).</para>
         /// </summary>
         private readonly DeadFeedTracker<string> _deadFeeds = new(StringComparer.OrdinalIgnoreCase);
 
         /// <remarks>Internal rather than private so the escalation can be driven directly —
         /// the loop that calls it needs a provider, a data service and a settings store to
         /// reach, and an inline bound nobody can call is a bound nobody tests.</remarks>
-        internal void NoteFeedFailure(string symbol, string provider)
+        internal void NoteFeedFailure(string symbol, string provider, string? timeframe = null)
         {
-            if (_deadFeeds.NoteFailure(symbol) is not int n) return;
+            string chart = FeedKey(symbol, timeframe);
+            if (_deadFeeds.NoteFailure(chart) is not int n) return;
 
-            string text = $"Alert monitoring stopped for {symbol}: {provider} has failed "
-                        + $"{n} times in a row. Alerts on this symbol are not being watched.";
+            string text = timeframe == null
+                ? $"Alert monitoring stopped for {symbol}: {provider} has failed "
+                  + $"{n} times in a row. Alerts on this symbol are not being watched."
+                : $"Background monitoring stopped for {chart}: {provider} has failed "
+                  + $"{n} times in a row. Alerts, bar closes and narration on this chart are not being watched.";
             _logger.LogWarning("{Text}", text);
             Announce(text);
         }
 
-        internal void NoteFeedRecovered(string symbol)
+        private static string FeedKey(string symbol, string? timeframe)
+            => timeframe == null ? symbol : $"{symbol} {timeframe}";
+
+        internal void NoteFeedRecovered(string symbol, string? timeframe = null)
         {
-            if (!_deadFeeds.NoteRecovery(symbol)) return;
+            string chart = FeedKey(symbol, timeframe);
+            if (!_deadFeeds.NoteRecovery(chart)) return;
 
             // Recovery is worth saying too: a user who heard the failure has no other way to
             // learn that their alerts are live again, and would keep watching manually.
-            string text = $"Alert monitoring resumed for {symbol}.";
+            string text = timeframe == null
+                ? $"Alert monitoring resumed for {symbol}."
+                : $"Background monitoring resumed for {chart}.";
             _logger.LogInformation("{Text}", text);
             Announce(text);
         }

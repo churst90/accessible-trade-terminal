@@ -1,3 +1,9 @@
+> - [ ] **Browser closed: charts on a timeframe the venue lacks are watched again (2026-10-31, built, NOT seen; see CHANGES).**
+>   Cody's 24-minute BTCUSDT chart on Bitstamp was never fetched with the browser closed. Left: Cody restarts
+>   his terminal on this build, closes the browser, and checks that a bar-close notification arrives for the
+>   24-minute tab every 24 minutes, and the 4-hour and 1-day tabs when they close. Open, mine: the hosted
+>   monitor's dead-feed count is still per symbol; the earlier log showed one 1-hour close announced twice,
+>   four hours apart, with different opens (not looked into).
 > - [ ] **Texture only in the extreme zones (2026-10-31, built, NOT heard; see CHANGES).** Cody to arrow Cipher B's
 >   waves on a daily chart: no texture inside ±53, a soft pink noise from ±53 to ±60, the same noise louder past
 >   ±60; and RSI, clean from 30 to 70. Is 0.25 / 0.45 the right step between the two zones?
