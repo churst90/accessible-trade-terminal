@@ -445,6 +445,13 @@
                                @onchange="OnMagnetSnapChanged" />
                     </div>
                     <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing anchors snap to the nearest open, high, low or close instead of landing anywhere.</p>
+                    <div class="modal-row">
+                        <label for="s-swing-snap">Snap swing points to the wick</label>
+                        <input id="s-swing-snap" type="checkbox"
+                               checked="@_swingSnap"
+                               @onchange="OnSwingSnapChanged" />
+                    </div>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A fib, pitchfork or pattern point placed on a bar goes on that bar's low or high, whichever the swing needs: the first two points decide which is the low, then they alternate. Says "moved to" when a point moves.</p>
 
                 </fieldset>
 
@@ -1335,6 +1342,7 @@
         new("Describe candle patterns", "General", "s-candle-patterns", "engulfing harami doji hammer bar close forming narration speech"),
         new("Describe chart patterns", "General", "s-chart-patterns", "formation double top triangle head shoulders flag narration new bar playback speech"),
         new("Magnet snap", "General", "s-magnet-snap", "drawing anchors snap open high low close"),
+        new("Snap swing points to the wick", "General", "s-swing-snap", "drawing fibonacci pattern anchor low high wick swing snap"),
         new("Panning step", "General", "s-granularity", "step scroll viewport granularity"),
         new("Chart speech and narration", "Speech", "s-speech-enabled", "voice talk announce tts mute f2 narration"),
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
@@ -1680,6 +1688,7 @@
     private bool _tickOtherSignals;
     private bool _speakOtherSignals;
     private bool _magnetSnap;
+    private bool _swingSnap = true;
     private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
     private string _speechOrder = "HeaderValue";
@@ -1695,6 +1704,9 @@
 
     private void OnMagnetSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _magnetSnap = e.Value is bool b && b;
+
+    private void OnSwingSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
+        _swingSnap = e.Value is bool b && b;
 
     // Both of these were honoured by SpeechFormatter and had no control anywhere — real
     // behaviour with no way to reach it, which the settings-wiring audit is built to catch.
@@ -2000,6 +2012,7 @@
         _tickOtherSignals = App.TickOtherSignalsWhileArrowing;
         _speakOtherSignals = App.SpeakOtherSignalsWhileArrowing;
         _magnetSnap = App.MagnetSnap;
+        _swingSnap = App.SwingSnap;
         _marketStructureDefault = App.MarketStructureOnByDefault;
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
@@ -2256,6 +2269,7 @@
         App.TickOtherSignalsWhileArrowing = _tickOtherSignals;
         App.SpeakOtherSignalsWhileArrowing = _speakOtherSignals;
         App.MagnetSnap              = _magnetSnap;
+        App.SwingSnap               = _swingSnap;
         App.MarketStructureOnByDefault = _marketStructureDefault;
         App.SoundTheme              = _soundTheme;
         App.TouchNavBarMode         = _touchNavMode;

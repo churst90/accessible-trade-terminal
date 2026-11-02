@@ -536,7 +536,11 @@ window.accessibleTrader = {
             const isAltGr = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph') === true;
             const isModified = (e.ctrlKey || e.altKey) && !isAltGr;
             const isShifted = e.shiftKey;
-            const isTrapped = trappedKeys.includes(e.key);
+            // A bare Enter on the chart places the next point of a drawing in progress. Only on
+            // the chart: everywhere else Enter activates the button or submits the field it is
+            // on, and trapping it would break every one of them. Shift+Enter is left as it was.
+            const isChartEnter = e.key === 'Enter' && self._chartFocused && !e.shiftKey;
+            const isTrapped = trappedKeys.includes(e.key) || isChartEnter;
 
             if (!isTrapped && !isModified) return;
 

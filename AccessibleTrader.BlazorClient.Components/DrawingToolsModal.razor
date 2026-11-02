@@ -1,6 +1,7 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Core.Services.Drawing
 @implements IDisposable
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
@@ -12,20 +13,40 @@
              role="dialog" data-modal-name="Drawing tools"
              aria-modal="true"
              aria-labelledby="drawing-tools-title"
+             aria-describedby="drawing-tools-help"
              @onclick:stopPropagation="true">
 
             <h2 id="drawing-tools-title" tabindex="-1">Drawing Tools</h2>
 
-            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
-                @foreach (var tool in _tools)
-                {
-                    <button class="object-tree-item"
-                            @onclick="() => SelectTool(tool.Key)"
-                            aria-label="Select @tool.Value">
-                        @tool.Value
-                    </button>
-                }
-            </div>
+            <p id="drawing-tools-help" style="margin: 8px 0 0; color: var(--text-muted);">
+                The tool's first point goes on the bar you were on. Then move to each next point and press Enter. Escape cancels.
+            </p>
+
+            @foreach (var group in DrawingToolCatalog.Groups)
+            {
+                var headingId = "drawing-tools-group-" + group.Name.Replace(' ', '-').ToLowerInvariant();
+                <section role="group" aria-labelledby="@headingId" style="margin-top: 16px;">
+                    <h3 id="@headingId" style="margin: 0 0 6px; font-size: 1em;">@group.Name</h3>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        @foreach (var tool in group.Tools)
+                        {
+                            var hintId = "drawing-tool-hint-" + tool.Key;
+                            @* The button's name is the tool's name and its point count, the words
+                               it shows first; the hint is its description, so a screen reader says
+                               the name, then the line after a pause, and never the hint twice. The
+                               old "Select Trend Line" names put a verb in front of every one. *@
+                            <button class="object-tree-item"
+                                    @onclick="() => SelectTool(tool.Key)"
+                                    aria-label="@($"{tool.Name}, {PointsText(tool.Points)}")"
+                                    aria-describedby="@hintId"
+                                    style="text-align: left;">
+                                @tool.Name, @PointsText(tool.Points)
+                                <span id="@hintId" aria-hidden="true" style="display: block; font-weight: normal; color: var(--text-muted); font-size: 0.9em;">@tool.Hint</span>
+                            </button>
+                        }
+                    </div>
+                </section>
+            }
 
             <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
                 <button @onclick="Close" aria-label="Close drawing tools dialog">Close</button>
@@ -39,20 +60,7 @@
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;
 
-    private readonly Dictionary<string, string> _tools = new()
-    {
-        { "TrendLine", "Trend Line" },
-        { "Horizontal", "Horizontal Line" },
-        { "Vertical", "Vertical Line" },
-        { "Channel", "Parallel Channel" },
-        { "FibRetracement", "Fibonacci Retracement" },
-        { "FibExtension", "Fibonacci Extension" },
-        { "Pitchfork", "Andrews Pitchfork" },
-        { "Rectangle", "Rectangle" },
-        { "TextLabel", "Text Label" },
-        { "AnchoredVwap", "Anchored VWAP" },
-        { "Measure", "Measure Tool" }
-    };
+    private static string PointsText(int n) => n == 1 ? "1 point" : $"{n} points";
 
     protected override void OnInitialized()
     {

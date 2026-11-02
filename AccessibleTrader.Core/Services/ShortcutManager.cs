@@ -490,10 +490,11 @@ namespace AccessibleTrader.Core.Services
             // OR closes the topmost open modal — CommandDispatcher re-routes Escape to
             // CloseModal whenever _openModalCount > 0.
             s.Add(new(SystemCommand.CancelDrawing,  "ESCAPE"));
-            // NOTE: There is no Enter/Return binding for drawing. Anchors are set by
-            // re-pressing the same tool shortcut (e.g. Alt+Shift+T) at each point — the
-            // DrawingInteractionManager state machine advances one anchor per press.
-            // ConfirmCoordinateEntry is reserved/unused (no handler in CommandDispatcher).
+            // Enter places the next point of a drawing in progress (2026-11-01). Re-pressing the
+            // tool's own shortcut at each point still works, but the tools chosen from Drawing
+            // Tools (Alt+D) have no shortcut, so without Enter they could not be placed by
+            // keyboard at all. keyboard.js forwards a bare Enter only while the chart has focus.
+            s.Add(new(SystemCommand.ConfirmCoordinateEntry, "ENTER"));
             // Application/Menu key + Shift+F10: open the right-click context menu on
             // the focused drawing — keyboard parity with mouse right-click.
             s.Add(new(SystemCommand.OpenDrawingContextMenu, "CONTEXTMENU"));

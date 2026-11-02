@@ -111,28 +111,27 @@
             <details style="margin-bottom:12px;">
                 <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Drawing Tools Workflow</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
-                    <p>All drawing tools use <strong>Sequential Anchoring</strong> — navigate to each point and press the shortcut. No holding keys required.</p>
+                    <p>Move to the bar of the first point, then choose the tool, from <strong>Drawing Tools</strong> (<kbd>Alt+D</kbd>, every tool, in five groups) or by its shortcut: that places the first point. Move to each next point and press <kbd>Enter</kbd> (pressing the tool's shortcut again does the same). Each point is said with its price and time, and the speech names the next point to go to.</p>
 
-                    <p><strong>Trendline (Alt+Shift+T) — 2 anchors:</strong></p>
+                    <p><strong>Trend line — 2 points:</strong></p>
                     <ol style="margin:2px 0 8px 1.2em;">
-                        <li>Navigate to the start point. Press <kbd>Alt+Shift+T</kbd>. Speech: "Anchor 1 set."</li>
-                        <li>Navigate to the end point. Press <kbd>Alt+Shift+T</kbd>. The line is drawn.</li>
+                        <li>Move to the start point and press <kbd>Alt+Shift+T</kbd>.</li>
+                        <li>Move to the end point and press <kbd>Enter</kbd>. The line is drawn, and goes on to the right like TradingView's ray; Properties can extend it left or stop it at the second point.</li>
                     </ol>
 
-                    <p><strong>Fibonacci Retracement (Alt+Shift+F) — 2 anchors:</strong></p>
+                    <p><strong>Fibonacci retracement — 2 points, like TradingView:</strong></p>
                     <ol style="margin:2px 0 8px 1.2em;">
-                        <li>Navigate to the swing High. Press <kbd>Alt+Shift+F</kbd>.</li>
-                        <li>Navigate to the swing Low. Press <kbd>Alt+Shift+F</kbd>. Levels are drawn.</li>
+                        <li>Move to the swing's start — for a pullback in an uptrend, the swing low — and choose Fib retracement.</li>
+                        <li>Move to the swing's end — the high — and press <kbd>Enter</kbd>. 0% is at the swing end and 100% at the start, so the 61.8% line is where a 61.8% pullback stops. The 38.2, 50 and 61.8% prices are said, and how far price has pulled back since.</li>
                     </ol>
 
-                    <p><strong>Risk/Reward Tool — 3 anchors:</strong></p>
-                    <ol style="margin:2px 0 8px 1.2em;">
-                        <li>Navigate to <strong>Entry</strong> price. Press the Risk/Reward shortcut. Speech: "Anchor 1 set."</li>
-                        <li>Navigate to <strong>Stop Loss</strong> level. Press again. Speech: "Entry set. Navigate to take profit."</li>
-                        <li>Navigate to <strong>Target</strong>. Press again. Speech announces your Risk-to-Reward ratio.</li>
-                    </ol>
+                    <p><strong>Fibonacci extension (trend-based) — 3 points:</strong> swing start, swing end, then the <strong>pullback</strong>: after a swing up, the lowest low before price makes a new high (the mirror after a swing down). After the second point the pullback is found for you and said with its price, date, how many bars right of the swing end it is and how deep it went, so you can arrow there and press Enter.</p>
 
-                    <p><strong>Anchored VWAP:</strong> Navigate to the anchor candle (e.g., a high-volume spike or news event). Press the AVWAP shortcut. A VWAP line projects forward from that point and can be navigated like any indicator.</p>
+                    <p><strong>Patterns</strong> (ABCD, XABCD, head and shoulders, triangle, Elliott impulse): place each swing point in order, left to right. With "Snap swing points to the wick" on (Settings, F12), a point goes on its bar's low or high. When the last point is placed you hear what the points make: the harmonic they fit, or which rule they break and by how much.</p>
+
+                    <p><strong>Risk/reward — 3 points:</strong> entry, stop loss, take profit. The ratio is said when the third is placed.</p>
+
+                    <p><strong>Anchored VWAP:</strong> Navigate to the anchor candle (e.g., a high-volume spike or news event) and press <kbd>Alt+Shift+W</kbd>. A VWAP line projects forward from that point and can be navigated like any indicator.</p>
 
                     <p>Press <kbd>Escape</kbd> at any time to cancel an in-progress drawing.</p>
 
@@ -428,7 +427,7 @@
                         <tr><td>Alt+Shift+A</td><td>Draw Andrews' Pitchfork (3 anchors)</td></tr>
                         <tr><td>Alt+Shift+G</td><td>Draw Gann Fan (2 anchors)</td></tr>
                         <tr><td>Alt+Shift+B</td><td>Draw Gann Box (2 anchors)</td></tr>
-                        <tr><td>Alt+Shift+P</td><td>Draw Risk/Reward zone (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+P</td><td>Draw Risk/Reward zone (3 anchors)</td></tr>
                         <tr><td>Alt+Shift+W</td><td>Draw Anchored VWAP (1 anchor)</td></tr>
                         <tr><td>Shift+Left / Shift+Right</td><td>Nudge the focused drawing's selected anchor one bar earlier / later</td></tr>
                         <tr><td>Shift+Up / Shift+Down</td><td>Nudge the selected anchor's price up / down by 1% of the visible range</td></tr>
@@ -436,6 +435,8 @@
                         <tr><td>Ctrl+Alt+Shift+B</td><td>Snap the selected anchor to its bar's high, low, open or close (repeat to cycle)</td></tr>
                         <tr><td>Alt+Shift+M</td><td>Measure tool — reads distance and % change (2 anchors)</td></tr>
                         <tr><td>Alt+Shift+L</td><td>Draw text label</td></tr>
+                        <tr><td>Alt+D</td><td>Drawing Tools: every tool, grouped</td></tr>
+                        <tr><td>Enter</td><td>Place the next point of the drawing in progress (on the chart)</td></tr>
                         <tr><td>Escape</td><td>Cancel drawing in progress</td></tr>
                     </tbody>
                 </table>

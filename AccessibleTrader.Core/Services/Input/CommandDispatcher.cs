@@ -738,6 +738,16 @@ namespace AccessibleTrader.Core.Services.Input
                     _eventBus.Publish(new CancelDrawingEvent());
                     break;
 
+                // Enter on the chart: place the next point of the drawing in progress, at the
+                // cursor's bar. Before 2026-11-01 a point was placed only by pressing the tool's
+                // own shortcut again, which the tools chosen from Drawing Tools (Alt+D) do not
+                // have — so the pattern tools could be chosen and never placed by keyboard.
+                // Chart-scoped, and keyboard.js only forwards a bare Enter while the chart has
+                // focus, so Enter on a button or in a field is untouched.
+                case SystemCommand.ConfirmCoordinateEntry:
+                    _eventBus.Publish(new PlaceDrawingAnchorEvent());
+                    break;
+
                 // Ctrl+Shift+D: detailed candle pattern analysis at the current cursor position.
                 case SystemCommand.DetailedPointSummary:
                 {

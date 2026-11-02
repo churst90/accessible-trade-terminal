@@ -158,7 +158,7 @@ namespace AccessibleTrader.Core.Models
         // Detail / Drawing
         DetailedPointSummary, // Alt+Shift+D: speak full candle pattern analysis
         CancelDrawing,        // Escape (no modal): cancel an in-progress drawing placement
-        ConfirmCoordinateEntry, // RESERVED / unused: drawings are placed by re-pressing the tool shortcut at each anchor (see DrawingInteractionManager). No default key binding and no dispatch handler; kept for profile/back-compat only.
+        ConfirmCoordinateEntry, // Enter on the chart: place the next point of the drawing in progress (2026-11-01; was reserved and unbound). Re-pressing the tool's shortcut still works too.
         OpenDrawingContextMenu, // ContextMenu key / Shift+F10: open the drawing context menu on the focused drawing
         CloseModal,           // Escape (modal open): close the topmost open modal
 

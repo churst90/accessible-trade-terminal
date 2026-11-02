@@ -224,6 +224,7 @@ namespace AccessibleTrader.Tests
             {
                 "App.HoverSonification",
                 "App.MagnetSnap",
+                "App.SwingSnap",
                 "App.MarketStructureOnByDefault",
                 "App.SoundTheme",
                 "App.TouchNavBarMode",
@@ -262,7 +263,7 @@ namespace AccessibleTrader.Tests
 
             foreach (var field in new[]
             {
-                "_hoverSonification", "_magnetSnap", "_marketStructureDefault", "_soundTheme",
+                "_hoverSonification", "_magnetSnap", "_swingSnap", "_marketStructureDefault", "_soundTheme",
                 "_touchNavMode", "_bgMonitoring", "_bgPollSeconds", "_liveBgTabs", "_resumeSession",
                 "_speechEnabled", "_sonificationEnabled", "_panningGranularity",
                 "_showPatternVisuals", "_visualEarcons", "_colorVisionSafe", "_hollowUpCandles",
