@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Services.Audio;
+using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Drawing
@@ -23,6 +24,117 @@ namespace AccessibleTrader.Core.Services.Drawing
         /// heard nor stopped at: hiding one says you are not interested in it.</summary>
         public static bool IsCrossable(ChartSeries series)
             => series.IsVisible && series.Drawing is { Type: DrawingType.HorizontalLine or DrawingType.VerticalLine };
+
+        /// <summary>
+        /// The drawings with lines price can cross, other than the horizontal and vertical line:
+        /// a fib's levels, a channel's and a pitchfork's three lines, risk/reward's entry, stop and
+        /// target, the anchored VWAP, a head and shoulders' neckline and a triangle's two sides —
+        /// and the trend line, for the earcon (Ctrl+Left/Right has walked trend lines on its own
+        /// since before this).
+        ///
+        /// <para>
+        /// Cody, 2026-11-01: <i>"yes i want the fib levels narrated."</i> Only horizontal and
+        /// vertical lines chirped, and a focused fib answered Ctrl+Right with "No points of
+        /// interest". A pattern's legs are not here: they join the points placed, and price
+        /// crossing a leg means nothing.
+        /// </para>
+        /// </summary>
+        public static bool HasPriceLines(ChartSeries series)
+            => series.IsVisible && series.Drawing?.Type is DrawingType.TrendLine
+                or DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.Channel
+                or DrawingType.AndrewsPitchfork or DrawingType.RiskReward or DrawingType.AnchoredVwap
+                or DrawingType.HeadAndShoulders or DrawingType.TrianglePattern;
+
+        /// <summary>One crossable line of a drawing: what it is called when crossed, its value on
+        /// each bar (NaN where it is not drawn), and the first bar a crossing can be on.</summary>
+        public sealed record PriceLine(string Name, double[] Values, int From);
+
+        /// <summary>
+        /// The lines of <paramref name="series"/> price can cross, read from what its calculator
+        /// drew, so a cross is heard where the line is drawn. Parts switched off are left out.
+        ///
+        /// <para>
+        /// A fib's levels, risk/reward's lines and a pattern's neckline or sides are crossed only
+        /// after the drawing's last point: they are drawn across the whole chart, and price going
+        /// through the 61.8% level a year before the swing it measures is not news about that
+        /// swing. A trend line is the line through its two points, without end, as
+        /// Ctrl+Left/Right has always read it.
+        /// </para>
+        /// </summary>
+        public static IEnumerable<PriceLine> PriceLines(ChartSeries series, IReadOnlyList<Ohlcv> data)
+        {
+            if (!HasPriceLines(series)) yield break;
+            var d = series.Drawing!;
+
+            if (d.Type == DrawingType.TrendLine)
+            {
+                if (TrendLineValues(d, data) is double[] line) yield return new PriceLine("trend line", line, 1);
+                yield break;
+            }
+
+            int from = d.Type is DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.RiskReward
+                    or DrawingType.HeadAndShoulders or DrawingType.TrianglePattern
+                ? LastAnchorBar(d, data) + 1 : 1;
+            foreach (var comp in series.Components)
+            {
+                if (!comp.IsVisible) continue;
+                if (d.Type == DrawingType.HeadAndShoulders && comp.Name != HeadAndShouldersCalculator.Neckline) continue;
+                if (d.Type == DrawingType.TrianglePattern
+                    && comp.Name is not (TrianglePatternCalculator.Upper or TrianglePatternCalculator.Lower)) continue;
+                var values = series.GetComponentData(comp.Name);
+                if (values.Length == 0) continue;
+                yield return new PriceLine(SpokenName(d.Type, comp.Name), values, Math.Max(1, from));
+            }
+        }
+
+        /// <summary>What a crossed line is called: "61.8% level", "stop loss", "neckline".</summary>
+        internal static string SpokenName(DrawingType type, string key)
+            => type is DrawingType.FibRetracement or DrawingType.FibExtension && FibLevels.LevelOf(key) is double level
+                ? $"{FibLevels.Name(level)} {(type == DrawingType.FibExtension ? "extension" : "level")}"
+             : key == "AVWAP" ? "anchored VWAP"
+             : type == DrawingType.Channel ? $"channel {key.ToLowerInvariant()}"
+             : type == DrawingType.AndrewsPitchfork ? $"pitchfork {key.ToLowerInvariant()}"
+             : key.ToLowerInvariant();
+
+        /// <summary>Which way the close crossed <paramref name="line"/> arriving at bar
+        /// <paramref name="index"/>: +1, −1 or 0. The rule <see cref="LevelCross.Direction"/>
+        /// uses, against the line's value on each of the two bars.</summary>
+        public static int CrossAt(IReadOnlyList<Ohlcv> data, PriceLine line, int index)
+        {
+            if (index < line.From || index < 1 || index >= data.Count || index >= line.Values.Length) return 0;
+            double before = line.Values[index - 1], now = line.Values[index];
+            if (!double.IsFinite(before) || !double.IsFinite(now)) return 0;
+            double previous = data[index - 1].Close, current = data[index].Close;
+            if (previous < before && current >= now) return 1;
+            if (previous >= before && current < now) return -1;
+            return 0;
+        }
+
+        /// <summary>The bar of the drawing's last point (the latest of its anchors), or −1.</summary>
+        internal static int LastAnchorBar(DrawingData d, IReadOnlyList<Ohlcv> data)
+        {
+            int last = -1;
+            for (int slot = 1; slot <= 6; slot++)
+                if (d.GetAnchorDate(slot) is DateTime at && data.Count > 0)
+                    last = Math.Max(last, DrawingCalculatorHelper.ResolveAnchorIndex(data, at));
+            return last;
+        }
+
+        /// <summary>The trend line through its two points on every bar — the line
+        /// Ctrl+Left/Right walks (<c>IndicatorCrossingEngine</c>) — or null.</summary>
+        private static double[]? TrendLineValues(DrawingData d, IReadOnlyList<Ohlcv> data)
+        {
+            if (d.AnchorDate1 is not DateTime d1 || d.AnchorDate2 is not DateTime d2
+                || d.AnchorPrice1 is not double p1 || d.AnchorPrice2 is not double p2) return null;
+            int i1 = -1, i2 = -1;
+            for (int k = 0; k < data.Count; k++) { if (data[k].Date >= d1) { i1 = k; break; } }
+            for (int k = 0; k < data.Count; k++) { if (data[k].Date >= d2) { i2 = k; break; } }
+            if (i1 < 0 || i2 < 0 || i1 == i2) return null;
+            double m = (p2 - p1) / (i2 - i1), b = p1 - m * i1;
+            var values = new double[data.Count];
+            for (int i = 0; i < values.Length; i++) values[i] = m * i + b;
+            return values;
+        }
 
         /// <summary>The horizontal line's price, or null for anything else.</summary>
         public static double? HorizontalPrice(ChartSeries series)

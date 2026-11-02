@@ -73,6 +73,20 @@ namespace AccessibleTrader.Core.Services.Input
                 return;
             }
 
+            // A focused fib, channel, pitchfork, risk/reward, anchored VWAP or pattern: walk price
+            // across its lines — every level of a fib, nearest first — by the rule the crossing
+            // earcon uses. A focused fib used to answer "No points of interest".
+            if (focusedSeries != null && focusedSeries.Drawing?.Type != DrawingType.TrendLine
+                && LineDrawingCrossings.HasPriceLines(focusedSeries))
+            {
+                var stops = new List<(int Index, string Message)>();
+                AddPriceLineStops(stops, data, current, jumpRight, focusedSeries);
+                if (!AnnounceNearest(state, stops, jumpRight))
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary,
+                        $"No crossing against focused {focusedSeries.FriendlyName}"));
+                return;
+            }
+
             if (focusedSeries != null && state.FocusedComponentIndex >= 0
                 && state.FocusedComponentIndex < focusedSeries.Components.Count)
             {
@@ -597,7 +611,8 @@ namespace AccessibleTrader.Core.Services.Input
         {
             var lines = state.ActiveSeries
                 .Where(s => s.IsVisible
-                         && s.Drawing?.Type is DrawingType.TrendLine or DrawingType.HorizontalLine or DrawingType.VerticalLine)
+                         && (s.Drawing?.Type is DrawingType.TrendLine or DrawingType.HorizontalLine or DrawingType.VerticalLine
+                             || LineDrawingCrossings.HasPriceLines(s)))
                 .ToList();
 
             if (!lines.Any())
@@ -613,6 +628,12 @@ namespace AccessibleTrader.Core.Services.Input
                 if (LineDrawingCrossings.HorizontalPrice(series) is double price)
                 {
                     AddHorizontalStops(stops, data, current, jumpRight, price);
+                    continue;
+                }
+
+                if (series.Drawing!.Type != DrawingType.TrendLine && LineDrawingCrossings.HasPriceLines(series))
+                {
+                    AddPriceLineStops(stops, data, current, jumpRight, series);
                     continue;
                 }
 
@@ -667,6 +688,22 @@ namespace AccessibleTrader.Core.Services.Input
                 stops.Add((i, $"Price crosses {(dir > 0 ? "above" : "below")} horizontal line at {SpeechPriceFormatter.FormatPrice(price)}"));
                 return;
             }
+        }
+
+        /// <summary>For each of the drawing's lines, the nearest bar in the direction of travel where
+        /// the close crosses it: "Price crosses above 61.8% level at 101.20".</summary>
+        private static void AddPriceLineStops(List<(int Index, string Message)> stops,
+            System.Collections.Generic.IReadOnlyList<Ohlcv> data, int current, bool jumpRight, ChartSeries series)
+        {
+            int step = jumpRight ? 1 : -1;
+            foreach (var line in LineDrawingCrossings.PriceLines(series, data))
+                for (int i = current + step; i >= 1 && i < data.Count; i += step)
+                {
+                    int dir = LineDrawingCrossings.CrossAt(data, line, i);
+                    if (dir == 0) continue;
+                    stops.Add((i, $"Price crosses {(dir > 0 ? "above" : "below")} {line.Name} at {SpeechPriceFormatter.FormatPrice(line.Values[i])}"));
+                    break;
+                }
         }
 
         /// <summary>Moves to the nearest stop and says what is there — every line crossed on that

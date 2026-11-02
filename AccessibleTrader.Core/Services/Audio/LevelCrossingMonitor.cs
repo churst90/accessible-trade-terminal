@@ -199,7 +199,19 @@ namespace AccessibleTrader.Core.Services.Audio
             bool heikinAshi = state.IsHeikinAshi && state.FocusedSeriesId != CoreSeriesIds.Price;
             foreach (var series in state.ActiveSeries)
             {
-                if (!LineDrawingCrossings.IsCrossable(series) || series.IsMuted) continue;
+                if (series.IsMuted) continue;
+                if (LineDrawingCrossings.HasPriceLines(series))
+                {
+                    // Every other line a drawing draws — a fib's levels, a channel, a neckline —
+                    // by the same rule, against the line's value on each bar (Cody, 2026-11-01:
+                    // "yes i want the fib levels narrated").
+                    drawn ??= ChartMath.SeriesAsDrawn(state.Data!, heikinAshi);
+                    foreach (var line in LineDrawingCrossings.PriceLines(series, drawn))
+                        if ((direction = LineDrawingCrossings.CrossAt(drawn, line, idx)) != 0) break;
+                    if (direction != 0) break;
+                    continue;
+                }
+                if (!LineDrawingCrossings.IsCrossable(series)) continue;
 
                 if (LineDrawingCrossings.HorizontalPrice(series) is double price)
                     direction = LineDrawingCrossings.HorizontalCrossAt(
