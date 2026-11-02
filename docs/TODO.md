@@ -1,3 +1,10 @@
+> - [ ] **A bar close is spoken close → narration ladder → new bar's open, on every route; Shift+Enter places an
+>   armed quick trade as a limit (2026-11-02, built, NOT heard or tried; see CHANGES).** Cody to listen to a
+>   focused close, a background tab's close and a browser-closed close: the ladder should now come before
+>   "New bar: open". Shift+Enter: arm a quick trade on PAPER, Shift+Enter, and check that a limit order was
+>   placed. Open, mine: the focused chart's notification (window hidden) has no ladder; with two browser
+>   windows open at once on different tabs, the browser-closed monitor watches only the one that saved last
+>   (not tried; one window, the usual case, was checked against the 2026-11-01 overnight log: fine).
 > - [ ] **Cipher DBSI = the study's zu_hs66e, ported bit for bit (2026-11-02, Cody: "please do commit the latest
 >   version of dbsi"; NOT seen or heard; see CHANGES).** The ten veto sets are 99.99% exact, the blind sets
 >   99.97%, and the held-out sets 100%. Cody to look at Bitcoin daily and 1h Heikin-Ashi against DBSI. Still open
@@ -16,11 +23,8 @@
 >   screen; the 12-hour axis labels are wider and not seen; the mouse half-bar fix also moved the hover readout
 >   and hairline at the chart's edges; an alert on a drawn level stays at its price if the drawing is moved;
 >   sloped lines are not offered as alert lines.
->   **UNVERIFIED, not touched (money path):** Shift+Enter (quick trade, limit at the cursor bar) looks never to
->   be forwarded by `keyboard.js`, which forwards a bare Enter only; nobody has pressed it to see.
->   Offers for Cody, not built: (1) the browser-closed monitor reads only the newest `__last-session__*` slot
->   (`LocalBackgroundMonitor.LoadLastSession`), which may be why only some workspaces announce; (2) an option to
->   speak a bar's CLOSE time instead of its open (TradingView labels bars by their open, as this does).
+>   Offer for Cody, not built: an option to speak a bar's CLOSE time instead of its open (TradingView labels
+>   bars by their open, as this does).
 > - [ ] **Browser closed: a bar close is said once, with its real open, when Bitstamp answers mid-update (2026-11-01, built, NOT heard; see CHANGES).**
 >   Bitstamp's list in the first seconds after a close can lack the bar that just closed, or carry a
 >   zero-volume placeholder at a stale price. That is where the doubled "1h: close 77401.41 at 07:00" and the

@@ -280,6 +280,32 @@ namespace AccessibleTrader.Tests
             Assert.Contains("New bar: open", s);
         }
 
+        /// <summary>Cody, 2026-11-02: "when a bar closes, I should hear the close and the
+        /// indicator narration ladder. Then the open of the newest bar should be read as well."
+        /// The ladder trailed the open until then, so what the indicators said about the bar that
+        /// closed was heard after the next bar had been named.</summary>
+        [Fact]
+        public void TheLadder_isSpokenBetweenTheCloseAndTheOpen()
+        {
+            const string ladder = "Volume: well above average.";
+            string open = $"New bar: open {SpeechPriceFormatter.FormatPrice(205)}.";
+
+            string s = BackgroundBarAnnouncer.BackgroundSentence(
+                Id("ETH/USD", "1h"), Bar(1, 200), Bar(2, 205), ladder);
+            Assert.StartsWith("ETH/USD 1h: close ", s);
+            Assert.EndsWith(" " + ladder + " " + open, s);
+
+            // The notification body says the same three things in the same order.
+            string body = DesktopNotificationService.NewBarBody(3600, Bar(1, 200), Bar(2, 205), ladder);
+            Assert.StartsWith("Close ", body);
+            Assert.EndsWith(" " + ladder + " " + open, body);
+
+            // And with nothing on the ladder, the close and the open alone.
+            Assert.EndsWith(". " + open, BackgroundBarAnnouncer.BackgroundSentence(
+                Id("ETH/USD", "1h"), Bar(1, 200), Bar(2, 205), ladder: null));
+            Assert.EndsWith(". " + open, DesktopNotificationService.NewBarBody(3600, Bar(1, 200), Bar(2, 205)));
+        }
+
         [Fact]
         public void ADailyBar_isStampedWithADate_notAClockTime()
         {
@@ -372,6 +398,13 @@ namespace AccessibleTrader.Tests
             Assert.Contains("ETH/USD", one, StringComparison.Ordinal);
             Assert.Contains("close ", one, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Volume", one, StringComparison.OrdinalIgnoreCase);
+
+            // In the order Cody asked for on 2026-11-02: the close, the ladder, then the open.
+            int close = one.IndexOf("close ", StringComparison.Ordinal);
+            int ladder = one.IndexOf("Volume", StringComparison.OrdinalIgnoreCase);
+            int open = one.IndexOf("New bar: open", StringComparison.Ordinal);
+            Assert.True(close >= 0 && close < ladder && ladder < open,
+                $"close, ladder, open in that order: {one}");
         }
 
         /// <summary>

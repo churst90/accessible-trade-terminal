@@ -668,11 +668,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // The narrator is the one that can compose, because it speaks LAST: the indicator
             // values for the closed bar are not recalculated until after this event. So the
             // sentence is handed over when a scan is coming and spoken here when it is not.
-            string sentence = $"{closedMsg} {outcomes}{openMsg}";
+            //
+            // The order is the bar that closed, everything about it, and only then the bar that
+            // opened (Cody, 2026-11-02: "when a bar closes, I should hear the close and the
+            // indicator narration ladder. Then the open of the newest bar should be read as
+            // well"). The narrator puts its findings between the two halves.
+            string closing = $"{closedMsg} {outcomes}".TrimEnd();
             if (_autoNarration.WillNarrateBarClose())
-                _autoNarration.DeferBarCloseSentence(sentence);
+                _autoNarration.DeferBarCloseSentence(closing, openMsg);
             else
-                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);
+                _speechRouter.Speak($"{closing} {openMsg}", interrupt: false, channel: SpeechChannel.Narration);
 
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;

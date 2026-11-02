@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **A bar close is read in the order it happened.** The close, then what your indicators said about that bar,
+  then the new bar's open. Before, the open came before the indicators. The same order applies on the focused
+  chart, background tabs, with the browser closed, and in notifications. Not yet heard.
+- **Shift+Enter places an armed quick trade as a limit order.** In the browser it did nothing before; Ctrl+Enter
+  (market) always worked. Try it on paper first.
 - **Cipher DBSI now prints Market Cipher DBSI's own number on all but a handful of candles.** On the ten
   charts used to check every rule it is exact on 37,132 of 37,136 candles (was 98.5%), and on charts never used
   to choose a rule on 33,097 of 33,108. Old stocks and commodities with long runs of flat candles still miss

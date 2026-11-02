@@ -2,6 +2,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Analysis;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 
@@ -111,6 +112,14 @@ public sealed class NewBarNarrationTests
         CompletedAtIndex: state == ChartPatternState.Completed ? bar : null,
         ExpiresAtIndex: bar,
         BreaksBelow: true, MeasuredTarget: 130);
+
+    /// <summary>A narrator that will speak this close, recording the halves it is handed.</summary>
+    private sealed class DeferringNarration : IAutoNarrationService
+    {
+        public (string First, string? Last)? Deferred;
+        public bool WillNarrateBarClose() => true;
+        public void DeferBarCloseSentence(string sentence, string? last = null) => Deferred = (sentence, last);
+    }
 
     private static void CloseBar(SpyEventBus bus) =>
         bus.Publish(new NewBarEvent(Bars[^2], Bars[^1]));   // bar 98 closed, bar 99 opened
@@ -261,6 +270,48 @@ public sealed class NewBarNarrationTests
 
         string said = Assert.Single(spoken);
         Assert.Contains("Double top ends on this close without confirming — the neckline at 150.00 held.", said);
+    }
+
+    /// <summary>
+    /// When the narrator will speak this bar close, the coordinator hands it the close as the
+    /// first half and the new bar's open as the last, so the narration ladder lands between them
+    /// (Cody, 2026-11-02: "I should hear the close and the indicator narration ladder. Then the
+    /// open of the newest bar"). It used to hand over one sentence ending in the open, and the
+    /// ladder was spoken after it.
+    /// </summary>
+    [Fact]
+    public void WhenTheNarratorSpeaksTheClose_TheOpenIsHandedOverToGoLast()
+    {
+        var store = new MockWorkspaceStore();
+        var bus = new SpyEventBus();
+        var speech = new CounterSpeechManager();
+        var spoken = new List<string>();
+        speech.OnSpeak = t => spoken.Add(t);
+        var formatter = new SpeechFormatter();
+        var router = new SpeechFeedbackRouter(speech, formatter, store);
+        var narrator = new DeferringNarration();
+
+        _ = new AccessibilityFeedbackCoordinator(
+            store, new NavigationFeedbackManager(router, formatter), router,
+            new AudioFeedbackRouter(new MockNavigationSonifier(), new MockEarconService()),
+            formatter, bus, new MockEarconService(), new RecordingAnalyzer(),
+            new FixedPatterns(ResolvingAt(98, ChartPatternState.Completed)), new ChartPatternFocus(), narrator);
+        store.EmitState(WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(Bars.ToArray()),
+            CurrentDataIndex = Bars.Count - 1,
+            Identity = new ChartIdentity("Spot", "Test", "BTC/USD", "1d"),
+            AnnounceNewBars = true,
+            DescribeChartPatterns = true,
+        });
+
+        CloseBar(bus);
+
+        Assert.Empty(spoken);   // the narrator speaks it, once, with its findings
+        var (first, last) = narrator.Deferred!.Value;
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: downward breakout, "
+                   + "closed below the neckline at 150.00, measured target 130.00.", first);
+        Assert.Equal("New bar: Open 199.00", last);
     }
 
     [Fact]

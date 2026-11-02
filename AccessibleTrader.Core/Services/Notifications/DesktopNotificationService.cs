@@ -200,10 +200,10 @@ namespace AccessibleTrader.Core.Services.Notifications
             var state = _store.State;
             if (state.IsPlaying) return;
             // The close as drawn — Heikin-Ashi on a Heikin-Ashi chart — as the live region says it.
-            var (closed, _) = AccessibilityFeedbackCoordinator.AsDrawn(state.Data,
+            var (closed, opened) = AccessibilityFeedbackCoordinator.AsDrawn(state.Data,
                 AccessibilityFeedbackCoordinator.ClosedBarIndex(state.Data, e.ClosedBar),
                 e.ClosedBar, e.NewBar, state.IsHeikinAshi);
-            Send(NewBarTitle(state), NewBarBody(state, closed));
+            Send(NewBarTitle(state), NewBarBody(PlaybackNarration.BarSeconds(state), closed, opened));
         }
 
         /// <summary>
@@ -226,9 +226,9 @@ namespace AccessibleTrader.Core.Services.Notifications
             if (barSeconds <= 0) barSeconds = BarSecondsFromDates(e.ClosedBar, e.NewBar);
 
             // The ladder rides the body, as it does with the browser closed: the notification IS
-            // the announcement, so it carries the whole sentence rather than a shortened form.
-            string body = NewBarBody(barSeconds, e.ClosedBar);
-            if (!string.IsNullOrWhiteSpace(e.Narration)) body = body + " " + e.Narration;
+            // the announcement, so it carries the whole sentence rather than a shortened form —
+            // the close, the ladder about that bar, then the new bar's open (Cody, 2026-11-02).
+            string body = NewBarBody(barSeconds, e.ClosedBar, e.NewBar, e.Narration);
 
             Send(NewBarTitle(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""), body);
         }
@@ -296,6 +296,20 @@ namespace AccessibleTrader.Core.Services.Notifications
         /// <summary>"Close 1,234.5 at 09:31." — the new-bar announcement's own clock rule: time of day intraday, the date on a daily chart.</summary>
         internal static string NewBarBody(WorkspaceState state, Ohlcv closed)
             => NewBarBody(PlaybackNarration.BarSeconds(state), closed);
+
+        /// <summary>
+        /// "Close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6." — the whole bar-close
+        /// announcement in the order it is spoken: the bar that closed, what the narration ladder
+        /// found on it, and then the bar that opened. Until 2026-11-02 a notification stopped at
+        /// the close (and a background tab's put the ladder after it), so the new bar's open was
+        /// spoken but never notified.
+        /// </summary>
+        public static string NewBarBody(int barSeconds, Ohlcv closed, Ohlcv opened, string? ladder = null)
+        {
+            string middle = string.IsNullOrWhiteSpace(ladder) ? "" : " " + ladder.Trim();
+            return NewBarBody(barSeconds, closed) + middle
+                 + $" New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}.";
+        }
 
         /// <summary>
         /// The body, from the bar length rather than the whole workspace. <paramref name="barSeconds"/>

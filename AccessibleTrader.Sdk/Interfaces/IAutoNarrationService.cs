@@ -26,9 +26,12 @@ public interface IAutoNarrationService
     bool WillNarrateBarClose();
 
     /// <summary>
-    /// Hand this sentence to the narrator, to be spoken as the FIRST clause of the utterance the
-    /// bar-close scan is about to produce. Speak it directly instead when
+    /// Hand the bar-close sentence to the narrator: <paramref name="sentence"/> (the close) is
+    /// spoken FIRST in the utterance the bar-close scan is about to produce, and
+    /// <paramref name="last"/> (the new bar's open) after the scan's findings. Cody, 2026-11-02:
+    /// "when a bar closes, I should hear the close and the indicator narration ladder. Then the
+    /// open of the newest bar should be read as well." Speak both directly instead when
     /// <see cref="WillNarrateBarClose"/> is false — nothing here will.
     /// </summary>
-    void DeferBarCloseSentence(string sentence);
+    void DeferBarCloseSentence(string sentence, string? last = null);
 }

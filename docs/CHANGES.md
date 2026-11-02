@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A bar close is spoken in the order it happened: the close, the narration ladder, then the new bar's open (2026-11-02, NOT heard)
+
+- **Why**: Cody: "on bar alerts, when a bar closes, I should hear the close and the indicator narration ladder.
+  Then the open of the newest bar should be read as well."
+- **Before**: everywhere a bar close was spoken with its ladder, the ladder came LAST, after "New bar: open".
+  The ladder describes the bar that closed, so it was heard after the next bar had been named. The server
+  log from the night of 2026-11-01 shows it: "BTCUSDT 4h: close 77932.95 at 02:00. New bar: open 78087.23.
+  Bears take control at 77932.95."
+- **Now**, the same order on every route:
+  - **The focused chart**: "Close X at T[, candle pattern]. [chart-pattern outcome.] [ladder] New bar: Open Y".
+    The coordinator gives the narrator the close and the open separately
+    (`IAutoNarrationService.DeferBarCloseSentence(sentence, last)`), and the narrator speaks
+    close, then its findings, then the open, as ONE utterance as before.
+  - **Background tabs** and **the browser-closed monitor**:
+    "ETH/USD 1h: close X at T. [ladder] New bar: open Y." (`BackgroundBarAnnouncer.BackgroundSentence` takes
+    the ladder).
+  - **Notifications**: a background tab's body is the close, the ladder, then the open. The focused chart's
+    body (sent only when the window is hidden) now ends with the open too; until now it stopped at the close.
+- **Tests**: 4 new tests, and one existing test now checks the order. Each of the four changes was put back
+  the old way, and a test went red each time.
+- **Caveat**: the focused chart's notification body has no ladder. The ladder is worked out after the
+  notification is sent, as before.
+
+### Shift+Enter on the chart places an armed quick trade as a limit order (2026-11-02, NOT tried live)
+
+- **Why**: Cody asked for it to be looked into. It was broken in the browser: `keyboard.js` kept every Enter on
+  the chart from .NET when Shift was held (`... && self._chartFocused && !e.shiftKey`), and Shift alone is not a
+  modifier, so the chord never reached `QuickPlaceLimit`. Ctrl+Enter (market) worked, because Ctrl is a
+  modifier. The .NET side (ShortcutManager's `ENTER` + Shift, and the dispatcher) was already right and tested.
+- **Now**: Shift+Enter on the chart reaches the dispatcher. Off the chart, and in any text field on it, the page
+  keeps it (a new line in a text area).
+- **Tests**: 2 new JS tests (keyboard 83 -> 85). Putting the old line back makes the first one fail (84/85).
+- **Caveat**: this is a money path. Nobody has placed a limit order with it yet; try it on paper first.
+
+### Checked, not changed: the browser-closed monitor reads only the newest session slot
+
+- Each browser connection saves its own `__last-session__<id>` slot, and the monitor reads the newest one.
+  On Cody's machine (2026-11-02) all five slots hold the whole workspace, and the newest holds all five tabs.
+  On the night of 2026-11-01 the monitor announced seven closes (1h and 4h, with ladders) from it.
+- The 8h tab shows no "Headless chart watching" line because nothing on it is under N, so it has no ladder.
+  Its bar closes are still watched, and no 8h bar closed while the browser was shut.
+- **Not demonstrated**: two browser windows open at the SAME time on DIFFERENT tabs. Only the window that
+  saved last would be watched. This was not tried.
+
 ### Cipher DBSI: the study's latest model, zu_hs66e, ported bit for bit (2026-11-02, NOT seen or heard)
 
 - **Why**: Cody: "and please do commit the latest version of dbsi since you've been working on it". This is an

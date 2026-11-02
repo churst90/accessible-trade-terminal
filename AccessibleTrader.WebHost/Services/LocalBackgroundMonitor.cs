@@ -927,7 +927,8 @@ namespace AccessibleTrader.WebHost.Services
         private readonly VenueSettling _settling = new();
 
         /// <summary>
-        /// The bar-close sentence, with the narration ladder behind it when there is one — ONE
+        /// The bar-close sentence, with the narration ladder between the close and the open when
+        /// there is one — ONE
         /// utterance, as in-session, where the coordinator defers the new-bar sentence to the
         /// narrator so the two are spoken together or not at all.
         /// </summary>
@@ -937,8 +938,7 @@ namespace AccessibleTrader.WebHost.Services
             string title = DesktopNotificationService.NewBarTitle(watch.Symbol, watch.Timeframe);
             string sentence = BackgroundBarAnnouncer.BackgroundSentence(
                 new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
-                closed, opened);
-            if (ladder != null) sentence = sentence + " " + ladder;
+                closed, opened, ladder);
 
             _logger.LogInformation("Background bar close: {Sentence}", sentence);
 

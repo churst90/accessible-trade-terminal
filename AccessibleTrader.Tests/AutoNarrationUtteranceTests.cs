@@ -108,7 +108,8 @@ public class AutoNarrationUtteranceTests
     private static CapturingSpeechRouter Drive(
         Func<int, WorkspaceState> stateAt,
         MutableContextAnalyzer analyzer,
-        IndicatorContext? afterSeeding = null)
+        IndicatorContext? afterSeeding = null,
+        Action<AutoNarrationService>? beforeScan = null)
     {
         var bus = new SpyEventBus();
         var store = new MockWorkspaceStore();
@@ -124,6 +125,7 @@ public class AutoNarrationUtteranceTests
         if (afterSeeding != null) analyzer.Context = afterSeeding;
 
         store.EmitState(stateAt(4));
+        beforeScan?.Invoke(svc);              // the coordinator's deferred bar-close sentence
         bus.Publish(new RedrawEvent());       // scans bar index 2
 
         return router;
@@ -612,6 +614,38 @@ public class AutoNarrationUtteranceTests
     /// empty string.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The bar close the coordinator defers is spoken around the scan: its close first, the
+    /// scan's findings about that bar, then the new bar's open — one utterance (Cody,
+    /// 2026-11-02: "I should hear the close and the indicator narration ladder. Then the open of
+    /// the newest bar should be read as well"). The open used to come before the findings.
+    /// </summary>
+    [Fact]
+    public void ADeferredBarClose_WrapsTheScan_CloseFirstOpenLast()
+    {
+        var cfg = CrowdedConfig();
+        var analyzer = new MutableContextAnalyzer { Context = Osc(ZoneStatus.Normal, CrossoverStatus.None) };
+        var router = Drive(n => CrowdedState(cfg, n, quiet: false), analyzer,
+            afterSeeding: Osc(ZoneStatus.Overbought, CrossoverStatus.BullishCrossover),
+            beforeScan: svc => svc.DeferBarCloseSentence("Close 104.00.", "New bar: Open 104.00"));
+
+        string said = Assert.Single(router.Spoken);
+        Assert.StartsWith("Close 104.00. Cipher B: Resistance at 105.00 broken.", said);
+        Assert.EndsWith(" New bar: Open 104.00", said);
+    }
+
+    /// <summary>A quiet scan still speaks the deferred close and open, in that order.</summary>
+    [Fact]
+    public void ADeferredBarCloseOnAQuietScan_IsTheCloseThenTheOpen()
+    {
+        var cfg = CrowdedConfig();
+        var analyzer = new MutableContextAnalyzer { Context = Osc(ZoneStatus.Normal, CrossoverStatus.None) };
+        var router = Drive(n => CrowdedState(cfg, n, quiet: true), analyzer,
+            beforeScan: svc => svc.DeferBarCloseSentence("Close 100.00.", "New bar: Open 100.00"));
+
+        Assert.Equal("Close 100.00. New bar: Open 100.00", Assert.Single(router.Spoken));
+    }
+
     [Fact]
     public void AQuietScanSaysNothing()
     {

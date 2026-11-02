@@ -42,6 +42,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <see cref="DeferBarCloseSentence"/>.
         /// </summary>
         private string? _pendingBarCloseSentence;
+        private string? _pendingBarOpenSentence;
 
         /// <summary>Set of series IDs that were narrated in the previous StateStream emission.</summary>
         private HashSet<string> _prevNarratedIds = new();
@@ -158,18 +159,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <inheritdoc />
-        public void DeferBarCloseSentence(string sentence)
+        public void DeferBarCloseSentence(string sentence, string? last = null)
         {
-            if (string.IsNullOrWhiteSpace(sentence)) return;
+            if (string.IsNullOrWhiteSpace(sentence) && string.IsNullOrWhiteSpace(last)) return;
             // Replacing rather than appending: if two bars closed without a scan in between,
             // the older sentence describes a bar that is no longer the one that just closed,
             // and speaking it late is worse than not speaking it.
-            _pendingBarCloseSentence = sentence.Trim();
+            _pendingBarCloseSentence = sentence?.Trim();
+            _pendingBarOpenSentence = last?.Trim();
         }
 
         /// <summary>
-        /// ONE utterance per bar close: the new-bar sentence the coordinator deferred, then
-        /// whatever this scan found, spoken together or not at all.
+        /// ONE utterance per bar close: the close the coordinator deferred, then whatever this
+        /// scan found about the bar that closed, then the new bar's open — spoken together or
+        /// not at all. The open went before the findings until 2026-11-02, so the ladder about
+        /// the closed bar was heard after the next bar had already been named.
         ///
         /// <para>
         /// The pending sentence is taken BEFORE the scan and spoken even when the scan itself
@@ -180,11 +184,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void OnIndicatorsUpdated()
         {
             string? pending = _pendingBarCloseSentence;
+            string? opening = _pendingBarOpenSentence;
             _pendingBarCloseSentence = null;
+            _pendingBarOpenSentence = null;
 
             string? scanned = ScanForNarration();
 
-            string whole = string.Join(" ", new[] { pending, scanned }
+            string whole = string.Join(" ", new[] { pending, scanned, opening }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             if (whole.Length == 0) return;
 

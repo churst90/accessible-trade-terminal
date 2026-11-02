@@ -177,9 +177,8 @@ namespace AccessibleTrader.Core.Services.Feeds
                     if (drawn.Count == 2) (closed, opened) = (drawn[0], drawn[1]);
                 }
 
-                string sentence = BackgroundSentence(feed.Identity, closed, opened);
                 string? ladder = await LadderAsync(feed).ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(ladder)) sentence = sentence + " " + ladder;
+                string sentence = BackgroundSentence(feed.Identity, closed, opened, ladder);
 
                 // The notification route. DesktopNotificationService subscribes this under the
                 // one "events you cannot see" switch — and, since 2026-09-11, this is the ONLY
@@ -289,7 +288,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         }
 
         /// <summary>
-        /// "ETH/USD 1h: close 1,234.5 at 09:31. New bar: open 1,234.6."
+        /// "ETH/USD 1h: close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6."
+        ///
+        /// <para>The ladder, when there is one, sits between the close and the open: it is about
+        /// the bar that closed, so it is heard before the next bar is named (Cody, 2026-11-02:
+        /// "when a bar closes, I should hear the close and the indicator narration ladder. Then
+        /// the open of the newest bar should be read as well"). It used to trail the open.</para>
         ///
         /// <para>Deliberately shorter than the focused chart's sentence, which adds candle
         /// patterns, chart-formation outcomes and the Heikin-Ashi transform — all of them read
@@ -300,7 +304,8 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// sentence for a bar that closed with no browser attached. A background tab and a
         /// browser-closed chart are the same news; two spellings of it would be a defect nobody
         /// would notice until they read a journal.</remarks>
-        public static string BackgroundSentence(ChartIdentity identity, Ohlcv closed, Ohlcv opened)
+        public static string BackgroundSentence(ChartIdentity identity, Ohlcv closed, Ohlcv opened,
+            string? ladder = null)
         {
             int barSeconds = TimeframeUtility.ToSeconds(identity.Timeframe ?? "");
             if (barSeconds <= 0)
@@ -315,7 +320,9 @@ namespace AccessibleTrader.Core.Services.Feeds
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             string lead = what.Length == 0 ? "" : what + ": ";
 
+            string middle = string.IsNullOrWhiteSpace(ladder) ? "" : ladder.Trim() + " ";
             return $"{lead}close {SpeechPriceFormatter.FormatPrice(closed.Close)}{when}. "
+                 + middle
                  + $"New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}.";
         }
 

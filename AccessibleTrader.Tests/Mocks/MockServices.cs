@@ -295,7 +295,7 @@ namespace AccessibleTrader.Tests.Mocks
     public class MockAutoNarrationService : IAutoNarrationService
     {
         public bool WillNarrateBarClose() => false;
-        public void DeferBarCloseSentence(string sentence) { }
+        public void DeferBarCloseSentence(string sentence, string? last = null) { }
     }
 }
 

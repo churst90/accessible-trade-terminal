@@ -2584,7 +2584,7 @@ chart in front of you.
 
 | Occasion | What is said | Switch |
 |---|---|---|
-| A bar closes on the focused chart | "Close … at …, {pattern}. New bar: Open …" then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last | Narration → Announce new bars; Narrate signals on bar close; N on each series |
+| A bar closes on the focused chart | "Close … at …, {pattern}." then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last — and last of all "New bar: Open …" | Narration → Announce new bars; Narrate signals on bar close; N on each series |
 | The forming bar changes shape | "hammer forming", "bullish engulfing forming"; a formation building, with its confirming level | Narrate candle patterns as they form (on); Narrate chart formations as they form (off); both need N on the candles |
 | Playback steps onto a bar | The date or hour as it changes; discrete signals on the series you played (two at most, rarest first); a line crossing one of its own levels; a formation resolving | Narrate during playback; Speak time landmarks during playback |
 | An alert fires | "{name}: crossed above {level}. Current value {value}." | The alert's own Delivery setting; ignores every narration switch |
@@ -2779,10 +2779,11 @@ bars are coloured up or down on every bar and do not say a colour.
 
 It is off by default because it lengthens what you hear.
 
-**Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
-then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
-engulfing. New bar: Open 64,910. Buy dot, waves crossed up from oversold. RSI 14: RSI
-overbought."* The closing bar is named by its own stamp — the time of day on an intraday chart,
+**Everything about one bar arrives as one sentence.** When a bar closes you hear the candle,
+then whatever your indicators made of it, then the new bar's open, in one breath: *"Close 64,905
+at 14:32, Bullish engulfing. Buy dot, waves crossed up from oversold. RSI 14: RSI overbought. New
+bar: Open 64,910."* Background tabs, the browser-closed monitor and notifications use the same
+order: the close, the ladder, then the open. The closing bar is named by its own stamp — the time of day on an intraday chart,
 the date on a daily or weekly one — so a run of them in the journal reads back as a record rather
 than a column of prices. Up to
 five clauses, ordered by consequence — a level breaking first, then an indicator's own signals,
@@ -3830,7 +3831,8 @@ about:
   cancels nothing.
 - **Bar closes** on your saved tabs (up to eight), above the timeframe floor.
 - **The narration ladder**, the same reading a bar close gets in the browser, for every series
-  you flagged with N, in the same sentence as the bar close and led by the symbol.
+  you flagged with N, in the same sentence as the bar close and led by the symbol: "BTCUSDT 4h:
+  close … at …. {ladder} New bar: open …."
 
 Bar closes and the ladder follow your **saved tabs**; alerts follow your **alert list**. Close
 a tab and its bar closes stop being watched even if an alert on that symbol keeps firing.
