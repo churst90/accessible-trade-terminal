@@ -22,8 +22,11 @@ All notable changes to this project will be documented in this file.
     the ladder).
   - **Notifications**: a background tab's body is the close, the ladder, then the open. The focused chart's
     body (sent only when the window is hidden) now ends with the open too; until now it stopped at the close.
-- **Tests**: 4 new tests, and one existing test now checks the order. Each of the four changes was put back
-  the old way, and a test went red each time.
+- **Tests**: 4 new tests, and two existing tests now check the order. Each of the four changes was put back
+  the old way, and a test went red each time. The second existing test
+  (`HeadlessNarrationTests.With_no_browser_the_ladder_rides_the_bar_close_as_ONE_utterance`) still pinned the
+  old order and failed the first CI run on 5118fea4. The local runs had missed it because their filters did not
+  include it. It now checks close, ladder, open, and putting the monitor back to ladder-last turns it red.
 - **Caveat**: the focused chart's notification body has no ladder. The ladder is worked out after the
   notification is sent, as before.
 

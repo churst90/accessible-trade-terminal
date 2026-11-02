@@ -77,8 +77,11 @@ public sealed class HeadlessNarrationTests : IDisposable
         string one = Assert.Single(h.Presenter.Spoken);
         Assert.StartsWith("BTC/USD 1h: close 100.00", one, StringComparison.Ordinal);
         Assert.Contains("Volume 100,000", one, StringComparison.Ordinal);
-        Assert.True(one.IndexOf("New bar", StringComparison.Ordinal) < one.IndexOf("Volume 100,000", StringComparison.Ordinal),
-            "the close first, the reading last: " + one);
+        // Cody, 2026-11-02: "I should hear the close and the indicator narration ladder. Then
+        // the open of the newest bar" — the reading sits between the close and the open.
+        Assert.True(one.IndexOf("Volume 100,000", StringComparison.Ordinal) < one.IndexOf("New bar", StringComparison.Ordinal),
+            "the close, the reading, then the open: " + one);
+        Assert.EndsWith("New bar: open 100.00.", one, StringComparison.Ordinal);
         // And the toast carries the same sentence — it is the spoken route where the screen
         // reader reads notifications.
         var toast = Assert.Single(h.Presenter.Toasts);
