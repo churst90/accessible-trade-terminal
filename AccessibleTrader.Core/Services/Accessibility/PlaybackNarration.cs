@@ -201,7 +201,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 case LandmarkUnit.Hour:
                     if (p.Date == c.Date && p.Hour == c.Hour) return null;
-                    return c.ToString("HH:mm", CultureInfo.InvariantCulture);
+                    return c.ToString(SpeechTimeFormatter.Clock("HH:mm"), CultureInfo.InvariantCulture);
                 case LandmarkUnit.Day:
                     if (p.Date == c.Date) return null;
                     return c.ToString("MMMM d", CultureInfo.InvariantCulture);

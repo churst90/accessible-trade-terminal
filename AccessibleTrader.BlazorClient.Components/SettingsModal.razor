@@ -538,6 +538,32 @@
                     </p>
 
                     <div class="modal-row">
+                        <label for="s-time-zone">Times of day are read in</label>
+                        <select id="s-time-zone" aria-describedby="s-time-zone-hint"
+                                value="@(_timesInUtc ? "utc" : "local")"
+                                @onchange="OnTimeZoneChanged">
+                            <option value="local">This computer's time zone</option>
+                            <option value="utc">UTC</option>
+                        </select>
+                    </div>
+                    <p id="s-time-zone-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        This computer is on @LocalZoneName. Most crypto venues and TradingView's
+                        default for crypto use UTC. A daily or weekly bar is named by its own date
+                        either way; this changes the clock time of intraday bars, on the axis too.
+                        Times are bar opens, as TradingView labels them.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-twelve-hour">12-hour clock with AM and PM</label>
+                        <input id="s-twelve-hour" type="checkbox"
+                               checked="@_twelveHour"
+                               @onchange="e => _twelveHour = e.Value is bool b && b" />
+                    </div>
+                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        "2:30 PM" instead of "14:30".
+                    </p>
+
+                    <div class="modal-row">
                         <label for="s-speak-other-signals">Speak other signals while arrowing</label>
                         <input id="s-speak-other-signals" type="checkbox"
                                aria-describedby="s-speak-other-signals-hint"
@@ -1348,6 +1374,8 @@
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
         new("Speak the date on every bar", "Speech", "s-date-every-bar", "date day boundary intraday timestamp"),
+        new("Times of day are read in", "Speech", "s-time-zone", "time zone utc local gmt clock candle timestamp daylight saving"),
+        new("12-hour clock with AM and PM", "Speech", "s-twelve-hour", "12 hour 24 hour am pm clock time format"),
         new("Speak other signals while arrowing", "Speech", "s-speak-other-signals", "other markers signals same bar indicators focused component only cross series"),
         new("Say what lines and signals look like", "Speech", "s-describe-signal-looks", "describe colour color shape size dot triangle marker line appearance sighted"),
         new("Speak values as", "Speech", "s-speech-order", "name value order header"),
@@ -1689,6 +1717,25 @@
     private bool _speakOtherSignals;
     private bool _magnetSnap;
     private bool _swingSnap = true;
+    private bool _timesInUtc;
+    private bool _twelveHour;
+
+    private void OnTimeZoneChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
+        _timesInUtc = e.Value?.ToString() == "utc";
+
+    /// <summary>The zone "this computer's time zone" means — the SERVER's, which on a hosted
+    /// install is not the listener's.</summary>
+    private static string LocalZoneName
+    {
+        get
+        {
+            var z = TimeZoneInfo.Local;
+            var off = z.GetUtcOffset(DateTime.UtcNow);
+            string sign = off < TimeSpan.Zero ? "minus" : "plus";
+            string hm = off.Minutes == 0 ? $"{Math.Abs(off.Hours)}" : $"{Math.Abs(off.Hours)}:{Math.Abs(off.Minutes):00}";
+            return off == TimeSpan.Zero ? $"{z.Id}, the same as UTC" : $"{z.Id}, UTC {sign} {hm} hours now";
+        }
+    }
     private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
     private string _speechOrder = "HeaderValue";
@@ -2013,6 +2060,8 @@
         _speakOtherSignals = App.SpeakOtherSignalsWhileArrowing;
         _magnetSnap = App.MagnetSnap;
         _swingSnap = App.SwingSnap;
+        _timesInUtc = App.TimesInUtc;
+        _twelveHour = App.TwelveHourClock;
         _marketStructureDefault = App.MarketStructureOnByDefault;
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
@@ -2270,6 +2319,10 @@
         App.SpeakOtherSignalsWhileArrowing = _speakOtherSignals;
         App.MagnetSnap              = _magnetSnap;
         App.SwingSnap               = _swingSnap;
+        App.TimesInUtc              = _timesInUtc;
+        App.TwelveHourClock         = _twelveHour;
+        Core.Services.Accessibility.SpeechTimeFormatter.UseUtc = _timesInUtc;
+        Core.Services.Accessibility.SpeechTimeFormatter.TwelveHour = _twelveHour;
         App.MarketStructureOnByDefault = _marketStructureDefault;
         App.SoundTheme              = _soundTheme;
         App.TouchNavBarMode         = _touchNavMode;

@@ -193,6 +193,27 @@ public sealed class NavigationTimestampTests
         Assert.StartsWith($"{Time(Hourly[2])}.", said[1]);
     }
 
+    /// <summary>
+    /// "Time only" on a DAILY chart. It read the clock time of the bar's UTC-midnight stamp in the
+    /// local zone — "18:00" on every daily bar in Chicago after the clocks went back, "19:00"
+    /// before (Cody, 2026-11-01: "I feel like the candle times are off"). A daily bar has no
+    /// time of day; it is named by its date.
+    /// </summary>
+    [Fact]
+    public void TimeOnlyOrder_OnADailyChart_NamesTheDate()
+    {
+        DateTime[] daily =
+        {
+            new(2026, 10, 31, 0, 0, 0, DateTimeKind.Utc),
+            new(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc),
+        };
+        var said = Read(State("1d", daily, speechOrder: "HeaderValueTimeOnly"), 0, 1);
+
+        Assert.StartsWith("October 31.", said[0]);
+        Assert.StartsWith("November 01.", said[1]);
+        Assert.All(said, m => Assert.DoesNotContain(":00", m));
+    }
+
     [Fact]
     public void DateOnlyOrder_IsUnchanged()
     {

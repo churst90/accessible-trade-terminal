@@ -83,6 +83,10 @@ namespace AccessibleTrader.Core.Services
         // writes changes back here)
         bool SpeakTimestamps { get; set; }
         bool SpeakDateOnEveryBar { get; set; }
+        /// <summary>Intraday times in UTC rather than this computer's zone. Default false.</summary>
+        bool TimesInUtc { get; set; }
+        /// <summary>Times on a 12-hour clock, "2:30 PM". Default false.</summary>
+        bool TwelveHourClock { get; set; }
         /// <summary>Follow a spoken signal with what its marker looks like. See MarkerLook.</summary>
         bool DescribeSignalLooks { get; set; }
         string TimestampReadLocation { get; set; }
@@ -266,6 +270,18 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.SpeakDateOnEveryBar, def: false);
             set => Set(SettingsKeys.SpeakDateOnEveryBar, value);
+        }
+
+        public bool TimesInUtc
+        {
+            get => GetBool(SettingsKeys.TimesInUtc, def: false);
+            set => Set(SettingsKeys.TimesInUtc, value);
+        }
+
+        public bool TwelveHourClock
+        {
+            get => GetBool(SettingsKeys.TwelveHourClock, def: false);
+            set => Set(SettingsKeys.TwelveHourClock, value);
         }
 
         public bool DescribeSignalLooks

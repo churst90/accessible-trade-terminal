@@ -535,10 +535,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             var state = _store.State;
             string order = state.SpeechOrder ?? "";
-            string format = order.Contains("TimeOnly") ? SpeechTimeFormatter.TimeFormat
+            int barSeconds = PlaybackNarration.BarSeconds(state);
+            // A daily bar has no time of day: "time only" names its date (see SpeechFormatter.NavigationTimestamp).
+            string format = order.Contains("TimeOnly") ? (barSeconds >= 86400 ? SpeechTimeFormatter.DateFormat : SpeechTimeFormatter.TimeFormat)
                           : order.Contains("DateOnly") ? SpeechTimeFormatter.DateFormat
                           : SpeechTimeFormatter.DateTimeFormat;
-            string text = SpeechTimeFormatter.FormatBar(stamp, PlaybackNarration.BarSeconds(state), format);
+            string text = SpeechTimeFormatter.FormatBar(stamp, barSeconds, format);
             var data = state.Data;
             if (data != null && data.Count > 0 && stamp > data[^1].Date)
             {

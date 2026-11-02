@@ -91,6 +91,19 @@ namespace AccessibleTrader.Core.Services
         {
             if (_sub != null) return; // idempotent
 
+            // 0. The clock every time is read on. Not a store preference: SpeechTimeFormatter is
+            //    static and is read from places with no state in hand (the chart's axis, Cycle
+            //    Position's dates). Settings writes it again on Save.
+            try
+            {
+                Accessibility.SpeechTimeFormatter.UseUtc = _settings.TimesInUtc;
+                Accessibility.SpeechTimeFormatter.TwelveHour = _settings.TwelveHourClock;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read the clock settings; local 24-hour time in use.");
+            }
+
             // 1. Seed the store from persisted values (defaults match Initial, so a
             //    fresh install is a no-op dispatch).
             try

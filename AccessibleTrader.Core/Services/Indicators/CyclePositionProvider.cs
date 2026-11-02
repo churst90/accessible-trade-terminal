@@ -1073,7 +1073,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             bool intraday = barSeconds < 86400;
             var d = SpeechTimeFormatter.ToBarDisplay(DateTime.SpecifyKind(DateTime.FromOADate(oa), DateTimeKind.Utc), (int)(double.IsNaN(barSeconds) ? 86400 : barSeconds));
-            return d.ToString(format ?? (intraday ? "MMMM d, HH:mm" : SpeechTimeFormatter.LongDateFormat), CultureInfo.InvariantCulture);
+            return d.ToString(SpeechTimeFormatter.Clock(format ?? (intraday ? "MMMM d, HH:mm" : SpeechTimeFormatter.LongDateFormat)), CultureInfo.InvariantCulture);
         }
 
         /// <summary>The table's "Next low" cell: "Nov 3–Nov 14", "now–Nov 14", "closed Oct 20"; a year on the weekly and yearly.</summary>

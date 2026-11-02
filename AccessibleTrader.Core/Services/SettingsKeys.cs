@@ -83,6 +83,10 @@ namespace AccessibleTrader.Core.Services
         // ── Speech (stage b: persisted mirrors of WorkspaceState preferences) ─
         public const string SpeakTimestamps       = "speech.speakTimestamps";
         public const string SpeakDateOnEveryBar  = "speech.dateOnEveryBar";
+        /// <summary>Intraday times are read in UTC instead of this computer's zone. See SpeechTimeFormatter.UseUtc.</summary>
+        public const string TimesInUtc           = "speech.timesInUtc";
+        /// <summary>Times are read on a 12-hour clock with AM and PM. See SpeechTimeFormatter.TwelveHour.</summary>
+        public const string TwelveHourClock      = "speech.twelveHourClock";
         public const string DescribeSignalLooks  = "speech.describeSignalLooks";
         public const string TimestampReadLocation = "speech.timestampReadLocation";
         public const string ReadColumnHeaders     = "speech.readColumnHeaders";

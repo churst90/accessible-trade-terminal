@@ -808,6 +808,7 @@ namespace AccessibleTrader.Core.Services
             // always sees where one day ends and the next begins.
             var (primaryFormat, markDateBoundaries) =
                 ChartMath.XAxisFormat(visibleData[^1].Date - visibleData[0].Date);
+            primaryFormat = Accessibility.SpeechTimeFormatter.Clock(primaryFormat); // "2:30 PM" on a 12-hour clock
 
             // The axis names bars by the same rule as every spoken readout
             // (SpeechTimeFormatter.ToBarDisplay): a daily-or-coarser bar by its own date,

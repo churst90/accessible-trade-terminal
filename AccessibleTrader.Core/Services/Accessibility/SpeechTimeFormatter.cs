@@ -47,17 +47,48 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public const string LongDateFormat = "MMMM d yyyy";
 
         /// <summary>
-        /// Resolves a stored stamp to the instant the user should be told about, in their own
-        /// zone. Unspecified is treated as UTC because that is what every provider path produces;
-        /// assuming local there would silently re-introduce the divergence this class exists to
-        /// remove, for exactly the bars whose Kind got lost in a round-trip.
+        /// Intraday times are read in UTC rather than this computer's zone (Settings, F12, Speech).
+        /// Default off. Cody 2026-11-01: <i>"can I have the option in f12 settings on settings the
+        /// candle timestamps to local time or utc....because I feel like the candle times are
+        /// off"</i> — the clocks had just gone back an hour, and the venues he checks against speak
+        /// UTC. Daily bars are untouched: they are named by their own date in either zone.
+        /// Set at startup from settings.json and again when Settings is saved.
         /// </summary>
-        public static DateTime ToDisplay(DateTime stamp) => stamp.Kind switch
+        public static bool UseUtc { get; set; }
+
+        /// <summary>
+        /// Times are read on a 12-hour clock with AM and PM ("2:30 PM") rather than "14:30".
+        /// Default off. Applied to a format by <see cref="Clock"/>, which every time-of-day
+        /// format in the app passes through.
+        /// </summary>
+        public static bool TwelveHour { get; set; }
+
+        /// <summary>
+        /// A format string as the user's clock wants it: "HH:mm" becomes "h:mm tt" on a 12-hour
+        /// clock. Formats with no hour (a date) come back unchanged.
+        /// </summary>
+        public static string Clock(string format)
+            => TwelveHour
+                ? format.Replace("HH:mm:ss", "h:mm:ss tt").Replace("HH:mm", "h:mm tt")
+                : format;
+
+        /// <summary>
+        /// Resolves a stored stamp to the instant the user should be told about: in their own
+        /// zone, or in UTC when <see cref="UseUtc"/> is on. Unspecified is treated as UTC because
+        /// that is what every provider path produces; assuming local there would silently
+        /// re-introduce the divergence this class exists to remove, for exactly the bars whose
+        /// Kind got lost in a round-trip.
+        /// </summary>
+        public static DateTime ToDisplay(DateTime stamp)
         {
-            DateTimeKind.Local => stamp,
-            DateTimeKind.Utc => stamp.ToLocalTime(),
-            _ => DateTime.SpecifyKind(stamp, DateTimeKind.Utc).ToLocalTime(),
-        };
+            var utc = stamp.Kind switch
+            {
+                DateTimeKind.Local => stamp.ToUniversalTime(),
+                DateTimeKind.Utc => stamp,
+                _ => DateTime.SpecifyKind(stamp, DateTimeKind.Utc),
+            };
+            return UseUtc ? utc : utc.ToLocalTime();
+        }
 
         /// <summary>
         /// The instant a BAR's stamp is read as on a chart with <paramref name="barSeconds"/>
@@ -95,11 +126,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>Formats a bar's stamp by the bar rule (<see cref="ToBarDisplay(DateTime, int)"/>).</summary>
         public static string FormatBar(DateTime stamp, int barSeconds, string format)
-            => ToBarDisplay(stamp, barSeconds).ToString(format, CultureInfo.InvariantCulture);
+            => ToBarDisplay(stamp, barSeconds).ToString(Clock(format), CultureInfo.InvariantCulture);
 
-        /// <summary>Formats a stamp in the user's zone with an invariant culture.</summary>
+        /// <summary>Formats a stamp in the user's zone (or UTC) and clock with an invariant culture.</summary>
         public static string Format(DateTime stamp, string format)
-            => ToDisplay(stamp).ToString(format, CultureInfo.InvariantCulture);
+            => ToDisplay(stamp).ToString(Clock(format), CultureInfo.InvariantCulture);
 
         /// <summary>Time of day in the user's zone — "14:30".</summary>
         public static string FormatTime(DateTime stamp) => Format(stamp, TimeFormat);

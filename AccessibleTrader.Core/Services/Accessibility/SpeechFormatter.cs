@@ -276,8 +276,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Daily bars and coarser are named by their own date, not by the local date of
             // their UTC-midnight stamp — see SpeechTimeFormatter.ToBarDisplay.
             int barSeconds = PlaybackNarration.BarSeconds(state);
+            // "Time only" on a daily chart used to read the clock time of the bar's UTC-midnight
+            // stamp in the local zone — every daily bar "18:00" in Chicago (19:00 in summer), a
+            // time no daily bar has. A daily bar has no time to tell, so it is named by its date.
             if (state.SpeechOrder.Contains("TimeOnly"))
-                return SpeechTimeFormatter.FormatTime(stamp);
+                return barSeconds >= 86400
+                    ? SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.DateFormat)
+                    : SpeechTimeFormatter.FormatTime(stamp);
             if (state.SpeechOrder.Contains("DateOnly"))
                 return SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.DateFormat);
 
