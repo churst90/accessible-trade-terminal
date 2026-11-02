@@ -538,8 +538,11 @@ window.accessibleTrader = {
             const isShifted = e.shiftKey;
             // A bare Enter on the chart places the next point of a drawing in progress. Only on
             // the chart: everywhere else Enter activates the button or submits the field it is
-            // on, and trapping it would break every one of them. Shift+Enter is left as it was.
-            const isChartEnter = e.key === 'Enter' && self._chartFocused && !e.shiftKey;
+            // on, and trapping it would break every one of them. Shift+Enter on the chart places
+            // an armed quick trade as a limit (QuickPlaceLimit); until 2026-11-02 it returned
+            // here, because Shift alone is not a modifier, and the order was never placed.
+            // Ctrl+Enter (market) always got through as a modified chord.
+            const isChartEnter = e.key === 'Enter' && self._chartFocused;
             const isTrapped = trappedKeys.includes(e.key) || isChartEnter;
 
             if (!isTrapped && !isModified) return;

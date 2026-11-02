@@ -383,6 +383,24 @@ test('Enter is not trapped at all (which is why the bug hid)', () => {
   assert.deepEqual(keysSent(h.calls), []);
 });
 
+// Shift+Enter places an armed quick trade as a limit at the cursor. Shift alone is not a
+// modifier to the trap, so until 2026-11-02 the chord returned before reaching .NET.
+test('Shift+Enter on the chart reaches the dispatcher (quick-trade limit)', () => {
+  const h = makeHarness();
+  h.api.setChartFocused(true);
+  assert.equal(h.press('Enter', h.node('DIV'), { shift: true }), true);
+  assert.equal(h.press('Enter', h.node('DIV')), true);
+  assert.equal(keysSent(h.calls).length, 2, 'both Shift+Enter and Enter reach .NET from the chart');
+});
+
+test('Shift+Enter off the chart, or in a field on it, stays the page\'s', () => {
+  const h = makeHarness();
+  assert.equal(h.press('Enter', h.node('BUTTON'), { shift: true }), false);
+  h.api.setChartFocused(true);
+  assert.equal(h.press('Enter', h.node('TEXTAREA'), { shift: true }), false, 'a new line in a text area');
+  assert.deepEqual(keysSent(h.calls), []);
+});
+
 test('typing a space in a text input is untouched', () => {
   const h = makeHarness();
   assert.equal(h.press(' ', h.node('INPUT')), false);
