@@ -42,31 +42,26 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// </para>
     ///
     /// <para>
-    /// <b>How close it is, measured.</b> DBSI's exact number on 96.0–99.5% of bars of the ten veto sets
-    /// (98.5% pooled, 37,032 numbers), within 2 on 99.6–100%, typical error about 0.3 points; on the
-    /// three held-out sets 97.9% (Microsoft 15-minute), 98.5% and 97.0% (Bitstamp 5- and 1-minute). The
-    /// hourly chart's last seven weeks: 98.3% exact (the 2026-10-25 model, gen8: 59.6%). The digitised
-    /// charts, read by eye and noisier: the twenty 88.1% exact, 94.1% within 2 (gen8 55.1%, 80.4%); the
-    /// fifteen livestream charts 85.0%, 90.1% (gen8 48.5%, 78.1%; the linear model before it 20.4%, 67.1%). <c>DbsiStyleGoldenTests</c> replays the
-    /// digitised numbers; <c>DbsiScoreModelParityTests</c> holds every bar to the study's file.
+    /// <b>How close it is, measured.</b> DBSI's exact number on 99.99% of the ten veto sets' bars (37,132 of
+    /// 37,136), on 99.97% of the blind sets' (33,097 of 33,108, never used to choose a rule), and on every bar of
+    /// the held-out sets (Microsoft 15-minute, Bitstamp 5- and 1-minute and daily, hourly Bitcoin Heikin-Ashi;
+    /// gates since 2026-10-29, so not untouched). On fresh reads of 63 daily charts, real-price bars miss 6 in
+    /// 3,464. The digitised charts, read by eye and noisier: the twenty 88.6% exact, 94.8% within 2 (gen8 55.1%,
+    /// 80.4%); the fifteen livestream charts 86.0%, 90.1% (gen8 48.5%, 78.1%; the linear model before it 20.4%,
+    /// 67.1%). <c>DbsiStyleGoldenTests</c> replays the digitised numbers; <c>DbsiScoreModelParityTests</c> holds
+    /// every bar to the study's file (<c>dbsi8/zu_hs66e.py</c>, ported 2026-11-02).
     /// </para>
     ///
     /// <para>
-    /// <b>The known shortfall.</b> About 1 bar in 65 is not DBSI's exact number, bulls and bears alike (1.6% and 1.4% on the ten veto sets). The misses left are
-    /// timing: raw Stoch RSI pinned at 0 or 100 for a bar or two, where a one-bar difference in when it
-    /// lets go moves a few points, and the dead-run step that holds or drops on it. A first brute-force
-    /// search of other indicators found no missing input; a later one over moving-average crosses found
-    /// one, the bears' EMA(5)/EMA(11) cross (2026-10-29), which replaced five fitted triggers, and the
-    /// hidden arm on off-run bars then replaced about ten more (and, for bulls, a flag after a deep run that
-    /// ended high, 2026-10-29). So some
-    /// of the remaining corrections may still stand in for an input not yet found. On the fifteen
-    /// livestream charts it prints 17 or more on 46 of DBSI's
-    /// 48 such readings and on 2 where DBSI does not (gen8 38 and 6). Many corrections are small and
-    /// narrow, found on Bitcoin first; they held on gold, stocks and Ethereum, but a market unlike all
-    /// of these may see more misses.
+    /// <b>The known shortfall.</b> Flat-price eras (old stocks and commodities with high = low on many bars in
+    /// the last 60) miss about 1 label in 16: their money flow is 0/0 and their RSI moves by float noise, and
+    /// TradingView's noise is not this one's. Two real-price shapes are parked, each seen once or a few times: a
+    /// pinned Stoch RSI that DBSI sometimes re-arms (3 re-arms against 30 holds, nothing found to tell them
+    /// apart), and one Intel daily event. Many rules are narrow, and a market unlike those checked may see more
+    /// misses. On the fifteen livestream charts it prints 17 or more on 46 of DBSI's 48 such readings and on 2
+    /// where DBSI does not (gen8 38 and 6).
     /// </para>
     ///
-    /// <para>
     /// <b>The trend line.</b> DBSI's "Long Term Trend 200": a 200-bar EMA of the same candles'
     /// closes (two digitised points of TradingView idea vBzsjpDu matched an EMA of Heikin-Ashi
     /// closes within 0.3%, a 200 SMA was 1.5–4% off — tentative), green while that close is above

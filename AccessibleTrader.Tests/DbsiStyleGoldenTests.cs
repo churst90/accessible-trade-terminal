@@ -14,7 +14,7 @@ namespace AccessibleTrader.Tests;
 /// labels) are in <see cref="DbsiDigitisedCharts"/>, generated from the study's files, with fifteen
 /// later livestream charts (<c>Fitted</c> false) and, for comparison, the numbers the 2026-10-25
 /// integer model (<c>Previous</c>, <c>dbsi8/gen8.py</c>) and the replaced linear model printed on every
-/// chart. The clean model (<c>dbsi8/clean_dbsi.py</c>) was built on hourly and daily sets of DBSI's own
+/// chart. The model (<c>dbsi8/zu_hs66e.py</c>) was built on hourly and daily sets of DBSI's own
 /// numbers that are not in this repository; the twenty and the fifteen were among the nine main sets
 /// every rule had to lose nothing on, so they are not held out.
 /// Three claims, each against the study rather than against this code:
@@ -83,8 +83,8 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"the twenty, previous integer model: {prev}");
         _out.WriteLine($"the twenty, linear model: {lin}");
         Assert.Equal(897, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.881) < 0.002 && Math.Abs(f.Within1 - 0.906) < 0.002
-                    && Math.Abs(f.Within2 - 0.941) < 0.002 && Math.Abs(f.Rmse - 1.18) < 0.01, f.ToString());
+        Assert.True(Math.Abs(f.Exact - 0.886) < 0.002 && Math.Abs(f.Within1 - 0.905) < 0.002
+                    && Math.Abs(f.Within2 - 0.948) < 0.002 && Math.Abs(f.Rmse - 1.16) < 0.01, f.ToString());
         Assert.Equal((84, 81, 5), (f.High, f.HighPrinted, f.FalseHigh));
         // gen8.py, the previous shipped model: 55.1%, 66.7%, 80.4%, 2.16, 65 of 84 and 12 false.
         Assert.True(Math.Abs(prev.Exact - 0.551) < 0.002 && Math.Abs(prev.Within2 - 0.804) < 0.002 && prev.FalseHigh == 12, prev.ToString());
@@ -109,7 +109,7 @@ public sealed class DbsiStyleGoldenTests
         _out.WriteLine($"livestream, linear model: {lin}");
         Assert.Equal(lin.N, f.N);
         Assert.Equal(prev.N, f.N);
-        Assert.True(Math.Abs(f.Exact - 0.850) < 0.003 && Math.Abs(f.Within1 - 0.870) < 0.003
+        Assert.True(Math.Abs(f.Exact - 0.860) < 0.003 && Math.Abs(f.Within1 - 0.873) < 0.003
                     && Math.Abs(f.Within2 - 0.901) < 0.003 && Math.Abs(f.Rmse - 2.23) < 0.01, f.ToString());
         Assert.Equal((48, 46, 2), (f.High, f.HighPrinted, f.FalseHigh));
         // gen8.py: 48.5%, 58.7%, 78.1%, 2.80, 38 of 48 and 6 false; the linear model 20.4%, 67.1% within 2, 10 false.
@@ -124,7 +124,7 @@ public sealed class DbsiStyleGoldenTests
         var (_, ps) = SideInControl(Pooled(Livestream, c => Printed(c.PreviousBull, c.PreviousBear)));
         var (ld, ls) = SideInControl(Pooled(Livestream, c => Printed(c.LinearBull, c.LinearBear)));
         _out.WriteLine($"side in control: {same} of {differ}, previous {ps}, linear {ls} of {ld}");
-        Assert.Equal((262, 258, 247, 243), (differ, same, ps, ls));   // 98%; gen8 and the linear model 93-94%
+        Assert.Equal((262, 259, 247, 243), (differ, same, ps, ls));   // 99%; gen8 and the linear model 93-94%
     }
 
     /// <summary>

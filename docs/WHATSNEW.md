@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Cipher DBSI now prints Market Cipher DBSI's own number on all but a handful of candles.** On the ten
+  charts used to check every rule it is exact on 37,132 of 37,136 candles (was 98.5%), and on charts never used
+  to choose a rule on 33,097 of 33,108. Old stocks and commodities with long runs of flat candles still miss
+  about 1 in 16. Not yet seen or heard in the app.
 - **Fibs read like TradingView.** A retracement goes swing start, then swing end, with 0% at the end, so 61.8%
   is a 61.8% pullback; the default levels are TradingView's eleven, and Properties takes your own. For a fib
   extension's third point, the pullback, the app tells you where it is after the second point: its price, date,
@@ -29,7 +33,8 @@
   tells you which other product a Cipher, DSS or DBSI-style default matches, or what a setting did
   before. Cipher B's default Money Flow Formula and Buy Dot Rule are now called "Standard"; a saved
   chart that said "MCB" opens with "Standard" and draws exactly the same.
-- **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20.** It was rebuilt from
+- **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20** (closer still now; see
+  the first DBSI item above). It was rebuilt from
   every rule found in DBSI's own labels on Bitcoin, Ethereum, gold, the Dow, the S&P 500 and Apple,
   hourly to daily. On ten charts no rule was found on, it prints DBSI's exact number 94 to 97% of the
   time and is within two points 99 times in 100; on seven weeks of hourly Bitcoin it is exact 96% of

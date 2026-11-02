@@ -1676,17 +1676,15 @@ take control at …", "Bulls reached the long entry score at …" or the bears' 
 crossing the trend line. The two scores start muted; the trend line and those announcements do not.
 
 It is a reconstruction, not DBSI. Its rules were found on DBSI's own numbers, read from its labels:
-thousands of hourly and daily Bitcoin and Dow candles, plus 1,505 read by eye off thirty-five charts.
-Every rule had to lose nothing on ten more charts it was not found on (gold, Apple, the Dow, the S&P
-500 and Ethereum daily; Bitcoin and Ethereum four-hour; Bitstamp Bitcoin four-hour and hourly). On
-those it prints DBSI's exact number about 19 times in 20 (94 to 97%) and lands within 2 points about
-99 times in 100. On three charts gathered after the rules were settled (Microsoft 15-minute, Bitcoin
-5-minute and 1-minute) it is exact 94% of the time. On the charts read by eye, which carry some
-reading mistakes, it is exact about 8 times in 10. Bear numbers still miss more often than bull
-numbers. It names the side in control the way DBSI does on about 98 candles in 100. The misses
-left are mostly a candle early or late where Stoch RSI leaves 0 or 100. It prints 17 or more on 45 of
-the 48 livestream candles where DBSI did, and 3 times where DBSI stayed lower. It is a close stand-in,
-but a single reading can still be a few points off DBSI's, so do not treat one high reading as DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
+thousands of hourly and daily candles on Bitcoin, Ethereum, gold, silver, oil, the Dow, the S&P 500 and
+stocks, plus 1,505 read by eye off thirty-five charts. Every rule had to lose nothing on ten more charts it
+was not found on (gold, Apple, the Dow, the S&P 500 and Ethereum daily; Bitcoin and Ethereum four-hour;
+Bitstamp Bitcoin four-hour and hourly). On those it prints DBSI's exact number on all but 4 of 37,136
+candles, and on charts never used to choose a rule on all but 11 of 33,108. Old stocks and commodities
+with long runs of flat candles (high equal to low) miss more, about 1 candle in 16, because their
+arithmetic is mostly rounding noise. On the charts read by eye, which carry some reading mistakes, it is
+exact nearly 9 times in 10. It prints 17 or more on 46 of the 48 livestream candles where DBSI did, and 2
+times where DBSI stayed lower. It is a very close stand-in, but it is still not DBSI, so do not treat one high reading as DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a
 regular-candle chart, where DBSI reads the chart's own candles; on a Heikin-Ashi chart it reads the
 Heikin-Ashi candles either way, once) and **Label the newest N bars** (25,

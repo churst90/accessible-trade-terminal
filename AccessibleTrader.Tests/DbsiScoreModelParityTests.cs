@@ -6,7 +6,7 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// <b>The C# score is the study's clean model, bit for bit, on every bar.</b> <see cref="DbsiCleanScores"/>
-/// holds <c>dbsi8/clean_dbsi.py</c>'s bull and bear scores on every bar of the 35 digitised charts
+/// holds <c>dbsi8/zu_hs66e.py</c>'s bull and bear scores on every bar of the 35 digitised charts
 /// (warm-up bars null), computed on the same candles the provider reads (Heikin-Ashi where the chart
 /// is). A float detail the port gets wrong — a sum in the wrong order, a NaN compared the wrong way, a
 /// pin that does not compare equal — flips a rule on some bar and shows here.
@@ -37,13 +37,19 @@ public sealed class DbsiScoreModelParityTests
     /// <summary>
     /// Rules the 35 charts never reach fire on <see cref="DbsiCoverageCharts"/>' windows of real candles: the bear
     /// EMA(5)/EMA(11) cross's lengths, its off-run bar and the zero-line bonus read at the run's own cross bar (gold
-    /// 2004 and the rest; the 35 charts catch these too), the bear cross term's 36.5 and the wide-gap 17.34
-    /// edges (Dow), the bull Q value carried through a run of 1-2 bars but not 3 (Dow 1967, gold 1949) and only
+    /// 2004 and the rest; the 35 charts catch these too), the bull Q value carried through a run of 1-2 bars but not 3 (Dow 1967, gold 1949) and only
     /// when a Q bar came just before the run (Dow 1904), and the near-zero cross bound 5.6 (Dow 1953, Bitcoin hourly Heikin-Ashi), and the hidden arm's edges: a bull Q bar
     /// while it is down (gold 1967), the override's d2 &gt;= 0, the armed pinned top, the EMA state on the wide-gap terms
     /// and the 2-bar term's kept ARM (Dow, gold), and a bear Q bar with the hidden arm down or on a Q's first bar with V0 off,
-    /// and the bulls' deep-run flag read on the bar a run ends and carried through later runs (gold 1980, Dow 1948). The generator refuses to write the fixture
-    /// unless breaking each rule changes a score on a window.
+    /// and the bulls' deep-run flag read on the bar a run ends and carried through later runs (gold 1980, Dow 1948), and
+    /// the study's switches Z1-Z18 (S&amp;P 500 1952-2006, Dow 1924 and 2001, Bitcoin 2016, gold 2003, Halliburton 1971),
+    /// the near-zero bound below 5.6 (Altria 1969) and the bear Q latch's 80 (Disney 2012), and the port's precision and bar
+    /// terms: the zone and 8-bar terms, the money-flow running sums and their ties, the last-value and NaN holds, the
+    /// alive-run and bear floors, the Q hair, the carry across a cross, the off-run bar after a top (Cisco 2022, the yen
+    /// 2016 and 2025, silver 1915, oil 1988, Dow 1900, 1906 and 1995, S&amp;P 500 1886, gold 1844). The generator refuses to write
+    /// the fixture unless breaking each rule changes a score on a window. The wide-gap 17.34 and the near-zero 5.6 moved up
+    /// change no score on any harvested bar, and neither do fsum against a plain sum, the Stoch RSI's zero-range tolerance
+    /// or its 77.2 edge, so nothing holds them.
     /// </summary>
     public static IEnumerable<object[]> CoverageWindows() => DbsiCoverageCharts.All.Keys.Select(k => new object[] { k });
 

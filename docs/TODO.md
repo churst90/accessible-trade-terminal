@@ -1,3 +1,12 @@
+> - [ ] **Cipher DBSI = the study's zu_hs66e, ported bit for bit (2026-11-02, Cody: "please do commit the latest
+>   version of dbsi"; NOT seen or heard; see CHANGES).** The ten veto sets are 99.99% exact, the blind sets
+>   99.97%, and the held-out sets 100%. Cody to look at Bitcoin daily and 1h Heikin-Ashi against DBSI. Still open
+>   in the study (no further port until asked, per Cody's 2026-10-29 rule): flat-price eras miss 6.4% of fresh
+>   labels (float noise); the pinned-Stoch-RSI hold vs re-arm (3 re-arms, 30 holds, unseparated); Intel 1990s
+>   (one shape); the Start-grid emulator not moved to this model. Unpinned (no harvested bar changes if broken):
+>   fsum against a plain sum and its half-even step, the Stoch RSI zero-range tolerance and its 77.2 edge,
+>   the wide gap 17.34 and the near-zero 5.6 moved up, the max that keeps NaN (differs from Math.Max only on ±0),
+>   and two NaN holds the zero-range hold makes unreachable.
 > - [ ] **Drawing tools pass (2026-11-01/02, built, NOT seen or heard; see CHANGES).** Cody to try: a fib
 >   retracement swing low → swing high (0% should be at the high, 61.8% below it); a fib extension, listening
 >   for the pullback sentence after the second point, then arrowing that many bars right and pressing Enter;

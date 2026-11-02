@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI: the study's latest model, zu_hs66e, ported bit for bit (2026-11-02, NOT seen or heard)
+
+- **Why**: Cody: "and please do commit the latest version of dbsi since you've been working on it". This is an
+  exception to his 2026-10-29 rule (no more ports until the residue is solved); the search goes on in the study.
+- **What**: `DbsiScoreModel` is rewritten as `dbsi8/zu_hs66e.py` (private study), replacing `zt_c2.py` (ported
+  2026-10-29). Since then, about sixty rules and fixes have been found in DBSI's own labels:
+  - **One event applied everywhere.** Most new rules are a piece we already had, used on another bar type or
+    side: the bulls' WT > 60 dead-bar +2, the near-floor +1 at more sites, the floor touch (0, up, 0) on alive,
+    break and off bars, the EMA-cross latch held until Stoch RSI falls, and the bear Q that started on the
+    hidden arm keeping it.
+  - **Float arithmetic as TradingView does it.** The money flow's three SMAs are Pine running sums, and an
+    exact tie keeps the last direction. RMA is `(x + (n − 1)·prev) / n`, and the price stochastic is
+    `(c − ll) / (hh − ll) · 100`. A Stoch RSI window with no range holds the last value. An exact SMA2 tie or
+    an equal close keeps the previous bar's direction. A top-pin dip is read by the sign Pine's own sums give.
+  - **Switches Z1-Z18.** They are research switches in the study, all on by default except Z15, and are ported
+    as fixed code.
+- **Measured** (zt_c2 -> zu_hs66e):
+  - The ten veto sets: 98.48% -> 99.99% exact (37,132 of 37,136), within 2 99.73% -> 99.99%, RMSE 0.26 -> 0.03.
+  - The blind sets, never used to choose a rule: 98.35% -> 99.97% (33,097 of 33,108).
+  - The held-out sets, all 100%: Microsoft 15-minute (was 97.9%), Bitstamp 5-minute (98.5%), Bitstamp
+    1-minute (97.0%), Bitstamp daily and its mirrored, shifted and scaled copies (97.9-98.7%), and hourly
+    Bitcoin Heikin-Ashi (99.1%).
+  - Fresh TradingView reads of 63 daily charts nobody had scored: real-price bars 6 misses in 3,464 (0.17%).
+  - The digitised charts, read by eye: the twenty 88.1% -> 88.6% exact, within 1 90.6% -> 90.5%, within 2
+    94.1% -> 94.8%, error 1.18 -> 1.16; the fifteen livestream charts 85.0% -> 86.0%, within 1 87.0% -> 87.3%,
+    within 2 90.1% (the same). 17+ printed: the same (81 of 84 with 5 false; 46 of 48 with 2 false). Side in
+    control: the twenty the same (419 of 422), the fifteen 258 -> 259 of 262.
+- **Caveat**: the held-out sets have been gates ("no set worse") since 2026-10-29, so they are not untouched.
+  Every miss bar was also re-read from TradingView on 2026-11-01. Harvests made before 2026-10-31 had stored
+  wrong labels, and the re-reads changed about 150 of them. The 99.99% is against the corrected labels.
+- **Still open** (in the study):
+  - Flat-price eras (any bar with high = low in the last 60) miss 36 of 560 fresh labels (6.4%). Their
+    money-flow and RSI arithmetic is 0/0 and 1e-14 noise, and TradingView's noise is not ours.
+  - Two real-price events are parked: Intel 1990s (bull +4 / bear −5, one shape), and Walmart 2015-11-03, a
+    pinned-Stoch-RSI hold that DBSI re-arms. That is 3 re-arms against 30 holds, and no feature separates them.
+- **Tests**: `DbsiCleanScores`, `DbsiDigitisedCharts` and `DbsiCoverageCharts` are regenerated from zu_hs66e,
+  and the fidelity pins moved to the numbers above. The coverage fixture gains 23 windows of real candles (32 in
+  all), each where breaking one rule changes a score and no other window catches it. Thirteen are for the switches
+  Z1-Z18, the near-zero bound and the bear Q latch's 80. Ten are for the precision and bar terms: Cisco 2022, the
+  yen 2016 and 2025, silver 1915, oil 1988, the Dow 1900, 1906 and 1995, the S&P 500 1886, gold 1844. The generator
+  refuses to write unless each of its 41 study-model sabotages changes some window. On the C# port, 43 sabotages
+  were run: 36 go red. The first run left 14 green (the money-flow running sum and its tie, the zone and 8-bar
+  terms, the two value holds, the carry past a NaN and across a cross, the alive-run and bear floors, the Q hair,
+  the held NaN, the Stoch RSI high, the off-run bar after a top). The ten new windows were found for them, and all
+  14 are now red. Seven stay green because no score on the ~1.5 million harvested bars changes: fsum against a
+  plain sum and its half-even step, the Stoch RSI zero-range tolerance, its 77.2 edge moved to 78, the max that
+  keeps NaN against `Math.Max` (they differ only on ±0), and two NaN holds that the zero-range hold makes
+  unreachable. The wide gap 17.34 -> 17.4 and the near-zero 5.6 -> 6 change nothing in the study either. 124 DBSI
+  tests; README count 9934 -> 9957.
+- **Not done**: not seen or heard in the app. The accessibility-lead agent is not registered here (there is no
+  UI change). The Start-grid emulator is not moved to this model.
+
 ### Drawing tools: fibs like TradingView, the pullback found for you, five pattern tools, Enter, Alt+D, crossings and alerts on drawn levels, times in UTC or 12-hour, and the mouse on the bar it is over (2026-11-01/02, NOT seen or heard)
 
 - **Why**: Cody: "address all the issues you found with the drawing tools alt d, fibs, etc. incorporate the
