@@ -2284,17 +2284,23 @@ quantity.
 Drawing tools place reference lines and shapes that then become audible as you
 navigate — the cursor will announce when it crosses a trendline you have set. Every
 tool uses **sequential anchoring**, which is what makes them fully keyboard-
-accessible: you do not hold and drag, and you do not press Enter. Instead you
-navigate the cursor to a point and press the tool's own shortcut to drop an anchor
-there; navigate to the next point and press the **same** shortcut again to set the
-next; and so on until the shape is complete. Escape cancels a drawing in progress.
+accessible: you do not hold and drag. Move the cursor to the bar of the first point
+and choose the tool — from **Drawing Tools** (`Alt+D`, every tool in five groups:
+Lines, Fibonacci, Patterns, Pitchfork and Gann, Measure and mark) or by its own
+shortcut — and that places the first point. Move to each next point and press
+`Enter`; pressing the tool's shortcut again does the same. Escape cancels a drawing
+in progress. `Enter` places a point only while the chart has focus; on a button or in
+a form it does what it always did.
 
 Take a trendline (Alt+Shift+T) as the model. Arrow to the first point and press
-Alt+Shift+T — speech confirms "Trend line: first point at {price}, {time}. Navigate
-to the second point and press the shortcut again." Arrow to the second point, press
-it once more, and the line completes: "Trend line placed, second point at {price},
-from {price}." Three-point tools — Fibonacci extension, Andrews' pitchfork,
-Risk/Reward — simply take a third press.
+Alt+Shift+T — speech confirms the first point with its price and time and names the
+next point to go to. Arrow to the second point, press `Enter`, and the line completes:
+"Trend line placed, second point at {price}, from {price}." The line goes on to the
+right past the second point, like TradingView's ray; in **Properties** (`P`), "Extend
+left, before the first point" makes it TradingView's extended line, and clearing
+"Extend right, past the second point" stops it at the second point. Three-point
+tools — Fibonacci extension, Andrews' pitchfork, Risk/Reward — simply take a third
+point, and the pattern tools take four to six.
 
 **Every tool names its own points rather than numbering them**, because the number
 is the one thing that cannot help you decide where to put it. The risk/reward tool
@@ -2310,28 +2316,93 @@ which takes two points and not three. Single-anchor tools — a horizontal price
 line, a vertical time marker, a text label, an anchored VWAP — finish on the first
 press, placing immediately at the cursor.
 
+#### Fibonacci retracement and extension
+
+Fibs are measured the way TradingView and the tutorials measure them. A
+**fib retracement** (Alt+Shift+F) takes the swing's **start** and then its **end**: for a
+pullback in an uptrend, the swing low and then the swing high. **0% is at the swing
+end and 100% at the start**, so the 61.8% line is where a pullback that gives back
+61.8% of the swing stops. The default levels are 0, 23.6, 38.2, 50, 61.8, 78.6, 100,
+161.8, 261.8, 361.8 and 423.6 percent; Properties has a **Levels** box to set your own.
+When the second point is placed you hear the 38.2, 50 and 61.8% prices and how far
+price has pulled back since the swing end.
+
+A **fib extension** (Alt+Shift+E), TradingView's trend-based extension, takes the swing start, the swing end, and
+then the **pullback**: after a swing up, the lowest low before price goes above the
+swing's high again — often near the 38.2 to 61.8% retracement, or a retest of earlier
+support. You do not have to hunt for it. After the second point the pullback is found
+and said — *"The pullback low is 61,240, Oct 14, 6 bars right of the swing end, a
+52.3% retracement."* — so you can arrow that many bars right and press `Enter`. If
+price has not yet gone back past the swing end, it says so, because the pullback may
+still deepen. The extension's 100% line is one whole swing from that third point.
+
+With **Snap swing points to the wick** on (Settings, F12, General — on by default), a
+fib, pitchfork or pattern point placed on a bar goes on that bar's low or high,
+whichever the swing needs, instead of its close: the first two points decide which is
+the low, and they alternate from there. When a point moves you hear "moved to".
+
+**Fib time zones** take a start and one unit of bars and draw lines 1, 2, 3, 5, 8,
+13… units on; the **angle fib** draws fan lines at the fib fractions of a slope.
+
+#### Pattern tools
+
+Five tools in the Patterns group say what the swing points you place make. Place each
+point in order, left to right; when the last is placed you hear the reading:
+
+- **ABCD** — four points; whether C and D fit an ABCD and whether AB equals CD.
+- **XABCD** — five points; the harmonic it fits (Gartley, Bat, Butterfly, Crab,
+  Cypher), or the nearest and by how much it misses.
+- **Head and shoulders** — shoulder, neckline, head, neckline, shoulder; the neckline
+  break and the target.
+- **Triangle** — two highs and two lows, alternating; the triangle or wedge they make
+  and where its sides meet.
+- **Elliott impulse** — the start and the ends of waves 1 to 5; which of the three
+  impulse rules hold.
+
+These read the points you placed; they do not search the chart for patterns.
+
+#### Crossing a drawn line, and alerts on it
+
+Every drawn line is crossed like an indicator line: fib levels, channels, pitchfork
+lines, risk/reward lines, anchored VWAP, a head and shoulders neckline, a triangle's
+sides and trend lines chirp as the cursor crosses them, and with a drawing focused
+`Ctrl+Left` and `Ctrl+Right` jump between the bars where price crossed one —
+*"Price crosses below 61.8% level at 138.2."* A fib, a risk/reward and a pattern are
+crossed only after their last point.
+
+An alert can be set on a fib level, a horizontal line or a risk/reward line: in the
+Alerts dialog choose **A line on the chart** and the drawn levels are listed with their
+prices. The alert is a plain price alert at that price — which is what lets the
+browser-closed monitor watch it — so if you move the drawing afterwards, the alert
+stays where it was, and the confirmation says so. Sloped lines (a trend line, a
+channel) are not offered.
+
+#### With a mouse
+
+A click lands on the bar drawn under the pointer, all the way to the chart's edges, and
+a drawing's handle is picked up where it is drawn, including a point placed in the
+empty space to the right of the last bar. A click that cannot do anything says why
+instead of doing nothing: *"No bars loaded yet."*, a point before the first bar or
+past the room to its right (*"a point can go up to 20 bars after the last bar"*), and
+*"No bar there to measure to."* for a Shift+click measure on an empty slot.
+
 On a **touchscreen with no keyboard**, arm the tool from the chart menu's Drawing
-Tools, then use the touch toolbar's **Place drawing point** button in place of the
-shortcut: move the cursor with the bar buttons (or tap a bar) and press Place drawing
-point once per anchor. Re-pressing it advances through the same tool's anchors exactly
-as re-pressing the shortcut would, so a trend line, channel, or any multi-anchor tool
-completes entirely by touch.
+Tools, then use the touch toolbar's **Place drawing point** button in place of
+`Enter`: move the cursor with the bar buttons (or tap a bar) and press Place drawing
+point once per anchor, so a trend line, channel, or any multi-anchor tool completes
+entirely by touch.
 
 > The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and
 > browser. A shortcuts profile saved before 2026-09-05 keeps the old Ctrl+Shift chords
 > on the desktop, and the F1 help always shows the bindings live on your host.
 
-The set spans Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
+The shortcuts cover Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
 Fibonacci retracement and extension (F, E), Text label (L), Rectangle (R), Measure
 (M), Andrews' pitchfork (A), Gann fan and box (G, B), Angle (J), Risk/Reward (P), and
-anchored VWAP (W); Alt+D opens a panel to review and delete what you have placed. A
-few behave specially. A Fibonacci retracement, anchored from a swing low to a swing
-high, lays down the standard 23.6, 38.2, 50, 61.8 and 78.6 percent levels, each
-audible as the cursor crosses it. An anchored VWAP behaves like a moving-average
-overlay you can focus and whose crossings you can jump between. And the Risk/Reward
-tool, after you set its entry and stop anchors, speaks the resulting risk and then
-asks for the target, announcing the full reward-to-risk ratio once you set it — the
-same measuring workflow described in the Trading chapter.
+anchored VWAP (W); the pattern tools and fib time zones are in Drawing Tools (Alt+D).
+An anchored VWAP behaves like a moving-average overlay you can focus and whose
+crossings you can jump between. To review or delete what you have placed, use the
+Object Tree or `Page Up`/`Page Down` and `Delete`.
 
 #### Arrowing along a drawing
 
@@ -2345,7 +2416,7 @@ past end, price above."* where the line is projected beyond the point you drew i
 value at all, the position leads with a bar count — *"Before start, 20 bars."* — because
 arrow keys move bars and a count tells you how far to press. A drawing with several parts (a
 Fibonacci retracement's levels, a rectangle's top and bottom) announces which one it is
-reading — *"Fibonacci retracement 1. 7 components, reading 61.8%."* — and `Ctrl+Up` and
+reading — *"Fibonacci retracement 1."*, how many parts it has, and *"reading 61.8%."* — and `Ctrl+Up` and
 `Ctrl+Down` name each level once as you move between them; the bars themselves stay
 value-first. *"Not yet calculated."* means the drawing genuinely has no number at a bar it
 should — that is a fault worth reporting, not a place you are standing.
@@ -2414,8 +2485,7 @@ is mouse-only.
 
 ### Naming your drawings
 
-A drawing's name is what you hear when you move to it, what the object tree lists, and what
-an alert refers to. By default that is "Trendline 3", which tells you nothing. Open
+A drawing's name is what you hear when you move to it and what the object tree lists. By default that is "Trendline 3", which tells you nothing. Open
 **Properties** (`P`) on a drawing and set **Name** to why you drew it — "Weekly resistance
 from the January high" — and that is what is announced from then on. Clearing the field
 restores the automatic name.
@@ -2673,7 +2743,17 @@ hear "00:00" after it, which was the same on every bar a daily chart has. If you
 the date in front of every reading, **Settings (F12) → Speech → Speak the date on every bar**
 turns it on; boundaries only is the default. The two "Speak values as" orders that name a
 timestamp explicitly — time only, date only — are unaffected: choosing one has already answered
-the question.
+the question. Time only on a daily chart names the date, since a daily bar's time of day is the
+same on every bar and told you nothing.
+
+**Which clock times are read in.** **Settings (F12) → Speech → Times of day are read in** picks
+**This computer's time zone** (the default) or **UTC**, and **12-hour clock with AM and PM** reads
+*"2:00 PM"* instead of *"14:00"*. Both change every time the app says or shows: the arrow keys,
+new-bar announcements, playback, drawing readbacks, the hover readout, the Dot Pad strip and the
+chart's time axis. A bar is named by when it opened, as TradingView labels it. Daily and weekly
+bars keep their own date in either zone. On a hosted install "this computer" is the **server**,
+not the computer you are listening on; the hint under the setting names the zone and its offset,
+so choose UTC if that is not yours.
 
 **What lines and signals look like.** Sighted traders talk about signals by their look: "the big
 green dot", "the red triangle above the candle", "the orange line". Turn on **Settings (F12) →

@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Drawing tools: fibs like TradingView, the pullback found for you, five pattern tools, Enter, Alt+D, crossings and alerts on drawn levels, times in UTC or 12-hour, and the mouse on the bar it is over (2026-11-01/02, NOT seen or heard)
+
+- **Why**: Cody: "address all the issues you found with the drawing tools alt d, fibs, etc. incorporate the
+  additional drawing pattern recognition tools as well that may be useful...yes i want the fib levels
+  narrated. on the fibs for the third point, how would i find the pull back level, like a retest of the swing
+  low?" and, on the clocks, "I may not want 24 hour time, so we need AM and PM if we do 12 hour time". What
+  was wrong: a fib retracement drew 0% at the swing start, so every level from 23.6 to 78.6 had the other
+  level's name next to a TradingView tutorial; Enter did nothing while drawing; Alt+D listed eleven of the
+  tools, so the Gann fan, Gann box, angle fib and risk/reward could be reached only by a shortcut nobody had
+  been told about; fib levels never chirped and Ctrl+Right on a focused fib said "No points of interest"; no
+  drawn level could be alerted on, though the manual said drawings were what an alert refers to; and a mouse
+  click near the right edge landed up to five bars off the candle under the pointer.
+- **What changed** (77ea9390, 5b7848a2, 566af293, c169d96a, 9b218901, 15901c66):
+  - **Fibs** (`FibLevels`, new: one place for where a level is, what it is called and what is alerted on).
+    0% at the swing end, 100% at the start, TradingView's eleven default levels (0 to 423.6%), and a Levels box
+    in Properties for your own (fractions or percentages). A trend-based extension's 100% is one whole swing
+    from its third point.
+  - **The pullback.** After a fib extension's second point the app finds the pullback and says it: after a swing
+    up, the lowest low before price goes above the swing's high again (the mirror after a swing down), with its
+    price, date, how many bars right of the swing end it is and how much of the swing it retraced, and whether
+    price has gone back past the swing end yet.
+  - **Swing snap** (Settings, General, "Snap swing points to the wick", on by default): a fib, pitchfork or
+    pattern point goes on its bar's low or high instead of the close, the first two points deciding which is
+    the low, alternating after.
+  - **Five pattern tools** (`PatternReading`, new): ABCD, XABCD (Gartley, Bat, Butterfly, Crab, Cypher, or the
+    nearest), head and shoulders (neckline break and target), triangle (which triangle or wedge, where the sides
+    meet), Elliott impulse (the three rules). Each says what the placed points make. They read the points; they
+    do not search the chart. Also fib time zones. Trend lines and channels have Extend left / Extend right.
+  - **Enter** places the next point while the chart has focus (`ConfirmCoordinateEntry`, unbound and unhandled
+    until now); re-pressing the tool's shortcut still works. **Alt+D** is built from `DrawingToolCatalog`, all 21
+    tools in five groups, and a test holds every `DrawingType` to it once.
+  - **Crossings** (`LineDrawingCrossings.PriceLines`): fib levels, channels, pitchforks, risk/reward, AVWAP,
+    necklines, triangle sides and trend lines chirp when crossed and are Ctrl+Left/Right stops ("Price crosses
+    below 61.8% level at 138.2"). A fib, risk/reward and pattern lines count only after their last point.
+  - **Alerts on drawn levels**: "A line on the chart" in the Alerts dialog lists a fib's levels, horizontal lines
+    and risk/reward lines with their prices; choosing one makes a plain price alert, which the browser-closed
+    monitor can watch.
+  - **Times** (F12, Speech): "Times of day are read in" this computer's zone (default) or UTC, and "12-hour clock
+    with AM and PM". Both live on `SpeechTimeFormatter`, so speech, the hover readout, the Dot Pad strip and the
+    chart's time axis change together. "Time only" on a daily chart now names the date instead of "18:00".
+  - **Mouse**: clicks, Shift+click measures, right-clicks, handle grabs and the hover hairline use the renderer's
+    own slot geometry over the plot width (the price-axis column is not chart). A handle past the last bar is
+    grabbed where it is drawn. Clicks that cannot act now say why: "No bars loaded yet.", a point before the first
+    bar or past the room to the right, "No bar there to measure to."; a press with no tool armed and a moving
+    pointer stay quiet.
+- **Caveats**: none of it seen on screen or heard by Cody. Vertical lines and fib time zones are drawn as marks
+  nobody has looked at; the 12-hour axis labels are wider, also not seen. An alert on a drawn level stays at its
+  price if the drawing is moved (the confirmation says so); sloped lines are not offered. "This computer's time
+  zone" on the VPS is the server's zone; the hint names the zone id and offset. The mouse fix also moves the hover
+  readout and hairline at the chart's edges. Bars are named by their open, as TradingView labels them; a
+  "speak the close time" option was not built. Found, not changed (money path): Shift+Enter for a quick-trade
+  limit looks never to be forwarded by `keyboard.js`; unverified. The accessibility-lead agent is not registered
+  here, so no accessibility review agent ran.
+- **Tests**: `DrawingPatternToolsTests` (new, 24), `DrawingEnterPlacementTests` (new, 5), crossings 10,
+  alert lines 2, `SpeechClockSettingsTests` (new, 6) and a daily "time only" test, 14 mouse tests (every pixel of a
+  slot picks its candle, handles at the bar centre and past the last bar, the axis column, the hairline, the
+  refusals). Sabotages, each red: crossings 6, alerts 4, time settings 9, mouse 10; fibs, pullback, swing snap,
+  patterns, catalog and Enter 15 (fib orientation, extension from point 3, default levels, custom levels, pullback stop, pullback unsaid, snap flipped, snap setting ignored, H&S target, Elliott wave 3, ABCD equality, a tool dropped from the catalog, Enter dispatch, Enter unbound, Enter forwarded everywhere). The doc guard also caught two new manual sentences ("measured" and "trend-based" read as other tools); reworded. Suite 9934 tests; full run on CI at push.
+
 ### With the browser closed, a bar close is said once, with its real open, when the venue answers mid-update (2026-11-01, NOT heard)
 
 - **Why**: Cody's terminal log from 2026-10-31, browser closed, BTCUSDT on Bitstamp: "1h: close 77401.41 at 07:00"

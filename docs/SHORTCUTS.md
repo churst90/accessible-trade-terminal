@@ -404,18 +404,20 @@ The tab switcher bar (a row of tabs just above the chart) is always visible, eve
 
 ## Drawing Tools — Sequential Anchoring
 
-All drawing shortcuts use **sequential anchoring**: there is no separate "mode" and no Enter key. Each anchor is set by **pressing the same tool shortcut again** at the current cursor bar. The `DrawingInteractionManager` state machine advances one anchor per press.
+All drawing tools use **sequential anchoring**: there is no separate "mode". The first point is placed by choosing the tool at the cursor bar — by its shortcut, or from Drawing Tools (`Alt+D`, all 21 tools in five groups) — and each next point by pressing **Enter** (or the same tool shortcut again). The `DrawingInteractionManager` state machine advances one anchor per press.
 
 1. Navigate to the first bar with the Left/Right arrows.
-2. Press the tool shortcut (e.g. `Alt+Shift+T`) to set anchor 1 at the current bar. Speech announces the price and timestamp and prompts: "Navigate to next point and press the shortcut again."
+2. Press the tool shortcut (e.g. `Alt+Shift+T`), or choose the tool in `Alt+D`, to set anchor 1 at the current bar. Speech announces the price and timestamp and names the next point: "Navigate to the end point and press Enter."
 3. Navigate to the next bar.
-4. Press the **same** shortcut again to set anchor 2. For two-anchor tools this completes the drawing and speech confirms placement.
-5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), press the shortcut once more for anchor 3.
+4. Press **Enter** (or the same shortcut again) to set anchor 2. For two-anchor tools this completes the drawing and speech confirms placement.
+5. Three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork) take a third Enter; the pattern tools (ABCD, XABCD, head and shoulders, triangle, Elliott impulse) take four to six, and say what the points make when the last is placed.
 6. Press Escape at any time to cancel the in-progress placement.
 
 Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) complete on the first press.
 
-> The default profile also keeps a mouse path (click/drag to place, drag a handle to reposition), but the keyboard re-press flow above is the canonical accessible path. **Enter/Return is not used for drawing** — the `ConfirmCoordinateEntry` command is reserved/unused and has no key binding or dispatch handler.
+> Enter places a point only while the chart has focus (`ConfirmCoordinateEntry`); on a button or form field it keeps its usual meaning, and Shift+Enter is left to quick trade. The default profile also keeps a mouse path (click/drag to place, drag a handle to reposition); a click that cannot place a point says why.
+
+> **Fib point order (like TradingView):** a retracement is swing **start**, then swing **end** — 0% at the end, 100% at the start. A trend-based extension adds the **pullback** as its third point; after the second point the app says where the pullback is (price, date, bars right of the swing end, retracement %).
 
 | Key | Tool | Anchors Required |
 |-----|------|-----------------|
@@ -423,8 +425,8 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+Shift+H | Horizontal line (price level) | 1 |
 | Alt+Shift+V | Vertical line (time marker) | 1 |
 | Alt+Shift+C | Price channel (two parallel lines) | 2 |
-| Alt+Shift+F | Fibonacci retracement | 2 (swing high and swing low) |
-| Alt+Shift+E | Fibonacci extension | 3 (move start, move end, pullback) |
+| Alt+Shift+F | Fibonacci retracement | 2 (swing start, swing end) |
+| Alt+Shift+E | Fibonacci extension | 3 (swing start, swing end, pullback) |
 | Alt+Shift+L | Text label | 1 |
 | Alt+Shift+R | Rectangle | 2 (opposite corners) |
 | Alt+Shift+M | Measure / range tool | 2 (start and end of the move) |
@@ -434,10 +436,16 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+Shift+J | Angle / Fibonacci angle | 2 |
 | Alt+Shift+P | Risk/Reward tool | 3 (entry, stop loss, take profit) |
 | Alt+Shift+W | Anchored VWAP | 1 (the anchor bar) |
+| (Alt+D) | Fib time zone | 2 (start, one unit of bars) |
+| (Alt+D) | ABCD pattern | 4 |
+| (Alt+D) | XABCD harmonic | 5 |
+| (Alt+D) | Head and shoulders | 5 (shoulder, neckline, head, neckline, shoulder) |
+| (Alt+D) | Triangle | 4 (two highs and two lows, alternating) |
+| (Alt+D) | Elliott impulse | 6 (start, ends of waves 1-5) |
 
 | Key | Drawing Placement Action |
 |-----|--------------------------|
-| (re-press the tool shortcut) | Set the next anchor at the current bar position |
+| Enter (or re-press the tool shortcut) | Set the next anchor at the current bar position |
 | ContextMenu / Shift+F10 | Open the context menu for the focused drawing |
 | Escape | Cancel the active in-progress drawing |
 
@@ -495,7 +503,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+B | Order book |
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
-| Alt+D | Drawing tools panel |
+| Alt+D | Drawing Tools: every tool, in five groups (choosing one places its first point at the cursor) |
 | Alt+Shift+L | Pin a text label at the cursor bar, then type what it says |
 | Ctrl+Alt+Shift+Y | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
 | Alt+Shift+/ | Describe THIS PANE — what each axis measures, its range, and the step between gridlines |

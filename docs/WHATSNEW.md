@@ -8,6 +8,19 @@
 
 ## Unreleased
 
+- **Fibs read like TradingView.** A retracement goes swing start, then swing end, with 0% at the end, so 61.8%
+  is a 61.8% pullback; the default levels are TradingView's eleven, and Properties takes your own. For a fib
+  extension's third point, the pullback, the app tells you where it is after the second point: its price, date,
+  how many bars to the right and how deep it went, so you arrow there and press Enter.
+- **Enter places the next drawing point**, and **Alt+D lists every drawing tool**, 21 in five groups, including
+  five new pattern tools (ABCD, XABCD harmonics, head and shoulders, triangle, Elliott impulse) that say what the
+  points you placed make.
+- **Fib levels and other drawn lines chirp when price crosses them** and are Ctrl+Left/Right stops, and you can
+  set an alert on a fib level, a horizontal line or a risk/reward line ("A line on the chart").
+- **Times in UTC or on a 12-hour clock.** Settings (F12), Speech: "Times of day are read in" this computer's zone
+  or UTC, and "12-hour clock with AM and PM". Speech and the chart's time axis both follow.
+- **The mouse lands on the candle under it**, all the way to the edges, and a click that cannot do anything says
+  why instead of staying silent.
 - **Cipher B's Money Flow and WT Histogram are easier to hear.** A bar's roughness now measures it
   against the biggest bar of its own kind on screen, not the whole Cipher B pane, so the biggest
   Money Flow or histogram bar in view is fully rough and small ones stay smooth. Before, nearly

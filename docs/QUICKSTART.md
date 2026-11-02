@@ -292,16 +292,21 @@ whole pitch range, hide the band with H; a hidden overlay is not counted.
 
 ## 9. Drawing tools
 
-Drawings are placed by **sequential anchoring**: no dragging, no Enter.
+Drawings are placed by **sequential anchoring**: no dragging.
 
 1. Arrow to the first point.
-2. Press the tool's chord. Speech names the point you set and the point it wants next: "Trend
-   line: first point at 42,500.00, 14:30. Navigate to the second point and press the shortcut
-   again."
-3. Arrow to the next point and press the **same** chord. Three-point tools take a third press.
+2. Press the tool's chord, or choose the tool in **Alt+D** (all 21 tools, in five groups).
+   Speech names the point you set and the point it wants next: "Trend line: first point at
+   42,500.00, 14:30. Navigate to the end point and press Enter."
+3. Arrow to the next point and press **Enter** (the same chord again works too). Three-point
+   tools take a third, the pattern tools four to six.
 4. Completion speaks the tool's answer: the measure tool its distance, percent and bar count;
-   the risk/reward tool "Risk to reward, 1 to 3.00."
+   the risk/reward tool "Risk to reward, 1 to 3.00."; a pattern tool what the points make.
 5. Escape cancels a drawing in progress.
+
+Fibs read like TradingView: a retracement goes swing start, then swing end, with 0% at the end.
+For an extension's third point, the pullback, the app tells you after the second point where
+the pullback is and how many bars right of the swing end, so you arrow there and press Enter.
 
 | Chord | Tool (points) |
 |---|---|
@@ -310,7 +315,7 @@ Drawings are placed by **sequential anchoring**: no dragging, no Enter.
 | Alt+Shift+V | Vertical line at the cursor bar (1) |
 | Alt+Shift+C | Price channel (2) |
 | Alt+Shift+F | Fibonacci retracement: swing start, swing end (2) |
-| Alt+Shift+E | Fibonacci extension: swing start, swing end, retracement point (3) |
+| Alt+Shift+E | Fibonacci extension: swing start, swing end, pullback (3) |
 | Alt+Shift+L | Text label, then a dialog for the wording (1) |
 | Alt+Shift+R | Rectangle: opposite corners (2) |
 | Alt+Shift+M | Measure tool: start and end of the move (2) |
@@ -320,7 +325,8 @@ Drawings are placed by **sequential anchoring**: no dragging, no Enter.
 | Alt+Shift+J | Angle Fibonacci: swing start, swing end (2) |
 | Alt+Shift+P | Risk/Reward: entry, stop loss, take profit (3) |
 | Alt+Shift+W | Anchored VWAP from the cursor bar (1) |
-| Alt+D | Drawing tools panel: review and delete |
+| Alt+D | Drawing Tools: every tool, grouped; also fib time zones and the five pattern tools |
+| Enter | Place the next point (chart focused) |
 
 Alt+Shift+R is the rectangle and Alt+Shift+M is the two-point measure tool; the three-point
 entry, stop and target tool is Risk/Reward on Alt+Shift+P.

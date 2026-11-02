@@ -1,3 +1,17 @@
+> - [ ] **Drawing tools pass (2026-11-01/02, built, NOT seen or heard; see CHANGES).** Cody to try: a fib
+>   retracement swing low → swing high (0% should be at the high, 61.8% below it); a fib extension, listening
+>   for the pullback sentence after the second point, then arrowing that many bars right and pressing Enter;
+>   Alt+D (21 tools, five groups); one pattern tool (ABCD or head and shoulders); Ctrl+Right on a focused fib
+>   ("Price crosses below 61.8% level at …"); an alert from "A line on the chart"; F12 → Speech → UTC and the
+>   12-hour clock. Open, mine: vertical lines and fib time zones are drawn as marks nobody has looked at on
+>   screen; the 12-hour axis labels are wider and not seen; the mouse half-bar fix also moved the hover readout
+>   and hairline at the chart's edges; an alert on a drawn level stays at its price if the drawing is moved;
+>   sloped lines are not offered as alert lines.
+>   **UNVERIFIED, not touched (money path):** Shift+Enter (quick trade, limit at the cursor bar) looks never to
+>   be forwarded by `keyboard.js`, which forwards a bare Enter only; nobody has pressed it to see.
+>   Offers for Cody, not built: (1) the browser-closed monitor reads only the newest `__last-session__*` slot
+>   (`LocalBackgroundMonitor.LoadLastSession`), which may be why only some workspaces announce; (2) an option to
+>   speak a bar's CLOSE time instead of its open (TradingView labels bars by their open, as this does).
 > - [ ] **Browser closed: a bar close is said once, with its real open, when Bitstamp answers mid-update (2026-11-01, built, NOT heard; see CHANGES).**
 >   Bitstamp's list in the first seconds after a close can lack the bar that just closed, or carry a
 >   zero-volume placeholder at a stale price. That is where the doubled "1h: close 77401.41 at 07:00" and the
@@ -15073,7 +15087,9 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   (`ChartSeries.cs:266-267`) are persisted, cloned and set (`DrawingInteractionManager.cs:760,969`) — dead
   settings the user can toggle with no effect. It also means a segment between two swing highs cannot be
   drawn as a segment. CONFIRMED. MEDIUM.
-- [ ] **Drawing anchor handles are hit-tested half a bar off, and future-space anchors are unreachable —
+- [x] **(FIXED 2026-11-02, 15901c66: handles hit-tested at the bar's centre over the plot width; a date past
+  the last bar is projected by the median bar step, so a forward anchor is grabbed where it is drawn.)**
+  **Drawing anchor handles are hit-tested half a bar off, and future-space anchors are unreachable —
   `DrawingInteractionManager.cs:716-735`.** `DateToScreenX` returns
   `(idx − ViewportStart) / ViewportLength × width`, i.e. the *left edge* of the bar slot, while the
   renderer draws at `i × barWidth + barWidth/2` (bar centre — `StandardRenderers.cs:223,254`) and
@@ -15224,7 +15240,10 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   breaks at `dataIdx >= lineData.Length` (`:249`). At the live edge with `RightMarginBars = 10` reserved,
   the fill polygon closes to the far right edge, painting a wedge under ten bars of empty future space.
   CONFIRMED. LOW.
-- [ ] **Silent refusals on the mouse path — `DrawingInteractionManager.cs:183, 226, 240, 541, 582`.** A
+- [x] **(FIXED 2026-11-02, 15901c66: "No bars loaded yet.", a refused point says which side it fell off and
+  how far right a point may go, "No bar there to measure to."; a press past the bars with no tool armed and a
+  moving pointer stay quiet. The split-view case went with split view.)**
+  **Silent refusals on the mouse path — `DrawingInteractionManager.cs:183, 226, 240, 541, 582`.** A
   click over the split-view divider or the read-only second pane (`:183`), a click before data loads
   (`:226`), a click past `Data.Count + RightMarginBars` (`:240`), a click in the right margin while a
   drawing tool is armed (`:541`), and a Shift+click measurement onto an empty slot (`:582`) all `return`
@@ -15236,7 +15255,10 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   sits directly above `Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.SteelGray`
   (`:60`). `ThemeCoverageTests:255 SteelGray_isWhatANewUserGets` confirms SteelGray is intended.
   CONFIRMED. LOW.
-- [ ] **(amends the test suite)** `ChartMouseInteractionTests.cs:83` and `:144` assert the production
+- [x] **(DONE 2026-11-02, 15901c66: the expected bars are constants, and `PointerToPlotMappingTests` pins every
+  pixel of a slot to its candle with the renderer's slot written out, `(i+0.5)·w/L` over `width − AxisWidth`;
+  not by rendering a chart.)**
+  **(amends the test suite)** `ChartMouseInteractionTests.cs:83` and `:144` assert the production
   formula against itself: `int expected = ChartMath.MapXToIndex(320, 1280, …); Assert.Equal(expected,
   after);`. This guards only that the click plumbing calls `MapXToIndex` — the exact bug above (the mapping
   disagreeing with the renderer's layout) passes it unconditionally. Nothing in the suite pins a pixel to a
