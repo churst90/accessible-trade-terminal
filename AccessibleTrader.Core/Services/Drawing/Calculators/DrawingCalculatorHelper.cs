@@ -105,5 +105,32 @@ namespace AccessibleTrader.Core.Services.Drawing.Calculators
             if (offsetBars < 1) offsetBars = 1;
             return (n - 1) + offsetBars;
         }
+
+        /// <summary>The first <paramref name="n"/> points of a drawing, or null if any is unset.
+        /// The pattern tools read their points through here; <c>DrawingAnchorSchemaTests</c>
+        /// reads the literal <paramref name="n"/> as "slots 1 to n, price and date".</summary>
+        public static List<(DateTime Date, double Price)>? Points(DrawingData drawing, int n)
+        {
+            var points = new List<(DateTime, double)>(n);
+            for (int slot = 1; slot <= n; slot++)
+            {
+                if (drawing.GetAnchorDate(slot) is not DateTime d || drawing.GetAnchorPrice(slot) is not double p)
+                    return null;
+                points.Add((d, p));
+            }
+            return points;
+        }
+
+        /// <summary>One straight leg per pair of neighbouring points, each only between its own
+        /// two points, keyed by <paramref name="names"/>.</summary>
+        public static Dictionary<string, double[]> Legs(
+            IReadOnlyList<(DateTime Date, double Price)> points, IReadOnlyList<string> names, IReadOnlyList<Ohlcv> chartData)
+        {
+            var results = new Dictionary<string, double[]>();
+            for (int i = 0; i + 1 < points.Count && i < names.Count; i++)
+                results[names[i]] = CalculateLinearPoints(points[i].Date, points[i].Price,
+                    points[i + 1].Date, points[i + 1].Price, false, false, chartData);
+            return results;
+        }
     }
 }

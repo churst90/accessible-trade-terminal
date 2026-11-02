@@ -9,7 +9,7 @@ namespace AccessibleTrader.Tests
     /// price — a subtle off-by-one or wrong-level-constant here ships a chart
     /// that silently misleads the user. Coverage: TrendLine linear fit (slope +
     /// intercept), Channel parallel lines (baseline + offset upper + mid median),
-    /// FibRetracement level constants (0 / 23.6 / 38.2 / 50 / 61.8 / 78.6 / 100),
+    /// FibRetracement levels (TradingView's eleven, 0 at the swing end),
     /// FibExtension level constants (adds 161.8 / 261.8), Rectangle bounds (top =
     /// max anchor price, bottom = min anchor price, NaN outside date range),
     /// HorizontalLine constant fill, missing-anchor early returns.
@@ -161,10 +161,12 @@ namespace AccessibleTrader.Tests
         // ── FibRetracementCalculator ──────────────────────────────────────────
 
         [Fact]
-        public void FibRetracement_EmitsStandardLevels_FromP1Downward()
+        public void FibRetracement_PutsZeroAtTheSwingEnd_LikeTradingView()
         {
-            // p1=200, p2=100 → diff=100. Levels: 0%=200, 23.6%=176.4, 38.2%=161.8,
-            // 50%=150, 61.8%=138.2, 78.6%=121.4, 100%=100.
+            // TradingView's rule: 0 is the second point (the swing end), 100% the first, so a
+            // level's price is p2 + (p1 − p2) × level. Swing down from 200 to 100: the 61.8%
+            // retracement of that fall is 161.8, not 138.2. This app had it the other way up
+            // until 2026-11-01, so every level a TradingView tutorial named was the wrong line.
             var bars = MakeBars(3);
             var drawing = new DrawingData
             {
@@ -174,31 +176,50 @@ namespace AccessibleTrader.Tests
             };
             var result = new FibRetracementCalculator().Calculate(drawing, bars);
 
-            Assert.Equal(200.0, result["0.0% Level"][0],   precision: 6);
-            Assert.Equal(176.4, result["23.6% Level"][0],  precision: 3);
-            Assert.Equal(161.8, result["38.2% Level"][0],  precision: 3);
+            Assert.Equal(100.0, result["0.0% Level"][0],   precision: 6);
+            Assert.Equal(123.6, result["23.6% Level"][0],  precision: 3);
+            Assert.Equal(138.2, result["38.2% Level"][0],  precision: 3);
             Assert.Equal(150.0, result["50.0% Level"][0],  precision: 6);
-            Assert.Equal(138.2, result["61.8% Level"][0],  precision: 3);
-            Assert.Equal(121.4, result["78.6% Level"][0],  precision: 3);
-            Assert.Equal(100.0, result["100.0% Level"][0], precision: 6);
+            Assert.Equal(161.8, result["61.8% Level"][0],  precision: 3);
+            Assert.Equal(178.6, result["78.6% Level"][0],  precision: 3);
+            Assert.Equal(200.0, result["100.0% Level"][0], precision: 6);
+            Assert.Equal(261.8, result["161.8% Level"][0], precision: 3);
+            Assert.Equal(523.6, result["423.6% Level"][0], precision: 3);
         }
 
         [Fact]
-        public void FibRetracement_InvertedAnchors_LevelsFlipDirection()
+        public void FibRetracement_UpSwing_LevelsSitBelowTheHigh()
         {
-            // p1 < p2 → diff is negative → 50% level sits above p1, i.e. levels
-            // climb upward from p1. Makes the drawing orientation-agnostic.
+            // Swing up from 100 to 200: the pullback levels are under the high — 61.8% at 138.2.
             var bars = MakeBars(3);
             var drawing = new DrawingData
             {
                 Type = DrawingType.FibRetracement,
                 AnchorPrice1 = 100,
-                AnchorPrice2 = 200,  // upswing
+                AnchorPrice2 = 200,
             };
             var result = new FibRetracementCalculator().Calculate(drawing, bars);
-            Assert.Equal(100.0, result["0.0% Level"][0],   precision: 6);
+            Assert.Equal(200.0, result["0.0% Level"][0],   precision: 6);
             Assert.Equal(150.0, result["50.0% Level"][0],  precision: 6);
-            Assert.Equal(200.0, result["100.0% Level"][0], precision: 6);
+            Assert.Equal(138.2, result["61.8% Level"][0],  precision: 3);
+            Assert.Equal(100.0, result["100.0% Level"][0], precision: 6);
+        }
+
+        [Fact]
+        public void FibRetracement_UsesTradingViewsElevenLevels_OrTheDrawingsOwn()
+        {
+            var bars = MakeBars(3);
+            var tv = new DrawingData { Type = DrawingType.FibRetracement, AnchorPrice1 = 100, AnchorPrice2 = 200 };
+            Assert.Equal(
+                new[] { "0.0% Level", "23.6% Level", "38.2% Level", "50.0% Level", "61.8% Level", "78.6% Level",
+                        "100.0% Level", "161.8% Level", "261.8% Level", "361.8% Level", "423.6% Level" },
+                new FibRetracementCalculator().Calculate(tv, bars).Keys);
+
+            var own = new DrawingData { Type = DrawingType.FibRetracement, AnchorPrice1 = 100, AnchorPrice2 = 200,
+                                        FibLevels = new List<double> { 0.705, 0.5, 0.5 } };
+            var result = new FibRetracementCalculator().Calculate(own, bars);
+            Assert.Equal(new[] { "50.0% Level", "70.5% Level" }, result.Keys);
+            Assert.Equal(129.5, result["70.5% Level"][0], precision: 6);
         }
 
         // ── FibExtensionCalculator ────────────────────────────────────────────

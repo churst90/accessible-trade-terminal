@@ -20,6 +20,7 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly IIndicatorEngine _engine;
         private readonly IIndicatorStateMapper _mapper;
+        private readonly IIndicatorModelFactory? _modelFactory;
         private readonly IDrawingService _drawingService;
         private readonly IProfileService _profileService;
         private readonly IHeatmapService _heatmapService;
@@ -35,8 +36,10 @@ namespace AccessibleTrader.Core.Services
             IHeatmapService heatmapService,
             IWorkspaceStore store,
             INotificationHub notificationHub,
-            ILogger<IndicatorOrchestrator> logger)
+            ILogger<IndicatorOrchestrator> logger,
+            IIndicatorModelFactory? modelFactory = null)
         {
+            _modelFactory = modelFactory;
             _engine = engine;
             _mapper = mapper;
             _drawingService = drawingService;
@@ -120,6 +123,7 @@ namespace AccessibleTrader.Core.Services
                 else if (s.IsDrawing && s.Drawing != null)
                 {
                     var drawingData = _drawingService.CalculateDrawingData(s.Drawing, data);
+                    Drawing.DrawingComponents.Sync(s.Config, s.Drawing.Type, drawingData.Keys, _modelFactory);
                     buffer.ComponentData = drawingData;
                 }
                 // 4. INTERNAL MAPPING (CANDLES/VOLUME)
@@ -453,6 +457,10 @@ namespace AccessibleTrader.Core.Services
             foreach (var arr in arrays.Values)
                 if (arr.Length != data.Count) return true;
 
+            // (4) a part with no line behind it: a saved fib whose levels have since changed.
+            foreach (var c in s.Components)
+                if (!arrays.ContainsKey(c.Name)) return true;
+
             return false;
         }
 
@@ -479,6 +487,7 @@ namespace AccessibleTrader.Core.Services
             {
                 var buffer = new SeriesDataBuffer { SeriesId = s.Id };
                 buffer.ComponentData = _drawingService.CalculateDrawingData(s.Drawing, data);
+                Drawing.DrawingComponents.Sync(s.Config, s.Drawing.Type, buffer.ComponentData.Keys, _modelFactory);
                 buffer.FirstBarDate = data[0].Date;
                 _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
             }

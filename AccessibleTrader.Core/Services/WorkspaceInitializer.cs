@@ -579,8 +579,8 @@ namespace AccessibleTrader.Core.Services
             {
                 if (s.Drawing is not { Type: not DrawingType.None } d) continue;
                 if (Indicators.RetiredIndicators.IsRetired(s.IndicatorCode)) continue;
-                foreach (var a in new[] { d.AnchorDate1, d.AnchorDate2, d.AnchorDate3 })
-                    if (a is { } date && (earliest is null || date < earliest)) earliest = date;
+                for (int slot = 1; slot <= DrawingData.MaxAnchors; slot++)
+                    if (d.GetAnchorDate(slot) is { } date && (earliest is null || date < earliest)) earliest = date;
             }
             return earliest;
         }

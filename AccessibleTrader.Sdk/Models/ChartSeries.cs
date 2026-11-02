@@ -214,7 +214,15 @@ namespace AccessibleTrader.Sdk.Models
         MeasureTool,
         GannBox,
         AndrewsPitchfork,
-        AngleFib
+        AngleFib,
+        // 2026-11-01 (Cody: "incorporate the additional drawing pattern recognition tools").
+        // Appended, never inserted: a saved workspace stores the number.
+        FibTimeZone,
+        AbcdPattern,
+        XabcdPattern,
+        HeadAndShoulders,
+        TrianglePattern,
+        ElliottImpulse
     }
 
     /// <summary>
@@ -354,11 +362,23 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private double? _anchorPrice2;
         [ObservableProperty] private DateTime? _anchorDate3;
         [ObservableProperty] private double? _anchorPrice3;
+        // Slots 4 to 6 are for the pattern tools: an ABCD has four points, an XABCD and a head
+        // and shoulders five, an Elliott impulse six (0 to 5). Nothing older reads them.
+        [ObservableProperty] private DateTime? _anchorDate4;
+        [ObservableProperty] private double? _anchorPrice4;
+        [ObservableProperty] private DateTime? _anchorDate5;
+        [ObservableProperty] private double? _anchorPrice5;
+        [ObservableProperty] private DateTime? _anchorDate6;
+        [ObservableProperty] private double? _anchorPrice6;
         [ObservableProperty] private string _text = string.Empty;
         [ObservableProperty] private double _channelWidth;
         [ObservableProperty] private bool _isLocked;
         [ObservableProperty] private bool _extendLeft;
         [ObservableProperty] private bool _extendRight;
+
+        /// <summary>A fib's own levels, as ratios (0.618, not 61.8). Null means the tool's
+        /// defaults, which are TradingView's; set from Properties.</summary>
+        [ObservableProperty] private List<double>? _fibLevels;
 
         // Tool-specific metadata
         [ObservableProperty] private double _stopLoss;
@@ -366,17 +386,72 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private double _riskRewardRatio;
         [ObservableProperty] private string _measureResult = string.Empty;
 
+        /// <summary>The highest anchor slot any drawing type has.</summary>
+        public const int MaxAnchors = 6;
+
+        /// <summary>The date in anchor <paramref name="slot"/> (1 to <see cref="MaxAnchors"/>), or null.</summary>
+        public DateTime? GetAnchorDate(int slot) => slot switch
+        {
+            1 => AnchorDate1, 2 => AnchorDate2, 3 => AnchorDate3,
+            4 => AnchorDate4, 5 => AnchorDate5, 6 => AnchorDate6, _ => null,
+        };
+
+        /// <summary>The price in anchor <paramref name="slot"/> (1 to <see cref="MaxAnchors"/>), or null.</summary>
+        public double? GetAnchorPrice(int slot) => slot switch
+        {
+            1 => AnchorPrice1, 2 => AnchorPrice2, 3 => AnchorPrice3,
+            4 => AnchorPrice4, 5 => AnchorPrice5, 6 => AnchorPrice6, _ => null,
+        };
+
+        public void SetAnchorDate(int slot, DateTime? value)
+        {
+            switch (slot)
+            {
+                case 1: AnchorDate1 = value; break;
+                case 2: AnchorDate2 = value; break;
+                case 3: AnchorDate3 = value; break;
+                case 4: AnchorDate4 = value; break;
+                case 5: AnchorDate5 = value; break;
+                case 6: AnchorDate6 = value; break;
+            }
+        }
+
+        public void SetAnchorPrice(int slot, double? value)
+        {
+            switch (slot)
+            {
+                case 1: AnchorPrice1 = value; break;
+                case 2: AnchorPrice2 = value; break;
+                case 3: AnchorPrice3 = value; break;
+                case 4: AnchorPrice4 = value; break;
+                case 5: AnchorPrice5 = value; break;
+                case 6: AnchorPrice6 = value; break;
+            }
+        }
+
         public DrawingData Clone()
         {
-            return new DrawingData {
-                Type = Type, AnchorDate1 = AnchorDate1, AnchorPrice1 = AnchorPrice1,
-                AnchorDate2 = AnchorDate2, AnchorPrice2 = AnchorPrice2,
-                AnchorDate3 = AnchorDate3, AnchorPrice3 = AnchorPrice3,
-                Text = Text, ChannelWidth = ChannelWidth, IsLocked = IsLocked,
-                ExtendLeft = ExtendLeft, ExtendRight = ExtendRight,
-                StopLoss = StopLoss, TakeProfit = TakeProfit, 
-                RiskRewardRatio = RiskRewardRatio, MeasureResult = MeasureResult
-            };
+            var c = new DrawingData();
+            c.CopyFrom(this);
+            return c;
+        }
+
+        /// <summary>Every field of <paramref name="other"/> onto this one, in place — what undo
+        /// restores, and what <see cref="Clone"/> is built on, so a new field cannot be copied by
+        /// one and forgotten by the other.</summary>
+        public void CopyFrom(DrawingData other)
+        {
+            Type = other.Type;
+            for (int slot = 1; slot <= MaxAnchors; slot++)
+            {
+                SetAnchorDate(slot, other.GetAnchorDate(slot));
+                SetAnchorPrice(slot, other.GetAnchorPrice(slot));
+            }
+            Text = other.Text; ChannelWidth = other.ChannelWidth; IsLocked = other.IsLocked;
+            ExtendLeft = other.ExtendLeft; ExtendRight = other.ExtendRight;
+            FibLevels = other.FibLevels == null ? null : new List<double>(other.FibLevels);
+            StopLoss = other.StopLoss; TakeProfit = other.TakeProfit;
+            RiskRewardRatio = other.RiskRewardRatio; MeasureResult = other.MeasureResult;
         }
     }
 

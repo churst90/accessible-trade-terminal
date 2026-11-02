@@ -186,6 +186,53 @@
                                         }
                                     }
                                 </fieldset>
+
+                                @* The two line switches TradingView's trend line has, Cody 2026-11-01.
+                                   A trend line here already runs on past its second point, which is
+                                   TradingView's Ray; Extend left as well makes it the Extended Line.
+                                   They were stored and honoured by the calculator and could not be
+                                   changed from anywhere. *@
+                                @if (_series.Drawing.Type is AccessibleTrader.Sdk.Models.DrawingType.TrendLine or AccessibleTrader.Sdk.Models.DrawingType.Channel)
+                                {
+                                    <fieldset>
+                                        <legend>Line</legend>
+                                        <div class="modal-row">
+                                            <label>
+                                                <input id="drawing-extend-left" type="checkbox" checked="@_series.Drawing.ExtendLeft"
+                                                       @onchange="e => _series.Drawing.ExtendLeft = (bool)(e.Value ?? false)" />
+                                                Extend left, before the first point
+                                            </label>
+                                        </div>
+                                        <div class="modal-row">
+                                            <label>
+                                                <input id="drawing-extend-right" type="checkbox" checked="@_series.Drawing.ExtendRight"
+                                                       @onchange="e => _series.Drawing.ExtendRight = (bool)(e.Value ?? true)" />
+                                                Extend right, past the second point
+                                            </label>
+                                        </div>
+                                    </fieldset>
+                                }
+
+                                @* A fib's own levels (Cody 2026-11-01: "yes i want the fib levels
+                                   narrated"). Each level is a line: drawn, heard when price crosses
+                                   it, a Ctrl+Left/Right stop and an alert. *@
+                                @if (_series.Drawing.Type is AccessibleTrader.Sdk.Models.DrawingType.FibRetracement or AccessibleTrader.Sdk.Models.DrawingType.FibExtension)
+                                {
+                                    <fieldset>
+                                        <legend>Levels</legend>
+                                        <div class="modal-row">
+                                            <label for="drawing-fib-levels">Levels</label>
+                                            <input id="drawing-fib-levels" type="text" aria-describedby="drawing-fib-levels-help"
+                                                   value="@FibLevelsText()"
+                                                   aria-invalid="@InvalidAttr("drawing-fib-levels")"
+                                                   @onchange='e => UpdateFibLevels(e.Value?.ToString())' />
+                                        </div>
+                                        <p id="drawing-fib-levels-help" style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">
+                                            Numbers separated by commas, the way TradingView writes them: 0.618 is the 61.8% level, 1.618 the 161.8%.
+                                            Leave it empty for TradingView's levels.
+                                        </p>
+                                    </fieldset>
+                                }
                             }
                         </div>
                         break;
@@ -1689,21 +1736,9 @@
 
     // Drawing coordinate helpers. Which fields exist is DrawingAnchorSchema's answer, not this
     // file's; these only read and write the slot the schema named.
-    private double? AnchorPrice(int slot) => slot switch
-    {
-        1 => _series?.Drawing?.AnchorPrice1,
-        2 => _series?.Drawing?.AnchorPrice2,
-        3 => _series?.Drawing?.AnchorPrice3,
-        _ => null,
-    };
+    private double? AnchorPrice(int slot) => _series?.Drawing?.GetAnchorPrice(slot);
 
-    private DateTime? AnchorDate(int slot) => slot switch
-    {
-        1 => _series?.Drawing?.AnchorDate1,
-        2 => _series?.Drawing?.AnchorDate2,
-        3 => _series?.Drawing?.AnchorDate3,
-        _ => null,
-    };
+    private DateTime? AnchorDate(int slot) => _series?.Drawing?.GetAnchorDate(slot);
 
     /// <summary>
     /// Rename a drawing so navigation announces something meaningful.
@@ -1804,10 +1839,7 @@
             return;
         }
         _rejectedCoordinates.Remove(fieldId);
-        var d = _series.Drawing;
-        if (anchor == 1) d.AnchorPrice1 = v;
-        else if (anchor == 2) d.AnchorPrice2 = v;
-        else if (anchor == 3) d.AnchorPrice3 = v;
+        _series.Drawing.SetAnchorPrice(anchor, v);
     }
 
     /// <summary>
@@ -1825,10 +1857,28 @@
             return;
         }
         _rejectedCoordinates.Remove(fieldId);
-        var d = _series.Drawing;
-        if (anchor == 1) d.AnchorDate1 = dt;
-        else if (anchor == 2) d.AnchorDate2 = dt;
-        else if (anchor == 3) d.AnchorDate3 = dt;
+        _series.Drawing.SetAnchorDate(anchor, dt);
+    }
+
+    private string FibLevelsText() => _series?.Drawing == null ? ""
+        : AccessibleTrader.Core.Services.Drawing.Calculators.FibLevels.Format(
+            AccessibleTrader.Core.Services.Drawing.Calculators.FibLevels.For(_series.Drawing));
+
+    /// <summary>The fib's own levels. Empty means TradingView's; an entry that is not a number
+    /// is refused whole, marked invalid and said, and the levels stay as they were.</summary>
+    private void UpdateFibLevels(string? raw)
+    {
+        if (_series?.Drawing == null) return;
+        var levels = AccessibleTrader.Core.Services.Drawing.Calculators.FibLevels.Parse(raw);
+        if (levels == null)
+        {
+            _rejectedCoordinates.Add("drawing-fib-levels");
+            EventBus.Publish(new AnnouncementEvent("Levels not changed: each one has to be a number, like 0.618.", true,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            return;
+        }
+        _rejectedCoordinates.Remove("drawing-fib-levels");
+        _series.Drawing.FibLevels = levels.Count == 0 ? null : levels;
     }
 
     /// <summary>

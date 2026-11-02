@@ -103,6 +103,13 @@ namespace AccessibleTrader.Tests
                 AnchorPrice2 = 202.5,
                 AnchorDate3 = new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc),
                 AnchorPrice3 = 303.5,
+                AnchorDate4 = new DateTime(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc),
+                AnchorPrice4 = 404.5,
+                AnchorDate5 = new DateTime(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc),
+                AnchorPrice5 = 505.5,
+                AnchorDate6 = new DateTime(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc),
+                AnchorPrice6 = 606.5,
+                FibLevels = new List<double> { 0.5, 0.705 },
                 Text = "resistance retest",
                 ChannelWidth = 12.25,
                 IsLocked = true,
@@ -120,7 +127,18 @@ namespace AccessibleTrader.Tests
             foreach (var p in typeof(DrawingData).GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (!p.CanRead || !p.CanWrite) continue;
-                Assert.True(Equals(p.GetValue(src), p.GetValue(copy)),
+                object? a = p.GetValue(src), b = p.GetValue(copy);
+                if (a is System.Collections.IEnumerable la && a is not string)
+                {
+                    // A list is copied, not shared: editing the duplicate's levels must not
+                    // change the original's.
+                    Assert.NotSame(a, b);
+                    Assert.True(b is System.Collections.IEnumerable lb
+                        && la.Cast<object>().SequenceEqual(lb.Cast<object>()),
+                        $"DrawingData.Clone() does not copy {p.Name} — the duplicate loses it silently.");
+                    continue;
+                }
+                Assert.True(Equals(a, b),
                     $"DrawingData.Clone() does not copy {p.Name} — the duplicate loses it silently.");
             }
         }
@@ -140,6 +158,13 @@ namespace AccessibleTrader.Tests
                 AnchorPrice2 = 202.5,
                 AnchorDate3 = new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc),
                 AnchorPrice3 = 303.5,
+                AnchorDate4 = new DateTime(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc),
+                AnchorPrice4 = 404.5,
+                AnchorDate5 = new DateTime(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc),
+                AnchorPrice5 = 505.5,
+                AnchorDate6 = new DateTime(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc),
+                AnchorPrice6 = 606.5,
+                FibLevels = new List<double> { 0.5, 0.705 },
                 Text = "resistance retest",
                 ChannelWidth = 12.25,
                 IsLocked = true,

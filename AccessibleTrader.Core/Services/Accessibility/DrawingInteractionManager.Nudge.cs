@@ -375,35 +375,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return data.Count - 1 + (int)Math.Max(1, offset);
         }
 
-        private static DateTime? GetAnchorDate(DrawingData d, int slot) => slot switch
-        {
-            1 => d.AnchorDate1, 2 => d.AnchorDate2, 3 => d.AnchorDate3, _ => null
-        };
+        private static DateTime? GetAnchorDate(DrawingData d, int slot) => d.GetAnchorDate(slot);
 
-        private static double? GetAnchorPrice(DrawingData d, int slot) => slot switch
-        {
-            1 => d.AnchorPrice1, 2 => d.AnchorPrice2, 3 => d.AnchorPrice3, _ => null
-        };
+        private static double? GetAnchorPrice(DrawingData d, int slot) => d.GetAnchorPrice(slot);
 
-        private static void SetAnchorDate(DrawingData d, int slot, DateTime value)
-        {
-            switch (slot)
-            {
-                case 1: d.AnchorDate1 = value; break;
-                case 2: d.AnchorDate2 = value; break;
-                case 3: d.AnchorDate3 = value; break;
-            }
-        }
+        private static void SetAnchorDate(DrawingData d, int slot, DateTime value) => d.SetAnchorDate(slot, value);
 
-        private static void SetAnchorPrice(DrawingData d, int slot, double value)
-        {
-            switch (slot)
-            {
-                case 1: d.AnchorPrice1 = value; break;
-                case 2: d.AnchorPrice2 = value; break;
-                case 3: d.AnchorPrice3 = value; break;
-            }
-        }
+        private static void SetAnchorPrice(DrawingData d, int slot, double value) => d.SetAnchorPrice(slot, value);
 
         // ── Settle: one sentence, one undo entry ─────────────────────────────
 

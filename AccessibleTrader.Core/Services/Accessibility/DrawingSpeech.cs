@@ -85,13 +85,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (int slot in DrawingAnchorSchema.Slots(drawing.Type))
             {
                 if (!DrawingAnchorSchema.Uses(drawing.Type, slot, DrawingAnchorAxis.Date)) continue;
-                DateTime? d = slot switch
-                {
-                    1 => drawing.AnchorDate1,
-                    2 => drawing.AnchorDate2,
-                    3 => drawing.AnchorDate3,
-                    _ => null,
-                };
+                DateTime? d = drawing.GetAnchorDate(slot);
                 if (d.HasValue) dated.Add((slot, NearestBar(bars, d.Value)));
             }
 

@@ -3,7 +3,7 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Drawing
 {
     /// <summary>One editable coordinate of a drawing: which slot, which axis, and what to call it.</summary>
-    /// <param name="Slot">1, 2 or 3 — the anchor slot on <see cref="DrawingData"/>.</param>
+    /// <param name="Slot">1 to <see cref="DrawingData.MaxAnchors"/> — the anchor slot on <see cref="DrawingData"/>.</param>
     /// <param name="Axis">Price or Date.</param>
     /// <param name="Label">
     /// What this coordinate is called to a user, in the vocabulary of THIS drawing type.
@@ -92,7 +92,23 @@ namespace AccessibleTrader.Core.Services.Drawing
                     P(2, "Pivot 2 price"), D(2, "Pivot 2 date"),
                     P(3, "Pivot 3 price"), D(3, "Pivot 3 date"),
                 },
+
+                // Time only: the zones stand on bars, at whatever price.
+                [DrawingType.FibTimeZone] = new[] { D(1, "Start date"), D(2, "First unit end date") },
+
+                // The pattern tools, named the way the patterns are taught.
+                [DrawingType.AbcdPattern] = Named("Point A", "Point B", "Point C", "Point D"),
+                [DrawingType.XabcdPattern] = Named("Point X", "Point A", "Point B", "Point C", "Point D"),
+                [DrawingType.HeadAndShoulders] = Named("Left shoulder", "Left neckline point", "Head",
+                    "Right neckline point", "Right shoulder"),
+                [DrawingType.TrianglePattern] = Named("Point A", "Point B", "Point C", "Point D"),
+                [DrawingType.ElliottImpulse] = Named("Wave 1 start", "Wave 1 end", "Wave 2 end",
+                    "Wave 3 end", "Wave 4 end", "Wave 5 end"),
             };
+
+        /// <summary>A price and a date for each named point, in order, from slot 1.</summary>
+        private static DrawingAnchorField[] Named(params string[] names) =>
+            names.SelectMany((n, i) => new[] { P(i + 1, n + " price"), D(i + 1, n + " date") }).ToArray();
 
         /// <summary>The editable coordinates of a drawing type, in presentation order. Empty for
         /// an unknown type rather than throwing — an unrecognised drawing should render no

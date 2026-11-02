@@ -362,6 +362,12 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IDrawingCalculator, GannBoxCalculator>();
             services.AddSingleton<IDrawingCalculator, AndrewsPitchforkCalculator>();
             services.AddSingleton<IDrawingCalculator, AngleFibCalculator>();
+            services.AddSingleton<IDrawingCalculator, FibTimeZoneCalculator>();
+            services.AddSingleton<IDrawingCalculator, AbcdPatternCalculator>();
+            services.AddSingleton<IDrawingCalculator, XabcdPatternCalculator>();
+            services.AddSingleton<IDrawingCalculator, HeadAndShouldersCalculator>();
+            services.AddSingleton<IDrawingCalculator, TrianglePatternCalculator>();
+            services.AddSingleton<IDrawingCalculator, ElliottImpulseCalculator>();
             services.AddSingleton<IDrawingService, DrawingService>();
 
             return services;

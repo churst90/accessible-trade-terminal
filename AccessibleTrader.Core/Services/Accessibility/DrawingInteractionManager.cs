@@ -39,10 +39,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly System.Reactive.Disposables.CompositeDisposable _subs = new();
 
         private DrawingType _pendingDrawingType = DrawingType.None;
-        private DateTime? _anchorDate1;
-        private double? _anchorPrice1;
-        private DateTime? _anchorDate2;
-        private double? _anchorPrice2;
+        /// <summary>The points placed so far, as placed (the close, or the pointer's price) —
+        /// the swing snap is applied on reading, in <see cref="PlacedPoints"/>.</summary>
+        private readonly List<(DateTime Date, double Price)> _placed = new();
 
         // ── Click-drag placement state ───────────────────────────────────────
         // A "preview" drawing series is added to the store immediately on the first
@@ -259,12 +258,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (var s in state.ActiveSeries)
             {
                 if (!s.IsDrawing || s.Drawing == null) continue;
-                var anchors = new (DateTime? d, double? p)[]
-                {
-                    (s.Drawing.AnchorDate1, s.Drawing.AnchorPrice1),
-                    (s.Drawing.AnchorDate2, s.Drawing.AnchorPrice2),
-                    (s.Drawing.AnchorDate3, s.Drawing.AnchorPrice3),
-                };
+                var anchors = Enumerable.Range(1, DrawingData.MaxAnchors)
+                    .Select(slot => (d: s.Drawing.GetAnchorDate(slot), p: s.Drawing.GetAnchorPrice(slot)));
                 foreach (var (d, p) in anchors)
                 {
                     if (d == null && p == null) continue;
@@ -321,7 +316,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _isMouseDragging = true;
 
-            if (_anchorDate1 == null)
+            if (_placed.Count == 0)
             {
                 // First click — materialise the anchor and start a preview series.
                 HandleDrawingStep(date, price);
@@ -381,23 +376,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             // Drag commit: the preview series is already in the store with the final
-            // anchor 2 position. For two-point drawings we don't need CompleteDrawing to
-            // recreate anything; we just promote the preview to a committed drawing and
-            // clear the state machine. For three-point drawings (FibExtension, etc.) the
-            // drag fills anchor 2; the user still needs a separate click for anchor 3,
-            // so fall through to legacy HandleDrawingStep.
-            bool isThreePoint = _pendingDrawingType is
-                DrawingType.FibExtension or
-                DrawingType.RiskReward or
-                DrawingType.AndrewsPitchfork;
-
-            if (!isThreePoint)
+            // anchor 2 position. A two-point drawing is finished by the release; a tool with
+            // more points takes the release as its next point and the preview keeps tracking.
+            if (PointCount(_pendingDrawingType) == 2 && _placed.Count == 1)
             {
                 PromotePreviewToCommitted(date, price);
             }
             else
             {
-                // Record anchor 2 via the legacy path; preview keeps tracking for anchor 3.
                 HandleDrawingStep(date, price);
             }
         }
@@ -594,12 +580,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // with only one axis (HorizontalLine = price only, VerticalLine = date
                 // only) use the cursor's other coordinate so the handle is still grabbable.
                 // Missing slots (most drawings have only 2 anchors) are skipped.
-                var anchors = new (DateTime? d, double? p, int slot)[]
-                {
-                    (s.Drawing.AnchorDate1, s.Drawing.AnchorPrice1, 1),
-                    (s.Drawing.AnchorDate2, s.Drawing.AnchorPrice2, 2),
-                    (s.Drawing.AnchorDate3, s.Drawing.AnchorPrice3, 3),
-                };
+                var anchors = Enumerable.Range(1, DrawingData.MaxAnchors)
+                    .Select(slot => (d: s.Drawing.GetAnchorDate(slot), p: s.Drawing.GetAnchorPrice(slot), slot));
 
                 foreach (var (d, p, slot) in anchors)
                 {
@@ -660,9 +642,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     series.Drawing.AnchorDate2 = date;
                     series.Drawing.AnchorPrice2 = price;
                     break;
-                case 3:
-                    series.Drawing.AnchorDate3 = date;
-                    series.Drawing.AnchorPrice3 = price;
+                default:
+                    series.Drawing.SetAnchorDate(_editAnchorSlot, date);
+                    series.Drawing.SetAnchorPrice(_editAnchorSlot, price);
                     break;
             }
 
@@ -677,6 +659,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (series.Drawing == null) return;
             var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
+            Drawing.DrawingComponents.Sync(series.Config, series.Drawing.Type, results.Keys, _modelFactory);
             foreach (var kvp in results)
             {
                 series.Data.ComponentData[kvp.Key] = kvp.Value;
@@ -813,23 +796,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
             if (series?.Drawing == null) return;
 
-            if (_anchorDate2 == null)
-            {
-                series.Drawing.AnchorDate2 = cursorDate;
-                series.Drawing.AnchorPrice2 = cursorPrice;
-            }
-            else
-            {
-                // Three-point preview between anchors 2 and 3.
-                series.Drawing.AnchorDate3 = cursorDate;
-                series.Drawing.AnchorPrice3 = cursorPrice;
-            }
+            // The point being asked for follows the pointer: slot 2 after the first click, the
+            // next one after each click past that.
+            int next = Math.Min(DrawingData.MaxAnchors, _placed.Count + 1);
+            series.Drawing.SetAnchorDate(next, cursorDate);
+            series.Drawing.SetAnchorPrice(next, cursorPrice);
 
-            var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
-            foreach (var kvp in results)
-            {
-                series.Data.ComponentData[kvp.Key] = kvp.Value;
-            }
+            RecomputeDrawingGeometry(series);
             _eventBus.Publish(new RedrawEvent());
         }
 
@@ -841,30 +814,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void PromotePreviewToCommitted(DateTime finalDate, double finalPrice)
         {
             if (_previewSeriesId == null) return;
-            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
-            if (series?.Drawing != null)
-            {
-                series.Drawing.AnchorDate2 = finalDate;
-                series.Drawing.AnchorPrice2 = finalPrice;
-                var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
-                foreach (var kvp in results)
-                {
-                    series.Data.ComponentData[kvp.Key] = kvp.Value;
-                }
-            }
-
-            string label = FriendlyName(_pendingDrawingType);
-            double fromPrice = _anchorPrice1 ?? finalPrice;
-            string feedback = Math.Abs(finalPrice - fromPrice) > 0.001
-                ? $"{label} placed from {SpeechPriceFormatter.FormatPrice(fromPrice)} to {SpeechPriceFormatter.FormatPrice(finalPrice)}."
-                : $"{label} placed at {SpeechPriceFormatter.FormatPrice(finalPrice)}.";
-            _eventBus.Publish(new AnnouncementEvent(feedback));
-            _eventBus.Publish(new RedrawEvent());
-
-            _previewSeriesId = null;
-            _pendingDrawingType = DrawingType.None;
-            _anchorDate1 = null; _anchorPrice1 = null;
-            _anchorDate2 = null; _anchorPrice2 = null;
+            // One path for the last point however it arrives: the release of a drag is the
+            // second point, said and snapped exactly as a click or Enter would be.
+            HandleDrawingStep(finalDate, finalPrice);
         }
 
         /// <summary>
@@ -996,12 +948,42 @@ namespace AccessibleTrader.Core.Services.Accessibility
             DrawingType.GannFan          => new[] { "origin", "angle point" },
             DrawingType.GannBox          => new[] { "first corner", "opposite corner" },
             DrawingType.AngleFib         => new[] { "swing start", "swing end" },
+            DrawingType.FibTimeZone      => new[] { "start of the count", "end of the first unit" },
+            DrawingType.AbcdPattern      => new[] { "point A", "point B", "point C", "point D" },
+            DrawingType.XabcdPattern     => new[] { "point X", "point A", "point B", "point C", "point D" },
+            DrawingType.HeadAndShoulders => new[] { "left shoulder", "left neckline point", "head", "right neckline point", "right shoulder" },
+            DrawingType.TrianglePattern  => new[] { "point A", "point B", "point C", "point D" },
+            DrawingType.ElliottImpulse   => new[] { "start of wave 1", "end of wave 1", "end of wave 2", "end of wave 3", "end of wave 4", "end of wave 5" },
             _                            => new[] { "first point", "second point", "third point" },
         };
 
-        /// <summary>The tools placed with three points; every other multi-point tool takes two.</summary>
-        private static bool IsThreePoint(DrawingType type) =>
-            type is DrawingType.FibExtension or DrawingType.RiskReward or DrawingType.AndrewsPitchfork;
+        /// <summary>
+        /// How many points a tool is placed with. One for the lines and labels that complete at
+        /// once, three for the projection tools, four to six for the patterns. Channel is two:
+        /// its width is set afterwards, in Properties.
+        /// </summary>
+        internal static int PointCount(DrawingType type) => type switch
+        {
+            DrawingType.HorizontalLine or DrawingType.VerticalLine
+                or DrawingType.TextLabel or DrawingType.AnchoredVwap => 1,
+            DrawingType.FibExtension or DrawingType.RiskReward or DrawingType.AndrewsPitchfork => 3,
+            DrawingType.AbcdPattern or DrawingType.TrianglePattern => 4,
+            DrawingType.XabcdPattern or DrawingType.HeadAndShoulders => 5,
+            DrawingType.ElliottImpulse => 6,
+            _ => 2,
+        };
+
+        /// <summary>The chart-pattern tools: each point goes on a later bar than the one before,
+        /// and what the points make is named when the last one is placed.</summary>
+        internal static bool IsPattern(DrawingType type) => type is DrawingType.AbcdPattern
+            or DrawingType.XabcdPattern or DrawingType.HeadAndShoulders
+            or DrawingType.TrianglePattern or DrawingType.ElliottImpulse;
+
+        /// <summary>The tools whose points are swing highs and lows in turn, so a point can take
+        /// its swing's wick (<see cref="SwingSnap"/>).</summary>
+        internal static bool SnapsToSwings(DrawingType type) => IsPattern(type)
+            || type is DrawingType.FibRetracement or DrawingType.FibExtension
+                    or DrawingType.AngleFib or DrawingType.AndrewsPitchfork;
 
         /// <summary>The name of the point about to be placed, or a positional fallback.</summary>
         private static string AnchorName(DrawingType type, int index)
@@ -1010,107 +992,206 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return index < names.Length ? names[index] : $"point {index + 1}";
         }
 
+        /// <summary>
+        /// Each point's price once it takes its swing's wick, and which side it is on: −1 a low,
+        /// +1 a high, 0 left as placed.
+        ///
+        /// <para>
+        /// Cody, 2026-11-01, after asking how to anchor a fib: a keyboard point is the bar's close,
+        /// and every fib tutorial anchors wick to wick — the swing low's low and the swing high's
+        /// high. The points of a fib, a pitchfork and every pattern tool are swing highs and lows
+        /// IN TURN, so the first two decide it: if the first was placed below the second it is a
+        /// low, the second a high, the third a low, and so on. Equal first two prices decide
+        /// nothing and nothing moves. A point on a bar that is not loaded (the projected right
+        /// margin) keeps its price: there is no wick to take.
+        /// </para>
+        /// </summary>
+        internal static (double Price, int Side)[] SwingSnap(
+            IReadOnlyList<(DateTime Date, double Price)> points, IReadOnlyList<Ohlcv>? data)
+        {
+            var result = points.Select(p => (p.Price, 0)).ToArray();
+            if (points.Count < 2 || data == null || data.Count == 0) return result;
+            if (points[0].Price == points[1].Price) return result;
+
+            bool firstIsLow = points[0].Price < points[1].Price;
+            for (int i = 0; i < points.Count; i++)
+            {
+                int bar = FindNearestBarIndex(data, points[i].Date);
+                if (bar < 0 || bar >= data.Count || data[bar].Date != points[i].Date) continue;
+                bool low = (i % 2 == 0) == firstIsLow;
+                result[i] = low ? (data[bar].Low, -1) : (data[bar].High, 1);
+            }
+            return result;
+        }
+
+        private bool SwingSnapOn => _settings?.GetSetting(SettingsKeys.SwingSnap)?.ToObject<bool>() ?? true;
+
+        /// <summary>The placed points with the swing snap applied when it is on and the tool
+        /// takes it.</summary>
+        private List<(DateTime Date, double Price, int Side)> PlacedPoints()
+        {
+            if (!SwingSnapOn || !SnapsToSwings(_pendingDrawingType))
+                return _placed.Select(p => (p.Date, p.Price, 0)).ToList();
+            var snapped = SwingSnap(_placed, _store.State.Data);
+            return _placed.Select((p, i) => (p.Date, snapped[i].Price, snapped[i].Side)).ToList();
+        }
+
+        private static string SideWord(int side) => side < 0 ? "the low, " : side > 0 ? "the high, " : "";
+
         private void HandleDrawingStep(DateTime date, double price)
         {
             if (_pendingDrawingType == DrawingType.None) return;
-            string label = FriendlyName(_pendingDrawingType);
+            var type = _pendingDrawingType;
+            string label = FriendlyName(type);
+            int placed = _placed.Count;
 
-            if (_anchorDate1 == null)
+            if (placed > 0)
             {
-                _anchorDate1 = date;
-                _anchorPrice1 = price;
-
-                if (_pendingDrawingType == DrawingType.AnchoredVwap)
+                // A pattern is read left to right: X before A before B. A point on or before the
+                // last one would fold the pattern back on itself, and the names would lie.
+                if (IsPattern(type) && date <= _placed[^1].Date)
                 {
-                    CompleteDrawing(date, price);
-                }
-                else
-                {
-                    // Name the point just set AND the one being asked for. "Anchor 1 set,
-                    // navigate to next point" told the user neither.
-                    string ts = SpeakStamp(date);
                     _eventBus.Publish(new AnnouncementEvent(
-                        $"{label}: {AnchorName(_pendingDrawingType, 0)} at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. "
-                      + $"Navigate to the {AnchorName(_pendingDrawingType, 1)} and press the shortcut again."));
+                        $"The {AnchorName(type, placed)} goes on a later bar than the {AnchorName(type, placed - 1)}. Move right and press Enter."));
+                    return;
                 }
-            }
-            else if (_anchorDate2 == null)
-            {
-                bool needsDifferentBar = _pendingDrawingType == DrawingType.TrendLine ||
-                                        _pendingDrawingType == DrawingType.Channel ||
-                                        _pendingDrawingType == DrawingType.FibRetracement ||
-                                        _pendingDrawingType == DrawingType.AndrewsPitchfork;
-
-                if (needsDifferentBar && date == _anchorDate1)
+                bool needsDifferentBar = type is DrawingType.TrendLine or DrawingType.Channel
+                    or DrawingType.FibRetracement or DrawingType.AndrewsPitchfork or DrawingType.FibTimeZone;
+                if (placed == 1 && needsDifferentBar && date == _placed[0].Date)
                 {
                     _eventBus.Publish(new AnnouncementEvent("Please select a different bar for the second point."));
                     return;
                 }
-
-                _anchorDate2 = date;
-                _anchorPrice2 = price;
-
-                bool isThreePoint = _pendingDrawingType == DrawingType.FibExtension ||
-                                    _pendingDrawingType == DrawingType.RiskReward ||
-                                    _pendingDrawingType == DrawingType.AndrewsPitchfork;
-
-                if (!isThreePoint)
-                {
-                    CompleteDrawing(date, price);
-                }
-                else
-                {
-                    // One sentence built from the table, not three hand-written ones. The
-                    // risk/reward line here used to say "entry ... navigate to stop loss" on the
-                    // bar where the STOP had just been set — a whole step behind the state
-                    // machine it was describing.
-                    string ts = SpeakStamp(date);
-                    _eventBus.Publish(new AnnouncementEvent(
-                        $"{label}: {AnchorName(_pendingDrawingType, 1)} at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. "
-                      + $"Navigate to the {AnchorName(_pendingDrawingType, 2)} and press the shortcut again."));
-                }
             }
-            else
+
+            _placed.Add((date, price));
+            if (_placed.Count >= PointCount(type))
             {
-                CompleteDrawing(date, price);
+                CompleteDrawing();
+                return;
             }
+
+            SyncPreview();
+
+            // Name the point just set AND the one being asked for. "Anchor 1 set, navigate to
+            // next point" told the user neither. With the swing snap, the second point is where
+            // the first one's side becomes known, so the first is re-said there at its wick.
+            var points = PlacedPoints();
+            var now = points[^1];
+            string ts = SpeakStamp(date);
+            string said = $"{label}: {AnchorName(type, placed)} at {SideWord(now.Side)}{SpeechPriceFormatter.FormatPrice(now.Price)}, {ts}. ";
+            if (placed == 1 && points[0].Side != 0)
+                said = $"{label}: {AnchorName(type, 0)} moved to {SideWord(points[0].Side)}{SpeechPriceFormatter.FormatPrice(points[0].Price)}. "
+                     + $"{AnchorName(type, 1)} at {SideWord(now.Side)}{SpeechPriceFormatter.FormatPrice(now.Price)}, {ts}. ";
+            string pullback = type == DrawingType.FibExtension && placed == 1 ? PullbackSentence(points) : "";
+            _eventBus.Publish(new AnnouncementEvent(
+                said + pullback + $"Navigate to the {AnchorName(type, placed + 1)} and press Enter."));
         }
 
-        private void CompleteDrawing(DateTime dateFinal, double priceFinal)
+        /// <summary>
+        /// Where the pullback after a swing went, for a fib extension's third point.
+        ///
+        /// <para>
+        /// Cody, 2026-11-01: <i>"on the fibs for the third point, how would i find the pull back
+        /// level, like a retest of the swing low?"</i> The third point is the low of the pullback
+        /// that followed the swing — after a swing up, the lowest low before price went above the
+        /// swing's high again. That bar is found here and said with how far it retraced the swing
+        /// and how many bars right of the swing end it is, so it can be walked to and placed.
+        /// After a swing down, the highest high before price went below the swing's low.
+        /// </para>
+        /// </summary>
+        internal string PullbackSentence(IReadOnlyList<(DateTime Date, double Price, int Side)> points)
         {
-            // If a live preview exists, it's already the committed drawing — just
-            // finalise the anchor(s) we have and clear state. Otherwise fall back to
-            // creating a fresh series (legacy click-click path for drawings that never
-            // passed through MouseDown, e.g. Ctrl+Shift+T after keyboard navigation).
-            if (_previewSeriesId != null)
+            var data = _store.State.Data;
+            if (data == null || points.Count < 2) return "";
+            var pb = FindPullback(data, points[0].Date, points[0].Price, points[1].Date, points[1].Price);
+            if (pb == null) return "No bars after the swing end yet, so no pullback to anchor to. ";
+            var (bar, extreme, retrace, ended) = pb.Value;
+            bool up = points[1].Price > points[0].Price;
+            int endBar = FindNearestBarIndex(data, points[1].Date);
+            int away = bar - endBar;
+            string pct = (retrace * 100).ToString("0.#", CultureInfo.InvariantCulture);
+            return $"The pullback {(up ? "low" : "high")} is {SpeechPriceFormatter.FormatPrice(extreme)}, {SpeakStamp(data[bar].Date)}, "
+                 + $"{away} {(away == 1 ? "bar" : "bars")} right of the swing end, a {pct}% retracement"
+                 + (ended ? "" : ", and price has not yet gone back past the swing end") + ". ";
+        }
+
+        /// <summary>The bar of the deepest pullback after the swing end: after a swing up, the
+        /// lowest low until a high goes above the swing end; after a swing down, the mirror. Null
+        /// when the swing end is the last bar. <c>Retrace</c> is the fraction of the swing given
+        /// back; <c>Ended</c> is whether price has since gone past the swing end.</summary>
+        internal static (int Bar, double Extreme, double Retrace, bool Ended)? FindPullback(
+            IReadOnlyList<Ohlcv> data, DateTime startDate, double startPrice, DateTime endDate, double endPrice)
+        {
+            int e = FindNearestBarIndex(data, endDate);
+            if (e < 0 || e >= data.Count - 1) return null;
+            bool up = endPrice > startPrice;
+            int best = -1; double extreme = double.NaN; bool ended = false;
+            for (int j = e + 1; j < data.Count; j++)
             {
-                var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
-                if (series?.Drawing != null)
+                double v = up ? data[j].Low : data[j].High;
+                if (best < 0 || (up ? v < extreme : v > extreme)) { best = j; extreme = v; }
+                if (up ? data[j].High > endPrice : data[j].Low < endPrice) { ended = true; break; }
+            }
+            double swing = endPrice - startPrice;
+            double retrace = swing == 0 ? 0 : (endPrice - extreme) / swing;
+            return (best, extreme, retrace, ended);
+        }
+
+        /// <summary>Writes the placed points into the mouse preview, if there is one, so the
+        /// drawing on screen holds the points said so far.</summary>
+        private void SyncPreview()
+        {
+            if (_previewSeriesId == null) return;
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
+            if (series?.Drawing == null) return;
+            var points = PlacedPoints();
+            for (int i = 0; i < points.Count; i++)
+            {
+                series.Drawing.SetAnchorDate(i + 1, points[i].Date);
+                series.Drawing.SetAnchorPrice(i + 1, points[i].Price);
+            }
+            RecomputeDrawingGeometry(series);
+            _eventBus.Publish(new RedrawEvent());
+        }
+
+        private void CompleteDrawing()
+        {
+            var placedType = _pendingDrawingType;
+            var points = PlacedPoints();
+            var (dateFinal, priceFinal, _) = points[^1];
+
+            // If a live preview exists, it's already the committed drawing — write every point
+            // into it. Otherwise create the series (the keyboard path, and a click that never
+            // passed through MouseDown). Only the slots the tool has are written: this used to
+            // write the final point into slot 3 for every tool whether it had one or not.
+            ChartSeries? series = _previewSeriesId == null ? null
+                : _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _previewSeriesId);
+            if (series?.Drawing != null)
+            {
+                for (int i = 0; i < points.Count; i++)
                 {
-                    series.Drawing.AnchorDate3 = dateFinal;
-                    series.Drawing.AnchorPrice3 = priceFinal;
-                    var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
-                    foreach (var kvp in results)
-                    {
-                        series.Data.ComponentData[kvp.Key] = kvp.Value;
-                    }
-                    _eventBus.Publish(new RedrawEvent());
+                    series.Drawing.SetAnchorDate(i + 1, points[i].Date);
+                    series.Drawing.SetAnchorPrice(i + 1, points[i].Price);
                 }
+                for (int slot = points.Count + 1; slot <= DrawingData.MaxAnchors; slot++)
+                {
+                    series.Drawing.SetAnchorDate(slot, null);
+                    series.Drawing.SetAnchorPrice(slot, null);
+                }
+                RecomputeDrawingGeometry(series);
+                _eventBus.Publish(new RedrawEvent());
             }
             else
             {
-                var d = new DrawingData
+                var d = new DrawingData { Type = placedType, ExtendRight = true };
+                for (int i = 0; i < points.Count; i++)
                 {
-                    Type = _pendingDrawingType,
-                    AnchorDate1 = _anchorDate1,
-                    AnchorPrice1 = _anchorPrice1,
-                    AnchorDate2 = _anchorDate2,
-                    AnchorPrice2 = _anchorPrice2,
-                    AnchorDate3 = dateFinal,
-                    AnchorPrice3 = priceFinal,
-                    ExtendRight = true
-                };
-                CreateDrawingSeries(_pendingDrawingType.ToString(), d, _store.State.Data.ToList());
+                    d.SetAnchorDate(i + 1, points[i].Date);
+                    d.SetAnchorPrice(i + 1, points[i].Price);
+                }
+                string id = CreateDrawingSeries(placedType.ToString(), d, _store.State.Data.ToList());
+                series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == id);
             }
 
             // THE LAST POINT IS NAMED TOO, and the tool's own answer is spoken with it.
@@ -1120,45 +1201,37 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // bar count were computed, stored on the drawing and shown only on screen. Risk/reward
             // had the same gap: it computes the ratio and said nothing about it. On an audio-first
             // terminal the result of a measurement is the point of taking it.
-            var placedType = _pendingDrawingType;
             string label = FriendlyName(placedType);
-            double fromPrice = _anchorPrice1 ?? priceFinal;
-            // The point that finished it: the second of a two-point tool, the third of a
-            // three-point one. This was `_anchorDate2 == null ? 1 : 2`, and on every keyboard
-            // placement of a two-point tool the second anchor is already set when this runs, so a
-            // trend line finished with "Trend line placed, point 3 at …" — a point it does not
-            // have (A2q, 2026-10-01; DrawingPlacementSpeechTests).
-            int lastIndex = _anchorDate2 == null ? 0 : IsThreePoint(placedType) ? 2 : 1;
-            string lastPoint = AnchorName(placedType, lastIndex);
+            double fromPrice = points[0].Price;
+            // The point that finished it, by its name: "Trend line placed, second point at …".
+            // A trend line once finished with "point 3", a point it does not have (A2q,
+            // 2026-10-01; DrawingPlacementSpeechTests).
+            string lastPoint = AnchorName(placedType, points.Count - 1);
+            string side = SideWord(points[^1].Side);
 
-            string feedback = Math.Abs(priceFinal - fromPrice) > 0.001
-                ? $"{label} placed, {lastPoint} at {SpeechPriceFormatter.FormatPrice(priceFinal)}, from {SpeechPriceFormatter.FormatPrice(fromPrice)}."
-                : $"{label} placed at {SpeechPriceFormatter.FormatPrice(priceFinal)}.";
+            string feedback = points.Count > 1 && Math.Abs(priceFinal - fromPrice) > 0.001
+                ? $"{label} placed, {lastPoint} at {side}{SpeechPriceFormatter.FormatPrice(priceFinal)}, from {SpeechPriceFormatter.FormatPrice(fromPrice)}."
+                : $"{label} placed at {side}{SpeechPriceFormatter.FormatPrice(priceFinal)}.";
 
-            string outcome = PlacedOutcome(placedType);
+            string outcome = series?.Drawing != null ? PlacedOutcome(series.Drawing) : "";
             if (!string.IsNullOrEmpty(outcome)) feedback += " " + outcome;
 
             _eventBus.Publish(new AnnouncementEvent(feedback));
 
             _previewSeriesId = null;
             _pendingDrawingType = DrawingType.None;
-            _anchorDate1 = null; _anchorPrice1 = null;
-            _anchorDate2 = null; _anchorPrice2 = null;
+            _placed.Clear();
         }
 
         /// <summary>
         /// What the tool WORKS OUT, spoken at the moment it finishes — the measure tool's
-        /// distance and bar count, the risk/reward ratio. Both were computed by their calculators,
-        /// stored on the drawing and rendered on screen, and neither was ever said.
+        /// distance and bar count, the risk/reward ratio, a fib's main levels, what a pattern's
+        /// points make. Read from the drawing just placed: this used to take the first drawing
+        /// of the same type on the chart, so a second measure said the first one's answer.
         /// </summary>
-        private string PlacedOutcome(DrawingType type)
+        private string PlacedOutcome(DrawingData drawing)
         {
-            var drawing = _store.State.ActiveSeries
-                .FirstOrDefault(s => s.Drawing != null && s.Drawing.Type == type
-                                     && s.Drawing.AnchorPrice2.HasValue)?.Drawing;
-            if (drawing == null) return string.Empty;
-
-            return type switch
+            return drawing.Type switch
             {
                 DrawingType.MeasureTool when !string.IsNullOrEmpty(drawing.MeasureResult)
                     => $"{drawing.MeasureResult}.",
@@ -1167,8 +1240,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // locale would otherwise put "1 to 2,50" in the same sentence as a price
                     // formatted with a dot.
                     => $"Risk to reward, 1 to {drawing.RiskRewardRatio.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}.",
+                DrawingType.FibRetracement or DrawingType.FibExtension => FibOutcome(drawing),
+                _ when IsPattern(drawing.Type) => Drawing.PatternReading.Describe(drawing, _store.State.Data),
                 _ => string.Empty,
             };
+        }
+
+        /// <summary>A fib's golden zone, said once at placement — the 38.2, 50 and 61.8% levels —
+        /// and, for a retracement, how deep the pullback after the swing has gone so far.</summary>
+        private string FibOutcome(DrawingData d)
+        {
+            var parts = new List<string>();
+            foreach (double level in new[] { 0.382, 0.5, 0.618 })
+                if (Drawing.Calculators.FibLevels.PriceAt(d, level) is double p)
+                    parts.Add($"{Drawing.Calculators.FibLevels.Name(level)} {SpeechPriceFormatter.FormatPrice(p)}");
+            string said = parts.Count > 0 ? string.Join(", ", parts) + "." : "";
+            var data = _store.State.Data;
+            if (d.Type == DrawingType.FibRetracement && data != null
+                && d.AnchorDate1 is DateTime d1 && d.AnchorPrice1 is double p1
+                && d.AnchorDate2 is DateTime d2 && d.AnchorPrice2 is double p2
+                && FindPullback(data, d1, p1, d2, p2) is { } pb)
+            {
+                string pct = (pb.Retrace * 100).ToString("0.#", CultureInfo.InvariantCulture);
+                said += $" Since the swing end price has pulled back {pct}%, to {SpeechPriceFormatter.FormatPrice(pb.Extreme)}.";
+            }
+            return said.Trim();
         }
 
         public void HandleAddDrawing(string type, IReadOnlyList<Ohlcv> chartData)
@@ -1178,25 +1274,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             var pt = chartData[Math.Clamp(state.CurrentDataIndex, 0, chartData.Count - 1)];
 
-            var dType = type switch
-            {
-                "Horizontal" => DrawingType.HorizontalLine,
-                "Vertical" => DrawingType.VerticalLine,
-                "TrendLine" => DrawingType.TrendLine,
-                "Channel" => DrawingType.Channel,
-                "FibRetracement" => DrawingType.FibRetracement,
-                "FibExtension" => DrawingType.FibExtension,
-                "Rectangle" => DrawingType.Rectangle,
-                "GannFan" => DrawingType.GannFan,
-                "RiskReward" => DrawingType.RiskReward,
-                "AnchoredVwap" => DrawingType.AnchoredVwap,
-                "Measure" => DrawingType.MeasureTool,
-                "GannBox" => DrawingType.GannBox,
-                "Pitchfork" => DrawingType.AndrewsPitchfork,
-                "AngleFib" => DrawingType.AngleFib,
-                "TextLabel" => DrawingType.TextLabel,
-                _ => DrawingType.None
-            };
+            var dType = ToolType(type);
 
             if (dType == DrawingType.HorizontalLine)
             {
@@ -1206,7 +1284,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (dType == DrawingType.VerticalLine)
             {
                 CreateDrawingSeries("Vertical", new DrawingData { Type = DrawingType.VerticalLine, AnchorDate1 = pt.Date }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {SpeechTimeFormatter.FormatBar(pt.Date, PlaybackNarration.BarSeconds(state), PlaybackNarration.BarSeconds(state) >= 86400 ? SpeechTimeFormatter.LongDateFormat : "MMMM dd, HH:mm")}"));
+                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {SpeakStamp(pt.Date)}"));
             }
             else if (dType == DrawingType.TextLabel)
             {
@@ -1224,20 +1302,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 if (_pendingDrawingType != dType)
                 {
-                    // If a different drawing was in progress, cancel it silently before starting the new one.
+                    // If a different drawing was in progress, cancel it before starting the new one.
                     if (_pendingDrawingType != DrawingType.None)
                         _eventBus.Publish(new AnnouncementEvent($"{FriendlyName(_pendingDrawingType)} cancelled."));
 
                     _pendingDrawingType = dType;
-                    _anchorDate1 = null;
-                    _anchorPrice1 = null;
-                    _anchorDate2 = null;
-                    _anchorPrice2 = null;
+                    _placed.Clear();
                 }
 
                 HandleDrawingStep(pt.Date, pt.Close);
             }
         }
+
+        /// <summary>The tool names <see cref="AddDrawingEvent"/> carries — the shortcut table's and
+        /// the Drawing Tools list's — to the type they draw.</summary>
+        internal static DrawingType ToolType(string type) => type switch
+        {
+            "Horizontal" => DrawingType.HorizontalLine,
+            "Vertical" => DrawingType.VerticalLine,
+            "TrendLine" => DrawingType.TrendLine,
+            "Channel" => DrawingType.Channel,
+            "FibRetracement" => DrawingType.FibRetracement,
+            "FibExtension" => DrawingType.FibExtension,
+            "Rectangle" => DrawingType.Rectangle,
+            "GannFan" => DrawingType.GannFan,
+            "RiskReward" => DrawingType.RiskReward,
+            "AnchoredVwap" => DrawingType.AnchoredVwap,
+            "Measure" => DrawingType.MeasureTool,
+            "GannBox" => DrawingType.GannBox,
+            "Pitchfork" => DrawingType.AndrewsPitchfork,
+            "AngleFib" => DrawingType.AngleFib,
+            "TextLabel" => DrawingType.TextLabel,
+            "FibTimeZone" => DrawingType.FibTimeZone,
+            "Abcd" => DrawingType.AbcdPattern,
+            "Xabcd" => DrawingType.XabcdPattern,
+            "HeadAndShoulders" => DrawingType.HeadAndShoulders,
+            "Triangle" => DrawingType.TrianglePattern,
+            "Elliott" => DrawingType.ElliottImpulse,
+            _ => DrawingType.None
+        };
 
         public bool HasPendingDrawing => _pendingDrawingType != DrawingType.None;
 
@@ -1246,7 +1349,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_pendingDrawingType == DrawingType.None)
             {
                 _eventBus.Publish(new AnnouncementEvent(
-                    "No drawing in progress. Choose a tool from Drawing Tools first, then place each point.", true));
+                    "No drawing in progress. Choose a tool from Drawing Tools, Alt+D, first, then press Enter on each point.", true));
                 return;
             }
             if (chartData == null || chartData.Count == 0) return;
@@ -1271,6 +1374,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             DrawingType.AndrewsPitchfork => "Andrews pitchfork",
             DrawingType.AngleFib         => "Angle Fibonacci",
             DrawingType.TextLabel        => "Text label",
+            DrawingType.FibTimeZone      => "Fibonacci time zones",
+            DrawingType.AbcdPattern      => "ABCD pattern",
+            DrawingType.XabcdPattern     => "XABCD pattern",
+            DrawingType.HeadAndShoulders => "Head and shoulders",
+            DrawingType.TrianglePattern  => "Triangle pattern",
+            DrawingType.ElliottImpulse   => "Elliott impulse wave",
             _                            => t.ToString()
         };
 
@@ -1288,10 +1397,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             _pendingDrawingType = DrawingType.None;
-            _anchorDate1 = null;
-            _anchorPrice1 = null;
-            _anchorDate2 = null;
-            _anchorPrice2 = null;
+            _placed.Clear();
             _isMouseDragging = false;
             _eventBus.Publish(new AnnouncementEvent($"{label} cancelled."));
             _eventBus.Publish(new RedrawEvent());

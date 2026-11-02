@@ -204,36 +204,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var series = _resolve();
             if (series?.Drawing == null) return;
 
-            var copy = snapshot.Clone();
-            series.Drawing.Type = copy.Type;
-            series.Drawing.AnchorDate1 = copy.AnchorDate1;
-            series.Drawing.AnchorPrice1 = copy.AnchorPrice1;
-            series.Drawing.AnchorDate2 = copy.AnchorDate2;
-            series.Drawing.AnchorPrice2 = copy.AnchorPrice2;
-            series.Drawing.AnchorDate3 = copy.AnchorDate3;
-            series.Drawing.AnchorPrice3 = copy.AnchorPrice3;
-            series.Drawing.Text = copy.Text;
-            series.Drawing.ChannelWidth = copy.ChannelWidth;
-            series.Drawing.IsLocked = copy.IsLocked;
-            series.Drawing.ExtendLeft = copy.ExtendLeft;
-            series.Drawing.ExtendRight = copy.ExtendRight;
-            series.Drawing.StopLoss = copy.StopLoss;
-            series.Drawing.TakeProfit = copy.TakeProfit;
-            series.Drawing.RiskRewardRatio = copy.RiskRewardRatio;
-            series.Drawing.MeasureResult = copy.MeasureResult;
+            series.Drawing.CopyFrom(snapshot);
 
             _afterApply();
         }
 
         /// <summary>True when the drag actually moved something — a click that grabs a handle
         /// and releases it without moving is not an edit and must not consume an undo slot.</summary>
-        public static bool IsChange(DrawingData before, DrawingData after) =>
-            before.AnchorDate1 != after.AnchorDate1
-            || before.AnchorPrice1 != after.AnchorPrice1
-            || before.AnchorDate2 != after.AnchorDate2
-            || before.AnchorPrice2 != after.AnchorPrice2
-            || before.AnchorDate3 != after.AnchorDate3
-            || before.AnchorPrice3 != after.AnchorPrice3;
+        public static bool IsChange(DrawingData before, DrawingData after)
+        {
+            for (int slot = 1; slot <= DrawingData.MaxAnchors; slot++)
+                if (before.GetAnchorDate(slot) != after.GetAnchorDate(slot)
+                    || before.GetAnchorPrice(slot) != after.GetAnchorPrice(slot))
+                    return true;
+            return false;
+        }
     }
 
     /// <summary>

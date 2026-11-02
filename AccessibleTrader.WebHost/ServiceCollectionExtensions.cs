@@ -389,6 +389,12 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IDrawingCalculator, GannBoxCalculator>();
             services.AddScoped<IDrawingCalculator, AndrewsPitchforkCalculator>();
             services.AddScoped<IDrawingCalculator, AngleFibCalculator>();
+            services.AddScoped<IDrawingCalculator, FibTimeZoneCalculator>();
+            services.AddScoped<IDrawingCalculator, AbcdPatternCalculator>();
+            services.AddScoped<IDrawingCalculator, XabcdPatternCalculator>();
+            services.AddScoped<IDrawingCalculator, HeadAndShouldersCalculator>();
+            services.AddScoped<IDrawingCalculator, TrianglePatternCalculator>();
+            services.AddScoped<IDrawingCalculator, ElliottImpulseCalculator>();
             services.AddScoped<IDrawingService, DrawingService>();
 
             return services;

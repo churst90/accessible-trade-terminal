@@ -111,6 +111,8 @@ namespace AccessibleTrader.Core.Services
 
         // Drawing
         bool MagnetSnap { get; set; }
+        /// <summary>Fib and pattern points snap to the swing's wick. Default true.</summary>
+        bool SwingSnap { get; set; }
 
         // Trading
         bool PaperTradingMode { get; set; }
@@ -437,6 +439,12 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.MagnetSnap);
             set => Set(SettingsKeys.MagnetSnap, value);
+        }
+
+        public bool SwingSnap
+        {
+            get => GetBool(SettingsKeys.SwingSnap, true);
+            set => Set(SettingsKeys.SwingSnap, value);
         }
 
         public bool PaperTradingMode

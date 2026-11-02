@@ -170,6 +170,14 @@ namespace AccessibleTrader.Core.Services
         // ── Drawing ──────────────────────────────────────────────────────────
         public const string MagnetSnap         = "drawing.magnetSnap";
 
+        /// <summary>
+        /// Fib and pattern points take the swing's wick — the low of a swing low, the high of a
+        /// swing high — instead of the close. Default ON (Cody 2026-11-01: fib tutorials anchor
+        /// wick to wick, and a keyboard point otherwise lands on the close). Which points are
+        /// highs is read from the first two: they alternate from there.
+        /// </summary>
+        public const string SwingSnap          = "drawing.swingSnap";
+
         // ── Trading ──────────────────────────────────────────────────────────
         public const string PaperTradingMode   = "trading.paperTradingMode";
 

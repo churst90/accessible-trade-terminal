@@ -44,11 +44,19 @@ public class DrawingAnchorSchemaTests
             if (!Enum.TryParse<DrawingType>(declared.Groups[1].Value, out var type)) continue;
 
             var used = new HashSet<(int, DrawingAnchorAxis)>();
-            foreach (Match m in Regex.Matches(src, @"Anchor(Price|Date)([123])"))
+            foreach (Match m in Regex.Matches(src, @"Anchor(Price|Date)([1-6])"))
             {
                 var axis = m.Groups[1].Value == "Price" ? DrawingAnchorAxis.Price : DrawingAnchorAxis.Date;
                 used.Add((int.Parse(m.Groups[2].Value), axis));
             }
+            // The pattern tools read their points through DrawingCalculatorHelper.Points(drawing,
+            // n): every slot from 1 to n, price and date.
+            foreach (Match m in Regex.Matches(src, @"\bPoints\(drawing,\s*(\d)\)"))
+                for (int slot = 1; slot <= int.Parse(m.Groups[1].Value); slot++)
+                {
+                    used.Add((slot, DrawingAnchorAxis.Price));
+                    used.Add((slot, DrawingAnchorAxis.Date));
+                }
             census[type] = used;
         }
         return census;
