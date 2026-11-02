@@ -386,9 +386,7 @@ namespace AccessibleTrader.BlazorClient.Services
             // line answers "which bar am I on", not just "where is my cursor".
             // Across the PLOT width, not the canvas width, or the hairline sits beside the
             // candle it claims to be on.
-            double barX = state.ViewportLength > 1
-                ? (i - state.ViewportStartIndex) / (double)(state.ViewportLength - 1) * plotWidth
-                : x;
+            double barX = ChartMath.IndexToX(i, plotWidth, state.ViewportStartIndex, state.ViewportLength);
 
             Current = new ChartHoverInfo(
                 x, y, barX, i,

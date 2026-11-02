@@ -545,4 +545,26 @@ public sealed class ChartHoverStillMouseTests
         h.Store.Dispatch(new PanAction(5));
         Assert.Null(t.Current);
     }
+
+    /// <summary>
+    /// The hover hairline stands on the hovered candle: at its slot's centre, where the renderer
+    /// draws it. It was placed by stretching the bars from the plot's left edge to its right
+    /// (index / (length − 1) × width), which near the left edge put it half a candle to the left
+    /// of the candle it named.
+    /// </summary>
+    [Fact]
+    public void The_hairline_stands_at_the_hovered_candles_centre()
+    {
+        var h = new Harness();
+        h.PaneLayout.Update(System.Array.Empty<(string, float)>(), 0.05f, 0.05f);
+        using var t = h.Tracker();
+        var s = h.Store.State;
+        double slot = W * 0.95 / s.ViewportLength;
+
+        h.Input.ProcessMouse(2.3 * slot, Y, "MouseMove", W, H);
+
+        Assert.NotNull(t.Current);
+        Assert.Equal(s.ViewportStartIndex + 2, t.Current!.BarIndex);
+        Assert.Equal(2.5 * slot, t.Current.BarX, 3);
+    }
 }

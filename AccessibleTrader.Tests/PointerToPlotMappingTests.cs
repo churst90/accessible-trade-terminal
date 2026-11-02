@@ -62,7 +62,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Mapping_against_the_whole_canvas_is_six_bars_out_at_the_right_edge()
+        public void Mapping_against_the_whole_canvas_is_five_bars_out_at_the_right_edge()
         {
             // The defect, stated as arithmetic so the fix cannot be mistaken for a rounding
             // preference. A click at the right edge of the PLOT is bar 119 of the viewport.
@@ -72,7 +72,56 @@ namespace AccessibleTrader.Tests
             int naive   = ChartMath.MapXToIndex(plotW, CanvasW, startIndex: 0, length: 120);
 
             Assert.Equal(119, correct);
-            Assert.Equal(113, naive);
+            Assert.Equal(114, naive); // floor(1220/1280 × 120); the stretched mapping of the day said 113
+        }
+
+        // ── Slots: where the renderer draws a bar ────────────────────────────
+        //
+        // ChartRenderer lays the viewport in equal slots of plotW / length and draws bar i at
+        // the slot's centre, (i + ½) × slot (RenderPane's itemWidth, CursorDateBadge's cx, the
+        // x axis's (int)(barX / itemWidth)). Until 2026-11-02 the pointer mapping stretched the
+        // bars from 0 px to the full width instead, round(x / w × (length − 1)), which matches
+        // the slots only mid-chart. These pin the pointer to the renderer's geometry, written
+        // out by hand rather than asked of ChartMath.
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(60)]
+        [InlineData(118)]
+        [InlineData(119)]
+        public void Every_pixel_of_a_candles_slot_picks_that_candle(int bar)
+        {
+            double plotW = ChartMath.PlotWidth(CanvasW, AxisWFrac);
+            double slot = plotW / 120;
+
+            foreach (double f in new[] { 0.02, 0.25, 0.5, 0.75, 0.98 })
+                Assert.Equal(500 + bar, ChartMath.MapXToIndex((bar + f) * slot, plotW, 500, 120));
+        }
+
+        [Fact]
+        public void The_right_half_of_the_first_candle_and_the_left_half_of_the_last_are_theirs()
+        {
+            // The two places the stretch was wrong by a whole bar.
+            double plotW = ChartMath.PlotWidth(CanvasW, AxisWFrac);
+            double slot = plotW / 120;
+
+            Assert.Equal(0, ChartMath.MapXToIndex(0.9 * slot, plotW, 0, 120));
+            Assert.Equal(119, ChartMath.MapXToIndex(119.1 * slot, plotW, 0, 120));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(37)]
+        [InlineData(119)]
+        [InlineData(125)] // in the right margin, where a forward drawing anchor sits
+        public void A_bar_maps_to_its_slot_centre_and_back(int bar)
+        {
+            double plotW = ChartMath.PlotWidth(CanvasW, AxisWFrac);
+            double x = ChartMath.IndexToX(500 + bar, plotW, 500, 120);
+
+            Assert.Equal((bar + 0.5) * plotW / 120, x, 6);
+            Assert.Equal(500 + bar, ChartMath.MapXToIndex(x, plotW, 500, 120));
         }
 
         [Fact]

@@ -185,7 +185,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             var state = _store.State;
-            if (state.Data == null || state.Data.Count == 0) return;
+            if (state.Data == null || state.Data.Count == 0)
+            {
+                // A press on an empty chart used to do nothing at all, so a click before the
+                // bars arrived could not be told from a click that missed. Only the press
+                // speaks: a moving pointer stays quiet.
+                if (type == "MouseDown") _eventBus.Publish(new AnnouncementEvent(NoBarsYet));
+                return;
+            }
 
             // Map screen coordinates to Price/Date using actual viewport dimensions
             double price = MapYToPrice(y, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
@@ -199,7 +206,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // as any other anchor. Indices beyond Data.Count + RightMarginBars are out of
             // bounds and rejected as before.
             int maxFutureIndex = state.Data.Count + System.Math.Max(0, state.RightMarginBars) - 1;
-            if (dataIndex < 0 || dataIndex > maxFutureIndex) return;
+            if (dataIndex < 0 || dataIndex > maxFutureIndex)
+            {
+                // A point aimed where no point can go is refused aloud, on the press (or on
+                // the release that ends a drag), never on a move. Without a tool armed the
+                // press is just a pan that has nothing to grab, and stays silent.
+                bool drawingFlow = _pendingDrawingType != DrawingType.None
+                                   || _previewSeriesId != null || _editSeriesId != null;
+                if (drawingFlow && (type == "MouseDown" || (type == "MouseUp" && _isMouseDragging)))
+                    _eventBus.Publish(new AnnouncementEvent(OutOfRoom(dataIndex, state.RightMarginBars)));
+                return;
+            }
 
             System.DateTime anchorDate;
             if (dataIndex < state.Data.Count)
@@ -286,7 +303,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // right-clicked bar (-1 in the empty right margin), plus the component under
             // the cursor when one is within grab distance, so the menu can open directly
             // on that series' actions instead of making the user hunt the series list.
-            int barIndex = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            int barIndex = MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
             if (barIndex < 0 || barIndex >= state.Data.Count) barIndex = -1;
             var componentHit = HitTestComponents(x, y, width, height);
             _eventBus.Publish(new OpenChartContextMenuEvent(
@@ -486,7 +503,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             if (state.Data == null || state.Data.Count == 0 || width <= 0) return;
 
-            int index = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            int index = MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
             if (index < 0 || index >= state.Data.Count) return;
 
             var hit = HitTestComponents(x, y, width, height);
@@ -524,10 +541,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void SpeakRangeSummary(double x, double width)
         {
             var state = _store.State;
-            if (state.Data == null || state.Data.Count == 0 || width <= 0) return;
+            if (width <= 0) return;
+            if (state.Data == null || state.Data.Count == 0)
+            {
+                _eventBus.Publish(new AnnouncementEvent(NoBarsYet));
+                return;
+            }
 
-            int target = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
-            if (target < 0 || target >= state.Data.Count) return;
+            int target = MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            if (target < 0 || target >= state.Data.Count)
+            {
+                _eventBus.Publish(new AnnouncementEvent(NoBarToMeasure));
+                return;
+            }
 
             int from = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             int lo = Math.Min(from, target), hi = Math.Max(from, target);
@@ -549,6 +575,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 $"Range: {bars} bars, {SpeechTimeFormatter.FormatBar(state.Data[lo].Date, PlaybackNarration.BarSeconds(state), RangeStampFormat(state))} to {SpeechTimeFormatter.FormatBar(state.Data[hi].Date, PlaybackNarration.BarSeconds(state), RangeStampFormat(state))}. " +
                 $"High {SpeechPriceFormatter.FormatPrice(high)}, low {SpeechPriceFormatter.FormatPrice(low)}. " +
                 $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct).ToString("0.##", CultureInfo.InvariantCulture)} percent."));
+        }
+
+        internal const string NoBarsYet = "No bars loaded yet.";
+        internal const string NoBarToMeasure = "No bar there to measure to.";
+
+        /// <summary>What a refused point says: before the first bar, or past the room a
+        /// drawing may use to the right of the last one.</summary>
+        internal static string OutOfRoom(int dataIndex, int rightMarginBars)
+        {
+            if (dataIndex < 0) return "Before the first bar; a point can't go there.";
+            int room = System.Math.Max(0, rightMarginBars);
+            return room == 0
+                ? "Past the last bar; a point can't go there."
+                : $"Past the room for points; a point can go up to {room} bars after the last bar.";
         }
 
         /// <summary>A range end as the bar rule names it: the day alone on a daily chart (its
@@ -727,13 +767,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }));
         }
 
-        private static double DateToScreenX(DateTime date, WorkspaceState state, double width)
+        /// <summary>
+        /// Where an anchor's handle is on screen: the centre of its bar's slot across the PLOT
+        /// width, as the renderer draws it. It used to be the slot's left edge across the whole
+        /// canvas, so a handle was hit-tested half a bar (and, toward the right, part of the axis
+        /// column) away from where it was drawn; and a date past the last bar — a trend line's
+        /// forward anchor — was put on the last bar, so the handle could not be picked up where
+        /// it was.
+        /// </summary>
+        private double DateToScreenX(DateTime date, WorkspaceState state, double width)
         {
             if (state.Data == null || state.Data.Count == 0 || state.ViewportLength <= 0) return 0;
-            // Binary-search the closest bar by date, then map to screen x via bar fraction.
-            int idx = FindNearestBarIndex(state.Data, date);
-            double frac = (idx - state.ViewportStartIndex) / (double)state.ViewportLength;
-            return frac * width;
+            double idx = AnchorIndex(state.Data, date);
+            return ChartMath.IndexToX(idx, ChartMath.PlotWidth(width, AxisWidthFraction),
+                state.ViewportStartIndex, state.ViewportLength);
+        }
+
+        /// <summary>A date's bar index, continuing past the last bar by the cadence the right-margin
+        /// projection places future anchors with (<see cref="ProjectFutureDate"/>), so a handle
+        /// placed there maps back to the slot it was placed in.</summary>
+        internal static double AnchorIndex(IReadOnlyList<Ohlcv> data, DateTime date)
+        {
+            var last = data[^1].Date;
+            if (date <= last) return FindNearestBarIndex(data, date);
+            long step = MedianBarStep(data).Ticks;
+            return step > 0 ? data.Count - 1 + Math.Round((date - last).Ticks / (double)step) : data.Count - 1;
         }
 
         internal static int FindNearestBarIndex(IReadOnlyList<Ohlcv> data, DateTime target)

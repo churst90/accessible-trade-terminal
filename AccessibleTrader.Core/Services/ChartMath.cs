@@ -518,18 +518,36 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// Maps a cursor X pixel position to an absolute bar index in the loaded data.
-        /// Inverse of the renderer's bar layout: 0 px = ViewportStartIndex, full width =
-        /// start + length - 1. The result is NOT clamped to the data range — callers
-        /// decide whether right-margin/future indices are meaningful (drawings allow
-        /// them; bar selection does not).
+        /// Maps a cursor X pixel position to an absolute bar index in the loaded data: the bar
+        /// whose SLOT the pixel is in. The renderer lays the viewport's bars in equal slots of
+        /// <c>width / length</c> and draws each at its slot's centre (ChartRenderer.RenderPane,
+        /// the cursor badge, the x axis's <c>(int)(barX / itemWidth)</c>). The result is NOT
+        /// clamped to the data range — callers decide whether right-margin/future indices are
+        /// meaningful (drawings allow them; bar selection does not).
+        ///
+        /// <para>Until 2026-11-02 this stretched the bars from 0 px to the full width —
+        /// <c>round(x / width × (length − 1))</c> — which agrees with the slots only in the
+        /// middle of the chart: on a 120-bar chart a click on the right half of the first candle
+        /// picked the second, and on the left half of the last candle picked the one before it.
+        /// The anchor handles, the hover readout and its hairline all used the same stretch.</para>
         /// </summary>
         public static int MapXToIndex(double x, double width, int startIndex, int length)
         {
             if (width <= 0 || length <= 0) return startIndex;
             double percent = x / width;
-            return startIndex + (int)Math.Round(percent * (length - 1));
+            int slot = (int)Math.Floor(percent * length);
+            // The plot's right edge itself belongs to the last slot, not to one past it.
+            if (percent <= 1.0 && slot >= length) slot = length - 1;
+            return startIndex + slot;
         }
+
+        /// <summary>
+        /// The centre of a bar's slot, in pixels from the plot's left edge — where the renderer
+        /// draws it. The forward companion of <see cref="MapXToIndex"/>: an index past the data
+        /// (a drawing anchor in the right margin) maps on into the margin the same way.
+        /// </summary>
+        public static double IndexToX(double index, double width, int startIndex, int length)
+            => length <= 0 ? 0 : (index - startIndex + 0.5) * width / length;
 
         /// <summary>
         /// Maps a cursor Y pixel position to a price within the viewport range.

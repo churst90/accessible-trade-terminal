@@ -31,7 +31,7 @@ public sealed class ChartMouseInteractionTests
         public DrawingInteractionManager Manager { get; }
         public List<Ohlcv> Bars { get; }
 
-        public Harness(int barCount = 200)
+        public Harness(int barCount = 200, Core.Services.Rendering.IPaneLayoutService? paneLayout = null)
         {
             Bus = new SpyEventBus();
             Store = new WorkspaceStore(
@@ -54,7 +54,8 @@ public sealed class ChartMouseInteractionTests
                 new StubDrawingService(),
                 Store,
                 new IndicatorModelFactory(new MockStylingService(), new MockIndicatorPreferencesService()),
-                Input);
+                Input,
+                paneLayout);
         }
 
         public void Click(double x, double y, double w = 1280, double h = 720)
@@ -89,9 +90,9 @@ public sealed class ChartMouseInteractionTests
 
     /// <summary>
     /// The bar under a click 25 % across a 1280 px chart, computed by hand from the mapping's
-    /// definition — <c>start + round(fraction × (length − 1))</c> — and NOT by calling
-    /// <c>ChartMath.MapXToIndex</c>, which is the function these tests exist to check.
-    /// 320/1280 = 0.25; round(0.25 × 99) = round(24.75) = 25; 110 + 25 = 135.
+    /// definition — <c>start + floor(fraction × length)</c>, the bar whose slot the pixel is in —
+    /// and NOT by calling <c>ChartMath.MapXToIndex</c>, which is the function these tests exist
+    /// to check. 320/1280 = 0.25; floor(0.25 × 100) = 25; 110 + 25 = 135.
     ///
     /// <para>
     /// Filed 2026-08-24 and confirmed by A2: the two sites below asked the function under test
@@ -103,18 +104,20 @@ public sealed class ChartMouseInteractionTests
     private const int ExpectedBarAt25Percent = 135;
 
     /// <summary>
-    /// 1024/1280 = 0.8; round(0.8 × 99) = round(79.2) = 79; 110 + 79 = 189.
+    /// 1024/1280 = 0.8; floor(0.8 × 100) = 80; 110 + 80 = 190 — pixel 1024 is the left edge of
+    /// slot 80 (slots are 12.8 px).
     ///
     /// <para>
-    /// This point exists because 25 % is not discriminating. Dropping the −1 from the mapping —
-    /// <c>round(0.25 × 100) = 25</c> against <c>round(0.25 × 99) = 25</c> — lands on the same
-    /// bar, so a hand-computed 135 agrees with a broken mapping as readily as a correct one.
-    /// At 80 % the two answers separate (79 against 80) and the fixture actually measures
-    /// something. Worth remembering when replacing a self-referential expectation with a
-    /// constant: the constant has to be taken at a point where being wrong would show.
+    /// This point exists because 25 % is not discriminating: the slot rule and the old stretched
+    /// one, <c>round(0.25 × 99) = 25</c>, land on the same bar there, so a hand-computed 135
+    /// agrees with a broken mapping as readily as a correct one. At 80 % they separate (80
+    /// against the stretch's 79, which is the bar the renderer draws to the LEFT of the click)
+    /// and the fixture actually measures something. Worth remembering when replacing a
+    /// self-referential expectation with a constant: the constant has to be taken at a point
+    /// where being wrong would show.
     /// </para>
     /// </summary>
-    private const int ExpectedBarAt80Percent = 189;
+    private const int ExpectedBarAt80Percent = 190;
 
     [Fact]
     public void The_harness_viewport_is_the_one_the_hand_computed_expectations_assume()
@@ -126,9 +129,9 @@ public sealed class ChartMouseInteractionTests
         // And the arithmetic above is genuinely the mapping's, not a coincidence that would
         // survive the viewport moving underneath it.
         Assert.Equal(ExpectedBarAt25Percent,
-            HarnessViewportStart + (int)Math.Round(0.25 * (HarnessViewportLength - 1)));
+            HarnessViewportStart + (int)Math.Floor(0.25 * HarnessViewportLength));
         Assert.Equal(ExpectedBarAt80Percent,
-            HarnessViewportStart + (int)Math.Round(0.80 * (HarnessViewportLength - 1)));
+            HarnessViewportStart + (int)Math.Floor(0.80 * HarnessViewportLength));
     }
 
     [Fact]
@@ -139,6 +142,29 @@ public sealed class ChartMouseInteractionTests
         h.Click(1024, 360);
 
         Assert.Equal(ExpectedBarAt80Percent, h.Store.State.CurrentDataIndex);
+    }
+
+    /// <summary>
+    /// With a y-axis column on screen, a click on the newest candle picks the newest candle.
+    /// Selecting a bar, Shift+click measuring and right-click "play from here" mapped the pixel
+    /// against the whole canvas, axis column included, while placing an anchor mapped it against
+    /// the plot — so one click on one candle was two different bars depending on what it did.
+    /// </summary>
+    [Fact]
+    public void Click_on_the_newest_candle_picks_it_with_the_axis_column_on_screen()
+    {
+        var layout = new Core.Services.Rendering.PaneLayoutService();
+        layout.Update(System.Array.Empty<(string, float)>(), 0f, 0.1f); // a 128 px y-axis column
+        var h = new Harness(paneLayout: layout);
+        var s = h.Store.State;
+        int newest = h.Bars.Count - 1;
+        h.Store.Dispatch(new SetCursorAction(s.ViewportStartIndex)); // away from it first
+        double plotW = 1280 * 0.9;
+        double x = (newest - s.ViewportStartIndex + 0.5) * plotW / s.ViewportLength;
+
+        h.Click(x, 360);
+
+        Assert.Equal(newest, h.Store.State.CurrentDataIndex);
     }
 
     [Fact]
