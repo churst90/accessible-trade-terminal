@@ -59,7 +59,7 @@ public class AlertsModalSimpleFormTests
     /// <param name="noIndicators">A chart with bars and nothing on it.</param>
     /// <param name="lastClose">The last close, when the test needs a sub-cent price.</param>
     private static (TestContext ctx, StubAlertOrchestrator orch, IEventBus bus) BuildContext(
-        out IWorkspaceStore store, bool noIndicators = false, double? lastClose = null)
+        out IWorkspaceStore store, bool noIndicators = false, double? lastClose = null, ChartSeries? drawing = null)
     {
         var ctx = new TestContext();
         var orch = new StubAlertOrchestrator();
@@ -95,7 +95,8 @@ public class AlertsModalSimpleFormTests
             SymbolDisplayName = "BTC/USD",
             Data = new TimeSeriesBuffer<Ohlcv>(bars),
             CurrentDataIndex = 3,   // the reading cursor is NOT the live bar
-            ActiveSeries = noIndicators ? ImmutableList<ChartSeries>.Empty : ImmutableList.Create(rsi, sma20, sma50, bb, rsi7),
+            ActiveSeries = (noIndicators ? ImmutableList<ChartSeries>.Empty : ImmutableList.Create(rsi, sma20, sma50, bb, rsi7))
+                .AddRange(drawing == null ? Array.Empty<ChartSeries>() : new[] { drawing }),
         });
         ctx.Services.AddSingleton(store);
         ctx.Services.AddSingleton(Substitute.For<ISettingsManager>());
@@ -294,6 +295,72 @@ public class AlertsModalSimpleFormTests
             Assert.Null(added.Threshold);
             Assert.Contains(spoken, m => m == "Alert Fifty added: BTC/USD price touches SMA 50.");
         });
+    }
+
+    /// <summary>A retracement from 63,000 to 65,000: the 61.8% level is 63,764.</summary>
+    private static ChartSeries Fib()
+    {
+        var d = new DrawingData
+        {
+            Type = DrawingType.FibRetracement,
+            AnchorDate1 = T0, AnchorPrice1 = 63_000, AnchorDate2 = T0.AddHours(5), AnchorPrice2 = 65_000,
+        };
+        var config = new SeriesConfig { Id = "fib-1", Name = "FibRetracement", FriendlyName = "Fib retracement", Pane = "Main" };
+        var buffer = new SeriesDataBuffer { SeriesId = "fib-1" };
+        foreach (var (key, values) in AccessibleTrader.Core.Services.Drawing.Calculators.FibLevels.Lines(d, 10))
+        {
+            config.Components.Add(new ComponentConfig { Name = key, DisplayType = ComponentDisplayType.Line, IsVisible = true });
+            buffer.ComponentData[key] = values;
+        }
+        return new ChartSeries(config, buffer) { Drawing = d };
+    }
+
+    /// <summary>
+    /// Cody, 2026-11-01: <i>"yes i want the fib levels narrated."</i> Drawings were left out of
+    /// the line list, so no alert could be set on a fib level. Each level is offered with its
+    /// price, and the alert made is a plain price alert at that price — the monitor that watches
+    /// with the browser closed has no drawings, but it has prices.
+    /// </summary>
+    [Fact]
+    public void Price_can_be_alerted_on_a_fib_level_and_it_is_a_price_alert_at_that_level()
+    {
+        var (ctx, orch, bus) = BuildContext(out _, drawing: Fib());
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+        var cut = Open(ctx, bus);
+        cut.Find("input#alert-name").Change("Golden");
+        cut.Find("select#alert-compare").Change("line");
+        var key = "drawing|fib-1|61.8% Level";
+        cut.WaitForAssertion(() =>
+            Assert.Contains(cut.FindAll("select#alert-line option"), o =>
+                o.GetAttribute("value") == key && o.TextContent.Trim() == "Fib retracement: 61.8% level, 63,764"));
+        cut.Find("select#alert-line").Change(key);
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var added = Assert.Single(orch.Added);
+            Assert.Equal(AlertTarget.Price, added.Target);
+            Assert.Equal(63_764, added.Threshold!.Value, 6);
+            Assert.Null(added.LineSeriesId);
+            Assert.Null(added.LineComponentName);
+            Assert.Contains(spoken, m => m.StartsWith("Alert Golden added:", StringComparison.Ordinal)
+                                      && m.Contains("It stays at 63,764 if the Fib retracement is moved."));
+        });
+    }
+
+    [Fact]
+    public void An_indicator_alert_is_not_offered_drawn_levels()
+    {
+        var (ctx, _, bus) = BuildContext(out _, drawing: Fib());
+        var cut = Open(ctx, bus);
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.WaitForElement("select#alert-indicator").Change("bb-1");
+        cut.WaitForElement("select#alert-compare").Change("line");
+
+        cut.WaitForAssertion(() =>
+            Assert.DoesNotContain(cut.FindAll("select#alert-line option"),
+                o => (o.GetAttribute("value") ?? "").StartsWith("drawing|", StringComparison.Ordinal)));
     }
 
     [Fact]

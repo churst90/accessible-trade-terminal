@@ -477,7 +477,10 @@
         return $"{name}, {AlertDescriptions.FormatForSpeech(at.Value)} and {(z == AlertZone.Overbought ? "above" : "below")}";
     }
 
-    private sealed record LineChoice(string Key, string Label, ChartSeries Series, ComponentConfig Component);
+    /// <summary>A line an alert can compare with. <c>Price</c> is set for a drawn level — a fib
+    /// level, a horizontal line, risk/reward's lines — which is made a plain price alert at that
+    /// price, so it fires with the browser closed too.</summary>
+    private sealed record LineChoice(string Key, string Label, ChartSeries Series, ComponentConfig Component, double? Price = null);
 
     /// <summary>What a line component looks like: drawn as a continuous value per bar. Markers,
     /// histograms and fills have a value but are not a line anything "touches".</summary>
@@ -503,7 +506,17 @@
                                                  == AccessibleTrader.Core.Services.Accessibility.ChartPaneModel.MainPaneKey
                                              && !s.IndicatorCode.Equals("VOLUME", StringComparison.OrdinalIgnoreCase))
                                  .SelectMany(s => s.Components.Where(IsLine).Select(c => (s, c)));
-            return pairs.Select(p => new LineChoice($"{p.S.Id}|{p.C.Name}", AlertDescriptions.LineName(p.S, p.C), p.S, p.C)).ToList();
+            var choices = pairs.Select(p => new LineChoice($"{p.S.Id}|{p.C.Name}", AlertDescriptions.LineName(p.S, p.C), p.S, p.C)).ToList();
+            // Drawn levels, for price and candles: until 2026-11-01 drawings were left out of
+            // this list altogether, so a fib level could not be alerted on (Cody: "yes i want the
+            // fib levels narrated").
+            if (_newAlertTarget != AlertTarget.Indicator)
+                foreach (var s in Store.State.ActiveSeries.Where(s => s.IsDrawing))
+                    foreach (var (key, name, price) in AccessibleTrader.Core.Services.Drawing.LineDrawingCrossings.FixedPrices(s))
+                        choices.Add(new LineChoice($"drawing|{s.Id}|{key}",
+                            $"{SeriesLabel(s)}: {name}, {AlertDescriptions.FormatForSpeech(price)}",
+                            s, s.Components.FirstOrDefault(c => c.Name == key) ?? new ComponentConfig { Name = key }, price));
+            return choices;
         }
     }
 
@@ -794,10 +807,12 @@
             Condition = _newAlertCondition,
             // A number only where the condition compares against one and no line was chosen —
             // "changes direction 0" in the alert list was the form's leftover, not the rule.
-            Threshold = _advancedCondition || !UsesLevel || line != null ? null : ParsedThreshold,
-            LineIndicatorCode = line?.Series.IndicatorCode,
-            LineComponentName = line?.Component.Name,
-            LineSeriesId = line?.Series.Id,
+            // A drawn level is its price: a plain price alert, which the browser-closed monitor
+            // can watch (it has no drawings to read a line from).
+            Threshold = _advancedCondition || !UsesLevel ? null : line == null ? ParsedThreshold : line.Price,
+            LineIndicatorCode = line?.Price == null ? line?.Series.IndicatorCode : null,
+            LineComponentName = line?.Price == null ? line?.Component.Name : null,
+            LineSeriesId = line?.Price == null ? line?.Series.Id : null,
             Delivery = _newAlertDelivery,
             // Scope to the current chart (null = any) and route to the chosen webhook.
             Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
@@ -848,6 +863,8 @@
         string added = def.ConditionTree != null
             ? $"Alert {def.Name} added."
             : $"Alert {def.Name} added: {AlertDescriptions.Describe(def, Store.State.ActiveSeries)}.";
+        if (line?.Price != null)
+            added += $" It stays at {AlertDescriptions.FormatForSpeech(line.Price.Value)} if the {SeriesLabel(line.Series)} is moved.";
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             unwatchableReason == null
                 ? added

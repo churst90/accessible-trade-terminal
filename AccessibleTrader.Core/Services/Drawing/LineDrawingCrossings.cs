@@ -87,6 +87,36 @@ namespace AccessibleTrader.Core.Services.Drawing
             }
         }
 
+        /// <summary>
+        /// The fixed prices a drawing marks, for a price alert: a horizontal line's price, each fib
+        /// level's, and risk/reward's entry, stop loss and take profit. Parts switched off are left
+        /// out. Sloped lines are not here — an alert holds a price, and the monitor that watches
+        /// with the browser closed has no drawings to read a moving line from.
+        ///
+        /// <para>
+        /// The alert is made at the price the level has when it is set. Moving the drawing
+        /// afterwards does not move the alert; that is said when it is made.
+        /// </para>
+        /// </summary>
+        public static IEnumerable<(string Key, string Name, double Price)> FixedPrices(ChartSeries series)
+        {
+            if (!series.IsVisible || series.Drawing is not { } d) yield break;
+            if (HorizontalPrice(series) is double h)
+            {
+                yield return ("Line", "horizontal line", h);
+                yield break;
+            }
+            if (d.Type is not (DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.RiskReward)) yield break;
+            foreach (var comp in series.Components)
+            {
+                if (!comp.IsVisible) continue;
+                double? price = d.Type == DrawingType.RiskReward
+                    ? comp.Name switch { "Entry" => d.AnchorPrice1, "Stop Loss" => d.AnchorPrice2, "Take Profit" => d.AnchorPrice3, _ => null }
+                    : FibLevels.LevelOf(comp.Name) is double level ? FibLevels.PriceAt(d, level) : null;
+                if (price is double p && double.IsFinite(p)) yield return (comp.Name, SpokenName(d.Type, comp.Name), p);
+            }
+        }
+
         /// <summary>What a crossed line is called: "61.8% level", "stop loss", "neckline".</summary>
         internal static string SpokenName(DrawingType type, string key)
             => type is DrawingType.FibRetracement or DrawingType.FibExtension && FibLevels.LevelOf(key) is double level
