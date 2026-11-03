@@ -616,25 +616,62 @@ namespace AccessibleTrader.Core.Services.Audio
             if (series == null || series.Data.ProfileBins == null || binIndex < 0 || binIndex >= series.Data.ProfileBins.Count) return;
             if (AllComponentsSilenced(series)) { _audioDriver.StopVoice(SLOT_NAV_START); return; }
 
-            var allBins = series.Data.ProfileBins;
-            var bin     = allBins[binIndex];
-
-            // Node-type determines pitch and timbre. No Y-axis pitch shift — position is irrelevant
-            // for profiles; structural role is what matters perceptually.
-            var nodeType = ProfileBinClassifier.Classify(bin, allBins);
-            double freq  = ProfileBinClassifier.GetBasePitch(nodeType);
-            string wave  = ProfileBinClassifier.GetWaveform(nodeType);
-            bool click   = ProfileBinClassifier.ShouldTriggerClick(nodeType);
-            double dur   = ProfileBinClassifier.GetDuration(nodeType);
-
-            // Amplitude: normalised against the session maximum so louder = more volume.
-            double maxVol = allBins.Count > 0 ? allBins.Max(b => b.TotalVolume) : 1.0;
-            float vol = (float)Math.Clamp(maxVol > 0 ? bin.TotalVolume / maxVol : 0.1, 0.15, 1.0)
-                        * masterVolume * series.Volume;
-
             _audioDriver.StopVoice(SLOT_NAV_START);
-            _audioDriver.SetVoice(SLOT_NAV_START, freq, vol, 0f, wave, false, dur, binIndex,
-                click ? "Ping" : "Sustain", click); // "Ping" is the short percussive envelope; AudioEngine doesn't recognize "Percussive"
+            _audioDriver.SetVoice(SLOT_NAV_START, ProfileBinVoice(series.Data.ProfileBins, binIndex, masterVolume * series.Volume));
+        }
+
+        /// <summary>Lowest and highest pitch of a profile: the bottom bin and the top bin.</summary>
+        internal const double ProfileLowHz = 220.0, ProfileHighHz = 880.0;
+
+        /// <summary>
+        /// <b>How one profile bin sounds</b> — one thing per dimension, the bar rule the rest of the
+        /// chart already follows (Cody, 2026-11-02: "the size of the bars in the profile should have
+        /// associated grittiness"):
+        /// <list type="bullet">
+        /// <item><b>Pitch is the bin's price.</b> The bottom bin is 220 Hz, the top bin 880 Hz, evenly
+        /// spaced in pitch between, so Up Arrow climbs.</item>
+        /// <item><b>Grit is the bin's size</b>, the length it is drawn at: the sub-octave saw of
+        /// <see cref="DefaultSonificationStrategy.BarGrit"/> against the biggest bin of the profile
+        /// (which the renderer also scales to). The POC is the roughest; a thin bin is a clean tone.</item>
+        /// <item><b>Loudness is constant</b>, so a thin bin is as easy to hear as a fat one.</item>
+        /// <item><b>Inside the value area</b> the tone has a warm triangle partial; outside it has none.</item>
+        /// <item><b>The POC clicks</b> as it starts.</item>
+        /// </list>
+        /// Every bin is a 0.40 s ping, the bars' length: grit an octave down needs that long to register.
+        ///
+        /// <para>Until 2026-11-02 loudness followed size (0.15 to 1.0 of the biggest bin) and pitch
+        /// followed the node TYPE — POC 880, HVN 660, VAH 550, VAL and value area 440, other 330, LVN 220 —
+        /// for 0.10 to 0.25 s. Size was then said twice (HVN and LVN are size classes) and price not at
+        /// all: two bins of one class anywhere in the profile were the same note, and VAL could not be
+        /// told from the value area inside it. The node names are still spoken.</para>
+        /// </summary>
+        internal static VoiceParams ProfileBinVoice(IList<ProfileBin> bins, int binIndex, float volume)
+        {
+            var bin = bins[binIndex];
+            var nodeType = ProfileBinClassifier.Classify(bin, bins);
+
+            double lo = bins.Min(b => b.PriceMid), hi = bins.Max(b => b.PriceMid);
+            double norm = hi > lo ? Math.Clamp((bin.PriceMid - lo) / (hi - lo), 0.0, 1.0) : 0.5;
+            double freq = ProfileLowHz * Math.Pow(ProfileHighHz / ProfileLowHz, norm);
+
+            double peak = bins.Where(b => !double.IsNaN(b.TotalVolume)).Select(b => b.TotalVolume).DefaultIfEmpty(0).Max();
+            float grit = double.IsNaN(bin.TotalVolume) || peak <= 0
+                ? 0f
+                : DefaultSonificationStrategy.BarGrit(bin.TotalVolume, (0, 0), peak);
+
+            return new VoiceParams
+            {
+                Frequency = freq,
+                Volume = Math.Clamp(volume, 0f, 1f),
+                Waveform = "sine",
+                DurationSeconds = 0.40,
+                DataIndex = binIndex,
+                Envelope = "Ping",
+                Click = nodeType == ProfileNodeType.POC,
+                SquareMix = 0.10f,   // the bar character the volume bars have
+                TriangleMix = bin.IsValueArea ? 0.12f : 0f,
+                SubSawMix = grit,
+            };
         }
 
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
@@ -678,13 +715,26 @@ namespace AccessibleTrader.Core.Services.Audio
             double yMultiplier = ProfileBinClassifier.GetYMultiplier(normalizedY);
             double freq = basePitch * yMultiplier;
 
-            // ── Amplitude: normalised against this column's maximum ──────────────
-            float vol = (float)Math.Clamp(barMaxVol > 0 ? bin.TotalVolume / barMaxVol : 0.1, 0.15, 1.0)
-                        * masterVolume * series.Volume;
+            // ── Size is grit, not loudness (2026-11-02, with the profiles) ───────
+            // The bin's size against this column's biggest is the sub-octave saw weight, the bar
+            // rule; loudness is constant. Loudness used to run 0.15 to 1.0 with size, for 0.1 s,
+            // which is too short for grit to register, so the ping is the bars' 0.40 s.
+            float grit = double.IsNaN(bin.TotalVolume) || !(barMaxVol > 0)
+                ? 0f
+                : DefaultSonificationStrategy.BarGrit(bin.TotalVolume, (0, 0), barMaxVol);
 
             _audioDriver.StopVoice(SLOT_NAV_START);
             // Sawtooth waveform distinguishes heatmaps perceptually from all other series.
-            _audioDriver.SetVoice(SLOT_NAV_START, freq, vol, 0f, "sawtooth", false, 0.1, binIndex);
+            _audioDriver.SetVoice(SLOT_NAV_START, new VoiceParams
+            {
+                Frequency = freq,
+                Volume = Math.Clamp(masterVolume * series.Volume, 0f, 1f),
+                Waveform = "sawtooth",
+                DurationSeconds = 0.40,
+                DataIndex = binIndex,
+                Envelope = "Ping",
+                SubSawMix = grit,
+            });
         }
 
 

@@ -2500,9 +2500,15 @@ change meaning: rather than stepping through components they move between price 
 Up to the next higher level and Down to the next lower, each announced with its price
 and the volume there. Left and Right still move the cursor through time as usual.
 
+Each bin sounds like a bar. Its **pitch is its price**: the bottom bin is the lowest
+note and the top bin two octaves higher, so Up climbs. Its **size is grit**, the
+roughness volume bars and histograms have: the biggest bin is the roughest, a thin bin
+a clean tone. Every bin is **equally loud**, so a thin bin is as easy to hear as a fat
+one. Bins inside the value area have a **warmer** tone than bins outside it.
+
 Two landmarks are worth listening for. The **Point of Control** — the single
-highest-volume price level — rings with a distinct square-wave tone and is announced
-"Point of Control" when you land on it. The **Value Area**, the band of prices that
+highest-volume price level — is the roughest bin, **clicks** as it starts, and is
+announced "Point of Control" when you land on it. The **Value Area**, the band of prices that
 accounts for roughly seventy percent of all volume, announces "Entering Value Area"
 as you move into it and "Exiting Value Area" as you leave — so you can feel the edges
 of where the market agreed on price.

@@ -63,7 +63,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Sonification properties ──────────────────────────────────────────────
 
-        /// <summary>Base frequency for this node type. No Y-axis offset is applied for profiles.</summary>
+        /// <summary>Base frequency for this node type, which the HEATMAP shifts by price. A profile
+        /// bin is pitched by its price alone (NavigationSonifier.ProfileBinVoice), and its node
+        /// type is spoken; the profile's waveform, click and duration per type went with that.</summary>
         public static double GetBasePitch(ProfileNodeType t) => t switch
         {
             ProfileNodeType.POC       => 880.0,
@@ -74,26 +76,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ProfileNodeType.Normal    => 330.0,
             ProfileNodeType.LVN       => 220.0,
             _                         => 330.0,
-        };
-
-        /// <summary>Waveform for this node type.</summary>
-        public static string GetWaveform(ProfileNodeType t) => t switch
-        {
-            ProfileNodeType.POC => "sine",      // pure tone — maximally distinctive
-            ProfileNodeType.HVN => "triangle",  // softer harmonic richness
-            _                   => "sine",
-        };
-
-        /// <summary>Whether to trigger a click transient (used for POC to make it pop).</summary>
-        public static bool ShouldTriggerClick(ProfileNodeType t) => t == ProfileNodeType.POC;
-
-        /// <summary>Sustain duration in seconds.</summary>
-        public static double GetDuration(ProfileNodeType t) => t switch
-        {
-            ProfileNodeType.POC  => 0.25,
-            ProfileNodeType.HVN  => 0.20,
-            ProfileNodeType.LVN  => 0.10,
-            _                    => 0.15,
         };
 
         // ── Speech properties ────────────────────────────────────────────────────

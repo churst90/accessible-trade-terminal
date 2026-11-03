@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A volume profile's bins sound like bars: size is grit, loudness is constant, pitch is price (2026-11-03, NOT heard)
+
+- **Why**: Cody: "I think profiles are still using the old way of sonifying, specifically the aplitude/volume
+  of the sound is tied to the length of the bars but as with histograms, the size of the bars in the profile
+  should have associated grittiness and if you are able to hone in the sonification of profiles in general,
+  do so."
+- **Before** (`NavigationSonifier.SonifyProfile`): loudness ran from 0.15 to 1.0 with the bin's volume against
+  the biggest bin. Pitch was the node TYPE: POC 880 Hz, HVN 660, VAH 550, VAL and the rest of the value area 440,
+  other bins 330, LVN 220. The note lasted 0.10 to 0.25 s. So size was said twice (HVN and LVN are size classes)
+  and price not at all: two bins of one type were the same note wherever they sat, and the value area low
+  sounded the same as the value area inside it. A thin bin was quiet, which is what the bar rule exists to
+  prevent.
+- **Now** (`NavigationSonifier.ProfileBinVoice`), one thing per dimension:
+  - **Pitch is the bin's price**: the bottom bin 220 Hz, the top bin 880 Hz, evenly spaced in pitch between,
+    so Up climbs.
+  - **Grit is the bin's size**: the same `BarGrit` as volume bars and histograms, against the profile's biggest
+    bin (the bin the renderer draws full width). The POC is at 0.30; a bin a tenth its size is at 0.03.
+  - **Loudness is constant**.
+  - **The value area is warm**: a 0.12 triangle partial inside it, none outside. The volume bars' 0.10 square
+    partial is on every bin.
+  - **The POC clicks** as it starts.
+  - Every bin is a 0.40 s ping, the bars' length under the arrows, because the grit is an octave down and needs
+    that long to be heard.
+  - Node names ("Point of Control", "Value Area High", "Low Volume Node", "Entering Value Area") are still spoken.
+- **The heatmap** (`SonifyHeatmap`) had the same loudness rule against its column. It now has constant loudness and
+  grit against the column's biggest bin, and a 0.40 s ping (it was 0.1 s, too short for grit). Its pitch (node
+  type × price) and sawtooth are unchanged.
+- **Removed**: `ProfileBinClassifier.GetWaveform`, `ShouldTriggerClick` and `GetDuration`, which only the old
+  profile voice used. `GetBasePitch` stays for the heatmap.
+- **Tests**: `ProfileSonificationTests`, 6 new. Five sabotages were each run: loudness back to size, the grit
+  set to zero, pitch back to node type, the value-area warmth removed, and the heatmap loudness back to size.
+  Each turned a test red, and the file was restored.
+- **Caveats**: not heard. Whether 220 to 880 Hz is the right span, and whether 0.12 triangle is enough to hear the
+  value-area edge, are guesses. Playback still leaves profiles out, as before. A TPO profile uses the same
+  per-bin size the renderer draws (`TotalVolume`).
+- **Docs**: USER_MANUAL "The volume profile" said the POC "rings with a distinct square-wave tone". It was a sine
+  with a click, and the paragraph now describes the new sound. The README and the knowledge base were updated too.
+
 ### A bar close is spoken in the order it happened: the close, the narration ladder, then the new bar's open (2026-11-02, NOT heard)
 
 - **Why**: Cody: "on bar alerts, when a bar closes, I should hear the close and the indicator narration ladder.
