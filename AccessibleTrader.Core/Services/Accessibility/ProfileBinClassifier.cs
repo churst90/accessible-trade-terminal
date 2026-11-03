@@ -64,8 +64,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // ── Sonification properties ──────────────────────────────────────────────
 
         /// <summary>Base frequency for this node type, which the HEATMAP shifts by price. A profile
-        /// bin is pitched by its price alone (NavigationSonifier.ProfileBinVoice), and its node
-        /// type is spoken; the profile's waveform, click and duration per type went with that.</summary>
+        /// bin is pitched by its price, and its node type is a sound shape instead of a pitch
+        /// (NavigationSonifier.ProfileBinNotes).</summary>
         public static double GetBasePitch(ProfileNodeType t) => t switch
         {
             ProfileNodeType.POC       => 880.0,

@@ -8,10 +8,13 @@
 
 ## Unreleased
 
-- **Volume profiles sound like bars.** Arrowing Up and Down through a profile, the pitch is the bin's price,
-  so it climbs as you go up. A bin's size is heard as roughness, like volume bars and histograms, and every bin
-  is equally loud, so thin bins are no longer quiet. Bins inside the value area sound warmer, and the point of
-  control clicks. The order-book heatmap's bins follow the same size rule. Not yet heard.
+- **Each part of a volume profile has its own sound.** As you arrow Up and Down through a profile, the pitch
+  is the bin's price and the roughness is its size. The sound tells you what the bin is:
+  - The point of control is a clicking chord, and a high volume node is a doubled note.
+  - The top of the value area is two notes rising, and the bottom is two notes falling.
+  - Inside the value area the tone is warm, outside it the tone is plain, and a low volume node is a short tick.
+
+  Every bin is equally loud. The order-book heatmap's bins follow the same size rule. Not yet heard.
 - **A bar close is read in the order it happened.** The close, then what your indicators said about that bar,
   then the new bar's open. Before, the open came before the indicators. The same order applies on the focused
   chart, background tabs, with the browser closed, and in notifications. Not yet heard.

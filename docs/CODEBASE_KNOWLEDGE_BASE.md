@@ -207,7 +207,7 @@ There are two places that manipulate audio voice slot 0 (the navigation voice):
   - Price → Pitch: Higher price = higher frequency (log scale).
   - Time → Pan: Viewport position maps to left/right stereo (-1.0 to +1.0).
   - Volume/Volatility → Texture: Waveform harmonics.
-- **Profile Sonification** (`NavigationSonifier.ProfileBinVoice`, 2026-11-02): pitch = the bin's price, 220 Hz (bottom bin) to 880 Hz (top), exponential; size = sub-octave grit (`BarGrit` against the biggest bin); loudness constant; value-area bins carry a 0.12 triangle partial; the POC clicks; every bin a 0.40 s ping. Heatmap: node-type pitch × price, constant loudness, grit against its column.
+- **Profile Sonification** (`NavigationSonifier.ProfileBinNotes`, 2026-11-03): three dimensions. Pitch = the bin's price, 220 Hz (bottom bin) to 880 Hz (top), exponential. Size = sub-octave grit (`BarGrit` against the biggest bin), on the first note only. Type = the sound: POC a chord (×1.5, ×2) with a click; HVN an octave double; VAH a fourth up and VAL a fourth down, the second note `EdgeGapMs` (110) later and cancelled by `_profileGeneration` if the user moves; VA a warm triangle; Normal plain; LVN a 0.15 s square tick. The first note's loudness is constant. Heatmap: node-type pitch × price, constant loudness, grit against its column.
 - **Heatmap Sonification:** Sawtooth waveform. Global Y-range pitch multiplier (0.5× bottom to 2.0× top).
 
 **Heatmap vs Profile — isHeatmap/isProfile ordering rule (CRITICAL):**

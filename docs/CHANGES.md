@@ -4,7 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### A volume profile's bins sound like bars: size is grit, loudness is constant, pitch is price (2026-11-03, NOT heard)
+### Each part of a volume profile has its own sound again: pitch is price, grit is size, the sound is the type (2026-11-03, NOT heard)
+
+- **Why**: Cody, on the entry below (d8533b2f): "everything sounds the same except for the grittiness so i can't
+  easily spot the POC. I like the other way we had it where the poc made a different tone and the value areas
+  and nodes made their own sound … grittiness for bar size, but tone for the different parts of the profile …
+  bar size, area type and the position using the pitch."
+- **Now** (`NavigationSonifier.ProfileBinNotes`, which returns a bin's notes as slot, delay and voice):
+  - **Pitch is the price** and **grit is the size**, as in d8533b2f. Both are on the first note, which is equally
+    loud on every bin. Notes added for the type are quieter than it and carry no grit.
+  - **The sound is the type**:
+    - **Point of Control**: a chord (the note, its fifth and its octave, on slots 0 to 2) with a click, 0.6 s.
+    - **High volume node**: the note doubled an octave up, warm, 0.45 s.
+    - **Value Area High**: two notes RISING a fourth, 110 ms apart.
+    - **Value Area Low**: two notes FALLING a fourth.
+    - **Inside the value area**: one warm note (0.20 triangle), 0.40 s.
+    - **Outside it**: one plain note, 0.40 s.
+    - **Low volume node**: a short thin tick (0.30 square, 0.15 s).
+  - **Exclusive focus**: a profile bin stops all eight navigation slots before it plays. It used to stop only slot 0.
+  - **The edge's second note is dropped if you have moved on.** A counter is bumped on every profile bin and every
+    navigation move, and the delayed note plays only if it is still current.
+- **Heatmap**: unchanged from d8533b2f.
+- **Tests**: `ProfileSonificationTests` now has 11 tests. One was removed: "every bin is one sound bar a little
+  warmth". Six were added: seven types make seven sounds; the POC chord and its click; the edges rise and fall;
+  the high and low volume nodes and the value area; added notes are quieter and carry no grit; a stale edge note is
+  dropped while a current one plays. Eight sabotages were run: all but the POC one sound, the POC without its fifth,
+  the low edge rising, no stale-note guard, grit on an added note, pitch back to the node type, the low volume node
+  not short, and loudness back to size. Each one turned a test red, and the file was restored.
+- **Caveats**:
+  - Not heard.
+  - The intervals, lengths and mixes are first guesses.
+  - The cancel when you leave the profile (the bump in `SyncNavigationSlots`) has no test of its own. Only arrowing
+    from bin to bin within the profile is tested.
+  - A one-bin value area is its POC, so it has no edges.
+  - The POC's three notes add up louder than a single note, even though each added note is quieter than the first.
+
+### A volume profile's bins sound like bars: size is grit, loudness is constant, pitch is price (2026-11-03, NOT heard; its one-sound-for-every-type part was REJECTED by Cody and replaced the same day, see above)
 
 - **Why**: Cody: "I think profiles are still using the old way of sonifying, specifically the aplitude/volume
   of the sound is tied to the length of the bars but as with histograms, the size of the bars in the profile

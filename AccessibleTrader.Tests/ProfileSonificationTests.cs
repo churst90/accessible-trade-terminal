@@ -1,20 +1,22 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// <b>A profile bin sounds like a bar</b> (Cody, 2026-11-02: "the aplitude/volume of the sound is
-/// tied to the length of the bars but as with histograms, the size of the bars in the profile
-/// should have associated grittiness"). Loudness is constant, size is the sub-octave grit against
-/// the biggest bin, pitch is the bin's price, the value area is warm and the POC clicks. The
-/// heatmap, the other distribution series, follows the same size rule against its column.
+/// <b>A profile bin is three things at once</b> (Cody, 2026-11-03: "bar size, area type and the
+/// position using the pitch"). Its first note's pitch is its price, its grit is its size against
+/// the biggest bin, and its SOUND is its type: the Point of Control a chord with a click, a high
+/// volume node an octave double, the value area's top and bottom edges two notes rising and
+/// falling, the value area warm, outside it plain, a low volume node a short thin tick. The first
+/// note is equally loud on every bin. The heatmap follows the same size rule against its column.
 ///
-/// <para>Until then a profile bin's loudness ran 0.15 to 1.0 with its size and its pitch was its
-/// node type (POC 880, HVN 660, LVN 220…), so two bins of one type were the same note wherever
-/// they sat.</para>
+/// <para>Until 2026-11-02 loudness followed size and pitch followed type, so price was not heard.
+/// d8533b2f then gave every type one sound bar a faint warmth and the POC's click, and Cody could
+/// not find the POC without hearing the words.</para>
 /// </summary>
 public sealed class ProfileSonificationTests
 {
@@ -28,7 +30,9 @@ public sealed class ProfileSonificationTests
             bool continuous, double durationSeconds = 0.2, int dataIndex = -1, string envelope = "Sustain",
             bool click = false, float noiseAmount = 0f, string noiseType = "pink", float squareMix = 0f,
             float sawMix = 0f, float triangleMix = 0f, float subSawMix = 0f)
-            => Calls.Add((slot, frequency, volume, waveform, durationSeconds, envelope, click, squareMix, triangleMix, subSawMix));
+        {
+            lock (Calls) Calls.Add((slot, frequency, volume, waveform, durationSeconds, envelope, click, squareMix, triangleMix, subSawMix));
+        }
         public void StopVoice(int slot) { }
         public void StopAll() { }
         public void Reset() { }
@@ -101,29 +105,141 @@ public sealed class ProfileSonificationTests
         Assert.NotEqual(calls[0].Freq, calls[4].Freq);
     }
 
-    [Fact]
-    public void The_value_area_is_warm_and_only_the_POC_clicks()
+    // Bottom to top, one of every type: LVN, Normal, VAL, ValueArea, POC, HVN, VAH, Normal.
+    private static readonly List<ProfileBin> AllTypes = new()
     {
-        var calls = PlayAll();
-        for (int i = 0; i < Bins.Count; i++)
+        Bin(100, 20),
+        Bin(101, 300),
+        Bin(102, 400, va: true),
+        Bin(103, 400, va: true),
+        Bin(104, 1000, va: true, poc: true),
+        Bin(105, 800, va: true),
+        Bin(106, 400, va: true),
+        Bin(107, 300),
+    };
+
+    private static string Signature(IReadOnlyList<NavigationSonifier.ProfileNote> notes)
+    {
+        var carrier = notes[0].Voice;
+        return string.Join(" | ", notes.Select(n =>
+            $"{n.Slot}@{n.DelayMs} x{n.Voice.Frequency / carrier.Frequency:F3} {n.Voice.DurationSeconds:F2}s " +
+            $"tri{n.Voice.TriangleMix:F2} sq{n.Voice.SquareMix:F2} {(n.Voice.Click ? "click" : "")}"));
+    }
+
+    [Fact]
+    public void Every_part_of_the_profile_has_its_own_sound()
+    {
+        var types = AllTypes.Select(b => ProfileBinClassifier.Classify(b, AllTypes)).ToList();
+        Assert.Equal(new[]
         {
-            Assert.Equal(Bins[i].IsValueArea ? 0.12f : 0f, calls[i].Triangle);
-            Assert.Equal(Bins[i].IsPOC, calls[i].Click);
-            Assert.Equal(0.10f, calls[i].Square);
-            Assert.Equal("sine", calls[i].Wave);
-            Assert.Equal("Ping", calls[i].Env);
-            Assert.Equal(0.40, calls[i].Dur);
+            ProfileNodeType.LVN, ProfileNodeType.Normal, ProfileNodeType.VAL, ProfileNodeType.ValueArea,
+            ProfileNodeType.POC, ProfileNodeType.HVN, ProfileNodeType.VAH, ProfileNodeType.Normal,
+        }, types);
+
+        // Seven types, seven sounds: the two Normal bins (1 and 7) share one, nothing else does.
+        var sigs = Enumerable.Range(0, AllTypes.Count)
+            .Select(i => Signature(NavigationSonifier.ProfileBinNotes(AllTypes, i, 1f))).ToList();
+        Assert.Equal(sigs[1], sigs[7]);
+        Assert.Equal(7, sigs.Distinct().Count());
+    }
+
+    [Fact]
+    public void The_POC_is_a_chord_that_clicks_and_nothing_else_clicks()
+    {
+        for (int i = 0; i < AllTypes.Count; i++)
+        {
+            var notes = NavigationSonifier.ProfileBinNotes(AllTypes, i, 1f);
+            Assert.Equal(AllTypes[i].IsPOC, notes[0].Voice.Click);
+            Assert.All(notes.Skip(1), n => Assert.False(n.Voice.Click));
         }
+        var poc = NavigationSonifier.ProfileBinNotes(AllTypes, 4, 1f);
+        Assert.Equal(3, poc.Count);
+        Assert.All(poc, n => Assert.Equal(0, n.DelayMs));                       // all at once: a chord
+        Assert.Equal(1.5, poc[1].Voice.Frequency / poc[0].Voice.Frequency, 6); // the fifth
+        Assert.Equal(2.0, poc[2].Voice.Frequency / poc[0].Voice.Frequency, 6); // the octave
+        Assert.Equal(new[] { 0, 1, 2 }, poc.Select(n => n.Slot));
+    }
+
+    [Fact]
+    public void The_value_areas_top_edge_rises_and_its_bottom_edge_falls()
+    {
+        var vah = NavigationSonifier.ProfileBinNotes(AllTypes, 6, 1f);
+        var val = NavigationSonifier.ProfileBinNotes(AllTypes, 2, 1f);
+        Assert.Equal(2, vah.Count);
+        Assert.Equal(2, val.Count);
+        Assert.True(vah[1].DelayMs > 0 && val[1].DelayMs > 0, "an edge is two notes in turn, not a chord");
+        Assert.Equal(4.0 / 3.0, vah[1].Voice.Frequency / vah[0].Voice.Frequency, 6);
+        Assert.Equal(3.0 / 4.0, val[1].Voice.Frequency / val[0].Voice.Frequency, 6);
+    }
+
+    [Fact]
+    public void Nodes_and_areas_differ_in_tone_high_volume_doubled_low_volume_a_short_thin_tick()
+    {
+        var hvn = NavigationSonifier.ProfileBinNotes(AllTypes, 5, 1f);
+        Assert.Equal(2, hvn.Count);
+        Assert.Equal(2.0, hvn[1].Voice.Frequency / hvn[0].Voice.Frequency, 6);
+        Assert.Equal(0, hvn[1].DelayMs);
+
+        var lvn = NavigationSonifier.ProfileBinNotes(AllTypes, 0, 1f);
+        var inside = NavigationSonifier.ProfileBinNotes(AllTypes, 3, 1f);
+        var outside = NavigationSonifier.ProfileBinNotes(AllTypes, 1, 1f);
+        Assert.Single(lvn);
+        Assert.Single(inside);
+        Assert.Single(outside);
+        var shortest = AllTypes.Select((_, i) => NavigationSonifier.ProfileBinNotes(AllTypes, i, 1f)[0].Voice.DurationSeconds).Min();
+        Assert.Equal(shortest, lvn[0].Voice.DurationSeconds);
+        Assert.True(lvn[0].Voice.SquareMix > inside[0].Voice.SquareMix, "a low volume node is thinner than the value area");
+        Assert.True(inside[0].Voice.TriangleMix > 0, "the value area is warm");
+        Assert.Equal(0f, outside[0].Voice.TriangleMix);                           // outside it is plain
+    }
+
+    [Fact]
+    public void Added_notes_are_quieter_than_the_first_and_only_the_first_carries_the_grit()
+    {
+        for (int i = 0; i < AllTypes.Count; i++)
+        {
+            var notes = NavigationSonifier.ProfileBinNotes(AllTypes, i, 1f);
+            Assert.Equal(1f, notes[0].Voice.Volume);
+            Assert.True(notes[0].Voice.SubSawMix > 0f, $"bin {i}: no grit on its first note");
+            Assert.All(notes.Skip(1), n =>
+            {
+                Assert.True(n.Voice.Volume < notes[0].Voice.Volume, $"bin {i}: an added note as loud as the first");
+                Assert.Equal(0f, n.Voice.SubSawMix);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task An_edges_second_note_plays_and_is_dropped_if_the_user_has_already_moved_on()
+    {
+        var cfg = new SeriesConfig { Id = "vp", Name = "vp", Pane = "Main", IsVisible = true, Volume = 1f };
+        cfg.Components.Add(new ComponentConfig { Name = "profile", DisplayType = ComponentDisplayType.Profile, IsVisible = true });
+        var series = new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "vp", ProfileBins = AllTypes });
+        double fourth = NavigationSonifier.ProfileBinNotes(AllTypes, 6, 1f)[1].Voice.Frequency;
+
+        bool Heard(Spy s) { lock (s.Calls) return s.Calls.Any(c => c.Slot == 1 && Math.Abs(c.Freq - fourth) < 1e-9); }
+
+        // Standing on the top edge: the rising note arrives.
+        var (still, stillSpy) = Sonifier();
+        still.SonifyProfile(series, 6, 1f);
+        await Task.Delay(NavigationSonifier.EdgeGapMs * 4);
+        Assert.True(Heard(stillSpy), "the top edge's second note never played");
+
+        // Arrowing straight past it: the rising note is not left trailing on the next bin.
+        var (moving, movingSpy) = Sonifier();
+        moving.SonifyProfile(series, 6, 1f);
+        moving.SonifyProfile(series, 7, 1f);
+        await Task.Delay(NavigationSonifier.EdgeGapMs * 4);
+        Assert.False(Heard(movingSpy), "a stale edge note played after the user moved on");
     }
 
     [Fact]
     public void A_bin_with_no_volume_reads_clean_rather_than_breaking_the_rest()
     {
         var bins = new List<ProfileBin> { Bin(100, double.NaN), Bin(101, 400), Bin(102, 800) };
-        var nan = NavigationSonifier.ProfileBinVoice(bins, 0, 1f);
-        Assert.Equal(0f, nan.SubSawMix);
-        Assert.Equal(0.30f, NavigationSonifier.ProfileBinVoice(bins, 2, 1f).SubSawMix, 3);
-        Assert.Equal(0.15f, NavigationSonifier.ProfileBinVoice(bins, 1, 1f).SubSawMix, 3);
+        Assert.Equal(0f, NavigationSonifier.ProfileBinNotes(bins, 0, 1f)[0].Voice.SubSawMix);
+        Assert.Equal(0.30f, NavigationSonifier.ProfileBinNotes(bins, 2, 1f)[0].Voice.SubSawMix, 3);
+        Assert.Equal(0.15f, NavigationSonifier.ProfileBinNotes(bins, 1, 1f)[0].Voice.SubSawMix, 3);
     }
 
     [Fact]
