@@ -1,12 +1,19 @@
-> - [ ] **Each part of a volume profile has its own sound again (2026-11-03, built, NOT heard; see CHANGES).** Cody
->   rejected d8533b2f's single sound. To check: focus a visible-range volume profile and arrow Up and Down through it.
->   - Pitch should climb with price, and a fat bin should be rough.
->   - The POC should be a clicking chord, and a high volume node an octave double.
->   - Value Area High should rise, and Value Area Low should fall.
->   - The value area should be warm, outside it plain, and a low volume node a short tick.
->   - Questions for Cody: can you find the POC by sound alone, and are the two edges clear?
->   - Mine: profiles are still left out of playback. The heatmap is not heard either. Leaving the profile mid-edge is
->     cancelled but has no test of its own.
+> - [ ] **A volume profile's pitch is its part of the profile again, grit is size (2026-11-03, built, NOT heard;
+>   see CHANGES).** This is the third try today; Cody rejected d8533b2f and babe4449. To check, arrow through a
+>   profile and listen for:
+>   - the POC: a chiming 880 Hz;
+>   - the value area: 440;
+>   - outside the value area: 330;
+>   - an HVN: 220;
+>   - an LVN: 165;
+>   - an empty bin: 110;
+>   - a fat bin: gritty.
+>
+>   Questions for Cody:
+>   - Are the three low tones (HVN 220, LVN 165, empty 110) far enough apart?
+>   - Should the value area's high and low edges get their own pitch again (before 2026-11-02, VAH was 550)?
+>
+>   Mine: profiles are still left out of playback, and the heatmap is not heard.
 > - [ ] **A bar close is spoken close → narration ladder → new bar's open, on every route; Shift+Enter places an
 >   armed quick trade as a limit (2026-11-02, built, NOT heard or tried; see CHANGES).** Cody to listen to a
 >   focused close, a background tab's close and a browser-closed close: the ladder should now come before

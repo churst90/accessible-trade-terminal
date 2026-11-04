@@ -137,8 +137,6 @@ namespace AccessibleTrader.Core.Services.Audio
 
         public void SyncNavigationSlots(WorkspaceState state)
         {
-            // Any move cancels a profile edge's pending second note, onto a profile or off it.
-            Interlocked.Increment(ref _profileGeneration);
             int idx = state.CurrentDataIndex;
             if (idx < 0 || idx >= state.Data.Count) return;
 
@@ -616,128 +614,82 @@ namespace AccessibleTrader.Core.Services.Audio
         public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f)
         {
             if (series == null || series.Data.ProfileBins == null || binIndex < 0 || binIndex >= series.Data.ProfileBins.Count) return;
-            int gen = Interlocked.Increment(ref _profileGeneration);
-            // Exclusive focus: a profile bin is the only navigation sound, chord notes included.
+            // Exclusive focus: a profile bin is the only navigation sound, chime partials included.
             MuteAllNavigationSlots();
             if (AllComponentsSilenced(series)) return;
-
             foreach (var note in ProfileBinNotes(series.Data.ProfileBins, binIndex, masterVolume * series.Volume))
-            {
-                if (note.DelayMs <= 0)
-                {
-                    _audioDriver.SetVoice(note.Slot, note.Voice);
-                    continue;
-                }
-                // The second note of an edge figure. Dropped if the user has already arrowed on,
-                // so a fast run through the value area's edge does not trail stale notes.
-                var n = note;
-                _ = Task.Delay(n.DelayMs).ContinueWith(_ =>
-                {
-                    if (Volatile.Read(ref _profileGeneration) == gen) _audioDriver.SetVoice(n.Slot, n.Voice);
-                }, TaskScheduler.Default);
-            }
+                _audioDriver.SetVoice(note.Slot, note.Voice);
         }
 
-        /// <summary>Bumped on every profile bin played; a delayed note plays only if it is still current.</summary>
-        private int _profileGeneration;
+        /// <summary>One note of a profile bin's sound: the slot it plays on and its voice.</summary>
+        internal readonly record struct ProfileNote(int Slot, VoiceParams Voice);
 
-        /// <summary>Lowest and highest pitch of a profile: the bottom bin and the top bin.</summary>
-        internal const double ProfileLowHz = 220.0, ProfileHighHz = 880.0;
+        /// <summary>The pitch of each part of a profile. A bin's pitch says what it is, not where it is.</summary>
+        internal const double ProfilePocHz = 880.0, ProfileValueAreaHz = 440.0, ProfileOutsideHz = 330.0,
+            ProfileHvnHz = 220.0, ProfileLvnHz = 165.0, ProfileNoDataHz = 110.0;
 
-        /// <summary>One note of a profile bin's sound: the slot, how long after the first note, the voice.</summary>
-        internal readonly record struct ProfileNote(int Slot, int DelayMs, VoiceParams Voice);
+        /// <summary>The overtones that make the Point of Control a chime: an octave and a bell's
+        /// inharmonic partial, softer each.</summary>
+        internal const double ChimeOctave = 2.0, ChimeBell = 2.76;
 
         /// <summary>
-        /// <b>How one profile bin sounds: three things, three dimensions</b> (Cody, 2026-11-03: "bar
-        /// size, area type and the position using the pitch … grittiness for bar size, but tone for
-        /// the different parts of the profile").
+        /// <b>How one profile bin sounds</b> (Cody, 2026-11-03: "I like the sine wave pitches for the
+        /// different ranges as it is easy to spot kind of like before. i.e. value area has a certain
+        /// pitch with the length texturing, poc has it's own chime tone with texturing, lvn's hvn's
+        /// and bars with no data should be a low tone").
         /// <list type="bullet">
-        /// <item><b>Pitch is the bin's price.</b> The first note of every bin is its price, 220 Hz at the
-        /// bottom bin to 880 Hz at the top, evenly spaced in pitch, so Up climbs.</item>
+        /// <item><b>The pitch is the bin's part of the profile</b>, on a pure sine: the Point of
+        /// Control 880 Hz as a chime (with its octave and a bell partial, and a click); the value area
+        /// 440, its high and low edges included; outside it 330; a high volume node 220; a low volume
+        /// node 165; a bin with no volume 110.</item>
         /// <item><b>Grit is the bin's size</b> (the length it is drawn at): the sub-octave saw of
         /// <see cref="DefaultSonificationStrategy.BarGrit"/> against the profile's biggest bin, on the
-        /// first note only.</item>
-        /// <item><b>The SOUND is the bin's type</b>, so a landmark is known before its words:
-        ///   <list type="bullet">
-        ///   <item>Point of Control: a chord, the note with its fifth and octave, a click, 0.6 s.</item>
-        ///   <item>High volume node: the note doubled an octave up, warm, 0.45 s.</item>
-        ///   <item>Value Area High: two notes RISING a fourth, the top edge.</item>
-        ///   <item>Value Area Low: two notes FALLING a fourth, the bottom edge.</item>
-        ///   <item>Inside the value area: one warm note (triangle).</item>
-        ///   <item>Outside it: one plain note (sine).</item>
-        ///   <item>Low volume node: a short thin tick (square, 0.15 s).</item>
-        ///   </list></item>
+        /// first note only. A bin with no volume is clean.</item>
+        /// <item>The first note is equally loud on every bin; the chime's partials are quieter.</item>
         /// </list>
-        /// The first note's loudness is the same on every bin; added notes are quieter than it.
         ///
-        /// <para>History. Until 2026-11-02 loudness followed size and pitch followed type (POC 880,
-        /// HVN 660 … LVN 220), so price was not heard. d8533b2f made pitch the price and size the grit
-        /// but gave every type one timbre bar a faint warmth and the POC's click; Cody: "everything
-        /// sounds the same except for the grittiness so i can't easily spot the POC … I like the other
-        /// way we had it where the poc made a different tone and the value areas and nodes made their
-        /// own sound."</para>
+        /// <para>History. Until 2026-11-02 the pitches were by type (POC 880, HVN 660, VAH 550, VA and
+        /// VAL 440, outside 330, LVN 220) and loudness was size. d8533b2f pitched by price with grit for
+        /// size and one sound for every type; babe4449 kept price and gave each type a shape (chord,
+        /// octave, rising and falling edges, tick). Cody rejected both: by-type sine pitches are easier
+        /// to spot. Price is no longer heard; it is spoken.</para>
         /// </summary>
         internal static IReadOnlyList<ProfileNote> ProfileBinNotes(IList<ProfileBin> bins, int binIndex, float volume)
         {
             var bin = bins[binIndex];
+            bool noData = double.IsNaN(bin.TotalVolume) || bin.TotalVolume <= 0;
             var type = ProfileBinClassifier.Classify(bin, bins);
 
-            double lo = bins.Min(b => b.PriceMid), hi = bins.Max(b => b.PriceMid);
-            double norm = hi > lo ? Math.Clamp((bin.PriceMid - lo) / (hi - lo), 0.0, 1.0) : 0.5;
-            double freq = ProfileLowHz * Math.Pow(ProfileHighHz / ProfileLowHz, norm);
-
             double peak = bins.Where(b => !double.IsNaN(b.TotalVolume)).Select(b => b.TotalVolume).DefaultIfEmpty(0).Max();
-            float grit = double.IsNaN(bin.TotalVolume) || peak <= 0
+            float grit = noData || peak <= 0
                 ? 0f
                 : DefaultSonificationStrategy.BarGrit(bin.TotalVolume, (0, 0), peak);
             float vol = Math.Clamp(volume, 0f, 1f);
 
-            VoiceParams Note(double f, float gain, double dur, float triangle = 0f, float square = 0.10f, float subSaw = 0f, bool click = false)
+            VoiceParams Sine(double f, float gain, double dur, float subSaw = 0f, bool click = false)
                 => new()
                 {
                     Frequency = f, Volume = vol * gain, Waveform = "sine", DurationSeconds = dur,
-                    DataIndex = binIndex, Envelope = "Ping", Click = click,
-                    SquareMix = square, TriangleMix = triangle, SubSawMix = subSaw,
+                    DataIndex = binIndex, Envelope = "Ping", Click = click, SubSawMix = subSaw,
                 };
 
-            switch (type)
-            {
-                case ProfileNodeType.POC:
-                    return new[]
-                    {
-                        new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.60, triangle: 0.12f, subSaw: grit, click: true)),
-                        new ProfileNote(SLOT_NAV_START + 1, 0, Note(freq * 1.5, 0.55f, 0.60, square: 0f)),
-                        new ProfileNote(SLOT_NAV_START + 2, 0, Note(freq * 2.0, 0.40f, 0.60, square: 0f)),
-                    };
-                case ProfileNodeType.HVN:
-                    return new[]
-                    {
-                        new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.45, triangle: 0.20f, subSaw: grit)),
-                        new ProfileNote(SLOT_NAV_START + 1, 0, Note(freq * 2.0, 0.45f, 0.45, triangle: 0.20f, square: 0f)),
-                    };
-                case ProfileNodeType.VAH:
-                    return new[]
-                    {
-                        new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.30, triangle: 0.12f, subSaw: grit)),
-                        new ProfileNote(SLOT_NAV_START + 1, EdgeGapMs, Note(freq * 4.0 / 3.0, 0.70f, 0.25, triangle: 0.12f)),
-                    };
-                case ProfileNodeType.VAL:
-                    return new[]
-                    {
-                        new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.30, triangle: 0.12f, subSaw: grit)),
-                        new ProfileNote(SLOT_NAV_START + 1, EdgeGapMs, Note(freq * 3.0 / 4.0, 0.70f, 0.25, triangle: 0.12f)),
-                    };
-                case ProfileNodeType.ValueArea:
-                    return new[] { new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.40, triangle: 0.20f, subSaw: grit)) };
-                case ProfileNodeType.LVN:
-                    return new[] { new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.15, square: 0.30f, subSaw: grit)) };
-                default:
-                    return new[] { new ProfileNote(SLOT_NAV_START, 0, Note(freq, 1f, 0.40, subSaw: grit)) };
-            }
-        }
+            if (!noData && type == ProfileNodeType.POC)
+                return new[]
+                {
+                    new ProfileNote(SLOT_NAV_START, Sine(ProfilePocHz, 1f, 0.80, grit, click: true)),
+                    new ProfileNote(SLOT_NAV_START + 1, Sine(ProfilePocHz * ChimeOctave, 0.40f, 0.80)),
+                    new ProfileNote(SLOT_NAV_START + 2, Sine(ProfilePocHz * ChimeBell, 0.20f, 0.60)),
+                };
 
-        /// <summary>The gap between the two notes of a value-area edge.</summary>
-        internal const int EdgeGapMs = 110;
+            double hz = noData ? ProfileNoDataHz : type switch
+            {
+                ProfileNodeType.HVN => ProfileHvnHz,
+                ProfileNodeType.LVN => ProfileLvnHz,
+                ProfileNodeType.VAH or ProfileNodeType.VAL or ProfileNodeType.ValueArea => ProfileValueAreaHz,
+                _ => ProfileOutsideHz,
+            };
+            return new[] { new ProfileNote(SLOT_NAV_START, Sine(hz, 1f, 0.40, grit)) };
+        }
 
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
         {

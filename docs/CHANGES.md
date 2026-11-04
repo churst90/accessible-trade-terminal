@@ -4,7 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Each part of a volume profile has its own sound again: pitch is price, grit is size, the sound is the type (2026-11-03, NOT heard)
+### A volume profile's pitch is its part of the profile again, on a sine, and grit is the bin's size (2026-11-03, NOT heard)
+
+- **Why**: Cody, on babe4449 (the entry below): "volume profile, not quite. I think i like the sine wave pitches for
+  the different ranges as it is easy to spot kind of like before. i.e. value area has a certain pitch with the
+  length texturing, poc has it's own chime tone with texturing, lvn's hvn's and bars with no data should be a low
+  tone...."
+- **Now** (`NavigationSonifier.ProfileBinNotes`): every bin is a pure sine ping, equally loud, and its pitch says
+  which part of the profile it is in:
+
+  | Part | Pitch |
+  |---|---|
+  | Point of Control | 880 Hz, a chime: the note plus an octave (0.40) and a bell partial ×2.76 (0.20), with a click, 0.8 s |
+  | Value area (VAH and VAL included) | 440 |
+  | Outside the value area | 330 |
+  | High volume node | 220 |
+  | Low volume node | 165 |
+  | No volume (NaN or zero) | 110, always clean |
+
+  - **Grit is the size**: `BarGrit` against the biggest bin, on the first note only.
+  - **Ping lengths**: every other bin is a 0.40 s ping.
+  - **Price is not heard**: it is spoken, with the node name.
+- **Removed from babe4449**:
+  - the price pitch;
+  - the chord, the octave double, the rising and falling edge notes and their delayed-note cancel counter;
+  - the triangle and square partials.
+- **Kept from babe4449**: a profile bin stops all eight navigation slots before it plays.
+- **Heatmap**: unchanged.
+- **Tests**: `ProfileSonificationTests` has 9 tests. The babe4449 shape tests were replaced with:
+  - the pitch table;
+  - the three low tones are distinct and below the value area;
+  - the POC chime and its click;
+  - every bin is a sine and only its first note is gritty;
+  - the no-volume tone;
+  - all eight slots are stopped.
+- **Sabotages**: ten were run. Each turned a test red, and the file was restored:
+  - pitch back to price;
+  - the HVN tone made the same as the LVN tone;
+  - no special case for empty bins;
+  - the chime partial removed;
+  - the click removed;
+  - the grit removed;
+  - grit put on a partial;
+  - only slot 0 stopped;
+  - loudness back to size;
+  - a square partial added.
+- **Caveats**:
+  - Not heard.
+  - The value area edges now sound like the rest of the value area. They are still announced in speech.
+  - The HVN is lower than the value area it sits in, because Cody asked for it to be low.
+  - The pitches are first guesses at "low".
+
+### Each part of a volume profile has its own sound again: pitch is price, grit is size, the sound is the type (2026-11-03, NOT heard; REJECTED by Cody and replaced the same day, see above)
 
 - **Why**: Cody, on the entry below (d8533b2f): "everything sounds the same except for the grittiness so i can't
   easily spot the POC. I like the other way we had it where the poc made a different tone and the value areas

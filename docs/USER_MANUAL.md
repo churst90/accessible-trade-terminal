@@ -2500,26 +2500,24 @@ change meaning: rather than stepping through components they move between price 
 Up to the next higher level and Down to the next lower, each announced with its price
 and the volume there. Left and Right still move the cursor through time as usual.
 
-Each bin tells you three things at once. Its **pitch is its price**: the bottom bin is
-the lowest note and the top bin two octaves higher, so Up climbs. Its **size is grit**,
-the roughness volume bars and histograms have: the biggest bin is the roughest, a thin
-bin a clean tone. Its **sound is what kind of bin it is**, so you can find the landmarks
-without waiting for the words:
+Each bin is a plain tone whose **pitch says which part of the profile it is in**, so
+you can find the landmarks without waiting for the words:
 
-- **Point of Control**, the single highest-volume price level: a chord of three notes
-  with a click. It is also announced "Point of Control".
-- **High volume node**, a heavy bin inside the value area: the note with a softer copy
-  an octave above.
-- **Value Area High**, the top edge of the value area: two quick notes **rising**.
-- **Value Area Low**, its bottom edge: two quick notes **falling**.
-- **Inside the value area**: one warm note.
-- **Outside it**: one plain note.
-- **Low volume node**, a thin bin price moved through quickly: a short, thin tick.
+- **Point of Control**, the single highest-volume price level: a high **chime** that
+  clicks as it starts and rings longer than the rest. It is also announced "Point of
+  Control".
+- **The value area**, the band of prices that accounts for roughly seventy percent of all
+  volume, its high and low edges included: a middle note.
+- **Outside the value area**: a lower note.
+- **High volume node**, a heavy bin inside the value area: a low tone.
+- **Low volume node**, a thin bin price moved through quickly: a lower tone.
+- **A bin with no volume at all**: the lowest tone, and always smooth.
 
-The first note of every bin is equally loud, so a thin bin is as easy to hear as a fat
-one. The **Value Area**, the band of prices that accounts for roughly seventy percent of
-all volume, also announces "Entering Value Area" as you move into it and "Exiting Value
-Area" as you leave.
+A bin's **size is grit**, the roughness volume bars and histograms have: the biggest
+bin is the roughest, a thin bin a clean tone. Every bin is **equally loud**, so a thin
+bin is as easy to hear as a fat one. The price is spoken, not played. Moving into the
+value area announces "Entering Value Area", and leaving it announces "Exiting Value
+Area".
 
 There are eight profiles in the Add Indicator dialog's Profile category, and they are
 one idea crossed with another rather than eight different tools. The first choice is
