@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Close part of a position at a limit; size an order by its value (2026-11-04, NOT tried)
+
+- **Close at limit takes a percent.** Cody: "when i limit close a trade i should have the option of
+  closing a portion/percentage of the position rather than the whole thing". Beside the price field is a
+  percent field (`close-percent-…`, starts at 100, "%" allowed). The order is still a reduce-only limit,
+  for `OrderSizing.PartialCloseQuantity`: 100 is the whole size exactly (no dust from rounding), less is
+  rounded down to eight decimals. A percent above 100, at or below zero, or not a number is refused out
+  loud and focus stays in the field; a share too small to send is refused before anything is placed. The
+  confirmation names the percent and what stays open.
+- **Size in base or value.** Cody: "I should be able to specify my position size in contracts, not in btc.
+  right now if i leave it as '1' that means '1 btc' not '1 dollar'". A new "Size in" select
+  (`order-size-in`) picks the base unit (the old behaviour, still the default) or the quote currency. In
+  value mode the field is `order-value`, with a hint giving the approximate quantity; the quantity is
+  `OrderSizing.QuantityFromValue` (rounded down) at the limit price, or the current price for a market
+  order. It is worked out on each edit and again on Submit, never while a live review is armed, so the
+  review reads what is sent and a price tick cannot re-arm it. A value with no price is refused. The risk
+  Size button sets the unit back to base. There is no contract-size concept: every provider takes base
+  units (a Kraken Futures linear PF_ contract is one coin), so a value is the honest "dollars" answer.
+- **Caveats:** market closes still close everything (no percent on Close position). The "Size in" choice
+  is not remembered between openings. Not tried by Cody; no screen reader run (the accessibility-lead agent
+  the hook asks for is not registered).
+- **Tests:** new `OrderSizingTests` (25); `TradingDashboardDecouplingTests` close 50% of a 2 ETH long
+  (sends 1.0, reduce-only) and refuse 150; `LiveOrderReviewStalenessTests` send 0.02 for 1000 USD at a
+  50,000 limit, send 0.04 after the limit moves to 25,000, and refuse a value with no price. The
+  money-path scan tests pin the new `CloseAsync` signature. Six sabotages red: 100% floored, value rounded
+  up, the whole position sent, the percent check removed, the no-price refusal removed, the submit-time
+  recompute removed.
+
 ### Cipher C and Cycle Position swap names (2026-11-04, NOT seen)
 
 Cody: "swap the names of the indicators such that cipher c is the cycle position more complete one

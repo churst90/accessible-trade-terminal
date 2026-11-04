@@ -357,6 +357,14 @@ button[aria-disabled="true"]:focus-visible,
     color: var(--text-primary);
 }
 
+/* A field's plain note, such as what a typed order value comes to in coins. */
+.field-hint {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
 
 /* ── Focus Indicators (WCAG AA minimum) ──────────────────────────────────── */
 

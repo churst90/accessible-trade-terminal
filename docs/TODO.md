@@ -30,6 +30,9 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Close part of a position at a limit, and size by value (2026-11-04, built, NOT tried; see CHANGES).**
+  Cody to try on PAPER: Close at limit, Tab to the percent, 50, Enter; and Size in → USD, 1000, a limit
+  order. Open, mine: a percent for the market Close position button; remembering the Size in choice.
 - [ ] **Volume profile sound, third try (584b8115): ACCEPTED by Cody 2026-11-04 ("profiles sound good now
   too").** Left, mine: profiles are still left out of playback, and the heatmap's sound has not been heard.
 - [ ] **A bar close is spoken close → narration ladder → new bar's open, on every route; Shift+Enter places an

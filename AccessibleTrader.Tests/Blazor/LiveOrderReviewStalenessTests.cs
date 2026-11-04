@@ -323,4 +323,75 @@ public class LiveOrderReviewStalenessTests
         Assert.DoesNotContain(h.OrderService.ReceivedCalls(),
             c => c.GetMethodInfo().Name == nameof(h.OrderService.PlaceOrderAsync));
     }
+
+    /// <summary>
+    /// Sizing by value (2026-11-04). Cody: "if i leave it as '1' that means '1 btc' not '1 dollar'".
+    /// "Size in" set to the quote currency turns 1000 USD at a 50,000 limit into 0.02 BTC; the
+    /// review reads 0.02 and 0.02 is what goes out.
+    /// </summary>
+    [Fact]
+    public void A_size_typed_as_a_value_is_sent_as_its_quantity_at_the_limit_price()
+    {
+        using var h = LiveHarness();
+        var captured = new List<FeedbackRequestEvent>();
+        using var sub = h.EventBus.Subscribe<FeedbackRequestEvent>(captured.Add);
+        var cut = OpenLiveTicket(h);
+
+        cut.Find("#order-type").Change("Limit");
+        cut.Find("#limit-price").Change("50000");
+        cut.Find("#order-size-in").Change("Value");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#order-value")), TimeSpan.FromSeconds(5));
+        cut.Find("#order-value").Change("1000");
+        cut.WaitForAssertion(() => Assert.Contains("0.02", cut.Find("#order-value-hint").TextContent, StringComparison.Ordinal));
+
+        cut.Find("button.submit-btn").Click();
+        cut.WaitForAssertion(() => Assert.Contains("order-confirm-live", cut.Markup, StringComparison.Ordinal),
+                             TimeSpan.FromSeconds(10));
+        var review = captured.Last(e => e.Message != null && e.Message.StartsWith("Confirm:", StringComparison.Ordinal));
+        Assert.Contains("0.02", review.Message);
+
+        cut.FindAll("button.submit-btn").First().Click();
+        cut.WaitForAssertion(() => Assert.Equal(new[] { 0.02 }, SentQuantities(h)), TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>
+    /// The value is worked out again at the price the order goes out at: 1000 USD typed at a 50,000
+    /// limit, then the limit moved to 25,000, sends 0.04, not the 0.02 worked out first.
+    /// </summary>
+    [Fact]
+    public void A_value_is_worked_out_again_at_the_price_when_submitted()
+    {
+        using var h = LiveHarness();
+        var cut = OpenLiveTicket(h);
+
+        cut.Find("#order-type").Change("Limit");
+        cut.Find("#limit-price").Change("50000");
+        cut.Find("#order-size-in").Change("Value");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#order-value")), TimeSpan.FromSeconds(5));
+        cut.Find("#order-value").Change("1000");
+        cut.Find("#limit-price").Change("25000");
+
+        cut.Find("button.submit-btn").Click();
+        cut.WaitForAssertion(() => Assert.Contains("order-confirm-live", cut.Markup, StringComparison.Ordinal),
+                             TimeSpan.FromSeconds(10));
+        cut.FindAll("button.submit-btn").First().Click();
+        cut.WaitForAssertion(() => Assert.Equal(new[] { 0.04 }, SentQuantities(h)), TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>A value with no price to turn it into a quantity is refused, not guessed.</summary>
+    [Fact]
+    public void A_value_with_no_price_is_refused_and_says_why()
+    {
+        using var h = LiveHarness();
+        var cut = OpenLiveTicket(h);   // the seeded chart has no bars, so no market price
+
+        cut.Find("#order-size-in").Change("Value");
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#order-value")), TimeSpan.FromSeconds(5));
+        cut.Find("#order-value").Change("1000");
+
+        GatedButtonAssert.IsRefusedBecause(cut, cut.Find("button.submit-btn"), "no price yet");
+        cut.Find("button.submit-btn").Click();
+        Thread.Sleep(300);
+        Assert.Empty(SentQuantities(h));
+    }
 }

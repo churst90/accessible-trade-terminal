@@ -142,14 +142,45 @@
                                field had done it. The state now lives on the field that caused it:
                                aria-required says it must be filled BEFORE the user gets there, and
                                aria-invalid plus the message say so afterwards. *@
+                            @* What the size is counted in (2026-11-04). Every venue's quantity is in the
+                               base asset, so "1" was one bitcoin; Cody: "I should be able to specify my
+                               position size in contracts, not in btc ... '1' that means '1 btc' not
+                               '1 dollar'". In value mode the typed amount is turned into base units at the
+                               order's price when Submit is pressed, and the field says what it came to. *@
                             <div class="entry-row">
-                                <label for="order-qty">Quantity</label>
-                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity"
-                                       aria-required="true"
-                                       aria-invalid="@(QtyInvalid ? "true" : "false")"
-                                       aria-describedby="@(QtyInvalid ? "order-qty-err" : null)"
-                                       @bind="_orderQty"
-                                       @oninput='() => VoidReviewIfArmed("Quantity")' />
+                                <label for="order-size-in">Size in</label>
+                                <select id="order-size-in" aria-label="Size the order in" @bind="_sizeIn"
+                                        @bind:after="OnSizeInChanged">
+                                    <option value="Base">@BaseUnit (quantity)</option>
+                                    <option value="Value">@QuoteUnit (value)</option>
+                                </select>
+                            </div>
+                            <div class="entry-row">
+                                @if (SizeByValue)
+                                {
+                                    <label for="order-value">Value (@QuoteUnit)</label>
+                                    <input id="order-value" type="number" step="1" aria-label="@($"Order value in {QuoteUnit}")"
+                                           aria-required="true"
+                                           aria-invalid="@(QtyInvalid ? "true" : "false")"
+                                           aria-describedby="@(QtyInvalid ? "order-qty-err" : "order-value-hint")"
+                                           @bind="_orderValue"
+                                           @bind:after="RecomputeQuantityFromValue"
+                                           @oninput='() => VoidReviewIfArmed("Value")' />
+                                    @if (!QtyInvalid)
+                                    {
+                                        <span id="order-value-hint" class="field-hint">@ValueHintText</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <label for="order-qty">Quantity (@BaseUnit)</label>
+                                    <input id="order-qty" type="number" step="0.01" aria-label="@($"Order quantity in {BaseUnit}")"
+                                           aria-required="true"
+                                           aria-invalid="@(QtyInvalid ? "true" : "false")"
+                                           aria-describedby="@(QtyInvalid ? "order-qty-err" : null)"
+                                           @bind="_orderQty"
+                                           @oninput='() => VoidReviewIfArmed("Quantity")' />
+                                }
                                 @if (QtyInvalid)
                                 {
                                     <span id="order-qty-err" class="field-error">@QtyErrorText</span>
@@ -617,10 +648,22 @@
                                                                    type="text"
                                                                    style="width:110px;"
                                                                    autofocus
-                                                                   aria-label="@($"Limit price to close {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Type a price and press Enter. Escape leaves the position open.")"
+                                                                   aria-label="@($"Limit price to close {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Type a price and press Enter. Tab for the percent to close. Escape leaves the position open.")"
                                                                    value="@_closeLimitText"
                                                                    @oninput="e => _closeLimitText = e.Value?.ToString() ?? string.Empty"
                                                                    @onkeydown="e => OnLimitCloseKeyAsync(e, row)" />
+                                                            @* Part of the position (2026-11-04). Cody: "when i limit close a trade i
+                                                               should have the option of closing a portion/percentage of the position".
+                                                               Enter in either field places the order; 100 is the whole position. *@
+                                                            <input id="@LimitClosePercentId(row)"
+                                                                   type="text"
+                                                                   inputmode="decimal"
+                                                                   style="width:60px;"
+                                                                   aria-label="@($"Percent of {PositionLabel.Instrument(p)} to close, 100 for all of it. Press Enter to place the close order. Escape leaves the position open.")"
+                                                                   value="@_closePercentText"
+                                                                   @oninput="e => _closePercentText = e.Value?.ToString() ?? string.Empty"
+                                                                   @onkeydown="e => OnLimitCloseKeyAsync(e, row)" />
+                                                            <span aria-hidden="true">%</span>
                                                         }
                                                         else
                                                         {
@@ -1081,7 +1124,7 @@
         if (string.IsNullOrEmpty(Store.State.Identity.Symbol)
             || string.IsNullOrEmpty(Store.State.Identity.Provider))
             return "No chart symbol is loaded, so there is nothing to trade.";
-        if (_orderQty <= 0) return "Enter a quantity above zero.";
+        if (QtyInvalid) return QtyErrorText;
         return null;
     }
 
@@ -1091,10 +1134,71 @@
     // (unlike an element one) cannot mix literal text and a C# expression at all.
     private string SubmitButtonClass => "submit-btn " + _orderSide.ToLowerInvariant();
 
-    /// <summary>Drives aria-invalid on the Quantity field, and the message beneath it.</summary>
-    private bool QtyInvalid => _orderQty <= 0;
+    /// <summary>Drives aria-invalid on the Quantity (or Value) field, and the message beneath it.</summary>
+    private bool QtyInvalid => QtyErrorText.Length > 0;
 
-    private const string QtyErrorText = "Enter a quantity above zero.";
+    private string QtyErrorText =>
+        !SizeByValue ? (_orderQty <= 0 ? "Enter a quantity above zero." : "")
+        : _orderValue <= 0 ? "Enter a value above zero."
+        : SizingPrice() <= 0 ? "There is no price yet to turn the value into a quantity. Enter a limit price, or size in " + BaseUnit + "."
+        : OrderSizing.QuantityFromValue(_orderValue, SizingPrice()) <= 0 ? "That value is less than the smallest quantity that can be sent."
+        : "";
+
+    // ── Sizing by value (2026-11-04) ─────────────────────────────────────────
+    // _orderQty stays THE quantity: it is what BuildSignal sends, what the review speaks and
+    // what the live-review backstop compares. In value mode it is recomputed from the value
+    // when the value or the unit changes and again when Submit is pressed, never while a
+    // review is armed: a quantity that followed every tick would make the armed signal differ
+    // from the confirmed one, and the backstop would re-arm on every price change.
+    private string _sizeIn = "Base";
+    private double _orderValue = 100;
+    private bool SizeByValue => _sizeIn == "Value";
+
+    private string BaseUnit
+    {
+        get
+        {
+            var pair = SymbolAssets.Split(Store.State.Identity.Symbol);
+            return pair.Recognised && pair.Base.Length > 0 ? pair.Base : "units";
+        }
+    }
+
+    private string QuoteUnit
+    {
+        get
+        {
+            string q = SymbolAssets.QuoteOf(Store.State.Identity.Symbol);
+            return q.Length > 0 ? q : "quote currency";
+        }
+    }
+
+    /// <summary>The price a value is turned into a quantity at: the limit price when the order has one, else the last price.</summary>
+    private double SizingPrice() => NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
+
+    private string ValueHintText =>
+        $"About {PriceFormatter.FormatQuantity(OrderSizing.QuantityFromValue(_orderValue, SizingPrice()))} {BaseUnit} at {PriceFormatter.FormatPrice(SizingPrice())}, worked out again when you submit.";
+
+    private void RecomputeQuantityFromValue()
+    {
+        if (!SizeByValue || _reviewArmed) return;
+        _orderQty = OrderSizing.QuantityFromValue(_orderValue, SizingPrice());
+    }
+
+    private void OnSizeInChanged()
+    {
+        VoidReviewIfArmed("Size in");
+        // Carry the size across, so switching units does not change the order.
+        double price = SizingPrice();
+        if (SizeByValue)
+        {
+            if (_orderQty > 0 && price > 0) _orderValue = Math.Round(_orderQty * price, 2);
+            RecomputeQuantityFromValue();
+        }
+        string said = SizeByValue
+            ? $"Size in {QuoteUnit}. Type the order's value; it is turned into {BaseUnit} at the order's price when you submit."
+            : $"Size in {BaseUnit}.";
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, said, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+    }
 
     // ── The in-flight latch ──────────────────────────────────────────────────
     // Set for the whole duration of any call that PLACES or CANCELS something,
@@ -1852,6 +1956,10 @@
         bool wasPaper = _paperMode;
         RefreshTradingEnvironment();
         if (wasPaper != _paperMode) StateHasChanged(); // keep the Env badge honest too
+        // A value is turned into a quantity now, at the price the order is judged at, so the
+        // review (or a paper order) carries the quantity that will actually be sent.
+        RecomputeQuantityFromValue();
+
         // Live orders get a spoken review + explicit confirm; paper submits directly.
         if (_isLiveEnvironment && !_paperMode && !_reviewArmed)
         {
@@ -2135,6 +2243,8 @@
         // Round DOWN, not to nearest: rounding half-away-from-zero can put the sized
         // quantity above the risk budget the user just asked to stay inside.
         _orderQty = Math.Floor(equity * _riskPct / 100.0 / perUnit * 1e6) / 1e6;
+        // A size from risk is a quantity, so the ticket shows it as one.
+        _sizeIn = "Base";
         // The Size button changes the quantity WITHOUT the user typing in the field, so no
         // @oninput hook on the ticket can see it. Voiding here keeps the rule whole: the
         // number in the review is the number that goes out, however it got there.
@@ -2244,8 +2354,8 @@
     /// <summary>
     /// Close with a resting limit order at the typed price. The other close button.
     /// </summary>
-    private Task ClosePositionAtLimit(AccountPosition row, double limitPrice) =>
-        CloseAsync(row, limitPrice);
+    private Task ClosePositionAtLimit(AccountPosition row, double limitPrice, double percent = 100) =>
+        CloseAsync(row, limitPrice, percent);
 
     // Close (or reduce-to-flat) a position by submitting an opposing order, on the
     // account the position is held in rather than on whatever chart is up.
@@ -2256,7 +2366,7 @@
     // control that behaves differently on two presses that felt identical — which is
     // the exact failure mode this dialog already had, and it is worse on a screen
     // where the state deciding it cannot be seen at a glance.
-    private async Task CloseAsync(AccountPosition row, double? limitPrice)
+    private async Task CloseAsync(AccountPosition row, double? limitPrice, double percent = 100)
     {
         var p = row.Position;
         string provider = row.Account.ProviderName;
@@ -2267,6 +2377,16 @@
             // a button that does nothing.
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 $"{p.Symbol} is already flat — nothing to close.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            return;
+        }
+        // The quantity to close: the whole position at 100 percent (exactly, not a rounded copy),
+        // else that share of it rounded down.
+        double qty = OrderSizing.PartialCloseQuantity(p.Quantity, percent);
+        bool partial = qty < Math.Abs(p.Quantity);
+        if (qty <= 0)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"{percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} percent of {p.Symbol} is less than the smallest quantity that can be sent. Nothing was placed.", true));
             return;
         }
         if (!BeginOrderAction($"Close {p.Symbol}")) return;
@@ -2304,7 +2424,7 @@
         // opposite direction at a price the trader picked for a completely different
         // trade. Same flag, same line, both paths.
         var signal = new TradeSignal(
-            Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
+            Symbol: p.Symbol, Side: side, Quantity: qty,
             Type: limitPrice is null ? OrderType.Market : OrderType.Limit,
             Price: limitPrice,
             SubType: subType, ReduceOnly: true);   // protective: NEVER capability-gated — see above
@@ -2333,9 +2453,10 @@
                 // did is how a trader walks away from a position they believe is gone.
                 : limitPrice is double lp
                     ? $"Close order resting. {(side == OrderSide.Sell ? "Sell" : "Buy")} "
-                      + $"{PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))} {p.Symbol} "
+                      + $"{PriceFormatter.FormatQuantity(qty)} {p.Symbol}{(partial ? $", {percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} percent of the position," : "")} "
                       + $"at limit {PriceFormatter.FormatPrice(lp)}. The position is still open until it fills."
-                    : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
+                      + (partial ? $" The other {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity) - qty)} stays open after it fills." : "")
+                    : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(qty)}.",
             true, Channel: err ? null : AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
         if (!err) await LoadAccountDataAsync();
     }
@@ -2350,6 +2471,7 @@
     /// well as symbol: the same symbol can be held on two venues.</summary>
     private (string Slug, string Symbol)? _closingAtLimit;
     private string _closeLimitText = "";
+    private string _closePercentText = "100";
 
     private bool IsClosingAtLimit(AccountPosition row) =>
         _closingAtLimit is { } c && c.Slug == row.Account.Slug && c.Symbol == row.Position.Symbol;
@@ -2362,6 +2484,7 @@
         // screen reader is slower than editing one.
         _closeLimitText = PriceFormatter.FormatPrice(CurrentPriceFor(row.Position))
             .Replace(",", "").Replace("$", "");
+        _closePercentText = "100";
         StateHasChanged();
         await Task.Yield();
         // focusElement, not `autofocus` alone: it retries across animation frames, which
@@ -2372,6 +2495,9 @@
 
     private static string LimitCloseFieldId(AccountPosition row) =>
         $"close-limit-{row.Account.Slug}-{new string(row.Position.Symbol.Where(char.IsLetterOrDigit).ToArray())}";
+
+    private static string LimitClosePercentId(AccountPosition row) =>
+        $"close-percent-{row.Account.Slug}-{new string(row.Position.Symbol.Where(char.IsLetterOrDigit).ToArray())}";
 
     private async Task OnLimitCloseKeyAsync(KeyboardEventArgs e, AccountPosition row)
     {
@@ -2398,8 +2524,16 @@
             return;
         }
 
+        var pct = OrderSizing.ParsePercent(_closePercentText);
+        if (!pct.Ok)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, pct.Message, true));
+            StateHasChanged();
+            return;
+        }
+
         _closingAtLimit = null;
-        await ClosePositionAtLimit(row, parsed.Value);
+        await ClosePositionAtLimit(row, parsed.Value, pct.Value);
     }
 
     // ── Live-order safety: the spoken review, and keeping it true ────────────

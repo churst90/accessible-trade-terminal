@@ -282,6 +282,66 @@ public class TradingDashboardDecouplingTests
                 sig.ReduceOnly)));
     }
 
+    /// <summary>
+    /// Part of a position (2026-11-04). Cody: "when i limit close a trade i should have the option
+    /// of closing a portion/percentage of the position rather than the whole thing". The percent
+    /// field sits beside the price; 50 of a 2 ETH long rests a reduce-only sell of 1.
+    /// </summary>
+    [Fact]
+    public void Close_at_limit_closes_the_typed_percent_of_the_position()
+    {
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        h.OrderService.PlaceOrderAsync(default!, default!)
+            .ReturnsForAnyArgs(OrderPlacement.Parse("paper-1"));
+        var spoken = new List<string>();
+        using var sub = h.EventBus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+        cut.WaitForElement("input[id^='close-limit-']").Input("3150");
+        var percent = cut.WaitForElement("input[id^='close-percent-']");
+        Assert.Equal("100", percent.GetAttribute("value"));   // the whole position unless changed
+        percent.Input("50%");
+        percent.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        cut.WaitForAssertion(() => h.OrderService.Received().PlaceOrderAsync(
+            "kraken",
+            Arg.Is<TradeSignal>(sig =>
+                sig.Side == OrderSide.Sell && sig.Type == OrderType.Limit && sig.Price == 3_150 &&
+                sig.Quantity == 1.0 && sig.ReduceOnly)));
+        cut.WaitForAssertion(() => Assert.Contains(spoken, m => m.Contains("50 percent of the position", StringComparison.Ordinal)
+                                                             && m.Contains("stays open", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void A_percent_over_100_is_refused_out_loud_and_places_nothing()
+    {
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        var spoken = new List<string>();
+        using var sub = h.EventBus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+        var percent = cut.WaitForElement("input[id^='close-percent-']");
+        percent.Input("150");
+        percent.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        cut.WaitForAssertion(() => Assert.Contains(spoken, m => m.Contains("cannot be more than 100", StringComparison.Ordinal)));
+        Thread.Sleep(200);
+        h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
+        Assert.NotNull(cut.Find("input[id^='close-percent-']"));   // still open to correct
+    }
+
     [Fact]
     public void Close_at_market_stays_a_market_order_even_with_the_limit_field_open()
     {

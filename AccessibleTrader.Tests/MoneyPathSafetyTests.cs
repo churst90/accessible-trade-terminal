@@ -56,7 +56,7 @@ namespace AccessibleTrader.Tests
             // close shipped: a resting exit can sit on the book for days while a stop
             // takes the position out from under it, and without the flag the survivor
             // opens a fresh position the other way at a price picked for a different trade.
-            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice)");
+            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice, double percent = 100)");
 
             Assert.Contains("ReduceOnly: true", body, StringComparison.Ordinal);
             Assert.DoesNotContain("Can(ProviderCapabilities.ReduceOnly)", body, StringComparison.Ordinal);
@@ -81,15 +81,17 @@ namespace AccessibleTrader.Tests
             Assert.Contains("CloseAsync(row, limitPrice: null)",
                 DashboardSourceReader.Member("private Task ClosePosition(AccountPosition row)"),
                 StringComparison.Ordinal);
-            Assert.Contains("CloseAsync(row, limitPrice)",
-                DashboardSourceReader.Member("private Task ClosePositionAtLimit(AccountPosition row, double limitPrice)"),
+            Assert.Contains("CloseAsync(row, limitPrice, percent)",
+                DashboardSourceReader.Member("private Task ClosePositionAtLimit(AccountPosition row, double limitPrice, double percent = 100)"),
                 StringComparison.Ordinal);
 
             // And the shared builder derives the type from the argument alone — not from
             // _closeLimitText, not from a nullable field read at the last moment.
-            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice)");
+            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice, double percent = 100)");
             Assert.Contains("limitPrice is null ? OrderType.Market : OrderType.Limit", body, StringComparison.Ordinal);
             Assert.DoesNotContain("_closeLimitText", body, StringComparison.Ordinal);
+            // The share to close comes in as an argument too, never read from the percent field.
+            Assert.DoesNotContain("_closePercentText", body, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -115,7 +117,7 @@ namespace AccessibleTrader.Tests
         public static TheoryData<string> OrderPlacingHandlers() => new()
         {
             "private async Task SubmitOrder()",
-            "private async Task CloseAsync(AccountPosition row, double? limitPrice)",
+            "private async Task CloseAsync(AccountPosition row, double? limitPrice, double percent = 100)",
             "private async Task CancelOrder(AccountOrder row)",
             "private async Task SubmitOcoPair()",
         };

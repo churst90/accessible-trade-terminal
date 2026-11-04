@@ -8,6 +8,11 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Close part of a position.** Close at limit now has a percent field after the price, starting at
+  100. Type 50 to close half; the rest stays open.
+- **Size an order by its value.** The ticket's new **Size in** choice switches the quantity from the base
+  unit (1 = one bitcoin) to the quote currency (1000 = a thousand dollars' worth). The quantity is worked
+  out at the order's price when you submit, and the live review reads it back.
 - **Cipher C and Cycle Position have swapped names.** The more complete cycle indicator, with
   learned windows, "Low is in", "Low expected" and the half-cycle low, is now **Cipher C**; our copy
   of Camel Finance's cycle indicator is now **Cycle Position**. Saved charts, strategies and alerts

@@ -3034,6 +3034,20 @@ side with the big round green "BUY" and red "SELL" buttons — they are a toggle
 exactly one is active and your screen reader reports which is pressed — then enter a
 "Quantity" and pick a "Type".
 
+The quantity is in the instrument's **base** unit: on BTC/USD, 1 means one bitcoin, not one
+dollar. To size an order by what it is worth instead, set **Size in** (just before the
+quantity) to the quote currency, "USD (value)" on BTC/USD, and type the value. The field's
+hint says roughly what that comes to ("About 0.02 BTC at 50,000"), and the quantity is
+worked out again, rounded down, at the order's price when you press Submit: the limit price
+for a limit-style order, the current price for a market order. The live review then reads
+the quantity that will be sent. With no price yet (a market order before the chart has
+loaded) a value is refused, and the message says to enter a limit price or size in the base
+unit. Switching **Size in** carries the size across, so the order does not change. The
+**Size** risk button always fills in a base quantity and sets Size in back to the base unit.
+There is no contracts setting: every venue here takes base units (a Kraken Futures linear
+contract is one unit of the coin), and paper trading has no leverage, so a position's value
+is its quantity times its price.
+
 The Type list holds the full set: **Market**, **Limit**, **Stop-Market**,
 **Stop-Limit**, **Take-Profit-Market**, and **Take-Profit-Limit**. The fields that
 appear depend on it. The stop and take-profit types reveal a "Trigger Price" — the
@@ -3183,7 +3197,12 @@ History, and Book — and switching to one speaks its name and count, like "Posi
   1x"), its direction spelled out, the exchange, quantity, average price, value,
   unrealized profit or loss, **stop loss** and **take profit** (each an inline editor),
   and liquidation price. Two buttons close it, each named for its order type: **Close
-  position** flattens at market, **Close at limit** opens a price field first. A spot venue
+  position** flattens at market, **Close at limit** opens a price field first, then a
+  **percent to close** field (Tab from the price) that starts at 100. Type 50 to rest a
+  reduce-only order for half the position; the rest stays open after it fills, and the
+  confirmation says how much ("The other 1 stays open after it fills"). A percent above
+  100, at or below 0, or too small to be a sendable quantity is refused out loud and you stay
+  in the field. Close position at market always closes all of it. A spot venue
   with no positions says why the list is empty rather than showing nothing.
 - **Orders** lists your working, not-yet-filled orders — side, type, quantity, price,
   status — each with a Cancel button to pull a resting limit or protective stop.
