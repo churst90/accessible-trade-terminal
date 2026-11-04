@@ -6,17 +6,17 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
-## Unreleased
+## Unreleased (next: 2.13.0)
 
 - **Each part of a volume profile has its own pitch.** As you arrow Up and Down through a profile, each bin
-  is a plain tone:
-  - the point of control: a high chime;
-  - the value area: a middle note;
-  - outside the value area: a lower note;
-  - high volume nodes, low volume nodes and empty bins: three low tones.
+  is a sine tone:
+  - the point of control: an 880 Hz chime with a click;
+  - the value area, its edges included: 440 Hz;
+  - outside the value area: 330 Hz;
+  - high volume nodes 220 Hz, low volume nodes 165 Hz, empty bins 110 Hz.
 
-  A bin's size is heard as roughness, and every bin is equally loud. The order-book heatmap's bins follow the same
-  size rule. Not yet heard.
+  A bin's size is heard as roughness, and every bin is equally loud. The price is spoken, not played. The
+  order-book heatmap's bins follow the same size rule. Not yet heard.
 - **A bar close is read in the order it happened.** The close, then what your indicators said about that bar,
   then the new bar's open. Before, the open came before the indicators. The same order applies on the focused
   chart, background tabs, with the browser closed, and in notifications. Not yet heard.
@@ -43,10 +43,18 @@
   against the biggest bar of its own kind on screen, not the whole Cipher B pane, so the biggest
   Money Flow or histogram bar in view is fully rough and small ones stay smooth. Before, nearly
   every bar played almost clean. Volume and MACD follow the same rule.
+- **Cipher B is Market Cipher B and nothing else.** The red Overbought Crossover, divergences, anchor waves,
+  WT Fill and the older formula and threshold settings are gone; a saved chart opens without them. Its
+  settings are Market Cipher B's six: Use Current Chart Resolution, Different Timeframe, Over Bought Level 1,
+  Trigger 1, Over Sold Level 1 and Trigger 2. The Wave Gap and Money Flow are heard as waves, and
+  Properties, Appearance, "Read as" turns either into a histogram. Not yet heard.
+- **Rough texture only where it means something.** Cipher B's waves are clean inside plus or minus 53, a
+  soft noise comes in past 53, and louder past 60. Other lines no longer carry a texture of their own.
+- **The browser-closed monitor watches timeframes the exchange does not serve,** such as 24 minutes on
+  Bitstamp, by building them from smaller bars. A chart whose feed has gone quiet is reported.
 - **Settings say what they do and their default, nothing else.** The Properties dialog no longer
   tells you which other product a Cipher, DSS or DBSI-style default matches, or what a setting did
-  before. Cipher B's default Money Flow Formula and Buy Dot Rule are now called "Standard"; a saved
-  chart that said "MCB" opens with "Standard" and draws exactly the same.
+  before. Cipher B's older Money Flow Formula and Buy Dot Rule settings were later removed (see above).
 - **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20** (closer still now; see
   the first DBSI item above). It was rebuilt from
   every rule found in DBSI's own labels on Bitcoin, Ethereum, gold, the Dow, the S&P 500 and Apple,

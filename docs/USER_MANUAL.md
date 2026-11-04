@@ -1706,8 +1706,7 @@ to read its signals on Heikin-Ashi (its orders are on real prices either way).
 
 **Market Structure** is the answer to "where am I?" before any indicator answers
 "what should I do?". A new chart starts without it — candles, volume and price only —
-and you add it from Alt+A like any other indicator, or switch it on for every new
-chart under Settings, General, Analysis. It
+and you add it from Alt+A like any other indicator. It
 finds the swing highs and lows, labels each one against the one before it —
 higher high, higher low, lower high, lower low — and reports the trend state
 those labels imply.
@@ -1747,8 +1746,7 @@ first be known, was the difference between an impossible return and one that did
 not beat buy-and-hold. Use structure to understand where you are, not as an
 entry trigger.
 
-The indicator is descriptive by design and it says so in its own description. You
-can turn it off for good in Settings if you would rather add it per chart.
+The indicator is descriptive by design and it says so in its own description.
 
 ### Chart formations
 
@@ -3845,6 +3843,10 @@ about:
 - **The narration ladder**, the same reading a bar close gets in the browser, for every series
   you flagged with N, in the same sentence as the bar close and led by the symbol: "BTCUSDT 4h:
   close … at …. {ladder} New bar: open …."
+
+A saved tab on a timeframe the provider does not serve itself (24 minutes on Bitstamp, say) is
+watched too: the monitor builds it from smaller bars. A tab whose feed has gone quiet is
+reported on its own.
 
 Bar closes and the ladder follow your **saved tabs**; alerts follow your **alert list**. Close
 a tab and its bar closes stop being watched even if an alert on that symbol keeps firing.
