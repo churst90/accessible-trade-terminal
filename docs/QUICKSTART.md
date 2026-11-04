@@ -62,7 +62,7 @@ your fingers. Windows only; see the manual's Tactile Display chapter.
 
 ## 2. Load your first chart
 
-**No key needed to start.** Bitstamp, Kraken, Kraken Futures, Gemini, MEXC and Binance serve
+**No key needed to start.** Bitstamp, Kraken, Kraken Futures, Gemini, MEXC, Binance and Hyperliquid serve
 crypto market data without credentials, and so do most analytics feeds (CoinGecko, SEC EDGAR,
 Fear & Greed, CoinMetrics, FINRA, CFTC, DefiLlama, Mempool and more).
 

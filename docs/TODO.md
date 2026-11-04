@@ -30,6 +30,15 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Hyperliquid provider (2026-11-04, merged, NO order ever sent; see CHANGES and
+  docs/HYPERLIQUID_PROVIDER.md).**
+  - Cody: make an agent wallet on the TESTNET (app.hyperliquid-testnet.xyz), add a Paper profile and
+    validate it.
+  - Then place one small limit order, cancel it, and place a bracket.
+  - Mine, after that first order: record real `clearinghouseState` and `frontendOpenOrders` replies to
+    replace the documented-shape fixtures, and try the websocket live.
+  - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
+    funding as an indicator, vaults.
 - [ ] **Trade status bar (2026-11-04, built, NOT seen; see CHANGES).** Cody to open a paper position and
   look at the bottom of the window; then F12, Appearance, try "Outlined, theme text" and "Percent and amount". Open,
   mine: no key speaks the trades (a screen reader reaches the "Open trades" region by landmark); live

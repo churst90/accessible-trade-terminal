@@ -257,6 +257,16 @@ or Stocks) and then enter the **API Key**, the **API Secret**, and, only if your
 provider issues one, a **Passphrase** (it is labelled Optional and you can leave it
 blank for providers that do not use one). All three secret fields are masked.
 
+**Hyperliquid** (perpetuals and spot on Hyperliquid's own chain, margined in USDC; not
+available to United States persons or in Ontario) trades through an *agent wallet*, a key
+that can place orders but cannot withdraw. Create one on app.hyperliquid.xyz under API and
+approve it with your main wallet. Then, in the profile, put your **main wallet address**
+(0x and 40 characters) in API Key and the **agent's private key** in API Secret. If you
+paste the main wallet's own private key, the profile is refused before anything is sent,
+because that key could withdraw everything. A Paper profile uses Hyperliquid's testnet, a
+separate account with its own test funds. Market data needs no key at all. Trailing stops
+are not offered, because Hyperliquid has none.
+
 Everything the profile stores — the secrets *and* the profile list itself (which
 providers you use, the nicknames, the environments) — is held in your operating
 system's encrypted credential storage, never in a plain-text file on disk. Older
@@ -3016,7 +3026,7 @@ not a warning:
   {nickname})", for anyone looking.
 
 **A Paper key only means paper on a venue that has a practice environment.** Alpaca,
-Binance, Gemini, Oanda and Tradier do: a Paper profile there points at the sandbox or
+Binance, Gemini, Hyperliquid, Oanda and Tradier do: a Paper profile there points at the sandbox or
 testnet. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
 withdrawn on 2026-07-14), MEXC and Schwab have none, so a key marked Paper on those would
 sign against real money while everything on screen said paper. The terminal **refuses**
@@ -3293,8 +3303,8 @@ venue can actually do.
 
 Press Alt+B to open the order book for the current symbol; your screen reader
 announces it as "Order Book — {symbol}". The toolbar's Order book button appears only
-when the current provider has a book to show — the nine venues that stream depth
-(Binance, Bitstamp, Coinbase, Gemini, Kraken, Kraken Futures, MEXC, Alpaca, Polygon)
+when the current provider has a book to show — the ten venues that stream depth
+(Binance, Bitstamp, Coinbase, Gemini, Hyperliquid, Kraken, Kraken Futures, MEXC, Alpaca, Polygon)
 and Interactive Brokers — so on a data feed with no book the button is simply absent,
 the way Deposit is absent on a broker with no wallet. Alt+B still opens the dialog
 anywhere, and on a provider with nothing it says so. It presents the resting buy and sell

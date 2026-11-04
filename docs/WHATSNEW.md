@@ -8,6 +8,10 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Hyperliquid.** A new trading provider for perpetuals (Bitcoin included) and spot on Hyperliquid, for
+  traders outside the United States and Ontario. Charts and the order book need no key; trading uses an
+  agent wallet that cannot withdraw (see the manual's API key section). Paper uses Hyperliquid's testnet.
+  No order has been sent through it yet, on the testnet or for real: try it on the testnet first.
 - **Your open trades at the bottom of the window.** While you hold a position, a strip below the indicator
   bar lists it: "BTCUSDT Kraken Futures isolated 5x long, up 14.3%", green when up, red when down. It is
   the "Open trades" region for screen readers and never speaks by itself. Settings (F12), Appearance:

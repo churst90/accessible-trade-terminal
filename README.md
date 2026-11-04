@@ -12,8 +12,8 @@ It is free, donation-supported, and developed in the open by a blind trader who 
 
 ## What it does
 
-- **Live and historical charts** from 33 data sources — 16 trading venues (Binance, Kraken,
-  Coinbase, Alpaca, Interactive Brokers, Schwab, Oanda and more) and 17 analytics feeds
+- **Live and historical charts** from 34 data sources — 17 trading venues (Binance, Kraken,
+  Coinbase, Hyperliquid, Alpaca, Interactive Brokers, Schwab, Oanda and more) and 17 analytics feeds
   (macro, on-chain, positioning, sentiment).
 - **Sonification.** Indicators, candles, volume profiles and heatmaps each have their own
   voice, so you can tell them apart by timbre rather than by reading a legend.

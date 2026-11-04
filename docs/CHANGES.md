@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Hyperliquid provider (2026-11-04, merged from 20b04be8; NO order ever sent)
+
+Cody: "I do also want a fully featured hyper liquid provider plugin created for my international users".
+`Plugins/Providers/AccessibleTrader.Plugins.Hyperliquid/`, written up in full in
+`docs/HYPERLIQUID_PROVIDER.md`.
+- **Market data:** perp and spot symbols, candles paged back past the venue's 5,000 cap, the L2 book,
+  funding and open interest, and websocket candles and book.
+- **Trading:** through an agent wallet, signed in-process with keccak, msgpack, an EIP-712 phantom agent
+  and low-s ECDSA from BouncyCastle.Cryptography, the one new package. The signatures match the Python
+  SDK's published `signing_test.py` vectors byte for byte (14 of them, mainnet and testnet). The SDK
+  itself was not run.
+- **Order types:** limit, market (an IOC 5% past the mid), post-only, IOC, reduce-only, stop and target
+  triggers, entry with bracket, cancel, modify and leverage. Sizes are truncated and prices follow the
+  venue's 5-significant-figure rule.
+- **Safety:** only an explicit Live reaches mainnet; Paper is the testnet (`HasPracticeEnvironment`).
+  A main-wallet private key is refused by deriving its address before anything is sent. FOK and spot
+  brackets are refused before a request. A failed leverage change stops the order.
+- **No trailing stop:** the venue has none, so the provider does not offer one.
+- **Caveats:**
+  - No order has been sent, live or on the testnet.
+  - The `clearinghouseState` and `frontendOpenOrders` fixtures come from the documented shape, not
+    recorded replies.
+  - The websocket is tested by parsing only.
+  - Spot orders and balances are tested against fixtures only.
+  - Not seen in the app.
+  - The setup steps on app.hyperliquid.xyz are unchecked.
+  - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
+    vaults. Withdrawals are left out on purpose.
+- **Tests:**
+  - `HyperliquidTests` (110) and a `HyperliquidRig` in the order conformance suite.
+  - One read-only live check (179 symbols, BTC daily, book).
+  - Two sabotages red: EIP-712 chainId changed (14 tests) and sizes rounded instead of truncated (4).
 ### The trade status bar (2026-11-04, NOT seen)
 
 Cody: "a 'trade status' bar could be added so if I have an open position I could see at a glance at the
