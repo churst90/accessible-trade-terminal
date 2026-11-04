@@ -44,14 +44,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             ["LOUKAS_CYCLES"] = new Entry(
                 Name: "Loukas Cycle Detection",
                 RetiredOn: "2026-10-22",
-                What: "Cipher C now finds daily, weekly and yearly cycle lows for each asset, which is what it did",
-                Instead: "add Cipher C",
+                What: "Cycle Position now finds daily, weekly and yearly cycle lows for each asset, which is what it did",
+                Instead: "add Cycle Position",
                 InsteadFor: component => component switch
                 {
-                    "DCL Confirmed" => "use DCL Confirmed on Cipher C instead",
+                    "DCL Confirmed" => "use DCL Confirmed on Cycle Position instead",
                     // An intermediate cycle on a daily chart is the weekly cycle.
-                    "ICL Confirmed" => "use WCL Confirmed on Cipher C instead",
-                    "DC In Window" => "use Daily Timing Window on Cipher C instead",
+                    "ICL Confirmed" => "use WCL Confirmed on Cycle Position instead",
+                    "DC In Window" => "use Daily Timing Window on Cycle Position instead",
                     _ => null,
                 }),
         };

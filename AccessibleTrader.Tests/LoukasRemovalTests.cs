@@ -38,11 +38,11 @@ public sealed class LoukasRemovalTests : IDisposable
     public void Dispose() { try { Directory.Delete(_paths.AppDataDirectory, recursive: true); } catch { } }
 
     private const string Notice =
-        "Loukas Cycle Detection was removed on 2026-10-22, so it was left off this chart: Cipher C now finds daily, "
-        + "weekly and yearly cycle lows for each asset, which is what it did. To get the same lines back, add Cipher C.";
+        "Loukas Cycle Detection was removed on 2026-10-22, so it was left off this chart: Cycle Position now finds daily, "
+        + "weekly and yearly cycle lows for each asset, which is what it did. To get the same lines back, add Cycle Position.";
 
     private const string Why =
-        "Loukas Cycle Detection was removed on 2026-10-22: Cipher C now finds daily, weekly and yearly cycle lows "
+        "Loukas Cycle Detection was removed on 2026-10-22: Cycle Position now finds daily, weekly and yearly cycle lows "
         + "for each asset, which is what it did";
 
     /// <summary>A Loukas series as a build before 2026-10-22 saved it, in its own pane.</summary>
@@ -177,10 +177,10 @@ public sealed class LoukasRemovalTests : IDisposable
     /// <summary>The three Loukas signals with a Cipher C counterpart name it; the rest (the day
     /// counts, the four-year phase) fall back to adding Cipher C.</summary>
     [Theory]
-    [InlineData("DCL Confirmed", "use DCL Confirmed on Cipher C instead")]
-    [InlineData("ICL Confirmed", "use WCL Confirmed on Cipher C instead")]
-    [InlineData("DC In Window", "use Daily Timing Window on Cipher C instead")]
-    [InlineData("DC Day Count", "add Cipher C instead")]
+    [InlineData("DCL Confirmed", "use DCL Confirmed on Cycle Position instead")]
+    [InlineData("ICL Confirmed", "use WCL Confirmed on Cycle Position instead")]
+    [InlineData("DC In Window", "use Daily Timing Window on Cycle Position instead")]
+    [InlineData("DC Day Count", "add Cycle Position instead")]
     public void A_saved_strategy_on_a_Loukas_signal_says_so_once_with_its_replacement(string component, string instead)
     {
         var once = Assert.Single(RunSavedStrategy($"LOUKAS_CYCLES.{component}"));
@@ -203,7 +203,7 @@ public sealed class LoukasRemovalTests : IDisposable
         foreach (var loukas in new[] { "DCL Confirmed", "ICL Confirmed", "DC In Window" })
         {
             string why = RetiredIndicators.SignalReason($"LOUKAS_CYCLES.{loukas}")!;
-            var named = System.Text.RegularExpressions.Regex.Match(why, @"; use (.+) on Cipher C instead$");
+            var named = System.Text.RegularExpressions.Regex.Match(why, @"; use (.+) on Cycle Position instead$");
             Assert.True(named.Success, why);
             Assert.Contains(named.Groups[1].Value, components);
         }
@@ -244,7 +244,7 @@ public sealed class LoukasRemovalTests : IDisposable
         _out.WriteLine(once);
         Assert.Equal(
             "Alert 'Daily cycle low' can't be fully evaluated and may stay silent: DCL Confirmed on Loukas Cycle Detection "
-            + $"cannot be read because {Why}; use DCL Confirmed on Cipher C instead. Edit the alert or delete it.",
+            + $"cannot be read because {Why}; use DCL Confirmed on Cycle Position instead. Edit the alert or delete it.",
             once);
     }
 }

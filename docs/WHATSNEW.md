@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Cipher C and Cycle Position have swapped names.** The more complete cycle indicator, with
+  learned windows, "Low is in", "Low expected" and the half-cycle low, is now **Cipher C**; our copy
+  of Camel Finance's cycle indicator is now **Cycle Position**. Saved charts, strategies and alerts
+  keep working and show the new names. Below, entries written before the swap use the new names.
 - **Each part of a volume profile has its own pitch.** As you arrow Up and Down through a profile, each bin
   is a plain tone:
   - the point of control: a high chime;
@@ -61,11 +65,11 @@
   numbers showed. On seven weeks of hourly Bitcoin it was not built from, it prints DBSI's exact
   number 44% of the time (was 42%). Within two points it is about the same: a little better there,
   a little worse on the fifteen livestream charts (77%, was 78%).
-- **Cipher C on a symbol without a preset counts the way the original does.** Apple, Solana, the euro
+- **Cycle Position on a symbol without a preset counts the way the original does.** Apple, Solana, the euro
   or any symbol none of the sixteen presets covers is now counted from 32 bars, the original's
   default count. Coins used Bitcoin's 48 before, stocks the S&P's 36. Its daily lows match the
   original's more often on all thirteen charts checked (from 66% to 77% of them).
-- **Cipher C off the daily chart counts as the original does.** On a weekly, four-hour or hourly
+- **Cycle Position off the daily chart counts as the original does.** On a weekly, four-hour or hourly
   chart it counts each bar as one of the preset's days, as the original does there, and says its
   counts in bars. It says the preset is not tuned for that timeframe and that daily is. A weekly
   chart now has daily lows too. On four-hour gold and Bitcoin its lows match the original's three
@@ -148,12 +152,12 @@
   all fifteen. It now reaches 17 and above on more than half the candles where DBSI does, but also on
   more candles where DBSI does not, and it hits DBSI's exact number no more often than before (about 1
   time in 7).
-- **Cipher C confirms a cycle low when the indicator it follows does.** A daily low now has to hold
+- **Cycle Position confirms a cycle low when the indicator it follows does.** A daily low now has to hold
   for half the shortest cycle before it is confirmed, and a lower low in that time takes its place.
   On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is
   therefore known later than before: about 18 trading days after it on the Dow, 27 days on Bitcoin.
   The cycle ranges for all sixteen tuned assets are now the original's own.
-- **Cipher C finds the next daily low sooner in strong rallies.** It used to wait for its cycle line to
+- **Cycle Position finds the next daily low sooner in strong rallies.** It used to wait for its cycle line to
   turn, which on gold miners in autumn 2025 left a low unconfirmed five weeks after the original
   had confirmed it. It now starts looking on schedule and takes the low after the cycle's top as soon
   as a candle closes above the one before. It is closer to the original, not identical. Gold and the
@@ -188,7 +192,7 @@
 - **Cipher B no longer has a gold dot.** Market Cipher B draws none; ours came from the free VuManChu
   Cipher B, so it is gone. Everything else Cipher B draws and says is exactly as before. A saved chart
   opens without it, and a strategy or alert built on it tells you it was removed.
-- **Cipher C is now a cycle-low indicator.**
+- **The old Cipher C oscillator is now a cycle-low indicator, Cycle Position.**
   It marks daily, weekly and yearly cycle lows under the candles, says when a low is confirmed,
   pending, cancelled or failed, counts the days of each cycle, and on Alt+Shift+D tells you where you
   are in the cycle: "Daily cycle day 40, in its window, 4 days left". It has cycle ranges tuned
@@ -196,12 +200,12 @@
   crypto stocks), and on a weekly chart it talks about weekly cycles, not daily ones. A low is only
   marked once it is confirmed, usually some days later. Old Cipher C
   strategies and alerts tell you its old parts were removed.
-- **Cipher C's weekly lows on a daily chart are picked from its daily lows**, the way the indicator
+- **Cycle Position's weekly lows on a daily chart are picked from its daily lows**, the way the indicator
   it follows picks them, so a weekly low now always sits on a daily low. As there, it is called
   confirmed only once the weekly low after it is kept, which can be months. On Bitcoin since 2022 they land on the same dates as that indicator's wherever the daily
   lows agree. A weekly chart works as before.
-- **Loukas Cycle Detection is gone.** Cipher C finds the same cycle lows for each asset. A chart that
-  had it opens without it and says so once; a strategy or alert on it tells you which Cipher C signal
+- **Loukas Cycle Detection is gone.** Cycle Position finds the same cycle lows for each asset. A chart that
+  had it opens without it and says so once; a strategy or alert on it tells you which Cycle Position signal
   to use instead. The StrategyLab "Cycle Low Reversal" strategy, built on it, is retired too.
 - **Cipher B's money flow now has Market Cipher B's bright edge** along the top of each green hump and
   the bottom of each red one.

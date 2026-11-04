@@ -7,11 +7,19 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// <b>Cipher C — cycle lows, after Camel Finance's CF Cycle Trading Indicator.</b> Rebuilt
+    /// <b>Shown as "Cycle Position" since 2026-11-04; code <c>CIPHER_C</c> and this class keep the old
+    /// name.</b> Cody swapped the two display names: "cipher c is the cycle position more complete one
+    /// and make our clone of camel's indicator the cycle position one". The code stays so saved charts,
+    /// strategies and alerts load unchanged; a restored series takes its name from this metadata.
+    /// <see cref="CyclePositionProvider"/> (code <c>CYCLE_POSITION</c>) is shown as "Cipher C".
+    /// Below, "Cipher C" means this class, the copy of the original, as it was written.
+    ///
+    /// <para><b>Cipher C — cycle lows, after Camel Finance's CF Cycle Trading Indicator.</b> Rebuilt
     /// 2026-10-21 (Cody: "Cipher c needs to be designed as close to the cf indicator as possible
     /// from any and all screen grabs"). The previous Cipher C was an Ehlers cyber-cycle oscillator
     /// in its own pane; its ten components are retired in <see cref="Strategies.SignalCatalog"/>.
     /// It also replaces Loukas Cycle Detection, removed on 2026-10-22 (see <see cref="RetiredIndicators"/>).
+    /// </para>
     ///
     /// <para>
     /// <b>What is drawn, and what CF draws.</b> CF is closed source; everything here comes from
@@ -76,7 +84,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     public class CipherCProvider : IIndicatorProvider
     {
         public const string Code = "CIPHER_C";
-        public string Name => "Cipher C";
+        public string Name => "Cycle Position";
 
         // ── Components ─────────────────────────────────────────────────────────
         // DisplayName is the Name throughout: speech and navigation key on either.
@@ -304,7 +312,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
-                Name = "Cipher C",
+                Name = "Cycle Position",
                 Category = "Cycles",
                 DefaultPane = "Main",
                 Causality = ComponentCausality.Causal,

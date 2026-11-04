@@ -8,13 +8,20 @@ using static AccessibleTrader.Core.Services.Indicators.CipherCProvider;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// <b>Cycle Position — where the chart is in its daily, weekly and yearly cycles.</b> Built
+    /// <b>Shown as "Cipher C" since 2026-11-04; code <c>CYCLE_POSITION</c> and this class keep the old
+    /// name.</b> Cody: "cipher c is the cycle position more complete one and make our clone of camel's
+    /// indicator the cycle position one". <see cref="CipherCProvider"/> (code <c>CIPHER_C</c>, the copy of
+    /// the original) is shown as "Cycle Position". Below, "Cycle Position" means this class and "Cipher C"
+    /// the copy, as written before the swap.
+    ///
+    /// <para><b>Cycle Position — where the chart is in its daily, weekly and yearly cycles.</b> Built
     /// 2026-10-28 (Cody: "something that helps me know where I am within a cycle so I can follow
     /// Camel's technique ... without a bunch of patch work ... that works for any asset if
     /// possible, uses all the same symbols and markers as Cipher C"). Cipher C stays the faithful
     /// copy of the original; this is the same picture with one rule set for every asset and
     /// timing windows learned from the chart's own history. Design and test results:
     /// docs/CYCLE_POSITION_DESIGN.md.
+    /// </para>
     ///
     /// <para><b>What is the same as Cipher C.</b> Everything drawn and heard (<see cref="CipherCProvider.Draw"/>):
     /// the D, W and Y lows with their lengths and signs, the confirmations, the held low with its
@@ -47,7 +54,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     public sealed class CyclePositionProvider : IIndicatorProvider
     {
         public const string Code = "CYCLE_POSITION";
-        public string Name => "Cycle Position";
+        public string Name => "Cipher C";
 
         public const string ParamDailyCycle = "DailyCycleDays", ParamYearlyCycle = "YearlyCycleYears",
             ParamBandFrom = "BandFromPercent", ParamBandTo = "BandToPercent";
@@ -255,13 +262,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = Code,
-                Name = "Cycle Position",
+                Name = "Cipher C",
                 Category = "Cycles",
                 DefaultPane = "Main",
                 Causality = ComponentCausality.Causal,
                 RequiresFullRecalcOnTick = true,
                 Description =
-                    "Where the chart is in its daily, weekly and yearly cycles, drawn with Cipher C's marks: D, W and Y " +
+                    "Where the chart is in its daily, weekly and yearly cycles, drawn with Cycle Position's marks: D, W and Y " +
                     "under the cycle lows, a check where each was confirmed, a cross under a low that was dropped, a clock " +
                     "and EARLY, DUE or LATE under the low being held, lettered translated tops, bands over the live windows " +
                     "and a wave from low to low. One rule for every asset. Each window is learned from the chart's own past " +
@@ -271,9 +278,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = ParamDailyCycle, DisplayName = "Shortest daily cycle (days)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 1,
-                            Description = "0 = automatic: the symbol's own where Cipher C tunes one (36 trading days on the Dow, 48 calendar days on Bitcoin), else 32. In the chart's own days; off a daily chart, in its bars. It cannot be read from the price, so it is the one number per asset." },
+                            Description = "0 = automatic: the symbol's own where Cycle Position tunes one (36 trading days on the Dow, 48 calendar days on Bitcoin), else 32. In the chart's own days; off a daily chart, in its bars. It cannot be read from the price, so it is the one number per asset." },
                     new() { Name = ParamYearlyCycle, DisplayName = "Yearly cycle (years)", DataType = typeof(double), DefaultValue = 0.0, MinValue = 0, Step = 0.5,
-                            Description = "0 = automatic: the symbol's own where Cipher C tunes one, else 4. Yearly lows are found from the price: the lowest low for 0.15 of a cycle on both sides, at least 0.8 of a cycle after the last." },
+                            Description = "0 = automatic: the symbol's own where Cycle Position tunes one, else 4. Yearly lows are found from the price: the lowest low for 0.15 of a cycle on both sides, at least 0.8 of a cycle after the last." },
                     new() { Name = ParamBandFrom, DisplayName = "Window from (percentile)", DataType = typeof(double), DefaultValue = DefaultBandFrom, MinValue = 0, MaxValue = 100, Step = 5,
                             Description = "20 by default: the window opens at the length 20% of past cycles were shorter than." },
                     new() { Name = ParamBandTo, DisplayName = "Window to (percentile)", DataType = typeof(double), DefaultValue = DefaultBandTo, MinValue = 0, MaxValue = 100, Step = 5,
@@ -285,13 +292,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamSmaOffset, DisplayName = "Moving average offset", DataType = typeof(int), DefaultValue = 0.0, Step = 1,
                             Description = "Bars to shift the line by, right if above 0. 0 by default." },
                     new() { Name = ParamAssetRules, DisplayName = "Asset's own confirmation rules", DataType = typeof(bool), DefaultValue = false,
-                            Description = "Off by default. On, a symbol Cipher C tunes confirms its daily lows by Cipher C's rules for it: the swing-high break on gold, silver, the miners and the dollar, dropping a held low on any undercut before it is due on the Dow, the dollar, silver, Ether and Bitcoin, and the symbol's own stochastic lengths." },
+                            Description = "Off by default. On, a symbol Cycle Position tunes confirms its daily lows by Cycle Position's rules for it: the swing-high break on gold, silver, the miners and the dollar, dropping a held low on any undercut before it is due on the Dow, the dollar, silver, Ether and Bitcoin, and the symbol's own stochastic lengths." },
                     new() { Name = ParamFasterConfirmation, DisplayName = "Faster confirmation", DataType = typeof(bool), DefaultValue = false,
                             Description = "Off by default. On, a daily low is also confirmed when price breaks the last swing high, so lows are confirmed sooner and some cycles end on a different low." },
                     new() { Name = ParamStartDate, DisplayName = "Count from the asset's start date", DataType = typeof(bool), DefaultValue = false,
-                            Description = "Off by default: the count starts at the chart's first bars. On, it starts on Cipher C's Start date for the symbol (the first bar from 2000 on a symbol it does not tune), held as a confirmed low." },
+                            Description = "Off by default: the count starts at the chart's first bars. On, it starts on Cycle Position's Start date for the symbol (the first bar from 2000 on a symbol it does not tune), held as a confirmed low." },
                     new() { Name = ParamYearlyDates, DisplayName = "Yearly lows from the asset's dates", DataType = typeof(bool), DefaultValue = false,
-                            Description = "Off by default: every yearly low is found from the price. On, a symbol Cipher C tunes takes its table of yearly-low dates, and the yearly lows after the newest date are found from the price." },
+                            Description = "Off by default: every yearly low is found from the price. On, a symbol Cycle Position tunes takes its table of yearly-low dates, and the yearly lows after the newest date are found from the price." },
                 }.Concat(Switches.Select(w => new IndicatorParameterMetadata
                 {
                     Name = w.Name, DisplayName = w.Display, DataType = typeof(bool), DefaultValue = w.On, Description = w.Description,
@@ -1241,7 +1248,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             string Held(double v) => double.IsNaN(v) ? Dash : v < 0 ? "✅" : Num(v);
             return new List<IReadOnlyList<Rendering.TableCell>>
             {
-                new[] { C("Cycle Position", TableCountHead, 1), C("Daily", TableDark, 1), C("Weekly", TableDark, 1), C("Yearly", TableDark, 1) },
+                new[] { C("Cipher C", TableCountHead, 1), C("Daily", TableDark, 1), C("Weekly", TableDark, 1), C("Yearly", TableDark, 1) },
                 Row("Count", c => double.IsNaN(At(c)) ? null : $"{tiers.First(x => x.Item1 == c).Item2.ToLowerInvariant()} {Num(At(c) + 1)}"),
                 Row("Phase", c => double.IsNaN(At(c + PhaseSuffix)) ? null : PhaseWord(At(c + PhaseSuffix)).ToUpperInvariant()),
                 Row("Low come by now", c => At(c + LearnedSuffix) != 1 || double.IsNaN(At(c + BottomedSuffix)) ? null : $"{Num(At(c + BottomedSuffix))}% of {Num(At(c + WaitingSuffix))}"),

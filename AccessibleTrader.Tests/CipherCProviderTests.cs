@@ -89,7 +89,7 @@ public sealed class CipherCProviderTests
     {
         var m = Meta();
         Assert.Equal(CipherCProvider.Code, m.Code);
-        Assert.Equal("Cipher C", m.Name);
+        Assert.Equal("Cycle Position", m.Name);   // shown as Cycle Position since 2026-11-04
         Assert.Equal("Main", m.DefaultPane);
         Assert.False(m.IsDeprecated);
         Assert.Empty(Provider.GetDefaultLevels(CipherCProvider.Code));
@@ -2271,6 +2271,6 @@ public sealed class CipherCProviderTests
     public void Loukas_cycles_is_retired_in_favour_of_Cipher_C()
     {
         Assert.True(RetiredIndicators.IsRetired("LOUKAS_CYCLES"));
-        Assert.Contains("add Cipher C instead", RetiredIndicators.Reason("LOUKAS_CYCLES"));
+        Assert.Contains("add Cycle Position instead", RetiredIndicators.Reason("LOUKAS_CYCLES"));
     }
 }

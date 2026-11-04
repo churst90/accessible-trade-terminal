@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C and Cycle Position swap names (2026-11-04, NOT seen)
+
+Cody: "swap the names of the indicators such that cipher c is the cycle position more complete one
+and make our clone of camel's indicator the cycle position one". Only the shown names changed:
+- `CYCLE_POSITION` (`CyclePositionProvider`): the more complete one, with learned windows, Low is in,
+  Low expected, the half-cycle low and the four switches. It is now shown as **Cipher C**. Its table
+  head says "Cipher C", and its description and settings call the copy "Cycle Position".
+- `CIPHER_C` (`CipherCProvider`, `CipherCEngine`): the copy of Camel Finance's CF indicator. It is now
+  shown as **Cycle Position**.
+- The codes, class names, parameter names and component names are unchanged. Saved charts,
+  strategies and alerts hold codes, so they keep working.
+- A restored series takes its FriendlyName from the metadata, so a chart saved before the swap shows
+  the new names with no migration.
+- The 25 retired-signal messages for CIPHER_C, and Loukas's pointer to its replacement, now say
+  "Cycle Position (it was called Cipher C until 2026-11-04)".
+
+Docs:
+- The manual has a new primer paragraph, "Cycle lows: Cipher C and Cycle Position". The complete
+  indicator had never been described in the manual before this.
+- The long cycle-low passage under Auto-narration now names Cycle Position.
+- WHATSNEW's unreleased entries now use the new names and say the two were swapped.
+- README lists both indicators with their codes.
+- Both design docs carry a name note at the top. Their bodies keep the old names, as written.
+
+Tests: `CipherCCyclePositionNameSwapTests` (4) checks the names and codes, a saved chart of each
+coming back under its new name, and the complete one's text naming no "Cipher C". Three sabotages
+went red: the copy's metadata named Cipher C again, the complete one's provider Name put back, and
+its description saying "Cipher C's marks".
+
+Caveat: the design docs, research notes and memory all use the old names. CIPHER_C_DESIGN.md is
+about what is now Cycle Position.
+
 ### Alt+Shift+D says the candle pattern first; the S&P 500 counts from 2000; new charts get only the default series (2026-11-04, NOT heard)
 
 - **Alt+Shift+D: pattern, then prices.** Cody: "when I press alt shift d, I'd like to hear the candle pattern

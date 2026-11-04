@@ -995,7 +995,7 @@ edge to fill under. Your choice is kept with the chart and, with Save as Default
 cycle's timing window. A window is never a line. It is shaded where it is open, its number (the
 day count) is what you hear and what the status line shows, and Ctrl+Left/Right steps to where it
 opens and closes. On the Dot Pad it is raised where it is open. A window may carry a drawing of its
-own — Cipher C's cycle arc, drawn under the candles from low to low — and landing on it says so:
+own — Cycle Position's cycle arc, drawn under the candles from low to low — and landing on it says so:
 "Window, with the cycle arc". The drawing is a picture, not something to step through: what it
 shows (where each cycle bottomed, how long it ran) is already said by the cycle lows and the
 window. Properties → Appearance → **Draw the cycle arc** turns it off.
@@ -1470,6 +1470,25 @@ reports the trend state those labels imply. **Value Deviation** marks where pric
 from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
 Cipher SR and Cipher DBSI, our versions of Market Cipher's price-chart
 companions, are described under "Adding and tuning indicators" below.
+
+**Cycle lows: Cipher C and Cycle Position.** Two indicators mark where the chart is in its daily,
+weekly and yearly cycles, with the same marks: D, W and Y under the cycle lows, a check where each
+was confirmed, a clock under the low being held, lettered translated tops, shaded timing windows and
+a wave from low to low. **Cycle Position** is our copy of the cycle indicator Camel Finance uses:
+it follows that indicator's own rules and its tuned ranges for sixteen assets, and is described in
+detail under "Auto-narration and live announcements" below. **Cipher C** is the more complete one,
+built on the same marks: one rule for every asset, so it works on a symbol nobody tuned, and timing
+windows learned from the chart's own past cycles, so it says "day 24 of the daily cycle; the low had
+come by now in 70% of 12 past cycles". Under the held low it says EARLY, DUE or LATE against that
+window. It adds **Low is in** (the chance the held low will be confirmed, said as likely to fail,
+low, medium, high or very high, with the facts it was read from), **Low expected** (the chance of a
+new daily low in the next few days: unlikely, possible or likely), the half-cycle low and how much
+of the rise it gave back, a warning that a weekly low is likely next when a daily cycle fails, and
+the next window's dates past the last bar. Four switches, all off, give it Cycle Position's
+per-asset rules, its faster confirmation, its start dates and its yearly-low dates. Neither is an
+edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before
+that opens with each indicator under its new name and its settings kept, and strategies and alerts
+built on either still work.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
@@ -2818,11 +2837,11 @@ Some marks are painted in hindsight: a cycle low is drawn on the bar where the l
 it is only found bars later, once price has turned. Narration says such a mark once, when the bar
 that found it closes, never in the middle of a bar, and names the date it is drawn on: "Right
 translated top, bullish, on March 17 2026." When the indicator confirms the low with a mark of
-its own (Cipher C's check box), you hear one sentence on the confirmation instead of two: "Daily
-cycle low confirmed, on March 29 2026 at 64,955, 24 bars ago." Cipher C confirms a daily low
+its own (Cycle Position's check box), you hear one sentence on the confirmation instead of two: "Daily
+cycle low confirmed, on March 29 2026 at 64,955, 24 bars ago." Cycle Position confirms a daily low
 only after it has held for half the shortest cycle (24 days on Bitcoin, 18 trading days on the
 Dow), as the indicator it follows does. Bitcoin's range is 54 to 66 days, but the indicator counts
-it from 48, so Cipher C does too; the preset's spoken description says "counted from 48". Silver
+it from 48, so Cycle Position does too; the preset's spoken description says "counted from 48". Silver
 is the same: its range is 22 to 28 days, as Gold's is, but it is counted from 24 (a 12-day wait);
 and the dollar index, 15 to 24 days, is counted from 18 (a 9-day wait); Ethereum, 15 to 25 days,
 is counted from 16 (an 8-day wait); Coinbase and MicroStrategy, 40 to 90 trading days, are counted
@@ -2833,7 +2852,7 @@ of stocks and coins alike, as the indicator's own default count is; its spoken d
 preset for this symbol, so the default count". That includes funds and futures that track a preset's
 asset (SPY, QQQ, DIA, GLD, IBIT), which the indicator does not tune either; the asset itself under
 another name (^GSPC, US30, XAU/USD, BTC/USDT) keeps its preset. A lower
-low while a low holds cancels it ("Daily pending cycle low cancelled"), and Cipher C looks for the
+low while a low holds cancels it ("Daily pending cycle low cancelled"), and Cycle Position looks for the
 next low from the following day, except on the day the wait ends: then the held low is confirmed
 even if that day goes lower. A confirmed low is never taken back; a close under it is a failed
 cycle ("Daily cycle failed"). On a daily chart its weekly lows are picked from those
@@ -2844,7 +2863,7 @@ the Nasdaq it picks them another way, again as the indicator does there: the fir
 new weekly low takes its place if it is lower, and after that a new weekly low goes on the lowest
 daily low that comes at least two shortest daily cycles (less two days each) after the last; the
 weekly low called confirmed is the one before the newest. On any chart that is not daily (weekly, four-hour, hourly)
-Cipher C does what the indicator it follows does there: it counts each bar as one of the preset's
+Cycle Position does what the indicator it follows does there: it counts each bar as one of the preset's
 days, so the Dow's 36 days are 36 bars, whether a bar is a week or four hours. Every count, age and
 cycle length is then said in bars ("daily cycle bar 12, in its window, 8 bars left"), and the
 preset's description ends "Not tuned for this timeframe: its days are counted as this chart's bars;

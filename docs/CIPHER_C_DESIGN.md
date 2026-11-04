@@ -1,5 +1,9 @@
 # Cipher C: cycle lows, after Camel Finance's CF Cycle Trading Indicator
 
+> **Name (2026-11-04):** this indicator is now shown as **Cycle Position**; its code `CIPHER_C` and
+> the class names are unchanged. The more complete one (`CYCLE_POSITION`, docs/CYCLE_POSITION_DESIGN.md)
+> is now shown as **Cipher C**. Below, "Cipher C" means this indicator, as written before the swap.
+
 Written 2026-10-21, when Cipher C was rebuilt. Cody: "Cipher c needs to be designed as close to the
 cf indicator as possible from any and all screen grabs you can get from it… I want one robust cycle
 detection indicator as I can get." The code is `CipherCProvider` and `CipherCEngine`; the tests are

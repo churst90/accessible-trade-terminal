@@ -1,5 +1,9 @@
 # Cycle Position: where the chart is in its daily, weekly and yearly cycles
 
+> **Name (2026-11-04):** this indicator is now shown as **Cipher C**; its code `CYCLE_POSITION` and
+> the class names are unchanged. The copy of the original (`CIPHER_C`, docs/CIPHER_C_DESIGN.md)
+> is now shown as **Cycle Position**. Below, "Cycle Position" means this indicator and "Cipher C" the copy, as written before the swap.
+
 Written 2026-10-28. Cody: "use all of the visuals from cf that are in cipher c, but create a new
 indicator implementing your ideas, test it and report the results using structured rules ... i want
 something that helps me know where I am within a cycle so i can follow camel's technique ...
