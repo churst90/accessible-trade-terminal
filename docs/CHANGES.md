@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alt+Shift+D says the candle pattern first; the S&P 500 counts from 2000; new charts get only the default series (2026-11-04, NOT heard)
+
+- **Alt+Shift+D: pattern, then prices.** Cody: "when I press alt shift d, I'd like to hear the candle pattern
+  spoken first before the OHLC values rather than after." The candle part of the bar detail
+  (`BarDetailService.CandleFact`) is now the shape, pattern and bias, then "Open …, high …, low …, close …"
+  (and volume), then the body and wick percentages. Before, the four prices came first.
+- **The S&P 500 counts from 3 January 2000.** The preset had no Start date because its chart was thought
+  never read. In fact the original's S&P Start label (2000-01-03) was read on 2026-10-27 with its per-asset
+  settings on. `CyclePreset("SPX")` now carries it, so the daily count starts there instead of on the
+  chart's first bar. The S&P still has no yearly dates (the original draws none on it). The untuned
+  fallback is built from the SPX preset but never reads its Start (`StartBar` takes the symbol's own
+  preset, null when untuned).
+- **"Add Market Structure to new charts" is gone.** Cody: "it's an indicator people can add it if they
+  want it, just the default series should be on a new chart, that's it." The switch (F12 → General, off
+  by default since 2026-09-05) and its key `analysis.marketStructureDefault` are removed, along with
+  `IAppSettings.MarketStructureOnByDefault` and the initializer's seeding step. A saved value of the
+  old key is ignored. A new chart is Candles, Volume and Price.
+- **Tests:**
+  - `BarDetailReadsEverythingTests` now pins the pattern before "Open".
+  - `CipherCDailyTests.An_untuned_symbol_is_counted_from_the_first_bar_of_2000` pins SPX on its 2000-01-03
+    bar, and on bar 0 when the preset's Start is taken away.
+  - New: `NewChartIsTheDefaultSeriesOnlyTests` checks that a new chart registers only Candles, Volume and
+    Price while Market Structure is on offer.
+  - Each was proven red: prices moved back in front of the pattern, the SPX Start removed, and the
+    seeding step put back.
+
 ### A volume profile's pitch is its part of the profile again, on a sine, and grit is the bin's size (2026-11-03, NOT heard)
 
 - **Why**: Cody, on babe4449 (the entry below): "volume profile, not quite. I think i like the sine wave pitches for
@@ -1221,7 +1247,8 @@ All notable changes to this project will be documented in this file.
   - The yearly band runs from the newest 🅨 date plus a fixed number of calendar days per asset to
     the date plus a second number (Bitcoin 1143-1508: 14 January 2026 to 14 January 2027). This
     was read from the original's band at past dates on ten assets.
-  - The S&P 500 has no dates: its chart was never read.
+  - The S&P 500 has no dates: its chart was never read. (Wrong, corrected 2026-11-04: its Start label,
+    3 January 2000, had been read; it is now on the preset. The S&P has no yearly dates.)
 - **Checked:** on the original's charts the Start dates take the model from F1 .9523 to .9595 (lows
   found 1,817 -> 1,826 of 1,894, extras 105 -> 86). The C# end to end is in the next entry. The yearly
   band holds exactly across epochs on Bitcoin (3) and Ether (2). The Dow (8 epochs before 1994) is

@@ -52,8 +52,12 @@ namespace AccessibleTrader.Tests
                 int rsi       = IndexOf(said, "RSI 14: 64.25.");
                 int formation = IndexOf(said, "formation here");
 
-                Assert.Equal(0, candle - AfterTheDateAt(said));
-                Assert.True(candle < shape, $"the four prices before the shape: {said}");
+                // The candle's pattern first, then its four prices, then its body and wicks
+                // (Cody, 2026-11-04: the pattern "spoken first before the OHLC values").
+                string leadIn = said[AfterTheDateAt(said)..candle];
+                Assert.True(leadIn.Length > 2 && leadIn.EndsWith(". ", StringComparison.Ordinal), $"the pattern before the prices: {said}");
+                Assert.DoesNotContain("Open ", leadIn);
+                Assert.True(candle < shape, $"the four prices before the body and wicks: {said}");
                 Assert.True(shape < ema, $"the candle before the price pane's overlay: {said}");
                 Assert.True(ema < osc, $"the price pane before the indicator panes: {said}");
                 Assert.True(osc < rsi, $"the panes top to bottom, focused or not ({focus}): {said}");
@@ -99,7 +103,7 @@ namespace AccessibleTrader.Tests
             // repeat either as a series of its own.
             string said = Announce(Chart(focused: CoreSeriesIds.Candles, Candles(), Volume(), Price(), Ema(), Rsi()));
 
-            Assert.StartsWith("Open 110.00", AfterTheDate(said));
+            Assert.DoesNotContain("Open ", AfterTheDate(said)[..AfterTheDate(said).IndexOf("Open 110.00", StringComparison.Ordinal)]);
             Assert.Contains("volume 4,321", said);
             Assert.DoesNotContain("Volume:", said);
             Assert.DoesNotContain("Price:", said);

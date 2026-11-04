@@ -1327,9 +1327,9 @@ by the button's announced pressed state — whether history is currently hidden.
 
 When one bar deserves a thorough look before you act on it, press Alt+Shift+D
 for a full point analysis. It reads in the same order whichever series you are focused on, so
-you always know where you are in it. It starts with the bar's date and the candle as drawn —
-open, high, low, close and volume (on a Heikin-Ashi chart, the Heikin-Ashi candle) — with the
-candlestick pattern at that bar ("Bullish engulfing") and its body and wick percentages. After
+you always know where you are in it. It starts with the bar's date and the candlestick pattern
+at that bar ("Bullish engulfing"), then the candle as drawn — open, high, low, close and volume
+(on a Heikin-Ashi chart, the Heikin-Ashi candle) — and its body and wick percentages. After
 that, every visible indicator, in the order its status line sits on screen: the price pane
 first, then each pane down the chart, each with its readings and any of its marks that fire on
 that bar. If the series you are focused on is hidden, it is read after the others. An indicator with nothing at that bar — Market Structure between its marks — says nothing,
@@ -3954,8 +3954,8 @@ to "narration" and "speech" in the settings search box.
 the two **earcon families** described below.
 **General** is where you switch **paper trading** on and choose what the quick-trade
 risk percentage means, plus the session resume, the two background-monitoring switches,
-the tray behaviour on Windows, the touch toolbar, analysis (Market Structure on new charts
-and the two pattern switches), magnet snap, the panning step, a CSV export — and the
+the tray behaviour on Windows, the touch toolbar, analysis (the two pattern switches),
+magnet snap, the panning step, a CSV export — and the
 **factory reset**, below. **Braille** enables the tactile display. **Appearance** is the
 theme — most relevant to a sighted collaborator looking over your shoulder — and the
 visual accommodations. What can be shared, and how, is under *Sharing your setup* below. **Keyboard** rebinds any command, and those rebinds save
@@ -4087,13 +4087,10 @@ gradient switch and a bullish/bearish colour pair that were layered over *every*
 Those are gone: a colour belongs to a theme now, and anything you had set there is ignored.
 To get the same look back, Clone the theme you use and set the colours in the editor.
 
-The **Analysis** group on the general tab holds one preference worth knowing about:
-**Add Market Structure (swing highs and lows) to new charts**, which is off by
-default — a new chart is candles, volume and price, and nothing you did not put
-there. Tick it if you want swing labelling on every chart you load. It changes what
-happens on the *next* load and deliberately leaves charts you already have open
-alone — silently adding or stripping an indicator on a chart you were reading would
-be a worse surprise than the setting waiting one load to take effect.
+A new chart is candles, volume and price, and nothing you did not put there. Market Structure
+(swing highs and lows) is an indicator like any other: add it from the indicator list on the
+charts where you want it. (The Settings switch that added it to every new chart was removed on
+2026-11-04.)
 
 **Visual accessibility options.** Under the theme, the Appearance tab carries a group of
 visual accommodations. All of them are **off by default** — the terminal presents itself

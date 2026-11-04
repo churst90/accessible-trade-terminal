@@ -229,7 +229,6 @@ namespace AccessibleTrader.Tests
                 "App.TwelveHourClock",
                 "SpeechTimeFormatter.UseUtc",
                 "SpeechTimeFormatter.TwelveHour",
-                "App.MarketStructureOnByDefault",
                 "App.SoundTheme",
                 "App.TouchNavBarMode",
                 "App.BackgroundMonitoring",
@@ -267,7 +266,7 @@ namespace AccessibleTrader.Tests
 
             foreach (var field in new[]
             {
-                "_hoverSonification", "_magnetSnap", "_swingSnap", "_timesInUtc", "_twelveHour", "_marketStructureDefault", "_soundTheme",
+                "_hoverSonification", "_magnetSnap", "_swingSnap", "_timesInUtc", "_twelveHour", "_soundTheme",
                 "_touchNavMode", "_bgMonitoring", "_bgPollSeconds", "_liveBgTabs", "_resumeSession",
                 "_speechEnabled", "_sonificationEnabled", "_panningGranularity",
                 "_showPatternVisuals", "_visualEarcons", "_colorVisionSafe", "_hollowUpCandles",

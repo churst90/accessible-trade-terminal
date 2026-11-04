@@ -163,8 +163,8 @@ namespace AccessibleTrader.Tests
         /// <summary>
         /// Many settings are surfaced through an <see cref="IAppSettings"/> property rather than by
         /// naming the key in the razor. The property is conventionally the constant's own name, so
-        /// a dialog binding to <c>App.MarketStructureOnByDefault</c> counts as reaching
-        /// <c>SettingsKeys.MarketStructureOnByDefault</c>.
+        /// a dialog binding to <c>App.HollowUpCandles</c> counts as reaching
+        /// <c>SettingsKeys.HollowUpCandles</c>.
         /// </summary>
         private static string PropertyNameFor(string constantName) => constantName;
 

@@ -1650,8 +1650,9 @@ trading days, the untuned weekly start at 154.
 Cody agreed (2026-10-28) that the dates read off the original's charts may go in this public
 repo: each tuned asset's Start date and its yearly (🅨) dates (section 22), and the yearly band's
 two numbers below. They are on `CyclePreset` (`Start`, `YearlyLows`, `YearlyBandFromDays`,
-`YearlyBandToDays`). The S&P 500 preset has none: the original's S&P chart was never read. Its
-other labels stay private.
+`YearlyBandToDays`). The S&P 500 preset has a Start date (3 January 2000, read on 2026-10-27 with the
+original's per-asset settings on, and added on 2026-11-04; until then the S&P was counted from the
+chart's first bar) and no yearly dates: the original draws no 🅨 on it. Its other labels stay private.
 
 **Start.** A tuned asset's count starts on the first bar on or after its `Start` date (00:00 UTC),
 held as a low confirmed one hold later, as the untuned first-of-2000 start in section 31. A chart

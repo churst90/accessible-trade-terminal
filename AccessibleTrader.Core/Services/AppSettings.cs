@@ -61,15 +61,6 @@ namespace AccessibleTrader.Core.Services
         bool ShowToolbarCaptions { get; set; }
 
         // Analysis
-        /// <summary>
-        /// Seed the Market Structure overlay (HH/HL/LH/LL) on new OHLCV charts. Defaults to FALSE
-        /// since 2026-09-05 — Cody: "I don't want it, only show candles, price and volume for a
-        /// clean new default chart layout." It shipped ON from 2026-08 on the argument that
-        /// structure is the orientation layer a sighted trader gets free from chart shape; the
-        /// counter-argument, from use, is that a new chart should start with nothing the user did
-        /// not put there. Opt-IN now, so a bare substitute returns the default.
-        /// </summary>
-        bool MarketStructureOnByDefault { get; set; }
         int UiScale { get; set; }
         /// <summary>The chart status lines' backing opacity, percent, 50 to 100. See SettingsKeys.StatusLineBackingOpacity.</summary>
         int StatusLineBackingOpacity { get; set; }
@@ -209,12 +200,6 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.ColorVisionSafe);
             set => Set(SettingsKeys.ColorVisionSafe, value);
-        }
-        public bool MarketStructureOnByDefault
-        {
-            // Default false since 2026-09-05 — see the interface docs.
-            get => GetBool(SettingsKeys.MarketStructureOnByDefault, def: false);
-            set => Set(SettingsKeys.MarketStructureOnByDefault, value);
         }
 
         public bool HollowUpCandles

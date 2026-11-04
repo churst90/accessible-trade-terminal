@@ -45,8 +45,6 @@ namespace AccessibleTrader.Tests
         /// </summary>
         private static readonly Dictionary<string, string> AllowedLong = new(StringComparer.Ordinal)
         {
-            ["Add Market Structure (swing highs and lows) to new charts"] =
-                "the parenthetical IS the definition — 'Market Structure' alone names nothing to someone meeting it for the first time",
             ["Blend the toolbars, chart and footer into one gradient"] =
                 "naming all three regions is the setting; any shorter and it is unclear what gets blended",
         };

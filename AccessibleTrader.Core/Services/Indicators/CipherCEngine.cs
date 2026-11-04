@@ -184,11 +184,15 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// before the first listed), and its yearly band, a fixed number of calendar days after the
         /// newest of them (YearlyBand*Days: the same on every earlier yearly low replayed, Bitcoin's
         /// three and Ether's two to the day, the Dow's, the Nasdaq's and oil's to a day or two and
-        /// the others within the exchange holidays TradingView skips). SPX shows neither.
+        /// the others within the exchange holidays TradingView skips). SPX draws no yearly lows; its
+        /// count starts on the first bar of 2000 (its Start label on 2000-01-03, read 2026-10-27 with
+        /// the original's per-asset settings on; until 2026-11-04 it was counted from the chart's
+        /// first bar).
         /// </summary>
         public static readonly IReadOnlyList<CyclePreset> Presets = new[]
         {
-            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32),
+            new CyclePreset("SPX",    "S&P 500",     36, 44, 22, 31, 3.5, 4.5, false, FromCf, CountDailyMin: 32,
+                Start: Day(2000, 1, 3)),
             new CyclePreset("NDQ",    "Nasdaq 100",  36, 44, 22, 31, 4,   4,   false, FromCf,
                 BandWeeklyMin: 217 / 9.8, BandWeeklyMax: 305 / 9.8,
                 Start: Day(1985, 1, 31), YearlyLows: Days("1987-10-30 1990-10-12 1994-06-27 1998-10-08 2002-10-09 2006-07-14 2008-12-01 2011-10-04 2016-02-08 2020-03-23"),

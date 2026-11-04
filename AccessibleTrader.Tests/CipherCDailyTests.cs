@@ -503,23 +503,27 @@ public class CipherCDailyTests
         Assert.NotEqual(Marked(plain.Confirmed), Marked(r[CipherCProvider.CompDclConfirmed]));
     }
 
-    /// <summary>A symbol with a preset of its own is counted from the chart's first bar; any other
-    /// from the first bar on or after 1 January 2000, as the original starts those.</summary>
+    /// <summary>A symbol with a preset of its own is counted from its own Start date (the S&amp;P
+    /// from 3 January 2000, its Start label), a preset with no date from the chart's first bar, and
+    /// any other symbol from the first bar on or after 1 January 2000, as the original starts those.</summary>
     [Fact]
     public void An_untuned_symbol_is_counted_from_the_first_bar_of_2000()
     {
         // The Bitcoin fixture moved back twelve years, so 2000 falls in its second year.
         var bars = Bars.Select(b => b with { Date = b.Date.AddYears(-12) }).ToArray();
         int start = Array.FindIndex(bars, b => b.Date >= new DateTime(2000, 1, 1));
+        int spxStart = Array.FindIndex(bars, b => b.Date >= new DateTime(2000, 1, 3));
         Assert.True(start > 100);
         Assert.True(bars[start - 1].Date < new DateTime(2000, 1, 1));
         Assert.Equal(start, CipherCEngine.StartBar(bars, null));
-        Assert.Equal(0, CipherCEngine.StartBar(bars, CipherCEngine.Preset("SPX")));
+        Assert.Equal(spxStart, CipherCEngine.StartBar(bars, CipherCEngine.Preset("SPX")));
+        Assert.Equal(0, CipherCEngine.StartBar(bars, CipherCEngine.Preset("SPX") with { Start = null }));
         Assert.Equal(0, CipherCEngine.StartBar(Bars, null));
 
         var untuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "XYZ" });
-        var tuned = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "SPX" });
+        var spx = CipherCProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "SPX" });
         Assert.DoesNotContain(Marked(untuned[CipherCProvider.CompDclConfirmed]), t => t < start + 16);
-        Assert.Contains(Marked(tuned[CipherCProvider.CompDclConfirmed]), t => t < start);
+        Assert.DoesNotContain(Marked(spx[CipherCProvider.CompDclConfirmed]), t => t < spxStart);
+        Assert.Contains(Marked(spx[CipherCProvider.CompDclConfirmed]), t => t < spxStart + 200);
     }
 }

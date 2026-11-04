@@ -239,8 +239,8 @@
 >       1,826 of 1,894 lows found, extras 105 -> 86, F1 .9523 -> .9595. The app end to end, with the
 >       weekly tier now starting on the Start bar too (CHANGES, "weekly tier starts on the original's
 >       Start bar"; section 35): yearly lows all exact; weekly lows on daily charts .918 -> .935, on
->       weekly charts .786 -> .835; Coinbase 4h and weekly one weekly low worse. The S&P 500 has no
->       date (its chart was never read);
+>       weekly charts .786 -> .835; Coinbase 4h and weekly one weekly low worse. The S&P 500's Start
+>       (3 January 2000, read 2026-10-27) was added on 2026-11-04; it has no yearly dates;
 >     - ~~counting a dropped weekly low in the unconfirmed weekly cell~~: done 2026-10-28 (CHANGES,
 >       "unconfirmed week count runs from the newest weekly low drawn"). The cell counts from the
 >       newest low drawn, the candidate included, and on the metals from a low drawn nowhere;

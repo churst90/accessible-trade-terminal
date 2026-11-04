@@ -381,18 +381,6 @@
                 @* ── Drawing ─────────────────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Analysis</legend>
-                    <div class="modal-row">
-                        <label for="s-market-structure">
-                            Add Market Structure (swing highs and lows) to new charts
-                        </label>
-                        <input id="s-market-structure" type="checkbox"
-                               checked="@_marketStructureDefault"
-                               @onchange="OnMarketStructureDefaultChanged" />
-                    </div>
-                    <p style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        Off by default. Affects charts loaded from now on; add or remove it per
-                        chart at any time.
-                    </p>
 
                     @* The two pattern switches live TOGETHER, and here rather than on Speech or
                        Narration, because neither of those tabs is where a user looks for them:
@@ -1364,7 +1352,6 @@
         new("Minimize to tray on exit", "General", "s-minimize-to-tray", "window close tray notification area quit background keep running"),
         new("Braille display", "Braille", "s-braille-enabled", "dot pad tactile"),
         new("Touch toolbar", "General", "s-touch-nav", "touchscreen buttons navigation bar"),
-        new("Add Market Structure to new charts", "General", "s-market-structure", "swing highs lows analysis indicator default"),
         new("Describe candle patterns", "General", "s-candle-patterns", "engulfing harami doji hammer bar close forming narration speech"),
         new("Describe chart patterns", "General", "s-chart-patterns", "formation double top triangle head shoulders flag narration new bar playback speech"),
         new("Magnet snap", "General", "s-magnet-snap", "drawing anchors snap open high low close"),
@@ -1736,7 +1723,6 @@
             return off == TimeSpan.Zero ? $"{z.Id}, the same as UTC" : $"{z.Id}, UTC {sign} {hm} hours now";
         }
     }
-    private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
     private string _speechOrder = "HeaderValue";
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
@@ -1836,12 +1822,6 @@
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-theme"); }
         catch { /* best-effort, as everywhere else */ }
     }
-
-    // Deliberately does NOT retrofit open charts on save. Removing an indicator the user may
-    // have configured, on a chart they were reading, is a bigger surprise than the setting
-    // taking effect on the next load.
-    private void OnMarketStructureDefaultChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
-        _marketStructureDefault = e.Value is bool b && b;
 
     private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _soundTheme = e.Value?.ToString() ?? Core.Services.Audio.SoundThemes.ClassicId;
@@ -2062,7 +2042,6 @@
         _swingSnap = App.SwingSnap;
         _timesInUtc = App.TimesInUtc;
         _twelveHour = App.TwelveHourClock;
-        _marketStructureDefault = App.MarketStructureOnByDefault;
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
         _visualEarcons   = App.VisualEarcons;
@@ -2323,7 +2302,6 @@
         App.TwelveHourClock         = _twelveHour;
         Core.Services.Accessibility.SpeechTimeFormatter.UseUtc = _timesInUtc;
         Core.Services.Accessibility.SpeechTimeFormatter.TwelveHour = _twelveHour;
-        App.MarketStructureOnByDefault = _marketStructureDefault;
         App.SoundTheme              = _soundTheme;
         App.TouchNavBarMode         = _touchNavMode;
         App.BackgroundMonitoring    = _bgMonitoring;

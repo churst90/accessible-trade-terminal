@@ -79,8 +79,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // reading order is changed every time you navigate to a different series"). Until
             // then the focused series was read first and in a longer form of its own:
             //   1. the bar's date;
-            //   2. the candle as drawn (Heikin-Ashi aware): open, high, low, close, volume, then
-            //      its shape, pattern and wick percentages;
+            //   2. the candle as drawn (Heikin-Ashi aware): its shape and pattern, then open, high,
+            //      low, close, volume, then the wick percentages (pattern first since 2026-11-04);
             //   3. every visible series in the status line's order — the price pane's overlays
             //      first, then the panes top to bottom as the renderer stacks them — each by name
             //      with its readings and the marks that fire at this bar (those are the "signal
@@ -262,11 +262,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string CandleFact(WorkspaceState state, Ohlcv bar, int index, bool includeVolume)
         {
             var sb = new StringBuilder();
-            sb.Append($"Open {SpeechPriceFormatter.FormatPrice(bar.Open)}, high {SpeechPriceFormatter.FormatPrice(bar.High)}, " +
-                      $"low {SpeechPriceFormatter.FormatPrice(bar.Low)}, close {SpeechPriceFormatter.FormatPrice(bar.Close)}");
-            if (includeVolume)
-                sb.Append($", volume {ChartStatusLine.FormatVolume(state.Data![index].Volume)}");
-            sb.Append(". ");
 
             // THE SAME CLASSIFIER THE LIVE ANNOUNCEMENT USES, over the same trailing window.
             //
@@ -308,7 +303,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (member.Length > 0) parts.Add(member);
             if (bias.Length > 0)   parts.Add(bias);
             string leadIn = string.Join(", ", parts) + ".";
-            sb.Append($"{leadIn} Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.");
+
+            // The pattern FIRST, then the prices (Cody, 2026-11-04: "I'd like to hear the candle
+            // pattern spoken first before the OHLC values rather than after"). The pattern is
+            // what the key is usually pressed for; the four prices used to come before it.
+            sb.Append(leadIn).Append(' ');
+            sb.Append($"Open {SpeechPriceFormatter.FormatPrice(bar.Open)}, high {SpeechPriceFormatter.FormatPrice(bar.High)}, " +
+                      $"low {SpeechPriceFormatter.FormatPrice(bar.Low)}, close {SpeechPriceFormatter.FormatPrice(bar.Close)}");
+            if (includeVolume)
+                sb.Append($", volume {ChartStatusLine.FormatVolume(state.Data![index].Volume)}");
+            sb.Append(". ");
+            sb.Append($"Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.");
             return sb.ToString();
         }
 
