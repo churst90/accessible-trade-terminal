@@ -149,7 +149,7 @@
                                order's price when Submit is pressed, and the field says what it came to. *@
                             <div class="entry-row">
                                 <label for="order-size-in">Size in</label>
-                                <select id="order-size-in" aria-label="Size the order in" @bind="_sizeIn"
+                                <select id="order-size-in" @bind="_sizeIn"
                                         @bind:after="OnSizeInChanged">
                                     <option value="Base">@BaseUnit (quantity)</option>
                                     <option value="Value">@QuoteUnit (value)</option>

@@ -86,6 +86,9 @@ the p and l ... something that might could be customized somewhere maybe in the 
   review reads what is sent and a price tick cannot re-arm it. A value with no price is refused. The risk
   Size button sets the unit back to base. There is no contract-size concept: every provider takes base
   units (a Kraken Futures linear PF_ contract is one coin), so a value is the honest "dollars" answer.
+- **Fix after the push (CI on ef320d81):** the Size in select carried `aria-label="Size the order in"`, which
+  overrode its visible "Size in" label, so voice control could not match what was on screen;
+  `DismissControlNameScanTests` caught it. The aria-label is gone and the `<label for>` names it.
 - **Caveats:** market closes still close everything (no percent on Close position). The "Size in" choice
   is not remembered between openings. Not tried by Cody; no screen reader run (the accessibility-lead agent
   the hook asks for is not registered).

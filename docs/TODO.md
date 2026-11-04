@@ -39,6 +39,9 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     replace the documented-shape fixtures, and try the websocket live.
   - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
     funding as an indicator, vaults.
+- [ ] **Flake, not forced yet (2026-11-04):** `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
+  failed once in a full local run, then passed 3 of 3 alone. It polls `SelectedMarket` for at most
+  3 s (60 × 50 ms), so it is probably load. Force it (per the 2026-09-25 rule) before trusting either way.
 - [ ] **Trade status bar (2026-11-04, built, NOT seen; see CHANGES).** Cody to open a paper position and
   look at the bottom of the window; then F12, Appearance, try "Outlined, theme text" and "Percent and amount". Open,
   mine: no key speaks the trades (a screen reader reaches the "Open trades" region by landmark); live
