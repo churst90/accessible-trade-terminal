@@ -150,6 +150,54 @@ html, body {
     display: none;
 }
 
+/* ── Trade status bar (2026-11-04) ─────────────────────────────────────────────
+   One chip per open position under the indicator bar. "blocks": white ink on a filled
+   green or red block, fixed colours so the contrast (6.6:1 and 6.9:1) holds on every
+   theme. "outline": the theme's own text on its footer, with a coloured edge and mark;
+   the words say up or down, so colour is never the only signal. */
+.trade-status-bar {
+    padding: 3px 8px;
+    background: var(--bg-footer-end);
+    border-top: 1px solid var(--border-color);
+}
+.trade-status-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.trade-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.trade-chip-mark { font-size: 0.7rem; }
+.trade-status-bar[data-style="blocks"] .trade-chip.up   { background: #1e6b34; color: #ffffff; }
+.trade-status-bar[data-style="blocks"] .trade-chip.down { background: #a3201f; color: #ffffff; }
+.trade-status-bar[data-style="blocks"] .trade-chip.flat { background: #4e545e; color: #ffffff; }
+.trade-status-bar[data-style="outline"] .trade-chip {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-left-width: 4px;
+}
+.trade-status-bar[data-style="outline"] .trade-chip.up   { border-left-color: var(--bullish-color); }
+.trade-status-bar[data-style="outline"] .trade-chip.down { border-left-color: var(--bearish-color); }
+.trade-status-bar[data-style="outline"] .trade-chip.up   .trade-chip-mark { color: var(--bullish-color); }
+.trade-status-bar[data-style="outline"] .trade-chip.down .trade-chip-mark { color: var(--bearish-color); }
+.app-container.focus-mode .trade-status-bar { display: none; }
+
 .status-action {
     margin-left: 12px;
     padding: 1px 8px;

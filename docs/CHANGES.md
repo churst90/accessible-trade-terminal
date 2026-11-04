@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The trade status bar (2026-11-04, NOT seen)
+
+Cody: "a 'trade status' bar could be added so if I have an open position I could see at a glance at the
+bottom of the screen, say below the indicator bar at the bottom my trades listed something like 'btcusdt
+Kraken Futures isolated spot long, up 14.3%' and have the text green and red to indicate the direction of
+the p and l ... something that might could be customized somewhere maybe in the f12 settings".
+- **`TradeStatusBar.razor`**, under `IndicatorBar` in `MainLayout` (only where the deployment allows
+  trading). One `li` per open position across every account the dashboard lists; nothing is drawn with no
+  positions. Text from `TradeStatusLine.Describe`: symbol, account name, margin mode and leverage as the
+  positions table says them, direction, then "up/down X%" (`ReturnPercent`: unrealized P&L over
+  |qty|·average ÷ leverage, so it is a return on margin), the amount, or both; with no entry price it falls
+  back to the amount; under half a cent is "flat". Re-read every 10 s and on `OrderFilledEvent`,
+  `StopHitEvent`, `TakeProfitHitEvent` and the new `TradeStatusBarChangedEvent`; one venue failing costs
+  only its items.
+- **Accessibility:** a `<section aria-label="Open trades">` region landmark with `data-background-region`
+  (inert behind dialogs), no live region (the speech buffers stay the one announcer), nothing focusable.
+  The words carry the direction; the ▲/▼ mark is `aria-hidden`. Blocks are fixed green #1e6b34, red
+  #a3201f, grey #4e545e with white text (contrast about 6.6, 7.5, 7.6 to 1) on every theme; Outlined uses
+  the theme's text colour and its bullish/bearish colours for the edge. Hidden in focus mode.
+- **Settings (F12), Appearance:** `appearance.tradeStatusBar` (blocks/outline/off) and
+  `appearance.tradeStatusFigure` (percent/amount/both), applied at once, spoken on the Interface channel,
+  put back by Cancel.
+- **Shared account list:** the dashboard's account enumeration moved, unchanged, to
+  `TradingAccountDirectory.EnumerateAsync` so the bar and the dashboard list the same accounts.
+- **Caveats:** not seen by Cody; no screen reader run (the accessibility-lead agent the hook asks for is
+  not registered). No key speaks the trades, so a screen reader user reaches it by landmark only. Live
+  venues are polled every 10 s while a position is open (each poll is a positions read per account).
+- **Tests:** `TradeStatusBarTests` (6, bUnit) and `TradeStatusLineTests` (5); the landmark,
+  background-region and settings-revert scans list the new parts, and the revert scan now checks each
+  preview is assigned back from its baseline, not just mentioned. Eight sabotages red: leverage ignored,
+  the sign flipped, Off not stopping the reads, the settings event or the fill not subscribed, the region
+  renamed, `data-background-region` dropped, Cancel not restoring the style.
 ### Close part of a position at a limit; size an order by its value (2026-11-04, NOT tried)
 
 - **Close at limit takes a percent.** Cody: "when i limit close a trade i should have the option of

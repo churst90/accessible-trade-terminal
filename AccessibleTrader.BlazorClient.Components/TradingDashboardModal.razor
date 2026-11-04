@@ -1585,52 +1585,8 @@
     /// <c>ApiKeyConfig.AllowsWithdrawal</c>.
     /// </para>
     /// </summary>
-    private async Task<List<TradingAccount>> EnumerateAccountsAsync()
-    {
-        if (_paperMode)
-            return new List<TradingAccount> { new("Paper", "Paper", "paper", IsPaper: true) };
-
-        List<ApiKeyConfig> keys;
-        try { keys = await ApiKeyService.GetAllKeysAsync(); }
-        catch (Exception ex)
-        {
-            _layoutLogger?.LogWarning(ex, "Could not enumerate trading accounts.");
-            return new List<TradingAccount>();
-        }
-
-        var usable = keys.Where(k => k.IsActive && !k.AllowsWithdrawal).ToList();
-        var accounts = new List<TradingAccount>();
-        foreach (var provider in usable.Select(k => k.Provider)
-                                       .Distinct(StringComparer.OrdinalIgnoreCase)
-                                       .Where(p => !string.IsNullOrEmpty(p))
-                                       .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
-        {
-            if (!await OrderService.SupportsTradingAsync(provider)) continue;
-
-            // Live accounts only (Cody, 2026-10-21: "sandbox ones should be omitted"). A key
-            // marked Paper is a sandbox key only where the venue HAS a sandbox; on the venues
-            // that have none (Kraken spot, Bitstamp, Coinbase, …) a Paper-labelled key signs
-            // against the real account, so its balances are real money and stay listed — the
-            // same question GeneralOrderService asks before refusing such a key's orders.
-            var activeKey = usable.First(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase));
-            if (!AccessibleTrader.Sdk.Plugins.ProviderConfigKeys.IsLive(activeKey.Environment)
-                && await OrderService.HasPracticeEnvironmentAsync(provider))
-                continue;
-
-            // The nickname only earns its place when there is more than one key for
-            // this venue; otherwise "Kraken (main)" is a longer way to say "Kraken"
-            // in a column that is read on every row.
-            var forProvider = usable.Where(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase)).ToList();
-            string display = forProvider.Count > 1
-                ? $"{provider} ({(forProvider.FirstOrDefault(k => k.Nickname == _activeKeyNickname) ?? forProvider[0]).Nickname})"
-                : provider;
-            accounts.Add(new TradingAccount(provider, display, Slugify(provider), IsPaper: false));
-        }
-        return accounts;
-    }
-
-    private static string Slugify(string s) =>
-        new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+    private Task<List<TradingAccount>> EnumerateAccountsAsync() =>
+        TradingAccountDirectory.EnumerateAsync(_paperMode, ApiKeyService, OrderService, _activeKeyNickname, _layoutLogger);
 
     /// <summary>Everything one account has to say, and why any of it is missing.</summary>
     private sealed record AccountData(

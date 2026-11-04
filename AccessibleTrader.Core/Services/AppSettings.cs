@@ -64,6 +64,10 @@ namespace AccessibleTrader.Core.Services
         int UiScale { get; set; }
         /// <summary>The chart status lines' backing opacity, percent, 50 to 100. See SettingsKeys.StatusLineBackingOpacity.</summary>
         int StatusLineBackingOpacity { get; set; }
+        /// <summary>The trade status bar's look: "blocks", "outline" or "off". See SettingsKeys.TradeStatusBar.</summary>
+        string TradeStatusBar { get; set; }
+        /// <summary>What each trade shows: "percent", "amount" or "both". See SettingsKeys.TradeStatusFigure.</summary>
+        string TradeStatusFigure { get; set; }
 
         // Audio
         string SoundTheme { get; set; }
@@ -221,6 +225,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetInt(SettingsKeys.StatusLineBackingOpacity, 96);
             set => Set(SettingsKeys.StatusLineBackingOpacity, value);
+        }
+        public string TradeStatusBar
+        {
+            get => GetString(SettingsKeys.TradeStatusBar, "blocks");
+            set => Set(SettingsKeys.TradeStatusBar, value);
+        }
+        public string TradeStatusFigure
+        {
+            get => GetString(SettingsKeys.TradeStatusFigure, "percent");
+            set => Set(SettingsKeys.TradeStatusFigure, value);
         }
 
         public string SoundTheme

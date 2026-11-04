@@ -1,4 +1,7 @@
+using System.Globalization;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Plugins;
+using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.BlazorClient.Components
 {
@@ -98,5 +101,113 @@ namespace AccessibleTrader.BlazorClient.Components
         /// </summary>
         public static string Direction(Position p) =>
             p.Quantity > 0 ? "Long" : p.Quantity < 0 ? "Short" : "Flat";
+    }
+
+    /// <summary>
+    /// Which accounts there are: the trading dashboard's Positions tab and the trade status bar ask
+    /// the same question and must get the same answer (moved here from the dashboard 2026-11-04).
+    /// </summary>
+    public static class TradingAccountDirectory
+    {
+        /// <summary>DOM-id safe form of a provider name.</summary>
+        public static string Slugify(string s) =>
+            new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+
+        /// <summary>
+        /// In paper mode, the one paper account. Otherwise every venue with an active, non-withdrawal
+        /// key that can trade, live keys only where the venue has a practice environment (Cody,
+        /// 2026-10-21: "sandbox ones should be omitted"). A venue with no sandbox signs a
+        /// Paper-labelled key against the real account, so its balances are real money and it stays.
+        /// </summary>
+        public static async Task<List<TradingAccount>> EnumerateAsync(
+            bool paperMode, IApiKeyService apiKeys, IOrderExecutionService orders,
+            string? activeKeyNickname = null, ILogger? logger = null)
+        {
+            if (paperMode)
+                return new List<TradingAccount> { new("Paper", "Paper", "paper", IsPaper: true) };
+
+            List<ApiKeyConfig> keys;
+            try { keys = await apiKeys.GetAllKeysAsync(); }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Could not enumerate trading accounts.");
+                return new List<TradingAccount>();
+            }
+
+            var usable = keys.Where(k => k.IsActive && !k.AllowsWithdrawal).ToList();
+            var accounts = new List<TradingAccount>();
+            foreach (var provider in usable.Select(k => k.Provider)
+                                           .Distinct(StringComparer.OrdinalIgnoreCase)
+                                           .Where(p => !string.IsNullOrEmpty(p))
+                                           .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!await orders.SupportsTradingAsync(provider)) continue;
+
+                var activeKey = usable.First(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase));
+                if (!ProviderConfigKeys.IsLive(activeKey.Environment)
+                    && await orders.HasPracticeEnvironmentAsync(provider))
+                    continue;
+
+                // The nickname only earns its place when there is more than one key for
+                // this venue; otherwise "Kraken (main)" is a longer way to say "Kraken"
+                // in a column that is read on every row.
+                var forProvider = usable.Where(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase)).ToList();
+                string display = forProvider.Count > 1
+                    ? $"{provider} ({(forProvider.FirstOrDefault(k => k.Nickname == activeKeyNickname) ?? forProvider[0]).Nickname})"
+                    : provider;
+                accounts.Add(new TradingAccount(provider, display, Slugify(provider), IsPaper: false));
+            }
+            return accounts;
+        }
+    }
+
+    /// <summary>
+    /// One open trade as the trade status bar shows it (2026-11-04). Cody: "if I have an open position
+    /// I could see at a glance at the bottom of the screen ... my trades listed something like
+    /// 'btcusdt Kraken Futures isolated spot long, up 14.3%' and have the text green and red to
+    /// indicate the direction of the p and l." <see cref="Sign"/> is +1 up, -1 down, 0 flat.
+    /// </summary>
+    public sealed record TradeStatusItem(string Key, string Text, int Sign);
+
+    /// <summary>The words for a trade in the status bar; static so they can be tested without rendering.</summary>
+    public static class TradeStatusLine
+    {
+        /// <summary>
+        /// Profit or loss as a percent of the margin put up: the price move times the leverage, so a
+        /// 10x long up 1% in price reads "up 10%". Null when there is no entry price to measure from.
+        /// </summary>
+        public static double? ReturnPercent(Position p)
+        {
+            double margin = Math.Abs(p.Quantity) * p.AveragePrice / Math.Max(1.0, p.Leverage);
+            if (!(margin > 0) || double.IsNaN(p.UnrealizedPnL)) return null;
+            return p.UnrealizedPnL / margin * 100;
+        }
+
+        /// <summary>
+        /// "BTCUSDT Kraken Futures isolated 1x long, up 14.3%". <paramref name="figure"/> is "percent",
+        /// "amount" or "both"; a position with no entry price falls back to the amount.
+        /// </summary>
+        public static TradeStatusItem Describe(AccountPosition row, string figure)
+        {
+            var p = row.Position;
+            string instrument = PositionLabel.Instrument(p);
+            string modeAndLeverage = instrument.Length > p.Symbol.Length ? instrument[p.Symbol.Length..] : "";
+            string direction = PositionLabel.Direction(p).ToLowerInvariant();
+
+            double? pct = ReturnPercent(p);
+            double pnl = double.IsNaN(p.UnrealizedPnL) ? 0 : p.UnrealizedPnL;
+            int sign = Math.Abs(pnl) < 0.005 ? 0 : Math.Sign(pnl);
+            string pctText = pct is double v ? Math.Abs(v).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "";
+            string amountText = Math.Abs(pnl).ToString("#,##0.00", CultureInfo.InvariantCulture);
+            string amount = figure switch
+            {
+                "amount" => amountText,
+                "both"   => pctText.Length > 0 ? pctText + ", " + amountText : amountText,
+                _        => pctText.Length > 0 ? pctText : amountText,
+            };
+            string move = sign > 0 ? "up " + amount : sign < 0 ? "down " + amount : "flat";
+            return new TradeStatusItem(row.Account.Slug + "|" + p.Symbol + "|" + p.MarginMode,
+                $"{p.Symbol} {row.Account.DisplayName}{modeAndLeverage} {direction}, {move}", sign);
+        }
     }
 }

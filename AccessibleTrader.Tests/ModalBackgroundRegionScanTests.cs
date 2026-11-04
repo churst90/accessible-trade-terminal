@@ -51,6 +51,7 @@ namespace AccessibleTrader.Tests
             { "IndicatorBar.razor", "<nav class=\"indicator-bar\"" },
             { "TouchNavBar.razor",  "<nav class=\"touch-nav\"" },
             { "StatusBar.razor",    "<section class=\"status-bar\"" },
+            { "TradeStatusBar.razor", "<section class=\"trade-status-bar\"" },
         };
 
         [Theory]

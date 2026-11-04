@@ -61,7 +61,6 @@ namespace AccessibleTrader.Tests
             "private async Task CancelOrder(AccountOrder row)",
             "private async Task CloseAsync(AccountPosition row, double? limitPrice, double percent = 100)",
             "private async Task CommitProtectiveAsync(AccountPosition row, ProtectiveLevel level)",
-            "private async Task<List<TradingAccount>> EnumerateAccountsAsync()",
             "private async Task<AccountData> LoadOneAccountAsync(TradingAccount account)",
         };
 
@@ -74,6 +73,19 @@ namespace AccessibleTrader.Tests
             string body = DashboardSourceReader.MethodStripped(signature);
 
             Assert.DoesNotContain("Store.State.Identity.Provider", body, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The account list moved to <c>TradingAccountDirectory</c> (2026-11-04) so the trade status
+        /// bar reads the same accounts. It has no store to ask, and the dashboard must still use it.
+        /// </summary>
+        [Fact]
+        public void The_account_list_is_the_shared_one_and_never_asks_what_chart_is_focused()
+        {
+            string dir = File.ReadAllText(Path.Combine(RepoPaths.RepoRoot(),
+                "AccessibleTrader.BlazorClient.Components", "TradingAccounts.cs"));
+            Assert.DoesNotContain("Store.State", dir, StringComparison.Ordinal);
+            Assert.Contains("TradingAccountDirectory.EnumerateAsync(_paperMode,", DashboardSourceReader.Stripped(), StringComparison.Ordinal);
         }
 
         [Fact]

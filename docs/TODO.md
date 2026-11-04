@@ -30,6 +30,10 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Trade status bar (2026-11-04, built, NOT seen; see CHANGES).** Cody to open a paper position and
+  look at the bottom of the window; then F12, Appearance, try "Outlined, theme text" and "Percent and amount". Open,
+  mine: no key speaks the trades (a screen reader reaches the "Open trades" region by landmark); live
+  venues are polled every 10 s while the app is open.
 - [ ] **Close part of a position at a limit, and size by value (2026-11-04, built, NOT tried; see CHANGES).**
   Cody to try on PAPER: Close at limit, Tab to the percent, 50, Enter; and Size in → USD, 1000, a limit
   order. Open, mine: a percent for the market Close position button; remembering the Size in choice.

@@ -165,6 +165,10 @@ namespace AccessibleTrader.Core.Services
         /// 2026-10-15 screenshots). Appearance only; nothing spoken depends on it.
         /// </summary>
         public const string StatusLineBackingOpacity = "appearance.statusLineBackingOpacity";
+        /// <summary>The trade status bar under the indicator bar: "blocks" (default), "outline" or "off".</summary>
+        public const string TradeStatusBar = "appearance.tradeStatusBar";
+        /// <summary>What each trade in the status bar shows: "percent" (default), "amount" or "both".</summary>
+        public const string TradeStatusFigure = "appearance.tradeStatusFigure";
 
         // ── Viewport ─────────────────────────────────────────────────────────
         public const string PanningGranularity  = "viewport.panningGranularity";

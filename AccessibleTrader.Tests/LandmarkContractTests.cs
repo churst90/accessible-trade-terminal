@@ -55,6 +55,7 @@ public class LandmarkContractTests
         new object[] { "IndicatorBar.razor", "indicator-bar", "Indicator controls" },
         new object[] { "TouchNavBar.razor",  "touch-nav",     "Touch navigation" },
         new object[] { "StatusBar.razor",    "status-bar",    "Terminal status" },
+        new object[] { "TradeStatusBar.razor", "trade-status-bar", "Open trades" },
     };
 
 

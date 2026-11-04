@@ -1,0 +1,131 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Plugins
+@inject IEventBus EventBus
+@inject IOrderExecutionService OrderService
+@inject IApiKeyService ApiKeyService
+@inject ISettingsManager Settings
+@inject IAppSettings App
+@inject DemoPolicy Demo
+@inject ILogger<TradeStatusBar> Log
+@implements IDisposable
+
+@* The trade status bar (2026-11-04). Cody: "if I have an open position I could see at a glance at
+   the bottom of the screen, say below the indicator bar at the bottom my trades listed something like
+   'btcusdt Kraken Futures isolated spot long, up 14.3%' and have the text green and red to indicate
+   the direction of the p and l ... something that might could be customized somewhere maybe in the
+   f12 settings".
+
+   One item per open position in every account the trading dashboard lists, re-read every ten seconds
+   and after a fill, stop or target. Nothing is drawn when there are no positions, so a flat account
+   costs no chart height; Off empties the list and stops the reads. A named <section> (a region landmark), never a live region: the speech
+   double-buffer in MainLayout is the one announcer, and a strip that re-renders every ten seconds
+   would talk over everything. Nothing in it is focusable, so Tab never stops here; a screen reader
+   reaches it by landmark or by reading to the end of the page. The words carry the direction ("up",
+   "down"), so the colour is never the only signal. *@
+@if (_items.Count > 0)
+{
+    <section class="trade-status-bar" data-style="@_style" data-background-region aria-label="Open trades">
+        <ul class="trade-status-list">
+            @foreach (var item in _items)
+            {
+                <li @key="item.Key" class="trade-chip @(item.Sign > 0 ? "up" : item.Sign < 0 ? "down" : "flat")">
+                    <span class="trade-chip-mark" aria-hidden="true">@(item.Sign > 0 ? "▲" : item.Sign < 0 ? "▼" : "■")</span>
+                    @item.Text
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    /// <summary>How often the positions are read again, besides after every fill.</summary>
+    internal static TimeSpan RefreshEvery = TimeSpan.FromSeconds(10);
+
+    private List<TradeStatusItem> _items = new();
+    private string _style = "blocks";
+    private string _figure = "percent";
+    private readonly List<IDisposable> _subs = new();
+    private readonly CancellationTokenSource _cts = new();
+    private int _refreshing;
+
+    protected override void OnInitialized()
+    {
+        ReadLook();
+        if (!Demo.AllowTrading) return;
+
+        _subs.Add(EventBus.Subscribe<TradeStatusBarChangedEvent>(e => { ReadLook(); _ = RefreshAsync(); }));
+        _subs.Add(EventBus.Subscribe<OrderFilledEvent>(e => _ = RefreshAsync()));
+        _subs.Add(EventBus.Subscribe<StopHitEvent>(e => _ = RefreshAsync()));
+        _subs.Add(EventBus.Subscribe<TakeProfitHitEvent>(e => _ = RefreshAsync()));
+        _ = PollAsync(_cts.Token);
+    }
+
+    private void ReadLook()
+    {
+        _style = App.TradeStatusBar is "outline" or "off" ? App.TradeStatusBar : "blocks";
+        _figure = App.TradeStatusFigure is "amount" or "both" ? App.TradeStatusFigure : "percent";
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        try
+        {
+            await RefreshAsync();
+            using var timer = new PeriodicTimer(RefreshEvery);
+            while (await timer.WaitForNextTickAsync(ct))
+                await RefreshAsync();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Reads every account's positions. One venue failing costs that venue's items only; a read
+    /// already running is not doubled up.
+    /// </summary>
+    internal async Task RefreshAsync()
+    {
+        if (_style == "off" || _cts.IsCancellationRequested) { if (_items.Count > 0) { _items = new(); await InvokeAsync(StateHasChanged); } return; }
+        if (Interlocked.Exchange(ref _refreshing, 1) == 1) return;
+        try
+        {
+            bool paper = !Demo.AllowLiveTrading
+                || (Settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
+            var accounts = await TradingAccountDirectory.EnumerateAsync(paper, ApiKeyService, OrderService, logger: Log);
+            var reads = await Task.WhenAll(accounts.Select(async a =>
+            {
+                try
+                {
+                    var r = await OrderService.GetPositionsAsync(a.ProviderName);
+                    return r.OrElse(new List<Position>())
+                            .Where(p => p.Quantity != 0)
+                            .Select(p => new AccountPosition(a, p)).ToList();
+                }
+                catch (Exception ex)
+                {
+                    Log.LogDebug(ex, "Trade status bar could not read {Provider}", a.ProviderName);
+                    return new List<AccountPosition>();
+                }
+            }));
+            var items = reads.SelectMany(r => r).Select(r => TradeStatusLine.Describe(r, _figure)).ToList();
+            if (_cts.IsCancellationRequested) return;
+            _items = items;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug(ex, "Trade status bar refresh failed");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _refreshing, 0);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        foreach (var s in _subs) s.Dispose();
+        _cts.Dispose();
+    }
+}

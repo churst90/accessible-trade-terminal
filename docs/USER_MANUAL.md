@@ -3188,6 +3188,20 @@ been resting a long time). One thing polling cannot see: protective legs the
 broker attaches server-side get their own order ids, so if one of those fires on
 Schwab you'll find it in the Orders/History tabs rather than hearing it named.
 
+### Your open trades at a glance
+
+While you hold a position, a strip at the bottom of the window, below the indicator bar, lists
+each one with its venue, direction and how far it is up or down: "ETHUSDT Paper long, up
+10.0%". The percent is of the margin you put up, so on 10x a 1% move in price reads as 10%.
+The strip covers every account the trading dashboard lists, paper or live as the dashboard's
+mode says. It is read again every ten seconds and straight after a fill, stop or target, and
+when you have no positions it is not there at all, so the chart keeps its height.
+
+It is a named region, "Open trades": with a screen reader, jump to it by landmark (the region
+list, or D in NVDA and JAWS) or read to the end of the page. It never speaks on its own and Tab
+never stops in it. To change how it looks or turn it off, open Settings (F12), Appearance:
+**Trade status bar** and **Each trade shows**. It is hidden in focus mode (Alt+Z).
+
 ### Positions, orders, balances, and history
 
 The right-hand side of the dashboard carries five tabs — Positions, Balances, Orders,
@@ -4150,6 +4164,13 @@ and saves the moment you toggle it:
 - **Toolbar captions** puts a text label under every toolbar icon. Off by default
   because the captions cost the chart a third of its height on an ordinary window;
   the spoken name and the hover tooltip are the same either way.
+- **Trade status bar** shows your open positions in a strip at the bottom of the window,
+  below the indicator bar: one item per position, like "BTCUSDT Kraken Futures isolated 5x
+  long, up 14.3%", in green when it is up and red when it is down. **Coloured blocks** (the
+  default) puts each in a filled block; **Outlined, theme text** keeps the text in your theme's colour
+  with a green or red edge; **Off** hides the strip. Beside it, **Each trade shows**
+  chooses the percent, the amount, or both. The words always say "up" or "down", so the
+  colour is never the only signal. See *Your open trades at a glance* under Trading.
 
 The same group holds a **Text size** selector (85% to 175%) that scales the
 interface text throughout the terminal — browser zoom still works on top of it. And

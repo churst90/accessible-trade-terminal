@@ -56,6 +56,9 @@ namespace AccessibleTrader.Tests
             "OnToolbarCaptionsChanged",
             // The chart status lines' backing (Cody's 2026-10-17 decision: TradingView status line).
             "OnStatusBackingChanged",
+            // The trade status bar (Cody's 2026-11-04 idea).
+            "OnTradeStatusBarChanged",
+            "OnTradeStatusFigureChanged",
         };
 
         /// <summary>
@@ -162,11 +165,20 @@ namespace AccessibleTrader.Tests
                 "_hollowUpCandlesInitial",
                 "_toolbarCaptionsInitial",
                 "_statusBackingInitial",
+                "_tradeStatusBarInitial",
+                "_tradeStatusFigureInitial",
                 "_selectedThemeInitial",
             };
             foreach (var field in mustRestore)
                 Assert.True(revert.Contains(field, StringComparison.Ordinal),
                     $"RevertPreviews never reads {field}, so that preview survives a Cancel.");
+            // Reading the baseline is not putting it back: each preview's field is assigned from it.
+            foreach (var field in mustRestore)
+            {
+                string live = field[..^"Initial".Length];
+                Assert.True(Regex.IsMatch(revert, $@"\b{live}\s*=\s*{field}\s*;"),
+                    $"RevertPreviews mentions {field} but never sets {live} back to it, so that preview survives a Cancel.");
+            }
 
             // And Cancel actually calls it — a revert method nothing invokes reverts nothing.
             Assert.Contains("RevertPreviews()", MethodBody(src, "Cancel"), StringComparison.Ordinal);

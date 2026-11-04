@@ -8,6 +8,10 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Your open trades at the bottom of the window.** While you hold a position, a strip below the indicator
+  bar lists it: "BTCUSDT Kraken Futures isolated 5x long, up 14.3%", green when up, red when down. It is
+  the "Open trades" region for screen readers and never speaks by itself. Settings (F12), Appearance:
+  coloured blocks, outlined, or off, and the percent, the amount or both. Not yet seen.
 - **Close part of a position.** Close at limit now has a percent field after the price, starting at
   100. Type 50 to close half; the rest stays open.
 - **Size an order by its value.** The ticket's new **Size in** choice switches the quantity from the base

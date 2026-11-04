@@ -404,6 +404,8 @@ namespace AccessibleTrader.Core.Models
     public record OrderPartialFillEvent(OrderUpdate Order, string? Provider = null);
     public record StopHitEvent(OrderUpdate Order, string? Provider = null);
     public record TakeProfitHitEvent(OrderUpdate Order, string? Provider = null);
+    /// <summary>The trade status bar's look or contents were changed in Settings; it re-reads them.</summary>
+    public record TradeStatusBarChangedEvent();
     public record OrderRejectedEvent(OrderUpdate Order, string Reason, string? Provider = null);
     /// <summary>An order left the book without filling — cancelled by the user,
     /// expired, or (on polled brokers, where the two are indistinguishable)

@@ -101,6 +101,10 @@
 
     <IndicatorBar />
 
+    @* Open trades at a glance, under the indicator bar (Cody, 2026-11-04). Draws nothing when
+       there are no positions, and nothing at all where trading is not offered. *@
+    @if (Demo.AllowTrading) { <TradeStatusBar /> }
+
     @* Touch navigation toolbar — visible only on coarse-pointer (touch) devices
        via CSS. Large-button parity for the core chart commands; see TouchNavBar. *@
     <TouchNavBar />

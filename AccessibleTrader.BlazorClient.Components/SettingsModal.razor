@@ -1084,6 +1084,37 @@
                             Below 96%, lines and candles behind the text show through it.
                         </span>
                     </div>
+
+                    @* Cody's 2026-11-04 idea: open trades at a glance under the indicator bar. *@
+                    <div class="modal-row">
+                        <label for="s-trade-status-bar">Trade status bar</label>
+                        <select id="s-trade-status-bar"
+                                value="@_tradeStatusBar"
+                                @onchange="OnTradeStatusBarChanged"
+                                aria-describedby="s-trade-status-bar-hint">
+                            <option value="blocks">Coloured blocks (default)</option>
+                            <option value="outline">Outlined, theme text</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div class="modal-row">
+                        <label for="s-trade-status-figure">Each trade shows</label>
+                        <select id="s-trade-status-figure"
+                                value="@_tradeStatusFigure"
+                                @onchange="OnTradeStatusFigureChanged"
+                                aria-describedby="s-trade-status-bar-hint">
+                            <option value="percent">Percent (default)</option>
+                            <option value="amount">Amount</option>
+                            <option value="both">Percent and amount</option>
+                        </select>
+                    </div>
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span id="s-trade-status-bar-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            A strip under the indicator bar listing each open position, green when it is up and
+                            red when it is down, such as "BTCUSDT Kraken Futures isolated 1x long, up 14.3%".
+                            The percent is of the margin put up. Nothing is shown when you have no positions.
+                        </span>
+                    </div>
                 </fieldset>
 
                 @* The "Visual profile" Export/Import pair that sat here until 2026-09-13 exported the
@@ -1390,6 +1421,8 @@
         new("Toolbar captions", "Appearance", "s-toolbar-captions", "label text icon button caption chart height room space"),
         new("Text size", "Appearance", "s-ui-scale", "font zoom scale magnify low vision bigger"),
         new("Status line background", "Appearance", "s-status-backing", "legend status line indicator values transparent opacity backing"),
+        new("Trade status bar", "Appearance", "s-trade-status-bar", "position open trades profit loss pnl green red bottom strip glance"),
+        new("Each trade shows", "Appearance", "s-trade-status-figure", "position percent amount profit loss pnl trade status"),
         new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap reference"),
         new("License", "License", "tab-license", "tier supporter key gpl donate donation support cash app paypal"),
     };
@@ -1449,6 +1482,10 @@
     private int _uiScale = 100;
     private int _statusBacking = 96;
     private int _statusBackingInitial = 96;
+    private string _tradeStatusBar = "blocks";
+    private string _tradeStatusBarInitial = "blocks";
+    private string _tradeStatusFigure = "percent";
+    private string _tradeStatusFigureInitial = "percent";
     private string _selectedTheme   = Core.Services.ThemeService.DefaultTheme.ToString();
 
     // Single source of truth is the <Version> property in Directory.Build.props; it flows into the
@@ -1553,6 +1590,34 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Status line background {_statusBacking} percent.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         EventBus.Publish(new RedrawEvent());
+    }
+
+    /// <summary>Applied immediately, like the status line background, so the strip shows the choice.</summary>
+    private void OnTradeStatusBarChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        string v = e.Value?.ToString() ?? "";
+        if (v is not ("blocks" or "outline" or "off")) return;
+        _tradeStatusBar = v;
+        App.TradeStatusBar = v;
+        App.Save();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            v == "off" ? "Trade status bar off." : v == "outline" ? "Trade status bar outlined." : "Trade status bar in coloured blocks.",
+            true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        EventBus.Publish(new TradeStatusBarChangedEvent());
+    }
+
+    /// <summary>Applied immediately; see <see cref="OnTradeStatusBarChanged"/>.</summary>
+    private void OnTradeStatusFigureChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        string v = e.Value?.ToString() ?? "";
+        if (v is not ("percent" or "amount" or "both")) return;
+        _tradeStatusFigure = v;
+        App.TradeStatusFigure = v;
+        App.Save();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            v == "amount" ? "Trades show the amount." : v == "both" ? "Trades show the percent and the amount." : "Trades show the percent.",
+            true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        EventBus.Publish(new TradeStatusBarChangedEvent());
     }
 
     /// <summary>Applied immediately so the effect is visible while deciding; see the note above.</summary>
@@ -2053,6 +2118,8 @@
         _toolbarCaptions = App.ShowToolbarCaptions;
         _uiScale         = App.UiScale;
         _statusBacking   = App.StatusLineBackingOpacity;
+        _tradeStatusBar    = App.TradeStatusBar;
+        _tradeStatusFigure = App.TradeStatusFigure;
         _speechEnabled        = Store.State.IsSpeechEnabled;
         _sonificationEnabled  = Store.State.IsSonificationEnabled;
         _panningGranularity   = Store.State.PanningGranularity;
@@ -2063,6 +2130,8 @@
         // second Cancel a no-op against the wrong state.
         _uiScaleInitial            = _uiScale;
         _statusBackingInitial      = _statusBacking;
+        _tradeStatusBarInitial     = _tradeStatusBar;
+        _tradeStatusFigureInitial  = _tradeStatusFigure;
         _showPatternVisualsInitial = _showPatternVisuals;
         _visualEarconsInitial      = _visualEarcons;
         _colorVisionSafeInitial    = _colorVisionSafe;
@@ -2163,6 +2232,15 @@
         {
             _statusBacking = _statusBackingInitial;
             App.StatusLineBackingOpacity = _statusBacking;
+            changed = true;
+        }
+        if (_tradeStatusBar != _tradeStatusBarInitial || _tradeStatusFigure != _tradeStatusFigureInitial)
+        {
+            _tradeStatusBar = _tradeStatusBarInitial;
+            _tradeStatusFigure = _tradeStatusFigureInitial;
+            App.TradeStatusBar = _tradeStatusBar;
+            App.TradeStatusFigure = _tradeStatusFigure;
+            EventBus.Publish(new TradeStatusBarChangedEvent());
             changed = true;
         }
         if (_showPatternVisuals != _showPatternVisualsInitial)
