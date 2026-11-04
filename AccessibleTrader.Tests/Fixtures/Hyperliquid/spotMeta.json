@@ -1,0 +1,45 @@
+{
+ "tokens": [
+  {
+   "name": "USDC",
+   "szDecimals": 8,
+   "weiDecimals": 8,
+   "index": 0,
+   "isCanonical": true
+  },
+  {
+   "name": "PURR",
+   "szDecimals": 0,
+   "weiDecimals": 5,
+   "index": 1,
+   "isCanonical": true
+  },
+  {
+   "name": "HYPE",
+   "szDecimals": 2,
+   "weiDecimals": 8,
+   "index": 150,
+   "isCanonical": false
+  }
+ ],
+ "universe": [
+  {
+   "tokens": [
+    1,
+    0
+   ],
+   "name": "PURR/USDC",
+   "index": 0,
+   "isCanonical": true
+  },
+  {
+   "tokens": [
+    150,
+    0
+   ],
+   "name": "@107",
+   "index": 107,
+   "isCanonical": false
+  }
+ ]
+}

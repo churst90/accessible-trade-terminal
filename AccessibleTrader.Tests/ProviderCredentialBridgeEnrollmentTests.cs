@@ -60,7 +60,7 @@ namespace AccessibleTrader.Tests
             // trading provider with Configure()-supplied credentials; their one consumer,
             // ProviderOrderConformanceTests, wears the collection attribute.
             "WireOrder", "OrderRig", "OrderRigs", "AlpacaRig", "BinanceRigBase", "BinanceSpotRig",
-            "BinanceFuturesRig", "BitstampRig", "CoinbaseRig", "GeminiRig", "IbkrRig", "KrakenRig",
+            "BinanceFuturesRig", "BitstampRig", "CoinbaseRig", "GeminiRig", "HyperliquidRig", "IbkrRig", "KrakenRig",
             "KrakenFuturesRig", "MexcRigBase", "MexcSpotRig", "MexcFuturesRig", "OandaRig",
             "SchwabRig", "TradierRig",
         };
