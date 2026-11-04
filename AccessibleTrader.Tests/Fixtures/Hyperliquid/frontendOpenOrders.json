@@ -1,0 +1,4 @@
+[
+ {"_note": "Written from the documented reply shape, NOT recorded from a live account.", "coin": "BTC", "side": "B", "limitPx": "90000.0", "sz": "0.01", "oid": 12345, "timestamp": 1793836800000, "triggerCondition": "N/A", "isTrigger": false, "triggerPx": "0.0", "children": [], "isPositionTpsl": false, "reduceOnly": false, "orderType": "Limit", "origSz": "0.01", "tif": "Gtc", "cloid": null},
+ {"coin": "ETH", "side": "A", "limitPx": "2800.0", "sz": "1.5", "oid": 12346, "timestamp": 1793836801000, "triggerCondition": "Price below 2900", "isTrigger": true, "triggerPx": "2900.0", "children": [], "isPositionTpsl": false, "reduceOnly": true, "orderType": "Stop Market", "origSz": "1.5", "tif": null, "cloid": null}
+]

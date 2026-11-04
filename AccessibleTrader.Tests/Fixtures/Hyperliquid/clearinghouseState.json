@@ -1,0 +1,13 @@
+{
+ "_note": "Written from the documented reply shape, NOT recorded from a live account.",
+ "marginSummary": {"accountValue": "1000.5", "totalNtlPos": "2000.0", "totalRawUsd": "3000.5", "totalMarginUsed": "200.0"},
+ "crossMarginSummary": {"accountValue": "1000.5", "totalNtlPos": "2000.0", "totalRawUsd": "3000.5", "totalMarginUsed": "200.0"},
+ "crossMaintenanceMarginUsed": "50.0",
+ "withdrawable": "800.5",
+ "assetPositions": [
+  {"type": "oneWay", "position": {"coin": "BTC", "szi": "0.02", "entryPx": "95000.0", "positionValue": "2000.0", "unrealizedPnl": "100.0", "returnOnEquity": "0.1", "liquidationPx": "80000.0", "marginUsed": "200.0", "maxLeverage": 40, "leverage": {"type": "isolated", "value": 10, "rawUsd": "-1800.0"}, "cumFunding": {"allTime": "1.0", "sinceOpen": "0.5", "sinceChange": "0.1"}}},
+  {"type": "oneWay", "position": {"coin": "ETH", "szi": "-1.5", "entryPx": "3000.0", "positionValue": "4500.0", "unrealizedPnl": "-20.0", "returnOnEquity": "-0.01", "liquidationPx": null, "marginUsed": "450.0", "maxLeverage": 25, "leverage": {"type": "cross", "value": 5}, "cumFunding": {"allTime": "0", "sinceOpen": "0", "sinceChange": "0"}}},
+  {"type": "oneWay", "position": {"coin": "MATIC", "szi": "0.0", "entryPx": "1.0", "positionValue": "0.0", "unrealizedPnl": "0.0", "liquidationPx": null, "leverage": {"type": "cross", "value": 1}}}
+ ],
+ "time": 1793836800000
+}

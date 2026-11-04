@@ -382,6 +382,82 @@ namespace AccessibleTrader.Tests.OrderConformance
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // Hyperliquid - /info answers the markets, /exchange takes a signed JSON action; the asset is an integer id
+    // ═══════════════════════════════════════════════════════════════════════════
+    internal sealed class HyperliquidRig : OrderRig
+    {
+        // The agent key and the main address are deliberately different wallets.
+        public const string AgentKey = "0x0123456789012345678901234567890123456789012345678901234567890123";
+        public const string MainAddress = "0x1719884eb866cb12b2287399b15f7db5e7d775ea";
+
+        public override string Name => "Hyperliquid";
+        public override string ProviderTypeName => "HyperliquidProvider";
+        public override string OrderSymbol => "BTC-PERP";
+        public override string ExpectedWireSymbol => "BTC";
+        public override string ChartedSymbol => "ETH-PERP";
+        public override string LiveHost => "api.hyperliquid.xyz";
+        public override string? PracticeHost => "api.hyperliquid-testnet.xyz";
+        public override bool HasReduceOnlyFlag => true;
+        public override StopSupport Stops => StopSupport.StopMarket;
+        public override TakeProfitSupport TakeProfits => TakeProfitSupport.Native;
+
+        private const string Meta = """{"universe":[{"szDecimals":2,"name":"BTC","maxLeverage":40},{"szDecimals":4,"name":"ETH","maxLeverage":25}]}""";
+        private const string SpotMeta = """{"tokens":[{"name":"USDC","szDecimals":8,"weiDecimals":8,"index":0},{"name":"PURR","szDecimals":0,"weiDecimals":5,"index":1}],"universe":[{"tokens":[1,0],"name":"PURR/USDC","index":0,"isCanonical":true}]}""";
+        private const string Mids = """{"BTC":"100000.0","ETH":"3000.0"}""";
+
+        public override ITradingProvider Build(FakeHttpMessageHandler h, string? environment)
+        {
+            var p = new AccessibleTrader.Plugins.Hyperliquid.HyperliquidProvider();
+            Configure(p, new() { ["ApiKey"] = MainAddress, ["ApiSecret"] = AgentKey }, environment);
+            SwapField(p, "_http", new HttpClient(h));
+            return p;
+        }
+
+        private static void ArmInfo(FakeHttpMessageHandler h) =>
+            h.Add(HttpMethod.Post, @"hyperliquid(-testnet)?\.xyz/info", req =>
+            {
+                string type = JObject.Parse(req.Content!.ReadAsStringAsync().Result)["type"]?.ToString() ?? "";
+                string body = type switch { "meta" => Meta, "spotMeta" => SpotMeta, "allMids" => Mids, _ => "{}" };
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+            });
+
+        public override void ArmSuccess(FakeHttpMessageHandler h, string orderId)
+        {
+            ArmInfo(h);
+            h.Post(@"hyperliquid(-testnet)?\.xyz/exchange",
+                "{\"status\":\"ok\",\"response\":{\"type\":\"order\",\"data\":{\"statuses\":[{\"resting\":{\"oid\":" + orderId + "}}]}}}");
+        }
+
+        public override void ArmRejection(FakeHttpMessageHandler h)
+        {
+            ArmInfo(h);
+            h.Post(@"hyperliquid(-testnet)?\.xyz/exchange",
+                """{"status":"ok","response":{"type":"order","data":{"statuses":[{"error":"Insufficient margin to place order."}]}}}""");
+        }
+
+        public override IReadOnlyList<WireOrder> Orders(FakeHttpMessageHandler h) =>
+            Posts(h, "/exchange").SelectMany(x =>
+            {
+                var action = JObject.Parse(x.Body)["action"]!;
+                if (action["type"]?.ToString() != "order") return Enumerable.Empty<WireOrder>();
+                return action["orders"]!.Select(o =>
+                {
+                    var t = o["t"]!;
+                    var trig = t["trigger"];
+                    string tif = t["limit"]?["tif"]?.ToString() ?? "";
+                    string sym = o["a"]!.Value<int>() switch { 0 => "BTC", 1 => "ETH", var n => "asset" + n };
+                    return new WireOrder(x.Req.RequestUri!.Host, sym, o["b"]!.Value<bool>() ? "buy" : "sell",
+                        Num(o["s"]?.ToString()) ?? double.NaN, trig != null ? "trigger:" + trig["tpsl"] : "limit:" + tif,
+                        IsMarket: trig == null && tif == "Ioc",
+                        IsStop: trig?["tpsl"]?.ToString() == "sl",
+                        Trigger: Num(trig?["triggerPx"]?.ToString()),
+                        LimitPrice: trig == null ? Num(o["p"]?.ToString()) : null,
+                        ReduceOnly: o["r"]!.Value<bool>());
+                });
+            }).ToList();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // Interactive Brokers — the symbol is a conId resolved per order; legs ride as rows
     // ═══════════════════════════════════════════════════════════════════════════
     internal sealed class IbkrRig : OrderRig
@@ -781,7 +857,7 @@ namespace AccessibleTrader.Tests.OrderConformance
         public static readonly IReadOnlyList<OrderRig> All = new OrderRig[]
         {
             new AlpacaRig(), new BinanceSpotRig(), new BinanceFuturesRig(), new BitstampRig(), new CoinbaseRig(),
-            new GeminiRig(), new IbkrRig(), new KrakenRig(), new KrakenFuturesRig(), new MexcSpotRig(),
+            new GeminiRig(), new HyperliquidRig(), new IbkrRig(), new KrakenRig(), new KrakenFuturesRig(), new MexcSpotRig(),
             new MexcFuturesRig(), new OandaRig(), new SchwabRig(), new TradierRig(),
         };
 
