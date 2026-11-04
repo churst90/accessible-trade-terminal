@@ -365,9 +365,8 @@ deliberately unbound.
 
 ## Market Structure
 
-The Market Structure overlay (HH/HL/LH/LL) is off by default: add it from Alt+A, or switch it on
-for every new chart under Settings → General → Analysis. Delete the series from the Object Tree
-(Alt+O) to drop it for the session.
+The Market Structure overlay (HH/HL/LH/LL) is not on a new chart: add it from Alt+A on the charts
+where you want it. Delete the series from the Object Tree (Alt+O) to remove it.
 Navigate to its Structure State component and press Shift+F1 (context summary) for the full structural read: current
 state, last swing high and low, and where price sits between them.
 
@@ -568,4 +567,4 @@ button, double-tap to press).
 - **Ctrl+I** is not assigned. The Add Indicator dialog is Alt+A.
 - **Alt+Shift+C** opens a Price Channel drawing — it is not a trendline shortcut. Trendlines use Alt+Shift+T.
 - The **P** key opens indicator properties regardless of whether you use it alone or as Shift+F12. Both route to the same `OpenProperties` command.
-- Drawing tools use **sequential anchoring**: press the tool shortcut once per anchor (navigate, re-press the same shortcut). There is **no** Enter-to-confirm and **no** Coordinate Entry mode — `Enter`/`Return` is not bound to drawing.
+- Drawing tools use **sequential anchoring**: press the tool shortcut once per anchor, or press **Enter** (navigate, then Enter). There is no separate drawing mode.
