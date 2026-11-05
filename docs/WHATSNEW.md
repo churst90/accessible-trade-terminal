@@ -8,6 +8,10 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Paper stops no longer fire on another tab's candle.** With several tabs open on one symbol at
+  different timeframes, a paper stop could be hit within seconds of a market buy by a low that a
+  longer timeframe's candle had made hours before the trade. Each tab's candle is now judged on its own,
+  so a stop fires only when price really reaches it after the order is placed.
 - **Hyperliquid.** A new trading provider for perpetuals (Bitcoin included) and spot on Hyperliquid, for
   traders outside the United States and Ontario. Charts and the order book need no key; trading uses an
   agent wallet that cannot withdraw (see the manual's API key section). Paper uses Hyperliquid's testnet.

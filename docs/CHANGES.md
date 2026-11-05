@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Paper stops fired on another tab's candle (2026-11-04, Cody's report; fix NOT tried by Cody)
+
+Cody: "tried to place a market buy under paper trading and it kept closing my order at my stop loss
+forcing me to lose money for no reason". His paper account shows four market buys of 1 BTC between
+03:27 and 03:30 UTC on 11-05, each sold 1 to 10 seconds later at exactly 80,280, his stop: about $1,280
+lost with fees. Bitstamp's 1m bars never went below 80,567 in that window.
+- **Cause:** six tabs were open on Bitstamp BTCUSDT (1w, 1d, 8h, 4h, 1h, 15m), and every tab's newest bar
+  feeds the paper engine. The engine kept ONE last bar per symbol, so an order was stamped with whichever
+  tab's bar arrived last, here a 15m bar with a low of 80,567. The next 4h bar still carried the 80,174
+  low it printed at about 00:00 UTC. Against the 15m stamp that low looked new, so the 80,280 stop
+  "crossed". The placement guard (`EligibleRange`, the fix for orders filling on a bar's earlier
+  extremes) was right for one tab and wrong for several.
+- **Fix:** `PaperTradingProvider` keeps the last bar per symbol AND per bar stream (venue and timeframe,
+  `IPaperTradingProvider.StreamOf`), and an order is stamped with every stream's bar. Each incoming bar
+  is judged against its own stream's stamp. A stream first heard from after placement (a tab opened
+  later, a monitor's first poll) is stamped with the bar it arrives with, which can delay a fill and
+  never invent one. `ProcessBar` takes the stream; the focused chart and the background monitors pass
+  theirs.
+- **Saved orders:** stamps are saved per stream. A resting order saved before this has its single stamp
+  dropped on load and re-stamped per stream as bars arrive.
+- **Tests:** in `PaperFillFidelityTests`:
+  - `AStopIsNotHit_ByALowAnotherTimeframesBarPrintedBeforeTheTrade` uses the real prices.
+  - `AStopFires_OnANewWickFromATabFirstHeardFromAfterTheTrade` checks a tab opened later.
+  - Two sabotages went red: one stream for every tab (the old behaviour), and no stamp for a stream
+    first heard from late.
+- **Caveats:**
+  - The four lost trades stay in the paper history; the account was not edited.
+  - Two venues' charts on one symbol (Bitstamp and Kraken BTCUSDT) still fill one paper position from
+    both venues' prices. Each venue now gets its own stamp, but the prices themselves are not reconciled.
+  - Not tried by Cody.
+
 ### Hyperliquid provider (2026-11-04, merged from 20b04be8; NO order ever sent)
 
 Cody: "I do also want a fully featured hyper liquid provider plugin created for my international users".

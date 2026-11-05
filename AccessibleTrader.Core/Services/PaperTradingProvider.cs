@@ -48,8 +48,15 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         IReadOnlyList<ChartIdentity> ExposedIdentities();
 
-        /// <summary>Feed one bar of any symbol into the fill engine.</summary>
-        void ProcessBar(string symbol, Ohlcv bar);
+        /// <summary>
+        /// Feed one bar of any symbol into the fill engine. <paramref name="stream"/> names the
+        /// chart it came from (<see cref="StreamOf"/>): two tabs on one symbol at different
+        /// timeframes send two different forming bars, and each is judged against its own.
+        /// </summary>
+        void ProcessBar(string symbol, Ohlcv bar, string stream = "");
+
+        /// <summary>The bar stream a chart sends: its venue and timeframe.</summary>
+        static string StreamOf(ChartIdentity id) => $"{id.Provider}|{id.Timeframe}";
     }
 
     public sealed class PaperTradingProvider : IPaperTradingProvider, IDisposable
@@ -136,12 +143,24 @@ namespace AccessibleTrader.Core.Services
         private readonly Dictionary<string, double> _lastPrice = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// The most recent bar seen for each symbol, whole rather than just its close.
-        /// An order placed part-way through a bar needs to know what that bar had
-        /// already printed before it existed — see <see cref="EligibleRange"/>. Not
-        /// persisted, for the same reason <see cref="_lastPrice"/> is not.
+        /// The most recent bar seen for each symbol, whole rather than just its close, and
+        /// one per bar stream (<see cref="IPaperTradingProvider.StreamOf"/>). An order placed
+        /// part-way through a bar needs to know what that bar had already printed before it
+        /// existed — see <see cref="EligibleRange"/>. Not persisted, for the same reason
+        /// <see cref="_lastPrice"/> is not.
+        ///
+        /// <para>
+        /// <b>Per stream, because one symbol has several forming bars at once</b> (Cody,
+        /// 2026-11-04: "it kept closing my order at my stop loss"). Six tabs on Bitstamp
+        /// BTCUSDT — 1w, 1d, 8h, 4h, 1h, 15m — each feed the engine their own newest bar.
+        /// With one bar per symbol, a market buy was stamped with whichever arrived last
+        /// (the 15m bar, low 80,567); then the 4h bar arrived with the 80,174 low it had
+        /// printed three hours earlier, which looked like a NEW low against the 15m stamp,
+        /// and a stop at 80,280 that price never came near fired one to ten seconds after
+        /// the fill. Four buys in a row, $330 each.
+        /// </para>
         /// </summary>
-        private readonly Dictionary<string, Ohlcv> _lastBar = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Dictionary<string, Ohlcv>> _lastBar = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Spellings that resolved onto a DIFFERENT existing position's key, mapped to
@@ -699,12 +718,9 @@ namespace AccessibleTrader.Core.Services
         private void Rest(PaperOrder o)
         {
             o.PlacedAt = DateTime.UtcNow;
-            if (_lastBar.TryGetValue(o.Symbol, out var b))
-            {
-                o.PlacedBarHigh = b.High;
-                o.PlacedBarLow = b.Low;
-                o.PlacedBarClose = b.Close;
-            }
+            if (_lastBar.TryGetValue(o.Symbol, out var streams))
+                foreach (var (stream, b) in streams)
+                    o.PlacedBars[stream] = new BarStamp(b.High, b.Low, b.Close);
             _open.Add(o);
         }
 
@@ -816,7 +832,7 @@ namespace AccessibleTrader.Core.Services
             var data = st.Data;
             string sym = (st.Identity.Symbol ?? "").ToUpperInvariant();
             if (data == null || data.Count == 0 || sym.Length == 0) return;
-            ProcessBar(sym, data[data.Count - 1]);
+            ProcessBar(sym, data[data.Count - 1], IPaperTradingProvider.StreamOf(st.Identity));
         }
 
         /// <summary>
@@ -830,8 +846,9 @@ namespace AccessibleTrader.Core.Services
         /// entry point that lets those bars count.
         /// </para>
         /// </summary>
-        public void ProcessBar(string symbol, Ohlcv bar)
+        public void ProcessBar(string symbol, Ohlcv bar, string stream = "")
         {
+            stream ??= "";
             string sym = (symbol ?? "").ToUpperInvariant();
             if (sym.Length == 0) return;
 
@@ -846,11 +863,11 @@ namespace AccessibleTrader.Core.Services
                 // Remember the price even when nothing fills: it is what makes
                 // unrealized P&L live for a position whose chart is not on screen.
                 _lastPrice[sym] = bar.Close;
-                _lastBar[sym] = bar;
+                RememberBar(sym, stream, bar);
                 if (!string.Equals(key, sym, StringComparison.OrdinalIgnoreCase))
                 {
                     _lastPrice[key] = bar.Close;
-                    _lastBar[key] = bar;
+                    RememberBar(key, stream, bar);
                 }
 
                 // Liquidation before anything else this tick. A short whose collateral
@@ -863,9 +880,10 @@ namespace AccessibleTrader.Core.Services
                 bool trailMoved = false;
                 foreach (var o in _open)
                     if (o.Trail != null && string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase))
-                        trailMoved |= UpdateTrail(o, bar);
+                        trailMoved |= UpdateTrail(o, bar, o.StampFor(stream, bar));
 
-                var fills = _open.Where(o => string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase) && Crossed(o, bar)).ToList();
+                var fills = _open.Where(o => string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase)
+                    && Crossed(o, bar, o.StampFor(stream, bar))).ToList();
                 if (fills.Count == 0)
                 {
                     if (trailMoved) Persist();
@@ -879,7 +897,7 @@ namespace AccessibleTrader.Core.Services
                     // otherwise the sibling would ALSO fill (double position + fee) and then
                     // get a spurious Cancelled. _open.Remove returns false when already gone.
                     if (!_open.Remove(o)) continue;
-                    double px = FillPrice(o, bar);
+                    double px = FillPrice(o, bar, o.StampFor(stream, bar));
                     double qty = o.Quantity;
 
                     // A reduce-only order may shrink a position and nothing else.
@@ -940,6 +958,13 @@ namespace AccessibleTrader.Core.Services
                 }
                 Persist();
             }
+        }
+
+        private void RememberBar(string symbol, string stream, Ohlcv bar)
+        {
+            if (!_lastBar.TryGetValue(symbol, out var streams))
+                _lastBar[symbol] = streams = new Dictionary<string, Ohlcv>(StringComparer.OrdinalIgnoreCase);
+            streams[stream] = bar;
         }
 
         /// <summary>
@@ -1075,13 +1100,13 @@ namespace AccessibleTrader.Core.Services
         /// not written out here — is in <see cref="BarFill"/>; this only decides
         /// which level and which flavour of order to hand it.
         /// </summary>
-        private static double FillPrice(PaperOrder o, Ohlcv bar)
+        private static double FillPrice(PaperOrder o, Ohlcv bar, BarStamp? stamp)
         {
             double level = o.Trigger ?? o.Price ?? bar.Close;
 
             // Trailing exits trigger stop-wise (on a reversal to the trigger)
             // whether they are labelled stop or take-profit — matching Crossed.
-            return BarFill.Price(level, MarketWhenLive(o, bar), o.Side, stopLike: o.IsStop || o.Trail != null);
+            return BarFill.Price(level, MarketWhenLive(o, bar, stamp), o.Side, stopLike: o.IsStop || o.Trail != null);
         }
 
         /// <summary>
@@ -1096,8 +1121,8 @@ namespace AccessibleTrader.Core.Services
         /// have filled at 98.
         /// </para>
         /// </summary>
-        private static double MarketWhenLive(PaperOrder o, Ohlcv bar) =>
-            bar.Date > o.PlacedAt ? bar.Open : (o.PlacedBarClose ?? bar.Close);
+        private static double MarketWhenLive(PaperOrder o, Ohlcv bar, BarStamp? stamp) =>
+            bar.Date > o.PlacedAt ? bar.Open : (stamp?.Close ?? bar.Close);
 
         /// <summary>
         /// The high and low that may fill this order: the part of the bar that happened
@@ -1134,20 +1159,20 @@ namespace AccessibleTrader.Core.Services
         /// same way.
         /// </para>
         /// </summary>
-        private static (double High, double Low) EligibleRange(PaperOrder o, Ohlcv bar)
+        private static (double High, double Low) EligibleRange(PaperOrder o, Ohlcv bar, BarStamp? stamp)
         {
             if (bar.Date > o.PlacedAt) return (bar.High, bar.Low);
 
             double now = bar.Close;
-            double then = o.PlacedBarClose ?? now;
-            double high = o.PlacedBarHigh is double ph && bar.High > ph ? bar.High : Math.Max(then, now);
-            double low  = o.PlacedBarLow  is double pl && bar.Low  < pl ? bar.Low  : Math.Min(then, now);
+            double then = stamp?.Close ?? now;
+            double high = stamp is BarStamp sh && bar.High > sh.High ? bar.High : Math.Max(then, now);
+            double low  = stamp is BarStamp sl && bar.Low  < sl.Low  ? bar.Low  : Math.Min(then, now);
             return (high, low);
         }
 
-        private static bool Crossed(PaperOrder o, Ohlcv bar)
+        private static bool Crossed(PaperOrder o, Ohlcv bar, BarStamp? stamp)
         {
-            var (high, low) = EligibleRange(o, bar);
+            var (high, low) = EligibleRange(o, bar, stamp);
 
             // Trailing exits (stop or take-profit) fire on a reversal to the
             // trailing trigger, regardless of stop/TP labelling — and only once
@@ -1170,14 +1195,14 @@ namespace AccessibleTrader.Core.Services
 
         // Advance a trailing stop's anchor toward the favourable extreme and
         // recompute its trigger. Returns true if the anchor moved this tick.
-        private static bool UpdateTrail(PaperOrder o, Ohlcv bar)
+        private static bool UpdateTrail(PaperOrder o, Ohlcv bar, BarStamp? stamp)
         {
             if (o.Trail == null || o.TrailValue == null) return false;
 
             // Same rule as Crossed: a trailing stop may only trail from price action
             // that happened after it existed. Anchoring a stop placed at 10:00 to the
             // day's 06:00 high sets its trigger from a move it never rode.
-            var (high, low) = EligibleRange(o, bar);
+            var (high, low) = EligibleRange(o, bar, stamp);
 
             // A trailing take-profit stays dormant until price reaches its
             // activation level, then arms and begins trailing from there.
@@ -1371,7 +1396,7 @@ namespace AccessibleTrader.Core.Services
 
             var sub = store.StateStream.Subscribe(st => { _store = store; OnState(st); });
             var monitorSub = eventBus?.Subscribe<MonitoredBarEvent>(
-                e => ProcessBar(e.Identity.Symbol ?? "", e.Latest));
+                e => ProcessBar(e.Identity.Symbol ?? "", e.Latest, IPaperTradingProvider.StreamOf(e.Identity)));
             lock (_storeLock) _stores.Add((store, sub, monitorSub));
 
             return new DetachToken(this, store, sub);
@@ -1931,8 +1956,9 @@ namespace AccessibleTrader.Core.Services
                         Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId,
                         ReduceOnly = o.ReduceOnly,
                         Margin = o.MarginMode == MarginMode.None ? null : o.MarginMode.ToString(),
-                        PlacedAt = o.PlacedAt, PlacedBarHigh = o.PlacedBarHigh,
-                        PlacedBarLow = o.PlacedBarLow, PlacedBarClose = o.PlacedBarClose,
+                        PlacedAt = o.PlacedAt,
+                        PlacedBars = o.PlacedBars.Select(kv => new StampDto
+                            { Stream = kv.Key, High = kv.Value.High, Low = kv.Value.Low, Close = kv.Value.Close }).ToList(),
                         Bracket = o.Bracket == null ? null : new BracketDto
                         {
                             StopLoss = o.Bracket.StopLoss, TakeProfit = o.Bracket.TakeProfit,
@@ -1995,10 +2021,12 @@ namespace AccessibleTrader.Core.Services
                     // Restored, not re-minted: stamping these with "now" would let a
                     // restart hand every resting order the whole current bar to fill
                     // against, which is the exploit this field closes.
+                    // A file written before stamps were kept per stream carries one stamp of
+                    // unknown origin; it is dropped, and each stream is stamped the first time
+                    // it is heard from (PaperOrder.StampFor), which can only delay a fill.
                     restored.PlacedAt = o.PlacedAt;
-                    restored.PlacedBarHigh = o.PlacedBarHigh;
-                    restored.PlacedBarLow = o.PlacedBarLow;
-                    restored.PlacedBarClose = o.PlacedBarClose;
+                    foreach (var st in o.PlacedBars ?? new List<StampDto>())
+                        restored.PlacedBars[st.Stream ?? ""] = new BarStamp(st.High, st.Low, st.Close);
                     _open.Add(restored);
                 }
                 if (dto.History != null) _history.AddRange(dto.History);
@@ -2105,17 +2133,30 @@ namespace AccessibleTrader.Core.Services
             public BracketSpec? Bracket { get; }
 
             /// <summary>
-            /// When this order joined the book, and what the bar it joined mid-way
-            /// through had already printed by then. <see cref="EligibleRange"/> is the
-            /// only reader; <see cref="Rest"/> is the only writer outside <c>Load</c>.
-            /// <c>default</c> means unknown — an order restored from a state file
-            /// written before these existed — and is treated as "the whole bar counts",
-            /// which is the behaviour that shipped before.
+            /// When this order joined the book, and what each bar stream's forming bar
+            /// had already printed by then. <see cref="EligibleRange"/> is the only
+            /// reader; <see cref="Rest"/> and <see cref="StampFor"/> are the only writers
+            /// outside <c>Load</c>. A <c>default</c> PlacedAt means unknown — an order
+            /// restored from a state file written before it existed — and is treated as
+            /// "the whole bar counts", which is the behaviour that shipped before.
             /// </summary>
             public DateTime PlacedAt { get; set; }
-            public double? PlacedBarHigh { get; set; }
-            public double? PlacedBarLow { get; set; }
-            public double? PlacedBarClose { get; set; }
+            public Dictionary<string, BarStamp> PlacedBars { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+            /// <summary>
+            /// The stamp a bar from <paramref name="stream"/> is judged against, or null when
+            /// the bar opened after placement and counts whole. A stream first heard from
+            /// after placement (a tab opened later, a monitor's first poll) is stamped with
+            /// the bar it arrives with: everything that bar has printed is treated as
+            /// before the order, which can delay a fill by a tick and never invent one.
+            /// </summary>
+            public BarStamp? StampFor(string stream, Ohlcv bar)
+            {
+                if (bar.Date > PlacedAt) return null;
+                if (!PlacedBars.TryGetValue(stream, out var s))
+                    PlacedBars[stream] = s = new BarStamp(bar.High, bar.Low, bar.Close);
+                return s;
+            }
 
             public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
                 double? price, double? trigger, bool isStop, bool isTp,
@@ -2210,16 +2251,26 @@ namespace AccessibleTrader.Core.Services
             // the isolated behaviour those files were written under.
             public string? Margin { get; set; }
 
-            // When the order joined the book, and what its bar had already printed by
-            // then. Absent in files written before EligibleRange existed, which
-            // deserialise to default/null and are treated as "the whole bar counts".
+            // When the order joined the book, and what each stream's bar had already
+            // printed by then. PlacedAt is absent in files written before EligibleRange
+            // existed and deserialises to default: "the whole bar counts". The old single
+            // PlacedBarHigh/Low/Close fields are ignored on read (see Load).
             public DateTime PlacedAt { get; set; }
-            public double? PlacedBarHigh { get; set; }
-            public double? PlacedBarLow { get; set; }
-            public double? PlacedBarClose { get; set; }
+            public List<StampDto>? PlacedBars { get; set; }
 
             public BracketDto? Bracket { get; set; }
         }
+
+        private sealed class StampDto
+        {
+            public string? Stream { get; set; }
+            public double High { get; set; }
+            public double Low { get; set; }
+            public double Close { get; set; }
+        }
+
+        /// <summary>What one bar stream's forming bar had printed when an order joined the book.</summary>
+        private readonly record struct BarStamp(double High, double Low, double Close);
 
         private sealed class BracketDto
         {

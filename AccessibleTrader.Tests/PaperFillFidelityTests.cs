@@ -283,6 +283,82 @@ namespace AccessibleTrader.Tests
         }
 
         /// <summary>
+        /// <b>Two tabs on one symbol send two different forming bars, and a stop is judged
+        /// against its own.</b> Cody, 2026-11-04: "it kept closing my order at my stop loss
+        /// forcing me to lose money for no reason". Six tabs on Bitstamp BTCUSDT; the market
+        /// buy was stamped with the 15m bar (low 80,567), then the 4h bar arrived carrying the
+        /// 80,174 low it printed hours before the trade, which looked new against the 15m
+        /// stamp, and the 80,280 stop fired within seconds. The prices are the real ones.
+        /// </summary>
+        [Fact]
+        public async Task AStopIsNotHit_ByALowAnotherTimeframesBarPrintedBeforeTheTrade()
+        {
+            var paper = Make(out var store);
+            var updates = new List<OrderUpdate>();
+            paper.OrderUpdateStream.Subscribe(updates.Add);
+            var placed = DateTime.UtcNow;
+
+            var fourHour = new Ohlcv(placed.AddHours(-3.5), 80423.32, 80821.81, 80174.08, 80611.09, 1000);
+            var fifteen = new Ohlcv(placed.AddMinutes(-12), 80590.00, 80644.17, 80567.55, 80611.09, 10);
+            var fourHourTab = new ChartIdentity("Crypto", "Bitstamp", "BTCUSDT", "4h");
+            var fifteenTab = new ChartIdentity("Crypto", "Bitstamp", "BTCUSDT", "15m");
+
+            paper.ProcessBar("BTCUSDT", fourHour, IPaperTradingProvider.StreamOf(fourHourTab));
+            paper.ProcessBar("BTCUSDT", fifteen, IPaperTradingProvider.StreamOf(fifteenTab));
+            await paper.PlaceOrderAsync(new TradeSignal("BTCUSDT", OrderSide.Buy, 1.0, StopLoss: 80280));
+            updates.Clear();
+
+            // The 4h tab ticks again, a dollar lower; its low is still the one from 00:00 UTC.
+            paper.ProcessBar("BTCUSDT", fourHour with { Close = 80610.00 }, IPaperTradingProvider.StreamOf(fourHourTab));
+            paper.ProcessBar("BTCUSDT", fifteen with { Close = 80610.00 }, IPaperTradingProvider.StreamOf(fifteenTab));
+
+            Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Filled);
+            Assert.Equal(1.0, Assert.Single(await paper.GetPositionsAsync()).Quantity, 9);
+
+            // A stream first heard from after the trade (a 1d tab opened later) cannot fire it
+            // on its old low either.
+            var daily = new Ohlcv(placed.AddHours(-3.5), 80423.32, 80821.81, 80174.08, 80612.00, 5000);
+            paper.ProcessBar("BTCUSDT", daily, IPaperTradingProvider.StreamOf(fourHourTab with { Timeframe = "1d" }));
+            Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Filled);
+
+            // And price really reaching the stop afterwards, on any tab, still fires it.
+            paper.ProcessBar("BTCUSDT", fourHour with { Close = 80270.00 }, IPaperTradingProvider.StreamOf(fourHourTab));
+            var fill = Assert.Single(updates, u => u.Status == OrderStatus.Filled);
+            Assert.True(fill.StopTriggered);
+        }
+
+        /// <summary>
+        /// The complement for a tab first heard from AFTER the trade: its first bar is taken
+        /// as all before the order, but a wick beyond that bar is new price action and fires
+        /// the stop even when the bar closes back above it.
+        /// </summary>
+        [Fact]
+        public async Task AStopFires_OnANewWickFromATabFirstHeardFromAfterTheTrade()
+        {
+            var paper = Make(out var store);
+            var updates = new List<OrderUpdate>();
+            paper.OrderUpdateStream.Subscribe(updates.Add);
+            var placed = DateTime.UtcNow;
+            var fifteenTab = new ChartIdentity("Crypto", "Bitstamp", "BTCUSDT", "15m");
+            var dailyTab = fifteenTab with { Timeframe = "1d" };
+
+            paper.ProcessBar("BTCUSDT", new Ohlcv(placed.AddMinutes(-12), 80590, 80644, 80567, 80611, 10),
+                IPaperTradingProvider.StreamOf(fifteenTab));
+            await paper.PlaceOrderAsync(new TradeSignal("BTCUSDT", OrderSide.Buy, 1.0, StopLoss: 80280));
+            updates.Clear();
+
+            var daily = new Ohlcv(placed.AddHours(-3.5), 80423, 80821, 80174, 80612, 5000);
+            paper.ProcessBar("BTCUSDT", daily, IPaperTradingProvider.StreamOf(dailyTab));
+            Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Filled);
+
+            // A spike to 80,100 and straight back: below the bar's earlier low, so it happened now.
+            paper.ProcessBar("BTCUSDT", daily with { Low = 80100, Close = 80600 }, IPaperTradingProvider.StreamOf(dailyTab));
+            var fill = Assert.Single(updates, u => u.Status == OrderStatus.Filled);
+            Assert.True(fill.StopTriggered);
+            Assert.Equal(80280, fill.FilledPrice);
+        }
+
+        /// <summary>
         /// The stamp survives a restart. Persisting the order but not WHEN it was placed
         /// would hand every restored order the whole of the current bar to fill against,
         /// which is the exploit re-opened once a day by whoever closes the app.
