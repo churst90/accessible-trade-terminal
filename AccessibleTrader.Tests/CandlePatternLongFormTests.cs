@@ -359,6 +359,22 @@ public class CandlePatternLongFormTests
     }
 
     [Fact]
+    public void APatternInsideALongerOneIsNotSaidAsASecondPattern()
+    {
+        // The spoken routes list every pattern a bar is in (2026-11-04), but bar one of a rising
+        // three methods is also bar one of the harami bar two completes. That harami is a part of
+        // the whole, so the list holds the whole alone.
+        var bars = RisingThreeMethods();
+        Assert.Equal(CandlePattern.BearishHarami,
+            CandlePatternSpeech.AnalyzeAt(A, bars, 1, heikinAshi: false).Pattern);
+
+        var all = CandlePatternSpeech.MembershipsAt(A, bars, index: 0, heikinAshi: false);
+
+        var m = Assert.Single(all);
+        Assert.Equal(CandlePattern.RisingThreeMethods, m.Pattern);
+    }
+
+    [Fact]
     public void EveryNewPatternHasASpokenName()
     {
         // A missing arm in the vocabulary is SILENT: the shape falls back to the direction word

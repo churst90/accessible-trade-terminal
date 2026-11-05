@@ -30,6 +30,22 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Candle patterns: a candle in two says both; third soldier/crow large (2026-11-04, built, NOT
+  heard; see CHANGES).** Cody to arrow across 16:00 to 18:00 UTC on 2026-11-03, Bitstamp BTCUSDT 1h
+  (17:00 should say "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing").
+  - Questions for Cody, from the audit he asked for (none changed yet):
+    1. Should a reversal pattern need a trend to reverse? Today only hammer/hanging man and inverted
+       hammer/shooting star check the 3 bars before. In those 1,000 bars, 138 of 297 two- and
+       three-bar reversals came after 3 bars going the same way the pattern points (a tweezer top after a fall,
+       e.g. 21:00 on 2026-11-04). Mine: require it, as Nison and Bulkowski do.
+    2. Should a bar that never moved (high = low) be a "Doji"? On this thin pair 276 of 1,000 bars
+       never moved; 236 of the 242 dojis and 9 of the 10 abandoned babies came from them. Mine: call
+       it "No movement" and keep it out of every pattern.
+    3. Should "large" and "small" be judged against recent bars as well as the bar's own range (as
+       TA-Lib does)? Today a $2 bar with a $2 body is a marubozu; 116 tweezers in 1,000 bars, 69 with a
+       bar under half the typical range. Mine: yes, but it changes many names, so after 1 and 2.
+    4. Three inside up/down confirm when the third bar closes beyond the middle bar's close; the usual
+       rule (TA-Lib) is beyond the FIRST bar's open. Mine: use the usual rule.
 - [ ] **Built timeframes (2026-11-04, built, NOT tried; see CHANGES).** Cody to open the 8h Bitstamp tab
   (no "does not offer" should be said) and type 7 hr, Load. Open, mine: 7h buckets are counted from 1970,
   not restarted at midnight (check what TradingView does); a 7h chart from 1h first loads about 142 bars

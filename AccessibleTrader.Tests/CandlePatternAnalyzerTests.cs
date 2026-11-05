@@ -168,6 +168,31 @@ public class CandlePatternAnalyzerTests
             A.Analyze(b3, b2, b1, new List<Ohlcv> { b1, b2, b3 }).Pattern);
     }
 
+    /// <summary>
+    /// All three bodies are large, the third too. Bitstamp BTCUSDT 1h, 2026-11-02 17:00 to 19:00
+    /// UTC as served: the third bar's body is 60 of its 299 range (20%), under a long lower wick,
+    /// and it was named the third crow because only the first two bodies were tested.
+    /// </summary>
+    [Fact]
+    public void ThreeBlackCrows_NeedALargeThirdBody()
+    {
+        var b1 = Bar(77428.72, 77428.72, 76926.01, 77056.45, 1);
+        var b2 = Bar(77190.30, 77190.30, 76935.38, 76935.38, 2);
+        var b3 = Bar(76958.15, 76988.61, 76689.90, 76897.92, 3);
+        Assert.NotEqual(CandlePattern.ThreeBlackCrows,
+            A.Analyze(b3, b2, b1, new List<Ohlcv> { b1, b2, b3 }).Pattern);
+    }
+
+    [Fact]
+    public void ThreeWhiteSoldiers_NeedALargeThirdBody()
+    {
+        var b1 = Bar(100, 106.5, 99.5, 106, 1);
+        var b2 = Bar(103, 112.5, 102.5, 112, 2);
+        var small = Bar(111.5, 118.5, 104, 113, 3);           // opens inside b2, closes above it, body 1.5 of 14.5
+        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers,
+            A.Analyze(small, b2, b1, new List<Ohlcv> { b1, b2, small }).Pattern);
+    }
+
     // ── Harami ─────────────────────────────────────────────────────────────────
 
     /// <summary>

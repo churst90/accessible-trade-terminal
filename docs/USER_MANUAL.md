@@ -1803,6 +1803,12 @@ occasion to speak. Since 2026-09-04 it governs the arrow keys as well: turning i
 the candle reading as "Bullish" or "Bearish" and the prices, which is what it said before
 the multi-bar patterns arrived.
 
+On history (the arrow keys and Alt+Shift+D), every bar of a multi-bar candle pattern says where
+it sits in it: "bar 1 of 3, Three white soldiers". Two-bar patterns often share a bar: one bar
+can end a tweezer top and start a bullish engulfing. That bar says both, earliest first: "Tweezer
+top, bar 2 of 2, also bar 1 of 2, Bullish engulfing". A pattern wholly inside a longer one (the
+harami inside a rising three methods) is not said as a second pattern.
+
 Twelve shapes are recognised: **double top** and **double bottom**, **head and shoulders**
 and **inverse head and shoulders**, **ascending / descending / symmetrical triangle**,
 **rising** and **falling wedge**, **bull** and **bear flag**, and the **range** (a flat

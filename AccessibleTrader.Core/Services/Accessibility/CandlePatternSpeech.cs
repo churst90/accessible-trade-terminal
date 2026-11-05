@@ -197,20 +197,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// while the bar's own reading names the whole. Ties go to the nearest completion, which
         /// is the pattern ending soonest.
         /// </para>
+        ///
+        /// <para>
+        /// The routes that speak read <see cref="MembershipsAt"/>, which also says a pattern the
+        /// bar shares with a neighbouring one; this is the single answer, the longest.
+        /// </para>
         /// </summary>
         public static Membership? MembershipAt(
             ISdkCandlePatternAnalyzer analyzer,
             IReadOnlyList<Ohlcv>? data,
             int index,
             bool heikinAshi)
+            => MembershipsAt(analyzer, data, index, heikinAshi)
+                .OrderByDescending(m => m.BarCount).ThenBy(m => m.CompletesAt).FirstOrDefault();
+
+        /// <summary>
+        /// EVERY pattern the bar at <paramref name="index"/> is part of, earliest first, leaving
+        /// out only a pattern that lies wholly inside a longer one.
+        ///
+        /// <para>
+        /// Cody, 2026-11-04: <i>"there will be a 2 bar reversal pattern and I'll see candle 1 of
+        /// 2, then 2 of 2, then the next candle might [be] another second candle in a pattern and
+        /// say 2 of 2 ... I'm confused"</i>. Two-bar patterns overlap: on Bitstamp BTCUSDT 1h the
+        /// 17:00 bar of 2026-11-03 closed a tweezer top with 16:00 and opened a bullish engulfing
+        /// that 18:00 closed. Only one answer per bar was given, the nearest, so 17:00 said "bar 2
+        /// of 2" and never "bar 1 of 2", and 18:00's "bar 2 of 2" had no first bar. 40 bars in
+        /// that 1000 did it. Both are true, so both are said.
+        /// </para>
+        ///
+        /// <para>
+        /// A pattern inside a longer one is still dropped, for the reason on
+        /// <see cref="MembershipAt"/>: bar one of a rising three methods is also bar one of the
+        /// harami bar two completes, and that harami is a part of the whole, not a second pattern.
+        /// Overlapping by one bar is not being inside.
+        /// </para>
+        /// </summary>
+        public static IReadOnlyList<Membership> MembershipsAt(
+            ISdkCandlePatternAnalyzer analyzer,
+            IReadOnlyList<Ohlcv>? data,
+            int index,
+            bool heikinAshi)
         {
-            if (data == null || data.Count == 0) return null;
-            if (index < 0 || index >= data.Count) return null;
+            if (data == null || data.Count == 0) return Array.Empty<Membership>();
+            if (index < 0 || index >= data.Count) return Array.Empty<Membership>();
 
             // MaxPatternBars - 1: a bar can be at most (longest pattern - 1) bars ahead of the one
             // that completes the pattern containing it.
-            Membership? best = null;
-
+            var found = new List<(Membership M, int Start, int End)>();
             for (int ahead = 0; ahead <= MaxPatternBars - 1; ahead++)
             {
                 int completeAt = index + ahead;
@@ -222,13 +255,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int start = completeAt - a.PatternBarCount + 1;
                 if (index < start) continue;          // the pattern does not reach back this far
 
-                // Longest wins; the loop runs nearest-first, so a strict > keeps the nearest of
-                // any tie without a second comparison.
-                if (best == null || a.PatternBarCount > best.BarCount)
-                    best = new Membership(a.Pattern, index - start + 1, a.PatternBarCount, data[completeAt].Date);
+                found.Add((new Membership(a.Pattern, index - start + 1, a.PatternBarCount, data[completeAt].Date),
+                    start, completeAt));
             }
 
-            return best;
+            // Each completing bar names one pattern, so a pattern inside another is always the
+            // shorter one.
+            return found
+                .Where(f => !found.Any(g => g.M.BarCount > f.M.BarCount && g.Start <= f.Start && f.End <= g.End))
+                .Select(f => f.M)
+                .ToList();
         }
 
         /// <summary>
@@ -257,11 +293,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </para>
         /// </summary>
         public static string MembershipClause(CandleAnalysis here, Membership? m)
+            => MembershipClause(here, m == null ? Array.Empty<Membership>() : new[] { m });
+
+        /// <summary>
+        /// Every pattern the bar is in, earliest first: "bar 2 of 2, also bar 1 of 2, Bullish
+        /// engulfing" on a bar that closes one two-bar pattern and opens the next.
+        /// </summary>
+        public static string MembershipClause(CandleAnalysis here, IReadOnlyList<Membership> all)
         {
-            if (m == null) return "";
-            bool shapeAlreadyNamedIt = here.Pattern == m.Pattern;
-            string where = $"bar {m.Position} of {m.BarCount}";
-            return shapeAlreadyNamedIt ? where : $"{where}, {PatternName(m.Pattern)}";
+            var parts = new List<string>();
+            foreach (var m in all)
+            {
+                // The shape names the pattern this bar completes; any other is named here.
+                bool shapeAlreadyNamedIt = here.Pattern == m.Pattern && m.Position == m.BarCount;
+                string where = $"bar {m.Position} of {m.BarCount}";
+                parts.Add(shapeAlreadyNamedIt ? where : $"{where}, {PatternName(m.Pattern)}");
+            }
+            return string.Join(", also ", parts);
         }
 
         /// <summary>

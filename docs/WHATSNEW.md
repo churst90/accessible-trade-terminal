@@ -8,6 +8,11 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **A candle in two patterns says both.** One candle can end a two-candle pattern and start the next.
+  It used to say only "bar 2 of 2", so the next candle's "bar 2 of 2" seemed to have no first candle.
+  It now says "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing". And three white soldiers
+  and three black crows now need a large third candle, not only large first and second ones.
+
 - **Any timeframe you type loads.** An 8-hour or 7-hour chart on Bitstamp used to be switched to 1 hour
   with "Bitstamp does not offer 8h". Now any timeframe the venue's own candles divide evenly is built from
   them quietly: 8 hours from 4-hour candles, 7 hours from 1-hour candles. The quick-pick buttons still show

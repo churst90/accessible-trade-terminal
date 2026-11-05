@@ -171,6 +171,40 @@ public sealed class CandlePatternOnePathTests
         Assert.DoesNotContain("bar 1 of", msg);
     }
 
+    // ── Two patterns sharing a bar ──────────────────────────────────────────────────────────
+
+    // Bitstamp BTCUSDT 1h, 2026-11-03 15:00 to 19:00 UTC, as served. 16:00 and 17:00 are a
+    // tweezer top (highs 77,725.06 and 77,760.80, within 0.1%); 17:00 and 18:00 are a bullish
+    // engulfing. 17:00 is in both.
+    private static readonly (double O, double H, double L, double C)[] TweezerThenEngulfing =
+    {
+        (77333.72, 77817.83, 77263.08, 77766.22),
+        (77606.61, 77725.06, 77503.18, 77725.06),
+        (77752.16, 77760.80, 77685.42, 77699.36),
+        (77697.28, 77798.74, 77697.28, 77798.74),
+        (77677.95, 77677.95, 77600.83, 77600.83),
+    };
+
+    [Fact]
+    public void ABarThatEndsOnePatternAndStartsTheNextSaysBoth()
+    {
+        // Cody, 2026-11-04: "I'll see candle 1 of 2, then 2 of 2, then the next candle might [be]
+        // another second candle in a pattern and say 2 of 2 ... I'm confused". 17:00 said only
+        // "bar 2 of 2" (the tweezer top), so the engulfing's "bar 2 of 2" on 18:00 had no first bar.
+        const string both = "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing";
+        Assert.Contains(both, DetailKeyReading(TweezerThenEngulfing, idx: 2));
+        Assert.Contains(both, ArrowKeyReading(TweezerThenEngulfing, idx: 2));
+    }
+
+    [Fact]
+    public void TheBarsEitherSideOfTheSharedOneNameOnlyTheirOwnPattern()
+    {
+        Assert.Contains("bar 1 of 2, Tweezer top", ArrowKeyReading(TweezerThenEngulfing, idx: 1));
+        string after = ArrowKeyReading(TweezerThenEngulfing, idx: 3);
+        Assert.Contains("Bullish engulfing, bar 2 of 2", after);
+        Assert.DoesNotContain("also", after);
+    }
+
     [Fact]
     public void TheLookaheadStopsAtTheLastLoadedBar()
     {

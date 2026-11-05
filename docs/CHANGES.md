@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A candle in two patterns says both; the third soldier or crow must be large (2026-11-04, Cody's report; NOT heard by Cody)
+
+Cody: "there will be a 2 bar reversal pattern and I'll see candle 1 of 2, then 2 of 2, then the next
+candle might [be] another second candle in a pattern and say 2 of 2.......I'm confused and there's a
+recent example on the btcusdt bitstamp 1h chart....is this correct".
+- **Cause:** both readings were true, but only one was said. Two-bar patterns overlap: on Bitstamp
+  BTCUSDT 1h, 16:00 and 17:00 UTC on 2026-11-03 were a tweezer top and 17:00 and 18:00 a bullish
+  engulfing. `CandlePatternSpeech.MembershipAt` gave each bar ONE pattern (the longest, then the
+  nearest), so 17:00 said "bar 2 of 2" and 18:00's "bar 2 of 2" had no first bar. In the latest 1,000
+  bars of that chart, 65 "bar 2 of 2" or "bar 3 of 3" readings had no "bar 1" or "bar 2" on the bar
+  before; with the fix, none.
+- **Fix:** the arrow keys and Alt+Shift+D read `MembershipsAt`, every pattern the bar is in, earliest
+  first: "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing". A pattern wholly inside a
+  longer one is still left out (bar one of a rising three methods is not also said as a harami's).
+  The bar-close and forming-bar announcements never had this clause and still do not.
+- **Three white soldiers and three black crows tested only the first two bodies** for size, though the
+  code's own comments and tests said three. The 19:00 bar of 2026-11-02 on the same chart was a third
+  "crow" with a body 20% of its range. All three must now be large bodies (50% of range, as before).
+- Tests: two from the real 2026-11-03 prices (both routes), one for the pattern inside a longer one,
+  two for the third body (one from the real 2026-11-02 prices). Five sabotages went red.
+- **The audit Cody asked for ("are the pattern definitions correct and consistent?") found more,
+  not changed, waiting for his answers (TODO):** reversal names are given without a trend to reverse
+  (only hammer/hanging man and inverted hammer/shooting star check one); bar sizes are judged only
+  against the bar's own range, never against recent bars, so on this thin pair a bar that never moved
+  is a "Doji" (236 of 242 dojis in those 1,000 bars had no range at all) and 9 of 10 abandoned babies had
+  such a bar in the middle; tweezers were 116 of 1,000 bars; three inside up and down confirm on the
+  middle bar's close, looser than the usual first bar's open.
+
 ### A timeframe the venue does not list is built, not refused (2026-11-04, Cody's report; NOT tried by Cody)
 
 Cody: "on my 8h tab, why does it say bitstamp doesn't offer 8h, switching to 1h......I calculate custom

@@ -288,7 +288,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // on every bar of it. See CandlePatternSpeech.MembershipAt for why looking forward
             // is legitimate here and is not wired into the live routes.
             string member = CandlePatternSpeech.MembershipClause(analysis,
-                CandlePatternSpeech.MembershipAt(_analyzer, state.Data, index, state.IsHeikinAshi));
+                CandlePatternSpeech.MembershipsAt(_analyzer, state.Data, index, state.IsHeikinAshi));
             double range = bar.High - bar.Low;
             double body  = Math.Abs(bar.Close - bar.Open);
             double bodyPct = range > 0 ? (body / range) * 100.0 : 0;

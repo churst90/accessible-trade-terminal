@@ -148,7 +148,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (state.DescribeCandlePatterns)
                 {
                     string member = CandlePatternSpeech.MembershipClause(analysis,
-                        CandlePatternSpeech.MembershipAt(
+                        CandlePatternSpeech.MembershipsAt(
                             _candles, state.Data, state.CurrentDataIndex, state.IsHeikinAshi));
                     if (member.Length > 0) shape += ", " + member;
                 }

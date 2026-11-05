@@ -131,12 +131,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var pa2 = p2.Value;
                 var pa1 = p1.Value;
 
-                // ── ABANDONED BABY, and it is the one pattern here that keeps a TRUE GAP ──────
+                // ── ABANDONED BABY, which keeps a TRUE GAP ───────────────────────────────────
                 //
                 // The doji's entire RANGE — not its body — must sit clear of both neighbours'
-                // ranges. Everywhere else in this analyser a classical gap has been replaced with
-                // a body tolerance, because 24/7 crypto does not gap and the pattern would
-                // otherwise be undetectable there. Not here: an abandoned baby with the gaps
+                // ranges. In the stars a classical gap has been replaced with a body tolerance,
+                // because 24/7 crypto does not gap and the pattern would otherwise be undetectable
+                // there. (Piercing line and dark cloud cover keep theirs too: the open beyond the
+                // prior bar's low or high.) Not here: an abandoned baby with the gaps
                 // loosened IS a morning or evening doji star, and the two would become the same
                 // detector wearing two names. So this one stays strict and is simply rare on
                 // crypto and findable on anything with a session break. Being honest about which
@@ -191,14 +192,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // away from each other, which is a different (and exhaustion-flavoured) thing. The
                 // previous test only required each open to be above the last open, so a gapped
                 // staircase qualified.
-                if (isBullish && IsLargeBody(pa1, true) && IsLargeBody(pa2, true)
+                //
+                // And all THREE bodies are large. Only the first two were tested until 2026-11-04,
+                // so the third could be a small body under a long wick: Bitstamp BTCUSDT 1h's
+                // 19:00 bar of 2026-11-02 closed a "three black crows" with a body 20% of its range.
+                if (isBullish && IsLargeBody(c, true) && IsLargeBody(pa1, true) && IsLargeBody(pa2, true)
                     && c.Open > pa1.Open && c.Open <= pa1.Close && c.Close > pa1.Close
                     && pa1.Open > pa2.Open && pa1.Open <= pa2.Close && pa1.Close > pa2.Close)
                     return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.ThreeWhiteSoldiers,
                         3, bodyPct, upperPct, lowerPct, changePct, continuation: true);
 
                 // Three Black Crows — the mirror.
-                if (!isBullish && IsLargeBody(pa1, false) && IsLargeBody(pa2, false)
+                if (!isBullish && IsLargeBody(c, false) && IsLargeBody(pa1, false) && IsLargeBody(pa2, false)
                     && c.Open < pa1.Open && c.Open >= pa1.Close && c.Close < pa1.Close
                     && pa1.Open < pa2.Open && pa1.Open >= pa2.Close && pa1.Close < pa2.Close)
                     return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeBlackCrows,
