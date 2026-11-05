@@ -621,7 +621,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // A promise in help text is a contract; either the text drops the clause or the clause
             // gets a switch, and Cody chose the switch.
             string patternSuffix = state.DescribeCandlePatterns
-                ? CandlePatternSpeech.Suffix(analysis.Type, analysis.Pattern, finalized: true)
+                ? CandlePatternSpeech.Suffix(analysis, finalized: true)
                 : "";
             // ── WHICH BAR JUST CLOSED, SAID OUT LOUD ───────────────────────────────────
             //
@@ -768,13 +768,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool patternChanged = analysis.Pattern != _lastAnnouncedPattern
                                || analysis.Type    != _lastAnnouncedType;
 
-            // Only announce non-trivial, non-Normal forming patterns.
-            bool isInteresting = analysis.Pattern != CandlePattern.None
-                              || analysis.Type != CandleType.Normal;
+            // Only announce non-trivial, non-Normal forming patterns. A bar with no movement yet
+            // is every bar's first tick, not a shape.
+            bool isInteresting = (analysis.Pattern != CandlePattern.None
+                              || analysis.Type != CandleType.Normal)
+                              && analysis.Type != CandleType.NoMovement;
 
             if (patternChanged && isInteresting)
             {
-                string msg = CandlePatternSpeech.Forming(analysis.Type, analysis.Pattern);
+                string msg = CandlePatternSpeech.Forming(analysis);
                 if (!string.IsNullOrEmpty(msg))
                 {
                     _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Narration);

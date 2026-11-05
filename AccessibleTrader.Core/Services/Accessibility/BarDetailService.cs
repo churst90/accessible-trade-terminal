@@ -278,8 +278,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // narration, and this key is the user asking a direct question.
             var analysis = CandlePatternSpeech.AnalyzeAt(
                 _analyzer, state.Data, index, state.IsHeikinAshi, current: bar);
-            string shape = CandlePatternSpeech.DescribeShape(analysis);
-            string bias  = CandlePatternSpeech.Bias(analysis);
+            string shape = CandlePatternSpeech.WithLean(analysis);
 
             // WHICH CANDLES. A three-bar pattern is only recognisable on its LAST bar, so
             // "three white soldiers" was announced on one bar in three and the other two said
@@ -297,12 +296,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
             double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-            // Shape, then WHERE in the pattern, then which way it leans: what it is, which
-            // candles, what it means.
-            var parts = new List<string> { shape };
-            if (member.Length > 0) parts.Add(member);
-            if (bias.Length > 0)   parts.Add(bias);
-            string leadIn = string.Join(", ", parts) + ".";
+            // Shape and which way it leans, then WHERE in the pattern: what it is, what it
+            // means, which candles. The same words the arrow keys say (2026-11-04: the lean
+            // used to come last here as "2-bar reversal", and not at all on the arrow keys).
+            string leadIn = (member.Length > 0 ? $"{shape}, {member}" : shape) + ".";
 
             // The pattern FIRST, then the prices (Cody, 2026-11-04: "I'd like to hear the candle
             // pattern spoken first before the OHLC values rather than after"). The pattern is

@@ -29,8 +29,14 @@ namespace AccessibleTrader.Tests;
 public sealed class CandlePatternOnePathTests
 {
     // ── Three white soldiers: large green bodies, each opening inside the previous body ─────
+    // A reversal, so it needs the fall it reverses (2026-11-04): S falling bars come first, and
+    // every index below is offset by S.
+    private const int S = 3;
     private static readonly (double O, double H, double L, double C)[] ThreeSoldiers =
     {
+        (105d, 105.5d, 103.5d, 104d),
+        (104d, 104.5d, 102.5d, 103d),
+        (103d, 103.5d, 101.5d, 102d),
         (100d, 101d,  99d, 100d),
         (100d, 110d,  99d, 109d),
         (103d, 118d, 102d, 117d),
@@ -58,12 +64,12 @@ public sealed class CandlePatternOnePathTests
         // of a three-white-soldiers advance — the terminal had detected the pattern (the alert
         // engine could fire on it) and simply had no route that would say it to someone reading
         // the past, which is nearly all of the reading anyone does.
-        string msg = ArrowKeyReading(ThreeSoldiers, idx: 3);
+        string msg = ArrowKeyReading(ThreeSoldiers, idx: S + 3);
 
         // The position clause rides with the name (see the membership tests below): the pattern
         // leads, and "bar 3 of 3" is what tells the listener the two candles behind the cursor
         // are the rest of it.
-        Assert.StartsWith("Three white soldiers, bar 3 of 3.", msg);
+        Assert.StartsWith("Three white soldiers, bullish reversal, bar 3 of 3.", msg);
         Assert.Contains("Close 125.00", msg);
     }
 
@@ -85,7 +91,7 @@ public sealed class CandlePatternOnePathTests
         // routes; the arrow keys join it here. What it must NOT take away is the direction word:
         // "Bullish" is a fact about the bar rather than a pattern claim, it has led this sentence
         // since the beginning, and without it the reading opens on a price.
-        string msg = ArrowKeyReading(ThreeSoldiers, idx: 3, describeCandlePatterns: false);
+        string msg = ArrowKeyReading(ThreeSoldiers, idx: S + 3, describeCandlePatterns: false);
 
         Assert.StartsWith("Bullish.", msg);
         Assert.DoesNotContain("Three white soldiers", msg);
@@ -123,8 +129,8 @@ public sealed class CandlePatternOnePathTests
         // that happen to agree today; this one fails the moment they stop agreeing, which is what
         // actually happened last time — a 90% body was a marubozu to the arrow keys and an
         // ordinary candle to everything else, and nothing in the suite noticed.
-        string arrows = ArrowKeyReading(ThreeSoldiers, idx);
-        string detail = DetailKeyReading(ThreeSoldiers, idx);
+        string arrows = ArrowKeyReading(ThreeSoldiers, S + idx);
+        string detail = DetailKeyReading(ThreeSoldiers, S + idx);
 
         string shape = arrows[..arrows.IndexOf('.')];
         Assert.Contains(shape, detail);
@@ -140,15 +146,15 @@ public sealed class CandlePatternOnePathTests
         // The analyser answers about ONE bar and a pattern is only recognisable on its LAST, so a
         // three-bar shape was named on one bar in three — a name with nothing to attach it to for
         // a listener who cannot see the chart.
-        Assert.Contains("bar 1 of 3, Three white soldiers", DetailKeyReading(ThreeSoldiers, idx: 1));
-        Assert.Contains("bar 2 of 3, Three white soldiers", DetailKeyReading(ThreeSoldiers, idx: 2));
+        Assert.Contains("bar 1 of 3, Three white soldiers, bullish reversal", DetailKeyReading(ThreeSoldiers, idx: S + 1));
+        Assert.Contains("bar 2 of 3, Three white soldiers, bullish reversal", DetailKeyReading(ThreeSoldiers, idx: S + 2));
 
         // On the LAST bar the reading already opens with the pattern's name, so the clause says
         // only the position — repeating the name would be the doubling the direction-prefix rule
         // exists to prevent.
-        string last = DetailKeyReading(ThreeSoldiers, idx: 3);
-        Assert.Contains("Three white soldiers, bar 3 of 3", last);
-        Assert.DoesNotContain("Three white soldiers, bar 3 of 3, Three white soldiers", last);
+        string last = DetailKeyReading(ThreeSoldiers, idx: S + 3);
+        Assert.Contains("Three white soldiers, bullish reversal, bar 3 of 3", last);
+        Assert.DoesNotContain("bar 3 of 3, Three white soldiers", last);
     }
 
     [Fact]
@@ -156,8 +162,8 @@ public sealed class CandlePatternOnePathTests
     {
         // The two history routes have to agree here as much as on the name: a user who scans onto
         // bar 1 and then asks for detail must not be told two different things about the same bar.
-        Assert.Contains("bar 1 of 3, Three white soldiers", ArrowKeyReading(ThreeSoldiers, idx: 1));
-        Assert.Contains("Three white soldiers, bar 3 of 3", ArrowKeyReading(ThreeSoldiers, idx: 3));
+        Assert.Contains("bar 1 of 3, Three white soldiers, bullish reversal", ArrowKeyReading(ThreeSoldiers, idx: S + 1));
+        Assert.Contains("Three white soldiers, bullish reversal, bar 3 of 3", ArrowKeyReading(ThreeSoldiers, idx: S + 3));
     }
 
     [Fact]
@@ -173,35 +179,55 @@ public sealed class CandlePatternOnePathTests
 
     // ── Two patterns sharing a bar ──────────────────────────────────────────────────────────
 
-    // Bitstamp BTCUSDT 1h, 2026-11-03 15:00 to 19:00 UTC, as served. 16:00 and 17:00 are a
-    // tweezer top (highs 77,725.06 and 77,760.80, within 0.1%); 17:00 and 18:00 are a bullish
-    // engulfing. 17:00 is in both.
-    private static readonly (double O, double H, double L, double C)[] TweezerThenEngulfing =
+    // Bitstamp BTCUSDT 1h, 2026-10-14 21:00 to 2026-10-15 17:00 UTC, as served. 13:00 to 15:00
+    // are a three outside up after a fall; 15:00 and 16:00 are a bearish harami after the rise.
+    // 15:00 is in both. (The 2026-11-03 bars Cody heard first are no longer either pattern: the
+    // tweezer highs were 35.7 apart against a tolerance near 15, and the "engulfing" came after
+    // rising closes, so there was nothing for it to reverse.)
+    private static readonly (double O, double H, double L, double C)[] OutsideUpThenHarami =
     {
-        (77333.72, 77817.83, 77263.08, 77766.22),
-        (77606.61, 77725.06, 77503.18, 77725.06),
-        (77752.16, 77760.80, 77685.42, 77699.36),
-        (77697.28, 77798.74, 77697.28, 77798.74),
-        (77677.95, 77677.95, 77600.83, 77600.83),
+        (81949.45, 81981.50, 81798.13, 81798.13),   // 10-14 21:00
+        (81798.13, 81798.13, 81798.13, 81798.13),   // 22:00, never moved
+        (81519.62, 81677.78, 81519.62, 81677.78),
+        (81803.26, 81803.26, 81423.31, 81580.71),   // 10-15 00:00
+        (81838.03, 81896.51, 81508.98, 81603.44),
+        (81527.23, 81768.19, 80536.89, 81544.88),
+        (81125.32, 81342.69, 80787.63, 80916.33),
+        (80972.97, 81683.29, 80972.97, 81623.67),
+        (81569.18, 81630.58, 80560.96, 80612.47),
+        (80578.38, 80996.41, 80519.12, 80908.85),
+        (80965.88, 81512.63, 80853.09, 81495.85),
+        (81541.32, 81541.32, 81208.30, 81332.80),   // 08:00
+        (81391.13, 81391.85, 81264.37, 81272.11),
+        (81219.10, 81219.10, 80888.34, 81046.40),
+        (80906.22, 81069.79, 80858.46, 81069.79),
+        (81085.98, 81125.02, 80571.69, 80604.22),   // 12:00
+        (80585.54, 80668.03, 79862.63, 80196.39),   // 13:00, three outside up begins
+        (80183.16, 81937.47, 80183.16, 81873.72),   // 14:00, engulfs 13:00
+        (81837.18, 82575.63, 81837.18, 82575.63),   // 15:00, closes higher: the pattern completes
+        (82397.51, 82420.98, 82016.62, 82256.26),   // 16:00, inside 15:00's body
+        (82180.51, 82567.20, 82180.51, 82567.20),   // 17:00
     };
+    private const int Shared = 18;   // 15:00
 
     [Fact]
     public void ABarThatEndsOnePatternAndStartsTheNextSaysBoth()
     {
         // Cody, 2026-11-04: "I'll see candle 1 of 2, then 2 of 2, then the next candle might [be]
-        // another second candle in a pattern and say 2 of 2 ... I'm confused". 17:00 said only
-        // "bar 2 of 2" (the tweezer top), so the engulfing's "bar 2 of 2" on 18:00 had no first bar.
-        const string both = "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing";
-        Assert.Contains(both, DetailKeyReading(TweezerThenEngulfing, idx: 2));
-        Assert.Contains(both, ArrowKeyReading(TweezerThenEngulfing, idx: 2));
+        // another second candle in a pattern and say 2 of 2 ... I'm confused". The shared bar said
+        // only the pattern it ended, so the next pattern's "bar 2 of 2" had no first bar.
+        const string both = "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish harami, bearish reversal";
+        Assert.Contains(both, DetailKeyReading(OutsideUpThenHarami, idx: Shared));
+        Assert.Contains(both, ArrowKeyReading(OutsideUpThenHarami, idx: Shared));
     }
 
     [Fact]
     public void TheBarsEitherSideOfTheSharedOneNameOnlyTheirOwnPattern()
     {
-        Assert.Contains("bar 1 of 2, Tweezer top", ArrowKeyReading(TweezerThenEngulfing, idx: 1));
-        string after = ArrowKeyReading(TweezerThenEngulfing, idx: 3);
-        Assert.Contains("Bullish engulfing, bar 2 of 2", after);
+        Assert.Contains("bar 2 of 3, Three outside up, bullish reversal",
+            ArrowKeyReading(OutsideUpThenHarami, idx: Shared - 1));
+        string after = ArrowKeyReading(OutsideUpThenHarami, idx: Shared + 1);
+        Assert.Contains("Bearish harami, bearish reversal, bar 2 of 2", after);
         Assert.DoesNotContain("also", after);
     }
 
@@ -212,16 +238,16 @@ public sealed class CandlePatternOnePathTests
         // the live edge there is nothing ahead, so there is no forward claim to make — and a bar
         // that WOULD become the first soldier cannot be announced as one before the other two
         // have happened.
-        var justTheFirstTwo = ThreeSoldiers.Take(3).ToArray();
+        var justTheFirstTwo = ThreeSoldiers.Take(S + 3).ToArray();
         var analyzer = new SdkCandlePatternAnalyzer();
 
         Assert.Null(CandlePatternSpeech.MembershipAt(
-            analyzer, Buffer(justTheFirstTwo), index: 2, heikinAshi: false));
+            analyzer, Buffer(justTheFirstTwo), index: S + 2, heikinAshi: false));
 
         // And with the third bar loaded, the same bar reports its place. Same fixture, one more
         // bar: the difference is the data, not the rule.
         Assert.NotNull(CandlePatternSpeech.MembershipAt(
-            analyzer, Buffer(ThreeSoldiers), index: 2, heikinAshi: false));
+            analyzer, Buffer(ThreeSoldiers), index: S + 2, heikinAshi: false));
     }
 
     [Fact]
@@ -233,7 +259,7 @@ public sealed class CandlePatternOnePathTests
         // reading names the whole. Ties go to the nearest completion.
         // (CandlePatternLongFormTests pins the five-bar case; this is the plain one.)
         var m = CandlePatternSpeech.MembershipAt(
-            new SdkCandlePatternAnalyzer(), Buffer(ThreeSoldiers), index: 3, heikinAshi: false);
+            new SdkCandlePatternAnalyzer(), Buffer(ThreeSoldiers), index: S + 3, heikinAshi: false);
 
         Assert.NotNull(m);
         Assert.Equal(CandlePattern.ThreeWhiteSoldiers, m!.Pattern);
@@ -257,9 +283,9 @@ public sealed class CandlePatternOnePathTests
         // Soldiers need three LARGE bodies; demanding 99% of range refuses the fixture that the
         // default 50% accepts.
         Assert.Equal(CandlePattern.ThreeWhiteSoldiers,
-            CandlePatternSpeech.AnalyzeAt(new SdkCandlePatternAnalyzer(), bars, 3, false).Pattern);
+            CandlePatternSpeech.AnalyzeAt(new SdkCandlePatternAnalyzer(), bars, S + 3, false).Pattern);
         Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers,
-            CandlePatternSpeech.AnalyzeAt(analyzer, bars, 3, false).Pattern);
+            CandlePatternSpeech.AnalyzeAt(analyzer, bars, S + 3, false).Pattern);
     }
 
     // ── The live forming bar ────────────────────────────────────────────────────────────────
@@ -422,21 +448,32 @@ public sealed class CandlePatternOnePathTests
     }
 
     [Fact]
-    public void TheBiasClauseStatesTheSpanOnlyForMultiBarShapes()
+    public void TheLeanSaysTheSideAndTheKind()
     {
-        // The span is the fact a reader of history cannot recover by ear: hearing "morning star"
-        // on one bar gives no clue that the two bars behind the cursor are part of it. On a
-        // one-bar shape the same words would be noise.
-        Assert.Equal("3-bar reversal",
-            CandlePatternSpeech.Bias(Analysis(CandleDirection.Bullish, CandleType.Normal,
+        // Cody, 2026-11-04: "have it state the direction reversal like bullish reversal or bearish
+        // reversal". The side comes from the analyser's direction, the kind from its reading, and
+        // a shape that leans neither way says nothing rather than "reversal" alone.
+        Assert.Equal("bullish reversal",
+            CandlePatternSpeech.Lean(Analysis(CandleDirection.Bullish, CandleType.Normal,
                 CandlePattern.MorningStar, barCount: 3, reversal: true)));
 
-        Assert.Equal("reversal",
-            CandlePatternSpeech.Bias(Analysis(CandleDirection.Bullish, CandleType.Hammer,
+        Assert.Equal("bearish reversal",
+            CandlePatternSpeech.Lean(Analysis(CandleDirection.Bearish, CandleType.HangingMan,
                 CandlePattern.None, barCount: 1, reversal: true)));
 
+        Assert.Equal("bearish continuation",
+            CandlePatternSpeech.Lean(Analysis(CandleDirection.Bearish, CandleType.Normal,
+                CandlePattern.FallingThreeMethods, barCount: 5, continuation: true)));
+
         Assert.Equal("",
-            CandlePatternSpeech.Bias(Analysis(CandleDirection.Bullish, CandleType.Normal,
+            CandlePatternSpeech.Lean(Analysis(CandleDirection.Bullish, CandleType.Normal,
+                CandlePattern.None)));
+
+        Assert.Equal("Tweezer top, bearish reversal",
+            CandlePatternSpeech.WithLean(Analysis(CandleDirection.Bearish, CandleType.Normal,
+                CandlePattern.TweezerTop, barCount: 2, reversal: true)));
+        Assert.Equal("Doji",
+            CandlePatternSpeech.WithLean(Analysis(CandleDirection.Neutral, CandleType.Doji,
                 CandlePattern.None)));
     }
 
@@ -495,7 +532,7 @@ public sealed class CandlePatternOnePathTests
     }
 
     /// <summary>What the series-context arrow-key reading says about the bar at <paramref name="idx"/>.</summary>
-    private static string ArrowKeyReading(
+    internal static string ArrowKeyReading(
         (double O, double H, double L, double C)[] bars, int idx, bool describeCandlePatterns = true)
     {
         var state = CandleState(bars, idx, describeCandlePatterns);
@@ -505,7 +542,7 @@ public sealed class CandlePatternOnePathTests
     }
 
     /// <summary>What Ctrl+Shift+D says about the same bar.</summary>
-    private static string DetailKeyReading((double O, double H, double L, double C)[] bars, int idx)
+    internal static string DetailKeyReading((double O, double H, double L, double C)[] bars, int idx)
     {
         var bus = new SpyEventBus();
         new BarDetailService(bus).AnnounceDetails(CandleState(bars, idx, describeCandlePatterns: true));

@@ -29,6 +29,33 @@ public class CandlePatternAnalyzerTests
     private static List<Ohlcv> Uptrend(int n, double from = 100)
         => Enumerable.Range(0, n).Select(i => Bar(from + i, from + i + 1.5, from + i - 0.5, from + i + 1, i)).ToList();
 
+    /// <summary>
+    /// The pattern bars after four small bars whose closes fall (or rise) into them, dated in
+    /// order. A reversal is named only after the move it reverses (2026-11-04), so every reversal
+    /// fixture needs one. The trend bars' bodies are 1, small next to the pattern bars, so the
+    /// average body they set does not decide a size test by accident, and each body runs AGAINST
+    /// the trend (a falling series of small green bars) so the last two of them and the pattern's
+    /// first bar cannot make a three line strike, which outranks a two-bar pattern.
+    /// </summary>
+    private static List<Ohlcv> After(bool falling, params Ohlcv[] pattern)
+    {
+        var first = pattern[0];
+        double near = falling ? Math.Max(first.Open, first.Close) : Math.Min(first.Open, first.Close);
+        var bars = new List<Ohlcv>();
+        for (int i = 0; i < 4; i++)
+        {
+            double c = falling ? near + 4 - i : near - 4 + i;
+            double o = falling ? c - 1 : c + 1;
+            bars.Add(Bar(o, Math.Max(o, c) + 0.5, Math.Min(o, c) - 0.5, c, i));
+        }
+        for (int i = 0; i < pattern.Length; i++)
+            bars.Add(pattern[i] with { Date = new DateTime(2026, 1, 1).AddDays(4 + i) });
+        return bars;
+    }
+
+    private static CandleAnalysis Last(List<Ohlcv> bars)
+        => A.Analyze(bars[^1], bars[^2], bars.Count > 2 ? bars[^3] : null, bars);
+
     // ── The defect that inverted the meaning of the announcement ────────────────
 
     /// <summary>
@@ -91,18 +118,23 @@ public class CandlePatternAnalyzerTests
     }
 
     /// <summary>
-    /// With no trailing context the analyzer cannot know which of the pair it is looking at. It must
-    /// not claim a reversal it has no basis for — silence about direction is the honest output, and
-    /// the alternative (guessing from one candle) is the defect above.
+    /// With no trailing context the analyzer cannot know which of the pair it is looking at, so it
+    /// names neither. Until 2026-11-04 it named the shape anyway, and the two pairs disagreed: an
+    /// unknown trend made the long lower wick a "Hanging man" (bearish) and the long upper wick an
+    /// "Inverted hammer" (bullish), opposite claims from the same lack of evidence.
     /// </summary>
     [Fact]
-    public void WithoutContext_TheShapeIsNamedButNoReversalIsAsserted()
+    public void WithoutContext_NeitherNameOfThePairIsGiven()
     {
         var shape = Bar(100, 100.6, 94, 100.4);
         var r = A.Analyze(shape, Bar(107, 107.5, 104, 105));
-
-        Assert.True(r.Type is CandleType.Hammer or CandleType.HangingMan);
+        Assert.Equal(CandleType.Normal, r.Type);
         Assert.False(r.IsReversal);
+
+        var upper = Bar(100, 106.6, 99.8, 100.4);
+        var u = A.Analyze(upper, Bar(107, 107.5, 104, 105));
+        Assert.Equal(CandleType.Normal, u.Type);
+        Assert.False(u.IsReversal);
     }
 
     // ── Star patterns ──────────────────────────────────────────────────────────
@@ -118,13 +150,11 @@ public class CandlePatternAnalyzerTests
         var first = Bar(120, 120.5, 108, 108.5, 1);           // long red body 108.5–120
         var real = Bar(107, 107.6, 106.4, 107.2, 2);          // star clearly BELOW it
         var third = Bar(107.5, 116, 107.2, 115.5, 3);         // closes above the midpoint (114.25)
-        Assert.Equal(CandlePattern.MorningStar,
-            A.Analyze(third, real, first, new List<Ohlcv> { first, real, third }).Pattern);
+        Assert.Equal(CandlePattern.MorningStar, Last(After(falling: true, first, real, third)).Pattern);
 
         // Same three bars except the middle one sits INSIDE the first body — not a star.
         var notAStar = Bar(117, 117.6, 116.4, 117.2, 2);
-        Assert.NotEqual(CandlePattern.MorningStar,
-            A.Analyze(third, notAStar, first, new List<Ohlcv> { first, notAStar, third }).Pattern);
+        Assert.NotEqual(CandlePattern.MorningStar, Last(After(falling: true, first, notAStar, third)).Pattern);
     }
 
     [Fact]
@@ -133,8 +163,7 @@ public class CandlePatternAnalyzerTests
         var first = Bar(100, 112.5, 99.5, 112, 1);            // long green body 100–112
         var real = Bar(113.5, 114.2, 112.9, 113.7, 2);        // star above it
         var third = Bar(113, 113.2, 104, 104.5, 3);           // closes below the midpoint (106)
-        Assert.Equal(CandlePattern.EveningStar,
-            A.Analyze(third, real, first, new List<Ohlcv> { first, real, third }).Pattern);
+        Assert.Equal(CandlePattern.EveningStar, Last(After(falling: false, first, real, third)).Pattern);
     }
 
     // ── Three white soldiers / three black crows ────────────────────────────────
@@ -150,12 +179,10 @@ public class CandlePatternAnalyzerTests
         var b1 = Bar(100, 106.5, 99.5, 106, 1);
         var b2 = Bar(103, 112.5, 102.5, 112, 2);              // opens inside b1's body
         var b3 = Bar(109, 118.5, 108.5, 118, 3);              // opens inside b2's body
-        Assert.Equal(CandlePattern.ThreeWhiteSoldiers,
-            A.Analyze(b3, b2, b1, new List<Ohlcv> { b1, b2, b3 }).Pattern);
+        Assert.Equal(CandlePattern.ThreeWhiteSoldiers, Last(After(falling: true, b1, b2, b3)).Pattern);
 
         var gapped = Bar(114, 124.5, 113.5, 124, 3);          // opens ABOVE b2's close
-        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers,
-            A.Analyze(gapped, b2, b1, new List<Ohlcv> { b1, b2, gapped }).Pattern);
+        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers, Last(After(falling: true, b1, b2, gapped)).Pattern);
     }
 
     [Fact]
@@ -164,8 +191,7 @@ public class CandlePatternAnalyzerTests
         var b1 = Bar(120, 120.5, 113.5, 114, 1);
         var b2 = Bar(117, 117.5, 107.5, 108, 2);
         var b3 = Bar(111, 111.5, 101.5, 102, 3);
-        Assert.Equal(CandlePattern.ThreeBlackCrows,
-            A.Analyze(b3, b2, b1, new List<Ohlcv> { b1, b2, b3 }).Pattern);
+        Assert.Equal(CandlePattern.ThreeBlackCrows, Last(After(falling: false, b1, b2, b3)).Pattern);
     }
 
     /// <summary>
@@ -179,8 +205,7 @@ public class CandlePatternAnalyzerTests
         var b1 = Bar(77428.72, 77428.72, 76926.01, 77056.45, 1);
         var b2 = Bar(77190.30, 77190.30, 76935.38, 76935.38, 2);
         var b3 = Bar(76958.15, 76988.61, 76689.90, 76897.92, 3);
-        Assert.NotEqual(CandlePattern.ThreeBlackCrows,
-            A.Analyze(b3, b2, b1, new List<Ohlcv> { b1, b2, b3 }).Pattern);
+        Assert.NotEqual(CandlePattern.ThreeBlackCrows, Last(After(falling: false, b1, b2, b3)).Pattern);
     }
 
     [Fact]
@@ -189,23 +214,22 @@ public class CandlePatternAnalyzerTests
         var b1 = Bar(100, 106.5, 99.5, 106, 1);
         var b2 = Bar(103, 112.5, 102.5, 112, 2);
         var small = Bar(111.5, 118.5, 104, 113, 3);           // opens inside b2, closes above it, body 1.5 of 14.5
-        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers,
-            A.Analyze(small, b2, b1, new List<Ohlcv> { b1, b2, small }).Pattern);
+        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers, Last(After(falling: true, b1, b2, small)).Pattern);
     }
 
     // ── Harami ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A harami is containment inside the previous body and nothing else. The old code additionally
-    /// required the inside bar's body to be under half of its OWN range, which is not part of the
-    /// definition and rejected a valid harami whose small body happened to fill its small range.
+    /// The old code required the inside bar's body to be under half of its OWN range, which is not
+    /// part of the definition and rejected a valid harami whose small body happened to fill its
+    /// small range. Short is short against the bars before (2026-11-04).
     /// </summary>
     [Fact]
     public void BullishHarami_IsFoundEvenWhenTheInsideBarIsAlmostAllBody()
     {
         var prev = Bar(120, 120.5, 105.5, 106, 1);           // long red body 106–120
-        var inside = Bar(110, 114.2, 109.8, 114, 2);         // body 110–114, ~95% of its own range
-        var r = A.Analyze(inside, prev, null, new List<Ohlcv> { prev, inside });
+        var inside = Bar(110, 112.2, 109.8, 112, 2);         // body 110–112, ~83% of its own range
+        var r = Last(After(falling: true, prev, inside));
 
         Assert.Equal(CandlePattern.BullishHarami, r.Pattern);
         Assert.True(r.IsReversal);
@@ -215,9 +239,8 @@ public class CandlePatternAnalyzerTests
     public void BearishHarami_IsTheMirror()
     {
         var prev = Bar(106, 120.5, 105.5, 120, 1);
-        var inside = Bar(114, 114.2, 109.8, 110, 2);
-        Assert.Equal(CandlePattern.BearishHarami,
-            A.Analyze(inside, prev, null, new List<Ohlcv> { prev, inside }).Pattern);
+        var inside = Bar(113, 113.2, 110.8, 111, 2);
+        Assert.Equal(CandlePattern.BearishHarami, Last(After(falling: false, prev, inside)).Pattern);
     }
 
     // ── Patterns that were already right, pinned so they stay right ─────────────
@@ -227,7 +250,7 @@ public class CandlePatternAnalyzerTests
     {
         var prev = Bar(112, 112.5, 107.5, 108, 1);
         var cur = Bar(107, 116.5, 106.5, 116, 2);
-        var r = A.Analyze(cur, prev, null, new List<Ohlcv> { prev, cur });
+        var r = Last(After(falling: true, prev, cur));
 
         Assert.Equal(CandlePattern.BullishEngulfing, r.Pattern);
         Assert.Equal(CandleDirection.Bullish, r.Direction);
@@ -239,8 +262,7 @@ public class CandlePatternAnalyzerTests
     {
         var prev = Bar(108, 112.5, 107.5, 112, 1);
         var cur = Bar(113, 113.5, 106.5, 107, 2);
-        Assert.Equal(CandlePattern.BearishEngulfing,
-            A.Analyze(cur, prev, null, new List<Ohlcv> { prev, cur }).Pattern);
+        Assert.Equal(CandlePattern.BearishEngulfing, Last(After(falling: false, prev, cur)).Pattern);
     }
 
     [Fact]
@@ -248,12 +270,10 @@ public class CandlePatternAnalyzerTests
     {
         var prev = Bar(120, 120.5, 108, 108.5, 1);           // midpoint 114.25
         var cur = Bar(107, 116, 106.5, 115.5, 2);            // opens below prev.Low, closes past mid
-        Assert.Equal(CandlePattern.PiercingLine,
-            A.Analyze(cur, prev, null, new List<Ohlcv> { prev, cur }).Pattern);
+        Assert.Equal(CandlePattern.PiercingLine, Last(After(falling: true, prev, cur)).Pattern);
 
         var noGap = Bar(110, 116, 109.5, 115.5, 2);          // opens inside the previous range
-        Assert.NotEqual(CandlePattern.PiercingLine,
-            A.Analyze(noGap, prev, null, new List<Ohlcv> { prev, noGap }).Pattern);
+        Assert.NotEqual(CandlePattern.PiercingLine, Last(After(falling: true, prev, noGap)).Pattern);
     }
 
     [Fact]

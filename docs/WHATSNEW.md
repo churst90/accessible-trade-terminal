@@ -8,10 +8,19 @@
 
 ## Unreleased (next: 2.13.0)
 
-- **A candle in two patterns says both.** One candle can end a two-candle pattern and start the next.
-  It used to say only "bar 2 of 2", so the next candle's "bar 2 of 2" seemed to have no first candle.
-  It now says "Tweezer top, bar 2 of 2, also bar 1 of 2, Bullish engulfing". And three white soldiers
-  and three black crows now need a large third candle, not only large first and second ones.
+- **Candle patterns say which way they lean, and follow the textbook rules.** Each pattern is now said
+  with its lean: "Tweezer top, bearish reversal", "Rising three methods, bullish continuation". This
+  happens on the arrow keys, Alt+Shift+D, the bar close and the forming bar. A doji has no lean and says
+  none. A reversal is named only after a move for it to reverse: a hammer after a fall, a tweezer top
+  after a rise. Long and short bodies are judged against the candles before, so a tiny candle with no
+  wicks is no longer a marubozu. A candle that never traded (its high is its low) says "No movement"
+  instead of "Doji", and it is part of no pattern. Expect far fewer patterns on a quiet market, and fewer
+  candle-pattern alerts.
+- **A candle in two patterns says both.** One candle can end a pattern and start the next. It used to
+  say only one of them, so the next candle's "bar 2 of 2" seemed to have no first candle. It now says
+  "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish harami, bearish reversal".
+  And three white soldiers and three black crows now need a large third candle, not only large first
+  and second ones.
 
 - **Any timeframe you type loads.** An 8-hour or 7-hour chart on Bitstamp used to be switched to 1 hour
   with "Bitstamp does not offer 8h". Now any timeframe the venue's own candles divide evenly is built from

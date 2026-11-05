@@ -1803,11 +1803,29 @@ occasion to speak. Since 2026-09-04 it governs the arrow keys as well: turning i
 the candle reading as "Bullish" or "Bearish" and the prices, which is what it said before
 the multi-bar patterns arrived.
 
+Every candle pattern is said with its lean: "Tweezer top, bearish reversal", "Hammer, bullish
+reversal", "Rising three methods, bullish continuation". A doji or a spinning top has no lean and
+says none. This is the same on the arrow keys, Alt+Shift+D, the bar-close announcement and the
+forming bar.
+
 On history (the arrow keys and Alt+Shift+D), every bar of a multi-bar candle pattern says where
-it sits in it: "bar 1 of 3, Three white soldiers". Two-bar patterns often share a bar: one bar
-can end a tweezer top and start a bullish engulfing. That bar says both, earliest first: "Tweezer
-top, bar 2 of 2, also bar 1 of 2, Bullish engulfing". A pattern wholly inside a longer one (the
-harami inside a rising three methods) is not said as a second pattern.
+it sits in it: "bar 1 of 3, Three white soldiers, bullish reversal". Patterns sometimes share a
+bar: one bar can end a three outside up and start a bearish harami. That bar says both, earliest
+first: "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish harami, bearish
+reversal". A pattern wholly inside a longer one (the harami inside a rising three methods) is not
+said as a second pattern.
+
+The definitions follow the textbooks (Nison, Bulkowski) and TA-Lib's measurements:
+
+- **A reversal needs a trend to reverse.** A bullish reversal is named only after the closes fell
+  over the 3 bars before it, a bearish one only after they rose. The same shape anywhere else is
+  not named. Near the start of the data, where there are not 3 bars before it, no reversal is named.
+- **Long and short are judged against the bars before**: a long body is at least the average body of
+  the last 10 bars that moved, a short one is under it. "Equal" highs or lows, for tweezers, are within
+  a twentieth of the bars' average range.
+- **A bar that never moved** (its high is its low: no trades) says "No movement" and is in no pattern.
+  On a quiet market this is common; on Bitstamp BTCUSDT 1h it was about a quarter of the bars.
+- Three inside up and down are confirmed only when the third bar closes beyond the FIRST bar's open.
 
 Twelve shapes are recognised: **double top** and **double bottom**, **head and shoulders**
 and **inverse head and shoulders**, **ascending / descending / symmetrical triangle**,

@@ -6,7 +6,12 @@ public enum CandleType
 {
     Normal, Doji, DragonflyDoji, GravestoneDoji, LongLeggedDoji,
     Hammer, InvertedHammer, ShootingStar, HangingMan,
-    MarubozuBullish, MarubozuBearish, SpinningTop
+    MarubozuBullish, MarubozuBearish, SpinningTop,
+
+    // Added 2026-11-04, at the end so no stored ordinal moves. A bar whose high equals its low:
+    // no trade moved the price, so it has no shape. It used to be called a doji, which on a thin
+    // pair (276 of 1,000 Bitstamp BTCUSDT hours) made dojis and abandoned babies out of silence.
+    NoMovement
 }
 
 /// <summary>

@@ -138,19 +138,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (code.Equals("CANDLES", StringComparison.OrdinalIgnoreCase))
             {
                 if (index < 0 || index >= data.Length) return string.Empty;
-                var current = data[index];
-                var prev = index > 0 ? data[index - 1] : (Ohlcv?)null;
-                var twoAgo = index > 1 ? data[index - 2] : (Ohlcv?)null;
+                // The same analyser over the same trailing window as every spoken route, in the
+                // same words. It was handed three bars and printed the enum names ("TweezerTop."),
+                // so the trend a reversal now needs could never be read here and every reversal
+                // would have gone unnamed.
+                int from = Math.Max(0, index - Accessibility.CandlePatternSpeech.ContextBars + 1);
+                var window = data.Slice(from, index - from + 1).ToArray();
+                var result = Accessibility.CandlePatternSpeech.AnalyzeAt(
+                    new Accessibility.SdkCandlePatternAnalyzer(), window, window.Length - 1, heikinAshi: false);
 
-                // Use the shared SDK analyzer
-                var analyzer = new AccessibleTrader.Core.Services.Accessibility.SdkCandlePatternAnalyzer();
-                var result = analyzer.Analyze(current, prev, twoAgo);
-
-                string patternPart = result.Pattern != Sdk.Analysis.CandlePattern.None 
-                    ? $"{result.Pattern}." 
-                    : string.Empty;
-
-                return $"{result.Type}. {patternPart} Body is {result.BodyPercent:F1}% of range.";
+                return $"{Accessibility.CandlePatternSpeech.WithLean(result)}. Body is {result.BodyPercent:F1}% of range.";
             }
             if (code.Equals("VOLUME", StringComparison.OrdinalIgnoreCase))
             {

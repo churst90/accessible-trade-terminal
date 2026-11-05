@@ -147,25 +147,29 @@ namespace AccessibleTrader.Tests
             // user nothing about the two behind the cursor, which is the whole shape.
             //
             // Three white soldiers: each bar large-bodied and green, each opening INSIDE the
-            // previous body and closing above its close.
+            // previous body and closing above its close, after the fall they reverse.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
             var bars = MakeBars(new[]
             {
+                (105d, 105.5d, 103.5d, 104d),
+                (104d, 104.5d, 102.5d, 103d),
+                (103d, 103.5d, 101.5d, 102d),
                 (100d, 101d,  99d, 100d),
                 (100d, 110d,  99d, 109d),   // soldier 1
                 (103d, 118d, 102d, 117d),   // soldier 2: opens inside 1's body, closes above it
                 (110d, 126d, 109d, 125d),   // soldier 3
             });
-            var state = CandleState(bars, idx: 3);
+            var state = CandleState(bars, idx: 6);
 
             svc.AnnounceDetails(state);
 
             var msg = LastAnnouncement(bus);
-            Assert.Contains("Three white soldiers", msg);
             // The span is stated because a reader of history cannot otherwise recover it, and the
-            // lean because "continuation" and "reversal" are opposite trades.
-            Assert.Contains("3-bar continuation", msg);
+            // lean because "continuation" and "reversal" are opposite trades. Soldiers are a
+            // REVERSAL (Nison, Bulkowski, TA-Lib); this app called them a continuation until
+            // 2026-11-04.
+            Assert.Contains("Three white soldiers, bullish reversal, bar 3 of 3", msg);
         }
 
         [Fact]
@@ -195,19 +199,22 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void BarDetail_FlatRange_ClassifiesAsADoji()
+        public void BarDetail_FlatRange_SaysNoMovement()
         {
-            // O=H=L=C=100. The old private classifier called this "Flat"; the shared analyser
-            // calls a zero body a doji, and the direction is Neutral so no trend word leads it.
-            // Both are defensible readings of a bar that did not move — what is NOT defensible is
-            // the terminal using a word here that no other route in the app would use.
+            // O=H=L=C=100. The old private classifier called this "Flat", and from 2026-09-04 the
+            // shared analyser called it a doji. A doji is an open and close that MEET after the
+            // price went somewhere; a bar with no range is a bar with no trades (276 of 1,000
+            // Bitstamp BTCUSDT hours), and calling it indecision was most of the dojis this app
+            // ever announced. Since 2026-11-04 it is "No movement" on every route.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
             var bars = MakeBars(new[] { (100d, 100d, 100d, 100d) });
             var state = CandleState(bars, idx: 0);
 
             svc.AnnounceDetails(state);
-            Assert.Contains("Doji", LastAnnouncement(bus));
+            string msg = LastAnnouncement(bus);
+            Assert.Contains("No movement.", msg);
+            Assert.DoesNotContain("oji", msg);
         }
 
         [Fact]

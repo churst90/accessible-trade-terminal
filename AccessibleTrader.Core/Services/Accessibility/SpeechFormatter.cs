@@ -138,7 +138,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // a fact about the bar rather than a pattern claim, it has always led this
                 // sentence, and dropping it would leave the reading starting on a price.
                 string shape = state.DescribeCandlePatterns
-                    ? CandlePatternSpeech.DescribeShape(analysis)
+                    ? CandlePatternSpeech.WithLean(analysis)
                     : CandlePatternSpeech.DirectionOnly(pt);
 
                 // WHICH CANDLES. Scanning across a three-bar pattern, only the last bar could name

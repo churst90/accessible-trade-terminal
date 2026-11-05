@@ -28,8 +28,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
     ///
     /// <para>
     /// Every method here is deliberately pure. The routes differ only in HOW MUCH of the analysis
-    /// they read — the arrow keys take the shape phrase, the detail key adds the bias clause, the
-    /// live bar takes the suffix form — never in what the shape IS called.
+    /// they read — the arrow keys and the detail key take the shape and its lean, the live bar
+    /// takes the suffix form — never in what the shape IS called or which way it leans.
     /// </para>
     /// </summary>
     public static class CandlePatternSpeech
@@ -297,7 +297,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>
         /// Every pattern the bar is in, earliest first: "bar 2 of 2, also bar 1 of 2, Bullish
-        /// engulfing" on a bar that closes one two-bar pattern and opens the next.
+        /// engulfing, bullish reversal" on a bar that closes one two-bar pattern and opens the next.
         /// </summary>
         public static string MembershipClause(CandleAnalysis here, IReadOnlyList<Membership> all)
         {
@@ -307,7 +307,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // The shape names the pattern this bar completes; any other is named here.
                 bool shapeAlreadyNamedIt = here.Pattern == m.Pattern && m.Position == m.BarCount;
                 string where = $"bar {m.Position} of {m.BarCount}";
-                parts.Add(shapeAlreadyNamedIt ? where : $"{where}, {PatternName(m.Pattern)}");
+                string lean = PatternLean(m.Pattern);
+                parts.Add(shapeAlreadyNamedIt ? where
+                    : lean.Length == 0 ? $"{where}, {PatternName(m.Pattern)}"
+                    : $"{where}, {PatternName(m.Pattern)}, {lean}");
             }
             return string.Join(", also ", parts);
         }
@@ -332,6 +335,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// followed by the prices. That is also exactly what the live bar-close suffix does, which
         /// is what lets the four routes agree word for word.
         /// </para>
+        ///
+        /// <para>
+        /// The LEAN is not a prefix and is said separately, after the name, by
+        /// <see cref="WithLean"/>: Cody asked on 2026-11-04 to hear "bullish reversal" or "bearish
+        /// reversal" with the pattern. A name says its side ("Tweezer top" is bearish to anyone who
+        /// knows it); the lean says what the textbook reads it as, which a listener learning the
+        /// names does not yet know.
+        /// </para>
         /// </summary>
         public static string DescribeShape(CandleAnalysis a)
         {
@@ -343,43 +354,95 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// The extra clause the DETAIL key adds and the scanning routes do not: how many bars the
-        /// shape spans and which way it leans. "2-bar reversal", "3-bar continuation", "reversal",
-        /// or empty.
+        /// Which way the shape leans, as the textbooks read it: "bullish reversal", "bearish
+        /// reversal", "bullish continuation", "bearish continuation", or empty for a shape that
+        /// leans neither way (a doji, a spinning top, a marubozu, an ordinary candle).
         ///
         /// <para>
-        /// Bar count is stated only for multi-bar patterns, because that is the fact a reader of
-        /// history cannot otherwise recover — hearing "morning star" on one bar gives no clue that
-        /// the two bars behind the cursor are part of it. On a one-bar shape it would be noise.
+        /// It is only ever said when the analyser found the TREND the shape needs: a reversal is
+        /// named only after the move it reverses, so "bearish reversal" is never said of a tweezer
+        /// top at the bottom of a fall. That is why it can be stated rather than hedged.
+        /// </para>
+        ///
+        /// <para>
+        /// It replaced the detail key's "2-bar reversal" on 2026-11-04. The bar count it carried is
+        /// now in the membership clause ("bar 2 of 2") on every route, and "reversal" without a
+        /// side left the listener to work out which way.
         /// </para>
         /// </summary>
-        public static string Bias(CandleAnalysis a)
+        public static string Lean(CandleAnalysis a)
+            => Lean(a.Direction, a.IsReversal, a.IsContinuation);
+
+        /// <summary>The lean of a multi-bar pattern by its name alone, for the membership clause.</summary>
+        public static string PatternLean(CandlePattern p) => p switch
         {
-            string lean = a.IsReversal ? "reversal" : a.IsContinuation ? "continuation" : "";
-            if (lean.Length == 0) return "";
-            return a.PatternBarCount > 1 ? $"{a.PatternBarCount}-bar {lean}" : lean;
+            CandlePattern.None => "",
+            CandlePattern.ThreeLineStrikeBullish or CandlePattern.RisingThreeMethods  => "bullish continuation",
+            CandlePattern.ThreeLineStrikeBearish or CandlePattern.FallingThreeMethods => "bearish continuation",
+            CandlePattern.BullishEngulfing or CandlePattern.BullishHarami or CandlePattern.PiercingLine
+                or CandlePattern.TweezerBottom or CandlePattern.MorningStar or CandlePattern.ThreeWhiteSoldiers
+                or CandlePattern.ThreeInsideUp or CandlePattern.ThreeOutsideUp or CandlePattern.MorningDojiStar
+                or CandlePattern.AbandonedBabyBullish => "bullish reversal",
+            _ => "bearish reversal"
+        };
+
+        private static string Lean(CandleDirection d, bool reversal, bool continuation)
+        {
+            string kind = reversal ? "reversal" : continuation ? "continuation" : "";
+            string side = d switch
+            {
+                CandleDirection.Bullish => "bullish",
+                CandleDirection.Bearish => "bearish",
+                _                       => ""
+            };
+            return kind.Length == 0 || side.Length == 0 ? "" : $"{side} {kind}";
+        }
+
+        /// <summary>
+        /// The shape and its lean: "Tweezer top, bearish reversal", "Hammer, bullish reversal",
+        /// "Doji". What the arrow keys and the detail key both say.
+        /// </summary>
+        public static string WithLean(CandleAnalysis a)
+        {
+            string shape = DescribeShape(a), lean = Lean(a);
+            return lean.Length == 0 ? shape : $"{shape}, {lean}";
         }
 
         /// <summary>
         /// The trailing clause the new-bar announcement appends to a closing price:
-        /// ", Bullish engulfing" finalized, ", Doji forming" not. Empty on an unremarkable bar,
-        /// which is most of them.
+        /// ", Bullish engulfing, bullish reversal" finalized, ", Doji forming" not. Empty on an
+        /// unremarkable bar, which is most of them.
         /// </summary>
-        public static string Suffix(CandleType type, CandlePattern pattern, bool finalized)
+        public static string Suffix(CandleAnalysis a, bool finalized)
         {
+            string name = Named(a);
+            if (name.Length == 0) return "";
+            string lean = Lean(a);
             string verb = finalized ? "" : " forming";
-            if (pattern != CandlePattern.None) return $", {PatternName(pattern)}{verb}";
-            if (type != CandleType.Normal)     return $", {TypeName(type)}{verb}";
-            return "";
+            return lean.Length == 0 ? $", {name}{verb}" : $", {name}{verb}, {lean}";
         }
 
-        /// <summary>The intra-bar sentence: "Bullish engulfing forming", or empty.</summary>
-        public static string Forming(CandleType type, CandlePattern pattern)
+        /// <summary>
+        /// The intra-bar sentence: "Bullish engulfing forming, bullish reversal", or empty.
+        ///
+        /// <para>
+        /// Never "No movement forming": every bar starts with its high at its low, so a bar with
+        /// no trade yet is not news, it is the first tick.
+        /// </para>
+        /// </summary>
+        public static string Forming(CandleAnalysis a)
         {
-            if (pattern != CandlePattern.None) return $"{PatternName(pattern)} forming";
-            if (type != CandleType.Normal)     return $"{TypeName(type)} forming";
-            return "";
+            if (a.Type == CandleType.NoMovement) return "";
+            string name = Named(a);
+            if (name.Length == 0) return "";
+            string lean = Lean(a);
+            return lean.Length == 0 ? $"{name} forming" : $"{name} forming, {lean}";
         }
+
+        private static string Named(CandleAnalysis a)
+            => a.Pattern != CandlePattern.None ? PatternName(a.Pattern)
+             : a.Type != CandleType.Normal     ? TypeName(a.Type)
+             : "";
 
         public static string PatternName(CandlePattern p) => p switch
         {
@@ -425,6 +488,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             CandleType.MarubozuBullish  => "Bullish marubozu",
             CandleType.MarubozuBearish  => "Bearish marubozu",
             CandleType.SpinningTop      => "Spinning top",
+            CandleType.NoMovement       => "No movement",
             _                            => ""
         };
 

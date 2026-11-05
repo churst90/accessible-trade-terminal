@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Candle patterns follow the textbook rules and say which way they lean (2026-11-04, Cody's request; NOT heard by Cody)
+
+Cody, answering the four audit questions below: "go ahead and address the candle pattern problem and
+have it state the direction reversal like bullish reversal or bearish reversal type thing.....make it
+more textbook and accurate". All four recommendations were built:
+- **A reversal needs a trend to reverse.** Every reversal pattern now needs the closes to have moved
+  against it over the 3 bars before its first bar (Nison, Bulkowski): a bullish reversal after a fall,
+  a bearish one after a rise. Only the hammer family checked before. With too little history, or dead
+  flat closes, no reversal is named. A dragonfly doji after a fall and a gravestone after a rise are
+  read as reversals; elsewhere they are just the shape. A hammer-shaped bar with no trend to read is now
+  neither hammer nor hanging man (it was "Hanging man").
+- **Three white soldiers and three black crows are reversals**, after a fall and a rise. They were
+  filed as continuations with no trend check; Nison, Bulkowski, TA-Lib and Investopedia call them
+  reversals. Rising and falling three methods need the trend they continue.
+- **A bar that never moved (high = low) is "No movement"** on every route and is in no pattern. It was
+  a doji. A forming bar with no range yet says nothing.
+- **Size is judged against the bars before (TA-Lib).** A long body is at least the average body of the
+  last 10 bars that moved, and a short one is under it; with fewer than 5 such bars, the bar's own
+  range decides as before. Bars that never moved are skipped by the average. Equal highs or lows
+  (tweezers) are within a twentieth of the average range of the last 5 bars that moved; it was 0.1% of
+  the price, about $80 on bitcoin. A marubozu must also be a long body; harami, piercing line, dark
+  cloud cover and the stars need a long first bar, the harami a short second, and the stars a third
+  that is not short.
+- **Three inside up and down confirm beyond the first bar's open** (TA-Lib), not the middle bar's close.
+- **The lean is said with every pattern:** "Tweezer top, bearish reversal", "Hammer, bullish reversal",
+  "Rising three methods, bullish continuation"; a doji or spinning top says no lean. On the arrow keys,
+  Alt+Shift+D, the bar-close announcement, the forming bar, and the "bar 1 of 2, Bullish engulfing,
+  bullish reversal" clause on the other bars of a pattern. Alt+Shift+D said "2-bar reversal" without a
+  side; the bar count is in "bar 2 of 2". The indicator detail fact for candles used three bars and the
+  enum names ("TweezerTop."); it now uses the same window and words.
+- **What changed on real data**, latest 1,000 Bitstamp BTCUSDT 1h bars: multi-bar pattern names 306 to
+  61, bars in some pattern 492 to 111, dojis 242 to 6 (276 bars are "No movement"), tweezers 116 to 6,
+  engulfings 59 to 20, haramis 42 to 12, abandoned babies 10 to 0. Hammer and shooting-star counts
+  barely changed (they already checked the trend). **Pattern alerts (PatternDetected) will fire much
+  less often**, which is the point, but a saved alert that fired daily may now be quiet for days.
+- Cody's 2026-11-03 example is no longer either pattern: the 16:00 and 17:00 highs were 35.7 apart
+  against a tolerance near 15, and 18:00 followed rising closes. The overlap test now uses real
+  2026-10-15 bars: 15:00 says "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish
+  harami, bearish reversal". Four bars in those 1,000 still say "also".
+- `CandleType.NoMovement` is appended to the enum (ordinals are saved). New thresholds:
+  `AverageLookbackBars` 10, `EqualLookbackBars` 5, `EqualFractionOfAverageRange` 0.05.
+- **Not changed, open:** the three line strike. Nison and TA-Lib call it a continuation (three bars one
+  way, a fourth erasing them); Bulkowski's statistics say it more often reverses. It stays a
+  continuation with no trend check. A question for Cody in TODO.
+- Tests: CandlePatternTextbookTests (16: each rule both ways, the lean on all five routes, the forming bar
+  silent with no range), plus about 30 older fixtures given the trend before them. 18 sabotages, all red:
+  each trend gate, soldiers back to continuation, the no-movement return, flat bars in patterns, the marubozu
+  and average rules, the tweezer tolerance, the three inside confirmation, and the lean dropped from each
+  route. One was green on the first run: with the flat-bar guards removed, the abandoned baby and the
+  stars were still refused by their doji and small-body tests. The engulfing was not (a flat bar read as a
+  green bar with no body, which any red bar engulfs), so a test of that was added and it went red.
+
 ### A candle in two patterns says both; the third soldier or crow must be large (2026-11-04, Cody's report; NOT heard by Cody)
 
 Cody: "there will be a 2 bar reversal pattern and I'll see candle 1 of 2, then 2 of 2, then the next

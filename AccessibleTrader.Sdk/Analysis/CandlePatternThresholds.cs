@@ -40,4 +40,24 @@ public record CandlePatternThresholds
     /// classical definition, not an approximation of it.
     /// </summary>
     public double StarBodyOverlapAllowed { get; init; } = 0.10;
+
+    // ── Size against the bars before (2026-11-04) ──────────────────────────────────────────
+    //
+    // A body judged only against its own bar's range made a $2 bar with a $2 body a marubozu.
+    // TA-Lib, the reference most platforms copy, judges a body LONG or SHORT against the average
+    // body of the ten bars before it, and calls two highs EQUAL within 5% of the average range of
+    // the five before. These are those numbers. With fewer than five moving bars behind it, a bar
+    // is judged by its own range alone, as before.
+
+    /// <summary>How many bars before a candle its size is judged against (TA-Lib: 10).</summary>
+    public int AverageLookbackBars { get; init; } = 10;
+
+    /// <summary>How many bars before a candle the "equal highs/lows" tolerance is taken over (TA-Lib: 5).</summary>
+    public int EqualLookbackBars { get; init; } = 5;
+
+    /// <summary>
+    /// Two highs (tweezer top) or lows (tweezer bottom) are equal within this fraction of the
+    /// average range of the bars before (TA-Lib's "Equal": 0.05).
+    /// </summary>
+    public double EqualFractionOfAverageRange { get; init; } = 0.05;
 }
