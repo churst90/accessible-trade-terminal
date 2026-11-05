@@ -47,7 +47,8 @@ more textbook and accurate". All four recommendations were built:
   `AverageLookbackBars` 10, `EqualLookbackBars` 5, `EqualFractionOfAverageRange` 0.05.
 - **Not changed, open:** the three line strike. Nison and TA-Lib call it a continuation (three bars one
   way, a fourth erasing them); Bulkowski's statistics say it more often reverses. It stays a
-  continuation with no trend check. A question for Cody in TODO.
+  continuation with no trend check. Cody 2026-11-05: keep it, keep the stricter alerts, and leave a
+  hammer with no trend unnamed.
 - Tests: CandlePatternTextbookTests (16: each rule both ways, the lean on all five routes, the forming bar
   silent with no range), plus about 30 older fixtures given the trend before them. 18 sabotages, all red:
   each trend gate, soldiers back to continuation, the no-movement return, flat bars in patterns, the marubozu

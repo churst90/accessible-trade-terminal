@@ -36,13 +36,9 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   bearish reversal". On a quiet stretch, a candle with no trades should say "No movement". The four audit
   questions were answered by building what I recommended (Cody: "make it more textbook and accurate"):
   a reversal needs a trend; a candle that never moved is "No movement"; size is judged against recent
-  bars; three inside confirms beyond the first bar's open. Still open:
-  1. Three line strike: Nison and TA-Lib call it a continuation, while Bulkowski's numbers say it
-     reverses more often. It stays a continuation with no trend check. Keep it?
-  2. Candle-pattern alerts fire far less (multi-bar names in 1,000 Bitstamp hours went from 306 to 61).
-     Is that what you want, or should alerts keep a looser rule?
-  3. A hammer or hanging man with no trend before it (the start of the data) is now named neither.
-     Before, it was always "Hanging man".
+  bars; three inside confirms beyond the first bar's open. Cody's answers 2026-11-05: the three line
+  strike stays a continuation, alerts keep the stricter rules, and a hammer with no trend before it stays
+  unnamed.
 - [ ] **Built timeframes (2026-11-04, built, NOT tried; see CHANGES).** Cody to open the 8h Bitstamp tab
   (no "does not offer" should be said) and type 7 hr, Load. Open, mine: 7h buckets are counted from 1970,
   not restarted at midnight (check what TradingView does); a 7h chart from 1h first loads about 142 bars
