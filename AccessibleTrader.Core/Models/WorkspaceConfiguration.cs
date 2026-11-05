@@ -42,6 +42,12 @@ namespace AccessibleTrader.Core.Models
     {
         public string SpecId { get; set; } = "";
         public string? Symbol { get; set; }
+        // The chart it runs on (ActiveStrategy.Chart). All three null in a save from before
+        // 2026-11-05, which restores bound by Symbol alone.
+        public string? ChartProvider { get; set; }
+        public string? ChartSymbol { get; set; }
+        public string? ChartTimeframe { get; set; }
+        public string? ChartMarket { get; set; }
         public string ExecutionMode { get; set; } = "Suggestion";
         public bool IsPaused { get; set; }
     }

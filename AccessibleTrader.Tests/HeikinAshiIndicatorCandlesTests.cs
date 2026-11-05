@@ -406,7 +406,7 @@ public sealed class HeikinAshiIndicatorCandlesTests
     private static void EvaluateBar(StrategyEngine engine, List<Ohlcv> raw, WorkspaceState state)
         => typeof(StrategyEngine)
             .GetMethod("EvaluateBar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-            .Invoke(engine, new object[] { raw[^1], raw, state });
+            .Invoke(engine, new object[] { raw[^1], raw, state, state.Identity });
 
     [Fact]
     public void A_strategy_on_a_Heikin_Ashi_chart_reads_its_indicators_on_the_real_bars()

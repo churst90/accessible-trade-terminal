@@ -77,13 +77,17 @@ namespace AccessibleTrader.Tests
             public readonly ITradingStrategy Strategy = Substitute.For<ITradingStrategy>();
             public readonly StrategyEngine Engine;
             public readonly ChartFeed Feed;
+            public WorkspaceState StoreState = WorkspaceState.Initial with { Identity = Id() };
+            public int StoreReads;
 
             public EngineHarness()
             {
                 (Hub, _, _) = BuildHub();
                 Feed = Hub.SetFocus(Id());
                 var store = Substitute.For<IWorkspaceStore>();
-                store.State.Returns(WorkspaceState.Initial);
+                // The store shows the focused feed's chart, as it does in the app; the engine leaves
+                // a bar whose chart is no longer in the store to that chart (StrategyBinding).
+                store.State.Returns(_ => { Interlocked.Increment(ref StoreReads); return StoreState; });
                 Strategy.Name.Returns("TestStrategy");
                 Engine = new StrategyEngine(EventBus, Substitute.For<IOrderExecutionService>(),
                     Substitute.For<IAppLogger>(), NullLogger<StrategyEngine>.Instance,
@@ -123,6 +127,26 @@ namespace AccessibleTrader.Tests
             await Task.Delay(150);
 
             h.Strategy.DidNotReceive().OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<WorkspaceState>());
+        }
+
+        /// <summary>
+        /// The closed bar is evaluated on the thread pool, where the store is read for the
+        /// indicators and the symbol. A tab switch in between used to pair this feed's bars with
+        /// the next chart's indicators and venue (found 2026-11-05, multi-tab audit).
+        /// </summary>
+        [Fact]
+        public async Task A_bar_that_closes_just_after_a_tab_switch_is_left_to_its_own_chart()
+        {
+            var h = new EngineHarness();
+            h.Feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1) }));
+            h.StoreState = WorkspaceState.Initial with { Identity = Id(provider: "OtherProv") };
+            int before = Volatile.Read(ref h.StoreReads);
+
+            h.Feed.ApplyLiveTick(Bar(2));
+
+            await WaitUntil(() => Volatile.Read(ref h.StoreReads) > before);
+            await Task.Delay(200);   // the evaluation, if any, follows the read at once
+            Assert.DoesNotContain(h.Strategy.ReceivedCalls(), c => c.GetMethodInfo().Name == "OnBar");
         }
 
         [Fact]

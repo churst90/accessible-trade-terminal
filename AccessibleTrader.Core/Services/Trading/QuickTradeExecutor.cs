@@ -47,7 +47,8 @@ namespace AccessibleTrader.Core.Services.Trading
         {
             try
             {
-                string provider = _store.State.Identity.Provider ?? "";
+                // The venue of the chart the trade was ARMED on, not of the tab in front now.
+                string provider = e.Provider ?? _store.State.Identity.Provider ?? "";
                 if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(e.Symbol))
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,

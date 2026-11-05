@@ -2336,6 +2336,13 @@ On brokers with native bracket support (Alpaca) all three legs go as one order; 
 the terminal verifies afterwards that something protective actually reached the exchange, and
 says so loudly if not.
 
+**An armed trade belongs to the chart you armed it on.** Its size, stop and entry all came
+from that chart's bars, so it places only from that tab, and only to that venue. On any other
+tab, `Ctrl+Enter`, `Shift+Enter` and `Ctrl+Alt+Shift+X` say *"This trade was armed on Kraken
+BTCUSDT 1h, not this chart. Go back to that tab to place it, or press Escape to cancel."* The
+same symbol on another timeframe counts as another chart. The trade stays armed for when you go
+back, and `Escape` cancels it from any tab.
+
 **Limits and markets price differently.** `Ctrl+Enter` uses the live price. `Shift+Enter`
 uses the bar under your cursor — and re-derives the size from there, because if you have
 moved a long way since setting the stop, the stop distance has changed and so has the correct
@@ -3041,7 +3048,15 @@ erased whatever the others had done. If you ever found a position you were sure 
 opened simply missing, that is very likely what happened, and it can no longer happen.
 
 Resting orders are watched from **every** chart you have open, not only the tab that placed
-them. A stop you set in one tab still fills while you are working in another.
+them. A stop you set in one tab still fills while you are working in another. They are judged
+only on their **own venue's** candles and on their own tab's bars: a BTCUSDT stop placed on a
+Kraken tab is never filled by a Bitstamp BTCUSDT low, because the two venues print different
+prices.
+
+**One paper position per symbol, on one venue.** The paper account holds one position per
+symbol, and it lives on the venue where you opened it. A new order for that symbol from another
+venue's tab is refused, and you are told why; it is never merged into the first. A close from
+another venue's tab, or from the Positions tab, closes it at its own venue's price.
 
 ### Paper or live — check this first
 
@@ -3164,6 +3179,13 @@ the Positions tab: each Stop loss and Take profit cell is a button that becomes 
 field; type the new level, press Enter, and it is checked against the current price
 before anything is sent. A resting order's own levels have no editor; cancel it on the
 Orders tab and place a new one.
+
+Moving one leg keeps the other. A stop and target placed together cancel each other (when one
+fills, the other goes), and on some venues cancelling the old stop takes the target with it. So
+after each move the terminal checks the other leg. If it went, it is placed again at the same
+price, and if that fails you are told the target is gone. If the new stop is refused, the old
+one is not cancelled, and you hear that it still stands. A moved stop does not set off the
+"may be unprotected" warning.
 
 ### The live order review
 
@@ -3673,6 +3695,13 @@ walk-forward testing. Run it and the results read back as trade count, win rate,
 P&L, max drawdown, Sharpe ratio, and an expandable trade log of each entry, exit, and
 reason. Because the whole feature is experimental, read those numbers as a study of
 the rules, not a promise.
+
+**A running strategy belongs to the chart it was started on**: its venue, symbol and
+timeframe. A strategy started on a Kraken BTCUSDT 1h tab is never run on a Bitstamp BTCUSDT
+tab, or on a 15-minute BTCUSDT tab, and in Auto mode its orders go to Kraken even while another
+tab is in front. On a tab in the background it reads closed bars only, as it does in front, and
+signals at most once per bar. A strategy started on a blank chart runs on whichever tab is in
+front.
 
 ### Background monitoring
 
@@ -4334,10 +4363,30 @@ browser does not reserve them, so they work the same on every platform. Set up t
 charts and indicators you return to every session once, save them, and you are one
 shortcut from that whole layout the next time you sit down.
 
+**What Save keeps.** With more than one tab open, the Save dialog asks *What to save*: **All
+tabs** (the default) or **This tab only**. This tab only keeps the tab in front and the
+strategies running on its chart, which suits a single chart you return to. With one tab open,
+nothing is asked.
+
+**How Load opens it.** The Load dialog lists each workspace with what it holds, for example
+*"Camel, 4 tabs: Bitstamp BTCUSDT 1d, Bitstamp ETHUSDT 1d, Kraken SOLUSDT 1d, and 1 more,
+3 strategies"*. Below the list, *How to open it* offers two choices:
+- **Replace my tabs** (the default) closes your tabs and opens the workspace's tabs in their
+  place. If that would close a chart with a symbol on it, the first Load does not load.
+  Instead it names the charts it would close: *"Replacing closes your 2 tabs: Kraken BTCUSDT
+  1h, Bitstamp ETHUSDT 1d. Anything on them you have not saved as a workspace is lost. Press
+  Load again to replace them, or choose Open as new tabs."* Press Load a second time to go
+  ahead. Moving to another workspace in the list, or changing the choice, asks again. A
+  window with only an empty chart is replaced without asking.
+- **Open as new tabs, keeping mine** adds the saved tabs after yours and takes you to the
+  workspace's front tab. Your strategies keep running, and a saved strategy already running
+  on the same chart is not started twice. On a fresh start, the single empty tab is filled
+  in rather than left behind.
+
 A workspace save captures every tab's identity (market, provider, symbol,
 timeframe), the indicator stacks with their settings and audio patches, your
 drawings, display toggles like Heikin-Ashi and log scale, pane heights, and the
-strategies that were RUNNING — each remembered with its symbol binding, its
+strategies that were RUNNING — each remembered with its chart (venue, symbol and timeframe), its
 Suggestion/Auto mode, and whether it was paused, so loading the workspace brings
 them back exactly as they were. Alerts are not part of a workspace; they persist
 on their own the moment you create them. Bar data is refetched fresh on load.

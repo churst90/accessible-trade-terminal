@@ -59,6 +59,34 @@ namespace AccessibleTrader.Core.Services
         static string StreamOf(ChartIdentity id) => $"{id.Provider}|{id.Timeframe}";
     }
 
+    /// <summary>
+    /// The venue a paper order was sent for. Paper mode routes every order to the one simulated
+    /// broker, which used to learn the venue only from the chart in front: with a Kraken BTCUSDT
+    /// position open and a Bitstamp BTCUSDT tab in front, a Bitstamp order merged into the Kraken
+    /// position and Bitstamp's bars filled its stop (found 2026-11-05, multi-tab audit).
+    /// GeneralOrderService sets this around the call; an AsyncLocal, so two orders in flight at
+    /// once each see their own.
+    /// </summary>
+    public static class PaperOrderVenue
+    {
+        private static readonly AsyncLocal<string?> _current = new();
+
+        /// <summary>The venue of the order being placed, or null when nothing named one.</summary>
+        public static string? Current => _current.Value;
+
+        public static IDisposable For(string? venue)
+        {
+            var previous = _current.Value;
+            _current.Value = venue;
+            return new Restore(previous);
+        }
+
+        private sealed class Restore(string? previous) : IDisposable
+        {
+            public void Dispose() => _current.Value = previous;
+        }
+    }
+
     public sealed class PaperTradingProvider : IPaperTradingProvider, IDisposable
     {
         private const string Quote = "USDT";
@@ -411,6 +439,12 @@ namespace AccessibleTrader.Core.Services
             string raw = (signal.Symbol ?? "").ToUpperInvariant();
             if (signal.Quantity <= 0) return "ORDER_FAILED:quantity must be positive";
 
+            // Read before the first await. "Paper" is the dashboard naming this broker, not a chart.
+            string? venue = PaperOrderVenue.Current;
+            if (string.IsNullOrWhiteSpace(venue) || string.Equals(venue, GeneralOrderService.PaperProviderName,
+                    StringComparison.OrdinalIgnoreCase))
+                venue = null;
+
             // Resolved BEFORE the lock, because both need the network and no lock may be held
             // across an await.
             //
@@ -422,11 +456,22 @@ namespace AccessibleTrader.Core.Services
             //     live price for symbol" and there was no way to act on it from that screen.
             string symbol = await ResolveLedgerKeyAsync(raw).ConfigureAwait(false);
 
+            // A close (or a stop or target on the position) sent from another venue's chart acts
+            // where the position is, priced from there: refusing it would leave the user unable to
+            // protect or leave a trade from the tab they are on.
+            if (venue != null && signal.ReduceOnly)
+                lock (_lock)
+                    if (HomeVenueOf(symbol) is string at && !string.Equals(at, venue, StringComparison.OrdinalIgnoreCase))
+                        venue = at;
+
             double marketPrice = 0;
             if (signal.Type == OrderType.Market)
             {
-                lock (_lock) marketPrice = PriceFor(symbol, 0);
-                if (marketPrice <= 0) marketPrice = await ResolvePriceAsync(symbol, raw).ConfigureAwait(false);
+                // The order's own venue's chart first, even when another tab is in front.
+                var own = ChartOn(venue, raw);
+                if (own.Data is { Count: > 0 } d) marketPrice = d[d.Count - 1].Close;
+                if (marketPrice <= 0) lock (_lock) marketPrice = PriceFor(symbol, 0, venue);
+                if (marketPrice <= 0) marketPrice = await ResolvePriceAsync(symbol, raw, venue).ConfigureAwait(false);
             }
 
             lock (_lock)
@@ -439,6 +484,16 @@ namespace AccessibleTrader.Core.Services
                 if (!string.Equals(symbol, raw, StringComparison.OrdinalIgnoreCase))
                     _ledgerAlias[raw] = symbol;
 
+                // One paper position per symbol, on one venue. The ledger is keyed by symbol, so an
+                // order for this symbol from another venue's chart would merge into the position
+                // and price it with that venue's bars. Refused, and said, rather than merged.
+                string? home = HomeVenueOf(symbol);
+                if (venue != null && home != null
+                    && !string.Equals(home, venue, StringComparison.OrdinalIgnoreCase))
+                    return $"ORDER_FAILED:your paper {raw} trade is on {home}, and paper trading keeps one "
+                         + $"position per symbol, so this {venue} order was not placed. Trade it from the {home} "
+                         + "chart, or close it first";
+
                 if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
                 // Remember which chart this symbol trades on, so the monitoring service — and
@@ -446,11 +501,18 @@ namespace AccessibleTrader.Core.Services
                 // canonically: the live identity may spell the same market differently from the
                 // signal, and an identity filed under a spelling nothing looks up is an identity
                 // that will not be there when a close needs it.
-                var live = _store?.State.Identity ?? default;
-                if (!string.IsNullOrEmpty(live.Provider)
-                    && string.Equals(LocalCanonical(live.Symbol ?? ""), LocalCanonical(raw),
-                                     StringComparison.OrdinalIgnoreCase))
-                    _exposureIdentity[symbol] = live;
+                // The order's venue's chart, not simply the one in front: an order a strategy sent
+                // for its Kraken chart while a Bitstamp tab was in front was filed under Bitstamp.
+                // With no open tab on that venue (a strategy whose tab was closed), the venue is
+                // still recorded, on the front chart's market and timeframe: like every recorded
+                // identity it is tried, not trusted, when it is used to fetch a price.
+                var traded = ChartOn(venue, raw).Id;
+                if (string.IsNullOrEmpty(traded.Provider) && venue != null)
+                    traded = (_store?.State.Identity ?? default) with { Provider = venue, Symbol = raw };
+                // An order naming no venue (the Positions screen) does not move an open trade's venue.
+                if (!string.IsNullOrEmpty(traded.Provider)
+                    && (home == null || string.Equals(home, traded.Provider, StringComparison.OrdinalIgnoreCase)))
+                    _exposureIdentity[symbol] = traded;
 
                 if (signal.Type == OrderType.Market)
                 {
@@ -859,6 +921,14 @@ namespace AccessibleTrader.Core.Services
                 // on the ledger key; both spellings get the price, because callers ask
                 // for whichever one they hold.
                 string key = LedgerKeyFor(sym);
+
+                // A position traded on one venue is priced and filled by that venue's bars only.
+                // Two tabs on BTCUSDT at Kraken and Bitstamp print different prices; the other
+                // venue's low fired a stop that Kraken never reached.
+                string barVenue = stream.Split('|')[0];
+                if (barVenue.Length > 0 && HomeVenueOf(key) is string home
+                    && !string.Equals(home, barVenue, StringComparison.OrdinalIgnoreCase))
+                    return;
 
                 // Remember the price even when nothing fills: it is what makes
                 // unrealized P&L live for a position whose chart is not on screen.
@@ -1629,7 +1699,7 @@ namespace AccessibleTrader.Core.Services
         /// the next attempt.
         /// </para>
         /// </summary>
-        private async Task<double> ResolvePriceAsync(string symbol, string rawSymbol)
+        private async Task<double> ResolvePriceAsync(string symbol, string rawSymbol, string? venue = null)
         {
             if (_data == null) return 0;
 
@@ -1641,6 +1711,9 @@ namespace AccessibleTrader.Core.Services
                         attempts.Add((kv.Value, true));
             }
             var live = _store?.State.Identity ?? default;
+            // An order named for another venue is priced from that venue, not the chart in front.
+            if (venue != null && !string.Equals(venue, live.Provider, StringComparison.OrdinalIgnoreCase))
+                live = live with { Provider = venue, Symbol = rawSymbol };
             if (!string.IsNullOrEmpty(live.Provider)) attempts.Add((live, false));
 
             foreach (var (id, fromRecord) in attempts)
@@ -1853,16 +1926,53 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The chart an order for <paramref name="raw"/> on <paramref name="venue"/> belongs to: the
+        /// one in front when it is that venue's chart of the symbol, otherwise an open tab's.
+        /// With no venue named, only the chart in front (the old behaviour). Default when no
+        /// open tab shows it.
+        /// </summary>
+        private (ChartIdentity Id, TimeSeriesBuffer<Ohlcv>? Data) ChartOn(string? venue, string raw)
+        {
+            var st = _store?.State;
+            if (st == null) return default;
+            string local = LocalCanonical(raw);
+            bool Fits(ChartIdentity id) => !string.IsNullOrEmpty(id.Provider)
+                && (venue == null || string.Equals(venue, id.Provider, StringComparison.OrdinalIgnoreCase))
+                && string.Equals(LocalCanonical(id.Symbol ?? ""), local, StringComparison.OrdinalIgnoreCase);
+            if (Fits(st.Identity)) return (st.Identity, st.Data);
+            if (venue == null) return default;
+            foreach (var tab in st.TabSnapshots ?? Enumerable.Empty<TabSnapshot>())
+                if (Fits(tab.Identity)) return (tab.Identity, tab.Data);
+            return default;
+        }
+
+        /// <summary>
+        /// The venue a symbol's open paper trade (a position or a resting order) was placed on, or
+        /// null when it has none or the venue was never recorded. Caller holds <c>_lock</c>.
+        /// </summary>
+        private string? HomeVenueOf(string key)
+        {
+            bool exposed = (_positions.TryGetValue(key, out var p) && Math.Abs(p.Qty) > 1e-12)
+                || _open.Any(o => string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase));
+            return exposed && _exposureIdentity.TryGetValue(key, out var id) && !string.IsNullOrEmpty(id.Provider)
+                ? id.Provider : null;
+        }
+
+        /// <summary>
         /// The most recent price known for a symbol: the focused chart's live bar
         /// when it is that symbol, otherwise the last bar any background monitor
         /// reported for it. The fallback is only reached for a symbol nothing has
         /// ever priced.
         /// </summary>
-        private double PriceFor(string symbol, double fallback)
+        /// <param name="venue">The venue being priced for; when null, the venue the symbol's open
+        /// trade is on. The chart in front is used only when it is that venue's.</param>
+        private double PriceFor(string symbol, double fallback, string? venue = null)
         {
             var st = _store?.State;
             if (st != null && st.Data != null && st.Data.Count > 0 &&
-                string.Equals(st.Identity.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                string.Equals(st.Identity.Symbol, symbol, StringComparison.OrdinalIgnoreCase)
+                && ((venue ?? HomeVenueOf(symbol)) is not string home
+                    || string.Equals(home, st.Identity.Provider, StringComparison.OrdinalIgnoreCase)))
                 return st.Data[st.Data.Count - 1].Close;
             return _lastPrice.TryGetValue(symbol.ToUpperInvariant(), out double p) && p > 0 ? p : fallback;
         }

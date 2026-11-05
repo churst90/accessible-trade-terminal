@@ -167,6 +167,54 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// The workspace with only the tab in front, for Save's "This tab only" (Cody,
+        /// 2026-11-05: "does this save the currently focused chart, or all workspaces (tabs) at
+        /// once?" — it saved all of them, with no way to save one). The strategies kept are the
+        /// ones that run on that chart, plus any saved with no chart (started on a blank chart, or
+        /// saved before strategies kept their chart), which belong to no tab in particular.
+        /// </summary>
+        public static WorkspaceConfiguration OnlyActiveTab(WorkspaceConfiguration full)
+        {
+            if (!full.IsMultiTab) return full;
+            var tab = full.Tabs[Math.Clamp(full.ActiveTabIndex, 0, full.Tabs.Count - 1)];
+            var chart = new ChartIdentity(tab.Market, tab.Provider, tab.Symbol, tab.Timeframe);
+            return new WorkspaceConfiguration
+            {
+                Mode = full.Mode,
+                SelectedMarketType = full.SelectedMarketType,
+                ActiveTabIndex = 0,
+                Tabs = new List<TabConfiguration> { tab },
+                ActiveStrategies = (full.ActiveStrategies ?? new()).Where(s =>
+                    string.IsNullOrEmpty(s.ChartProvider)
+                    || Strategies.StrategyBinding.SameChart(
+                        new ChartIdentity(s.ChartMarket ?? "", s.ChartProvider, s.ChartSymbol ?? "", s.ChartTimeframe ?? ""),
+                        chart)).ToList(),
+            };
+        }
+
+        /// <summary>A chart as the workspace dialogs say it: "Kraken BTCUSDT 1h".</summary>
+        public static string ChartName(string? provider, string? symbol, string? timeframe) =>
+            string.IsNullOrWhiteSpace(symbol)
+                ? "an empty chart"
+                : string.Join(" ", new[] { provider, symbol, timeframe }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+        /// <summary>
+        /// What a saved workspace holds, for the Load list: "3 tabs: Kraken BTCUSDT 1h, Bitstamp
+        /// BTCUSDT 1d, Yahoo DIA 1d, 1 strategy". The first four charts are named; more are counted.
+        /// </summary>
+        public static string Describe(WorkspaceConfiguration? config)
+        {
+            if (config == null) return "could not be read";
+            var charts = config.IsMultiTab
+                ? config.Tabs.Select(t => ChartName(t.Provider, t.Symbol, t.Timeframe)).ToList()
+                : new List<string> { ChartName(config.Provider, config.Symbol, config.Timeframe) };
+            string tabs = charts.Count == 1 ? "1 tab" : $"{charts.Count} tabs";
+            string named = string.Join(", ", charts.Take(4)) + (charts.Count > 4 ? $", and {charts.Count - 4} more" : "");
+            int n = config.ActiveStrategies?.Count ?? 0;
+            return $"{tabs}: {named}" + (n == 0 ? "" : n == 1 ? ", 1 strategy" : $", {n} strategies");
+        }
+
         public void SaveWorkspaceProfile(string name, IWorkspaceStore store) =>
             SaveProfile(name, CaptureWorkspace(store));
 
@@ -192,6 +240,10 @@ namespace AccessibleTrader.Core.Services
                     {
                         SpecId = a.SpecId!,
                         Symbol = a.Symbol,
+                        ChartProvider = a.Chart?.Provider,
+                        ChartSymbol = a.Chart?.Symbol,
+                        ChartTimeframe = a.Chart?.Timeframe,
+                        ChartMarket = a.Chart?.Market,
                         ExecutionMode = a.ExecutionMode.ToString(),
                         IsPaused = a.IsPaused,
                     })

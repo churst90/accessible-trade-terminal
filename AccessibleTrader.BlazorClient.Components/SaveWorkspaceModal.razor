@@ -23,6 +23,26 @@
                        style="flex: 1;" />
             </div>
 
+            @if (_tabCount > 1)
+            {
+                @* Cody, 2026-11-05: "does this save the currently focused chart, or all workspaces
+                   (tabs) at once?" All of them, and nothing said so. The choice is here, in the
+                   dialog, so the shortcut still opens straight onto the name. *@
+                <fieldset style="margin-top: 12px; border: none; padding: 0;">
+                    <legend>What to save</legend>
+                    <label style="display: block;">
+                        <input id="save-scope-all" type="radio" name="save-scope"
+                               checked="@(!_thisTabOnly)" @onchange="() => _thisTabOnly = false" />
+                        All @_tabCount tabs
+                    </label>
+                    <label style="display: block;">
+                        <input id="save-scope-this" type="radio" name="save-scope"
+                               checked="@_thisTabOnly" @onchange="() => _thisTabOnly = true" />
+                        This tab only (@_frontChart)
+                    </label>
+                </fieldset>
+            }
+
             @if (_existingProfiles.Count > 0)
             {
                 <div style="margin-top: 12px;">
@@ -66,6 +86,9 @@
         string.IsNullOrWhiteSpace(_workspaceName) ? "Enter a name for this workspace first." : null;
 
     private string _workspaceName = "";
+    private int _tabCount;
+    private bool _thisTabOnly;
+    private string _frontChart = "";
     private List<string> _existingProfiles = new();
     private string? _statusMessage;
     private bool _isError;
@@ -82,6 +105,10 @@
         _statusMessage = null;
         _isError = false;
         _existingProfiles = Library.GetAvailableProfiles();
+        var st = Store.State;
+        _tabCount = st.TabCount;
+        _thisTabOnly = false;
+        _frontChart = WorkspaceLibraryService.ChartName(st.Identity.Provider, st.Identity.Symbol, st.Identity.Timeframe);
         await ShowModalAsync("save-workspace-title");
     }
 
@@ -136,10 +163,20 @@
 
         try
         {
-            Library.SaveWorkspaceProfile(safeName, Store);
-            _statusMessage = $"Workspace '{safeName}' saved.";
+            string scope;
+            if (_thisTabOnly && _tabCount > 1)
+            {
+                Library.SaveProfile(safeName, WorkspaceLibraryService.OnlyActiveTab(Library.CaptureWorkspace(Store)));
+                scope = $", this tab only: {_frontChart}";
+            }
+            else
+            {
+                Library.SaveWorkspaceProfile(safeName, Store);
+                scope = _tabCount > 1 ? $", all {_tabCount} tabs" : "";
+            }
+            _statusMessage = $"Workspace '{safeName}' saved{scope}.";
             _isError = false;
-            EventBus.Publish(new AnnouncementEvent($"Workspace saved: {safeName}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            EventBus.Publish(new AnnouncementEvent($"Workspace saved: {safeName}{scope}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             // Auto-close after a brief moment so the user hears the announcement.
             Close();
         }

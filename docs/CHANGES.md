@@ -4,6 +4,112 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Save and Load workspace: choose the tabs, choose how to open (2026-11-05, Cody's request; NOT tried by Cody)
+
+Cody asked whether Save keeps the focused chart or every tab, and whether Load should offer to open in new
+tabs or replace what is there. He then said: "yes build 1-3".
+- **Save** now asks "What to save" when more than one tab is open. "All N tabs" is the default and saves
+  what it always saved. "This tab only" saves the tab in front and the strategies bound to its chart. The
+  confirmation says which ("Workspace saved: Camel, all 4 tabs" or "..., this tab only: Kraken BTCUSDT
+  1h"). With one tab, nothing is asked.
+- **Load** asks "How to open it":
+  - "Replace my tabs" is the default and does what Load always did.
+  - "Open as new tabs, keeping mine" adds the saved tabs after the open ones and goes to the saved
+    workspace's front tab. A fresh start's single empty tab is filled in, not kept. Running strategies keep
+    running. A saved strategy that is already running on the same chart is not started a second time.
+- **The Replace warning.** If Replace would close a chart with a symbol on it, the first Load does not
+  load. It says, on the status line and through the Interface channel, "Replacing closes your 3 tabs:
+  Kraken BTCUSDT 1h, Bitstamp ETHUSDT 1d, Kraken SOLUSDT 4h. Anything on them you have not saved as a
+  workspace is lost. Press Load again to replace them, or choose Open as new tabs." A second Load on the
+  same workspace replaces them. Moving to another workspace, or changing the choice, asks again. A
+  window with only an empty chart is replaced without asking.
+- **The Load list describes each workspace**, for example "Camel, 4 tabs: Bitstamp BTCUSDT 1d, ...,
+  3 strategies". It names the first 4 charts, then "and N more". A file that cannot be read says so.
+- Design: workspaces and sessions are one thing. A one-tab workspace is just a workspace with one tab, so
+  Save and Load need no second kind. "Indicator template" (TradingView's term: one chart's indicators and
+  panes put on the chart in front, keeping its symbol and timeframe) is in TODO.
+- 12 tests in `WorkspaceSaveLoadChoiceTests` drive the real dialogs against a real `WorkspaceStore`. 14
+  sabotages all went red. "Selecting another workspace keeps the confirmation" was green at first: the
+  test had chosen a different workspace, which is warned about anyway. It was rewritten to move away and
+  back.
+- The accessibility-lead review agent is still not registered, so the dialogs were checked by hand. Each
+  choice is a fieldset with a legend and labelled radios, and the warning goes to role=status and is
+  announced. Not checked with a screen reader.
+
+### Trading with several tabs and venues: six defects fixed, and the stop-edit error (2026-11-05, Cody's report; NOT tried by Cody)
+
+Cody: "when I edited my stop loss in an open paper trade ... it worked changing it but I heard the error
+sound and an error displayed at the bottom", and "I might have a tab with a trade on kraken, another tab
+with a trade on hyper liquid ... I really want to make sure that these type of bugs don't happen". That
+led to an audit of every route that reads "the chart" when it places or watches an order. Each defect
+below was first shown by a failing test.
+
+- **The stop-edit error was a false alarm, on every venue.** Editing a stop places a new reduce-only stop
+  and then cancels the old one. `NormaliseTrigger` copies a stop's trigger price into `StopLoss`, so the
+  new stop looked like an entry order carrying a bracket. Two seconds later the bracket check found no
+  protective order on the opposite side and raised "no stop loss or take profit found ... may be
+  unprotected" at High severity, with the error sound. The position was protected all along. A
+  reduce-only order, or a stop that only carries its own trigger, no longer counts as carrying a bracket
+  (`GeneralOrderService.CarriesBracket`). An entry whose bracket really never arrived still raises the
+  alarm (tested).
+- **Editing the stop silently cancelled the take profit.** Legs placed together cancel each other (OCO),
+  and the link cannot tell "the stop filled" from "the user moved the stop". The edit is now done by
+  `ProtectiveOrderEditor`, shared by the stop and target edits. It checks the other leg after the cancel,
+  and if it went too, puts it back at the same price with its own client id. If that fails it says the
+  target is gone. A refused replacement cancels nothing and says the old stop still stands. An old stop
+  that will not cancel is reported as two stops resting. A target on the same symbol that was not linked
+  is left alone. 13 tests in `ProtectiveEditTests` cover the real `GeneralOrderService` over the real
+  paper broker.
+- **Quick trade went to whichever tab was in front.** The armed trade held a percentage, a stop and an
+  entry, but not which chart they came from. Arm on Kraken BTC, set the stop, switch to a Bitstamp ETH
+  tab, press Ctrl+Enter, and a market order for ETH on Bitstamp went out with BTC's size and stop. The
+  armed trade now remembers its chart (venue, symbol, timeframe). On any other tab, Place and Set stop
+  say "This trade was armed on Kraken BTCUSDT 1h, not this chart. Go back to that tab to place it, or
+  press Escape to cancel." The trade stays armed for when you go back. Escape cancels from any tab. The
+  executor sends the order to the armed venue, and a balance that arrives after a tab switch does not
+  arm the new tab. 7 tests in `QuickTradeOtherTabTests`.
+- **Strategies were bound by display symbol alone.** With Kraken BTC/USDT 1h and Bitstamp BTC/USDT 15m
+  open, a strategy started on the Kraken tab ran on the Bitstamp 15m bars whenever that tab was in front.
+  In Auto mode its order went to the venue of the tab in front. With both tabs in the background, both
+  monitors ran it. A strategy is now bound to the chart it was started on: venue, symbol and timeframe,
+  ignoring market and case (`StrategyBinding`). The workspace saves that chart and a loaded workspace
+  puts it back. A workspace saved before this binds by symbol, as before. A strategy started on a blank
+  chart belongs to the tab in front, as before.
+- **Background tabs traded the forming bar.** A background tab walked the managed stop and targets, and
+  asked the strategy for a signal, on the still-forming newest bar. Its low reaches back to the bar's
+  open, so on a 4h chart a low from hours before the entry could fire the stop: the d7a7ce7c bug again.
+  Background tabs now use the last closed bar, as the tab in front always has. Their 30-second signal
+  throttle is now one signal per closed bar. A bar that closes just after a tab switch goes to its own
+  chart. ~10 tests in `StrategyChartBindingTests`.
+- **The paper broker did not know which venue an order was for.** With BTCUSDT bought on a Kraken tab and
+  a Bitstamp BTCUSDT tab open, Bitstamp's bars could fill the Kraken position's stop, and a Bitstamp buy
+  merged into the Kraken position. Each paper order now carries its venue (`PaperOrderVenue`, set by the
+  order service), and the position records where it was opened.
+  - Only that venue's bars move its stops and targets.
+  - It is priced from that venue's tab (or that venue's last price when no tab is open).
+  - A new order for the symbol from another venue's tab is refused, with a reason, not merged.
+  - A close from another venue's tab, or from the Positions screen, closes it at its own venue's price.
+  - Paper mode keeps one position per symbol. Separate accounts per venue is a question for Cody in
+    TODO. 9 tests in `PaperVenueTests` plus one in `GeneralOrderServiceTests`.
+- **Built but NOT shown by a test (unverified):** the Positions tab's current price now comes from the
+  position's own venue (`CurrentPriceFor`). A second Enter while a stop or target edit is in flight is
+  ignored (`_committingProtective`). Both are in the dashboard razor, which no test drives this way.
+- **Sabotages:** 54 in all.
+  - 52 went red.
+  - 6 went red only after a test was added: "other leg checked by type not id", "venue ignored", "feed
+    guard", and 3 of the paper ones.
+  - 1 broke the build and was redone red.
+  - 2 are equivalent mutants and can never go red. "Quick trade event symbol from the front tab" is one:
+    Place has already checked the front tab is the armed chart. "Strategy auto venue from the evaluated
+    state" is the other: `Matches` has already checked the evaluated chart is the bound chart.
+  - The moved reduce-only guard (`DashboardCapabilityGatingTests.TheProtectiveOrderIsReduceOnly`, now
+    read from `ProtectiveOrderEditor.SignalFor`) went red with 4 other tests when `ReduceOnly` was turned
+    off.
+- **Open gaps (in TODO):**
+  - Before any paper position or order exists for a symbol, its last price is shared by all venues.
+  - A recorded venue that returns no price turns the venue guard off for that symbol.
+  - The venue guard is for paper mode only. A live venue keeps its own positions on its own servers.
+
 ### Candle patterns follow the textbook rules and say which way they lean (2026-11-04, Cody's request; NOT heard by Cody)
 
 Cody, answering the four audit questions below: "go ahead and address the candle pattern problem and

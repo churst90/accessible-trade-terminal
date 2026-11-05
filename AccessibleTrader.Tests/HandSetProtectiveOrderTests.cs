@@ -78,18 +78,12 @@ namespace AccessibleTrader.Tests
             };
 
         /// <summary>
-        /// Exactly the signal <c>TradingDashboardModal.CommitProtectiveAsync</c> builds for a
-        /// hand-typed stop on a long. Kept here in one place so a change to the editor that
-        /// dropped the flag again would have to change this line too.
+        /// The signal the Positions tab's editor sends for a hand-typed stop on a long: it is
+        /// <c>ProtectiveOrderEditor.SignalFor</c> itself, so dropping the flag there turns these red.
         /// </summary>
-        private static TradeSignal HandSetStopOnLong(double trigger, double quantity) => new(
-            Symbol: Btc,
-            Side: OrderSide.Sell,
-            Quantity: quantity,
-            Type: OrderType.StopMarket,
-            Price: null,
-            TriggerPrice: trigger,
-            ReduceOnly: true);
+        private static TradeSignal HandSetStopOnLong(double trigger, double quantity) =>
+            AccessibleTrader.Core.Services.Trading.ProtectiveOrderEditor.SignalFor(
+                Btc, isLong: true, quantity, AccessibleTrader.Core.Services.Trading.ProtectiveLevel.StopLoss, trigger);
 
         // ── The reversal ─────────────────────────────────────────────────────
 

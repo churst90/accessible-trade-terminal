@@ -8,6 +8,21 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Moving a stop or target no longer sounds an alarm, and no longer removes the other one.** Editing
+  a stop on the Positions tab used to play the error sound and show "may be unprotected" two seconds
+  later. It was a false alarm, and the position was protected. The edit could also cancel the take
+  profit placed with it. Now the other leg is checked after each edit and put back if it went. If it
+  cannot be put back, you are told.
+- **Each tab trades on its own chart.** A quick trade armed on one tab places only from that tab. On
+  another tab it says where it was armed, and Escape still cancels it. A strategy runs only on the venue,
+  symbol and timeframe it was started on, and orders there even when another tab is in front.
+  Background tabs act on closed bars, as the tab in front does, and signal once per bar. In paper mode, a
+  position is moved only by its own venue's prices. An order for the same symbol from another venue's tab
+  is refused, and a close from anywhere closes it at its own venue's price.
+- **Save and Load workspace ask what you want.** With several tabs open, Save offers "All tabs" (the
+  default) or "This tab only". Load offers "Replace my tabs" or "Open as new tabs, keeping mine". If
+  Replace would close open charts, the first Load names them and the second Load replaces them. The
+  Load list now says what each workspace holds: its tabs and how many strategies.
 - **Candle patterns say which way they lean, and follow the textbook rules.** Each pattern is now said
   with its lean: "Tweezer top, bearish reversal", "Rising three methods, bullish continuation". This
   happens on the arrow keys, Alt+Shift+D, the bar close and the forming bar. A doji has no lean and says

@@ -26,13 +26,18 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class DashboardCapabilityGatingTests
     {
-        private static string Dashboard()
+        private static string RepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
                 dir = dir.Parent;
             Assert.NotNull(dir);
-            string path = Path.Combine(dir!.FullName, "AccessibleTrader.BlazorClient.Components",
+            return dir!.FullName;
+        }
+
+        private static string Dashboard()
+        {
+            string path = Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components",
                                        "TradingDashboardModal.razor");
             Assert.True(File.Exists(path), $"Trading dashboard not found at {path}");
             return File.ReadAllText(path);
@@ -129,10 +134,17 @@ namespace AccessibleTrader.Tests
         /// let it be deleted silently.
         /// </para>
         /// </summary>
+        /// <para>
+        /// Since 2026-11-05 the dashboard's stop and target edits build the order in
+        /// <c>ProtectiveOrderEditor.SignalFor</c>, so that is where the marker and the flag are
+        /// read, and the dashboard is pinned to go through it.
+        /// </para>
         [Fact]
         public void TheProtectiveOrderIsReduceOnly()
         {
-            var line = Dashboard().Split('\n')
+            Assert.Contains("ProtectiveOrderEditor.ReplaceAsync(", Dashboard(), StringComparison.Ordinal);
+            var line = File.ReadAllText(Path.Combine(RepoRoot(), "AccessibleTrader.Core", "Services", "Trading",
+                    "ProtectiveOrderEditor.cs")).Split('\n')
                 .FirstOrDefault(l => l.Contains("protective:", StringComparison.Ordinal));
 
             Assert.True(line != null,

@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Plugins;
@@ -55,7 +56,7 @@ namespace AccessibleTrader.Tests
 
             public string AddStrategy(ITradingStrategy strategy, IDictionary<string, object>? parameters = null,
                 StrategyExecutionMode mode = StrategyExecutionMode.Suggestion,
-                string? specId = null, string? bindSymbol = null)
+                string? specId = null, string? bindSymbol = null, ChartIdentity? bindChart = null)
             {
                 string id = Guid.NewGuid().ToString("N");
                 _active.Add(new ActiveStrategy(id, strategy, parameters ?? new Dictionary<string, object>(),

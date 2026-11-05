@@ -115,7 +115,7 @@ namespace AccessibleTrader.Core.Services
 
             lock (_evalGate)
             {
-                EvaluateBar(state.Data[idx], state.Data, state);
+                EvaluateBar(state.Data[idx], state.Data, state, state.Identity);
             }
         }
 
@@ -157,10 +157,17 @@ namespace AccessibleTrader.Core.Services
             {
                 lock (_evalGate)
                 {
+                    // The bars are this feed's; the indicators and the symbol come from the store,
+                    // read now on the thread pool. A tab switch in between pairs one chart's bars
+                    // with another chart's indicators, so that bar is left to the chart it came from.
+                    var state = _store.State;
+                    if (!Strategies.StrategyBinding.SameChart(state.Identity, feed.Identity))
+                        return System.Threading.Tasks.Task.CompletedTask;
+
                     var closedBar = bars[bars.Count - 2];
                     var history = new PrefixView(bars, bars.Count - 1);
                     _indicatorCache.BeginSeries(feed.Identity, history.Count);
-                    EvaluateBar(closedBar, history, _store.State);
+                    EvaluateBar(closedBar, history, state, feed.Identity);
                 }
                 return System.Threading.Tasks.Task.CompletedTask;
             }, _msLogger, "LiveBarCloseEvaluation");
@@ -184,18 +191,20 @@ namespace AccessibleTrader.Core.Services
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
-        private void EvaluateBar(Sdk.Models.Ohlcv newBar, IReadOnlyList<Sdk.Models.Ohlcv> history, WorkspaceState state)
+        /// <param name="chart">The chart <paramref name="newBar"/> came from.</param>
+        private void EvaluateBar(Sdk.Models.Ohlcv newBar, IReadOnlyList<Sdk.Models.Ohlcv> history,
+                                 WorkspaceState state, Sdk.Models.ChartIdentity chart)
         {
             WorkspaceState? strategyState = null;
             foreach (var active in _activeStrategies)
             {
                 if (active.IsPaused) continue;
 
-                // Symbol-bound instances only evaluate while their chart is focused —
-                // evaluating a KAS strategy against BTC bars was the cross-contamination
-                // this closes. Background monitors evaluate the non-focused ones.
-                if (!string.IsNullOrEmpty(active.Symbol)
-                    && !string.Equals(active.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                // Bound instances only evaluate while their chart is focused — evaluating a KAS
+                // strategy against BTC bars was the cross-contamination this closes, and a Kraken
+                // BTC 1h strategy against Bitstamp BTC 15m bars is the same thing (StrategyBinding).
+                // Background monitors evaluate the non-focused ones.
+                if (!Strategies.StrategyBinding.Matches(active, chart, state.SymbolDisplayName))
                     continue;
 
                 try
@@ -237,8 +246,11 @@ namespace AccessibleTrader.Core.Services
 
                     if (active.ExecutionMode == StrategyExecutionMode.Auto)
                     {
+                        // The state evaluated, not the store's when the hop lands: a tab switch in
+                        // between must not send this chart's signal to the next chart's venue.
+                        var evaluated = state;
                         SafeFireAndForget.Run(
-                            () => ExecuteSignalAsync(active, signal),
+                            () => ExecuteSignalAsync(active, signal, evaluated),
                             _msLogger,
                             $"ExecuteSignal_{active.Strategy.Name}");
                     }
@@ -259,8 +271,7 @@ namespace AccessibleTrader.Core.Services
         private bool WantsHeikinAshi(WorkspaceState state) =>
             _activeStrategies.Any(a => !a.IsPaused
                 && Strategies.StrategyCandles.WantsHeikinAshi(a.Strategy)
-                && (string.IsNullOrEmpty(a.Symbol)
-                    || string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase)));
+                && Strategies.StrategyBinding.Matches(a, state.Identity, state.SymbolDisplayName));
 
         /// <summary>
         /// The chart as a strategy reads it (<see cref="Strategies.StrategyCandles.For"/>). On a
@@ -309,12 +320,15 @@ namespace AccessibleTrader.Core.Services
                 $"ManagedExits_{active.Strategy.Name}");
         }
 
-        private async Task ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal)
+        private async Task ExecuteSignalAsync(ActiveStrategy active, StrategySignal signal, WorkspaceState state)
         {
             try
             {
-                var state = _store.State;
-                var providerName = state.Identity.Provider;
+                // The venue and symbol of the chart the strategy is bound to. Before 2026-11-05 both
+                // were read from the store here, after a thread-pool hop, so the order went to
+                // whichever tab was in front by then.
+                var chart = active.Chart ?? state.Identity;
+                var providerName = chart.Provider;
                 if (string.IsNullOrEmpty(providerName)) return;
 
                 // ── A signal with no size is not an order ────────────────────────
@@ -341,7 +355,7 @@ namespace AccessibleTrader.Core.Services
                 // strategy already held. On a futures venue that pyramids — two positions, one
                 // stop between them — and on a spot venue a Sell while flat is a naked sell the
                 // exchange refuses. The replay reverses on a counter-signal; so does this now.
-                string symbol = state.Identity.Symbol;
+                string symbol = chart.Symbol;
                 if (_positions != null)
                 {
                     var plan = _positions.PlanEntry(active, signal, qty, providerName, symbol);
@@ -450,7 +464,8 @@ namespace AccessibleTrader.Core.Services
             IDictionary<string, object>? parameters = null,
             StrategyExecutionMode mode = StrategyExecutionMode.Suggestion,
             string? specId = null,
-            string? bindSymbol = null)
+            string? bindSymbol = null,
+            ChartIdentity? bindChart = null)
         {
             var instanceId = Guid.NewGuid().ToString("N");
             var @params = parameters ?? new Dictionary<string, object>();
@@ -466,8 +481,15 @@ namespace AccessibleTrader.Core.Services
             // the legacy always-evaluate behaviour.
             string? boundSymbol = bindSymbol
                 ?? (string.IsNullOrWhiteSpace(state.SymbolDisplayName) ? null : state.SymbolDisplayName);
+            // The whole chart, so a second tab on the same symbol (another venue or timeframe) is
+            // not this strategy's chart (StrategyBinding). A restore of an older save names only a
+            // symbol, and stays bound by it rather than being bound to whatever chart is up.
+            ChartIdentity? boundChart = bindChart
+                ?? (bindSymbol == null && boundSymbol != null && !string.IsNullOrWhiteSpace(state.Identity.Symbol)
+                    ? state.Identity : null);
 
-            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol, specId);
+            var active = new ActiveStrategy(instanceId, strategy, @params, mode, IsPaused: false, boundSymbol, specId,
+                boundChart);
             _activeStrategies = _activeStrategies.Add(active);
 
             // A restart rebuilds every strategy flat. If this spec had a position open when the
@@ -476,7 +498,7 @@ namespace AccessibleTrader.Core.Services
             // the original order's stop the only protection either has.
             _positions?.Adopt(instanceId, specId);
 
-            _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode}, symbol={boundSymbol ?? "any"})", nameof(StrategyEngine));
+            _logger.LogInfo($"Strategy '{strategy.Name}' added (id={instanceId}, mode={mode}, symbol={boundSymbol ?? "any"}, chart={(boundChart is { } c ? $"{c.Provider} {c.Symbol} {c.Timeframe}" : "any")})", nameof(StrategyEngine));
             return instanceId;
         }
 

@@ -63,8 +63,9 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly Dictionary<string, double> _previousValues = new();
         private bool _warmedUp;
 
-        // Local signal dedup, mirroring StrategyEngine's 30-second throttle.
-        private readonly Dictionary<string, DateTime> _lastSignalTimes = new();
+        // Instance id → the Date of the last closed bar it signalled on: one signal per bar, the
+        // rule the focused engine and the replay obey.
+        private readonly Dictionary<string, DateTime> _lastSignalBars = new();
 
         public ChartIdentity Identity => _identity;
         public string SymbolDisplayName => _symbolDisplayName;
@@ -152,7 +153,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             var state = BuildState(bars, _heikinAshi);
             bool heikinAshiWanted = _strategyEngine.ActiveStrategies.Any(a => !a.IsPaused
                 && Strategies.StrategyCandles.WantsHeikinAshi(a.Strategy)
-                && string.Equals(a.Symbol, _symbolDisplayName, StringComparison.OrdinalIgnoreCase));
+                && IsMine(a));
             var strategyState = Strategies.StrategyCandles.For(_indicators, state, bars.ToArray(), heikinAshiWanted,
                 (series, ex) => _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
                     series.Config.IndicatorCode, _symbolDisplayName));
@@ -256,20 +257,39 @@ namespace AccessibleTrader.Core.Services.Workspace
 
         // ── Strategies ───────────────────────────────────────────────────────
 
+        /// <summary>
+        /// A strategy bound to THIS tab's chart. The foreground engine skips these while their chart
+        /// isn't focused (see StrategyEngine.EvaluateBar), so exactly one driver runs at a time. An
+        /// unbound strategy (started on a blank chart) belongs to the foreground.
+        /// </summary>
+        private bool IsMine(ActiveStrategy a) =>
+            Strategies.StrategyBinding.IsBound(a) && Strategies.StrategyBinding.Matches(a, _identity, _symbolDisplayName);
+
+        /// <summary>
+        /// Strategies read CLOSED bars here as they do on the focused chart.
+        ///
+        /// <para>
+        /// ── Why not the newest bar ─────────────────────────────────────────────────────
+        /// The fetch ends with the still-forming bar, and until 2026-11-05 this walked the managed
+        /// stop and targets against it and asked the strategy for a signal on it. Its high and low
+        /// reach back to the bar's open, so on a 4h chart a low printed three hours before the entry
+        /// could fire the stop (the paper broker's d7a7ce7c bug, again); and a signal on a bar that
+        /// is still moving can vanish by its close. The focused engine has never traded a forming
+        /// bar (StrategyEngine.OnDataUpdated), and the position manager's levels are documented as
+        /// judged at bar close.
+        /// </para>
+        /// </summary>
         private void EvaluateStrategies(WorkspaceState state, IReadOnlyList<Ohlcv> bars)
         {
-            var lastBar = bars[^1];
-            IReadOnlyList<Ohlcv> history = bars;
+            int closed = StrategyEngine.IsBarClosed(bars[^1], _identity.Timeframe) ? bars.Count : bars.Count - 1;
+            if (closed < 1) return;
+            var lastBar = bars[closed - 1];
+            IReadOnlyList<Ohlcv> history = closed == bars.Count ? bars : bars.Take(closed).ToArray();
 
             foreach (var active in _strategyEngine.ActiveStrategies)
             {
                 if (active.IsPaused) continue;
-                // Only symbol-bound strategies matching THIS monitor. The foreground
-                // engine skips these while their chart isn't focused (see
-                // StrategyEngine.OnDataUpdated), so exactly one driver runs at a time.
-                if (string.IsNullOrEmpty(active.Symbol)
-                    || !string.Equals(active.Symbol, _symbolDisplayName, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                if (!IsMine(active)) continue;
 
                 try
                 {
@@ -287,10 +307,10 @@ namespace AccessibleTrader.Core.Services.Workspace
                     var signal = active.Strategy.OnBar(lastBar, history, state);
                     if (signal == null) continue;
 
-                    if (_lastSignalTimes.TryGetValue(active.InstanceId, out var last)
-                        && (DateTime.UtcNow - last).TotalSeconds < 30)
+                    // Each poll re-reads the same closed bar until the next one closes.
+                    if (_lastSignalBars.TryGetValue(active.InstanceId, out var last) && last == lastBar.Date)
                         continue;
-                    _lastSignalTimes[active.InstanceId] = DateTime.UtcNow;
+                    _lastSignalBars[active.InstanceId] = lastBar.Date;
 
                     // Background signals are announce-only: even an Auto-mode strategy
                     // never places orders from a background monitor. Auto execution

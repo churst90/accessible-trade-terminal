@@ -147,6 +147,7 @@ namespace AccessibleTrader.Core.Services.Trading
                 // wait on a stop — so the entry is seeded now and the arming line can state the
                 // quantity straight away.
                 EntryPrice = Mode == QuickTradeSizingMode.PositionValue ? LatestClose() : null,
+                Chart = state.Identity,
             };
 
             Say($"Armed {Trim(riskPercent)} percent, {Money(State.RiskCash)} at risk. "
@@ -156,6 +157,7 @@ namespace AccessibleTrader.Core.Services.Trading
         public void SetStopAtCursor()
         {
             if (State.Stage == QuickTradeStage.Idle) { Say("Nothing armed."); return; }
+            if (!OnArmedChart()) return;
 
             var (bar, ok) = CursorBar();
             if (!ok) { Say("No bar under the cursor."); return; }
@@ -230,6 +232,7 @@ namespace AccessibleTrader.Core.Services.Trading
                 Say("No stop set yet. Move to the bar for your stop and press control alt shift X.");
                 return;
             }
+            if (!OnArmedChart()) return;
 
             // The limit price is the bar under the cursor; a market order takes the live price. This
             // is the one place the two paths differ, and re-deriving the size for a limit matters:
@@ -268,14 +271,41 @@ namespace AccessibleTrader.Core.Services.Trading
             Say($"{(market ? "Market" : "Limit")} {(final.IsLong ? "buy" : "sell")} sent.");
 
             _eventBus.Publish(new QuickTradeRequestedEvent(
-                Symbol: _store.State.Identity.Symbol ?? "",
+                Symbol: final.Chart?.Symbol ?? _store.State.Identity.Symbol ?? "",
                 IsLong: final.IsLong,
                 Quantity: final.PositionSize!.Value,
                 EntryPrice: market ? null : entry,
                 StopPrice: final.StopPrice!.Value,
-                RiskCash: final.RiskCash));
+                RiskCash: final.RiskCash,
+                Provider: final.Chart?.Provider));
 
             Disarm(announce: false);
+        }
+
+        /// <summary>
+        /// True when the chart in front is the one the trade was armed on; otherwise says so.
+        ///
+        /// <para>
+        /// ── Why the armed chart is kept ───────────────────────────────────────────────
+        /// The stop, the entry and the size all come from one chart's bars, and they mean nothing
+        /// on another. Before 2026-11-05 nothing recorded which chart that was: Place took the
+        /// symbol, and the executor the venue, from whichever tab was in front, so a trade armed on
+        /// Kraken BTC and placed from a Bitstamp ETH tab went to Bitstamp as ETH with BTC's size and
+        /// stop. The same symbol on another timeframe is refused too: the cursor bar a limit is
+        /// priced at is a different bar there.
+        /// </para>
+        ///
+        /// <para>
+        /// Refused rather than disarmed: going back to the tab finds the trade as it was left, and
+        /// Escape still cancels from anywhere.
+        /// </para>
+        /// </summary>
+        private bool OnArmedChart()
+        {
+            if (State.Chart is not ChartIdentity armed || armed == _store.State.Identity) return true;
+            Say($"This trade was armed on {armed.Provider} {armed.Symbol} {armed.Timeframe}, not this chart. "
+              + "Go back to that tab to place it, or press Escape to cancel.");
+            return false;
         }
 
         public void Disarm(bool announce = true)
@@ -424,6 +454,7 @@ namespace AccessibleTrader.Core.Services.Trading
 
             Say("Fetching your account balance.");
             int generation = System.Threading.Volatile.Read(ref _fetchGeneration);
+            var chart = _store.State.Identity;
 
             _ = Task.Run(async () =>
             {
@@ -440,7 +471,12 @@ namespace AccessibleTrader.Core.Services.Trading
                         // which is now warm.
                         if (State.Stage == QuickTradeStage.Idle
                             && System.Threading.Volatile.Read(ref _fetchGeneration) == generation)
-                            Arm(riskPercent);
+                        {
+                            // Arm() takes the chart in front; the user asked on the one they were on.
+                            if (_store.State.Identity == chart) Arm(riskPercent);
+                            else Say("Your balance is in, but you have moved to another chart, so nothing "
+                                   + "was armed. Press the arm key again on the chart you want to trade.");
+                        }
                     }
                     else
                     {
@@ -479,5 +515,6 @@ namespace AccessibleTrader.Core.Services.Trading
         double Quantity,
         double? EntryPrice,
         double StopPrice,
-        double RiskCash);
+        double RiskCash,
+        string? Provider = null);
 }

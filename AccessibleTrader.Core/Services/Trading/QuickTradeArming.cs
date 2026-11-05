@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Trading
 {
     /// <summary>
@@ -90,7 +91,8 @@ namespace AccessibleTrader.Core.Services.Trading
         double? StopPrice,
         double? EntryPrice,
         bool IsLong,
-        QuickTradeSizingMode SizingMode = QuickTradeSizingMode.PositionValue)
+        QuickTradeSizingMode SizingMode = QuickTradeSizingMode.PositionValue,
+        ChartIdentity? Chart = null)
     {
         public static QuickTradeState Idle { get; } =
             new(QuickTradeStage.Idle, 0, 0, null, null, IsLong: true);

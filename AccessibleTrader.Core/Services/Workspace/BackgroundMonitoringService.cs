@@ -329,7 +329,8 @@ namespace AccessibleTrader.Core.Services.Workspace
                 else sb.Append(", starting");
 
                 int armedStrategies = _strategyEngine.ActiveStrategies.Count(a =>
-                    !a.IsPaused && string.Equals(a.Symbol, m.SymbolDisplayName, StringComparison.OrdinalIgnoreCase));
+                    !a.IsPaused && Strategies.StrategyBinding.IsBound(a)
+                    && Strategies.StrategyBinding.Matches(a, m.Identity, m.SymbolDisplayName));
                 int armedAlerts = _alerts.GetAlerts().Count(a =>
                     a.IsActive && string.Equals(a.Symbol, m.SymbolDisplayName, StringComparison.OrdinalIgnoreCase));
 

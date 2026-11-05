@@ -111,7 +111,7 @@ namespace AccessibleTrader.Tests
                 typeof(StrategyEngine)
                     .GetMethod("EvaluateBar", System.Reflection.BindingFlags.NonPublic
                                             | System.Reflection.BindingFlags.Instance)!
-                    .Invoke(Engine, new object[] { bar, history, WorkspaceState.Initial });
+                    .Invoke(Engine, new object[] { bar, history, WorkspaceState.Initial, WorkspaceState.Initial.Identity });
             }
         }
 

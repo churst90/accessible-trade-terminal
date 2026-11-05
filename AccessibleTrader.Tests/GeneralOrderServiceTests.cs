@@ -165,6 +165,28 @@ namespace AccessibleTrader.Tests
             await h.LiveTp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
+        /// <summary>
+        /// The paper broker hears which venue's chart a paper order is for (PaperVenueTests has
+        /// why), for the length of the call only.
+        /// </summary>
+        [Fact]
+        public async Task PaperMode_tells_the_paper_broker_the_orders_venue()
+        {
+            var h = Build();
+            h.Settings.GetSetting("trading.paperTradingMode").Returns(JToken.FromObject(true));
+            string? heard = "not called";
+            h.Paper.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ =>
+            {
+                heard = PaperOrderVenue.Current;
+                return Task.FromResult("paper-42");
+            });
+
+            await h.Svc.PlaceOrderAsync("Kraken", SaneSignal);
+
+            Assert.Equal("Kraken", heard);
+            Assert.Null(PaperOrderVenue.Current);
+        }
+
         [Fact]
         public void Paper_fill_publishes_OrderFilledEvent_via_lifetime_subscription()
         {

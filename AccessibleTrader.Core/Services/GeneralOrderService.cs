@@ -502,7 +502,10 @@ namespace AccessibleTrader.Core.Services
             }
             try
             {
-                var result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);
+                // The paper broker is told which venue's chart this order is for (PaperOrderVenue).
+                string result;
+                using (tp is IPaperTradingProvider ? PaperOrderVenue.For(providerName) : null)
+                    result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);
                 var placement = OrderPlacement.Parse(result);
 
                 // "Order placed" used to be spoken HERE — on the line above, before anything had
@@ -537,7 +540,7 @@ namespace AccessibleTrader.Core.Services
                 //    back without one — and that order is exactly the case where nothing else
                 //    will ever notice a missing stop. The old prefix test read ORDER_SUBMITTED as
                 //    a failure and skipped the scan.
-                if ((signal.StopLoss.HasValue || signal.TakeProfit.HasValue) && placement.Succeeded)
+                if (CarriesBracket(signal) && placement.Succeeded)
                 {
                     // Brokers with a single protective slot (Kraken) attach the STOP
                     // when both were requested — say so instead of letting the user
@@ -717,6 +720,37 @@ namespace AccessibleTrader.Core.Services
                     "The position may be unprotected — verify your open orders.",
                     ErrorSeverity.High);
             }
+        }
+
+        /// <summary>
+        /// Whether this order asks the venue to attach protective legs, which is what the
+        /// verification scan above checks were attached.
+        ///
+        /// <para>
+        /// <b>A stop or target is not a bracket.</b> NormaliseTrigger copies a stop's trigger into
+        /// StopLoss (and a target's into TakeProfit) for the venues that read only those fields, so
+        /// "has a StopLoss" stopped meaning "carries a bracket". Every stop or target edit on the
+        /// Positions tab then ran the scan, which counts only OPPOSITE-side protective orders —
+        /// and the new stop is on the same side as itself. Two seconds after each successful edit
+        /// it raised "no stop loss or take profit found ... may be unprotected" at High severity,
+        /// with the error sound (reported 2026-11-05 on a paper position). A false alarm on the
+        /// one warning that must be believed is how it stops being believed.
+        /// </para>
+        ///
+        /// <para>
+        /// A reduce-only order closes, so it has nothing to protect. A stop-type ENTRY carries a
+        /// bracket only through a take profit, or a stop loss different from its own trigger;
+        /// a take-profit type likewise the other way round.
+        /// </para>
+        /// </summary>
+        internal static bool CarriesBracket(TradeSignal s)
+        {
+            if (s.ReduceOnly) return false;
+            if (IsStopType(s.Type))
+                return s.TakeProfit.HasValue || (s.StopLoss.HasValue && s.StopLoss != s.TriggerPrice);
+            if (IsTakeProfitType(s.Type))
+                return s.StopLoss.HasValue || (s.TakeProfit.HasValue && s.TakeProfit != s.TriggerPrice);
+            return s.StopLoss.HasValue || s.TakeProfit.HasValue;
         }
 
         private static bool IsProtectiveType(OrderType t) =>

@@ -30,6 +30,34 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Trading with several tabs and venues, and the stop-edit error (2026-11-05, built, NOT tried; see
+  CHANGES).**
+  - Cody to try, on PAPER:
+    - Open a position with both a stop and a take profit, then move the stop on the Positions tab. It
+      should be silent (no error sound, no "may be unprotected"), and the take profit should still be
+      listed.
+    - Arm a quick trade on one tab, switch tabs and press Ctrl+Enter. It should say where it was armed and
+      place nothing.
+    - With BTCUSDT on Kraken and on Bitstamp in two tabs, buy on one. Then buy from the other: it should
+      be refused.
+  - Question for Cody: **paper accounts per venue?** Paper mode keeps one position per symbol, so you
+    cannot hold paper BTC on Kraken and on Hyperliquid at once (the second is refused). Recommendation:
+    one paper account per venue, keyed by venue and symbol, so a paper session can rehearse exactly what
+    the live accounts would hold. That touches the paper ledger file, the Positions tab and the status
+    bar, so it waits for a yes.
+  - Unverified (built, no test drives it): the Positions tab's current price comes from the position's own
+    venue, and a second Enter while an edit is in flight is ignored.
+  - Open, mine:
+    - Before any paper position or order exists for a symbol, its last price is shared by every venue's
+      bars. A market order is priced from its own venue's tab, so this only matters with no such tab open.
+    - A recorded venue that returns no price at all turns the venue guard off for that symbol.
+- [ ] **Save and Load workspace choices (2026-11-05, built, NOT tried; see CHANGES).** Cody to open two
+  tabs, then Save with "This tab only", and Load it with "Open as new tabs". Then Load something with
+  "Replace my tabs". The first Load should name the tabs it would close and load nothing ("Press Load
+  again to replace them, or choose Open as new tabs"). A second Load replaces them. Moving to another
+  workspace, or changing the choice, asks again. An empty chart is replaced without asking. Each workspace
+  in the list should say its tabs and how many strategies it has. Not checked with a screen reader. The
+  accessibility-lead review agent is not registered, so the dialogs were checked by hand.
 - [ ] **Candle patterns: textbook rules + the lean, and a candle in two says both (2026-11-04, built,
   NOT heard; see CHANGES).** Cody to arrow across 13:00 to 16:00 UTC on 2026-10-15, Bitstamp BTCUSDT 1h.
   15:00 should say "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish harami,
@@ -348,6 +376,14 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   sketch (a yearly low is a weekly cycle low confirmed when the next weekly low is confirmed higher, about 7
   to 9 months on Bitcoin) was worked by hand on one asset only; Cipher C's "yearly lows found from price"
   switch (above) is the built version.
+
+## Asked for, not built yet
+
+- [ ] **Indicator template (Cody, 2026-11-05).** Take one chart's indicators and panes, with their
+  settings, and put them on the chart in front, keeping that chart's symbol and timeframe (TradingView
+  calls this an indicator template). Today the only way is a whole workspace, which replaces the symbol
+  too. Likely shape: "Save indicators as template" and "Apply template" in the Indicators menu, kept
+  next to workspaces in their own folder.
 
 ## From the 2026-09-25 to 2026-10-01 test and mutation passes (status unclear, check)
 

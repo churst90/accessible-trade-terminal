@@ -20,6 +20,22 @@
             }
             else
             {
+                @* Cody, 2026-11-05: "whether to open the workspace in a new tab or load it in the
+                   current tab replacing what was already loaded". *@
+                <fieldset style="margin-top: 12px; border: none; padding: 0;">
+                    <legend>How to open it</legend>
+                    <label style="display: block;">
+                        <input id="load-mode-replace" type="radio" name="load-mode"
+                               checked="@(!_openAsNew)" @onchange="() => SetOpenAsNew(false)" />
+                        Replace my tabs
+                    </label>
+                    <label style="display: block;">
+                        <input id="load-mode-append" type="radio" name="load-mode"
+                               checked="@_openAsNew" @onchange="() => SetOpenAsNew(true)" />
+                        Open as new tabs, keeping mine
+                    </label>
+                </fieldset>
+
                 <ul role="listbox"
                     aria-label="Saved workspace profiles"
                     style="list-style: none; padding: 0; margin: 16px 0; max-height: 300px; overflow-y: auto;"
@@ -34,7 +50,7 @@
                             style="display: flex; justify-content: space-between; align-items: center; padding: 8px; cursor: pointer; @(idx == _selectedIndex ? "background: color-mix(in srgb, var(--accent-color) 26%, transparent); font-weight: bold;" : "") border-bottom: 1px solid var(--border-color);"
                             @onclick="() => SelectProfile(idx)"
                             @ondblclick="() => LoadProfile(profile)">
-                            <span>@profile</span>
+                            <span><span>@profile</span>, <span style="font-weight: normal; color: var(--text-muted);">@DescriptionOf(profile)</span></span>
                             <button aria-label="@($"Delete workspace: {profile}")"
                                     style="padding: 2px 8px; font-size: 0.8rem;"
                                     @onclick="() => DeleteProfile(profile)"
@@ -74,7 +90,11 @@
             : null;
 
     private List<string> _profiles = new();
+    private Dictionary<string, string> _descriptions = new();
     private int _selectedIndex = -1;
+    private bool _openAsNew;
+    // The workspace a Replace warning was given for: the next Load of it replaces.
+    private string? _confirmReplace;
     private string? _statusMessage;
     private bool _isError;
 
@@ -89,14 +109,47 @@
         _selectedIndex = -1;
         _statusMessage = null;
         _isError = false;
+        _openAsNew = false;
+        _confirmReplace = null;
         _profiles = Library.GetAvailableProfiles();
+        _descriptions = new();
         if (_profiles.Count > 0) _selectedIndex = 0;
         await ShowModalAsync("load-workspace-title");
     }
 
+    private string DescriptionOf(string profile)
+    {
+        if (!_descriptions.TryGetValue(profile, out var text))
+        {
+            try { text = WorkspaceLibraryService.Describe(Library.LoadProfile(profile)); }
+            catch { text = "could not be read"; }
+            _descriptions[profile] = text;
+        }
+        return text;
+    }
+
+    private void SetOpenAsNew(bool openAsNew)
+    {
+        _openAsNew = openAsNew;
+        _confirmReplace = null;
+        _statusMessage = null;
+    }
+
     private void SelectProfile(int index)
     {
+        if (index != _selectedIndex) _confirmReplace = null;
         _selectedIndex = index;
+    }
+
+    /// <summary>The tabs that have a chart on them, in tab order, as the dialog says them.</summary>
+    private List<string> OpenCharts()
+    {
+        var st = Store.State;
+        var tabs = new List<(int Index, ChartIdentity Id)> { (st.ActiveTabIndex, st.Identity) };
+        foreach (var snap in st.TabSnapshots ?? System.Collections.Immutable.ImmutableList<TabSnapshot>.Empty)
+            tabs.Add((snap.TabIndex, snap.Identity));
+        return tabs.Where(t => !string.IsNullOrEmpty(t.Id.Symbol)).OrderBy(t => t.Index)
+                   .Select(t => WorkspaceLibraryService.ChartName(t.Id.Provider, t.Id.Symbol, t.Id.Timeframe)).ToList();
     }
 
     private void OnListKeyDown(KeyboardEventArgs e)
@@ -106,10 +159,10 @@
         switch (e.Key)
         {
             case "ArrowDown":
-                _selectedIndex = Math.Min(_selectedIndex + 1, _profiles.Count - 1);
+                SelectProfile(Math.Min(_selectedIndex + 1, _profiles.Count - 1));
                 break;
             case "ArrowUp":
-                _selectedIndex = Math.Max(_selectedIndex - 1, 0);
+                SelectProfile(Math.Max(_selectedIndex - 1, 0));
                 break;
             case "Enter":
                 if (_selectedIndex >= 0 && _selectedIndex < _profiles.Count)
@@ -143,17 +196,43 @@
                 return;
             }
 
-            // Close all existing tabs by resetting to initial state.
-            // We need to clear everything and rebuild from the saved config.
-            ResetWorkspaceState();
+            string loaded;
+            if (_openAsNew)
+            {
+                WorkspaceInit.AppendWorkspace(config);
+                loaded = $"Workspace opened as new tabs: {name}, {WorkspaceLibraryService.Describe(config)}";
+            }
+            else
+            {
+                // The app does not know whether a tab changed since it was last saved, so the
+                // warning is given whenever a tab with a chart would close, and a second Load of
+                // the same workspace goes ahead.
+                var open = OpenCharts();
+                if (open.Count > 0 && _confirmReplace != name)
+                {
+                    _confirmReplace = name;
+                    string closes = open.Count == 1 ? $"your tab, {open[0]}" : $"your {open.Count} tabs: {string.Join(", ", open)}";
+                    _statusMessage = $"Replacing closes {closes}. Anything on them you have not saved as a workspace is lost. "
+                                   + "Press Load again to replace them, or choose Open as new tabs.";
+                    _isError = true;
+                    EventBus.Publish(new AnnouncementEvent(_statusMessage, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+                    return;
+                }
+                _confirmReplace = null;
 
-            // Restore the full workspace (all tabs, series, display toggles).
-            WorkspaceInit.RestoreWorkspace(config);
+                // Close all existing tabs by resetting to initial state.
+                // We need to clear everything and rebuild from the saved config.
+                ResetWorkspaceState();
+
+                // Restore the full workspace (all tabs, series, display toggles).
+                WorkspaceInit.RestoreWorkspace(config);
+                loaded = $"Workspace loaded: {name}";
+            }
 
             // An indicator the restore left off (removed from the app since this was saved) is
             // said on the same sentence, once, so nothing interrupts it.
             string notice = WorkspaceInit.LastRestoreNotice ?? "";
-            string loaded = string.IsNullOrWhiteSpace(notice) ? $"Workspace loaded: {name}" : $"Workspace loaded: {name}. {notice}";
+            if (!string.IsNullOrWhiteSpace(notice)) loaded = $"{loaded}. {notice}";
             EventBus.Publish(new AnnouncementEvent(loaded, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             Close();
         }
@@ -197,6 +276,8 @@
     private void DeleteProfile(string name)
     {
         Library.DeleteProfile(name);
+        _descriptions.Remove(name);
+        _confirmReplace = null;
         _profiles = Library.GetAvailableProfiles();
         if (_selectedIndex >= _profiles.Count) _selectedIndex = _profiles.Count - 1;
         _statusMessage = $"'{name}' deleted.";

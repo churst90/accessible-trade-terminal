@@ -38,6 +38,15 @@ namespace AccessibleTrader.Core.Services
         void RestoreWorkspace(WorkspaceConfiguration config);
 
         /// <summary>
+        /// Opens a saved workspace's tabs AFTER the tabs already open, closing nothing (Load's
+        /// "Open as new tabs", Cody 2026-11-05). Its strategies are added to the ones running; one
+        /// already running on the same chart is not started twice. A lone empty tab (a fresh
+        /// start) is filled rather than left blank beside them. The saved active tab is the one
+        /// in front afterwards.
+        /// </summary>
+        void AppendWorkspace(WorkspaceConfiguration config);
+
+        /// <summary>
         /// What the last <see cref="RestoreWorkspace"/> left off the chart and why, as one
         /// sentence for whoever announces the load — or null when it left nothing off. Today
         /// that is an indicator that was REMOVED from the app (<see cref="Indicators.RetiredIndicators"/>):
@@ -403,6 +412,50 @@ namespace AccessibleTrader.Core.Services
             LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
         }
 
+        public void AppendWorkspace(WorkspaceConfiguration config)
+        {
+            _retiredSkipped.Clear();
+            LastRestoreNotice = null;
+            if (config == null) return;
+
+            var allMeta = _indicatorService.GetAvailableIndicators();
+            var tabs = config.IsMultiTab
+                ? config.Tabs
+                : new List<TabConfiguration> { new()
+                  {
+                      Market = config.Market, Provider = config.Provider, Symbol = config.Symbol,
+                      Timeframe = config.Timeframe, ViewportLength = config.ViewportLength,
+                      Series = config.Series ?? new(), PaneHeightRatios = config.PaneHeightRatios ?? new(),
+                  } };
+            int activeIdx = config.IsMultiTab ? Math.Clamp(config.ActiveTabIndex, 0, tabs.Count - 1) : 0;
+
+            // A lone tab with no chart on it is a fresh start, not something to keep.
+            var st = _store.State;
+            bool fillEmpty = st.TabCount == 1 && string.IsNullOrEmpty(st.Identity.Symbol);
+            int first = fillEmpty ? st.ActiveTabIndex : st.TabCount;
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                if (i == 0 && fillEmpty)
+                {
+                    foreach (var id in _store.State.ActiveSeries.Select(s => s.Id).ToList())
+                        _store.Dispatch(new RemoveSeriesAction(id));
+                }
+                else
+                {
+                    // A new tab lands at the end (TabReducer.AddTab), so tab i is at first + i.
+                    _store.Dispatch(new AddTabAction());
+                }
+                RestoreTabInto(tabs[i], allMeta);
+            }
+
+            if (_store.State.ActiveTabIndex != first + activeIdx)
+                _store.Dispatch(new SwitchTabAction(first + activeIdx));
+            SetPrimaryAndFocusFromRestore();
+
+            AddActiveStrategies(config, replace: false);
+            LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
+        }
+
         /// <summary>
         /// Whether a saved series names an indicator that was removed from the app. Such a series
         /// is NOT restored: with no provider behind it, the unknown-code fallback would rebuild it
@@ -425,13 +478,19 @@ namespace AccessibleTrader.Core.Services
         /// currently-focused chart. Roslyn-script specs need async compilation and
         /// are handled by StrategyAutoLoader's IsAutoActivate path instead.
         /// </summary>
-        private void RestoreActiveStrategies(WorkspaceConfiguration config)
+        private void RestoreActiveStrategies(WorkspaceConfiguration config) => AddActiveStrategies(config, replace: true);
+
+        /// <param name="replace">True for a load that replaces the workspace: the running
+        /// strategies are removed first. False for "Open as new tabs": they keep running, and a
+        /// saved one already running on the same chart (same spec, same chart) is skipped.</param>
+        private void AddActiveStrategies(WorkspaceConfiguration config, bool replace)
         {
             if (_strategyEngine == null || _strategyFactory == null || _strategyLibrary == null) return;
             if (config.ActiveStrategies == null) return;
 
-            foreach (var existing in _strategyEngine.ActiveStrategies.ToList())
-                _strategyEngine.RemoveStrategy(existing.InstanceId);
+            if (replace)
+                foreach (var existing in _strategyEngine.ActiveStrategies.ToList())
+                    _strategyEngine.RemoveStrategy(existing.InstanceId);
 
             foreach (var saved in config.ActiveStrategies)
             {
@@ -443,8 +502,19 @@ namespace AccessibleTrader.Core.Services
                     var strategy = _strategyFactory.Create(spec);
                     var mode = Enum.TryParse<Sdk.Strategies.StrategyExecutionMode>(saved.ExecutionMode, out var m)
                         ? m : spec.ExecutionMode;
+                    Sdk.Models.ChartIdentity? chart =
+                        string.IsNullOrEmpty(saved.ChartProvider) || string.IsNullOrEmpty(saved.ChartSymbol)
+                            ? null
+                            : new Sdk.Models.ChartIdentity(saved.ChartMarket ?? "", saved.ChartProvider,
+                                                           saved.ChartSymbol, saved.ChartTimeframe ?? "");
+                    if (!replace && _strategyEngine.ActiveStrategies.Any(a => a.SpecId == spec.Id
+                            && (a.Chart is ChartIdentity running && chart is ChartIdentity wanted
+                                    ? Strategies.StrategyBinding.SameChart(running, wanted)
+                                    : a.Chart == null && chart == null
+                                      && string.Equals(a.Symbol, saved.Symbol, StringComparison.OrdinalIgnoreCase))))
+                        continue;
                     string id = _strategyEngine.AddStrategy(strategy, new Dictionary<string, object>(),
-                        mode, specId: spec.Id, bindSymbol: saved.Symbol);
+                        mode, specId: spec.Id, bindSymbol: saved.Symbol, bindChart: chart);
                     if (saved.IsPaused) _strategyEngine.PauseStrategy(id, true);
                 }
                 catch (Exception)
@@ -474,55 +544,15 @@ namespace AccessibleTrader.Core.Services
             // SwitchTabAction below means what it says.
             int activeIdx = Math.Clamp(config.ActiveTabIndex, 0, config.Tabs.Count - 1);
 
-            void RestoreTabInto(TabConfiguration tab)
-            {
-                if (!string.IsNullOrEmpty(tab.Symbol))
-                {
-                    _store.Dispatch(new SetIdentityAction(new ChartIdentity
-                    {
-                        // Heal a Market field that grew ("Crypto|Crypto|Crypto|Spot") before the
-                        // producer loop in MarketOrchestrator was closed on 2026-09-11. The fix
-                        // stops new growth; it cannot shrink a file already on disk, and the
-                        // grown value orphans every cache and background-monitor key that includes
-                        // it. Normalising on restore means the first open repairs the session.
-                        Market = MarketKey.Normalize(tab.Market),
-                        Provider = tab.Provider,
-                        Symbol = tab.Symbol,
-                        Timeframe = tab.Timeframe
-                    }));
-                }
-
-                // Restore display toggles
-                if (tab.IsHeikinAshi != _store.State.IsHeikinAshi)
-                    _store.Dispatch(new ToggleHeikinAshiAction());
-                if (tab.IsLogScale != _store.State.IsLogScale)
-                    _store.Dispatch(new ToggleLogScaleAction());
-
-                // Restore series
-                RestoreSeriesFromTab(tab, allMeta);
-
-                // Restore pane height ratios
-                RestorePaneHeightRatios(tab.PaneHeightRatios);
-
-                // Restore this tab's saved zoom width before its snapshot is taken
-                // (before data loads — see RestoreViewportLength).
-                RestoreViewportLength(tab.ViewportLength);
-
-                // How much history the tab opens with, and that it keeps the zoom above:
-                // read by DataManager when this tab's data first loads.
-                if (!string.IsNullOrEmpty(tab.Symbol))
-                    _store.Dispatch(new SetRestoredLoadAction(new RestoredTabLoad(_store.State.Identity, HistoryFromForTab(tab))));
-            }
-
             // Config tab 0 goes into the slot the store already has.
-            RestoreTabInto(config.Tabs[0]);
+            RestoreTabInto(config.Tabs[0], allMeta);
 
             // The rest each open a new tab, which snapshots the current one and creates a
             // blank active — so they land at store 1, 2, ... in config order.
             for (int i = 1; i < config.Tabs.Count; i++)
             {
                 _store.Dispatch(new AddTabAction());
-                RestoreTabInto(config.Tabs[i]);
+                RestoreTabInto(config.Tabs[i], allMeta);
             }
 
             // Switch back to the originally active tab. Store index == config index now.
@@ -536,6 +566,47 @@ namespace AccessibleTrader.Core.Services
             // value analytics tabs), so we can't assume Candles exists — fall back to
             // Price, then to whatever the first active series is.
             SetPrimaryAndFocusFromRestore();
+        }
+
+        /// <summary>One saved tab into the tab in front: chart, toggles, series, panes, zoom.</summary>
+        private void RestoreTabInto(TabConfiguration tab, List<IndicatorMetadata> allMeta)
+        {
+            if (!string.IsNullOrEmpty(tab.Symbol))
+            {
+                _store.Dispatch(new SetIdentityAction(new ChartIdentity
+                {
+                    // Heal a Market field that grew ("Crypto|Crypto|Crypto|Spot") before the
+                    // producer loop in MarketOrchestrator was closed on 2026-09-11. The fix
+                    // stops new growth; it cannot shrink a file already on disk, and the
+                    // grown value orphans every cache and background-monitor key that includes
+                    // it. Normalising on restore means the first open repairs the session.
+                    Market = MarketKey.Normalize(tab.Market),
+                    Provider = tab.Provider,
+                    Symbol = tab.Symbol,
+                    Timeframe = tab.Timeframe
+                }));
+            }
+
+            // Restore display toggles
+            if (tab.IsHeikinAshi != _store.State.IsHeikinAshi)
+                _store.Dispatch(new ToggleHeikinAshiAction());
+            if (tab.IsLogScale != _store.State.IsLogScale)
+                _store.Dispatch(new ToggleLogScaleAction());
+
+            // Restore series
+            RestoreSeriesFromTab(tab, allMeta);
+
+            // Restore pane height ratios
+            RestorePaneHeightRatios(tab.PaneHeightRatios);
+
+            // Restore this tab's saved zoom width before its snapshot is taken
+            // (before data loads — see RestoreViewportLength).
+            RestoreViewportLength(tab.ViewportLength);
+
+            // How much history the tab opens with, and that it keeps the zoom above:
+            // read by DataManager when this tab's data first loads.
+            if (!string.IsNullOrEmpty(tab.Symbol))
+                _store.Dispatch(new SetRestoredLoadAction(new RestoredTabLoad(_store.State.Identity, HistoryFromForTab(tab))));
         }
 
         /// <summary>
