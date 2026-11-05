@@ -725,7 +725,17 @@ namespace AccessibleTrader.Core.Services
                                ?? _availableSymbols.FirstOrDefault() ?? "";
             }
 
-            if (!_availableTimeframes.Contains(_selectedTimeframe))
+            // A timeframe the venue does not list is still kept when it can be BUILT from one it
+            // serves: HistoricalDataFetcher (and BackgroundBarFetch, browser closed) resample it
+            // from the largest native timeframe that divides it. Until 2026-11-04 only the listed
+            // ones passed here, so a saved 8h tab on Bitstamp heard "Bitstamp does not offer 8h;
+            // timeframe set to 1h" on every tab switch, though the fetch would have built 8h
+            // from 4h. Cody: "I calculate custom timeframe candles, why are they not being used".
+            // The quick-pick list stays the venue's own; the demo whitelist above already
+            // replaced anything outside its set.
+            bool buildable = !_demo.IsDemo
+                && TimeframeUtility.CanBuildFrom(_selectedTimeframe, _dataService.GetNativeTimeframes(_selectedProvider));
+            if (!_availableTimeframes.Contains(_selectedTimeframe) && !buildable)
             {
                 // Coerce to a timeframe the provider ACTUALLY offers. The old fallback
                 // hardcoded "1h", which a daily-only analytics provider doesn't have —

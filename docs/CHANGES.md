@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A timeframe the venue does not list is built, not refused (2026-11-04, Cody's report; NOT tried by Cody)
+
+Cody: "on my 8h tab, why does it say bitstamp doesn't offer 8h, switching to 1h......I calculate custom
+timeframe candles, why are they not being used. it should happen seemlessly in the background. the
+supported timeframes from the exchange should be in the quick pick bar like we've got, but if I enter 7
+hours then it should load 7 hour candles".
+- **Cause:** `MarketOrchestrator.RefreshSymbolsAsync` accepted only a timeframe on the provider's listed
+  set (`GetSupportedTimeframesAsync`; Bitstamp lists no 8h). Anything else was changed to 1h and the change
+  spoken. The fetch (`HistoricalDataFetcher`) and the browser-closed monitors (`BackgroundBarFetch`) already
+  built such timeframes from a native one; the toolbar refused them before they got there. It runs on every
+  tab switch, provider change, key change and start. On a tab switch the tab's own timeframe is put back
+  right after, so the chart may have stayed 8h while the speech said 1h; on the other paths 1h stuck. Which
+  one Cody hit was not checked.
+- **Fix:** a timeframe is kept, silently, when `TimeframeUtility.CanBuildFrom` says one of the venue's
+  native timeframes (`IDataService.GetNativeTimeframes`, the provider's `NativelySupportedTimeframes`)
+  divides it evenly: 8h from 4h, 7h from 1h, 45m from 15m, 2w from 1d. It is the same rule
+  `GetBestBaseTimeframe` uses to pick the base, so whatever the toolbar keeps the fetch can build. The
+  quick-pick list stays the venue's own. The demo whitelist is unchanged. A timeframe finer than anything
+  the venue serves, or one nothing divides, is still changed and said.
+- **The chart's oldest built bar was short.** The venue's newest N bars start wherever they happen to, so
+  an 8h chart built from 4h bars beginning at 04:00 made its first "00:00" bar out of one 4h bar: wrong
+  open, high and low, read aloud, and written to the local store as a closed bar. `BackgroundBarFetch`
+  has dropped that bar since 2026-10-31; `HistoricalDataFetcher` now does too (`DropShortOldest`), only
+  when the fetched bars begin after the bucket does, and asks for one bucket more so the drop costs nothing.
+- **Why the largest dividing base and not 1m** (Cody asked "1 minute maybe?"): buckets are counted from
+  1970 UTC, and every native bar of a size that divides the target lies wholly inside one bucket, so 4h
+  bars give the same 8h bar as 1m bars would, with 240 times the history per request.
+- **Caveats:** a timeframe that does not divide a day (7h) is counted from 1970, not restarted each
+  midnight; whether TradingView does the same was not checked. History is capped by the venue's bars per
+  request (Bitstamp 1,000), so 7h from 1h first loads about 142 bars, not 200; scrolling back for more was
+  not tried. Live candles come from `BarBucketConsolidator`, which buckets ticks for any timeframe; not
+  watched live on a built timeframe in this pass.
+- **Tests:** `BuiltTimeframeTests` (17): 8h, 7h, 45m and 2w kept silently with the quick-picks unchanged;
+  1h on a daily-only feed still changed and said; `CanBuildFrom` cases; 8h built from 4h with the short
+  first bar dropped and one extra bucket asked for; a first bucket starting on its boundary kept; 7h from
+  1h. Four sabotages went red: the old listed-only check, no drop, no extra bucket, and dropping the
+  oldest bar unconditionally.
+
 ### Paper stops fired on another tab's candle (2026-11-04, Cody's report; fix NOT tried by Cody)
 
 Cody: "tried to place a market buy under paper trading and it kept closing my order at my stop loss

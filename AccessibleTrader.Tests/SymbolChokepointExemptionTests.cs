@@ -125,6 +125,7 @@ namespace AccessibleTrader.Tests
             public Task<List<string>> GetSupportedSubTypesAsync(string provider, string marketType) => Task.FromResult(new List<string>());
             public Task<List<string>> LoadSymbolsAsync(string marketInfo, string provider) => Task.FromResult(new List<string>());
             public Task<List<string>> GetSupportedTimeframesAsync(string provider) => Task.FromResult(new List<string>());
+            public List<string> GetNativeTimeframes(string provider) => new();
             public Task<bool> IsProviderConfiguredAsync(string provider) => Task.FromResult(true);
             public bool IsProviderConfigured(string provider) => true;
             public Task<bool> ProviderRequiresApiKeyAsync(string provider) => Task.FromResult(false);

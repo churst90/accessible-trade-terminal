@@ -30,6 +30,10 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Built timeframes (2026-11-04, built, NOT tried; see CHANGES).** Cody to open the 8h Bitstamp tab
+  (no "does not offer" should be said) and type 7 hr, Load. Open, mine: 7h buckets are counted from 1970,
+  not restarted at midnight (check what TradingView does); a 7h chart from 1h first loads about 142 bars
+  (Bitstamp's 1,000-bar cap), scrolling back not tried; live candle on a built timeframe not watched.
 - [ ] **Hyperliquid provider (2026-11-04, merged, NO order ever sent; see CHANGES and
   docs/HYPERLIQUID_PROVIDER.md).**
   - Cody: make an agent wallet on the TESTNET (app.hyperliquid-testnet.xyz), add a Paper profile and

@@ -44,6 +44,9 @@ namespace AccessibleTrader.Core.Services
         Task<List<string>> GetSupportedSubTypesAsync(string provider, string marketType);
         Task<List<string>> LoadSymbolsAsync(string marketInfo, string provider);
         Task<List<string>> GetSupportedTimeframesAsync(string provider);
+        /// <summary>The timeframes the venue itself serves; anything else is built from one of
+        /// these by the fetch (<see cref="HistoricalDataFetcher"/>). Empty for an unknown provider.</summary>
+        List<string> GetNativeTimeframes(string provider);
         Task<bool> IsProviderConfiguredAsync(string provider);
         /// <summary>Synchronous convenience — same check without the Task wrapper. Use from
         /// sync call sites to avoid GetAwaiter().GetResult() on a

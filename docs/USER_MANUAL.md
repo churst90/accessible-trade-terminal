@@ -400,10 +400,23 @@ timeframe that provider genuinely serves. Two consequences follow. When a provid
 offers exactly one timeframe (most analytics feeds — Fear and Greed, COT
 positioning, short volume — are daily-only), the whole Time area disappears:
 there is nothing to choose, and the timeframe still reads in the tab title and
-the Shift+F1 context summary. And when you switch to a provider that doesn't offer your
-current timeframe, the terminal snaps to one it does offer and tells you so —
-"provides 1d data only; timeframe set to 1d" — instead of silently fetching
-nothing.
+the Shift+F1 context summary.
+
+You are not limited to the quick-picks. Type any timeframe — 7 hr, 8 hr, 45 min, 2 wk —
+and the terminal builds its candles from the largest timeframe the provider serves
+that divides it evenly: 8 hours from 4-hour candles, 7 hours from 1-hour candles,
+45 minutes from 15-minute candles. Nothing is said; the chart simply loads, and the
+live candle and the alerts (with the browser closed too) follow the same timeframe.
+A built timeframe that does not divide a day, like 7 hours, is counted from
+1 January 1970 UTC, so its candles do not restart at midnight. Built from small
+candles, a first load can hold fewer than the usual 200 bars: Bitstamp sends at
+most 1,000 candles a request, so 7 hours from 1-hour candles gives about 140.
+
+Only a timeframe that cannot be built is changed. Switch to a provider whose
+candles are all longer than your timeframe (an hourly chart on a daily-only feed),
+or one where no candle size divides it, and the terminal snaps to one it does
+offer and tells you so — "provides 1d data only; timeframe set to 1d" — instead
+of silently fetching nothing.
 
 A worked path makes the cascade concrete. Suppose you want Bitcoin against the
 dollar on Binance at the hourly. Tab to Market and select Crypto; the Provider list

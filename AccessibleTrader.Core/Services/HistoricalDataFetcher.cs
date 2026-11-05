@@ -86,7 +86,9 @@ namespace AccessibleTrader.Core.Services
                 if (baseMs > 0)
                 {
                     double ratio = (double)targetMs / baseMs;
-                    effectiveLimit = (int)Math.Ceiling((limit ?? 200) * ratio);
+                    // One bucket more than asked for: the oldest built bar is usually short and
+                    // is dropped below (DropShortOldest).
+                    effectiveLimit = (int)Math.Ceiling(((limit ?? 200) + 1) * ratio);
                 }
                 
                 // Safety: ensure we fetch at least enough bars to satisfy the requested limit after resampling
@@ -127,7 +129,7 @@ namespace AccessibleTrader.Core.Services
                 // timeframe. The old read path only ever looked at 1m, which is why a
                 // 1h or 1d chart could never be served from disk.
                 var finalBars = actualNeedsResample
-                    ? ApplyFinalFilters(_resampler.Resample(nativeBars, timeframe), since, until, limit ?? 200)
+                    ? ApplyFinalFilters(DropShortOldest(_resampler.Resample(nativeBars, timeframe), nativeBars), since, until, limit ?? 200)
                     : ApplyFinalFilters(nativeBars, since, until, limit ?? 200);
 
                 if (_store != null && finalBars.Count > 0)
@@ -171,6 +173,24 @@ namespace AccessibleTrader.Core.Services
         // "retained for the 1m resampling path and for tests" was already untrue when written.
         // Removed rather than left as a second, differently-behaved reader of the same table
         // (it had neither the closed-window rule nor the all-or-nothing rule).
+
+        /// <summary>
+        /// Drops the oldest built bar when the fetched bars begin after its period does.
+        ///
+        /// <para>The venue's newest N bars start wherever they happen to, almost never on a bucket
+        /// boundary: an 8h chart built from 4h bars that begin at 04:00 makes a first "00:00" bar out
+        /// of one 4h bar, with that bar's open, high and low read aloud as the whole period's — and
+        /// written to the local store as a closed 8h bar. <c>BackgroundBarFetch</c> has dropped it
+        /// since 2026-10-31; the chart's own fetch kept it until 2026-11-04. A bucket whose first
+        /// bar starts exactly on its boundary is whole and is kept.</para>
+        /// </summary>
+        internal static List<Ohlcv> DropShortOldest(List<Ohlcv> built, List<Ohlcv> source)
+        {
+            if (built.Count < 2 || source.Count == 0) return built;
+            DateTime firstSource = source.Min(b => b.Date);
+            if (firstSource > built[0].Date) built.RemoveAt(0);
+            return built;
+        }
 
         private List<Ohlcv> ApplyFinalFilters(List<Ohlcv> bars, long? since, long? until, int limit)
         {

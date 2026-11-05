@@ -8,6 +8,10 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Any timeframe you type loads.** An 8-hour or 7-hour chart on Bitstamp used to be switched to 1 hour
+  with "Bitstamp does not offer 8h". Now any timeframe the venue's own candles divide evenly is built from
+  them quietly: 8 hours from 4-hour candles, 7 hours from 1-hour candles. The quick-pick buttons still show
+  the venue's own list. The oldest candle on such a chart is no longer a short, partial one.
 - **Paper stops no longer fire on another tab's candle.** With several tabs open on one symbol at
   different timeframes, a paper stop could be hit within seconds of a market buy by a low that a
   longer timeframe's candle had made hours before the trade. Each tab's candle is now judged on its own,

@@ -599,6 +599,12 @@ namespace AccessibleTrader.Core.Services
             return provider != null ? await provider.GetSupportedTimeframesAsync().ConfigureAwait(false) : new List<string>();
         }
 
+        public List<string> GetNativeTimeframes(string providerName)
+        {
+            if (!_isInitialized) return new List<string>();
+            return FindProvider(providerName)?.NativelySupportedTimeframes?.ToList() ?? new List<string>();
+        }
+
         public Task<bool> IsProviderConfiguredAsync(string providerName) =>
             Task.FromResult(IsProviderConfigured(providerName));
 

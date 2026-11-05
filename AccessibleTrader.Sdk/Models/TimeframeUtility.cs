@@ -98,6 +98,27 @@ namespace AccessibleTrader.Sdk.Models
             StandardTimeframes.ThreeDays, StandardTimeframes.OneWeek, StandardTimeframes.OneMonth
         };
 
+        /// <summary>
+        /// True when <paramref name="target"/> can be charted exactly from a venue that serves
+        /// <paramref name="native"/>: served as it is, or built from a native timeframe that
+        /// divides it evenly (8h from 4h, 7h from 1h, 45m from 15m). The same rule
+        /// <see cref="GetBestBaseTimeframe"/> uses to pick the base, so whatever this accepts the
+        /// fetch can build. False for a malformed token, for a timeframe finer than anything the
+        /// venue serves (1m on a daily-only feed), and for one no native timeframe divides.
+        /// </summary>
+        public static bool CanBuildFrom(string? target, IEnumerable<string>? native)
+        {
+            if (!IsValid(target) || native == null) return false;
+            long targetMs = ToMilliseconds(target);
+            foreach (var n in native)
+            {
+                if (n == target) return true;
+                long ms = ToMilliseconds(n);
+                if (ms > 0 && ms < targetMs && targetMs % ms == 0) return true;
+            }
+            return false;
+        }
+
         public static string GetBestBaseTimeframe(string target, List<string> supported)
         {
             if (supported.Contains(target)) return target;
