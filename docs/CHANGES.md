@@ -19,7 +19,11 @@ hours then it should load 7 hour candles".
   one Cody hit was not checked.
 - **Fix:** a timeframe is kept, silently, when `TimeframeUtility.CanBuildFrom` says one of the venue's
   native timeframes (`IDataService.GetNativeTimeframes`, the provider's `NativelySupportedTimeframes`)
-  divides it evenly: 8h from 4h, 7h from 1h, 45m from 15m, 2w from 1d. It is the same rule
+  divides it evenly: 8h from 4h, 7h from 1h, 45m from 15m, 2w from 1d. Only native timeframes the
+  venue also LISTS count. My Data declares 1m to 1y native but serves only the file's own spacing
+  (which is all it lists). The first push (85b9afc7) trusted the native list alone, so the browser
+  suite's daily import kept 1h and charted nothing: 13 browser tests red on CI, fixed in the next
+  commit. It is the same rule
   `GetBestBaseTimeframe` uses to pick the base, so whatever the toolbar keeps the fetch can build. The
   quick-pick list stays the venue's own. The demo whitelist is unchanged. A timeframe finer than anything
   the venue serves, or one nothing divides, is still changed and said.
@@ -36,11 +40,13 @@ hours then it should load 7 hour candles".
   request (Bitstamp 1,000), so 7h from 1h first loads about 142 bars, not 200; scrolling back for more was
   not tried. Live candles come from `BarBucketConsolidator`, which buckets ticks for any timeframe; not
   watched live on a built timeframe in this pass.
-- **Tests:** `BuiltTimeframeTests` (17): 8h, 7h, 45m and 2w kept silently with the quick-picks unchanged;
-  1h on a daily-only feed still changed and said; `CanBuildFrom` cases; 8h built from 4h with the short
+- **Tests:** `BuiltTimeframeTests` (18): 8h, 7h, 45m and 2w kept silently with the quick-picks unchanged;
+  1h on a daily-only feed still changed and said; a My Data-like provider (everything native, one listed)
+  still moved to its listed spacing; `CanBuildFrom` cases; 8h built from 4h with the short
   first bar dropped and one extra bucket asked for; a first bucket starting on its boundary kept; 7h from
   1h. Four sabotages went red: the old listed-only check, no drop, no extra bucket, and dropping the
-  oldest bar unconditionally.
+  oldest bar unconditionally; a fifth (native list alone) turns the My Data test red and the browser test
+  `ChartSurvivesASmallWindowTests` red locally.
 
 ### Paper stops fired on another tab's candle (2026-11-04, Cody's report; fix NOT tried by Cody)
 

@@ -733,8 +733,16 @@ namespace AccessibleTrader.Core.Services
             // from 4h. Cody: "I calculate custom timeframe candles, why are they not being used".
             // The quick-pick list stays the venue's own; the demo whitelist above already
             // replaced anything outside its set.
-            bool buildable = !_demo.IsDemo
-                && TimeframeUtility.CanBuildFrom(_selectedTimeframe, _dataService.GetNativeTimeframes(_selectedProvider));
+            //
+            // Built only from a timeframe the venue both LISTS and serves natively. My Data
+            // declares every timeframe native (1m to 1y) so the fetch passes requests straight
+            // through, and then refuses any but the file's own spacing: trusting the native list
+            // alone kept a 1h selection on a daily import and charted nothing (the browser suite
+            // went red on 85b9afc7). The listed set is the file's spacing, so the two together
+            // say what can really be served.
+            var servable = (_dataService.GetNativeTimeframes(_selectedProvider) ?? new List<string>())
+                .Where(_availableTimeframes.Contains);
+            bool buildable = !_demo.IsDemo && TimeframeUtility.CanBuildFrom(_selectedTimeframe, servable);
             if (!_availableTimeframes.Contains(_selectedTimeframe) && !buildable)
             {
                 // Coerce to a timeframe the provider ACTUALLY offers. The old fallback

@@ -71,6 +71,24 @@ public sealed class BuiltTimeframeTests
         Assert.Contains(said, m => m.Contains("does not offer 1h"));
     }
 
+    /// <summary>
+    /// My Data declares every timeframe native and serves only the file's own spacing, which is all
+    /// it lists. Trusting the native list kept 1h on a daily import and charted nothing: the browser
+    /// suite's seeded chart came up empty on 85b9afc7.
+    /// </summary>
+    [Fact]
+    public async Task A_provider_that_claims_everything_native_but_lists_one_spacing_is_still_moved_to_it()
+    {
+        var (orch, said) = Toolbar(new() { "1d" }, new() { "1m", "1h", "1d", "1w", "1M", "1y" });
+        await orch.RefreshPipelineAsync();
+        orch.SelectedTimeframe = "1h";
+
+        await orch.RefreshSymbolsAsync();
+
+        Assert.Equal("1d", orch.SelectedTimeframe);
+        Assert.Contains(said, m => m.Contains("provides 1d data only"));
+    }
+
     [Theory]
     [InlineData("8h", true)]
     [InlineData("7h", true)]
