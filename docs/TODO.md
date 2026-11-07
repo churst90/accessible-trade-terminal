@@ -30,6 +30,9 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
+  `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
+
 - [ ] **Cipher C on the chart's own clock, and weekly/yearly pending, cancelled and failed lows
   (2026-11-07, built, NOT seen or heard; see CHANGES and CYCLE_POSITION_DESIGN 9.11).**
   - Cody to try: Cipher C on a weekly chart. The wave should follow the weekly cycle, with lows about

@@ -151,7 +151,10 @@ jobs:
   # job, before a browser is ever launched.
   browser:
     name: Browser harness (Chromium)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04 on 2026-11-07, and Playwright 1.55's
+    # installer refuses it ("does not support chromium on ubuntu26.04-x64").
+    # Move with the Playwright version below once it supports the new image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:

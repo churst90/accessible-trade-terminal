@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### CI: the browser harness runs on Ubuntu 24.04 (2026-11-07)
+
+- On 424003ec the browser job failed at "Install Chromium". GitHub's `ubuntu-latest` became 26.04, and the
+  Playwright 1.55 installer refuses it ("does not support chromium on ubuntu26.04-x64"). No test ran.
+  The xunit job on the same commit passed 10,260 of 10,260. The browser job is pinned to `ubuntu-24.04`
+  until the Playwright version is moved to one that supports the new image (added to TODO).
+
 ### Cipher C counts in time on every chart; the weekly and yearly cycles have their own events (2026-11-07, Cody's request; NOT seen by Cody)
 
 Cody, with Cipher C on a weekly chart: the wave was on the daily cycle, the weekly cycles were very far
