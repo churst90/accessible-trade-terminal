@@ -145,42 +145,32 @@ public sealed class CycleLowConfidenceTests
     }
 
     /// <summary>
-    /// Off a daily chart the readings count in the chart's bars (2026-10-28: fitted on daily charts,
-    /// they held unseen on 15 4-hour and 15 weekly ones). The same candles stamped every 4 hours
-    /// read the same daily and weekly chances and Low expected as stamped daily, and are said in
-    /// bars; the yearly reading, in calendar days, is not read on a 4-hour chart (19 of 26 right)
-    /// but is on a weekly one.
+    /// Off a daily chart they are not read (2026-11-07): fitted on a daily chart's days and its
+    /// 10- and 20-bar averages, they read bars as days (2026-10-28 held them unseen on 4-hour and
+    /// weekly charts only while those charts counted their cycles in bars). Now a 4-hour chart's
+    /// daily cycle is in days and a weekly chart has none: no Low is in, no Low expected, no tops
+    /// and no half-cycle lows there, said or in the table.
     /// </summary>
     [Fact]
-    public void Off_a_daily_chart_they_are_read_in_bars()
+    public void Off_a_daily_chart_they_are_not_read()
     {
         var daily = CipherSrSpeechTests.BtcDaily();
         var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         List<Ohlcv> Stamped(Func<int, DateTime> date) => daily.Select((b, i) => new Ohlcv { Date = date(i), Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume }).ToList();
-        var four = Run(Stamped(i => start.AddHours(4 * i)), symbol: null);
         var days = Run(Stamped(i => start.AddDays(i)), symbol: null);
-        Assert.Equal(1, four[CipherCProvider.InBarsKey][^1]);
-        foreach (var key in new[] { D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix, W + CyclePositionProvider.LowInSuffix })
+        Assert.True(Marked(days[D + CyclePositionProvider.LowInSuffix]).Count > 100, "Low is in hardly read on a daily chart");
+        Assert.NotEmpty(Marked(days[D + CyclePositionProvider.TopSuffix]));
+        foreach (var r in new[] { Run(Stamped(i => start.AddHours(4 * i)), symbol: null), Run(Stamped(i => start.AddDays(7 * i)), symbol: null) })
         {
-            Assert.True(Marked(four[key]).Count > 100, $"{key} hardly read on a 4-hour chart");
-            Assert.Equal(days[key], four[key]);
+            foreach (var key in new[] { D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix, W + CyclePositionProvider.LowInSuffix,
+                         Y + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.TopSuffix, CyclePositionProvider.CompHalfLow })
+                Assert.True(!r.TryGetValue(key, out var a) || Marked(a).Count == 0, key);
+            Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+            int last = r[CyclePositionProvider.LengthKey].Length - 1;
+            Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, last), w => w.Contains("low is in", StringComparison.OrdinalIgnoreCase));
+            Assert.All(CyclePositionProvider.TableRows(comp, last).Where(row => row[0].Text is "Low is in" or "Low expected" or "Top so far" or "Half-cycle low"),
+                row => Assert.All(row.Skip(1), c => Assert.Equal("", c.Text)));
         }
-        Assert.True(!four.TryGetValue(Y + CyclePositionProvider.LowInSuffix, out var y4) || Marked(y4).Count == 0, "the yearly read on a 4-hour chart");
-        var weeks = Run(Stamped(i => start.AddDays(7 * i)), symbol: null);
-        Assert.Equal(1, weeks[CipherCProvider.InBarsKey][^1]);
-        Assert.True(Marked(weeks[Y + CyclePositionProvider.LowInSuffix]).Count > 0, "no yearly reading on a weekly chart");
-
-        Func<string, double[]?> comp = k => four.TryGetValue(k, out var a) ? a : null;
-        int held = Marked(four[D + CyclePositionProvider.LowInSuffix])[^1];
-        var spoken = string.Join("; ", CyclePositionProvider.StateWords(comp, held));
-        Assert.Matches(@"low is in: [a-z ]+, \d+%; about \d+ bars? to its confirmation", spoken);
-        Assert.DoesNotContain("days to its confirmation", spoken);
-        Assert.DoesNotContain("10-day average", spoken);
-        int free = Marked(four[D + CyclePositionProvider.ExpectedSuffix]).Last(t => double.IsNaN(four[D + CyclePositionProvider.LowInSuffix][t]));
-        int k = (int)four[D + CyclePositionProvider.ExpectedDaysSuffix][free];
-        Assert.Contains($"a new daily low in the next {k} bars: ", string.Join("; ", CyclePositionProvider.StateWords(comp, free)));
-        Assert.EndsWith($", {k} bars", CyclePositionProvider.TableRows(comp, free).Single(row => row[0].Text == "Low expected")[1].Text);
-        Assert.Equal("", CyclePositionProvider.TableRows(comp, free).Single(row => row[0].Text == "Low is in")[3].Text);
     }
 
     /// <summary>

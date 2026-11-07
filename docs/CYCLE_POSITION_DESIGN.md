@@ -620,6 +620,10 @@ with Cycle Position's own lows and default settings.
 
 ### 9.1 "Low is in" and "Low expected" off daily charts
 
+> **Superseded 2026-11-07 (section 9.11):** the cycles now count in time on every chart, so these
+> readings, fitted on daily bars, are read on daily charts only. The scores below were under the old
+> bar counting; they have not been re-run on the time-counted lows.
+
 The models count in bars (the clock, the volatility and the confirmations are all bar counts), so
 the daily ones were scored, without refitting, on 4-hour and weekly charts they never saw:
 
@@ -942,3 +946,94 @@ confirmed (on Bitcoin's own dates holding it changes nothing, so the bars are mo
 2013-04-19, where it does, on the Start date); the yearly dates = YearlyFromPrice with Bitcoin's
 three dates, each one a yearly low; an untuned symbol unchanged; and the readings still computed
 with all four on. 15 sabotages, 14 red; the green one set a maximum on a check box, which nothing reads.
+
+### 9.11 Every chart counts in time, and each tier has its own events (2026-11-07)
+
+> Names as shown since 2026-11-04: **Cipher C** is this indicator (`CYCLE_POSITION`), **Cycle
+> Position** the copy of the original (`CIPHER_C`), which is unchanged by this section.
+
+Cody, 2026-11-07, with Cipher C on a weekly chart: the wave followed the daily tier, the weekly
+cycles were very far apart and the pending, cancelled and failed lows looked daily. All three were
+true. Off a daily chart the daily tier counted bars as days: on a weekly chart a "daily cycle" was
+about 40 weeks, so it took the wave and the events, and the weekly tier (counted in the same bars)
+came out years apart; on a 4-hour chart the daily cycle was about 7 days and the weekly one about 7
+weeks. The pending, cancelled and failed lows were only ever the daily tier's.
+
+Agreed and built (Cody: "Yes to both A and B. and I approve the plan"):
+
+- **The real clock on every chart.** The daily tier counts days (a 4-hour chart has six bars to the
+  day), the weekly one weeks, the yearly one years, from the bars' own times. A weekly chart has no
+  daily tier; the weekly tier draws the wave and says the events, and a monthly chart's yearly tier
+  does. On a daily chart nothing changed (every low, window and reading is the same).
+- **B: the weekly and yearly tiers' own pending, cancelled and failed lows** ("Weekly Low Pending",
+  "Weekly Low Cancelled", "Weekly Cycle Failed", and the same for yearly), on any chart where that
+  tier is not the chart's own. Pending = the low is the tier's candidate but not yet confirmed
+  (weekly: on the bar a daily low becomes the weekly candidate; yearly: a low under every low for
+  0.15 of a cycle before it, once it has held 0.05 of a cycle); cancelled = undercut before it was confirmed; failed =
+  the first close under the newest confirmed low, once per low. They are not drawn (off in the
+  Parts list until turned on), and are said: "Weekly cycle low pending: the low of 98,200, it would
+  end a 31 week cycle."
+- **A: "Only this chart's own cycle"**, a check box in the settings, off by default. On, the longer
+  tiers are left out of the drawing, the sounds, the words, the facts and the table: on a daily
+  chart only the daily cycle, on a weekly one only the weekly.
+- **Daily only:** "Low is in", "Low expected", the top so far and the half-cycle low were fitted on
+  daily bars, so they are read on daily charts only (section 9.1).
+
+Measured against the original's lows on the captures (39 charts; exact bar unless said; the daily
+chart's own scores are unchanged):
+
+| Chart and tier | Before (lows found, extra, F1) | After |
+|---|---|---|
+| Weekly chart, weekly lows | 68 of 463, 37 extra, .239 (±1 .243) | 213 of 463, 149 extra, .516 (±1 .533) |
+| 4-hour chart, daily lows | 220 of 295, 1,136 extra, .267 (±1 .283) | 207 of 295, 108 extra, .679 (±1 .689) |
+| 4-hour chart, weekly lows | 85 of 124, 471 extra, .250 (±5 .298) | 67 of 124, 57 extra, .540 (±5 .556) |
+| Daily chart, daily / weekly lows | .888 / .658 | .888 / .658 |
+
+Per asset on the weekly chart, F1 before -> after: Bitcoin .29 -> .60, Ether .15 -> .32, the Dow
+.26 -> .62, S&P .17 -> .57, Nasdaq .17 -> .55, oil .38 -> .64, the dollar .19 -> .38, gold .45 ->
+.57, silver .25 -> .37, MARA .25 -> .72, MSTR .25 -> .70, RIOT 0 -> .32, GDX .25 -> .50, GDXJ .40 ->
+.46, SILJ .24 -> .41; COIN .18 -> .15 is the one worse. On the 4-hour charts every daily and weekly
+F1 is up (silver's weekly only .12 -> .14). The weekly chart's .516 is short of the daily chart's
+weekly .658: a weekly bar hides which day the low was on, and the original's weekly lows are picked
+from its daily ones.
+
+How often a pending low is the one confirmed (the same price, later):
+
+| Chart, tier | Said pending | Confirmed | Median lead | Cancelled | Failed |
+|---|---|---|---|---|---|
+| Daily, weekly | 2,711 | 1,575 (58%) | 53 days | 1,187 | 522 |
+| Daily, yearly | 258 | 146 (57%) | 146 days | 79 | 94 |
+| Weekly, yearly | 252 | 168 (67%) | 147 days | 73 | 91 |
+| 4-hour, weekly | 251 | 151 (60%) | 31 days | 100 | 55 |
+| 4-hour, yearly | 18 | 8 (44%) | 146 days | 6 | 2 |
+
+Caveats: the first weekly low after the count's start is found and confirmed on the same bar, so it
+is never said pending. The weekly chart's weekly events are its own (the chart's tier), as the daily
+ones are on a daily chart. "Low is in" held 96.5% (4-hour) and 97.1% (weekly) under bar counting
+(section 9.1); whether a time-counted version holds as well is not tested, a TODO question.
+Another way of finding the weekly lows (half the daily minimum, or the original's daily-then-weekly
+pick) was within .01 on the weekly chart, so the existing one was kept.
+
+Tests: `A_weekly_chart_follows_its_weekly_cycle` (no daily tier, the weekly tier draws, at least 15
+weekly lows a median 20 to 60 weeks apart, facts in weeks, a yearly pending said),
+`A_four_hour_chart_counts_its_daily_cycle_in_days` (daily lows a median 40 to 90 days apart, facts in
+days, a weekly pending said), `The_weekly_and_yearly_tiers_have_their_own_pending_cancelled_and_failed_lows`
+(every weekly and yearly low after the first said pending at its price on or before its
+confirmation, and the words), `Only_this_charts_own_cycle_leaves_out_the_longer_ones` (daily: every
+longer-tier output empty and every other one unchanged, no weekly or yearly words or table cells;
+weekly: the weekly kept, the yearly gone), and in CycleLowConfidenceTests
+`Off_a_daily_chart_they_are_not_read`. The tier-events test also checks each pending low is said once
+and never after it was confirmed, the lengths are weeks and years, a yearly pending has held 0.05 of a
+cycle, a cancelled low was said pending first and a low fails once.
+`An_intraday_chart_gives_the_same_answer_when_later_bars_arrive` runs the prefix check on Bitcoin's
+candles stamped 4, 12 and 20 hours apart, since counting in days off a daily chart is new code. It
+caught a yearly pending that read the last bar, which the daily prefix test missed.
+`On_a_four_hour_chart_older_bars_move_the_daily_lows_for_a_few_cycles_only` measures how a scroll-back
+moves the chain. Each daily low is counted from the one before, so moving the first moves the rest
+until both runs pick the same low again. Cutting 17 to 500 bars from the front changes the daily lows
+up to bar 2,794 of 5,416, and the events and window up to bar 3,273; the 17 and 40 cuts change nothing.
+IndicatorCausalityTests exempts the daily events on that account, because its hourly series hold half a
+daily cycle to two. It lists the weekly and yearly events, and the daily-only readings, as not reached by
+its series. 35 sabotages, 33 red; the 2 green
+cannot change anything (the weekly events gated off a weekly chart, whose weekly run has no candidate
+list; the switch's fallback default, which Compute fills in first).

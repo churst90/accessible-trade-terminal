@@ -8,6 +8,12 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Cipher C follows the chart's own cycle.** On a weekly chart the wave and the events are the weekly
+  cycle's, not a daily one counted in weeks, and the weekly lows are about a year apart, not several.
+  On a 4-hour chart the daily cycle is counted in days. The weekly and yearly cycles now have their own
+  pending, cancelled and failed lows, said like the daily ones; turn them on in Parts to see them. A
+  new check box, "Only this chart's own cycle" (off by default), leaves the longer cycles out. Low is
+  in, Low expected, the top so far and the half-cycle low are now on daily charts only.
 - **Moving a stop or target no longer sounds an alarm, and no longer removes the other one.** Editing
   a stop on the Positions tab used to play the error sound and show "may be unprotected" two seconds
   later. It was a false alarm, and the position was protected. The edit could also cancel the take

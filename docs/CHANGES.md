@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher C counts in time on every chart; the weekly and yearly cycles have their own events (2026-11-07, Cody's request; NOT seen by Cody)
+
+Cody, with Cipher C on a weekly chart: the wave was on the daily cycle, the weekly cycles were very far
+apart, and the pending, cancelled and failed lows looked daily. All three were true. Off a daily chart
+the daily cycle counted bars as days, so on a weekly chart a "daily cycle" lasted about 40 weeks and
+drew the wave, and the weekly cycle, counted in the same bars, came out years apart. On a 4-hour chart
+the daily cycle was about 7 days. The pending, cancelled and failed lows were the daily cycle's only.
+Cody: "Yes to both A and B. and I approve the plan."
+- **The real clock on every chart.** Cipher C (code CYCLE_POSITION) counts the daily cycle in days (six
+  4-hour bars to the day), the weekly in weeks and the yearly in years, from the bars' times. A weekly
+  chart has no daily cycle: the weekly cycle draws the wave and says the events. The facts say "Day 12
+  of the daily cycle" on a 4-hour chart and "Week 9 of the weekly cycle" on a weekly one, not bars. A
+  daily chart is unchanged, low for low. Cycle Position (the copy of the original, CIPHER_C) is unchanged.
+- **B: the weekly and yearly cycles' own pending, cancelled and failed lows**, six new parts: "Weekly
+  Low Pending", "Weekly Low Cancelled", "Weekly Cycle Failed" and the same for yearly. They are on any
+  chart where that cycle is longer than the chart's own, said ("Weekly cycle low pending: the low of
+  98,200, it would end a 31 week cycle."), and not drawn until turned on in Parts.
+- **A: "Only this chart's own cycle"**, a check box in the settings, off by default. On, the longer
+  cycles are left out of the drawing, sounds, words, facts and table.
+- **Daily charts only:** Low is in, Low expected, the top so far and the half-cycle low, which were fitted
+  on daily bars. Under the old bar counting they held on 4-hour and weekly charts (96.5% and 97.1%);
+  a time-counted version is not tested (question in TODO).
+- Against the original's lows (39 captured charts, exact bar, F1): weekly chart, weekly lows .239 ->
+  .516 (213 of 463 found, was 68); 4-hour daily lows .267 -> .679 (1,136 extra lows -> 108); 4-hour
+  weekly lows .250 -> .540; the daily chart unchanged (.888 daily, .658 weekly). Per asset on the weekly
+  chart, every one is up except COIN (.18 -> .15). A pending weekly low is the one confirmed 58% of the
+  time on a daily chart (median 53 days early), a pending yearly low 57-67%. Full tables:
+  CYCLE_POSITION_DESIGN section 9.11.
+- Caveats: the first weekly low after the count's start is found and confirmed on the same bar, so it is
+  never said pending. The weekly chart's weekly lows (.516) are still short of the daily chart's (.658):
+  a weekly bar hides which day the low was on. Tests: six new in CyclePositionProviderTests, one
+  replaced in CycleLowConfidenceTests. The causality guard's hourly series (400 and 1,400 bars) now hold
+  half a daily cycle to two, so the daily events no longer fire there or, when 17 to 140 older bars are
+  prepended, line up again inside 1,400 bars. They are exempted, and the two new tests cover them instead:
+  - on Bitcoin's candles stamped 4, 12 and 20 hours apart, nothing on a bar changes when later bars
+    arrive (it caught a yearly look-ahead the daily test missed);
+  - on 4-hour bars, cutting 17 to 500 bars from the front changes the daily lows and events only up to
+    bar 3,273 of 5,416.
+  35 sabotages: 33 red. The first run left 6 green (a pending
+  low said every bar, or after it was confirmed, its length in bars, a low failing more than once, a
+  yearly low with no hold, a cancel never said pending), so the test now checks each, and all 6 went
+  red. The 2 still green cannot change anything: the weekly events gated off a weekly chart (its weekly
+  run has no candidate list there either), and the switch's fallback default (Compute fills in every
+  switch's default first; turning that default on goes red). The accessibility-lead review agent is not registered.
+
 ### Save and Load workspace: choose the tabs, choose how to open (2026-11-05, Cody's request; NOT tried by Cody)
 
 Cody asked whether Save keeps the focused chart or every tab, and whether Load should offer to open in new

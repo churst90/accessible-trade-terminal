@@ -1508,8 +1508,18 @@ low, medium, high or very high, with the facts it was read from), **Low expected
 new daily low in the next few days: unlikely, possible or likely), the half-cycle low and how much
 of the rise it gave back, a warning that a weekly low is likely next when a daily cycle fails, and
 the next window's dates past the last bar. Four switches, all off, give it Cycle Position's
-per-asset rules, its faster confirmation, its start dates and its yearly-low dates. Neither is an
-edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before
+per-asset rules, its faster confirmation, its start dates and its yearly-low dates. **Cipher C
+counts in time on every chart.** On a weekly chart there is no daily cycle: the wave, the pending,
+cancelled and failed lows, the tops and the speech follow the weekly cycle, in weeks. On a 4-hour or
+hourly chart the daily cycle is counted in days, six 4-hour bars to the day. (Cycle Position, like
+the indicator it copies, counts each bar as a day off a daily chart.) Cycle Low Pending, Cancelled
+and Failed belong to the chart's own cycle; the longer cycles have their own: **Weekly Low
+Pending**, **Weekly Low Cancelled**, **Weekly Cycle Failed**, and the same three for the yearly
+cycle. They are heard and said, not drawn ("Weekly cycle low pending: the low of 59,930, it would
+end a 32.7 week cycle"). The check box **Only this chart's own cycle** (in its settings, off by default) leaves
+the longer cycles out entirely: their lows, windows, events and readings, said and in the table.
+Low is in, Low expected, the tops and the half-cycle lows are read on a daily chart only. Neither
+indicator is an edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before
 that opens with each indicator under its new name and its settings kept, and strategies and alerts
 built on either still work.
 

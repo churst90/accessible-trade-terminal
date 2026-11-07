@@ -93,7 +93,9 @@ public sealed class CyclePositionProviderTests
             && k != CipherCProvider.CompWclConfirmed + CipherCProvider.ReplacedSuffix
             // A top exactly at a cycle's middle is rare (122 of 7,647 daily cycles on 31 charts):
             // the count is exempt only while Bitcoin has none.
-            && !(k == D + CyclePositionProvider.MidTopsSuffix && whole[k].All(v => v == 0))).ToList();
+            && !(k == D + CyclePositionProvider.MidTopsSuffix && whole[k].All(v => v == 0))
+            // No close has gone under a yearly low Bitcoin confirmed.
+            && !(k == CyclePositionProvider.CompYearlyFailed && whole[k].All(double.IsNaN))).ToList();
         Assert.True(neverChecked.Count == 0, "never compared: " + string.Join(", ", neverChecked));
         static bool Same(double a, double b) => double.IsNaN(a) ? double.IsNaN(b) : Math.Abs(a - b) < 1e-9;
     }
@@ -465,18 +467,21 @@ public sealed class CyclePositionProviderTests
         var cc = new CipherCProvider().GetIndicators().Single();
         // Cipher C's, then its own: the half-cycle low, drawn on its bar and found later; the very
         // high marks, on the bar they are said on; and the lines for strategies and alerts, left out.
-        var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead),
+        var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead) }
+            .Concat(CyclePositionProvider.TierEventComponents.Select(c => (c, ComponentCausality.Causal))).Concat(new[] {
                           (CyclePositionProvider.CompVeryHigh, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyVeryHigh, ComponentCausality.Causal),
                           (CyclePositionProvider.CompLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyLowInLine, ComponentCausality.Causal),
                           (CyclePositionProvider.CompYearlyLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompExpectedLine, ComponentCausality.Causal),
-                          (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal) };
+                          (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal) }).ToArray();
         Assert.Equal(cc.Components.Select(c => c.Name).Concat(own.Select(c => c.Item1)), mine.Components.Select(c => c.Name));
         Assert.Equal(cc.Components.Select(c => c.Causality).Concat(own.Select(c => (ComponentCausality?)c.Item2)), mine.Components.Select(c => c.Causality));
         Assert.True(On(CyclePositionProvider.ParamHalfLows));
         Assert.True(On(CyclePositionProvider.ParamVeryHighMarks));
-        foreach (var c in mine.Components.Skip(cc.Components.Count + 3))
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 9))
             Assert.True(c.DisplayType == ComponentDisplayType.Line && c.DefaultIsEnabled == false && c.DefaultIsDrawn == false && c.DefaultIsMuted == true, c.Name);
-        foreach (var c in mine.Components.Skip(cc.Components.Count + 1).Take(2))
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 1).Take(6))
+            Assert.True(c.DefaultIsDrawn == false && c.DefaultIsMuted != true, c.Name);
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 7).Take(2))
             Assert.True(c.DisplayType == ComponentDisplayType.Diamond && c.DefaultIsEnabled != false && c.DefaultIsDrawn != false, c.Name);
         bool On(string name) => (bool)mine.Parameters.Single(p => p.Name == name).DefaultValue!;
         Assert.True(On(CipherCProvider.ParamCancelledLows));
@@ -489,30 +494,255 @@ public sealed class CyclePositionProviderTests
         Assert.NotEmpty(Marked(r[CipherCProvider.CompYcl]));
     }
 
+    /// <summary>Weekly bars from daily ones, each week from its Monday.</summary>
+    private static List<Ohlcv> Weekly(IReadOnlyList<Ohlcv> daily) =>
+        daily.GroupBy(b => b.Date.Date.AddDays(-(((int)b.Date.DayOfWeek + 6) % 7)))
+             .Select(g => new Ohlcv { Date = g.Key, Open = g.First().Open, High = g.Max(b => b.High), Low = g.Min(b => b.Low), Close = g.Last().Close, Volume = g.Sum(b => b.Volume) })
+             .ToList();
+
+    private static double Median(IEnumerable<double> v) { var s = v.OrderBy(x => x).ToList(); return s[s.Count / 2]; }
+
     /// <summary>
-    /// Off a daily chart every tier counts in the chart's own bars, as Cipher C's does: the day of
-    /// each cycle is the bars since its low plus one, and the speech says bars.
+    /// A weekly chart follows its weekly cycle (2026-11-07, Cody: on a weekly chart "the cycle wave
+    /// line is still on the daily cycle component, not the weekly one and the weekly cycles are very
+    /// far apart"). Counted in bars, its "daily" cycle was Bitcoin's 48 days read as 48 weeks and its
+    /// weekly lows years apart. In time there is no daily cycle on a weekly chart: no D lows, the
+    /// events, wave and speech are the weekly tier's, its lows weeks apart as on a daily chart, and
+    /// it is said in weeks.
     /// </summary>
     [Fact]
-    public void Off_a_daily_chart_every_count_is_in_bars()
+    public void A_weekly_chart_follows_its_weekly_cycle()
     {
-        // Bitcoin's daily bars, re-dated four hours apart: the same shapes on a 4-hour clock.
+        var bars = Weekly(CipherSrSpeechTests.BtcDaily());
+        var r = Run(bars);
+        Assert.Equal(0, r[CipherCProvider.InBarsKey][^1]);
+        Assert.Equal(2, r[CipherCProvider.EventsTierKey][^1]);
+        Assert.Empty(Marked(r[CipherCProvider.CompDcl]));
+        var lows = Marked(r[CipherCProvider.CompWcl]);
+        Assert.True(lows.Count >= 15, $"{lows.Count} weekly lows");
+        double gap = Median(lows.Zip(lows.Skip(1), (a, b) => (double)(b - a)));
+        Assert.InRange(gap, 20, 60);
+        int p = Marked(r[CipherCProvider.CompPending]).Last();
+        Assert.StartsWith("Weekly cycle low pending", Provider.GetComponentSpeech(CipherCProvider.CompPending, r[CipherCProvider.CompPending][p], bars[p], r, p));
+        var fact = Provider.GetDetailFact(CyclePositionProvider.Code, bars.ToArray(), r, bars.Count - 1, new Dictionary<string, object>());
+        Assert.Matches(@"^Week \d+ of the weekly cycle", fact);
+        Assert.DoesNotContain("of the daily cycle", fact);
+        Assert.DoesNotContain(" bars", fact);
+        // Its own pending, cancelled and failed lows are Cycle Low Pending's; the yearly tier's its own.
+        foreach (var c in new[] { CyclePositionProvider.CompWeeklyPending, CyclePositionProvider.CompWeeklyCancelled, CyclePositionProvider.CompWeeklyFailed })
+            Assert.Empty(Marked(r[c]));
+        Assert.NotEmpty(Marked(r[CyclePositionProvider.CompYearlyPending]));
+    }
+
+    /// <summary>
+    /// A 4-hour chart counts its daily cycle in days, six bars to the day: Bitcoin's daily candles
+    /// stamped four hours apart have their daily lows about two months apart (48 days the shortest),
+    /// not the 32 to 60 bars (5 to 10 days) they were counted in bars, and say days.
+    /// </summary>
+    [Fact]
+    public void A_four_hour_chart_counts_its_daily_cycle_in_days()
+    {
         var daily = CipherSrSpeechTests.BtcDaily();
         var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var bars = daily.Select((b, i) => new Ohlcv { Date = start.AddHours(4 * i), Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume }).ToList();
-        var r = Run(bars, symbol: null);
-        Assert.Equal(1, r[CipherCProvider.InBarsKey][^1]);
-        Assert.Equal(32, r[D + CipherCProvider.StartSuffix][Marked(r[D + CipherCProvider.StartSuffix])[0]]);
-        foreach (var comp in new[] { D, W })
-        {
-            var day = r[comp + CyclePositionProvider.DayOfSuffix];
-            Assert.NotEmpty(Marked(r[comp]));
-            foreach (int t in Marked(r[comp])) Assert.Equal(r[comp][t] + 1, day[t]);
-        }
+        var r = Run(bars);
+        Assert.Equal(0, r[CipherCProvider.InBarsKey][^1]);
+        Assert.Equal(1, r[CipherCProvider.EventsTierKey][^1]);
+        var lows = Marked(r[CipherCProvider.CompDcl]);
+        Assert.True(lows.Count >= 10, $"{lows.Count} daily lows");
+        Assert.InRange(Median(lows.Zip(lows.Skip(1), (a, b) => (b - a) / 6.0)), 40, 90);
         var fact = Provider.GetDetailFact(CyclePositionProvider.Code, bars.ToArray(), r, bars.Count - 1, new Dictionary<string, object>());
-        Assert.Matches(@"Bar \d+ of the daily cycle", fact);
-        Assert.DoesNotContain("Day ", fact);
-        Assert.Contains("counted as bars", fact);
+        Assert.Matches(@"^Day \d+ of the daily cycle", fact);
+        Assert.DoesNotContain(" bars", fact);
+        Assert.NotEmpty(Marked(r[CyclePositionProvider.CompWeeklyPending]));
+    }
+
+    private static List<Ohlcv> Restamped(IReadOnlyList<Ohlcv> daily, int hours)
+    {
+        var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        return daily.Select((b, i) => new Ohlcv { Date = start.AddHours(hours * i), Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume }).ToList();
+    }
+
+    /// <summary>
+    /// Counting in days off a daily chart (2026-11-07) is new code on an intraday chart, and the
+    /// prefix test above runs on daily bars only: on Bitcoin's candles stamped four hours apart, and
+    /// twelve (seven years, so the yearly tier's events happen), every causal component gives the
+    /// same value on bar N-1 computed on the first N bars as on all.
+    /// </summary>
+    [Fact]
+    public void An_intraday_chart_gives_the_same_answer_when_later_bars_arrive()
+    {
+        var everCompared = new HashSet<string>();
+        var fired = new HashSet<string>();
+        string[] reach = { };
+        foreach (int hours in new[] { 4, 12, 20 })
+        {
+        var bars = Restamped(CipherSrSpeechTests.BtcDaily(), hours);
+        var whole = Run(bars);
+        var m = Provider.GetIndicators().Single();
+        var causalComponents = m.Components.Where(c => (c.Causality ?? m.Causality) == ComponentCausality.Causal).Select(c => c.Name).ToList();
+        var causal = whole.Keys.Where(k => (causalComponents.Contains(k) || ComponentCompanions.IsCompanionOf(k, causalComponents))
+            && !k.EndsWith(ComponentCompanions.Path, StringComparison.Ordinal)
+            && !k.EndsWith(ComponentCompanions.BoxStart, StringComparison.Ordinal) && !k.EndsWith(ComponentCompanions.BoxEnd, StringComparison.Ordinal)).ToList();
+        // The ones IndicatorCausalityTests' hourly series no longer reach; a cut just after the first
+        // and the last of each is added, as the rare ones would otherwise fall between fixed cuts.
+        reach = new[] { CipherCProvider.CompDclConfirmed, CipherCProvider.CompPending, CipherCProvider.CompCancelled, CipherCProvider.CompFailed,
+            CipherCProvider.CompDailyWindow, CipherCProvider.CompWclConfirmed, CipherCProvider.CompWeeklyWindow, CyclePositionProvider.CompWeeklyPending,
+            CyclePositionProvider.CompWeeklyCancelled, CyclePositionProvider.CompWeeklyFailed, CyclePositionProvider.CompYearlyPending,
+            CyclePositionProvider.CompYearlyCancelled, CyclePositionProvider.CompYearlyFailed };
+        var cuts = new SortedSet<int> { 1600, 2600, 3600, 4600 };
+        foreach (var c in reach)
+            if (Marked(whole[c]) is { Count: > 0 } at) { cuts.Add(at[0] + 1); cuts.Add(at[^1] + 1); fired.Add(c); }
+        foreach (int cut in cuts.Where(x => x >= 400 && x < bars.Count))
+        {
+            var part = Run(bars.Take(cut).ToList());
+            foreach (var c in causal)
+                for (int i = cut - 400; i < cut; i++)
+                {
+                    if (!double.IsNaN(whole[c][i]) && whole[c][i] != 0) everCompared.Add(c);
+                    Assert.True(double.IsNaN(part[c][i]) ? double.IsNaN(whole[c][i]) : Math.Abs(part[c][i] - whole[c][i]) < 1e-9,
+                        $"{c} on {hours}h bar {i}: {part[c][i]} with {cut} bars, {whole[c][i]} with all");
+                }
+        }
+        }
+        // No close has gone under a yearly low Bitcoin confirmed, as on its daily bars.
+        var missed = reach.Where(c => !everCompared.Contains(c) && !(c == CyclePositionProvider.CompYearlyFailed && !fired.Contains(c))).ToList();
+        Assert.True(missed.Count == 0, "never compared: " + string.Join(", ", missed));
+    }
+
+    /// <summary>
+    /// Older bars arriving in front (a scroll-back) can move the first daily low, and each daily low
+    /// is counted from the one before, so the chain moves with it until a low both runs pick again;
+    /// on a 4-hour chart a daily cycle is some 200 to 400 bars, so that takes longer in bars than it
+    /// did when the days were counted in bars. On Bitcoin's candles stamped four hours apart, 17 to
+    /// 500 bars cut from the front change the daily lows up to bar 2,794 of 5,416 (the 200 and 500
+    /// cuts; 17 and 40 change nothing), its pending, cancelled and failed lows and window to 3,273,
+    /// and nothing after: IndicatorCausalityTests' synthetic hourly series hold only one or two daily cycles, so
+    /// it exempts these and points here.
+    /// </summary>
+    [Fact]
+    public void On_a_four_hour_chart_older_bars_move_the_daily_lows_for_a_few_cycles_only()
+    {
+        var bars = Restamped(CipherSrSpeechTests.BtcDaily(), 4);
+        var whole = Run(bars);
+        string[] chain = { CipherCProvider.CompDcl, CipherCProvider.CompPending, CipherCProvider.CompCancelled, CipherCProvider.CompFailed, CipherCProvider.CompDailyWindow };
+        int latest = -1;
+        foreach (int k in new[] { 17, 40, 91, 140, 200, 300, 500 })
+        {
+            var part = Run(bars.Skip(k).ToList());
+            foreach (var c in chain)
+            {
+                int last = Enumerable.Range(0, part[c].Length)
+                    .LastOrDefault(j => !(double.IsNaN(part[c][j]) && double.IsNaN(whole[c][j + k])) && part[c][j] != whole[c][j + k], -1 - k) + k;
+                Assert.True(last < 4000, $"{k} bars cut: {c} differs on bar {last} of {bars.Count}");
+                latest = Math.Max(latest, last);
+            }
+        }
+        // The chain does move: were it never to, the exemptions would not be needed.
+        Assert.True(latest > 700, $"the daily chain agreed again by bar {latest}");
+    }
+
+    /// <summary>
+    /// The weekly and yearly tiers' own pending, cancelled and failed lows on a daily chart (Cody:
+    /// "are the pending lows, canceled low, failed lows components tied to one signal"): Cycle Low
+    /// Pending stays the daily tier's, and every weekly and yearly low Bitcoin confirms was said
+    /// pending first, at its own price (all but the first weekly low, which is found on the bar it
+    /// is confirmed); each is said with its tier.
+    /// </summary>
+    [Fact]
+    public void The_weekly_and_yearly_tiers_have_their_own_pending_cancelled_and_failed_lows()
+    {
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var r = Btc();
+        Assert.Equal(1, r[CipherCProvider.EventsTierKey][^1]);
+        foreach (var c in CyclePositionProvider.TierEventComponents.Where(c => c != CyclePositionProvider.CompYearlyFailed))
+            Assert.True(Marked(r[c]).Count > 0, c);
+        var tiers = CyclePositionProvider.BuildTiers(bars.ToArray(), new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
+        foreach (var (run, pending) in new[] { (tiers.W, CyclePositionProvider.CompWeeklyPending), (tiers.Y, CyclePositionProvider.CompYearlyPending) })
+        {
+            var said = Marked(r[pending]);
+            Assert.True(run.Lows.Count >= 3, pending);
+            // The first weekly low after the count's start is found and confirmed on one bar.
+            for (int k = run == tiers.W ? 1 : 0; k < run.Lows.Count; k++)
+            {
+                double low = bars[run.Lows[k]].Low;
+                Assert.True(said.Any(s => s <= run.ConfirmedAt[k] && r[pending][s] == low), $"{pending}: {low} on {bars[run.Lows[k]].Date:yyyy-MM-dd} never said pending");
+            }
+            // Said once for each low, and never for one already confirmed.
+            for (int i = 1; i < said.Count; i++)
+                Assert.True(r[pending][said[i]] != r[pending][said[i - 1]], $"{pending}: {r[pending][said[i]]} said twice, {bars[said[i]].Date:yyyy-MM-dd}");
+            foreach (int s in said)
+                Assert.False(Enumerable.Range(0, run.Lows.Count).Any(k => run.ConfirmedAt[k] <= s && bars[run.Lows[k]].Low == r[pending][s]),
+                    $"{pending}: {r[pending][s]} said on {bars[s].Date:yyyy-MM-dd}, already confirmed");
+        }
+        // The cycle each would end, in weeks and years: Bitcoin's weekly cycles run months, its yearly ones years.
+        var weeks = Marked(r[CyclePositionProvider.CompWeeklyPending + CipherCProvider.LengthSuffix]).Select(i => r[CyclePositionProvider.CompWeeklyPending + CipherCProvider.LengthSuffix][i]).ToList();
+        var years = Marked(r[CyclePositionProvider.CompYearlyPending + CipherCProvider.LengthSuffix]).Select(i => r[CyclePositionProvider.CompYearlyPending + CipherCProvider.LengthSuffix][i]).ToList();
+        Assert.InRange(Median(weeks), 10, 60);
+        Assert.InRange(Median(years), 1.5, 6);
+        // A yearly low is said pending only once it has held a twentieth of a cycle.
+        double hold = tiers.Years * 365.25 * CyclePositionProvider.YearlyPendingCycles;
+        foreach (int s in Marked(r[CyclePositionProvider.CompYearlyPending]))
+        {
+            int at = Enumerable.Range(0, s + 1).Last(i => bars[i].Low == r[CyclePositionProvider.CompYearlyPending][s]);
+            Assert.True((bars[s].Date - bars[at].Date).TotalDays >= hold - 1e-6, $"yearly pending on {bars[s].Date:yyyy-MM-dd}, held {(bars[s].Date - bars[at].Date).TotalDays} days of {hold:F0}");
+        }
+        // A low is cancelled only after it was said pending; a confirmed low fails once.
+        foreach (var (cancelled, pending) in new[] { (CyclePositionProvider.CompWeeklyCancelled, CyclePositionProvider.CompWeeklyPending), (CyclePositionProvider.CompYearlyCancelled, CyclePositionProvider.CompYearlyPending) })
+            foreach (int s in Marked(r[cancelled]))
+                Assert.True(Marked(r[pending]).Any(q => q < s && r[pending][q] == r[cancelled][s]), $"{cancelled} on {bars[s].Date:yyyy-MM-dd} was never said pending");
+        foreach (var failed in new[] { CyclePositionProvider.CompWeeklyFailed, CyclePositionProvider.CompYearlyFailed })
+        {
+            var prices = Marked(r[failed]).Select(i => r[failed][i]).ToList();
+            Assert.Equal(prices.Count, prices.Distinct().Count());
+        }
+        int w = Marked(r[CyclePositionProvider.CompWeeklyPending]).Last();
+        Assert.Matches(@"^Weekly cycle low pending: the low of [\d.,]+, it would end an? [\d.]+ week cycle\.$",
+            Provider.GetComponentSpeech(CyclePositionProvider.CompWeeklyPending, r[CyclePositionProvider.CompWeeklyPending][w], bars[w], r, w));
+        int y = Marked(r[CyclePositionProvider.CompYearlyCancelled]).Last();
+        Assert.Equal($"Pending yearly cycle low cancelled: the low of {SpeechPriceFormatter.FormatPrice(r[CyclePositionProvider.CompYearlyCancelled][y])}, undercut before it was confirmed.",
+            Provider.GetComponentSpeech(CyclePositionProvider.CompYearlyCancelled, r[CyclePositionProvider.CompYearlyCancelled][y], bars[y], r, y));
+        int f = Marked(r[CyclePositionProvider.CompWeeklyFailed]).Last();
+        Assert.True(bars[f].Close < r[CyclePositionProvider.CompWeeklyFailed][f]);
+        Assert.StartsWith("Weekly cycle failed: price closed under the weekly low of ",
+            Provider.GetComponentSpeech(CyclePositionProvider.CompWeeklyFailed, r[CyclePositionProvider.CompWeeklyFailed][f], bars[f], r, f));
+    }
+
+    /// <summary>
+    /// "Only this chart's own cycle" (off by default) leaves out every tier above the chart's own:
+    /// on a daily chart the weekly and yearly lows, windows, events and readings, said or in the
+    /// table, with the daily tier untouched; on a weekly chart only the yearly one.
+    /// </summary>
+    [Fact]
+    public void Only_this_charts_own_cycle_leaves_out_the_longer_ones()
+    {
+        Assert.False((bool)Provider.GetIndicators().Single().Parameters.Single(p => p.Name == CyclePositionProvider.ParamOwnCycleOnly).DefaultValue!);
+        var bars = CipherSrSpeechTests.BtcDaily();
+        var all = Btc();
+        var own = Run(bars, extra: new() { [CyclePositionProvider.ParamOwnCycleOnly] = true });
+        foreach (var (key, values) in all)
+        {
+            bool longer = key.StartsWith(W) || key.StartsWith(Y) || key.StartsWith(CipherCProvider.CompWcl) || key.StartsWith(CipherCProvider.CompYcl)
+                          || key.StartsWith("Weekly ") || key.StartsWith("Yearly ") || key.Contains("_" + W) || key.Contains("_" + Y) || key == CipherCProvider.HeldWeeksKey;
+            if (longer) Assert.True(own[key].All(double.IsNaN), key);
+            else Assert.True(values.Zip(own[key]).All(x => x.First.Equals(x.Second)), key);
+        }
+        Func<string, double[]?> comp = k => own.TryGetValue(k, out var a) ? a : null;
+        // Said: nothing of the longer cycles (the daily cycle's own "a weekly low is likely next" stays).
+        var words = string.Join(" ", CyclePositionProvider.StateWords(comp, bars.Count - 1));
+        Assert.Contains("of the daily cycle", words);
+        foreach (var gone in new[] { "weekly cycle", "weekly window", "weekly low is in", "unconfirmed weekly low", "yearly" })
+            Assert.DoesNotContain(gone, words, StringComparison.OrdinalIgnoreCase);
+        Assert.All(CyclePositionProvider.TableRows(comp, bars.Count - 1).Skip(1), row => Assert.True(row[2].Text == "" && row[3].Text == "", row[0].Text));
+
+        var weekly = Weekly(bars);
+        var wAll = Run(weekly);
+        var wOwn = Run(weekly, extra: new() { [CyclePositionProvider.ParamOwnCycleOnly] = true });
+        Assert.Equal(wAll[CipherCProvider.CompWcl], wOwn[CipherCProvider.CompWcl]);
+        Assert.Equal(wAll[W], wOwn[W]);
+        Assert.NotEmpty(Marked(wAll[CipherCProvider.CompYcl]));
+        Assert.Empty(Marked(wOwn[CipherCProvider.CompYcl]));
+        Assert.Empty(Marked(wOwn[CyclePositionProvider.CompYearlyPending]));
     }
 
     /// <summary>

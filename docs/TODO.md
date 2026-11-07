@@ -30,6 +30,26 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Cipher C on the chart's own clock, and weekly/yearly pending, cancelled and failed lows
+  (2026-11-07, built, NOT seen or heard; see CHANGES and CYCLE_POSITION_DESIGN 9.11).**
+  - Cody to try: Cipher C on a weekly chart. The wave should follow the weekly cycle, with lows about
+    a year apart, and the facts should say "Week N of the weekly cycle". On a 4-hour chart, "Day N of
+    the daily cycle". On a daily chart, turn on Weekly Low Pending in Parts and arrow to one; it should
+    say "Weekly cycle low pending: the low of ..., it would end a N week cycle." Then turn on "Only this
+    chart's own cycle" and check that no weekly or yearly words are left.
+  - Question for Cody: **Low is in and Low expected off daily charts?** They are now daily-only. Under
+    the old bar counting they held 96.5% on 4-hour and 97.1% on weekly charts. Re-testing them on the
+    time-counted lows (counting in days on 4-hour, weeks on weekly) would say whether to bring them back
+    there. Recommendation: re-test, and bring back only what holds.
+  - Open, mine: the first weekly low after the count's start is never said pending (found and confirmed
+    on the same bar). The weekly chart's weekly lows match the original's less well than the daily
+    chart's (.516 vs .658 F1). COIN's weekly chart got slightly worse (.18 -> .15).
+  - Open, mine: a scroll-back on an intraday chart can move the daily lows for several cycles. Each
+    daily low is counted from the one before, and a daily cycle is now 200 to 1,000 intraday bars. Bitcoin
+    as 4-hour bars agrees again by bar 3,273 of 5,416. On the causality guard's synthetic steady uptrend
+    (8,000 hourly bars), the chain never lined up again: no low undercuts to re-anchor it. The original
+    runs from the chart's first bar too.
+
 - [ ] **Trading with several tabs and venues, and the stop-edit error (2026-11-05, built, NOT tried; see
   CHANGES).**
   - Cody to try, on PAPER:

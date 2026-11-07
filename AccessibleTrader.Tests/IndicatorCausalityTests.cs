@@ -316,10 +316,17 @@ namespace AccessibleTrader.Tests
             // CyclePositionProviderTests.Nothing_on_a_bar_changes_when_later_bars_arrive. Its weekly
             // count no longer needs excusing since the rule by time (2026-10-28): the guard said so.
             "CYCLE_POSITION.DCL Confirmed",
-            "CYCLE_POSITION.WCL Confirmed",
-            // Its "Low expected" line (2026-10-28) reads the learned daily window, so likewise; the
-            // same reading under the daily window is pinned prefix by prefix there.
-            "CYCLE_POSITION.Low Expected",
+            // Since 2026-11-07 it counts its daily cycle in days on every chart, so on these hourly
+            // series a daily cycle is 700 to 1,000 bars and 1,400 bars hold one or two: a prepend
+            // that moves the first daily low moves the chain (each low counted from the one before)
+            // past the warmup, before any low both runs pick again. Its weekly lows and "Low
+            // expected" (daily charts only now) no longer show on these series. On Bitcoin's candles
+            // as 4-hour bars the chain agrees again by bar 3,273 of 5,416 whatever is cut, measured in
+            // CyclePositionProviderTests.On_a_four_hour_chart_older_bars_move_the_daily_lows_for_a_few_cycles_only.
+            "CYCLE_POSITION.Cycle Low Pending",
+            "CYCLE_POSITION.Cycle Low Cancelled",
+            "CYCLE_POSITION.Cycle Failed",
+            "CYCLE_POSITION.Daily Timing Window",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
@@ -628,6 +635,36 @@ namespace AccessibleTrader.Tests
             "CYCLE_POSITION.Yearly Timing Window",
             // And its yearly "low is in" line (2026-10-28), read from the yearly lows.
             "CYCLE_POSITION.Yearly Low Is In",
+            // Since 2026-11-07 its daily cycle is counted in days on every chart: 400 hourly bars
+            // are about half a daily cycle, so no daily low is confirmed and none of its events
+            // fire. On 4-hour bars (Bitcoin's candles four hours apart) they are pinned prefix by
+            // prefix in CyclePositionProviderTests.A_four_hour_chart_gives_the_same_answer_when_later_bars_arrive,
+            // and on daily bars in Nothing_on_a_bar_changes_when_later_bars_arrive.
+            "CYCLE_POSITION.Cycle Failed",
+            "CYCLE_POSITION.Cycle Low Cancelled",
+            "CYCLE_POSITION.Cycle Low Pending",
+            "CYCLE_POSITION.DCL Confirmed",
+            "CYCLE_POSITION.Daily Timing Window",
+            // Its weekly tier and the weekly and yearly tiers' own pending, cancelled and failed
+            // lows (2026-11-07) need weeks of daily lows, so likewise, pinned in the same two tests.
+            "CYCLE_POSITION.WCL Confirmed",
+            "CYCLE_POSITION.Weekly Timing Window",
+            "CYCLE_POSITION.Weekly Low Pending",
+            "CYCLE_POSITION.Weekly Low Cancelled",
+            "CYCLE_POSITION.Weekly Cycle Failed",
+            "CYCLE_POSITION.Yearly Low Pending",
+            "CYCLE_POSITION.Yearly Low Cancelled",
+            "CYCLE_POSITION.Yearly Cycle Failed",
+            // "Low is in", "Low expected" and the very high calls are read on a daily chart only
+            // since 2026-11-07 (they were measured on daily cycles), so no hourly series reaches
+            // them; pinned on Bitcoin daily in Nothing_on_a_bar_changes_when_later_bars_arrive.
+            "CYCLE_POSITION.Low Is In",
+            "CYCLE_POSITION.Low Expected",
+            "CYCLE_POSITION.Very High",
+            "CYCLE_POSITION.Very High Call",
+            "CYCLE_POSITION.Weekly Low Is In",
+            "CYCLE_POSITION.Weekly Very High",
+            "CYCLE_POSITION.Weekly Very High Call",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",
