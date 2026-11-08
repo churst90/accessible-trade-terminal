@@ -466,8 +466,9 @@ terminal tells you in the language it uses everywhere else — sound and speech.
 
 The clearest signal is a closing bar. Once a live stream is running, each time the
 current bar closes and a new one opens you hear a short bell and an announcement in
-the shape "Close {price}. {pattern}. New bar: Open {price}." — for example "Close
-42,500. Doji. New bar: Open 42,510." Those rolling new-bar announcements are the
+the shape "Close {price} at {time}, {pattern}. New bar: Open {price} at {time}." — for
+example "Close 42,500 at 14:32, Doji. New bar: Open 42,510 at 14:33." (On a daily or longer
+chart each bar is named by its date: "on April 9 2026".) Those rolling new-bar announcements are the
 sound of a live feed; their arrival is your confirmation that data is flowing. (If
 you find them distracting you can switch them off in settings, so treat their
 presence, not their absence, as the positive signal.)
@@ -755,7 +756,7 @@ So the terminal keeps these raw whatever the candles are doing:
 What does change with HA on is every close you hear, as on TradingView, where an HA chart's
 alerts and crossings use the HA close. The spoken open, high, low and close, the body and wick
 percentages, and the candle pattern named on the bar are all the smoothed candle's. So is the
-close in the new-bar announcement ("Close 102.62 on April 9 2026. New bar: Open 101.80"), on a
+close in the new-bar announcement ("Close 102.62 on April 9 2026. New bar: Open 101.80 on April 10 2026"), on a
 background tab, in a toast and with the browser closed. A price or candle-pattern alert fires on
 the HA close, and so does a price crossing: price crossing a moving average or a drawn line in
 narration, Ctrl+Left and Ctrl+Right, and the crossing chirp. The `{price}` in a signal's
@@ -2677,7 +2678,7 @@ chart in front of you.
 
 | Occasion | What is said | Switch |
 |---|---|---|
-| A bar closes on the focused chart | "Close … at …, {pattern}." then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last — and last of all "New bar: Open …" | Narration → Announce new bars; Narrate signals on bar close; N on each series |
+| A bar closes on the focused chart | "Close … at …, {pattern}." then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last — and last of all "New bar: Open … at …" | Narration → Announce new bars; Narrate signals on bar close; N on each series |
 | The forming bar changes shape | "hammer forming", "bullish engulfing forming"; a formation building, with its confirming level | Narrate candle patterns as they form (on); Narrate chart formations as they form (off); both need N on the candles |
 | Playback steps onto a bar | The date or hour as it changes; discrete signals on the series you played (two at most, rarest first); a line crossing one of its own levels; a formation resolving | Narrate during playback; Speak time landmarks during playback |
 | An alert fires | "{name}: crossed above {level}. Current value {value}." | The alert's own Delivery setting; ignores every narration switch |
@@ -3980,7 +3981,7 @@ about:
 - **Bar closes** on your saved tabs (up to eight), above the timeframe floor.
 - **The narration ladder**, the same reading a bar close gets in the browser, for every series
   you flagged with N, in the same sentence as the bar close and led by the symbol: "BTCUSDT 4h:
-  close … at …. {ladder} New bar: open …."
+  close … at …. {ladder} New bar: open … at …."
 
 A saved tab on a timeframe the provider does not serve itself (24 minutes on Bitstamp, say) is
 watched too: the monitor builds it from smaller bars. A tab whose feed has gone quiet is

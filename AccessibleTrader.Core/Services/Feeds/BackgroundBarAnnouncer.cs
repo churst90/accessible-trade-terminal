@@ -288,7 +288,7 @@ namespace AccessibleTrader.Core.Services.Feeds
         }
 
         /// <summary>
-        /// "ETH/USD 1h: close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6."
+        /// "ETH/USD 1h: close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6 at 10:31."
         ///
         /// <para>The ladder, when there is one, sits between the close and the open: it is about
         /// the bar that closed, so it is heard before the next bar is named (Cody, 2026-11-02:
@@ -314,8 +314,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                 barSeconds = gap > 0 ? (int)gap : 86400;
             }
 
-            string stamp = SpeechTimeFormatter.FormatBarClock(closed.Date, barSeconds);
-            string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
+            string when = SpeechTimeFormatter.FormatBarWhen(closed.Date, barSeconds);
             string what = string.Join(" ", new[] { identity.Symbol ?? "", identity.Timeframe ?? "" }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             string lead = what.Length == 0 ? "" : what + ": ";
@@ -323,7 +322,8 @@ namespace AccessibleTrader.Core.Services.Feeds
             string middle = string.IsNullOrWhiteSpace(ladder) ? "" : ladder.Trim() + " ";
             return $"{lead}close {SpeechPriceFormatter.FormatPrice(closed.Close)}{when}. "
                  + middle
-                 + $"New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}.";
+                 + $"New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}"
+                 + $"{SpeechTimeFormatter.FormatBarWhen(opened.Date, barSeconds)}.";
         }
 
         private bool IsAnOpenBackgroundTab(ChartIdentity identity)

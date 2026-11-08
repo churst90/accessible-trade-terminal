@@ -634,15 +634,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // The unit follows the chart: the time of day on an intraday one, the date on a
             // daily or coarser one, where every bar would otherwise be "00:00".
             int barSeconds = PlaybackNarration.BarSeconds(state);
-            string stamp = SpeechTimeFormatter.FormatBarClock(e.ClosedBar.Date, barSeconds);
-            string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
+            string when = SpeechTimeFormatter.FormatBarWhen(e.ClosedBar.Date, barSeconds);
 
             // The close and open AS DRAWN: on a Heikin-Ashi chart the Heikin-Ashi close of the bar
             // that closed and the Heikin-Ashi open of the one that opened, as TradingView quotes
             // them (Cody, 2026-10-22: "if ha is on and a bar closes, speak that close").
             var (closedBar, newBar) = AsDrawn(data, closedIndex, e.ClosedBar, e.NewBar, state.IsHeikinAshi);
             string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(closedBar.Close)}{when}{patternSuffix}.";
-            string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(newBar.Open)}";
+            // The bar that opened says when it opened, on the same clock as the close (Cody,
+            // 2026-11-08: "New bar: open [price] at [timestamp]").
+            string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(newBar.Open)}"
+                             + SpeechTimeFormatter.FormatBarWhen(e.NewBar.Date, barSeconds);
 
             // A CHART pattern whose story ends on the bar that just closed — a neckline closed
             // through, or a triangle that aged out with its boundary intact — is the event a

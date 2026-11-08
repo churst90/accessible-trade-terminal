@@ -298,7 +298,7 @@ namespace AccessibleTrader.Core.Services.Notifications
             => NewBarBody(PlaybackNarration.BarSeconds(state), closed);
 
         /// <summary>
-        /// "Close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6." — the whole bar-close
+        /// "Close 1,234.5 at 09:31. [ladder] New bar: open 1,234.6 at 09:32." — the whole bar-close
         /// announcement in the order it is spoken: the bar that closed, what the narration ladder
         /// found on it, and then the bar that opened. Until 2026-11-02 a notification stopped at
         /// the close (and a background tab's put the ladder after it), so the new bar's open was
@@ -308,7 +308,8 @@ namespace AccessibleTrader.Core.Services.Notifications
         {
             string middle = string.IsNullOrWhiteSpace(ladder) ? "" : " " + ladder.Trim();
             return NewBarBody(barSeconds, closed) + middle
-                 + $" New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}.";
+                 + $" New bar: open {SpeechPriceFormatter.FormatPrice(opened.Open)}"
+                 + $"{SpeechTimeFormatter.FormatBarWhen(opened.Date, barSeconds)}.";
         }
 
         /// <summary>
@@ -318,9 +319,7 @@ namespace AccessibleTrader.Core.Services.Notifications
         /// <inheritdoc cref="NewBarTitle(string, string)" path="/remarks"/>
         public static string NewBarBody(int barSeconds, Ohlcv closed)
         {
-            string stamp = SpeechTimeFormatter.FormatBarClock(closed.Date, barSeconds);
-            string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
-            return $"Close {SpeechPriceFormatter.FormatPrice(closed.Close)}{when}.";
+            return $"Close {SpeechPriceFormatter.FormatPrice(closed.Close)}{SpeechTimeFormatter.FormatBarWhen(closed.Date, barSeconds)}.";
         }
 
         internal static string FillBody(string prefix, Sdk.Trading.OrderUpdate order)

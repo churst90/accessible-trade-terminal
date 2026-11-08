@@ -8,6 +8,12 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **The new bar says when it opened.** A bar close now ends "New bar: Open 75,712 at 14:33", on the
+  same clock as the close (the date on a daily chart). It is the same on a background tab, in a
+  notification and with the browser closed.
+- **Fewer warnings in the server window.** It no longer warns about parts of DBSI, Cipher A and
+  Market Structure that are left out by default. They were never a problem; the check counted only the
+  parts that were included.
 - **Cipher C follows the chart's own cycle.** On a weekly chart the wave and the events are the weekly
   cycle's, not a daily one counted in weeks, and the weekly lows are about a year apart, not several.
   On a 4-hour chart the daily cycle is counted in days. The weekly and yearly cycles now have their own

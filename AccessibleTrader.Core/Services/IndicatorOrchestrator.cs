@@ -393,10 +393,27 @@ namespace AccessibleTrader.Core.Services
             // — there's no UI feedback, the user just hears nothing. Catching this at
             // runtime (at Warning level) is the difference between a confused bug
             // report and a one-line fix for a plugin author.
-            if (provider == null || results == null) return;
-            var knownNames = new HashSet<string>(series.Components.Select(c => c.Name), StringComparer.Ordinal);
-            string providerName = provider.Name;
-            foreach (var key in results.Keys)
+            if (provider == null || results == null || provider is IWritesItsLibrarysWholeResult) return;
+            foreach (var key in UnknownBufferKeys(series, results.Keys, provider.Name))
+                _logger.LogWarning(
+                    "[{Provider}] wrote buffer key '{Key}' for indicator '{Code}' but no component with that Name exists in the series. " +
+                    "Data will be silently ignored. Check that buffer.Write() key matches the component Name in metadata.",
+                    provider.Name, key, series.IndicatorCode);
+        }
+
+        /// <summary>The keys of <paramref name="keys"/> that name no part of <paramref name="series"/>
+        /// and no companion of one — what <see cref="ValidateBufferKeys"/> warns about.</summary>
+        internal static List<string> UnknownBufferKeys(ChartSeries series, IEnumerable<string> keys, string providerName)
+        {
+            // A part the user (or the provider's default) LEFT OUT is still computed — the speech
+            // and the parts that read it need its values — so its key is known, not a typo. Only
+            // the included parts used to be counted, and every left-out part warned on every
+            // recalculation (Cody's terminal, 2026-11-08: DBSI's Control and Trend Source, Cipher
+            // A's Ribbon 9 and pivots, Market Structure's state and last swings).
+            var knownNames = new HashSet<string>(
+                series.Components.Concat(series.Config.ExcludedComponents).Select(c => c.Name), StringComparer.Ordinal);
+            var unknown = new List<string>();
+            foreach (var key in keys)
             {
                 // Skip intentional companion arrays: GradientDot color arrays and touch-count arrays.
                 if (key.EndsWith("_color", StringComparison.Ordinal) ||
@@ -404,16 +421,15 @@ namespace AccessibleTrader.Core.Services
                     key.EndsWith("_replaced", StringComparison.Ordinal) ||
                     key.EndsWith("_since", StringComparison.Ordinal) ||
                     key.StartsWith("__", StringComparison.Ordinal) ||
-                    (!knownNames.Contains(key) && ComponentCompanions.IsCompanionOf(key, knownNames)))
+                    knownNames.Contains(key) ||
+                    ComponentCompanions.IsCompanionOf(key, knownNames) ||
+                    // "{indicator}_{suffix}": a companion of the indicator as a whole (Cipher A's
+                    // "Cipher A_wt1"), read by its speech, not a component.
+                    ComponentCompanions.IsCompanionOf(key, new[] { providerName }))
                     continue;
-                if (!knownNames.Contains(key))
-                {
-                    _logger.LogWarning(
-                        "[{Provider}] wrote buffer key '{Key}' for indicator '{Code}' but no component with that Name exists in the series. " +
-                        "Data will be silently ignored. Check that buffer.Write() key matches the component Name in metadata.",
-                        providerName, key, series.IndicatorCode);
-                }
+                unknown.Add(key);
             }
+            return unknown;
         }
 
         /// <summary>

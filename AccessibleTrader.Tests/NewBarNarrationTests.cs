@@ -150,7 +150,7 @@ public sealed class NewBarNarrationTests
         // Switching the chart to Heikin-Ashi says "Heikin-Ashi candles" first; the bar close is the other line.
         string said = Assert.Single(spoken, s => s.StartsWith("Close ", StringComparison.Ordinal));
         Assert.StartsWith($"Close {close}{ClosedBarStamp}.", said);
-        Assert.Contains($"New bar: Open {open}", said);
+        Assert.EndsWith($"New bar: Open {open}{NewBarStamp}", said);
     }
 
     /// <summary>
@@ -162,6 +162,10 @@ public sealed class NewBarNarrationTests
     /// Added 2026-09-05: Cody asked for the closing bar's timestamp, which nothing carried.
     /// </summary>
     private const string ClosedBarStamp = " on April 9 2026";
+
+    /// <summary>The bar that opened, on the same clock (Cody, 2026-11-08: "New bar: open [price]
+    /// at [timestamp]"): bar 99, the day after.</summary>
+    private const string NewBarStamp = " on April 10 2026";
 
     /// <summary>
     /// Cody, 2026-09-05: <i>"if I'm on a 1 minute chart and hear a new bar… the timestamp of the
@@ -204,7 +208,7 @@ public sealed class NewBarNarrationTests
 
         string said = Assert.Single(spoken);
         Assert.Equal($"Close 108.50 at {SpeechTimeFormatter.FormatTime(minutes[^2].Date)}. "
-                   + "New bar: Open 109.00", said);
+                   + $"New bar: Open 109.00 at {SpeechTimeFormatter.FormatTime(minutes[^1].Date)}", said);
     }
 
     [Fact]
@@ -233,7 +237,7 @@ public sealed class NewBarNarrationTests
         analyzer.Finds = CandlePattern.BullishEngulfing;
         CloseBar(bus);
 
-        Assert.Equal($"Close 198.50{ClosedBarStamp}, Bullish engulfing. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}, Bullish engulfing. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
     }
 
     [Fact]
@@ -247,7 +251,7 @@ public sealed class NewBarNarrationTests
         analyzer.Finds = CandlePattern.BullishEngulfing;
         CloseBar(bus);
 
-        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
     }
 
     [Fact]
@@ -258,7 +262,7 @@ public sealed class NewBarNarrationTests
 
         string said = Assert.Single(spoken);
         Assert.Equal(
-            $"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: downward breakout, closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00",
+            $"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: downward breakout, closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00{NewBarStamp}",
             said);
     }
 
@@ -311,7 +315,7 @@ public sealed class NewBarNarrationTests
         var (first, last) = narrator.Deferred!.Value;
         Assert.Equal($"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: downward breakout, "
                    + "closed below the neckline at 150.00, measured target 130.00.", first);
-        Assert.Equal("New bar: Open 199.00", last);
+        Assert.Equal($"New bar: Open 199.00{NewBarStamp}", last);
     }
 
     [Fact]
@@ -319,7 +323,7 @@ public sealed class NewBarNarrationTests
     {
         var (bus, spoken, _) = Build(describePatterns: true, ResolvingAt(97, ChartPatternState.Completed));
         CloseBar(bus);
-        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
     }
 
     [Fact]
@@ -327,7 +331,7 @@ public sealed class NewBarNarrationTests
     {
         var (bus, spoken, _) = Build(describePatterns: false, ResolvingAt(98, ChartPatternState.Completed));
         CloseBar(bus);
-        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
     }
 
     [Fact]

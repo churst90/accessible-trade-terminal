@@ -81,7 +81,7 @@ public sealed class HeadlessNarrationTests : IDisposable
         // the open of the newest bar" — the reading sits between the close and the open.
         Assert.True(one.IndexOf("Volume 100,000", StringComparison.Ordinal) < one.IndexOf("New bar", StringComparison.Ordinal),
             "the close, the reading, then the open: " + one);
-        Assert.EndsWith("New bar: open 100.00.", one, StringComparison.Ordinal);
+        Assert.Matches(@"New bar: open 100\.00 at [^.]+\.$", one);
         // And the toast carries the same sentence — it is the spoken route where the screen
         // reader reads notifications.
         var toast = Assert.Single(h.Presenter.Toasts);

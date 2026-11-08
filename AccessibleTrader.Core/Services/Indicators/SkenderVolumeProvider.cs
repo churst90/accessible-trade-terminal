@@ -3,7 +3,7 @@ using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Indicators
 {
-    public sealed class SkenderVolumeProvider : IIndicatorProvider
+    public sealed class SkenderVolumeProvider : IIndicatorProvider, IWritesItsLibrarysWholeResult
     {
         private static readonly List<IndicatorMetadata> _indicators = BuildIndicators();
         private readonly SkenderDetailFactProvider _detailFacts = new();

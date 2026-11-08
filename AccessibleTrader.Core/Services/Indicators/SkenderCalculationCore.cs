@@ -7,6 +7,15 @@ using Skender.Stock.Indicators;
 
 namespace AccessibleTrader.Core.Services.Indicators
 {
+    /// <summary>
+    /// A provider that writes every property of its library's result type, as
+    /// <see cref="SkenderCalculationCore"/> does — Stochastic's K, D and J, MACD's two EMAs, ATR's
+    /// true range — whether or not the indicator declares a part for it. Those keys come from the
+    /// library by reflection, so they cannot be a typo, and the orchestrator's unknown-key warning
+    /// skips them.
+    /// </summary>
+    internal interface IWritesItsLibrarysWholeResult { }
+
     internal static class SkenderCalculationCore
     {
         internal static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Func<object[], object>> _delegateCache

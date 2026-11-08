@@ -288,7 +288,8 @@ namespace AccessibleTrader.Tests
         public void TheLadder_isSpokenBetweenTheCloseAndTheOpen()
         {
             const string ladder = "Volume: well above average.";
-            string open = $"New bar: open {SpeechPriceFormatter.FormatPrice(205)}.";
+            // The bar that opened says when (Cody, 2026-11-08: "New bar: open [price] at [timestamp]").
+            string open = $"New bar: open {SpeechPriceFormatter.FormatPrice(205)} at {SpeechTimeFormatter.FormatTime(Bar(2, 205).Date)}.";
 
             string s = BackgroundBarAnnouncer.BackgroundSentence(
                 Id("ETH/USD", "1h"), Bar(1, 200), Bar(2, 205), ladder);

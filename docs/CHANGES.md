@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The new bar's open says when; no false buffer-key warnings for left-out parts (2026-11-08, Cody's requests; NOT heard by Cody)
+
+- **"New bar: Open {price} at {time}".** Cody: "just append the 'at timestamp' part for the new open
+  bar." The close already said when it closed; the open now says when the new bar opened, on the same
+  clock: the time of day intraday, the date ("on April 10 2026") on a daily or longer chart. All three
+  spellings changed together: the focused chart (AccessibilityFeedbackCoordinator), a background tab
+  and the browser-closed monitor (BackgroundBarAnnouncer.BackgroundSentence), and the notification body
+  (DesktopNotificationService.NewBarBody). One helper, SpeechTimeFormatter.FormatBarWhen, now makes the
+  " at …"/" on …" clause for both bars. The stamp is the new bar's own open time, which on the bar it
+  opened is the close time of the one before.
+- **The server window's "wrote buffer key … but no component with that Name exists" warnings.** Cody's
+  terminal was full of them for DBSI (Control, Trend Source), Cipher A (Ribbon 9, Pivot High, Pivot Low,
+  Cipher A_wt1, Cipher A_wt2, Cipher A_stoch80) and Market Structure (StructureState, LastSwingHigh,
+  LastSwingLow). None were typos. Two causes: the check counted only the INCLUDED parts, and these are
+  left out by default (still computed, in ExcludedComponents); and Cipher A's three companions are named
+  after the indicator ("Cipher A_…"), not after one of its parts. Both are now known keys. A real typo
+  still warns. The check also skips the six Skender wrappers, which write every property of the
+  library's result (Stochastic's K/D/J, MACD's two EMAs, ATR's true range) and would have warned the
+  same way. Nothing a user hears or sees changed: the values were kept either way (the warning's
+  "silently ignored" was not true — the mapper copies every key).
+- Tests: BufferKeyWarningTests sweeps every hand-written built-in indicator as a new chart builds it
+  (vacuity: DBSI, Cipher A and Market Structure are among those calculated, 40+ in all) and pins that
+  a typo still warns; the new-bar tests pin the open's stamp on a 1-minute and a daily chart, the
+  background sentence and the notification. Sabotaged: counting only included parts (red), dropping
+  the indicator-named companions (red), dropping the open's stamp (9 red).
+
 ### CI: the browser harness runs on Ubuntu 24.04 (2026-11-07)
 
 - On 424003ec the browser job failed at "Install Chromium". GitHub's `ubuntu-latest` became 26.04, and the

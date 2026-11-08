@@ -166,6 +166,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             => FormatBar(stamp, barSeconds, barSeconds < SecondsPerDay ? TimeFormat : LongDateFormat);
 
         /// <summary>
+        /// " at 09:31" intraday, " on April 9 2026" on a daily or coarser chart — the bar-close
+        /// announcement's clause naming a bar, with its leading space. Said for the bar that
+        /// closed and for the one that opened.
+        /// </summary>
+        public static string FormatBarWhen(DateTime stamp, int barSeconds)
+            => (barSeconds < SecondsPerDay ? " at " : " on ") + FormatBarClock(stamp, barSeconds);
+
+        /// <summary>
         /// A range of bars — "January 5 2024 to March 15 2024", or on an intraday chart
         /// "September 5 2026, 14:32 to 15:22".
         ///
