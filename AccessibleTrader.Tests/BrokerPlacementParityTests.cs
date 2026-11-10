@@ -32,12 +32,21 @@ namespace AccessibleTrader.Tests
         /// <c>-1021</c>. That probe is captured like any other request, so a bare
         /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
         /// assertions were always for: exactly ONE order left the process.</para>
+        ///
+        /// <para>Binance (2026-11-10) also reads the market's order rules
+        /// (<c>exchangeInfo</c>) and, for futures, its leverage limit
+        /// (<c>leverageBracket</c>) before placing, so that an order the venue would refuse
+        /// is refused in words first. Those are reads, not orders; they are left out on the
+        /// same grounds.</para>
         /// </summary>
         private static int VenueCallIndex(FakeHttpMessageHandler h)
         {
+            static bool PreFlight(string path) =>
+                path.EndsWith("/api/v3/time", StringComparison.Ordinal)
+                || path.EndsWith("/exchangeInfo", StringComparison.Ordinal)
+                || path.EndsWith("/leverageBracket", StringComparison.Ordinal);
             var idx = Enumerable.Range(0, h.Captured.Count)
-                .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
-                              .EndsWith("/api/v3/time", StringComparison.Ordinal))
+                .Where(i => !PreFlight(h.Captured[i].RequestUri!.AbsolutePath))
                 .ToList();
             return Assert.Single(idx);
         }

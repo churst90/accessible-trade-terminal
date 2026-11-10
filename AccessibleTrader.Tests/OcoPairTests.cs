@@ -30,10 +30,15 @@ namespace AccessibleTrader.Tests
         /// <c>-1021</c>. That probe is captured like any other request, so a bare
         /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
         /// assertions were always for: exactly ONE order left the process.</para>
+        ///
+        /// <para>Binance (2026-11-10) also reads the market's order rules
+        /// (<c>exchangeInfo</c>) before placing, so that a pair the venue would refuse is
+        /// refused in words first. That is a read, not an order; it is left out too.</para>
         /// </summary>
         private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h) =>
             h.Captured.Single(r =>
-                !r.RequestUri!.AbsolutePath.EndsWith("/api/v3/time", StringComparison.Ordinal));
+                !r.RequestUri!.AbsolutePath.EndsWith("/api/v3/time", StringComparison.Ordinal)
+                && !r.RequestUri!.AbsolutePath.EndsWith("/exchangeInfo", StringComparison.Ordinal));
         // ── Order-service routing ────────────────────────────────────────────
 
         private sealed record Harness(GeneralOrderService Svc, ITradingProvider LiveTp,
