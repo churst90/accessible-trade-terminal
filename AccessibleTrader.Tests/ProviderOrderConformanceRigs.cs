@@ -193,6 +193,16 @@ namespace AccessibleTrader.Tests.OrderConformance
             SwapField(p, "_httpField", new HttpClient(h));
             // The clock probe precedes every signed call; it is a pre-flight, not an order.
             h.Get(@"/api/v3/time", """{"serverTime":1700000000000}""");
+            // An opening futures order sets the market's leverage first (2026-11-10); the
+            // venue answers with what it applied, which here is what was asked.
+            h.Add(HttpMethod.Post, @"/fapi/v1/leverage\?", req =>
+            {
+                var q = Query(req);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($$"""{"leverage":{{q["leverage"]}},"maxNotionalValue":"1000000","symbol":"{{q["symbol"]}}"}"""),
+                };
+            });
             return p;
         }
 

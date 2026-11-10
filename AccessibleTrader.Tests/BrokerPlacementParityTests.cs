@@ -35,7 +35,8 @@ namespace AccessibleTrader.Tests
         ///
         /// <para>2026-11-10: every venue now reads its public market rules (smallest order,
         /// decimals) before an order — Gemini's symbol details, Bitstamp's trading-pairs-info,
-        /// MEXC's exchangeInfo and contract detail. Those GETs are not orders either, so they
+        /// MEXC's exchangeInfo and contract detail, Binance's exchangeInfo and (futures)
+        /// leverageBracket. Those GETs are not orders either, so they
         /// are excluded the same way (<see cref="IsPublicRead"/>).</para>
         /// </summary>
         private static int VenueCallIndex(FakeHttpMessageHandler h)
@@ -46,14 +47,17 @@ namespace AccessibleTrader.Tests
             return Assert.Single(idx);
         }
 
-        /// <summary>The clock probe and the venues' public market-rules reads, which an order
-        /// now makes before it is sent: public reads, not the order.</summary>
+        /// <summary>The clock probe and the venues' market-rules reads, which an order now
+        /// makes before it is sent: reads, not the order. (Binance's leverageBracket is signed
+        /// but is still only a read.)</summary>
         private static bool IsPublicRead(string path) =>
             path.EndsWith("/api/v3/time", StringComparison.Ordinal)
             || path.StartsWith("/v1/symbols/details/", StringComparison.Ordinal)
             || path.EndsWith("/api/v2/trading-pairs-info/", StringComparison.Ordinal)
             || path.EndsWith("/api/v3/exchangeInfo", StringComparison.Ordinal)
-            || path.EndsWith("/api/v1/contract/detail", StringComparison.Ordinal);
+            || path.EndsWith("/api/v1/contract/detail", StringComparison.Ordinal)
+            || path.EndsWith("/fapi/v1/exchangeInfo", StringComparison.Ordinal)
+            || path.EndsWith("/fapi/v1/leverageBracket", StringComparison.Ordinal);
 
         private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h)
             => h.Captured[VenueCallIndex(h)];

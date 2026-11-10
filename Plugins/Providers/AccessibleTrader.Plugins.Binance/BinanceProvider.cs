@@ -20,7 +20,7 @@ namespace AccessibleTrader.Plugins.Binance
     /// the order book (REST + live), the user-data order stream, and full trading
     /// (balances, positions, open orders, place/cancel, leverage, protective TP/SL).
     /// </summary>
-    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider, IOrderDryRunProvider
+    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider, IOrderDryRunProvider, ISymbolLeverageProvider
     {
         // ── Endpoints (mainnet / testnet) ─────────────────────────────────────
         private string SpotRest => _isTestnet ? "https://testnet.binance.vision"     : "https://api.binance.com";
@@ -38,8 +38,33 @@ namespace AccessibleTrader.Plugins.Binance
         private string? _apiSecret;
         private bool _isTestnet = false;
 
-        // Binance allows 1200 request-weight/minute for REST.
+        // Reads and public calls. This counts REQUESTS, and Binance meters WEIGHT per IP: 6,000
+        // a minute on spot (exchangeInfo's rateLimits, read 2026-11-10; this comment said
+        // 1,200, the old figure), and on USD-M futures 6,000 on the testnet's answer (mainnet
+        // could not be read from here; 2,400 from memory). What the account reads weigh, from
+        // Binance's docs fetched 2026-11-10 (spot rest-api.md; futures from Binance's own
+        // connector, because the futures docs site answers a script with an empty page):
+        //   spot    account 20 · openOrders 6 for one market, 80 for all · myTrades 20
+        //   futures positionRisk 5 · openOrders 1, 40 for all · userTrades 5 · leverageBracket 1
+        // The dashboard asks for balances, positions, open orders and fills every two seconds:
+        // 30 × (20 + 80 + 20) = 3,600 spot weight and 30 × (5 + 40 + 5) = 1,500 futures weight
+        // a minute from one window, before the order service's own reads — a second window
+        // passes the spot budget, and Binance answers 429 and then bans the IP (418). The reads
+        // are cached below (15 s, fills 60 s): about 4 × 120 = 480 and 4 × 50 = 200.
         private readonly RateLimiter _rateLimiter = new(1200, TimeSpan.FromMinutes(1));
+
+        // ORDERS have their own line. Binance meters them apart from weight (spot 100 per
+        // 10 s, futures 300 per 10 s, per account), and an order — a stop being moved, a
+        // position being closed — used to wait behind the dashboard's reads in the line above.
+        // Half the spot allowance, so a burst of protective orders never meets the venue's.
+        private readonly RateLimiter _orderLimiter = new(50, TimeSpan.FromSeconds(10));
+
+        // Account reads are cached for a few seconds so that every panel and the order service
+        // asking at once is one call, not five. Emptied by every order, cancel and execution
+        // report, so nothing the user just did is answered from before they did it.
+        private readonly AccountReadCache _reads = new();
+        internal static readonly TimeSpan AccountReadTtl = TimeSpan.FromSeconds(15);
+        internal static readonly TimeSpan HistoryReadTtl = TimeSpan.FromSeconds(60);
 
         // Live kline subscription.
         private CancellationTokenSource? _klineCts;
@@ -244,6 +269,10 @@ namespace AccessibleTrader.Plugins.Binance
 
         private void HandleUserDataFrame(string msg, bool futures)
         {
+            // Every user-data frame is news about the account — an execution report, a balance
+            // change, a funding payment, a liquidation — so the next read asks the venue rather
+            // than answer from the cache.
+            _reads.Invalidate();
             try
             {
                 using var doc = JsonDocument.Parse(msg);
@@ -492,6 +521,9 @@ namespace AccessibleTrader.Plugins.Binance
                     string body = await GetPublicAsync(isFutures ? FutRest : SpotRest,
                         isFutures ? "/fapi/v1/exchangeInfo" : "/api/v3/exchangeInfo", null);
                     using var doc = JsonDocument.Parse(body);
+                    // The same answer carries every market's order rules; keep them rather
+                    // than ask again at the first order.
+                    StoreRules(doc.RootElement, isFutures);
                     return doc.RootElement.GetProperty("symbols")
                         .EnumerateArray()
                         .Select(s => s.GetProperty("symbol").GetString() ?? "")
@@ -616,6 +648,146 @@ namespace AccessibleTrader.Plugins.Binance
             return _orderBookSubject.AsObservable();
         }
 
+        // ── Order rules and leverage limits ───────────────────────────────────
+
+        // Spot rules by market (one exchangeInfo?symbol= read each — the whole spot answer is
+        // megabytes), futures rules for the whole venue (its exchangeInfo takes no symbol),
+        // and each futures market's most leverage. All read at most every six hours; a failed
+        // read is not remembered, so the next order asks again.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime At, BinanceOrderRules? Rules)> _spotRules =
+            new(StringComparer.OrdinalIgnoreCase);
+        private volatile Dictionary<string, BinanceOrderRules> _futuresRules = new(StringComparer.OrdinalIgnoreCase);
+        private DateTime _futuresRulesAt = DateTime.MinValue;
+        private volatile Dictionary<string, int> _maxLeverage = new(StringComparer.OrdinalIgnoreCase);
+        private DateTime _maxLeverageAt = DateTime.MinValue;
+        internal static readonly TimeSpan RulesTtl = TimeSpan.FromHours(6);
+
+        /// <summary>How long an order waits for a rules or leverage read before going without
+        /// it. Those reads sit in front of real orders — a close, a stop — and the venue judges
+        /// an order without them exactly as it always did.</summary>
+        private static readonly TimeSpan PreflightTimeout = TimeSpan.FromSeconds(5);
+
+        private void StoreRules(JsonElement exchangeInfo, bool futures)
+        {
+            try
+            {
+                var parsed = BinanceOrderRules.Parse(exchangeInfo, futures);
+                if (futures)
+                {
+                    _futuresRules = parsed;
+                    _futuresRulesAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    foreach (var (symbol, rules) in parsed) _spotRules[symbol] = (DateTime.UtcNow, rules);
+                }
+            }
+            catch (Exception ex)
+            {
+                // The symbol list this answer was read for must not fail over its rules.
+                _errorStream.OnNext($"Binance order rules could not be read ({ex.GetType().Name}).");
+            }
+        }
+
+        /// <summary>
+        /// The market's order rules, or null when they cannot be had — the order then goes out
+        /// as it did before 2026-11-10 and the venue judges it, rather than a failed public
+        /// lookup blocking an order the venue would have taken.
+        /// </summary>
+        internal async Task<BinanceOrderRules?> GetOrderRulesAsync(string symbol, bool futures)
+        {
+            string wire = CleanSymbol(symbol);
+            if (futures)
+            {
+                if (DateTime.UtcNow - _futuresRulesAt > RulesTtl)
+                {
+                    try
+                    {
+                        using var cts = new CancellationTokenSource(PreflightTimeout);
+                        await _rateLimiter.WaitAsync(cts.Token).ConfigureAwait(false);
+                        string body = await GetPublicAsync(FutRest, "/fapi/v1/exchangeInfo", null, cts.Token).ConfigureAwait(false);
+                        using var doc = JsonDocument.Parse(body);
+                        StoreRules(doc.RootElement, futures: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _errorStream.OnNext($"Binance futures order rules could not be read ({ex.GetType().Name}); the venue will judge the order.");
+                    }
+                }
+                return _futuresRules.TryGetValue(wire, out var f) ? f : null;
+            }
+
+            if (_spotRules.TryGetValue(wire, out var cached) && DateTime.UtcNow - cached.At <= RulesTtl)
+                return cached.Rules;
+            try
+            {
+                using var cts = new CancellationTokenSource(PreflightTimeout);
+                await _rateLimiter.WaitAsync(cts.Token).ConfigureAwait(false);
+                string body = await GetPublicAsync(SpotRest, "/api/v3/exchangeInfo",
+                    "symbol=" + Uri.EscapeDataString(wire), cts.Token).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(body);
+                StoreRules(doc.RootElement, futures: false);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Binance order rules for {wire} could not be read ({ex.GetType().Name}); the venue will judge the order.");
+                return null;
+            }
+            return _spotRules.TryGetValue(wire, out var fresh) ? fresh.Rules : null;
+        }
+
+        /// <summary>
+        /// The most this futures market lends at, from the account's leverage brackets, or null
+        /// when they cannot be read (no futures permission on the key, the venue unreachable).
+        /// With null the order still goes; the venue's answer to the leverage change decides.
+        /// </summary>
+        internal async Task<int?> GetSymbolMaxLeverageAsync(string symbol, CancellationToken ct = default)
+        {
+            string wire = CleanSymbol(symbol);
+            if (DateTime.UtcNow - _maxLeverageAt > RulesTtl)
+            {
+                if (!IsConnected) return null;
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(PreflightTimeout);
+                    await _rateLimiter.WaitAsync(cts.Token).ConfigureAwait(false);
+                    string body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v1/leverageBracket",
+                        new Dictionary<string, string>(), cts.Token).ConfigureAwait(false);
+                    using var doc = JsonDocument.Parse(body);
+                    _maxLeverage = BinanceOrderRules.ParseLeverageBrackets(doc.RootElement);
+                    _maxLeverageAt = DateTime.UtcNow;
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"Binance leverage limits could not be read ({ex.GetType().Name}); the venue will judge the leverage.");
+                    return null;
+                }
+            }
+            return _maxLeverage.TryGetValue(wire, out int max) ? max : null;
+        }
+
+        /// <summary>
+        /// The leverage amounts the order ticket offers on this market: 2 up to the most the
+        /// account's brackets allow (1, no leverage, is always offered by the ticket itself).
+        /// Binance lends at every whole number in between and the same on both sides. Empty for
+        /// a market with no futures contract, where nothing is lent; null when the brackets
+        /// could not be read, and the ticket falls back to <see cref="MaxLeverage"/>.
+        ///
+        /// <para>The ticket asks with the symbol alone, not spot or futures, so on a spot chart
+        /// of a market that also has a contract this still names the contract's limits; spot
+        /// orders send no leverage at all.</para>
+        /// </summary>
+        public async Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string symbol, OrderSide side, CancellationToken ct = default)
+        {
+            if (await GetSymbolMaxLeverageAsync(symbol, ct).ConfigureAwait(false) is int max)
+                return Enumerable.Range(2, Math.Max(0, max - 1)).ToList();
+            // Brackets read, but this market is not among them: no contract, nothing lent.
+            return DateTime.UtcNow - _maxLeverageAt <= RulesTtl && _maxLeverage.Count > 0
+                ? Array.Empty<int>()
+                : null;
+        }
+
         // ── ITradingProvider ──────────────────────────────────────────────────
 
         public async Task<List<Balance>> GetBalancesAsync()
@@ -625,7 +797,7 @@ namespace AccessibleTrader.Plugins.Binance
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _rateLimiter.ExecuteAsync(async () =>
+            var rows = await _reads.GetAsync("balances", AccountReadTtl, () => _rateLimiter.ExecuteAsync(async () =>
             {
                 string body = await SignedRequestAsync(HttpMethod.Get, SpotRest, "/api/v3/account", new Dictionary<string, string>());
                 using var doc = JsonDocument.Parse(body);
@@ -638,7 +810,8 @@ namespace AccessibleTrader.Plugins.Binance
                         list.Add(new Balance(b.GetProperty("asset").GetString() ?? "", free, locked));
                 }
                 return list;
-            });
+            }));
+            return rows.ToList();
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -648,7 +821,7 @@ namespace AccessibleTrader.Plugins.Binance
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _rateLimiter.ExecuteAsync(async () =>
+            var rows = await _reads.GetAsync("positions", AccountReadTtl, () => _rateLimiter.ExecuteAsync(async () =>
             {
                 string body = await SignedRequestAsync(HttpMethod.Get, FutRest, "/fapi/v2/positionRisk", new Dictionary<string, string>());
                 using var doc = JsonDocument.Parse(body);
@@ -670,7 +843,8 @@ namespace AccessibleTrader.Plugins.Binance
                         Dbl(p, "liquidationPrice")));
                 }
                 return list;
-            });
+            }));
+            return rows.ToList();
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -680,7 +854,8 @@ namespace AccessibleTrader.Plugins.Binance
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _rateLimiter.ExecuteAsync(async () =>
+            string key = "orders:" + (symbol != null ? CleanSymbol(symbol) : "*");
+            var rows = await _reads.GetAsync(key, AccountReadTtl, () => _rateLimiter.ExecuteAsync(async () =>
             {
                 var p = new Dictionary<string, string>();
                 if (symbol != null) p["symbol"] = CleanSymbol(symbol);
@@ -691,7 +866,8 @@ namespace AccessibleTrader.Plugins.Binance
                 // cancelled from the dashboard.
                 list.AddRange(await GetFuturesOpenOrdersAsync(symbol));
                 return list;
-            });
+            }));
+            return rows.ToList();
         }
 
         private static List<OpenOrder> ParseOpenOrders(string body)
@@ -742,7 +918,8 @@ namespace AccessibleTrader.Plugins.Binance
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _rateLimiter.ExecuteAsync(async () =>
+            string key = $"fills:{CleanSymbol(symbol)}:{limit}";
+            var rows = await _reads.GetAsync(key, HistoryReadTtl, () => _rateLimiter.ExecuteAsync(async () =>
             {
                 var p = new Dictionary<string, string>
                 {
@@ -770,7 +947,8 @@ namespace AccessibleTrader.Plugins.Binance
                 // list, and futures trades never appear in spot /myTrades.
                 list.AddRange(await GetFuturesFillsAsync(symbol!, limit));
                 return list.OrderByDescending(f => f.FilledAt).ToList();  // newest first, both books
-            });
+            }));
+            return rows.ToList();
         }
 
         /// <summary>Futures fill history (/fapi/v1/userTrades). Same single
@@ -821,30 +999,39 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteOnceAsync(async () =>
+                // Both legs are the same size, so the smaller-valued leg is the one the venue
+                // judges against its minimum.
+                var r = (await GetOrderRulesAsync(symbol, futures: false))?.Orders;
+                if (r?.Refusal(quantity, Math.Min(limitPrice, stopTriggerPrice)) is string refusal)
+                    return "ORDER_FAILED:" + refusal;
+                string Px(double v) => r?.FormatPrice(v) ?? Fmt(v);
+
+                return await _orderLimiter.ExecuteOnceAsync(async () =>
                 {
                     var p = new Dictionary<string, string>
                     {
                         ["symbol"] = CleanSymbol(symbol),
                         ["side"] = side == OrderSide.Buy ? "BUY" : "SELL",
-                        ["quantity"] = Fmt(quantity),
+                        ["quantity"] = r?.FormatQuantity(quantity) ?? Fmt(quantity),
                     };
                     if (side == OrderSide.Sell)
                     {
                         p["aboveType"] = "LIMIT_MAKER";
-                        p["abovePrice"] = Fmt(limitPrice);
+                        p["abovePrice"] = Px(limitPrice);
                         p["belowType"] = "STOP_LOSS";
-                        p["belowStopPrice"] = Fmt(stopTriggerPrice);
+                        p["belowStopPrice"] = Px(stopTriggerPrice);
                     }
                     else
                     {
                         p["aboveType"] = "STOP_LOSS";
-                        p["aboveStopPrice"] = Fmt(stopTriggerPrice);
+                        p["aboveStopPrice"] = Px(stopTriggerPrice);
                         p["belowType"] = "LIMIT_MAKER";
-                        p["belowPrice"] = Fmt(limitPrice);
+                        p["belowPrice"] = Px(limitPrice);
                     }
 
+                    _reads.Invalidate();
                     string body = await SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/orderList/oco", p);
+                    _reads.Invalidate();
                     var doc = System.Text.Json.JsonDocument.Parse(body);
                     return doc.RootElement.TryGetProperty("orderListId", out var id)
                         ? id.GetRawText()
@@ -862,40 +1049,54 @@ namespace AccessibleTrader.Plugins.Binance
         /// The spot order parameters for a signal — ONE builder shared by <see cref="PlaceOrderAsync"/>
         /// and <see cref="DryRunOrderAsync"/>, so what <c>/api/v3/order/test</c> validates is exactly
         /// what <c>/api/v3/order</c> would be sent.
+        /// <para>
+        /// <paramref name="rules"/> are the market's exchangeInfo rules (null when they could not
+        /// be read: the order is then built as it was before 2026-11-10 and the venue judges
+        /// it). With them, an order the venue would refuse for its size or value is refused
+        /// here in words, and every quantity and price is cut to the market's step and tick.
+        /// </para>
         /// </summary>
-        private static (Dictionary<string, string>? Params, string? Error) BuildSpotOrderParams(TradeSignal signal, string symbol, string side)
+        private static (Dictionary<string, string>? Params, string? Error) BuildSpotOrderParams(
+            TradeSignal signal, string symbol, string side, BinanceOrderRules? rules = null)
         {
             var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
             // Standalone stop/TP order types trigger at TriggerPrice;
             // fall back to StopLoss/TakeProfit for older callers.
             double? trig = signal.TriggerPrice
                 ?? (signal.Type is OrderType.StopMarket or OrderType.StopLimit ? signal.StopLoss : signal.TakeProfit);
+
+            var r = rules?.For(signal.Type);
+            if (r?.Refusal(signal.Quantity, PriceForValue(signal, trig)) is string refusal)
+                return (null, "ORDER_FAILED:" + refusal);
+            string Qty() => r?.FormatQuantity(signal.Quantity) ?? Fmt(signal.Quantity);
+            string Px(double v) => r?.FormatPrice(v) ?? Fmt(v);
+
             switch (signal.Type)
             {
                 case OrderType.Market:
-                    p["type"] = "MARKET"; p["quantity"] = Fmt(signal.Quantity);
+                    p["type"] = "MARKET"; p["quantity"] = Qty();
                     break;
                 case OrderType.Limit when signal.Price.HasValue:
-                    p["quantity"] = Fmt(signal.Quantity); p["price"] = Fmt(signal.Price.Value);
+                    p["quantity"] = Qty(); p["price"] = Px(signal.Price.Value);
                     if (signal.PostOnly) { p["type"] = "LIMIT_MAKER"; }                 // spot maker-only
                     else { p["type"] = "LIMIT"; p["timeInForce"] = SpotTif(signal); }
                     break;
                 case OrderType.StopMarket when trig.HasValue:
-                    p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
-                    p["stopPrice"] = Fmt(trig.Value);
+                    p["type"] = "STOP_LOSS"; p["quantity"] = Qty();
+                    p["stopPrice"] = Px(trig.Value);
                     break;
                 case OrderType.StopLimit when trig.HasValue && signal.Price.HasValue:
-                    p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                    p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
+                    p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Qty();
+                    p["price"] = Px(signal.Price.Value); p["stopPrice"] = Px(trig.Value);
                     p["timeInForce"] = SpotTif(signal);
                     break;
                 case OrderType.TakeProfitMarket when trig.HasValue:
-                    p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
-                    p["stopPrice"] = Fmt(trig.Value);
+                    p["type"] = "TAKE_PROFIT"; p["quantity"] = Qty();
+                    p["stopPrice"] = Px(trig.Value);
                     break;
                 case OrderType.TakeProfitLimit when trig.HasValue && signal.Price.HasValue:
-                    p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                    p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
+                    p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Qty();
+                    p["price"] = Px(signal.Price.Value); p["stopPrice"] = Px(trig.Value);
                     p["timeInForce"] = SpotTif(signal);
                     break;
                 default:
@@ -904,6 +1105,18 @@ namespace AccessibleTrader.Plugins.Binance
             if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
             return (p, null);
         }
+
+        /// <summary>
+        /// The price an order's value is judged at: its limit price, or its trigger when it has
+        /// none. A market order has neither, and its value is left to the venue (Binance judges
+        /// it at a recent average this plugin does not have).
+        /// </summary>
+        private static double? PriceForValue(TradeSignal signal, double? trigger) => signal.Type switch
+        {
+            OrderType.Market => null,
+            OrderType.Limit or OrderType.StopLimit or OrderType.TakeProfitLimit => signal.Price ?? trigger,
+            _ => trigger,
+        };
 
         /// <summary>
         /// Binance spot's <c>POST /api/v3/order/test</c>: the same signed parameters as a real
@@ -919,12 +1132,13 @@ namespace AccessibleTrader.Plugins.Binance
 
             var symbol = CleanSymbol(signal.Symbol);
             string side = signal.Side == OrderSide.Buy ? "BUY" : "SELL";
-            var (p, error) = BuildSpotOrderParams(signal, symbol, side);
+            var rules = await GetOrderRulesAsync(symbol, futures: false);
+            var (p, error) = BuildSpotOrderParams(signal, symbol, side, rules);
             if (p is null) return new OrderDryRunResult(false, error!);
 
             try
             {
-                await _rateLimiter.ExecuteOnceAsync(() => SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order/test", p));
+                await _orderLimiter.ExecuteOnceAsync(() => SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order/test", p));
                 return new OrderDryRunResult(true, "Binance validated the order (nothing was placed)");
             }
             catch (HttpRequestException ex)
@@ -940,9 +1154,32 @@ namespace AccessibleTrader.Plugins.Binance
             bool isFutures = string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase);
             try
             {
-                return await _rateLimiter.ExecuteOnceAsync(async () =>
+                var symbol = CleanSymbol(signal.Symbol);
+
+                // Looked up BEFORE the order takes its slot: none of them is the order itself,
+                // and the order's own call must stay the single, never-retried POST.
+                var rules = await GetOrderRulesAsync(symbol, isFutures);
+                double? futTrig = signal.Type is OrderType.StopMarket or OrderType.StopLimit
+                    ? signal.TriggerPrice ?? signal.StopLoss
+                    : signal.TriggerPrice ?? signal.TakeProfit;
+                int leverage = 1;
+                if (isFutures)
                 {
-                    var symbol = CleanSymbol(signal.Symbol);
+                    // A reduce-only order closes, and Binance does not judge a close by its
+                    // value (a position worth less than the minimum must still be closable).
+                    double? valueAt = signal.ReduceOnly ? null : PriceForValue(signal, futTrig);
+                    if (rules?.For(signal.Type).Refusal(signal.Quantity, valueAt) is string refusal)
+                        return "ORDER_FAILED:" + refusal;
+                    if (!signal.ReduceOnly)
+                    {
+                        var (want, leverageRefusal) = await CheckFuturesLeverageAsync(signal, symbol);
+                        if (leverageRefusal != null) return "ORDER_FAILED:" + leverageRefusal;
+                        leverage = want;
+                    }
+                }
+
+                return await _orderLimiter.ExecuteOnceAsync(async () =>
+                {
                     string side = signal.Side == OrderSide.Buy ? "BUY" : "SELL";
 
                     if (isFutures)
@@ -967,14 +1204,24 @@ namespace AccessibleTrader.Plugins.Binance
                         // A position's leverage is a property of the trade, so a leverage the
                         // venue would not grant means the trade the user asked for cannot be
                         // placed. Refuse it and say so; the ticket is still there to retry.
-                        if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
+                        //
+                        // Until 2026-11-10 this ran only above 1 times. The ticket sends no
+                        // leverage at 1 (no leverage), so an order at 1 went in at whatever the
+                        // market was last set to — 20 times from a previous session, or from the
+                        // venue's own default — while the review had said nothing about leverage
+                        // at all. Every opening order now sets it, 1 included. A failed change is
+                        // no longer read as "1 times applied": that was the old fallback's number,
+                        // and at 1 it matched the request.
+                        if (!signal.ReduceOnly)
                         {
-                            int requested = (int)Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
-                            double confirmed = await SetLeverageAsync(symbol, signal.Leverage.Value);
-                            if ((int)confirmed != requested)
-                                return $"ORDER_FAILED:the venue would not set {requested} times "
+                            var (applied, why) = await TrySetLeverageAsync(symbol, leverage);
+                            if (applied is null)
+                                return $"ORDER_FAILED:the venue would not set {leverage} times "
+                                     + $"leverage on {symbol} ({why}), so nothing was placed.";
+                            if (applied.Value != leverage)
+                                return $"ORDER_FAILED:the venue would not set {leverage} times "
                                      + $"leverage on {symbol}, so nothing was placed. "
-                                     + $"The account is still at {(int)confirmed} times.";
+                                     + $"The account is still at {applied.Value} times.";
                         }
 
                         var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
@@ -988,24 +1235,25 @@ namespace AccessibleTrader.Plugins.Binance
                             _                          => "MARKET"
                         };
                         p["type"] = futType;
-                        p["quantity"] = Fmt(signal.Quantity);
+                        var r = rules?.For(signal.Type);
+                        string Px(double v) => r?.FormatPrice(v) ?? Fmt(v);
+                        p["quantity"] = r?.FormatQuantity(signal.Quantity) ?? Fmt(signal.Quantity);
                         // reduceOnly and positionSide are mutually exclusive on Binance
                         // (hedge mode rejects reduceOnly); only send reduceOnly in one-way mode.
                         if (signal.ReduceOnly && string.IsNullOrEmpty(signal.PositionSide)) p["reduceOnly"] = "true";
                         if (!string.IsNullOrEmpty(signal.PositionSide)) p["positionSide"] = signal.PositionSide!;
                         if (futType != "MARKET")
                         {
-                            if (signal.Price.HasValue) p["price"] = Fmt(signal.Price.Value);
+                            if (signal.Price.HasValue) p["price"] = Px(signal.Price.Value);
                             bool isStopOrTp = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
-                            double? futTrig = futType is "STOP_MARKET" or "STOP"
-                                ? signal.TriggerPrice ?? signal.StopLoss
-                                : signal.TriggerPrice ?? signal.TakeProfit;
-                            if (isStopOrTp && futTrig.HasValue) p["stopPrice"] = Fmt(futTrig.Value);
+                            if (isStopOrTp && futTrig.HasValue) p["stopPrice"] = Px(futTrig.Value);
                             p["timeInForce"] = ResolveTif(signal);
                         }
                         if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
 
+                        _reads.Invalidate();
                         string body = await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
+                        _reads.Invalidate();
                         string id = ParseOrderId(body);
 
                         // Protective TP/SL attach (separate reduce-only orders).
@@ -1034,25 +1282,27 @@ namespace AccessibleTrader.Plugins.Binance
                         string exitSide = side == "BUY" ? "SELL" : "BUY";
                         if (signal.TakeProfit.HasValue && !tpIsEntryTrigger)
                             await AttachProtectiveOrderAsync(symbol, exitSide, "TAKE_PROFIT_MARKET",
-                                signal.Quantity, signal.TakeProfit.Value, DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit");
+                                signal.Quantity, signal.TakeProfit.Value, DeriveProtectiveOid(signal.ClientOid, "tp"), "take-profit", rules?.Orders);
                         if (signal.StopLoss.HasValue && !slIsEntryTrigger)
                             await AttachProtectiveOrderAsync(symbol, exitSide, "STOP_MARKET",
-                                signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss");
+                                signal.Quantity, signal.StopLoss.Value, DeriveProtectiveOid(signal.ClientOid, "sl"), "stop-loss", rules?.Orders);
                         // A trailing distance is never an entry trigger, so it has no
                         // ambiguity to resolve — it was only ever gated by copy-paste.
                         if (signal.TrailStopValue is > 0)
-                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailStopValue.Value, DeriveProtectiveOid(signal.ClientOid, "ts"));
+                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailStopValue.Value, DeriveProtectiveOid(signal.ClientOid, "ts"), rules: rules?.Orders);
                         if (signal.TrailTpValue is > 0)
-                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailTpValue.Value, DeriveProtectiveOid(signal.ClientOid, "ttp"), signal.TrailTpActivation);
+                            await AttachTrailingStopAsync(symbol, exitSide, signal.Quantity, signal.TrailTpValue.Value, DeriveProtectiveOid(signal.ClientOid, "ttp"), signal.TrailTpActivation, rules?.Orders);
 
                         return id;
                     }
                     else
                     {
-                        var (p, buildError) = BuildSpotOrderParams(signal, symbol, side);
+                        var (p, buildError) = BuildSpotOrderParams(signal, symbol, side, rules);
                         if (p is null) return buildError!;
 
+                        _reads.Invalidate();
                         string body = await SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order", p);
+                        _reads.Invalidate();
                         return ParseOrderId(body);
                     }
                 });
@@ -1065,7 +1315,8 @@ namespace AccessibleTrader.Plugins.Binance
         /// error if both attempts fail — a naked position must be heard about now.
         /// </summary>
         private async Task AttachProtectiveOrderAsync(
-            string symbol, string exitSide, string type, double quantity, double triggerPrice, string? clientOrderId, string label)
+            string symbol, string exitSide, string type, double quantity, double triggerPrice, string? clientOrderId, string label,
+            SymbolOrderRules? rules = null)
         {
             string? lastError = null;
             for (int attempt = 0; attempt < 2; attempt++)
@@ -1075,7 +1326,8 @@ namespace AccessibleTrader.Plugins.Binance
                     var p = new Dictionary<string, string>
                     {
                         ["symbol"] = symbol, ["side"] = exitSide, ["type"] = type,
-                        ["quantity"] = Fmt(quantity), ["stopPrice"] = Fmt(triggerPrice),
+                        ["quantity"] = rules?.FormatQuantity(quantity) ?? Fmt(quantity),
+                        ["stopPrice"] = rules?.FormatPrice(triggerPrice) ?? Fmt(triggerPrice),
                         ["timeInForce"] = "GTC", ["reduceOnly"] = "true"
                     };
                     if (!string.IsNullOrEmpty(clientOrderId)) p["newClientOrderId"] = clientOrderId!;
@@ -1114,17 +1366,18 @@ namespace AccessibleTrader.Plugins.Binance
 
         // Futures trailing stop (reduce-only). Binance expresses the trail as a
         // callbackRate percent (0.1–5); TrailStopValue is taken as that percent.
-        private async Task AttachTrailingStopAsync(string symbol, string exitSide, double quantity, double callbackRate, string? clientOrderId, double? activationPrice = null)
+        private async Task AttachTrailingStopAsync(string symbol, string exitSide, double quantity, double callbackRate, string? clientOrderId,
+            double? activationPrice = null, SymbolOrderRules? rules = null)
         {
             try
             {
                 var p = new Dictionary<string, string>
                 {
                     ["symbol"] = symbol, ["side"] = exitSide, ["type"] = "TRAILING_STOP_MARKET",
-                    ["quantity"] = Fmt(quantity), ["callbackRate"] = Fmt(Math.Clamp(callbackRate, 0.1, 5.0)),
+                    ["quantity"] = rules?.FormatQuantity(quantity) ?? Fmt(quantity), ["callbackRate"] = Fmt(Math.Clamp(callbackRate, 0.1, 5.0)),
                     ["reduceOnly"] = "true"
                 };
-                if (activationPrice.HasValue) p["activationPrice"] = Fmt(activationPrice.Value);
+                if (activationPrice.HasValue) p["activationPrice"] = rules?.FormatPrice(activationPrice.Value) ?? Fmt(activationPrice.Value);
                 if (!string.IsNullOrEmpty(clientOrderId)) p["newClientOrderId"] = clientOrderId!;
                 await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/order", p);
             }
@@ -1139,7 +1392,8 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return false;
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                _reads.Invalidate();
+                return await _orderLimiter.ExecuteAsync(async () =>
                 {
                     var p = new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["orderId"] = orderId };
                     // The cancel contract carries no market and Capabilities
@@ -1157,6 +1411,7 @@ namespace AccessibleTrader.Plugins.Binance
                         await SignedRequestAsync(HttpMethod.Delete, FutRest, "/fapi/v1/order", p);
                         return true;
                     }
+                    finally { _reads.Invalidate(); }
                 });
             }
             catch (Exception ex)
@@ -1166,22 +1421,133 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
+        /// <summary>
+        /// Sets the futures market's leverage and returns what the venue applied; 1.0 when it
+        /// could not be set, said on the error stream (the SDK contract).
+        ///
+        /// <para>
+        /// This used to cut the request to a whole number between 1 and 125 before sending it,
+        /// so 2.5 went out as 2 and 150 as 125, and the caller's "did it apply what I asked"
+        /// check compared against a number nobody asked for. Binance takes whole numbers only,
+        /// up to a limit that differs by market and account; anything else is now refused in
+        /// words, and an amount above the market's limit is the venue's to refuse.
+        /// </para>
+        /// </summary>
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
         {
             if (!IsConnected) return 1.0;
+            if (WholeLeverageRefusal(leverage, CleanSymbol(symbol)) is string refusal)
+            {
+                _errorStream.OnNext(refusal + ".");
+                return 1.0;
+            }
+            await _orderLimiter.WaitAsync();
+            var (applied, why) = await TrySetLeverageAsync(CleanSymbol(symbol), (int)leverage);
+            if (applied is int a) return a;
+            _errorStream.OnNext($"Binance would not set {(int)leverage} times leverage on {CleanSymbol(symbol)}: {why}");
+            return 1.0;
+        }
+
+        /// <summary>
+        /// POST /fapi/v1/leverage. The leverage the venue applied, or null and the venue's
+        /// reason — never a made-up 1, which an order at 1 times would read as success.
+        /// </summary>
+        private async Task<(int? Applied, string? Why)> TrySetLeverageAsync(string wireSymbol, int leverage)
+        {
             try
             {
-                int lev = (int)Math.Clamp(leverage, 1, MaxLeverage);
-                var p = new Dictionary<string, string> { ["symbol"] = CleanSymbol(symbol), ["leverage"] = lev.ToString(CultureInfo.InvariantCulture) };
+                var p = new Dictionary<string, string> { ["symbol"] = wireSymbol, ["leverage"] = leverage.ToString(CultureInfo.InvariantCulture) };
                 string body = await SignedRequestAsync(HttpMethod.Post, FutRest, "/fapi/v1/leverage", p);
                 using var doc = JsonDocument.Parse(body);
-                return doc.RootElement.TryGetProperty("leverage", out var l) ? l.GetDouble() : lev;
+                return doc.RootElement.TryGetProperty("leverage", out var l) && l.TryGetInt32(out int applied)
+                    ? (applied, null)
+                    : (null, "its answer named no leverage");
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"Binance SetLeverageAsync failed for {symbol} ({ex.GetType().Name}): {ex.Message}");
-                return 1.0;
+                return (null, VenueSays(ex));
             }
+        }
+
+        /// <summary>Why <paramref name="leverage"/> is not one Binance takes, or null.</summary>
+        private static string? WholeLeverageRefusal(double leverage, string wireSymbol)
+        {
+            if (double.IsNaN(leverage) || double.IsInfinity(leverage) || leverage < 1)
+                return $"Binance takes leverage of 1 or more; {leverage.ToString("0.##", CultureInfo.InvariantCulture)} times on {wireSymbol} is not one, so nothing was placed";
+            if (leverage != Math.Floor(leverage))
+                return $"Binance takes whole-number leverage only; {leverage.ToString("0.##", CultureInfo.InvariantCulture)} times on {wireSymbol} "
+                     + $"is not one, so nothing was placed. Choose {Math.Floor(leverage):0} or {Math.Ceiling(leverage):0}";
+            if (leverage > 1000)
+                return $"Binance does not lend at {leverage.ToString("0", CultureInfo.InvariantCulture)} times on {wireSymbol}, so nothing was placed";
+            return null;
+        }
+
+        /// <summary>
+        /// The leverage an opening futures order will be placed at, or why it cannot be.
+        ///
+        /// <para>
+        /// The ticket sends nothing at 1 times (no leverage), so a missing amount is 1. A
+        /// fraction is refused rather than cut (Binance takes whole numbers). An amount above
+        /// the market's own limit, from the account's leverage brackets, is refused naming the
+        /// limit; when the brackets cannot be read the order goes on and the venue's answer to
+        /// the change decides.
+        /// </para>
+        ///
+        /// <para>
+        /// Binance keeps ONE leverage per market, and changing it changes an open position's
+        /// too. Now that every opening order sets it, an order at 1 times — the ticket's
+        /// default — against a position opened at 10 would quietly re-margin that position (or
+        /// be refused for margin, in the venue's words). So when a position is open on the
+        /// market at a different leverage, the order is refused and says which: match it, or
+        /// close with reduce-only. When positions cannot be read, the order goes on.
+        /// </para>
+        /// </summary>
+        private async Task<(int Leverage, string? Refusal)> CheckFuturesLeverageAsync(TradeSignal signal, string wireSymbol)
+        {
+            double asked = signal.Leverage ?? 1.0;
+            if (asked < 1) asked = 1.0;
+            if (WholeLeverageRefusal(asked, wireSymbol) is string notWhole) return (0, notWhole);
+            int want = (int)asked;
+
+            if (await GetSymbolMaxLeverageAsync(wireSymbol) is int max && want > max)
+                return (0, $"Binance lends at most {max} times on {wireSymbol}; this order asked for {want} times, so nothing was placed");
+
+            try
+            {
+                foreach (var pos in await GetPositionsAsync())
+                {
+                    if (!string.Equals(CleanSymbol(pos.Symbol), wireSymbol, StringComparison.OrdinalIgnoreCase) || pos.Quantity == 0) continue;
+                    int held = (int)Math.Round(pos.Leverage);
+                    if (held >= 1 && held != want)
+                        return (0, $"{wireSymbol} already has a position open at {held} times, and Binance keeps one leverage per market, "
+                                 + $"so an order at {want} times would change the open position's leverage. Nothing was placed. "
+                                 + $"Set the leverage to {held} to add to it, or tick reduce-only to close it");
+                }
+            }
+            catch (Exception)
+            {
+                // Positions could not be read: the venue judges the change, as it always did.
+            }
+            return (want, null);
+        }
+
+        /// <summary>The venue's own reason from a failed call: the "msg" of Binance's
+        /// {"code":…,"msg":…} body when there is one, else the whole message.</summary>
+        private static string VenueSays(Exception ex)
+        {
+            string m = ex.Message;
+            int brace = m.IndexOf('{');
+            if (brace >= 0)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(m[brace..]);
+                    if (doc.RootElement.TryGetProperty("msg", out var msg) && msg.GetString() is { Length: > 0 } said)
+                        return said;
+                }
+                catch (JsonException) { }
+            }
+            return m;
         }
 
         // ── User-data stream (listen key) REST ────────────────────────────────
@@ -1245,10 +1611,10 @@ namespace AccessibleTrader.Plugins.Binance
                     null, resp.StatusCode)
                 : new($"{(int)resp.StatusCode} {body}", null, resp.StatusCode);
 
-        private async Task<string> GetPublicAsync(string baseUrl, string path, string? query)
+        private async Task<string> GetPublicAsync(string baseUrl, string path, string? query, CancellationToken ct = default)
         {
             string url = $"{baseUrl}{path}" + (string.IsNullOrEmpty(query) ? "" : $"?{query}");
-            using var resp = await Http.GetAsync(url).ConfigureAwait(false);
+            using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
             string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) throw HttpFailure(resp, body);
             return body;
@@ -1317,7 +1683,8 @@ namespace AccessibleTrader.Plugins.Binance
 
         // SIGNED request: appends timestamp + recvWindow, HMAC-SHA256 signs the
         // query, sends params in the query string with the API-key header.
-        private async Task<string> SignedRequestAsync(HttpMethod method, string baseUrl, string path, Dictionary<string, string> p)
+        private async Task<string> SignedRequestAsync(HttpMethod method, string baseUrl, string path, Dictionary<string, string> p,
+            CancellationToken ct = default)
         {
             var (key, secret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
             await EnsureClockSyncedAsync().ConfigureAwait(false);
@@ -1331,7 +1698,7 @@ namespace AccessibleTrader.Plugins.Binance
 
                 using var req = new HttpRequestMessage(method, $"{baseUrl}{path}?{query}&signature={signature}");
                 req.Headers.Add("X-MBX-APIKEY", key);
-                using var resp = await Http.SendAsync(req).ConfigureAwait(false);
+                using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
                 string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
                 if (resp.IsSuccessStatusCode) return body;
