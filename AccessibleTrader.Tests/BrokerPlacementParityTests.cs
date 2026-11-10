@@ -32,12 +32,17 @@ namespace AccessibleTrader.Tests
         /// <c>-1021</c>. That probe is captured like any other request, so a bare
         /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
         /// assertions were always for: exactly ONE order left the process.</para>
+        ///
+        /// <para>Bitstamp likewise reads its public <c>trading-pairs-info</c> before an order
+        /// (2026-11-10, the pair's decimals and minimum); that GET is not an order either.</para>
         /// </summary>
         private static int VenueCallIndex(FakeHttpMessageHandler h)
         {
             var idx = Enumerable.Range(0, h.Captured.Count)
                 .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
                               .EndsWith("/api/v3/time", StringComparison.Ordinal))
+                .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
+                              .EndsWith("/api/v2/trading-pairs-info/", StringComparison.Ordinal))
                 .ToList();
             return Assert.Single(idx);
         }

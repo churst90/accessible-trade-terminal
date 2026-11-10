@@ -178,8 +178,10 @@ namespace AccessibleTrader.Tests
             await provider.PlaceOrderAsync(new TradeSignal(
                 "BTC/USDT", side, 1.0, type, Price: type == OrderType.Limit ? 100.0 : null));
 
-            Assert.NotEmpty(handler.Captured);
-            var url = handler.Captured[0].RequestUri!.ToString();
+            // The order is the POST: since 2026-11-10 a public GET of trading-pairs-info (the
+            // pair's decimals and minimum) can go out first.
+            var order = Assert.Single(handler.Captured, r => r.Method == HttpMethod.Post);
+            var url = order.RequestUri!.ToString();
             Assert.Contains(expectedPath, url);
             Assert.DoesNotContain("btcusdt", url);
         }

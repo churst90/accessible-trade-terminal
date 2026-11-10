@@ -36,6 +36,11 @@ namespace AccessibleTrader.Plugins.Bitstamp
         // Rate limiter: Bitstamp allows ~8000 requests/10 minutes
         private readonly RateLimiter _rateLimiter = new(800, TimeSpan.FromMinutes(1));
 
+        // Every pair's order rules, read from trading-pairs-info at most every six hours (see
+        // GetPairRulesAsync).
+        private readonly AccountReadCache _pairRules = new();
+        private static readonly TimeSpan PairRulesTtl = TimeSpan.FromHours(6);
+
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
 
@@ -697,6 +702,13 @@ namespace AccessibleTrader.Plugins.Bitstamp
             if (!IsTradeConfigured) return "PROVIDER_NOT_CONFIGURED";
             try
             {
+                // Read BEFORE the order's limiter slot, never inside it, and refuse before
+                // anything is sent.
+                var rules = signal.Type is OrderType.Market or OrderType.Limit
+                    ? await GetPairRulesAsync(signal.Symbol).ConfigureAwait(false)
+                    : null;
+                if (rules?.Refusal(signal) is string refusal)
+                    return "ORDER_FAILED:" + refusal;
                 return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     // ToBitstampPair, not a bare Replace. Every DATA path on this venue goes
@@ -729,14 +741,22 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     //
                     // Every other provider in this repo already does exactly this: full
                     // precision, invariant culture. Bitstamp was the one that did not.
+                    //
+                    // 2026-11-10: full precision was still not what Bitstamp takes. The amount
+                    // must fit the pair's base_decimals and the price its counter_decimals, and
+                    // ToString() printed a small amount as "1E-05". With the pair's rules the
+                    // amount is cut DOWN to its decimals and the price put on its tick; without
+                    // them both still go out in plain digits, never in exponent form.
+                    string Amount(double q) => rules?.Rules.FormatQuantity(q) ?? SymbolOrderRules.Plain(q);
+                    string Px(double p) => rules?.Rules.FormatPrice(p) ?? SymbolOrderRules.Plain(p);
                     var postData = new Dictionary<string, string>
-                        { ["amount"] = signal.Quantity.ToString(CultureInfo.InvariantCulture) };
+                        { ["amount"] = Amount(signal.Quantity) };
                     if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
+                        postData["price"] = Px(signal.Price.Value);
 
                     // Bitstamp supports limit_price for instant orders (acts as price ceiling/floor)
                     if (isMkt && signal.Price.HasValue)
-                        postData["limit_price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
+                        postData["limit_price"] = Px(signal.Price.Value);
 
                     var response = await PostAuthenticatedAsync(endpoint, postData);
                     var json     = JObject.Parse(response);
@@ -765,6 +785,32 @@ namespace AccessibleTrader.Plugins.Bitstamp
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
+
+        // ── Pair rules (trading-pairs-info) ──────────────────────────────────
+
+        /// <summary>
+        /// The pair's rules, read from the public trading-pairs-info at most every six hours.
+        /// Null when they cannot be had — the order then goes out as it did before 2026-11-10
+        /// (in plain digits) and Bitstamp judges it, rather than a failed lookup blocking a
+        /// close the venue would have taken.
+        /// </summary>
+        internal async Task<BitstampPairRules?> GetPairRulesAsync(string symbol)
+        {
+            try
+            {
+                var all = await _pairRules.GetAsync("pairs", PairRulesTtl, () =>
+                    _rateLimiter.ExecuteAsync(async () =>
+                        BitstampPairRules.Parse(JArray.Parse(
+                            await _httpClient.GetStringAsync($"{BaseUrl}/trading-pairs-info/").ConfigureAwait(false))),
+                        maxRetries: 1)).ConfigureAwait(false);
+                return all.TryGetValue(ToBitstampPair(symbol), out var rules) ? rules : null;
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Bitstamp pair rules could not be read ({ex.GetType().Name}); the order goes to Bitstamp unchecked.");
+                return null;
+            }
+        }
 
         private async Task<string> PostAuthenticatedAsync(string endpoint, Dictionary<string, string> parameters)
         {

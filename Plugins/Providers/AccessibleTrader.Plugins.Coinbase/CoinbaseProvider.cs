@@ -20,6 +20,11 @@ namespace AccessibleTrader.Plugins.Coinbase
         // Rate limiter: Coinbase Advanced Trade allows ~30 requests/second
         private readonly RateLimiter _rateLimiter = new(30, TimeSpan.FromSeconds(1));
 
+        // Each product's order rules, read from the public product endpoint at most every six
+        // hours (see GetProductRulesAsync).
+        private readonly AccountReadCache _productRules = new();
+        private static readonly TimeSpan ProductRulesTtl = TimeSpan.FromHours(6);
+
         // Order update stream
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
 
@@ -462,24 +467,46 @@ namespace AccessibleTrader.Plugins.Coinbase
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _rateLimiter.ExecuteAsync(async () =>
+            //
+            // Every page, not the first. Coinbase keeps one account per currency it lists, held
+            // or not, and answers 49 of them unless asked for more, so until 2026-11-10 a coin
+            // whose wallet sorted past the first page was simply not in the balances, and the
+            // terminal spoke an account with money in it as having none. limit=250 is the most
+            // one page carries; the cursor walks the rest. Like the open-orders read, the query
+            // stays off the signed path.
+            const string path = "/api/v3/brokerage/accounts";
+            var balances = new List<Balance>();
+            var cursorsSeen = new HashSet<string>(StringComparer.Ordinal);
+            string? cursor = null;
+            for (int page = 0; page < MaxAccountPages; page++)
             {
-                string path = "/api/v3/brokerage/accounts";
-                var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
-                var json     = JObject.Parse(response);
-                var accounts = json["accounts"] as JArray;
-                if (accounts == null) return new List<Balance>();
-                return accounts
-                    .Where(a =>
-                        double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double av) && av > 0
-                        || double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hold) && hold > 0)
-                    .Select(a => new Balance(
-                        a["currency"]?.ToString() ?? "",
-                        double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double avf) ? avf : 0,
-                        double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0))
-                    .ToList();
-            });
+                string query = "?limit=250" + (cursor == null ? "" : "&cursor=" + Uri.EscapeDataString(cursor));
+                var json = await _rateLimiter.ExecuteAsync(async () =>
+                    JObject.Parse(await GetSignedStringAsync($"https://api.coinbase.com{path}{query}", path).ConfigureAwait(false)));
+                if (json["accounts"] is JArray accounts)
+                    balances.AddRange(accounts
+                        .Where(a =>
+                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double av) && av > 0
+                            || double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hold) && hold > 0)
+                        .Select(a => new Balance(
+                            a["currency"]?.ToString() ?? "",
+                            double.TryParse(a["available_balance"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double avf) ? avf : 0,
+                            double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0)));
+
+                if (json["has_next"]?.Type != JTokenType.Boolean || !json["has_next"]!.Value<bool>())
+                    return balances;
+                cursor = json["cursor"]?.ToString();
+                // A list cut short is the same lie as the one-page read, so a cursor that is
+                // missing or comes round again fails the read rather than ending it.
+                if (string.IsNullOrEmpty(cursor) || !cursorsSeen.Add(cursor))
+                    throw new InvalidOperationException("Coinbase said more accounts follow but gave no new cursor to read them with.");
+            }
+            throw new InvalidOperationException($"Coinbase's account list ran past {MaxAccountPages} pages; the balances were not all read.");
         }
+
+        // 250 accounts a page: forty pages is ten thousand accounts, far past every currency
+        // Coinbase lists, and a bound on a cursor loop that never ends.
+        private const int MaxAccountPages = 40;
 
         public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
 
@@ -582,6 +609,12 @@ namespace AccessibleTrader.Plugins.Coinbase
             string clientOid = signal.ClientOid ?? Guid.NewGuid().ToString();
             try
             {
+                // Read BEFORE the order's limiter slot, never inside it: the read is a GET that
+                // may retry, and the slot belongs to the one POST.
+                // A refusal returns before anything is sent, in words the user can act on.
+                var rules = await GetProductRulesAsync(signal.Symbol).ConfigureAwait(false);
+                if (rules?.Refusal(signal) is string refusal)
+                    return "ORDER_FAILED:" + refusal;
                 return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     string productId = ToProductId(signal.Symbol);
@@ -593,21 +626,29 @@ namespace AccessibleTrader.Plugins.Coinbase
                     // The SDK contract: a stop's trigger is `TriggerPrice ?? StopLoss`. Until
                     // 2026-09-07 only StopLoss was read, so a stop carrying the canonical field alone
                     // was refused as "Unsupported order type".
+                    //
+                    // 2026-11-10: with the product's rules in hand every size is cut down to
+                    // base_increment and every price put on price_increment — F8 sent a BTC-USD
+                    // limit at 74348.12345678, which Coinbase refuses (its tick there is 0.01),
+                    // and a size finer than the product's step. Without them the numbers go out
+                    // at F8 as before and Coinbase judges them.
                     double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+                    string Size(double q) => rules?.Rules.FormatQuantity(q) ?? q.ToString("F8", CultureInfo.InvariantCulture);
+                    string Px(double p) => rules?.Rules.FormatPrice(p) ?? p.ToString("F8", CultureInfo.InvariantCulture);
                     JObject orderConfig;
                     if (signal.Type == OrderType.Market)
-                        orderConfig = new JObject { ["market_market_ioc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture) } };
+                        orderConfig = new JObject { ["market_market_ioc"] = new JObject { ["base_size"] = Size(signal.Quantity) } };
                     else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        orderConfig = new JObject { ["limit_limit_gtc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture), ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture), ["post_only"] = false } };
+                        orderConfig = new JObject { ["limit_limit_gtc"] = new JObject { ["base_size"] = Size(signal.Quantity), ["limit_price"] = Px(signal.Price.Value), ["post_only"] = false } };
                     else if (signal.Type == OrderType.StopMarket && stopTrigger.HasValue)
                     {
                         orderConfig = new JObject
                         {
                             ["stop_limit_stop_limit_gtc"] = new JObject
                             {
-                                ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
-                                ["limit_price"] = (stopTrigger.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)).ToString("F8", CultureInfo.InvariantCulture),
-                                ["stop_price"] = stopTrigger.Value.ToString("F8", CultureInfo.InvariantCulture),
+                                ["base_size"] = Size(signal.Quantity),
+                                ["limit_price"] = Px(stopTrigger.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)),
+                                ["stop_price"] = Px(stopTrigger.Value),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };
@@ -618,9 +659,9 @@ namespace AccessibleTrader.Plugins.Coinbase
                         {
                             ["stop_limit_stop_limit_gtc"] = new JObject
                             {
-                                ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
-                                ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture),
-                                ["stop_price"] = stopTrigger.Value.ToString("F8", CultureInfo.InvariantCulture),
+                                ["base_size"] = Size(signal.Quantity),
+                                ["limit_price"] = Px(signal.Price.Value),
+                                ["stop_price"] = Px(stopTrigger.Value),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };
@@ -699,6 +740,38 @@ namespace AccessibleTrader.Plugins.Coinbase
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
+
+        // ── Product rules ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The product's rules, read at most every six hours from the PUBLIC product endpoint
+        /// (no key needed, the same fields as the signed one: base_increment, base_min_size,
+        /// price_increment, quote_min_size and the trading switches). Null when they cannot be
+        /// had — the order then goes out as it did before 2026-11-10 and Coinbase judges it,
+        /// rather than a failed lookup blocking a close or a stop the venue would have taken.
+        /// </summary>
+        internal async Task<CoinbaseProductRules?> GetProductRulesAsync(string symbol)
+        {
+            string productId = ToProductId(symbol);
+            if (productId.Length == 0) return null;
+            try
+            {
+                return await _productRules.GetAsync(productId, ProductRulesTtl, async () =>
+                {
+                    string path = $"/api/v3/brokerage/market/products/{Uri.EscapeDataString(productId)}";
+                    var json = await _rateLimiter.ExecuteAsync(async () =>
+                        JObject.Parse(await _httpClient.GetStringAsync($"https://api.coinbase.com{path}").ConfigureAwait(false)),
+                        maxRetries: 1).ConfigureAwait(false);
+                    return CoinbaseProductRules.Parse(json)
+                        ?? throw new InvalidDataException($"Coinbase's answer for {productId} named no product.");
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Coinbase rules for {productId} could not be read ({ex.GetType().Name}); the order goes to Coinbase unchecked.");
+                return null;
+            }
+        }
 
         // ── Auth helpers ─────────────────────────────────────────────────────
 
