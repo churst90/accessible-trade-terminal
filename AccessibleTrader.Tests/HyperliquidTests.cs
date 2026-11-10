@@ -477,7 +477,10 @@ namespace AccessibleTrader.Tests
             h.Add(HttpMethod.Post, @"hyperliquid(-testnet)?\.xyz/exchange", req =>
             {
                 var body = JObject.Parse(req.Content!.ReadAsStringAsync().Result);
-                string text = exchange?.Invoke(body) ?? Reply("order", "{\"statuses\":[{\"resting\":{\"oid\":777}}]}");
+                string text = exchange?.Invoke(body)
+                    ?? (body["action"]?["type"]?.ToString() == "updateLeverage"
+                        ? "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}"
+                        : Reply("order", "{\"statuses\":[{\"resting\":{\"oid\":777}}]}"));
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(text, Encoding.UTF8, "application/json") };
             });
             return h;
@@ -488,7 +491,12 @@ namespace AccessibleTrader.Tests
                 .Where(x => x.First.RequestUri!.AbsolutePath == "/exchange")
                 .Select(x => JObject.Parse(x.Second)).ToList();
 
-        private static JObject Single(FakeHttpMessageHandler h) => Assert.Single(Exchange(h));
+        // The one action that is not a leverage update. Since 2026-11-10 an opening perp
+        // order with no leverage sets 1x first (see
+        // An_order_with_no_leverage_opens_at_one_times_and_a_close_leaves_it), and the tests
+        // that use this helper are about the order's own shape.
+        private static JObject Single(FakeHttpMessageHandler h) =>
+            Assert.Single(Exchange(h), b => b["action"]?["type"]?.ToString() != "updateLeverage");
 
         [Fact]
         public async Task Limit_order_body_has_the_exact_wire_shape_and_a_signature_that_verifies()
@@ -522,8 +530,10 @@ namespace AccessibleTrader.Tests
 
             await p.PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 100));
 
-            var req = h.Captured.Single(r => r.RequestUri!.AbsolutePath == "/exchange");
-            Assert.Equal("api.hyperliquid-testnet.xyz", req.RequestUri!.Host);
+            // Every signed action, the 1x leverage update included, goes to the testnet host.
+            var reqs = h.Captured.Where(r => r.RequestUri!.AbsolutePath == "/exchange").ToList();
+            Assert.NotEmpty(reqs);
+            Assert.All(reqs, r => Assert.Equal("api.hyperliquid-testnet.xyz", r.RequestUri!.Host));
             var body = Single(h);
             ulong nonce = body["nonce"]!.Value<ulong>();
             var asTestnet = HyperliquidSigner.SignL1Action(Key, HyperliquidWire.OrderAction(new[]
@@ -688,6 +698,30 @@ namespace AccessibleTrader.Tests
             Assert.Empty(Exchange(h));
         }
 
+        // The ticket sends no leverage when its field says 1. Until 2026-11-10 that sent no
+        // updateLeverage, so the order traded at whatever the coin was last set to. A close
+        // (reduce-only) still leaves the position's leverage alone.
+        [Theory]
+        [InlineData(false, 1)]
+        [InlineData(true, 0)]
+        public async Task An_order_with_no_leverage_opens_at_one_times_and_a_close_leaves_it(bool reduceOnly, int leverageCalls)
+        {
+            var h = Armed(exchange: body =>
+                body["action"]!["type"]!.ToString() == "updateLeverage"
+                    ? "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}"
+                    : Reply("order", "{\"statuses\":[{\"resting\":{\"oid\":9}}]}"));
+
+            string id = await Provider(h).PlaceOrderAsync(
+                new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 3000, ReduceOnly: reduceOnly));
+
+            Assert.Equal("9", id);
+            var updates = Exchange(h).Where(b => b["action"]!["type"]!.ToString() == "updateLeverage").ToList();
+            Assert.Equal(leverageCalls, updates.Count);
+            if (leverageCalls == 1)
+                Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":1}""",
+                    updates[0]["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
         [Fact]
         public async Task A_failed_leverage_update_stops_the_order()
         {
@@ -788,7 +822,7 @@ namespace AccessibleTrader.Tests
         {
             var ok = Armed(exchange: _ => "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}");
             Assert.Equal(20.0, await Provider(ok).SetLeverageAsync("ETH-PERP", 20));
-            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":20}""", Single(ok)["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":20}""", Assert.Single(Exchange(ok))["action"]!.ToString(Newtonsoft.Json.Formatting.None));
 
             // Past ETH's 25: not clamped to 25 any more (that answered 25 for a 40 request);
             // refused, nothing signed, 1.0 = "not set".

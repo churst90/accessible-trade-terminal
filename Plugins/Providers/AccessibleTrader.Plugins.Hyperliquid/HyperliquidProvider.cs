@@ -882,8 +882,15 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 var asset = await ResolveAsync(signal.Symbol, signal.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {signal.Symbol}";
 
-                bool setsLeverage = signal.Leverage is > 0 && !asset.IsSpot;
-                if (setsLeverage && HyperliquidWire.LeverageRefusal(asset, signal.Leverage!.Value) is string bad)
+                // A perp order that opens or adds always states its leverage. The ticket sends
+                // none when its field says 1, and until 2026-11-10 none meant "leave the coin's
+                // leverage alone", so a 1x ticket traded at whatever the account was last set to
+                // (20x, say). Binance and MEXC read it the same way. A reduce-only order keeps
+                // the position's leverage: changing it to close would be a surprise of its own.
+                double? leverage = signal.Leverage is > 0 ? signal.Leverage
+                                 : signal.ReduceOnly ? null : 1.0;
+                bool setsLeverage = leverage != null && !asset.IsSpot;
+                if (setsLeverage && HyperliquidWire.LeverageRefusal(asset, leverage!.Value) is string bad)
                     return $"ORDER_FAILED:{bad}";
 
                 // The order is built (and its size and value checked) BEFORE the leverage is
@@ -896,7 +903,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 if (setsLeverage)
                 {
                     bool isolated = !string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase);
-                    string? lerr = await UpdateLeverageAsync(asset, signal.Leverage!.Value, isCross: !isolated).ConfigureAwait(false);
+                    string? lerr = await UpdateLeverageAsync(asset, leverage!.Value, isCross: !isolated).ConfigureAwait(false);
                     if (lerr != null) return $"ORDER_FAILED:{lerr}";
                 }
 

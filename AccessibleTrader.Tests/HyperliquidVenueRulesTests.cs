@@ -144,7 +144,8 @@ namespace AccessibleTrader.Tests
         {
             var h = Armed();
             Assert.Equal("777", await Provider(h).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.0002, OrderType.Limit, Price: 50000)));
-            Assert.Single(Actions(h));
+            // The 1x leverage update (no leverage on the ticket) and then the order itself.
+            Assert.Equal(new[] { "updateLeverage", "order" }, Actions(h).Select(a => a["type"]!.ToString()));
         }
 
         [Fact]

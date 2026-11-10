@@ -129,12 +129,13 @@ namespace AccessibleTrader.Tests
         {
             var (p, h) = Rig(rulesReadable: false);
 
-            string id = await p.PlaceOrderAsync(new TradeSignal("BTC/USD", OrderSide.Buy, 0.00001, OrderType.Limit, Price: 0.0363));
+            // Both numbers are small enough that double.ToString would write them as 1E-05 and 3E-05.
+            string id = await p.PlaceOrderAsync(new TradeSignal("ETH/BTC", OrderSide.Buy, 0.00001, OrderType.Limit, Price: 0.00003));
 
             Assert.Equal("9911", id);
             var form = SentOrder(h)!;
             Assert.Equal("0.00001", form["amount"]);
-            Assert.Equal("0.0363", form["price"]);
+            Assert.Equal("0.00003", form["price"]);
         }
 
         [Fact]
