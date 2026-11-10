@@ -36,11 +36,17 @@ namespace AccessibleTrader.Tests
         private static int VenueCallIndex(FakeHttpMessageHandler h)
         {
             var idx = Enumerable.Range(0, h.Captured.Count)
-                .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
-                              .EndsWith("/api/v3/time", StringComparison.Ordinal))
+                .Where(i => !IsPublicRead(h.Captured[i].RequestUri!.AbsolutePath))
                 .ToList();
             return Assert.Single(idx);
         }
+
+        /// <summary>The clock probe, and MEXC's market-rules reads (exchangeInfo, contract
+        /// detail), which an order now makes before it is sent: public reads, not the order.</summary>
+        private static bool IsPublicRead(string path) =>
+            path.EndsWith("/api/v3/time", StringComparison.Ordinal)
+            || path.EndsWith("/api/v3/exchangeInfo", StringComparison.Ordinal)
+            || path.EndsWith("/api/v1/contract/detail", StringComparison.Ordinal);
 
         private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h)
             => h.Captured[VenueCallIndex(h)];

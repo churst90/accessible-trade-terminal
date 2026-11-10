@@ -39,7 +39,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
     /// its own agent approval. Anything not explicitly Live is testnet.
     /// </para>
     /// </summary>
-    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
+    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider
     {
         private const string MainnetRest = "https://api.hyperliquid.xyz";
         private const string TestnetRest = "https://api.hyperliquid-testnet.xyz";
@@ -288,6 +288,28 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             var a = await ResolveAsync(symbol, subType).ConfigureAwait(false);
             return a?.MaxLeverage ?? 1;
+        }
+
+        /// <summary>
+        /// The leverage amounts one perp takes: 2 to its own maxLeverage from meta (BTC 40, TAO 5,
+        /// KAS 3 on 2026-11-10). The venue-wide <see cref="MaxLeverage"/> of 50 offered 50 on
+        /// every market, and the order then went out at the market's own ceiling. Spot has no
+        /// leverage (empty); null when the market or the metadata could not be found.
+        /// </summary>
+        public async Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string symbol, OrderSide side, CancellationToken ct = default)
+        {
+            try
+            {
+                var a = await ResolveAsync(symbol, null).ConfigureAwait(false);
+                if (a == null) return null;
+                if (a.IsSpot || a.MaxLeverage < 2) return Array.Empty<int>();
+                return Enumerable.Range(2, a.MaxLeverage - 1).ToList();
+            }
+            catch (Exception ex)
+            {
+                SurfaceError($"Hyperliquid leverage limits for {symbol} could not be read: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
+                return null;
+            }
         }
 
         // ── Market data ───────────────────────────────────────────────────────
@@ -860,17 +882,23 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 var asset = await ResolveAsync(signal.Symbol, signal.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {signal.Symbol}";
 
-                // Leverage first, and a failure stops the order: trading at a leverage the user did
-                // not ask for is the one outcome worse than not trading.
-                if (signal.Leverage is > 0 && !asset.IsSpot)
-                {
-                    bool isolated = !string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase);
-                    string? lerr = await UpdateLeverageAsync(asset, signal.Leverage.Value, isCross: !isolated).ConfigureAwait(false);
-                    if (lerr != null) return $"ORDER_FAILED:{lerr}";
-                }
+                bool setsLeverage = signal.Leverage is > 0 && !asset.IsSpot;
+                if (setsLeverage && HyperliquidWire.LeverageRefusal(asset, signal.Leverage!.Value) is string bad)
+                    return $"ORDER_FAILED:{bad}";
 
+                // The order is built (and its size and value checked) BEFORE the leverage is
+                // changed, so an order refused here leaves the account's leverage as it was.
                 var (wires, grouping, err) = await BuildOrdersAsync(signal, asset).ConfigureAwait(false);
                 if (err != null) return $"ORDER_FAILED:{err}";
+
+                // Leverage next, and a failure stops the order: trading at a leverage the user did
+                // not ask for is the one outcome worse than not trading.
+                if (setsLeverage)
+                {
+                    bool isolated = !string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase);
+                    string? lerr = await UpdateLeverageAsync(asset, signal.Leverage!.Value, isCross: !isolated).ConfigureAwait(false);
+                    if (lerr != null) return $"ORDER_FAILED:{lerr}";
+                }
 
                 var reply = await ExchangeAsync(HyperliquidWire.OrderAction(wires, grouping)).ConfigureAwait(false);
                 var outcomes = HyperliquidWire.ParseOrderReply(reply);
@@ -917,12 +945,12 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 case OrderType.Market:
                 case OrderType.Limit:
                 {
-                    double px;
+                    double px, valueAt;
                     OrderedMap type;
                     if (signal.Type == OrderType.Limit)
                     {
                         if (signal.Price is not > 0) return (new(), "na", "a limit order needs a price");
-                        px = signal.Price.Value;
+                        px = valueAt = signal.Price.Value;
                         type = HyperliquidWire.LimitType(tif ?? "Gtc");
                     }
                     else
@@ -930,8 +958,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                         double? mid = await GetMidAsync(asset).ConfigureAwait(false);
                         if (mid is not > 0) return (new(), "na", $"no current price for {asset.Display} to bound a market order");
                         px = SlippedPrice(mid.Value, buy);
+                        valueAt = mid.Value;
                         type = HyperliquidWire.LimitType("Ioc");   // a market order is an IOC limit
                     }
+                    // Valued at the limit, or at the middle price for a market order (the slipped
+                    // bound is only the worst fill it may take).
+                    if (MinimumValueRefusal(signal, asset, size, valueAt) is string small)
+                        return (new(), "na", small);
                     wires.Add(HyperliquidWire.OrderWire(asset.AssetId, buy,
                         HyperliquidWire.FormatWire(HyperliquidWire.RoundPrice(px, asset.SzDecimals, asset.IsSpot)),
                         sz, signal.ReduceOnly, type, cloid));
@@ -959,6 +992,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     if (trigger is not > 0) return (new(), "na", "a stop or take-profit order needs a trigger price");
                     double limitPx = isMarket ? SlippedPrice(trigger.Value, buy) : signal.Price ?? 0;
                     if (!(limitPx > 0)) return (new(), "na", "a stop-limit or take-profit-limit order needs a limit price");
+                    if (MinimumValueRefusal(signal, asset, size, trigger.Value) is string small)
+                        return (new(), "na", small);
                     var type = HyperliquidWire.TriggerType(isMarket,
                         HyperliquidWire.FormatWire(HyperliquidWire.RoundPrice(trigger.Value, asset.SzDecimals, asset.IsSpot)),
                         stop ? "sl" : "tp");
@@ -972,6 +1007,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     return (new(), "na", $"order type {signal.Type} is not supported by Hyperliquid");
             }
         }
+
+        /// <summary>
+        /// Why an order is under Hyperliquid's $10 minimum, in words, or null. A reduce-only order
+        /// is left to the exchange: refusing a small close here could leave a position the user
+        /// cannot get out of, and closing what is left is the one small order worth trying.
+        /// </summary>
+        private static string? MinimumValueRefusal(TradeSignal signal, AssetInfo asset, decimal size, double price) =>
+            signal.ReduceOnly ? null : HyperliquidWire.OrderRules(asset).Refusal((double)size, price);
 
         /// <summary>A reduce-only market trigger on the opposite side, sized like the entry.</summary>
         private static OrderedMap TriggerLeg(AssetInfo asset, bool isBuy, string size, double trigger, string tpsl)
@@ -1005,10 +1048,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             return v > 0 ? v : null;
         }
 
-        /// <summary>Sets leverage and margin mode for one market. Returns an error message or null.</summary>
+        /// <summary>Sets leverage and margin mode for one market. Returns an error message or null.
+        /// A fraction or an amount past the market's own ceiling is refused here, before
+        /// anything is signed (see <see cref="HyperliquidWire.LeverageRefusal"/>).</summary>
         private async Task<string?> UpdateLeverageAsync(AssetInfo asset, double leverage, bool isCross)
         {
-            int want = (int)Math.Clamp(Math.Round(leverage), 1, Math.Max(1, asset.MaxLeverage));
+            if (HyperliquidWire.LeverageRefusal(asset, leverage) is string bad) return bad;
+            int want = (int)leverage;
             if (asset.OnlyIsolated) isCross = false;
             var reply = await ExchangeAsync(HyperliquidWire.UpdateLeverageAction(asset.AssetId, isCross, want)).ConfigureAwait(false);
             return string.Equals(reply["status"]?.ToString(), "ok", StringComparison.OrdinalIgnoreCase)
@@ -1027,7 +1073,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 // position, not the account.
                 string? err = await UpdateLeverageAsync(asset, leverage, isCross: false).ConfigureAwait(false);
                 if (err != null) { SurfaceError(err, ErrorSeverity.Medium, ErrorCategory.Provider); return 1.0; }
-                return Math.Clamp(Math.Round(leverage), 1, Math.Max(1, asset.MaxLeverage));
+                return (int)leverage;
             }
             catch (Exception ex)
             {

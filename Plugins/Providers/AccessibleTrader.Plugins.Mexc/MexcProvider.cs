@@ -17,7 +17,7 @@ namespace AccessibleTrader.Plugins.Mexc
     /// Protobuf (MEXC discontinued the JSON spot WS on 2025-08-04) decoded via the
     /// generated <see cref="MexcProtobuf"/> helper. Futures REST/WS are JSON.
     /// </summary>
-    public class MexcProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
+    public class MexcProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider
     {
         private const string SpotWsUrl    = "wss://wbs-api.mexc.com/ws";
         private const string FuturesWsUrl = "wss://contract.mexc.com/edge";
@@ -39,6 +39,17 @@ namespace AccessibleTrader.Plugins.Mexc
 
         // MEXC spot: 500 requests / 10s per IP. Conservative 1000/min leaves headroom.
         private readonly RateLimiter _rateLimiter = new(1000, TimeSpan.FromMinutes(1));
+
+        // Each market's minimums, steps and leverage ceiling (see GetMarketRulesAsync). They
+        // change when MEXC relists a market, not between orders, so hours of memory is right.
+        private readonly AccountReadCache _marketRules = new();
+        internal static readonly TimeSpan MarketRulesTtl = TimeSpan.FromHours(6);
+
+        // The margin mode the last futures order on each contract used ("BTC_USDT" → 1
+        // isolated, 2 cross), so SetLeverageAsync changes the leverage of the mode the
+        // orders actually trade in. See SetLeverageAsync.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _openTypeByContract =
+            new(StringComparer.Ordinal);
 
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdateSubject.AsObservable();
@@ -667,15 +678,26 @@ namespace AccessibleTrader.Plugins.Mexc
             if (signal.Type == OrderType.Limit && !signal.Price.HasValue)
                 return "ORDER_FAILED:Limit order requires Price.";
 
+            string symbol = CleanSymbol(signal.Symbol);
+            var market = await GetMarketRulesAsync(symbol, futures: false).ConfigureAwait(false);
+            var rules = market?.Order;
+            // A market order's value is not checked here: no price is to hand, and MEXC's own
+            // answer to a too-small one is in words already ("order amount below minimum").
+            double? valuePrice = signal.Type == OrderType.Limit ? signal.Price : null;
+            if (rules?.Refusal(signal.Quantity, valuePrice) is string why) return $"ORDER_FAILED:{why}";
+            if (market != null && SpotSideRefusal(rules?.Symbol ?? symbol, signal.Side, market.TradeSide) is string side)
+                return $"ORDER_FAILED:{side}";
+
             var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
             var p = new Dictionary<string, string>
             {
-                ["symbol"] = CleanSymbol(signal.Symbol),
+                ["symbol"] = symbol,
                 ["side"]   = signal.Side == OrderSide.Buy ? "BUY" : "SELL",
                 ["type"]   = signal.Type == OrderType.Market ? "MARKET" : "LIMIT",
-                ["quantity"] = signal.Quantity.ToString(CultureInfo.InvariantCulture),
+                ["quantity"] = rules?.FormatQuantity(signal.Quantity) ?? SymbolOrderRules.Plain(signal.Quantity),
             };
-            if (signal.Type == OrderType.Limit) p["price"] = signal.Price!.Value.ToString(CultureInfo.InvariantCulture);
+            if (signal.Type == OrderType.Limit)
+                p["price"] = rules?.FormatPrice(signal.Price!.Value) ?? SymbolOrderRules.Plain(signal.Price!.Value);
             if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid;
 
             var body = await _rest.SpotSignedAsync(HttpMethod.Post, "/api/v3/order", key, secret, p).ConfigureAwait(false);
@@ -700,21 +722,60 @@ namespace AccessibleTrader.Plugins.Mexc
             if (signal.Type == OrderType.Limit && !signal.Price.HasValue)
                 return "ORDER_FAILED:Limit order requires Price.";
 
+            string contract = ToFuturesSymbol(CleanSymbol(signal.Symbol));
+            var market = await GetMarketRulesAsync(contract, futures: true).ConfigureAwait(false);
+            var rules = market?.Order;
+            if (rules?.Refusal(signal.Quantity, null) is string why)
+                return $"ORDER_FAILED:{why}{market!.ContractNote}";
+
+            // Leverage, as asked. The old line sent it only when above 1 and clamped it to a
+            // fixed 200 without a word: a 1x ticket carried no leverage at all, and MEXC then
+            // opened the position at whatever the account was last left on (20x from yesterday's
+            // trade), while an amount past the contract's own ceiling was quietly cut. Now an
+            // opening order always says its leverage (1 when the ticket says none: the ticket
+            // sends nothing at 1x), and an amount the contract cannot take is refused in words.
+            // A close takes the position's leverage, so it carries one only when one was asked.
+            int? leverage = null;
+            if (signal.Leverage is double asked && asked > 1)
+            {
+                if (LeverageRefusal(asked, market?.MaxLeverage, rules?.Symbol ?? contract) is string bad)
+                    return $"ORDER_FAILED:{bad}";
+                leverage = (int)asked;
+            }
+            else if (!signal.ReduceOnly) leverage = 1;
+
+            int openType = string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
             var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+
+            // MEXC reads the order's leverage field only for isolated margin ("Leverage is
+            // necessary on Isolated Margin" — contract API, order/submit); a cross order trades
+            // at the account's cross leverage for that side. So for cross the leverage is set
+            // first, and a failure stops the order: trading at a leverage the user did not ask
+            // for is worse than not trading.
+            if (openType == 2 && leverage is int crossLev && !signal.ReduceOnly)
+            {
+                int positionType = signal.Side == OrderSide.Buy ? 1 : 2;
+                if (await ChangeLeverageAsync(key, secret, contract, crossLev, openType, positionType).ConfigureAwait(false) is string lerr)
+                    return $"ORDER_FAILED:MEXC did not set {crossLev} times cross leverage on {contract}, so the order was not sent: {lerr}";
+            }
+
             // side: 1 open long, 2 close short, 3 open short, 4 close long. type: 1 limit, 5 market. openType: 1 iso, 2 cross.
+            // Quantities and prices go as decimals cut to the contract's steps: a double here
+            // travelled as 1E-05 or 64123.400000000001, which MEXC refuses as a bad number.
             var order = new JObject
             {
-                ["symbol"] = ToFuturesSymbol(CleanSymbol(signal.Symbol)),
+                ["symbol"] = contract,
                 ["side"]   = MapFuturesSide(signal.Side, signal.ReduceOnly),
                 ["type"]   = signal.Type == OrderType.Limit ? 1 : 5,
-                ["vol"]    = signal.Quantity,
-                ["openType"] = string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase) ? 2 : 1,
+                ["vol"]    = WireNumber(rules?.FloorQuantity(signal.Quantity) ?? Exact(signal.Quantity)),
+                ["openType"] = openType,
             };
-            if (signal.Price.HasValue) order["price"] = signal.Price.Value;
-            if (signal.Leverage is > 1) order["leverage"] = (int)Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
-            if (signal.StopLoss.HasValue) order["stopLossPrice"] = signal.StopLoss.Value;
-            if (signal.TakeProfit.HasValue) order["takeProfitPrice"] = signal.TakeProfit.Value;
+            if (signal.Price.HasValue) order["price"] = WirePrice(rules, signal.Price.Value);
+            if (leverage is int lev) order["leverage"] = lev;
+            if (signal.StopLoss.HasValue) order["stopLossPrice"] = WirePrice(rules, signal.StopLoss.Value);
+            if (signal.TakeProfit.HasValue) order["takeProfitPrice"] = WirePrice(rules, signal.TakeProfit.Value);
             if (!string.IsNullOrEmpty(signal.ClientOid)) order["externalOid"] = signal.ClientOid;
+            _openTypeByContract[contract] = openType;
 
             var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/order/submit", key, secret,
                 jsonBody: order.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
@@ -722,6 +783,14 @@ namespace AccessibleTrader.Plugins.Mexc
             if (json["success"]?.Value<bool>() == true) return json["data"]?.ToString() ?? "ORDER_SUBMITTED";
             return $"ORDER_FAILED:{json["message"] ?? json["msg"] ?? "futures order rejected"}";
         }
+
+        private static JValue WirePrice(SymbolOrderRules? rules, double price) =>
+            WireNumber(rules?.RoundPrice(price) ?? Exact(price));
+
+        // A decimal with its trailing zeros dropped, so 0.10000 goes as 0.1 and 2 as 2.0.
+        private static JValue WireNumber(decimal d) => new(decimal.Parse(SymbolOrderRules.Plain(d), CultureInfo.InvariantCulture));
+
+        private static decimal Exact(double v) => decimal.Parse(SymbolOrderRules.Plain(v), CultureInfo.InvariantCulture);
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)
         {
@@ -766,21 +835,40 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
         {
             if (!IsConnected) return 1.0;
+            string contract = ToFuturesSymbol(CleanSymbol(symbol));
             try
             {
-                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
-                int lev = (int)Math.Clamp(leverage, 1, MaxLeverage);
-                var b = new JObject { ["symbol"] = ToFuturesSymbol(CleanSymbol(symbol)), ["leverage"] = lev, ["openType"] = 1 };
-                var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/position/change_leverage", key, secret,
-                    jsonBody: b.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
-                if (JObject.Parse(body)["success"]?.Value<bool>() == true) return lev;
+                // The same rules an order meets: a whole number, and no more than the contract
+                // takes. This used to clamp to a fixed 200 and answer with the clamped number.
+                var market = await GetMarketRulesAsync(contract, futures: true).ConfigureAwait(false);
+                double asked = Math.Max(1, leverage);
+                if (LeverageRefusal(asked, market?.MaxLeverage, market?.Order?.Symbol ?? contract) is string bad)
+                {
+                    _errorStream.OnNext($"MEXC leverage not changed: {bad}");
+                    return 1.0;
+                }
+                int lev = (int)asked;
 
-                // The exchange refused. 1.0 is the contract's "could not set it" answer
-                // (GeneralOrderService.SetLeverageAsync documents why), but it is also a
-                // perfectly ordinary leverage, so the number alone cannot carry the news.
-                _errorStream.OnNext(
-                    $"MEXC refused the leverage change on {symbol}: it is not at {lev} times.");
-                return 1.0;
+                // The margin mode the orders on this contract trade in. This used to send
+                // openType 1 (isolated) whatever the orders used, so on a cross account it
+                // changed a leverage no order read. With no order yet it is isolated, which is
+                // what an order without a margin type sends. MEXC keeps a leverage per side when
+                // there is no position, so both sides are set (contract API, change_leverage).
+                var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
+                int openType = _openTypeByContract.GetValueOrDefault(contract, 1);
+                foreach (int positionType in new[] { 1, 2 })
+                {
+                    if (await ChangeLeverageAsync(key, secret, contract, lev, openType, positionType).ConfigureAwait(false) is string err)
+                    {
+                        // The exchange refused. 1.0 is the contract's "could not set it" answer
+                        // (GeneralOrderService.SetLeverageAsync documents why), but it is also a
+                        // perfectly ordinary leverage, so the number alone cannot carry the news.
+                        _errorStream.OnNext(
+                            $"MEXC refused the leverage change on {symbol}: it is not at {lev} times ({err}).");
+                        return 1.0;
+                    }
+                }
+                return lev;
             }
             catch (Exception ex)
             {
@@ -797,6 +885,176 @@ namespace AccessibleTrader.Plugins.Mexc
                     + "The change may have been applied — check the leverage on the exchange before trading it.");
                 return 1.0;
             }
+        }
+
+        /// <summary>One change_leverage call; the venue's refusal in its words, or null when it
+        /// took it. <paramref name="positionType"/>: 1 long, 2 short.</summary>
+        private async Task<string?> ChangeLeverageAsync(string key, string secret, string contract, int leverage, int openType, int positionType)
+        {
+            var b = new JObject
+            {
+                ["symbol"] = contract, ["leverage"] = leverage, ["openType"] = openType, ["positionType"] = positionType,
+            };
+            var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/position/change_leverage", key, secret,
+                jsonBody: b.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
+            var json = JObject.Parse(body);
+            return json["success"]?.Value<bool>() == true
+                ? null
+                : (json["message"] ?? json["msg"])?.ToString() ?? $"code {json["code"]}";
+        }
+
+        // ── Market rules ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// One market's rules: the order rules, the contract's highest leverage (futures), and
+        /// which sides spot takes. <see cref="Order"/> is null when MEXC has no such market.
+        /// </summary>
+        internal sealed record MexcMarketRules(SymbolOrderRules? Order, int MaxLeverage = 0, int TradeSide = 1, string ContractNote = "");
+
+        /// <summary>
+        /// The market's rules from MEXC's public exchange information, remembered for hours;
+        /// null when they could not be read, and then the order goes as it always did.
+        ///
+        /// <para>
+        /// <b>Why this exists.</b> MEXC orders went out with the ticket's double as typed and no
+        /// minimum checked: spot quantities past the pair's decimals, prices past its tick, and
+        /// futures volumes in fractions of a contract all came back as MEXC's own codes. And
+        /// the leverage ceiling was a fixed 200 for every contract, when BTC_USDT takes 500 and
+        /// KAS_USDT 200 (contract/detail, 2026-11-10). Spot reads
+        /// <c>/api/v3/exchangeInfo?symbol=</c> (baseSizePrecision = smallest quantity,
+        /// baseAssetPrecision = quantity decimals, quotePrecision = price decimals,
+        /// quoteAmountPrecision = smallest order value); futures reads
+        /// <c>/api/v1/contract/detail?symbol=</c> (minVol, volUnit, priceUnit, contractSize,
+        /// maxLeverage, state, apiAllowed).
+        /// </para>
+        /// </summary>
+        internal async Task<MexcMarketRules?> GetMarketRulesAsync(string symbol, bool futures)
+        {
+            try
+            {
+                return await _marketRules.GetAsync((futures ? "futures:" : "spot:") + symbol, MarketRulesTtl, async () =>
+                {
+                    var q = new Dictionary<string, string> { ["symbol"] = symbol };
+                    return futures
+                        ? ParseFuturesRules(await _rest.FuturesGetAsync("/api/v1/contract/detail", q).ConfigureAwait(false))
+                        : ParseSpotRules(await _rest.SpotGetAsync("/api/v3/exchangeInfo", q).ConfigureAwait(false), symbol);
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                SurfaceError($"MEXC {(futures ? "contract" : "market")} rules for {symbol} could not be read ({ex.GetType().Name}); "
+                           + "the order goes unchecked and MEXC will say if it is refused.");
+                return null;
+            }
+        }
+
+        internal static MexcMarketRules ParseSpotRules(string body, string symbol)
+        {
+            var s = (JObject.Parse(body)["symbols"] as JArray)?
+                .FirstOrDefault(x => string.Equals(x["symbol"]?.ToString(), symbol, StringComparison.OrdinalIgnoreCase));
+            if (s == null) return new MexcMarketRules(null);
+            string b = s["baseAsset"]?.ToString() ?? "", q = s["quoteAsset"]?.ToString() ?? "";
+            string name = b.Length > 0 && q.Length > 0 ? $"{b}/{q}" : symbol;
+            // status: 1 online, 2 paused, 3 offline (spot v3 docs; older answers said ENABLED).
+            string status = s["status"]?.ToString() ?? "1";
+            string? notTrading = status switch
+            {
+                "1" or "ENABLED" => null,
+                "2" => $"MEXC has paused trading on {name}",
+                "3" => $"MEXC has taken {name} offline",
+                _   => $"MEXC lists {name} as status {status}, not open for trading",
+            };
+            if (notTrading == null && s["isSpotTradingAllowed"]?.Value<bool>() == false)
+                notTrading = $"MEXC does not take {name} orders through the API";
+            int tradeSide = s["tradeSideType"]?.Value<int?>() ?? 1;
+            if (notTrading == null && tradeSide == 4) notTrading = $"MEXC has closed the {name} order book";
+            return new MexcMarketRules(new SymbolOrderRules
+            {
+                Venue = "MEXC", Symbol = name, QuantityUnit = b, QuoteAsset = q,
+                MinQuantity  = SymbolOrderRules.ParseStep(s["baseSizePrecision"]?.ToString()),
+                QuantityStep = Decimals(s["baseAssetPrecision"]),
+                PriceTick    = Decimals(s["quotePrecision"]),
+                MinNotional  = SymbolOrderRules.ParseStep(s["quoteAmountPrecision"]?.ToString()),
+                NotTrading   = notTrading,
+            }, TradeSide: tradeSide);
+        }
+
+        internal static MexcMarketRules ParseFuturesRules(string body)
+        {
+            var json = JObject.Parse(body);
+            // An unknown contract answers {"success":false,"code":1001,"message":"Contract does not exist"}.
+            if (json["success"]?.Value<bool>() == false && json["code"]?.Value<int>() == 1001) return new MexcMarketRules(null);
+            if (json["success"]?.Value<bool>() != true)
+                throw new InvalidOperationException($"MEXC contract detail refused: {json["message"] ?? json["code"]}");
+            var d = json["data"] is JArray arr ? arr.FirstOrDefault() : json["data"];
+            if (d is not JObject) return new MexcMarketRules(null);
+
+            string b = d["baseCoin"]?.ToString() ?? "", q = d["quoteCoin"]?.ToString() ?? "";
+            string name = b.Length > 0 && q.Length > 0 ? $"{b}/{q} perpetual" : d["symbol"]?.ToString() ?? "";
+            // state: 0 enabled, 1 delivery, 2 completed, 3 offline, 4 pause (contract API docs).
+            int state = d["state"]?.Value<int?>() ?? 0;
+            string? notTrading = state switch
+            {
+                0 => null,
+                1 => $"MEXC is delivering {name}; it takes no new orders",
+                2 => $"MEXC has settled {name}; it takes no new orders",
+                3 => $"MEXC has taken {name} offline",
+                4 => $"MEXC has paused trading on {name}",
+                _ => $"MEXC lists {name} as state {state}, not open for trading",
+            };
+            if (notTrading == null && d["apiAllowed"]?.Value<bool>() == false)
+                notTrading = $"MEXC does not take {name} orders through the API";
+            decimal size = Num(d["contractSize"]);
+            return new MexcMarketRules(new SymbolOrderRules
+            {
+                Venue = "MEXC", Symbol = name, QuantityUnit = "contracts", QuoteAsset = q,
+                MinQuantity  = Num(d["minVol"]),
+                QuantityStep = Num(d["volUnit"]),
+                PriceTick    = Num(d["priceUnit"]),
+                NotTrading   = notTrading,
+            },
+            MaxLeverage: d["maxLeverage"]?.Value<int?>() ?? 0,
+            ContractNote: size > 0 && b.Length > 0 ? $" (one contract is {SymbolOrderRules.Plain(size)} {b})" : "");
+        }
+
+        private static decimal Decimals(JToken? t) =>
+            t?.Value<int?>() is int n ? SymbolOrderRules.StepFromDecimals(n) : 0m;
+
+        private static decimal Num(JToken? t) =>
+            SymbolOrderRules.ParseStep(t is JValue v ? Convert.ToString(v.Value, CultureInfo.InvariantCulture) : null);
+
+        /// <summary>Why MEXC will not take this leverage on this contract, in words, or null.
+        /// <paramref name="max"/> is the contract's own ceiling, or null/0 when it is not known.</summary>
+        internal static string? LeverageRefusal(double leverage, int? max, string market)
+        {
+            if (double.IsNaN(leverage) || double.IsInfinity(leverage) || leverage != Math.Floor(leverage))
+                return $"MEXC takes whole-number leverage; {SymbolOrderRules.Plain(leverage)} times is not one";
+            if (max is > 0 && leverage > max)
+                return $"MEXC's highest leverage on {market} is {max} times; this asks for {SymbolOrderRules.Plain(leverage)}";
+            return null;
+        }
+
+        /// <summary>A spot pair open to one side only (tradeSideType 2 buy only, 3 sell only).</summary>
+        internal static string? SpotSideRefusal(string market, OrderSide side, int tradeSide) => (tradeSide, side) switch
+        {
+            (2, OrderSide.Sell) => $"MEXC takes only buy orders on {market} right now",
+            (3, OrderSide.Buy)  => $"MEXC takes only sell orders on {market} right now",
+            _ => null,
+        };
+
+        /// <summary>
+        /// The leverage amounts the futures contract for <paramref name="symbol"/> takes: 2 to
+        /// its own maxLeverage. Spot has no margin on MEXC, so a pair with no contract gets an
+        /// empty list; null when the contract's rules could not be read. Looked up as a
+        /// contract whatever spelling arrives, because the ticket can trade the futures
+        /// market from a spot chart.
+        /// </summary>
+        public async Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string symbol, OrderSide side, CancellationToken ct = default)
+        {
+            var market = await GetMarketRulesAsync(ToFuturesSymbol(CleanSymbol(symbol)), futures: true).ConfigureAwait(false);
+            if (market == null) return null;
+            if (market.Order == null || market.MaxLeverage < 2) return Array.Empty<int>();
+            return Enumerable.Range(2, market.MaxLeverage - 1).ToList();
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
