@@ -151,12 +151,20 @@ namespace AccessibleTrader.Core.Services.Trading
         /// every wrapped and synthetic dollar-named token on a crypto exchange, several of which are
         /// not dollars and one of which is usually somebody's failed algorithmic stablecoin.
         /// </para>
+        ///
+        /// <para>
+        /// Added 2026-11-10: <c>GUSD</c> (Gemini's own dollar, what a Gemini account holds when
+        /// dollars are kept on the venue), <c>PYUSD</c> and <c>FDUSD</c> (dollar stablecoins
+        /// Kraken and Binance list markets in), and <c>USDC-PERPS</c>, Hyperliquid's perps
+        /// margin: the USDC a perps order is sized against, kept apart from spot USDC by the
+        /// provider so the two are not summed.
+        /// </para>
         /// </summary>
         public static bool IsCashAsset(string? asset) => asset is not null && CashAssets.Contains(asset.Trim());
 
         private static readonly System.Collections.Generic.HashSet<string> CashAssets =
             new(System.StringComparer.OrdinalIgnoreCase)
-            { "USD", "USDT", "USDC", "BUSD", "DAI", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF" };
+            { "USD", "USDT", "USDC", "BUSD", "DAI", "GUSD", "PYUSD", "FDUSD", "USDC-PERPS", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF" };
     }
 
     /// <summary>

@@ -88,10 +88,13 @@ namespace AccessibleTrader.Core.Services.Trading
         /// there is no <c>BTC.S/USD</c> market, so those rows read as unpriced although each
         /// is worth exactly its base asset. Only these suffixes: <c>.B</c> and <c>.T</c> are
         /// also Kraken suffixes, but a stock venue's <c>BRK.B</c> is a different share class,
-        /// not Berkshire priced as <c>BRK</c>.
+        /// not Berkshire priced as <c>BRK</c>. Hyperliquid's perps margin, <c>USDC-PERPS</c>, is
+        /// USDC held in another account on the same venue, so it is priced as <c>USDC</c>.
         /// </summary>
         internal static string PricedAs(string asset)
         {
+            if (asset.EndsWith("-PERPS", StringComparison.OrdinalIgnoreCase))
+                return asset[..^"-PERPS".Length];
             int dot = asset.LastIndexOf('.');
             if (dot <= 0) return asset;
             return asset[(dot + 1)..].ToUpperInvariant() switch

@@ -42,7 +42,7 @@ namespace AccessibleTrader.Plugins.Kraken
         // Account reads are cached for a few seconds so that every panel and the order service
         // asking at once is one call, not five. Emptied by every order, cancel and execution
         // report, so nothing the user just did is answered from before they did it.
-        private readonly KrakenReadCache _reads = new();
+        private readonly AccountReadCache _reads = new();
         internal static readonly TimeSpan AccountReadTtl = TimeSpan.FromSeconds(15);
         internal static readonly TimeSpan HistoryReadTtl = TimeSpan.FromSeconds(60);
 
@@ -1297,7 +1297,8 @@ namespace AccessibleTrader.Plugins.Kraken
                     double.TryParse(r["amount"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double amt);
                     double.TryParse(r["time"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double unix);
                     return new DepositRecord(
-                        Asset:     r["asset"]?.ToString() ?? asset?.ToUpperInvariant() ?? "",
+                        // Kraken answers in its own codes (XXBT, ZUSD), as the balance read did.
+                        Asset:     r["asset"] is JToken code ? KrakenBalances.AssetName(code.ToString()) : asset?.ToUpperInvariant() ?? "",
                         Network:   r["method"]?.ToString() ?? "",
                         Amount:    amt,
                         Status:    r["status"]?.ToString() ?? "unknown",

@@ -4,6 +4,7 @@ using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Plugins.KrakenFutures;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Tests.Fakes;
 using Newtonsoft.Json.Linq;
 
@@ -122,13 +123,33 @@ namespace AccessibleTrader.Tests
             Assert.NotSame(first, second);
         }
 
+        [Fact]
+        public async Task Deposit_history_names_the_asset_as_the_balances_do()
+        {
+            // Kraken's DepositStatus answers in its own codes, as its docs' example shows
+            // ("asset": "XXBT"); the balance read was fixed for this, the deposit list was not.
+            using var p = new KrakenProvider();
+            p.Configure(SymbolListHarness.Credentials());
+            var handler = new FakeHttpMessageHandler { StrictMode = true };
+            handler.Post("/0/private/DepositStatus$", """
+                {"error":[],"result":[
+                  {"method":"Bitcoin","aclass":"currency","asset":"XXBT","refid":"FTQcuak-V6Za8qrWnhzTx67yYHz8Tg","txid":"6544b41b607d8b2512baf801755a3a87b6890eacdb451be8a94059fb11f0a8d9","info":"2Myd4eaAW96ojk38A2uDK4FbioCayvkEgVq","amount":"0.78125000","fee":"0.0000000000","time":1688992722,"status":"Success"},
+                  {"method":"Bittensor","aclass":"currency","asset":"TAO","refid":"FTQcuak-V6Za8qrWnhzTx67yYHz8Th","txid":"0x1","info":"x","amount":"2.5","fee":"0","time":1688992800,"status":"Settled"}]}
+                """);
+            SymbolListHarness.SwapEveryHttpClient(p, handler);
+
+            var rows = await p.GetDepositsAsync();
+
+            Assert.Equal(new[] { "BTC", "TAO" }, rows.Select(r => r.Asset));
+        }
+
         // ── The read cache ───────────────────────────────────────────────────
 
         [Fact]
         public async Task The_read_cache_shares_an_answer_until_it_ages_out()
         {
             var now = new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
-            var cache = new KrakenReadCache(() => now);
+            var cache = new AccountReadCache(() => now);
             int loads = 0;
             Task<List<int>> Load() { loads++; return Task.FromResult(new List<int> { loads }); }
 
@@ -149,7 +170,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task Two_callers_at_the_same_moment_share_one_request()
         {
-            var cache = new KrakenReadCache();
+            var cache = new AccountReadCache();
             var gate = new TaskCompletionSource<List<int>>();
             int loads = 0;
             Task<List<int>> Load() { loads++; return gate.Task; }
@@ -167,7 +188,7 @@ namespace AccessibleTrader.Tests
         {
             // A cached failure would answer "the venue refused" for fifteen seconds after it
             // had recovered — and a cached EMPTY list would be the account-reads-flat incident.
-            var cache = new KrakenReadCache();
+            var cache = new AccountReadCache();
             int loads = 0;
             Task<List<int>> Load()
             {
@@ -368,6 +389,8 @@ namespace AccessibleTrader.Tests
         [InlineData("DOT.P", "DOT")]
         [InlineData("USD.HOLD", "USD")]
         [InlineData("BTC.F", "BTC")]
+        // Hyperliquid's perps margin is USDC in another account on the same venue.
+        [InlineData("USDC-PERPS", "USDC")]
         // A share class, not a staked Berkshire.
         [InlineData("BRK.B", "BRK.B")]
         [InlineData("BTC", "BTC")]
