@@ -81,6 +81,26 @@ namespace AccessibleTrader.Core.Services.Trading
 
         public PortfolioValuationService(IAssetPriceSource prices) => _prices = prices;
 
+        /// <summary>
+        /// The asset a holding is priced as. Kraken lists staked and held amounts under the
+        /// asset plus a suffix — <c>BTC.S</c> staked, <c>BTC.M</c> opt-in rewards, <c>DOT.P</c>
+        /// parachain, <c>BTC.F</c> auto-earn, <c>USD.HOLD</c> a deposit still clearing — and
+        /// there is no <c>BTC.S/USD</c> market, so those rows read as unpriced although each
+        /// is worth exactly its base asset. Only these suffixes: <c>.B</c> and <c>.T</c> are
+        /// also Kraken suffixes, but a stock venue's <c>BRK.B</c> is a different share class,
+        /// not Berkshire priced as <c>BRK</c>.
+        /// </summary>
+        internal static string PricedAs(string asset)
+        {
+            int dot = asset.LastIndexOf('.');
+            if (dot <= 0) return asset;
+            return asset[(dot + 1)..].ToUpperInvariant() switch
+            {
+                "S" or "M" or "P" or "F" or "HOLD" => asset[..dot],
+                _ => asset,
+            };
+        }
+
         public async Task<PortfolioSnapshot> ValueAsync(
             string provider,
             IReadOnlyList<Balance> balances,
@@ -96,11 +116,12 @@ namespace AccessibleTrader.Core.Services.Trading
             foreach (var b in held)
             {
                 double qty = b.Free + b.Locked;
+                string pricedAs = PricedAs(b.Asset);
 
                 // Cash is worth its face value in its own currency. Pricing USD in
                 // USD through a market lookup would fail and mark real money
                 // unpriced.
-                if (string.Equals(b.Asset, quoteAsset, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(pricedAs, quoteAsset, StringComparison.OrdinalIgnoreCase))
                 {
                     rows.Add(new AssetValuation(b.Asset, qty, 1.0, qty, null, null));
                     continue;
@@ -108,12 +129,12 @@ namespace AccessibleTrader.Core.Services.Trading
 
                 try
                 {
-                    var quote = await _prices.TryGetDailyAsync(provider, b.Asset, quoteAsset, ct)
+                    var quote = await _prices.TryGetDailyAsync(provider, pricedAs, quoteAsset, ct)
                                              .ConfigureAwait(false);
                     if (quote is null)
                     {
                         rows.Add(new AssetValuation(b.Asset, qty, null, null, null,
-                            $"no {b.Asset}/{quoteAsset} market on {provider}"));
+                            $"no {pricedAs}/{quoteAsset} market on {provider}"));
                         continue;
                     }
 

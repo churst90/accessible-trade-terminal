@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
 {
-    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider, IOrderDryRunProvider
+    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider, IOrderDryRunProvider, ISymbolLeverageProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -23,9 +23,28 @@ namespace AccessibleTrader.Plugins.Kraken
         private const string WsUrl    = "wss://ws.kraken.com/v2";
         private const string WsAuthUrl = "wss://ws-auth.kraken.com/v2";
 
-        // Rate limiter: Kraken allows ~15 calls/second for public, ~20/min for private
         private readonly RateLimiter _publicRateLimiter  = new(15, TimeSpan.FromSeconds(1));
-        private readonly RateLimiter _privateRateLimiter = new(20, TimeSpan.FromMinutes(1));
+
+        // PRIVATE READS spend Kraken's REST counter: at most 15 points, decaying 0.33 a second
+        // on the lowest (Starter) tier; history reads cost 2, everything else 1. This was
+        // 20 per MINUTE in a fixed window — which allows 20 back to back at the start of a
+        // window, already past 15 — and the trading dashboard asks for four account reads
+        // every two seconds, so the queue grew without end. 6 per 20 s is 0.3 a second
+        // sustained, and two windows back to back can spend at most 12 points.
+        private readonly RateLimiter _privateRateLimiter = new(6, TimeSpan.FromSeconds(20));
+
+        // ORDERS do not spend the REST counter at all: AddOrder and CancelOrder are metered by
+        // the matching engine, per pair (Kraken's rate-limit guide). They used to share the
+        // read limiter, so an order — a stop being moved, a position being closed — waited in
+        // line behind the dashboard's balance reads. They have their own line now.
+        private readonly RateLimiter _orderRateLimiter = new(15, TimeSpan.FromSeconds(10));
+
+        // Account reads are cached for a few seconds so that every panel and the order service
+        // asking at once is one call, not five. Emptied by every order, cancel and execution
+        // report, so nothing the user just did is answered from before they did it.
+        private readonly KrakenReadCache _reads = new();
+        internal static readonly TimeSpan AccountReadTtl = TimeSpan.FromSeconds(15);
+        internal static readonly TimeSpan HistoryReadTtl = TimeSpan.FromSeconds(60);
 
         // Kraken requires strictly-increasing nonces per API key. A millisecond wall
         // clock collides under bursty order flow (two calls in the same ms are rejected);
@@ -80,16 +99,24 @@ namespace AccessibleTrader.Plugins.Kraken
         /// against the same order book — which is a different product from futures
         /// and is why <c>MarginTrading</c> is set and <c>FuturesTrading</c> is not.
         /// (Kraken Futures is a separate API this plugin does not talk to.)
+        /// <para>
+        /// <c>ReduceOnly</c> since 2026-11-10, when closing a margin position started sending
+        /// Kraken's own <c>reduce_only</c> flag. Without leverage a Kraken sell can only spend
+        /// coins the account holds, so it cannot add to anything; a reduce-only BUY with no
+        /// margin short to close is refused — see <see cref="BuildAddOrderPayload"/>.
+        /// </para>
         /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
             ProviderCapabilities.Leverage | ProviderCapabilities.Brackets |
             ProviderCapabilities.MarginTrading | ProviderCapabilities.DepositAddresses |
-            ProviderCapabilities.Withdrawals;
+            ProviderCapabilities.Withdrawals | ProviderCapabilities.ReduceOnly;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
-        public override double MaxLeverage          => 5.0;
+        // The most Kraken lends at on any pair (XBT/USD, 10 times, 2026-11-10). What a given
+        // pair allows is GetAllowedLeverageAsync, which the ticket uses for its own limit.
+        public override double MaxLeverage          => 10.0;
 
 
         // Kraken's close[] slot fits ONE protective order — see AddOrder below.
@@ -298,6 +325,9 @@ namespace AccessibleTrader.Plugins.Kraken
                 {
                     var data = json["data"] as JArray;
                     if (data == null) return;
+                    // A fill or a stop firing changes balances and positions; the next read
+                    // must not be answered from before it.
+                    _reads.Invalidate();
                     foreach (var exec in data)
                     {
                         var orderId = exec["order_id"]?.ToString() ?? "";
@@ -532,6 +562,7 @@ namespace AccessibleTrader.Plugins.Kraken
                     var json = JObject.Parse(response);
                     var result = json["result"] as JObject;
                     if (result == null) return new List<string>();
+                    StorePairRules(result);
 
                     return result.Properties()
                         .Select(p => p.Value["wsname"]?.ToString() ?? p.Name)
@@ -705,6 +736,52 @@ namespace AccessibleTrader.Plugins.Kraken
             return _orderBookSubject.AsObservable();
         }
 
+        // ── Pair rules (AssetPairs) ─────────────────────────────────────────
+
+        private Dictionary<string, KrakenPairRules> _pairRules = new(StringComparer.OrdinalIgnoreCase);
+        private DateTime _pairRulesAt = DateTime.MinValue;
+        private static readonly TimeSpan PairRulesTtl = TimeSpan.FromHours(6);
+
+        private void StorePairRules(JObject result)
+        {
+            _pairRules = KrakenPairRules.Parse(result);
+            _pairRulesAt = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// The pair's rules, read from AssetPairs at most every six hours. Null when they cannot
+        /// be had — the venue is then left to judge the order itself, as it always did, rather
+        /// than a failed public lookup blocking a real order (a close, a stop) the venue would
+        /// have taken.
+        /// </summary>
+        internal async Task<KrakenPairRules?> GetPairRulesAsync(string symbol)
+        {
+            if (DateTime.UtcNow - _pairRulesAt > PairRulesTtl)
+            {
+                try
+                {
+                    await _publicRateLimiter.ExecuteAsync(async () =>
+                    {
+                        var json = JObject.Parse(await _httpClient.GetStringAsync($"{RestUrl}/0/public/AssetPairs"));
+                        if (json["result"] is JObject result) StorePairRules(result);
+                        return true;
+                    }, maxRetries: 1);
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"Kraken pair rules could not be read ({ex.GetType().Name}): {ex.Message}");
+                }
+            }
+            return _pairRules.TryGetValue(CanonicalKrakenPair(symbol), out var rules) ? rules : null;
+        }
+
+        /// <summary>
+        /// The leverage amounts Kraken lends at on <paramref name="symbol"/> for this side —
+        /// empty when it does not lend on that pair, null when the pair's rules could not be read.
+        /// </summary>
+        public async Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string symbol, OrderSide side, CancellationToken ct = default) =>
+            (await GetPairRulesAsync(symbol).ConfigureAwait(false))?.LeverageFor(side);
+
         // ── ITradingProvider ────────────────────────────────────────────────
 
         /// <summary>
@@ -730,22 +807,16 @@ namespace AccessibleTrader.Plugins.Kraken
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _privateRateLimiter.ExecuteAsync(async () =>
+            // BalanceEx, not Balance: the plain read has no figure for what open orders hold,
+            // so Locked was always zero. Names go through KrakenBalances — see there for why
+            // ZUSD was not money until 2026-11-10.
+            var rows = await _reads.GetAsync("balances", AccountReadTtl, () => _privateRateLimiter.ExecuteAsync(async () =>
             {
-                var result = await PostPrivateAsync("/0/private/Balance", new Dictionary<string, string>());
+                var result = await PostPrivateAsync("/0/private/BalanceEx", new Dictionary<string, string>());
                 var json = ParsePrivate(result, "the balance read");
-                var balances = json["result"] as JObject;
-                if (balances == null) return new List<Balance>();
-
-                return balances.Properties()
-                    .Select(p =>
-                    {
-                        double.TryParse(p.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double val);
-                        return new Balance(p.Name, val, 0);
-                    })
-                    .Where(b => b.Free > 0)
-                    .ToList();
-            });
+                return json["result"] is JObject balances ? KrakenBalances.FromBalanceEx(balances) : new List<Balance>();
+            }));
+            return rows.ToList();
         }
 
         public async Task<List<Position>> GetPositionsAsync()
@@ -755,7 +826,7 @@ namespace AccessibleTrader.Plugins.Kraken
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _privateRateLimiter.ExecuteAsync(async () =>
+            var rows = await _reads.GetAsync("positions", AccountReadTtl, () => _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/OpenPositions", new Dictionary<string, string>());
                 var json = ParsePrivate(result, "the open-positions read");
@@ -786,7 +857,8 @@ namespace AccessibleTrader.Plugins.Kraken
                         // wants the undivided "cost".
                         pos?["margin"]?.Value<double>() > 0 ? cost / (pos?["margin"]?.Value<double>() ?? 1) : 1.0);
                 }).ToList();
-            });
+            }));
+            return rows.ToList();
         }
 
         /// <summary>Account fill history via TradesHistory (dashboard History tab
@@ -801,20 +873,21 @@ namespace AccessibleTrader.Plugins.Kraken
             // Signed history call — must share the private rate limiter with
             // Balances/Positions/OpenOrders or a History-tab refresh can burst
             // past Kraken's private nonce/rate window and get rejected.
-            return await _privateRateLimiter.ExecuteAsync(async () =>
+            // History costs TWO points of Kraken's counter, so it takes two slots here, and
+            // it changes least of the four reads, so it is remembered longest.
+            var all = await _reads.GetAsync("fills", HistoryReadTtl, () => _privateRateLimiter.ExecuteAsync(async () =>
             {
+                await _privateRateLimiter.WaitAsync();
                 var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
                 var json = ParsePrivate(result, "the trade-history read");
                 var trades = json["result"]?["trades"] as JObject;
                 if (trades == null) return new List<TradeFill>();
 
-                string? want = symbol == null ? null : CanonicalKrakenPair(symbol);
                 var fills = new List<TradeFill>();
                 foreach (var kv in trades.Properties())
                 {
                     var t = kv.Value;
                     string pair = t["pair"]?.ToString() ?? "";
-                    if (want != null && CanonicalKrakenPair(pair) != want) continue;
                     fills.Add(new TradeFill(
                         kv.Name, pair,
                         (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
@@ -824,8 +897,12 @@ namespace AccessibleTrader.Plugins.Kraken
                         t["fee"]?.Value<double>() ?? 0,
                         t["ordertxid"]?.ToString()));
                 }
-                return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
-            });
+                return fills;
+            }));
+
+            string? want = symbol == null ? null : CanonicalKrakenPair(symbol);
+            return all.Where(f => want == null || CanonicalKrakenPair(f.Symbol) == want)
+                      .OrderByDescending(f => f.FilledAt).Take(limit).ToList();
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -835,7 +912,7 @@ namespace AccessibleTrader.Plugins.Kraken
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            return await _privateRateLimiter.ExecuteAsync(async () =>
+            var all = await _reads.GetAsync("orders", AccountReadTtl, () => _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/OpenOrders", new Dictionary<string, string>());
                 var json = ParsePrivate(result, "the open-orders read");
@@ -853,10 +930,9 @@ namespace AccessibleTrader.Plugins.Kraken
                         p.Value?["vol"]?.Value<double>() ?? 0,
                         double.TryParse(o?["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
                         p.Value?["status"]?.ToString() ?? "open");
-                })
-                .Where(o => symbol == null || CanonicalKrakenPair(o.Symbol) == CanonicalKrakenPair(symbol))
-                .ToList();
-            });
+                }).ToList();
+            }));
+            return all.Where(o => symbol == null || CanonicalKrakenPair(o.Symbol) == CanonicalKrakenPair(symbol)).ToList();
         }
 
         /// <summary>
@@ -864,15 +940,32 @@ namespace AccessibleTrader.Plugins.Kraken
         /// and <see cref="DryRunOrderAsync"/>, so that what the venue validates is byte-for-byte
         /// what it would be asked to place (plus the validate flag). Returns the payload, or the
         /// ORDER_FAILED sentinel explaining why none could be built.
+        /// <para>
+        /// <paramref name="rules"/> are the pair's AssetPairs rules (null when they could not be
+        /// read: the payload is then built as it was before 2026-11-10 and the venue judges it).
+        /// <paramref name="closesMarginAt"/> is the leverage of an open MARGIN position this
+        /// reduce-only order closes — see <see cref="MarginCloseLeverageAsync"/>.
+        /// </para>
         /// </summary>
-        private (Dictionary<string, string>? Post, string? Error) BuildAddOrderPayload(TradeSignal signal)
+        internal (Dictionary<string, string>? Post, string? Error) BuildAddOrderPayload(
+            TradeSignal signal, KrakenPairRules? rules = null, int? closesMarginAt = null)
         {
             var pair = FormatRestPair(signal.Symbol);
+            double? priceForCost = signal.Type switch
+            {
+                OrderType.Limit => signal.Price,
+                OrderType.StopMarket or OrderType.StopLimit => signal.TriggerPrice ?? signal.StopLoss,
+                OrderType.TakeProfitMarket or OrderType.TakeProfitLimit => signal.TriggerPrice ?? signal.TakeProfit,
+                _ => null,
+            };
+            if (rules?.Refusal(signal, priceForCost) is string refusal)
+                return (null, "ORDER_FAILED:" + refusal);
+
             var postData = new Dictionary<string, string>
             {
                 ["pair"]      = pair,
                 ["type"]      = signal.Side == OrderSide.Buy ? "buy" : "sell",
-                ["volume"]    = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
+                ["volume"]    = rules?.FormatVolume(signal.Quantity) ?? signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
                 ["ordertype"] = MapToKrakenOrderType(signal.Type)
             };
 
@@ -883,7 +976,7 @@ namespace AccessibleTrader.Plugins.Kraken
             // canonical one sent `ordertype=stop-loss` with NO price at all, and the venue's
             // rejection was the first anyone heard of it. A missing trigger is refused HERE,
             // in words, rather than left for the venue.
-            static string Px(double v) => v.ToString(CultureInfo.InvariantCulture);
+            string Px(double v) => rules?.FormatPrice(v) ?? v.ToString(CultureInfo.InvariantCulture);
             double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
             double? tpTrigger   = signal.TriggerPrice ?? signal.TakeProfit;
             switch (signal.Type)
@@ -914,8 +1007,46 @@ namespace AccessibleTrader.Plugins.Kraken
                     break;
             }
 
+            // Leverage is sent as asked or the order is refused — never quietly changed. This
+            // was `(int)Math.Clamp(leverage, 2, 5)`: 1.5 times went out as 2, 2.9 as 2, and 8 on
+            // XBT/USD (which lends at up to 10) as 5, each with no word to the user.
             if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
-                postData["leverage"] = ((int)Math.Clamp(signal.Leverage.Value, 2, MaxLeverage)).ToString();
+            {
+                double asked = signal.Leverage.Value;
+                if (Math.Abs(asked - Math.Round(asked)) > 1e-9)
+                    return (null, $"ORDER_FAILED:Kraken takes whole-number leverage; {asked.ToString("0.##", CultureInfo.InvariantCulture)} times was asked");
+                int want = (int)Math.Round(asked);
+                if (rules != null)
+                {
+                    var allowed = rules.LeverageFor(signal.Side);
+                    string side = signal.Side == OrderSide.Buy ? "buying" : "selling";
+                    if (allowed.Count == 0)
+                        return (null, $"ORDER_FAILED:Kraken does not lend on {rules.Name}, so it cannot be traded with leverage");
+                    if (!allowed.Contains(want))
+                        return (null, $"ORDER_FAILED:Kraken lends on {rules.Name} when {side} at {SayList(allowed)} times; {want} times was asked");
+                }
+                postData["leverage"] = want.ToString(CultureInfo.InvariantCulture);
+                if (signal.ReduceOnly) postData["reduce_only"] = "true";
+            }
+            else if (signal.ReduceOnly && closesMarginAt is > 1)
+            {
+                // Closing a MARGIN position on Kraken is an opposite order WITH leverage; the
+                // same order without it is a spot trade — a sell of coins the account may not
+                // hold, or a buy of new ones, while the borrowed position stays open. The
+                // close button, the protective-order editor and the exits all send ReduceOnly,
+                // so the position's own leverage is added here for all of them, and Kraken's
+                // reduce_only flag makes sure the order can only shrink the position.
+                postData["leverage"] = closesMarginAt.Value.ToString(CultureInfo.InvariantCulture);
+                postData["reduce_only"] = "true";
+            }
+            else if (signal.ReduceOnly && signal.Side == OrderSide.Buy)
+            {
+                // A buy without leverage on Kraken is a spot buy: it ADDS coins whatever the
+                // flag says, so "reduce only" would be a promise this order cannot keep. The only
+                // thing a reduce-only buy can close is a margin short, and none was found (or
+                // the positions could not be read, which is said on the error stream).
+                return (null, $"ORDER_FAILED:a reduce-only buy closes a short, and no open margin short on {signal.Symbol} was found; without one, a Kraken buy would add coins rather than reduce anything");
+            }
 
             // Close-on-trigger order for SL/TP. Kraken's close[] slot holds
             // exactly ONE order — when both are requested the STOP wins
@@ -929,17 +1060,62 @@ namespace AccessibleTrader.Plugins.Kraken
             if (signal.StopLoss.HasValue && isEntry)
             {
                 postData["close[ordertype]"] = "stop-loss";
-                postData["close[price]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
+                postData["close[price]"] = Px(signal.StopLoss.Value);
             }
             else if (signal.TakeProfit.HasValue && isEntry)
             {
                 postData["close[ordertype]"] = "take-profit";
-                postData["close[price]"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
+                postData["close[price]"] = Px(signal.TakeProfit.Value);
             }
 
             if (!string.IsNullOrEmpty(signal.ClientOid))
                 postData["cl_ord_id"] = signal.ClientOid;
             return (postData, null);
+        }
+
+        /// <summary>
+        /// The leverage of the open margin position a reduce-only order would close, or null when
+        /// it closes none (a spot holding, or no position at all) — in which case the order goes
+        /// out as the spot order it always was.
+        ///
+        /// <para>
+        /// Only a position on the OTHER side counts: a reduce-only sell closes a long, a
+        /// reduce-only buy closes a short. The amount is Kraken's own cost over margin rounded
+        /// to a whole number, moved to the nearest amount the pair lends at. If the positions
+        /// cannot be read, null — the order is then a spot order, and Kraken's answer (a refusal
+        /// for want of coins to sell) is spoken as it is today.
+        /// </para>
+        /// </summary>
+        internal async Task<int?> MarginCloseLeverageAsync(TradeSignal signal)
+        {
+            if (!signal.ReduceOnly || signal.Leverage is > 1) return null;
+            List<Position> positions;
+            try { positions = await GetPositionsAsync(); }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"Kraken: open positions could not be read before a close ({ex.GetType().Name}); sent as a spot order.");
+                return null;
+            }
+
+            string want = CanonicalKrakenPair(signal.Symbol);
+            var match = positions.FirstOrDefault(p =>
+                CanonicalKrakenPair(p.Symbol) == want
+                && (signal.Side == OrderSide.Sell ? p.Quantity > 0 : p.Quantity < 0));
+            if (match == null) return null;
+
+            int lev = Math.Max(2, (int)Math.Round(match.Leverage));
+            var allowed = (await GetPairRulesAsync(signal.Symbol))?.LeverageFor(signal.Side);
+            if (allowed is { Count: > 0 } && !allowed.Contains(lev))
+                lev = allowed.OrderBy(a => Math.Abs(a - lev)).First();
+            return lev;
+        }
+
+        internal static string SayList(IReadOnlyList<int> values)
+        {
+            if (values.Count == 1) return values[0].ToString(CultureInfo.InvariantCulture);
+            bool unbroken = values.Zip(values.Skip(1), (a, b) => b - a).All(d => d == 1);
+            if (unbroken && values.Count > 2) return $"{values[0]} to {values[^1]}";
+            return string.Join(", ", values.Take(values.Count - 1)) + " or " + values[^1];
         }
 
         /// <summary>
@@ -951,11 +1127,12 @@ namespace AccessibleTrader.Plugins.Kraken
         public async Task<OrderDryRunResult> DryRunOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) throw new InvalidOperationException("Kraken: no API key configured, so the venue cannot be asked.");
-            var (postData, error) = BuildAddOrderPayload(signal);
+            var (postData, error) = BuildAddOrderPayload(signal,
+                await GetPairRulesAsync(signal.Symbol), await MarginCloseLeverageAsync(signal));
             if (postData is null) return new OrderDryRunResult(false, error!);
             postData["validate"] = "true";
 
-            var result = await _privateRateLimiter.ExecuteOnceAsync(() => PostPrivateAsync("/0/private/AddOrder", postData));
+            var result = await _orderRateLimiter.ExecuteOnceAsync(() => PostPrivateAsync("/0/private/AddOrder", postData));
             var json = JObject.Parse(result);
             if (json["error"] is JArray errors && errors.Count > 0)
                 return new OrderDryRunResult(false, string.Join(", ", errors));
@@ -968,12 +1145,18 @@ namespace AccessibleTrader.Plugins.Kraken
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _privateRateLimiter.ExecuteOnceAsync(async () =>
+                // Both looked up BEFORE the order takes its slot: neither is the order itself,
+                // and the order's own call must stay the single, never-retried POST.
+                var rules = await GetPairRulesAsync(signal.Symbol);
+                int? closesMarginAt = await MarginCloseLeverageAsync(signal);
+                return await _orderRateLimiter.ExecuteOnceAsync(async () =>
                 {
-                    var (postData, buildError) = BuildAddOrderPayload(signal);
+                    var (postData, buildError) = BuildAddOrderPayload(signal, rules, closesMarginAt);
                     if (postData is null) return buildError!;
 
+                    _reads.Invalidate();
                     var result = await PostPrivateAsync("/0/private/AddOrder", postData);
+                    _reads.Invalidate();
                     var json = JObject.Parse(result);
                     var errors = json["error"] as JArray;
                     if (errors != null && errors.Count > 0)
@@ -991,8 +1174,10 @@ namespace AccessibleTrader.Plugins.Kraken
             if (!IsConnected) return false;
             try
             {
-                var result = await _privateRateLimiter.ExecuteAsync(async () =>
+                _reads.Invalidate();
+                var result = await _orderRateLimiter.ExecuteAsync(async () =>
                     await PostPrivateAsync("/0/private/CancelOrder", new Dictionary<string, string> { ["txid"] = orderId }));
+                _reads.Invalidate();
                 var json = JObject.Parse(result);
                 var errors = json["error"] as JArray;
                 return errors == null || errors.Count == 0;

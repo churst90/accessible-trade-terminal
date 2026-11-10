@@ -186,6 +186,22 @@ namespace AccessibleTrader.Sdk.Plugins
     }
 
     /// <summary>
+    /// Optional capability: leverage that differs pair by pair. Kraken lends at 2 or 3 times
+    /// on KAS/USD and at 2 to 10 times on XBT/USD, and on some pairs not at all; one
+    /// <see cref="ITradingProvider.MaxLeverage"/> for the whole venue cannot say that, so the
+    /// order ticket offered amounts the venue then refused.
+    /// </summary>
+    public interface ISymbolLeverageProvider
+    {
+        /// <summary>
+        /// The whole-number leverage amounts the venue lends at for this pair and side, lowest
+        /// first; empty when it does not lend on the pair. Null when the pair's rules could not
+        /// be read — the caller falls back to <see cref="ITradingProvider.MaxLeverage"/>.
+        /// </summary>
+        Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string symbol, OrderSide side, CancellationToken ct = default);
+    }
+
+    /// <summary>
     /// Optional capability interface for plugins that support live trading.
     /// Query via <c>plugin.GetCapability&lt;ITradingProvider&gt;()</c>.
     /// </summary>

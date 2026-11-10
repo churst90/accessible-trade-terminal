@@ -1202,6 +1202,30 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The pair's own leverage amounts, buying and selling together, when the venue has
+        /// per-pair limits (Kraken). A failed read returns null and the ticket falls back to the
+        /// venue-wide maximum; the plugin has already said why on the error stream, and the
+        /// order itself is still checked against the pair's limits before it is sent.
+        /// </summary>
+        public async Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string providerName, string symbol)
+        {
+            var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
+            if (tp is not Sdk.Plugins.ISymbolLeverageProvider pairs || string.IsNullOrWhiteSpace(symbol)) return null;
+            try
+            {
+                var buy  = await pairs.GetAllowedLeverageAsync(symbol, OrderSide.Buy).ConfigureAwait(false);
+                var sell = await pairs.GetAllowedLeverageAsync(symbol, OrderSide.Sell).ConfigureAwait(false);
+                if (buy == null || sell == null) return null;
+                return buy.Concat(sell).Distinct().OrderBy(x => x).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reading {Symbol}'s leverage limits on {Provider} failed", symbol, providerName);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// The leverage the venue actually applied, which is not necessarily the one
         /// asked for.
         ///

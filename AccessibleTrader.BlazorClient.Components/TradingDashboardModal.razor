@@ -341,9 +341,10 @@
                                     <label for="leverage-input">Leverage</label>
                                     <input id="leverage-input" type="number" min="1" max="@_maxLeverage" step="1"
                                            aria-label="Leverage multiplier"
+                                           aria-describedby="leverage-hint"
                                            @bind="_leverage"
                                            @oninput='() => VoidReviewIfArmed("Leverage")' />
-                                    <span style="font-size:0.8rem; color:var(--text-muted);">×&nbsp;(max @_maxLeverage)</span>
+                                    <span id="leverage-hint" style="font-size:0.8rem; color:var(--text-muted);">@LeverageHint</span>
                                 </div>
                             }
 
@@ -1053,6 +1054,13 @@
     /// <summary>Capabilities per account slug, for the account views.</summary>
     private Dictionary<string, ProviderCapabilities> _accountCaps = new();
     private double _maxLeverage = 1.0;
+    /// <summary>The pair's own leverage amounts when the venue has per-pair limits (Kraken
+    /// lends at 2 or 3 times on KAS/USD, up to 10 on BTC/USD); null when it does not, and the
+    /// venue-wide <see cref="_maxLeverage"/> is all there is to say.</summary>
+    private IReadOnlyList<int>? _allowedLeverage;
+    /// <summary>True while a two-second refresh is still running, so a slow venue does not
+    /// stack refreshes on top of each other — each one is four account reads.</summary>
+    private bool _refreshing;
     private bool   _bookLoading;
     private bool   _bookEverLoaded;
 
@@ -1304,6 +1312,14 @@
                        && await OrderService.SupportsOcoPairsAsync(provider)
                        && await OrderService.VenueSupportsOcoPairsAsync(provider);
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
+        // The venue-wide maximum is a ceiling, not an offer: Kraken lends at 2 or 3 times on
+        // KAS/USD, so a ticket offering 1 to 5 there let the user type an amount the venue
+        // then refused. Where the venue names the pair's own amounts, those are the field's.
+        _allowedLeverage = supported && Can(ProviderCapabilities.Leverage) && !string.IsNullOrEmpty(Store.State.Identity.Symbol)
+            ? await OrderService.GetAllowedLeverageAsync(provider, Store.State.Identity.Symbol!)
+            : null;
+        if (_allowedLeverage != null)
+            _maxLeverage = _allowedLeverage.Count == 0 ? 1.0 : Math.Min(_maxLeverage, _allowedLeverage.Max());
         _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
         _limitPrice  = GetCurrentPrice();
@@ -1736,14 +1752,24 @@
     /// </summary>
     private async Task RefreshLiveAsync()
     {
-        await RefreshBookAsync();
-        // Any inline field open means someone is mid-type. Repainting the table under
-        // them throws away what they had typed, and doing it every two seconds makes
-        // the field unusable — which on the limit-close field means the exit never
-        // gets placed.
-        if (_editing.HasValue || _closingAtLimit.HasValue) return;
-        try { await LoadAccountDataAsync(); } catch { /* a transient read must not kill the timer */ }
-        StateHasChanged();
+        // The timer fires every two seconds whether or not the last refresh finished. A venue
+        // that meters reads (Kraken: about one every three seconds on its lowest tier) made
+        // each refresh slower than the timer, so they piled up behind each other — and an
+        // order the user placed waited behind the pile.
+        if (_refreshing) return;
+        _refreshing = true;
+        try
+        {
+            await RefreshBookAsync();
+            // Any inline field open means someone is mid-type. Repainting the table under
+            // them throws away what they had typed, and doing it every two seconds makes
+            // the field unusable — which on the limit-close field means the exit never
+            // gets placed.
+            if (_editing.HasValue || _closingAtLimit.HasValue) return;
+            try { await LoadAccountDataAsync(); } catch { /* a transient read must not kill the timer */ }
+            StateHasChanged();
+        }
+        finally { _refreshing = false; }
     }
 
     private async Task RefreshBookAsync()
@@ -2534,7 +2560,34 @@
         double fee = cost * 0.0004;
         string sl = IsEntryType && _stopLoss > 0 ? $" Stop {PriceFormatter.FormatPrice(_stopLoss)}." : "";
         string tp = IsEntryType && _takeProfit > 0 ? $" Target {PriceFormatter.FormatPrice(_takeProfit)}." : "";
-        return $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
+        // Leverage changes what the order is — a 3 times buy borrows two thirds of it — and
+        // the review used to leave it out, so the last thing heard before a real-money margin
+        // order did not say it was one.
+        string lev = Can(ProviderCapabilities.Leverage) && _leverage > 1
+            ? $" {_leverage:0.##} times leverage, your margin about {PriceFormatter.FormatPrice(cost / _leverage)}."
+            : "";
+        return $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{lev}{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
+    }
+
+    /// <summary>What the leverage field's hint says, and what a screen reader reads after the
+    /// field's name: the amounts this pair takes when the venue names them, else the ceiling.</summary>
+    private string LeverageHint
+    {
+        get
+        {
+            if (_allowedLeverage is not { Count: > 0 } allowed)
+                return $"times (most {_maxLeverage:0.##}; 1 means no leverage)";
+            return $"times (this pair takes {SayLeverage(allowed)}; 1 means no leverage)";
+        }
+    }
+
+    /// <summary>2, 3 → "2 or 3"; 2, 3, 4, 5 → "2 to 5"; 2, 3, 5 → "2, 3 or 5".</summary>
+    internal static string SayLeverage(IReadOnlyList<int> values)
+    {
+        if (values.Count == 1) return values[0].ToString(System.Globalization.CultureInfo.InvariantCulture);
+        bool run = values.Count > 2 && values.Zip(values.Skip(1), (a, b) => b - a).All(d => d == 1);
+        if (run) return $"{values[0]} to {values[^1]}";
+        return string.Join(", ", values.Take(values.Count - 1)) + " or " + values[^1];
     }
 
     /// <summary>

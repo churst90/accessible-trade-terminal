@@ -111,6 +111,14 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Returns the maximum leverage multiplier supported by the provider (1.0 if unsupported).</summary>
         Task<double> GetMaxLeverageAsync(string provider);
 
+        /// <summary>
+        /// The leverage amounts the provider lends at on one pair, both sides together, lowest
+        /// first; empty when it lends on neither side. Null when the provider has no per-pair
+        /// limits or they could not be read — the ticket then uses <see cref="GetMaxLeverageAsync"/>.
+        /// </summary>
+        Task<IReadOnlyList<int>?> GetAllowedLeverageAsync(string provider, string symbol) =>
+            Task.FromResult<IReadOnlyList<int>?>(null);
+
         /// <summary>Sets leverage for a symbol on the provider and returns the actual leverage applied.</summary>
         Task<double> SetLeverageAsync(string provider, string symbol, double leverage);
 

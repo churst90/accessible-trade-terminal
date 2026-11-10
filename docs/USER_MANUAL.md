@@ -3137,6 +3137,13 @@ risk sizer. And if your provider supports margin or futures, the ticket adds a
 the active provider does not support are simply not shown — so the same ticket is
 lean on a spot exchange and full on a futures one.
 
+The Leverage multiplier is a number field, not a slider: type a whole number, or use the
+Up and Down arrows. 1 means no leverage. Your screen reader reads the amounts this pair
+takes right after the field's name, for example "times (this pair takes 2 or 3; 1 means no
+leverage)". When leverage is above 1, the spoken review says it, with your share of the
+cost: "3 times leverage, your margin about 33.40". On Kraken an amount the pair does not
+lend at is refused in words before anything is sent.
+
 Two helpers worth knowing before you submit. The **Size** button next to "Risk % of
 balance" does position-sizing for you: enter a risk percentage and a stop, and it
 sets the quantity so that being stopped out costs you that share of your balance,
@@ -3312,6 +3319,45 @@ History, and Book — and switching to one speaks its name and count, like "Posi
 - **Book** is a five-level snapshot of the bids and asks with the spread, refreshed every
   two seconds and read on demand by Tab; it never announces on its own. The full
   twenty-level order book is Alt+B.
+
+### Trading on Kraken: balances, order sizes and leverage
+
+What the terminal does for Kraken spot (since 2026-11-10):
+
+- **Balances use the usual names.** Kraken calls dollars `ZUSD` and bitcoin `XXBT`; the
+  Balances tab says USD and BTC, and your dollars count as cash for the risk sizer.
+  **Locked** is what your open orders are holding. Amounts Kraken keeps apart are their
+  own rows, all under Locked, because they cannot be traded from here: `BTC.S` (staked),
+  `BTC.M` (opt-in rewards), `DOT.P` (parachain), and `USD.HOLD` (money on hold, for
+  example a deposit that is still clearing). They are valued at their base asset's price.
+  Auto-earn (`.F`) amounts count as the plain asset, because Kraken trades them as that.
+- **Each pair's smallest order and decimals.** Kraken sets a smallest order per pair:
+  170 KAS on KAS/USD, 0.022 TAO on TAO/USD, 0.00006 BTC on BTC/USD, and at least 0.50
+  dollars' worth on all three. An order under the minimum is refused before it is sent,
+  and you hear the minimum. Sizes are cut down (never rounded up) to the pair's decimals,
+  and prices are rounded to the pair's price step.
+- **Leverage per pair.** Kraken lends at different amounts on each pair: 2 or 3 times on
+  KAS/USD, 2 to 5 on TAO/USD, 2 to 10 on BTC/USD. Most pairs it lists have no leverage at
+  all. The ticket's field allows only that pair's amounts. Whether your account may use
+  margin is Kraken's decision (it depends on where you live and your verification
+  level); if it may not, Kraken refuses the order and you hear its reason.
+- **Closing a margin position** sends the position's own leverage and Kraken's
+  reduce-only flag, so the close cannot open anything new. Without the leverage, Kraken
+  would read the close as an ordinary spot trade and leave the borrowed position open.
+  A reduce-only buy with no margin short to close is refused, because a spot buy can
+  only add coins.
+- **Reads are shared.** The dashboard refreshes every two seconds, but Kraken allows
+  only about one account read every three seconds on its starting tier. Account reads
+  are remembered for 15 seconds (history for 60), every order and fill clears them, and
+  orders no longer wait behind reads.
+
+Live trading uses your own Kraken API key in the desktop app. The hosted browser
+terminal is paper only.
+
+**Kraken Futures** takes leverage as a setting per contract, not per order. When an
+order asks for leverage, the terminal sets that contract's leverage first and refuses
+to send the order if Kraken Futures will not set it. This has not yet been tried
+against the live venue.
 
 ### Getting funds onto a venue: deposit addresses
 

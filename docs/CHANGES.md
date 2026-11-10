@@ -4,6 +4,78 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Kraken: real balances, each pair's minimums and leverage, reads that keep up (2026-11-10, Cody's request; NOT tried with money)
+
+Cody plans to trade BTC, TAO and KAS on Kraken. A read-through found the following, and they are now
+fixed (facts read from Kraken's docs and its public AssetPairs and Assets endpoints on 2026-11-10):
+
+- **Deposited dollars were not money.** The balance read passed Kraken's codes through: dollars were
+  `ZUSD` and bitcoin `XXBT`. The risk sizer looks for `USD` (so it said there was no cash), and the
+  portfolio looked for a `ZUSD/USD` market. Names now go through a fixed table of Kraken's legacy codes
+  (KrakenBalances.AssetName). It is a table and not "strip X or Z", because XTZ, ZRX and ZEC are real
+  assets.
+- **Locked was always 0.** The plain Balance read has no figure for what open orders hold, so dollars in
+  a resting buy read as free. The read is now BalanceEx: Free = balance − hold_trade, Locked =
+  hold_trade. Kraken Rewards auto-earn (`.F`) is added to the base asset, because Kraken trades it
+  as that. Staked, rewards, parachain and on-hold amounts (`.S`, `.M`, `.P`, `.HOLD`, and any other
+  suffix) are their own rows, with the whole amount under Locked. The portfolio values `.S`, `.M`, `.P`,
+  `.F` and `.HOLD` at the base asset's price (PortfolioValuationService.PricedAs). It does not do this
+  for `.B` or `.T`, because a stock venue's BRK.B is a share class.
+- **No minimums or decimals.** Orders went out with eight decimals of volume and an unrounded price,
+  and with no minimum checked; Kraken refuses all three in its own codes. KrakenPairRules reads
+  AssetPairs (every six hours, and whenever the symbol list loads). An order under the pair's smallest
+  size (`ordermin`: 170 KAS, 0.022 TAO, 0.00006 BTC) or smallest cost (`costmin`, 0.50) is refused in
+  words before anything is sent. Volume is cut down to the pair's lot decimals, never rounded up.
+  Prices go to the pair's tick and decimals, including the attached stop or target. A pair in
+  cancel-only, reduce-only, limit-only or post-only mode refuses what it would not take. If the rules
+  cannot be read, the order goes out as before and Kraken judges it.
+- **Leverage was clamped to 2..5 without a word, on every pair.** 1.5 went out as 2, 2.9 as 2, and 8 on
+  BTC/USD (which lends at up to 10) as 5. Now:
+  - A fraction is refused, an amount the pair does not lend at is refused with the amounts it does
+    ("Kraken lends on KAS/USD when buying at 2 or 3 times; 5 times was asked"), and anything else is
+    sent as asked.
+  - The ticket's field is limited to the pair's own amounts. This uses a new optional SDK interface,
+    ISymbolLeverageProvider, through IOrderExecutionService.GetAllowedLeverageAsync.
+  - The field's hint is linked by aria-describedby, so it is read with the field.
+  - The spoken review says the leverage and your margin.
+  - Kraken's MaxLeverage is now 10, its highest pair.
+- **Closing a margin position on Kraken was a spot order.** Kraken closes a margin position with an
+  opposite order that carries leverage. The close button, the protective-order editor and strategy
+  exits all send ReduceOnly, and none of them carried leverage. Now a reduce-only order that faces an
+  open margin position on the same pair is sent with that position's leverage (cost/margin rounded,
+  moved to the nearest amount the pair allows) and `reduce_only=true`. A reduce-only BUY with no margin
+  short is refused, because a spot buy only adds coins. Kraken now declares the ReduceOnly capability,
+  which the capability audit required once the flag was read.
+- **Reads queued without end.** The dashboard asks for four account reads every two seconds. The
+  private limiter allowed 20 a minute in a fixed window, but Kraken's Starter counter holds 15 and
+  drains one every three seconds. Orders shared that queue.
+  - Reads now go through a short cache (KrakenReadCache): 15 s for balances, positions and orders, and
+    60 s for history. Callers at the same moment share one request. A failure is never cached. Every
+    order, cancel and execution report empties it.
+  - The read limiter is 6 per 20 s, and a history read takes two slots.
+  - Orders have their own limiter: Kraken meters AddOrder and CancelOrder per pair in the matching
+    engine, not on the read counter. The order POST is still sent once and never retried.
+  - The dashboard's refresh no longer starts while the last one is still running.
+- **Kraken Futures dropped leverage.** Its PlaceOrderAsync ignored the ticket's leverage, and its
+  SetLeverageAsync was a POST with a form body. Kraken's docs say PUT /leveragepreferences with the
+  arguments in the query. Leverage is now set first, with a PUT and a signed query string, and the order
+  is refused if the venue will not set it (Binance's rule).
+- Caveats: none of this has met a live Kraken account. The fixtures are shaped like Kraken's docs and
+  its public answers. The margin close, BalanceEx, `.HOLD`, the account's rate tier and Futures' PUT are
+  listed as unverified in TODO. Cody's paper take-profit-edit error is still not reproduced.
+- Tests: KrakenLiveReadinessTests (names incl. XTZ/ZRX/ZEC kept, BalanceEx Free/Locked/.F/.S/.HOLD and
+  bare numbers, the cache's TTL, sharing and failure, a second balance read sending nothing, pair
+  rules by every spelling, KAS 170 and costmin refusals, cancel-only, decimals, leverage sent as asked,
+  refused off-list and fractional, margin close and spot close payloads, a refused order never reaching
+  AddOrder, a margin close end to end through OpenPositions, Futures PUT and set-before-send with a
+  vacuity check that the PUT was made); OrderTicketLeverageTests (field max 3 with venue max 10,
+  aria-describedby, "2 or 3", the review says "3 times leverage").
+  Sabotage, each red: legacy names off, hold_trade ignored, the old 2..5 clamp, the leverage list
+  check, the margin close, ordermin, decimals, the balance cache, the reduce-only buy refusal, Futures
+  PUT and set-before-send, PricedAs, the ticket's max, its review and its aria-describedby. The cache's
+  two failure defences (drop the failed entry; never serve a faulted one) are redundant: each alone
+  stayed green, and both together went red.
+
 ### The new bar's open says when; no false buffer-key warnings for left-out parts (2026-11-08, Cody's requests; NOT heard by Cody)
 
 - **"New bar: Open {price} at {time}".** Cody: "just append the 'at timestamp' part for the new open

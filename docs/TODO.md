@@ -30,6 +30,27 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Kraken live trading: balances, order minimums, leverage, read pacing (2026-11-10, built, NOT
+  tried with money; see CHANGES).** Cody plans to trade BTC, TAO and KAS on Kraken spot.
+  - Cody to try, on the DESKTOP app with a live Kraken key (the VPS is paper only): after a deposit, the
+    Balances tab should say USD (not ZUSD) with the amount under Free, and the risk sizer should find the
+    cash. Place a resting limit buy: its dollars should move to Locked. Try a 100 KAS order: it should be
+    refused with "Kraken's smallest KAS/USD order is 170 KAS". On KAS/USD the leverage field should read
+    "this pair takes 2 or 3".
+  - Unverified, needs a live account: BalanceEx (read from Kraken's docs; the fixture is shaped like the
+    docs, not like a real answer from this account); what `.HOLD` really holds (not documented by Kraken);
+    the margin close (an opposite order with the position's leverage and `reduce_only`; Kraken's docs do
+    not say a close must use the same leverage, and the position's leverage is rounded from cost/margin);
+    whether this account is allowed margin at all (Kraken limits margin by region and verification);
+    the account's real rate tier (the limiter assumes the lowest, Starter); Kraken Futures' PUT
+    /leveragepreferences (the signing of a query string is my reading of the docs).
+  - Not done: Kraken Futures positions still report leverage 1 (hard-coded); a close of a Kraken Futures
+    position sends no leverage (none is needed there: reduceOnly is enough). The pair rules are read
+    every six hours; a pair Kraken moves to cancel-only in between is caught by Kraken, not by us.
+  - **Still open from Cody's 2026-11-10 report:** editing the take profit of an open PAPER trade played
+    the error sound and "stop loss and take profit are not set". NOT reproduced in 7 probes (long/short,
+    both legs / stop only / TP only, moved up/down). Needs Cody's exact words and steps.
+
 - [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
   `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
 

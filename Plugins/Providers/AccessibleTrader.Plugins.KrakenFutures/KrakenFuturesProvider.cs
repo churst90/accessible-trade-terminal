@@ -358,6 +358,20 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         {
             if (string.IsNullOrEmpty(_apiKey)) return "ORDER_FAILED:no Kraken Futures API key configured";
 
+            // Kraken Futures takes no leverage on the order itself: it is a per-contract
+            // preference set beforehand. The ticket's leverage used to be dropped here without a
+            // word, so a "5 times" order went out at whatever the contract was last set to. Set
+            // it first, and refuse the order if the venue would not — the same rule as Binance.
+            // A reducing order changes no exposure and is left alone.
+            if (signal.Leverage is > 1 && !signal.ReduceOnly)
+            {
+                double asked = signal.Leverage.Value;
+                double applied = await SetLeverageAsync(signal.Symbol, asked).ConfigureAwait(false);
+                if (Math.Abs(applied - asked) > 1e-9)
+                    return $"ORDER_FAILED:Kraken Futures would not set {asked.ToString("0.##", CultureInfo.InvariantCulture)} times "
+                         + $"leverage on {signal.Symbol}, so the order was not sent";
+            }
+
             var args = new List<(string, string)>
             {
                 ("orderType", signal.Type switch
@@ -450,13 +464,21 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         /// Kraken Futures sets leverage per SYMBOL through its own endpoint rather
         /// than per order. Returning the requested value without calling anything
         /// would be the no-op that the capability audit exists to catch.
+        ///
+        /// <para>
+        /// The endpoint is a PUT with its arguments in the query string (Kraken's docs,
+        /// read 2026-11-10). It used to be a POST with a form body, which the venue does not
+        /// route, so leverage was never set. <c>marginMode</c> is not sent and the venue's
+        /// default, isolated, applies; leaving out <c>maxLeverage</c> would switch the contract
+        /// to cross margin, which this never does. Not yet tried against the live venue.
+        /// </para>
         /// </summary>
         public async Task<double> SetLeverageAsync(string symbol, double leverage)
         {
             double want = Math.Clamp(leverage, 1, MaxLeverage);
             try
             {
-                var json = await PostPrivateAsync("/leveragepreferences", new[]
+                var json = await PutPrivateQueryAsync("/leveragepreferences", new[]
                 {
                     ("symbol", symbol.ToLowerInvariant()),
                     ("maxLeverage", want.ToString(CultureInfo.InvariantCulture)),
@@ -521,8 +543,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             // The SAME encoded string must be signed and sent. Building it once and
             // reusing it is the only way to be sure of that — encoding it twice
             // invites two spellings and a signature that never matches.
-            string body = string.Join("&", args.Select(a =>
-                $"{Uri.EscapeDataString(a.Key)}={Uri.EscapeDataString(a.Value)}"));
+            string body = EncodeArgs(args);
 
             await _privateLimiter.WaitAsync().ConfigureAwait(false);
             using var req = Signed(HttpMethod.Post, path, body);
@@ -530,6 +551,24 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             var res = await _http.SendAsync(req).ConfigureAwait(false);
             return ReadPrivateJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), path);
         }
+
+        /// <summary>
+        /// A PUT whose arguments travel in the query string, as Kraken Futures' leverage
+        /// endpoint wants. The encoded query is what is signed, exactly as a POST body is —
+        /// the same string signed and sent, built once.
+        /// </summary>
+        private async Task<JObject> PutPrivateQueryAsync(string path, IEnumerable<(string Key, string Value)> args)
+        {
+            string query = EncodeArgs(args);
+            await _privateLimiter.WaitAsync().ConfigureAwait(false);
+            using var req = Signed(HttpMethod.Put, path, query);
+            req.RequestUri = new Uri($"{Host}{ApiRoot}{path}?{query}");
+            var res = await _http.SendAsync(req).ConfigureAwait(false);
+            return ReadPrivateJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), path);
+        }
+
+        internal static string EncodeArgs(IEnumerable<(string Key, string Value)> args) =>
+            string.Join("&", args.Select(a => $"{Uri.EscapeDataString(a.Key)}={Uri.EscapeDataString(a.Value)}"));
 
         /// <summary>
         /// Body first, then status — and neither one alone. Callers classify a

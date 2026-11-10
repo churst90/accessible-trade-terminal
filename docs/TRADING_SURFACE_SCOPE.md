@@ -61,7 +61,7 @@ it is cheap and it removes a whole class of silent disappointment.
 | Provider | Declared | Margin | Futures | Notes from the source |
 |---|---|---|---|---|
 | **Binance** | L2, MarketDepth, TrailingStop, +more | — | **yes** | Fullest implementation, 1,089 lines |
-| **Kraken** | L2, MarketDepth, Leverage, + | — | no | Leverage declared, `SetLeverageAsync` real |
+| **Kraken** | L2, MarketDepth, Leverage, ReduceOnly, + | — | no | Leverage per pair from AssetPairs (2026-11-10: no clamp; margin closes carry the position's leverage + `reduce_only`) |
 | **Mexc** | L2, MarketDepth, Leverage | — | **yes** | Leverage declared, real setter |
 | **InteractiveBrokers** | L2, Shorting, Leverage | — | **yes** | Real setter |
 | **Oanda** | Leverage, Shorting, TrailingStop | — | no | Real setter; FX margin model |
