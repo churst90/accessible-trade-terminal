@@ -33,19 +33,27 @@ namespace AccessibleTrader.Tests
         /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
         /// assertions were always for: exactly ONE order left the process.</para>
         ///
-        /// <para>Gemini likewise reads the market's public symbol details (smallest order,
-        /// decimals) before an order, 2026-11-10; that lookup is excluded the same way.</para>
+        /// <para>2026-11-10: every venue now reads its public market rules (smallest order,
+        /// decimals) before an order — Gemini's symbol details, Bitstamp's trading-pairs-info,
+        /// MEXC's exchangeInfo and contract detail. Those GETs are not orders either, so they
+        /// are excluded the same way (<see cref="IsPublicRead"/>).</para>
         /// </summary>
         private static int VenueCallIndex(FakeHttpMessageHandler h)
         {
             var idx = Enumerable.Range(0, h.Captured.Count)
-                .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
-                              .EndsWith("/api/v3/time", StringComparison.Ordinal)
-                         && !h.Captured[i].RequestUri!.AbsolutePath
-                              .StartsWith("/v1/symbols/details/", StringComparison.Ordinal))
+                .Where(i => !IsPublicRead(h.Captured[i].RequestUri!.AbsolutePath))
                 .ToList();
             return Assert.Single(idx);
         }
+
+        /// <summary>The clock probe and the venues' public market-rules reads, which an order
+        /// now makes before it is sent: public reads, not the order.</summary>
+        private static bool IsPublicRead(string path) =>
+            path.EndsWith("/api/v3/time", StringComparison.Ordinal)
+            || path.StartsWith("/v1/symbols/details/", StringComparison.Ordinal)
+            || path.EndsWith("/api/v2/trading-pairs-info/", StringComparison.Ordinal)
+            || path.EndsWith("/api/v3/exchangeInfo", StringComparison.Ordinal)
+            || path.EndsWith("/api/v1/contract/detail", StringComparison.Ordinal);
 
         private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h)
             => h.Captured[VenueCallIndex(h)];
