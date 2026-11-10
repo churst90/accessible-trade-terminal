@@ -3141,8 +3141,12 @@ The Leverage multiplier is a number field, not a slider: type a whole number, or
 Up and Down arrows. 1 means no leverage. Your screen reader reads the amounts this pair
 takes right after the field's name, for example "times (this pair takes 2 or 3; 1 means no
 leverage)". When leverage is above 1, the spoken review says it, with your share of the
-cost: "3 times leverage, your margin about 33.40". On Kraken an amount the pair does not
-lend at is refused in words before anything is sent.
+cost: "3 times leverage, your margin about 33.40". On Kraken, Binance, MEXC and
+Hyperliquid an amount the market does not offer is refused in words before anything is
+sent; nothing is quietly cut to the nearest amount the market allows. On Binance, MEXC
+and Hyperliquid perpetuals, 1 really means 1: an order that opens or adds sets the
+leverage to 1, even if you traded at 20 times before. A reduce-only close leaves the
+position's leverage alone.
 
 Two helpers worth knowing before you submit. The **Size** button next to "Risk % of
 balance" does position-sizing for you: enter a risk percentage and a stop, and it
@@ -3358,6 +3362,37 @@ terminal is paper only.
 order asks for leverage, the terminal sets that contract's leverage first and refuses
 to send the order if Kraken Futures will not set it. This has not yet been tried
 against the live venue.
+
+### Order sizes and leverage on the other crypto venues
+
+Since 2026-11-10, Gemini, Binance, Coinbase, Bitstamp, MEXC and Hyperliquid work the way
+Kraken does above. None of this has yet been tried with real money on these venues.
+
+- **Each market's smallest order and decimals.** The terminal reads each venue's own
+  rules for the market and keeps them for six hours. An order that is too small, or worth
+  too little, is refused before it is sent, and you hear the minimum, for example
+  "Gemini's smallest BTC/USD order is 0.00001 BTC; this one is 0.000005 BTC". On
+  Bitstamp the minimum is a value in the quote currency. On MEXC futures, sizes are in
+  contracts, and the refusal says what one contract is. Hyperliquid's smallest order is
+  worth 10 dollars. Sizes are cut down to the market's step and never rounded up.
+  Prices, stop prices and attached take-profits and stops go to the market's tick.
+- **Markets that are not trading.** An order on a market the venue has switched off,
+  paused or set to cancel-only is refused in words. So is a market order where the
+  venue takes only limit orders, and on Coinbase any order on a post-only market. On
+  Gemini, any market that is not fully open refuses every order for now.
+- **Leverage.** On Binance, MEXC and Hyperliquid the ticket's field allows only that
+  market's own range, for example 2 to 5 on Hyperliquid's TAO and 2 or 3 on KAS.
+  Fractions and amounts above the market's highest are refused and the refusal names
+  the highest. Binance keeps one leverage per market, so while a position is open there,
+  an order at a different leverage is refused. To add to the position, use its leverage;
+  to close it, tick Reduce-only.
+- **Reads are shared.** On Binance and Gemini, account reads are remembered for 15
+  seconds (fills for 60). Every order and cancel clears them, and so does every fill
+  Binance reports or Gemini's order check notices. An order no longer waits behind the
+  dashboard's refreshes.
+- **Coinbase balances** now include every wallet, not just the first page of them.
+
+If a venue's rules cannot be read, the order goes out as before and the venue decides.
 
 ### Getting funds onto a venue: deposit addresses
 

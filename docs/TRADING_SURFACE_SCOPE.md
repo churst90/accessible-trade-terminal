@@ -60,16 +60,18 @@ it is cheap and it removes a whole class of silent disappointment.
 
 | Provider | Declared | Margin | Futures | Notes from the source |
 |---|---|---|---|---|
-| **Binance** | L2, MarketDepth, TrailingStop, +more | — | **yes** | Fullest implementation, 1,089 lines |
+| **Binance** | L2, MarketDepth, TrailingStop, +more | — | **yes** | Fullest implementation. 2026-11-10: exchangeInfo rules (step/tick/min value); every opening futures order sets leverage, 1 included; no clamp, max from leverageBracket; other-leverage order refused while a position is open |
 | **Kraken** | L2, MarketDepth, Leverage, ReduceOnly, + | — | no | Leverage per pair from AssetPairs (2026-11-10: no clamp; margin closes carry the position's leverage + `reduce_only`) |
-| **Mexc** | L2, MarketDepth, Leverage | — | **yes** | Leverage declared, real setter |
+| **Mexc** | L2, MarketDepth, Leverage | — | **yes** | Real setter. 2026-11-10: opening orders send 1x when none asked; no clamp, max per contract from contract/detail; cross sets cross leverage first; spot/futures rules |
 | **InteractiveBrokers** | L2, Shorting, Leverage | — | **yes** | Real setter |
 | **Oanda** | Leverage, Shorting, TrailingStop | — | no | Real setter; FX margin model |
 | **Alpaca** | L2, Brackets | — | no | `SetLeverageAsync` is a no-op |
 | **Schwab** | Brackets | false | false | `SetLeverageAsync` no-op |
 | **Tradier** | Brackets | false | false | `SetLeverageAsync` no-op |
-| **Coinbase** | L2 | — | no | `GetPositionsAsync` returns empty; leverage no-op |
-| **Bitstamp** | L2, MarketDepth | — | no | `GetPositionsAsync` returns empty; leverage no-op |
+| **Coinbase** | L2 | — | no | `GetPositionsAsync` returns empty; leverage no-op. 2026-11-10: product rules (size/price increments, minimums, status); accounts paged |
+| **Bitstamp** | L2, MarketDepth | — | no | `GetPositionsAsync` returns empty; leverage no-op. 2026-11-10: trading-pairs-info decimals and minimum value; plain digits on the wire |
+| **Gemini** | L2, MarketDepth, PostOnly, TimeInForce | — | no | 2026-11-10: symbol-details rules; account reads cached so orders are not starved by the 30/30 s limiter |
+| **Hyperliquid** | L2, MarketDepth, Leverage, IsolatedMargin, ReduceOnly, Brackets, + | — | **yes** (perps) | 2026-11-10: 1x sent when none asked; per-coin max from meta, refused not clamped; $10 minimum |
 
 Data-only (no `ITradingProvider`): Finnhub, FMP, Polygon, TwelveData.
 

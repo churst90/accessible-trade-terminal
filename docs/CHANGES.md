@@ -4,6 +4,111 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Every crypto venue checks each market's rules before it sends, and leverage is as asked or refused (2026-11-10, Cody's request; NOT tried with money)
+
+After the Kraken work below, Cody asked whether the other venues had the same problems. An audit found that
+they did, and Cody said "fix them all". Facts come from each venue's public answers, read live on 2026-11-10.
+The fixtures copy those answers.
+
+- **No venue checked a minimum or the decimals.** Every one sent the ticket's number as it came:
+  - Coinbase sent 8 decimals on a 2-decimal price.
+  - Bitstamp sent `ToString()`, which prints a small amount as `1E-05`.
+  - Binance, Gemini and MEXC sent the number unrounded.
+  - Hyperliquid rounded only part of the order.
+
+  The venues refused these in their own codes (`LOT_SIZE`, `INVALID_PRICE_PRECISION`, `InvalidQuantity`).
+  Now each venue reads its own market rules and keeps them six hours:
+  - Binance: exchangeInfo filters, spot and futures.
+  - Gemini: `/v1/symbols/details`. Note that `tick_size` is the AMOUNT step and `quote_increment` the price step.
+  - Coinbase: the public product.
+  - Bitstamp: `trading-pairs-info`. Its minimum is an order VALUE.
+  - MEXC: spot exchangeInfo and futures `contract/detail`. Futures are sized in contracts, and the refusal
+    says what one contract is.
+  - Hyperliquid: its $10 minimum value.
+
+  An order under the smallest size or value, or on a market that is not taking it, is refused in words
+  before anything is sent ("Gemini's smallest BTC/USD order is 0.00001 BTC; this one is 0.000005 BTC").
+  - The markets that refuse this way: switched off, cancel-only, paused, post-only (Coinbase), limit-only
+    for a market order, buy-only or sell-only (MEXC), and Bitstamp pairs with market orders off.
+  - Sizes are cut DOWN to the step and never rounded up. Prices, stop prices and attached legs go to the
+    tick.
+  - Numbers are never in exponent form (SymbolOrderRules, a shared SDK record; arithmetic in decimal so
+    that 0.29 on a 0.01 step stays 0.29).
+  - If the rules cannot be read, the order goes out as before (now in plain digits) and the venue judges it.
+
+  A Hyperliquid or MEXC order refused this way no longer changes the leverage on its way out.
+- **A 1x ticket traded at whatever the account was last set to.** The ticket sends no leverage when its
+  field says 1. Binance (which set leverage only above 1), MEXC and Hyperliquid read that as "leave it",
+  so a 1x trade after a 20x one opened at 20x. Now an order that opens or adds always sets its leverage,
+  1 included. A reduce-only close leaves the position's leverage as it is.
+  - Binance keeps one leverage per market, so setting 1x would quietly change an open 10x position too.
+    An order at a different leverage from an open position on that market is refused, and the refusal
+    says to set the leverage to the position's or tick reduce-only. If positions cannot be read, the order
+    goes ahead.
+  - On Binance, a failed leverage change used to be taken as "1 applied". It is now refused with Binance's
+    own words, and so is a change that comes back at a different leverage from the one asked.
+  - On MEXC, a cross-margin order sets the cross leverage first, because MEXC ignores an order's leverage
+    on cross. MEXC's SetLeverage uses the margin type of the last order on that contract instead of a
+    hard-coded isolated.
+- **Leverage was clamped without a word.**
+  - Before: Binance clamped at 125 and dropped fractions, MEXC at 200, and Hyperliquid at each coin's
+    maximum.
+  - Now: fractions are refused. Anything above the market's own maximum is refused and names that maximum.
+    The maximums come from Binance leverageBracket, MEXC contract/detail and Hyperliquid meta, for example
+    "Hyperliquid's highest leverage on ETH-PERP is 25 times; this asks for 100". Anything else is sent as
+    asked.
+  - The ticket's field offers only each market's own range on all three (ISymbolLeverageProvider). As read
+    on 2026-11-10: MEXC BTC_USDT 500; Hyperliquid BTC 40, TAO 5, KAS 3.
+- **Gemini orders waited behind the dashboard.** The dashboard asked for balances, open orders and fills
+  every two seconds. That is about 45 private calls per 30 s, against a limiter that must stay at 30 to
+  keep Gemini's nonce valid, so an order or a close queued behind the reads.
+  - Binance and Gemini now remember account reads (AccountReadCache, the SDK home of the Kraken read
+    cache): 15 s, and fills 60 s. Callers asking at the same moment share one request.
+  - The cache empties on every order and cancel. On Binance it also empties on each user-data frame. On
+    Gemini it empties when a status poll first shows a fill or an order ending, because Gemini has no
+    execution reports.
+  - Binance orders and cancels have their own limiter (50 per 10 s), and Binance's OCO legs and
+    take-profit/stop attaches go to the tick as well. Gemini's single 30/30 s limiter stays as it is,
+    because orders must share the nonce.
+- **Coinbase read only the first page of accounts.** A coin whose wallet sorted past it was missing from
+  the balances. The read now walks every page (250 a page, by cursor). A missing or repeated cursor fails
+  the read instead of returning part of the list.
+- **Cash and naming:**
+  - GUSD, PYUSD and FDUSD now count as cash for the risk sizer.
+  - So does Hyperliquid's perps margin, `USDC-PERPS`. The portfolio values a `-PERPS` asset at its base.
+  - Kraken's deposit history names assets as the balances do (BTC, not XXBT).
+- Caveats, all in TODO:
+  - None of this has met a live account on any of these venues.
+  - MEXC's API docs have marked futures order placement "under maintenance" since 2022, so MEXC futures
+    may not take API orders at all.
+  - Whether Hyperliquid enforces $10 on reduce-only orders is unknown, so they are left to the exchange.
+  - A market order's value is not checked on Coinbase or on MEXC spot, because no price is to hand.
+  - Gemini refuses everything on a market that is not "open", including limit-only and post-only markets
+    that would take some orders. That is a question for Cody.
+  - Coinbase's private account paging follows its docs, because that endpoint needs a login.
+  - Binance answers 451 from here, so its fixtures come from data-api.binance.vision (spot) and the
+    futures testnet. leverageBracket and positionRisk follow Binance's documented shape, not a live read.
+    In hedge mode, the open-position leverage guard treats LONG and SHORT positions alike.
+- Tests:
+  - SymbolOrderRulesTests and BinanceVenueRulesTests.
+  - GeminiVenueRulesTests (11), CoinbaseVenueRulesTests (13) and BitstampVenueRulesTests (9).
+  - MexcVenueRulesTests and HyperliquidVenueRulesTests (30 between them).
+  - New KrakenLiveReadinessTests rows.
+  - A Hyperliquid no-leverage theory (opens at 1x, a close leaves it).
+  - Existing tests that pinned the old behaviour now pin the new:
+    - The Hyperliquid clamp test now pins the refusal.
+    - Its order-shape helpers skip the 1x update.
+    - BrokerPlacementParity's call index skips the venues' public rules reads.
+  - Sabotage, each red:
+    - The base: floor, decimal, plain digits, minimum, rounds-to-nothing, notional, not-trading, tick,
+      cash, `-PERPS`, and deposit names.
+    - Gemini 18/18, Coinbase and Bitstamp 17/17, and MEXC and Hyperliquid 19/19.
+    - Binance 17/17. Removing only the after-cancel invalidate stays green, because the
+      before-cancel one covers the test's order of events; the two are pinned together.
+    - The Hyperliquid 1x default, both ways: dropped, and applied to closes.
+  - One Bitstamp test could not fail at first: 0.0363 prints the same through ToString. It now uses
+    0.00001 at 0.00003, and it goes red.
+
 ### Kraken: real balances, each pair's minimums and leverage, reads that keep up (2026-11-10, Cody's request; NOT tried with money)
 
 Cody plans to trade BTC, TAO and KAS on Kraken. A read-through found the following, and they are now

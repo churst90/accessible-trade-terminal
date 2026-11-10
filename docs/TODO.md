@@ -30,6 +30,40 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Every other crypto venue: market rules, leverage as asked, read pacing (2026-11-10, built, NOT
+  tried with money on any venue; see CHANGES).** Gemini, Binance, Coinbase, Bitstamp, MEXC and
+  Hyperliquid.
+  - Cody to try, wherever there is a live key: a tiny order under the venue's minimum should be refused
+    in words before anything is sent; a 1x perp order after a higher one should open at 1x; leverage above
+    a market's maximum should be refused and name it (Hyperliquid TAO 5, KAS 3 as read 2026-11-10). On
+    Gemini, the dashboard should no longer slow an order down.
+  - **Questions for Cody:**
+    - Gemini: a market not "open" (limit_only, post_only, cancel_only) refuses EVERY order. Should a
+      limit order go through on a limit_only market, and a post-only one on post_only?
+    - Binance: an order at a different leverage from a position already open on that market is refused
+      (Binance keeps one leverage per market and would change the open position too). Keep this, or
+      change the position's leverage after asking?
+    - MEXC: its API docs have marked futures order placement "under maintenance" since 2022. If MEXC
+      futures are wanted, it needs a live try; spot is unaffected.
+  - Unverified, needs a live account:
+    - Every venue: no real order sent, so the formatting and refusals are proven against fixtures copied
+      from each venue's public answers (2026-11-10), not against a real fill.
+    - Binance answers 451 from here: spot fixtures are from data-api.binance.vision, futures from the
+      testnet; leverageBracket and positionRisk follow the docs' shape; the mainnet futures BTCUSDT step
+      and minimum value are from memory; whether a US account can reach Binance at all.
+    - Coinbase: the private accounts paging (needs a login; follows the docs); base_max_size is read but
+      not checked.
+    - Bitstamp: whether instant (by-value) orders want `instant_order_counter_decimals` rather than the
+      pair's counter decimals.
+    - Hyperliquid: whether the $10 minimum applies to reduce-only orders (left to the exchange), and how
+      it values a market order.
+    - MEXC: leverage risk tiers above the contract's plain maximum.
+  - Not done:
+    - A market order's minimum VALUE is not checked on Coinbase, MEXC spot or Binance futures, because no
+      price is to hand; the venue still judges it.
+    - Binance hedge mode: the open-position leverage guard treats LONG and SHORT positions alike.
+    - Rules are kept six hours; a market that changes status in between is caught by the venue.
+
 - [ ] **Kraken live trading: balances, order minimums, leverage, read pacing (2026-11-10, built, NOT
   tried with money; see CHANGES).** Cody plans to trade BTC, TAO and KAS on Kraken spot.
   - Cody to try, on the DESKTOP app with a live Kraken key (the VPS is paper only): after a deposit, the
