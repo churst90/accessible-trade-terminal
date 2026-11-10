@@ -653,7 +653,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public async Task Leverage_is_set_first_clamped_to_the_assets_maximum_and_isolated_by_default()
+        public async Task Leverage_is_set_first_as_asked_and_isolated_by_default()
         {
             int calls = 0;
             var h = Armed(exchange: body =>
@@ -664,14 +664,28 @@ namespace AccessibleTrader.Tests
                     : Reply("order", "{\"statuses\":[{\"resting\":{\"oid\":9}}]}");
             });
 
-            string id = await Provider(h).PlaceOrderAsync(new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 3000, Leverage: 100));
+            string id = await Provider(h).PlaceOrderAsync(new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 3000, Leverage: 20));
 
             Assert.Equal("9", id);
             var all = Exchange(h);
             Assert.Equal(2, all.Count);
-            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":25}""", all[0]["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":20}""", all[0]["action"]!.ToString(Newtonsoft.Json.Formatting.None));
             Assert.Equal("order", all[1]["action"]!["type"]!.ToString());
             Assert.True(all[1]["nonce"]!.Value<ulong>() > all[0]["nonce"]!.Value<ulong>());
+        }
+
+        // This test used to pin the CLAMP: 100x on ETH (max 25 in meta) went out as 25x and the
+        // order reported success at a leverage nobody asked for. It now pins the refusal
+        // (2026-11-10): nothing is signed, and the words name the market's ceiling.
+        [Fact]
+        public async Task Leverage_past_the_assets_maximum_is_refused_in_words_and_nothing_is_signed()
+        {
+            var h = Armed(exchange: _ => "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}");
+
+            string result = await Provider(h).PlaceOrderAsync(new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 3000, Leverage: 100));
+
+            Assert.Equal("ORDER_FAILED:Hyperliquid's highest leverage on ETH-PERP is 25 times; this asks for 100", result);
+            Assert.Empty(Exchange(h));
         }
 
         [Fact]
@@ -701,7 +715,9 @@ namespace AccessibleTrader.Tests
         public async Task Venue_error_text_comes_back_in_the_failure()
         {
             var h = Armed(exchange: _ => Reply("order", "{\"statuses\":[{\"error\":\"Order must have minimum value of $10.\"}]}"));
-            string result = await Provider(h).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.00001, OrderType.Limit, Price: 100));
+            // Big enough to pass the app's own $10 check (HyperliquidVenueRulesTests), so the
+            // venue's answer is what comes back.
+            string result = await Provider(h).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 100));
             Assert.Contains("minimum value", result);
         }
 
@@ -771,8 +787,14 @@ namespace AccessibleTrader.Tests
         public async Task Set_leverage_returns_the_applied_value_and_one_on_refusal()
         {
             var ok = Armed(exchange: _ => "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}");
-            Assert.Equal(25.0, await Provider(ok).SetLeverageAsync("ETH-PERP", 40));
-            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":25}""", Single(ok)["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+            Assert.Equal(20.0, await Provider(ok).SetLeverageAsync("ETH-PERP", 20));
+            Assert.Equal("""{"type":"updateLeverage","asset":1,"isCross":false,"leverage":20}""", Single(ok)["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+
+            // Past ETH's 25: not clamped to 25 any more (that answered 25 for a 40 request);
+            // refused, nothing signed, 1.0 = "not set".
+            var over = Armed(exchange: _ => "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}");
+            Assert.Equal(1.0, await Provider(over).SetLeverageAsync("ETH-PERP", 40));
+            Assert.Empty(Exchange(over));
 
             var no = Armed(exchange: _ => "{\"status\":\"err\",\"response\":\"nope\"}");
             Assert.Equal(1.0, await Provider(no).SetLeverageAsync("ETH-PERP", 5));

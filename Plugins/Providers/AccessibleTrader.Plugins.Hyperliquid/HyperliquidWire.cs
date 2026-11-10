@@ -1,5 +1,6 @@
 using System.Globalization;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Trading;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Hyperliquid
@@ -81,6 +82,55 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             decimal factor = 1m;
             for (int i = 0; i < Math.Clamp(szDecimals, 0, 28); i++) factor *= 10m;
             return Math.Truncate((decimal)size * factor) / factor;
+        }
+
+        // ── Venue rules ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The smallest order Hyperliquid takes, by value: $10 on a perp, 10 of the quote token on
+        /// spot. From the exchange's own list of order errors ("MinTradeNtl: Order must have
+        /// minimum value of $10." / "MinTradeSpotNtl: Order must have minimum value of 10
+        /// {quote_token}.", hyperliquid-docs → API → Error responses, read 2026-11-10).
+        /// </summary>
+        public const decimal MinOrderValue = 10m;
+
+        /// <summary>
+        /// The order rules for one market: the size step from szDecimals and the $10 minimum.
+        ///
+        /// <para>
+        /// <b>Why this exists.</b> An order under the minimum was signed, sent and refused with
+        /// "Order must have minimum value of $10." after the leverage had already been changed
+        /// for it. Checking first keeps the account as it was and says why in the same words
+        /// the other venues use.
+        /// </para>
+        /// </summary>
+        public static SymbolOrderRules OrderRules(AssetInfo asset)
+        {
+            int dash = asset.Display.LastIndexOf('-');
+            string baseName = dash > 0 ? asset.Display[..dash] : asset.Display;
+            string quote = asset.IsSpot && dash > 0 ? asset.Display[(dash + 1)..] : "USDC";
+            return new SymbolOrderRules
+            {
+                Venue = "Hyperliquid", Symbol = asset.Display, QuantityUnit = baseName, QuoteAsset = quote,
+                QuantityStep = SymbolOrderRules.StepFromDecimals(asset.SzDecimals),
+                MinNotional = MinOrderValue,
+            };
+        }
+
+        /// <summary>
+        /// Why Hyperliquid will not take this leverage on this market, in words, or null.
+        /// It takes whole numbers from 1 to the market's own maxLeverage (meta), and this used to
+        /// round and clamp instead: 100x on ETH (max 25) went out as 25x, 2.5x as 2x, and the
+        /// order reported success at a leverage nobody asked for.
+        /// </summary>
+        public static string? LeverageRefusal(AssetInfo asset, double leverage)
+        {
+            if (double.IsNaN(leverage) || double.IsInfinity(leverage) || leverage != Math.Floor(leverage) || leverage < 1)
+                return $"Hyperliquid takes whole-number leverage from 1 up; {SymbolOrderRules.Plain(leverage)} times is not one";
+            if (leverage > Math.Max(1, asset.MaxLeverage))
+                return $"Hyperliquid's highest leverage on {asset.Display} is {Math.Max(1, asset.MaxLeverage)} times; "
+                     + $"this asks for {SymbolOrderRules.Plain(leverage)}";
+            return null;
         }
 
         // ── Metadata ──────────────────────────────────────────────────────────
