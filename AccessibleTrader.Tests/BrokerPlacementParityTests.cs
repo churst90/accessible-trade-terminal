@@ -32,12 +32,17 @@ namespace AccessibleTrader.Tests
         /// <c>-1021</c>. That probe is captured like any other request, so a bare
         /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
         /// assertions were always for: exactly ONE order left the process.</para>
+        ///
+        /// <para>Gemini likewise reads the market's public symbol details (smallest order,
+        /// decimals) before an order, 2026-11-10; that lookup is excluded the same way.</para>
         /// </summary>
         private static int VenueCallIndex(FakeHttpMessageHandler h)
         {
             var idx = Enumerable.Range(0, h.Captured.Count)
                 .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
-                              .EndsWith("/api/v3/time", StringComparison.Ordinal))
+                              .EndsWith("/api/v3/time", StringComparison.Ordinal)
+                         && !h.Captured[i].RequestUri!.AbsolutePath
+                              .StartsWith("/v1/symbols/details/", StringComparison.Ordinal))
                 .ToList();
             return Assert.Single(idx);
         }

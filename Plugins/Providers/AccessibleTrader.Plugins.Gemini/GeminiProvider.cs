@@ -66,13 +66,37 @@ namespace AccessibleTrader.Plugins.Gemini
         private string _apiSecret = "";
         private bool _useSandbox;
 
-        // Symbol details (price increment above all) fetched once per symbol and
-        // kept: the market-order emulation must round its aggressive price to the
-        // venue's quote increment or the order is rejected for precision.
-        private readonly Dictionary<string, JObject> _symbolDetails = new(StringComparer.OrdinalIgnoreCase);
+        // Symbol details (smallest order, amount step, price increment, status) read
+        // per symbol and kept for hours: every order is checked and formatted against
+        // them, and the market-order emulation rounds its aggressive price to the
+        // quote increment or the order is rejected for precision.
+        private readonly Dictionary<string, (DateTime At, SymbolOrderRules Rules)> _symbolRules = new(StringComparer.OrdinalIgnoreCase);
+        internal static readonly TimeSpan SymbolRulesTtl = TimeSpan.FromHours(6);
 
-        public GeminiProvider()
+        // Account reads are remembered for a few seconds. The dashboard asks for
+        // balances, open orders and fills every two seconds — about 45 private calls
+        // per 30s against a limiter that must stay at 30 for the nonce's sake (above),
+        // so the queue never drained and an order or a close waited behind it.
+        // Emptied by every order, every cancel, and every status read that shows a
+        // fill or an order ending (Gemini's stand-in for an execution report).
+        private readonly AccountReadCache _reads;
+        private readonly Func<DateTime> _clock;
+        internal static readonly TimeSpan AccountReadTtl = TimeSpan.FromSeconds(15);
+        internal static readonly TimeSpan HistoryReadTtl = TimeSpan.FromSeconds(60);
+
+        // The last state each polled order was seen in, so that only a CHANGE empties
+        // the read cache: a part-filled order resting for hours is polled the whole
+        // time, and emptying on every poll would bring the queue back.
+        private readonly Dictionary<string, (bool Live, double Executed)> _lastOrderState = new(StringComparer.Ordinal);
+
+        public GeminiProvider() : this(() => DateTime.UtcNow) { }
+
+        // The clock is a seam for the read-cache and rules tests, which step time
+        // instead of sleeping through it.
+        internal GeminiProvider(Func<DateTime> clock)
         {
+            _clock = clock;
+            _reads = new AccountReadCache(clock);
             _http = PluginHostServices.CreateHttpClient(
                 providerId:   "Gemini",
                 allowedHosts: new[] { "api.gemini.com", "api.sandbox.gemini.com" });
@@ -261,18 +285,24 @@ namespace AccessibleTrader.Plugins.Gemini
 
         public async Task<List<Balance>> GetBalancesAsync()
         {
-            var json = await PostPrivateAsync("/v1/balances").ConfigureAwait(false);
-            return (json as JArray ?? new JArray())
-                .Select(b =>
-                {
-                    double amount = D(b["amount"]), available = D(b["available"]);
-                    return new Balance(
-                        b["currency"]?.ToString().ToUpperInvariant() ?? "",
-                        available,
-                        Math.Max(0, amount - available));
-                })
-                .Where(b => b.Free > 0 || b.Locked > 0)
-                .ToList();
+            // Each caller gets its own list: one changing it cannot change what the
+            // next caller inside the time-to-live sees.
+            var rows = await _reads.GetAsync("balances", AccountReadTtl, async () =>
+            {
+                var json = await PostPrivateAsync("/v1/balances").ConfigureAwait(false);
+                return (json as JArray ?? new JArray())
+                    .Select(b =>
+                    {
+                        double amount = D(b["amount"]), available = D(b["available"]);
+                        return new Balance(
+                            b["currency"]?.ToString().ToUpperInvariant() ?? "",
+                            available,
+                            Math.Max(0, amount - available));
+                    })
+                    .Where(b => b.Free > 0 || b.Locked > 0)
+                    .ToList();
+            }).ConfigureAwait(false);
+            return rows.ToList();
         }
 
         // Spot venue: there are no positions, only balances. An empty list is the
@@ -281,8 +311,12 @@ namespace AccessibleTrader.Plugins.Gemini
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
         {
-            var json = await PostPrivateAsync("/v1/orders").ConfigureAwait(false);
-            return (json as JArray ?? new JArray())
+            // /v1/orders is the whole account in one call, so it is remembered whole
+            // and filtered per caller: a per-symbol key would ask once per symbol.
+            var all = await _reads.GetAsync("orders", AccountReadTtl, async () =>
+                (await PostPrivateAsync("/v1/orders").ConfigureAwait(false)) as JArray ?? new JArray())
+                .ConfigureAwait(false);
+            return all
                 .Where(o => symbol == null ||
                             string.Equals(o["symbol"]?.ToString(), symbol, StringComparison.OrdinalIgnoreCase))
                 .Select(o => new OpenOrder(
@@ -301,11 +335,21 @@ namespace AccessibleTrader.Plugins.Gemini
             if (string.IsNullOrEmpty(_apiKey)) return "ORDER_FAILED:no Gemini API key configured";
 
             string symbol = signal.Symbol.ToLowerInvariant();
+
+            // Read BEFORE the order takes its limiter slot, and refused in words here
+            // rather than by Gemini's "InvalidQuantity" after the fact. Null when the
+            // details cannot be read: the venue then judges the order as it always
+            // did, rather than a failed public lookup blocking a close.
+            var rules = await GetSymbolRulesAsync(symbol).ConfigureAwait(false);
+            string? refusal = rules?.Refusal(signal.Quantity,
+                signal.Price is > 0 ? signal.Price : signal.TriggerPrice is > 0 ? signal.TriggerPrice : null);
+            if (refusal != null) return $"ORDER_FAILED:{refusal}";
+
             var payload = new JObject
             {
                 ["symbol"] = symbol,
                 ["side"]   = signal.Side == OrderSide.Buy ? "buy" : "sell",
-                ["amount"] = Fmt(signal.Quantity),
+                ["amount"] = rules?.FormatQuantity(signal.Quantity) ?? Fmt(signal.Quantity),
             };
             if (!string.IsNullOrEmpty(signal.ClientOid)) payload["client_order_id"] = signal.ClientOid;
 
@@ -315,7 +359,7 @@ namespace AccessibleTrader.Plugins.Gemini
                     if (signal.Price is not > 0)
                         return "ORDER_FAILED:a limit order needs a limit price";
                     payload["type"]  = "exchange limit";
-                    payload["price"] = Fmt(signal.Price.Value);
+                    payload["price"] = rules?.FormatPrice(signal.Price.Value) ?? Fmt(signal.Price.Value);
                     break;
 
                 case OrderType.Market:
@@ -328,7 +372,7 @@ namespace AccessibleTrader.Plugins.Gemini
                         return "ORDER_FAILED:Gemini has no native market order and the current price "
                              + "could not be read to emulate one — try a limit order";
                     payload["type"]    = "exchange limit";
-                    payload["price"]   = Fmt(aggressive.Value);
+                    payload["price"]   = rules?.FormatPrice(aggressive.Value) ?? Fmt(aggressive.Value);
                     payload["options"] = new JArray("immediate-or-cancel");
                     break;
                 }
@@ -339,8 +383,8 @@ namespace AccessibleTrader.Plugins.Gemini
                     if (trigger is not > 0 || signal.Price is not > 0)
                         return "ORDER_FAILED:a stop-limit order needs both a trigger price and a limit price";
                     payload["type"]       = "exchange stop limit";
-                    payload["stop_price"] = Fmt(trigger.Value);
-                    payload["price"]      = Fmt(signal.Price.Value);
+                    payload["stop_price"] = rules?.FormatPrice(trigger.Value) ?? Fmt(trigger.Value);
+                    payload["price"]      = rules?.FormatPrice(signal.Price.Value) ?? Fmt(signal.Price.Value);
                     break;
                 }
 
@@ -367,7 +411,11 @@ namespace AccessibleTrader.Plugins.Gemini
 
             try
             {
-                var json = await PostPrivateAsync("/v1/order/new", payload).ConfigureAwait(false);
+                JToken json;
+                try { json = await PostPrivateAsync("/v1/order/new", payload).ConfigureAwait(false); }
+                // Emptied whatever the answer: a refusal can still follow a booking
+                // the response lost, and the next read must ask the venue.
+                finally { _reads.Invalidate(); }
 
                 string? orderId = json["order_id"]?.ToString();
                 bool cancelled = json["is_cancelled"]?.Value<bool>() == true;
@@ -390,9 +438,14 @@ namespace AccessibleTrader.Plugins.Gemini
         {
             try
             {
-                var json = await PostPrivateAsync("/v1/order/cancel",
-                    new JObject { ["order_id"] = long.TryParse(orderId, out long id) ? id : orderId })
-                    .ConfigureAwait(false);
+                JToken json;
+                try
+                {
+                    json = await PostPrivateAsync("/v1/order/cancel",
+                        new JObject { ["order_id"] = long.TryParse(orderId, out long id) ? id : orderId })
+                        .ConfigureAwait(false);
+                }
+                finally { _reads.Invalidate(); }
                 // The response is the order's state after the attempt: is_cancelled
                 // false here means it was already filled (or never known).
                 return json["is_cancelled"]?.Value<bool>() == true;
@@ -424,6 +477,20 @@ namespace AccessibleTrader.Plugins.Gemini
             bool cancelled = json["is_cancelled"]?.Value<bool>() == true;
             double executed  = D(json["executed_amount"]);
             double remaining = D(json["remaining_amount"]);
+
+            // Gemini has no execution reports; this poll is where a fill or an order
+            // ending is first seen, so it is where the remembered balances and open
+            // orders stop being true. Only a change counts (see _lastOrderState).
+            lock (_lastOrderState)
+            {
+                bool changed = _lastOrderState.TryGetValue(orderId, out var seen)
+                    ? seen != (live, executed)
+                    : !live || executed > 0;   // first sighting: only an order already acting
+                if (changed) _reads.Invalidate();
+                // An ended order is not polled again, so it is not kept.
+                if (live) _lastOrderState[orderId] = (live, executed);
+                else      _lastOrderState.Remove(orderId);
+            }
 
             var state = MapOrderState(live, cancelled, executed, remaining);
 
@@ -471,7 +538,12 @@ namespace AccessibleTrader.Plugins.Gemini
             // to the account default. Sent only when the caller supplied one.
             if (!string.IsNullOrEmpty(symbol)) payload["symbol"] = symbol.ToLowerInvariant();
 
-            var json = await PostPrivateAsync("/v1/mytrades", payload).ConfigureAwait(false);
+            // History changes only by a fill, and a fill empties the cache (order,
+            // cancel, status poll), so it is kept longer than balances. Keyed by what
+            // was asked: a different symbol or length is a different answer.
+            var json = await _reads.GetAsync($"fills|{symbol?.ToLowerInvariant()}|{limit}", HistoryReadTtl, async () =>
+                await PostPrivateAsync("/v1/mytrades", payload).ConfigureAwait(false))
+                .ConfigureAwait(false);
             return (json as JArray ?? new JArray())
                 .Take(limit)
                 .Select(f => new TradeFill(
@@ -501,24 +573,69 @@ namespace AccessibleTrader.Plugins.Gemini
             if (touch <= 0) return null;
 
             double raw = side == OrderSide.Buy ? touch * 1.01 : touch * 0.99;
-            double inc = await QuoteIncrementAsync(symbol).ConfigureAwait(false);
+            double inc = (double)((await GetSymbolRulesAsync(symbol).ConfigureAwait(false))?.PriceTick ?? 0m);
             return inc > 0 ? Math.Round(raw / inc) * inc : raw;
         }
 
-        private async Task<double> QuoteIncrementAsync(string symbol)
+        /// <summary>
+        /// What Gemini takes on <paramref name="symbol"/>, from <c>/v1/symbols/details</c>,
+        /// read at most every six hours. Gemini's names are not the obvious ones:
+        /// <c>tick_size</c> is the AMOUNT step and <c>quote_increment</c> the price step
+        /// (live 2026-11-10: BTCUSD 0.00000001 and 0.01, minimum "0.00001"; SOLUSD
+        /// 0.000001 and 0.001, minimum "0.001"). Steps arrive as JSON numbers and the
+        /// minimum as a string, so both are read as text. Null when the details cannot be
+        /// read — the caller then sends as before.
+        /// </summary>
+        internal async Task<SymbolOrderRules?> GetSymbolRulesAsync(string symbol)
         {
-            if (!_symbolDetails.TryGetValue(symbol, out var details))
+            lock (_symbolRules)
             {
-                try
-                {
-                    details = (JObject)await GetPublicAsync(
-                        $"/v1/symbols/details/{Uri.EscapeDataString(symbol)}").ConfigureAwait(false);
-                    _symbolDetails[symbol] = details;
-                }
-                catch { return 0; }   // caller falls back to the unrounded price
+                if (_symbolRules.TryGetValue(symbol, out var kept) && _clock() - kept.At < SymbolRulesTtl)
+                    return kept.Rules;
             }
-            return D(details["quote_increment"]);
+
+            JObject details;
+            try
+            {
+                details = (JObject)await GetPublicAsync(
+                    $"/v1/symbols/details/{Uri.EscapeDataString(symbol)}").ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                SurfaceError($"Gemini's order rules for {symbol.ToUpperInvariant()} could not be read: {ex.Message}",
+                    ErrorSeverity.Low, ErrorCategory.Provider);
+                return null;
+            }
+
+            string baseAsset  = details["base_currency"]?.ToString().ToUpperInvariant() ?? "";
+            string quoteAsset = details["quote_currency"]?.ToString().ToUpperInvariant() ?? "";
+            string status     = details["status"]?.ToString() ?? "";
+            string spoken     = baseAsset.Length > 0 && quoteAsset.Length > 0
+                ? $"{baseAsset}/{quoteAsset}" : symbol.ToUpperInvariant();
+
+            var rules = new SymbolOrderRules
+            {
+                Venue        = "Gemini",
+                Symbol       = spoken,
+                QuantityUnit = baseAsset,
+                QuoteAsset   = quoteAsset,
+                MinQuantity  = SymbolOrderRules.ParseStep(Text(details["min_order_size"])),
+                QuantityStep = SymbolOrderRules.ParseStep(Text(details["tick_size"])),
+                PriceTick    = SymbolOrderRules.ParseStep(Text(details["quote_increment"])),
+                // Gemini's other states (closed, cancel_only, post_only, limit_only) all
+                // refuse some order this terminal can send; the status is named so the
+                // user hears which.
+                NotTrading   = string.Equals(status, "open", StringComparison.OrdinalIgnoreCase) ? null
+                             : $"Gemini is not taking new {spoken} orders (the market is {(status.Length > 0 ? status.Replace('_', ' ') : "not open")})",
+            };
+            lock (_symbolRules) _symbolRules[symbol] = (_clock(), rules);
+            return rules;
         }
+
+        // A JSON number as written, in the invariant culture: JValue.ToString() follows the
+        // current culture and would read 0.01 as "0,01" on a comma-decimal machine.
+        private static string? Text(JToken? t) =>
+            t is JValue v ? Convert.ToString(v.Value, CultureInfo.InvariantCulture) : null;
 
         // ── Transport ─────────────────────────────────────────────────────────
 
