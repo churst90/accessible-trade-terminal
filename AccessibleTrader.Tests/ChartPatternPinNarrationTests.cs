@@ -138,59 +138,52 @@ public sealed class ChartPatternPinNarrationTests
     }
 
     /// <summary>
-    /// The reported defect proper: pin a formation, press the next-formation key, and you must
-    /// land on THAT formation's ending — not on whichever edge happened to come first.
-    ///
-    /// <para>
-    /// Here the two shapes break on different bars: the triangle at 80, the double bottom at 90.
-    /// Both announcements are individually correct, which is why this survived — the bug is that
-    /// the key travelled to the wrong one of them.
-    /// </para>
+    /// Cody, 2026-11-13, TAO/USDT 1h: he chose a double top with semicolon and then "can't use ,
+    /// and . to move around the chart patterns anymore". The choice used to confine the jump keys
+    /// to the chosen formation's two edges. Now it decides only what is said at the bar: choose
+    /// the double bottom (which breaks at 90) and the next-formation key still stops first at the
+    /// triangle's break at 80, the next edge on the chart.
     /// </summary>
     [Fact]
-    public void TheJumpKeysTravelToThePinnedFormationsEdges()
+    public void TheJumpKeysReachEveryFormationWhateverSemicolonChose()
     {
         var doubleBottom = Big with { CompletedAtIndex = 90 };
         var triangle = Small with { CompletedAtIndex = 80 };
         var h = Build(doubleBottom, triangle);
 
         StandOn(h, 70);
-        // Pin the double bottom — the one whose end is NOT the next edge on the chart.
-        for (int i = 0; i < 4; i++)
-        {
-            h.Navigator.CycleFocus();
-            var ranked = ChartPatternNarrator.ByDominance(new[] { doubleBottom, triangle }).ToList();
-            if (h.Focus.Apply(ChartPatternCache.KeyFor(h.Store.State.Identity), ranked)[0].Key
-                    .Equals(doubleBottom.Key)) break;
-        }
+        string key = ChartPatternCache.KeyFor(h.Store.State.Identity);
+        h.Navigator.CycleFocus();   // the double bottom leads by size, so the first press chooses the triangle
+        h.Navigator.CycleFocus();   // and the second the double bottom
+        var ranked = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(new[] { doubleBottom, triangle }, 70)).ToList();
+        Assert.True(h.Focus.IsPinned(key));
+        Assert.Equal(doubleBottom.Key, h.Focus.Apply(key, ranked)[0].Key);
 
         h.Store.DispatchedActions.Clear();
         h.Navigator.Jump(SystemCommand.NavPatternNext);
 
         var nav = h.Store.DispatchedActions.OfType<NavigateAction>().LastOrDefault();
         Assert.NotNull(nav);
-        Assert.Equal(90, nav!.NewIndex);   // the pinned formation's end, not the triangle's at 80
+        Assert.Equal(80, nav!.NewIndex);   // the triangle's end: every formation's edges count
     }
 
     /// <summary>
-    /// Running out of edges inside a pin is normal — there are only two. Say so in a way that
-    /// names the pin and the key that releases it, or it reads as the feature having broken.
+    /// With a choice made, running out of edges says the chart has no more — not that a pin
+    /// is in the way, because there is no pin to be in the way any more.
     /// </summary>
     [Fact]
-    public void RunningOutOfEdgesInsideAPinSaysWhy()
+    public void RunningOutOfEdgesAfterAChoiceSaysOnlyThatTheChartHasNoMore()
     {
         var h = Build(Big, Small);
         StandOn(h, 70);
         PinTheTriangle(h);
 
-        StandOn(h, 119);   // past both of the pinned formation's edges
+        StandOn(h, 119);   // past every edge on the chart
         h.Bus.Log.Clear();
         h.Navigator.Jump(SystemCommand.NavPatternNext);
 
         string said = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
-        Assert.Contains("pinned", said, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ascending triangle", said, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Shift+semicolon", said, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("No further chart formations.", said);
     }
 
     /// <summary>The same requirement on a jump, which is how a user travels to an ending.</summary>
@@ -256,90 +249,182 @@ public sealed class ChartPatternPinNarrationTests
     }
 
     /// <summary>
-    /// Pinning the INNER formation must then scope the jump keys to it, not to its container —
-    /// otherwise choosing the flag and pressing the next-formation key walks the triangle.
+    /// Choosing the INNER formation and walking past it: the jump keys go on to the container's
+    /// break. The old pin stopped here ("No further edges in the pinned bull flag") until
+    /// Shift+semicolon released it — Cody's "i can't nav any other chart patterns while that one
+    /// is pinned and i can't set it without clearing it".
     /// </summary>
     [Fact]
-    public void PinningAContainedFormationScopesTheJumpKeysToIt()
+    public void ChoosingAContainedFormationNeverConfinesTheJumpKeys()
     {
-        var outer = new ChartPattern(
-            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Completed,
-            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
-            TriggerLevel: 110, StartTime: default, EndTime: default,
-            CompletedAtIndex: 115, ExpiresAtIndex: 300, SecondaryLevel: 90);
-        var inner = new ChartPattern(
-            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Completed,
-            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
-            TriggerLevel: 101, StartTime: default, EndTime: default,
-            CompletedAtIndex: 85, ExpiresAtIndex: 300);
-
+        var (outer, inner) = RangeAndFlag();
         var h = Build(outer, inner);
-        StandOn(h, 70);
+        Move(h, 70);
+        h.Navigator.CycleFocus();   // the range leads by size, so one press chooses the flag
+        string key = ChartPatternCache.KeyFor(h.Store.State.Identity);
+        Assert.True(h.Focus.IsPinned(key));
 
-        for (int i = 0; i < 4; i++)
-        {
-            h.Navigator.CycleFocus();
-            var ranked = ChartPatternNarrator.ByDominance(new[] { outer, inner }).ToList();
-            if (h.Focus.Apply(ChartPatternCache.KeyFor(h.Store.State.Identity), ranked)[0].Key
-                    .Equals(inner.Key)) break;
-        }
-
+        StandOn(h, 90);             // past both of the flag's edges
         h.Store.DispatchedActions.Clear();
         h.Navigator.Jump(SystemCommand.NavPatternNext);
 
         var nav = h.Store.DispatchedActions.OfType<NavigateAction>().LastOrDefault();
         Assert.NotNull(nav);
-        Assert.Equal(85, nav!.NewIndex);   // the flag's break, not the container's at 115
+        Assert.Equal(115, nav!.NewIndex);   // the range's break
     }
 
     /// <summary>
-    /// Shift+semicolon has to RELEASE the pin, not just say it did. The only test of clearing
-    /// called <see cref="ChartPatternFocus.Clear"/> directly; nothing went through the navigator,
-    /// so replacing the navigator's clear with a read of the pin (A2m, M07) announced "Formation
-    /// choice cleared" and left the jump keys confined to the pinned formation's two edges —
-    /// the stuck-between-two-edges report of the 61st pass, reached by a different route.
+    /// "; only switches the possible pattern recognized at that bar" (Cody, 2026-11-13). The
+    /// choice holds while the cursor is on the chosen formation and is dropped on the first bar it
+    /// is not on, so coming back finds the size ranking again — nothing to clear by hand.
     /// </summary>
     [Fact]
-    public void ShiftSemicolonReleasesThePin_SoTheJumpKeysReachEveryFormationAgain()
+    public void TheChoiceIsDroppedOnTheFirstBarOffTheChosenFormation()
     {
-        var outer = new ChartPattern(
+        var (outer, inner) = RangeAndFlag();
+        var h = Build(outer, inner);
+        string key = ChartPatternCache.KeyFor(WorkspaceState.Initial.Identity);
+
+        Move(h, 70);
+        h.Navigator.CycleFocus();                        // the flag
+        Assert.StartsWith("Possible bull flag forming", Move(h, 72));     // still on it: the choice leads a jump-landing
+        Assert.True(h.Focus.IsPinned(key));
+
+        Move(h, 86);                                     // the flag ended at 85
+        Assert.False(h.Focus.IsPinned(key));
+
+        Assert.StartsWith("Possible range forming", Move(h, 72));         // back on the flag's bars: largest first again
+    }
+
+    /// <summary>
+    /// Shift+semicolon is semicolon backwards (Cody, 2026-11-13). Previously it released the pin.
+    /// Three nested formations, the range leading: backwards goes flag, double bottom, range.
+    /// </summary>
+    [Fact]
+    public void ShiftSemicolonCyclesBackwards()
+    {
+        var (outer, middle, inner) = ThreeNested();
+        var h = Build(outer, middle, inner);
+        StandOn(h, 70);
+
+        var led = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            h.Bus.Log.Clear();
+            h.Navigator.CycleFocus(forward: false);
+            led.Add(string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message)));
+        }
+
+        Assert.Contains("Leading with bull flag, 3 of 3", led[0]);
+        Assert.Contains("Leading with double bottom, 2 of 3", led[1]);
+        Assert.Contains("Leading with range, 1 of 3", led[2]);
+        Assert.Contains("Leading with bull flag, 3 of 3", led[3]);
+    }
+
+    /// <summary>
+    /// Landing inside nested formations (backslash, or any jump not onto an edge) names the
+    /// nesting, innermost first, after the leader's own sentence: Cody, 2026-11-13, "say 'possible
+    /// falling wedge inside possible double top'". Every formation is named, so no "plus N more".
+    /// </summary>
+    [Fact]
+    public void LandingInsideNestedFormationsNamesTheNesting()
+    {
+        var (outer, middle, inner) = ThreeNested();
+        var h = Build(outer, middle, inner);
+
+        string said = Move(h, 70);   // the first readout on a chart takes the landing path
+
+        Assert.StartsWith("Possible range forming", said);
+        Assert.Contains("Possible bull flag inside possible double bottom inside possible range.", said);
+        Assert.DoesNotContain("more formation", said);
+    }
+
+    /// <summary>
+    /// The nesting names a chain; a formation beside it rather than in it is still counted.
+    /// </summary>
+    [Fact]
+    public void ANestingLeavesASiblingToTheOverlapNote()
+    {
+        var (outer, middle, inner) = ThreeNested();
+        var sibling = new ChartPattern(
+            Kind: ChartPatternKind.DescendingTriangle, State: ChartPatternState.Forming,
+            StartBarIndex: 130, EndBarIndex: 180, KnownAtIndex: 66,
+            TriggerLevel: 95, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var h = Build(outer, middle, inner, sibling);
+
+        string said = Move(h, 70);
+
+        Assert.Contains("Possible bull flag inside possible double bottom inside possible range.", said);
+        Assert.EndsWith("Plus 1 more formation here.", said);
+    }
+
+    /// <summary>
+    /// The landing path read the leader through DescribeMany, which re-ranks by size — so after
+    /// semicolon chose the triangle, a jump that landed inside both shapes (not on an edge) still
+    /// opened with the double bottom. Backslash takes exactly that path.
+    /// </summary>
+    [Fact]
+    public void LandingInsideFormationsLeadsWithTheChosenOne()
+    {
+        var h = Build(Big, Small);
+        Move(h, 70);
+        PinTheTriangle(h);
+
+        string said = Move(h, 73);   // two bars: the landing path, still inside both
+
+        Assert.StartsWith("Possible ascending triangle forming", said);
+    }
+
+    /// <summary>
+    /// The same through the dispatcher, the way the key arrives. The command keeps its old name,
+    /// ClearPatternFocus, because saved shortcut profiles store commands by name; renaming it would
+    /// have unbound Shift+semicolon for anyone with a saved profile. So what it DOES is pinned here.
+    /// </summary>
+    [Fact]
+    public void TheShiftSemicolonCommandStepsBackwardsThroughTheDispatcher()
+    {
+        var (outer, middle, inner) = ThreeNested();
+        var h = Build(outer, middle, inner);
+        StandOn(h, 70);
+        var dispatcher = new AccessibleTrader.Core.Services.Input.CommandDispatcher(
+            h.Bus, NSubstitute.Substitute.For<INavigationEngine>(), h.Store,
+            NSubstitute.Substitute.For<AccessibleTrader.Sdk.Interfaces.IBarDetailService>(),
+            new AccessibleTrader.Core.Services.Input.IndicatorCrossingEngine(h.Store, h.Bus), h.Navigator);
+        dispatcher.SetChartActive(true);
+
+        h.Bus.Log.Clear();
+        dispatcher.Dispatch(SystemCommand.ClearPatternFocus);
+
+        string said = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+        Assert.Contains("Leading with bull flag, 3 of 3", said);
+    }
+
+    private static (ChartPattern outer, ChartPattern inner) RangeAndFlag() => (
+        new ChartPattern(
             Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Completed,
             StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
             TriggerLevel: 110, StartTime: default, EndTime: default,
-            CompletedAtIndex: 115, ExpiresAtIndex: 300, SecondaryLevel: 90);
-        var inner = new ChartPattern(
+            CompletedAtIndex: 115, ExpiresAtIndex: 300, SecondaryLevel: 90),
+        new ChartPattern(
             Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Completed,
             StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
             TriggerLevel: 101, StartTime: default, EndTime: default,
-            CompletedAtIndex: 85, ExpiresAtIndex: 300);
+            CompletedAtIndex: 85, ExpiresAtIndex: 300));
 
-        var h = Build(outer, inner);
-        StandOn(h, 70);
-        string key = ChartPatternCache.KeyFor(h.Store.State.Identity);
-        for (int i = 0; i < 4; i++)
-        {
-            h.Navigator.CycleFocus();
-            var ranked = ChartPatternNarrator.ByDominance(new[] { outer, inner }).ToList();
-            if (h.Focus.Apply(key, ranked)[0].Key.Equals(inner.Key)) break;
-        }
-
-        // Pinned to the flag, standing past both its edges: nothing further inside the pin.
-        StandOn(h, 90);
-        h.Store.DispatchedActions.Clear();
-        h.Navigator.Jump(SystemCommand.NavPatternNext);
-        Assert.Empty(h.Store.DispatchedActions.OfType<NavigateAction>());
-
-        h.Bus.Log.Clear();
-        h.Navigator.ClearFocus();
-        Assert.Contains(h.Bus.Log.OfType<FeedbackRequestEvent>(), e => e.Message?.Contains("cleared") == true);
-        Assert.False(h.Focus.IsPinned(key));
-
-        // Released: the container's break at 115 is reachable again.
-        h.Navigator.Jump(SystemCommand.NavPatternNext);
-        var nav = h.Store.DispatchedActions.OfType<NavigateAction>().LastOrDefault();
-        Assert.NotNull(nav);
-        Assert.Equal(115, nav!.NewIndex);
-    }
+    private static (ChartPattern outer, ChartPattern middle, ChartPattern inner) ThreeNested() => (
+        new ChartPattern(
+            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Forming,
+            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
+            TriggerLevel: 110, StartTime: default, EndTime: default,
+            ExpiresAtIndex: 300, SecondaryLevel: 90),
+        new ChartPattern(
+            Kind: ChartPatternKind.DoubleBottom, State: ChartPatternState.Forming,
+            StartBarIndex: 20, EndBarIndex: 120, KnownAtIndex: 62,
+            TriggerLevel: 100, StartTime: default, EndTime: default, ExpiresAtIndex: 300),
+        new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Forming,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: default, EndTime: default, ExpiresAtIndex: 300));
 
     /// <summary>
     /// The position in "Leading with X, 2 of 3" is how a user knows how many more presses remain.

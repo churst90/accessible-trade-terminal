@@ -652,7 +652,7 @@ namespace AccessibleTrader.Core.Services.Input
                 }
 
                 // Comma / period: step between chart-formation edges.
-                // Semicolon: choose which overlapping formation leads the readout.
+                // Semicolon / Shift+semicolon: the next / previous overlapping formation leads the readout.
                 if (command is SystemCommand.NavPatternPrev or SystemCommand.NavPatternNext
                             or SystemCommand.CyclePatternFocus or SystemCommand.ClearPatternFocus)
                 {
@@ -662,7 +662,7 @@ namespace AccessibleTrader.Core.Services.Input
                             FeedbackType.Boundary, "Chart formation navigation is unavailable."));
                     }
                     else if (command == SystemCommand.CyclePatternFocus) _patternNavigator.CycleFocus();
-                    else if (command == SystemCommand.ClearPatternFocus) _patternNavigator.ClearFocus();
+                    else if (command == SystemCommand.ClearPatternFocus) _patternNavigator.CycleFocus(forward: false);
                     else _patternNavigator.Jump(command);
                     return;
                 }

@@ -1269,12 +1269,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (all.Count == 0) return "";
 
-            // Ranked once, then the user's pin (if any) is floated to the front. Everything below
-            // reads from this list, so the pin applies identically to the jump path, the entry
-            // announcement and the overlap count.
+            // Ranked once, then the user's semicolon choice (if any) is floated to the front.
+            // Everything below reads from this list, so the choice applies identically to the jump
+            // path, the entry announcement and the overlap count.
+            //
+            // The choice belongs to the bars of the formation chosen: on the first bar it is not
+            // on, it is dropped and the size ranking returns by itself. Cody, 2026-11-13: "; only
+            // switches the possible pattern recognized at that bar" — no key to release it.
             string chartKey = ChartPatternCache.KeyFor(state.Identity);
-            var here = _patternFocus.Apply(chartKey,
-                ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList());
+            var atBar = ChartPatternNarrator.AtBar(all, idx);
+            if (_patternFocus.IsPinned(chartKey) && _patternFocus.PinnedIn(chartKey, atBar) == null)
+                _patternFocus.Clear(chartKey);
+            var here = _patternFocus.Apply(chartKey, ChartPatternNarrator.ByDominance(atBar).ToList());
 
             // Jump, or first move: no edge was crossed, so describe where we landed. If that is
             // exactly a formation's first or last bar — which is what the comma and period keys aim
@@ -1296,8 +1302,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (!string.IsNullOrEmpty(res)) return res + OverlapNote(here.Count);
                 }
 
-                return ChartPatternNarrator.DescribeMany(here, SpeechPriceFormatter.FormatPrice, max: 1)
-                     + OverlapNote(here.Count);
+                // here[0], not DescribeMany: that re-ranks by size and so ignored the semicolon
+                // choice on exactly this path, the one backslash takes.
+                //
+                // Then the nesting, smallest first (Cody, 2026-11-13: "say 'possible falling wedge
+                // inside possible double top' ... if I'm inside a pattern inside a larger parent
+                // one"). The leader is the largest, so without it a shape inside it went unnamed
+                // behind "plus 1 more formation here". The note then counts only what neither
+                // sentence named.
+                var nest = ChartPatternNarrator.Nesting(here);
+                var named = nest.Select(p => p.Key).Append(here[0].Key).ToHashSet();
+                return ChartPatternNarrator.Describe(here[0], SpeechPriceFormatter.FormatPrice)
+                     + ChartPatternNarrator.DescribeNesting(nest)
+                     + OverlapNote(1 + here.Count(p => !named.Contains(p.Key)));
             }
 
             if (here.Count == 0) return "";

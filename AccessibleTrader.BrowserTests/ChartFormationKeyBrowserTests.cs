@@ -12,7 +12,9 @@ namespace AccessibleTrader.BrowserTests;
 /// <c>;</c> and <c>:</c>; the element path sent the raw characters. The names differed, the
 /// dedupe let both through, and every press cycled the pin TWICE: forward one and straight back,
 /// so the readout never changed and the same position was spoken every time. Shift+semicolon
-/// likewise cleared the pin and then said "No formation was pinned." about its own work.
+/// likewise cleared the pin and then said "No formation was pinned." about its own work. (Since
+/// 2026-11-13 Shift+semicolon steps BACK through the formations, so it gives semicolon's answers;
+/// a double dispatch there would step back and forward again.)
 /// </para>
 ///
 /// <para>
@@ -26,19 +28,13 @@ public sealed class ChartFormationKeyBrowserTests
     private readonly TerminalBrowserFixture _fixture;
     public ChartFormationKeyBrowserTests(TerminalBrowserFixture fixture) => _fixture = fixture;
 
-    // Every answer CycleFocus / ClearFocus can give, whatever the seeded data holds at the cursor.
+    // Every answer CycleFocus can give, either direction, whatever the seeded data holds at the cursor.
     private static readonly string[] CycleAnswers =
     {
         "Chart formation description is off",
         "No chart formation at this bar",
         "Only one formation here",
         "Leading with",
-    };
-
-    private static readonly string[] ClearAnswers =
-    {
-        "Formation choice cleared",
-        "No formation was pinned",
     };
 
     private static async Task<List<string>> AnswersAfter(TerminalPage t, string chord, string[] answers)
@@ -72,16 +68,16 @@ public sealed class ChartFormationKeyBrowserTests
     }
 
     [BrowserFact]
-    public async Task One_press_of_shift_semicolon_runs_the_clear_command_once()
+    public async Task One_press_of_shift_semicolon_runs_the_previous_formation_command_once()
     {
         await using var t = await _fixture.NewPageAsync();
         await t.LoadSeededChartAsync();
         await t.FocusChartAsync();
 
-        var answers = await AnswersAfter(t, "Shift+Semicolon", ClearAnswers);
+        var answers = await AnswersAfter(t, "Shift+Semicolon", CycleAnswers);
 
         Assert.True(answers.Count == 1,
             $"One press of Shift+semicolon was answered {answers.Count} times: [{string.Join(" | ", answers)}]. "
-            + "Two means the command ran twice — the second run reports on the first one's work.");
+            + "Two means the command ran twice, stepping back and then forward again.");
     }
 }

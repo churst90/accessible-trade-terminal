@@ -70,11 +70,10 @@ namespace AccessibleTrader.Core.Services.Input
             // --- THE REST OF THE SHIFTED PUNCTUATION ROW ---
             //
             // The same defect as "?" and "!", found one key at a time. Shift+; arrives as ":" and
-            // the binding for ClearPatternFocus is ";" with Shift held, so the key that releases a
-            // pinned chart formation matched nothing — and with a formation pinned the jump keys
-            // stop at that one formation's two edges, so the user was told "Shift+semicolon
-            // clears the pin" by a key that could not be reached. Reported from live use
-            // 2026-09-19. keyboard.js sends OEM1 for both ";" and ":"; the raw characters are
+            // the binding for ClearPatternFocus is ";" with Shift held, so the key that (then)
+            // released a pinned chart formation matched nothing, while the app told the user
+            // "Shift+semicolon clears the pin". Reported from live use 2026-09-19. Since
+            // 2026-11-13 the same binding steps BACK through the formations at the bar. keyboard.js sends OEM1 for both ";" and ":"; the raw characters are
             // folded here too so a host that does not run keyboard.js resolves identically, and so
             // ShortcutReachabilityTests can feed the character a US keyboard actually produces.
             { "OEM1", ";" },

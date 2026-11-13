@@ -691,8 +691,10 @@ public class ChartPatternPositionTests
     }
 
     /// <summary>
-    /// A pin survives walking away. The user is simply somewhere else on the chart, and coming back
-    /// should find their choice still in force rather than silently reset.
+    /// <see cref="ChartPatternFocus.Apply"/> only reorders; it never drops a choice. Since
+    /// 2026-11-13 the choice IS dropped once the cursor leaves the chosen formation, but that is
+    /// the readout's decision (it knows where the cursor is) and is tested there:
+    /// ChartPatternPinNarrationTests.TheChoiceIsDroppedOnTheFirstBarOffTheChosenFormation.
     /// </summary>
     [Fact]
     public void APinIsNotClearedByMovingSomewhereItDoesNotApply()
@@ -737,8 +739,8 @@ public class ChartPatternPositionTests
 
     /// <summary>
     /// Scoping has to hold for CLEARING too. The test above only pins one chart, so a clear that
-    /// wipes every chart's pin (A2m, M11) survived: Shift+semicolon on the BTC tab would silently
-    /// drop the formation the user pinned on the TAO tab.
+    /// wipes every chart's pin (A2m, M11) survived: leaving a formation on the BTC tab would
+    /// silently drop the formation the user chose on the TAO tab.
     /// </summary>
     [Fact]
     public void ClearingOneChartsPinLeavesAnotherChartsPinInForce()
@@ -779,8 +781,31 @@ public class ChartPatternPositionTests
         var shifted = new List<ChartPattern> { Shed(big), Shed(small) };
 
         Assert.Equal(ChartPatternKind.BullFlag, focus.Apply("chart", shifted)[0].Kind);   // still leads
-        Assert.Equal(ChartPatternKind.BullFlag, focus.PinnedIn("chart", shifted)?.Kind);  // still scopes the jumps
+        Assert.Equal(ChartPatternKind.BullFlag, focus.PinnedIn("chart", shifted)?.Kind);  // still found, so not dropped as "left"
         Assert.Equal(ChartPatternKind.Rectangle, focus.CycleAt("chart", shifted)!.Kind);  // and the walk continues
+    }
+
+    /// <summary>
+    /// Shift+semicolon walks the other way (Cody, 2026-11-13: "Shift ; should go in reverse").
+    /// From the leader the first backward press goes to the LAST, and the walk wraps.
+    /// </summary>
+    [Fact]
+    public void CyclingBackwardsStartsAtTheLastAndWraps()
+    {
+        var focus = new ChartPatternFocus();
+        var ranked = new List<ChartPattern>
+        {
+            P(kind: ChartPatternKind.Rectangle, start: 0, end: 90, known: 95),
+            P(kind: ChartPatternKind.DoubleBottom, start: 10, end: 60, known: 65),
+            P(kind: ChartPatternKind.BullFlag, start: 40, end: 55, known: 60),
+        };
+
+        Assert.Equal(ChartPatternKind.BullFlag, focus.CycleAt("chart", ranked, forward: false)!.Kind);
+        Assert.Equal(ChartPatternKind.DoubleBottom, focus.CycleAt("chart", ranked, forward: false)!.Kind);
+        Assert.Equal(ChartPatternKind.Rectangle, focus.CycleAt("chart", ranked, forward: false)!.Kind);
+        Assert.Equal(ChartPatternKind.BullFlag, focus.CycleAt("chart", ranked, forward: false)!.Kind);
+        // and forward from there goes back round to the leader
+        Assert.Equal(ChartPatternKind.Rectangle, focus.CycleAt("chart", ranked)!.Kind);
     }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────

@@ -1974,8 +1974,9 @@ own and one that is a detail of a shape still in play. Where shapes nest three d
 standing in.
 
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
-formations at the current bar; the one you pick is described first from then on, on that
-chart, until you press **`Shift+;`** to go back to largest-first. The default ranking exists
+formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
+swap them). The one you pick is described first while you stay on its bars; move to a bar it
+is not on and largest-first comes back by itself. The default ranking exists
 because size is the only ordering that is not a directional opinion — but your setup may
 well be built on the small one, and the terminal has no business insisting otherwise.
 Nothing is hidden either way.
@@ -1988,13 +1989,14 @@ press moves to the *second* formation, because the first is the one already bein
 announcement names the larger formation the one you picked sits inside. Only formations you can
 reach with `;` at that bar are named as the larger one. A choice survives new bars arriving.
 
-**While one is chosen, `,` and `.` walk that formation's edges only** — its start and its
-ending, nothing else. Choosing a shape and then being carried to a different one's break bar
-is the behaviour this replaced, and it made the choice feel as though it had not registered:
-you would hear *"leading with ascending triangle"* and, one keypress later, *"double bottom
-confirmed here."* Both were true. The key had simply gone somewhere you did not ask to go.
-When you reach the end of a chosen formation the terminal names it and reminds you that
-`Shift+;` releases it.
+**`,` and `.` always go to the next start or end of any formation**, whatever `;` chose.
+Choosing only changes what is said.
+
+**Landing inside nested formations names the nesting.** When `\` takes you into the chart, or a
+jump lands inside formations rather than on an edge, the leading formation is described and
+then how they nest, smallest first: *"Possible falling wedge inside possible double top."*
+"Plus N more formations here" then counts only the ones not already named. Lengths are in bars
+("spans 76 bars": from the formation's first bar to its last), never in time.
 
 #### What the terminal will not tell you, and why
 

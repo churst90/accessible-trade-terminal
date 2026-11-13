@@ -508,10 +508,10 @@ window.accessibleTrader = {
                 // without a modifier, and gated on chart focus below exactly like the single
                 // letters — they are ordinary printable characters and must stay typable.
                 ',', '.',
-                // Semicolon: pin one of the overlapping formations; Shift+; (which a browser
-                // reports as ':') releases it. Neither was in this list until 2026-09-19, so both
-                // returned here and never reached .NET — the pin vocabulary was documented,
-                // bound, tested on the .NET side, and unreachable from the browser.
+                // Semicolon / Shift+; (which a browser reports as ':'): the next / previous of the
+                // overlapping formations leads the readout. Neither was in this list until
+                // 2026-09-19, so both returned here and never reached .NET — documented, bound,
+                // tested on the .NET side, and unreachable from the browser.
                 ';', ':',
                 // Single-letter chart commands: H (hide), M (mute), N (narrate), P (properties).
                 // These are also trapped so they reach .NET even without a modifier.

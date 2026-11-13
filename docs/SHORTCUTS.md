@@ -127,10 +127,10 @@ focused component's events, comma and period through formations).
 | `,` | Previous formation edge |
 | `.` | Next formation edge |
 
-| `;` | Choose which overlapping formation leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside |
-| `Shift+;` | Stop choosing; go back to largest-first |
+| `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside |
+| `Shift+;` | The same, backwards: the first press goes to the last. With two formations, `;` and `Shift+;` both swap them |
 
-Both pin keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
+Both keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
 documented and tested on the .NET side and **never arrived**: neither was in the browser's
 trapped-key list, and a browser reports `Shift+;` as `:`, which nothing folded back to `;`.
 
@@ -141,15 +141,17 @@ explain the jump is exactly what the setting disables.
 **Choosing a formation.** When several shapes overlap, the terminal leads with the largest live one
 and counts the rest. Semicolon overrides that with your own choice — the twelve-bar flag inside the
 eighty-bar triangle may be exactly what your setup is built on, and the terminal has no business
-insisting otherwise. The choice sticks per chart until you clear it, and nothing is hidden either
-way: the others are still counted and `Alt+Shift+D` still reads them all.
+insisting otherwise. The choice lasts while you are on that formation's bars; move to a bar it is
+not on and largest-first comes back by itself, so there is nothing to clear. Nothing is hidden
+either way: the others are still counted and `Alt+Shift+D` still reads them all.
 
-**While a formation is chosen, `,` and `.` walk that formation's edges only** — its start and its
-ending, and nothing else. Choosing a shape and then being taken to a different one's break bar was
-the old behaviour and it made the choice feel as though it had not registered: you would hear
-*"leading with ascending triangle"* and, one keypress later, *"double bottom confirmed here."* Both
-sentences were true; the key had simply travelled somewhere you had not asked to go. When you run
-out of edges the terminal names the pin and reminds you that `Shift+;` releases it.
+**`,` and `.` always walk every formation's edges**, whatever `;` chose. (Until 2026-11-13 a choice
+confined them to the chosen formation's two edges until `Shift+;` released it.)
+
+**Landing inside nested formations names the nesting.** When a jump — or `\` into the chart — lands
+inside formations rather than on an edge, the leading one is described and then the nesting,
+smallest first: *"Possible falling wedge inside possible double top."* "Plus N more formations here"
+then counts only the ones not already named.
 
 **The stops are edges, not formations.** Each formation contributes two: the bar its structure first
 became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.

@@ -30,6 +30,12 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Chart formation keys reworked (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
+  = next / previous formation at the bar, the choice drops itself off that formation's bars, `,` / `.` always
+  reach every formation, and a landing inside nested formations says "possible falling wedge inside possible
+  double top". Cody to try it on TAO/USDT 1h, where he hit the old pin. Open, mine: should an arrow-key step
+  into a nested formation also say the whole chain rather than only the immediate parent with its date?
+
 - [ ] **Every other crypto venue: market rules, leverage as asked, read pacing (2026-11-10, built, NOT
   tried with money on any venue; see CHANGES).** Gemini, Binance, Coinbase, Bitstamp, MEXC and
   Hyperliquid.

@@ -45,7 +45,9 @@ namespace AccessibleTrader.Core.Services.Analysis
         }
 
         /// <summary>
-        /// Semicolon — pin the next overlapping formation at this bar, so it leads the readout.
+        /// Semicolon — choose the next overlapping formation at this bar, so it leads the readout;
+        /// Shift+semicolon the previous one (with two, both keys swap them). The choice lasts while
+        /// the cursor is on that formation's bars and never limits comma and period.
         ///
         /// <para>
         /// Cycles rather than opening a picker. A picker would be a modal, and the whole point of
@@ -54,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// precisely because a bar rarely carries more than three or four.
         /// </para>
         /// </summary>
-        public void CycleFocus()
+        public void CycleFocus(bool forward = true)
         {
             var state = _store.State;
             var data = state.Data;
@@ -85,7 +87,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             }
 
             string chartKey = ChartPatternCache.KeyFor(state.Identity);
-            var picked = _focus.CycleAt(chartKey, here);
+            var picked = _focus.CycleAt(chartKey, here, forward);
             if (picked == null) return;
 
             // The containment clause is what tells nested formations apart by ear: "2 of 3" alone
@@ -96,19 +98,6 @@ namespace AccessibleTrader.Core.Services.Analysis
                 $"Leading with {ChartPatternNarrator.Name(picked.Kind)}, {position} of {here.Count}. "
               + ChartPatternNarrator.Describe(picked, SpeechPriceFormatter.FormatPrice)
               + ChartPatternNarrator.DescribeContainment(picked, all, idx)));
-        }
-
-        /// <summary>Shift+semicolon — drop the pin and go back to the size ranking.</summary>
-        public void ClearFocus()
-        {
-            string chartKey = ChartPatternCache.KeyFor(_store.State.Identity);
-            bool had = _focus.Clear(chartKey);
-
-            // Answers either way. "Nothing was pinned" is as useful as "cleared" when the user is
-            // pressing the key precisely because they are unsure what state they are in.
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
-                had ? "Formation choice cleared; back to largest first."
-                    : "No formation was pinned."));
         }
 
         public void Jump(SystemCommand command)
@@ -143,28 +132,16 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return;
             }
 
-            // A pin scopes these keys to the formation it names. Pinning used to reorder the
-            // readout only, while the jump keys kept computing their stops from every pattern on
-            // the chart — so pressing semicolon and then the next-formation key announced
-            // "leading with ascending triangle" and landed one keypress later on "double bottom
-            // confirmed here". The pin said which shape the user cared about; travelling to a
-            // different one's edges ignored the only instruction they had given.
-            string chartKey = ChartPatternCache.KeyFor(state.Identity);
-            var pinned = _focus.PinnedIn(chartKey, all);
-            var scope = pinned != null ? new[] { pinned } : all;
-
-            int target = NextEdge(scope, state.CurrentDataIndex, forward, data.Count);
+            // Every formation's edges, whatever semicolon chose. A chosen formation used to confine
+            // these keys to its own two edges until Shift+semicolon released it, which left Cody
+            // unable to reach any other formation on TAO/USDT 1h (2026-11-13). Semicolon now only
+            // decides which formation at the bar is described; travel is never limited by it.
+            int target = NextEdge(all, state.CurrentDataIndex, forward, data.Count);
             if (target < 0)
             {
-                // Naming the pin matters here: with one pinned there are only two stops on the
-                // whole chart, so running out is normal rather than a sign the feature is broken —
-                // and the user needs to be told which key gets the rest of the chart back.
                 _eventBus.Publish(new FeedbackRequestEvent(
                     FeedbackType.Boundary,
-                    pinned != null
-                        ? $"No {(forward ? "further" : "earlier")} edges in the pinned "
-                          + $"{ChartPatternNarrator.Name(pinned.Kind)}. Shift+semicolon clears the pin."
-                        : forward ? "No further chart formations." : "No earlier chart formations."));
+                    forward ? "No further chart formations." : "No earlier chart formations."));
                 return;
             }
 

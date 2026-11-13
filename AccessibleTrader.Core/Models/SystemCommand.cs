@@ -74,7 +74,8 @@ namespace AccessibleTrader.Core.Models
 
         /// <summary>
         /// Semicolon — cycle which of the overlapping formations at this bar leads the readout.
-        /// Press again to move to the next; Shift+semicolon clears the choice.
+        /// Press again to move to the next; Shift+semicolon goes back one. The choice lasts while the
+        /// cursor is on that formation's bars and never limits comma and period.
         /// <para>
         /// The terminal ranks overlapping shapes by size because that is the only tie-break that is
         /// not a directional opinion. This lets the user override that ranking with their own,
@@ -83,7 +84,13 @@ namespace AccessibleTrader.Core.Models
         /// </summary>
         CyclePatternFocus,
 
-        /// <summary>Shift+semicolon — stop pinning; return to the size ranking.</summary>
+        /// <summary>
+        /// Shift+semicolon — the PREVIOUS overlapping formation at this bar leads the readout
+        /// (CyclePatternFocus backwards). It was "release the pin" until 2026-11-13, when the pin
+        /// went (see <c>ChartPatternFocus</c>). The name is kept because shortcut profiles are saved
+        /// by command name and a saved profile replaces the defaults whole: a renamed member would
+        /// be dropped from every saved profile as retired, leaving Shift+semicolon bound to nothing.
+        /// </summary>
         ClearPatternFocus,
 
         // ── Quick trade from the chart ────────────────────────────────────────

@@ -12,9 +12,20 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// </para>
     ///
     /// <para>
-    /// Pinning solves that without the application acquiring an opinion. The user says "this one",
-    /// and it leads until they say otherwise. Nothing is scored, nothing is hidden — the others are
+    /// Choosing solves that without the application acquiring an opinion. The user says "this one",
+    /// and it leads while they are on its bars. Nothing is scored, nothing is hidden — the others are
     /// still counted and still readable with the detail key.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The choice belongs to the bars, not the chart (Cody, 2026-11-13).</b> It used to be a
+    /// pin that lasted until Shift+semicolon released it, and while it lasted comma and period
+    /// visited only the pinned formation's two edges — so after choosing a double top on TAO/USDT
+    /// 1h the jump keys could reach nothing else, and his words were "I'm still not understanding
+    /// why i need to pin a chart pattern ... I thought ; just cycled between the possible chart
+    /// patterns." Now semicolon and Shift+semicolon only step forward and back through the
+    /// formations at the bar, the jump keys always reach every formation, and the readout drops
+    /// the choice by itself (<see cref="Clear"/>) on the first bar the chosen formation is not on.
     /// </para>
     ///
     /// <para>
@@ -39,12 +50,12 @@ namespace AccessibleTrader.Core.Services.Analysis
         IReadOnlyList<ChartPattern> Apply(string chartKey, IReadOnlyList<ChartPattern> ranked);
 
         /// <summary>
-        /// Pin the next formation in the ranked order, wrapping around. "Next" is counted from the
-        /// one currently leading: the pinned formation if it is in <paramref name="ranked"/>,
-        /// otherwise the first. Returns the newly pinned pattern, or null when there is nothing at
-        /// this bar to pin.
+        /// Choose the next formation in the ranked order (the previous one when
+        /// <paramref name="forward"/> is false), wrapping around. Counted from the one currently
+        /// leading: the chosen formation if it is in <paramref name="ranked"/>, otherwise the
+        /// first. Returns the newly chosen pattern, or null when there is nothing at this bar.
         /// </summary>
-        ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked);
+        ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true);
 
         /// <summary>Clear the pin for this chart. Returns true if one was actually cleared.</summary>
         bool Clear(string chartKey);
@@ -57,12 +68,10 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// nothing is pinned or the pinned shape is not in that set.
         ///
         /// <para>
-        /// Exists so the JUMP keys can respect the pin. Reordering a readout was only half of what
-        /// pinning has to mean: a user who pins a formation and then presses the next-formation key
-        /// is asking to travel to <i>that</i> formation's edges, and the keys used to compute their
-        /// stops from every pattern on the chart. The result was a pin that changed which shape was
-        /// described but not which shape you landed on — so "leading with ascending triangle" was
-        /// followed, one keypress later, by "double bottom confirmed here". Reported from live use.
+        /// The readout asks this with the formations at the bar it is describing, and drops the
+        /// choice when the answer is null: the user has moved off the formation they chose.
+        /// (It once scoped the jump keys to the pinned formation's two edges instead; see the
+        /// type's remarks for why that went.)
         /// </para>
         /// </summary>
         ChartPattern? PinnedIn(string chartKey, IEnumerable<ChartPattern> candidates);
@@ -99,7 +108,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             }
         }
 
-        public ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked)
+        public ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true)
         {
             if (ranked.Count == 0) return null;
 
@@ -114,7 +123,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                     for (int n = 0; n < ranked.Count; n++)
                         if (ranked[n].Identity.Equals(key)) { current = n; break; }
 
-                int next = (current + 1) % ranked.Count;
+                int next = ((forward ? current + 1 : current - 1) % ranked.Count + ranked.Count) % ranked.Count;
                 _pinned[chartKey] = ranked[next].Identity;
                 return ranked[next];
             }

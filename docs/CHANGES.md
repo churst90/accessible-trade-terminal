@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart formations: `;` only changes what is said at the bar; `,` and `.` reach every formation; landings name the nesting (2026-11-13, Cody's request)
+
+- **What Cody hit** (TAO/USDT 1h): he pressed `;` to hear the double top instead of the inverse head and
+  shoulders, and then `,` and `.` would visit nothing but the double top's two edges until `Shift+;`
+  released the "pin". His words: "; only switches the possible pattern recognized at that bar. Shift ;
+  should go in reverse ... , and . should still jump you to the next start or end of the next recognizable
+  pattern".
+- **What changed:**
+  - `;` makes the next formation at the bar lead the readout, as before. `Shift+;` now makes the previous
+    one lead (it used to release the pin). With two formations both keys swap them.
+  - The choice holds while the cursor is on the chosen formation's bars. On the first bar it is not on, it
+    is dropped and largest-first comes back by itself. Nothing needs clearing, so "Formation choice
+    cleared" and "No formation was pinned" are gone.
+  - `,` and `.` always go to the next start or end of any formation. Their "No further edges in the pinned
+    ... Shift+semicolon clears the pin" message is gone; running out says "No further chart formations."
+  - Landing inside formations rather than on an edge (`\` into the chart, or any jump that does that)
+    describes the leader and then the nesting, smallest first: "Possible bull flag inside possible double
+    bottom inside possible range." "Plus N more formations here" counts only what neither sentence named.
+  - Fixed on the way: that same landing ignored the `;` choice (it re-ranked by size), so after choosing the
+    triangle a jump into both shapes still opened with the double bottom.
+  - "Spans N bars" is unchanged, and no time wording was added (Cody: "only bars as is now is fine").
+- **Caveats:** the command behind `Shift+;` keeps its old internal name, `ClearPatternFocus`, because a saved
+  shortcut profile stores commands by name and replaces the defaults whole: a renamed command would be dropped
+  from saved profiles, leaving `Shift+;` doing nothing. A user who rebound it keeps their key, which now steps
+  backwards. The nesting sentence names a chain from the smallest formation at the bar; a formation beside
+  that chain rather than in it is only counted. Arrow-key steps still name only the immediate parent ("Inside
+  a larger double bottom that began 12 March") when they enter a formation, as before. Not heard by Cody yet;
+  not tried on TAO/USDT itself. The accessibility-lead agent is not registered here, so this speech change was
+  made without its review.
+- **Tests** (ChartPatternPinNarrationTests, ChartPatternPositionTests): ten new, replacing four that pinned the
+  old scoping. Each new one was red with its change undone: backwards ignored in `CycleAt` (3 red), `Shift+;`
+  dispatched forwards (1), the jump keys scoped to the choice again (2), no automatic drop (1), the landing
+  re-ranking by size (2), no nesting sentence (2), the note counting everything (2), and the nesting walked from
+  the largest instead of the smallest (2). The browser test for `Shift+;` now expects the cycling answers.
+
 ### Cipher DBSI says "flat prices, may be 2 off" where its numbers can drift (2026-11-13, Cody's request)
 
 - **What changed** (Cody: "make the dbsi adjustment you recommended for flat bars, unless you think 0/0 would

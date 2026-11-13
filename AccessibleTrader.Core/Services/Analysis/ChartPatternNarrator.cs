@@ -353,6 +353,45 @@ namespace AccessibleTrader.Core.Services.Analysis
         }
 
         /// <summary>
+        /// The chain of nested formations at a bar, innermost first: the smallest one there (the
+        /// most recently knowable on a tie), then its <see cref="ContainerOf"/>, then that one's,
+        /// up to the outermost. A single entry when nothing at the bar contains anything else.
+        ///
+        /// <para>
+        /// <paramref name="atBar"/> must already be the formations at the bar (<see cref="AtBar"/>),
+        /// for the same no-lookahead reason <see cref="DescribeContainment"/> gives.
+        /// </para>
+        /// </summary>
+        public static IReadOnlyList<ChartPattern> Nesting(IReadOnlyList<ChartPattern> atBar)
+        {
+            var chain = new List<ChartPattern>();
+            var p = atBar
+                .OrderBy(c => c.EndBarIndex - c.StartBarIndex)
+                .ThenByDescending(c => c.KnownAtIndex)
+                .ThenBy(c => c.Kind)
+                .FirstOrDefault();
+            while (p != null)
+            {
+                chain.Add(p);
+                p = ContainerOf(p, atBar);
+            }
+            return chain;
+        }
+
+        /// <summary>
+        /// " Possible falling wedge inside possible double top." — or "" when
+        /// <paramref name="chain"/> (from <see cref="Nesting"/>) has fewer than two formations.
+        /// Names only, "possible" while a shape is still forming: the levels are the leader's
+        /// sentence's job, and bars rather than dates, because Cody asked for no time wording.
+        /// </summary>
+        public static string DescribeNesting(IReadOnlyList<ChartPattern> chain)
+        {
+            if (chain.Count < 2) return "";
+            return " " + Capitalize(string.Join(" inside ", chain.Select(p =>
+                (p.State == ChartPatternState.Forming ? "possible " : "") + Name(p.Kind)))) + ".";
+        }
+
+        /// <summary>
         /// Patterns ranked by which one deserves the user's attention first.
         ///
         /// <para>
