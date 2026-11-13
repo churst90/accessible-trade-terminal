@@ -1037,3 +1037,59 @@ daily cycle to two. It lists the weekly and yearly events, and the daily-only re
 its series. 35 sabotages, 33 red; the 2 green
 cannot change anything (the weekly events gated off a weekly chart, whose weekly run has no candidate
 list; the switch's fallback default, which Compute fills in first).
+
+### 9.12 One daily cycle in a weekly cycle: studied, not built (2026-11-13)
+
+On 2026-11-12 I told Cody that Cipher C draws more weekly lows than the original (608 against 544,
+section 7.5) and that the extras were the weekly cycles holding only one daily cycle; the fix offered
+was at least two daily cycles in each weekly one. Cody: "for the weekly cycle low, yes I'd like this
+to be addressed." Measured first, it is not a defect, so nothing was changed.
+
+Method: the daily confirmations, the daily count's start and the weekly gap were dumped from
+`CyclePositionProvider.BuildTiers` (asset rules off, as by default) on every daily capture, newest
+capture per symbol (55 building charts, 12 blind, 63 with three or more of the original's weekly
+lows). A Python copy of `WeeklyByTime` gives the engine's weekly lows exactly; the only difference is
+the open candidate at the chart's end, which the engine draws. Scored only from the original's first
+label on, as the original keeps about its last 500 labels. "Real low" as in section 7.2; F1 one to
+one within two bars.
+
+- **The count was the wrong comparison.** Over the same span the original draws more weekly lows than
+  Cipher C on almost every chart: 2,231 against 2,074 on the building charts, 615 against 559 blind
+  (metals 346 against 338). Cipher C draws fewer on 52 of 63 charts, as many on 2 (SILJ, the Dow), and
+  more on 9 (Gold twice, Silver, GDXJ, MSTR twice, Netflix, US oil, Coinbase's Ether). Section 7.5's 608
+  against 544 counted Cipher C over all of history and the original over its labels only.
+- **The one-daily-cycle weekly lows are good lows.** A weekly low that ends a one-daily-cycle weekly
+  cycle is the real low 89.6% of the time (617), against 84.0% after two and 86.4% after three or
+  more. The original has as many (10% of its weekly cycles hold one daily cycle) and its are real
+  84.6% of the time.
+- **Requiring two daily cycles** (the first daily low after a weekly low can't be the next weekly
+  low; if it is under the weekly low it takes its place):
+
+| Rule | Charts | Weekly lows | Original's | F1 with the original | Real weekly low | Daily cycles per weekly |
+|---|---|---|---|---|---|---|
+| As built | building | 2,074 | 2,231 | .695 | **85.7%** | 1:11% 2:51% 3:23% 4:9% 5:4% 6+:3% |
+| Two at least | building | 1,918 | 2,231 | .715 | 83.5% | 2:58% 3:25% 4:10% 5:5% 6+:3% |
+| As built | blind | 559 | 615 | .712 | **84.8%** | 1:12% 2:52% 3:23% 4:9% 5:3% 6+:1% |
+| Two at least | blind | 519 | 615 | .746 | 83.3% | 2:60% 3:25% 4:10% 5:4% 6+:1% |
+| The original | building / blind | | | | 80.0% / 79.5% | 1:10% 2:55% 3:35% (3+) |
+
+  It agrees with the original a little more (.02 to .03 F1) but picks the real weekly low less often
+  (by 1.5 to 2 points) and draws further fewer weekly lows than the original. Section 7 chose the
+  real low as the aim (Cody chose option B on it), so it was not built. It stays a question for Cody.
+
+**How wide the windows are** (Cody: "are the weekly windows and daily windows so big that the windows
+cover more x axis territory than the empty space between?"). The same dumps, each cycle's window the
+20th to 80th percentile of the cycles before it on that chart (a copy of the learned window, at least
+8 cycles learned):
+
+| Tier | Cycles | In the window | Early | Late | Window width / middle cycle | Window share of low → window's end |
+|---|---|---|---|---|---|---|
+| Daily | 14,378 | 60.4% | 19.7% | 19.9% | 0.58 | 43% |
+| Weekly | 5,325 | 57.6% | 20.7% | 21.6% | 0.75 | 50% |
+
+The daily window is a little smaller than the empty stretch before it; the weekly one is as long as
+it. A 20th-to-80th percentile window holds about 60% of cycles by construction whenever cycle lengths
+are steady, so the hit rate says only that the cycle lengths are steady, not that the windows forecast
+anything more. The original's fixed daily windows are narrower and hold less (27.6%, section 4.1);
+per day of width the two are the same. A low in the window is a weak sign, and a confirmation is what
+says a low happened.

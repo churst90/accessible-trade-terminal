@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A paper take-profit edit checked, DBSI's scores say one number each, Cipher C's weekly lows measured (2026-11-13, Cody's requests)
+
+- **The error on moving a paper position's take profit** (Cody, 2026-11-10 and again 2026-11-13: the
+  Positions tab's take-profit column, paper account). Done again through the real dashboard on a copy of
+  Cody's own paper account: no error sound and no "no stop loss or take profit found".
+  The server Cody heard it on was started before the 2026-11-10 fix (`CarriesBracket` in
+  `GeneralOrderService`, 21:42), which stopped a lone take-profit order being checked for a bracket it never
+  carries. Added `Moving_the_take_profit_of_a_short_does_not_report_the_position_as_unprotected`
+  (ProtectiveEditTests; the earlier ones were longs): red with the old check put back, green now.
+  Caveat: not heard by Cody on the current server yet.
+- **Cipher DBSI's Bulls and Bears each say only their own number** (Cody: "shouldn't it be only the bull
+  number on the bull component and bear number on the bear component?"). Arriving on Bulls said
+  "Bulls 15, bears minus 5", and on Bears the same two the other way round. Now "Bulls. 15" and
+  "Bears. minus 5". Alt+Shift+D, the entry markers and the take-control words still name both, as they
+  are about the pair. `Arriving_on_a_score_says_only_its_own_number` (renamed) checks each says its own
+  number and not the other's; red with the other side's number and with the old pair. The manual says so.
+- **Cipher C's weekly lows: "at least two daily cycles in a weekly cycle" was measured and not built**
+  (CYCLE_POSITION_DESIGN 9.12). I had told Cody Cipher C draws too many weekly lows; over the same years
+  it draws fewer than the original on 52 of 63 charts (section 7.5 had compared different spans). The weekly
+  lows ending a one-daily-cycle weekly cycle are the real low 89.6% of the time; requiring two daily cycles
+  agrees with the original a little more but picks the real weekly low less often (85.7 -> 83.5%). Left as a
+  question for Cody. Also measured for Cody: how much of the time axis the windows cover (daily 43% of the
+  stretch from a low to the window's end, weekly 50%; each holds about 60% by construction).
+
 ### Every crypto venue checks each market's rules before it sends, and leverage is as asked or refused (2026-11-10, Cody's request; NOT tried with money)
 
 After the Kraken work below, Cody asked whether the other venues had the same problems. An audit found that

@@ -185,13 +185,14 @@ public sealed class DbsiStyleProviderTests
     }
 
     /// <summary>
-    /// Arriving on Bulls or Bears through the speech router's own formatter: the reading, with
-    /// "minus" spelled out and who is in control. The provider reads its sibling by DISPLAY name
-    /// (that is how the formatter keys the data), so a rename on one side of that would say
-    /// "Calculating" here.
+    /// Arriving on Bulls or Bears through the speech router's own formatter: that score's own
+    /// number and nothing of the other side's, with "minus" spelled out. They used to read both
+    /// numbers, the Bears one reversed (Cody, 2026-11-13). The provider reads the score by DISPLAY
+    /// name (that is how the formatter keys the data), so a rename on one side of that would say
+    /// "Calculating" here. The bar is one where the two numbers differ, so a swapped lookup fails.
     /// </summary>
     [Fact]
-    public void Arriving_on_the_scores_says_both_numbers_and_who_is_in_control()
+    public void Arriving_on_a_score_says_only_its_own_number()
     {
         var (s, bars, engine) = Chart();
         var bull = s.GetComponentData(DbsiStyleProvider.CompBull);
@@ -201,8 +202,12 @@ public sealed class DbsiStyleProviderTests
         string onBull = Landing(s, bars, engine, DbsiStyleProvider.CompBull, i);
         string onBear = Landing(s, bars, engine, DbsiStyleProvider.CompBear, i);
 
-        Assert.Contains($"Bulls {(int)bull[i]}, bears minus {-(int)bear[i]}, bulls in control", onBull);
-        Assert.Contains($"Bears minus {-(int)bear[i]}, bulls {(int)bull[i]}, bulls in control", onBear);
+        Assert.EndsWith($". {(int)bull[i]}", onBull);
+        Assert.EndsWith($". minus {-(int)bear[i]}", onBear);
+        Assert.Contains("Bulls. ", onBull);
+        Assert.Contains("Bears. ", onBear);
+        Assert.DoesNotContain("minus", onBull);
+        Assert.DoesNotContain("in control", onBull + onBear);
         Assert.DoesNotContain(".00", onBull);
     }
 

@@ -81,9 +81,11 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   - Not done: Kraken Futures positions still report leverage 1 (hard-coded); a close of a Kraken Futures
     position sends no leverage (none is needed there: reduceOnly is enough). The pair rules are read
     every six hours; a pair Kraken moves to cancel-only in between is caught by Kraken, not by us.
-  - **Still open from Cody's 2026-11-10 report:** editing the take profit of an open PAPER trade played
-    the error sound and "stop loss and take profit are not set". NOT reproduced in 7 probes (long/short,
-    both legs / stop only / TP only, moved up/down). Needs Cody's exact words and steps.
+  - **Cody's 2026-11-10 report, the error on editing a paper take profit (Positions tab, take-profit
+    column):** done again on 2026-11-13 through the real dashboard on a copy of Cody's own paper account,
+    and on a short in a unit test: the current code says nothing wrong. The server Cody heard it on was
+    started before the 2026-11-10 fix (21:42). Cody to try once more on the running server; if it still
+    happens, the exact words and the position (long or short, which legs) are needed.
 
 - [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
   `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
@@ -99,6 +101,12 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     the old bar counting they held 96.5% on 4-hour and 97.1% on weekly charts. Re-testing them on the
     time-counted lows (counting in days on 4-hour, weeks on weekly) would say whether to bring them back
     there. Recommendation: re-test, and bring back only what holds.
+  - **Question for Cody (2026-11-13, CYCLE_POSITION_DESIGN 9.12): at least two daily cycles in a weekly
+    cycle?** I said on 2026-11-12 that Cipher C draws too many weekly lows; that was wrong, measured over
+    the same years it draws fewer than the original on 52 of 63 charts. Requiring two daily cycles agrees
+    with the original a little more (F1 .695 -> .715, blind .712 -> .746) but picks the real weekly low
+    less often (85.7 -> 83.5%, blind 84.8 -> 83.3%), as the one-daily-cycle weekly lows are real 89.6% of
+    the time. Not built. Recommendation: leave it.
   - Open, mine: the first weekly low after the count's start is never said pending (found and confirmed
     on the same bar). The weekly chart's weekly lows match the original's less well than the daily
     chart's (.516 vs .658 F1). COIN's weekly chart got slightly worse (.18 -> .15).

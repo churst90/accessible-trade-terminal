@@ -120,6 +120,41 @@ namespace AccessibleTrader.Tests
               + "new stop was read as an entry with a bracket and checked for protection against itself.");
         }
 
+        /// <summary>
+        /// Cody's own case (2026-11-13): a paper SHORT of 1 BTCUSDT with a separate reduce-only
+        /// take profit and stop, the take profit moved from the Positions tab. The stop test above
+        /// is a long whose legs came from one bracketed entry; this is the other level, the other
+        /// side, and legs placed one at a time — the shape the paper_account.json actually held.
+        /// Checked through the real dashboard on the same account the same day: "Order placed,
+        /// Order cancelled, Take profit set to 66000", and no alarm.
+        /// </summary>
+        [Fact]
+        public async Task Moving_the_take_profit_of_a_short_does_not_report_the_position_as_unprotected()
+        {
+            var (svc, paper, store, err) = PaperService();
+            store.EmitState(Bar(100, 101, 99, 100));
+            Assert.True((await svc.PlaceOrderAsync("Paper", new TradeSignal(Btc, OrderSide.Sell, 1.0, OrderType.Market))).Succeeded);
+            await svc.PlaceOrderAsync("Paper", ProtectiveOrderEditor.SignalFor(Btc, false, 1.0, ProtectiveLevel.TakeProfit, 85));
+            await svc.PlaceOrderAsync("Paper", ProtectiveOrderEditor.SignalFor(Btc, false, 1.0, ProtectiveLevel.StopLoss, 105));
+            var open = await paper.GetOpenOrdersAsync(Btc);
+            var target = open.Single(o => o.Type == OrderType.TakeProfitMarket);
+            var stop = open.Single(o => o.Type == OrderType.StopMarket);
+            await Task.Delay(500);
+            err.ClearReceivedCalls();
+
+            var result = await ProtectiveOrderEditor.ReplaceAsync(svc, "Paper", Btc, isLong: false, quantity: 1.0,
+                ProtectiveLevel.TakeProfit, 88, target, stop, "Take profit set to 88.");
+            Assert.True(result.Ok, result.Message);
+
+            await Task.Delay(500);
+            Assert.False(SaidUnprotected(err),
+                "A successful take-profit edit on a short was followed by \"no stop loss or take profit found\" — "
+              + "the new target was read as an entry with a bracket.");
+            open = await paper.GetOpenOrdersAsync(Btc);
+            Assert.Contains(open, o => o.Type == OrderType.TakeProfitMarket && o.Price == 88 && o.Side == OrderSide.Buy);
+            Assert.Contains(open, o => o.Type == OrderType.StopMarket && o.Price == 105);
+        }
+
         [Fact]
         public async Task The_unprotected_alarm_still_fires_for_an_entry_whose_bracket_never_arrived()
         {

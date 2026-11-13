@@ -1722,8 +1722,8 @@ each close stays beyond the close two candles back. On top of these, about forty
 of 1 to 6 points apply on narrow kinds of candle, each one found where DBSI's own numbers disagreed.
 DBSI's highest number on the charts checked is 27, and so is this one's. A 200-bar
 trend line runs with it, green while the
-close is above it and red below. Arrow onto Bulls or Bears to hear "Bulls 15, bears minus 5, bulls in
-control"; Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
+close is above it and red below. Arrow onto Bulls to hear "Bulls. 15", onto Bears to hear "Bears. minus
+5" (each score says only its own number); Alt+Shift+D includes both scores, the trend, who is in control and which side of the trend
 line the close is on. With narration on (N) a bar close announces "Bulls take control at …" or "Bears
 take control at …", "Bulls reached the long entry score at …" or the bears' short version, and price
 crossing the trend line. The two scores start muted; the trend line and those announcements do not.

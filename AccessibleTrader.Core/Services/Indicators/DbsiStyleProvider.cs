@@ -146,7 +146,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    // Bulls FIRST: the navigation order is the reading order — "Bulls 15, bears minus 5".
+                    // Bulls FIRST: the navigation order is the reading order — Bulls, then Bears.
                     new() { Name = CompBull, DisplayName = "Bulls", DisplayType = ComponentDisplayType.ValueLabel,
                             Role = ComponentRole.Signal, Causality = ComponentCausality.Causal,
                             DefaultMarkerAnchor = MarkerAnchor.BelowBar,
@@ -254,9 +254,13 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ── Speech ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// "Bulls 15, bears minus 5, bulls in control." — on either score, because the two are one
-        /// reading: who is ahead and by how much. "Minus" spelled out: a screen reader reads "-5"
-        /// as "dash 5" on some voices. The event markers say what happened at the bar.
+        /// Each score reads its own number: "15" on Bulls, "minus 5" on Bears (landing adds the
+        /// component's name in front). They used to read both — "Bulls 15, bears minus 5, bulls in
+        /// control" on Bulls and the same reversed on Bears — so the two components sounded like one
+        /// reading said twice (Cody, 2026-11-13: "shouldn't it be only the bull number on the bull
+        /// component"). Who leads is still said where it is news: the take-control and entry
+        /// markers read both scores, and Alt+Shift+D's ladder names the side in control.
+        /// "Minus" spelled out: a screen reader reads "-5" as "dash 5" on some voices.
         /// </summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
@@ -269,9 +273,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 case CompBull:
                 case CompBear:
                 {
-                    double bull = At("Bulls"), bear = At("Bears");
-                    if (double.IsNaN(bull) || double.IsNaN(bear)) return "Calculating";
-                    return componentName == CompBull ? Reading(bull, bear) : ReadingBearsFirst(bull, bear);
+                    double own = At(componentName == CompBull ? "Bulls" : "Bears");
+                    return double.IsNaN(own) ? "Calculating" : Spoken(own);
                 }
                 case CompTrend:
                 {
@@ -300,9 +303,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>"Bulls 15, bears minus 5, bulls in control"</summary>
         public static string Reading(double bull, double bear) =>
             $"Bulls {Spoken(bull)}, bears {Spoken(bear)}, {ControlWords(bull, bear)}";
-
-        private static string ReadingBearsFirst(double bull, double bear) =>
-            $"Bears {Spoken(bear)}, bulls {Spoken(bull)}, {ControlWords(bull, bear)}";
 
         public static string ControlWords(double bull, double bear) =>
             bull > bear ? "bulls in control" : bear > bull ? "bears in control" : "tied";
