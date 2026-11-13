@@ -1735,7 +1735,10 @@ was not found on (gold, Apple, the Dow, the S&P 500 and Ethereum daily; Bitcoin 
 Bitstamp Bitcoin four-hour and hourly). On those it prints DBSI's exact number on all but 4 of 37,136
 candles, and on charts never used to choose a rule on all but 11 of 33,108. Old stocks and commodities
 with long runs of flat candles (high equal to low) miss more, about 1 candle in 16, because their
-arithmetic is mostly rounding noise. On the charts read by eye, which carry some reading mistakes, it is
+arithmetic is mostly rounding noise. Where the prices stood still recently (the RSI did not move for 12
+candles in a row, any time in the last 41), each score keeps its number and adds "flat prices, may be 2 off",
+and so does Alt+Shift+D. On such candles DBSI still prints numbers, and this one's were within 2 of them on
+every one checked. On the charts read by eye, which carry some reading mistakes, it is
 exact nearly 9 times in 10. It prints 17 or more on 46 of the 48 livestream candles where DBSI did, and 2
 times where DBSI stayed lower. It is a very close stand-in, but it is still not DBSI, so do not treat one high reading as DBSI's rare signal. Settings: **Long entry score** and **Short entry score** (7), **Trend length** (200),
 **Compute on Heikin-Ashi candles** (on, because DBSI is used on Heikin-Ashi charts; turn it off on a

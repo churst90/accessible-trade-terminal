@@ -189,9 +189,10 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   version of dbsi"; NOT seen or heard; see CHANGES).** The ten veto sets are 99.99% exact, the blind sets
   99.97%, and the held-out sets 100%. Cody to look at Bitcoin daily and 1h Heikin-Ashi against DBSI. Still open
   in the study (no further port until asked, per Cody's 2026-10-29 rule): flat-price eras miss 6.4% of fresh
-  labels (float noise; Cody asked 2026-11-13 how to handle it gracefully. Recommendation, not built: say
-  "flat prices, DBSI unreliable here" when the last 60 bars have no range, and leave flat eras out of the
-  study's scoring, rather than chase TradingView's float noise); the pinned-Stoch-RSI hold vs re-arm (2026-11-13:
+  labels (float noise. BUILT 2026-11-13 at Cody's request: where the RSI(12) stood still for 12 bars in the
+  last 41, each score keeps its number and adds "flat prices, may be 2 off". 0/0 was rejected: TradingView
+  prints numbers there and ours were within 2 on all 68 checked. Not heard yet. Still open: flat eras whose
+  RSI drifts by noise are not flagged, and the study's scoring could leave flat eras out); the pinned-Stoch-RSI hold vs re-arm (2026-11-13:
   20 more pinned bars on 28 fresh stock charts, 19 hold and the one re-arm is a flat 1972 CVS bar, so real
   prices are 71 holds against 3 re-arms, SOL/XAU/WMT; the model holds; three is too few to fit a rule
   without overfitting it); one 1h bar of the 2026-11-13 new bars, 2026-11-11 07:00 (bull 7 / bear 3,

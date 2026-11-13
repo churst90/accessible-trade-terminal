@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher DBSI says "flat prices, may be 2 off" where its numbers can drift (2026-11-13, Cody's request)
+
+- **What changed** (Cody: "make the dbsi adjustment you recommended for flat bars, unless you think 0/0 would
+  be an ok reading"). Where prices stopped moving recently, each score keeps its number and adds a caution:
+  "Bulls. 15, flat prices, may be 2 off". Alt+Shift+D's ladder adds the same words. Everywhere else the
+  speech is unchanged, and so are the numbers on every bar (the parity tests are still bit for bit).
+- **When it applies:** the RSI(12) of the closes the scores read stayed still (within a millionth of a
+  point) for 12 bars in a row, at any time in the last 41 bars. That happens when closes stop changing, as on
+  old stocks and commodities quoted with high equal to low, or on a halted market. It is a new hidden
+  component, "Flat prices" (1 or 0), left out and undrawn like "Trend source close".
+- **Why not 0/0:** on those bars TradingView prints numbers, never 0/0. Measured on 167,206 TradingView
+  labels: 87 fall on such bars and 36 of them miss. Of the 68 checked one by one, ours is exact on 40, 1 off
+  on 10 and 2 off on 18, never more. Everywhere else 0.32% miss. Saying 0/0 would be wrong on every one of
+  those bars, while the number is never more than 2 off.
+- **Caveats:** the "may be 2 off" comes from those 68 bars and could be exceeded on a market unlike them.
+  The flag is narrower than "high equal to low on many of the last 60 bars", the broader flat-era measure
+  that misses 6.4%. A flat era whose RSI still drifts is not flagged, and the 0.32% elsewhere includes it.
+  Not heard by Cody yet. The accessibility-lead agent is not registered here, so this speech change was
+  made without its review.
+- **Tests** (DbsiStyleProviderTests):
+  - `Flat_prices_are_flagged_from_the_twelfth_still_RSI_to_forty_bars_after_the_last` pins where the flag
+    starts and stops.
+  - `A_score_on_flat_prices_keeps_its_number_and_adds_a_caution` checks Bulls, Bears and the ladder through
+    the real speech paths, and checks that a moving bar is not flagged.
+  - Each was red with the caution removed from the score speech, with it removed from the ladder, with the
+    look-back at 40 instead of 41, and with an overflowing start value that flagged every bar.
+
 ### A paper take-profit edit checked, DBSI's scores say one number each, Cipher C's weekly lows measured (2026-11-13, Cody's requests)
 
 - **The error on moving a paper position's take profit** (Cody, 2026-11-10 and again 2026-11-13: the

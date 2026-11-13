@@ -74,6 +74,7 @@ internal static class DbsiChartHarness
         s.Data.ComponentData[DbsiStyleProvider.CompShortEntry] = r.ShortEntry;
         s.Data.ComponentData[DbsiStyleProvider.CompControl] = r.Control;
         s.Data.ComponentData[DbsiStyleProvider.CompTrendSource] = r.Source;
+        s.Data.ComponentData[DbsiStyleProvider.CompFlat] = r.Flat;
     }
 
     public static (double Min, double Max) MainRange(IReadOnlyList<Ohlcv> bars, IEnumerable<ChartSeries> series, int start, int length) =>

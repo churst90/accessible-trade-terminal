@@ -211,6 +211,88 @@ public sealed class DbsiStyleProviderTests
         Assert.DoesNotContain(".00", onBull);
     }
 
+    // ── Flat prices ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <paramref name="moving"/> probe bars, then <paramref name="still"/> bars at the last close
+    /// with high = low (a market that stopped quoting a range), then the probe bars again, shifted
+    /// to carry on from that close, so the RSI starts moving after the still stretch.
+    /// </summary>
+    private static List<Ohlcv> WithStillStretch(int moving, int still, int after)
+    {
+        var a = CausalityProbeSeries.Bars(0, moving + after);
+        var bars = a.Take(moving).ToList();
+        var step = a[1].Date - a[0].Date;
+        double px = bars[^1].Close;
+        for (int k = 0; k < still; k++)
+            bars.Add(new Ohlcv(bars[^1].Date + step, px, px, px, px, 0));
+        double shift = px - a[moving - 1].Close;
+        foreach (var b in a.Skip(moving))
+            bars.Add(new Ohlcv(bars[^1].Date + step, b.Open + shift, b.High + shift, b.Low + shift, b.Close + shift, b.Volume));
+        return bars;
+    }
+
+    /// <summary>
+    /// The flat-price flag: closes that stop changing hold the RSI still (both its averages decay
+    /// by the same factor), and once 12 RSI values in a row have not moved the bar is flagged; it
+    /// stays flagged for 40 bars after the last still window, then clears. The first still close
+    /// is bar f, whose RSI equals bar f−1's, so the first still window ends at f+10.
+    /// </summary>
+    [Fact]
+    public void Flat_prices_are_flagged_from_the_twelfth_still_RSI_to_forty_bars_after_the_last()
+    {
+        const int moving = 300, still = 30, after = 120;
+        var c = WithStillStretch(moving, still, after).Select(b => b.Close).ToArray();
+        var flat = DbsiStyleProvider.FlatPrices(c);
+        int f = moving, last = moving + still - 1;
+
+        Assert.All(Enumerable.Range(0, f + 10), i => Assert.Equal(0, flat[i]));
+        Assert.All(Enumerable.Range(f + 10, last + 40 - (f + 10) + 1), i => Assert.Equal(1, flat[i]));
+        Assert.All(Enumerable.Range(last + 41, c.Length - (last + 41)), i => Assert.Equal(0, flat[i]));
+    }
+
+    /// <summary>
+    /// On a flat-price bar each score keeps its number and adds the caution (TradingView prints a
+    /// number there, never 0/0, and ours were within 2 of it on every one checked); off it the
+    /// score says its number alone. Through the speech router's own formatter, landing on Bulls
+    /// and on Bears, and through Alt+Shift+D's ladder.
+    /// </summary>
+    [Fact]
+    public void A_score_on_flat_prices_keeps_its_number_and_adds_a_caution()
+    {
+        var bars = WithStillStretch(300, 30, 120);
+        var (s, _, engine) = Chart(bars);
+        var bull = s.GetComponentData(DbsiStyleProvider.CompBull);
+        var bear = s.GetComponentData(DbsiStyleProvider.CompBear);
+        int still = 300 + 25, moving = 250;
+        Assert.False(double.IsNaN(bull[still]) || double.IsNaN(bull[moving]), "fixture: both bars must have scores");
+
+        string caution = ", " + DbsiStyleProvider.FlatCaution;
+        Assert.EndsWith($". {DbsiStyleProvider.Spoken(bull[still])}{caution}", Landing(s, bars, engine, DbsiStyleProvider.CompBull, still));
+        Assert.EndsWith($". {DbsiStyleProvider.Spoken(bear[still])}{caution}", Landing(s, bars, engine, DbsiStyleProvider.CompBear, still));
+        Assert.EndsWith($". {DbsiStyleProvider.Spoken(bull[moving])}", Landing(s, bars, engine, DbsiStyleProvider.CompBull, moving));
+        Assert.DoesNotContain("flat", Landing(s, bars, engine, DbsiStyleProvider.CompBear, moving));
+
+        Assert.Contains(DbsiStyleProvider.FlatCaution, Ladder(s, bars, still));
+        Assert.DoesNotContain("flat", Ladder(s, bars, moving));
+    }
+
+    private static string Ladder(ChartSeries s, List<Ohlcv> bars, int i)
+    {
+        var state = WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars),
+            CurrentDataIndex = i,
+            ActiveSeries = ImmutableList.Create(DbsiChartHarness.Candles(), s),
+            FocusedSeriesId = CoreSeriesIds.Candles,
+            ViewportStartIndex = 0,
+            ViewportLength = bars.Count,
+        };
+        var bus = new SpyEventBus();
+        new BarDetailService(bus, null).AnnounceDetails(state);
+        return bus.Log.OfType<AnnouncementEvent>().Last().Message;
+    }
+
     [Fact]
     public void The_reading_names_the_leader_or_a_tie()
     {

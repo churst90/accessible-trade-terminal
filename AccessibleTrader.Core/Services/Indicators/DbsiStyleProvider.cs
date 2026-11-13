@@ -54,9 +54,11 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///
     /// <para>
     /// <b>The known shortfall.</b> Flat-price eras (old stocks and commodities with high = low on many bars in
-    /// the last 60) miss about 1 label in 16: their money flow is 0/0 and their RSI moves by float noise, and
-    /// TradingView's noise is not this one's. Two real-price shapes are parked, each seen once or a few times: a
-    /// pinned Stoch RSI that DBSI sometimes re-arms (3 re-arms against 30 holds, nothing found to tell them
+    /// the last 60) miss more often: their money flow is 0/0 and their RSI stalls or moves by float noise, and
+    /// TradingView's noise is not this one's. Where the RSI stalled in the last 41 bars, 36 of 87 labels miss,
+    /// never by more than 2, so the speech says <see cref="FlatCaution"/> there (<see cref="FlatPrices"/>).
+    /// Two real-price shapes are parked, each seen once or a few times: a
+    /// pinned Stoch RSI that DBSI sometimes re-arms (3 re-arms against 71 holds, nothing found to tell them
     /// apart), and one Intel daily event. Many rules are narrow, and a market unlike those checked may see more
     /// misses. On the fifteen livestream charts it prints 17 or more on 46 of DBSI's 48 such readings and on 2
     /// where DBSI does not (gen8 38 and 6).
@@ -90,6 +92,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompShortEntry = "Short Entry";
         public const string CompControl = "Control";
         public const string CompTrendSource = "Trend Source";
+        public const string CompFlat = "Flat Prices";
+
+        /// <summary>Said after a score on a flat-price bar (see <see cref="FlatPrices"/>).</summary>
+        public const string FlatCaution = "flat prices, may be 2 off";
 
         public const string ParamLongEntry = "longEntryScore";
         public const string ParamShortEntry = "shortEntryScore";
@@ -206,6 +212,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Role = ComponentRole.Signal, Causality = ComponentCausality.Causal,
                             DefaultIsEnabled = false, DefaultIsDrawn = false, DefaultIsMuted = true,
                             DefaultColorHex = "#9E9E9E" },
+                    // 1 where the prices have been flat enough to stall the RSI (FlatPrices), else 0.
+                    // Left out and undrawn (still computed: the scores' speech reads it).
+                    new() { Name = CompFlat, DisplayName = "Flat prices", DisplayType = ComponentDisplayType.Line,
+                            Role = ComponentRole.Signal, Causality = ComponentCausality.Causal,
+                            DefaultIsEnabled = false, DefaultIsDrawn = false, DefaultIsMuted = true,
+                            DefaultColorHex = "#9E9E9E" },
                 },
             },
         };
@@ -225,6 +237,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             Write(buffer, CompShortEntry, r.ShortEntry);
             Write(buffer, CompControl, r.Control);
             Write(buffer, CompTrendSource, r.Source);
+            Write(buffer, CompFlat, r.Flat);
         }
 
         private static void Write(IIndicatorResultBuffer buffer, string comp, double[] values)
@@ -259,7 +272,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// control" on Bulls and the same reversed on Bears — so the two components sounded like one
         /// reading said twice (Cody, 2026-11-13: "shouldn't it be only the bull number on the bull
         /// component"). Who leads is still said where it is news: the take-control and entry
-        /// markers read both scores, and Alt+Shift+D's ladder names the side in control.
+        /// markers read both scores, and Alt+Shift+D's ladder names the side in control. On a
+        /// flat-price bar (<see cref="FlatPrices"/>) each score adds <see cref="FlatCaution"/>.
         /// "Minus" spelled out: a screen reader reads "-5" as "dash 5" on some voices.
         /// </summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
@@ -274,7 +288,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 case CompBear:
                 {
                     double own = At(componentName == CompBull ? "Bulls" : "Bears");
-                    return double.IsNaN(own) ? "Calculating" : Spoken(own);
+                    if (double.IsNaN(own)) return "Calculating";
+                    return At("Flat prices") > 0 ? $"{Spoken(own)}, {FlatCaution}" : Spoken(own);
                 }
                 case CompTrend:
                 {
@@ -317,7 +332,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>
         /// The state at a bar in words, for Alt+Shift+D's ladder (which has already read the two
         /// numbers, and names a hand-over or an entry score itself, as the marker that fired):
-        /// who is in control and which side of the trend line the close it is computed from is on.
+        /// who is in control, which side of the trend line the close it is computed from is on, and
+        /// <see cref="FlatCaution"/> on a flat-price bar.
         /// </summary>
         public static IReadOnlyList<string> StateWords(Func<string, double[]?> component, int index)
         {
@@ -329,6 +345,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double t = At(CompTrend), src = At(CompTrendSource);
             if (!double.IsNaN(t) && !double.IsNaN(src))
                 words.Add(src > t ? "above the trend line" : src < t ? "below the trend line" : "on the trend line");
+            if (At(CompFlat) > 0) words.Add(FlatCaution);
             return words;
         }
 
@@ -358,7 +375,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         internal sealed record Result(
             double[] Bull, double[] Bear, double[] Control, double[] Trend, double[] Source,
-            double[] BullsTakeControl, double[] BearsTakeControl, double[] LongEntry, double[] ShortEntry);
+            double[] BullsTakeControl, double[] BearsTakeControl, double[] LongEntry, double[] ShortEntry, double[] Flat);
 
         /// <summary>
         /// The two scores (<see cref="DbsiScoreModel"/>) on the candles chosen by "Compute on
@@ -386,7 +403,40 @@ namespace AccessibleTrader.Core.Services.Indicators
             var (bullsTake, bearsTake, longEntry, shortEntry) = Events(bull, bear, control, s.LongEntry, s.ShortEntry);
 
             var trend = Ema(c, s.TrendLength);
-            return new Result(bull, bear, control, trend, (double[])c.Clone(), bullsTake, bearsTake, longEntry, shortEntry);
+            return new Result(bull, bear, control, trend, (double[])c.Clone(), bullsTake, bearsTake, longEntry, shortEntry,
+                FlatPrices(c));
+        }
+
+        /// <summary>
+        /// 1 on a bar whose last 41 bars hold a 12-bar stretch where the RSI(12) of the closes the
+        /// scores read did not move (range under a millionth of a point), else 0. That happens when
+        /// the closes stop changing — old stocks and commodities quoted with high = low, a halted
+        /// market. Measured 2026-11-13 on 167,206 TradingView labels: these bars are 87 of them and
+        /// 36 miss (exact on 40 of 68 checked, off by 1 on 10, off by 2 on 18, never more), against
+        /// 0.32% misses everywhere else. TradingView prints numbers there, never 0/0, so the scores
+        /// are kept and the speech adds <see cref="FlatCaution"/>; the scores themselves are untouched.
+        /// </summary>
+        internal static double[] FlatPrices(double[] c)
+        {
+            const int window = DbsiScoreModel.RsiLength, lookback = 41;
+            int n = c.Length;
+            var flat = new double[n];
+            if (n == 0) return flat;
+            var rsi = DbsiScoreModel.Rsi(c, DbsiScoreModel.RsiLength);
+            int first = Array.FindIndex(rsi, v => !double.IsNaN(v));   // the warm-up ends; a NaN after it is 0/0, closes that never moved
+            int lastFlat = -lookback;                               // no stall yet: i - lastFlat >= lookback
+            for (int i = 0; i < n; i++)
+            {
+                if (first >= 0 && i - window + 1 >= first)
+                {
+                    double hi = double.MinValue, lo = double.MaxValue;
+                    for (int k = i - window + 1; k <= i; k++)
+                        if (!double.IsNaN(rsi[k])) { hi = Math.Max(hi, rsi[k]); lo = Math.Min(lo, rsi[k]); }
+                    if (hi - lo < 1e-6) lastFlat = i;
+                }
+                flat[i] = i - lastFlat < lookback ? 1 : 0;
+            }
+            return flat;
         }
 
         /// <summary>
