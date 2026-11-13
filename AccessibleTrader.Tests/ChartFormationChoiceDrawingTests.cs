@@ -16,8 +16,9 @@ namespace AccessibleTrader.Tests;
 /// Cody, 2026-11-13: "whatever pattern is selected, it must visually on screen on the chart be
 /// correct as well as correct through speech". The drawing ranked formations by size alone, so a
 /// semicolon choice was read aloud while another shape was the one fully labelled on screen.
-/// The frame now hands the layer the speech's own order — the choice, then the formations at
-/// the cursor as ranked there — and the choice's label says "chosen".
+/// The frame now hands the layer the speech's own order — the formation a landing at the cursor
+/// names (the choice when it is there), then the rest at the cursor — and the choice's label says
+/// "chosen" wherever it is drawn.
 /// </summary>
 public sealed class ChartFormationChoiceDrawingTests
 {
@@ -55,10 +56,14 @@ public sealed class ChartFormationChoiceDrawingTests
         return focus;
     }
 
+    /// <summary>
+    /// On a bar of the chosen formation that is no one's start or end (85), the speech names the
+    /// choice, so it is drawn first.
+    /// </summary>
     [Fact]
     public void TheChosenFormationLeadsTheDrawingOnItsOwnBars()
     {
-        var (lead, chosen) = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop()).Lead(At(80), All);
+        var (lead, chosen) = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop()).Lead(At(85), All);
 
         Assert.Equal(Top.Identity, chosen);
         var drawn = ChartFormationLayer.Ordered(All, lead).ToList();
@@ -66,16 +71,31 @@ public sealed class ChartFormationChoiceDrawingTests
     }
 
     /// <summary>
-    /// At End the double top is over, and the speech still names it ("Double top confirmed 29
-    /// bars back"), so it is still the one drawn first and fully labelled when it is on screen.
+    /// At End the double top is over and the speech no longer names it (Cody, 2026-11-13: "I don't
+    /// want to hear about another pattern that isn't the pattern start/end I landed on"), so it
+    /// does not lead the drawing either; it is drawn after what is at the cursor.
     /// </summary>
     [Fact]
-    public void TheChosenFormationLeadsTheDrawingFromBarsItIsNotOn()
+    public void AChoiceElsewhereDoesNotLeadTheDrawing()
     {
-        var (lead, _) = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop()).Lead(At(129), All);
+        var (lead, chosen) = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop()).Lead(At(129), All);
 
-        Assert.Equal(new[] { Top.Identity, Ihs.Identity, Wedge.Identity }, lead);
-        Assert.Equal(Top, ChartFormationLayer.Ordered(All, lead).First());
+        Assert.Equal(Top.Identity, chosen);
+        Assert.Equal(new[] { Ihs.Identity, Wedge.Identity }, lead);
+        Assert.Equal(new[] { Ihs, Wedge, Top }, ChartFormationLayer.Ordered(All, lead).ToList());
+    }
+
+    /// <summary>
+    /// On a formation's first bar the speech names that formation, so the drawing leads with it,
+    /// though a bigger one is at the cursor too — and though the choice is in play there (80).
+    /// </summary>
+    [Fact]
+    public void OnAFormationsStartTheDrawingLeadsWithIt()
+    {
+        var frame = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop());
+
+        Assert.Equal(new[] { Wedge.Identity, Ihs.Identity }, frame.Lead(At(120), All).Lead);
+        Assert.Equal(new[] { Ihs.Identity, Top.Identity }, frame.Lead(At(80), All).Lead);
     }
 
     /// <summary>With nothing chosen the drawing leads with what the readout leads with at the cursor.</summary>
@@ -127,7 +147,7 @@ public sealed class ChartFormationChoiceDrawingTests
         app.ShowChartPatternVisuals.Returns(true);
         app.UiScale.Returns(100);
 
-        var state = At(129) with
+        var state = At(85) with
         {
             ViewportStartIndex = 0, ViewportLength = 130, RightMarginBars = 0, ViewportRange = (90, 120),
             PaneRanges = System.Collections.Immutable.ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Main", (90, 120)),
@@ -136,7 +156,7 @@ public sealed class ChartFormationChoiceDrawingTests
         using (var canvas = new SKCanvas(bmp))
             new ChartFrameRenderer(renderer, new FixedPatterns(), app, ChooseTheDoubleTop()).Render(canvas, 800, 600, state, 1f);
 
-        // At End the readout names the double top, so it is drawn first and labelled "chosen";
+        // At 85 the readout names the double top, so it is drawn first and labelled "chosen";
         // by size alone the head and shoulders came first.
         var drawn = renderer.FormationLayer.LastDrawn;
         Assert.Equal(new[] { (Top, true), (Ihs, false), (Wedge, false) }, drawn);

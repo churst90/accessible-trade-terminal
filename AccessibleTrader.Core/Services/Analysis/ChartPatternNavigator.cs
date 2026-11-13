@@ -90,7 +90,9 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return;
             }
 
-            var picked = _focus.CycleAt(chartKey, here, forward);
+            // Counted from what a landing here reads, so the first press always moves off it.
+            var reading = ChartPatternNarrator.Landing(here, idx, null);
+            var picked = _focus.CycleAt(chartKey, here, forward, reading == null ? 0 : here.IndexOf(reading));
             if (picked == null) return;
             // The choice is drawn too (ChartFrameRenderer leads the formation layer with it), and
             // nothing in the store changed, so the chart has to be told to repaint.

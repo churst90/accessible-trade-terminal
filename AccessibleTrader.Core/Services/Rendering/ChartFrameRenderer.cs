@@ -99,18 +99,20 @@ namespace AccessibleTrader.Core.Services.Rendering
         {
             if (formations == null || formations.Count == 0) return (null, null);
 
-            // The order the speech reads in at the cursor: the semicolon choice first, wherever it
-            // is (AccessibilityFeedbackCoordinator names it even from bars it is not on), then the
-            // formations at the cursor as ranked there. The layer draws these first, so the
-            // fully-labelled formation is the one being read. Cody, 2026-11-13: "whatever pattern
-            // is selected, it must visually on screen on the chart be correct as well as correct
-            // through speech".
+            // The order the speech reads in at the cursor: the formation a landing there names
+            // (ChartPatternNarrator.Landing — the semicolon choice when it is at the bar), then the
+            // rest at the cursor as ranked there. The layer draws these first, so the
+            // fully-labelled formation is the one being read; a choice elsewhere is labelled
+            // "chosen" wherever it is drawn, but does not lead. Cody, 2026-11-13: "whatever
+            // pattern is selected, it must visually on screen on the chart be correct as well as
+            // correct through speech".
             string key = Analysis.ChartPatternCache.KeyFor(state.Identity);
             var chosen = _patternFocus?.PinnedIn(key, formations);
             var here = Analysis.ChartPatternNarrator.ByDominance(
-                Analysis.ChartPatternNarrator.AtBar(formations, state.CurrentDataIndex));
+                Analysis.ChartPatternNarrator.AtBar(formations, state.CurrentDataIndex)).ToList();
             var lead = new List<(Analysis.ChartPatternKind, DateTime, DateTime)>();
-            if (chosen != null) lead.Add(chosen.Identity);
+            if (Analysis.ChartPatternNarrator.Landing(here, state.CurrentDataIndex, chosen?.Identity) is { } first)
+                lead.Add(first.Identity);
             foreach (var p in here)
                 if (!lead.Contains(p.Identity)) lead.Add(p.Identity);
             return (lead, chosen?.Identity);

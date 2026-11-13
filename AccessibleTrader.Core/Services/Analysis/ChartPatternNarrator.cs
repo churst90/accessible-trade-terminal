@@ -421,6 +421,35 @@ namespace AccessibleTrader.Core.Services.Analysis
                 .ThenBy(p => p.Kind);
 
         /// <summary>
+        /// The one formation a landing on <paramref name="barIndex"/> is about, from
+        /// <paramref name="here"/> (the formations at that bar, ranked). A bar that is formations'
+        /// start or end is about those — the semicolon choice when it is one of them, else the one
+        /// starting, else the one ending — and never about a formation merely passing through,
+        /// chosen or not; the arrow keys name the same one stepping onto the bar. Only a bar that
+        /// is no one's start or end (Home, End, backslash) is about the choice if it is in play,
+        /// else the leader. Cody, 2026-11-13, after a jump to the falling wedge's start named the
+        /// chosen double top: "I just want to hear about the formation at the bar i land on,
+        /// that's it, the start, the end whether it was confirmed or not ... I don't want to hear
+        /// about another pattern that isn't the pattern start/end I landed on." Shared by the
+        /// speech and the drawing, so the fully-labelled shape on screen is the one being read.
+        /// </summary>
+        public static ChartPattern? Landing(IReadOnlyList<ChartPattern> here, int barIndex,
+            (ChartPatternKind, DateTime, DateTime)? chosen)
+        {
+            if (here.Count == 0) return null;
+            var chosenHere = chosen is { } c ? here.FirstOrDefault(p => p.Identity.Equals(c)) : null;
+            if (chosenHere != null && IsEdge(chosenHere, barIndex)) return chosenHere;
+            return here.FirstOrDefault(p => p.KnownAtIndex == barIndex)
+                ?? here.FirstOrDefault(p => p.ResolvesAt == barIndex)
+                ?? chosenHere
+                ?? here[0];
+        }
+
+        /// <summary>Whether <paramref name="barIndex"/> is the formation's start (first knowable bar) or end.</summary>
+        public static bool IsEdge(ChartPattern p, int barIndex)
+            => p.KnownAtIndex == barIndex || p.ResolvesAt == barIndex;
+
+        /// <summary>
         /// The patterns that were knowable at <paramref name="barIndex"/> and whose structure spans
         /// it — i.e. what a sighted person would see on screen while looking at that bar.
         ///

@@ -320,59 +320,87 @@ public sealed class ChartPatternPinNarrationTests
         => string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
 
     /// <summary>
-    /// Cody, 2026-11-13: "it should name the formation i selected. I just restarted, navigated to
-    /// the start of the inverse head and shoulders, pressed ;, it switched to double top. i press ,
-    /// and then . to move back and it still says head and shoulders". The stop at 80 is the head
-    /// and shoulders' start, and the landing named whatever started there, choice or not.
+    /// A stop that is one formation's start names that formation, even with another chosen and in
+    /// play there; the choice is named at its own start and end. Cody first asked for the choice
+    /// at the head and shoulders' start ("it should name the formation i selected"), then, the
+    /// same day: "I just want to hear about the formation at the bar i land on, that's it, the
+    /// start, the end whether it was confirmed or not ... I don't want to hear about another
+    /// pattern that isn't the pattern start/end I landed on."
     /// </summary>
     [Fact]
-    public void AStopThatIsAnotherFormationsStartNamesTheChosenOne()
+    public void AStopNamesTheFormationThatStartsThereWhateverIsChosen()
     {
         var (ihs, top, wedge) = TaoChart();
         var h = Build(ihs, top, wedge);
 
-        Assert.StartsWith("Start of possible inverse head and shoulders", Move(h, 80));
+        Move(h, 80);
         h.Navigator.CycleFocus();                                   // the double top
 
         Assert.StartsWith("Start of possible double top", Move(h, 72));   // comma: the double top's own start
-        string back = Move(h, 80);                                  // period: back to the head and shoulders' start
-        Assert.StartsWith("Possible double top forming", back);
-        // The head and shoulders is named only as what the double top sits inside — the nesting
-        // Cody asked for ("possible falling wedge inside possible double top"), not as the reading.
-        Assert.EndsWith("Possible double top inside possible inverse head and shoulders.", back);
-        Assert.DoesNotContain("Start of", back);
+        string back = Move(h, 80);                                  // period: the head and shoulders' start
+        Assert.StartsWith("Start of possible inverse head and shoulders", back);
+        Assert.DoesNotContain("ouble top", back);
+        Assert.DoesNotContain("more formation", back);              // the double top only passes through
 
         Assert.StartsWith("Double top confirmed here", Move(h, 100));     // its own end: its outcome
+        Move(h, 90);                                                // backslash-like: no one's start or end
+        Assert.StartsWith("Possible double top forming", Move(h, 85));
     }
 
     /// <summary>
-    /// "when I jumped to the end of the chart, I still heard inverse head and shoulders" (Cody,
-    /// 2026-11-13). The double top is over by the last bar; it is still the choice, so it is what
-    /// End names — by where it stands — and the formations in play are counted after it. Before
-    /// it, the same: where it starts. Nothing of its outcome is said from a bar before the outcome.
+    /// The choice is named only where it is at the bar. Cody, 2026-11-13, after it was named from
+    /// every bar ("double top confirmed 15 bars back" on the falling wedge's start, "... ahead" on
+    /// the triangle's): "I just want to hear about the formation at the bar i land on, that's it,
+    /// the start, the end whether it was confirmed or not ... I don't want to hear about another
+    /// pattern that isn't the pattern start/end I landed on."
     /// </summary>
     [Fact]
-    public void AJumpOffTheChosenFormationStillNamesIt()
+    public void AJumpOffTheChosenFormationNamesOnlyWhatIsAtTheBar()
     {
         var (ihs, top, wedge) = TaoChart();
         var h = Build(ihs, top, wedge);
         Move(h, 80);
         h.Navigator.CycleFocus();                                   // the double top
 
-        string end = Move(h, 129);
-        Assert.StartsWith("Double top confirmed 29 bars back: downward breakout, closed below the neckline", end);
-        Assert.EndsWith("Plus 2 more formations here.", end);
-        Assert.DoesNotContain("inverse head and shoulders", end);
+        string wedgeStart = Move(h, 120);                           // the wedge's start; the double top is over
+        Assert.StartsWith("Start of possible falling wedge", wedgeStart);
+        Assert.DoesNotContain("ouble top", wedgeStart);
 
-        Assert.Equal("Double top starts 22 bars ahead.", Move(h, 50));   // before it: no formations here either
-        Assert.Equal("Double top starts 1 bar ahead.", Move(h, 71));
+        string end = Move(h, 129);
+        Assert.StartsWith("Possible inverse head and shoulders forming", end);
+        Assert.EndsWith("Plus 1 more formation here.", end);
+        Assert.DoesNotContain("ouble top", end);
+
+        Assert.Equal("", Move(h, 50));                              // before anything is knowable: nothing at all
+        Assert.Equal("", Move(h, 71));
     }
 
     /// <summary>
-    /// At End with the double top chosen, End names the double top, so semicolon's first press
-    /// lands on the FIRST formation here (Shift+semicolon the last) — none of them has been read
-    /// as the choice. It used to count from the leader as though the leader were being read,
-    /// skipping it. The new choice then holds across Home and End.
+    /// A jump onto the same bar reads the same as an arrow step onto it — Cody, 2026-11-13: the
+    /// arrows said the falling wedge's start where comma and period said the chosen double top,
+    /// "it is not consistent".
+    /// </summary>
+    [Fact]
+    public void AJumpAndAStepOntoAFormationsStartSayTheSameFormation()
+    {
+        var (ihs, top, wedge) = TaoChart();
+        var h = Build(ihs, top, wedge);
+        Move(h, 80);
+        h.Navigator.CycleFocus();                                   // the double top
+
+        Move(h, 119);
+        string stepped = Move(h, 120);
+        Move(h, 129);
+        string jumped = Move(h, 120);
+
+        Assert.StartsWith("Start of possible falling wedge", stepped);
+        Assert.StartsWith("Start of possible falling wedge", jumped);
+    }
+
+    /// <summary>
+    /// With the double top chosen and over, End reads the leader there, so semicolon's first press
+    /// moves OFF it — forward to the wedge, backward round to the wedge too (two formations) — not
+    /// onto the formation just heard. The new choice then holds across Home and End.
     /// </summary>
     [Fact]
     public void WhereTheChoiceIsNotInPlaySemicolonStartsFromTheFormationsHere()
@@ -384,21 +412,29 @@ public sealed class ChartPatternPinNarrationTests
         h.Navigator.CycleFocus();
         Assert.Equal(ChartPatternKind.DoubleTop, h.Focus.PinnedIn(key, new[] { ihs, top, wedge })?.Kind);
 
-        Move(h, 129);
+        Move(h, 129);                                               // reads the head and shoulders
         h.Bus.Log.Clear();
-        h.Navigator.CycleFocus(forward: false);
+        h.Navigator.CycleFocus();
         Assert.Contains("Leading with falling wedge, 2 of 2", Said(h));
 
-        Move(h, 80);                                                // the wedge is not here either: back from
-        h.Navigator.CycleFocus(forward: false);                     // the last formation, the double top
-        Move(h, 129);
+        Move(h, 0);
+        Assert.StartsWith("Possible falling wedge forming", Move(h, 129));
+    }
+
+    /// <summary>
+    /// On a stop that is one formation's start, with no choice there, semicolon counts from that
+    /// formation — the one just read — rather than from the leader, which would make the first
+    /// press choose the formation the user had just heard.
+    /// </summary>
+    [Fact]
+    public void SemicolonOnAStartCountsFromTheFormationThatStartsThere()
+    {
+        var (ihs, top, wedge) = TaoChart();
+        var h = Build(ihs, top, wedge);
+        Assert.StartsWith("Start of possible falling wedge", Move(h, 120));   // the head and shoulders leads here
         h.Bus.Log.Clear();
         h.Navigator.CycleFocus();
         Assert.Contains("Leading with inverse head and shoulders, 1 of 2", Said(h));
-        Assert.Equal(ChartPatternKind.InverseHeadAndShoulders, h.Focus.PinnedIn(key, new[] { ihs, top, wedge })?.Kind);
-
-        Move(h, 0);
-        Assert.StartsWith("Possible inverse head and shoulders forming", Move(h, 129));
     }
 
     /// <summary>
@@ -429,7 +465,9 @@ public sealed class ChartPatternPinNarrationTests
         Move(h, 80);
         h.Navigator.CycleFocus();                                   // the double top
 
-        Assert.StartsWith("Double top confirmed 10 bars back", Move(h, 110));   // only the head and shoulders is here
+        string there = Move(h, 110);                                // only the head and shoulders is here
+        Assert.StartsWith("Possible inverse head and shoulders forming", there);
+        Assert.DoesNotContain("ouble top", there);
         h.Bus.Log.Clear();
         h.Navigator.CycleFocus();
         Assert.Contains("Leading with inverse head and shoulders, 1 of 1", Said(h));
@@ -515,6 +553,34 @@ public sealed class ChartPatternPinNarrationTests
 
         Assert.Contains("Possible bull flag inside possible double bottom inside possible range.", said);
         Assert.EndsWith("Plus 1 more formation here.", said);
+    }
+
+    /// <summary>
+    /// A chosen formation outside the nesting is read alone: the nesting sentence would be about
+    /// three other formations ("bull flag inside double bottom inside range"), and a landing names
+    /// the formation at the bar and nothing else. They are counted, not named.
+    /// </summary>
+    [Fact]
+    public void AChosenFormationOutsideTheNestingIsNotFollowedByIt()
+    {
+        var (outer, middle, inner) = ThreeNested();
+        var sibling = new ChartPattern(
+            Kind: ChartPatternKind.DescendingTriangle, State: ChartPatternState.Forming,
+            StartBarIndex: 130, EndBarIndex: 180, KnownAtIndex: 66,
+            TriggerLevel: 95, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var h = Build(outer, middle, inner, sibling);
+        Move(h, 70);
+        h.Navigator.CycleFocus();
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();
+        Assert.Contains("Leading with descending triangle", Said(h));
+
+        Move(h, 0);
+        string said = Move(h, 70);
+
+        Assert.StartsWith("Possible descending triangle forming", said);
+        Assert.DoesNotContain(" inside ", said);
+        Assert.EndsWith("Plus 3 more formations here.", said);
     }
 
     /// <summary>

@@ -134,7 +134,7 @@ formation is in play. The default ranking is still forming first, then biggest, 
 was not enough: Cody chose the double top at the inverse head and shoulders' start, pressed `,`
 then `.` back to that bar, and heard the inverse head and shoulders. The landing named whatever
 started at the stop. End named it too, the double top being over by then. *"it should name the
-formation i selected"*. Now every jump names the choice:
+formation i selected"*. At first every jump named the choice (replaced the same evening; see below):
 - On its bars: its own start or end when the stop is that, otherwise its description and the
   nesting.
 - Off them: where it stands, then a count of what is here. After it: *"Double top confirmed 24 bars
@@ -148,9 +148,24 @@ on that bar. That is an open question in TODO.
 
 Cody also asked that the picture agree: *"whatever pattern is selected, it must visually on screen
 on the chart be correct as well as correct through speech"*. `ChartFrameRenderer.Lead` hands the
-formation layer the readout's order: the choice, then the formations at the cursor as ranked there.
+formation layer the readout's order: the formation a landing at the cursor names, then the rest at
+the cursor as ranked there (at first it was the choice wherever it was; see below).
 The layer draws those first, so the one fully labelled is the one being read, and labels the
 choice "chosen:". `;` publishes a `RedrawEvent`, since nothing in the store changes.
+
+**A stop names only its own formation (the same evening).** Naming the choice from every bar was
+wrong too. Cody landed with `,` / `.` on the falling wedge's start and heard *"double top confirmed
+15 bars back"* (the arrows said the wedge's start), and on an ascending triangle heard the double top
+*"bars ahead"*: *"I just want to hear about the formation at the bar i land on, that's it, the start,
+the end whether it was confirmed or not ... I don't want to hear about another pattern that isn't the
+pattern start/end I landed on."* `ChartPatternNarrator.Landing` now decides, for speech and drawing
+alike: on a bar that is formations' start or end, those formations (the choice first if it is one of
+them, else the one starting, else the one ending); only on a bar that is no one's edge, the choice if
+it is in play, else the leader. A formation passing through a stop is never named there, chosen or
+not. That reverses the first request of the day at the inverse head and shoulders' start. The count
+on a stop is of the formations sharing it; the nesting sentence follows only a leader inside the
+chain; `;` counts from the formation just read. On the real TAO bars a jump and an arrow step say the
+same thing at 35 of the 37 stops; the other two are bars where two formations end together.
 
 The real-chart run also showed a counting bug: a formation beside the leader, not inside it, formed
 its own one-shape nesting chain. That chain says nothing but was treated as named, so the overlap

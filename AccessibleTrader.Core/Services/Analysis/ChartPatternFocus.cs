@@ -56,10 +56,12 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// <summary>
         /// Choose the next formation in the ranked order (the previous one when
         /// <paramref name="forward"/> is false), wrapping around. Counted from the one currently
-        /// leading: the chosen formation if it is in <paramref name="ranked"/>, otherwise the
-        /// first. Returns the newly chosen pattern, or null when there is nothing at this bar.
+        /// read: the chosen formation if it is in <paramref name="ranked"/>, otherwise
+        /// <paramref name="ranked"/>[<paramref name="reading"/>] — the formation a landing on the
+        /// bar names (<see cref="ChartPatternNarrator.Landing"/>). Returns the newly chosen
+        /// pattern, or null when there is nothing at this bar.
         /// </summary>
-        ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true);
+        ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true, int reading = 0);
 
         /// <summary>Clear the pin for this chart. Returns true if one was actually cleared.</summary>
         bool Clear(string chartKey);
@@ -152,7 +154,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             }
         }
 
-        public ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true)
+        public ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked, bool forward = true, int reading = 0)
         {
             if (ranked.Count == 0) return null;
 
@@ -160,21 +162,14 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 EnsureLoaded();
 
-                // With nothing chosen, the LEADER is current — it is the one the readout is
-                // already naming. Starting from "none" made the first press choose the leader and
-                // say "1 of 2": the formation the user had just heard, so the key appeared to do
-                // nothing. The first press now moves to the second formation.
-                //
-                // With a choice that is not at this bar, the readout names that choice, not the
-                // leader, so the first press lands on the first formation here (the last, going
-                // back): none of them has been heard as the choice yet.
-                int current = 0;
+                // Counted from the formation the readout is already naming. Starting from "none"
+                // made the first press choose the leader and say "1 of 2": the formation the user
+                // had just heard, so the key appeared to do nothing. With no choice at this bar
+                // that is the landing's formation (the caller's reading), wherever the choice is.
+                int current = reading >= 0 && reading < ranked.Count ? reading : 0;
                 if (_pinned.TryGetValue(chartKey, out var key))
-                {
-                    current = forward ? -1 : ranked.Count;
                     for (int n = 0; n < ranked.Count; n++)
                         if (ranked[n].Identity.Equals(key)) { current = n; break; }
-                }
 
                 int next = ((forward ? current + 1 : current - 1) % ranked.Count + ranked.Count) % ranked.Count;
                 _pinned[chartKey] = ranked[next].Identity;

@@ -1274,61 +1274,47 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // path, the entry announcement and the overlap count.
             //
             // The choice is sticky: it stays until semicolon picks another, wherever the user goes
-            // and across restarts. A jump off the chosen formation's bars still names it (see
-            // ChosenElsewhere); a single step there reports the edges it crosses as usual. Cody, 2026-11-13: "it should be sticky until I
+            // and across restarts. Where its formation is not at the bar it is not spoken; a jump
+            // reads what is there. Cody, 2026-11-13: "it should be sticky until I
             // intentionally change it ... It should stay regardless of where I navigate to." (The
             // same morning it was dropped on the first bar off the formation; Home then End lost it.)
             string chartKey = ChartPatternCache.KeyFor(state.Identity);
             var atBar = ChartPatternNarrator.AtBar(all, idx);
             var here = _patternFocus.Apply(chartKey, ChartPatternNarrator.ByDominance(atBar).ToList());
 
-            // Jump, or first move: no edge was crossed, so describe where we landed. If that is
-            // exactly a formation's first or last bar — which is what the comma and period keys aim
-            // at — say which, so a jump reads the same way a step onto the same bar would.
+            // Jump, or first move: no edge was crossed, so describe where we landed — one formation
+            // (ChartPatternNarrator.Landing): on a formation's first or last bar, which is what the
+            // comma and period keys aim at, that formation (the choice only if it too starts or
+            // ends here), so a jump reads the same way a step onto the same bar would; elsewhere
+            // the choice if it is in play, else the leader.
+            //
+            // A formation passing through a start or end bar is not mentioned, chosen or not. Cody, 2026-11-13: "it should name
+            // the formation i selected" (he chose the double top at the inverse head and shoulders'
+            // start, jumped away and back, and heard the inverse head and shoulders), then, after
+            // the choice was named from every bar ("Double top confirmed 15 bars back" on the
+            // falling wedge's start): "I just want to hear about the formation at the bar i land
+            // on, that's it, the start, the end whether it was confirmed or not ... I don't want
+            // to hear about another pattern that isn't the pattern start/end I landed on."
             if (prev < 0 || Math.Abs(idx - prev) != 1)
             {
-                // The chosen formation is what a jump names, wherever it lands. Cody, 2026-11-13:
-                // "it should name the formation i selected" — he chose the double top at the
-                // inverse head and shoulders' start, pressed comma then period back to the same
-                // bar, and heard the inverse head and shoulders again because the start bar
-                // named the formation starting there; End named it too, the double top being
-                // over by then. Off its bars the choice is still named, by where it stands.
                 var chosen = _patternFocus.PinnedIn(chartKey, all);
-                if (chosen != null && !atBar.Any(p => p.Identity.Equals(chosen.Identity)))
-                    return ChosenElsewhere(chosen, idx) + OverlapNote(here.Count + 1);
-                if (chosen != null)
+                var lead = ChartPatternNarrator.Landing(here, idx, chosen?.Identity);
+                if (lead == null) return "";
+
+                // On a start or end the count is of the other formations that start or end here
+                // too, not of those merely passing through — the same as a step onto the bar.
+                int atStop = here.Count(p => ChartPatternNarrator.IsEdge(p, idx));
+                if (lead.KnownAtIndex == idx)
+                    return ChartPatternNarrator.DescribeEntry(lead, idx, SpeechPriceFormatter.FormatPrice)
+                         + ChartPatternNarrator.DescribeContainment(lead, all, idx)
+                         + OverlapNote(atStop);
+                if (lead.ResolvesAt == idx)
                 {
-                    // In play: here[0] is the choice (Apply floated it). Its own start or end
-                    // when the stop is that; otherwise the usual reading of the leader.
-                    var lead = here[0];
-                    if (lead.KnownAtIndex == idx)
-                        return ChartPatternNarrator.DescribeEntry(lead, idx, SpeechPriceFormatter.FormatPrice)
-                             + ChartPatternNarrator.DescribeContainment(lead, all, idx)
-                             + OverlapNote(here.Count);
-                    if (lead.ResolvesAt == idx)
-                    {
-                        string res = ChartPatternNarrator.DescribeResolution(lead, SpeechPriceFormatter.FormatPrice);
-                        if (!string.IsNullOrEmpty(res)) return res + OverlapNote(here.Count);
-                    }
-                    return DescribeLeaderAndNesting(here);
+                    string res = ChartPatternNarrator.DescribeResolution(lead, SpeechPriceFormatter.FormatPrice);
+                    if (!string.IsNullOrEmpty(res)) return res + OverlapNote(atStop);
                 }
 
-                if (here.Count == 0) return "";
-
-                var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
-                if (landedOnStart != null)
-                    return ChartPatternNarrator.DescribeEntry(landedOnStart, idx, SpeechPriceFormatter.FormatPrice)
-                         + ChartPatternNarrator.DescribeContainment(landedOnStart, all, idx)
-                         + OverlapNote(here.Count);
-
-                var landedOnEnd = here.FirstOrDefault(p => p.ResolvesAt == idx);
-                if (landedOnEnd != null)
-                {
-                    string res = ChartPatternNarrator.DescribeResolution(landedOnEnd, SpeechPriceFormatter.FormatPrice);
-                    if (!string.IsNullOrEmpty(res)) return res + OverlapNote(here.Count);
-                }
-
-                // here[0], not DescribeMany: that re-ranks by size and so ignored the semicolon
+                // Lead, not DescribeMany: that re-ranks by size and so ignored the semicolon
                 // choice on exactly this path, the one backslash takes.
                 //
                 // Then the nesting, smallest first (Cody, 2026-11-13: "say 'possible falling wedge
@@ -1336,7 +1322,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // one"). The leader is the largest, so without it a shape inside it went unnamed
                 // behind "plus 1 more formation here". The note then counts only what neither
                 // sentence named.
-                return DescribeLeaderAndNesting(here);
+                return DescribeLeaderAndNesting(here.Where(p => p != lead).Prepend(lead).ToList());
             }
 
             if (here.Count == 0) return "";
@@ -1391,6 +1377,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static string DescribeLeaderAndNesting(IReadOnlyList<ChartPattern> here)
         {
             var nest = ChartPatternNarrator.Nesting(here);
+            // Only a chain the leader is part of: otherwise the nesting sentence is about two
+            // other formations, and a landing names the one at the bar and nothing else.
+            if (!nest.Contains(here[0])) nest = Array.Empty<ChartPattern>();
             // A chain of one is not spoken (DescribeNesting needs two), so it names nothing: on
             // the real TAO/USDT 1h last bar the falling wedge beside the head and shoulders was
             // its own one-shape chain and dropped out of the count, so "plus 1 more" went unsaid.
@@ -1400,25 +1389,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                  + ChartPatternNarrator.DescribeNesting(nest)
                  + OverlapNote(1 + here.Count(p => !named.Contains(p.Key)));
         }
-
-        /// <summary>
-        /// The chosen formation, named from a bar it is not on: "Double top confirmed 25 bars
-        /// back: …" after it, "Double top starts 8 bars ahead." before it. Its outcome only from
-        /// a bar after the outcome, so a jump back in history never hears the future.
-        /// </summary>
-        private static string ChosenElsewhere(ChartPattern chosen, int idx)
-        {
-            string name = ChartPatternNarrator.Name(chosen.Kind);
-            name = char.ToUpperInvariant(name[0]) + name[1..];
-            if (idx < chosen.KnownAtIndex)
-                return $"{name} starts {Bars(chosen.KnownAtIndex - idx)} ahead.";
-            string back = $"{Bars(idx - chosen.ResolvesAt)} back";
-            string res = ChartPatternNarrator.DescribeResolution(
-                ChartPatternNarrator.AsOf(chosen, idx), SpeechPriceFormatter.FormatPrice, back);
-            return string.IsNullOrEmpty(res) ? $"{name} ended {back}." : res;
-        }
-
-        private static string Bars(int n) => n == 1 ? "1 bar" : $"{n} bars";
 
         /// <summary>
         /// How the terminal admits that a region satisfies more than one definition at once.

@@ -4,7 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart formations: a stop names only the formation that starts or ends there (2026-11-13, Cody's request)
+
+- **What Cody hit** (MEXC TAO/USDT 1h, local build, with the double top chosen):
+  - `,` and `.` landed on the falling wedge's start and said "double top confirmed 15 bars back". The arrow
+    keys said the falling wedge's start, as they should have.
+  - On the ascending triangle the stop said "double top ... bars ahead".
+  - His words: "I just want to hear about the formation at the bar i land on, that's it, the start, the
+    end whether it was confirmed or not ... I don't want to hear about another pattern that isn't the
+    pattern start/end I landed on."
+  - The entry below (the same day) named the choice from every bar. This replaces that.
+- **What changed (speech):**
+  - A stop that is a formation's start or end names that formation. On a start it says the start, on an
+    end how it ended, the same words an arrow step onto that bar says.
+  - The choice is named there only when it, too, starts or ends on that bar; it then wins over the
+    others that do.
+  - A formation merely passing through the stop is not named, chosen or not. That includes the case Cody
+    first raised: with the double top chosen, `.` back to the inverse head and shoulders' start now says
+    "Start of possible inverse head and shoulders". The double top is read at its own start and end.
+  - "Confirmed N bars back" and "starts N bars ahead" are gone.
+  - The count on a stop ("Plus 1 more formation here") counts only the other formations starting or
+    ending there too, not those passing through.
+  - A landing that is no one's start or end (Home, End, `\`) names the choice if it is in play there,
+    else the leading formation, as before. The "inside ..." nesting sentence follows only when that
+    formation is part of the chain; it no longer names two other formations after it.
+  - `;` counts from the formation just read, so its first press always moves off it. On a stop that is
+    a smaller formation's start, it used to count from the leader instead.
+- **What changed (drawing):** the fully labelled formation is the one a landing at the cursor names, by
+  the same rule (one shared function, `ChartPatternNarrator.Landing`). A choice elsewhere keeps its
+  "chosen:" label wherever it is drawn but no longer leads.
+- **Checked on the real chart** (MEXC TAO/USDT 1h bars saved this morning, the double top chosen at Nov
+  10 08:00 UTC, every one of the 37 `.` stops from Home):
+  - The falling wedge's start (Nov 13 02:00 UTC): "Start of possible falling wedge forming".
+  - The ascending triangle's start (Nov 10 12:00 UTC) and end (Nov 11 22:00 UTC): its own start and end.
+    Before, both read the chosen double top.
+  - End: "Possible inverse head and shoulders forming ... Plus 1 more formation here."
+  - At 35 of the 37 stops a jump says exactly what an arrow step onto the bar says.
+- **Caveats:**
+  - The two other stops are bars where two formations end together. An arrow step from the left reads
+    both endings; a jump reads one and "Plus 1 more formation here".
+  - The `,` `.` stops are unchanged. Every start and end is still a stop.
+  - Not heard or seen by Cody yet.
+
 ### Chart formations: the `;` choice is what is read and drawn, everywhere (2026-11-13, Cody's request)
+
+(Superseded the same day by the entry above: a choice that is not at the bar is no longer named, and a
+stop names the formation that starts or ends there.)
 
 - **What Cody hit** (MEXC TAO/USDT 1h, local build, after a restart): at the inverse head and shoulders'
   start he pressed `;` and heard the double top. Then `,` and `.` back to the same bar said the inverse head

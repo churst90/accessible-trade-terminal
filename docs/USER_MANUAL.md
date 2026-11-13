@@ -1976,15 +1976,13 @@ standing in.
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
 swap them). The one you pick stays chosen until you pick another, wherever you go on the
-chart, and it is still chosen after you close and reopen the terminal. Every jump names it: `,`,
-`.`, `Home`, `End` and `\`. On its own bars it is described first, even at a stop that is another
-formation's start. From a bar after it, you hear how it ended and how many bars back ("Double top
-confirmed 24 bars back …"). From a bar before it, you hear how far ahead it starts. Either way the
-formations in play at the bar are counted after it. Only a single arrow-key step onto
-another formation's first or last bar names that formation, because it really begins or ends there.
-With the choice not at the bar, `;` starts from the first formation here (`Shift+;` from the last).
-With formation visuals on, the chart draws the chosen formation first and fully labelled, its line
-label starting "chosen:", so what is on screen matches what you hear. Without a choice, the default
+chart, and it is still chosen after you close and reopen the terminal. A `,` or `.` stop always
+names the formation that starts or ends on that bar, exactly as an arrow step onto it would; your
+choice wins there only when it starts or ends on that bar too. A landing that is no one's start or
+end (`Home`, `End`, `\`) names your choice if it is on that bar, otherwise the leading formation. A
+choice that is not on the bar is never mentioned. `;` always moves off the formation you just heard.
+With formation visuals on, the chart fully labels the formation you are hearing, and the chosen
+formation's line label starts "chosen:", so what is on screen matches what you hear. Without a choice, the default
 order is still forming first, then largest, not newest. The default ranking exists
 because size is the only ordering that is not a directional opinion — but your setup may
 well be built on the small one, and the terminal has no business insisting otherwise.
