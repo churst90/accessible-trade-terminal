@@ -189,7 +189,14 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   version of dbsi"; NOT seen or heard; see CHANGES).** The ten veto sets are 99.99% exact, the blind sets
   99.97%, and the held-out sets 100%. Cody to look at Bitcoin daily and 1h Heikin-Ashi against DBSI. Still open
   in the study (no further port until asked, per Cody's 2026-10-29 rule): flat-price eras miss 6.4% of fresh
-  labels (float noise); the pinned-Stoch-RSI hold vs re-arm (3 re-arms, 30 holds, unseparated); Intel 1990s
+  labels (float noise; Cody asked 2026-11-13 how to handle it gracefully. Recommendation, not built: say
+  "flat prices, DBSI unreliable here" when the last 60 bars have no range, and leave flat eras out of the
+  study's scoring, rather than chase TradingView's float noise); the pinned-Stoch-RSI hold vs re-arm (2026-11-13:
+  20 more pinned bars on 28 fresh stock charts, 19 hold and the one re-arm is a flat 1972 CVS bar, so real
+  prices are 71 holds against 3 re-arms, SOL/XAU/WMT; the model holds; three is too few to fit a rule
+  without overfitting it); one 1h bar of the 2026-11-13 new bars, 2026-11-11 07:00 (bull 7 / bear 3,
+  ours 9 / -3, re-read the same; Stoch RSI pinned at 100 with a one-bar dip just after a one-bar bear Q;
+  1,475 of 1,481 earlier bars of that shape are right); Intel 1990s
   (one shape); the Start-grid emulator not moved to this model. Unpinned (no harvested bar changes if broken):
   fsum against a plain sum and its half-even step, the Stoch RSI zero-range tolerance and its 77.2 edge,
   the wide gap 17.34 and the near-zero 5.6 moved up, the max that keeps NaN (differs from Math.Max only on ±0),

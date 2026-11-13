@@ -20,6 +20,24 @@ All notable changes to this project will be documented in this file.
   "Bears. minus 5". Alt+Shift+D, the entry markers and the take-control words still name both, as they
   are about the pair. `Arriving_on_a_score_says_only_its_own_number` (renamed) checks each says its own
   number and not the other's; red with the other side's number and with the old pair. The manual says so.
+- **Cipher DBSI held up on the bars since the last pull** (Cody: "pull newer bars and run those new bars on
+  say 15 minute, 1 hour, 4 hour and daily bars from the last time you pulled price data and see how dbsi
+  holds up"). Read from TradingView on Bitstamp BTCUSD, 2026-11-13, against the study's model (the one the app
+  carries):
+  - 15 minutes: 1,281 new bars, all exact.
+  - 1 hour: 310 new bars, all exact but one (2026-11-11 07:00: TradingView bull 7 and bear 3, ours 9 and
+    -3; read twice, the same). The Stoch RSI sat at 100, dipped one bar and came back to 100 just after
+    a one-bar bear Q. Of the 1,481 earlier bars in that shape, 1,475 are right, so it is an edge, not a
+    broken rule.
+  - 4 hours: 58 new bars, all exact.
+  - Daily: the 38 newest bars (12 new since the last pull), all exact. The newest 24 closed daily bars on
+    28 freshly read stock charts (JPM, AAPL, CVS and 25 more, history from each chart's first bar): 672 bars,
+    all exact.
+  - The bars both pulls read are identical, so the earlier harvests were read right.
+  The pinned-Stoch-RSI question went on with the same 28 stock charts: TradingView holds on 19 of their 20
+  pinned bars, as the model does; the 20th is a 1972 CVS bar after 60 flat bars. Nothing built (no more
+  DBSI ports until the rest is solved, Cody's 2026-10-29 rule); the TODO DBSI item has the counts and a
+  recommendation for flat prices.
 - **Cipher C's weekly lows: "at least two daily cycles in a weekly cycle" was measured and not built**
   (CYCLE_POSITION_DESIGN 9.12). I had told Cody Cipher C draws too many weekly lows; over the same years
   it draws fewer than the original on 52 of 63 charts (section 7.5 had compared different spans). The weekly
