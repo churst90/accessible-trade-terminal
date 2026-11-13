@@ -127,7 +127,7 @@ focused component's events, comma and period through formations).
 | `,` | Previous formation edge |
 | `.` | Next formation edge |
 
-| `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside. The choice stays until changed (even after a restart). A `,` `.` stop still names the formation starting or ending there; the choice wins among those, and on Home, End and `\` when it is on the bar. The chart labels it "chosen:" |
+| `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside. The choice stays until changed (even after a restart), is what `,` `.`, Home, End, `\` and the arrows read on every bar it is on, and is drawn first labelled "chosen:"; off its bars it is never mentioned |
 | `Shift+;` | The same, backwards: the first press goes to the last. With two formations, `;` and `Shift+;` both swap them |
 
 Both keys reach the terminal from the browser as of 2.11.0. Before that they were bound,

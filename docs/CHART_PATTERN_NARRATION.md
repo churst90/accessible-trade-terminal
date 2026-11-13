@@ -167,6 +167,21 @@ on a stop is of the formations sharing it; the nesting sentence follows only a l
 chain; `;` counts from the formation just read. On the real TAO bars a jump and an arrow step say the
 same thing at 35 of the 37 stops; the other two are bars where two formations end together.
 
+**The choice wherever it is on the bar; arrows the same as jumps (later that evening).** The edge-first
+rule above broke the first request again. Cody chose the double top at the inverse head and
+shoulders' start, moved away and back, and heard the inverse head and shoulders: *"what is the
+point in changing it if it doesn't change ... when I move away from that pattern and move back or
+to the end of the pattern, the one I selected using ; should be what is read and drawn."* His two
+complaints were never in conflict:
+- the first was about a choice that *was* on the bar being passed over;
+- the second was about a choice that *was not* on the bar being named ("15 bars back").
+
+`Landing` is now: the choice if it is at the bar, else the formation starting, else the one ending,
+else the leader. The arrow-step path used to build its own sentence from the edges crossed. It now
+returns the jump's text on any bar that is a formation's start or end, and silence elsewhere. A
+both-ways walk test pins it with and without a choice: 8 of 8 edges match, and every bar between is
+silent.
+
 The real-chart run also showed a counting bug: a formation beside the leader, not inside it, formed
 its own one-shape nesting chain. That chain says nothing but was treated as named, so the overlap
 note dropped it.

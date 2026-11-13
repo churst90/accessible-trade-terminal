@@ -1976,11 +1976,13 @@ standing in.
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
 swap them). The one you pick stays chosen until you pick another, wherever you go on the
-chart, and it is still chosen after you close and reopen the terminal. A `,` or `.` stop always
-names the formation that starts or ends on that bar, exactly as an arrow step onto it would; your
-choice wins there only when it starts or ends on that bar too. A landing that is no one's start or
-end (`Home`, `End`, `\`) names your choice if it is on that bar, otherwise the leading formation. A
-choice that is not on the bar is never mentioned. `;` always moves off the formation you just heard.
+chart, and it is still chosen after you close and reopen the terminal. On every bar the chosen formation is on, it is
+what you hear: a `,` or `.` stop, `Home`, `End`, `\` and an arrow step onto any formation's start or
+end all read it, and any other formation there is counted ("Plus 2 more formations here") or named as
+the one it sits in. Where it is not on the bar it is never mentioned: a stop names the formation that
+starts there, else the one that ends there. An arrow step onto a start or end always says exactly
+what `,` or `.` would say there; between them it is silent. `;` always moves off the formation you
+just heard.
 With formation visuals on, the chart fully labels the formation you are hearing, and the chosen
 formation's line label starts "chosen:", so what is on screen matches what you hear. Without a choice, the default
 order is still forming first, then largest, not newest. The default ranking exists

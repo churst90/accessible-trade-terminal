@@ -4,7 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart formations: the `;` choice is read and drawn on every bar it is on; arrows and `,` `.` say the same (2026-11-13, Cody's request)
+
+- **What Cody hit** on 3c34b559 (the entry below), on MEXC TAO/USDT 1h:
+  - He pressed `,` to "start of inverse head and shoulders", then `;` to "double top, 2 of 2".
+  - He moved away and back, and heard the inverse head and shoulders again.
+  - His words: "what is the point in changing it if it doesn't change ... when I move away from that
+    pattern and move back or to the end of the pattern, the one I selected using ; should be what is
+    read and drawn."
+  - 3c34b559 let a formation's own start beat the choice on that bar. That was my misreading of his
+    earlier request; this entry reverses it.
+- **What changed (speech):**
+  - Wherever the chosen formation is on the bar (its start, its end or anything between), a `,` `.`
+    stop and an arrow step onto a start or end both read the choice.
+  - Other formations there are named only as the one it sits in ("Possible double top inside possible
+    inverse head and shoulders") or counted ("Plus 3 more formations here").
+  - Where the choice is not on the bar, nothing about it is said, as in 3c34b559. The stop names the
+    formation starting there, else the one ending there.
+  - **Arrow steps now read a start or end exactly as a jump does** (one rule, `Landed`, in
+    `AccessibilityFeedbackCoordinator`). Three differences are gone:
+    - stepping back onto an end said "End of possible double top" where a jump said "Double top
+      confirmed here";
+    - where two formations end on one bar, the step read both endings and the jump read one and
+      "Plus 1 more";
+    - under a choice, the step named the formation it crossed into.
+  - Between starts and ends, a step is still silent.
+- **Drawing:** the fully labelled formation follows the same rule, so the chosen formation is drawn
+  first on every bar it is on, labelled "chosen:".
+- **Checked on the real chart** (MEXC TAO/USDT 1h bars saved this morning, his steps):
+  - The inverse head and shoulders' start (Nov 10 08:00 UTC) before `;`: "Start of possible inverse
+    head and shoulders forming, neckline 225.59".
+  - `;`: "Leading with double top, 2 of 2", drawn first.
+  - Away and back, by jump or by arrow: "Possible double top forming, neckline 212.00 ... Possible
+    double top inside possible inverse head and shoulders", drawn first.
+  - Its end (Nov 12 11:00 UTC), by jump or arrow: "Double top confirmed here: downward breakout, closed
+    below the neckline at 212.00".
+  - The ascending triangle's start and end (Nov 10 12:00, Nov 11 22:00 UTC) fall inside the double top,
+    so with it chosen they read the double top and "Plus 3 more" / "Plus 2 more formations here".
+  - The falling wedge's start (Nov 13 02:00 UTC), after the double top ended: the wedge only.
+- **Caveats:**
+  - With a choice made, the `,` `.` stops inside it all name the choice. Only the count changes from
+    stop to stop; `;` there switches to another.
+  - Not heard or seen by Cody yet.
+
 ### Chart formations: a stop names only the formation that starts or ends there (2026-11-13, Cody's request)
+
+(Partly reversed the same evening by the entry above: where the choice is on the bar it is read, even on
+another formation's start or end.)
 
 - **What Cody hit** (MEXC TAO/USDT 1h, local build, with the double top chosen):
   - `,` and `.` landed on the falling wedge's start and said "double top confirmed 15 bars back". The arrow

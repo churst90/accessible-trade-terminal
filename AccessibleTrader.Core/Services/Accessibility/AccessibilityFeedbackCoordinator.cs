@@ -1235,18 +1235,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </para>
         ///
         /// <list type="bullet">
-        ///   <item><b>Entering a region</b> — spoken with the edge named, so the direction of travel
-        ///         is audible: "start of" walking forward, "end of" walking back.</item>
-        ///   <item><b>The resolution bar</b> — the bar that broke the trigger, or the bar the shape
-        ///         aged out on. This is what closes the loop on an entry the user already heard.</item>
-        ///   <item><b>Everything in between</b> — silence. The pattern has already been described
-        ///         and the level is not changing.</item>
+        ///   <item><b>A formation's start or end</b> — the bar it becomes knowable on, and the bar
+        ///         that broke the trigger or that the shape aged out on. A step onto it, either
+        ///         way, reads the same as a jump to it.</item>
+        ///   <item><b>Everything in between</b> — silence on a step. The pattern has already been
+        ///         described and the level is not changing.</item>
         /// </list>
         ///
         /// <para>
-        /// A jump (any move of more than one bar, or the first move after a load) cannot be
-        /// diffed — there is no adjacent previous bar to have crossed an edge from — so it falls
-        /// back to describing what is here, which is exactly what "where am I?" wants.
+        /// A jump (any move of more than one bar, or the first move after a load) always says
+        /// where it landed, which is exactly what "where am I?" wants. Either way it is one
+        /// formation (ChartPatternNarrator.Landing): the semicolon choice wherever it is at the
+        /// bar, else the one starting there, else the one ending there, else the leader.
         /// </para>
         /// </summary>
         // Internal, not private: this is the third defect to land in formation narration, and each
@@ -1283,21 +1283,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var here = _patternFocus.Apply(chartKey, ChartPatternNarrator.ByDominance(atBar).ToList());
 
             // Jump, or first move: no edge was crossed, so describe where we landed — one formation
-            // (ChartPatternNarrator.Landing): on a formation's first or last bar, which is what the
-            // comma and period keys aim at, that formation (the choice only if it too starts or
-            // ends here), so a jump reads the same way a step onto the same bar would; elsewhere
-            // the choice if it is in play, else the leader.
+            // (ChartPatternNarrator.Landing): the semicolon choice wherever it is at the bar, else
+            // the formation starting here, else the one ending here, else the leader. A formation
+            // not at the bar is never mentioned, chosen or not.
             //
-            // A formation passing through a start or end bar is not mentioned, chosen or not. Cody, 2026-11-13: "it should name
-            // the formation i selected" (he chose the double top at the inverse head and shoulders'
-            // start, jumped away and back, and heard the inverse head and shoulders), then, after
-            // the choice was named from every bar ("Double top confirmed 15 bars back" on the
-            // falling wedge's start): "I just want to hear about the formation at the bar i land
-            // on, that's it, the start, the end whether it was confirmed or not ... I don't want
-            // to hear about another pattern that isn't the pattern start/end I landed on."
-            if (prev < 0 || Math.Abs(idx - prev) != 1)
+            // Cody, 2026-11-13: "it should name the formation i selected"; then, after the choice
+            // was named from bars it was not on ("Double top confirmed 15 bars back" on the falling
+            // wedge's start): "I don't want to hear about another pattern that isn't the pattern
+            // start/end I landed on"; then, when the bar's own start beat his choice: "when I move
+            // away from that pattern and move back or to the end of the pattern ... the one I
+            // selected using ; should be what is read and drawn."
+            var chosen = _patternFocus.PinnedIn(chartKey, all);
+            string Landed()
             {
-                var chosen = _patternFocus.PinnedIn(chartKey, all);
                 var lead = ChartPatternNarrator.Landing(here, idx, chosen?.Identity);
                 if (lead == null) return "";
 
@@ -1325,53 +1323,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return DescribeLeaderAndNesting(here.Where(p => p != lead).Prepend(lead).ToList());
             }
 
-            if (here.Count == 0) return "";
+            if (prev < 0 || Math.Abs(idx - prev) != 1) return Landed();
 
-            bool movingRight = idx > prev;
-
-            // Diffed on Key, never on the records themselves. AtBar projects each pattern to the
-            // state it held at the requested bar, so the SAME formation is a different record on
-            // the bar it resolved — and a record-wise diff would report it as newly entered there,
-            // announcing "start of" at the finish line.
-            var beforeKeys = ChartPatternNarrator.AtBar(all, prev).Select(p => p.Key).ToHashSet();
-
-            var parts = new List<string>();
-
-            // 1. Regions crossed into on this step. Ranked, and only the leader is described in
-            //    full — see ChartPatternNarrator.ByDominance for why overlap is ranked rather than
-            //    hidden.
-            // A formation's FIRST KNOWABLE BAR always speaks, in either direction of travel.
+            // A step of one bar speaks on a formation's start or end and is silent between them —
+            // the pattern was described on the way in and its level is not changing. On those
+            // bars it reads exactly what a jump there reads (Landed), the choice first wherever it
+            // is at the bar. The edges are positions, not crossings: a bar that spoke once speaks
+            // every time you stand on it, whichever way you came (the first version diffed the
+            // formations on either side of the step, and stepping back onto a start said nothing).
             //
-            // Crossing-in alone is not enough: step right past the start bar and then step back
-            // onto it and the diff sees the formation on both bars, so nothing is said — the one
-            // bar where the shape actually begins goes silent precisely when the user is going back
-            // to re-read it. A bar that announced something once must announce it every time you
-            // stand on it, or the chart is not reproducible by ear.
-            var entered = _patternFocus.Apply(chartKey,
-                here.Where(p => !beforeKeys.Contains(p.Key) || p.KnownAtIndex == idx).ToList());
-            if (entered.Count > 0)
-            {
-                // Containment is appended to the LEADER only. Saying "inside a larger X" after every
-                // one of three overlapping shapes would restate the same parent three times.
-                parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], idx, SpeechPriceFormatter.FormatPrice)
-                        + ChartPatternNarrator.DescribeContainment(entered[0], all, idx));
-                if (entered.Count > 1) parts.Add(OverlapNote(entered.Count).TrimStart());
-            }
-
-            // 2. Patterns whose story ends exactly here. Only when walking forward: arriving at a
-            //    break bar from the right means the user is leaving the pattern, and they were told
-            //    the outcome by the "end of" entry a moment ago.
-            if (movingRight)
-            {
-                var enteredKeys = entered.Select(p => p.Key).ToHashSet();
-                foreach (var p in here.Where(p => p.ResolvesAt == idx && !enteredKeys.Contains(p.Key)))
-                {
-                    string res = ChartPatternNarrator.DescribeResolution(p, SpeechPriceFormatter.FormatPrice);
-                    if (!string.IsNullOrEmpty(res)) parts.Add(res);
-                }
-            }
-
-            return string.Join(" ", parts);
+            // Until 2026-11-13 the step built its own sentence — the start or end of what it
+            // crossed into, then every formation ending there — so , and . said one thing and the
+            // arrows another on the same bar: "End of possible double top" against "Double top
+            // confirmed here" walking back; both endings against one and a count where two end
+            // together; and, worst, the inverse head and shoulders' start under a chosen double
+            // top. Cody: "whether it is via , . or using the arrows. if I press ;, it should change
+            // the drawing and speech of the selected pattern."
+            return here.Any(p => ChartPatternNarrator.IsEdge(p, idx)) ? Landed() : "";
         }
 
         private static string DescribeLeaderAndNesting(IReadOnlyList<ChartPattern> here)

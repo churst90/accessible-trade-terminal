@@ -138,6 +138,64 @@ public sealed class ChartPatternPinNarrationTests
     }
 
     /// <summary>
+    /// Walk the chart both ways, one bar at a time, with nothing chosen and then with the double
+    /// top chosen: on every formation's start and end the arrow step says word for word what a
+    /// jump there says, and between them it is silent. Cody, 2026-11-13: "it doesn't say that when
+    /// I navigate with , and . only if I move with my arrows ... please make this consistent."
+    /// </summary>
+    [Fact]
+    public void AStepAndAJumpSayTheSameOnEveryStartAndEnd()
+    {
+        var (ihs, top, wedge) = TaoChart();
+        var edges = new[] { ihs, top, wedge }
+            .SelectMany(p => new[] { p.KnownAtIndex, p.ResolvesAt }).ToHashSet();
+
+        foreach (bool choose in new[] { false, true })
+        {
+            var h = Build(ihs, top, wedge);
+            if (choose) { Move(h, 80); h.Navigator.CycleFocus(); }
+
+            var stepped = new Dictionary<(int, bool), string>();
+            Move(h, 0);
+            for (int i = 1; i < 130; i++) stepped[(i, true)] = Move(h, i);
+            for (int i = 128; i >= 0; i--) stepped[(i, false)] = Move(h, i);
+
+            int spoke = 0;
+            foreach (var ((i, right), said) in stepped)
+            {
+                if (!edges.Contains(i)) { Assert.True(said == "", $"bar {i}: {said}"); continue; }
+                Move(h, i < 65 ? 129 : 0);
+                Assert.Equal(Move(h, i), said);
+                spoke++;
+            }
+            Assert.Equal(8, spoke);                                 // 72, 80, 100, 120, each way
+        }
+    }
+
+    /// <summary>
+    /// With a choice made, a step onto a bar where it and another formation both end reads the
+    /// choice's ending and counts the other, word for word what a jump there says. Before, the
+    /// step read every ending on the bar while the jump read one (on TAO, Oct 28 01:00 and Nov 1
+    /// 17:00). Cody: "whether it is via , . or using the arrows ... the one I selected using ;
+    /// should be what is read".
+    /// </summary>
+    [Fact]
+    public void AStepOntoTheChoicesEndReadsItAsAJumpThereDoes()
+    {
+        var h = Build(Big, Small);
+        Move(h, 79);
+        PinTheTriangle(h);
+
+        string stepped = Move(h, 80);
+        Assert.StartsWith("Ascending triangle confirmed here", stepped);
+        Assert.DoesNotContain("ouble bottom", stepped);
+        Assert.EndsWith("Plus 1 more formation here.", stepped);
+
+        Move(h, 30);
+        Assert.Equal(stepped, Move(h, 80));
+    }
+
+    /// <summary>
     /// Cody, 2026-11-13, TAO/USDT 1h: he chose a double top with semicolon and then "can't use ,
     /// and . to move around the chart patterns anymore". The choice used to confine the jump keys
     /// to the chosen formation's two edges. Now it decides only what is said at the bar: choose
@@ -320,30 +378,37 @@ public sealed class ChartPatternPinNarrationTests
         => string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
 
     /// <summary>
-    /// A stop that is one formation's start names that formation, even with another chosen and in
-    /// play there; the choice is named at its own start and end. Cody first asked for the choice
-    /// at the head and shoulders' start ("it should name the formation i selected"), then, the
-    /// same day: "I just want to hear about the formation at the bar i land on, that's it, the
-    /// start, the end whether it was confirmed or not ... I don't want to hear about another
-    /// pattern that isn't the pattern start/end I landed on."
+    /// Cody's steps, 2026-11-13: comma back to "start of inverse head and shoulders", semicolon
+    /// to the double top, move away, move back — and it still said the inverse head and
+    /// shoulders. "when I move away from that pattern and move back or to the end of the pattern
+    /// ... the one I selected using ; should be what is read and drawn." Wherever the chosen
+    /// formation is at the bar, a jump and an arrow step onto a start or end read it; the
+    /// formation starting there is named only as the one it sits in.
     /// </summary>
     [Fact]
-    public void AStopNamesTheFormationThatStartsThereWhateverIsChosen()
+    public void AfterSemicolonTheChosenFormationIsReadOnEveryBarItIsOn()
     {
         var (ihs, top, wedge) = TaoChart();
         var h = Build(ihs, top, wedge);
 
-        Move(h, 80);
+        Assert.StartsWith("Start of possible inverse head and shoulders", Move(h, 80));
         h.Navigator.CycleFocus();                                   // the double top
 
-        Assert.StartsWith("Start of possible double top", Move(h, 72));   // comma: the double top's own start
-        string back = Move(h, 80);                                  // period: the head and shoulders' start
-        Assert.StartsWith("Start of possible inverse head and shoulders", back);
-        Assert.DoesNotContain("ouble top", back);
-        Assert.DoesNotContain("more formation", back);              // the double top only passes through
+        Move(h, 30);                                                // away
+        string back = Move(h, 80);                                  // comma back
+        Assert.Equal("Possible double top forming, neckline 95.00. "
+                   + "Possible double top inside possible inverse head and shoulders.", back);
 
-        Assert.StartsWith("Double top confirmed here", Move(h, 100));     // its own end: its outcome
-        Move(h, 90);                                                // backslash-like: no one's start or end
+        Move(h, 78);
+        Move(h, 79);
+        string stepped = Move(h, 80);                               // an arrow step onto it
+        Assert.Equal(back, stepped);
+
+        Assert.StartsWith("Start of possible double top", Move(h, 72));   // its own start
+        Assert.StartsWith("Double top confirmed here", Move(h, 100));     // its own end
+        Move(h, 98);
+        Move(h, 99);
+        Assert.StartsWith("Double top confirmed here", Move(h, 100));     // stepping onto its end
         Assert.StartsWith("Possible double top forming", Move(h, 85));
     }
 

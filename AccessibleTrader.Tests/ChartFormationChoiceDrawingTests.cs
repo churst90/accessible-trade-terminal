@@ -87,15 +87,16 @@ public sealed class ChartFormationChoiceDrawingTests
 
     /// <summary>
     /// On a formation's first bar the speech names that formation, so the drawing leads with it,
-    /// though a bigger one is at the cursor too — and though the choice is in play there (80).
+    /// though a bigger one is at the cursor too (120); but where the choice is at the cursor it
+    /// leads, even on another formation's first bar (80), as it does in the speech.
     /// </summary>
     [Fact]
-    public void OnAFormationsStartTheDrawingLeadsWithIt()
+    public void OnAFormationsStartTheDrawingLeadsWithItUnlessTheChoiceIsThere()
     {
         var frame = new ChartFrameRenderer(null, patternFocus: ChooseTheDoubleTop());
 
         Assert.Equal(new[] { Wedge.Identity, Ihs.Identity }, frame.Lead(At(120), All).Lead);
-        Assert.Equal(new[] { Ihs.Identity, Top.Identity }, frame.Lead(At(80), All).Lead);
+        Assert.Equal(new[] { Top.Identity, Ihs.Identity }, frame.Lead(At(80), All).Lead);
     }
 
     /// <summary>With nothing chosen the drawing leads with what the readout leads with at the cursor.</summary>

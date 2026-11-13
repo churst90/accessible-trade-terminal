@@ -30,18 +30,23 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
-- [ ] **Formation choice sticky and saved; a stop names its own formation (2026-11-13, Cody's requests;
-  NOT heard or seen; see CHANGES).** `;` / `Shift+;` choices stay until changed, wherever the cursor goes
-  and across restarts (settings.json per chart). A `,` `.` stop names the formation that starts or ends
-  there, the same as an arrow step; the choice wins only among formations starting or ending on that bar,
-  or on a landing that is no one's edge (Home, End, `\`). A choice not at the bar is never mentioned. The
-  chart labels the formation being read fully, and the choice "chosen:". Cody to try on MEXC TAO/USDT 1h:
-  - with the double top chosen, `.` to the falling wedge's start (Nov 13 02:00 UTC): "Start of possible
-    falling wedge forming";
-  - the ascending triangle's start and end (Nov 10 12:00, Nov 11 22:00 UTC): that triangle;
-  - End: "Possible inverse head and shoulders forming".
-  - Open, mine: on a bar where two formations end together, an arrow step reads both endings and a jump
-    reads one and "Plus 1 more". Make the arrows read one too?
+- [ ] **Formation choice sticky, saved, read and drawn wherever it is on the bar (2026-11-13, Cody's
+  requests; NOT heard or seen; see CHANGES).**
+  - `;` / `Shift+;` choices stay until changed, wherever the cursor goes and across restarts
+    (settings.json per chart).
+  - On every bar the chosen formation is on, `,` `.` stops and arrow steps onto a start or end read it,
+    and the chart draws it first, labelled "chosen:".
+  - Off its bars it is never mentioned. A stop there names the formation starting there, else the one
+    ending.
+  - Arrow steps say word for word what a jump says on every start and end.
+  - Cody to try on MEXC TAO/USDT 1h:
+    - `,` to the inverse head and shoulders' start (Nov 10 08:00 UTC), then `;` to the double top;
+    - move away and back, by `,` `.` and by arrows: "Possible double top forming ... inside possible
+      inverse head and shoulders";
+    - its end (Nov 12 11:00 UTC): "Double top confirmed here";
+    - the falling wedge's start (Nov 13 02:00 UTC): the wedge only.
+  - Open, mine: inside a chosen formation every `,` `.` stop names it, and only the "Plus N more" changes.
+    Does Cody want those stops to also say which formation starts or ends there?
 
 - [ ] **Chart formation keys reworked (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
   = next / previous formation at the bar (the choice is now sticky, above), `,` / `.` always
