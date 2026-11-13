@@ -128,10 +128,33 @@ sticky until I intentionally change it. if I close the terminal and reopen it, t
 stay selected. It should stay regardless of where I navigate to."* Now only `;` changes it, it is
 saved per chart in settings.json (`charts.formationChoices`: kind and the shape's two dates, as UTC
 ticks, so a backfill or a shed oldest bar does not lose it), and it leads on every bar the chosen
-formation is in play. On bars it is not in play, the default ranking reads and the choice waits;
-`;` there moves from what is being read. The default ranking is still forming first, then biggest —
-not newest, which is why a newer falling wedge reads after an older, larger inverse head and
-shoulders until `;` picks it.
+formation is in play. The default ranking is still forming first, then biggest, not newest.
+
+**The choice is what a jump reads, and what the chart draws (later still on 2026-11-13).** Sticky
+was not enough: Cody chose the double top at the inverse head and shoulders' start, pressed `,`
+then `.` back to that bar, and heard the inverse head and shoulders. The landing named whatever
+started at the stop. End named it too, the double top being over by then. *"it should name the
+formation i selected"*. Now every jump names the choice:
+- On its bars: its own start or end when the stop is that, otherwise its description and the
+  nesting.
+- Off them: where it stands, then a count of what is here. After it: *"Double top confirmed 24 bars
+  back: …"*. Before it: *"Double top starts N bars ahead."*. Nothing is said from before the outcome.
+
+`;` with the choice absent starts from the first formation at the bar, since none was read as the
+choice. A lone formation there can be chosen.
+
+Single arrow steps still announce the edges they cross, the choice or not: the formation does begin
+on that bar. That is an open question in TODO.
+
+Cody also asked that the picture agree: *"whatever pattern is selected, it must visually on screen
+on the chart be correct as well as correct through speech"*. `ChartFrameRenderer.Lead` hands the
+formation layer the readout's order: the choice, then the formations at the cursor as ranked there.
+The layer draws those first, so the one fully labelled is the one being read, and labels the
+choice "chosen:". `;` publishes a `RedrawEvent`, since nothing in the store changes.
+
+The real-chart run also showed a counting bug: a formation beside the leader, not inside it, formed
+its own one-shape nesting chain. That chain says nothing but was treated as named, so the overlap
+note dropped it.
 
 **Landing inside nested formations names the nesting.** On a jump that lands mid-formation (and on
 `\`, which enters the chart that way), the leader is described and then the chain from the smallest

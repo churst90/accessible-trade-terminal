@@ -1274,8 +1274,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // path, the entry announcement and the overlap count.
             //
             // The choice is sticky: it stays until semicolon picks another, wherever the user goes
-            // and across restarts. On bars the chosen formation is not on, the size ranking reads
-            // as usual and the choice waits. Cody, 2026-11-13: "it should be sticky until I
+            // and across restarts. A jump off the chosen formation's bars still names it (see
+            // ChosenElsewhere); a single step there reports the edges it crosses as usual. Cody, 2026-11-13: "it should be sticky until I
             // intentionally change it ... It should stay regardless of where I navigate to." (The
             // same morning it was dropped on the first bar off the formation; Home then End lost it.)
             string chartKey = ChartPatternCache.KeyFor(state.Identity);
@@ -1287,6 +1287,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // at — say which, so a jump reads the same way a step onto the same bar would.
             if (prev < 0 || Math.Abs(idx - prev) != 1)
             {
+                // The chosen formation is what a jump names, wherever it lands. Cody, 2026-11-13:
+                // "it should name the formation i selected" — he chose the double top at the
+                // inverse head and shoulders' start, pressed comma then period back to the same
+                // bar, and heard the inverse head and shoulders again because the start bar
+                // named the formation starting there; End named it too, the double top being
+                // over by then. Off its bars the choice is still named, by where it stands.
+                var chosen = _patternFocus.PinnedIn(chartKey, all);
+                if (chosen != null && !atBar.Any(p => p.Identity.Equals(chosen.Identity)))
+                    return ChosenElsewhere(chosen, idx) + OverlapNote(here.Count + 1);
+                if (chosen != null)
+                {
+                    // In play: here[0] is the choice (Apply floated it). Its own start or end
+                    // when the stop is that; otherwise the usual reading of the leader.
+                    var lead = here[0];
+                    if (lead.KnownAtIndex == idx)
+                        return ChartPatternNarrator.DescribeEntry(lead, idx, SpeechPriceFormatter.FormatPrice)
+                             + ChartPatternNarrator.DescribeContainment(lead, all, idx)
+                             + OverlapNote(here.Count);
+                    if (lead.ResolvesAt == idx)
+                    {
+                        string res = ChartPatternNarrator.DescribeResolution(lead, SpeechPriceFormatter.FormatPrice);
+                        if (!string.IsNullOrEmpty(res)) return res + OverlapNote(here.Count);
+                    }
+                    return DescribeLeaderAndNesting(here);
+                }
+
                 if (here.Count == 0) return "";
 
                 var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
@@ -1310,11 +1336,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // one"). The leader is the largest, so without it a shape inside it went unnamed
                 // behind "plus 1 more formation here". The note then counts only what neither
                 // sentence named.
-                var nest = ChartPatternNarrator.Nesting(here);
-                var named = nest.Select(p => p.Key).Append(here[0].Key).ToHashSet();
-                return ChartPatternNarrator.Describe(here[0], SpeechPriceFormatter.FormatPrice)
-                     + ChartPatternNarrator.DescribeNesting(nest)
-                     + OverlapNote(1 + here.Count(p => !named.Contains(p.Key)));
+                return DescribeLeaderAndNesting(here);
             }
 
             if (here.Count == 0) return "";
@@ -1365,6 +1387,38 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             return string.Join(" ", parts);
         }
+
+        private static string DescribeLeaderAndNesting(IReadOnlyList<ChartPattern> here)
+        {
+            var nest = ChartPatternNarrator.Nesting(here);
+            // A chain of one is not spoken (DescribeNesting needs two), so it names nothing: on
+            // the real TAO/USDT 1h last bar the falling wedge beside the head and shoulders was
+            // its own one-shape chain and dropped out of the count, so "plus 1 more" went unsaid.
+            var named = (nest.Count > 1 ? nest.Select(p => p.Key) : Enumerable.Empty<(ChartPatternKind, int, int, int)>())
+                .Append(here[0].Key).ToHashSet();
+            return ChartPatternNarrator.Describe(here[0], SpeechPriceFormatter.FormatPrice)
+                 + ChartPatternNarrator.DescribeNesting(nest)
+                 + OverlapNote(1 + here.Count(p => !named.Contains(p.Key)));
+        }
+
+        /// <summary>
+        /// The chosen formation, named from a bar it is not on: "Double top confirmed 25 bars
+        /// back: …" after it, "Double top starts 8 bars ahead." before it. Its outcome only from
+        /// a bar after the outcome, so a jump back in history never hears the future.
+        /// </summary>
+        private static string ChosenElsewhere(ChartPattern chosen, int idx)
+        {
+            string name = ChartPatternNarrator.Name(chosen.Kind);
+            name = char.ToUpperInvariant(name[0]) + name[1..];
+            if (idx < chosen.KnownAtIndex)
+                return $"{name} starts {Bars(chosen.KnownAtIndex - idx)} ahead.";
+            string back = $"{Bars(idx - chosen.ResolvesAt)} back";
+            string res = ChartPatternNarrator.DescribeResolution(
+                ChartPatternNarrator.AsOf(chosen, idx), SpeechPriceFormatter.FormatPrice, back);
+            return string.IsNullOrEmpty(res) ? $"{name} ended {back}." : res;
+        }
+
+        private static string Bars(int n) => n == 1 ? "1 bar" : $"{n} bars";
 
         /// <summary>
         /// How the terminal admits that a region satisfies more than one definition at once.

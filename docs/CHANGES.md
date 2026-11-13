@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart formations: the `;` choice is what is read and drawn, everywhere (2026-11-13, Cody's request)
+
+- **What Cody hit** (MEXC TAO/USDT 1h, local build, after a restart): at the inverse head and shoulders'
+  start he pressed `;` and heard the double top. Then `,` and `.` back to the same bar said the inverse head
+  and shoulders again, and so did End. The next `;` said "inverse head and shoulders, 1 of 2", having moved
+  on from the double top that was never read. His words: "it should name the formation i selected ... if I
+  press ; and it changes the recognized pattern, it needs to stay that way". Then: "whatever pattern is
+  selected, it must visually on screen on the chart be correct as well as correct through speech".
+- **What changed (speech):**
+  - A jump (`,` `.` End `\` Home) names the chosen formation wherever it lands.
+    - On its bars: its own start or end when the stop is that; otherwise its description and the nesting.
+      The stop that is another formation's start no longer names that other formation.
+      On the TAO chart, `.` back to Nov 10 08:00 UTC now says "Possible double top forming, neckline
+      212.00 ... Possible double top inside possible inverse head and shoulders."
+    - Off its bars: where it stands, then a count of what is here. At the TAO chart's last bar this is
+      "Double top confirmed 24 bars back: downward breakout, closed below the neckline at 212.00, measured
+      target 196.67. Plus 2 more formations here."
+    - Before the chosen formation is recognisable: "Double top starts N bars ahead." Its outcome is never
+      said from a bar before the outcome.
+  - `;` where the choice is not in play starts from the first formation at the bar (`Shift+;` the last),
+    since none of them was read as the choice. At End with the double top chosen, `;` now says
+    "Leading with inverse head and shoulders, 1 of 2".
+  - `;` on a bar with one formation, while the choice is elsewhere, chooses that one. It used to say "Only
+    one formation here" and leave the choice where it was.
+  - Fixed on the way: a formation beside the leader but not inside it went uncounted on a jump. At the TAO
+    chart's last bar the inverse head and shoulders was read and the falling wedge was never mentioned. Now
+    the readout ends "Plus 1 more formation here."
+- **What changed (drawing, Settings → Appearance → formation visuals):**
+  - The chart draws formations in the speech's order: the choice first, wherever the cursor is, then the
+    formations at the cursor as ranked there, then the rest by size. Only the first is fully labelled, so
+    the one with its levels and target labelled is the one being read. Before, the drawing ranked by size
+    alone and could fully label a different formation from the one spoken.
+  - The chosen formation's line label begins "chosen:".
+  - `;` repaints the chart straight away. Before, the picture waited for the next move.
+- **Caveats:**
+  - A single arrow-key step still reports the edges it crosses. Stepping onto the inverse head and
+    shoulders' first bar still says "Start of possible inverse head and shoulders" with the double top
+    chosen, because that formation really begins there. Only jumps changed.
+  - The drawing shows at most three formations, and only those overlapping the screen. A chosen formation
+    scrolled off screen is not drawn, though the speech still names it.
+  - The real-chart readouts above come from a test run on the MEXC bars saved this morning (500 bars to
+    Nov 13). Not heard or seen by Cody yet.
+
 ### Chart formations: the `;` choice is sticky and survives a restart (2026-11-13, Cody's request)
 
 - **What Cody hit** (MEXC TAO/USDT 1h, local build): he chose the falling wedge with `;` at the newest bar,
@@ -25,8 +68,8 @@ All notable changes to this project will be documented in this file.
     choice being lost: coming back to the double top's bars finds it leading.
   - The default order is not newest first. At the newest bar the falling wedge is the most recently
     recognised formation, but the larger inverse head and shoulders reads first until `;` picks the wedge.
-  - A `,` / `.` stop still names the formation whose start or end it is, even when another formation is the
-    choice. That is what the stop is for; whether the choice should win there is an open question in TODO.
+  - A `,` / `.` stop still named the formation whose start or end it is, even when another formation was the
+    choice. Cody answered that the same day: the choice wins (entry above).
   - Not heard by Cody yet. The hosted demo never writes settings.json, so there the choice lasts the visit.
 
 ### Chart formations: `;` only changes what is said at the bar; `,` and `.` reach every formation; landings name the nesting (2026-11-13, Cody's request)

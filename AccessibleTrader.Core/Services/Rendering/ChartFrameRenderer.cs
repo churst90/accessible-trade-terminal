@@ -41,15 +41,18 @@ namespace AccessibleTrader.Core.Services.Rendering
         private readonly ChartRenderer? _renderer;
         private readonly Analysis.IChartPatternCache? _patternCache;
         private readonly IAppSettings? _settings;
+        private readonly Analysis.IChartPatternFocus? _patternFocus;
 
         public ChartFrameRenderer(
             ChartRenderer? renderer,
             Analysis.IChartPatternCache? patternCache = null,
-            IAppSettings? settings = null)
+            IAppSettings? settings = null,
+            Analysis.IChartPatternFocus? patternFocus = null)
         {
             _renderer = renderer;
             _patternCache = patternCache;
             _settings = settings;
+            _patternFocus = patternFocus;
         }
 
         public void Render(SKCanvas canvas, int width, int height, WorkspaceState state, float density)
@@ -61,18 +64,21 @@ namespace AccessibleTrader.Core.Services.Rendering
             // freezes the session. Keep the last good frame instead.
             try
             {
+                var formations = Formations(state.Identity, state.Data);
+                var (lead, chosen) = Lead(state, formations);
                 _renderer?.Render(
                     canvas, width, height, state.Data, state.ActiveSeries, state.CurrentDataIndex,
                     state.ViewportStartIndex, state.ViewportLength, state.ViewportRange, state.PaneRanges,
                     state.IsHeikinAshi, state.IsLogScale, density, state.PaneHeightRatios,
-                    state.RightMarginBars, Formations(state.Identity, state.Data),
+                    state.RightMarginBars, formations,
                     // So an indicator pane's crosshair badge reads the component the user is on.
                     state.FocusedSeriesId, state.FocusedComponentIndex,
                     // So the price pane's status block is measured with its symbol line.
                     state.Identity,
                     // So each pane's status band is as tall as the DOM text ChartArea draws in
                     // it, which grows with Settings > Appearance > Text size.
-                    (_settings?.UiScale ?? 100) / 100f);
+                    (_settings?.UiScale ?? 100) / 100f,
+                    lead, chosen);
             }
             catch { /* keep the last good frame */ }
         }
@@ -87,6 +93,29 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// pans.
         /// </para>
         /// </summary>
+        internal (IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? Lead,
+                  (Analysis.ChartPatternKind, DateTime, DateTime)? Chosen)
+            Lead(WorkspaceState state, IReadOnlyList<Analysis.ChartPattern>? formations)
+        {
+            if (formations == null || formations.Count == 0) return (null, null);
+
+            // The order the speech reads in at the cursor: the semicolon choice first, wherever it
+            // is (AccessibilityFeedbackCoordinator names it even from bars it is not on), then the
+            // formations at the cursor as ranked there. The layer draws these first, so the
+            // fully-labelled formation is the one being read. Cody, 2026-11-13: "whatever pattern
+            // is selected, it must visually on screen on the chart be correct as well as correct
+            // through speech".
+            string key = Analysis.ChartPatternCache.KeyFor(state.Identity);
+            var chosen = _patternFocus?.PinnedIn(key, formations);
+            var here = Analysis.ChartPatternNarrator.ByDominance(
+                Analysis.ChartPatternNarrator.AtBar(formations, state.CurrentDataIndex));
+            var lead = new List<(Analysis.ChartPatternKind, DateTime, DateTime)>();
+            if (chosen != null) lead.Add(chosen.Identity);
+            foreach (var p in here)
+                if (!lead.Contains(p.Identity)) lead.Add(p.Identity);
+            return (lead, chosen?.Identity);
+        }
+
         private IReadOnlyList<Analysis.ChartPattern>? Formations(ChartIdentity id, IReadOnlyList<Ohlcv>? data)
         {
             if (_patternCache == null || data == null) return null;

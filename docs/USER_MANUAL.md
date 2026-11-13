@@ -1976,9 +1976,16 @@ standing in.
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
 swap them). The one you pick stays chosen until you pick another, wherever you go on the
-chart, and it is still chosen after you close and reopen the terminal. It is described first on
-every bar it is in play; on bars it is not, the default order reads (still forming first, then
-largest — not newest) until you come back to it. The default ranking exists
+chart, and it is still chosen after you close and reopen the terminal. Every jump names it: `,`,
+`.`, `Home`, `End` and `\`. On its own bars it is described first, even at a stop that is another
+formation's start. From a bar after it, you hear how it ended and how many bars back ("Double top
+confirmed 24 bars back …"). From a bar before it, you hear how far ahead it starts. Either way the
+formations in play at the bar are counted after it. Only a single arrow-key step onto
+another formation's first or last bar names that formation, because it really begins or ends there.
+With the choice not at the bar, `;` starts from the first formation here (`Shift+;` from the last).
+With formation visuals on, the chart draws the chosen formation first and fully labelled, its line
+label starting "chosen:", so what is on screen matches what you hear. Without a choice, the default
+order is still forming first, then largest, not newest. The default ranking exists
 because size is the only ordering that is not a directional opinion — but your setup may
 well be built on the small one, and the terminal has no business insisting otherwise.
 Nothing is hidden either way.

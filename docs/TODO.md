@@ -30,11 +30,15 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
-- [ ] **Formation choice sticky + saved (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
-  choices now stay until changed, wherever the cursor goes and across restarts (settings.json per chart).
-  Cody to try Home/End and a restart on MEXC TAO/USDT 1h. Open, for Cody: at a `,` / `.` stop that is
-  ANOTHER formation's start or end, the stop's own formation is named even when a different one is chosen —
-  should the choice win there too?
+- [ ] **Formation choice sticky, saved, read and drawn (2026-11-13, Cody's requests; NOT heard or seen; see
+  CHANGES).** `;` / `Shift+;` choices stay until changed, wherever the cursor goes and across restarts
+  (settings.json per chart). Every jump (`,` `.` End `\` Home) names the choice, on its bars or off them,
+  and the chart draws it first, labelled "chosen:". Cody to try on MEXC TAO/USDT 1h:
+  - restart; at Nov 10 08:00 UTC, `;` to the double top;
+  - `,` then `.`: should say "Possible double top forming";
+  - End: should say "Double top confirmed 24 bars back".
+  - Open, mine: a single arrow step onto another formation's first bar still says "Start of" that formation,
+    because it really begins there. Should the choice win on steps too?
 
 - [ ] **Chart formation keys reworked (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
   = next / previous formation at the bar (the choice is now sticky, above), `,` / `.` always

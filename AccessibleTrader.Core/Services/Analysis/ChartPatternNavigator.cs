@@ -79,16 +79,22 @@ namespace AccessibleTrader.Core.Services.Analysis
                     "No chart formation at this bar to choose from."));
                 return;
             }
-            if (here.Count == 1)
+            string chartKey = ChartPatternCache.KeyFor(state.Identity);
+
+            // One formation and nothing else chosen: it is already the one read. With a choice
+            // elsewhere on the chart, the lone formation here is a real change of choice.
+            if (here.Count == 1 && (!_focus.IsPinned(chartKey) || _focus.PinnedIn(chartKey, here) != null))
             {
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
                     $"Only one formation here: {ChartPatternNarrator.Name(here[0].Kind)}."));
                 return;
             }
 
-            string chartKey = ChartPatternCache.KeyFor(state.Identity);
             var picked = _focus.CycleAt(chartKey, here, forward);
             if (picked == null) return;
+            // The choice is drawn too (ChartFrameRenderer leads the formation layer with it), and
+            // nothing in the store changed, so the chart has to be told to repaint.
+            _eventBus.Publish(new RedrawEvent());
 
             // The containment clause is what tells nested formations apart by ear: "2 of 3" alone
             // does not say whether the shape now leading is the parent or a piece of it. Reported

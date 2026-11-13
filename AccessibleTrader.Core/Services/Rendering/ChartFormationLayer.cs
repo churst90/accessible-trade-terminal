@@ -46,7 +46,17 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         internal const int MaxDrawn = 3;
 
-        public void Render(RenderContext ctx, IReadOnlyList<ChartPattern> formations)
+        /// <param name="lead">
+        /// The formations the spoken readout names at the cursor, in its order — the semicolon
+        /// choice first (see ChartFrameRenderer.Lead). Those on screen draw first, so the one
+        /// fully labelled is the one being read. Cody, 2026-11-13: "whatever pattern is selected,
+        /// it must visually on screen on the chart be correct as well as correct through speech".
+        /// Null or empty: dominance alone, as before.
+        /// </param>
+        /// <param name="chosen">The semicolon choice, whose name label says "chosen".</param>
+        public void Render(RenderContext ctx, IReadOnlyList<ChartPattern> formations,
+            IReadOnlyList<(ChartPatternKind, DateTime, DateTime)>? lead = null,
+            (ChartPatternKind, DateTime, DateTime)? chosen = null)
         {
             if (formations.Count == 0) return;
             // Formations describe price, so they belong on the price pane and nowhere else.
@@ -57,17 +67,45 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // Only formations whose span overlaps what is on screen, ranked so the one drawn most
             // prominently is the one the readout would have led with.
-            var onScreen = ChartPatternNarrator.ByDominance(
-                    formations.Where(p => p.EndBarIndex >= firstVisible && p.StartBarIndex <= lastVisible))
-                .Take(MaxDrawn)
-                .ToList();
+            var visible = formations.Where(p => p.EndBarIndex >= firstVisible && p.StartBarIndex <= lastVisible).ToList();
+            var onScreen = Ordered(visible, lead).Take(MaxDrawn).ToList();
 
             // Labels are placed with knowledge of the ones already drawn, so three formations whose
             // triggers sit at nearly the same price do not overprint into an unreadable smear —
             // which is exactly what the first version produced on a real BTC chart.
             var takenLabelRows = new List<float>();
+            var drawn = new List<(ChartPattern, bool)>();
             for (int rank = 0; rank < onScreen.Count; rank++)
-                Draw(ctx, onScreen[rank], firstVisible, lastVisible, takenLabelRows, LabelsEverything(rank));
+            {
+                bool isChosen = chosen is { } c && onScreen[rank].Identity.Equals(c);
+                Draw(ctx, onScreen[rank], firstVisible, lastVisible, takenLabelRows, LabelsEverything(rank), isChosen);
+                drawn.Add((onScreen[rank], isChosen));
+            }
+            LastDrawn = drawn;
+        }
+
+        /// <summary>
+        /// The formations the last price pane drew, in order, each with whether it was labelled
+        /// "chosen" — read by ChartFormationChoiceDrawingTests, since a picture cannot say which
+        /// shape it put first.
+        /// </summary>
+        internal IReadOnlyList<(ChartPattern Pattern, bool Chosen)> LastDrawn { get; private set; }
+            = Array.Empty<(ChartPattern, bool)>();
+
+        /// <summary>
+        /// The drawing order: the <paramref name="lead"/> formations on screen first, in the
+        /// readout's order, then the rest by <see cref="ChartPatternNarrator.ByDominance"/>.
+        /// </summary>
+        internal static IEnumerable<ChartPattern> Ordered(IReadOnlyList<ChartPattern> visible,
+            IReadOnlyList<(ChartPatternKind, DateTime, DateTime)>? lead)
+        {
+            var first = new List<ChartPattern>();
+            foreach (var id in lead ?? Array.Empty<(ChartPatternKind, DateTime, DateTime)>())
+            {
+                var p = visible.FirstOrDefault(v => v.Identity.Equals(id));
+                if (p != null && !first.Contains(p)) first.Add(p);
+            }
+            return first.Concat(ChartPatternNarrator.ByDominance(visible.Where(v => !first.Contains(v))));
         }
 
         /// <summary>
@@ -81,7 +119,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static bool LabelsEverything(int rank) => rank == 0;
 
         private static void Draw(RenderContext ctx, ChartPattern p, int firstVisible, int lastVisible,
-            List<float> takenLabelRows, bool labelLevels)
+            List<float> takenLabelRows, bool labelLevels, bool isChosen = false)
         {
             // Every colour below comes from FormationInk: the accent, lifted only as far as this
             // theme's chart needs for the text to reach 4.5:1 and the lines 3:1 (see there).
@@ -188,7 +226,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 Color = ink.Trigger,
             };
             ctx.Canvas.DrawLine(xLevels, yTrigger, xTriggerEnd, yTrigger, trigger);
-            Label(ctx, TriggerLabel(p), xLevels + 4 * ctx.Density, xTriggerEnd, yTrigger, ink.Text, ink.Plate, takenLabelRows);
+            Label(ctx, TriggerLabel(p, isChosen), xLevels + 4 * ctx.Density, xTriggerEnd, yTrigger, ink.Text, ink.Plate, takenLabelRows);
 
             // A range has a second boundary and it is every bit as real as the first.
             if (p.SecondaryLevel is double bottom && IsOnScreen(ctx, bottom))
@@ -239,6 +277,13 @@ namespace AccessibleTrader.Core.Services.Rendering
         // and the target says "measured" as the speech does. Internal so the tests read these.
 
         /// <summary>"rising wedge trigger 74,508.12, downward breakout" — the solid line.</summary>
+        /// <param name="chosen">
+        /// The semicolon choice: prefixed "chosen:", so a sighted reader can tell which of the
+        /// shapes drawn is the one the speech is reading.
+        /// </param>
+        internal static string TriggerLabel(ChartPattern p, bool chosen)
+            => (chosen ? "chosen: " : "") + TriggerLabel(p);
+
         internal static string TriggerLabel(ChartPattern p)
         {
             string name = ChartPatternNarrator.Name(p.Kind);

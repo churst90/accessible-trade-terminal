@@ -160,14 +160,21 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 EnsureLoaded();
 
-                // With nothing chosen, or the choice not at this bar, the LEADER is current — it is
-                // the one the readout is already naming. Starting from "none" made the first press
-                // choose the leader and say "1 of 2": the formation the user had just heard, so the
-                // key appeared to do nothing. The first press now moves to the second formation.
+                // With nothing chosen, the LEADER is current — it is the one the readout is
+                // already naming. Starting from "none" made the first press choose the leader and
+                // say "1 of 2": the formation the user had just heard, so the key appeared to do
+                // nothing. The first press now moves to the second formation.
+                //
+                // With a choice that is not at this bar, the readout names that choice, not the
+                // leader, so the first press lands on the first formation here (the last, going
+                // back): none of them has been heard as the choice yet.
                 int current = 0;
                 if (_pinned.TryGetValue(chartKey, out var key))
+                {
+                    current = forward ? -1 : ranked.Count;
                     for (int n = 0; n < ranked.Count; n++)
                         if (ranked[n].Identity.Equals(key)) { current = n; break; }
+                }
 
                 int next = ((forward ? current + 1 : current - 1) % ranked.Count + ranked.Count) % ranked.Count;
                 _pinned[chartKey] = ranked[next].Identity;

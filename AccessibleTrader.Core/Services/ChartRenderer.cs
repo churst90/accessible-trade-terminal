@@ -36,6 +36,10 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private readonly ChartFormationLayer _formationLayer = new();
         private IReadOnlyList<Analysis.ChartPattern>? _frameFormations;
+        private IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? _frameFormationLead;
+        private (Analysis.ChartPatternKind, DateTime, DateTime)? _frameFormationChosen;
+        // Read by ChartFormationChoiceDrawingTests to prove the choice reaches the drawing.
+        internal ChartFormationLayer FormationLayer => _formationLayer;
 
         // The frame's whole series list, for the price-chart background tints: a component in
         // ANY pane may tint the price chart (Rendering.BackgroundTintPainter), and RenderPane
@@ -226,7 +230,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
         /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
         /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null)
         {
             try
             {
@@ -277,6 +281,8 @@ namespace AccessibleTrader.Core.Services
                 canvas.Clear(_theme.Background);
 
                 _frameFormations = formations;
+                _frameFormationLead = formationLead;
+                _frameFormationChosen = formationChosen;
                 // Background tints are declared per component now (BackgroundTintPainter), not
                 // found here by name: Cipher B's "Anchor Polarity" (removed from Cipher B on 2026-10-31) and
                 // Top/Bottom Detector's "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
@@ -517,7 +523,7 @@ namespace AccessibleTrader.Core.Services
             // ...and place their labels off the numbers the value labels printed (DBSI-style's
             // scores), as they keep off candle ink.
             if (paneName == "Main" && _frameFormations is { Count: > 0 })
-                _formationLayer.Render(ctx with { TextObstacles = ValueLabelRenderer.Plates(ctx, nonProfileSeries) }, _frameFormations);
+                _formationLayer.Render(ctx with { TextObstacles = ValueLabelRenderer.Plates(ctx, nonProfileSeries) }, _frameFormations, _frameFormationLead, _frameFormationChosen);
 
             // The POC is a level, read against the candles for the same reason as a formation's.
             if (profileSeries.Count > 0) _profileLayer.RenderPoc(ctx, profileSeries);
