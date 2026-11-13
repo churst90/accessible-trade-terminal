@@ -30,8 +30,14 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Formation choice sticky + saved (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
+  choices now stay until changed, wherever the cursor goes and across restarts (settings.json per chart).
+  Cody to try Home/End and a restart on MEXC TAO/USDT 1h. Open, for Cody: at a `,` / `.` stop that is
+  ANOTHER formation's start or end, the stop's own formation is named even when a different one is chosen —
+  should the choice win there too?
+
 - [ ] **Chart formation keys reworked (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
-  = next / previous formation at the bar, the choice drops itself off that formation's bars, `,` / `.` always
+  = next / previous formation at the bar (the choice is now sticky, above), `,` / `.` always
   reach every formation, and a landing inside nested formations says "possible falling wedge inside possible
   double top". Cody to try it on TAO/USDT 1h, where he hit the old pin. Open, mine: should an arrow-key step
   into a nested formation also say the whole chain rather than only the immediate parent with its date?

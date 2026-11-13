@@ -1,3 +1,5 @@
+using Newtonsoft.Json.Linq;
+
 namespace AccessibleTrader.Core.Services.Analysis
 {
     /// <summary>
@@ -18,18 +20,20 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// </para>
     ///
     /// <para>
-    /// <b>The choice belongs to the bars, not the chart (Cody, 2026-11-13).</b> It used to be a
-    /// pin that lasted until Shift+semicolon released it, and while it lasted comma and period
-    /// visited only the pinned formation's two edges — so after choosing a double top on TAO/USDT
-    /// 1h the jump keys could reach nothing else, and his words were "I'm still not understanding
-    /// why i need to pin a chart pattern ... I thought ; just cycled between the possible chart
-    /// patterns." Now semicolon and Shift+semicolon only step forward and back through the
-    /// formations at the bar, the jump keys always reach every formation, and the readout drops
-    /// the choice by itself (<see cref="Clear"/>) on the first bar the chosen formation is not on.
+    /// <b>The choice is sticky (Cody, 2026-11-13).</b> It began as a pin that also confined
+    /// comma and period to the pinned formation's two edges, so after choosing a double top on
+    /// TAO/USDT 1h the jump keys could reach nothing else ("I thought ; just cycled between the
+    /// possible chart patterns"). The confinement went, and the choice was then dropped on the
+    /// first bar the chosen formation was not on — so Home and End lost it, and he asked for the
+    /// opposite: "it should be sticky until I intentionally change it. if I close the terminal and
+    /// reopen it, that choice should stay selected. It should stay regardless of where I navigate
+    /// to." Now only semicolon changes it, it is saved to settings.json per chart
+    /// (<see cref="SettingsKeys.ChartFormationChoices"/>), and on bars the chosen formation is not
+    /// on the size ranking reads as usual while the choice waits.
     /// </para>
     ///
     /// <para>
-    /// The pin is held as a <see cref="ChartPattern.Identity"/> rather than a record, because the
+    /// The choice is held as a <see cref="ChartPattern.Identity"/> rather than a record, because the
     /// record is re-derived on every bar (the narrator projects each formation to the state it held
     /// at the bar being described) while the Identity is stable across those projections.
     /// </para>
@@ -68,10 +72,9 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// nothing is pinned or the pinned shape is not in that set.
         ///
         /// <para>
-        /// The readout asks this with the formations at the bar it is describing, and drops the
-        /// choice when the answer is null: the user has moved off the formation they chose.
-        /// (It once scoped the jump keys to the pinned formation's two edges instead; see the
-        /// type's remarks for why that went.)
+        /// Null is not a reason to drop the choice: the user is only somewhere the chosen
+        /// formation is not. (It once scoped the jump keys to the pinned formation's two edges,
+        /// and later dropped the choice on the first bar off it; see the type's remarks.)
         /// </para>
         /// </summary>
         ChartPattern? PinnedIn(string chartKey, IEnumerable<ChartPattern> candidates);
@@ -83,6 +86,46 @@ namespace AccessibleTrader.Core.Services.Analysis
         // about one instrument's structure and means nothing on another.
         private readonly Dictionary<string, (ChartPatternKind, DateTime, DateTime)> _pinned = new(StringComparer.Ordinal);
         private readonly object _gate = new();
+        private readonly ISettingsManager? _settings;
+        private bool _loaded;
+
+        public ChartPatternFocus() { }
+
+        /// <param name="settings">Where the choices are kept across restarts; none in tests that
+        /// only need the in-memory behaviour.</param>
+        public ChartPatternFocus(ISettingsManager? settings) { _settings = settings; }
+
+        // Read on first use rather than in the constructor: on the hosted head the settings file is
+        // resolved against the signed-in user, who is not known while DI is building.
+        private void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            if (_settings?.GetSetting(SettingsKeys.ChartFormationChoices) is not JObject saved) return;
+            foreach (var (chart, value) in saved)
+            {
+                // A choice that does not parse is skipped, never thrown: the worst it may cost is
+                // the size ranking on that one chart.
+                if (value is not JObject o
+                    || !Enum.TryParse<ChartPatternKind>((string?)o["kind"], out var kind)
+                    || o["start"]?.Type != JTokenType.Integer || o["end"]?.Type != JTokenType.Integer)
+                    continue;
+                _pinned[chart] = (kind, new DateTime((long)o["start"]!, DateTimeKind.Utc), new DateTime((long)o["end"]!, DateTimeKind.Utc));
+            }
+        }
+
+        // Ticks, not a date string: Identity compares ticks, and a round trip through a formatted
+        // date (or a reader that shifts it to local time) is how a saved choice would stop matching
+        // the formation it names.
+        private void Save()
+        {
+            if (_settings == null) return;
+            var all = new JObject();
+            foreach (var (chart, (kind, start, end)) in _pinned)
+                all[chart] = new JObject { ["kind"] = kind.ToString(), ["start"] = start.Ticks, ["end"] = end.Ticks };
+            _settings.SetSetting(SettingsKeys.ChartFormationChoices, all);
+            _settings.SaveSettings();
+        }
 
         public IReadOnlyList<ChartPattern> Apply(string chartKey, IReadOnlyList<ChartPattern> ranked)
         {
@@ -90,15 +133,16 @@ namespace AccessibleTrader.Core.Services.Analysis
 
             lock (_gate)
             {
+                EnsureLoaded();
                 if (!_pinned.TryGetValue(chartKey, out var key)) return ranked;
 
                 int i = -1;
                 for (int n = 0; n < ranked.Count; n++)
                     if (ranked[n].Identity.Equals(key)) { i = n; break; }
 
-                // A pinned formation that is not at this bar is not an error and must not clear the
-                // pin: the user is simply somewhere else on the chart, and walking back should find
-                // their choice still in force.
+                // A chosen formation that is not at this bar is not an error and must not clear the
+                // choice: the user is simply somewhere else on the chart, and walking back should
+                // find it still in force.
                 if (i <= 0) return ranked;
 
                 var reordered = new List<ChartPattern>(ranked.Count) { ranked[i] };
@@ -114,10 +158,12 @@ namespace AccessibleTrader.Core.Services.Analysis
 
             lock (_gate)
             {
-                // With nothing pinned here, the LEADER is current — it is the one the readout is
-                // already naming. Starting from "none" made the first press pin the leader and say
-                // "1 of 2": the formation the user had just heard, so the key appeared to do
-                // nothing. The first press now moves to the second formation, as "next" promises.
+                EnsureLoaded();
+
+                // With nothing chosen, or the choice not at this bar, the LEADER is current — it is
+                // the one the readout is already naming. Starting from "none" made the first press
+                // choose the leader and say "1 of 2": the formation the user had just heard, so the
+                // key appeared to do nothing. The first press now moves to the second formation.
                 int current = 0;
                 if (_pinned.TryGetValue(chartKey, out var key))
                     for (int n = 0; n < ranked.Count; n++)
@@ -125,24 +171,32 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                 int next = ((forward ? current + 1 : current - 1) % ranked.Count + ranked.Count) % ranked.Count;
                 _pinned[chartKey] = ranked[next].Identity;
+                Save();
                 return ranked[next];
             }
         }
 
         public bool Clear(string chartKey)
         {
-            lock (_gate) return _pinned.Remove(chartKey);
+            lock (_gate)
+            {
+                EnsureLoaded();
+                if (!_pinned.Remove(chartKey)) return false;
+                Save();
+                return true;
+            }
         }
 
         public bool IsPinned(string chartKey)
         {
-            lock (_gate) return _pinned.ContainsKey(chartKey);
+            lock (_gate) { EnsureLoaded(); return _pinned.ContainsKey(chartKey); }
         }
 
         public ChartPattern? PinnedIn(string chartKey, IEnumerable<ChartPattern> candidates)
         {
             lock (_gate)
             {
+                EnsureLoaded();
                 if (!_pinned.TryGetValue(chartKey, out var key)) return null;
                 foreach (var c in candidates)
                     if (c.Identity.Equals(key)) return c;

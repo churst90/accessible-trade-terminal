@@ -119,8 +119,19 @@ That came from an earlier report — `;` said *"leading with ascending triangle"
 landed on the double bottom's break — but the cure was worse in use. On TAO/USDT 1h, Cody chose a
 double top over an inverse head and shoulders and then could not reach any other formation with
 `,` and `.`: *"; only switches the possible pattern recognized at that bar."* So now `;` decides
-only what is said; `,` and `.` always reach every formation's start and end; and the choice is
-dropped by itself on the first bar the chosen formation is not on, so there is nothing to release.
+only what is said, and `,` and `.` always reach every formation's start and end.
+
+**The choice is sticky (later on 2026-11-13).** For a few hours it was dropped on the first bar the
+chosen formation was not on. Then Home took him to a bar without the falling wedge he had chosen,
+End came back to the inverse head and shoulders, and he asked for the opposite: *"it should be
+sticky until I intentionally change it. if I close the terminal and reopen it, that choice should
+stay selected. It should stay regardless of where I navigate to."* Now only `;` changes it, it is
+saved per chart in settings.json (`charts.formationChoices`: kind and the shape's two dates, as UTC
+ticks, so a backfill or a shed oldest bar does not lose it), and it leads on every bar the chosen
+formation is in play. On bars it is not in play, the default ranking reads and the choice waits;
+`;` there moves from what is being read. The default ranking is still forming first, then biggest —
+not newest, which is why a newer falling wedge reads after an older, larger inverse head and
+shoulders until `;` picks it.
 
 **Landing inside nested formations names the nesting.** On a jump that lands mid-formation (and on
 `\`, which enters the chart that way), the leader is described and then the chain from the smallest

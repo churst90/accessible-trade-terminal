@@ -141,9 +141,11 @@ explain the jump is exactly what the setting disables.
 **Choosing a formation.** When several shapes overlap, the terminal leads with the largest live one
 and counts the rest. Semicolon overrides that with your own choice — the twelve-bar flag inside the
 eighty-bar triangle may be exactly what your setup is built on, and the terminal has no business
-insisting otherwise. The choice lasts while you are on that formation's bars; move to a bar it is
-not on and largest-first comes back by itself, so there is nothing to clear. Nothing is hidden
-either way: the others are still counted and `Alt+Shift+D` still reads them all.
+insisting otherwise. The choice is sticky: it stays until `;` or `Shift+;` picks another, wherever
+you move, and it is still there after closing and reopening the terminal (kept per chart). On bars
+the chosen formation is not in play, the default order reads — still forming first, then largest,
+not newest — and your choice leads again when you come back to its bars. Nothing is hidden either
+way: the others are still counted and `Alt+Shift+D` still reads them all.
 
 **`,` and `.` always walk every formation's edges**, whatever `;` chose. (Until 2026-11-13 a choice
 confined them to the chosen formation's two edges until `Shift+;` released it.)

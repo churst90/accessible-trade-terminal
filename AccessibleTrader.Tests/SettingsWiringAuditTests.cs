@@ -106,6 +106,7 @@ namespace AccessibleTrader.Tests
             // the adjustment is made against the thing being adjusted. This audit asks whether a
             // setting can be REACHED, and this one is reached the way a volume key is.
             ["PlaybackSpeed"]      = "set by Shift+= / Shift+- during playback, which speaks the new speed",
+            ["ChartFormationChoices"] = "set by ; / Shift+; on the chart, which speaks the formation chosen",
         };
 
         [Fact]

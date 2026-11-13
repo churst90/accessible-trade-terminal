@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart formations: the `;` choice is sticky and survives a restart (2026-11-13, Cody's request)
+
+- **What Cody hit** (MEXC TAO/USDT 1h, local build): he chose the falling wedge with `;` at the newest bar,
+  pressed Home and then End, and heard the inverse head and shoulders again. The choice had been dropped the
+  moment Home left the wedge's bars, as built earlier the same day. His words: "it should be sticky until I
+  intentionally change it. if I close the terminal and reopen it, that choice should stay selected. It should
+  stay regardless of where I navigate to."
+- **What changed:**
+  - Only `;` and `Shift+;` change the choice. Moving anywhere, including to bars with no formations, keeps it,
+    and it leads again on every bar the chosen formation is in play.
+  - It is saved per chart in settings.json (`charts.formationChoices`: the kind and the shape's two dates, as
+    UTC ticks), so closing and reopening the terminal keeps it, as do new bars and older history loading.
+  - On bars where the chosen formation is not in play (before it is recognisable, or after it confirmed or
+    expired), the default order reads: still forming first, then largest. `;` there moves from what is being
+    read, so the first press goes to the second formation, and that becomes the new choice.
+- **Caveats:**
+  - A choice can only lead where its formation exists. Cody's double top chosen on Nov 10 is over by the
+    newest bar (confirmed Nov 12), so End still reads the inverse head and shoulders there. That is not the
+    choice being lost: coming back to the double top's bars finds it leading.
+  - The default order is not newest first. At the newest bar the falling wedge is the most recently
+    recognised formation, but the larger inverse head and shoulders reads first until `;` picks the wedge.
+  - A `,` / `.` stop still names the formation whose start or end it is, even when another formation is the
+    choice. That is what the stop is for; whether the choice should win there is an open question in TODO.
+  - Not heard by Cody yet. The hosted demo never writes settings.json, so there the choice lasts the visit.
+
 ### Chart formations: `;` only changes what is said at the bar; `,` and `.` reach every formation; landings name the nesting (2026-11-13, Cody's request)
 
 - **What Cody hit** (TAO/USDT 1h): he pressed `;` to hear the double top instead of the inverse head and

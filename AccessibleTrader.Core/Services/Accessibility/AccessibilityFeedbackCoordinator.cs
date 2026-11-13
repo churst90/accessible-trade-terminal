@@ -1273,13 +1273,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Everything below reads from this list, so the choice applies identically to the jump
             // path, the entry announcement and the overlap count.
             //
-            // The choice belongs to the bars of the formation chosen: on the first bar it is not
-            // on, it is dropped and the size ranking returns by itself. Cody, 2026-11-13: "; only
-            // switches the possible pattern recognized at that bar" — no key to release it.
+            // The choice is sticky: it stays until semicolon picks another, wherever the user goes
+            // and across restarts. On bars the chosen formation is not on, the size ranking reads
+            // as usual and the choice waits. Cody, 2026-11-13: "it should be sticky until I
+            // intentionally change it ... It should stay regardless of where I navigate to." (The
+            // same morning it was dropped on the first bar off the formation; Home then End lost it.)
             string chartKey = ChartPatternCache.KeyFor(state.Identity);
             var atBar = ChartPatternNarrator.AtBar(all, idx);
-            if (_patternFocus.IsPinned(chartKey) && _patternFocus.PinnedIn(chartKey, atBar) == null)
-                _patternFocus.Clear(chartKey);
             var here = _patternFocus.Apply(chartKey, ChartPatternNarrator.ByDominance(atBar).ToList());
 
             // Jump, or first move: no edge was crossed, so describe where we landed. If that is

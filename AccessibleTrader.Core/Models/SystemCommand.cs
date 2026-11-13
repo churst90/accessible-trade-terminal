@@ -74,8 +74,9 @@ namespace AccessibleTrader.Core.Models
 
         /// <summary>
         /// Semicolon — cycle which of the overlapping formations at this bar leads the readout.
-        /// Press again to move to the next; Shift+semicolon goes back one. The choice lasts while the
-        /// cursor is on that formation's bars and never limits comma and period.
+        /// Press again to move to the next; Shift+semicolon goes back one. The choice is sticky — kept
+        /// wherever the cursor goes and across restarts, until semicolon picks another — and never
+        /// limits comma and period.
         /// <para>
         /// The terminal ranks overlapping shapes by size because that is the only tie-break that is
         /// not a directional opinion. This lets the user override that ranking with their own,

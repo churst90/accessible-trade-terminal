@@ -30,6 +30,11 @@ namespace AccessibleTrader.Core.Services
         // rest, which "breaks the rule of hearing just what component I'm on").
         public const string SpeakOtherSignalsWhileArrowing = "speech.speakOtherSignalsWhileArrowing";
 
+        // The chart formation semicolon put in front, per chart: { "<chart key>": { kind, start,
+        // end } }, the dates as UTC ticks. Kept until semicolon picks another (Cody, 2026-11-13:
+        // "if I close the terminal and reopen it, that choice should stay selected").
+        public const string ChartFormationChoices = "charts.formationChoices";
+
         // ── The two earcon families ──────────────────────────────────────────
         // Shift+F3 (WorkspaceState.IsEarconsEnabled) is the master mute over both.
         // These two decide which family it is muting when it is OFF, and both

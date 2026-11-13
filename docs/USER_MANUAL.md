@@ -1975,8 +1975,10 @@ standing in.
 
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
-swap them). The one you pick is described first while you stay on its bars; move to a bar it
-is not on and largest-first comes back by itself. The default ranking exists
+swap them). The one you pick stays chosen until you pick another, wherever you go on the
+chart, and it is still chosen after you close and reopen the terminal. It is described first on
+every bar it is in play; on bars it is not, the default order reads (still forming first, then
+largest — not newest) until you come back to it. The default ranking exists
 because size is the only ordering that is not a directional opinion — but your setup may
 well be built on the small one, and the terminal has no business insisting otherwise.
 Nothing is hidden either way.
@@ -1987,7 +1989,7 @@ presses apart, and a fourth press wraps back to the first. Each announcement say
 how many you are on ("2 of 3"), so you always know the size of the set you are walking. The first
 press moves to the *second* formation, because the first is the one already being read, and the
 announcement names the larger formation the one you picked sits inside. Only formations you can
-reach with `;` at that bar are named as the larger one. A choice survives new bars arriving.
+reach with `;` at that bar are named as the larger one. A choice survives new bars arriving and older history loading.
 
 **`,` and `.` always go to the next start or end of any formation**, whatever `;` chose.
 Choosing only changes what is said.

@@ -274,12 +274,13 @@ public sealed class ChartPatternPinNarrationTests
     }
 
     /// <summary>
-    /// "; only switches the possible pattern recognized at that bar" (Cody, 2026-11-13). The
-    /// choice holds while the cursor is on the chosen formation and is dropped on the first bar it
-    /// is not on, so coming back finds the size ranking again — nothing to clear by hand.
+    /// "it should be sticky until I intentionally change it ... It should stay regardless of where
+    /// I navigate to" (Cody, 2026-11-13). The same morning the choice was dropped on the first bar
+    /// off the chosen formation, so Home and back lost it. Now leaving its bars, even for a bar with
+    /// no formations at all, keeps it, and coming back finds it leading.
     /// </summary>
     [Fact]
-    public void TheChoiceIsDroppedOnTheFirstBarOffTheChosenFormation()
+    public void TheChoiceStaysWhereverTheCursorGoes()
     {
         var (outer, inner) = RangeAndFlag();
         var h = Build(outer, inner);
@@ -287,13 +288,55 @@ public sealed class ChartPatternPinNarrationTests
 
         Move(h, 70);
         h.Navigator.CycleFocus();                        // the flag
-        Assert.StartsWith("Possible bull flag forming", Move(h, 72));     // still on it: the choice leads a jump-landing
+        Assert.StartsWith("Possible bull flag forming", Move(h, 72));     // on it: the choice leads a jump-landing
+
+        Move(h, 0);                                      // Home: before any formation
+        Move(h, 129);                                    // End: the flag ended at 85
         Assert.True(h.Focus.IsPinned(key));
 
-        Move(h, 86);                                     // the flag ended at 85
-        Assert.False(h.Focus.IsPinned(key));
+        Assert.StartsWith("Possible bull flag forming", Move(h, 72));     // back on its bars: still the flag
+    }
 
-        Assert.StartsWith("Possible range forming", Move(h, 72));         // back on the flag's bars: largest first again
+    /// <summary>
+    /// Cody's TAO/USDT 1h sequence: a double top chosen at the inverse head and shoulders' stop,
+    /// then End, where the double top is over and only the head and shoulders and a newer falling
+    /// wedge are in play. The default order reads there (forming, then biggest), and semicolon
+    /// moves off what is being read — to the wedge, "2 of 2" — rather than counting from the
+    /// absent choice. Picking the wedge replaces the double top.
+    /// </summary>
+    [Fact]
+    public void WhereTheChoiceIsNotInPlaySemicolonMovesOffWhatIsBeingRead()
+    {
+        var ihs = new ChartPattern(
+            Kind: ChartPatternKind.InverseHeadAndShoulders, State: ChartPatternState.Forming,
+            StartBarIndex: 0, EndBarIndex: 76, KnownAtIndex: 80,
+            TriggerLevel: 110, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var top = new ChartPattern(
+            Kind: ChartPatternKind.DoubleTop, State: ChartPatternState.Completed,
+            StartBarIndex: 8, EndBarIndex: 68, KnownAtIndex: 72,
+            TriggerLevel: 95, StartTime: default, EndTime: default,
+            CompletedAtIndex: 100, ExpiresAtIndex: 300, BreaksBelow: true);
+        var wedge = new ChartPattern(
+            Kind: ChartPatternKind.FallingWedge, State: ChartPatternState.Forming,
+            StartBarIndex: 80, EndBarIndex: 115, KnownAtIndex: 120,
+            TriggerLevel: 105, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var h = Build(ihs, top, wedge);
+        string key = ChartPatternCache.KeyFor(WorkspaceState.Initial.Identity);
+
+        Move(h, 80);
+        h.Navigator.CycleFocus();
+        Assert.Equal(ChartPatternKind.DoubleTop, h.Focus.PinnedIn(key, new[] { ihs, top, wedge })?.Kind);
+
+        Assert.StartsWith("Possible inverse head and shoulders forming", Move(h, 129));   // End: the double top is over
+
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();
+        string said = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+        Assert.Contains("Leading with falling wedge, 2 of 2", said);
+        Assert.Equal(ChartPatternKind.FallingWedge, h.Focus.PinnedIn(key, new[] { ihs, top, wedge })?.Kind);
+
+        Move(h, 0);
+        Assert.StartsWith("Possible falling wedge forming", Move(h, 129));               // Home, End: still the wedge
     }
 
     /// <summary>
