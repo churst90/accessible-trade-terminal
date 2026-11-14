@@ -162,6 +162,17 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void Krakens_usdt_on_solana_method_is_checked_as_solana()
+        {
+            // Kraken's deposit method for USDT on Solana is "Tether USD (SPL)"; it fell through to
+            // Unknown. A Solana address under it is checked as one, and an Ethereum one is not passed.
+            Assert.Equal(AddressCheck.StructureOnly,
+                CryptoAddressValidator.Validate("11111111111111111111111111111111", "Tether USD (SPL)").Result);
+            Assert.Equal(AddressCheck.Malformed,
+                CryptoAddressValidator.Validate("0x52908400098527886E0F7030069857D2E4169EE7", "Tether USD (SPL)").Result);
+        }
+
+        [Fact]
         public void An_unknown_network_says_so_rather_than_passing_or_failing()
         {
             // Neither "fine" nor "corrupt" — we do not know, and the user is told to

@@ -30,6 +30,15 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Stops on entries refused where the venue cannot attach them; Kraken Futures positions and sizes
+  (2026-11-14; see CHANGES).** Not tried with money.
+  - Kraken Futures could attach real legs (a reduce-only `stp` and `take_profit` after a market entry)
+    instead of refusing. That needs a funded account to see how the venue treats a reduce-only stop
+    while the entry is resting. Not built.
+  - Kraken Futures gives no liquidation price per position, so the near-liquidation warning cannot
+    fire there.
+  - Unverified, not demonstrated: Kraken spot `CanonicalKrakenPair` keeps "USDTZUSD" whole (only
+    pairs with BOTH halves prefixed are stripped). It may not match the "USDT/USD" spelling elsewhere.
 - [ ] **Formation choice sticky, saved, read and drawn wherever it is on the bar (2026-11-13, Cody's
   requests; NOT heard or seen; see CHANGES).**
   - `;` / `Shift+;` choices stay until changed, wherever the cursor goes and across restarts

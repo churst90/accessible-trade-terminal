@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Trading;
 
@@ -233,6 +234,21 @@ namespace AccessibleTrader.Sdk.Plugins
         /// and warns the user that the take profit was not attached.
         /// </summary>
         bool SupportsSimultaneousStopAndTarget => true;
+
+        /// <summary>
+        /// True when this venue really sends the stop loss and take profit that ride on THIS
+        /// entry (attached legs, a bracket, an on-fill stop). The default reads the
+        /// <see cref="ProviderCapabilities.Brackets"/> flag; a venue that attaches on one market
+        /// and not another (MEXC: futures yes, spot no) overrides it per signal.
+        ///
+        /// <para>
+        /// <c>GeneralOrderService</c> refuses, in words and BEFORE sending, an entry that carries
+        /// a stop or target when this is false. Bitstamp, Coinbase, Gemini, Kraken Futures and
+        /// MEXC spot sent the entry and dropped the stop without a word; the only notice was the
+        /// "no stop loss found" check two seconds later, with the position already open.
+        /// </para>
+        /// </summary>
+        bool AttachesProtectiveLegs(TradeSignal signal) => Capabilities.HasFlag(ProviderCapabilities.Brackets);
 
         /// <summary>
         /// <summary>

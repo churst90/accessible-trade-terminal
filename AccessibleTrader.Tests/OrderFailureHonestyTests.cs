@@ -31,6 +31,7 @@ namespace AccessibleTrader.Tests
             var data = Substitute.For<IDataService>();
             var tp = Substitute.For<IMarketDataProvider, ITradingProvider>();
             ((ITradingProvider)tp).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            ((ITradingProvider)tp).AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             ((ITradingProvider)tp).IsConnected.Returns(connected);
             ((ITradingProvider)tp).OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             data.GetProviderAsync(Arg.Any<string>()).Returns(
@@ -38,6 +39,7 @@ namespace AccessibleTrader.Tests
 
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance,

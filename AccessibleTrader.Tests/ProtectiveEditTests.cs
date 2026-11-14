@@ -394,6 +394,7 @@ namespace AccessibleTrader.Tests
             var tp = (ITradingProvider)provider;
             tp.IsConnected.Returns(true);
             tp.HasPracticeEnvironment.Returns(true);
+            tp.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             tp.SupportsOrderEventStreaming.Returns(true);
             tp.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK-" + Guid.NewGuid().ToString("N")[..6]));
@@ -402,6 +403,7 @@ namespace AccessibleTrader.Tests
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             paper.HasPracticeEnvironment.Returns(true);
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var svc = new GeneralOrderService(data, err, NullLogger<GeneralOrderService>.Instance, new EventBus(), paper,
                 Substitute.For<ISettingsManager>(), new DemoPolicy(isDemo: false), new QuickTradeEquity());

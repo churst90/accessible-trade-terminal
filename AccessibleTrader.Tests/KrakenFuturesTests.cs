@@ -182,6 +182,85 @@ namespace AccessibleTrader.Tests
             Assert.Contains("F12", message);
         }
 
+        // ── Positions and contract rules (2026-11-14) ───────────────────────
+
+        [Fact]
+        public void A_position_reads_its_own_pnl_and_leverage_not_the_funding()
+        {
+            // Kraken's documented /openpositions item. The P&L used to be unrealizedFunding and the
+            // leverage a constant 1.
+            var p = KrakenFuturesProvider.ReadPosition(Newtonsoft.Json.Linq.JObject.Parse(
+                """{"side":"short","symbol":"PF_DEFIUSD","price":570,"size":1,"unrealizedPnl":12.34,"unrealizedFunding":-0.0073,"pnlCurrency":"BTC","maxFixedLeverage":5}"""));
+
+            Assert.Equal(-1, p.Quantity);
+            Assert.Equal(12.34, p.UnrealizedPnL);
+            Assert.Equal(5, p.Leverage);
+            Assert.Equal(MarginMode.Isolated, p.MarginMode);
+            Assert.Equal(0, p.LiquidationPrice);   // the venue gives none per position; "—", not a guess
+
+            var cross = KrakenFuturesProvider.ReadPosition(Newtonsoft.Json.Linq.JObject.Parse(
+                """{"side":"long","symbol":"PF_XBTUSD","price":90000,"size":0.01,"unrealizedPnl":-3,"crossMaxLeverage":10}"""));
+            Assert.Equal(10, cross.Leverage);
+            Assert.Equal(MarginMode.Cross, cross.MarginMode);
+        }
+
+        // Live /instruments shape, 2026-11-14, cut to the fields read.
+        private const string Instruments = """
+            {"result":"success","instruments":[
+              {"symbol":"PF_XBTUSD","type":"flexible_futures","tickSize":1,"contractSize":1,"tradeable":true,"contractValueTradePrecision":4,"postOnly":false,"suspended":false,"base":"BTC","quote":"USD","isExpired":false},
+              {"symbol":"PF_SHIBUSD","type":"flexible_futures","tickSize":0.000000001,"contractSize":1,"tradeable":true,"contractValueTradePrecision":-3,"postOnly":false,"suspended":false,"base":"SHIB","quote":"USD","isExpired":false},
+              {"symbol":"PF_OLDUSD","type":"flexible_futures","tickSize":0.01,"contractSize":1,"tradeable":true,"contractValueTradePrecision":1,"postOnly":false,"suspended":true,"base":"OLD","quote":"USD","isExpired":false}
+            ]}
+            """;
+
+        [Fact]
+        public void Contract_rules_read_the_size_step_from_the_trade_precision()
+        {
+            var all = Newtonsoft.Json.Linq.JObject.Parse(Instruments)["instruments"]!;
+            var btc = KrakenFuturesProvider.ReadContractRules(all[0]!)!.Rules;
+            Assert.Equal(0.0001m, btc.QuantityStep);
+            Assert.Equal(1m, btc.PriceTick);
+            Assert.Equal("BTC", btc.QuantityUnit);
+            Assert.Equal("0.0123", btc.FormatQuantity(0.01239));   // cut down, never up
+            Assert.Equal("90124", btc.FormatPrice(90123.6));
+
+            Assert.Equal(1000m, KrakenFuturesProvider.ReadContractRules(all[1]!)!.Rules.QuantityStep);
+            Assert.Contains("suspended", KrakenFuturesProvider.ReadContractRules(all[2]!)!.Rules.NotTrading);
+        }
+
+        [Fact]
+        public async Task An_order_below_the_contract_step_is_refused_in_words_and_not_sent()
+        {
+            var h = new AccessibleTrader.Tests.Fakes.FakeHttpMessageHandler()
+                .Get(@"futures\.kraken\.com/derivatives/api/v3/instruments", Instruments)
+                .Post(@"futures\.kraken\.com/derivatives/api/v3/sendorder",
+                    """{"result":"success","sendStatus":{"order_id":"OID-1","status":"placed"}}""");
+            var p = Live(h);
+
+            string small = await p.PlaceOrderAsync(new TradeSignal("PF_XBTUSD", OrderSide.Buy, 0.00005, OrderType.Market));
+            Assert.StartsWith("ORDER_FAILED:Kraken Futures's smallest PF_XBTUSD order is 0.0001 BTC", small);
+            Assert.DoesNotContain(h.Captured, r => r.RequestUri!.AbsolutePath.EndsWith("/sendorder"));
+
+            // Vacuity: a size on the step goes, cut to the step and written plainly.
+            Assert.Equal("OID-1", await p.PlaceOrderAsync(new TradeSignal("PF_XBTUSD", OrderSide.Buy, 0.01239, OrderType.Market)));
+            string body = h.CapturedBodies[h.Captured.FindIndex(r => r.RequestUri!.AbsolutePath.EndsWith("/sendorder"))];
+            Assert.Contains("size=0.0123", body);
+        }
+
+        private static KrakenFuturesProvider Live(AccessibleTrader.Tests.Fakes.FakeHttpMessageHandler h)
+        {
+            var p = new KrakenFuturesProvider();
+            p.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "kfk",
+                ["ApiSecret"] = Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray()),
+                ["Environment"] = "Live",
+            });
+            typeof(KrakenFuturesProvider).GetField("_http",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(p, new HttpClient(h));
+            return p;
+        }
+
         // ── Timeframes ───────────────────────────────────────────────────────
 
         [Theory]

@@ -73,11 +73,15 @@ namespace AccessibleTrader.Plugins.Oanda
         /// "Trail" appeared nowhere else in this file — so the dashboard drew its
         /// trailing fields and the order went out with no trail attached. The flag
         /// was withdrawn, and is back now that <c>trailingStopLossOnFill</c> is
-        /// really sent.
+        /// really sent. <c>Brackets</c> was never declared although stopLossOnFill and
+        /// takeProfitOnFill ride on every market and limit entry; it is declared now because
+        /// the order service refuses a stop on an entry at a venue that does not say it
+        /// attaches one.
         /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.Leverage | ProviderCapabilities.Shorting |
-            ProviderCapabilities.MarginTrading | ProviderCapabilities.TrailingStop;
+            ProviderCapabilities.MarginTrading | ProviderCapabilities.TrailingStop |
+            ProviderCapabilities.Brackets;
 
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;

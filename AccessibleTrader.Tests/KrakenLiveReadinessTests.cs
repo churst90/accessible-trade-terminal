@@ -455,8 +455,10 @@ namespace AccessibleTrader.Tests
             string result = await p.PlaceOrderAsync(new TradeSignal("PF_XBTUSD", OrderSide.Buy, 1, Leverage: 5));
 
             Assert.Equal("abc", result);
-            Assert.Equal(HttpMethod.Put, handler.Captured[0].Method);
-            Assert.EndsWith("sendorder", handler.Captured[1].RequestUri!.AbsolutePath);
+            // The contract-rules read (a GET) comes first; what matters is leverage before the order.
+            var writes = handler.Captured.Where(r => r.Method != HttpMethod.Get).ToList();
+            Assert.Equal(HttpMethod.Put, writes[0].Method);
+            Assert.EndsWith("sendorder", writes[1].RequestUri!.AbsolutePath);
         }
     }
 }

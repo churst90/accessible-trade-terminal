@@ -8,6 +8,12 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **A stop is never silently dropped.** On Bitstamp, Coinbase, Gemini, Kraken Futures and MEXC spot,
+  an order carrying a stop loss or take profit is now refused before it is sent, with the reason. Those
+  venues cannot attach one to an entry, and the entry used to go out without it. Send the entry, then a
+  separate stop order. Quick trade always carries a stop, so it is refused on those venues too.
+- **Kraken Futures positions show the real profit and loss and leverage.** Sizes are cut to the
+  contract's step, and a size that is too small is refused in words.
 - **The new bar says when it opened.** A bar close now ends "New bar: Open 75,712 at 14:33", on the
   same clock as the close (the date on a daily chart). It is the same on a background tab, in a
   notification and with the browser closed.

@@ -2359,7 +2359,9 @@ drawing — the armed trade is the one with consequences.
 an entry placed without it would have a quantity justified by protection that does not exist.
 On brokers with native bracket support (Alpaca) all three legs go as one order; on the others
 the terminal verifies afterwards that something protective actually reached the exchange, and
-says so loudly if not.
+says so loudly if not. On a venue that cannot attach a stop to an entry at all (Bitstamp,
+Coinbase, Gemini, Kraken Futures, MEXC spot) a quick trade is refused before anything is sent,
+and you hear why.
 
 **An armed trade belongs to the chart you armed it on.** Its size, stop and entry all came
 from that chart's bars, so it places only from that tab, and only to that venue. On any other
@@ -3200,6 +3202,12 @@ terminal is honest about each:
 - **Kraken** can attach only ONE protective order per entry. If you set both a
   stop and a target, the STOP is attached — safety over profit — and the
   terminal tells you out loud that the take-profit was not placed.
+- **Bitstamp, Coinbase, Gemini, Kraken Futures and MEXC spot** cannot attach a
+  stop or target to an entry. An entry carrying one is refused before it is sent:
+  "{venue} cannot attach a stop loss or take profit to an entry, so this order
+  would open with no protection." Send the entry without them, then place a
+  separate Stop order once it fills. (Until 2026-11-14 the entry went out and the
+  stop was dropped.)
 - On the remaining brokers the terminal submits the entry, then the
   protection, then about two seconds later verifies the protection actually
   landed — and if it cannot find it, warns you, interrupting: "Warning: no
@@ -3376,6 +3384,12 @@ terminal is paper only.
 order asks for leverage, the terminal sets that contract's leverage first and refuses
 to send the order if Kraken Futures will not set it. This has not yet been tried
 against the live venue.
+
+Sizes are cut down to the contract's step (0.0001 BTC on PF_XBTUSD), and a size
+below one step is refused in words before anything is sent, as is an order on a
+suspended contract. The Positions tab shows the venue's own profit and loss and
+leverage. Kraken Futures does not give a liquidation price per position, so that
+column shows a dash and the near-liquidation warning cannot sound there.
 
 ### Order sizes and leverage on the other crypto venues
 

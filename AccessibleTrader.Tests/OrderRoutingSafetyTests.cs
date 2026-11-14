@@ -53,12 +53,14 @@ namespace AccessibleTrader.Tests
             tp.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             tp.SupportsOrderEventStreaming.Returns(true);
             tp.HasPracticeEnvironment.Returns(hasPracticeEnvironment);
+            tp.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("VENUE-1"));
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(mp));
 
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.IsConnected.Returns(true);
             paper.HasPracticeEnvironment.Returns(true);
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             paper.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("PAPER-1"));
 

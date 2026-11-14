@@ -46,6 +46,7 @@ namespace AccessibleTrader.Tests
             // generic one WITH a practice environment, so pin the real-world default; the
             // refusal itself is proven on its own fixture in OrderRoutingSafetyTests.
             trading.HasPracticeEnvironment.Returns(true);
+            trading.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var bus = new EventBus();
@@ -55,6 +56,7 @@ namespace AccessibleTrader.Tests
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             paper.HasPracticeEnvironment.Returns(true);
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             var settings = Substitute.For<ISettingsManager>();
             // Full host mode → AllowLiveTrading true, so routing follows the (unset)
             // paperTradingMode setting and reaches the live provider substitute above.
@@ -262,6 +264,7 @@ namespace AccessibleTrader.Tests
             tp2t.IsConnected.Returns(true);
             tp2t.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             tp2t.HasPracticeEnvironment.Returns(true);   // see BuildService — NSubstitute answers false
+            tp2t.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             tp2t.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK2"));
             data.GetProviderAsync("Coinbase").Returns(_ => Task.FromResult<IMarketDataProvider?>(tp2));
             tp1.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK1"));
@@ -383,6 +386,7 @@ namespace AccessibleTrader.Tests
         {
             var (svc, tp, _, _) = BuildService();
             tp.HasPracticeEnvironment.Returns(venueHasSandbox);
+            tp.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
 
             Assert.Equal(venueHasSandbox, await svc.HasPracticeEnvironmentAsync("Kraken"));
         }

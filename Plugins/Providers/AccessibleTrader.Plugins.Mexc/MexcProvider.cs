@@ -88,6 +88,11 @@ namespace AccessibleTrader.Plugins.Mexc
             ProviderCapabilities.Leverage | ProviderCapabilities.FuturesTrading |
             ProviderCapabilities.IsolatedMargin | ProviderCapabilities.ReduceOnly;
 
+        // Futures entries carry stopLossPrice/takeProfitPrice on the order itself; the spot
+        // order body has no field for either, so a spot entry would lose them.
+        public bool AttachesProtectiveLegs(TradeSignal signal) =>
+            string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase);
+
         public override bool SupportsStopLoss       => true;
         public override bool SupportsTakeProfit     => true;
         public override double MaxLeverage          => 200.0;

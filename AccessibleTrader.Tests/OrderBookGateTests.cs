@@ -43,6 +43,7 @@ public class OrderBookGateTests
         data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult(provider));
         var paper = Substitute.For<IPaperTradingProvider>();
         paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+        paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
         paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
         return new GeneralOrderService(
             data, Substitute.For<IGlobalErrorCoordinator>(), NullLogger<GeneralOrderService>.Instance,

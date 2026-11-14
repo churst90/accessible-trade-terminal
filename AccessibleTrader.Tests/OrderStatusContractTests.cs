@@ -72,6 +72,7 @@ namespace AccessibleTrader.Tests
             var paperStream = new Subject<OrderUpdate>();
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             paper.IsConnected.Returns(true);
             paper.OrderUpdateStream.Returns(paperStream);
             var settings = Substitute.For<ISettingsManager>();
@@ -149,6 +150,7 @@ namespace AccessibleTrader.Tests
             svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(5);
             var tp = Substitute.For<IMarketDataProvider, ITradingProvider>();
             ((ITradingProvider)tp).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            ((ITradingProvider)tp).AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             var live = (ITradingProvider)tp;
             live.IsConnected.Returns(true);
             live.SupportsOrderStatusQuery.Returns(true);

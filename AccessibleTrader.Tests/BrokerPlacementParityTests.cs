@@ -56,6 +56,7 @@ namespace AccessibleTrader.Tests
             || path.EndsWith("/api/v2/trading-pairs-info/", StringComparison.Ordinal)
             || path.EndsWith("/api/v3/exchangeInfo", StringComparison.Ordinal)
             || path.EndsWith("/api/v1/contract/detail", StringComparison.Ordinal)
+            || path.EndsWith("/derivatives/api/v3/instruments", StringComparison.Ordinal)
             || path.EndsWith("/fapi/v1/exchangeInfo", StringComparison.Ordinal)
             || path.EndsWith("/fapi/v1/leverageBracket", StringComparison.Ordinal);
 

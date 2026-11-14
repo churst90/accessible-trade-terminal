@@ -64,6 +64,13 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         private readonly RateLimiter _publicLimiter = new(25, TimeSpan.FromSeconds(10));
         private readonly RateLimiter _privateLimiter = new(50, TimeSpan.FromSeconds(10));
 
+        // Contract rules from /instruments, read whole and kept six hours (one public call
+        // answers every contract).
+        private Dictionary<string, ContractRules>? _contractRules;
+        private DateTime _contractRulesAt;
+        private readonly object _contractRulesLock = new();
+        private static readonly TimeSpan ContractRulesTtl = TimeSpan.FromHours(6);
+
         private string _apiKey = "";
         private string _apiSecret = "";
         private bool _useDemo;
@@ -317,22 +324,32 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             var json = await GetPrivateAsync("/openpositions").ConfigureAwait(false);
             Throw(json, "open positions");
 
-            return (json["openPositions"] as JArray ?? new JArray()).Select(p =>
-            {
-                double size = D(p["size"]);
-                // "short" means a negative position; the API reports size unsigned.
-                bool isShort = string.Equals(p["side"]?.ToString(), "short", StringComparison.OrdinalIgnoreCase);
-                double qty = isShort ? -size : size;
-                double entry = D(p["price"]);
-                return new Position(
-                    p["symbol"]?.ToString().ToUpperInvariant() ?? "",
-                    qty, entry, qty * entry, D(p["unrealizedFunding"]),
-                    Leverage: 1.0,
-                    // The venue's own number, never one we compute. Liquidation is the
-                    // figure that must never be optimistic, and theirs is the one that
-                    // will actually be acted on.
-                    LiquidationPrice: D(p["liquidationThreshold"]));
-            }).ToList();
+            return (json["openPositions"] as JArray ?? new JArray()).Select(ReadPosition).ToList();
+        }
+
+        /// <summary>
+        /// One entry of <c>/openpositions</c> (Kraken's docs, read 2026-11-14). Three fields were
+        /// wrong here: the profit and loss was <c>unrealizedFunding</c> (the funding owed, not the
+        /// position's gain), leverage was a constant 1, and the liquidation price read
+        /// <c>liquidationThreshold</c>, which the venue does not send — so it was always 0.
+        /// Leverage is now the one the venue holds for the position: <c>maxFixedLeverage</c> on an
+        /// isolated position, <c>crossMaxLeverage</c> on a capped cross one. The venue gives no
+        /// liquidation price per position, so none is shown rather than one we would work out.
+        /// </summary>
+        internal static Position ReadPosition(JToken p)
+        {
+            double size = D(p["size"]);
+            // "short" means a negative position; the API reports size unsigned.
+            bool isShort = string.Equals(p["side"]?.ToString(), "short", StringComparison.OrdinalIgnoreCase);
+            double qty = isShort ? -size : size;
+            double entry = D(p["price"]);
+            double isolated = D(p["maxFixedLeverage"]);
+            double cross = D(p["crossMaxLeverage"]);
+            return new Position(
+                p["symbol"]?.ToString().ToUpperInvariant() ?? "",
+                qty, entry, qty * entry, D(p["unrealizedPnl"]),
+                Leverage: isolated > 0 ? isolated : cross > 0 ? cross : 1.0,
+                MarginMode: isolated > 0 ? MarginMode.Isolated : cross > 0 ? MarginMode.Cross : MarginMode.None);
         }
 
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
@@ -357,6 +374,16 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (string.IsNullOrEmpty(_apiKey)) return "ORDER_FAILED:no Kraken Futures API key configured";
+            // Before the rules read below, so a Paper profile still sends nothing at all.
+            if (_useDemo) return $"ORDER_FAILED:{DemoDecommissionedMessage}";
+
+            // Refused in words before anything is set or sent: a size below the contract's step
+            // went out as typed and came back as the venue's own code.
+            var contract = await GetContractRulesAsync(signal.Symbol).ConfigureAwait(false);
+            var rules = contract?.Rules;
+            if (rules?.Refusal(signal.Quantity, null) is string refusal) return $"ORDER_FAILED:{refusal}";
+            if (contract?.PostOnly == true && !(signal.PostOnly && signal.Type == OrderType.Limit))
+                return $"ORDER_FAILED:Kraken Futures takes only post-only limit orders on {rules!.Symbol} right now";
 
             // Kraken Futures takes no leverage on the order itself: it is a per-contract
             // preference set beforehand. The ticket's leverage used to be dropped here without a
@@ -384,14 +411,14 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 }),
                 ("symbol", signal.Symbol.ToLowerInvariant()),
                 ("side", signal.Side == OrderSide.Buy ? "buy" : "sell"),
-                ("size", signal.Quantity.ToString(CultureInfo.InvariantCulture)),
+                ("size", rules?.FormatQuantity(signal.Quantity) ?? SymbolOrderRules.Plain(signal.Quantity)),
             };
 
             // A limit price belongs on limit-type orders only. It used to be attached whenever
             // Price was set — on a `mkt`, and on a StopMarket, which the venue then read as a
             // stop-LIMIT because both stop types map to `stp` and only limitPrice tells them apart.
             if (signal.Price is > 0 && signal.Type is OrderType.Limit or OrderType.StopLimit or OrderType.TakeProfitLimit)
-                args.Add(("limitPrice", signal.Price.Value.ToString(CultureInfo.InvariantCulture)));
+                args.Add(("limitPrice", rules?.FormatPrice(signal.Price.Value) ?? SymbolOrderRules.Plain(signal.Price.Value)));
             // The SDK contract: `TriggerPrice ?? StopLoss` for a stop, `?? TakeProfit` for a
             // take-profit. The TakeProfit fallback was missing until 2026-09-07.
             double? trigger = signal.Type switch
@@ -400,7 +427,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 OrderType.TakeProfitMarket or OrderType.TakeProfitLimit => signal.TriggerPrice ?? signal.TakeProfit,
                 _                                                       => null,
             };
-            if (trigger is > 0) args.Add(("stopPrice", trigger.Value.ToString(CultureInfo.InvariantCulture)));
+            if (trigger is > 0) args.Add(("stopPrice", rules?.FormatPrice(trigger.Value) ?? SymbolOrderRules.Plain(trigger.Value)));
             if (!string.IsNullOrEmpty(signal.ClientOid)) args.Add(("cliOrdId", signal.ClientOid));
 
             if (signal.ReduceOnly) args.Add(("reduceOnly", "true"));
@@ -458,6 +485,83 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 SurfaceError($"Kraken Futures cancel failed: {ex.Message}", ErrorSeverity.Medium, ErrorCategory.Provider);
                 return false;
             }
+        }
+
+        /// <summary>A contract's order rules, and whether it is taking post-only orders only.</summary>
+        internal sealed record ContractRules(SymbolOrderRules Rules, bool PostOnly);
+
+        /// <summary>
+        /// The rules for <paramref name="symbol"/>, from <c>/instruments</c> read at most every six
+        /// hours. Null when they cannot be read — the order then goes as before, with its numbers
+        /// written plainly.
+        /// </summary>
+        internal async Task<ContractRules?> GetContractRulesAsync(string symbol)
+        {
+            Dictionary<string, ContractRules>? all;
+            lock (_contractRulesLock)
+                all = _contractRules != null && DateTime.UtcNow - _contractRulesAt < ContractRulesTtl ? _contractRules : null;
+            if (all == null)
+            {
+                try
+                {
+                    var json = await GetPublicJsonAsync($"{LiveHost}{ApiRoot}/instruments").ConfigureAwait(false);
+                    all = new Dictionary<string, ContractRules>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var i in json["instruments"] as JArray ?? new JArray())
+                        if (ReadContractRules(i) is { } r) all[i["symbol"]!.ToString()] = r;
+                    lock (_contractRulesLock) { _contractRules = all; _contractRulesAt = DateTime.UtcNow; }
+                }
+                catch (Exception ex)
+                {
+                    SurfaceError($"Kraken Futures order rules could not be read: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
+                    return null;
+                }
+            }
+            return all.TryGetValue(symbol, out var rules) ? rules : null;
+        }
+
+        /// <summary>
+        /// One <c>/instruments</c> entry (live 2026-11-14: all 219 are <c>flexible_futures</c>,
+        /// <c>contractSize</c> 1, so a size is in the base asset). The size step is
+        /// <c>10^-contractValueTradePrecision</c> — 4 on PF_XBTUSD, so 0.0001 BTC, and negative on
+        /// a few cheap coins (-3 is a step of 1000) — and it is also the smallest order. Prices
+        /// step by <c>tickSize</c>.
+        /// </summary>
+        internal static ContractRules? ReadContractRules(JToken i)
+        {
+            string? symbol = i["symbol"]?.ToString();
+            if (string.IsNullOrEmpty(symbol)) return null;
+            string baseAsset = i["base"]?.ToString().ToUpperInvariant() ?? "";
+            string quote = i["quote"]?.ToString().ToUpperInvariant() ?? "";
+            double contractSize = D(i["contractSize"]);
+            decimal step = i["contractValueTradePrecision"] is JValue { Type: JTokenType.Integer } pv
+                ? Pow10(-pv.Value<int>()) : 0m;
+            string spoken = symbol.ToUpperInvariant();
+            string? notTrading =
+                i["tradeable"]?.Value<bool>() == false || i["isExpired"]?.Value<bool>() == true
+                    ? $"Kraken Futures is not taking {spoken} orders (the contract is no longer traded)"
+                : i["suspended"]?.Value<bool>() == true
+                    ? $"Kraken Futures has suspended {spoken}"
+                : null;
+            var rules = new SymbolOrderRules
+            {
+                Venue        = "Kraken Futures",
+                Symbol       = spoken,
+                QuantityUnit = contractSize == 1 && baseAsset.Length > 0 ? baseAsset : "contracts",
+                QuoteAsset   = quote,
+                MinQuantity  = step,
+                QuantityStep = step,
+                PriceTick    = SymbolOrderRules.ParseStep(i["tickSize"] is JValue tv
+                                   ? Convert.ToString(tv.Value, CultureInfo.InvariantCulture) : null),
+                NotTrading   = notTrading,
+            };
+            return new ContractRules(rules, i["postOnly"]?.Value<bool>() == true);
+        }
+
+        private static decimal Pow10(int exponent)
+        {
+            decimal r = 1m;
+            for (int k = 0; k < Math.Abs(exponent); k++) r = exponent > 0 ? r * 10m : r / 10m;
+            return r;
         }
 
         /// <summary>

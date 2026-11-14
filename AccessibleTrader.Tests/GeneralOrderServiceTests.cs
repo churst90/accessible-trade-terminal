@@ -57,6 +57,7 @@ namespace AccessibleTrader.Tests
             // generic one WITH a practice environment, so pin the real-world default; the
             // refusal itself is proven on its own fixture in OrderRoutingSafetyTests.
             live.HasPracticeEnvironment.Returns(true);
+            live.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
 
             var err = Substitute.For<IGlobalErrorCoordinator>();
@@ -65,6 +66,7 @@ namespace AccessibleTrader.Tests
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.IsConnected.Returns(true);
             paper.HasPracticeEnvironment.Returns(true);
+            paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
             // Must be wired BEFORE construction: the service subscribes to the paper
             // stream for its whole lifetime in the constructor.
             paper.OrderUpdateStream.Returns(paperStream);

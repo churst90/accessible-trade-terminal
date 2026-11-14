@@ -500,6 +500,20 @@ namespace AccessibleTrader.Core.Services
                         + "or turn on Paper trading with F12");
                 }
             }
+            // A stop or target riding on an entry is sent only by a venue that attaches one. The
+            // others (Bitstamp, Coinbase, Gemini, Kraken Futures, MEXC spot) sent the entry and
+            // dropped the stop without a word, and the first anyone heard of it was the
+            // "may be unprotected" check two seconds later — with the position already open and
+            // its size worked out from a stop that was never placed. Refused before sending.
+            if (CarriesBracket(signal) && !tp.AttachesProtectiveLegs(signal))
+            {
+                _logger.LogWarning("Refused: {Provider} does not attach a stop or target to an entry ({Symbol}).",
+                    providerName, signal.Symbol);
+                return OrderPlacement.Parse(
+                    $"ORDER_FAILED:{providerName} cannot attach a stop loss or take profit to an entry, so this "
+                    + "order would open with no protection. Send the entry without them, then place a "
+                    + "separate stop order once it fills");
+            }
             try
             {
                 // The paper broker is told which venue's chart this order is for (PaperOrderVenue).

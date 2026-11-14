@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A stop or target on an entry is refused before sending where the venue cannot attach it; Kraken Futures positions and sizes (2026-11-14, before the new futures venues)
+
+- **The gap:** Bitstamp, Coinbase, Gemini, Kraken Futures and MEXC spot sent an entry and dropped
+  the stop loss or take profit riding on it. Nothing was said until the "may be unprotected" check
+  about two seconds later, when the position was already open. A quick trade's size comes from its
+  stop, so the size was worked out from protection that was never placed.
+- **Now:** `GeneralOrderService` refuses such an entry before sending, in words: "{venue} cannot attach
+  a stop loss or take profit to an entry, so this order would open with no protection. Send the entry
+  without them, then place a separate stop order once it fills." A plain entry and a stop ORDER (as the
+  Positions-tab editor sends) still go.
+  - The question is asked through a new SDK member, `ITradingProvider.AttachesProtectiveLegs(signal)`.
+    It defaults to the `Brackets` flag.
+  - MEXC answers per market (futures yes, spot no).
+  - Oanda now declares `Brackets`: it always attached a stop and target on fill, and without the flag
+    it would have been refused.
+  - A test names every venue that does not attach, so a new venue has to decide.
+- **Kraken Futures**, checked against Kraken's docs and the live `/instruments` (2026-11-14):
+  - A position's profit and loss was the funding owed (`unrealizedFunding`), not `unrealizedPnl`.
+  - Leverage was always 1. It is now the venue's own (`maxFixedLeverage` isolated, `crossMaxLeverage`
+    cross).
+  - The liquidation price read a field the venue does not send, so it was always blank. It stays blank
+    (the venue gives none per position), and the near-liquidation warning cannot fire there.
+  - Sizes are cut to the contract's step (`10^-contractValueTradePrecision`, 0.0001 BTC on PF_XBTUSD).
+    A size below one step, a suspended or expired contract, or a non-post-only order on a post-only
+    market is refused in words before anything is sent. Prices are rounded to the tick and never sent
+    in exponent form.
+  - A Paper profile refuses before any request leaves.
+- **Deposit addresses:** Kraken calls USDT on Solana "Tether USD (SPL)". The address was shown as
+  "unknown network, verify it". It is now checked as a Solana address.
+- **Not tried with money** on any venue. Tests pin each piece and each went red when the fix was
+  removed.
+
 ### Chart formations: the `;` choice is read and drawn on every bar it is on; arrows and `,` `.` say the same (2026-11-13, Cody's request)
 
 - **What Cody hit** on 3c34b559 (the entry below), on MEXC TAO/USDT 1h:

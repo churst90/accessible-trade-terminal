@@ -82,7 +82,8 @@ namespace AccessibleTrader.Sdk.Trading
                            "POLYGON", "MATIC", "BSC", "BEP20", "AVAX", "AVALANCHE"))
                 return EvmHex(address, net);
 
-            if (Looks(net, "SOL", "SOLANA"))         return Solana(address);
+            // "SPL" is Solana's token standard: Kraken names USDT on Solana "Tether USD (SPL)".
+            if (Looks(net, "SOL", "SOLANA", "SPL"))  return Solana(address);
 
             return new(AddressCheck.Unknown,
                 $"no local format check exists for {(network is null or "" ? "this network" : network)} — "

@@ -33,6 +33,7 @@ public sealed class HostedPaperModeTests
         var bus = new EventBus();
         var paper = Substitute.For<IPaperTradingProvider>();
         paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+        paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
         paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
         var settings = Substitute.For<ISettingsManager>();
 
@@ -52,6 +53,7 @@ public sealed class HostedPaperModeTests
     {
         var live = Substitute.For<IMarketDataProvider, ITradingProvider>();
         ((ITradingProvider)live).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+        ((ITradingProvider)live).AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
         var liveTrading = (ITradingProvider)live;
         liveTrading.IsConnected.Returns(true);
         liveTrading.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("LIVE-1"));
@@ -62,6 +64,7 @@ public sealed class HostedPaperModeTests
 
         var paper = Substitute.For<IPaperTradingProvider>();
         paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+        paper.AttachesProtectiveLegs(Arg.Any<TradeSignal>()).Returns(true);   // NSubstitute answers FALSE here too, which arms the bracket refusal
         paper.IsConnected.Returns(true);
         paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
         paper.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("PAPER-1"));
