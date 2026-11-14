@@ -807,6 +807,77 @@ namespace AccessibleTrader.Tests.OrderConformance
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // Kalshi — signed JSON body (Ed25519), bid/ask, no market type: a market order is an IOC limit
+    // ═══════════════════════════════════════════════════════════════════════════
+    internal sealed class KalshiRig : OrderRig
+    {
+        public static readonly string Pem = Ed25519Pem();
+
+        public override string Name => "Kalshi";
+        public override string ProviderTypeName => "KalshiProvider";
+        public override string OrderSymbol => "KXBTCPERP";
+        public override string ExpectedWireSymbol => "KXBTCPERP";
+        public override string ChartedSymbol => "KXETHPERP";
+        public override string LiveHost => "external-api.kalshi.com";
+        public override string? PracticeHost => "external-api.demo.kalshi.co";
+        public override bool WholeSharesOnly => true;          // whole contracts on these markets
+        public override bool HasReduceOnlyFlag => true;
+        public override StopSupport Stops => StopSupport.None;
+        public override TakeProfitSupport TakeProfits => TakeProfitSupport.Refused;
+
+        public const string Markets = """{"markets":[{"ticker":"KXBTCPERP","status":"active","title":"0.0001 BTC","asset_class":"Crypto","tick_size":"0.0001","minimum_quantity":"1.00","fractional_trading_enabled":false},{"ticker":"KXETHPERP","status":"active","title":"0.001 ETH","asset_class":"Crypto","tick_size":"0.0001","minimum_quantity":"1.00","fractional_trading_enabled":false}],"cursor":""}""";
+        public const string Book = """{"orderbook":{"asks":[["101.0000","5.00"]],"bids":[["100.0000","5.00"]]}}""";
+
+        public static string Ed25519Pem()
+        {
+            var gen = new Org.BouncyCastle.Crypto.Generators.Ed25519KeyPairGenerator();
+            gen.Init(new Org.BouncyCastle.Crypto.Parameters.Ed25519KeyGenerationParameters(new Org.BouncyCastle.Security.SecureRandom()));
+            var der = Org.BouncyCastle.Pkcs.PrivateKeyInfoFactory.CreatePrivateKeyInfo(gen.GenerateKeyPair().Private).GetDerEncoded();
+            return "-----BEGIN PRIVATE KEY-----\n" + Convert.ToBase64String(der) + "\n-----END PRIVATE KEY-----\n";
+        }
+
+        public override ITradingProvider Build(FakeHttpMessageHandler h, string? environment)
+        {
+            var p = new AccessibleTrader.Plugins.Kalshi.KalshiProvider();
+            Configure(p, new() { ["ApiKey"] = "key-id", ["ApiSecret"] = Pem }, environment);
+            SwapField(p, "_http", new HttpClient(h));
+            return p;
+        }
+
+        public static void ArmMarkets(FakeHttpMessageHandler h)
+        {
+            h.Get(@"kalshi\.com?/trade-api/v2/margin/markets(\?|$)", Markets);
+            h.Get(@"kalshi\.com?/trade-api/v2/margin/markets/[A-Z0-9]+/orderbook", Book);
+        }
+
+        public override void ArmSuccess(FakeHttpMessageHandler h, string orderId)
+        {
+            ArmMarkets(h);
+            h.Post(@"kalshi\.com?/trade-api/v2/margin/orders$", $$"""{"order_id":"{{orderId}}","client_order_id":"x"}""", HttpStatusCode.Created);
+        }
+
+        public override void ArmRejection(FakeHttpMessageHandler h)
+        {
+            ArmMarkets(h);
+            h.Post(@"kalshi\.com?/trade-api/v2/margin/orders$",
+                """{"error":{"code":"insufficient_balance","message":"insufficient balance","details":""}}""", HttpStatusCode.BadRequest);
+        }
+
+        public override IReadOnlyList<WireOrder> Orders(FakeHttpMessageHandler h) =>
+            Posts(h, "/margin/orders").Select(x =>
+            {
+                var j = JObject.Parse(x.Body);
+                string tif = j["time_in_force"]?.ToString() ?? "";
+                return new WireOrder(x.Req.RequestUri!.Host, j["ticker"]!.ToString(),
+                    j["side"]!.ToString() == "bid" ? "buy" : "sell",
+                    Num(j["count"]?.ToString()) ?? double.NaN, tif,
+                    // No market type exists; the plugin's market order is an immediate limit.
+                    IsMarket: tif == "immediate_or_cancel", IsStop: false, Trigger: null,
+                    LimitPrice: Num(j["price"]?.ToString()), ReduceOnly: j["reduce_only"]?.Value<bool>() == true);
+            }).ToList();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // Tradier — form body, whole shares only, sandbox vs live host
     // ═══════════════════════════════════════════════════════════════════════════
     internal sealed class TradierRig : OrderRig
@@ -867,7 +938,7 @@ namespace AccessibleTrader.Tests.OrderConformance
         public static readonly IReadOnlyList<OrderRig> All = new OrderRig[]
         {
             new AlpacaRig(), new BinanceSpotRig(), new BinanceFuturesRig(), new BitstampRig(), new CoinbaseRig(),
-            new GeminiRig(), new HyperliquidRig(), new IbkrRig(), new KrakenRig(), new KrakenFuturesRig(), new MexcSpotRig(),
+            new GeminiRig(), new HyperliquidRig(), new IbkrRig(), new KalshiRig(), new KrakenRig(), new KrakenFuturesRig(), new MexcSpotRig(),
             new MexcFuturesRig(), new OandaRig(), new SchwabRig(), new TradierRig(),
         };
 

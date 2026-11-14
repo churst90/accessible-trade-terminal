@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Kalshi perpetual futures (2026-11-14)
+
+- **What:** a new trading venue, **Kalshi** (`AccessibleTrader.Plugins.Kalshi`), for Kalshi's
+  perpetual futures: crypto, US stocks, metals, oil, currencies and indices, all in US dollars and
+  regulated by the CFTC. Built from Kalshi's API reference on 2026-11-14. NOT tried with money and
+  no order has been placed. Kalshi is opening perps on its live venue to members a few at a time;
+  its demo venue (demo.kalshi.co, separate keys) has them now.
+- **Key:** the API key box takes the Key ID and the secret box the private key file Kalshi shows once
+  when the key is made. Both kinds Kalshi issues are read: Ed25519 (PKCS#8, its default) and RSA
+  (PKCS#1, signed RSA-PSS SHA-256). Pasted keys with literal `\n`, Windows line ends or no line breaks
+  are read; anything else is refused with what to paste. Requests are signed over the timestamp,
+  method and path without the query. The key check asks `/margin/enabled` and says when perps are not
+  open on the account yet.
+- **Practice vs live:** practice routes orders to the demo venue. Charts use the live venue's public
+  data, except with practice and a key, where they use the demo venue so the prices match the orders.
+- **Market data:** markets by class (crypto, stocks, commodities, forex, indices; only active ones).
+  Candles 1m, 1h and 1d, read in seconds, 5,000 per request, up to 20 requests; Kalshi stamps a
+  candle with its end, so each is moved back one period to its start. Candles with no trade are
+  skipped. The order book arrives best-last and is sorted; Kalshi's sentinel and empty levels are
+  dropped.
+- **Orders:** market and limit only. Kalshi has no market order, so a market order goes out as an
+  immediate-or-cancel limit 5% through the best price. An empty side is refused ("Nobody is selling
+  ..."). If an immediate order fills nothing, the result is a failure that says so, not an order id.
+  Prices are dollars per contract, up to four decimals. Self-trade prevention: cancel the taker.
+  - Refused before any request: stop and take-profit types; leverage above 1 (Kalshi has no setting;
+    the size is the exposure); DAY and GTD; reduce-only that would rest (Kalshi takes reduce-only only
+    on immediate orders); post-only on an immediate order; a limit with no price.
+  - Sizes: whole contracts unless the market allows fractions (then 0.01 steps); a refusal names what
+    one contract is when the market's title says. A market Kalshi lists as anything but active is
+    refused in words. Market rules are cached 6 hours.
+  - Kalshi's error codes are said in words (the stocks application, price band and ticks, balance,
+    position limit, paused, blocked, clock).
+- **Account:** balance in USD (free = available; locked = equity less available). Positions join
+  `/margin/positions` with `/margin/risk` for the liquidation price. Leverage is value over margin
+  used, and the margin mode is shown. Neither read swallows a failure: if the risk read fails, the
+  positions read fails. Open orders (up to 5 pages of 1,000), fills with fee and realised profit,
+  and cancel.
+- **Not attached:** no stop or target can ride on an entry (`AttachesProtectiveLegs` false), so the
+  refusal from earlier today applies.
+- **Registered:** solution, both hosts, the API key list, Settings' trading venues, the demo policy's
+  hosted list, the credential bridge enrolment, the order conformance rigs (`KalshiRig`) and the
+  bracket-refusal roster.
+- **Tests:** `KalshiTests` (new) plus `KalshiRig` in the conformance suite. Each guard was sabotaged
+  and went red: the query left in the signed path, RSA PKCS#1 padding instead of PSS, a fraction
+  floored instead of refused, an unsorted book, an empty book not refused, the leverage refusal, a
+  resting reduce-only, a zero-fill IOC read as a success, candle ends not moved back, milliseconds
+  instead of seconds, demo routing, and a price at one decimal. The control was green.
+- **Also fixed:** the Coinbase futures session refusal from the commit before formatted its date in
+  the machine's culture; it is now invariant (`CultureInvariantScanTests` caught it).
+
 ### Coinbase US futures (2026-11-14)
 
 - **What:** Coinbase gains a **Futures** market: the US futures contracts (Coinbase Financial

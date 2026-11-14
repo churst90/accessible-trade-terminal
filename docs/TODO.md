@@ -30,6 +30,21 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Kalshi perpetual futures (2026-11-14; see CHANGES).** Not tried with money; no order placed,
+  not even on the demo venue. Cody to make a demo account first.
+  - Unverified until an account answers: whether `/margin/orders` lists only resting orders or
+    everything (the terminal keeps those with a remaining count); the positions, risk, balance and
+    fills shapes; whether `fill_count` is in an IOC's answer.
+  - No exit triggers: Kalshi has stop and take-profit triggers on positions, not built, so stops are
+    refused. A stop is a separate thing to watch for yourself until then.
+  - Daily candles close at midnight New York time, not UTC; weekly and other timeframes are built
+    from 1h or 1d by the terminal.
+  - Prices are per contract; on a market whose contract is not one unit of the asset the chart is
+    the contract's price, not the asset's.
+  - Stock perps need Kalshi's stocks application; the refusal says so but the terminal cannot check
+    first.
+  - No websocket: the book and positions are polled.
+  - A failed `/margin/risk` read fails the whole positions read (by design, nothing swallowed).
 - [ ] **Coinbase US futures (2026-11-14; see CHANGES).** Cody is applying for a Coinbase futures
   account. Not tried with money; no order placed.
   - Unverified until an account answers: that `base_size` is counted in contracts (the product

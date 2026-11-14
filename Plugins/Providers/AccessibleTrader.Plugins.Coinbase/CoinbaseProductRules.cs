@@ -96,7 +96,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             else if (session != null && session["is_session_open"]?.Type == JTokenType.Boolean
                      && !Flag(session, "is_session_open") && Flag(session, "after_hours_order_entry_disabled"))
                 notTrading = $"The {name} trading session is closed and Coinbase takes no orders until it opens"
-                           + (OpenTime(session) is DateTime opens ? $" at {opens:yyyy-MM-dd HH:mm} UTC" : "");
+                           + (OpenTime(session) is DateTime opens ? FormattableString.Invariant($" at {opens:yyyy-MM-dd HH:mm} UTC") : "");
 
             return new CoinbaseProductRules(
                 new SymbolOrderRules

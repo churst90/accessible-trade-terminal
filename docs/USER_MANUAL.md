@@ -2360,7 +2360,7 @@ an entry placed without it would have a quantity justified by protection that do
 On brokers with native bracket support (Alpaca) all three legs go as one order; on the others
 the terminal verifies afterwards that something protective actually reached the exchange, and
 says so loudly if not. On a venue that cannot attach a stop to an entry at all (Bitstamp,
-Coinbase, Gemini, Kraken Futures, MEXC spot) a quick trade is refused before anything is sent,
+Coinbase, Gemini, Kalshi, Kraken Futures, MEXC spot) a quick trade is refused before anything is sent,
 and you hear why.
 
 **An armed trade belongs to the chart you armed it on.** Its size, stop and entry all came
@@ -3105,8 +3105,8 @@ not a warning:
   {nickname})", for anyone looking.
 
 **A Paper key only means paper on a venue that has a practice environment.** Alpaca,
-Binance, Gemini, Hyperliquid, Oanda and Tradier do: a Paper profile there points at the sandbox or
-testnet. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
+Binance, Gemini, Hyperliquid, Kalshi, Oanda and Tradier do: a Paper profile there points at the
+sandbox, testnet or demo venue. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
 withdrawn on 2026-07-14), MEXC and Schwab have none, so a key marked Paper on those would
 sign against real money while everything on screen said paper. The terminal **refuses**
 such an order instead, at the one point every order passes through: "{provider} has no
@@ -3426,6 +3426,48 @@ To get access, sign in at coinbase.com, open Futures and apply. Coinbase asks ab
 experience and finances and may take some days. Your existing API key then covers futures
 as long as it has View and Trade (never Transfer).
 
+### Kalshi
+
+Kalshi (since 2026-11-14) is a US exchange regulated by the CFTC. The terminal trades its
+perpetual futures: crypto such as **KXBTCPERP**, US stocks, metals, oil, currencies and
+indices, all in US dollars. Its event contracts (yes/no markets) are not listed. None of
+this has yet been tried with money, on the live venue or the demo.
+
+- **Key.** In API Keys choose **Kalshi**. The API key box takes the **Key ID** and the
+  secret box takes the **private key**: paste the whole file Kalshi gave you, from the
+  BEGIN line to the END line. Kalshi shows that file once, when the key is made, so keep
+  it. Mark the key **Paper** for Kalshi's demo venue (demo.kalshi.co, its own account and
+  its own keys) or **Live** for the real one. Saving checks the key and says whether
+  perpetual futures are open on the account yet: Kalshi is opening them to members a few
+  at a time, and the demo venue has them now.
+- **Charts** come from Kalshi's public data, in 1 minute, 1 hour and 1 day candles; other
+  timeframes are built from those. A day ends at midnight New York time. With a Paper key
+  the charts come from the demo venue, so they match the prices your orders get there.
+- **Market and limit orders only.** Kalshi has no market order, so the terminal sends a
+  limit 5% through the best price that fills at once or is cancelled. If nobody is on the
+  other side you hear "Nobody is selling KXBTCPERP on Kalshi right now", and if nothing
+  fills the order fails and says so. Good-till-cancelled, immediate-or-cancel and
+  fill-or-kill work; day and good-till-date are refused. Prices are dollars per contract.
+- **Sizes** are whole contracts, unless the market takes fractions.
+- **No leverage setting.** The size you order is the exposure, held on margin from the
+  account. An order asking for more than 1 times is refused; the Positions tab shows the
+  leverage that results.
+- **No stops yet.** Stop and take-profit orders, and a stop on the entry, are refused.
+  Place the entry, then watch it yourself, or set the exit on kalshi.com.
+- **Reduce-only** is taken only on an order that fills at once (a market order, or a limit
+  marked immediate-or-cancel or fill-or-kill). Post-only only on one that rests.
+- **Positions and balance.** Positions show Kalshi's own liquidation price, margin mode
+  and profit. The balance is in dollars: free is what Kalshi says you can use for new
+  orders, locked the rest of your equity.
+- **Stock perpetuals** need Kalshi's stocks application approved first. Until it is,
+  Kalshi refuses the order and you hear that.
+
+To get access: open an account at kalshi.com (Kalshi checks your identity). For
+practice, make a separate account at demo.kalshi.co. On either, go to Account, then
+Profile, then API Keys, and make a key; keep the Key ID and the private key file. If the
+key check says perpetual futures are not enabled on the live account, ask Kalshi support
+to be added.
+
 ### Order sizes and leverage on the other crypto venues
 
 Since 2026-11-10, Gemini, Binance, Coinbase, Bitstamp, MEXC and Hyperliquid work the way
@@ -3519,7 +3561,7 @@ Press Alt+B to open the order book for the current symbol; your screen reader
 announces it as "Order Book — {symbol}". The toolbar's Order book button appears only
 when the current provider has a book to show — the ten venues that stream depth
 (Binance, Bitstamp, Coinbase, Gemini, Hyperliquid, Kraken, Kraken Futures, MEXC, Alpaca, Polygon)
-and Interactive Brokers — so on a data feed with no book the button is simply absent,
+plus Interactive Brokers and Kalshi, whose books are read on request — so on a data feed with no book the button is simply absent,
 the way Deposit is absent on a broker with no wallet. Alt+B still opens the dialog
 anywhere, and on a provider with nothing it says so. It presents the resting buy and sell
 interest as two columns — "Bids (Buy Orders)" and "Asks (Sell Orders)" — each listing

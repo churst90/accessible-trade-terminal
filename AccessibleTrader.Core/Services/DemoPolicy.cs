@@ -84,6 +84,8 @@ namespace AccessibleTrader.Core.Services
             "Binance", "Bitstamp", "Kraken", "MEXC",
             // Crypto, historical only (no public stream implemented).
             "Gemini", "KrakenFutures",
+            // Perpetuals on crypto, stocks, metals, oil, currencies and indices; public REST, no key.
+            "Kalshi",
             // Stocks / forex / indices — server-seeded key.
             "Twelve Data",
             // Economic — server-seeded FRED key.
