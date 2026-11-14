@@ -133,13 +133,14 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TheAuditStillDetectsAKnownStubbedReadPath()
         {
-            // Coinbase's GetPositionsAsync returns a constant empty list. If this
+            // Gemini's GetPositionsAsync returns a constant empty list (it is spot only). If this
             // ever stops being detected, the stub detector has broken rather than
             // the provider having been fixed — check which before deleting this.
-            var coinbase = Assert.Single(ProviderCapabilityAudit.Run(RepoRoot()),
-                a => a.Name == "CoinbaseProvider");
+            // (Coinbase was the example until 2026-11-14, when it gained futures positions.)
+            var gemini = Assert.Single(ProviderCapabilityAudit.Run(RepoRoot()),
+                a => a.Name == "GeminiProvider");
 
-            Assert.Contains("GetPositionsAsync", coinbase.ReadPathStubs);
+            Assert.Contains("GetPositionsAsync", gemini.ReadPathStubs);
         }
 
         // ── The ratchet ──────────────────────────────────────────────────────

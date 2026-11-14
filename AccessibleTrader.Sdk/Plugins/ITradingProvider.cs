@@ -99,6 +99,13 @@ namespace AccessibleTrader.Sdk.Plugins
     /// feeds risk math, so divide by <c>Math.Abs(quantity)</c> with a zero guard at
     /// the provider boundary. Binance's <c>entryPrice</c> and Schwab's
     /// <c>averagePrice</c> are already per-unit and need no division.</para>
+    ///
+    /// <para><b><see cref="ContractSize"/></b> is how much of the asset one unit of
+    /// <see cref="Quantity"/> is, for a venue that counts positions in contracts: Coinbase's
+    /// BTC Perp is 0.01 BTC a contract, so 3 contracts at 66,000 are 1,980 dollars of BTC, not
+    /// 198,000. Quantity stays in contracts because a close is sent in contracts. 1 for a venue
+    /// that counts in the asset itself; NaN when the venue counts in contracts and the size
+    /// could not be read, so nothing works a figure out of it.</para>
     /// </summary>
     public record Position(
         string Symbol,
@@ -108,7 +115,8 @@ namespace AccessibleTrader.Sdk.Plugins
         double UnrealizedPnL,
         double Leverage = 1.0,
         double LiquidationPrice = 0.0,
-        MarginMode MarginMode = MarginMode.None
+        MarginMode MarginMode = MarginMode.None,
+        double ContractSize = 1.0
     );
 
     public record OpenOrder(

@@ -3133,9 +3133,10 @@ the quantity that will be sent. With no price yet (a market order before the cha
 loaded) a value is refused, and the message says to enter a limit price or size in the base
 unit. Switching **Size in** carries the size across, so the order does not change. The
 **Size** risk button always fills in a base quantity and sets Size in back to the base unit.
-There is no contracts setting: every venue here takes base units (a Kraken Futures linear
-contract is one unit of the coin), and paper trading has no leverage, so a position's value
-is its quantity times its price.
+There is no contracts setting. Most venues take base units (a Kraken Futures linear
+contract is one unit of the coin), but MEXC futures and Coinbase futures count in contracts,
+so on those the quantity is a number of contracts (see "Coinbase futures" below). Paper
+trading has no leverage, so a position's value is its quantity times its price.
 
 The Type list holds the full set: **Market**, **Limit**, **Stop-Market**,
 **Stop-Limit**, **Take-Profit-Market**, and **Take-Profit-Limit**. The fields that
@@ -3390,6 +3391,40 @@ below one step is refused in words before anything is sent, as is an order on a
 suspended contract. The Positions tab shows the venue's own profit and loss and
 leverage. Kraken Futures does not give a liquidation price per position, so that
 column shows a dash and the near-liquidation warning cannot sound there.
+
+### Coinbase futures
+
+Coinbase's US futures (since 2026-11-14) use the same Coinbase API key as spot. Pick
+**Futures** in the market list on Coinbase to see the contracts. **BIP-20DEC30-CDE** is
+the BTC Perp and **ETP-20DEC30-CDE** the ETH Perp; **BIT-27NOV26-CDE** is the November BTC
+contract. Charts, the order book and orders work on them like any other market. None of
+this has yet been tried against a real Coinbase futures account.
+
+- **Sizes are whole contracts.** One BTC Perp contract is 0.01 BTC, so 3 is 0.03 BTC. A
+  size such as 0.03, typed as bitcoin, is refused before it is sent: "Coinbase's smallest
+  BTC Perp order is 1 contracts; this one is 0.03 contracts (one contract is 0.01 BTC)".
+  More than one order may carry (5,000 on the BTC Perp) is refused too.
+- **No leverage field.** Coinbase sets futures margin itself, about a tenth of the
+  contract's value in the day and more overnight, so the leverage is how many contracts
+  you hold against your futures balance. An order that asks for leverage is refused.
+- **No stop on the entry.** Place the entry, then a separate stop order once it fills.
+- **Closing.** Coinbase futures orders cannot be marked close-only, so the terminal does
+  it: a close, or an order with Reduce-only ticked, is first checked against the position
+  as Coinbase holds it now. It is refused, and nothing is sent, if it is larger than the
+  position or the position is the other way, because it would open a new one. A stop that
+  rests on the book is checked when it is placed, not when it fires.
+- **Positions and balance.** The Positions tab lists futures positions in contracts, with
+  Coinbase's own profit and loss; long is positive, short negative. The percent move counts
+  the contract size. Coinbase gives no liquidation price or leverage per position, so
+  neither is shown. The Balances tab shows the futures account's cash as **USD futures**.
+  Coinbase moves spot dollars across as margin needs them, so what you can buy can be more
+  than that line.
+- **No futures account.** If Coinbase refuses the futures read (an account not set up for
+  futures, or a key that cannot see it), you hear it once and spot carries on as before.
+
+To get access, sign in at coinbase.com, open Futures and apply. Coinbase asks about
+experience and finances and may take some days. Your existing API key then covers futures
+as long as it has View and Trade (never Transfer).
 
 ### Order sizes and leverage on the other crypto venues
 

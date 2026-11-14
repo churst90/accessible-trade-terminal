@@ -8,6 +8,11 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Coinbase futures.** Pick Futures on Coinbase for the US futures contracts, such as the BTC Perp
+  (BIP-20DEC30-CDE). Sizes are whole contracts (one BTC Perp contract is 0.01 BTC), and a size typed
+  as bitcoin is refused with what a contract is. A close is checked against the position first, so it
+  cannot open one the other way. Positions and a "USD futures" balance show. Not yet tried with a real
+  futures account.
 - **A stop is never silently dropped.** On Bitstamp, Coinbase, Gemini, Kraken Futures and MEXC spot,
   an order carrying a stop loss or take profit is now refused before it is sent, with the reason. Those
   venues cannot attach one to an entry, and the entry used to go out without it. Send the entry, then a

@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Coinbase US futures (2026-11-14)
+
+- **What:** Coinbase gains a **Futures** market: the US futures contracts (Coinbase Financial
+  Markets, CDE venue), through the same key and order endpoint as spot. Checked against Coinbase's
+  API reference and the live public product list on 2026-11-14. NOT tried against a real futures
+  account, and no order has been placed.
+- **Contracts:** sizes are whole contracts. The live BIP-20DEC30-CDE (BTC Perp) answer has
+  `base_increment` 1, `base_min_size` 1, `base_max_size` 5000, and `future_product_details` with
+  `contract_size` 0.01 and `contract_root_unit` BTC. It has no `base_currency_id` and an empty
+  `status`, so the spot reading would have named it "BIP/20DEC30". `CoinbaseProductRules` reads a
+  FUTURE product by its `display_name`, in contracts, and refusals end "(one contract is 0.01 BTC)".
+  - An expired contract (`view_only`), switched-off trading, cancel-only, and a closed session
+    with after-hours entry disabled are refused in words. A closed session that still takes
+    orders is not refused.
+  - Above `base_max_size` is refused.
+- **Leverage:** Coinbase takes no leverage setting on these (the order's `leverage` and
+  `margin_type` fields are documented for its international perpetuals). Any order asking for
+  more than 1 times is now refused, spot too, where it used to go out at 1 times without a word.
+  `Leverage` and `Brackets` are not declared. `FuturesTrading`, `Shorting` and `ReduceOnly` are.
+- **Reduce-only:** Coinbase futures orders have no reduce-only flag. A reduce-only order on a
+  contract is checked against `cfm/positions` first and refused unsent if it is larger than the
+  position or against it, or if the position cannot be read.
+- **Positions:** `cfm/positions`, in contracts (short negative), with Coinbase's `unrealized_pnl`.
+  The SDK's `Position` gains `ContractSize` (default 1). The trade status bar's percent counts it:
+  3 contracts at 0.01 BTC were read as 3 BTC, which spoke a 10% move as 0.1%. When the size cannot
+  be read it is NaN and the percent falls back to the amount. No liquidation price or leverage is
+  given per position, so neither is invented.
+- **Balance:** `cfm/balance_summary` adds "USD futures" (`cfm_usd_balance` less open-order holds).
+- **An account without futures:** a 400/401/403/404 on a futures read before any futures read has
+  worked is said once and read as no futures, so spot balances and positions still load. After a
+  good read, the same refusal throws like any other failed read.
+- **Tests:** `CoinbaseFuturesTests` (new). Each guard was sabotaged and went red: the reduce-only
+  check (4 tests), the futures parse (10), the contract size in the percent (1), the leverage
+  refusal (1), the refusal after a good read (1), the largest order (1). The control was green.
+- **Also:** `BracketAttachRefusalTests` is now in the `ProviderCredentialBridge` collection (it
+  builds real providers). The capability audit's known stub moved from Coinbase to Gemini
+  positions.
+
 ### A stop or target on an entry is refused before sending where the venue cannot attach it; Kraken Futures positions and sizes (2026-11-14, before the new futures venues)
 
 - **The gap:** Bitstamp, Coinbase, Gemini, Kraken Futures and MEXC spot sent an entry and dropped

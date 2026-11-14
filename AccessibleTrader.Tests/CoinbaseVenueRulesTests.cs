@@ -219,6 +219,8 @@ namespace AccessibleTrader.Tests
             var h = new FakeHttpMessageHandler { StrictMode = true };
             h.Get(@"/api/v3/brokerage/accounts\?limit=250$", AccountsPage("USD", "1500.25", hasNext: true, cursor: "page-2"));
             h.Get(@"/api/v3/brokerage/accounts\?limit=250&cursor=page-2$", AccountsPage("KAS", "200", hasNext: false, cursor: ""));
+            // A spot-only account: the futures summary answers, with nothing in it.
+            h.Get(@"/api/v3/brokerage/cfm/balance_summary$", """{"balance_summary":{"cfm_usd_balance":{"value":"0","currency":"USD"}}}""");
             SymbolListHarness.SwapEveryHttpClient(p, h);
 
             var balances = await p.GetBalancesAsync();
@@ -227,7 +229,7 @@ namespace AccessibleTrader.Tests
             // The holding on the SECOND page: the one-page read never saw it.
             Assert.Contains(balances, b => b.Asset == "KAS" && b.Free == 200);
             Assert.Equal(2, balances.Count);
-            Assert.Equal(2, h.Captured.Count);
+            Assert.Equal(3, h.Captured.Count);
         }
 
         [Fact]

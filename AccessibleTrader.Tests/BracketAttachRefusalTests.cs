@@ -16,6 +16,7 @@ namespace AccessibleTrader.Tests
     /// entry and dropped the stop without a word; the "may be unprotected" check two seconds
     /// later was the first anyone heard of it, with the position already open.
     /// </summary>
+    [Collection("ProviderCredentialBridge")]
     public class BracketAttachRefusalTests
     {
         private static readonly TradeSignal Entry = new("BTC/USD", OrderSide.Buy, 0.01, OrderType.Market);

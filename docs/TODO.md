@@ -30,6 +30,20 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Coinbase US futures (2026-11-14; see CHANGES).** Cody is applying for a Coinbase futures
+  account. Not tried with money; no order placed.
+  - Unverified until an account answers: that `base_size` is counted in contracts (the product
+    steps of 1 say so; the docs do not), the `cfm/positions` and `cfm/balance_summary` shapes,
+    and what a spot-only account gets from them (assumed a 4xx).
+  - Coinbase documents an attached bracket (`attached_order_configuration` with
+    `trigger_bracket_gtc`) for spot and US derivatives. If it works, both Coinbase markets could
+    attach a stop and target instead of refusing. Not built.
+  - No liquidation price per position; the futures account's liquidation line
+    (`liquidation_threshold`, `liquidation_buffer_percentage`) is in the balance summary and is not
+    shown yet.
+  - Only unexpired contracts are listed. Funding on the perps is not shown.
+  - MEXC futures positions are in contracts but carry no `ContractSize` yet, so their percent move
+    is off by the contract size, as Coinbase's was.
 - [ ] **Stops on entries refused where the venue cannot attach them; Kraken Futures positions and sizes
   (2026-11-14; see CHANGES).** Not tried with money.
   - Kraken Futures could attach real legs (a reduce-only `stp` and `take_profit` after a market entry)

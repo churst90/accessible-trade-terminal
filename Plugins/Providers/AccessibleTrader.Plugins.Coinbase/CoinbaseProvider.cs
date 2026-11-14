@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using AccessibleTrader.Sdk.Models;
@@ -69,7 +70,21 @@ namespace AccessibleTrader.Plugins.Coinbase
         public override bool SupportsLiveUpdates => true;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 300;
-        public override ProviderCapabilities Capabilities => ProviderCapabilities.L2;
+        /// <summary>
+        /// FuturesTrading and Shorting since 2026-11-14: the US futures account (Coinbase
+        /// Financial Markets) trades through the same key and the same order endpoint, sized in
+        /// contracts. NOT Leverage: Coinbase takes no leverage setting on these, the margin is
+        /// its own (about 10% of the contract's value in the day, more overnight), so the
+        /// leverage is how many contracts you hold against the futures balance. NOT Brackets:
+        /// Coinbase documents an attached bracket, but this terminal has not been seen to place
+        /// one, so a stop on an entry is refused before sending (see AttachesProtectiveLegs).
+        /// ReduceOnly: Coinbase has no such flag, so a close-only futures order is checked
+        /// against the position first and refused unsent if it would open one (see
+        /// ReduceOnlyRefusalAsync); on spot a sale past what you hold is refused by Coinbase.
+        /// </summary>
+        public override ProviderCapabilities Capabilities =>
+            ProviderCapabilities.L2 | ProviderCapabilities.FuturesTrading | ProviderCapabilities.Shorting
+            | ProviderCapabilities.ReduceOnly;
 
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
@@ -391,12 +406,16 @@ namespace AccessibleTrader.Plugins.Coinbase
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")
         {
             if (!IsConfigured) return new List<string>();
+            // Futures: the US futures contracts (BIP-20DEC30-CDE is the BTC Perp, BIT-27NOV26-CDE
+            // the November BTC contract). Without the product_type Coinbase answers spot only.
+            bool futures = string.Equals(subType, "Futures", StringComparison.OrdinalIgnoreCase);
             try
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     string path = "/api/v3/brokerage/products";
-                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false);
+                    string query = futures ? "?product_type=FUTURE" : "";
+                    var response = await GetSignedStringAsync($"https://api.coinbase.com{path}{query}", path).ConfigureAwait(false);
                     var json     = JObject.Parse(response);
                     var products = json["products"] as JArray;
                     return products?.Select(p => p["product_id"]?.ToString() ?? "")
@@ -407,13 +426,13 @@ namespace AccessibleTrader.Plugins.Coinbase
             catch (Exception ex)
             {
                 // An empty symbol list and a failed products call look identical in the picker.
-                _errorStream.OnNext($"Coinbase symbol list unavailable: {ex.GetType().Name}");
+                _errorStream.OnNext($"Coinbase {(futures ? "futures" : "symbol")} list unavailable: {ex.GetType().Name}");
                 return new List<string>();
             }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>
-            Task.FromResult(new List<string> { "Spot" });
+            Task.FromResult(new List<string> { "Spot", "Futures" });
 
         public override Task<List<string>> GetSupportedTimeframesAsync() =>
             Task.FromResult(new List<string> { "1m", "5m", "15m", "1h", "6h", "1d" });
@@ -494,7 +513,11 @@ namespace AccessibleTrader.Plugins.Coinbase
                             double.TryParse(a["hold"]?["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double hf) ? hf : 0)));
 
                 if (json["has_next"]?.Type != JTokenType.Boolean || !json["has_next"]!.Value<bool>())
+                {
+                    if (await GetFuturesBalanceAsync().ConfigureAwait(false) is Balance futures)
+                        balances.Add(futures);
                     return balances;
+                }
                 cursor = json["cursor"]?.ToString();
                 // A list cut short is the same lie as the one-page read, so a cursor that is
                 // missing or comes round again fails the read rather than ending it.
@@ -508,7 +531,136 @@ namespace AccessibleTrader.Plugins.Coinbase
         // Coinbase lists, and a bound on a cursor loop that never ends.
         private const int MaxAccountPages = 40;
 
-        public Task<List<Position>> GetPositionsAsync() => Task.FromResult(new List<Position>());
+        // ── US futures (Coinbase Financial Markets) ──────────────────────────
+        //
+        // Same key, same JWT, same order endpoint; the account behind it is separate. Read from
+        // the docs on 2026-11-14 (api-reference/advanced-trade-api/rest-api/futures): positions
+        // carry product_id, side LONG/SHORT, number_of_contracts, avg_entry_price, current_price
+        // and unrealized_pnl as strings, and no liquidation price or leverage; the balance
+        // summary carries its money as {value, currency} objects. NOT yet seen against a real
+        // futures account.
+
+        // True once a futures read has come back. Until then a refusal of one (an account never
+        // set up for futures, or a key that cannot see it) is said once and read as no futures,
+        // so a spot-only account's balances and positions still load; after it, the same
+        // refusal is a failed read and throws, like every other read here.
+        private volatile bool _futuresSeen;
+        private int _futuresRefusalSaid;
+
+        private async Task<JObject?> ReadFuturesAsync(string path)
+        {
+            try
+            {
+                var json = await _rateLimiter.ExecuteAsync(async () =>
+                    JObject.Parse(await GetSignedStringAsync($"https://api.coinbase.com{path}", path).ConfigureAwait(false))).ConfigureAwait(false);
+                _futuresSeen = true;
+                return json;
+            }
+            catch (HttpRequestException ex) when (!_futuresSeen && ex.StatusCode is HttpStatusCode.BadRequest
+                or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+            {
+                if (Interlocked.Exchange(ref _futuresRefusalSaid, 1) == 0)
+                    _errorStream.OnNext($"Coinbase did not show the futures account (HTTP {(int)ex.StatusCode!}), so no futures "
+                        + "positions or futures balance are shown. If you trade futures on Coinbase, check that the account "
+                        + "is set up for futures and that the API key can view it.");
+                return null;
+            }
+        }
+
+        /// <summary>The futures account's cash as one balance, "USD futures", or null when there
+        /// is none or no futures account. Free is cfm_usd_balance: what sits in the futures
+        /// account. Coinbase moves spot dollars across as margin needs them, so the spot USD
+        /// line is not double-counted here and buying power can be larger than this.</summary>
+        private async Task<Balance?> GetFuturesBalanceAsync()
+        {
+            var json = await ReadFuturesAsync("/api/v3/brokerage/cfm/balance_summary").ConfigureAwait(false);
+            return json?["balance_summary"] is JObject summary ? ReadFuturesBalance(summary) : null;
+        }
+
+        internal static Balance? ReadFuturesBalance(JObject summary)
+        {
+            double cash = Amount(summary["cfm_usd_balance"]);
+            double held = Amount(summary["total_open_orders_hold_amount"]);
+            if (cash == 0 && held == 0) return null;
+            return new Balance("USD futures", Math.Max(0, cash - held), held);
+        }
+
+        /// <summary>A money field, {value, currency} or a bare string.</summary>
+        private static double Amount(JToken? t)
+        {
+            var v = t is JObject o ? o["value"] : t;
+            return double.TryParse(v?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : 0;
+        }
+
+        /// <summary>
+        /// Open futures positions, in CONTRACTS (a close is sent in contracts), long positive and
+        /// short negative. The contract size comes from the product's rules so the dollar value
+        /// and the percent move are of the asset, not of the contract count; when those cannot be
+        /// read the size is NaN and neither is worked out. Profit and loss is Coinbase's own.
+        /// Coinbase gives no liquidation price per position (its liquidation line is the whole
+        /// futures account's, in the balance summary) and no leverage, so neither is invented.
+        /// </summary>
+        public async Task<List<Position>> GetPositionsAsync()
+        {
+            if (!IsConfigured) return new();
+            var json = await ReadFuturesAsync("/api/v3/brokerage/cfm/positions").ConfigureAwait(false);
+            var list = new List<Position>();
+            if (json?["positions"] is not JArray arr) return list;
+            foreach (var p in arr)
+            {
+                var pos = ReadPosition(p, null);
+                if (pos.Quantity == 0) continue;
+                var rules = await GetProductRulesAsync(pos.Symbol).ConfigureAwait(false);
+                list.Add(ReadPosition(p, rules?.Contract));
+            }
+            return list;
+        }
+
+        internal static Position ReadPosition(JToken p, CoinbaseContract? contract)
+        {
+            static double Num(JToken? t) =>
+                double.TryParse(t?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : 0;
+            double contracts = Num(p["number_of_contracts"]);
+            if (string.Equals(p["side"]?.ToString(), "SHORT", StringComparison.OrdinalIgnoreCase)) contracts = -Math.Abs(contracts);
+            double size = contract is { Size: > 0 } c ? (double)c.Size : double.NaN;
+            double now = Num(p["current_price"]);
+            return new Position(
+                p["product_id"]?.ToString() ?? "",
+                contracts,
+                Num(p["avg_entry_price"]),
+                double.IsNaN(size) ? 0 : Math.Abs(contracts) * size * now,
+                Num(p["unrealized_pnl"]),
+                ContractSize: size);
+        }
+
+        /// <summary>
+        /// Coinbase's futures orders have no reduce-only flag, so a close sent from a stale row —
+        /// 5 contracts when a stop already took 3 — would close 2 and open a 3-contract position
+        /// the other way. A reduce-only order is checked against the position as Coinbase holds
+        /// it now, and refused in words when it is the wrong way or larger. A read that fails
+        /// refuses too: it cannot be told that the close is safe.
+        /// </summary>
+        private async Task<string?> ReduceOnlyRefusalAsync(TradeSignal signal, CoinbaseContract contract)
+        {
+            List<Position> positions;
+            try { positions = await GetPositionsAsync().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                return $"Coinbase futures orders cannot be marked close-only, and the {contract.Name} position could not be read "
+                     + $"to check this one against it ({ex.GetType().Name}). Nothing was sent";
+            }
+            string id = ToProductId(signal.Symbol);
+            double held = positions.Where(p => string.Equals(p.Symbol, id, StringComparison.OrdinalIgnoreCase)).Sum(p => p.Quantity);
+            double closing = signal.Side == OrderSide.Sell ? held : -held;   // contracts this side can close
+            if (closing <= 0)
+                return $"There is no {contract.Name} position for this to close, and Coinbase futures orders cannot be marked "
+                     + "close-only, so it would open a new one. Nothing was sent";
+            if (signal.Quantity > closing + 1e-9)
+                return $"The {contract.Name} position is {SymbolOrderRules.Plain(closing)} contracts; closing "
+                     + $"{SymbolOrderRules.Plain(signal.Quantity)} would open the rest the other way, and Coinbase futures "
+                     + "orders cannot be marked close-only. Nothing was sent";
+            return null;
+        }
 
         /// <summary>Fill history via /orders/historical/fills (History tab parity —
         /// returned the interface default empty until 2026-07-22). Deliberately no
@@ -612,9 +764,19 @@ namespace AccessibleTrader.Plugins.Coinbase
                 // Read BEFORE the order's limiter slot, never inside it: the read is a GET that
                 // may retry, and the slot belongs to the one POST.
                 // A refusal returns before anything is sent, in words the user can act on.
+                // Coinbase takes no leverage setting, spot or futures: sending a 5 times order as
+                // a plain one would be a fifth of the position asked for. Written as a pattern so
+                // the capability audit, which counts any read of the field as support for it,
+                // does not take this refusal for leverage.
+                if (signal is { Leverage: > 1 })
+                    return "ORDER_FAILED:Coinbase takes no leverage setting. On futures the leverage is how many "
+                         + "contracts you hold against your futures balance; send the order at 1 times";
                 var rules = await GetProductRulesAsync(signal.Symbol).ConfigureAwait(false);
                 if (rules?.Refusal(signal) is string refusal)
                     return "ORDER_FAILED:" + refusal;
+                if (rules?.Contract != null && signal.ReduceOnly
+                    && await ReduceOnlyRefusalAsync(signal, rules.Contract).ConfigureAwait(false) is string overshoot)
+                    return "ORDER_FAILED:" + overshoot;
                 return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     string productId = ToProductId(signal.Symbol);

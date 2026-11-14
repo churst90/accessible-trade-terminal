@@ -174,11 +174,15 @@ namespace AccessibleTrader.BlazorClient.Components
     {
         /// <summary>
         /// Profit or loss as a percent of the margin put up: the price move times the leverage, so a
-        /// 10x long up 1% in price reads "up 10%". Null when there is no entry price to measure from.
+        /// 10x long up 1% in price reads "up 10%". Null when there is no entry price to measure from,
+        /// or when the position is in contracts of a size that could not be read. The contract size
+        /// counts: 3 Coinbase BTC Perp contracts are 0.03 BTC, and reading them as 3 BTC spoke a
+        /// 10% move as 0.1%.
         /// </summary>
         public static double? ReturnPercent(Position p)
         {
-            double margin = Math.Abs(p.Quantity) * p.AveragePrice / Math.Max(1.0, p.Leverage);
+            if (!double.IsFinite(p.ContractSize) || p.ContractSize <= 0) return null;
+            double margin = Math.Abs(p.Quantity) * p.ContractSize * p.AveragePrice / Math.Max(1.0, p.Leverage);
             if (!(margin > 0) || double.IsNaN(p.UnrealizedPnL)) return null;
             return p.UnrealizedPnL / margin * 100;
         }
