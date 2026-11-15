@@ -158,16 +158,19 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task The_unprotected_alarm_still_fires_for_an_entry_whose_bracket_never_arrived()
         {
-            // The control: the test above waits a fixed 500 ms for an alarm that must not come,
-            // which proves nothing unless an alarm that MUST come arrives inside that time.
+            // The control: the tests around it wait 500 ms for an alarm that must not come, which
+            // proves nothing unless the check can raise one. It once also asserted the alarm came
+            // INSIDE 500 ms; on a loaded CI runner (2026-11-15, 3756bab8) the fire-and-forget scan
+            // came later, so it now waits up to 10 s. Which orders launch a check at all is pinned
+            // without timing by the theory below.
             var (svc, tp, err) = SubstituteVenue(openOrders: new List<OpenOrder>());
 
             var placed = await svc.PlaceOrderAsync("Binance",
                 new TradeSignal(Btc, OrderSide.Buy, 0.01, OrderType.Market, StopLoss: 95));
             Assert.True(placed.Succeeded);
 
-            await Task.Delay(500);
-            Assert.True(SaidUnprotected(err), "the bracket check did not run inside the wait the tests above rely on");
+            for (int i = 0; i < 200 && !SaidUnprotected(err); i++) await Task.Delay(50);
+            Assert.True(SaidUnprotected(err), "the bracket check never raised its alarm for an entry with no protection");
             _ = tp;
         }
 

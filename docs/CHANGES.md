@@ -63,6 +63,10 @@ All notable changes to this project will be documented in this file.
   side check on the entry's levels, no retry, a retry on a refusal, the unprotected warning not said,
   isolated sent to the cross route, a resting entry not anchored, and the editor re-sending an
   unchanged level. The control was green.
+- **Test fixed:** `The_unprotected_alarm_still_fires_for_an_entry_whose_bracket_never_arrived` failed on
+  CI for this push (passed locally): it waited a fixed 500 ms for a fire-and-forget scan, and the
+  loaded runner was slower. It now waits up to 10 s; with the scan removed it goes red. Which orders
+  launch a scan is pinned without timing by the theory beside it.
 
 ### Kalshi perpetual futures (2026-11-14)
 
