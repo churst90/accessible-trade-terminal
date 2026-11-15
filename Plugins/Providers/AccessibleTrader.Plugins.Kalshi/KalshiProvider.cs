@@ -104,14 +104,19 @@ namespace AccessibleTrader.Plugins.Kalshi
         public override string Description => "Kalshi perpetual futures — crypto, US stocks, metals, oil, currencies and indices in US dollars";
 
         /// <summary>
-        /// No <c>Leverage</c>: Kalshi has no leverage setting, on the order or anywhere else. No
-        /// <c>Brackets</c>: nothing can be attached to an order.
+        /// No <c>Leverage</c>: Kalshi has no leverage setting, on the order or anywhere else.
+        /// <c>Brackets</c>: a stop loss and take profit on an entry are set as the position's exit
+        /// trigger once the entry fills (see <see cref="PlaceOrderAsync"/>). No <c>TrailingStop</c>:
+        /// Kalshi has trailing stops, and the terminal does not set them yet.
         /// </summary>
         public override ProviderCapabilities Capabilities =>
             ProviderCapabilities.L2 | ProviderCapabilities.MarketDepth |
             ProviderCapabilities.FuturesTrading | ProviderCapabilities.Shorting |
             ProviderCapabilities.ReduceOnly | ProviderCapabilities.PostOnly |
-            ProviderCapabilities.TimeInForce;
+            ProviderCapabilities.TimeInForce | ProviderCapabilities.Brackets;
+
+        public override bool SupportsStopLoss => true;
+        public override bool SupportsTakeProfit => true;
 
         public override T? GetCapability<T>() where T : class
         {
@@ -341,8 +346,11 @@ namespace AccessibleTrader.Plugins.Kalshi
 
         public bool SupportsOrderEventStreaming => false;
 
-        /// <summary>Nothing can be attached to a Kalshi order.</summary>
-        public bool AttachesProtectiveLegs(TradeSignal signal) => false;
+        /// <summary>
+        /// A stop loss and take profit on a market or limit entry are set as the position's exit
+        /// trigger: after the fill for an order that fills at once, tied to the order for one that rests.
+        /// </summary>
+        public bool AttachesProtectiveLegs(TradeSignal signal) => signal.Type is OrderType.Market or OrderType.Limit;
 
         /// <summary>
         /// The account in dollars. "Free" is what Kalshi says is available for new orders;
@@ -416,11 +424,20 @@ namespace AccessibleTrader.Plugins.Kalshi
         }
 
         /// <summary>
-        /// Orders with something left to fill. Kalshi's margin orders carry no status word, and its
-        /// docs do not list the values its status filter takes, so every order is read and those
-        /// with nothing remaining are left out. Not yet seen against an account with orders.
+        /// Orders with something left to fill, and each live stop-loss and take-profit leg of the
+        /// positions' exit triggers as a stop or take-profit order (see <see cref="GetExitLegsAsync"/>).
+        /// Kalshi's margin orders carry no status word, and its docs do not list the values its
+        /// status filter takes, so every order is read and those with nothing remaining are left
+        /// out. Not yet seen against an account with orders.
         /// </summary>
         public async Task<List<OpenOrder>> GetOpenOrdersAsync(string? symbol = null)
+        {
+            var list = await GetRestingOrdersAsync(symbol).ConfigureAwait(false);
+            list.AddRange(await GetExitLegsAsync(symbol, list).ConfigureAwait(false));
+            return list;
+        }
+
+        private async Task<List<OpenOrder>> GetRestingOrdersAsync(string? symbol)
         {
             var list = new List<OpenOrder>();
             string? cursor = null;
@@ -459,12 +476,22 @@ namespace AccessibleTrader.Plugins.Kalshi
             if (_signer == null) return "ORDER_FAILED:Kalshi needs the private key as well as the Key ID";
 
             // Everything Kalshi cannot do is refused here, before a single request.
-            if (signal.Type is not (OrderType.Market or OrderType.Limit))
-                return "ORDER_FAILED:Kalshi takes market and limit orders only through the terminal; "
-                     + "stop and take-profit orders are not available on Kalshi here";
+            if (signal.Type is OrderType.StopLimit or OrderType.TakeProfitLimit)
+                return "ORDER_FAILED:A Kalshi stop or target fires its own immediate order near the level and "
+                     + "takes no limit price of yours; send it as a stop-market or take-profit-market order";
+            bool exitLeg = signal.Type is OrderType.StopMarket or OrderType.TakeProfitMarket;
+            if (exitLeg && !signal.ReduceOnly)
+                return "ORDER_FAILED:On Kalshi a stop or target closes a position you hold and cannot open one; "
+                     + "mark it reduce-only to set the position's stop loss or take profit";
             if (signal is { Leverage: > 1 })
                 return "ORDER_FAILED:Kalshi has no leverage setting. The size you order is the exposure, "
                      + "held on margin from the account; set leverage to 1 and choose the size";
+            if (exitLeg)
+            {
+                string exitTicker = signal.Symbol.ToUpperInvariant();
+                var exitMarket = await GetMarketRulesAsync(exitTicker).ConfigureAwait(false);
+                return await PlaceExitLegAsync(signal, exitTicker, exitMarket?.Rules).ConfigureAwait(false);
+            }
             string? tif = signal.TimeInForce?.Trim().ToUpperInvariant();
             if (tif is "DAY" or "GTD")
                 return "ORDER_FAILED:Kalshi takes good-till-cancelled, immediate-or-cancel and fill-or-kill orders only";
@@ -500,6 +527,16 @@ namespace AccessibleTrader.Plugins.Kalshi
             }
             else price = signal.Price!.Value;
 
+            // A stop or target on the wrong side would be refused by Kalshi only AFTER the entry
+            // filled, leaving the position without it: check the sides first.
+            decimal? stopLoss = signal.StopLoss is > 0 ? Round(rules, signal.StopLoss.Value) : null;
+            decimal? takeProfit = signal.TakeProfit is > 0 ? Round(rules, signal.TakeProfit.Value) : null;
+            double reference = signal.Type == OrderType.Market
+                ? price / (signal.Side == OrderSide.Buy ? 1 + MarketSlippage : 1 - MarketSlippage)
+                : price;
+            if (LegRefusal(signal.Side, (decimal)reference, stopLoss, takeProfit) is string legRefusal)
+                return $"ORDER_FAILED:{legRefusal}";
+
             var body = new JObject
             {
                 ["ticker"] = ticker,
@@ -527,6 +564,16 @@ namespace AccessibleTrader.Plugins.Kalshi
                 if (immediate && o?["fill_count"] is JToken f && f.Type != JTokenType.Null && D(f) == 0)
                     return $"ORDER_FAILED:Kalshi filled none of it at {Dollars(rules?.RoundPrice(price) ?? (decimal)price)} or better, "
                          + "and an immediate order does not wait, so nothing is open";
+                if (stopLoss != null || takeProfit != null)
+                {
+                    decimal count = Dec(body["count"])!.Value;
+                    decimal filled = Dec(o?["fill_count"]) ?? (immediate ? count : 0);
+                    // A resting order gets a bracket tied to it, which follows its fills; one that
+                    // filled in full (or at once) gets the bracket on the position it made.
+                    bool anchored = !immediate && filled < count;
+                    await AttachToEntryAsync(signal.Side, ticker, id, anchored, immediate ? filled : count,
+                        stopLoss, takeProfit).ConfigureAwait(false);
+                }
                 return id;
             }
             catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
@@ -534,6 +581,8 @@ namespace AccessibleTrader.Plugins.Kalshi
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)
         {
+            if (orderId.StartsWith(LegIdPrefix, StringComparison.Ordinal))
+                return await CancelLegAsync(orderId).ConfigureAwait(false);
             try
             {
                 var (status, json, raw) = await SendPrivateAsync(HttpMethod.Delete,
@@ -575,6 +624,380 @@ namespace AccessibleTrader.Plugins.Kalshi
                 Fee: D(f["fees"]),
                 OrderId: f["order_id"]?.ToString(),
                 RealizedPnL: D(f["realized_pnl"])));
+
+        // ── Exit triggers: the stop loss and take profit ──────────────────────
+        //
+        // Kalshi takes no stop or target ORDER. It keeps them as an exit trigger on the position:
+        // a bracket of a stop-loss price and a take-profit price, watched against the MARK price,
+        // which fires a reduce-only immediate-or-cancel limit near the level (so it can fill in
+        // part, or not at all). The terminal's stop and target orders map onto those legs:
+        //   • each live leg is listed as an open stop or take-profit order, whose id names the
+        //     route, the market, the bracket, the leg and the leg's price;
+        //   • a reduce-only stop or take-profit order SETS that leg on the position's bracket,
+        //     keeping the other leg, or starts a bracket when the position has none;
+        //   • a cancel of a leg keeps the other leg, and of a leg that has since moved, or whose
+        //     bracket is gone, is already done — so the Positions tab's "place the new one, then
+        //     cancel the old one" moves the stop without ever leaving the position bare.
+        // A cross-margin position takes up to 20 brackets whose sizes fit it; an isolated one
+        // takes one, which closes all of it. Docs: docs.kalshi.com/margin#exit-triggers (2026-11-15).
+
+        internal const string LegIdPrefix = "xt:";
+
+        internal sealed record ExitTrigger(string Id, string Kind, string Status, decimal? StopLoss, decimal? TakeProfit,
+            decimal Count, string? AnchorOrderId, string? ClientTriggerId, decimal? EffectiveStop);
+
+        internal static ExitTrigger ReadTrigger(JToken t) => new(
+            t["id"]?.ToString() ?? "", t["kind"]?.ToString() ?? "bracket", t["status"]?.ToString() ?? "",
+            Dec(t["stop_loss_price"]), Dec(t["take_profit_price"]), Dec(t["count"]) ?? 0,
+            NonEmpty(t["anchor_order_id"]), NonEmpty(t["client_trigger_id"]), Dec(t["effective_stop_price"]));
+
+        private static string? NonEmpty(JToken? t) => IsNull(t) || t!.ToString().Length == 0 ? null : t.ToString();
+
+        private static decimal? Dec(JToken? t) =>
+            !IsNull(t) && decimal.TryParse(t!.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out decimal v) ? v : null;
+
+        private static decimal Round(SymbolOrderRules? rules, double price) => rules?.RoundPrice(price) ?? (decimal)price;
+
+        private static bool IsIsolated(JToken position) =>
+            position["subaccount_type"]?.ToString() is "isolated" or "managed_isolated";
+
+        internal static string TriggerRoute(bool isolated, string ticker) =>
+            $"/margin/{(isolated ? "isolated" : "cross")}/positions/{Uri.EscapeDataString(ticker)}/exit_trigger";
+
+        /// <summary>A cross bracket is changed by its id; an isolated position has one, changed by setting it again.</summary>
+        private static string BracketRoute(bool isolated, string ticker, string triggerId) =>
+            isolated ? TriggerRoute(true, ticker) : TriggerRoute(false, ticker) + "/" + Uri.EscapeDataString(triggerId);
+
+        internal static string LegId(bool isolated, string ticker, string triggerId, string leg, decimal price) =>
+            $"{LegIdPrefix}{(isolated ? "i" : "c")}:{ticker}:{triggerId}:{leg}:{Dollars(price)}";
+
+        internal static bool TryParseLegId(string id, out bool isolated, out string ticker, out string triggerId,
+            out string leg, out decimal price)
+        {
+            isolated = false; ticker = triggerId = leg = ""; price = 0;
+            if (!id.StartsWith(LegIdPrefix, StringComparison.Ordinal)) return false;
+            var parts = id.Substring(LegIdPrefix.Length).Split(':');
+            if (parts.Length < 5 || parts[0] is not ("c" or "i")) return false;
+            isolated = parts[0] == "i";
+            ticker = parts[1];
+            leg = parts[^2];
+            triggerId = string.Join(":", parts[2..^2]);
+            return decimal.TryParse(parts[^1], NumberStyles.Number, CultureInfo.InvariantCulture, out price)
+                && triggerId.Length > 0 && leg is "sl" or "tp" or "trail";
+        }
+
+        /// <summary>A bracket body. A leg left null is CLEARED by Kalshi, so a change to one leg
+        /// passes the other one back.</summary>
+        internal static JObject BracketBody(decimal? stopLoss, decimal? takeProfit)
+        {
+            var body = new JObject();
+            if (stopLoss != null) body["stop_loss_price"] = Dollars(stopLoss.Value);
+            if (takeProfit != null) body["take_profit_price"] = Dollars(takeProfit.Value);
+            return body;
+        }
+
+        /// <summary>Stop and target on the wrong side, checked before the entry is sent: Kalshi
+        /// would refuse them only after the entry had filled.</summary>
+        internal static string? LegRefusal(OrderSide side, decimal reference, decimal? stopLoss, decimal? takeProfit)
+        {
+            bool buy = side == OrderSide.Buy;
+            string at = Dollars(reference);
+            if (stopLoss != null && (buy ? stopLoss >= reference : stopLoss <= reference))
+                return $"The stop loss on a {(buy ? "buy" : "sell")} must be {(buy ? "below" : "above")} the price ({at}); it is {Dollars(stopLoss.Value)}";
+            if (takeProfit != null && (buy ? takeProfit <= reference : takeProfit >= reference))
+                return $"The take profit on a {(buy ? "buy" : "sell")} must be {(buy ? "above" : "below")} the price ({at}); it is {Dollars(takeProfit.Value)}";
+            return null;
+        }
+
+        private async Task<JToken?> GetPositionAsync(string ticker)
+        {
+            var json = await GetPrivateAsync("/margin/positions").ConfigureAwait(false);
+            return (json["positions"] as JArray ?? new JArray()).FirstOrDefault(p =>
+                string.Equals(p["market_ticker"]?.ToString(), ticker, StringComparison.OrdinalIgnoreCase) && D(p["position"]) != 0);
+        }
+
+        /// <summary>The live triggers on one market: active, or waiting for their order to fill.</summary>
+        private async Task<List<ExitTrigger>> GetTriggersAsync(bool isolated, string ticker)
+        {
+            var json = await GetPrivateAsync(TriggerRoute(isolated, ticker)).ConfigureAwait(false);
+            return (json["exit_triggers"] as JArray ?? new JArray()).Select(ReadTrigger)
+                .Where(t => t.Status is "active" or "pending_on_entry").ToList();
+        }
+
+        /// <summary>One set or change. Retry is true only where a second try could go differently.</summary>
+        private async Task<(ExitTrigger? Trigger, string? Error, bool Retry)> SendTriggerAsync(string path, JObject body)
+        {
+            try
+            {
+                var (status, json, raw) = await SendPrivateAsync(HttpMethod.Put, path, body.ToString(Formatting.None)).ConfigureAwait(false);
+                if ((int)status is < 200 or > 299)
+                    return (null, Words(json, raw, status), (int)status == 429 || (int)status >= 500);
+                var t = json?["exit_trigger"] as JObject ?? json;
+                return string.IsNullOrEmpty(t?["id"]?.ToString())
+                    ? (null, "Kalshi answered without the trigger it set", false)
+                    : (ReadTrigger(t!), null, false);
+            }
+            catch (Exception ex) { return (null, ex.Message, true); }
+        }
+
+        /// <summary>
+        /// The stop loss and take profit of an entry that went through. On a failure it is tried
+        /// once more — after reading again what is live, so a first try that did land is not set
+        /// twice — and then said loudly: the entry stands without them.
+        /// </summary>
+        private async Task AttachToEntryAsync(OrderSide side, string ticker, string orderId, bool anchored,
+            decimal filled, decimal? stopLoss, decimal? takeProfit)
+        {
+            string clientId = ("at-" + orderId) is { Length: <= 64 } c ? c : "at-" + orderId[..61];
+            string? error = null;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                bool retry;
+                (error, retry) = anchored
+                    ? await AnchorBracketAsync(ticker, orderId, clientId, stopLoss, takeProfit).ConfigureAwait(false)
+                    : await BracketPositionAsync(side, ticker, clientId, filled, stopLoss, takeProfit).ConfigureAwait(false);
+                if (error == null || !retry) break;
+            }
+            if (error == null) return;
+
+            string label = stopLoss != null && takeProfit != null ? "stop loss and take profit"
+                         : stopLoss != null ? "stop loss" : "take profit";
+            SurfaceError(anchored
+                ? $"ORDER WITHOUT ITS {label.ToUpperInvariant()}: Kalshi took the {ticker} order but not its {label} ({error}). "
+                  + $"The order is resting without it, and if it fills the position has no {label}. "
+                  + $"Cancel the order, or set the {label} on the Positions tab once it fills."
+                : $"POSITION UNPROTECTED: Kalshi filled the {ticker} order but did not take its {label} ({error}). "
+                  + $"The position is open without its {label}. Set it on the Positions tab or close the position.",
+                ErrorSeverity.High, ErrorCategory.UserActionable);
+        }
+
+        /// <summary>A resting entry's bracket, tied to the order: Kalshi holds it until the order
+        /// fills and then follows the fills. Cross margin only.</summary>
+        private async Task<(string? Error, bool Retry)> AnchorBracketAsync(string ticker, string orderId, string clientId,
+            decimal? stopLoss, decimal? takeProfit)
+        {
+            try
+            {
+                var live = await GetTriggersAsync(false, ticker).ConfigureAwait(false);
+                if (live.Any(t => t.ClientTriggerId == clientId || t.AnchorOrderId == orderId)) return (null, false);
+                var body = BracketBody(stopLoss, takeProfit);
+                body["anchor_order_id"] = orderId;
+                body["client_trigger_id"] = clientId;
+                var r = await SendTriggerAsync(TriggerRoute(false, ticker), body).ConfigureAwait(false);
+                return (r.Error, r.Retry);
+            }
+            catch (Exception ex) { return (ex.Message, true); }
+        }
+
+        /// <summary>
+        /// A filled entry's bracket, on the position. A position with a bracket over all of it (an
+        /// isolated position's only one, or a cross one set without a size) has that bracket
+        /// changed to the entry's levels — Kalshi would not take a second over the same contracts
+        /// — and that is said. Otherwise a cross position gets a bracket over what this entry filled,
+        /// or over all of it when this entry is the whole position and nothing else is set.
+        /// </summary>
+        private async Task<(string? Error, bool Retry)> BracketPositionAsync(OrderSide side, string ticker, string clientId,
+            decimal filled, decimal? stopLoss, decimal? takeProfit)
+        {
+            try
+            {
+                bool buy = side == OrderSide.Buy;
+                var pos = await GetPositionAsync(ticker).ConfigureAwait(false);
+                if (pos == null || D(pos["position"]) > 0 != buy)
+                    return ($"after the fill there is no {(buy ? "long" : "short")} {ticker} position to set it on", false);
+                bool isolated = IsIsolated(pos);
+                decimal whole = (decimal)Math.Abs(D(pos["position"]));
+
+                var live = await GetTriggersAsync(isolated, ticker).ConfigureAwait(false);
+                if (live.Any(t => t.ClientTriggerId == clientId)) return (null, false);   // the first try landed
+                var brackets = live.Where(t => t.Kind == "bracket").ToList();
+                var overAll = brackets.FirstOrDefault(t => t.Count == 0) ?? (isolated ? brackets.FirstOrDefault() : null);
+
+                if (overAll != null)
+                {
+                    decimal? sl = stopLoss ?? overAll.StopLoss, tp = takeProfit ?? overAll.TakeProfit;
+                    var changed = await SendTriggerAsync(BracketRoute(isolated, ticker, overAll.Id), BracketBody(sl, tp)).ConfigureAwait(false);
+                    if (changed.Error == null && (overAll.StopLoss != null && overAll.StopLoss != sl || overAll.TakeProfit != null && overAll.TakeProfit != tp))
+                        SurfaceError($"Kalshi keeps one stop loss and take profit over the whole {ticker} position, so this order's "
+                                   + $"moved them: stop loss {(sl is decimal s ? Dollars(s) : "none")}, take profit {(tp is decimal p ? Dollars(p) : "none")}.",
+                            ErrorSeverity.Medium, ErrorCategory.Informational);
+                    return (changed.Error, changed.Retry);
+                }
+
+                var body = BracketBody(stopLoss, takeProfit);
+                if (!isolated && (brackets.Count > 0 || filled < whole))
+                {
+                    body["count"] = Count(filled);
+                    body["client_trigger_id"] = clientId;
+                }
+                var r = await SendTriggerAsync(TriggerRoute(isolated, ticker), body).ConfigureAwait(false);
+                return (r.Error, r.Retry);
+            }
+            catch (Exception ex) { return (ex.Message, true); }
+        }
+
+        /// <summary>
+        /// A reduce-only stop or take-profit order: that leg of the position's bracket. The bracket
+        /// it goes on is the one over the same number of contracts; a position with none of that
+        /// size gets a new one with only this leg. The answer is the leg's id, as listed.
+        /// </summary>
+        private async Task<string> PlaceExitLegAsync(TradeSignal signal, string ticker, SymbolOrderRules? rules)
+        {
+            bool stop = signal.Type == OrderType.StopMarket;
+            string name = stop ? "stop loss" : "take profit";
+            double? level = signal.TriggerPrice ?? (stop ? signal.StopLoss : signal.TakeProfit);
+            if (level is not > 0) return $"ORDER_FAILED:A Kalshi {name} needs a trigger price";
+            decimal at = Round(rules, level.Value);
+            try
+            {
+                var pos = await GetPositionAsync(ticker).ConfigureAwait(false);
+                if (pos == null)
+                    return $"ORDER_FAILED:Kalshi sets a {name} on a position you hold, and there is no {ticker} position";
+                double held = D(pos["position"]);
+                if (held > 0 == (signal.Side == OrderSide.Buy))
+                    return $"ORDER_FAILED:The {ticker} position is {(held > 0 ? "long" : "short")}, so its {name} "
+                         + $"{(held > 0 ? "sells" : "buys")}; this order {(signal.Side == OrderSide.Buy ? "buys" : "sells")}";
+                bool isolated = IsIsolated(pos);
+                decimal whole = (decimal)Math.Abs(held);
+                decimal size = Math.Min(rules?.FloorQuantity(signal.Quantity) ?? (decimal)signal.Quantity, whole);
+                if (isolated && size < whole)
+                    return $"ORDER_FAILED:Kalshi's stop loss and take profit on an isolated position close all of it ({Count(whole)}); "
+                         + $"this order is for {Count(size)}";
+
+                var brackets = (await GetTriggersAsync(isolated, ticker).ConfigureAwait(false)).Where(t => t.Kind == "bracket").ToList();
+                var same = brackets.Where(t => isolated || (t.Count == 0 ? whole : t.Count) == size).ToList();
+                // Of two the same size, the one still missing this leg; otherwise which one is meant is not known.
+                var missing = same.Where(t => (stop ? t.StopLoss : t.TakeProfit) == null).ToList();
+                var onto = same.Count == 1 ? same[0] : missing.Count == 1 ? missing[0] : null;
+                if (onto == null && same.Count > 1)
+                    return $"ORDER_FAILED:The {ticker} position has {same.Count} stop-and-target brackets over {Count(size)} contracts, "
+                         + $"so which {name} to set is not known; change it on Kalshi's site";
+
+                (ExitTrigger? Trigger, string? Error, bool Retry) r;
+                if (onto != null)
+                    r = await SendTriggerAsync(BracketRoute(isolated, ticker, onto.Id),
+                        BracketBody(stop ? at : onto.StopLoss, stop ? onto.TakeProfit : at)).ConfigureAwait(false);
+                else
+                {
+                    var body = BracketBody(stop ? at : null, stop ? null : at);
+                    if (!isolated && (brackets.Count > 0 || size < whole))
+                    {
+                        body["count"] = Count(size);
+                        body["client_trigger_id"] = string.IsNullOrEmpty(signal.ClientOid) ? Guid.NewGuid().ToString("N") : signal.ClientOid;
+                    }
+                    r = await SendTriggerAsync(TriggerRoute(isolated, ticker), body).ConfigureAwait(false);
+                }
+                if (r.Error != null) return $"ORDER_FAILED:{r.Error}";
+                return LegId(isolated, ticker, r.Trigger!.Id, stop ? "sl" : "tp", (stop ? r.Trigger.StopLoss : r.Trigger.TakeProfit) ?? at);
+            }
+            catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+        }
+
+        /// <summary>
+        /// Takes one leg off its bracket and keeps the other; the bracket goes when nothing is
+        /// left. A leg that is no longer live at the price its id names — the bracket fired or was
+        /// cancelled, or the leg was moved, which replaced it — is already gone, and that is a yes.
+        /// </summary>
+        private async Task<bool> CancelLegAsync(string legId)
+        {
+            if (!TryParseLegId(legId, out bool isolated, out string ticker, out string triggerId, out string leg, out decimal price))
+            {
+                SurfaceError($"Kalshi cancel failed: '{legId}' is not a stop or target this terminal listed", ErrorSeverity.Medium, ErrorCategory.Provider);
+                return false;
+            }
+            try
+            {
+                var t = (await GetTriggersAsync(isolated, ticker).ConfigureAwait(false)).FirstOrDefault(x => x.Id == triggerId);
+                if (t == null) return true;
+
+                string path;
+                HttpMethod method;
+                string? body = null;
+                if (leg == "trail")
+                {
+                    // Trailing stops are not addressed by id; one per position, cancelled by kind.
+                    (method, path) = (HttpMethod.Delete, TriggerRoute(isolated, ticker) + "?kind=trailing");
+                }
+                else
+                {
+                    decimal? now = leg == "sl" ? t.StopLoss : t.TakeProfit;
+                    if (now == null || Dollars(now.Value) != Dollars(price)) return true;
+                    decimal? keep = leg == "sl" ? t.TakeProfit : t.StopLoss;
+                    if (keep != null)
+                        (method, path, body) = (HttpMethod.Put, BracketRoute(isolated, ticker, triggerId),
+                            BracketBody(leg == "sl" ? null : keep, leg == "sl" ? keep : null).ToString(Formatting.None));
+                    else
+                        (method, path) = (HttpMethod.Delete, isolated
+                            ? TriggerRoute(true, ticker) + "?kind=bracket"
+                            : BracketRoute(false, ticker, triggerId));
+                }
+                var (status, json, raw) = await SendPrivateAsync(method, path, body).ConfigureAwait(false);
+                if ((int)status is >= 200 and <= 299) return true;
+                SurfaceError($"Kalshi cancel failed: {Words(json, raw, status)}", ErrorSeverity.Medium, ErrorCategory.Provider);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                SurfaceError($"Kalshi cancel failed: {ex.Message}", ErrorSeverity.Medium, ErrorCategory.Provider);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The live legs, as stop and take-profit orders, of every market with a position or a
+        /// resting order (or of <paramref name="symbol"/> alone). Each leg closes the position, so
+        /// its side is the position's opposite — or, for a bracket still waiting on its order, the
+        /// order's opposite. A read that fails fails the whole list: a list without the stops
+        /// would say the position has none.
+        /// </summary>
+        private async Task<List<OpenOrder>> GetExitLegsAsync(string? symbol, List<OpenOrder> resting)
+        {
+            var positions = await GetPrivateAsync("/margin/positions").ConfigureAwait(false);
+            var held = new Dictionary<string, JToken>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in positions["positions"] as JArray ?? new JArray())
+                if (D(p["position"]) != 0 && p["market_ticker"]?.ToString() is { Length: > 0 } t) held.TryAdd(t, p);
+
+            var tickers = held.Keys.Concat(resting.Select(o => o.Symbol))
+                .Where(t => symbol == null || string.Equals(t, symbol, StringComparison.OrdinalIgnoreCase))
+                .Select(t => t.ToUpperInvariant()).Distinct().ToList();
+            if (symbol != null && !tickers.Contains(symbol.ToUpperInvariant())) return new List<OpenOrder>();
+
+            var legs = new List<OpenOrder>();
+            foreach (string ticker in tickers)
+            {
+                held.TryGetValue(ticker, out var pos);
+                bool isolated = pos != null && IsIsolated(pos);
+                double position = pos != null ? D(pos["position"]) : 0;
+                foreach (var t in await GetTriggersAsync(isolated, ticker).ConfigureAwait(false))
+                    legs.AddRange(LegOrders(t, ticker, isolated, position, resting));
+            }
+            return legs;
+        }
+
+        internal static IEnumerable<OpenOrder> LegOrders(ExitTrigger t, string ticker, bool isolated, double position,
+            IReadOnlyList<OpenOrder> resting)
+        {
+            var anchor = t.AnchorOrderId == null ? null : resting.FirstOrDefault(o => o.Id == t.AnchorOrderId);
+            OrderSide side;
+            if (position != 0) side = position > 0 ? OrderSide.Sell : OrderSide.Buy;
+            else if (anchor != null) side = anchor.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
+            else yield break;   // nothing it could close is known
+            double qty = t.Count > 0 ? (double)t.Count : position != 0 ? Math.Abs(position) : anchor!.Quantity;
+
+            if (t.Kind == "trailing")
+            {
+                decimal stopAt = t.EffectiveStop ?? 0;
+                yield return new OpenOrder(LegId(isolated, ticker, t.Id, "trail", stopAt), ticker, side, OrderType.StopMarket,
+                    qty, (double)stopAt, t.Status, StopLoss: (double)stopAt);
+                yield break;
+            }
+            if (t.StopLoss is decimal sl)
+                yield return new OpenOrder(LegId(isolated, ticker, t.Id, "sl", sl), ticker, side, OrderType.StopMarket,
+                    qty, (double)sl, t.Status, StopLoss: (double)sl);
+            if (t.TakeProfit is decimal tp)
+                yield return new OpenOrder(LegId(isolated, ticker, t.Id, "tp", tp), ticker, side, OrderType.TakeProfitMarket,
+                    qty, (double)tp, t.Status, TakeProfit: (double)tp);
+        }
 
         // ── Market rules ──────────────────────────────────────────────────────
 
@@ -759,6 +1182,12 @@ namespace AccessibleTrader.Plugins.Kalshi
                     "There was not enough in the book to fill all of it at once, so Kalshi filled none of it (fill or kill)",
                 "order_already_exists" =>
                     "Kalshi already has an order with this client id; nothing new was sent",
+                "stop_loss_past_liquidation" =>
+                    "Kalshi refused the stop loss: the position would be liquidated before it fired; set it closer to the price",
+                "close_order_blocks_exit_trigger" =>
+                    "Kalshi refused the stop or target because a closing order is resting on this position; cancel that order first",
+                "anchor_order_unavailable" =>
+                    "Kalshi could not tie the stop and target to the order; it may have filled or been cancelled already",
                 "invalid_order_size" =>
                     $"Kalshi refused the size ({message})",
                 _ when message.Length > 0 => $"Kalshi refused: {message}" + (code.Length > 0 ? $" ({code})" : ""),

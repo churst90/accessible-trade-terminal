@@ -8,10 +8,15 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Kalshi stop loss and take profit.** An order on Kalshi can carry a stop and a target, quick trade
+  works there, and the Positions tab moves them. Kalshi keeps them on the position, not as orders; when
+  one fires it sends an order that fills at once near the level, or not at all. Moving the stop keeps
+  the target. If Kalshi refuses the stop after the entry filled, you hear "POSITION UNPROTECTED". Not
+  yet tried with money.
 - **Kalshi.** A new venue for Kalshi's perpetual futures: crypto, US stocks, metals, oil, currencies
   and indices in US dollars. Put the Key ID in the API key box and the private key file in the secret
   box. Practice uses Kalshi's demo venue. Market and limit orders only; a market order goes out 5%
-  through the best price and fills at once or not at all. No leverage setting and no stop on the entry.
+  through the best price and fills at once or not at all. No leverage setting.
   Kalshi is opening perps to members a few at a time; the key check says whether yours has them. Not
   yet tried with money.
 - **Coinbase futures.** Pick Futures on Coinbase for the US futures contracts, such as the BTC Perp

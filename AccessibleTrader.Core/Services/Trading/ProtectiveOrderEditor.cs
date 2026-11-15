@@ -59,7 +59,14 @@ namespace AccessibleTrader.Core.Services.Trading
             ProtectiveLevel level, double price, OpenOrder? existing, OpenOrder? otherLeg, string successMessage)
         {
             string name = NameOf(level);
-            var placement = await orders.PlaceOrderAsync(provider, SignalFor(symbol, isLong, quantity, level, price))
+
+            // Unchanged: nothing is sent. Placing the same level again and cancelling the old one is
+            // churn on every venue, and on Kalshi it REMOVES the stop: there the stop is a leg of one
+            // bracket, so the "new" order and the "old" one are the same leg and the cancel takes it.
+            if (existing != null && Math.Abs(existing.Price - price) <= 1e-9 * Math.Max(1.0, Math.Abs(price)))
+                return new(true, $"Your {name} is already at {SpeechPriceFormatter.FormatPrice(price)}; nothing was changed.");
+
+            var placement =await orders.PlaceOrderAsync(provider, SignalFor(symbol, isLong, quantity, level, price))
                 .ConfigureAwait(false);
 
             // Say what still stands, not only what failed: after a refusal the user needs to know

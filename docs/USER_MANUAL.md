@@ -2360,7 +2360,7 @@ an entry placed without it would have a quantity justified by protection that do
 On brokers with native bracket support (Alpaca) all three legs go as one order; on the others
 the terminal verifies afterwards that something protective actually reached the exchange, and
 says so loudly if not. On a venue that cannot attach a stop to an entry at all (Bitstamp,
-Coinbase, Gemini, Kalshi, Kraken Futures, MEXC spot) a quick trade is refused before anything is sent,
+Coinbase, Gemini, Kraken Futures, MEXC spot) a quick trade is refused before anything is sent,
 and you hear why.
 
 **An armed trade belongs to the chart you armed it on.** Its size, stop and entry all came
@@ -3452,8 +3452,16 @@ this has yet been tried with money, on the live venue or the demo.
 - **No leverage setting.** The size you order is the exposure, held on margin from the
   account. An order asking for more than 1 times is refused; the Positions tab shows the
   leverage that results.
-- **No stops yet.** Stop and take-profit orders, and a stop on the entry, are refused.
-  Place the entry, then watch it yourself, or set the exit on kalshi.com.
+- **Stop loss and take profit.** Kalshi keeps them on the position, not as orders. An
+  order can carry both; once it fills they are set on the position, and a limit order that
+  rests carries them until it fills. On the Positions tab they move like any other stop,
+  and moving one keeps the other. On the Orders tab each shows as a stop or take-profit
+  order. When one fires, Kalshi sends an order that fills at once near the level, or not
+  at all, so in a fast market part of the position can stay open. Kalshi watches its mark
+  price, not the last trade. If the position already has a stop over all of it, a new
+  order's stop moves that one, and you hear the new levels. If Kalshi refuses the stop
+  after the order filled, you hear "POSITION UNPROTECTED" with the reason. Stop-limit
+  orders are refused; trailing stops set on kalshi.com show and can be cancelled.
 - **Reduce-only** is taken only on an order that fills at once (a market order, or a limit
   marked immediate-or-cancel or fill-or-kill). Post-only only on one that rests.
 - **Positions and balance.** Positions show Kalshi's own liquidation price, margin mode

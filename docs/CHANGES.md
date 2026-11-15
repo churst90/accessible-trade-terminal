@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Kalshi stop loss and take profit (2026-11-15)
+
+- **What:** Kalshi stops and targets, on Kalshi's own exit triggers
+  (`PUT /margin/{cross|isolated}/positions/{ticker}/exit_trigger`). Checked against Kalshi's API
+  reference on 2026-11-15. NOT tried with money, and not on the demo venue either. Cody asked for it
+  ("yes fix the tp and sl for kalshi"); the chart keeps Kalshi's per-contract price, as he asked.
+- **How Kalshi does it:** a stop or target is not an order. It is a leg of a "bracket" set on the
+  position: a stop loss price, a take profit price, or both. Kalshi watches the MARK price, and when a
+  leg fires it sends an immediate-or-cancel, reduce-only limit near the level, so a fire can fill in
+  part or not at all in a fast market. Setting a bracket replaces both legs: a leg left out is cleared.
+  Cross margin takes up to 20 brackets, each over part of the position or the whole of it; isolated
+  margin takes one, over the whole position.
+- **A stop or target on an entry:** after the entry goes through, the plugin sets the bracket.
+  - Filled entry, nothing else on the position: one bracket over the whole position.
+  - Filled entry added to a position: a bracket over what it filled (`count`), with a client id
+    `at-<order id>` so a retry does not set it twice.
+  - The position already has a bracket over all of it: that bracket is changed to the entry's levels
+    (a level the entry did not give is kept), and you hear "Kalshi keeps one stop loss and take profit
+    over the whole ... position, so this order's moved them".
+  - Resting limit entry: a bracket tied to the order (`anchor_order_id`). Kalshi holds it until the
+    order fills and follows the fills. Cross margin only.
+  - The levels are checked against the entry price first: a buy's stop must be below, its target
+    above, and the reverse for a sell. Wrong ones are refused before the entry is sent.
+  - If Kalshi refuses the bracket (for example a stop past the liquidation price) the entry stands and
+    you hear "POSITION UNPROTECTED: Kalshi filled the ... order but did not take its stop loss (...)",
+    or "ORDER WITHOUT ITS STOP LOSS" for a resting order. A server fault or a timeout is tried once more
+    after reading what is live; a refusal is not retried.
+- **A stop or target order** (the Positions tab, or any reduce-only stop-market or take-profit-market
+  order): sets that leg of the position's bracket and keeps the other. A size below the position is
+  its own bracket of that size on cross margin, and refused on isolated margin (it closes all of it).
+  Refused unsent: no position, the order on the same side as the position, not reduce-only (a Kalshi
+  stop cannot open a position), and stop-limit or take-profit-limit (Kalshi picks the limit itself).
+- **Open orders** list each leg as a stop-market or take-profit-market order, opposite the position,
+  with an id of the form `xt:c:KXBTCPERP:<trigger id>:sl:97.00` (cross or isolated, the trigger, the
+  leg and its price). A bracket waiting on its order takes its side and size from that order. A
+  trailing stop set on kalshi.com is listed and can be cancelled. A failed trigger read fails the
+  open orders read.
+- **Cancelling a leg** keeps the other one; the bracket is removed when nothing is left. A leg that is
+  no longer at the price in its id (it was moved, fired or cancelled) is already gone, and the cancel
+  says yes without sending anything. That is what makes moving a stop on the Positions tab safe: the
+  editor places the new level and then cancels the old id, and the old id names the old price.
+- **Positions tab, all venues:** setting a stop or target to the price it is already at now sends
+  nothing and says "Your stop loss is already at 95; nothing was changed." On Kalshi it would have
+  removed the stop: the "new" and "old" orders are the same leg, so the cancel took it.
+- **Capabilities:** Kalshi now says Brackets, SupportsStopLoss and SupportsTakeProfit, and attaches a
+  stop to market and limit entries, so quick trade works there. It came off the bracket-refusal roster.
+  Trailing stops are not built (listed and cancelled only).
+- **Caveats (unverified until an account answers):** that setting an isolated bracket again replaces
+  the one there (the docs say one per position, not what a second set does); which margin type the
+  primary account is; the answer shapes of the trigger routes. A whole-position bracket is set without
+  a client id, so a retry after a timeout reads the live brackets first and changes the one it finds.
+- **Tests:** `KalshiTests` (entry brackets, refusals, stop orders, listing, cancelling, and the
+  Positions tab end to end through `GeneralOrderService` and `ProtectiveOrderEditor` against a fake
+  of Kalshi's trigger routes kept as state), and `ProtectiveEditTests` (unchanged level sends nothing).
+  Each guard was sabotaged and went red: a cancel that ignored the id's price, a stop order that
+  dropped the target, an entry that dropped the kept level, a cancel that dropped the other leg, no
+  side check on the entry's levels, no retry, a retry on a refusal, the unprotected warning not said,
+  isolated sent to the cross route, a resting entry not anchored, and the editor re-sending an
+  unchanged level. The control was green.
+
 ### Kalshi perpetual futures (2026-11-14)
 
 - **What:** a new trading venue, **Kalshi** (`AccessibleTrader.Plugins.Kalshi`), for Kalshi's
@@ -41,7 +101,7 @@ All notable changes to this project will be documented in this file.
   used, and the margin mode is shown. Neither read swallows a failure: if the risk read fails, the
   positions read fails. Open orders (up to 5 pages of 1,000), fills with fee and realised profit,
   and cancel.
-- **Not attached:** no stop or target can ride on an entry (`AttachesProtectiveLegs` false), so the
+- **Not attached (until the next day; see "Kalshi stop loss and take profit"):** no stop or target can ride on an entry (`AttachesProtectiveLegs` false), so the
   refusal from earlier today applies.
 - **Registered:** solution, both hosts, the API key list, Settings' trading venues, the demo policy's
   hosted list, the credential bridge enrolment, the order conformance rigs (`KalshiRig`) and the

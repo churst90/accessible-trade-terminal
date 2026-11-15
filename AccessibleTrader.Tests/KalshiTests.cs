@@ -221,7 +221,10 @@ namespace AccessibleTrader.Tests
         {
             new object[] { new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Limit, Price: 100, Leverage: 5), "no leverage setting" },
             new object[] { new TradeSignal("KXBTCPERP", OrderSide.Sell, 1, OrderType.Limit, Price: 100, ReduceOnly: true), "only if it fills at once" },
-            new object[] { new TradeSignal("KXBTCPERP", OrderSide.Sell, 1, OrderType.StopMarket, TriggerPrice: 90), "stop and take-profit" },
+            new object[] { new TradeSignal("KXBTCPERP", OrderSide.Sell, 1, OrderType.StopMarket, TriggerPrice: 90), "cannot open one" },
+            new object[] { new TradeSignal("KXBTCPERP", OrderSide.Sell, 1, OrderType.StopLimit, Price: 89, TriggerPrice: 90, ReduceOnly: true), "takes no limit price" },
+            new object[] { new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Limit, Price: 100, StopLoss: 100), "must be below the price (100.00)" },
+            new object[] { new TradeSignal("KXBTCPERP", OrderSide.Sell, 1, OrderType.Limit, Price: 100, TakeProfit: 101), "must be below the price (100.00)" },
             new object[] { new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Limit, Price: 100, TimeInForce: "DAY"), "good-till-cancelled" },
             new object[] { new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Market, PostOnly: true), "post-only" },
             new object[] { new TradeSignal("KXBTCPERP", OrderSide.Buy, 1.5, OrderType.Limit, Price: 100), "whole contracts; this order is 1.5 (one contract is 0.0001 BTC)" },
@@ -485,6 +488,417 @@ namespace AccessibleTrader.Tests
             Assert.Equal(1.0, p.MaxLeverage);
             Assert.False(p.Capabilities.HasFlag(ProviderCapabilities.Leverage));
             Assert.Empty(h.Captured);
+        }
+    
+
+        // ── Stop loss and take profit: Kalshi's exit triggers (2026-11-15) ─────────
+
+        private const string LongCross = """{"positions":[{"market_ticker":"KXBTCPERP","subaccount_type":"cross","position":"3.00","entry_price":"100","unrealized_pnl":"0"}]}""";
+        private const string LongIsolated = """{"positions":[{"market_ticker":"KXBTCPERP","subaccount_type":"isolated","position":"3.00","entry_price":"100","unrealized_pnl":"0"}]}""";
+        private const string Cross = "/margin/cross/positions/KXBTCPERP/exit_trigger";
+        private const string Isolated = "/margin/isolated/positions/KXBTCPERP/exit_trigger";
+
+        private static string Bracket(string id, string? sl, string? tp, string count = "0", string status = "active", string? anchor = null) =>
+            new JObject
+            {
+                ["id"] = id, ["ticker"] = "KXBTCPERP", ["kind"] = "bracket", ["status"] = status, ["count"] = count, ["filled_count"] = "0",
+                ["stop_loss_price"] = sl, ["take_profit_price"] = tp, ["anchor_order_id"] = anchor,
+                ["created_time"] = "2026-11-15T00:00:00Z", ["updated_time"] = "2026-11-15T00:00:00Z",
+            }.ToString(Newtonsoft.Json.Formatting.None);
+
+        private static string Triggers(params string[] t) => "{\"exit_triggers\":[" + string.Join(",", t) + "]}";
+
+        /// <summary>The writes the plugin sent, in order: method, path with query, body.</summary>
+        private static List<(string Method, string Path, JObject? Body)> Writes(FakeHttpMessageHandler h) =>
+            h.Captured.Select((r, i) => (r, i)).Where(x => x.r.Method != HttpMethod.Get)
+                .Select(x => (x.r.Method.Method, x.r.RequestUri!.PathAndQuery.Replace("/trade-api/v2", ""),
+                              h.CapturedBodies[x.i].Length > 0 ? JObject.Parse(h.CapturedBodies[x.i]) : null))
+                .ToList();
+
+        private static List<(string Method, string Path, JObject? Body)> TriggerWrites(FakeHttpMessageHandler h) =>
+            Writes(h).Where(w => w.Path.Contains("exit_trigger")).ToList();
+
+        private static List<ProviderError> Errors(KalshiProvider p)
+        {
+            var list = new List<ProviderError>();
+            p.ProviderErrors.Subscribe(list.Add);
+            return list;
+        }
+
+        private static (KalshiProvider P, FakeHttpMessageHandler H) Entry(string fill, string positions = LongCross, string triggers = """{"exit_triggers":[]}""",
+            HttpStatusCode setStatus = HttpStatusCode.OK, string setAnswer = "")
+        {
+            var (p, h) = Trading(response: $$"""{"order_id":"o-1","fill_count":"{{fill}}"}""");
+            h.Get(@"/margin/positions$", positions);
+            h.Get(@"/exit_trigger$", triggers);
+            h.Add(HttpMethod.Put, @"/exit_trigger", setAnswer.Length > 0 ? setAnswer : Bracket("b-new", "95.00", "110.00"), setStatus);
+            return (p, h);
+        }
+
+        [Fact]
+        public async Task A_filled_entry_sets_its_stop_and_target_over_the_whole_new_position()
+        {
+            var (p, h) = Entry(fill: "3.00");
+            var errors = Errors(p);
+
+            Assert.Equal("o-1", await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Market, StopLoss: 95, TakeProfit: 110.004)));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross), (w.Method, w.Path));
+            Assert.Equal("95.00", w.Body!["stop_loss_price"]!.ToString());
+            Assert.Equal("110.004", w.Body["take_profit_price"]!.ToString());   // to the 0.0001 tick
+            Assert.Null(w.Body["count"]);          // over all of it: the entry is the whole position
+            Assert.Null(w.Body["anchor_order_id"]);
+            Assert.Empty(errors);
+            // The entry went first: a bracket is set on a position, so it cannot go before the fill.
+            Assert.True(h.Captured.FindIndex(r => r.Method == HttpMethod.Post) < h.Captured.FindIndex(r => r.Method == HttpMethod.Put));
+        }
+
+        [Fact]
+        public async Task An_entry_that_added_to_a_position_brackets_only_what_it_filled()
+        {
+            var (p, h) = Entry(fill: "2.00", positions: LongCross.Replace("3.00", "5.00"));
+
+            await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 2, OrderType.Market, StopLoss: 95));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal("2", w.Body!["count"]!.ToString());
+            Assert.Equal("at-o-1", w.Body["client_trigger_id"]!.ToString());
+            Assert.Null(w.Body["take_profit_price"]);
+        }
+
+        [Fact]
+        public async Task A_bracket_over_the_whole_position_is_moved_to_the_entrys_levels_and_that_is_said()
+        {
+            var (p, h) = Entry(fill: "2.00", positions: LongCross.Replace("3.00", "5.00"), triggers: Triggers(Bracket("b-1", "90.00", "120.00")));
+            var errors = Errors(p);
+
+            await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 2, OrderType.Market, StopLoss: 95));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross + "/b-1"), (w.Method, w.Path));
+            Assert.Equal("95.00", w.Body!["stop_loss_price"]!.ToString());
+            Assert.Equal("120.00", w.Body["take_profit_price"]!.ToString());   // the target the entry did not set is kept
+            Assert.Contains(errors, e => e.Message.Contains("one stop loss and take profit over the whole KXBTCPERP position")
+                                      && e.Message.Contains("stop loss 95.00, take profit 120.00"));
+        }
+
+        [Fact]
+        public async Task An_isolated_position_takes_its_bracket_on_the_isolated_route()
+        {
+            var (p, h) = Entry(fill: "3.00", positions: LongIsolated);
+
+            await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Market, StopLoss: 95));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Isolated), (w.Method, w.Path));
+            Assert.Null(w.Body!["count"]);
+        }
+
+        [Fact]
+        public async Task A_resting_entry_gets_a_bracket_tied_to_the_order()
+        {
+            var (p, h) = Entry(fill: "0.00");
+
+            Assert.Equal("o-1", await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Limit, Price: 99, StopLoss: 95, TakeProfit: 110)));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross), (w.Method, w.Path));
+            Assert.Equal("o-1", w.Body!["anchor_order_id"]!.ToString());
+            Assert.Equal("at-o-1", w.Body["client_trigger_id"]!.ToString());
+            Assert.Null(w.Body["count"]);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest, """{"error":{"code":"stop_loss_past_liquidation","message":"x"}}""", 1, "liquidated before it fired")]
+        [InlineData(HttpStatusCode.InternalServerError, """{"error":{"code":"internal","message":"boom"}}""", 2, "boom")]
+        public async Task A_bracket_Kalshi_refuses_leaves_the_entry_and_says_the_position_is_unprotected(
+            HttpStatusCode status, string answer, int tries, string words)
+        {
+            var (p, h) = Entry(fill: "3.00", setStatus: status, setAnswer: answer);
+            var errors = Errors(p);
+
+            Assert.Equal("o-1", await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Market, StopLoss: 95)));
+
+            Assert.Equal(tries, TriggerWrites(h).Count);   // a refusal is not retried; a server fault is, once
+            var e = Assert.Single(errors);
+            Assert.Equal(ErrorSeverity.High, e.Severity);
+            Assert.StartsWith("POSITION UNPROTECTED: Kalshi filled the KXBTCPERP order but did not take its stop loss", e.Message);
+            Assert.Contains(words, e.Message);
+        }
+
+        [Fact]
+        public async Task A_resting_entry_whose_bracket_is_refused_says_the_order_rests_without_it()
+        {
+            var (p, h) = Entry(fill: "0.00", setStatus: HttpStatusCode.Conflict,
+                setAnswer: """{"error":{"code":"anchor_order_unavailable","message":"x"}}""");
+            var errors = Errors(p);
+
+            await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Limit, Price: 99, TakeProfit: 110));
+
+            var e = Assert.Single(errors);
+            Assert.Equal(ErrorSeverity.High, e.Severity);
+            Assert.StartsWith("ORDER WITHOUT ITS TAKE PROFIT: Kalshi took the KXBTCPERP order", e.Message);
+        }
+
+        // Vacuity for the entry rows: an entry with no stop or target touches no trigger.
+        [Fact]
+        public async Task An_entry_without_a_stop_or_target_sets_no_trigger()
+        {
+            var (p, h) = Entry(fill: "3.00");
+            await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Buy, 3, OrderType.Market));
+            Assert.Empty(TriggerWrites(h));
+        }
+
+        [Fact]
+        public void Kalshi_says_it_attaches_a_stop_to_its_market_and_limit_entries()
+        {
+            ITradingProvider p = new KalshiProvider();
+            Assert.True(p.AttachesProtectiveLegs(new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Market, StopLoss: 95)));
+            Assert.True(p.AttachesProtectiveLegs(new TradeSignal("KXBTCPERP", OrderSide.Buy, 1, OrderType.Limit, Price: 99, StopLoss: 95)));
+            Assert.True(p.Capabilities.HasFlag(ProviderCapabilities.Brackets));
+            Assert.False(p.Capabilities.HasFlag(ProviderCapabilities.TrailingStop));
+        }
+
+        // ── A reduce-only stop or take-profit order: one leg of the position's bracket ──
+
+        private static (KalshiProvider P, FakeHttpMessageHandler H) Legs(string positions, string triggers, string answer)
+        {
+            var (p, h) = Build();
+            KalshiRig.ArmMarkets(h);
+            h.Get(@"/margin/positions$", positions);
+            h.Get(@"/exit_trigger$", triggers);
+            h.Add(HttpMethod.Put, @"/exit_trigger", answer);
+            h.Add(HttpMethod.Delete, @"/exit_trigger", "");
+            return (p, h);
+        }
+
+        private static TradeSignal StopOrder(double at, OrderSide side = OrderSide.Sell, double qty = 3) =>
+            new("KXBTCPERP", side, qty, OrderType.StopMarket, TriggerPrice: at, ReduceOnly: true);
+
+        [Fact]
+        public async Task A_stop_order_moves_the_stop_of_the_positions_bracket_and_keeps_its_target()
+        {
+            var (p, h) = Legs(LongCross, Triggers(Bracket("b-1", "95.00", "110.00")), Bracket("b-1", "97.00", "110.00"));
+
+            Assert.Equal("xt:c:KXBTCPERP:b-1:sl:97.00", await p.PlaceOrderAsync(StopOrder(97)));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross + "/b-1"), (w.Method, w.Path));
+            Assert.Equal(("97.00", "110.00"), (w.Body!["stop_loss_price"]!.ToString(), w.Body["take_profit_price"]!.ToString()));
+        }
+
+        [Fact]
+        public async Task A_target_order_on_a_position_with_no_bracket_starts_one_with_only_the_target()
+        {
+            var (p, h) = Legs(LongCross, Triggers(), Bracket("b-2", null, "110.00"));
+
+            Assert.Equal("xt:c:KXBTCPERP:b-2:tp:110.00",
+                await p.PlaceOrderAsync(new TradeSignal("KXBTCPERP", OrderSide.Sell, 3, OrderType.TakeProfitMarket, TriggerPrice: 110, ReduceOnly: true)));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross), (w.Method, w.Path));
+            Assert.Null(w.Body!["stop_loss_price"]);
+            Assert.Null(w.Body["count"]);
+        }
+
+        [Fact]
+        public async Task A_stop_for_part_of_the_position_is_its_own_bracket_of_that_size()
+        {
+            var (p, h) = Legs(LongCross, Triggers(Bracket("b-1", "95.00", null)), Bracket("b-2", "96.00", null, count: "1"));
+
+            await p.PlaceOrderAsync(StopOrder(96, qty: 1));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal(("PUT", Cross), (w.Method, w.Path));
+            Assert.Equal("1", w.Body!["count"]!.ToString());
+            Assert.False(string.IsNullOrEmpty(w.Body["client_trigger_id"]?.ToString()));
+        }
+
+        public static IEnumerable<object[]> LegRefusals() => new[]
+        {
+            new object[] { """{"positions":[]}""", StopOrder(97), "there is no KXBTCPERP position" },
+            new object[] { LongCross, StopOrder(97, OrderSide.Buy), "position is long, so its stop loss sells; this order buys" },
+            new object[] { LongIsolated, StopOrder(97, qty: 1), "close all of it (3); this order is for 1" },
+        };
+
+        [Theory]
+        [MemberData(nameof(LegRefusals))]
+        public async Task A_stop_Kalshi_could_not_set_as_asked_is_refused_unsent(string positions, TradeSignal signal, string words)
+        {
+            var (p, h) = Legs(positions, Triggers(), Bracket("b-1", "97.00", null));
+
+            string r = await p.PlaceOrderAsync(signal);
+
+            Assert.StartsWith("ORDER_FAILED:", r);
+            Assert.Contains(words, r);
+            Assert.Empty(TriggerWrites(h));
+        }
+
+        // ── Listing and cancelling the legs ──
+
+        [Fact]
+        public async Task Each_live_leg_is_listed_as_a_stop_or_target_order_that_closes_the_position()
+        {
+            var (p, h) = Build();
+            h.Get(@"/margin/orders\?", """{"orders":[{"order_id":"o-2","ticker":"KXETHPERP","side":"bid","price":"2.00","remaining_count":"4.00"}],"cursor":""}""");
+            h.Get(@"/margin/positions$", LongCross.Replace("3.00", "-3.00"));
+            h.Get(@"/margin/cross/positions/KXBTCPERP/exit_trigger$", Triggers(Bracket("b-1", "105.00", "90.00"),
+                Bracket("b-x", "1.00", null, status: "canceled")));
+            h.Get(@"/margin/cross/positions/KXETHPERP/exit_trigger$", Triggers(Bracket("b-3", "1.50", null, status: "pending_on_entry", anchor: "o-2")));
+
+            var all = await p.GetOpenOrdersAsync();
+
+            Assert.Equal(4, all.Count);
+            var stop = all.Single(o => o.Id == "xt:c:KXBTCPERP:b-1:sl:105.00");
+            Assert.Equal((OrderSide.Buy, OrderType.StopMarket, 3.0, 105.0, 105.0), (stop.Side, stop.Type, stop.Quantity, stop.Price, stop.StopLoss));
+            var target = all.Single(o => o.Id == "xt:c:KXBTCPERP:b-1:tp:90.00");
+            Assert.Equal((OrderSide.Buy, OrderType.TakeProfitMarket, 90.0), (target.Side, target.Type, target.TakeProfit));
+            // Waiting on its order: the stop of a buy that has not filled yet sells, for the order's size.
+            var pending = all.Single(o => o.Id == "xt:c:KXETHPERP:b-3:sl:1.50");
+            Assert.Equal((OrderSide.Sell, 4.0, "pending_on_entry"), (pending.Side, pending.Quantity, pending.Status));
+
+            Assert.Equal(2, (await p.GetOpenOrdersAsync("KXBTCPERP")).Count(o => o.Id.StartsWith("xt:")));
+        }
+
+        [Fact]
+        public async Task A_failed_trigger_read_fails_the_open_orders_read()
+        {
+            var (p, h) = Build();
+            h.Get(@"/margin/orders\?", """{"orders":[],"cursor":""}""");
+            h.Get(@"/margin/positions$", LongCross);
+            h.Get(@"/exit_trigger$", """{"error":{"code":"internal","message":"boom"}}""", HttpStatusCode.InternalServerError);
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => p.GetOpenOrdersAsync("KXBTCPERP"));
+        }
+
+        [Theory]
+        [InlineData("xt:c:KXBTCPERP:b-1:sl:95.00", "PUT", Cross + "/b-1", null, "110.00")]   // the target stays
+        [InlineData("xt:c:KXBTCPERP:b-1:tp:110.00", "PUT", Cross + "/b-1", "95.00", null)]   // the stop stays
+        [InlineData("xt:i:KXBTCPERP:b-1:sl:95.00", "PUT", Isolated, null, "110.00")]
+        public async Task Cancelling_one_leg_keeps_the_other(string id, string method, string path, string? sl, string? tp)
+        {
+            var (p, h) = Legs(LongCross, Triggers(Bracket("b-1", "95.00", "110.00")), Bracket("b-1", sl, tp));
+
+            Assert.True(await p.CancelOrderAsync(id, "KXBTCPERP"));
+
+            var w = Assert.Single(TriggerWrites(h));
+            Assert.Equal((method, path), (w.Method, w.Path));
+            Assert.Equal(sl, w.Body!["stop_loss_price"]?.ToString());
+            Assert.Equal(tp, w.Body["take_profit_price"]?.ToString());
+        }
+
+        [Theory]
+        [InlineData("xt:c:KXBTCPERP:b-1:sl:95.00", Cross + "/b-1")]
+        [InlineData("xt:i:KXBTCPERP:b-1:sl:95.00", Isolated + "?kind=bracket")]
+        public async Task Cancelling_the_last_leg_cancels_the_bracket(string id, string path)
+        {
+            var (p, h) = Legs(LongCross, Triggers(Bracket("b-1", "95.00", null)), "");
+
+            Assert.True(await p.CancelOrderAsync(id, "KXBTCPERP"));
+
+            Assert.Equal(("DELETE", path), (TriggerWrites(h).Single().Method, TriggerWrites(h).Single().Path));
+        }
+
+        [Theory]
+        [InlineData("xt:c:KXBTCPERP:b-1:sl:95.00")]   // the stop has moved to 97: the move replaced it
+        [InlineData("xt:c:KXBTCPERP:b-9:sl:97.00")]   // that bracket fired or was cancelled
+        public async Task A_leg_no_longer_live_at_its_price_is_already_cancelled_and_nothing_is_sent(string id)
+        {
+            var (p, h) = Legs(LongCross, Triggers(Bracket("b-1", "97.00", "110.00")), "");
+
+            Assert.True(await p.CancelOrderAsync(id, "KXBTCPERP"));
+
+            Assert.Empty(TriggerWrites(h));
+        }
+
+        // ── The Positions tab, end to end: place the new stop, then cancel the old ──
+
+        /// <summary>Kalshi's trigger routes for one cross position, kept as state.</summary>
+        private sealed class TriggerVenue
+        {
+            public readonly Dictionary<string, (string? Sl, string? Tp)> Live = new();
+            private int _next;
+
+            public void Arm(FakeHttpMessageHandler h)
+            {
+                KalshiRig.ArmMarkets(h);
+                h.Get(@"/margin/orders\?", """{"orders":[],"cursor":""}""");
+                h.Get(@"/margin/positions$", LongCross);
+                h.Add(HttpMethod.Get, @"/exit_trigger$", _ => Json(Triggers(Live.Select(kv => Bracket(kv.Key, kv.Value.Sl, kv.Value.Tp)).ToArray())));
+                h.Add(HttpMethod.Put, @"/exit_trigger(/[^/?]+)?$", r =>
+                {
+                    var body = JObject.Parse(r.Content!.ReadAsStringAsync().Result);
+                    string? sl = body["stop_loss_price"]?.ToString(), tp = body["take_profit_price"]?.ToString();
+                    string last = r.RequestUri!.AbsolutePath.Split('/')[^1];
+                    string id = last == "exit_trigger" ? "b-" + ++_next : last;
+                    Live[id] = (sl, tp);   // a leg left out is cleared
+                    return Json(Bracket(id, sl, tp));
+                });
+                h.Add(HttpMethod.Delete, @"/exit_trigger/[^/?]+$", r =>
+                {
+                    Live.Remove(r.RequestUri!.AbsolutePath.Split('/')[^1]);
+                    return new HttpResponseMessage(HttpStatusCode.NoContent);
+                });
+            }
+
+            private static HttpResponseMessage Json(string s) =>
+                new(HttpStatusCode.OK) { Content = new StringContent(s, Encoding.UTF8, "application/json") };
+        }
+
+        private static AccessibleTrader.Core.Services.GeneralOrderService OrderService(KalshiProvider kalshi)
+        {
+            var data = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IDataService>();
+            NSubstitute.SubstituteExtensions.Returns(data.GetProviderAsync(NSubstitute.Arg.Any<string>()),
+                _ => Task.FromResult<IMarketDataProvider?>(kalshi));
+            var paper = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IPaperTradingProvider>();
+            NSubstitute.SubstituteExtensions.Returns(paper.OrderUpdateStream, System.Reactive.Linq.Observable.Never<AccessibleTrader.Sdk.Trading.OrderUpdate>());
+            var svc = new AccessibleTrader.Core.Services.GeneralOrderService(data,
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.Accessibility.IGlobalErrorCoordinator>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<AccessibleTrader.Core.Services.GeneralOrderService>.Instance,
+                new AccessibleTrader.Core.Services.EventBus(), paper,
+                NSubstitute.Substitute.For<AccessibleTrader.Core.Services.ISettingsManager>(),
+                new AccessibleTrader.Core.Services.DemoPolicy(isDemo: false), new AccessibleTrader.Core.Services.Trading.QuickTradeEquity());
+            svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            return svc;
+        }
+
+        [Fact]
+        public async Task Moving_the_stop_on_the_Positions_tab_moves_it_and_keeps_the_target()
+        {
+            var venue = new TriggerVenue();
+            venue.Live["b-1"] = ("95.00", "110.00");
+            var (p, h) = Build();
+            venue.Arm(h);
+            var svc = OrderService(p);
+            var open = await p.GetOpenOrdersAsync("KXBTCPERP");
+            var stop = open.Single(o => o.Type == OrderType.StopMarket);
+            var target = open.Single(o => o.Type == OrderType.TakeProfitMarket);
+
+            var result = await AccessibleTrader.Core.Services.Trading.ProtectiveOrderEditor.ReplaceAsync(svc, "Kalshi", "KXBTCPERP",
+                isLong: true, quantity: 3, AccessibleTrader.Core.Services.Trading.ProtectiveLevel.StopLoss, 97, stop, target, "Stop loss set to 97.");
+
+            Assert.True(result.Ok, result.Message);
+            Assert.Equal("Stop loss set to 97.", result.Message);
+            Assert.Equal(("97.00", "110.00"), Assert.Single(venue.Live).Value);
+        }
+
+        [Fact]
+        public async Task Setting_the_stop_to_where_it_already_is_leaves_it_there()
+        {
+            var venue = new TriggerVenue();
+            venue.Live["b-1"] = ("95.00", "110.00");
+            var (p, h) = Build();
+            venue.Arm(h);
+            var open = await p.GetOpenOrdersAsync("KXBTCPERP");
+
+            var result = await AccessibleTrader.Core.Services.Trading.ProtectiveOrderEditor.ReplaceAsync(OrderService(p), "Kalshi", "KXBTCPERP",
+                isLong: true, quantity: 3, AccessibleTrader.Core.Services.Trading.ProtectiveLevel.StopLoss, 95,
+                open.Single(o => o.Type == OrderType.StopMarket), open.Single(o => o.Type == OrderType.TakeProfitMarket), "Stop loss set to 95.");
+
+            Assert.True(result.Ok, result.Message);
+            Assert.Equal(("95.00", "110.00"), Assert.Single(venue.Live).Value);
+            Assert.Empty(TriggerWrites(h));
         }
     }
 }

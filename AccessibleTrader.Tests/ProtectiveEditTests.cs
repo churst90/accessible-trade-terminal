@@ -245,6 +245,23 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Setting_the_stop_to_its_own_price_sends_nothing()
+        {
+            // Placing the same level and cancelling the old one is churn on a venue with separate
+            // orders, and on Kalshi it removes the stop: there both "orders" are the one leg of the
+            // position's bracket, so the cancel takes the stop that was just "placed".
+            var (svc, paper, store, _) = PaperService();
+            var (stop, target) = await OpenBracketedLong(svc, paper, store);
+
+            var result = await Move(svc, ProtectiveLevel.StopLoss, 95, stop, target);
+
+            Assert.True(result.Ok, result.Message);
+            Assert.Contains("already at 95", result.Message);
+            var open = await paper.GetOpenOrdersAsync(Btc);
+            Assert.Equal(new[] { stop.Id, target.Id }.OrderBy(x => x), open.Select(o => o.Id).OrderBy(x => x));
+        }
+
+        [Fact]
         public async Task The_kept_target_still_closes_the_position_and_retires_the_moved_stop()
         {
             // The re-placed target is a real protective order, not a display: price reaching it

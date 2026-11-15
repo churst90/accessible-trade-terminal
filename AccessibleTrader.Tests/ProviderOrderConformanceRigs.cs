@@ -822,6 +822,8 @@ namespace AccessibleTrader.Tests.OrderConformance
         public override string? PracticeHost => "external-api.demo.kalshi.co";
         public override bool WholeSharesOnly => true;          // whole contracts on these markets
         public override bool HasReduceOnlyFlag => true;
+        // A Kalshi stop or target is a leg of the position's exit-trigger bracket, set only by a
+        // reduce-only order on a position this rig does not hold; KalshiTests covers it.
         public override StopSupport Stops => StopSupport.None;
         public override TakeProfitSupport TakeProfits => TakeProfitSupport.Refused;
 

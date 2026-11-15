@@ -94,7 +94,7 @@ namespace AccessibleTrader.Tests
                 .Where(p => !((ITradingProvider)p).AttachesProtectiveLegs(Entry with { StopLoss = 44_000.0 }))
                 .Select(p => p.GetType().Name).OrderBy(n => n).ToArray();
 
-            Assert.Equal(new[] { "BitstampProvider", "CoinbaseProvider", "GeminiProvider", "KalshiProvider", "KrakenFuturesProvider", "MexcProvider" },
+            Assert.Equal(new[] { "BitstampProvider", "CoinbaseProvider", "GeminiProvider", "KrakenFuturesProvider", "MexcProvider" },
                 noAttach);
         }
 

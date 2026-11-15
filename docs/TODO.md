@@ -35,8 +35,11 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   - Unverified until an account answers: whether `/margin/orders` lists only resting orders or
     everything (the terminal keeps those with a remaining count); the positions, risk, balance and
     fills shapes; whether `fill_count` is in an IOC's answer.
-  - No exit triggers: Kalshi has stop and take-profit triggers on positions, not built, so stops are
-    refused. A stop is a separate thing to watch for yourself until then.
+  - Stops and targets (2026-11-15) are Kalshi's exit triggers, also untried. Unverified: that setting
+    an isolated bracket again replaces it; which margin type the main account is; the trigger answer
+    shapes. They fire on the MARK price as an immediate limit near the level, so a fast market can
+    leave part or all of it unfilled. A new entry's stop changes a bracket that covers the whole
+    position (said aloud). Trailing stops are not built (listed and cancelled only).
   - Daily candles close at midnight New York time, not UTC; weekly and other timeframes are built
     from 1h or 1d by the terminal.
   - Prices are per contract; on a market whose contract is not one unit of the asset the chart is
