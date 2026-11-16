@@ -271,7 +271,12 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   prices are 71 holds against 3 re-arms, SOL/XAU/WMT; the model holds; three is too few to fit a rule
   without overfitting it); one 1h bar of the 2026-11-13 new bars, 2026-11-11 07:00 (bull 7 / bear 3,
   ours 9 / -3, re-read the same; Stoch RSI pinned at 100 with a one-bar dip just after a one-bar bear Q;
-  1,475 of 1,481 earlier bars of that shape are right); Intel 1990s
+  1,475 of 1,481 earlier bars of that shape are right. 2026-11-16, study only: the cause is the last binary
+  digit of the Stoch RSI at the top, 100*a/a landing a hair over 100, which our dip rule reads as a move.
+  The same digit is behind AAPL 1D 262/264 and the SOL/XAU re-arm misses. Reading it as exactly 100 is worse
+  everywhere (TradingView sides with the hair on 389 bars, with exact 100 on 10), and the one rule tried for
+  when to read it as 100 (the bear's one-bar Q scored 2 or more) fixed 6 values and broke 38, so it was
+  rejected. Moving one close by a cent flips that digit, so these bars may only be flaggable, not fixable); Intel 1990s
   (one shape); the Start-grid emulator not moved to this model. Unpinned (no harvested bar changes if broken):
   fsum against a plain sum and its half-even step, the Stoch RSI zero-range tolerance and its 77.2 edge,
   the wide gap 17.34 and the near-zero 5.6 moved up, the max that keeps NaN (differs from Math.Max only on ±0),
