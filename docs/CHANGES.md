@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### After the 2.13.0 tag: the Windows zip checked, the website and the hosted terminal on 2.13.0 (2026-11-16)
+
+No code changed. Recorded here because TODO listed them.
+
+- **The Windows zip is not precompiled**, the same as 2.12.0: `r2r-check.py` finds IL only
+  (`AccessibleTrader.Core.dll` has no ready-to-run header). 2.13's notes make no precompile claim, so the
+  2.12 correction notice on the site's What's new page was deleted.
+- **The hosted terminal** (demo and accounts) runs the tagged commit `33901aa5` and says 2.13.0. Every
+  post-deploy check passed, and the old copies were kept for rollback.
+- **accessibletrader.com:** the six docs synced from the tag, not from main; the download page's sizes and
+  "What's new in 2.13.0" rewritten, starting with a warning that ordering through a venue is untested;
+  the front page says what is new in 2.13 (Kalshi, Hyperliquid, Coinbase US futures, the Market Cipher
+  indicators), 35 providers and 21 drawing tools; the features page says eighteen trading venues and names
+  the seven with no practice account; the structured data, llms.txt and llms-full.txt say 2.13.0. The FAQ
+  had nothing out of date. The screenshots were not re-shot (TODO).
+- **codyhurst.com:** a banner entry about Kalshi and Hyperliquid, which says Hyperliquid is not for the US
+  or Ontario and that trading through them is untested; the terminal's card says 35 providers (18 venues),
+  10,578 tests, Linux in the browser and the Linux sandbox.
+
 ## [2.13.0] — 2026-11-16
 
 ### The 2.13.0 cut: "1 contracts" fixed, Cody's checks recorded, venue trading marked untested (2026-11-16)

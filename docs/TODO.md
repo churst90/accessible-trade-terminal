@@ -265,20 +265,11 @@ question for Cody; the rest are known limits I wrote down.
 
 ## After the 2.13 tag
 
-The rest of the 2026-11-16 pre-release list was done at the cut (see CHANGES, 2.13.0): Cody's look and
-listen, "1 contracts", the WHATSNEW read, the version. Left:
+The Windows zip check, the website and the hosted terminal were done on 2026-11-16 (see CHANGES,
+Unreleased). Left:
 
-- [ ] **Is the Windows zip precompiled?** Once the release workflow has put the zips up, run
-  `r2r-check.py` (VPS `~/att-release-tools/`) on the Windows zip. 2.12.0's notes said the client was
-  precompiled and the shipped zip was not; the site carries a correction for 2.12.
-- [ ] **The website at the tag** (VPS `~/HOSTED-DEPLOY-NOTES.md` §5j/§5m): sync the six docs from the tag
-  (`git show v2.13.0:docs/<FILE>.md`; the sync script copies HEAD), rewrite `includes/download.php`'s
-  "What's new in 2.13", sizes from the GitHub release API, the structured-data fallback version,
-  `features.php`'s "sixteen trading venues" (eighteen with Hyperliquid and Kalshi), the faqs table,
-  llms-full.txt's provider count, delete the 2.12 `$docNotice` on /whatsnew once the zip checks out, and
-  re-shoot the screenshots if the chart looks different.
-- [ ] **The hosted terminal on the tag.** The VPS runs 9595816c (2.12.0+); redeploy the tagged commit so its
-  stamp reads 2.13.0.
+- [ ] **Re-shoot the site's screenshots?** 2.13's status lines replace the old colour key, so the hero shot
+  is out of date in that detail. `~/att-release-tools/shoot.js` on the VPS; only if Cody wants it.
 
 ## Asked for, not built yet
 
