@@ -24,7 +24,7 @@
     {
       "id": "maui-windows",
       "match": "AccessibleTrader-Windows-*-win-x64.zip",
-      "root": "",
+      "root": "Accessible Trader */app/",
       "head": "the MAUI Windows desktop app",
       "required": [
         {
@@ -152,6 +152,29 @@
         ],
         "severity": "warn"
       }
+    },
+    {
+      "id": "maui-windows-package",
+      "match": "AccessibleTrader-Windows-*-win-x64.zip",
+      "root": "Accessible Trader */",
+      "head": "the Windows download's own top folder",
+      "required": [
+        {
+          "file": "Accessible Trader.exe",
+          "why": "the one program at the top of the download; it starts app\\AccessibleTrader.BlazorClient.exe. Without it the user unzips a folder holding only README.txt and app\\, and has to find the right exe among 480 files and three exes, which is the problem this layout exists to end",
+          "stagedBy": "packaging-script"
+        },
+        {
+          "file": "README.txt",
+          "why": "says which file to run, that the app folder must stay beside it, and where settings live",
+          "stagedBy": "packaging-script"
+        }
+      ],
+      "$note": [
+        "The installer, AccessibleTrader-<version>-Windows-Setup.exe, is built from the same staged",
+        "folder and is not read here: packaging/windows/package.ps1 installs it on the Windows runner",
+        "and compares every installed file with the staged one before the job can succeed."
+      ]
     },
     {
       "id": "maui-macos",

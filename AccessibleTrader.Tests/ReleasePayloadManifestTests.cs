@@ -83,7 +83,7 @@ public sealed class ReleasePayloadManifestTests
     [Fact]
     public void EveryPayloadRuleSaysWhyItMattersAndHowItIsStaged()
     {
-        var known = new[] { "csproj-item", "msbuild-target", "project-reference" };
+        var known = new[] { "csproj-item", "msbuild-target", "project-reference", "packaging-script" };
 
         foreach (var asset in Manifest().GetProperty("assets").EnumerateArray())
         {
@@ -193,6 +193,51 @@ public sealed class ReleasePayloadManifestTests
         Assert.True(verify < publish,
             "the payload check runs AFTER the release is published. A red job on a release "
           + "people are already downloading is not a gate, it is a notification.");
+    }
+
+    /// <summary>
+    /// The files at the top of the Windows download, beside <c>app\</c>, are put there by
+    /// <c>packaging/windows/package.ps1</c> and by nothing else. Each one the manifest requires
+    /// must be staged into the top folder by that script, or the release fails at the verifier
+    /// with the zip already built: this says so before a tag is pushed.
+    /// </summary>
+    public static TheoryData<string> TopFolderPayloadsFromTheManifest()
+    {
+        var data = new TheoryData<string>();
+        foreach (var name in Rules().Where(r => r.StagedBy == "packaging-script").Select(r => r.Name).Distinct())
+            data.Add(name);
+        Assert.NotEmpty(data);
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(TopFolderPayloadsFromTheManifest))]
+    public void ThePackagingScriptStagesEveryTopFolderPayload(string name)
+    {
+        string script = File.ReadAllText(Path.Combine(RepoRoot(), "packaging", "windows", "package.ps1"));
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+                @"Join-Path\s+\$stage\s+'" + System.Text.RegularExpressions.Regex.Escape(name) + "'"),
+            script);
+    }
+
+    /// <summary>
+    /// The Windows job lays out its download with the packaging script, which also builds and
+    /// installs the installer, and the release publishes that installer. Without the step the
+    /// zip goes back to 1,070 loose files; without <c>release/*.exe</c> the installer is built,
+    /// tried and thrown away.
+    /// </summary>
+    [Fact]
+    public void TheWindowsJobPackagesWithTheScriptAndTheReleasePublishesTheInstaller()
+    {
+        var workflow = ReleaseWorkflow();
+
+        int package = workflow.IndexOf("./packaging/windows/package.ps1", StringComparison.Ordinal);
+        Assert.True(package > 0, "release.yml no longer runs packaging/windows/package.ps1");
+        Assert.DoesNotContain("-SkipTrials", workflow);
+
+        int publish = workflow.IndexOf("softprops/action-gh-release", StringComparison.Ordinal);
+        Assert.True(publish > package);
+        Assert.Contains("release/*.exe", workflow[publish..]);
     }
 
     /// <summary>

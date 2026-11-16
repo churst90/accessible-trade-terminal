@@ -188,16 +188,23 @@ jobs:
           Write-Host "  of which .pdb: $pdb MB"
           if ($mb -gt 700) { Write-Host "::warning::publish output is $mb MB — check for an over-copying wildcard." }
 
-      - name: Zip
+      # The same packaging the release uses: the portable zip, the installer, and their trials.
+      - name: Package (portable zip + installer)
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path publish/maui-win/* -DestinationPath "dist/AccessibleTrader-Windows-diagnostic.zip" -Force
-          Get-ChildItem dist
+          $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText
+          ./packaging/windows/package.ps1 `
+            -PublishDir publish/maui-win `
+            -Version "$v-diagnostic" `
+            -NumericVersion $v `
+            -ZipName AccessibleTrader-Windows-diagnostic.zip `
+            -OutDir dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: AccessibleTrader-Windows-diagnostic
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.exe
           retention-days: 14

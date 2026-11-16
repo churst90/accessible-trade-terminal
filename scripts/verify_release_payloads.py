@@ -105,21 +105,24 @@ def entries_under_root(names: list[str], root: str) -> list[str] | None:
     """
     Paths inside the asset, relative to the spec's root.
 
-    `root` is "" for a flat zip and a glob such as "*.app/Contents/MonoBundle/" for the macOS
-    bundle, whose top-level directory name is the app's and not ours to hard-code. Returns None
+    `root` is "" for a flat zip, "Accessible Trader */app/" for the Windows download (its top
+    folder carries the version), and "*.app/Contents/MonoBundle/" for the macOS bundle, whose
+    top-level directory name is the app's and not ours to hard-code. Returns None
     when the root matches nothing at all — that is itself a failure worth naming, because it
     means the asset is not shaped the way the spec thinks it is.
     """
     if not root:
         return names
 
+    # Folder by folder, so a `*` stays inside one folder name. Matched against the whole path,
+    # "Accessible Trader */" would also match every folder below it, and a file named in a rule
+    # could then be found anywhere in the tree instead of where the rule says it must be.
+    want = root.rstrip("/").split("/")
     prefixes = set()
     for n in names:
         parts = n.split("/")
-        for i in range(1, len(parts) + 1):
-            candidate = "/".join(parts[:i]) + "/"
-            if fnmatch.fnmatch(candidate, root):
-                prefixes.add(candidate)
+        if len(parts) > len(want) and all(fnmatch.fnmatch(p, w) for p, w in zip(parts, want)):
+            prefixes.add("/".join(parts[:len(want)]) + "/")
     if not prefixes:
         return None
 

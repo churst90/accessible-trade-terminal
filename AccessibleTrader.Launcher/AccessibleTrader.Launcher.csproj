@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>AccessibleTrader.Launcher</RootNamespace>
+    <AssemblyName>AccessibleTrader.Launcher</AssemblyName>
+    <AssemblyTitle>Accessible Trader</AssemblyTitle>
+    <Product>Accessible Trader</Product>
+    <!--
+      The one program at the top of the Windows download, staged there as "Accessible Trader.exe"
+      by packaging/windows/package.ps1. The desktop app is about 1,070 files, 480 of them loose
+      beside its exe, so the download is laid out as
+
+          Accessible Trader <version>\
+              Accessible Trader.exe   (this)
+              README.txt
+              app\                    (the published app, untouched)
+
+      and this starts app\AccessibleTrader.BlazorClient.exe. Published NativeAOT on the Windows
+      release runner, so it needs no .NET on the user's machine and carries no runtime of its
+      own. It is not referenced by any other project and is not part of the app.
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+
+</Project>

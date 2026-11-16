@@ -10,7 +10,9 @@ name: release
 #                 the SkiaSharp native assets come from per-RID NuGet packages,
 #                 not the build host. Users need NO .NET install.
 #   2. MAUI BlazorClient — native heads. Windows is unpackaged
-#                 (WindowsPackageType=None → a runnable folder, no MSIX); macOS
+#                 (WindowsPackageType=None → a runnable folder, no MSIX), shipped
+#                 as a portable zip and an Inno Setup installer made from the
+#                 same folder (packaging/windows/); macOS
 #                 is Mac Catalyst (universal x64+arm64). These need the matching
 #                 OS runner and the `maui` workload.
 #
@@ -127,8 +129,6 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # MAUI Windows head (unpackaged). Runs on a Windows runner.
-  # First-run note: if the publish output path differs, adjust the glob in the
-  # "Locate + zip" step — the rest of the job is stable.
   # ---------------------------------------------------------------------------
   maui-windows:
     needs: meta
@@ -278,19 +278,27 @@ jobs:
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} `
             --output publish/maui-win
 
-      - name: Locate + zip
+      # The publish is about 1,070 files, 480 loose beside the exe. package.ps1 puts them in an
+      # app\ folder under "Accessible Trader <version>\", with the launcher "Accessible Trader.exe"
+      # and a README beside it, zips that, builds the per-user installer from the same folder,
+      # and then RUNS both: the launcher must start the app, the setup must install every file
+      # byte for byte, clear an older version's leftovers, and uninstall cleanly.
+      - name: Package (portable zip + installer)
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $name = "AccessibleTrader-Windows-${{ needs.meta.outputs.version }}-win-x64.zip"
-          Compress-Archive -Path publish/maui-win/* -DestinationPath "dist/$name" -Force
-          Get-ChildItem dist
+          ./packaging/windows/package.ps1 `
+            -PublishDir publish/maui-win `
+            -Version ${{ needs.meta.outputs.version }} `
+            -NumericVersion ${{ needs.meta.outputs.display_version }} `
+            -OutDir dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: maui-windows
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.exe
           retention-days: 7
 
   # ---------------------------------------------------------------------------
@@ -434,8 +442,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p release
-          find incoming -name '*.zip' -exec cp {} release/ \;
-          (cd release && sha256sum *.zip > SHA256SUMS.txt)
+          find incoming \( -name '*.zip' -o -name '*-Windows-Setup.exe' \) -exec cp {} release/ \;
+          # nullglob: a failed Windows job leaves no .exe, and the other heads still ship.
+          (cd release && shopt -s nullglob && sha256sum *.zip *.exe > SHA256SUMS.txt)
+          # The Windows zip and its installer come from the same job and the same folder; one
+          # without the other means that job broke halfway.
+          if ls release/AccessibleTrader-Windows-*.zip >/dev/null 2>&1 \
+             && ! ls release/AccessibleTrader-*-Windows-Setup.exe >/dev/null 2>&1; then
+            echo "::error::The Windows zip was built but its installer was not."; exit 1
+          fi
           echo "=== Release contents ==="
           ls -lh release
 
@@ -481,4 +496,5 @@ jobs:
           prerelease: ${{ needs.meta.outputs.version != needs.meta.outputs.display_version }}
           files: |
             release/*.zip
+            release/*.exe
             release/SHA256SUMS.txt
