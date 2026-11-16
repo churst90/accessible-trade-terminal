@@ -319,8 +319,8 @@ namespace AccessibleTrader.Tests
             // Since 2026-11-07 it counts its daily cycle in days on every chart, so on these hourly
             // series a daily cycle is 700 to 1,000 bars and 1,400 bars hold one or two: a prepend
             // that moves the first daily low moves the chain (each low counted from the one before)
-            // past the warmup, before any low both runs pick again. Its weekly lows and "Low
-            // expected" (daily charts only now) no longer show on these series. On Bitcoin's candles
+            // past the warmup, before any low both runs pick again. Its weekly lows no longer
+            // show on these series ("Low expected", daily charts only, was removed 2026-11-16). On Bitcoin's candles
             // as 4-hour bars the chain agrees again by bar 3,273 of 5,416 whatever is cut, measured in
             // CyclePositionProviderTests.On_a_four_hour_chart_older_bars_move_the_daily_lows_for_a_few_cycles_only.
             "CYCLE_POSITION.Cycle Low Pending",
@@ -655,11 +655,10 @@ namespace AccessibleTrader.Tests
             "CYCLE_POSITION.Yearly Low Pending",
             "CYCLE_POSITION.Yearly Low Cancelled",
             "CYCLE_POSITION.Yearly Cycle Failed",
-            // "Low is in", "Low expected" and the very high calls are read on a daily chart only
+            // "Low is in" and the very high calls are read on a daily chart only
             // since 2026-11-07 (they were measured on daily cycles), so no hourly series reaches
             // them; pinned on Bitcoin daily in Nothing_on_a_bar_changes_when_later_bars_arrive.
             "CYCLE_POSITION.Low Is In",
-            "CYCLE_POSITION.Low Expected",
             "CYCLE_POSITION.Very High",
             "CYCLE_POSITION.Very High Call",
             "CYCLE_POSITION.Weekly Low Is In",

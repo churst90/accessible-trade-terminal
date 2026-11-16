@@ -428,6 +428,11 @@ every capture (`dumpe2eL.sh` with `AT_CC_PROVIDER=cp`), scored by `lowscore.py`:
 
 ## 8. "Low is in" and "Low expected" (2026-10-28)
 
+> **Low expected was removed on 2026-11-16** (Cody took the recommendation to drop it): its "likely"
+> was right about half the time (below). Its table row, state words, speech, the "Low expected, %"
+> line and its model are gone; an alert or strategy on that line no longer finds it. What follows
+> about it is the record of what was built and measured.
+
 Cody: "figure out anything that can help call and confirm lows with a confidence score ... the user
 doesn't need to know 15 points", then "build it". Two readings on daily charts only, said as words:
 
@@ -886,7 +891,9 @@ Why separate call lines and not just an alert on "Low is in, %" crossing 95: the
 times for the 2,332 weekly ones, and miss the calls made on a low's first reading (no bar before to
 cross from; about 7% of daily calls).
 
-Caveats: Low expected's line reads the learned daily window, so older bars can change it (the
+(Since 2026-11-16 five lines: "Low expected, %" was removed with the reading.)
+
+Caveats: Low expected's line read the learned daily window, so older bars can change it (the
 prepend guard lists it with the confirmations, for the same reason); each bar still uses only
 cycles finished by then. Cycle Position's confirmations are check boxes, which the strategy catalog
 reads as lines, not events (a TODO question). Not seen or heard in the app.

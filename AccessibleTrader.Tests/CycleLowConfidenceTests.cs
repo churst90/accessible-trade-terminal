@@ -7,7 +7,7 @@ using AccessibleTrader.Tests.Fixtures;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// <b>Cycle Position's "Low is in" and "Low expected" (2026-10-28); weekly and yearly "low is in" (2026-10-28).</b>
+/// <b>Cycle Position's "Low is in" and "Low expected" (2026-10-28; Low expected removed 2026-11-16); weekly and yearly "low is in" (2026-10-28).</b>
 ///
 /// <para>The golden answers are the study's own numbers, computed in Python from the Bitcoin
 /// fixture's candles (Fixtures/CycleLowConfidenceReference.cs, every third bar), not the C#: the
@@ -48,30 +48,21 @@ public sealed class CycleLowConfidenceTests
     }
 
     /// <summary>
-    /// Bitcoin's daily history: both chances are the study's to 1e-9 on every reference bar, and
-    /// they are on exactly the bars the study scores: 2,129 held days; for Low expected every day
-    /// from bar 109 to 5,337, and then on to the last bar, past the study's last real low (which
-    /// it needs as its label; the chart reads on).
+    /// Bitcoin's daily history: the chance is the study's to 1e-9 on every reference bar, and it is
+    /// on exactly the bars the study scores, 2,129 held days. (Low expected, pinned here too until
+    /// it was removed 2026-11-16, is gone from the fixture.)
     /// </summary>
     [Fact]
-    public void Both_chances_are_the_studys_on_Bitcoin()
+    public void The_chance_is_the_studys_on_Bitcoin()
     {
         var r = Btc();
-        foreach (var (key, at, want, studied) in new[]
-                 {
-                     (D + CyclePositionProvider.LowInSuffix, CycleLowConfidenceReference.LowInAt, CycleLowConfidenceReference.LowIn, 2129),
-                     (D + CyclePositionProvider.ExpectedSuffix, CycleLowConfidenceReference.ExpectedAt, CycleLowConfidenceReference.Expected, 5229),
-                 })
-        {
-            var got = r[key];
-            Assert.Equal(want.Length, at.Length);
-            for (int j = 0; j < at.Length; j++)
-                Assert.True(Math.Abs(got[at[j]] - want[j]) < 1e-9, $"{key} on bar {at[j]}: {got[at[j]]}, the study {want[j]}");
-            Assert.Equal(studied, Marked(got).Count(t => t <= at[^1]));
-            Assert.All(Marked(got), t => Assert.InRange(got[t], 0.0, 1.0));
-        }
-        var expected = r[D + CyclePositionProvider.ExpectedSuffix];
-        Assert.Equal(Enumerable.Range(109, expected.Length - 109), Marked(expected));
+        string key = D + CyclePositionProvider.LowInSuffix;
+        var (at, want, got) = (CycleLowConfidenceReference.LowInAt, CycleLowConfidenceReference.LowIn, r[key]);
+        Assert.Equal(want.Length, at.Length);
+        for (int j = 0; j < at.Length; j++)
+            Assert.True(Math.Abs(got[at[j]] - want[j]) < 1e-9, $"{key} on bar {at[j]}: {got[at[j]]}, the study {want[j]}");
+        Assert.Equal(2129, Marked(got).Count(t => t <= at[^1]));
+        Assert.All(Marked(got), t => Assert.InRange(got[t], 0.0, 1.0));
     }
 
     /// <summary>
@@ -90,7 +81,7 @@ public sealed class CycleLowConfidenceTests
         Assert.True(carried > 0, "no carried low on Bitcoin: the dropped-low case is not checked");
     }
 
-    /// <summary>The words are the bands: Low is in below 20% likely to fail, then low, medium (60%), high (80%), very high (95%); Low expected unlikely, possible (15%), likely (35%).</summary>
+    /// <summary>The words are the bands: below 20% likely to fail, then low, medium (60%), high (80%), very high (95%).</summary>
     [Theory]
     [InlineData(0.0, "likely to fail")]
     [InlineData(0.1999, "likely to fail")]
@@ -103,18 +94,11 @@ public sealed class CycleLowConfidenceTests
     [InlineData(1.0, "very high")]
     public void Low_is_in_words_are_the_bands(double p, string word) => Assert.Equal(word, CycleLowConfidence.Word(p));
 
-    [Theory]
-    [InlineData(0.0, "unlikely")]
-    [InlineData(0.1499, "unlikely")]
-    [InlineData(0.15, "possible")]
-    [InlineData(0.35, "likely")]
-    [InlineData(1.0, "likely")]
-    public void Low_expected_words_are_the_bands(double p, string word) => Assert.Equal(word, CycleLowConfidence.ExpectedWord(p));
-
     /// <summary>
     /// What is spoken is what the table shows: on a bar holding a low the state words carry the
     /// table's "Low is in" cell and its reasons; on a bar after a confirmed low with none held
-    /// the table shows a dash and nothing is spoken for it; Low expected is spoken with its days.
+    /// the table shows a dash and nothing is spoken for it. Low expected (a new daily low in the
+    /// next few days, right about half the time) was removed 2026-11-16: no row, no words, no line.
     /// </summary>
     [Fact]
     public void The_speech_says_what_the_table_shows()
@@ -122,7 +106,7 @@ public sealed class CycleLowConfidenceTests
         var r = Btc();
         Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
         var lowIn = r[D + CyclePositionProvider.LowInSuffix];
-        var expected = r[D + CyclePositionProvider.ExpectedSuffix];
+        var start = r[D + CipherCProvider.StartSuffix];
         string Cell(int t, string label) => CyclePositionProvider.TableRows(comp, t).Single(row => row[0].Text == label)[1].Text;
 
         int heldBar = Marked(lowIn)[^1];
@@ -134,21 +118,22 @@ public sealed class CycleLowConfidenceTests
         Assert.Contains("chance at random of going back to it first", spoken);
         Assert.Matches("(confirming: |no confirmations yet)", spoken);
 
-        int freeBar = Marked(expected).Last(t => double.IsNaN(lowIn[t]));
+        int freeBar = Enumerable.Range(0, lowIn.Length).Last(t => double.IsNaN(lowIn[t]) && !double.IsNaN(start[t]));
         Assert.Equal("—", Cell(freeBar, "Low is in"));
-        var free = string.Join("; ", CyclePositionProvider.StateWords(comp, freeBar));
         Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, freeBar), w => w.StartsWith("low is in", StringComparison.Ordinal));
-        string exp = CycleLowConfidence.ExpectedWord(expected[freeBar]);
-        int k = (int)r[D + CyclePositionProvider.ExpectedDaysSuffix][freeBar];
-        Assert.Equal($"{exp}, {k} days", Cell(freeBar, "Low expected"));
-        Assert.Contains($"a new daily low in the next {k} days: {exp}, ", free);
+
+        Assert.DoesNotContain(CyclePositionProvider.TableRows(comp, freeBar), row => row[0].Text.Contains("expected", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(r.Keys, k => k.Contains("xpected", StringComparison.Ordinal));
+        Assert.DoesNotContain(new CyclePositionProvider().GetIndicators().Single().Components, c => (c.DisplayName ?? c.Name).Contains("expected", StringComparison.OrdinalIgnoreCase));
+        for (int t = 0; t < lowIn.Length; t += 7)
+            Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, t), w => w.Contains("new daily low in the next", StringComparison.Ordinal));
     }
 
     /// <summary>
     /// Off a daily chart they are not read (2026-11-07): fitted on a daily chart's days and its
     /// 10- and 20-bar averages, they read bars as days (2026-10-28 held them unseen on 4-hour and
     /// weekly charts only while those charts counted their cycles in bars). Now a 4-hour chart's
-    /// daily cycle is in days and a weekly chart has none: no Low is in, no Low expected, no tops
+    /// daily cycle is in days and a weekly chart has none: no Low is in, no tops
     /// and no half-cycle lows there, said or in the table.
     /// </summary>
     [Fact]
@@ -162,13 +147,13 @@ public sealed class CycleLowConfidenceTests
         Assert.NotEmpty(Marked(days[D + CyclePositionProvider.TopSuffix]));
         foreach (var r in new[] { Run(Stamped(i => start.AddHours(4 * i)), symbol: null), Run(Stamped(i => start.AddDays(7 * i)), symbol: null) })
         {
-            foreach (var key in new[] { D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix, W + CyclePositionProvider.LowInSuffix,
+            foreach (var key in new[] { D + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInSuffix,
                          Y + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.TopSuffix, CyclePositionProvider.CompHalfLow })
                 Assert.True(!r.TryGetValue(key, out var a) || Marked(a).Count == 0, key);
             Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
             int last = r[CyclePositionProvider.LengthKey].Length - 1;
             Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, last), w => w.Contains("low is in", StringComparison.OrdinalIgnoreCase));
-            Assert.All(CyclePositionProvider.TableRows(comp, last).Where(row => row[0].Text is "Low is in" or "Low expected" or "Top so far" or "Half-cycle low"),
+            Assert.All(CyclePositionProvider.TableRows(comp, last).Where(row => row[0].Text is "Low is in" or "Top so far" or "Half-cycle low"),
                 row => Assert.All(row.Skip(1), c => Assert.Equal("", c.Text)));
         }
     }
@@ -265,9 +250,8 @@ public sealed class CycleLowConfidenceTests
         var bars = CipherSrSpeechTests.BtcDaily().ToArray();
         var moved = bars.Select((b, i) => new Ohlcv(b.Date.AddHours(i % 2 == 0 ? 13 : 14), b.Open, b.High, b.Low, b.Close, b.Volume)).ToArray();
         var tiers = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
-        var r = Btc();
         CycleLowConfidence.Reading Yearly(Ohlcv[] data) => CycleLowConfidence.Compute(data, tiers.D, tiers.L,
-            r[D + CipherCProvider.StartSuffix], r[D + CipherCProvider.EndSuffix], tiers.W, tiers.WeeklyGap, tiers.Y, tiers.Years).Yearly;
+            tiers.W, tiers.WeeklyGap, tiers.Y, tiers.Years).Yearly;
         var (atMidnight, atHours) = (Yearly(bars), Yearly(moved));
         Assert.Equal(1266, Marked(atMidnight.Chance).Count);
         Assert.Equal(atMidnight.Chance, atHours.Chance);
@@ -459,14 +443,7 @@ public sealed class CycleLowConfidenceTests
         for (int t = 0; t < bars.Length; t++)
         {
             Assert.Equal(100 * r[Y + CyclePositionProvider.LowInSuffix][t], r[CyclePositionProvider.CompYearlyLowInLine][t]);
-            Assert.Equal(100 * r[D + CyclePositionProvider.ExpectedSuffix][t], r[CyclePositionProvider.CompExpectedLine][t]);
         }
-        int expectedAt = Array.FindLastIndex(r[CyclePositionProvider.CompExpectedLine], v => !double.IsNaN(v)), noneAt = Array.FindIndex(r[CyclePositionProvider.CompExpectedLine], double.IsNaN);
-        Assert.True(expectedAt > 0 && noneAt >= 0);
-        string? expectedSaid = provider.GetComponentSpeech(CyclePositionProvider.CompExpectedLine, r[CyclePositionProvider.CompExpectedLine][expectedAt], bars[expectedAt], r, expectedAt);
-        Assert.StartsWith("a new daily low in the next ", expectedSaid);
-        Assert.Equal(CyclePositionProvider.ExpectedWords(k => r.TryGetValue(k, out var a) ? a[expectedAt] : double.NaN), expectedSaid);
-        Assert.Equal("no confirmed daily low yet", provider.GetComponentSpeech(CyclePositionProvider.CompExpectedLine, double.NaN, bars[noneAt], r, noneAt));
 
         var off = CyclePositionProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD", [CyclePositionProvider.ParamVeryHighMarks] = false });
         foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh })
@@ -485,7 +462,7 @@ public sealed class CycleLowConfidenceTests
         foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh })
             Assert.Equal(SignalKind.MarkerFire, catalog.GetById($"{CyclePositionProvider.Code}.{comp}")!.Kind);
         foreach (var comp in new[] { CyclePositionProvider.CompLowInLine, CyclePositionProvider.CompWeeklyLowInLine, CyclePositionProvider.CompYearlyLowInLine,
-                     CyclePositionProvider.CompExpectedLine, CyclePositionProvider.CompCallLine, CyclePositionProvider.CompWeeklyCallLine })
+                     CyclePositionProvider.CompCallLine, CyclePositionProvider.CompWeeklyCallLine })
             Assert.Equal(SignalKind.Line, catalog.GetById($"{CyclePositionProvider.Code}.{comp}")!.Kind);
         Assert.Contains(catalog.All, d => d.Id == $"{CyclePositionProvider.Code}.{CyclePositionProvider.CompCallLine}");
     }

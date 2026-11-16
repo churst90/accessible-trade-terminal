@@ -3,10 +3,10 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>
-    /// <b>Cycle Position's two readings about daily lows (2026-10-28): "Low is in" and "Low expected".</b>
+    /// <b>Cycle Position's reading about daily lows (2026-10-28): "Low is in".</b>
     /// Cody: "figure out anything that can help call and confirm lows with a confidence score so low
-    /// confidence/high confidence ... the user doesn't need to know '15 points'". Both are fitted on
-    /// Cycle Position's own lows on 30 daily charts and checked on Bitcoin, which they never saw
+    /// confidence/high confidence ... the user doesn't need to know '15 points'". It is fitted on
+    /// Cycle Position's own lows on 30 daily charts and checked on Bitcoin, which it never saw
     /// (docs/CYCLE_POSITION_DESIGN.md, "Low is in").
     ///
     /// <para><b>Low is in.</b> On each day a daily low is held but not yet confirmed: how likely it is
@@ -22,12 +22,9 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// "very high" was right 96% of the time and came a median 7 days before the confirmation, 95%
     /// of real lows getting one; on Bitcoin 2020-2026, 98%, 9 days, all 39.</para>
     ///
-    /// <para><b>Low expected.</b> On every day after a confirmed low: will Cycle Position draw a new
-    /// daily low within the next k days, k a sixth of the shortest cycle (at least 2)? A logistic on
-    /// how often past cycles this old ended within k days (this chart's own and 30 charts'), the day
-    /// against the window, the fall from the cycle's top, the 10-day average, the oscillators and the
-    /// held low. Weaker than "Low is in": on unseen charts "likely" came true about half the time
-    /// (a new low within k days on 14% of days overall), "unlikely" 8%.</para>
+    /// <para>"Low expected", a second reading (will a new daily low come within a few days?), was
+    /// removed 2026-11-16 (Cody, taking the recommendation): on unseen charts its "likely" came true
+    /// about half the time.</para>
     ///
     /// <para><b>Weekly and yearly "low is in" (2026-10-28).</b> Cody: "try and fit the weekly and
     /// yearly bottoms as well". The same reading for the weekly low being made (<see cref="WeeklySubject"/>:
@@ -51,11 +48,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             (0, "likely to fail"), (0.2, "low"), (0.6, "medium"), (0.8, "high"), (0.95, "very high"),
         };
 
-        /// <summary>"Low expected" bands.</summary>
-        internal static readonly (double From, string Word)[] ExpectedBands = { (0, "unlikely"), (0.15, "possible"), (0.35, "likely") };
-
         internal static string Word(double p) => Bands.Last(b => p >= b.From).Word;
-        internal static string ExpectedWord(double p) => ExpectedBands.Last(b => p >= b.From).Word;
 
         /// <summary>One "low is in" reading, per bar (NaN where it does not apply).</summary>
         internal class Reading
@@ -81,27 +74,25 @@ namespace AccessibleTrader.Core.Services.Indicators
             }
         }
 
-        /// <summary>Everything one run decides: the daily "Low is in" and "Low expected", and the weekly and yearly "low is in".</summary>
+        /// <summary>Everything one run decides: the daily, weekly and yearly "low is in".</summary>
         internal sealed class Result : Reading
         {
-            /// <summary>Low expected: the share, 0-1, and k, the days it looks ahead.</summary>
-            public double[] Expected = Array.Empty<double>(), ExpectedDays = Array.Empty<double>();
             /// <summary>The weekly and yearly lows' readings.</summary>
             public Reading Weekly = new(), Yearly = new();
         }
 
         /// <summary>
-        /// All the readings over a daily chart, from the daily tier <paramref name="d"/>, the shortest
-        /// daily cycle <paramref name="cycle"/> (in bars) and the learned daily window on each bar;
+        /// All the readings over a daily chart, from the daily tier <paramref name="d"/> and the shortest
+        /// daily cycle <paramref name="cycle"/> (in bars);
         /// with the weekly tier <paramref name="w"/> found by time and its gap (bars), the weekly
         /// reading; with the yearly tier <paramref name="y"/> found from the price every
         /// <paramref name="years"/>, the yearly one.
         /// </summary>
-        internal static Result Compute(ReadOnlySpan<Ohlcv> data, CipherCEngine.TierRun d, double cycle, double[] windowStart, double[] windowEnd,
+        internal static Result Compute(ReadOnlySpan<Ohlcv> data, CipherCEngine.TierRun d, double cycle,
             CipherCEngine.TierRun? w = null, double weeklyGap = double.NaN, CipherCEngine.TierRun? y = null, double years = double.NaN)
         {
             int n = data.Length;
-            var r = new Result { Expected = CipherCEngine.Nan(n), ExpectedDays = CipherCEngine.Nan(n) };
+            var r = new Result();
             r.Size(n); r.Weekly.Size(n); r.Yearly.Size(n);
             if (n == 0 || d.HeldAt.Length != n || d.LastLowAt.Length != n || !(cycle > 0)) return r;
             var s = new Series(data);
@@ -113,7 +104,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 int due = (prev >= 0 ? Math.Max(c, prev + whole - 2) : c) + half;
                 return Math.Max(1, due - t);
             }, Daily, cycle);
-            LowExpected(r, s, d, cycle, windowStart, windowEnd);
             // Weekly: the low that would be the next weekly one, against the next daily low's clock.
             if (w != null && weeklyGap > 0)
                 Read(r.Weekly, s, WeeklySubject(s, d, w, weeklyGap), (t, c) => Math.Max(1, c + whole + half - t), Weekly, cycle);
@@ -367,75 +357,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             return lo < day.Length ? lo : -1;
         }
 
-        // ── Low expected ───────────────────────────────────────────────────────
-
-        private static void LowExpected(Result r, Series s, CipherCEngine.TierRun d, double cycle, double[] windowStart, double[] windowEnd)
-        {
-            int n = s.N;
-            int k = Math.Max(2, (int)Math.Round(cycle / 6));
-            // The lows that stand, with their confirmation bars, oldest first.
-            var lows = new List<(int Bar, int At)>();
-            for (int i = 0; i < d.Lows.Count; i++) if (d.ConfirmedAt[i] >= 0) lows.Add((d.Lows[i], d.ConfirmedAt[i]));
-            lows.Sort();
-            var x = new double[ExpectedMean.Length];
-            for (int t = 60; t < n; t++)
-            {
-                int last = d.LastLowAt[t];
-                if (last < 0) continue;
-                // This chart's past cycles known by today, the newest 40, in shortest cycles.
-                var past = new List<double>();
-                for (int i = 1; i < lows.Count; i++) if (lows[i].At <= t) past.Add((lows[i].Bar - lows[i - 1].Bar) / cycle);
-                if (past.Count > 40) past.RemoveRange(0, past.Count - 40);
-                double age = (t - last) / cycle, span = k / cycle;
-                double h = Hazard(past, age, span);
-                double start = windowStart.Length == n ? windowStart[t] : double.NaN, end = windowEnd.Length == n ? windowEnd[t] : double.NaN;
-                double winpos = double.IsNaN(start) || double.IsNaN(end) ? 0.0 : (t - last - start) / Math.Max(1, end - start);
-                int top = last;
-                for (int i = last + 1; i <= t; i++) if (s.High[i] > s.High[top]) top = i;
-                double minClose = double.PositiveInfinity;
-                for (int i = last + 1; i <= t; i++) minClose = Math.Min(minClose, s.Close[i]);
-                double low10 = double.PositiveInfinity;
-                for (int i = Math.Max(0, t - 9); i <= t; i++) low10 = Math.Min(low10, s.Low[i]);
-                double atr = Math.Max(1e-12, s.Atr[t]);
-                int held = d.HeldAt[t];
-                double heldDays = held >= 0 ? t - held : -1;
-                int j = 0;
-                x[j++] = h; x[j++] = Math.Log(h + 1e-3); x[j++] = winpos; x[j++] = winpos * winpos; x[j++] = age;
-                x[j++] = (s.High[top] - s.Close[t]) / atr; x[j++] = (s.High[top] - s.Close[t]) / s.High[top];
-                x[j++] = t > last && minClose < s.Low[last] ? 1 : 0;
-                x[j++] = (s.Close[t] - s.Sma10[t]) / atr; x[j++] = s.SmaSlope[t];
-                x[j++] = s.Low[t] <= low10 ? 1 : 0; x[j++] = (t - top) / cycle; x[j++] = (top - last) / Math.Max(1.0, t - last);
-                x[j++] = s.Dss[t] / 100; x[j++] = s.Wt1[t] / 60; x[j++] = (double.IsNaN(s.Wt2[t]) ? 0.0 : s.Wt2[t]) / 60;
-                x[j++] = (double.IsNaN(s.Stoch81[t]) ? 50.0 : s.Stoch81[t]) / 100;
-                x[j++] = heldDays >= 0 ? 1 : 0; x[j++] = Math.Max(0, heldDays) / cycle;
-                double z = ExpectedIntercept;
-                for (int i = 0; i < x.Length; i++) z += (x[i] - ExpectedMean[i]) / ExpectedScale[i] * ExpectedCoef[i];
-                if (!double.IsFinite(z)) continue;
-                r.Expected[t] = Sigmoid(z);
-                r.ExpectedDays[t] = k;
-            }
-        }
-
-        /// <summary>
-        /// Of past cycles that lasted past <paramref name="age"/> (in shortest cycles), the share that
-        /// ended within <paramref name="span"/> more: this chart's own, plus 30 charts' worth 10 cycles.
-        /// </summary>
-        internal static double Hazard(List<double> own, double age, double span, double weight = 10)
-        {
-            int n1 = 0, e1 = 0, n0 = 0, e0 = 0;
-            foreach (double v in own) { if (v > age) { n1++; if (v <= age + span) e1++; } }
-            foreach (double v in PriorCycles) { if (v > age) { n0++; if (v <= age + span) e0++; } }
-            double m = Math.Max(1, PriorCycles.Length);
-            return (e1 + weight * e0 / m) / Math.Max(1e-9, n1 + weight * n0 / m);
-        }
-
         // ── The price series both read ─────────────────────────────────────────
 
         /// <summary>The indicators the study computed, in its own way (its partial-window stochastics, its SAR).</summary>
         internal sealed class Series
         {
             public readonly int N;
-            public readonly double[] High, Low, Close, Sma10, SmaSlope, Atr, Dss, Trigger, Wt1, Wt2, Stoch81, Parkinson;
+            public readonly double[] High, Low, Close, Sma10, Atr, Dss, Trigger, Parkinson;
             public readonly bool[] SarLong, Breakout;
 
             public Series(ReadOnlySpan<Ohlcv> data)
@@ -453,24 +381,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                         : Math.Max(High[i] - Low[i], Math.Max(Math.Abs(High[i] - Close[i - 1]), Math.Abs(Low[i] - Close[i - 1])));
                     Atr[i] = i == 0 ? tr : Atr[i - 1] + (tr - Atr[i - 1]) / 14;
                 }
-                SmaSlope = new double[n];
-                for (int i = 3; i < n; i++) SmaSlope[i] = (Sma10[i] - Sma10[i - 3]) / (Atr[i] > 0 ? Atr[i] : 1);
                 // DSS Bressert 13/8, trigger 5.
                 var mit = Ema(Stoch(Close, High, Low, 13), 8);
                 Dss = Ema(Stoch(mit, mit, mit, 13), 8);
                 Trigger = Ema(Dss, 5);
-                // WaveTrend on hlc3: 9, 12, signal SMA 3.
-                var src = new double[n];
-                for (int i = 0; i < n; i++) src[i] = (High[i] + Low[i] + Close[i]) / 3;
-                var esa = Ema(src, 9);
-                var dev = new double[n];
-                for (int i = 0; i < n; i++) dev[i] = Math.Abs(src[i] - esa[i]);
-                var dd = Ema(dev, 9);
-                var ci = new double[n];
-                for (int i = 0; i < n; i++) ci[i] = dd[i] > 1e-10 ? (src[i] - esa[i]) / (0.015 * dd[i]) : 0.0;
-                Wt1 = Ema(ci, 12);
-                Wt2 = Sma(Wt1, 3);
-                Stoch81 = Sma(Stoch(Close, High, Low, 81), 2);
                 // Parkinson volatility over 20 bars: sqrt(mean(ln(H/L)^2) / (4 ln 2)).
                 Parkinson = new double[n];
                 var lh2 = new double[n];

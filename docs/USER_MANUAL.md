@@ -1517,8 +1517,7 @@ built on the same marks: one rule for every asset, so it works on a symbol nobod
 windows learned from the chart's own past cycles, so it says "day 24 of the daily cycle; the low had
 come by now in 70% of 12 past cycles". Under the held low it says EARLY, DUE or LATE against that
 window. It adds **Low is in** (the chance the held low will be confirmed, said as likely to fail,
-low, medium, high or very high, with the facts it was read from), **Low expected** (the chance of a
-new daily low in the next few days: unlikely, possible or likely), the half-cycle low and how much
+low, medium, high or very high, with the facts it was read from), the half-cycle low and how much
 of the rise it gave back, a warning that a weekly low is likely next when a daily cycle fails, and
 the next window's dates past the last bar. Four switches, all off, give it Cycle Position's
 per-asset rules, its faster confirmation, its start dates and its yearly-low dates. **Cipher C
@@ -1531,7 +1530,9 @@ Pending**, **Weekly Low Cancelled**, **Weekly Cycle Failed**, and the same three
 cycle. They are heard and said, not drawn ("Weekly cycle low pending: the low of 59,930, it would
 end a 32.7 week cycle"). The check box **Only this chart's own cycle** (in its settings, off by default) leaves
 the longer cycles out entirely: their lows, windows, events and readings, said and in the table.
-Low is in, Low expected, the tops and the half-cycle lows are read on a daily chart only. Neither
+Low is in, the tops and the half-cycle lows are read on a daily chart only. (Low expected, the
+chance of a new daily low in the next few days, was removed on 16 November 2026: its "likely" was
+right about half the time. An alert or strategy built on its line no longer finds it.) Neither
 indicator is an edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before
 that opens with each indicator under its new name and its settings kept, and strategies and alerts
 built on either still work.

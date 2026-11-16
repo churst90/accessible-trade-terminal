@@ -50,7 +50,7 @@ public sealed class CyclePositionProviderTests
             && !k.EndsWith(ComponentCompanions.BoxStart, StringComparison.Ordinal) && !k.EndsWith(ComponentCompanions.BoxEnd, StringComparison.Ordinal)).ToList();
         foreach (var k in new[] { D + CyclePositionProvider.BottomedSuffix, D + CyclePositionProvider.HitsSuffix, D + CipherCProvider.StartSuffix,
                      W + CyclePositionProvider.NestSuffix, Y + CyclePositionProvider.PhaseSuffix,
-                     D + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.ExpectedSuffix,
+                     D + CyclePositionProvider.LowInSuffix,
                      W + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInLowSuffix, Y + CyclePositionProvider.LowInSuffix,
                      D + CyclePositionProvider.ConfluenceSuffix, D + CyclePositionProvider.AoSuffix, D + CyclePositionProvider.VwapSuffix,
                      D + CyclePositionProvider.TopSuffix, D + CyclePositionProvider.TopDaySuffix, D + CyclePositionProvider.TopCameSuffix,
@@ -471,7 +471,7 @@ public sealed class CyclePositionProviderTests
             .Concat(CyclePositionProvider.TierEventComponents.Select(c => (c, ComponentCausality.Causal))).Concat(new[] {
                           (CyclePositionProvider.CompVeryHigh, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyVeryHigh, ComponentCausality.Causal),
                           (CyclePositionProvider.CompLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyLowInLine, ComponentCausality.Causal),
-                          (CyclePositionProvider.CompYearlyLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompExpectedLine, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompYearlyLowInLine, ComponentCausality.Causal),
                           (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal) }).ToArray();
         Assert.Equal(cc.Components.Select(c => c.Name).Concat(own.Select(c => c.Item1)), mine.Components.Select(c => c.Name));
         Assert.Equal(cc.Components.Select(c => c.Causality).Concat(own.Select(c => (ComponentCausality?)c.Item2)), mine.Components.Select(c => c.Causality));

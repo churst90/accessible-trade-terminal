@@ -51,6 +51,15 @@ All notable changes to this project will be documented in this file.
   without the backup, an id missing, not saved, backup overwritten, same id not replaced) each turn a
   test red; two of my first tests stayed green under them and were tightened. Your own library moves
   on the next start of the terminal; not seen in the app.
+- **Cipher C's "Low expected" is removed.** The chance of a new daily low in the next few days was
+  weak: its "likely" was right about half the time (45% on 15 unseen charts, 59% on Bitcoin;
+  CYCLE_POSITION_DESIGN section 8). Its table row, state words, speech, the "Low expected, %" line
+  (`CompExpectedLine`, off by default) and its fitted model are gone; "Low is in" is unchanged, still the
+  study's to 1e-9 on Bitcoin. The "Low is in" cell was blank wherever Low expected was empty; it now
+  follows the weekly and yearly cells' rule, so on a daily chart's bars before the first confirmed low it
+  shows a dash (no low held) instead of nothing; off a daily chart it stays blank. **An alert or strategy built on the "Low expected, %" line no longer finds
+  it.** A test checks no row, line, key or word for it is left; bringing back the row, or dropping the
+  cell's dash, turns it red (checked). Not heard in the app.
 
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 
