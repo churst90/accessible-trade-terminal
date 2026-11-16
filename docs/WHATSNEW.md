@@ -6,6 +6,49 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## Unreleased
+
+None of this has been seen or heard in the app yet.
+
+### Indicators
+
+- **Cipher A's Blood Diamond is always bigger than the red diamond.** Zoomed out, the two used to come
+  out the same size and differed only by shade. They now shrink together, so the larger stays larger at
+  every zoom.
+- **Cipher B is easier to see on light themes and Steel Gray.** On a light chart (Paper, High Contrast
+  Light, or a theme built from them) Market Cipher B's faint white lines are drawn grey. On Steel Gray
+  its waves are drawn solid. Your saved colours and any colour you chose are left alone, and every
+  other theme looks as before.
+- **Cipher C: "Low expected" is gone.** Its "likely" was right only about half the time. "Low is in"
+  is unchanged. **An alert or strategy built on the "Low expected, %" line no longer finds it.**
+- **Cipher C: a weekly "high" mark.** Beside the weekly "very high" diamond there is now a paler blue
+  diamond on the first "high" reading of each weekly low. It comes much earlier (about 32 bars before
+  the low is confirmed, against 11) and catches nearly every weekly low, but one in six is later
+  undercut. A matching "Weekly High Call" line is there for alerts and strategies, off by default.
+- **Cipher C: "Low is in" is back on weekly charts, and on 4-hour coin charts for the weekly low.** It
+  was daily-only since 7 November. Re-checked on the new time-counted lows, its first "very high" was
+  right 99% of the time on weekly charts and 96% for the weekly low on 4-hour coin charts. Times are
+  said in days, and the average it names is "the 10-week average" or "the 40-hour average". Other
+  intraday charts and 4-hour stock charts were not measured and still show nothing.
+
+### Charts and speech
+
+- **`,` and `.` say what else starts or ends at a formation stop.** For example: "Also starts here:
+  possible falling wedge." When a formation sits inside others, the whole chain is named, the nearest
+  with its date.
+- **Alt+Shift+D says a timing window's count once,** not as bare numbers and then again in words.
+
+### Strategies
+
+- **Your own compiled indicators work in strategies everywhere.** A strategy, the backtester and a
+  background tab used to compute nothing for a custom (Roslyn or Pine) indicator, so any condition on
+  one was quietly false. They are now computed as the chart computes them, on Heikin-Ashi candles when a
+  strategy reads its signals there.
+- **Retired built-in strategies leave older libraries.** A library started before August 2026 still
+  held twenty research strategies that can no longer fire. On the next start they are moved to
+  `strategies.retired.json` beside your `strategies.json`, not deleted. If that file cannot be written,
+  your library is left as it was.
+
 ## 2.13.1 — a Windows installer, and a tidy Windows zip
 
 2.13.1 changes only the Windows download. Everything under 2.13.0 below is what is in it.
