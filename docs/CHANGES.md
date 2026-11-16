@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher A symbols named for what they signal; "faint" colours; Cipher B Sell dot (2026-11-15)
+
+- **What Cody asked:** "the names of the components should be what the signal is, not the shape";
+  "the signal description for the red diamond and blood diamond are both 'red diamond' ... Are these 2
+  diamonds truly different shades of red?"; "please add a large red sell dot to cipher b, disabled by
+  default, as the original cipher B doesn't use it."
+- **Cipher A names:** the seven symbols' `DisplayName` is now the signal: Trend Turned Up (green dot),
+  Early Turn Up (blue triangle), Bullish Conditions (yellow diamond), Short-Term Turn Down (red X),
+  Momentum Turned Down (red diamond), Strongest Sell Warning (blood diamond), Oversold Trap Warning
+  (yellow X). The `Name` keys are unchanged ("Green Dot" etc.), so saved charts, alerts, strategies,
+  StrategyLab and fixtures still find them. Each symbol's signal speech is now `{name}` (it was "Green
+  dot, bullish" etc.), and landing on one says the name then what is behind it, not the headline twice.
+  A saved chart takes the new names on load: names and templates come from the indicator, not the save
+  (`A_chart_saved_with_the_shape_names_comes_back_with_the_signal_names`). The strategy signal list
+  shows display names, so it reads "Cipher A — Trend Turned Up".
+- **The two red diamonds:** they are the SAME red, #F23645. The Red Diamond is drawn at 55% opacity and
+  size 8, the Blood Diamond solid at 12. The colour words ignored transparency, so both were "red".
+  `MarkerLook.ColorName` now says "faint" under 60% opacity: "large faint red diamond" against "large
+  red diamond". Also reaches Cipher A's Yellow Diamond (30%, "faint yellow"). Cipher B's cross dots
+  (80%/65%) are not faint. **Caveat:** both diamonds are "large" (size words are absolute), and the
+  renderer caps a marker at 1.8x the bar width, so zoomed out they draw the same size; only colour
+  strength tells them apart then.
+- **Colour detail in speech:** about fourteen hue words (white, gray, black, brown, red, orange,
+  yellow, green, teal, cyan, blue, purple, pink, magenta), "dark" / "light" by lightness, and now
+  "faint" by transparency. Not shades beyond that.
+- **Cipher B Sell dot:** new part "Overbought Cross Down", shown as "Sell dot": a large red dot (#CCFF0000,
+  size 5) at +96, on every cross down of the waves with Wave Trend above Over Bought Level 1 (60) — the
+  buy dot's mirror. LEFT OUT by default (`DefaultIsEnabled = false`), added last, so a new Cipher B and
+  every keyboard stop are as before. It is not the old gated "Overbought Crossover" removed 2026-10-31;
+  SignalCatalog's retired message for that now points to it. Not compared with any chart; Market Cipher
+  B has no such dot.
+- **Tests:** CipherBSellDotTests (rule bar by bar at 60 and 40, vacuity both ways, look, left out),
+  `Cipher_As_two_red_diamonds_are_told_apart`, faint rows in `Colours_are_named_as_people_name_them`
+  (55%/30% faint, 60%/65%/80% not), the saved-chart names test; Cipher A metadata and landing tests
+  rewritten for the names; the Cipher B fingerprint test leaves the new part out (its old hashes are
+  untouched). Sabotage: no faint word, faint at 60%, shape names back, old template back, sell dot
+  ignoring the setting / on a cross up / on every cross down / included by default — each goes red.
+- **Not done:** not seen or heard by Cody; accessibility-lead review not run (the agent is not
+  registered).
+
 ### Kalshi stop loss and take profit (2026-11-15)
 
 - **What:** Kalshi stops and targets, on Kalshi's own exit triggers

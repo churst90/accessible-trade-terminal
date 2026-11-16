@@ -181,7 +181,8 @@ public sealed class CipherBLookTests
             "WaveTrend Cross Bull", "WaveTrend Cross Bear",
             "Oversold Crossover",
         };
-        Assert.Equal(before.Concat(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch }), names);
+        // The Sell dot (2026-11-15, not MCB's, left out by default) after them all.
+        Assert.Equal(before.Concat(new[] { CipherBProvider.CompMcbRsi, CipherBProvider.CompMcbStoch, CipherBProvider.CompSellDot }), names);
     }
 
     // ── The money-flow bar ────────────────────────────────────────────────────────

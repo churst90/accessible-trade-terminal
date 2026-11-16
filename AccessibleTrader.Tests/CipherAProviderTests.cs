@@ -339,23 +339,26 @@ public sealed class CipherAProviderTests
         var series = Restored(Array.Empty<string>());
         foreach (var kv in r) series.Data.ComponentData[kv.Key] = kv.Value;
         var engine = Engine();
-        var expect = new Dictionary<string, string>
+        // The name is what the symbol signals (Cody, 2026-11-15), and the words after it what is
+        // behind that, not the headline again; never the shape.
+        var expect = new Dictionary<string, (string Name, string Words)>
         {
-            [CipherAProvider.CompGreenDot] = "Trend turned up: medium-term trend crossed up",
-            [CipherAProvider.CompBlueTriangle] = "Early turn up: short-term trend crossed up",
-            [CipherAProvider.CompYellowDiamond] = "Bullish conditions: momentum and the short-term trend both up",
-            [CipherAProvider.CompRedX] = "Short-term trend turned down.",
-            [CipherAProvider.CompRedDiamond] = "Momentum turned down.",
-            [CipherAProvider.CompBloodDiamond] = "the strongest sell warning",
-            [CipherAProvider.CompYellowX] = "while already oversold",
+            [CipherAProvider.CompGreenDot] = ("Trend Turned Up", "Medium-term trend crossed up"),
+            [CipherAProvider.CompBlueTriangle] = ("Early Turn Up", "Short-term trend crossed up"),
+            [CipherAProvider.CompYellowDiamond] = ("Bullish Conditions", "Momentum and the short-term trend both up"),
+            [CipherAProvider.CompRedX] = ("Short-Term Turn Down", "Short-term trend crossed down."),
+            [CipherAProvider.CompRedDiamond] = ("Momentum Turned Down", "Momentum crossed down."),
+            [CipherAProvider.CompBloodDiamond] = ("Strongest Sell Warning", "Momentum and the short-term trend turned down together."),
+            [CipherAProvider.CompYellowX] = ("Oversold Trap Warning", "while already oversold"),
         };
-        foreach (var (comp, words) in expect)
+        foreach (var (comp, (name, words)) in expect)
         {
             int at = Enumerable.Range(0, bars.Count).Last(i => !double.IsNaN(r[comp][i]));
             int ci = series.Components.FindIndex(c => c.Name == comp);
             string said = Landing(series, bars, engine, ci, at);
             _out.WriteLine($"{comp}: {said}");
-            Assert.Contains(comp, said, StringComparison.OrdinalIgnoreCase);
+            Assert.StartsWith(name, said);
+            Assert.DoesNotContain(comp, said, StringComparison.OrdinalIgnoreCase);
             Assert.Contains(words, said);
             Assert.DoesNotContain("EMA", said);   // meaning, not the averages behind it (Cody, 2026-10-23)
         }
@@ -373,6 +376,33 @@ public sealed class CipherAProviderTests
         "WT Momentum", "Buy Signal", "Sell Signal", "Bullish Divergence", "Bearish Divergence",
         "Overbought Bearish Divergence", "Manipulation", "Exhaustion", "WT Momentum Gradient",
     };
+
+    /// <summary>A chart saved while the symbols were named for their shapes ("Red Diamond") comes
+    /// back with them named for what they signal (Cody, 2026-11-15), keyed as before: the names
+    /// are the indicator's, not the save's.</summary>
+    [Fact]
+    public void A_chart_saved_with_the_shape_names_comes_back_with_the_signal_names()
+    {
+        var meta = new CipherAProvider().GetIndicators();
+        var saved = new SeriesConfig { Id = "ca-2", Name = "Cipher A", IndicatorCode = "CIPHER_A", Pane = "Main" };
+        foreach (var m in meta[0].Components)
+            saved.Components.Add(new ComponentConfig
+            {
+                Name = m.Name, DisplayName = m.Name, IsVisible = true, IsEnabled = true, Volume = 1f,
+                SignalSpeechTemplate = m.Role == ComponentRole.Signal ? m.Name + ", old words" : null,
+                IsMuted = m.Name == CipherAProvider.CompYellowX,
+            });
+        WorkspaceInitializer.MigrateSeriesConfig(saved, meta);
+        var s = SeriesManagementService.MaterializeSaved(saved, meta[0], Factory,
+            Array.Empty<IReadOnlyDictionary<string, object>>(), Engine(), new MockIndicatorPreferencesService());
+
+        var red = s.Components.Single(c => c.Name == CipherAProvider.CompRedDiamond);
+        Assert.Equal("Momentum Turned Down", red.DisplayName);
+        Assert.Equal("{name}", red.SignalSpeechTemplate);
+        Assert.Equal("Strongest Sell Warning", s.Components.Single(c => c.Name == CipherAProvider.CompBloodDiamond).DisplayName);
+        // The user's own switch is kept.
+        Assert.True(s.Components.Single(c => c.Name == CipherAProvider.CompYellowX).IsMuted);
+    }
 
     private static IndicatorEngine Engine()
     {

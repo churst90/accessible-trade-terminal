@@ -8,6 +8,17 @@
 
 ## Unreleased (next: 2.13.0)
 
+- **Cipher A's symbols are named for what they signal.** The green dot is now "Trend Turned Up", the
+  blue triangle "Early Turn Up", the yellow diamond "Bullish Conditions", the red X "Short-Term Turn
+  Down", the red diamond "Momentum Turned Down", the blood diamond "Strongest Sell Warning" and the
+  yellow X "Oversold Trap Warning". That is what you hear when one fires and when you land on one.
+  Saved charts, alerts and strategies keep working.
+- **"Faint" colours.** A marker drawn see-through is now said as "faint". Cipher A's two red diamonds
+  are the same red, but the Momentum Turned Down one is drawn faint and smaller: "large faint red
+  diamond" against "large red diamond".
+- **Cipher B Sell dot.** A large red dot at the top of the pane where the waves cross down above Over
+  Bought Level 1, the buy dot's mirror. Market Cipher B has no such dot, so it is left out until you
+  include it in Properties → Appearance → Parts.
 - **Kalshi stop loss and take profit.** An order on Kalshi can carry a stop and a target, quick trade
   works there, and the Positions tab moves them. Kalshi keeps them on the position, not as orders; when
   one fires it sends an order that fills at once near the level, or not at all. Moving the stop keeps

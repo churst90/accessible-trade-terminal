@@ -67,6 +67,17 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// read DisplayName (2026-10-18, Cody: "Buy dot").</summary>
         internal const string DisplayBuyDot = "Buy dot";
         /// <summary>
+        /// A big red sell dot, the buy dot's mirror: a cross DOWN with the fast wave ABOVE Over
+        /// Bought Level 1 (60). Market Cipher B has none, so it is left out until the user includes
+        /// it (Properties, Appearance, Parts). Cody, 2026-11-15: "please add a large red sell dot to
+        /// cipher b, disabled by default, as the original cipher B doesn't use it". Not the red
+        /// Overbought Crossover removed on 2026-10-31, which waited for confirmation bars and a
+        /// cooldown; this is the buy dot's rule turned over, nothing more, and has its own name so
+        /// a strategy or alert that named the old one is still told it went.
+        /// </summary>
+        public const string CompSellDot      = "Overbought Cross Down";
+        internal const string DisplaySellDot = "Sell dot";
+        /// <summary>
         /// The pane's levels — the waves' scale, ±53 / ±60 and zero. Named explicitly on every
         /// component that used to take "all levels" (null), so the undrawn 80/20 below reach only
         /// the two 0–100 lines; nothing that heard ±53 before hears anything new.
@@ -379,6 +390,23 @@ namespace AccessibleTrader.Core.Services.Indicators
                             SpeechTemplate = "Stochastic. {value:F1}. {zone}.",
                             SubscribedLevelNames = LineLevels,   // their own undrawn 80/20, not the waves' ±53/±60
                             DefaultIsAreaFill = false, DefaultUsePolarityColoring = false },
+                    // ── Not Market Cipher B's: left out until included (see CompSellDot) ────────
+                    // The buy dot's size and opacity, in MCB's own red, at the top of the pane where
+                    // the buy dot is at the bottom. Appended last so no navigation stop moves when
+                    // it is included.
+                    new() { Name = CompSellDot,       DisplayName = DisplaySellDot, DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal,
+                            DefaultColorHex = "#CCFF0000", DefaultThickness = 5.0f,
+                            DefaultIsEnabled = false,
+                            DefaultEnvelopeType = "Ping",
+                            DefaultPlaybackLayer = PlaybackLayer.Foreground,
+                            DefaultSoundPatchId = "sine_bell",
+                            DefaultDecayMs = 350,
+                            DefaultBaseFrequency = 420.0,   // an octave under the buy dot's 840
+                            DefaultPitchMapping = PitchMapping.None,
+                            DefaultAmplitudeMapping = AmplitudeMapping.None,
+                            DefaultSignalSpeechTemplate = "Sell dot, waves crossed down from overbought",
+                            DefaultUsePolarityColoring = false,
+                            SubscribedLevelNames = WaveLevels },
                 },
                 // No cloud fills: the Anchor Fill and WT Fill bands, hidden by default since 2026-10-17,
                 // were removed on 2026-10-31 (Market Cipher B draws neither). A saved chart drops them
@@ -419,7 +447,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamOtherTimeframe, DisplayName = "Different Timeframe", DefaultValue = "60", DataType = typeof(string),
                             Description = "The timeframe used when Use Current Chart Resolution is off: minutes (60, 240) or D, W, M. One no longer than the chart's uses the chart's own bars. 60 by default." },
                     new() { Name = ParamOBLevel1, DisplayName = "Over Bought Level 1", DefaultValue = 60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
-                            Description = "The upper solid line. 60 by default." },
+                            Description = "The upper solid line. A sell dot (not Market Cipher B's; off until included under Parts) is a cross down with the fast wave above it. 60 by default." },
                     new() { Name = ParamTrigger1, DisplayName = "Trigger 1", DefaultValue = 53.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
                             Description = "The upper dotted line. 53 by default." },
                     new() { Name = ParamOSLevel1, DisplayName = "Over Sold Level 1", DefaultValue = -60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
@@ -439,6 +467,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (n < 10) return;
 
             double osLevel1 = GetDbl(parameters, ParamOSLevel1, -60.0);
+            double obLevel1 = GetDbl(parameters, ParamOBLevel1, 60.0);
             bool heikinAshi = IndicatorCandles.IsHeikinAshi(parameters);
             string? otherTf = HigherTimeframe(data, parameters);
 
@@ -487,9 +516,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             var crossBullSignal = new double[n];
             var crossBearSignal = new double[n];
             var mcbBuy          = new double[n];
+            var sellDot         = new double[n];
             Array.Fill(crossBullSignal, double.NaN);
             Array.Fill(crossBearSignal, double.NaN);
             Array.Fill(mcbBuy, double.NaN);
+            Array.Fill(sellDot, double.NaN);
 
             for (int i = 1; i < n; i++)
             {
@@ -513,6 +544,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // pane's bottom edge in pixels; it is drawn here at a fixed value inside the
                 // money-flow bar, which is where that edge falls with the default Trigger 2.
                 if (crossUp && wt1[i] < osLevel1) mcbBuy[i] = McbBuyDotY;
+                // Not MCB's (CompSellDot): the same rule turned over.
+                if (crossDown && wt1[i] > obLevel1) sellDot[i] = SellDotY;
             }
 
             // ── Write to buffer ───────────────────────────────────────────────
@@ -523,6 +556,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             WriteToBuffer(buffer, CompCrossBull,      crossBullSignal, n);
             WriteToBuffer(buffer, CompCrossBear,      crossBearSignal, n);
             WriteToBuffer(buffer, CompBlue,           mcbBuy,          n);
+            WriteToBuffer(buffer, CompSellDot,        sellDot,         n);
             WriteToBuffer(buffer, CompMcbRsi,         core.Rsi,        n);
             WriteToBuffer(buffer, CompMcbStoch,       core.Stoch,      n);
         }
@@ -699,6 +733,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 CompCrossBull      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 CompCrossBear      => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 CompBlue           => GetSignalDotSpeech(bar, allComponentData, dataIndex),
+                CompSellDot        => GetSignalDotSpeech(bar, allComponentData, dataIndex),
                 _ => null
             };
         }
@@ -782,6 +817,9 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         /// <summary>Where MCB's big green buy dot sits: in the money-flow bar (−93..−103 by default).</summary>
         internal const double McbBuyDotY = -96.0;
+
+        /// <summary>Where the sell dot sits: the buy dot's place turned over, near the pane's top.</summary>
+        internal const double SellDotY = -McbBuyDotY;
 
         /// <summary>The default Trigger 1 / Trigger 2, ±53. The wave speech says "overbought" /
         /// "oversold" past it whatever the settings (the speech is not handed them; see docs/TODO.md);

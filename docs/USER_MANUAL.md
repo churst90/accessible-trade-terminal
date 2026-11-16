@@ -166,8 +166,8 @@ other signals on the bar (its other dots, crosses and arrows), turn on **Tick ot
 arrowing** on the Sonification tab of Settings. The ticks then follow the focused component's own tone,
 so a bar carrying three signals sounds different from a bar carrying one.
 
-Speech follows the same rule. Arrowing Cipher A's Green Dot names the Green Dot, not the Yellow
-Diamond on the same candle, and arrowing Cipher B does not name Cipher A's signals. To hear the
+Speech follows the same rule. Arrowing Cipher A's Trend Turned Up (the green dot) names it, not the
+Bullish Conditions diamond on the same candle, and arrowing Cipher B does not name Cipher A's signals. To hear the
 other signals on the bar named after your reading (the same indicator's other markers and those of
 other indicators on the price pane), turn on **Speak other signals while arrowing** on the Speech
 tab. Chart patterns, cycle marks, your own text labels and nearby support and resistance are about
@@ -1441,7 +1441,10 @@ side with a grit that grows with its size. Read as changes only what you hear an
 named and arrowed; the picture stays the same. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
 every upward cross of the waves with the fast wave below Over Sold Level 1 (−60 by default); narration says "Buy dot, waves
-crossed up from oversold". The money flow reads no volume: for each candle it takes the typical price (high, low and close
+crossed up from oversold". A big red **Sell dot** is its mirror: every downward cross with the fast wave
+above Over Bought Level 1 (60 by default), at the top of the pane; narration says "Sell dot, waves crossed
+down from overbought". Market Cipher B does not draw it, so it is **left out** until you include it
+(Properties → Appearance → Parts). The money flow reads no volume: for each candle it takes the typical price (high, low and close
 averaged), how far that sits from its average over the last five candles, and that distance against
 its own average size over the same five; it averages this over the last 60 candles. A run of
 candles that keep rising pushes it above zero whatever the market's price or volume. It equals
@@ -1483,7 +1486,7 @@ newest candle shows the period still forming. A timeframe no longer than the cha
 chart's own values. **Over Bought Level 1** (60), **Trigger 1** (53), **Over Sold Level 1** (−60)
 and **Trigger 2** (−53) are the four lines: change one and its line moves, and type a value for a
 line on the Levels tab and its setting changes with it. Over Sold Level 1 is also the buy dot's
-threshold, and the money-flow bar sits 40 to 50 below Trigger 2, as in Market Cipher B. The wave
+threshold, Over Bought Level 1 the Sell dot's, and the money-flow bar sits 40 to 50 below Trigger 2, as in Market Cipher B. The wave
 and money-flow periods (9, 12, 3 and 60) are fixed, as Market Cipher B fixes them; Cipher B had
 settings for them until 31 October 2026, and a chart saved with one opens with Market Cipher B's
 number. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
@@ -1648,33 +1651,44 @@ being formed. Days are UTC dates; markets whose session crosses midnight UTC, an
 have not been checked.
 Every line and symbol can be left out the same way, and "Save as Defaults" keeps your choice for new
 charts. Its **seven symbols** come first when you move through its parts, each
-with its own sound. Landing on one says what it means rather than which averages crossed — for
-example "Green Dot. Trend turned up: medium-term trend crossed up, with momentum and the short-term
-trend already up." In those sentences the **short-term trend** is EMA 5 against EMA 11 (or EMA 25
-for the Blue Triangle), the **medium-term trend** is EMA 11 against EMA 33, and **momentum** is
+with its own sound. Each is **named for what it signals**, not its shape (since 15 November 2026; the
+shape is in brackets below, and it is what "describe looks" says). Landing on one says its name and
+then what is behind it — for example "Trend Turned Up. Medium-term trend crossed up, with momentum and
+the short-term trend already up." In those sentences the **short-term trend** is EMA 5 against EMA 11 (or EMA 25
+for Early Turn Up), the **medium-term trend** is EMA 11 against EMA 33, and **momentum** is
 Wave Trend against its slow wave. What makes each symbol:
 
-- **Green Dot** — EMA 11 crosses above EMA 33 on a Yellow Diamond candle.
-- **Blue Triangle** — EMA 5 crosses above EMA 25 with Wave Trend above its slow wave and EMA 11
-  still below EMA 33: an early turn.
-- **Yellow Diamond** — Wave Trend is above its slow wave and EMA 5 leads the ribbon: bullish
+- **Trend Turned Up** (green dot) — EMA 11 crosses above EMA 33 on a Bullish Conditions candle.
+- **Early Turn Up** (blue triangle) — EMA 5 crosses above EMA 25 with Wave Trend above its slow wave
+  and EMA 11 still below EMA 33.
+- **Bullish Conditions** (faint yellow diamond) — Wave Trend is above its slow wave and EMA 5 leads the ribbon: bullish
   continuation. When the two waves are 1.25 or less apart it also needs Cipher B's money flow above 5
   (the money flow is computed whether or not Cipher B is on the chart). It repeats on candle after candle in a strong trend, so it is the quietest sound.
-- **Red X** — EMA 5 crosses below EMA 11.
-- **Red Diamond** — Wave Trend crosses down; the same cross as Cipher B's small red dot.
-- **Blood Diamond** — a Red Diamond and a Red X on the same candle. The Red Diamond is there too.
-- **Yellow X** — a Red Diamond deep in the oversold zone (slow wave at −40 or lower) with Cipher B's
+- **Short-Term Turn Down** (red X) — EMA 5 crosses below EMA 11.
+- **Momentum Turned Down** (small faint red diamond) — Wave Trend crosses down; the same cross as
+  Cipher B's small red dot.
+- **Strongest Sell Warning** (large red diamond, the "blood diamond") — Momentum Turned Down and
+  Short-Term Turn Down on the same candle. The Momentum Turned Down diamond is there too.
+- **Oversold Trap Warning** (yellow X) — Momentum Turned Down deep in the oversold zone (slow wave at −40 or lower) with Cipher B's
   Stochastic line below 20 (price near the bottom of its last 81 candles): a bearish warning, not a buy.
 
-How traders read them (their claims; this app has not tested any of them): the Blue Triangle is the
-earliest and least reliable sign of a turn up, the Green Dot a confirmation that comes later, and
-Yellow Diamonds in a run mark an uptrend. Red Diamonds in a cluster mark a downtrend, a Red X is
-watched in case it becomes a Blood Diamond, and the Blood Diamond is the strongest exit warning but
-not a trade on its own. A Yellow X is called a trap — bearish more often than not — yet four or five
-in a row are read as selling running out, and a Yellow X on a Green Dot's candle overrides the dot.
+The two red diamonds are the **same red**. Momentum Turned Down is drawn see-through (55%) and
+smaller, so it is dimmer on the chart; with looks described it is said as a "faint red diamond", and
+Strongest Sell Warning as a "red diamond". Any marker drawn under 60% opaque is said as "faint".
+When zoomed out, both diamonds are drawn at the same size, because a marker is never drawn wider
+than about twice a candle.
 
-With narration on, each symbol is announced ("Green dot, bullish", "Yellow X, bearish warning"), and
-the ribbon is announced as **one band** when a candle closes: "Cipher A: Price entered the ribbon,
+How traders read them (their claims; this app has not tested any of them): Early Turn Up is the
+earliest and least reliable sign of a turn up, Trend Turned Up a confirmation that comes later, and
+Bullish Conditions in a run mark an uptrend. Momentum Turned Down in a cluster marks a downtrend, a
+Short-Term Turn Down is watched in case it becomes a Strongest Sell Warning, and that is the strongest
+exit warning but not a trade on its own. An Oversold Trap Warning is called a trap — bearish more often
+than not — yet four or five in a row are read as selling running out, and one on a Trend Turned Up
+candle overrides it.
+
+With narration on, each symbol is announced by its name ("Trend Turned Up", "Oversold Trap
+Warning"). A chart saved with the shape names opens with these; alerts and strategies built on a
+symbol keep working. The ribbon is announced as **one band** when a candle closes: "Cipher A: Price entered the ribbon,
 between 64,200.00 and 66,900.00", "Price left the ribbon above, at 66,900.00" (or below), and "Price
 crossed above the ribbon" when one candle jumps it. Moving about inside it says nothing. The band is
 the lines you can see — hide one and the band is the rest — and it speaks even though its lines are

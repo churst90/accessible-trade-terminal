@@ -70,8 +70,10 @@ WaveTrend Cross Bull D6FA12A828AC0088EEB05A29B4EA750716287CB57D8A8369BE11DADA3A7
         return results;
     }
 
+    // The Sell dot (2026-11-15) is a new part, not a refactored one; its rule is pinned in
+    // CipherBSellDotTests. Every part that was here before keeps its hash.
     private static string FingerprintAll(Dictionary<string, double[]> outputs) =>
-        string.Join("\n", outputs.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+        string.Join("\n", outputs.Where(pair => pair.Key != CipherBProvider.CompSellDot).OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => $"{pair.Key} {Fingerprint(pair.Value)}"));
 
     private static string Fingerprint(double[] values)

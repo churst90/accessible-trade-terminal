@@ -55,9 +55,38 @@ public class MarkerLookTests
     [InlineData("#EF9A9A", "light red")]
     [InlineData("#FF3D00", "red")]         // the gradient dot's overbought end
     [InlineData("#FF6D00", "orange")]      // Cipher C's Cycle Failed X
+    // Transparency (2026-11-15): under 60% opacity a colour is drawn see-through, dim on the chart.
+    [InlineData("#8CF23645", "faint red")]     // Cipher A's Momentum Turned Down, 55%
+    [InlineData("#4DFDD835", "faint yellow")]  // Cipher A's Bullish Conditions, 30%
+    [InlineData("#99F23645", "red")]           // 60%: solid enough
+    [InlineData("#A6F23645", "red")]           // Cipher B's cross down, 65%
+    [InlineData("#CCFF0000", "red")]           // Cipher B's Sell dot, 80%
     public void Colours_are_named_as_people_name_them(string hex, string expected)
     {
         Assert.Equal(expected, MarkerLook.ColorName(SKColor.Parse(hex)));
+    }
+
+    /// <summary>Cody, 2026-11-15: "the signal description for the red diamond and blood diamond are
+    /// both 'red diamond' ... Are these 2 diamonds truly different shades of red?" They are the
+    /// SAME red, #F23645; the Momentum Turned Down diamond is drawn at 55% opacity, so it is dimmer
+    /// on the chart, and that is what is now said.</summary>
+    [Fact]
+    public void Cipher_As_two_red_diamonds_are_told_apart()
+    {
+        var meta = new AccessibleTrader.Core.Services.Indicators.CipherAProvider().GetIndicators()[0].Components;
+        string Said(string name)
+        {
+            var m = meta.Single(c => c.Name == name);
+            var comp = Marker(m.DisplayType, m.DefaultColorHex!, m.DefaultThickness ?? 1f, m.Name);
+            return MarkerLook.Describe(One(comp, new[] { 50.0 }), comp, 0);
+        }
+        string red = Said(AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompRedDiamond);
+        string blood = Said(AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompBloodDiamond);
+        _out.WriteLine($"{red} / {blood}");
+        Assert.NotEqual(red, blood);
+        Assert.Contains("faint red diamond", red);
+        Assert.EndsWith(" red diamond", blood);
+        Assert.DoesNotContain("faint", blood);
     }
 
     // ── What is described ─────────────────────────────────────────────────────────

@@ -75,6 +75,16 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string CompBloodDiamond  = "Blood Diamond";
         public const string CompYellowX       = "Yellow X";
 
+        /// <summary>What each symbol is called on screen and in speech: what it signals, not its
+        /// shape (Cody, 2026-11-15). The Comp names above stay the keys.</summary>
+        internal const string DisplayGreenDot      = "Trend Turned Up",
+                              DisplayBlueTriangle  = "Early Turn Up",
+                              DisplayYellowDiamond = "Bullish Conditions",
+                              DisplayRedX          = "Short-Term Turn Down",
+                              DisplayRedDiamond    = "Momentum Turned Down",
+                              DisplayBloodDiamond  = "Strongest Sell Warning",
+                              DisplayYellowX       = "Oversold Trap Warning";
+
         /// <summary>The ribbon's lengths, shortest first. Measured, not a setting.</summary>
         public static readonly int[] RibbonLengths = { 5, 11, 15, 18, 21, 25, 29, 33 };
         public static string RibbonLine(int k) => $"EMA {RibbonLengths[k]}";
@@ -110,8 +120,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Description =
                     "Market Cipher A, measured against real Market Cipher A charts: an eight-EMA ribbon " +
                     "(5 11 15 18 21 25 29 33) whose lines are blue while each is above the next and grey " +
-                    "when not, and seven symbols — Green Dot, Blue Triangle, Yellow Diamond (bullish) and " +
-                    "Red X, Red Diamond, Blood Diamond, Yellow X (bearish). Also, off until included: a ninth " +
+                    "when not, and seven symbols, each named for what it signals — Trend Turned Up (green dot), Early Turn Up " +
+                    "(blue triangle), Bullish Conditions (yellow diamond); Short-Term Turn Down (red X), Momentum Turned " +
+                    "Down (faint red diamond), Strongest Sell Warning (large red diamond), Oversold Trap Warning (yellow X). Also, off until included: a ninth " +
                     "line (a 21-bar simple average) and pivot high and low lines. Computed from the chart's own " +
                     "candles only.",
                 Components = BuildComponents(),
@@ -156,15 +167,19 @@ namespace AccessibleTrader.Core.Services.Indicators
             var list = new List<IndicatorComponentMetadata>
             {
                 // ── Symbols. Bullish first, then bearish; each a marker that pings. ─────────────
-                Marker(CompGreenDot,      ComponentDisplayType.Dot,       "#00E676",   Tiny,  "sine_bell",         880.0, 380, "Green dot, bullish"),
-                Marker(CompBlueTriangle,  ComponentDisplayType.TriangleUp,"#4259F4",   Small, "crystal_bell",      660.0, 320, "Blue triangle, momentum turning"),
+                // Each is NAMED for what it signals (Cody, 2026-11-15: "the names of the components
+                // should be what the signal is, not the shape"): the Name stays the shape, the key
+                // saved charts, alerts and strategies hold; the shape is said by "Say what signals
+                // look like" (MarkerLook) instead.
+                Marker(CompGreenDot,      DisplayGreenDot,      ComponentDisplayType.Dot,       "#00E676",   Tiny,  "sine_bell",         880.0, 380),
+                Marker(CompBlueTriangle,  DisplayBlueTriangle,  ComponentDisplayType.TriangleUp,"#4259F4",   Small, "crystal_bell",      660.0, 320),
                 // Fires on many bars in a row in a trend, so it is the quietest: short and in the background.
                 // Drawn at 30% opacity, as the original, for the same reason.
-                Marker(CompYellowDiamond, ComponentDisplayType.Diamond,   "#4DFDD835", Tiny,  "triangle_bell",     1046.0, 90, "Yellow diamond", PlaybackLayer.Background),
-                Marker(CompRedX,          ComponentDisplayType.Cross,     "#F23645",   Tiny,  "detuned_pair_bell", 250.0, 320, "Red X, bearish"),
-                Marker(CompRedDiamond,    ComponentDisplayType.Diamond,   "#8CF23645", Tiny,  "triangle_bell",     330.0, 200, "Red diamond"),
-                Marker(CompBloodDiamond,  ComponentDisplayType.Diamond,   "#F23645",   Small, "dual_tone_bell",    165.0, 500, "Blood diamond, strongly bearish"),
-                Marker(CompYellowX,       ComponentDisplayType.Cross,     "#FDD835",   Small, "detuned_pair_bell", 550.0, 450, "Yellow X, bearish warning"),
+                Marker(CompYellowDiamond, DisplayYellowDiamond, ComponentDisplayType.Diamond,   "#4DFDD835", Tiny,  "triangle_bell",     1046.0, 90, PlaybackLayer.Background),
+                Marker(CompRedX,          DisplayRedX,          ComponentDisplayType.Cross,     "#F23645",   Tiny,  "detuned_pair_bell", 250.0, 320),
+                Marker(CompRedDiamond,    DisplayRedDiamond,    ComponentDisplayType.Diamond,   "#8CF23645", Tiny,  "triangle_bell",     330.0, 200),
+                Marker(CompBloodDiamond,  DisplayBloodDiamond,  ComponentDisplayType.Diamond,   "#F23645",   Small, "dual_tone_bell",    165.0, 500),
+                Marker(CompYellowX,       DisplayYellowX,       ComponentDisplayType.Cross,     "#FDD835",   Small, "detuned_pair_bell", 550.0, 450),
             };
 
             // ── The ribbon. Muted: eight voices within a few percent of price would bury the
@@ -220,10 +235,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             return list;
         }
 
-        private static IndicatorComponentMetadata Marker(string name, ComponentDisplayType shape, string color, float size,
-            string patch, double freq, int decayMs, string narration, PlaybackLayer layer = PlaybackLayer.Foreground) => new()
+        private static IndicatorComponentMetadata Marker(string name, string displayName, ComponentDisplayType shape, string color, float size,
+            string patch, double freq, int decayMs, PlaybackLayer layer = PlaybackLayer.Foreground) => new()
         {
             Name = name,
+            DisplayName = displayName,
             DisplayType = shape,
             Role = ComponentRole.Signal,
             DefaultColorHex = color,
@@ -235,7 +251,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             DefaultPitchMapping = PitchMapping.None,
             DefaultAmplitudeMapping = AmplitudeMapping.None,
             DefaultPlaybackLayer = layer,
-            DefaultSignalSpeechTemplate = narration,
+            // Said as the signal fires: its name, which is what it signals.
+            DefaultSignalSpeechTemplate = "{name}",
             DefaultUsePolarityColoring = false,
         };
 
@@ -364,7 +381,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// says the name first): what the symbol means, in words rather than the averages behind it
         /// ("short-term trend" = EMA 5 against EMA 11 or 25, "medium-term" = EMA 11 against EMA 33,
         /// "momentum" = the Wave Trend against its slow wave; Cody, 2026-10-23), and for a ribbon
-        /// line its colour and why.</summary>
+        /// line its colour and why. A symbol's name is the headline since 2026-11-15 ("Trend Turned
+        /// Up"), so this is what is behind it, not the headline again.</summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
@@ -377,12 +395,12 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             return componentName switch
             {
-                CompGreenDot      => $"Trend turned up: medium-term trend crossed up, with momentum and the short-term trend already up. Price {price}.",
-                CompBlueTriangle  => $"Early turn up: short-term trend crossed up with momentum rising, longer trend still down. Price {price}.",
-                CompYellowDiamond => $"Bullish conditions: momentum and the short-term trend both up. Price {price}.",
-                CompRedX          => $"Short-term trend turned down. Price {price}.",
-                CompRedDiamond    => $"Momentum turned down. Price {price}.",
-                CompBloodDiamond  => $"Momentum and the short-term trend turned down together: the strongest sell warning. Price {price}.",
+                CompGreenDot      => $"Medium-term trend crossed up, with momentum and the short-term trend already up. Price {price}.",
+                CompBlueTriangle  => $"Short-term trend crossed up with momentum rising, longer trend still down. Price {price}.",
+                CompYellowDiamond => $"Momentum and the short-term trend both up. Price {price}.",
+                CompRedX          => $"Short-term trend crossed down. Price {price}.",
+                CompRedDiamond    => $"Momentum crossed down. Price {price}.",
+                CompBloodDiamond  => $"Momentum and the short-term trend turned down together. Price {price}.",
                 CompYellowX       => $"Momentum turned down again while already oversold: often a trap; several in a row can mean selling is running out. Price {price}.",
                 _ => null,
             };

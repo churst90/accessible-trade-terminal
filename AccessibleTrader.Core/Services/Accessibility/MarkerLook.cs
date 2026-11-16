@@ -134,8 +134,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// the lightness range. Tuned on every colour the built-in signal markers use. By hue and lightness rather than nearest-RGB, because a hue boundary is
         /// where people actually change the word: #3FFF00 and #00E676 are both "green" to the eye
         /// although they are far apart in RGB.
+        ///
+        /// <para>
+        /// "faint" in front when the colour is drawn less than <see cref="FaintBelowAlpha"/> opaque.
+        /// Cody, 2026-11-15: Cipher A's Red Diamond and Blood Diamond were both "red diamond". They
+        /// ARE the same red, #F23645, as Market Cipher A draws them, but the Red Diamond at 55%
+        /// opacity, so on the dark chart it is a dimmer, darker red, and smaller; the Blood Diamond
+        /// is solid. The hue and lightness above are of the colour itself, not of what shows
+        /// through it, so the word for that is "faint", not a darker shade that would change with
+        /// the theme behind it.
+        /// </para>
         /// </summary>
         public static string ColorName(SKColor c)
+        {
+            string name = HueName(c);
+            return c.Alpha < FaintBelowAlpha ? "faint " + name : name;
+        }
+
+        /// <summary>Below this alpha (60%) a colour is said as "faint": Cipher A's Yellow Diamond (30%)
+        /// and Red Diamond (55%). Not Cipher B's cross dots (80% and 65%), drawn as plain dots.</summary>
+        internal const byte FaintBelowAlpha = 153;
+
+        private static string HueName(SKColor c)
         {
             c.ToHsl(out float h, out float s, out float l);   // h 0–360, s and l 0–100
             if (l >= 94) return "white";

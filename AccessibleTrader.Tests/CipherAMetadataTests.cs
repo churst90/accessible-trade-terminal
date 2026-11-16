@@ -23,22 +23,27 @@ namespace AccessibleTrader.Tests
             Assert.Equal(ComponentCausality.Causal, m.Causality);
         }
 
+        /// <summary>Each symbol is drawn as Market Cipher A draws it, and NAMED for what it signals,
+        /// not for its shape (Cody, 2026-11-15: "the names of the components should be what the
+        /// signal is, not the shape"); the shape name stays the key saved charts and alerts hold.
+        /// Its signal speech is that name.</summary>
         [Theory]
-        [InlineData(CipherAProvider.CompGreenDot,      ComponentDisplayType.Dot)]
-        [InlineData(CipherAProvider.CompBlueTriangle,  ComponentDisplayType.TriangleUp)]
-        [InlineData(CipherAProvider.CompYellowDiamond, ComponentDisplayType.Diamond)]
-        [InlineData(CipherAProvider.CompRedX,          ComponentDisplayType.Cross)]
-        [InlineData(CipherAProvider.CompRedDiamond,    ComponentDisplayType.Diamond)]
-        [InlineData(CipherAProvider.CompBloodDiamond,  ComponentDisplayType.Diamond)]
-        [InlineData(CipherAProvider.CompYellowX,       ComponentDisplayType.Cross)]
-        public void EachSymbolIsDrawnAsMarketCipherADrawsIt(string name, ComponentDisplayType shape)
+        [InlineData(CipherAProvider.CompGreenDot,      ComponentDisplayType.Dot,        "Trend Turned Up")]
+        [InlineData(CipherAProvider.CompBlueTriangle,  ComponentDisplayType.TriangleUp, "Early Turn Up")]
+        [InlineData(CipherAProvider.CompYellowDiamond, ComponentDisplayType.Diamond,    "Bullish Conditions")]
+        [InlineData(CipherAProvider.CompRedX,          ComponentDisplayType.Cross,      "Short-Term Turn Down")]
+        [InlineData(CipherAProvider.CompRedDiamond,    ComponentDisplayType.Diamond,    "Momentum Turned Down")]
+        [InlineData(CipherAProvider.CompBloodDiamond,  ComponentDisplayType.Diamond,    "Strongest Sell Warning")]
+        [InlineData(CipherAProvider.CompYellowX,       ComponentDisplayType.Cross,      "Oversold Trap Warning")]
+        public void EachSymbolIsDrawnAsMarketCipherADrawsIt(string name, ComponentDisplayType shape, string signal)
         {
             var c = Get(name);
             Assert.Equal(shape, c.DisplayType);
             Assert.Equal(ComponentRole.Signal, c.Role);
-            Assert.False(string.IsNullOrWhiteSpace(c.DefaultSignalSpeechTemplate));
-            // The narration names the symbol the way Market Cipher A's users do.
-            Assert.StartsWith(name.ToLowerInvariant().Split(' ')[0], c.DefaultSignalSpeechTemplate!.ToLowerInvariant());
+            Assert.Equal(signal, c.DisplayName);
+            foreach (var looks in new[] { "dot", "triangle", "diamond", " x", "green", "blue", "yellow", "red ", "blood" })
+                Assert.DoesNotContain(looks, " " + c.DisplayName!.ToLowerInvariant() + " ");
+            Assert.Equal("{name}", c.DefaultSignalSpeechTemplate);
         }
 
         /// <summary>The Blood Diamond is the big one: it stands for a Red Diamond and a Red X together.</summary>

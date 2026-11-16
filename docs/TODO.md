@@ -30,6 +30,15 @@ never in the main checkout under a running server; DBSI gets no more ports until
 "Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
 Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
 
+- [ ] **Cipher A symbols named for their signal, "faint" colours, Cipher B Sell dot (2026-11-15; see
+  CHANGES).** Cody to hear Cipher A's symbols fire and land on them (now "Trend Turned Up", "Momentum
+  Turned Down", "Strongest Sell Warning", ...), and include the Sell dot on Bitcoin daily. Open:
+  - zoomed out, the two red diamonds draw the same size (the 1.8x bar-width cap); only "faint" tells
+    them apart. Whether to keep the cap for these, or say "small" from the drawn size, is Cody's call;
+  - the Sell dot is our rule (the buy dot's mirror); no chart to check it against.
+  - the hidden keys stay the shape names ("Blood Diamond"); renaming them too would need a migration of
+    saved charts, alerts and strategies, and was not asked.
+
 - [ ] **Kalshi perpetual futures (2026-11-14; see CHANGES).** Not tried with money; no order placed,
   not even on the demo venue. Cody to make a demo account first.
   - Unverified until an account answers: whether `/margin/orders` lists only resting orders or

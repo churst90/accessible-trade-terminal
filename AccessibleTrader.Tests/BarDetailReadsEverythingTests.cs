@@ -217,8 +217,7 @@ namespace AccessibleTrader.Tests
                 new AccessibleTrader.Core.Services.PaneAssignmentService());
             var made = new AccessibleTrader.Core.Services.IndicatorModelFactory(styling, new MockIndicatorPreferencesService())
                 .CreateSeriesFromMetadata(meta, "Cipher B", "Pane_CIPHER_B", new List<(string, string)>(), null);
-            // Nothing is left out by default since 2026-10-31 (the anchor waves and polarity that
-            // were are removed), so the user leaves one out.
+            // Only the Sell dot is left out by default (2026-11-15), so the user leaves one more out.
             AccessibleTrader.Core.Services.ComponentInclusion.SetIncluded(made.Config,
                 AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompMcbStoch, false,
                 meta.Components.Select(c => c.Name).ToList());
@@ -229,7 +228,8 @@ namespace AccessibleTrader.Tests
 
             // The part the user left out, and one the user hid with H.
             var hidden = cipher.Config.ExcludedComponents.Select(c => c.DisplayName ?? c.Name).ToList();
-            Assert.True(hidden.Count == 1, "precondition: the user left Stochastic out");
+            Assert.True(hidden.Count == 2 && hidden.Contains("Stochastic") && hidden.Contains("Sell dot"),
+                "precondition: the Sell dot left out by default, and the user left Stochastic out");
             var hiddenByUser = cipher.Components.Single(c => c.Name == AccessibleTrader.Core.Services.Indicators.CipherBProvider.CompMcbRsi);
             hiddenByUser.IsVisible = false;
             hidden.Add(hiddenByUser.DisplayName!);

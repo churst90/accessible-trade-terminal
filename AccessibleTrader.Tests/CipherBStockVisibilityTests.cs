@@ -29,6 +29,10 @@ namespace AccessibleTrader.Tests;
 /// <para>On 2026-10-31 those parts were removed from Cipher B altogether (Cody: "remove all of that
 /// old code from cipher b"), with the Anchor Fill and WT Fill: Cipher B is now only what Market
 /// Cipher B draws, so nothing is left out by default, and his save comes back without them.</para>
+///
+/// <para>On 2026-11-15 one part not MCB's came back, left out by default: the Sell dot (Cody: "please
+/// add a large red sell dot to cipher b, disabled by default"). Left out, the picture and every
+/// stop are MCB's as before.</para>
 /// </summary>
 public sealed class CipherBStockVisibilityTests
 {
@@ -54,6 +58,9 @@ public sealed class CipherBStockVisibilityTests
     };
 
     private static List<string> LeftOut(ChartSeries s) => s.Config.ExcludedComponents.Select(c => c.Name).ToList();
+
+    /// <summary>What is left out by default: the Sell dot alone (not Market Cipher B's).</summary>
+    private static readonly string[] LeftOutByDefault = { CipherBProvider.CompSellDot };
 
     private static (IndicatorEngine Engine, List<IndicatorMetadata> Meta) Cipher()
     {
@@ -96,9 +103,9 @@ public sealed class CipherBStockVisibilityTests
     {
         var s = Fresh();
         Assert.Equal(AllParts, s.Components.Select(c => c.Name));
-        Assert.Empty(LeftOut(s));
+        Assert.Equal(LeftOutByDefault, LeftOut(s));
         Assert.All(s.Components, c => Assert.True(c.IsVisible));
-        Assert.Equal(AllParts, ComponentInclusion.AllParts(s.Config, AllParts).Select(c => c.Name));
+        Assert.Equal(AllParts.Concat(LeftOutByDefault), ComponentInclusion.AllParts(s.Config, AllParts.Concat(LeftOutByDefault).ToList()).Select(c => c.Name));
         Assert.Empty(s.Config.CloudFills);
         Assert.True(s.Config.ZoneBands.Single(b => b.DisplayName == "Money Flow Bar").IsVisible);
         // The baseline a later restore needs is recorded from the first build.
@@ -135,7 +142,7 @@ public sealed class CipherBStockVisibilityTests
         var s = Restore(save);
 
         Assert.Equal(AllParts, s.Components.Select(c => c.Name));
-        Assert.Empty(LeftOut(s));
+        Assert.Equal(LeftOutByDefault, LeftOut(s));
         Assert.All(s.Components, c => Assert.True(c.IsVisible));
         Assert.Empty(s.Config.CloudFills);
         Assert.DoesNotContain(s.Config.StringParameters.Keys, k => k is "MoneyFlowMode" or "BuyDotMode" or "ThresholdMode");
