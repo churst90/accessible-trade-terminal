@@ -100,6 +100,77 @@ jobs:
           Copy-Item $dll -Destination vendor/nvda/nvdaControllerClient.dll -Force
           Write-Host "Staged vendor/nvda/nvdaControllerClient.dll"
 
+      # The same two vendor steps as release.yml: the publish below passes ReleasePublish=true,
+      # whose Dot Pad SDK check stops a build without them (this workflow failed on it from the
+      # day that check went in until 2026-11-16, unnoticed because nothing ran it).
+      - name: Fetch Dot Pad SDK runtime (pinned)
+        shell: pwsh
+        run: |
+          # Dot Inc publish the Windows SDK runtime in their own public repository. We take the
+          # eight files the SDK actually loads and NOT ipadic/ — 187 MB of MeCab's JAPANESE
+          # dictionary, reached only through TTBEngine's mecab_new2("-u ./ipadic/user.dic"),
+          # whose argument names a user.dic the vendor does not ship and whose path is relative
+          # to the working directory rather than the install. 296 MB on disk, 18 MB that does
+          # anything. If a real Dot Pad ever fails to initialise with everything else present,
+          # ipadic is the first thing to add back.
+          $base = 'https://raw.githubusercontent.com/dotincorp/dotpad-sdk-guide/main/Windows/3.0.0'
+          $dest = 'dotpad-sdk/Windows/dotpad-3.0.0'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          $payload = @{
+            'DotPadSDK-3.0.0.dll' = 'B1694939DF3E9A42FBFB069A87C08F76E1146DCB71A95510A79777DBB240C0BA'
+            'TTBEngine.dll'       = 'C43EDCEEF4BE387476B7EB6703718592E57D5F781D8167B31BEBFD6DAEB13FDE'
+            'Mecab.dll'           = '636497FA8820EE6C8736EC923F3E1824700D6B3E7CDBFDA82ABE9FDA1F42BD6F'
+            'jsoncpp.dll'         = '2FD141BDE708815D186B4A1260D2A1E6B75410746C948BF3F927F25E4173EA29'
+            'liblouis.dll'        = '587BE27A03AF74308D2BA2D80294F44E3886F50E1FC098DDCFF527FCAA210EE4'
+            'mecabrc'             = '1E9E52D4DE8520D34F97747C12DB0DCB6FB13EF27C4F284BA0B7DE63C1CDCFE4'
+            'tables.zip'          = '55F37D9B3B357C8FB93435384A89EABD5AA0B2B2B5814F3E138CD267B47C3516'
+          }
+
+          foreach ($name in $payload.Keys) {
+            $out = Join-Path $dest $name
+            Write-Host "Fetching $name"
+            Invoke-WebRequest -Uri "$base/$name" -OutFile $out -UseBasicParsing
+            $got = (Get-FileHash $out -Algorithm SHA256).Hash
+            if ($got -ne $payload[$name]) {
+              throw "Dot Pad SDK $name SHA-256 mismatch.`n  expected $($payload[$name])`n  got      $got"
+            }
+          }
+
+          # tables.zip unpacks to tables/ — 419 LibLouis translation tables. The SDK points
+          # lou_setDataPath at a \tables directory beside itself and names 35 specific .ctb/.utb
+          # files; the tables include each other transitively, so the whole set ships.
+          Expand-Archive (Join-Path $dest 'tables.zip') -DestinationPath $dest -Force
+          Remove-Item (Join-Path $dest 'tables.zip')
+          $n = (Get-ChildItem (Join-Path $dest 'tables') -File -Recurse).Count
+          Write-Host "Dot Pad SDK staged: $n LibLouis tables"
+          if ($n -lt 400) { throw "Expected at least 400 LibLouis tables, unpacked $n." }
+
+      - name: Stage the VC++ runtime beside the Dot Pad SDK
+        shell: pwsh
+        run: |
+          # DotPadSDK-3.0.0.dll statically imports MSVCP140/VCRUNTIME140/VCRUNTIME140_1 — its
+          # only non-system imports. A .NET publish carries none of them, so without these the
+          # SDK does not load on a machine that lacks the VC++ redistributable and tactile
+          # output is silently inert. App-local deployment is a supported mode.
+          New-Item -ItemType Directory -Force -Path vendor/vcruntime | Out-Null
+          $names = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+
+          # Prefer the VC redist directory the runner's Visual Studio install ships; fall back
+          # to the system copies, which are the same redistributable already installed.
+          $redist = Get-ChildItem 'C:\Program Files*\Microsoft Visual Studio\*\*\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT' -Directory -ErrorAction SilentlyContinue |
+                    Sort-Object FullName | Select-Object -Last 1
+
+          foreach ($n in $names) {
+            $src = $null
+            if ($redist) { $c = Join-Path $redist.FullName $n; if (Test-Path $c) { $src = $c } }
+            if (-not $src) { $c = Join-Path $env:SystemRoot 'System32' | Join-Path -ChildPath $n; if (Test-Path $c) { $src = $c } }
+            if (-not $src) { throw "Could not find $n on the runner. Tactile support would ship unloadable." }
+            Copy-Item $src (Join-Path 'vendor/vcruntime' $n) -Force
+            Write-Host "$n <- $src"
+          }
+          Get-ChildItem vendor/vcruntime
+
       - name: Publish MAUI Windows
         shell: pwsh
         run: |

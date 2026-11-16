@@ -44,6 +44,9 @@ All notable changes to this project will be documented in this file.
   breaking what it guards (README staged into `app\`, `release/*.exe` dropped, `-SkipTrials` added, an
   unknown `stagedBy`).
 - **The release** checksums the setup too, and fails if the Windows zip was built without its setup.
+- **`diagnostic-build.yml` builds again.** It publishes with `ReleasePublish=true` but never fetched the Dot
+  Pad SDK, so the SDK check added after its last green run (2026-09-22) stopped every run; nobody had run it
+  since. It now takes release.yml's two vendor steps (the pinned Dot Pad SDK, the VC++ runtime).
 - **Caveats:** the runtime check's "missing" path has not run anywhere (the runner has .NET 10);
   on Windows on Arm, where x64 .NET lives in `dotnet\x64`, it would say missing when it is not;
   nobody has gone through the setup's screens with a screen reader (the runner installs it
