@@ -1469,7 +1469,10 @@ through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
 on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
 extremes, heard but not drawn. The levels are Market Cipher B's white lines: solid at ±60 (thicker)
-and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent. The waves are
+and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent. On a light theme
+(Paper, High Contrast Light) the white lines are drawn grey, because white is too faint there; on
+Steel Gray the waves are drawn solid rather than see-through, for the same reason. A colour you
+choose yourself is drawn as you chose it. The waves are
 clean inside ±53; past ±53 a soft noise texture comes in, and past ±60 the same noise grows louder.
 No part of Cipher B has a texture in its normal range. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".

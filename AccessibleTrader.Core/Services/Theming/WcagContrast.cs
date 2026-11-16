@@ -90,7 +90,8 @@ namespace AccessibleTrader.Core.Services.Theming
             return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
         }
 
-        private static SKColor Over(SKColor fg, SKColor bg)
+        /// <summary><paramref name="fg"/> composited over an opaque <paramref name="bg"/>.</summary>
+        public static SKColor Over(SKColor fg, SKColor bg)
         {
             double a = fg.Alpha / 255.0;
             return new SKColor(

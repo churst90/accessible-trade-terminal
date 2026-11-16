@@ -206,8 +206,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             // description and checked in a render of TVC:DJI 1D: where only the fast
                             // wave shows, #6C96BA = 70% #90CAF9 over the pane). The opaque #90CAF9 and
                             // 2-pixel edge were fitted to 2.2.6 screenshots.
-                            DefaultColorHex = "#B390CAF9", DefaultThickness = 1.0f,
-                            DefaultFillColorHex = "#B390CAF9", DefaultDrawOrder = -2,
+                            DefaultColorHex = FastWaveHex, DefaultThickness = 1.0f,
+                            DefaultFillColorHex = FastWaveHex, DefaultDrawOrder = -2,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultWaveform = "triangle",
                             DefaultAboveWaveform = "triangle",
@@ -235,8 +235,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                             // #90CAF9 over the pane, as rendered). The #1E88E5 edge above was our
                             // contrast choice, not MCB's; it went with Cody's "true to spec" (the
                             // contrast question is in docs/TODO.md).
-                            DefaultColorHex = "#B30D47A1", DefaultThickness = 1.0f,
-                            DefaultFillColorHex = "#B30D47A1", DefaultDrawOrder = -2,
+                            DefaultColorHex = SlowWaveHex, DefaultThickness = 1.0f,
+                            DefaultFillColorHex = SlowWaveHex, DefaultDrawOrder = -2,
                             DefaultPlaybackLayer = PlaybackLayer.Midground,
                             DefaultWaveform = "sine",
                             DefaultAboveWaveform = "triangle",
@@ -902,6 +902,10 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>MCB 2.4.0's level colours: rgba(255,255,255,0.4) for the solid lines,
         /// rgba(255,255,255,0.5) for the dotted ones.</summary>
         internal const string SolidWhite = "#66FFFFFF", DottedWhite = "#80FFFFFF";
+        /// <summary>MCB 2.4.0's fast and slow waves at its 70%. Drawn opaque on a chart where
+        /// neither reaches 3:1, and its white lines grey on a light chart
+        /// (<see cref="Rendering.ThemeAdaptedColours"/>, Cody 2026-11-16).</summary>
+        internal const string FastWaveHex = "#B390CAF9", SlowWaveHex = "#B30D47A1";
         /// <summary>MCB's dotted line at +100, named as MCB titles it.</summary>
         internal const string Level100 = "100%";
 
@@ -916,8 +920,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // +100. Each of ±60 and ±53 IS its setting (ValueParameter): Over Bought Level 1,
                 // Trigger 1, Over Sold Level 1, Trigger 2. They were #8C8C96, our contrast choice
                 // for light themes (3.2:1 or more against every theme but SteelGray), from
-                // 2026-10-17 to 2026-10-31; white on a light theme is the open question in
-                // docs/TODO.md. Until 2026-10-17 they were red/green.
+                // 2026-10-17 to 2026-10-31. Since 2026-11-16 (Cody) the white is drawn grey on a
+                // light chart, at draw time (Rendering.ThemeAdaptedColours). Until 2026-10-17 they were red/green.
                 //
                 // Zone texture: clean inside ±53, soft past ±53, the SAME soft noise louder past ±60.
                 // Cody, 2026-10-31: "there should only be texturing ... within those extreme zones ...

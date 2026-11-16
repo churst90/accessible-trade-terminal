@@ -315,25 +315,74 @@ public sealed class CipherBLookTests
     // ── Perceivable on every theme ────────────────────────────────────────────────
 
     /// <summary>
-    /// The wave silhouette has to be seen on all twelve themes. On a dark theme the light-blue fast
-    /// wave carries it; on a light one the dark-blue body does — at least one of the two reaches
-    /// 3:1 everywhere, at MCB's 70%. (Until 2026-10-31 the slow wave also had a #1E88E5 edge of our
-    /// choosing, 3:1 on all but SteelGray; MCB's edge is its body colour, and whether to keep a
-    /// contrast edge is a question for Cody in docs/TODO.md.)
+    /// The wave silhouette has to be seen on all twelve themes, AS DRAWN: on a dark theme the
+    /// light-blue fast wave carries it, on a light one the dark-blue body does, and where neither
+    /// reaches 3:1 at MCB's 70% (Steel Gray, 2.995:1) the waves are drawn opaque (Cody,
+    /// 2026-11-16). Read from the rendered pixels, so a swap that never reaches the paint fails.
     /// </summary>
     [Fact]
     public void The_waves_can_be_seen_on_every_theme()
     {
         foreach (var type in Enum.GetValues<ThemeType>())
         {
-            var bg = Themes(type).Current.Background;
-            double fast = WcagContrast.Ratio(Over(Fast, bg), bg), body = WcagContrast.Ratio(Over(Slow, Over(Fast, bg)), bg);
-            // SteelGray's mid-grey is the one theme MCB's own colours miss, by a hair (fast wave
-            // 2.995:1, 2026-10-31). Whether light and mid themes get their own wave colours is
-            // Cody's call (docs/TODO.md); until then it is held where it is, not let slip.
-            double floor = type == ThemeType.SteelGray ? 2.99 : 3.0;
-            Assert.True(Math.Max(fast, body) >= floor, $"{type}: neither wave reaches {floor}:1 (fast {fast:F3}, body {body:F3})");
+            var (bmp, t) = Render(CipherB(new() { [CipherBProvider.CompWT1] = -70, [CipherBProvider.CompWT2] = -50 }), type);
+            using var _ = bmp;
+            var bg = t.Current.Background;
+            double rim = WcagContrast.Ratio(bmp.GetPixel(X(t), Y(-62, t)), bg);
+            double body = WcagContrast.Ratio(bmp.GetPixel(X(t), Y(-25, t)), bg);
+            Assert.True(Math.Max(rim, body) >= 3.0, $"{type}: neither wave reaches 3:1 as drawn (rim {rim:F3}, body {body:F3})");
         }
+    }
+
+    /// <summary>
+    /// The opaque waves are Steel Gray's alone: every other built-in theme keeps MCB's 70%, the
+    /// colour <see cref="The_slow_wave_is_a_dark_blue_body_over_a_light_blue_fast_wave"/> reads.
+    /// </summary>
+    [Fact]
+    public void Only_steel_gray_draws_the_waves_opaque()
+    {
+        foreach (var type in Enum.GetValues<ThemeType>())
+        {
+            var (bmp, t) = Render(CipherB(new() { [CipherBProvider.CompWT1] = -70, [CipherBProvider.CompWT2] = -50 }), type);
+            using var _ = bmp;
+            var bg = t.Current.Background;
+            var rim = bmp.GetPixel(X(t), Y(-62, t));
+            if (type == ThemeType.SteelGray)
+                Near(SKColor.Parse("#90CAF9"), rim, $"{type}: the fast wave, opaque");
+            else
+                Near(Over(Fast, bg), rim, $"{type}: the fast wave at MCB's 70%");
+        }
+    }
+
+    /// <summary>
+    /// MCB's white lines are faint on a light chart (40% white on Paper is 1.1:1), so there they
+    /// are drawn in the grey that served before 2026-10-31 (Cody, 2026-11-16): ±60 at 3:1 or more
+    /// on Paper and High Contrast Light, still MCB's white on a dark theme. A colour the user chose
+    /// is drawn as chosen on any theme.
+    /// </summary>
+    [Fact]
+    public void Mcbs_white_lines_are_grey_on_a_light_chart_only()
+    {
+        var grey = SKColor.Parse("#8C8C96");
+        int On(SKBitmap bmp, ThemeService t, double v, SKColor colour) => Enumerable.Range(0, W - (int)t.Current.AxisWidth)
+            .Count(x => Close(bmp.GetPixel(x, Y(v, t)), colour));
+        foreach (var type in Enum.GetValues<ThemeType>())
+        {
+            var (bmp, t) = Render(CipherB(new Dictionary<string, double>()), type);
+            using var _ = bmp;
+            var bg = t.Current.Background;
+            bool light = type is ThemeType.Paper or ThemeType.HighContrastLight;
+            var expected = light ? grey : Over(SKColor.Parse("#66FFFFFF"), bg);
+            Assert.True(On(bmp, t, 60, expected) > 20, $"{type}: the +60 line is not drawn {(light ? "grey" : "MCB's white")}");
+            if (light)
+                Assert.True(WcagContrast.Ratio(bmp.GetPixel(X(t), Y(60, t)), bg) >= 3.0, $"{type}: the +60 line is under 3:1");
+        }
+
+        var chosen = CipherB(new Dictionary<string, double>());
+        chosen.Levels.Single(l => l.Name == "Extreme OB").ColorHex = "#FFFF00FF";
+        var (b2, t2) = Render(chosen, ThemeType.Paper);
+        using var __ = b2;
+        Assert.True(On(b2, t2, 60, SKColor.Parse("#FF00FF")) > 20, "a colour the user chose is not drawn as chosen on Paper");
     }
 
     // ── The opacity gate does not move anything else ──────────────────────────────

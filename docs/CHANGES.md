@@ -12,6 +12,14 @@ All notable changes to this project will be documented in this file.
   ..."). A window whose tier runs on the chart is now left out of the numbers, on the ladder and for a
   hidden focused series (`CipherCProvider.CountSaidInWords`). The status line still prints the count.
   The test fails with the skip removed (checked).
+- **Cipher B on light themes and Steel Gray.** Market Cipher B's translucent white lines (40-50%) were
+  about 1.1:1 on Paper; on a light chart (background luminance above one half: Paper, High Contrast
+  Light, or a custom theme built from them) they are now drawn in the grey #8C8C96 they had from
+  2026-10-17 to 10-31 (3.3:1 or more). On Steel Gray, where neither translucent wave reached 3:1
+  (2.995:1), the waves are drawn opaque. The swap is at draw time (`Rendering.ThemeAdaptedColours`)
+  and only for colours still at MCB's values: saved charts keep their colours, a colour you chose is
+  drawn as chosen, and every other theme looks as before. Tests read the drawn pixels on all twelve
+  themes; removing either swap, or swapping a chosen colour, turns them red (checked).
 
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 

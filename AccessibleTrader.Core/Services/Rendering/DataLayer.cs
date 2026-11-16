@@ -94,12 +94,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // is the keyboard's and the speech's; DrawOrder only moves what is painted over
                 // what. Cipher B declares its WT Histogram before the waves (a navigation stop Cody
                 // knows) but Market Cipher B paints that "VWAP" area OVER the waves.
-                foreach (var comp in InDrawOrder(s.Components))
+                foreach (var declared in InDrawOrder(s.Components))
                 {
-                    if (!comp.IsVisible || comp.IsEnabled == false) continue;
+                    if (!declared.IsVisible || declared.IsEnabled == false) continue;
                     // Heard, not painted (ComponentConfig.IsDrawn): its data, speech and narration
                     // stay; the chart draws nothing for it.
-                    if (!comp.IsDrawn) continue;
+                    if (!declared.IsDrawn) continue;
+                    // Market Cipher B's waves opaque where the theme cannot show them translucent.
+                    var comp = ThemeAdaptedColours.Component(declared, ctx.Theme);
 
                     using var paint = _stylingService.GetPaint(comp, ctx.Density);
 
@@ -227,7 +229,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     };
                     using var lvlPaint = new SKPaint
                     {
-                        Color      = SKColor.Parse(lvl.ColorHex),
+                        Color      = SKColor.Parse(ThemeAdaptedColours.Level(lvl.ColorHex, ctx.Theme)),
                         StrokeWidth = lvl.Thickness,
                         Style      = SKPaintStyle.Stroke,
                         PathEffect = pathEffect
