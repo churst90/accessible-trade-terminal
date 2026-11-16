@@ -202,5 +202,80 @@ namespace AccessibleTrader.Tests
             Assert.NotNull(reloaded.GetById("user.mine"));
             Assert.Equal("My Strategy", reloaded.GetById("user.mine")!.Name);
         }
+
+        // ── Retired built-ins (Cody 2026-11-16, "Delete retired strategies") ───────────────────
+
+        private static AccessibleTrader.Sdk.Strategies.StrategySpec Spec(string id, string name) => new(
+            Id: id,
+            Name: name,
+            Description: "",
+            Side: AccessibleTrader.Sdk.Plugins.OrderSide.Buy,
+            Conditions: new AccessibleTrader.Sdk.Strategies.ConditionLeaf(
+                "leaf", "REGIME.AboveSma200", AccessibleTrader.Sdk.Strategies.LeafOperator.GreaterThan),
+            Risk: new AccessibleTrader.Sdk.Strategies.RiskPlan(
+                new AccessibleTrader.Sdk.Strategies.StopSource(
+                    AccessibleTrader.Sdk.Strategies.StopSourceKind.AtrMultiple),
+                new[] { new AccessibleTrader.Sdk.Strategies.TpLadderRung(
+                    AccessibleTrader.Sdk.Strategies.TargetSourceKind.RiskRewardMultiple) },
+                new AccessibleTrader.Sdk.Strategies.PositionSizing(),
+                new AccessibleTrader.Sdk.Strategies.EntryTrigger()));
+
+        private void WriteLibrary(params AccessibleTrader.Sdk.Strategies.StrategySpec[] specs) =>
+            File.WriteAllText(Path.Combine(_dir, "strategies.json"),
+                System.Text.Json.JsonSerializer.Serialize(specs));
+
+        [Fact]
+        public void StrategyLibrary_MovesRetiredBuiltInsToTheBackup_AndKeepsTheRest()
+        {
+            WriteLibrary(
+                Spec("builtin.long.v23-cipherb-weekly", "Cipher Reversal"),
+                Spec("builtin.long.v13-blue-dot-sma200", "v13"),          // a built-in still in the catalogue
+                Spec("user.mine", "My Strategy"),
+                Spec("builtin.short.v16-trilogy", "Trilogy Short"));
+
+            var lib = new JsonStrategyLibrary(new FakePathService(_dir));
+
+            Assert.Equal(new[] { "builtin.long.v13-blue-dot-sma200", "user.mine" }, lib.All.Select(s => s.Id));
+            // Saved without them, so the file agrees with the library…
+            string saved = File.ReadAllText(Path.Combine(_dir, "strategies.json"));
+            Assert.DoesNotContain("v23-cipherb-weekly", saved);
+            Assert.DoesNotContain("v16-trilogy", saved);
+            Assert.Contains("user.mine", saved);
+            // …and the two retired ones are in the backup, whole.
+            string backup = Path.Combine(_dir, RetiredBuiltInStrategies.BackupFileName);
+            var moved = System.Text.Json.JsonSerializer.Deserialize<List<AccessibleTrader.Sdk.Strategies.StrategySpec>>(
+                File.ReadAllText(backup), new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            Assert.Equal(new[] { "builtin.long.v23-cipherb-weekly", "builtin.short.v16-trilogy" }, moved.Select(s => s.Id));
+            Assert.Equal("Trilogy Short", moved[1].Name);
+        }
+
+        [Fact]
+        public void StrategyLibrary_AddsToAnEarlierBackup_ReplacingTheSameId()
+        {
+            // An old bundle imported later brings a retired one back; the next load moves it again.
+            WriteLibrary(Spec("builtin.long.v14-hidden-bull-sma200", "v14 first"), Spec("builtin.long.v15-blue-dot-bull-div", "v15"));
+            _ = new JsonStrategyLibrary(new FakePathService(_dir));
+            WriteLibrary(Spec("builtin.long.v14-hidden-bull-sma200", "v14 again"), Spec("builtin.short.v18-refined", "v18"));
+            _ = new JsonStrategyLibrary(new FakePathService(_dir));
+
+            var moved = System.Text.Json.JsonSerializer.Deserialize<List<AccessibleTrader.Sdk.Strategies.StrategySpec>>(
+                File.ReadAllText(Path.Combine(_dir, RetiredBuiltInStrategies.BackupFileName)),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            Assert.Equal(new[] { "v15", "v14 again", "v18" }, moved.Select(s => s.Name));
+        }
+
+        [Fact]
+        public void StrategyLibrary_KeepsRetiredBuiltIns_WhenTheBackupCannotBeWritten()
+        {
+            // Never drop them without the copy: a directory where the backup file should be makes
+            // the write fail, and the library, on disk and in memory, keeps them.
+            Directory.CreateDirectory(Path.Combine(_dir, RetiredBuiltInStrategies.BackupFileName));
+            WriteLibrary(Spec("builtin.long.v15-blue-dot-bull-div", "v15"), Spec("user.mine", "Mine"));
+
+            var lib = new JsonStrategyLibrary(new FakePathService(_dir));
+
+            Assert.Equal(2, lib.All.Count);
+            Assert.Contains("builtin.long.v15-blue-dot-bull-div", File.ReadAllText(Path.Combine(_dir, "strategies.json")));
+        }
     }
 }

@@ -3732,7 +3732,11 @@ The **Journal** (Ctrl+Alt+Shift+J) records every fill, every stop, every alert a
 strategy setup with its rationale, and the **History** tab holds every fill with its price,
 profit or loss and fee. A losing streak reads differently on paper than it felt in the
 moment. The strategy library's **Evidence** column is the same habit applied to rules: a
-strategy that says Untested or Falsified is telling you what to expect.
+strategy that says Untested or Falsified is telling you what to expect. A library made before
+August 2026 was filled with thirty built-in strategies; the twenty the research has since retired
+can never fire, so on its next start the terminal moves them out of the library into
+`strategies.retired.json` in the same folder (your own strategies and the other built-ins stay).
+To bring one back, import that file.
 
 ### What the research says about edges
 

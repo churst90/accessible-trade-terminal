@@ -20,6 +20,18 @@ All notable changes to this project will be documented in this file.
   and only for colours still at MCB's values: saved charts keep their colours, a colour you chose is
   drawn as chosen, and every other theme looks as before. Tests read the drawn pixels on all twelve
   themes; removing either swap, or swapping a chosen colour, turns them red (checked).
+- **Retired built-in strategies leave old libraries; `TradeRanker` deleted.** The twenty catalogue
+  strategies retired since 2026-08-01 (the trilogies, the two symmetric shorts, Pulse Reversal, v24, and
+  on 10-31 v14, v15, v18 and the v23 family) had their code removed already, but a library seeded before
+  August still held them, unable to fire (Cody's held all thirty built-ins). On load they are now
+  written to `strategies.retired.json` beside `strategies.json` (added to it if it exists) and the
+  library is saved without them; if that write fails the library keeps them. Only those exact
+  `builtin.*` ids move (`RetiredBuiltInStrategies`); a test holds the list equal to the lab's
+  `CatalogueProvenance.Retired`, whose verdicts stay. `TradeRanker`, the 0-100 scorer for the v23
+  family's trades with no callers, and its tests are deleted. Six sabotages (nothing moved, dropped
+  without the backup, an id missing, not saved, backup overwritten, same id not replaced) each turn a
+  test red; two of my first tests stayed green under them and were tightened. Your own library moves
+  on the next start of the terminal; not seen in the app.
 
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 

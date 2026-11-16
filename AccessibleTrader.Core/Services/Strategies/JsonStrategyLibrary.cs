@@ -82,6 +82,14 @@ namespace AccessibleTrader.Core.Services.Strategies
                     _specs = string.IsNullOrWhiteSpace(json)
                         ? new List<StrategySpec>()
                         : JsonSerializer.Deserialize<List<StrategySpec>>(json, _options) ?? new List<StrategySpec>();
+                    // Built-ins the catalogue has retired go to strategies.retired.json (Cody,
+                    // 2026-11-16); the library is saved without them only once they are there.
+                    var kept = RetiredBuiltInStrategies.MoveOut(_specs, Path.GetDirectoryName(_filepath)!, _options);
+                    if (kept.Count != _specs.Count)
+                    {
+                        _specs = kept;
+                        Save();
+                    }
                 }
             }
             catch (Exception ex)

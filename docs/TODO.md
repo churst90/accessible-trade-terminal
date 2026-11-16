@@ -206,10 +206,9 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** **Q** White lines are faint on Paper and
   HighContrastLight: keep MCB's white, or grey #8C8C96 on light themes? **Q** SteelGray's fast wave is
   2.995:1: accept, or opaque waves on that theme? **Q** The periods and the "Version" input are gone: OK?
-  **Twelve retired catalogue strategies: Cody 2026-11-16, "Delete retired strategies, probably yes."**
-  To do: delete them, and `TradeRanker` with them if Cody agrees (it scores the v23 strategies' trades
-  and has no callers). **Q** The three setup graders
-  refuse to run (build 2e86d377 to re-run one): OK? **Q** `TradeRanker` (no callers): delete or keep?
+  Retired strategies and `TradeRanker`: DONE 2026-11-16 (the retired built-ins move out of old libraries
+  to `strategies.retired.json`; `TradeRanker` deleted; see CHANGES). **Q** The three setup graders
+  refuse to run (build 2e86d377 to re-run one): OK?
   **Q** Sound defaults saved in one "Read as" form also apply in the other: should each keep its own?
   Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
   so Trigger 2 below −53 clips the bar; the buy dot is drawn at −96; a Different Timeframe shorter than the

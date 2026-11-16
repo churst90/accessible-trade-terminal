@@ -21,8 +21,8 @@ namespace AccessibleTrader.Tests
     /// resistance", -1 means "at support". The conjunction exists because the two can be true at
     /// once — a wide tolerance, or a compressed session, puts R1 and Cam L3 inside the same band
     /// — and when they are, the honest answer is neither. Deleting it makes every such bar
-    /// announce resistance, and <c>TradeRanker</c> then scores a long into it as the highest
-    /// conviction setup it has.
+    /// announce resistance, and a long gated on support would read a bar at both as a long into
+    /// resistance.
     /// </para>
     ///
     /// <para>

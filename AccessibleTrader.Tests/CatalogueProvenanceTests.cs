@@ -134,5 +134,17 @@ namespace AccessibleTrader.Tests
             Assert.True(zombies.Count == 0,
                 "Recorded as retired but still shipping: " + string.Join(", ", zombies));
         }
+
+        [Fact]
+        public void The_app_moves_out_exactly_the_catalogues_retired_ids()
+        {
+            // The app cannot reference the lab, so it keeps its own copy of the retired ids to take
+            // out of an old library (2026-11-16). A spec retired here and not there would sit in
+            // libraries unable to fire; one listed there and live here would vanish from them.
+            var lab = CatalogueProvenance.Retired.Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Assert.True(lab.SetEquals(AccessibleTrader.Core.Services.Strategies.RetiredBuiltInStrategies.Ids),
+                "Only in the lab: " + string.Join(", ", lab.Except(AccessibleTrader.Core.Services.Strategies.RetiredBuiltInStrategies.Ids, StringComparer.OrdinalIgnoreCase))
+                + "; only in the app: " + string.Join(", ", AccessibleTrader.Core.Services.Strategies.RetiredBuiltInStrategies.Ids.Except(lab, StringComparer.OrdinalIgnoreCase)));
+        }
     }
 }

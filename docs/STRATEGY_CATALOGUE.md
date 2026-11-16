@@ -96,8 +96,10 @@ Two things every rolling-window figure in `CatalogueProvenance` should be read w
 
 ### Libraries that predate the split
 
-An existing install keeps the thirty specs it was already seeded with — including the six since retired —, and those rows have no
-provenance attached — nothing rewrites a user's saved strategies. They show **"Not recorded (older
+An existing install keeps the thirty specs it was already seeded with, less the twenty since retired:
+since 2026-11-16 those move on load to `strategies.retired.json` (`RetiredBuiltInStrategies`, held equal
+to `CatalogueProvenance.Retired` by a test). The rest have no provenance attached; nothing else
+rewrites a user's saved strategies. They show **"Not recorded (older
 built-in)"** rather than a bare "Not recorded", because for a `builtin.*` id the bare phrasing would
 read as "you built this", which is the opposite of true. To attach the evidence, export the
 catalogue and import it: import skips ids you already hold, so the honest route is to delete the
