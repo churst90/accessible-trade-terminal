@@ -24,12 +24,19 @@ namespace AccessibleTrader.Core.Services
     {
         private readonly List<IIndicatorProvider> _providers;
         private readonly ILogger<IndicatorService> _logger;
+        private readonly Indicators.ICustomIndicatorRegistry? _customIndicators;
         private bool _pluginsLoaded;
 
-        public IndicatorService(IEnumerable<IIndicatorProvider> providers, ILogger<IndicatorService> logger)
+        /// <param name="customIndicators">The custom compiled indicators. Without them a strategy,
+        /// a background tab and the backtester (which compute through here, not through
+        /// <see cref="Indicators.IndicatorEngine"/>) computed nothing for one, and its leaves were
+        /// false (until 2026-11-16).</param>
+        public IndicatorService(IEnumerable<IIndicatorProvider> providers, ILogger<IndicatorService> logger,
+            Indicators.ICustomIndicatorRegistry? customIndicators = null)
         {
             _providers = providers.ToList();
             _logger = logger;
+            _customIndicators = customIndicators;
         }
 
         public void LoadIndicatorPlugins(IPluginLoaderService pluginLoader)
@@ -136,6 +143,17 @@ namespace AccessibleTrader.Core.Services
 
         public void CalculateIndicator(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
+            // A custom compiled indicator first, as IndicatorEngine takes it first on the chart.
+            if (_customIndicators != null && _customIndicators.TryGet(code, out var custom) && custom != null)
+            {
+                foreach (var (name, values) in Indicators.IndicatorEngine.CalculateCustom(custom, data, parameters))
+                {
+                    var target = buffer.GetComponentSpan(name);
+                    values.AsSpan(0, Math.Min(values.Length, target.Length)).CopyTo(target);
+                }
+                return;
+            }
+
             foreach (var provider in _providers)
             {
                 var indicators = provider.GetIndicators();

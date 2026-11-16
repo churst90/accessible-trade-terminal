@@ -23,9 +23,10 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// that is what I want").
     ///
     /// <para>What does NOT go through here, and stays on the real bars: the candles, close line
-    /// and volume series themselves, profiles and the heatmap, drawings, strategies (live, in
-    /// background tabs, in the backtester and in StrategyLab), and the screener. A strategy is
-    /// tested on real prices, and trading it on anything else would trade signals nobody tested.</para>
+    /// and volume series themselves, profiles and the heatmap, drawings, and the screener. A
+    /// strategy reads the real bars (live, in background tabs, in the backtester and in
+    /// StrategyLab) unless it asks to read its signals on Heikin-Ashi (<c>StrategyCandles</c>),
+    /// and its orders fill at real prices either way.</para>
     ///
     /// <para>The transform is <see cref="ChartMath.CalculateHeikinAshi"/> over the whole loaded
     /// history, the same series the chart draws.</para>

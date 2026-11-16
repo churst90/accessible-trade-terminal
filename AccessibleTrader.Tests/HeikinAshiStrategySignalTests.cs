@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Core.Strategies;
 using AccessibleTrader.Sdk.Interfaces;
@@ -29,6 +30,7 @@ public sealed class HeikinAshiStrategySignalTests
     private static readonly DateTime T0 = new(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc);
     private const int WickBar = 30;
     private const string SpyCode = "HA_SIGNAL_SPY";
+    private const string CustomCode = "HA_CUSTOM_SPY";
 
     private static List<Ohlcv> Bars(int n = 40) => Enumerable.Range(0, n)
         .Select(i => i == WickBar
@@ -57,14 +59,37 @@ public sealed class HeikinAshiStrategySignalTests
             int index, Dictionary<string, object> parameters) => "";
     }
 
-    private static IndicatorService Indicators() =>
-        new(new List<IIndicatorProvider> { new SpyProvider() }, NullLogger<IndicatorService>.Instance);
+    /// <summary>The same spy as a custom compiled indicator (Roslyn/Pine), which lives in the custom
+    /// registry, not among the providers.</summary>
+    private sealed class CustomSpy : ICustomIndicator
+    {
+        public string Id => CustomCode;
+        public string DisplayName => "Custom spy";
+        public string[] ComponentNames => new[] { "close" };
+        public ComponentDisplayType[] DisplayTypes => new[] { ComponentDisplayType.Line };
+        public Dictionary<string, double> DefaultParameters => new();
+        public ComponentCausality[] Causality => new[] { ComponentCausality.Causal };
+        public double[][] Calculate(ReadOnlySpan<Ohlcv> data, Dictionary<string, double> parameters)
+        {
+            var close = new double[data.Length];
+            for (int i = 0; i < data.Length; i++) close[i] = data[i].Close;
+            return new[] { close };
+        }
+    }
+
+    private static IndicatorService Indicators()
+    {
+        var custom = new CustomIndicatorRegistry();
+        custom.Register(new CustomSpy());
+        return new(new List<IIndicatorProvider> { new SpyProvider() }, NullLogger<IndicatorService>.Instance, custom);
+    }
 
     private sealed class Catalog : ISignalCatalog
     {
         private readonly List<SignalDescriptor> _all = new()
         {
             new("SPY.close", SpyCode, "close", SignalKind.Line, "Spy close"),
+            new("CUSTOM.close", CustomCode, "close", SignalKind.Line, "Custom spy close"),
             new("CANDLES.body", "CANDLES", "body", SignalKind.Line, "Close"),
         };
         public IReadOnlyList<SignalDescriptor> All => _all;
@@ -90,6 +115,7 @@ public sealed class HeikinAshiStrategySignalTests
         IsHeikinAshi = heikinAshi,
         ActiveSeries = ImmutableList.Create(
             Series("spy", SpyCode, "close", (heikinAshi ? ChartMath.CalculateHeikinAshi(raw) : raw).Select(b => b.Close).ToArray()),
+            Series("custom", CustomCode, "close", (heikinAshi ? ChartMath.CalculateHeikinAshi(raw) : raw).Select(b => b.Close).ToArray()),
             Series(CoreSeriesIds.Candles, "CANDLES", "body", raw.Select(b => b.Close).ToArray())),
         Data = new TimeSeriesBuffer<Ohlcv>(raw),
         InitStatus = InitializationStatus.Ready,
@@ -141,6 +167,8 @@ public sealed class HeikinAshiStrategySignalTests
     [Theory]
     [InlineData("SPY.close", false)]      // an indicator computed on the candles
     [InlineData("SPY.close", true)]
+    [InlineData("CUSTOM.close", false)]   // a custom compiled indicator, computed on Heikin-Ashi for it
+    [InlineData("CUSTOM.close", true)]
     [InlineData("CANDLES.body", false)]   // the close itself, which the candle series carries raw
     [InlineData("CANDLES.body", true)]
     public void A_Heikin_Ashi_signal_fires_on_the_Heikin_Ashi_close_and_places_its_stop_from_the_real_close(string descriptor, bool chartIsHeikinAshi)
@@ -153,6 +181,7 @@ public sealed class HeikinAshiStrategySignalTests
 
     [Theory]
     [InlineData("SPY.close")]
+    [InlineData("CUSTOM.close")]
     [InlineData("CANDLES.body")]
     public void The_same_strategy_on_the_real_candles_does_not_see_the_Heikin_Ashi_close(string descriptor)
     {
@@ -166,6 +195,34 @@ public sealed class HeikinAshiStrategySignalTests
     {
         Assert.Null(Replay(Strategy(Spec(heikinAshi: false)), Bars(), chartIsHeikinAshi: true, last: WickBar));
         Assert.NotNull(Replay(Strategy(Spec(heikinAshi: true)), Bars(), chartIsHeikinAshi: true, last: WickBar));
+    }
+
+    /// <summary>
+    /// A custom compiled indicator is recomputed in the strategy path as a provider's is (Cody,
+    /// 2026-11-16: custom indicators should compute on Heikin-Ashi). Until then the strategy path
+    /// computed nothing for one, and its leaves were false: here, on a Heikin-Ashi chart, a real-bar
+    /// strategy whose "custom close below 105" holds on every real bar never fired.
+    /// </summary>
+    [Theory]
+    [InlineData("SPY.close")]
+    [InlineData("CUSTOM.close")]
+    public void On_a_Heikin_Ashi_chart_a_real_bar_strategy_reads_the_indicator_on_the_real_bars(string descriptor)
+    {
+        // The chart's spy holds Heikin-Ashi closes: 110 on the wick's bar, 100 elsewhere. On the
+        // real bars it is 100 throughout, so "below 105" holds on the wick's bar too.
+        var spec = Spec(heikinAshi: false, descriptor) with
+        {
+            Conditions = new ConditionLeaf("below", descriptor, LeafOperator.LessThan, Value: 105),
+        };
+        var strategy = Strategy(spec);
+        strategy.Initialize(Array.Empty<Ohlcv>(), WorkspaceState.Initial, new Dictionary<string, object>());
+        var raw = Bars();
+        var history = raw.Take(WickBar + 1).ToList();
+        var state = StrategyCandles.For(Indicators(), Chart(history, heikinAshi: true), history.ToArray(), heikinAshiWanted: false);
+
+        Assert.Equal(100.0, state.ActiveSeries.Single(s => s.Id == (descriptor == "SPY.close" ? "spy" : "custom"))
+            .Data.ComponentData["close"][WickBar], 6);
+        Assert.NotNull(strategy.OnBar(history[^1], history, state));
     }
 
     /// <summary>"The last N candles closed in the trade's direction" reads the candles the
@@ -210,12 +267,14 @@ public sealed class HeikinAshiStrategySignalTests
 
     private static BacktestConfig Config() => new(CommissionRate: 0, SlippagePercent: 0, WarmupBars: 5);
 
-    [Fact]
-    public async Task A_backtest_of_a_Heikin_Ashi_strategy_on_a_candle_chart_signals_on_Heikin_Ashi_and_fills_at_real_prices()
+    [Theory]
+    [InlineData("SPY.close")]
+    [InlineData("CUSTOM.close")]
+    public async Task A_backtest_of_a_Heikin_Ashi_strategy_on_a_candle_chart_signals_on_Heikin_Ashi_and_fills_at_real_prices(string descriptor)
     {
         var raw = Bars();
         var result = await new StrategyBacktester(indicators: Indicators())
-            .RunAsync(Strategy(Spec(heikinAshi: true)), raw, Config(), Chart(raw, heikinAshi: false));
+            .RunAsync(Strategy(Spec(heikinAshi: true, descriptor)), raw, Config(), Chart(raw, heikinAshi: false));
 
         var trade = Assert.Single(result.Trades);
         Assert.Equal(100.0, trade.EntryPrice, 6);

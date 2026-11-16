@@ -130,14 +130,14 @@ public sealed class CycleLowConfidenceTests
     }
 
     /// <summary>
-    /// Off a daily chart they are not read (2026-11-07): fitted on a daily chart's days and its
-    /// 10- and 20-bar averages, they read bars as days (2026-10-28 held them unseen on 4-hour and
-    /// weekly charts only while those charts counted their cycles in bars). Now a 4-hour chart's
-    /// daily cycle is in days and a weekly chart has none: no Low is in, no tops
-    /// and no half-cycle lows there, said or in the table.
+    /// Off a daily chart, Low is in is read only where it was re-run on the time-counted lows and
+    /// held (2026-11-16, CYCLE_POSITION_DESIGN section 9.14): on a weekly chart, the weekly reading
+    /// (the chart's own lows) and the yearly one; on a 4-hour chart, the weekly reading only. The
+    /// tops and half-cycle lows, fitted in daily bars, stay daily-only. Said and tabled in time: the
+    /// days to the confirmation in days, the 10-bar average as 10 weeks or 40 hours.
     /// </summary>
     [Fact]
-    public void Off_a_daily_chart_they_are_not_read()
+    public void Off_a_daily_chart_only_the_readings_that_held_are_read()
     {
         var daily = CipherSrSpeechTests.BtcDaily();
         var start = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -145,17 +145,64 @@ public sealed class CycleLowConfidenceTests
         var days = Run(Stamped(i => start.AddDays(i)), symbol: null);
         Assert.True(Marked(days[D + CyclePositionProvider.LowInSuffix]).Count > 100, "Low is in hardly read on a daily chart");
         Assert.NotEmpty(Marked(days[D + CyclePositionProvider.TopSuffix]));
-        foreach (var r in new[] { Run(Stamped(i => start.AddHours(4 * i)), symbol: null), Run(Stamped(i => start.AddDays(7 * i)), symbol: null) })
+        Assert.False(days.ContainsKey(W + CyclePositionProvider.LowInBarSuffix), "a daily chart names its average in days");
+        foreach (var (name, r, read, notRead, average) in new[]
+                 {
+                     ("4-hour", Run(Stamped(i => start.AddHours(4 * i)), symbol: null), new[] { W }, new[] { D, Y }, "40-hour average"),
+                     ("weekly", Run(Stamped(i => start.AddDays(7 * i)), symbol: null), new[] { W, Y }, new[] { D }, "10-week average"),
+                 })
         {
-            foreach (var key in new[] { D + CyclePositionProvider.LowInSuffix, W + CyclePositionProvider.LowInSuffix,
-                         Y + CyclePositionProvider.LowInSuffix, D + CyclePositionProvider.TopSuffix, CyclePositionProvider.CompHalfLow })
-                Assert.True(!r.TryGetValue(key, out var a) || Marked(a).Count == 0, key);
-            Func<string, double[]?> comp = k => r.TryGetValue(k, out var a) ? a : null;
+            foreach (var comp in read)
+                Assert.True(r.TryGetValue(comp + CyclePositionProvider.LowInSuffix, out var a) && Marked(a).Count > 100, $"{name}: {comp} not read");
+            foreach (var key in notRead.Select(c => c + CyclePositionProvider.LowInSuffix).Concat(new[] { D + CyclePositionProvider.TopSuffix, CyclePositionProvider.CompHalfLow }))
+                Assert.True(!r.TryGetValue(key, out var a) || Marked(a).Count == 0, $"{name}: {key}");
+            Assert.NotEmpty(Marked(r[CyclePositionProvider.CompWeeklyVeryHigh]));
+            Func<string, double[]?> comp2 = k => r.TryGetValue(k, out var a) ? a : null;
+            // The days to the confirmation are whole days, and the average is named in time.
+            var left = r[W + CyclePositionProvider.LowInLeftSuffix];
+            Assert.All(Marked(left), t => Assert.Equal(Math.Round(left[t]), left[t]));
+            // In days, not bars: a weekly reading runs at most a daily cycle and a half (48 days on
+            // Bitcoin, about 290 four-hour bars) to its confirmation; a weekly chart's up to 11 weeks,
+            // said in its trading days (these stamps have no weekends: 5 to the week).
+            double most = Marked(left).Max(t => left[t]);
+            Assert.True(name == "4-hour" ? most < 150 : most > 30, $"{name}: at most {most} days to a confirmation");
+            int said = Enumerable.Range(0, left.Length).Last(t => r[W + CyclePositionProvider.LowInSmaSuffix][t] > 0);
+            var words = CyclePositionProvider.LowInWords(k => comp2(k) is { } a ? a[said] : double.NaN, W)!;
+            Assert.Contains(average, words);
+            Assert.DoesNotContain("10-day", words);
             int last = r[CyclePositionProvider.LengthKey].Length - 1;
-            Assert.DoesNotContain(CyclePositionProvider.StateWords(comp, last), w => w.Contains("low is in", StringComparison.OrdinalIgnoreCase));
-            Assert.All(CyclePositionProvider.TableRows(comp, last).Where(row => row[0].Text is "Low is in" or "Top so far" or "Half-cycle low"),
+            var row = CyclePositionProvider.TableRows(comp2, last).Single(row => row[0].Text == "Low is in");
+            Assert.Equal("", row[1].Text);
+            Assert.All(CyclePositionProvider.TableRows(comp2, last).Where(row => row[0].Text is "Top so far" or "Half-cycle low"),
                 row => Assert.All(row.Skip(1), c => Assert.Equal("", c.Text)));
         }
+    }
+
+    /// <summary>
+    /// The yearly reading stays off a 4-hour chart (9 of 11 first "very high" calls right when
+    /// re-run, 2026-11-16) even where the chart is long enough for yearly lows: Bitcoin's daily
+    /// history cut into six 4-hour bars a day, eleven years.
+    /// </summary>
+    [Fact]
+    public void A_long_four_hour_chart_has_no_yearly_reading()
+    {
+        var daily = CipherSrSpeechTests.BtcDaily();
+        var start = new DateTime(2014, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var bars = new List<Ohlcv>();
+        for (int i = 0; i < daily.Count; i++)
+        {
+            var b = daily[i];
+            for (int k = 0; k < 6; k++)
+            {
+                double o = b.Open + (b.Close - b.Open) * k / 6, c = b.Open + (b.Close - b.Open) * (k + 1) / 6;
+                bars.Add(new Ohlcv { Date = start.AddDays(i).AddHours(4 * k), Open = o, Close = c, Volume = b.Volume / 6,
+                    High = k == 2 ? b.High : Math.Max(o, c), Low = k == 3 ? b.Low : Math.Min(o, c) });
+            }
+        }
+        var r = Run(bars, symbol: null);
+        Assert.True(r.TryGetValue(W + CyclePositionProvider.LowInSuffix, out var weekly) && Marked(weekly).Count > 100, "the weekly reading is read");
+        Assert.True(Marked(r[CipherCProvider.CompYcl]).Count >= 2, "no yearly lows to read: the test proves nothing");
+        Assert.True(!r.TryGetValue(Y + CyclePositionProvider.LowInSuffix, out var yearly) || Marked(yearly).Count == 0, "yearly read on a 4-hour chart");
     }
 
     /// <summary>

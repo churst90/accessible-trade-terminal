@@ -182,29 +182,38 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** The two red diamonds' size: DONE
   2026-11-16 (one factor per indicator; the Blood Diamond stays larger at every zoom). Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
   check it against; the hidden keys keep the shape names ("Blood Diamond").
-- [ ] **Cipher C on the chart's own clock (2026-11-07).** **Q** Low is in and Low expected are daily-only:
-  re-test them on time-counted 4-hour and weekly lows and bring back what holds (my recommendation)?
-  **Q** Require two daily cycles in a weekly cycle (CYCLE_POSITION_DESIGN 9.12)? Recommendation: leave it.
-  Limits: the first weekly low after the count's start is never said pending; weekly charts match the
-  original's weekly lows less well than daily charts (.516 vs .658 F1); a scroll-back on an intraday chart
-  can move the daily lows for several cycles.
-- [ ] **Cipher C drawn as the original (2026-10-21 to 10-28).** **Q** Default "Yearly lows found from price"
-  on? **Q** The dollar's table says 15-24 days and its band is drawn at 16-25, as in the original: make them
-  agree? **Q** Confirmed lows say their own confluence though the original tags none: keep, drop, or say the
-  pending tag's last value? **Q** Untuned assets: draw weekly lows (as now) or hide the marks and keep the
-  count? **Q** Announce a later change of the pending low's tag? **Q** Add a "held, unconfirmed, N days"
-  reading? **Q** Make the zero line white and dotted, as Market Cipher B's? The known gaps are listed in
-  the archived item.
-- [ ] **Cycle Position (2026-10-28).** **Q** Recalibrate the "low had come" share above 65%? **Q** Keep or
-  drop "Low expected" (right about half the time)? **Q** Say "less reliable on this chart" on weak charts?
-  **Q** Make "high" the word to act on for the weekly? **Q** Read the check-box marks as events in the
-  strategy catalog? **Q** Turn the per-asset rules on by default (the "Low is in" models would be refitted)?
-- [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** **Q** White lines are faint on Paper and
-  HighContrastLight: keep MCB's white, or grey #8C8C96 on light themes? **Q** SteelGray's fast wave is
-  2.995:1: accept, or opaque waves on that theme? **Q** The periods and the "Version" input are gone: OK?
-  Retired strategies and `TradeRanker`: DONE 2026-11-16 (the retired built-ins move out of old libraries
-  to `strategies.retired.json`; `TradeRanker` deleted; see CHANGES). **Q** The three setup graders
-  refuse to run (build 2e86d377 to re-run one): OK?
+- **Cody's answers, 2026-11-16** ("take all of your suggestions to the questions. drop the gold dot, not
+  needed."), recorded here so they are not asked again; what was built is in CHANGES. Note the names: the
+  items below that say "Cycle Position" mean today's Cycle Position (the copy of the original, named
+  Cipher C until 2026-11-04), and "Cipher C" today's Cipher C. Decided, nothing to build: Cycle
+  Position's "Yearly lows found from price" stays off; the dollar's 15-24 day table beside its 16-25
+  band stays, as in the original; confirmed lows keep saying their confluence; untuned assets keep
+  their weekly lows drawn; a pending low's later tag change is not announced; no white dotted zero
+  line. Cipher C: no two-daily-cycles rule for a weekly cycle; the 65% "low had come" share stays; the
+  per-asset rules stay off (not without refitting Low is in). Alerts do not describe what a marker
+  looks like. Bars stay named by their open time (no close-time option). The gold dot question is
+  dropped. The screenshots are not re-shot. Already built before the question (it was stale): Cycle
+  Position's "held, unconfirmed, N days" (2026-10-28) and Cipher C's "less reliable on this chart",
+  which is the weekly reading's "often missed here" (CYCLE_POSITION_DESIGN 9.8). Built 2026-11-16: the
+  rest (CHANGES, "Cody's answers to the open questions").
+- [ ] **Cipher C on the chart's own clock (2026-11-07).** Low is in re-run on the time-counted lows:
+  DONE 2026-11-16, back on weekly charts (their own weekly lows and the yearly reading) and, on 4-hour
+  coin charts, the weekly reading only (CYCLE_POSITION_DESIGN 9.14). Limits: the 4-hour daily and yearly
+  readings stay off (94.8% and 9 of 11, under the daily chart's); 1-hour and shorter charts and 4-hour
+  stock charts were not measured and read none of it; on a weekly chart only 6 of Bitstamp's own weekly
+  files were tried, the rest are daily charts made weekly; the first weekly low after the count's start
+  is never said pending; weekly charts match the original's weekly lows less well than daily charts
+  (.516 vs .658 F1); a scroll-back on an intraday chart can move the daily lows for several cycles.
+- [ ] **Cycle Position (the copy of the original, 2026-10-21 to 10-28).** Every question answered (above).
+  The known gaps are listed in the archived item ("Cipher C drawn as the original").
+- [ ] **Cipher C (2026-10-28, named Cycle Position until 2026-11-04).** Low expected removed and the weekly
+  "high" mark added: DONE 2026-11-16. To build, LATER (Cody: yes, later): read the check-box marks as
+  events in the strategy catalog.
+- [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** Grey lines on light themes and opaque waves on
+  Steel Gray: DONE 2026-11-16. Retired strategies and `TradeRanker`: DONE 2026-11-16 (the retired
+  built-ins move out of old libraries to `strategies.retired.json`; `TradeRanker` deleted; see CHANGES).
+  **Q** The periods and the "Version" input are gone: OK? **Q** The three setup graders refuse to run
+  (build 2e86d377 to re-run one): OK?
   **Q** Sound defaults saved in one "Read as" form also apply in the other: should each keep its own?
   Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
   so Trigger 2 below −53 clips the bar; the buy dot is drawn at −96; a Different Timeframe shorter than the
@@ -222,19 +231,13 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **The Market Cipher strategy tests (2026-10-25).** **Q** Wait months for new 4h bars to re-test the
   crypto 4h trigger-wave entry under its own pre-registration? A future round with exits needs more than
   2,380 random books.
-- [ ] **Heikin-Ashi (2026-10-22).** A custom compiled indicator cannot be recomputed in the strategy
-  path, so its leaves are false in a strategy on an HA chart. **Cody 2026-11-16: "custom indicators should
-  be able to be calculated using ha, of course."** To build: recompute them on HA candles in the strategy
-  path (on the chart they already are). Limits: a background tab's candle type is read when its monitor starts; the hosted server's
+- [ ] **Heikin-Ashi (2026-10-22).** Custom compiled indicators are computed for strategies (on HA
+  candles when asked), in the backtester and in background tabs: DONE 2026-11-16 (CHANGES); not tried in
+  the app with a custom indicator. Limits: a background tab's candle type is read when its monitor starts; the hosted server's
   alerts and the focused close line read the raw close; compiled and plugin strategies ignore "Signals from
   Heikin-Ashi candles".
-- [ ] **Timing windows and signal looks (2026-10-22).** **Q** Alt+Shift+D says the window count and the
-  words say it again: keep the raw value or drop it? **Q** Should alerts describe the marker too ("Say what
-  signals look like")? **Q** Did "keep the gold dot as a drawing element" mean a gold dot you can place
-  among the drawing tools? Not built.
-- [ ] **Drawing tools (2026-11-01/02).** **Q** Offer an option to speak a bar's CLOSE time instead of its
-  open? Limits: an alert on a drawn level stays at its price if the drawing moves; sloped lines are not
-  offered as alert lines.
+- [ ] **Drawing tools (2026-11-01/02).** Limits: an alert on a drawn level stays at its price if the
+  drawing moves; sloped lines are not offered as alert lines.
 - [ ] **Smaller limits, mine.** Built timeframes: 7h buckets count from 1970, not from midnight (check what
   TradingView does), and a 7h chart from Bitstamp's 1h loads about 142 bars. Trade status bar: no key
   speaks the trades. Close at limit: no percent on the market Close position button, and "Size in" is not
@@ -267,8 +270,8 @@ question for Cody; the rest are known limits I wrote down.
 The Windows zip check, the website and the hosted terminal were done on 2026-11-16 (see CHANGES,
 Unreleased). Left:
 
-- [ ] **Re-shoot the site's screenshots?** 2.13's status lines replace the old colour key, so the hero shot
-  is out of date in that detail. `~/att-release-tools/shoot.js` on the VPS; only if Cody wants it.
+Nothing left: the screenshots are not re-shot (Cody, 2026-11-16, taking the recommendation; the hero
+shot's old colour key is the only detail out of date).
 
 ## The Windows installer and tidy zip (2.13.1, 2026-11-16)
 

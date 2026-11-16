@@ -739,8 +739,8 @@ So the terminal keeps these raw whatever the candles are doing:
 
 - **Strategies read the real bars unless you ask otherwise, and always trade real prices.**
   On an HA chart a strategy's indicators are recomputed on the real bars before it reads them,
-  in the live engine, on a background tab and in the backtester alike, so the chart's candle
-  type never changes what a strategy does. A strategy can instead read its *signals* on
+  in the live engine, on a background tab and in the backtester alike (your own compiled
+  indicators too), so the chart's candle type never changes what a strategy does. A strategy can instead read its *signals* on
   Heikin-Ashi: tick "Signals from Heikin-Ashi candles" in Build Setup. Its conditions then read
   Heikin-Ashi candles and indicators computed on them, on any chart, while its entry, stop,
   targets, fills and profit and loss stay on real prices. This is TradingView's "Fill orders on
@@ -1533,7 +1533,11 @@ Pending**, **Weekly Low Cancelled**, **Weekly Cycle Failed**, and the same three
 cycle. They are heard and said, not drawn ("Weekly cycle low pending: the low of 59,930, it would
 end a 32.7 week cycle"). The check box **Only this chart's own cycle** (in its settings, off by default) leaves
 the longer cycles out entirely: their lows, windows, events and readings, said and in the table.
-Low is in, the tops and the half-cycle lows are read on a daily chart only. (Low expected, the
+Low is in is read on a daily chart; on a weekly chart for its own weekly lows and the yearly low; on
+a 4-hour crypto chart for the weekly low only (the daily and yearly readings were less reliable there,
+and other intraday charts were not tested). Off a daily chart it says the days to the confirmation
+in days and the average in time: "the 10-week average", "the 40-hour average". The tops and the
+half-cycle lows are read on a daily chart only. (Low expected, the
 chance of a new daily low in the next few days, was removed on 16 November 2026: its "likely" was
 right about half the time. An alert or strategy built on its line no longer finds it.) Neither
 indicator is an edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before

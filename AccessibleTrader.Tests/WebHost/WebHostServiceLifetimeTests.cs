@@ -89,6 +89,44 @@ public class WebHostServiceLifetimeTests
         Assert.True(Assert.IsType<AccessibleTrader.Core.Services.Workspace.MarketFeeds>(feeds).PivotsTimeframes);
     }
 
+    private sealed class SevenIndicator : AccessibleTrader.Sdk.Interfaces.ICustomIndicator
+    {
+        public string Id => "SEVEN";
+        public string DisplayName => "Seven";
+        public string[] ComponentNames => new[] { "v" };
+        public AccessibleTrader.Sdk.Models.ComponentDisplayType[] DisplayTypes => new[] { AccessibleTrader.Sdk.Models.ComponentDisplayType.Line };
+        public Dictionary<string, double> DefaultParameters => new();
+        public double[][] Calculate(ReadOnlySpan<AccessibleTrader.Sdk.Models.Ohlcv> data, Dictionary<string, double> parameters)
+            => new[] { Enumerable.Repeat(7.0, data.Length).ToArray() };
+    }
+
+    /// <summary>
+    /// The indicator service strategies, background tabs and the backtester compute through is
+    /// built WITH the circuit's custom indicators. Optional on the constructor, so a container
+    /// that could not supply them would build without them in silence, and every custom
+    /// indicator's strategy leaves would be false again.
+    /// </summary>
+    [Fact]
+    public void IndicatorService_ComputesTheCircuitsCustomIndicators()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddSingleton(new DemoPolicy(isDemo: false));   // Program.cs registers it
+        services.AddAccessibleTraderWebHostServices();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var circuit = provider.CreateScope();
+        circuit.ServiceProvider.GetRequiredService<AccessibleTrader.Core.Services.Indicators.ICustomIndicatorRegistry>()
+            .Register(new SevenIndicator());
+
+        var results = new Dictionary<string, double[]>();
+        var bars = new[] { new AccessibleTrader.Sdk.Models.Ohlcv(new DateTime(2026, 1, 1), 1, 1, 1, 1, 1) };
+        circuit.ServiceProvider.GetRequiredService<IIndicatorService>().CalculateIndicator("SEVEN", bars,
+            new Dictionary<string, object>(), new AccessibleTrader.Core.Services.Indicators.IndicatorResultBuffer(results, 1));
+
+        Assert.Equal(7.0, Assert.Single(results["v"]));
+    }
+
     [Fact]
     public void TwoCircuits_GetIndependentState()
     {

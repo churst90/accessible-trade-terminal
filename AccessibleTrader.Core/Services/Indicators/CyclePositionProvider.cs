@@ -105,6 +105,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             LowInAboveSuffix = "_lowInAbove", LowInRiseSuffix = "_lowInRise", LowInStructureSuffix = "_lowInStructure",
             LowInSmaSuffix = "_lowInSma", LowInDssSuffix = "_lowInDss", LowInSarSuffix = "_lowInSar", LowInBreakSuffix = "_lowInBreak",
             LowInLowSuffix = "_lowInLow";
+        /// <summary>The bar's length in days where a reading is read off a daily chart (2026-11-16), so its
+        /// 10-bar average is said in time: the 10-week average, or the 40-hour one on 4-hour bars;
+        /// absent on a daily chart.</summary>
+        public const string LowInBarSuffix = "_lowInBar";
         /// <summary>
         /// The weekly reading's record on the chart so far (2026-10-28): of the weekly lows confirmed up to
         /// each bar, how many had a "very high" weekly reading before (or on) their confirmation. Where
@@ -440,8 +444,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             everyDay = tiers.Clock.TradesEveryDay;
             var (clock, L, years, yMin, yMax) = (tiers.Clock, tiers.L, tiers.Years, tiers.YMin, tiers.YMax);
             // Low is in, the tops and the half-cycle lows were fitted and measured on
-            // daily charts, some in fixed bars (the 10-bar average, a 20-bar volatility), so they are
-            // read only there; a 4-hour chart's daily cycle is 300 bars, not the 50 they learned on.
+            // daily charts, some in fixed bars (the 10-bar average, a 20-bar volatility), so the tops
+            // and half-cycle lows are read only there; a 4-hour chart's daily cycle is 300 bars, not
+            // the 50 they learned on. Low is in is read where it was re-measured and held (below).
             bool dailyChart = Math.Abs(clock.BarsPerDay - 1) <= 1e-6;
             var (dTier, wTier, yTier, d, w, y, weeklyFromDaily) = (tiers.DTier, tiers.WTier, tiers.YTier, tiers.D, tiers.W, tiers.Y, tiers.WeeklyFromDaily);
             double qFrom = Math.Clamp(Dbl(p, ParamBandFrom, DefaultBandFrom), 0, 100) / 100;
@@ -487,35 +492,50 @@ namespace AccessibleTrader.Core.Services.Indicators
             };
             Draw(o, data, p, plan);
 
-            // Low is in, on a daily chart. Counted in bars it held unseen on 4-hour
-            // and weekly charts (2026-10-28: the first "very high" right 96.5% on 15 4-hour charts, 97.1%
-            // on 15 weekly ones, against 96.6% on the daily), but there the cycles they read were bars
-            // (2026-11-07: a 4-hour chart's daily cycle is days now, and a weekly chart has none).
-            if (dTier.Active && dailyChart)
+            // Low is in. Fitted on daily charts; re-run 2026-11-16 on the time-counted lows (2026-11-07)
+            // and kept where the first "very high" call held as well as on a daily chart
+            // (CYCLE_POSITION_DESIGN section 9.14): on a weekly chart, its own weekly lows read as a daily
+            // chart reads its daily ones (99.2% right on 51 charts) and the yearly reading (99.7%); on a
+            // 4-hour coin chart, the weekly reading only (96.2% on 7, against 95.8% on the daily chart).
+            // There the daily reading (94.8%, against 98.1% on the same coins' daily charts) and the
+            // yearly one (9 of 11) stay off, as do other intraday charts, which were not measured.
+            bool fourHourChart = clock.TradesEveryDay && Math.Abs(clock.BarsPerDay - 6) <= 1e-6;
+            bool weeklyChart = !dTier.Active && wTier.Active && w.HeldAt.Length == n
+                               && Math.Abs(clock.BarDays - clock.DaysPerWeek) <= 0.05 * clock.DaysPerWeek;
+            if (dTier.Active && (dailyChart || fourHourChart) || weeklyChart)
             {
-                bool yearly = yTier.Active;
-                bool weekly = weeklyFromDaily && w.NewestAt.Length == n;
-                var lc = CycleLowConfidence.Compute(data, d, L,
-                    weekly ? w : null, tiers.WeeklyGap, yearly ? y : null, years);
-                foreach (var (comp, r, on) in new[] { (CompDailyWindow, (CycleLowConfidence.Reading)lc, true), (CompWeeklyWindow, lc.Weekly, weekly), (CompYearlyWindow, lc.Yearly, yearly) })
+                bool daily = dTier.Active && dailyChart;
+                bool yearly = yTier.Active && !fourHourChart;
+                bool weekly = weeklyChart || weeklyFromDaily && w.NewestAt.Length == n;
+                var lc = weeklyChart
+                    ? CycleLowConfidence.Compute(data, w, wTier.MinBars, null, double.NaN, yearly ? y : null, years)
+                    : CycleLowConfidence.Compute(data, d, L * dayBars, weekly ? w : null, tiers.WeeklyGap, yearly ? y : null, years);
+                // On a weekly chart the chart's own reading is the weekly one.
+                var weeklyReading = weeklyChart ? lc : lc.Weekly;
+                foreach (var (comp, r, on) in new[] { (CompDailyWindow, (CycleLowConfidence.Reading)lc, daily), (CompWeeklyWindow, weeklyReading, weekly), (CompYearlyWindow, lc.Yearly, yearly) })
                 {
                     if (!on) continue;
+                    // Days to the confirmation, in days on every chart.
+                    var left = dailyChart ? r.Left : r.Left.Select(v => Math.Round(v / dayBars)).ToArray();
                     foreach (var (suffix, values) in new[]
                              {
-                                 (LowInSuffix, r.Chance), (LowInTouchSuffix, r.Touch), (LowInLeftSuffix, r.Left), (LowInAboveSuffix, r.Above),
+                                 (LowInSuffix, r.Chance), (LowInTouchSuffix, r.Touch), (LowInLeftSuffix, left), (LowInAboveSuffix, r.Above),
                                  (LowInRiseSuffix, r.Rise), (LowInLowSuffix, r.Low), (LowInStructureSuffix, r.Structure), (LowInSmaSuffix, r.Sma),
                                  (LowInDssSuffix, r.Dss), (LowInSarSuffix, r.Sar), (LowInBreakSuffix, r.Break),
                              })
                         // The yearly reading counts no confirmations: it does not read them.
                         if (comp != CompYearlyWindow || suffix is LowInSuffix or LowInTouchSuffix or LowInLeftSuffix or LowInAboveSuffix or LowInRiseSuffix or LowInLowSuffix)
                             o[comp + suffix] = values;
+                    // The bar's length in days, for the 10-bar average's name.
+                    if (!dailyChart && comp != CompYearlyWindow)
+                        o[comp + LowInBarSuffix] = r.Chance.Select(v => double.IsNaN(v) ? double.NaN : clock.BarDays).ToArray();
                 }
-                if (weekly) (o[CompWeeklyWindow + CalledSuffix], o[CompWeeklyWindow + CalledOfSuffix]) = Record(w.LastLowAt, lc.Weekly.Subject, lc.Weekly.Chance);
-                foreach (var (r, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompLowInLine, true), (lc.Weekly, CompWeeklyLowInLine, weekly), (lc.Yearly, CompYearlyLowInLine, yearly) })
+                if (weekly) (o[CompWeeklyWindow + CalledSuffix], o[CompWeeklyWindow + CalledOfSuffix]) = Record(w.LastLowAt, weeklyReading.Subject, weeklyReading.Chance);
+                foreach (var (r, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompLowInLine, daily), (weeklyReading, CompWeeklyLowInLine, weekly), (lc.Yearly, CompYearlyLowInLine, yearly) })
                     if (on) o[line] = r.Chance.Select(v => 100 * v).ToArray();
-                foreach (var (r, mark, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompVeryHigh, CompCallLine, true), (lc.Weekly, CompWeeklyVeryHigh, CompWeeklyCallLine, weekly) })
+                foreach (var (r, mark, line, on) in new[] { ((CycleLowConfidence.Reading)lc, CompVeryHigh, CompCallLine, daily), (weeklyReading, CompWeeklyVeryHigh, CompWeeklyCallLine, weekly) })
                     if (on) VeryHighCalls(data, r, o[mark], o[mark + ShareSuffix], o[line]);
-                if (weekly) VeryHighCalls(data, lc.Weekly, o[CompWeeklyHigh], o[CompWeeklyHigh + ShareSuffix], o[CompWeeklyHighCallLine], High);
+                if (weekly) VeryHighCalls(data, weeklyReading, o[CompWeeklyHigh], o[CompWeeklyHigh + ShareSuffix], o[CompWeeklyHighCallLine], High);
             }
 
             // The original's confluence grade, while a daily low is held, with its two points.
@@ -1196,7 +1216,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// broken, closes above the 10-day average, ...": the word and the facts it was read from. On
         /// the weekly and yearly windows, "weekly low is in: ..., for the low of 61,200; ..." (the low
         /// it reads need not be the held daily one); the yearly reading names no confirmations, as it
-        /// does not read them. Read on a daily chart only.
+        /// does not read them. Read on daily charts; on weekly charts the weekly and yearly readings,
+        /// on 4-hour coin charts the weekly one (2026-11-16).
         /// With <paramref name="besideDaily"/> (said after the daily reading), a weekly reading of the
         /// same low as the daily one says so and leaves out what the daily one has just said: how far
         /// above the low and the confirmations.
@@ -1225,7 +1246,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (comp == CompYearlyWindow) return s;
             var on = new List<string>();
             if (V(LowInStructureSuffix) > 0) on.Add("a higher low's high broken");
-            if (V(LowInSmaSuffix) > 0) on.Add($"closes above the 10-{day} average");
+            double bar = V(LowInBarSuffix);
+            if (V(LowInSmaSuffix) > 0) on.Add(double.IsNaN(bar) || Math.Abs(bar - 1) < 1e-6 ? $"closes above the 10-{day} average"
+                : bar >= 5 ? "closes above the 10-week average" : $"closes above the {Num(Math.Round(240 * bar))}-hour average");
             if (V(LowInDssSuffix) > 0) on.Add("the stochastic over its trigger");
             if (V(LowInSarSuffix) > 0) on.Add("the SAR under price");
             if (V(LowInBreakSuffix) > 0) on.Add("a close above the 10 before it");

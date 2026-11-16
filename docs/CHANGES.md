@@ -70,6 +70,34 @@ All notable changes to this project will be documented in this file.
   already "very high"), and **Weekly High Call**, a line for strategies and alerts (off by default).
   The "Very high marks" switch hides it too. CYCLE_POSITION_DESIGN section 9.13. Four sabotages each turn
   a test red (checked). Not seen or heard in the app; one weekly "high" in six is later undercut.
+- **Cipher C: Low is in is back on weekly charts, and its weekly reading on 4-hour coin charts.** It
+  was daily-only since the 2026-11-07 change to counting in time, with its old 4-hour and weekly
+  scores unchecked. Re-run on the time-counted lows (nothing refitted), the first "very high" call:
+  on 51 charts made weekly, the chart's own weekly lows 99.2% right (91.7% called by their
+  confirmation) and the yearly reading 99.7%; on 7 coins' 4-hour charts the weekly reading 96.2%
+  (95.8% on daily charts). Kept off, below the daily chart's own: the 4-hour daily reading (94.8%,
+  against 98.1% on the same coins' daily charts) and the 4-hour yearly one (9 of 11). On those charts
+  the weekly very high and high marks, call lines and the "often missed here" record come back with
+  it. Said in time: days to the confirmation in days (trading days without weekends), "the 10-week
+  average", "the 40-hour average". Other intraday charts and 4-hour stock charts were not measured and
+  read nothing. CYCLE_POSITION_DESIGN section 9.14. Five sabotages each turn a test red (checked). Not
+  seen or heard in the app.
+- **Custom compiled indicators are computed for strategies, on Heikin-Ashi candles when asked.** Cody:
+  "custom indicators should be able to be calculated using ha, of course." The chart already computed
+  a custom (Roslyn or Pine) indicator on Heikin-Ashi; the strategy path did not compute one at all. It
+  recomputes through the indicator service, which knew only the built-in providers; the custom
+  indicators sit in a registry only the chart read. So a custom indicator's leaves were false (no
+  error, no word) in four places: a Heikin-Ashi-signal strategy; any strategy on a Heikin-Ashi chart
+  (which recomputes on the real bars); the backtester for both; and, found while doing this, a
+  background tab, whose alerts and strategies recompute every indicator through the same service on
+  candle charts too. The service now holds the custom registry and computes a custom indicator first,
+  as the chart does, through one shared routine (`IndicatorEngine.CalculateCustom`), so a strategy
+  reads what the chart drew. Tests: a custom spy beside the provider spy in the Heikin-Ashi strategy
+  tests (signal on the Heikin-Ashi close, real-bar reading on a Heikin-Ashi chart, the backtest), and
+  the web host's own container computing a circuit's custom indicator. Three sabotages turn them red
+  (no custom branch, customs on the real bars, the registry not kept). The background tab is covered
+  by the shared service, not by a test through the monitor. Not tried in the app with a custom
+  indicator.
 
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 
@@ -5032,7 +5060,7 @@ Caveats:
 2. **Scope.** Applies to condition-tree strategies only. A compiled (Roslyn) or plugin strategy ignores
    the flag.
 3. **Custom compiled indicators.** They cannot be recomputed in this path, so their leaves evaluate
-   false in a Heikin-Ashi-signal strategy (as they already did for any strategy on a Heikin-Ashi chart).
+   false in a Heikin-Ashi-signal strategy (as they already did for any strategy on a Heikin-Ashi chart). Fixed 2026-11-16: they are computed in this path now.
 4. **Date-filtered warm-up.** In a date-filtered backtest, the strategy's Heikin-Ashi price history is
    seeded from the window's first bar, not the chart's. The difference halves with every bar, so it is
    gone well inside the 200-bar warm-up.
@@ -5154,8 +5182,8 @@ Tests (23 new):
 - **Caveats:**
   - ~~price in an alert is the real price~~ — answered the same day: every close is the Heikin-Ashi
     close on a Heikin-Ashi chart (entry above);
-  - a custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
-    false in a strategy on a Heikin-Ashi chart;
+  - ~~a custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate
+    false in a strategy on a Heikin-Ashi chart~~ — fixed 2026-11-16;
   - a background tab's candle type is read when its monitor starts; switching it later takes effect
     at the next restart of that monitor;
   - not seen or heard in the app.

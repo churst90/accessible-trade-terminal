@@ -59,18 +59,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (_customRegistry.TryGet(code, out var custom) && custom != null)
             {
                 var results = await Task.Run(() =>
-                {
-                    // A custom compiled indicator on a Heikin-Ashi chart reads Heikin-Ashi, as on TradingView.
-                    var span = IndicatorCandles.For(null, data, parameters).AsSpan();
-                    var p = parameters.ToDictionary(
-                        kv => kv.Key,
-                        kv => kv.Value is double d ? d : double.TryParse(kv.Value?.ToString(), out double pv) ? pv : 0.0);
-                    var arrays = custom.Calculate(span, p);
-                    var result = new Dictionary<string, double[]>();
-                    for (int i = 0; i < custom.ComponentNames.Length && i < arrays.Length; i++)
-                        result[custom.ComponentNames[i]] = arrays[i];
-                    return result;
-                }, ct).ConfigureAwait(false);
+                    CalculateCustom(custom, (data as Ohlcv[] ?? data.ToArray()).AsSpan(), parameters), ct).ConfigureAwait(false);
                 return (results, Array.Empty<ZoneBandConfig>());
             }
 
@@ -86,6 +75,27 @@ namespace AccessibleTrader.Core.Services.Indicators
                 var zoneBands = buffer.ReadZoneBands(code);
                 return (buffer.GetResults(), zoneBands);
             }, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// A custom (Roslyn/Pine-compiled) indicator's components over <paramref name="data"/>, by
+        /// component name. On a Heikin-Ashi chart, or for a strategy reading its signals there
+        /// (<see cref="IndicatorCandles.HeikinAshiKey"/> stamped), it reads Heikin-Ashi candles, as
+        /// on TradingView. The chart and the strategy path (<see cref="IndicatorService"/>) both
+        /// compute it here, so a strategy reads what the chart drew.
+        /// </summary>
+        public static Dictionary<string, double[]> CalculateCustom(ICustomIndicator custom, ReadOnlySpan<Ohlcv> data,
+            Dictionary<string, object> parameters)
+        {
+            var span = IndicatorCandles.For(null, data, parameters).AsSpan();
+            var p = parameters.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value is double d ? d : double.TryParse(kv.Value?.ToString(), out double pv) ? pv : 0.0);
+            var arrays = custom.Calculate(span, p);
+            var result = new Dictionary<string, double[]>();
+            for (int i = 0; i < custom.ComponentNames.Length && i < arrays.Length; i++)
+                result[custom.ComponentNames[i]] = arrays[i];
+            return result;
         }
 
         public async Task<Dictionary<string, double>> CalculateIncrementalAsync(string code, IReadOnlyList<Ohlcv> data, Dictionary<string, object> parameters, Dictionary<string, double[]> previousResults, CancellationToken ct)

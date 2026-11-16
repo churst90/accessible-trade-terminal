@@ -626,8 +626,9 @@ with Cycle Position's own lows and default settings.
 ### 9.1 "Low is in" and "Low expected" off daily charts
 
 > **Superseded 2026-11-07 (section 9.11):** the cycles now count in time on every chart, so these
-> readings, fitted on daily bars, are read on daily charts only. The scores below were under the old
-> bar counting; they have not been re-run on the time-counted lows.
+> readings, fitted on daily bars, were read on daily charts only. The scores below were under the old
+> bar counting. **Re-run on the time-counted lows 2026-11-16 (section 9.14):** the weekly chart's
+> readings and the 4-hour chart's weekly one are back; the 4-hour daily and yearly ones stay off.
 
 The models count in bars (the clock, the volatility and the confirmations are all bar counts), so
 the daily ones were scored, without refitting, on 4-hour and weekly charts they never saw:
@@ -1136,3 +1137,51 @@ bar of Bitcoin's weekly reading, the speech, the order); four sabotages (the cal
 mark not left off a very high bar, the switch not hiding it, said as "very high") each turn a test red.
 Not seen or heard in the app. The 82% is the reading's own calibration: one weekly "high" in six is a
 low that is later undercut.
+
+### 9.14 "Low is in" off daily charts, re-run on the time-counted lows (2026-11-16)
+
+Cody took the recommendation to re-test Low is in on the 4-hour and weekly charts now that their
+cycles count in time (section 9.11), and bring back what holds. Nothing was refitted. The bar to
+pass: the first "very high" call right at least as often as on a daily chart (95%), the bands
+calibrated. A low is "right" when it is confirmed; the newest low on each chart is left out as
+unsettled; "caught" means called by its confirmation.
+
+| Chart, reading | Charts | Lows | First very high right | Caught | "high" bars right | "very high" bars right |
+|---|---|---|---|---|---|---|
+| Daily, daily reading (the same 7 coins) | 7 | 421 | 98.1% (413/421) | 98.1% | 91.1% | 99.5% |
+| Daily, weekly reading (51 charts, section 9.13) | 51 | 3,878 | 95.8% | 75.1% | 89.0% | 97.1% |
+| Daily, yearly reading | 51 | 323 | 97.3% (323/332) | 100% | 91.6% | 98.8% |
+| **Weekly, its own weekly lows** (51 daily charts made weekly) | 51 | 1,946 | **99.2%** (1,784/1,798) | 91.7% | 94.7% | 99.5% |
+| **Weekly, yearly reading** | 51 | 323 | **99.7%** (318/319) | 98.5% | 97.7% | 99.8% |
+| Weekly, own lows (Bitstamp's own weekly files) | 6 | 31 | 100% (19/19) | 61.3% | 81.0% | 100% |
+| Weekly, yearly (Bitstamp's own weekly files) | 6 | 9 | 100% (8/8) | 88.9% | 100% | 100% |
+| **4-hour, weekly reading** | 7 | 188 | **96.2%** (152/158) | 80.9% | 90.6% | 96.4% |
+| 4-hour, daily reading | 7 | 475 | 94.8% (475/501) | 100% | 88.7% | 99.0% |
+| 4-hour, yearly reading | 7 | 9 | 81.8% (9/11) | 100% | 68.1% | 87.8% |
+
+The 4-hour charts are Bitstamp's BTC (2011 on), ETH, SOL, DOGE and XRP and MEXC's KAS and TAO. Each
+reading's clock is in the chart's bars (a 4-hour chart's 48-day cycle is 288 bars); passed in days
+instead, the 4-hour daily reading's first very high is right 56.5%, so the clock must be in bars.
+The weekly chart reads its own weekly lows with the daily reading (the held low and its
+confirmations, on a clock of the shortest weekly cycle in weeks); the daily chart's weekly reading
+reads a different subject, the daily low that would become the weekly one.
+
+Two other ways were tried for the 4-hour chart. The daily chart's own reading, said on the 4-hour bars
+of the next day, read the same low as the 4-hour chart's held daily low on only 23% to 50% of the bars
+(the two charts find their daily lows apart). The daily reading on 4-hour bars calls a median 42 bars
+(7 days) before the confirmation, against 5 days on a daily chart, and is wrong 2.7 times as often.
+
+**Built:** on a weekly chart, Low is in for the weekly window (the chart's own) and the yearly
+window, with the weekly very high and high marks and call lines and the "often missed here" record;
+on a 4-hour coin chart (six bars a day, every day), the weekly window only. Other intraday charts and
+4-hour stock charts were not measured and read nothing. The days to the confirmation are said in
+days (bars divided by bars a day, whole days; trading days on a chart without weekends, as on a daily
+one), and the 10-bar average in time: "closes above the 10-week average", "the 40-hour average".
+The tops and half-cycle lows stay daily-only.
+
+Tests: `Off_a_daily_chart_only_the_readings_that_held_are_read` (Bitcoin's daily history stamped
+4-hourly and weekly: which readings are read, the very high marks, whole days and their size, the
+average's name, an empty daily cell) and `A_long_four_hour_chart_has_no_yearly_reading` (eleven years
+of 4-hour bars, with yearly lows found). Five sabotages each turned one red: the old daily-only gate,
+the days left in bars, "10-day average", the yearly reading on 4-hour, the daily reading on 4-hour.
+The harness was a throwaway test (not committed). Not seen or heard in the app.
