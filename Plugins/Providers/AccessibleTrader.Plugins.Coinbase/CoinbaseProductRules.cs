@@ -141,7 +141,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             {
                 if (Rules.Refusal(signal.Quantity, price) is string small) return small + Contract.Note;
                 if (Contract.MaxContracts > 0 && Rules.FloorQuantity(signal.Quantity) > Contract.MaxContracts)
-                    return $"Coinbase's largest {Rules.Symbol} order is {SymbolOrderRules.Plain(Contract.MaxContracts)} contracts; "
+                    return $"Coinbase's largest {Rules.Symbol} order is {SymbolOrderRules.Plain(Contract.MaxContracts)} {SymbolOrderRules.Unit(Contract.MaxContracts, "contracts")}; "
                          + $"this one is {SymbolOrderRules.Plain(signal.Quantity)}{Contract.Note}";
                 return null;
             }

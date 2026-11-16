@@ -198,7 +198,7 @@ namespace AccessibleTrader.Tests
         {
             var h = Armed();
             string result = await Mexc(h).PlaceOrderAsync(new TradeSignal("BTC_USDT", OrderSide.Buy, 0.5, OrderType.Market, SubType: "Futures"));
-            Assert.Equal("ORDER_FAILED:MEXC's smallest BTC/USDT perpetual order is 1 contracts; this one is 0.5 contracts"
+            Assert.Equal("ORDER_FAILED:MEXC's smallest BTC/USDT perpetual order is 1 contract; this one is 0.5 contracts"
                        + " (one contract is 0.0001 BTC)", result);
             Assert.Empty(Calls(h, "/order/submit"));
         }

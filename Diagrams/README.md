@@ -68,7 +68,7 @@ over one shared Razor component library and one platform-agnostic Core. Shows wh
 `DemoPolicy` sits between a head and the features it may use, the input pipeline from key
 capture through `ModalStack` to `CommandDispatcher`, the chart model (`PaneAssignmentService`,
 `ChartPaneModel`), the orchestration layer, the accessibility and audio clusters, the
-background monitor and the notification tier that decides spoken-versus-notified, the 16
+background monitor and the notification tier that decides spoken-versus-notified, the 18
 trading and 17 analytics plugins behind the SDK contract, out-of-process script isolation,
 and the four output surfaces (screen, speech, tactile pins, audio). Read it first.
 
@@ -122,7 +122,7 @@ transient speech re-readable. Read this before touching anything that speaks.
 ## The subsystems
 
 **[`indicator_adapter.mmd`](indicator_adapter.mmd)** — the `IIndicatorProvider` surface and the
-36 implementations in Core, grouped by what they adapt: Skender wrappers, the in-house Cipher
+37 implementations in Core, grouped by what they adapt: Skender wrappers, the in-house Cipher
 family, structure and levels, regime and cycles, the six that read from analytics plugins rather
 than from price, and the composites. Drop-in DLLs under `Plugins/Indicators/` implement the same
 interface and load the same way. `GetStabilityWindow` is the causality contract — how many

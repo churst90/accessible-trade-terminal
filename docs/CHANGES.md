@@ -2,7 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.13.0] — 2026-11-16
+
+### The 2.13.0 cut: "1 contracts" fixed, Cody's checks recorded, venue trading marked untested (2026-11-16)
+
+- **What Cody said:** "All of the points to verify and check by ear have all been verified: the cipher A
+  changes, cipher C, timestamps, patterns, everything has been verified. I have not verified the provider
+  trading on demo accounts yet you can mark these as untested for now in the readme. the #3 coinbase
+  issue, fix this."
+- **"1 contracts":** a refusal said "Coinbase's smallest BTC Perp order is 1 contracts", and MEXC futures
+  "1 contracts" the same way (the unit came from `QuantityUnit` unchanged). `SymbolOrderRules.Unit` now
+  says "contract" for exactly one; asset codes (BTC, USD) never change. Used by the smallest-order refusal
+  (every venue), Coinbase's largest-order and close-larger-than-position refusals, and Kalshi's bracket
+  message. Two tests had pinned the wrong text (Coinbase futures, MEXC futures) and now pin the right one,
+  and `SymbolOrderRulesTests` gains one for 1 contract against 2. Proven: with `Unit` returning the unit
+  unchanged, all three go red. The manual's Coinbase futures quote is fixed.
+- **TODO:** "Built, waiting for Cody to see or hear" is gone. Its 31 verified items moved word for word to
+  `docs/archive/TODO_HISTORY.md` ("Verified by Cody 2026-11-16"); their open questions are a short list in
+  TODO ("Verified by Cody (2026-11-16): what is still open", **Q** for Cody's). The 8 trading items stay,
+  under "Trading not yet tried on a practice or real account". The pre-2.13 list became "After the 2.13
+  tag": the Windows zip's precompile check, the website, the hosted terminal.
+- **README.md and docs/README.md** say venue trading is untested: paper trading is the tried path, no order
+  has been placed through a venue on a demo or practice account or with money, and each venue is proven
+  only against copies of its answers.
+- **WHATSNEW** is 2.13.0's, grouped under headings (untested trading first, then the Ciphers, cycles,
+  trading, hearing the chart, drawings and alerts, charts, settings). Four pairs that said the same thing
+  twice are merged; "Not yet heard / seen" is gone (Cody verified them); "Not yet tried with money" stays.
+  The venue-rules pass and Kraken's balances (2026-11-10), missing from it, are added. 2.12.0's section
+  moved out (the file's rule; its history is below).
+- **Diagrams:** 18 trading providers (was 16), 37 indicator implementations (was 36; DbsiStyleProvider,
+  DssBressertProvider and CyclePositionProvider added to the adapter diagram), and the trade lifecycle's
+  stop line names who attaches a stop, who refuses the entry (2026-11-14) and Kalshi's exit triggers.
+- **Version** 2.13.0.
+- **Caveat:** trading through every venue remains untried with money or on a demo account; that is said
+  in the README and in WHATSNEW rather than fixed.
 
 ### Doc sweep before 2.13 (2026-11-16)
 

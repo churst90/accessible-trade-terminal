@@ -656,7 +656,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                 return $"There is no {contract.Name} position for this to close, and Coinbase futures orders cannot be marked "
                      + "close-only, so it would open a new one. Nothing was sent";
             if (signal.Quantity > closing + 1e-9)
-                return $"The {contract.Name} position is {SymbolOrderRules.Plain(closing)} contracts; closing "
+                return $"The {contract.Name} position is {SymbolOrderRules.Plain(closing)} {SymbolOrderRules.Unit((decimal)closing, "contracts")}; closing "
                      + $"{SymbolOrderRules.Plain(signal.Quantity)} would open the rest the other way, and Coinbase futures "
                      + "orders cannot be marked close-only. Nothing was sent";
             return null;

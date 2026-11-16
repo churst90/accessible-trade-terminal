@@ -1,7 +1,7 @@
 ---
 title: Indicator providers — the adapter surface
 ---
-%% Verified against the tree on 2026-08-28: 36 IIndicatorProvider implementations in
+%% Verified against the tree on 2026-11-16: 37 IIndicatorProvider implementations in
 %% AccessibleTrader.Core, grouped below by what they adapt. Drop-in DLLs under
 %% Plugins/Indicators/ implement the same SDK interface and are loaded the same way.
 classDiagram
@@ -40,12 +40,13 @@ classDiagram
         SkenderZeroCrossProvider
     }
     class AccessibleCipher {
-        <<5 classes, in-house>>
+        <<6 classes, in-house>>
         CipherAProvider
         CipherBProvider
         CipherCProvider
         CipherSProvider
         CipherSrProvider
+        DbsiStyleProvider
     }
     class StructureAndLevels {
         <<6 classes>>
@@ -57,12 +58,14 @@ classDiagram
         IchimokuProvider
     }
     class RegimeAndCycles {
-        <<5 classes>>
+        <<7 classes>>
         RegimeProvider
         VolRegimeProvider
         HurstExponentProvider
         PulseProvider
         ValueDeviationProvider
+        CyclePositionProvider
+        DssBressertProvider
     }
     class AnalyticsBacked {
         <<6 classes>>

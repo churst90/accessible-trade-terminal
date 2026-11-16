@@ -13,10 +13,10 @@ running the sabotage is what found real ones. Test one thing, write down what th
 
 The agreed order, unchanged:
 
-1. The first section below is everything that is BUILT but not yet seen or heard by Cody. Most of the
-   recent work is in it. Until Cody has looked and listened, treat these as unverified, and take his
-   findings before starting new work on the same feature.
-2. Then Cody's open questions (they are inside each item, under "Questions").
+1. The first section below is trading through the venues, which is BUILT but has not been tried on a
+   demo, practice or real account. Treat it as unverified until an account answers. Everything else built
+   up to 2.13 was seen and heard by Cody on 2026-11-16.
+2. Then Cody's open questions (marked **Q** in the second section).
 3. Then the older audit findings in the last section. None of them has been re-checked since it was
    filed (2026-08 and earlier), and many may have shipped since: check CHANGES and the code before taking one.
 
@@ -24,20 +24,11 @@ Standing facts: the full test suite runs on GitHub Actions at the push, not loca
 never in the main checkout under a running server; DBSI gets no more ports until the residue is solved
 (Cody, 2026-10-29).
 
-## Built, waiting for Cody to see or hear
+## Trading not yet tried on a practice or real account
 
-(Names: on 2026-11-04 the two cycle indicators swapped names. In the items below, written before that,
-"Cipher C" is the copy of CF's indicator (code CIPHER_C), now shown as **Cycle Position**, and "Cycle
-Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher C**.)
-
-- [ ] **Cipher A symbols named for their signal, "faint" colours, Cipher B Sell dot (2026-11-15; see
-  CHANGES).** Cody to hear Cipher A's symbols fire and land on them (now "Trend Turned Up", "Momentum
-  Turned Down", "Strongest Sell Warning", ...), and include the Sell dot on Bitcoin daily. Open:
-  - zoomed out, the two red diamonds draw the same size (the 1.8x bar-width cap); only "faint" tells
-    them apart. Whether to keep the cap for these, or say "small" from the drawn size, is Cody's call;
-  - the Sell dot is our rule (the buy dot's mirror); no chart to check it against.
-  - the hidden keys stay the shape names ("Blood Diamond"); renaming them too would need a migration of
-    saved charts, alerts and strategies, and was not asked.
+Cody, 2026-11-16: everything else built up to 2.13 has been seen and heard; trading through the venues
+on demo or practice accounts has not. Every item below is proven only against fixtures copied from each
+venue's public answers or docs. The README and WHATSNEW say so.
 
 - [ ] **Kalshi perpetual futures (2026-11-14; see CHANGES).** Not tried with money; no order placed,
   not even on the demo venue. Cody to make a demo account first.
@@ -57,6 +48,7 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     first.
   - No websocket: the book and positions are polled.
   - A failed `/margin/risk` read fails the whole positions read (by design, nothing swallowed).
+
 - [ ] **Coinbase US futures (2026-11-14; see CHANGES).** Cody is applying for a Coinbase futures
   account. Not tried with money; no order placed.
   - Unverified until an account answers: that `base_size` is counted in contracts (the product
@@ -71,6 +63,7 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   - Only unexpired contracts are listed. Funding on the perps is not shown.
   - MEXC futures positions are in contracts but carry no `ContractSize` yet, so their percent move
     is off by the contract size, as Coinbase's was.
+
 - [ ] **Stops on entries refused where the venue cannot attach them; Kraken Futures positions and sizes
   (2026-11-14; see CHANGES).** Not tried with money.
   - Kraken Futures could attach real legs (a reduce-only `stp` and `take_profit` after a market entry)
@@ -80,29 +73,6 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     fire there.
   - Unverified, not demonstrated: Kraken spot `CanonicalKrakenPair` keeps "USDTZUSD" whole (only
     pairs with BOTH halves prefixed are stripped). It may not match the "USDT/USD" spelling elsewhere.
-- [ ] **Formation choice sticky, saved, read and drawn wherever it is on the bar (2026-11-13, Cody's
-  requests; NOT heard or seen; see CHANGES).**
-  - `;` / `Shift+;` choices stay until changed, wherever the cursor goes and across restarts
-    (settings.json per chart).
-  - On every bar the chosen formation is on, `,` `.` stops and arrow steps onto a start or end read it,
-    and the chart draws it first, labelled "chosen:".
-  - Off its bars it is never mentioned. A stop there names the formation starting there, else the one
-    ending.
-  - Arrow steps say word for word what a jump says on every start and end.
-  - Cody to try on MEXC TAO/USDT 1h:
-    - `,` to the inverse head and shoulders' start (Nov 10 08:00 UTC), then `;` to the double top;
-    - move away and back, by `,` `.` and by arrows: "Possible double top forming ... inside possible
-      inverse head and shoulders";
-    - its end (Nov 12 11:00 UTC): "Double top confirmed here";
-    - the falling wedge's start (Nov 13 02:00 UTC): the wedge only.
-  - Open, mine: inside a chosen formation every `,` `.` stop names it, and only the "Plus N more" changes.
-    Does Cody want those stops to also say which formation starts or ends there?
-
-- [ ] **Chart formation keys reworked (2026-11-13, Cody's request; NOT heard; see CHANGES).** `;` / `Shift+;`
-  = next / previous formation at the bar (the choice is now sticky, above), `,` / `.` always
-  reach every formation, and a landing inside nested formations says "possible falling wedge inside possible
-  double top". Cody to try it on TAO/USDT 1h, where he hit the old pin. Open, mine: should an arrow-key step
-  into a nested formation also say the whole chain rather than only the immediate parent with its date?
 
 - [ ] **Every other crypto venue: market rules, leverage as asked, read pacing (2026-11-10, built, NOT
   tried with money on any venue; see CHANGES).** Gemini, Binance, Coinbase, Bitstamp, MEXC and
@@ -161,35 +131,6 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     started before the 2026-11-10 fix (21:42). Cody to try once more on the running server; if it still
     happens, the exact words and the position (long or short, which legs) are needed.
 
-- [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
-  `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
-
-- [ ] **Cipher C on the chart's own clock, and weekly/yearly pending, cancelled and failed lows
-  (2026-11-07, built, NOT seen or heard; see CHANGES and CYCLE_POSITION_DESIGN 9.11).**
-  - Cody to try: Cipher C on a weekly chart. The wave should follow the weekly cycle, with lows about
-    a year apart, and the facts should say "Week N of the weekly cycle". On a 4-hour chart, "Day N of
-    the daily cycle". On a daily chart, turn on Weekly Low Pending in Parts and arrow to one; it should
-    say "Weekly cycle low pending: the low of ..., it would end a N week cycle." Then turn on "Only this
-    chart's own cycle" and check that no weekly or yearly words are left.
-  - Question for Cody: **Low is in and Low expected off daily charts?** They are now daily-only. Under
-    the old bar counting they held 96.5% on 4-hour and 97.1% on weekly charts. Re-testing them on the
-    time-counted lows (counting in days on 4-hour, weeks on weekly) would say whether to bring them back
-    there. Recommendation: re-test, and bring back only what holds.
-  - **Question for Cody (2026-11-13, CYCLE_POSITION_DESIGN 9.12): at least two daily cycles in a weekly
-    cycle?** I said on 2026-11-12 that Cipher C draws too many weekly lows; that was wrong, measured over
-    the same years it draws fewer than the original on 52 of 63 charts. Requiring two daily cycles agrees
-    with the original a little more (F1 .695 -> .715, blind .712 -> .746) but picks the real weekly low
-    less often (85.7 -> 83.5%, blind 84.8 -> 83.3%), as the one-daily-cycle weekly lows are real 89.6% of
-    the time. Not built. Recommendation: leave it.
-  - Open, mine: the first weekly low after the count's start is never said pending (found and confirmed
-    on the same bar). The weekly chart's weekly lows match the original's less well than the daily
-    chart's (.516 vs .658 F1). COIN's weekly chart got slightly worse (.18 -> .15).
-  - Open, mine: a scroll-back on an intraday chart can move the daily lows for several cycles. Each
-    daily low is counted from the one before, and a daily cycle is now 200 to 1,000 intraday bars. Bitcoin
-    as 4-hour bars agrees again by bar 3,273 of 5,416. On the causality guard's synthetic steady uptrend
-    (8,000 hourly bars), the chain never lined up again: no low undercuts to re-anchor it. The original
-    runs from the chart's first bar too.
-
 - [ ] **Trading with several tabs and venues, and the stop-edit error (2026-11-05, built, NOT tried; see
   CHANGES).**
   - Cody to try, on PAPER:
@@ -211,26 +152,7 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     - Before any paper position or order exists for a symbol, its last price is shared by every venue's
       bars. A market order is priced from its own venue's tab, so this only matters with no such tab open.
     - A recorded venue that returns no price at all turns the venue guard off for that symbol.
-- [ ] **Save and Load workspace choices (2026-11-05, built, NOT tried; see CHANGES).** Cody to open two
-  tabs, then Save with "This tab only", and Load it with "Open as new tabs". Then Load something with
-  "Replace my tabs". The first Load should name the tabs it would close and load nothing ("Press Load
-  again to replace them, or choose Open as new tabs"). A second Load replaces them. Moving to another
-  workspace, or changing the choice, asks again. An empty chart is replaced without asking. Each workspace
-  in the list should say its tabs and how many strategies it has. Not checked with a screen reader. The
-  accessibility-lead review agent is not registered, so the dialogs were checked by hand.
-- [ ] **Candle patterns: textbook rules + the lean, and a candle in two says both (2026-11-04, built,
-  NOT heard; see CHANGES).** Cody to arrow across 13:00 to 16:00 UTC on 2026-10-15, Bitstamp BTCUSDT 1h.
-  15:00 should say "Three outside up, bullish reversal, bar 3 of 3, also bar 1 of 2, Bearish harami,
-  bearish reversal". On a quiet stretch, a candle with no trades should say "No movement". The four audit
-  questions were answered by building what I recommended (Cody: "make it more textbook and accurate"):
-  a reversal needs a trend; a candle that never moved is "No movement"; size is judged against recent
-  bars; three inside confirms beyond the first bar's open. Cody's answers 2026-11-05: the three line
-  strike stays a continuation, alerts keep the stricter rules, and a hammer with no trend before it stays
-  unnamed.
-- [ ] **Built timeframes (2026-11-04, built, NOT tried; see CHANGES).** Cody to open the 8h Bitstamp tab
-  (no "does not offer" should be said) and type 7 hr, Load. Open, mine: 7h buckets are counted from 1970,
-  not restarted at midnight (check what TradingView does); a 7h chart from 1h first loads about 142 bars
-  (Bitstamp's 1,000-bar cap), scrolling back not tried; live candle on a built timeframe not watched.
+
 - [ ] **Hyperliquid provider (2026-11-04, merged, NO order ever sent; see CHANGES and
   docs/HYPERLIQUID_PROVIDER.md).**
   - Cody: make an agent wallet on the TESTNET (app.hyperliquid-testnet.xyz), add a Paper profile and
@@ -240,121 +162,7 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
     replace the documented-shape fixtures, and try the websocket live.
   - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
     funding as an indicator, vaults.
-- [ ] **Flake, not forced yet (2026-11-04):** `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
-  failed once in a full local run, then passed 3 of 3 alone. It polls `SelectedMarket` for at most
-  3 s (60 × 50 ms), so it is probably load. Force it (per the 2026-09-25 rule) before trusting either way.
-- [ ] **Trade status bar (2026-11-04, built, NOT seen; see CHANGES).** Cody to open a paper position and
-  look at the bottom of the window; then F12, Appearance, try "Outlined, theme text" and "Percent and amount". Open,
-  mine: no key speaks the trades (a screen reader reaches the "Open trades" region by landmark); live
-  venues are polled every 10 s while the app is open.
-- [ ] **Close part of a position at a limit, and size by value (2026-11-04, built, NOT tried; see CHANGES).**
-  Cody to try on PAPER: Close at limit, Tab to the percent, 50, Enter; and Size in → USD, 1000, a limit
-  order. Open, mine: a percent for the market Close position button; remembering the Size in choice.
-- [ ] **Volume profile sound, third try (584b8115): ACCEPTED by Cody 2026-11-04 ("profiles sound good now
-  too").** Left, mine: profiles are still left out of playback, and the heatmap's sound has not been heard.
-- [ ] **A bar close is spoken close → narration ladder → new bar's open, on every route; Shift+Enter places an
-  armed quick trade as a limit (2026-11-02, built, NOT heard or tried; see CHANGES).** Cody to listen to a
-  focused close, a background tab's close and a browser-closed close: the ladder should now come before
-  "New bar: open". Shift+Enter: arm a quick trade on PAPER, Shift+Enter, and check that a limit order was
-  placed. Open, mine: the focused chart's notification (window hidden) has no ladder; with two browser
-  windows open at once on different tabs, the browser-closed monitor watches only the one that saved last
-  (not tried; one window, the usual case, was checked against the 2026-11-01 overnight log: fine).
-- [ ] **Cipher DBSI = the study's zu_hs66e, ported bit for bit (2026-11-02, Cody: "please do commit the latest
-  version of dbsi"; NOT seen or heard; see CHANGES).** The ten veto sets are 99.99% exact, the blind sets
-  99.97%, and the held-out sets 100%. Cody to look at Bitcoin daily and 1h Heikin-Ashi against DBSI. Still open
-  in the study (no further port until asked, per Cody's 2026-10-29 rule): flat-price eras miss 6.4% of fresh
-  labels (float noise. BUILT 2026-11-13 at Cody's request: where the RSI(12) stood still for 12 bars in the
-  last 41, each score keeps its number and adds "flat prices, may be 2 off". 0/0 was rejected: TradingView
-  prints numbers there and ours were within 2 on all 68 checked. Not heard yet. Still open: flat eras whose
-  RSI drifts by noise are not flagged, and the study's scoring could leave flat eras out); the pinned-Stoch-RSI hold vs re-arm (2026-11-13:
-  20 more pinned bars on 28 fresh stock charts, 19 hold and the one re-arm is a flat 1972 CVS bar, so real
-  prices are 71 holds against 3 re-arms, SOL/XAU/WMT; the model holds; three is too few to fit a rule
-  without overfitting it); one 1h bar of the 2026-11-13 new bars, 2026-11-11 07:00 (bull 7 / bear 3,
-  ours 9 / -3, re-read the same; Stoch RSI pinned at 100 with a one-bar dip just after a one-bar bear Q;
-  1,475 of 1,481 earlier bars of that shape are right. 2026-11-16, study only: the cause is the last binary
-  digit of the Stoch RSI at the top, 100*a/a landing a hair over 100, which our dip rule reads as a move.
-  The same digit is behind AAPL 1D 262/264 and the SOL/XAU re-arm misses. Reading it as exactly 100 is worse
-  everywhere (TradingView sides with the hair on 389 bars, with exact 100 on 10), and the one rule tried for
-  when to read it as 100 (the bear's one-bar Q scored 2 or more) fixed 6 values and broke 38, so it was
-  rejected. Moving one close by a cent flips that digit, so these bars may only be flaggable, not fixable.
-  Prices rebuilt as ticks times the tick size (TradingView's possible way of holding them) fixed 11 values,
-  the 4 exceptions among them, and broke 709, which is what any last-digit nudge does; the harvested prices
-  are TradingView's own chart numbers to every digit and are already clean decimals, so the prices are not
-  where the digit comes from); Intel 1990s
-  (one shape); the Start-grid emulator not moved to this model. Unpinned (no harvested bar changes if broken):
-  fsum against a plain sum and its half-even step, the Stoch RSI zero-range tolerance and its 77.2 edge,
-  the wide gap 17.34 and the near-zero 5.6 moved up, the max that keeps NaN (differs from Math.Max only on ±0),
-  and two NaN holds the zero-range hold makes unreachable.
-- [ ] **Drawing tools pass (2026-11-01/02, built, NOT seen or heard; see CHANGES).** Cody to try: a fib
-  retracement swing low → swing high (0% should be at the high, 61.8% below it); a fib extension, listening
-  for the pullback sentence after the second point, then arrowing that many bars right and pressing Enter;
-  Alt+D (21 tools, five groups); one pattern tool (ABCD or head and shoulders); Ctrl+Right on a focused fib
-  ("Price crosses below 61.8% level at …"); an alert from "A line on the chart"; F12 → Speech → UTC and the
-  12-hour clock. Open, mine: vertical lines and fib time zones are drawn as marks nobody has looked at on
-  screen; the 12-hour axis labels are wider and not seen; the mouse half-bar fix also moved the hover readout
-  and hairline at the chart's edges; an alert on a drawn level stays at its price if the drawing is moved;
-  sloped lines are not offered as alert lines.
-  Offer for Cody, not built: an option to speak a bar's CLOSE time instead of its open (TradingView labels
-  bars by their open, as this does).
-- [ ] **Browser closed: a bar close is said once, with its real open, when Bitstamp answers mid-update (2026-11-01, built, NOT heard; see CHANGES).**
-  Bitstamp's list in the first seconds after a close can lack the bar that just closed, or carry a
-  zero-volume placeholder at a stale price. That is where the doubled "1h: close 77401.41 at 07:00" and the
-  wrong "New bar: open" prices came from. Left: Cody restarts his terminal on this build, closes the
-  browser, and listens to a few 1-hour and 4-hour closes: each hour said once, in order, none skipped.
-  Open, mine: the new bar's open is provisional on Bitstamp for its first seconds (the last close until
-  the first trade), so it can still be a few dollars off; other venues were not polled.
-- [ ] **Texture only in the extreme zones (2026-10-31, built, NOT heard; see CHANGES).** Cody to arrow Cipher B's
-  waves on a daily chart: no texture inside ±53, a soft pink noise from ±53 to ±60, the same noise louder past
-  ±60; and RSI, clean from 30 to 70. Is 0.25 / 0.45 the right step between the two zones?
-  Questions: (1) and (2) ANSWERED and built (see CHANGES): COT, Crowding Index, Funding Rate and Fear & Greed
-  have no texture, their extreme lines are not overbought/oversold lines, and Fear & Greed's line lost the
-  tinge. (3) ANSWERED and built: no line keeps the brown tinge (MACD, Signal lines, Aroon, the price line),
-  and the volume bed lost its brown tinge too, on the same rule (noise means a zone). Caveat: an indicator
-  default saved on the VPS with a texture other than the old defaults is kept as the user's choice.
-- [ ] **Cipher B's Wave Gap and Money Flow: RSI's voice, zero-only jumps (2026-10-31, built, NOT heard; see CHANGES).**
-  Cody to arrow both on a daily chart and say whether they now sound like RSI on each side of zero, and press
-  Ctrl+Left/Right on each: it should say "Zero line cross", never overbought or oversold. Question: they now
-  click at each zero cross, like the blue waves. Keep the click, or remove it?
-- [ ] **Cipher B has Market Cipher B 2.4.0's six settings, colours and lines (2026-10-31, built, NOT seen or heard; see CHANGES).**
-  Settings: Use Current Chart Resolution, Different Timeframe, Over Bought Level 1, Trigger 1, Over Sold
-  Level 1 (= the buy dot's threshold), Trigger 2 (= where the money-flow bar sits). Each line IS its setting.
-  Gone: the four periods and Buy Dot Level (MCB has none). Questions for Cody:
-  1. **White lines on light themes.** MCB's lines are white at 40-50%; on Paper / HighContrastLight they are
-     faint. Keep MCB's white everywhere, or use the old grey #8C8C96 on light themes only?
-  2. **SteelGray**: MCB's translucent fast wave is 2.995:1 against SteelGray (just under 3:1; the test floor
-     is 2.99 there). Accept, or make the waves opaque on that one theme?
-  3. The **periods** went (MCB offers none). Anyone who had changed one sees MCB's period now. OK?
-  4. MCB's **"Version"** input is a label that changes nothing; left out. OK?
-  Open, mine: the waves' spoken "overbought"/"oversold" still uses ±53 whatever Trigger 1/2 say; the pane's
-  floor is fixed at −103, so Trigger 2 below −53 clips the bar; the buy dot is drawn at the fixed −96; a
-  Different Timeframe shorter than the chart's falls back to the chart (MCB would compute from the lower
-  timeframe); 4-hour and daily buckets are UTC-aligned, not session-aligned, on stocks; Different Timeframe
-  on Heikin-Ashi not checked against TradingView.
-- [ ] **Cipher B is only what Market Cipher B draws (2026-10-31, built, NOT seen or heard; see CHANGES).**
-  Removed (Cody: "remove all of that old code from cipher b"): the red Overbought Crossover, the regular
-  and hidden divergences, Anchor Wave, Anchor Wave 2, Anchor Polarity, Anchor Fill, WT Fill, and the
-  Legacy money flow, Gated buy dot and Percentile threshold settings with the parameters only they read.
-  Kept: the waves, Wave Gap, Money Flow, both cross dots, the Buy dot, RSI and Stochastic lines, and
-  "WT Slow Wave Smoothing" (my call: it is MCB's own smoothing, 3 by default). The picture is unchanged:
-  58 rendered frames (4 charts at several zooms) byte-identical before and after. Left:
-  - Cody to open his saved Cipher B and check that it looks and sounds as before, with nothing extra
-    in Properties → Parts and no Advanced tab.
-  - Twelve catalogue strategies needed a removed part in a required condition and were retired with
-    their verdicts kept (v14, v15, v18 and the v23 family). Agree, or rebuild any on Market Cipher B's
-    parts?
-  - The three setup graders now refuse to run (their pre-registered rules read the divergences or the
-    red dot); build 2e86d377 to re-run one. OK?
-  - `TradeRanker` lost its anchor-wave input (8 points); it has no callers in the app, but its very-high
-    band now needs Hurst at or below about 0.27. Delete it, or keep it?
-- [ ] **Cipher B's Wave Gap and Money Flow are read as waves by default (2026-10-30, built, NOT seen or heard; see CHANGES).**
-  Both are now pitched on the pane's ±100 scale with no leap at zero. Properties has a "Read as" setting for each
-  (Wave / Histogram) that changes only the type word, navigation, sound and speech; the picture is the same, and
-  hiding Money Flow hides its red/green bar too. The WT Histogram is named "Wave Gap". Money Flow says its signed
-  number. Cody to arrow along both on a daily Bitcoin and say whether:
-  - the wave sounds right;
-  - "Wave Gap" is a good name, and "Read as" a clear name for the setting;
-  - the histogram form's grit is now loud enough.
-  Open: sound settings saved as defaults in one form also apply in the other. Should each form keep its own?
+
 - [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/HYPERLIQUID_RESEARCH.md`).**
   Questions for Cody before anything is built:
   - Are you a US resident or citizen? If so, live trading (phase 4), and in practice testnet
@@ -363,221 +171,114 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   - Is a read-only data provider (phase 1: funding, open interest, HIP-3 stock perps) worth building on its own?
   - Hand-written signing, Nethereum, or JKorf's HyperLiquid.Net?
   - Should we watch Payward/Bitnomial and Kraken Pro instead?
-- [ ] **The Market Cipher tests on the exact Ciphers: DONE, still No edge (2026-10-25; see CHANGES
-  and `docs/EXACT_CIPHERS_RERUN_FINDINGS.md`).** Left:
-  - The only lead from the whole Market Cipher series is the crypto 4h trigger-wave entry, and it
-    is weak. It came out at +0.268R on the old Ciphers, +0.094R on the exact ones on candles, and
-    +0.338R on Heikin-Ashi, but only +0.037R in the held-out era. Test it again only under its
-    own pre-registration, on 4h bars after 2026-10-18; it needs months of new bars. Cody to
-    decide whether that is worth waiting for.
-  - Round 2's exits can never pass the three-round correction: 2,000 random books cannot give a p
-    below 0.0005, and the first step needs 0.00042. A future round with exits needs more than 2,380
-    books just to make passing possible (1 ÷ 2,381 = 0.00042); 10,000 leaves room.
-- [ ] **Properties pass (Cody, 2026-10-23).** Three decisions, done in this order:
-  1. Reset to Defaults resets everything, parameters included (built, NOT seen; see CHANGES).
-     Cody to change an RSI's period and colour, press Reset to Defaults, and hear the name and
-     period come back. It keeps the pane, your own levels, a profile's anchor, and mute / hide / narrate.
-  2. An Advanced tab for settings the original indicator has no input for (built, NOT seen; see
-     CHANGES). Cipher B's thirteen settings of ours and two of DBSI's are on it. Questions:
-     - Should the Add Indicator dialog split them the same way? Today it lists every parameter.
-     - Cipher B's Wave Trend periods are not Market Cipher B inputs either. Move them too?
-     - Cipher C has now been compared with the original's inputs one by one (CIPHER_C_DESIGN section 21).
-       Faster confirmation is on Advanced. Should the original's trigger and slow DSS adjustments be
-       settings too? Today each preset's DSS is fixed.
-  3. Every indicator's default-off parts left out (Parts → Include), not added hidden and muted
-     (built, NOT seen; see CHANGES). Cody to open an indicator with default-off parts (Ichimoku's
-     Kumo Polarity) and check that Ctrl+Down skips them and Properties → Parts lists them. (Cipher
-     B's divergences and anchor waves, the first example, were removed on 2026-10-31.)
-     Questions:
-     - Should Ctrl+Alt+Shift+K (show everything hidden) also include left-out parts?
-     - Should the Alerts dialog list left-out parts, so an alert can be set without including one?
-- [ ] **Cycle Position, a new indicator (2026-10-28, built, NOT seen; see CHANGES and `docs/CYCLE_POSITION_DESIGN.md`).**
-  Cipher C's picture with one rule for every asset and windows learned from the chart's own cycles. Its
-  window held 61% of cycles, blind too, but is twice as wide as Cipher C's and no sharper per day.
- 
-  Cody to:
-  - compare it with Cipher C on a daily Bitcoin and an untuned chart (Google, AUDUSD), and hear the bar
-    detail and the table;
-  - hear the weekly rule by time (Cody chose B): the nest "daily cycle 3 of it, a new weekly low drawn
-    but not yet confirmed" on a daily chart;
-  - hear "Low is in" and "Low expected" on a daily Bitcoin (arrow along a held low; the table's two new
-    rows), then the weekly and yearly columns, and one on a 4-hour Bitcoin;
-  - hear the "Next low", "Top so far" and "Half-cycle low" rows, the daily window, a failure mark and a
-    half-cycle mark; on a daily Ether, the weekly Low is in cell; a mark at "very high" (daily green,
-    weekly blue); and try an alert "Very high call is above 0";
-  - try "Asset's own confirmation rules" on a daily Gold or Bitcoin.
-  Questions for Cody:
-  - Should the "low had come" share be recalibrated above 65% (it says 90% when 2 in 3 have come)?
-  - Keep "Low expected" (right about half the time) or drop it?
-  - Weak charts (Marathon weekly, Gold weekly, Silver and US oil yearly): say "less reliable on this
-    chart", or leave it?
-  - Weekly lows confirmed fast are missed (72% caught): should "high" be the word to act on for the weekly?
-  - The strategy catalog reads check-box marks (Cycle Position's and Cipher C's confirmations) as lines,
-    not events. Make them events?
-  - The per-asset rules bring the lows much closer to the original's (daily F1 .907 -> .968) but picking
-    the real low is mixed (blind daily 88.7 -> 88.3%). Turn them on by default? That changes the lows the
-    "Low is in" models were fitted on, so they would be refitted.
-  Caveats: translation letters follow the original's bar-midpoint rule only 82% on untuned blind charts
-  (not decoded further); intraday dates past the last bar do not read holidays or clock changes; Cipher B's
-  big green dot sits near 21% of daily lows but does not say a low will hold (no change made). Merged and
-  pushed 2026-10-28; deploying to the VPS waits for Cody's go-ahead.
-- [ ] **Cipher C, drawn and counted as the original does (2026-10-21 to 2026-10-28, built, NOT seen or heard;
-  see CHANGES and `docs/CIPHER_C_DESIGN.md` sections 11 to 37).** Cipher C was rebuilt as a lookalike of the
-  Cycle Finder original. Every step below is built and none has been seen or heard. The original's trial ends
-  about 2026-11-05, so anything that needs a replay of the original must be read before then.
-  Cody to look at a daily Bitcoin,
-  a Dow daily chart and a Gold daily chart next to the original:
-  - the drawing: lows with letter discs, dotted lines and 49D labels; checks, crosses, the clock, the grade
-    and Start under the D; lettered tops with a box over each cycle; bands over the live windows; the yellow
-    wave; the table in the price pane's corner; far fewer orange (mid) tops;
-  - the settings: 27 display switches on General in the original's order (is the list too long? it could be
-    its own "Display" tab); no mark under a confirmation's bar and no cross on a cancelled low by default
-    (both still spoken); a picked count's words;
-  - the sound: a pending low says its LOW / MID / HIGH tag ("...on day 76, mid confluence: ..."); a
-    cancellation ("Daily pending cycle low cancelled: ..."); lows named, confirmed and dropped on the
-    original's bars; Faster confirmation (Properties, Advanced) on a Bitcoin daily chart;
-  - Bitcoin daily weekly marks moved (one added, two gone); no W under the 5 August 2024 crash;
-  - Apple's and Ether's daily charts (deep double), Marathon's and SILJ's (first of two equal lows), GDX's
-    and GDXJ's (miners' weekly double), a Gold daily chart (weekly state machine).
-  Questions for Cody:
-  - "Yearly lows found from price" (off by default; Dow, Nasdaq, Oil, Marathon gain lows): should it default
-    on? An untuned symbol no longer draws yearly lows by default. Look at a Dow daily chart with it on.
-  - The dollar's table says 15-24 days and its band is drawn at 16-25, as in the original. Make them the same
-    anyway? (Likewise Ether's band and Gold's and Silver's weekly bands.)
-  - Confirmed lows say their own confluence (1 to 3) though the original tags no confirmed low: keep, drop,
-    or say the pending tag's last value?
-  - Untuned assets: the original draws no weekly lows (Platinum, Apple, EUR/USD) but counts weeks. Draw them
-    (as now) or hide the marks and keep the count?
-  - Announce a later change of the pending low's tag?
-  - Cipher C does not say when a low is being held ("unconfirmed" with a day count). Add it as a reading?
-  - The zero line in Market Cipher B is white and dotted; ours is grey and solid. Change it?
-  Known gaps, not explained: Coinbase 4-hour stalls (the original confirms nothing for its last 659 bars);
-  Bitcoin weekly has one low the original lacks; the Dow's late undercuts are fitted per asset; GDXJ is the
-  worst weekly chart; the dollar, SILJ, Silver, Coinbase 4h and NVDA, UUP, AMZN daily have late tops the
-  original calls; 17 early keeps and 15 daily namings the original skips are unseparable; the yearly low on
-  Bitcoin is confirmed about 254 weeks late (the engine's rule, not shown wrong); TLT has no preset; weekly
-  charts' "weeks since last WCL" is not decoded; bands off a daily chart are unchecked; yearly band misses
-  come from NYSE's unscheduled 2025 closure and TradingView's holidays stopping after 2027; Coinbase,
-  MicroStrategy and Riot are a bar late. Replays still wanted while the trial lasts: Coinbase 4h and Bitcoin
-  weekly (TradingView needs a visible window). Full detail: archive lines 204 to 540.
-- [ ] **"Say what signals look like" (2026-10-22, built, NOT heard; see CHANGES).** Cody to tick it (Settings
-  -> Speech) and arrow Cipher B on Bitcoin daily: the Buy dot should say "Drawn as a large green dot", a
-  bearish WaveTrend cross "a red dot". Then arrow Cipher C's lows and confirmations, play back a stretch,
-  and let a bar close with a signal on it. Questions: are the colour words right to the eye ("large" starts
-  at thickness 4.5, "small" below 2.5)? Should alerts describe the marker too (tree alerts say only
-  "conditions met")? Script/plugin indicators using `GradientDot` are not described (no built-in uses it).
-- [ ] **Arrowing heard for the focused component only (2026-10-22 and 10-23, built, NOT heard; see CHANGES).**
-  Cody to arrow Cipher B's money flow, WaveTrend and RSI on Bitcoin daily (also an RSI in its own pane):
-  each component should ring only its own approach and "held beyond" cues, and other dots and crosses
-  should not tick; Cipher A's Green Dot should no longer name the Yellow Diamond. "Tick other signals while
-  arrowing" (Sonification tab) and "Speak other signals while arrowing" (Speech) bring them back. If
-  something still sounds on a component, say which bar.
-- [ ] **Market Cipher A, B and SR checked against the originals' values (2026-10-23 and 10-24, built, NOT
-  seen or heard; see CHANGES).** Cody to look at Bitcoin daily: Cipher A's symbols, ribbon (the original's
-  blues and two light fills) and, from Properties -> Appearance -> Parts, Ribbon 9 and the pivots should
-  sit where Market Cipher A's do; Cipher B's Buy dots and RSI line should track Market Cipher B's, and its
-  money flow lie exactly on it; on a 15-minute chart Cipher SR's purple and yellow dots should sit where
-  Market Cipher SR's do (about half the old levels are gone; Cody chose to keep ours for the range). With
-  Cipher A narrating, listen for "Price entered the ribbon, between ...", "left the ribbon above/below",
-  "crossed above/below the ribbon" on bar closes, and Green Dot: "Trend turned up: ...". Tell me any
-  sentence that reads wrong or too long. Still open: Cipher A pivots on sessions that cross midnight UTC and
-  on weekly charts are unchecked; the last Include box refusing to untick is tested in bUnit, not a browser.
-- [ ] **Cipher DBSI: the model, what was ported, what is unknown (2026-10-23 to 2026-10-29; the latest port is
-  the first item of this file; see CHANGES and `dbsi-start-grid-residue` in the research notes).** Cody
-  decided on 2026-10-29: keep searching for the rest of the original's rules, and port nothing more until the
-  residue is solved. Open in the study:
-  - the bear side still misses more than the bull side (alive bars 9.2% against 3.2%, dead bars 7.0% against
-    3.5%); the missing input is not found; the bear hunt was stopped 2026-10-27, then the EMA(5)/EMA(11) cross
-    was found 2026-10-29 and ported;
-  - the bear zero-line bonus at the cross (78 missed, 26 false), bear dead bars (383 misses of a +2 in short
-    stretches), a bull flat dead bar after a break (26 drops against about 1,200 holds), bear onset extras on
-    threshold edges, nine S&P 500 bear runs 2 short on their dead bars, one Bitcoin bear run 2021-10-21..25
-    two short;
-  - false 17+ readings: the fifteen 3 (true 45 of 48), the twenty 5 (true 77 of 84);
-  - Q's trigger fits about 9 times in 10; its stochastic length (10 to 12) and midline (45 to 55) are not
-    sharp; the original's other-side counter and "bonus of about 3" are not in the model;
-  - the rule "cross from WT above 36.5 with the 81-bar stochastic above 81.5" (+4) never fires on the 35
-    digitised charts, so only the private sets pin it; the Start-grid emulator is not moved to the latest model;
-  - Cody asked on 2026-10-24 whether the original's Start-grid numbers may go in the public repo so DBSI can
-    be fitted on them (about 2,500 days; the shipped model's test would need them in its fixture). Not answered.
-  - Cody to look at Bitcoin 4h and 1h Heikin-Ashi and any daily chart: big readings reach the 20s after a
-    fresh turn from oversold and fall back as the wave flattens; the printed numbers should sit on Market
-    Cipher DBSI's own more than nine times in ten.
-  Every earlier DBSI revision is a revertible commit; the list is in CHANGES.
-- [ ] **Heikin-Ashi: indicators compute on the Heikin-Ashi candles, strategies on the real bars (2026-10-22,
-  built, NOT seen or heard; see CHANGES).** Cody to switch Alt+C on Bitcoin daily with Cipher B, an RSI and
-  an EMA: every indicator should recompute at once and a strategy on the chart should keep trading as
-  before. Hear the new-bar close on HA and off, a "price crosses EMA" alert, Ctrl+Right to a crossing.
-  Open questions:
-  - A custom compiled indicator cannot be recomputed in the strategy path, so its leaves evaluate false in a
-    strategy on an HA chart. Recompute it there, or refuse the strategy with a reason?
-  - A background tab's candle type is read when its monitor starts; switching it later waits for the next
-    restart of that monitor.
-  - Market Cipher B's S3 and S5 screenshots not re-measured on HA. The hosted server's alerts and the
-    focused close line still read the raw close.
-- [ ] **A strategy can read its signals on Heikin-Ashi (2026-10-22, built, NOT tried in the app; see CHANGES).**
-  Cody to build a strategy with "Signals from Heikin-Ashi candles" ticked (Build Setup), hear the Summary say
-  "Signals read on Heikin-Ashi candles; orders, stops and targets on the real prices", backtest it on a
-  candle chart and an HA chart (same trades both ways), and check the entry and stop prices spoken are real.
-  Reversible choices to confirm: a stop or target placed on an indicator reads it on the real bars; "next N
-  candles close" reads HA candles; higher-timeframe leaves stay real; with no HA series the strategy refuses
-  to trade. Not done: compiled (Roslyn) and plugin strategies ignore the option.
-- [ ] **Restored tabs open with the history they had (2026-10-22, built, NOT tried in the app).** Cody to
-  reopen a saved workspace after scrolling a tab back: the tab should open as deep as it was, at its saved
-  zoom, and a new chart should still open with 200 bars. Workspaces saved before this open with 200 bars (or
-  back to their oldest drawing) until saved once. A drawing anchored before the loaded history is still
-  drawn wrong where the history cannot be reached (the provider has nothing that old, or it is past 5,000
-  bars). Untested: an older page that throws mid-way, and the tab-switch path end to end.
-- [ ] **Timing windows: sound, narration, type, fill and arc (2026-10-22, built, NOT heard or seen; see CHANGES).**
-  Cody to listen and look on Bitcoin daily with Cipher C: Left/Right on a timing window is silent; in
-  playback a low 110 Hz brown-noise texture while the window is open (level and colour are a first guess:
-  say louder, quieter, brighter or darker); with N on Cipher C, "Daily timing window open, day 1." and
-  "Daily cycle low confirmed, on {date} at {price}, N bars ago."; the green shading, the yellow arcs under the
-  candles, "Window, with the cycle arc" on landing, Ctrl+Left/Right through the window; Properties ->
-  Appearance -> "Draw the cycle arc" and "Fill under the line". Questions for Cody: Alt+Shift+D says the
-  window count and then the words say it again ("Daily Timing Window 79 ... daily cycle day 79, 13 days
-  past its window"): keep the raw value or drop it? What should a Window sound like (now a steady 330 Hz
-  sine)? Known gaps: script indicators never mark components as hindsight; the forming bar is in every
-  indicator's computation so a hindsight mark can show mid-bar and vanish at the close; wording says "bars
-  ago" on every timeframe; the arc is look-ahead and moves as lows are confirmed; Cipher C's weekly window on
-  a daily chart has no tint or arc (blank on the Dot Pad) though Appearance still offers "Draw the cycle
-  arc"; the SMA has no Ctrl+Left/Right stop for price crossing it; windows other than Cipher C's are tested
-  only with made-up data. Question for Cody: did "keep the gold dot as a drawing element" mean a marker you
-  can PLACE yourself (a gold dot among the drawing tools)? Not built.
+
+## Verified by Cody (2026-11-16): what is still open
+
+The items that waited here for Cody's look and listen (2026-10-22 to 2026-11-15) moved word for word to
+`docs/archive/TODO_HISTORY.md`, "Verified by Cody 2026-11-16". A question that only asked whether something
+sounded or looked right is taken as answered by that. What they still ask is below. **Q** marks a
+question for Cody; the rest are known limits I wrote down.
+
+- [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** **Q** Zoomed out, the two red diamonds
+  draw the same size (the 1.8x bar-width cap), so only "faint" tells them apart: keep the cap, or say
+  "small" from the drawn size? Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
+  check it against; the hidden keys keep the shape names ("Blood Diamond").
+- [ ] **Formation keys (2026-11-13).** **Q** Inside a chosen formation, should every `,` `.` stop also say
+  which formation starts or ends there (today only "Plus N more" changes)? **Q** Should an arrow step into
+  a nested formation say the whole chain, not only the immediate parent with its date?
+- [ ] **Cipher C on the chart's own clock (2026-11-07).** **Q** Low is in and Low expected are daily-only:
+  re-test them on time-counted 4-hour and weekly lows and bring back what holds (my recommendation)?
+  **Q** Require two daily cycles in a weekly cycle (CYCLE_POSITION_DESIGN 9.12)? Recommendation: leave it.
+  Limits: the first weekly low after the count's start is never said pending; weekly charts match the
+  original's weekly lows less well than daily charts (.516 vs .658 F1); a scroll-back on an intraday chart
+  can move the daily lows for several cycles.
+- [ ] **Cipher C drawn as the original (2026-10-21 to 10-28).** **Q** Default "Yearly lows found from price"
+  on? **Q** The dollar's table says 15-24 days and its band is drawn at 16-25, as in the original: make them
+  agree? **Q** Confirmed lows say their own confluence though the original tags none: keep, drop, or say the
+  pending tag's last value? **Q** Untuned assets: draw weekly lows (as now) or hide the marks and keep the
+  count? **Q** Announce a later change of the pending low's tag? **Q** Add a "held, unconfirmed, N days"
+  reading? **Q** Make the zero line white and dotted, as Market Cipher B's? The known gaps are listed in
+  the archived item.
+- [ ] **Cycle Position (2026-10-28).** **Q** Recalibrate the "low had come" share above 65%? **Q** Keep or
+  drop "Low expected" (right about half the time)? **Q** Say "less reliable on this chart" on weak charts?
+  **Q** Make "high" the word to act on for the weekly? **Q** Read the check-box marks as events in the
+  strategy catalog? **Q** Turn the per-asset rules on by default (the "Low is in" models would be refitted)?
+- [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** **Q** White lines are faint on Paper and
+  HighContrastLight: keep MCB's white, or grey #8C8C96 on light themes? **Q** SteelGray's fast wave is
+  2.995:1: accept, or opaque waves on that theme? **Q** The periods and the "Version" input are gone: OK?
+  **Q** Twelve retired catalogue strategies: rebuild any on MCB's parts? **Q** The three setup graders
+  refuse to run (build 2e86d377 to re-run one): OK? **Q** `TradeRanker` (no callers): delete or keep?
+  **Q** Sound defaults saved in one "Read as" form also apply in the other: should each keep its own?
+  Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
+  so Trigger 2 below −53 clips the bar; the buy dot is drawn at −96; a Different Timeframe shorter than the
+  chart's falls back to the chart; 4-hour and daily buckets on stocks are UTC-aligned.
+- [ ] **Properties (2026-10-23).** **Q** Should Add Indicator split settings into Advanced the same way?
+  **Q** Move Cipher B's Wave Trend periods to Advanced? **Q** Make the original Cipher C's trigger and slow
+  DSS adjustments settings? **Q** Should Ctrl+Alt+Shift+K also include left-out parts? **Q** Should the
+  Alerts dialog list left-out parts?
+- [ ] **Cipher DBSI (the study).** No port until the residue is solved (Cody, 2026-10-29). Open: the bear side
+  misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
+  drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
+  re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **Q** (asked 2026-10-24,
+  not answered) May the original's Start-grid numbers go in the public repo so DBSI can be fitted on them?
+- [ ] **The Market Cipher strategy tests (2026-10-25).** **Q** Wait months for new 4h bars to re-test the
+  crypto 4h trigger-wave entry under its own pre-registration? A future round with exits needs more than
+  2,380 random books.
+- [ ] **Heikin-Ashi (2026-10-22).** **Q** A custom compiled indicator cannot be recomputed in the strategy
+  path, so its leaves are false in a strategy on an HA chart: recompute it, or refuse the strategy with a
+  reason? Limits: a background tab's candle type is read when its monitor starts; the hosted server's
+  alerts and the focused close line read the raw close; compiled and plugin strategies ignore "Signals from
+  Heikin-Ashi candles".
+- [ ] **Timing windows and signal looks (2026-10-22).** **Q** Alt+Shift+D says the window count and the
+  words say it again: keep the raw value or drop it? **Q** Should alerts describe the marker too ("Say what
+  signals look like")? **Q** Did "keep the gold dot as a drawing element" mean a gold dot you can place
+  among the drawing tools? Not built.
+- [ ] **Drawing tools (2026-11-01/02).** **Q** Offer an option to speak a bar's CLOSE time instead of its
+  open? Limits: an alert on a drawn level stays at its price if the drawing moves; sloped lines are not
+  offered as alert lines.
+- [ ] **Smaller limits, mine.** Built timeframes: 7h buckets count from 1970, not from midnight (check what
+  TradingView does), and a 7h chart from Bitstamp's 1h loads about 142 bars. Trade status bar: no key
+  speaks the trades. Close at limit: no percent on the market Close position button, and "Size in" is not
+  remembered. Profiles are left out of playback, and the heatmap's sound is unheard. A bar close: the
+  hidden window's notification has no ladder, and with two browser windows the browser-closed monitor
+  watches the one that saved last. Bitstamp's new-bar open is provisional for its first seconds. Cipher A
+  pivots on sessions crossing midnight UTC and on weekly charts are unchecked. A drawing anchored before
+  the reachable history is drawn wrong.
+
+- [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
+  `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
+
+- [ ] **Flake, not forced yet (2026-11-04):** `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
+  failed once in a full local run, then passed 3 of 3 alone. It polls `SelectedMarket` for at most
+  3 s (60 × 50 ms), so it is probably load. Force it (per the 2026-09-25 rule) before trusting either way.
+
 - [ ] **Heatmap and Profile Ctrl+Left/Right: DEFERRED by Cody 2026-10-22** ("it works fine and it's not hurting
   anything"). The bins live outside the component, so Ctrl+Left/Right says "No points of interest" and
   Alt+Shift+D says nothing. To build: Profile stops where price crosses the point of control and enters or
   leaves the value area; heatmap stops where the biggest liquidity level moved.
+
 - [ ] **Cody's 2026-10-22 design points, still open:** nothing out of reach (every drawn thing must at least be
   named in the series summary or Alt+Shift+D, even with nothing to step through). The yearly cycle low
   sketch (a yearly low is a weekly cycle low confirmed when the next weekly low is confirmed higher, about 7
   to 9 months on Bitcoin) was worked by hand on one asset only; Cipher C's "yearly lows found from price"
   switch (above) is the built version.
 
-## Before cutting 2.13 (listed 2026-11-16)
+## After the 2.13 tag
 
-- [ ] **Decide what 2.13 ships as tried.** Kalshi (with its stops), Coinbase futures, Hyperliquid and the
-  venue-rules pass for every venue have never placed an order with money; Hyperliquid has never sent one
-  at all, not even on testnet. Either try each on its practice venue (Kalshi demo, Hyperliquid testnet,
-  Coinbase futures needs a real account) or keep the "Not yet tried with money" lines in WHATSNEW.
-- [ ] **Take Cody's look and listen at the "Built, waiting" items above** that 2.13 headlines: Cipher A's
-  signal names and the Sell dot, the volume profile tones, the Open trades strip, the formation keys,
-  Cipher C on the chart's own clock, the bar-close order. None has been seen or heard.
-- [ ] **"1 contracts".** `SymbolOrderRules.cs:90` prints the unit unpluralised, so Coinbase futures say
-  "smallest BTC Perp order is 1 contracts"; the manual (Trading → Coinbase futures) quotes it. Fix with a
-  test, then fix the quote.
-- [ ] **WHATSNEW is still long** (about 425 lines under Unreleased): the 2026-11-16 sweep removed the
-  entries that contradict later ones, but 2.13's notes should lead with what a user will notice. Read it
-  top to bottom once more at the cut, then move 2.12.0's section out (the file's header rule).
-- [ ] **Version and release:** `Directory.Build.props` still says 2.12.0; the release workflow, the
-  verification doc (the last is `RELEASE_2.4.0_VERIFICATION.md` plus the 2026-09-12 review), and after
-  the zips are up, `r2r-check.py` on the Windows zip. 2.12.0's notes said the client was precompiled again
-  and the shipped zip was not (the site carries a correction); check that 2.13's is.
-- [ ] **The website at the tag** (VPS `~/HOSTED-DEPLOY-NOTES.md` §5j/§5m): sync the six docs from the tag,
-  rewrite `includes/download.php`'s "What's new in 2.13", sizes from the GitHub release API, the
-  structured-data fallback version, `features.php`'s "sixteen trading venues" (eighteen with Hyperliquid
-  and Kalshi), the faqs table, delete the 2.12 `$docNotice` on /whatsnew, and re-shoot the screenshots if
-  the chart looks different.
+The rest of the 2026-11-16 pre-release list was done at the cut (see CHANGES, 2.13.0): Cody's look and
+listen, "1 contracts", the WHATSNEW read, the version. Left:
+
+- [ ] **Is the Windows zip precompiled?** Once the release workflow has put the zips up, run
+  `r2r-check.py` (VPS `~/att-release-tools/`) on the Windows zip. 2.12.0's notes said the client was
+  precompiled and the shipped zip was not; the site carries a correction for 2.12.
+- [ ] **The website at the tag** (VPS `~/HOSTED-DEPLOY-NOTES.md` §5j/§5m): sync the six docs from the tag
+  (`git show v2.13.0:docs/<FILE>.md`; the sync script copies HEAD), rewrite `includes/download.php`'s
+  "What's new in 2.13", sizes from the GitHub release API, the structured-data fallback version,
+  `features.php`'s "sixteen trading venues" (eighteen with Hyperliquid and Kalshi), the faqs table,
+  llms-full.txt's provider count, delete the 2.12 `$docNotice` on /whatsnew once the zip checks out, and
+  re-shoot the screenshots if the chart looks different.
+- [ ] **The hosted terminal on the tag.** The VPS runs 9595816c (2.12.0+); redeploy the tagged commit so its
+  stamp reads 2.13.0.
 
 ## Asked for, not built yet
 

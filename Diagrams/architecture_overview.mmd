@@ -1,8 +1,8 @@
 ---
 title: Accessible Trading Terminal — architecture overview
 ---
-%% Verified against the tree on 2026-09-13.
-%% Counts here are load-bearing: 16 trading + 17 analytics plugins, 128 audio voices.
+%% Verified against the tree on 2026-09-13; provider and indicator counts re-checked 2026-11-16.
+%% Counts here are load-bearing: 18 trading + 17 analytics plugins, 128 audio voices.
 %% docs/README.md claims the same numbers and CI (scripts/check_doc_drift.py) enforces them there.
 graph TD
     subgraph HEADS["Three heads, one component library"]
@@ -78,7 +78,7 @@ graph TD
             LSM["LiveStreamManager — watchdog, gap fill"]
             STORE2["OhlcvStore + FileCacheService"]
             RES["ResamplerService"]
-            IS["IndicatorService — 36 IIndicatorProvider implementations"]
+            IS["IndicatorService — 37 IIndicatorProvider implementations"]
         end
 
         subgraph MON["Background monitor — runs with no browser attached"]
@@ -105,7 +105,7 @@ graph TD
     end
 
     subgraph PLUGINS["Plugins — AccessibleTrader.Sdk contract"]
-        TP["16 trading providers<br/>Plugins/Providers"]
+        TP["18 trading providers<br/>Plugins/Providers"]
         AP["17 analytics providers<br/>Plugins/Analytics"]
         IP["Drop-in indicator DLLs<br/>Plugins/Indicators — a runtime scan path, no folder ships"]
     end

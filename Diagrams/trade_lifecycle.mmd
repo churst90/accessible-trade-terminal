@@ -37,7 +37,7 @@ flowchart TD
     PF --> GOS
     PROV --> GOS
 
-    PROTECT["The stop travels WITH the entry.<br/>Native brackets where the venue has them (Alpaca, Tradier, Schwab, Binance);<br/>Kraken attaches ONE leg — the stop wins over the target, and you are told;<br/>elsewhere the terminal verifies ~2 s later and warns if no protection landed."]
+    PROTECT["The stop travels WITH the entry.<br/>Native brackets where the venue has them (Alpaca, Tradier, Schwab, Binance, Oanda, MEXC futures, Hyperliquid);<br/>Kalshi sets them as exit triggers on the position;<br/>Kraken attaches ONE leg — the stop wins over the target, and you are told;<br/>where the venue cannot attach one (Bitstamp, Coinbase, Gemini, Kraken Futures, MEXC spot)<br/>the entry is REFUSED before sending (ITradingProvider.AttachesProtectiveLegs);<br/>after any entry the terminal verifies ~2 s later and warns if no protection landed."]
     GOS --> PROTECT
 
     subgraph HEAR["What you hear — OrderEvent channel, through every mute"]

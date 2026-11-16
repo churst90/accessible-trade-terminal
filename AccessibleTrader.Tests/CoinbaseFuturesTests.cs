@@ -136,7 +136,7 @@ namespace AccessibleTrader.Tests
 
             string r = await p.PlaceOrderAsync(new TradeSignal(Sym, OrderSide.Buy, 0.03, SubType: "Futures"));
 
-            Assert.Equal("ORDER_FAILED:Coinbase's smallest BTC Perp order is 1 contracts; this one is 0.03 contracts (one contract is 0.01 BTC)", r);
+            Assert.Equal("ORDER_FAILED:Coinbase's smallest BTC Perp order is 1 contract; this one is 0.03 contracts (one contract is 0.01 BTC)", r);
             Assert.Null(Sent(h));
         }
 

@@ -58,6 +58,16 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void One_contract_is_said_as_one_contract_and_asset_codes_never_change()
+        {
+            // Coinbase's BTC Perp said "smallest order is 1 contracts" (found 2026-11-16).
+            var c = Btc() with { Venue = "Coinbase", Symbol = "BTC Perp", QuantityUnit = "contracts", MinQuantity = 1m, QuantityStep = 1m };
+            Assert.Equal("Coinbase's smallest BTC Perp order is 1 contract; this one is 0.03 contracts", c.Refusal(0.03, 65000));
+            Assert.Equal("Coinbase's smallest BTC Perp order is 2 contracts; this one is 1 contract", (c with { MinQuantity = 2m }).Refusal(1, 65000));
+            Assert.Equal("BTC", SymbolOrderRules.Unit(1m, "BTC"));
+        }
+
+        [Fact]
         public void An_order_under_the_smallest_value_is_refused_and_one_without_a_price_is_not_judged()
         {
             var r = Btc() with { MinNotional = 10m };

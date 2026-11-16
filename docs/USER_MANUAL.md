@@ -3420,7 +3420,7 @@ this has yet been tried against a real Coinbase futures account.
 
 - **Sizes are whole contracts.** One BTC Perp contract is 0.01 BTC, so 3 is 0.03 BTC. A
   size such as 0.03, typed as bitcoin, is refused before it is sent: "Coinbase's smallest
-  BTC Perp order is 1 contracts; this one is 0.03 contracts (one contract is 0.01 BTC)".
+  BTC Perp order is 1 contract; this one is 0.03 contracts (one contract is 0.01 BTC)".
   More than one order may carry (5,000 on the BTC Perp) is refused too.
 - **No leverage field.** Coinbase sets futures margin itself, about a tenth of the
   contract's value in the day and more overnight, so the leverage is how many contracts

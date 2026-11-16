@@ -870,7 +870,7 @@ namespace AccessibleTrader.Plugins.Kalshi
                 var missing = same.Where(t => (stop ? t.StopLoss : t.TakeProfit) == null).ToList();
                 var onto = same.Count == 1 ? same[0] : missing.Count == 1 ? missing[0] : null;
                 if (onto == null && same.Count > 1)
-                    return $"ORDER_FAILED:The {ticker} position has {same.Count} stop-and-target brackets over {Count(size)} contracts, "
+                    return $"ORDER_FAILED:The {ticker} position has {same.Count} stop-and-target brackets over {Count(size)} {SymbolOrderRules.Unit(size, "contracts")}, "
                          + $"so which {name} to set is not known; change it on Kalshi's site";
 
                 (ExitTrigger? Trigger, string? Error, bool Retry) r;

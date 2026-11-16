@@ -21,6 +21,10 @@ It is free, donation-supported, and developed in the open by a blind trader who 
   which channel is all under your control — and money events (fills, stops, take-profits)
   are on a channel that never goes quiet.
 - **Trading**, live or paper, with a spoken order review before anything is sent.
+  **Untested:** paper trading has been used for months, but placing orders through the venues has not
+  been tried yet, on their demo and practice accounts or with money. Each venue's orders and refusals
+  are checked only against copies of its public answers. Try a venue on its demo or practice account,
+  with small sizes, before trusting it with money.
 - **Indicators, drawings and alerts**, all reachable and editable from the keyboard.
 - **Your own indicators**, written in C# or transpiled from Pine Script, compiled and run in
   an OS-level sandbox.

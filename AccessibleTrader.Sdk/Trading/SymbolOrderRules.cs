@@ -87,8 +87,12 @@ namespace AccessibleTrader.Sdk.Trading
 
             decimal q = FloorQuantity(quantity);
             if (q <= 0 || (MinQuantity > 0 && q < MinQuantity))
-                return $"{Venue}'s smallest {Symbol} order is {Plain(MinQuantity > 0 ? MinQuantity : QuantityStep)} {QuantityUnit}".TrimEnd()
-                     + $"; this one is {Plain(ToDecimal(quantity))} {QuantityUnit}".TrimEnd();
+            {
+                decimal least = MinQuantity > 0 ? MinQuantity : QuantityStep;
+                decimal asked = ToDecimal(quantity);
+                return $"{Venue}'s smallest {Symbol} order is {Plain(least)} {Unit(least, QuantityUnit)}".TrimEnd()
+                     + $"; this one is {Plain(asked)} {Unit(asked, QuantityUnit)}".TrimEnd();
+            }
 
             if (price is > 0 && MinNotional > 0)
             {
@@ -99,6 +103,11 @@ namespace AccessibleTrader.Sdk.Trading
             }
             return null;
         }
+
+        /// <summary>The unit for a count of it: "contracts" is "contract" for exactly one, so a
+        /// refusal never says "1 contracts". Asset codes (BTC, USD) are the same for any count.</summary>
+        public static string Unit(decimal count, string unit) =>
+            count == 1 && unit == "contracts" ? "contract" : unit;
 
         /// <summary>A number as the venues want it: invariant, never in exponent form, no
         /// trailing zeros. <c>0.00001.ToString()</c> is <c>1E-05</c>, which Bitstamp and
