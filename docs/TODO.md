@@ -276,7 +276,11 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   The same digit is behind AAPL 1D 262/264 and the SOL/XAU re-arm misses. Reading it as exactly 100 is worse
   everywhere (TradingView sides with the hair on 389 bars, with exact 100 on 10), and the one rule tried for
   when to read it as 100 (the bear's one-bar Q scored 2 or more) fixed 6 values and broke 38, so it was
-  rejected. Moving one close by a cent flips that digit, so these bars may only be flaggable, not fixable); Intel 1990s
+  rejected. Moving one close by a cent flips that digit, so these bars may only be flaggable, not fixable.
+  Prices rebuilt as ticks times the tick size (TradingView's possible way of holding them) fixed 11 values,
+  the 4 exceptions among them, and broke 709, which is what any last-digit nudge does; the harvested prices
+  are TradingView's own chart numbers to every digit and are already clean decimals, so the prices are not
+  where the digit comes from); Intel 1990s
   (one shape); the Start-grid emulator not moved to this model. Unpinned (no harvested bar changes if broken):
   fsum against a plain sum and its half-even step, the Stoch RSI zero-range tolerance and its 77.2 edge,
   the wide gap 17.34 and the near-zero 5.6 moved up, the max that keeps NaN (differs from Math.Max only on ±0),
