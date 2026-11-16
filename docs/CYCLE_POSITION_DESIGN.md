@@ -590,7 +590,7 @@ chance (C#'s error function against Python's) that falls on a tree's split.
 - When the weekly reading reads the same low as the daily one, the state words now say "the same low
   as the daily reading" and leave out what the daily one has just said (section 9.2).
 - Weekly lows with few days to their confirmation are often confirmed before "very high": a "high"
-  there is worth hearing.
+  there is worth hearing. Since 2026-11-16 the first weekly "high" has its own mark (section 9.13).
 - The metals and oil are the weak charts; yearly lows are few (328 on 31 charts).
 - Fitted on daily charts (section 9.1 for 4-hour and weekly); the 58 last-digit differences above.
 
@@ -1100,3 +1100,39 @@ are steady, so the hit rate says only that the cycle lengths are steady, not tha
 anything more. The original's fixed daily windows are narrower and hold less (27.6%, section 4.1);
 per day of width the two are the same. A low in the window is a weak sign, and a confirmation is what
 says a low happened.
+
+### 9.13 "High" is the word to act on for the weekly (2026-11-16)
+
+Cody took the recommendation to make "high" the word to act on for the weekly reading (section 8.3:
+weekly lows confirmed fast are often confirmed before "very high"). Measured first, on the 51 daily
+price charts in `strategy-lab-data` (Bitstamp, MEXC, Twelve Data and Yahoo, at least 800 bars, the
+newest low on each chart left out as unsettled): each weekly low the reading read, its first bar at
+each share, "right" when that low is confirmed, "caught" when the call came by the confirmation.
+
+| Weekly call at the first… | Right | Weekly lows caught (3,878) | Median bars before the confirmation |
+|---|---|---|---|
+| 60% | 67.7% | 99.6% | 41 |
+| **high (80%)** | **82.3%** | **98.9%** | **32** |
+| 90% | 92.9% | 92.4% | 15 |
+| very high (95%) | 95.8% | 75.1% | 11 |
+
+The very high row reproduces section 8.2's figures (94.6% right, 72% caught, on other captures). The
+lows "high" adds are the weak ones: of the 1,623 lows that reached "high" but not "very high" by
+their confirmation, 56.9% were confirmed. A "high" with only a few days left to the clock is not much
+better than any "high" (3 days or fewer: 92.1% right), so no days-left rule was added.
+
+So the very high mark and its call line are unchanged (a saved alert on "Weekly very high call" means
+what it meant), and the weekly "high" is added beside them: **Weekly High**, a paler blue diamond
+(#80D8FF) on the first bar each weekly low's reading is "high" or more, said as "Weekly low is in: high,
+84%, for the low of ..."; no mark where that bar is already "very high" (its very high mark is there),
+and none on Bitcoin's daily history, where all 44 weekly high calls come before the very high one.
+**Weekly High Call**, a line for strategies and alerts (off, undrawn, muted), the share in percent
+on that bar (including a bar already "very high") and 0 elsewhere. The "Very high marks" switch
+hides it too, and "Only this chart's own cycle" clears it with the other weekly parts. A low's high
+call never comes after its very high call.
+
+Test: `The_weekly_high_call_is_the_first_high_bar_of_each_weekly_low` (made-up readings, then every
+bar of Bitcoin's weekly reading, the speech, the order); four sabotages (the call at "very high", the
+mark not left off a very high bar, the switch not hiding it, said as "very high") each turn a test red.
+Not seen or heard in the app. The 82% is the reading's own calibration: one weekly "high" in six is a
+low that is later undercut.

@@ -664,6 +664,8 @@ namespace AccessibleTrader.Tests
             "CYCLE_POSITION.Weekly Low Is In",
             "CYCLE_POSITION.Weekly Very High",
             "CYCLE_POSITION.Weekly Very High Call",
+            "CYCLE_POSITION.Weekly High",
+            "CYCLE_POSITION.Weekly High Call",
             "COINMETRICS.ActiveAddresses",
             "COINMETRICS.ActiveAddressesZ",
             "COINMETRICS.HashRate",

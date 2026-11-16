@@ -60,6 +60,16 @@ All notable changes to this project will be documented in this file.
   shows a dash (no low held) instead of nothing; off a daily chart it stays blank. **An alert or strategy built on the "Low expected, %" line no longer finds
   it.** A test checks no row, line, key or word for it is left; bringing back the row, or dropping the
   cell's dash, turns it red (checked). Not heard in the app.
+- **Cipher C: "high" is the word to act on for the weekly.** Measured first on 51 daily charts
+  (strategy-lab-data, 3,878 weekly lows): a weekly low's first "very high" is right 95.8% of the time
+  but comes for only 75% of weekly lows, 11 bars before the confirmation; its first "high" (80%) is
+  right 82.3%, comes for 98.9%, 32 bars before. The lows only "high" catches are confirmed 57% of the
+  time, and a "high" with few days left is no better (92.1%), so no extra rule. The very high mark and
+  its call line are unchanged; added beside them: **Weekly High**, a paler blue diamond on the first
+  "high" of each weekly low ("Weekly low is in: high, 84%, for the low of ..."; no mark on a bar
+  already "very high"), and **Weekly High Call**, a line for strategies and alerts (off by default).
+  The "Very high marks" switch hides it too. CYCLE_POSITION_DESIGN section 9.13. Four sabotages each turn
+  a test red (checked). Not seen or heard in the app; one weekly "high" in six is later undercut.
 
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 

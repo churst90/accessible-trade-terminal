@@ -135,7 +135,7 @@ Try a venue on its demo or practice account, with small sizes, before trusting i
 ### Cycle lows: Cipher C and Cycle Position
 
 - **Cipher C and Cycle Position have swapped names.** The more complete cycle indicator, with
-  learned windows, "Low is in" and the half-cycle low, is now **Cipher C**; our copy
+  learned windows, "Low is in", "Low expected" and the half-cycle low, is now **Cipher C**; our copy
   of Camel Finance's cycle indicator is now **Cycle Position**. Saved charts, strategies and alerts
   keep working and show the new names. Below, entries written before the swap use the new names.
 - **Cipher C follows the chart's own cycle.** On a weekly chart the wave and the events are the weekly
@@ -143,7 +143,7 @@ Try a venue on its demo or practice account, with small sizes, before trusting i
   On a 4-hour chart the daily cycle is counted in days. The weekly and yearly cycles now have their own
   pending, cancelled and failed lows, said like the daily ones; turn them on in Parts to see them. A
   new check box, "Only this chart's own cycle" (off by default), leaves the longer cycles out. Low is
-  in, the top so far and the half-cycle low are now on daily charts only.
+  in, Low expected, the top so far and the half-cycle low are now on daily charts only.
 - **The old Cipher C oscillator is now a cycle-low indicator, Cycle Position.**
   It marks daily, weekly and yearly cycle lows under the candles, says when a low is confirmed,
   pending, cancelled or failed, counts the days of each cycle, and on Alt+Shift+D tells you where you

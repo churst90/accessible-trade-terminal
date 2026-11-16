@@ -1517,7 +1517,10 @@ built on the same marks: one rule for every asset, so it works on a symbol nobod
 windows learned from the chart's own past cycles, so it says "day 24 of the daily cycle; the low had
 come by now in 70% of 12 past cycles". Under the held low it says EARLY, DUE or LATE against that
 window. It adds **Low is in** (the chance the held low will be confirmed, said as likely to fail,
-low, medium, high or very high, with the facts it was read from), the half-cycle low and how much
+low, medium, high or very high, with the facts it was read from; a diamond marks the first "very
+high" on each daily and weekly low, and a paler blue diamond the first "high" on a weekly low, the word
+to act on for the weekly: right about 82% of the time against 96% for "very high", but it comes for
+nearly every weekly low and about three weeks sooner), the half-cycle low and how much
 of the rise it gave back, a warning that a weekly low is likely next when a daily cycle fails, and
 the next window's dates past the last bar. Four switches, all off, give it Cycle Position's
 per-asset rules, its faster confirmation, its start dates and its yearly-low dates. **Cipher C

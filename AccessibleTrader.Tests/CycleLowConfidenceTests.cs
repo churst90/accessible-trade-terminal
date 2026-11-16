@@ -446,7 +446,7 @@ public sealed class CycleLowConfidenceTests
         }
 
         var off = CyclePositionProvider.Compute(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD", [CyclePositionProvider.ParamVeryHighMarks] = false });
-        foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh })
+        foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh, CyclePositionProvider.CompWeeklyHigh })
         {
             var marked = Marked(r[comp]);
             Assert.NotEmpty(marked);
@@ -455,15 +455,67 @@ public sealed class CycleLowConfidenceTests
                 Assert.Equal(marked.Contains(t) ? ComponentCompanions.HideMarker : double.NaN, off[comp + ComponentCompanions.Hide][t]);
         }
         Assert.Equal(r.Keys.Order(), off.Keys.Order());
-        foreach (var key in r.Keys.Where(k => !k.EndsWith(ComponentCompanions.Hide, StringComparison.Ordinal) || !k.Contains("Very High")))
+        foreach (var key in r.Keys.Where(k => !k.EndsWith(ComponentCompanions.Hide, StringComparison.Ordinal) || !(k.Contains("Very High") || k.StartsWith(CyclePositionProvider.CompWeeklyHigh, StringComparison.Ordinal))))
             Assert.Equal(r[key], off[key]);
 
         var catalog = new AccessibleTrader.Core.Services.Strategies.SignalCatalog(new[] { provider });
-        foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh })
+        foreach (var comp in new[] { CyclePositionProvider.CompVeryHigh, CyclePositionProvider.CompWeeklyVeryHigh, CyclePositionProvider.CompWeeklyHigh })
             Assert.Equal(SignalKind.MarkerFire, catalog.GetById($"{CyclePositionProvider.Code}.{comp}")!.Kind);
         foreach (var comp in new[] { CyclePositionProvider.CompLowInLine, CyclePositionProvider.CompWeeklyLowInLine, CyclePositionProvider.CompYearlyLowInLine,
-                     CyclePositionProvider.CompCallLine, CyclePositionProvider.CompWeeklyCallLine })
+                     CyclePositionProvider.CompCallLine, CyclePositionProvider.CompWeeklyCallLine, CyclePositionProvider.CompWeeklyHighCallLine })
             Assert.Equal(SignalKind.Line, catalog.GetById($"{CyclePositionProvider.Code}.{comp}")!.Kind);
         Assert.Contains(catalog.All, d => d.Id == $"{CyclePositionProvider.Code}.{CyclePositionProvider.CompCallLine}");
+    }
+
+    /// <summary>
+    /// "High" is the word to act on for the weekly (Cody, 2026-11-16): the weekly high call is on the
+    /// first bar each weekly low's reading is at least "high" (80%), once a low; its mark is left off
+    /// a bar already "very high" (the very high mark is there) while its line still says the call.
+    /// Made-up arrays, then every bar of Bitcoin's weekly reading, the speech, and the order: a low's
+    /// high call never comes after its very high one.
+    /// </summary>
+    [Fact]
+    public void The_weekly_high_call_is_the_first_high_bar_of_each_weekly_low()
+    {
+        var made = new Ohlcv[7];
+        for (int t = 0; t < 7; t++) made[t] = new Ohlcv(new DateTime(2024, 1, 1).AddDays(t), 10, 12, 9 + t, 11, 0);
+        var reading = new CycleLowConfidence.Reading { Subject = new[] { -1, 2, 2, 2, 5, 5, 2 }, Chance = new[] { 0.99, 0.79, 0.85, 0.99, 0.96, 0.97, 0.99 } };
+        double[] mark = CipherCEngine.Nan(7), share = CipherCEngine.Nan(7), line = CipherCEngine.Nan(7);
+        CyclePositionProvider.VeryHighCalls(made, reading, mark, share, line, CyclePositionProvider.High);
+        Assert.Equal(new[] { double.NaN, double.NaN, 11, double.NaN, double.NaN, double.NaN, double.NaN }, mark);
+        Assert.Equal(new[] { double.NaN, double.NaN, 0.85, double.NaN, double.NaN, double.NaN, double.NaN }, share);
+        Assert.Equal(new double[] { 0, 0, 85, 0, 96, 0, 0 }, line);
+        Assert.Equal(0.80, CyclePositionProvider.High);
+
+        var bars = CipherSrSpeechTests.BtcDaily().ToArray();
+        var r = Btc();
+        var tr = CyclePositionProvider.BuildTiers(bars, new Dictionary<string, object> { ["__symbol"] = "BTC/USD" });
+        var subject = CycleLowConfidence.WeeklySubject(new CycleLowConfidence.Series(bars), tr.D, tr.W, tr.WeeklyGap);
+        var chance = r[W + CyclePositionProvider.LowInSuffix];
+        var first = subject.Select((c, t) => (c, t)).Where(x => x.c >= 0 && chance[x.t] >= 0.80).GroupBy(x => x.c).ToDictionary(g => g.Key, g => g.Min(x => x.t));
+        var calls = first.Values.ToHashSet();
+        string comp = CyclePositionProvider.CompWeeklyHigh, callLine = CyclePositionProvider.CompWeeklyHighCallLine;
+        int marked = 0;
+        for (int t = 0; t < bars.Length; t++)
+        {
+            bool m = calls.Contains(t) && chance[t] < 0.95;
+            marked += m ? 1 : 0;
+            Assert.Equal(m ? bars[t].Low : double.NaN, r[comp][t]);
+            Assert.Equal(m ? chance[t] : double.NaN, r[comp + CyclePositionProvider.ShareSuffix][t]);
+            Assert.Equal(calls.Contains(t) ? 100 * chance[t] : 0, r[callLine][t]);
+        }
+        Assert.True(marked > 20, $"{marked} marked");
+        // More weekly lows get a high call than a very high one, and never a later one.
+        var veryHigh = Marked(r[CyclePositionProvider.CompWeeklyVeryHigh]);
+        Assert.True(calls.Count > veryHigh.Count, $"{calls.Count} high calls, {veryHigh.Count} very high");
+        foreach (int v in veryHigh) Assert.True(first[subject[v]] <= v, $"very high on {v}, high on {first[subject[v]]}");
+
+        var provider = new CyclePositionProvider();
+        int at = Marked(r[comp]).Max();
+        Assert.Equal($"Weekly low is in: high, {Math.Round(100 * chance[at]):0}%, for the low of {SpeechPriceFormatter.FormatPrice(bars[subject[at]].Low)}.",
+            provider.GetComponentSpeech(comp, r[comp][at], bars[at], r, at));
+        Assert.Equal($"weekly high call, {Math.Round(100 * chance[at]):0}%", provider.GetComponentSpeech(callLine, r[callLine][at], bars[at], r, at));
+        Assert.Equal("no weekly high call on this bar", provider.GetComponentSpeech(callLine, 0, bars[at - 1], r, at - 1));
+        Assert.StartsWith("weekly very high call, ", provider.GetComponentSpeech(CyclePositionProvider.CompWeeklyCallLine, 97, bars[at], r, at));
     }
 }

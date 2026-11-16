@@ -86,7 +86,8 @@ public sealed class CyclePositionProviderTests
         // confirmation mark and the very high marks on by default nothing is hidden on them.
         var unlearned = new[] { CyclePositionProvider.BottomedSuffix, CyclePositionProvider.LearnedSuffix, CyclePositionProvider.HitsSuffix,
             CyclePositionProvider.ScoredSuffix }.Select(x => Y + x).Append(CipherCProvider.CompDclConfirmed + ComponentCompanions.Hide)
-            .Append(CyclePositionProvider.CompVeryHigh + ComponentCompanions.Hide).Append(CyclePositionProvider.CompWeeklyVeryHigh + ComponentCompanions.Hide).ToHashSet();
+            .Append(CyclePositionProvider.CompVeryHigh + ComponentCompanions.Hide).Append(CyclePositionProvider.CompWeeklyVeryHigh + ComponentCompanions.Hide)
+            .Append(CyclePositionProvider.CompWeeklyHigh + ComponentCompanions.Hide).ToHashSet();
         var neverChecked = causal.Except(everCompared).Where(k => !unlearned.Contains(k) && k != W + ComponentCompanions.Tint
             && k != Y + ComponentCompanions.Tint && k != Y + ComponentCompanions.Stops
             && k != CipherCProvider.CompYclConfirmed + CipherCProvider.ReplacedSuffix
@@ -470,18 +471,20 @@ public sealed class CyclePositionProviderTests
         var own = new[] { (CyclePositionProvider.CompHalfLow, ComponentCausality.Lookahead) }
             .Concat(CyclePositionProvider.TierEventComponents.Select(c => (c, ComponentCausality.Causal))).Concat(new[] {
                           (CyclePositionProvider.CompVeryHigh, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyVeryHigh, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompWeeklyHigh, ComponentCausality.Causal),
                           (CyclePositionProvider.CompLowInLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyLowInLine, ComponentCausality.Causal),
                           (CyclePositionProvider.CompYearlyLowInLine, ComponentCausality.Causal),
-                          (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal) }).ToArray();
+                          (CyclePositionProvider.CompCallLine, ComponentCausality.Causal), (CyclePositionProvider.CompWeeklyCallLine, ComponentCausality.Causal),
+                          (CyclePositionProvider.CompWeeklyHighCallLine, ComponentCausality.Causal) }).ToArray();
         Assert.Equal(cc.Components.Select(c => c.Name).Concat(own.Select(c => c.Item1)), mine.Components.Select(c => c.Name));
         Assert.Equal(cc.Components.Select(c => c.Causality).Concat(own.Select(c => (ComponentCausality?)c.Item2)), mine.Components.Select(c => c.Causality));
         Assert.True(On(CyclePositionProvider.ParamHalfLows));
         Assert.True(On(CyclePositionProvider.ParamVeryHighMarks));
-        foreach (var c in mine.Components.Skip(cc.Components.Count + 9))
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 10))
             Assert.True(c.DisplayType == ComponentDisplayType.Line && c.DefaultIsEnabled == false && c.DefaultIsDrawn == false && c.DefaultIsMuted == true, c.Name);
         foreach (var c in mine.Components.Skip(cc.Components.Count + 1).Take(6))
             Assert.True(c.DefaultIsDrawn == false && c.DefaultIsMuted != true, c.Name);
-        foreach (var c in mine.Components.Skip(cc.Components.Count + 7).Take(2))
+        foreach (var c in mine.Components.Skip(cc.Components.Count + 7).Take(3))
             Assert.True(c.DisplayType == ComponentDisplayType.Diamond && c.DefaultIsEnabled != false && c.DefaultIsDrawn != false, c.Name);
         bool On(string name) => (bool)mine.Parameters.Single(p => p.Name == name).DefaultValue!;
         Assert.True(On(CipherCProvider.ParamCancelledLows));
