@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
+
+- **The release run** (43896320872) passed every packaging trial (launcher start; 1,069 files installed byte
+  for byte, twice; Start menu entry; uninstall) and the payload check on all seven assets. The downloaded
+  setup and zip match SHA256SUMS.txt; the zip's one top folder is `Accessible Trader 2.13.1`. Sizes: setup
+  85.1 MB, zip 136.9 MB; the other five are the same size as 2.13.0's to 0.1 MB.
+- **accessibletrader.com:** the download page is on 2.13.1 with a row for the setup and one for the
+  portable zip, says what 2.13.1 changed and how to start the Windows app, and no longer calls the
+  desktop app "traditionally installed"; all eight download links answer 200. The home page's hero line,
+  llms.txt, the Quick Start, PLATFORMS and What's New pages (copied from the tag) and llms-full.txt
+  (regenerated) follow. The structured data reads 2.13.1 from What's New. Backup on the VPS:
+  `~/backups/trade-site-20261116-2131/`.
+- **Not changed:** the hosted terminal is still the 2.13.0 build (2.13.1 changes no app code), and
+  codyhurst.com's card names no version.
+
 ## [2.13.1] — 2026-11-16
 
 ### The Windows download: one folder with "Accessible Trader.exe" on top, and an installer (2026-11-16)
