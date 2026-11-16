@@ -355,7 +355,7 @@ public sealed class CipherBLookTests
     }
 
     /// <summary>
-    /// MCB's white lines are faint on a light chart (40% white on Paper is 1.1:1), so there they
+    /// MCB's white lines are faint on a light chart (40% white on Paper is 1.0:1), so there they
     /// are drawn in the grey that served before 2026-10-31 (Cody, 2026-11-16): ±60 at 3:1 or more
     /// on Paper and High Contrast Light, still MCB's white on a dark theme. A colour the user chose
     /// is drawn as chosen on any theme.
