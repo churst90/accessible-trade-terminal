@@ -1624,6 +1624,16 @@ public sealed class CipherCProviderTests
         var said = bus.Log.OfType<AnnouncementEvent>().Last().Message;
         _out.WriteLine(said);
         Assert.Matches("[0-9]+ days? since the last daily cycle low, ", said);
+        // The words carry the count, so the bare number ("Cycle Position: 78, 29, 3, 78 days since
+        // ...") is not said before them (Cody, 2026-11-16): each window's count is said once.
+        foreach (var w in new[] { CipherCProvider.CompDailyWindow, CipherCProvider.CompWeeklyWindow, CipherCProvider.CompYearlyWindow })
+        {
+            double v = Btc()[w][bars.Count - 1];
+            Assert.False(double.IsNaN(v), $"{w} has no count on the last bar: the check below would be empty");
+            string n = AccessibleTrader.Core.Services.Rendering.ValueLabelRenderer.Spoken(v);
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(said, $@"(?<![0-9.]){System.Text.RegularExpressions.Regex.Escape(n)}(?![0-9.]) (days?|weeks?|years?) since"));
+            Assert.DoesNotMatch($@"(: |, ){System.Text.RegularExpressions.Regex.Escape(n)},", said);
+        }
     }
 
     // ── 7b. What each component says (2026-10-22) ──────────────────────────────────

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cody's answers to the open questions: what was built (2026-11-16)
+
+- **What Cody said:** "take all of your suggestions to the questions. drop the gold dot, not needed."
+- **Alt+Shift+D says a timing window's count once.** It used to read Cycle Position's bare counts and
+  then the same counts in words ("Cycle Position: 78, 29, 3, 78 days since the last daily cycle low,
+  ..."). A window whose tier runs on the chart is now left out of the numbers, on the ladder and for a
+  hidden focused series (`CipherCProvider.CountSaidInWords`). The status line still prints the count.
+  The test fails with the skip removed (checked).
+
 ### After the 2.13.1 tag: the release checked, the website on 2.13.1 (2026-11-16)
 
 - **The release run** (43896320872) passed every packaging trial (launcher start; 1,069 files installed byte

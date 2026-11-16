@@ -1288,6 +1288,17 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
+        /// True when <see cref="StateWords"/> says this component's count in words at the bar ("23
+        /// days since the last daily cycle low, ..."): a timing window whose tier runs on the chart.
+        /// Alt+Shift+D then leaves its raw number out, so the count is not said twice (Cody,
+        /// 2026-11-16). The status line still prints it.
+        /// </summary>
+        public static bool CountSaidInWords(Func<string, double[]?> component, string name, int index)
+            => name is CompDailyWindow or CompWeeklyWindow or CompYearlyWindow
+               && component(name + StartSuffix) is { } start && index >= 0 && index < start.Length
+               && !double.IsNaN(start[index]);
+
+        /// <summary>
         /// Where a cycle is against its window, from its count (<paramref name="since"/>, the
         /// original's "days since", 0 on the low's bar) and the window's bounds (the cycle's length,
         /// both lows counted, so the low's own day is day 1): "23 days since the last daily cycle

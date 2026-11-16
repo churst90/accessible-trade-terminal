@@ -1027,6 +1027,8 @@ own — Cycle Position's cycle arc, drawn under the candles from low to low — 
 "Window, with the cycle arc". The drawing is a picture, not something to step through: what it
 shows (where each cycle bottomed, how long it ran) is already said by the cycle lows and the
 window. Properties → Appearance → **Draw the cycle arc** turns it off.
+Alt+Shift+D says a window's count once, in its words ("78 days since the last daily cycle
+low, 13 days past its window"), not also as a bare number before them.
 
 A window makes no sound when you move onto it or along it with the arrow keys; you hear its
 count spoken. In playback it is a quiet, low rumble under the chart while it is open, and

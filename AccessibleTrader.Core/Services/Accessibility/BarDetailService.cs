@@ -327,9 +327,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Alt+Shift+D always reads raw component values regardless of indicator type.
             // GetDetailFact is intentionally bypassed here so every indicator reveals its
             // actual numeric column values rather than a condensed narrative summary.
+            bool cipherC = string.Equals(series.IndicatorCode, Indicators.CipherCProvider.Code, StringComparison.OrdinalIgnoreCase);
             foreach (var comp in series.Components)
             {
                 if (!comp.IsVisible) continue;
+                // A count the narrative facts below say in words (Cody, 2026-11-16).
+                if (cipherC && Indicators.CipherCProvider.CountSaidInWords(series.GetComponentData, comp.Name, index)) continue;
 
                 var data = series.GetComponentData(comp.Name);
                 if (index < 0 || index >= data.Length) continue;
@@ -498,9 +501,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Plots with no value on any bar of this chart are left out as the status line leaves
             // them out (ChartStatusLine.NoDataAnywhere) — and so do not count towards labelling.
             var empty = ChartStatusLine.NoDataAnywhere(s);
+            // A count the narrative facts say in words (Cipher C's timing windows) is not read as a
+            // bare number before them (Cody, 2026-11-16).
+            bool cipherC = string.Equals(s.IndicatorCode, Indicators.CipherCProvider.Code, StringComparison.OrdinalIgnoreCase);
+            bool InWords(string name) => cipherC && Indicators.CipherCProvider.CountSaidInWords(s.GetComponentData, name, index);
             bool labelled = s.Components.Count(c => c.IsVisible && c.IsEnabled
                 && !ChartRenderer.IsMarker(c.DisplayType) && ChartStatusLine.HasReading(c.DisplayType)
-                && !empty.Contains(c.Name)) > 1;
+                && !empty.Contains(c.Name) && !InWords(c.Name)) > 1;
 
             var parts = new List<string>();
             foreach (var comp in s.Components)
@@ -509,6 +516,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 bool marker = ChartRenderer.IsMarker(comp.DisplayType);
                 if (!marker && !ChartStatusLine.HasReading(comp.DisplayType)) continue;
                 if (!marker && empty.Contains(comp.Name)) continue;
+                if (!marker && InWords(comp.Name)) continue;
 
                 var data = s.GetComponentData(comp.Name);
                 double v = data != null && index >= 0 && index < data.Length ? data[index] : double.NaN;
