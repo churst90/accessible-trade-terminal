@@ -12,9 +12,10 @@ GitHub Release.
 | `AccessibleTrader-WebHost-<ver>-win-x64.zip`          | WebHost | Ubuntu  | Self-contained |
 | `AccessibleTrader-WebHost-<ver>-osx-x64.zip`          | WebHost | Ubuntu  | Self-contained (Intel Mac) |
 | `AccessibleTrader-WebHost-<ver>-osx-arm64.zip`        | WebHost | Ubuntu  | Self-contained (Apple Silicon) |
-| `AccessibleTrader-Windows-<ver>-win-x64.zip`          | MAUI    | Windows | Unpackaged native app, **unsigned** |
+| `AccessibleTrader-Windows-<ver>-win-x64.zip`          | MAUI    | Windows | Unpackaged native app, **unsigned**; one folder `Accessible Trader <ver>\` holding `Accessible Trader.exe`, `README.txt` and `app\` |
+| `AccessibleTrader-<ver>-Windows-Setup.exe`            | MAUI    | Windows | Inno Setup installer of that same folder: per-user, no admin, **unsigned** |
 | `AccessibleTrader-macOS-<ver>-universal.zip`          | MAUI    | macOS   | Mac Catalyst `.app`, universal, **unsigned** |
-| `SHA256SUMS.txt`                                       | —       | —       | Checksums for every zip |
+| `SHA256SUMS.txt`                                       | —       | —       | Checksums for every zip and the setup |
 
 The **WebHost** is the cross-platform Blazor Server desktop head: unzip, run the
 `AccessibleTrader.WebHost` executable, and it serves the terminal on a local
@@ -22,6 +23,17 @@ Kestrel port and opens your browser. Flags: `--no-launch` (don't auto-open the
 browser), `--demo` (read-only demo mode).
 
 The **MAUI** heads are the native Windows / macOS apps.
+
+The Windows download is laid out by `packaging/windows/package.ps1`, which the release job and
+`diagnostic-build.yml` both run. It puts the publish (about 1,070 files) in `app\`, adds the
+launcher (`AccessibleTrader.Launcher`, NativeAOT, staged as `Accessible Trader.exe`) and a
+README on top, zips that folder, and builds the setup from it with Inno Setup
+(`packaging/windows/AccessibleTrader.iss`). It then runs both on the runner: the launcher must
+start the app, and the setup must install every file byte for byte, clear an older version's
+leftovers when run again, and uninstall cleanly. Any of those failing fails the job. The
+setup's `AppId` must never change: it is how a newer setup finds the older install. The setup's
+screens have not been tried with a screen reader on a real machine; the runner installs it
+silently.
 
 ## Documentation is part of the change, not part of the release
 

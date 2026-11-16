@@ -2,7 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.13.1] — 2026-11-16
+
+### The Windows download: one folder with "Accessible Trader.exe" on top, and an installer (2026-11-16)
+
+- **What Cody said:** "there's hundreds of files when I unzip the windows zip and finding the exe I'm
+  supposed to run isn't always easy" … "do the repackaging cleanup on the zip and the exe. don't just call
+  it setup.exe call it something meaningful".
+- **The zip** keeps its name (`AccessibleTrader-Windows-<version>-win-x64.zip`, so links still work) and
+  now unzips to one folder, `Accessible Trader <version>`, holding three things: **Accessible Trader.exe**,
+  **README.txt** and **app**. The app folder is the publish as before (about 1,070 files), untouched.
+  Accessible Trader.exe is a new launcher (`AccessibleTrader.Launcher`, NativeAOT, about 1 MB): it starts
+  `app\AccessibleTrader.BlazorClient.exe` with the app folder as its working directory (the Dot Pad SDK
+  opens a file by a path relative to it), passes on any arguments, and exits. If the app folder is
+  missing it says so in a message box, so a screen reader reads it, instead of failing silently.
+- **The installer,** `AccessibleTrader-<version>-Windows-Setup.exe` (Inno Setup 6), is built from the same
+  folder. It installs for the current user only, to `%LocalAppData%\Programs\Accessible Trader`, with no
+  administrator prompt; adds a Start menu entry, an optional desktop icon and an uninstaller in Windows'
+  installed apps list; and offers to start the app when done. The app is framework-dependent
+  (`SelfContained=false`; its runtimeconfig asks for Microsoft.NETCore.App and
+  Microsoft.WindowsDesktop.App 10.0, and the 2.13.0 zip has no coreclr.dll), which no doc in the repo
+  said; only the website's download page did. The setup cannot carry that runtime (it installs
+  machine-wide and needs admin), so it looks for
+  `%ProgramFiles%\dotnet\shared\Microsoft.WindowsDesktop.App\10.*` and, if none is there, says so and
+  offers Microsoft's download page (a silent install takes No). README.md, the Quick Start and the zip's
+  README.txt now say it. Installing a newer version over an older
+  one empties `app\` first, so no older file is left beside the new ones. Settings, workspaces and logs
+  live in `%LocalAppData%\AccessibleTrader` and are never touched by installing, upgrading or uninstalling.
+- **Tried on the Windows runner, every release:** `packaging/windows/package.ps1` (run by `release.yml`
+  and `diagnostic-build.yml`) starts the launcher and waits for the app's process from `app\`; installs
+  the setup silently and compares every installed file with the staged one by SHA-256; checks the Start
+  menu entry's target; plants an older file in `app\`, runs the setup again and checks it is gone; then
+  uninstalls and checks the folder and the Start menu entry are gone. Any failure fails the job.
+- **The payload check** (`scripts/verify_release_payloads.py`) now finds the Windows payloads under
+  `Accessible Trader */app/` and requires the launcher and README at the top (new rule set
+  `maui-windows-package`). Its root is matched one folder at a time: matched against the whole path, a
+  `*` also crossed folders, and a launcher placed inside `app\` passed (shown: the old matching passes such
+  a zip, the new one fails it; the 2.13.0 flat zip fails both new rule sets; a zip without the launcher
+  fails). Two new tests: `package.ps1` stages every top-folder file the manifest requires, and the release
+  job runs the script without `-SkipTrials` and publishes `release/*.exe`. Each was made to fail by
+  breaking what it guards (README staged into `app\`, `release/*.exe` dropped, `-SkipTrials` added, an
+  unknown `stagedBy`).
+- **The release** checksums the setup too, and fails if the Windows zip was built without its setup.
+- **Caveats:** the runtime check's "missing" path has not run anywhere (the runner has .NET 10);
+  on Windows on Arm, where x64 .NET lives in `dotnet\x64`, it would say missing when it is not;
+  nobody has gone through the setup's screens with a screen reader (the runner installs it
+  silently); both the setup and Accessible Trader.exe are unsigned, so SmartScreen still warns; a
+  Strategies drop-in put by hand into `app\Strategies` is removed by an upgrade (the documented place,
+  `%LocalAppData%\AccessibleTrader\Strategies`, is not); the WebHost zips are unchanged (still flat);
+  the macOS zip is unchanged. Only the Windows download changed: the app inside is 2.13.0's code.
 
 ### After the 2.13.0 tag: the Windows zip checked, the website and the hosted terminal on 2.13.0 (2026-11-16)
 

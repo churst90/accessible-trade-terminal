@@ -27,7 +27,7 @@ never in the main checkout under a running server; DBSI gets no more ports until
 ## Trading not yet tried on a practice or real account
 
 Cody, 2026-11-16: everything else built up to 2.13 has been seen and heard; trading through the venues
-on demo or practice accounts has not. Every item below is proven only against fixtures copied from each
+on demo or practice accounts has not. Later the same day: "I'll get to this as I can." Every item below is proven only against fixtures copied from each
 venue's public answers or docs. The README and WHATSNEW say so.
 
 - [ ] **Kalshi perpetual futures (2026-11-14; see CHANGES).** Not tried with money; no order placed,
@@ -206,7 +206,9 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** **Q** White lines are faint on Paper and
   HighContrastLight: keep MCB's white, or grey #8C8C96 on light themes? **Q** SteelGray's fast wave is
   2.995:1: accept, or opaque waves on that theme? **Q** The periods and the "Version" input are gone: OK?
-  **Q** Twelve retired catalogue strategies: rebuild any on MCB's parts? **Q** The three setup graders
+  **Twelve retired catalogue strategies: Cody 2026-11-16, "Delete retired strategies, probably yes."**
+  To do: delete them, and `TradeRanker` with them if Cody agrees (it scores the v23 strategies' trades
+  and has no callers). **Q** The three setup graders
   refuse to run (build 2e86d377 to re-run one): OK? **Q** `TradeRanker` (no callers): delete or keep?
   **Q** Sound defaults saved in one "Read as" form also apply in the other: should each keep its own?
   Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
@@ -220,13 +222,15 @@ question for Cody; the rest are known limits I wrote down.
   misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
   drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
   re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **Q** (asked 2026-10-24,
-  not answered) May the original's Start-grid numbers go in the public repo so DBSI can be fitted on them?
+  not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
+  2026-11-16: "no, do not put them in the repo."** They stay local.
 - [ ] **The Market Cipher strategy tests (2026-10-25).** **Q** Wait months for new 4h bars to re-test the
   crypto 4h trigger-wave entry under its own pre-registration? A future round with exits needs more than
   2,380 random books.
-- [ ] **Heikin-Ashi (2026-10-22).** **Q** A custom compiled indicator cannot be recomputed in the strategy
-  path, so its leaves are false in a strategy on an HA chart: recompute it, or refuse the strategy with a
-  reason? Limits: a background tab's candle type is read when its monitor starts; the hosted server's
+- [ ] **Heikin-Ashi (2026-10-22).** A custom compiled indicator cannot be recomputed in the strategy
+  path, so its leaves are false in a strategy on an HA chart. **Cody 2026-11-16: "custom indicators should
+  be able to be calculated using ha, of course."** To build: recompute them on HA candles in the strategy
+  path (on the chart they already are). Limits: a background tab's candle type is read when its monitor starts; the hosted server's
   alerts and the focused close line read the raw close; compiled and plugin strategies ignore "Signals from
   Heikin-Ashi candles".
 - [ ] **Timing windows and signal looks (2026-10-22).** **Q** Alt+Shift+D says the window count and the
@@ -253,7 +257,7 @@ question for Cody; the rest are known limits I wrote down.
   3 s (60 × 50 ms), so it is probably load. Force it (per the 2026-09-25 rule) before trusting either way.
 
 - [ ] **Heatmap and Profile Ctrl+Left/Right: DEFERRED by Cody 2026-10-22** ("it works fine and it's not hurting
-  anything"). The bins live outside the component, so Ctrl+Left/Right says "No points of interest" and
+  anything"), and again 2026-11-16 ("not necessary right now"). The bins live outside the component, so Ctrl+Left/Right says "No points of interest" and
   Alt+Shift+D says nothing. To build: Profile stops where price crosses the point of control and enters or
   leaves the value area; heatmap stops where the biggest liquidity level moved.
 
@@ -270,6 +274,19 @@ Unreleased). Left:
 
 - [ ] **Re-shoot the site's screenshots?** 2.13's status lines replace the old colour key, so the hero shot
   is out of date in that detail. `~/att-release-tools/shoot.js` on the VPS; only if Cody wants it.
+
+## The Windows installer and tidy zip (2.13.1, 2026-11-16)
+
+- [ ] **Cody to try the setup with a screen reader.** The runner installs, upgrades and uninstalls it
+  silently and checks every file; nobody has gone through its screens with NVDA or JAWS. Inno Setup's
+  wizard is standard Windows controls, so it should read, but that is not shown.
+- [ ] **Unsigned.** SmartScreen warns on the setup and on Accessible Trader.exe ("More info", "Run
+  anyway"); the README in the zip says so. Signing needs a certificate.
+- [ ] **An upgrade empties `app\`** before copying the new version in. The app keeps nothing there (user
+  data is under `%LocalAppData%\AccessibleTrader`), but a Strategies drop-in put by hand into
+  `app\Strategies` would go. The documented place is `%LocalAppData%\AccessibleTrader\Strategies`.
+- [ ] **The WebHost zips are still flat** (a few hundred files, the exe among them). Same treatment
+  possible if wanted.
 
 ## Asked for, not built yet
 

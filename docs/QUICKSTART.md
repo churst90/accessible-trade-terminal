@@ -35,6 +35,12 @@ The built-in audio engine plays the shape of the market: pitch for value, timbre
 bells for events. The terminal calls this the Hybrid Voice model. You can run either alone
 (F2 for chart speech, F3 for sound) or both together.
 
+**Starting it on Windows.** If you ran the setup, it is **Accessible Trader** in the Start menu.
+If you took the zip, unzip it and run **Accessible Trader.exe** in the folder it makes; the
+program is in the `app` folder beside it, which stays where it is. The Windows app needs Microsoft's
+.NET 10 Desktop Runtime (x64); the setup checks for it and offers the download, and the app says so
+if it is missing.
+
 On the **Windows desktop client** the terminal talks to NVDA and JAWS directly, because the
 chart there is a native canvas your screen reader cannot read through the page. Nothing to set
 up — whichever is running gets used, including one you start after the terminal. If the terminal

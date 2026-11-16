@@ -6,6 +6,25 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## 2.13.1 — a Windows installer, and a tidy Windows zip
+
+2.13.1 changes only the Windows download. Everything under 2.13.0 below is what is in it.
+
+- **An installer.** Download `AccessibleTrader-2.13.1-Windows-Setup.exe` and run it. It installs for you
+  alone, with no administrator prompt, puts **Accessible Trader** in the Start menu, can add a desktop
+  icon, and can be removed from Windows' installed apps list. Installing a later version over it replaces
+  it. Your settings, workspaces and logs are kept apart and are never touched. The Windows app needs
+  Microsoft's .NET 10 Desktop Runtime, as 2.13.0's did; the setup checks for it and, if it is
+  missing, offers to open Microsoft's download page.
+- **The zip is one folder.** `AccessibleTrader-Windows-2.13.1-win-x64.zip` now unzips to a folder named
+  `Accessible Trader 2.13.1` with three things in it: **Accessible Trader.exe** (run this), README.txt,
+  and the app folder, which holds the program. You no longer have to find the right exe among hundreds
+  of files.
+- **Still unsigned.** The first time you run either, Windows may say "Windows protected your PC": choose
+  "More info", then "Run anyway". The setup's screens have not been tried with a screen reader yet.
+- **If you put the NVDA controller DLL in by hand** for an older version, it now goes in the app folder,
+  beside `AccessibleTrader.BlazorClient.exe`. Since 2.12.0 it is in the download, so you should not need to.
+
 ## 2.13.0 — the Ciphers match Market Cipher, cycle lows on every chart, and three new ways to trade
 
 ### Before you trade: venue trading is untested

@@ -245,8 +245,10 @@ own folder first, so no rebuild is involved.
    [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases)
    (it is listed among the assets on any release).
 2. Inside it, open the **`x64`** folder and take `nvdaControllerClient.dll`.
-3. Drop that file into the folder you unzipped the terminal into — the one containing
-   **`AccessibleTrader.BlazorClient.exe`**. Top level, beside the exe, not in a subfolder.
+3. Drop that file into the folder containing **`AccessibleTrader.BlazorClient.exe`**, beside
+   the exe, not in a subfolder of it. Up to 2.13.0 that is the top of the folder you unzipped;
+   from 2.13.1 it is the `app` folder inside it (or inside the install folder,
+   `%LocalAppData%\Programs\Accessible Trader\app`).
 4. Restart the terminal.
 
 > **If you are on 2.11.0 or earlier, rename it to `nvdaControllerClient64.dll`.** NV Access

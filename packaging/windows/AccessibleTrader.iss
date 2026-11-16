@@ -7,6 +7,9 @@
 ;     app\                    the published desktop app
 ;
 ; Per-user: it installs to %LocalAppData%\Programs\Accessible Trader and never asks for admin.
+; The app is framework-dependent (SelfContained=false in the BlazorClient csproj): it needs
+; Microsoft's .NET 10 Desktop Runtime, which installs machine-wide and needs admin, so this setup
+; does not carry it. It checks for it and offers the download page instead ([Code] below).
 ; The app writes nothing into its install folder (settings, workspaces and logs are under
 ; %LocalAppData%\AccessibleTrader), so installing, upgrading and uninstalling leave them alone.
 ;
@@ -90,3 +93,33 @@ Filename: "{app}\{#AppExe}"; WorkingDir: "{app}\app"; Description: "{cm:LaunchPr
 ; Files the app made in its own folder after install (none expected; the Strategies folder is
 ; created empty at start-up). Your settings under %LocalAppData%\AccessibleTrader stay.
 Type: filesandordirs; Name: "{app}\app"
+
+[Code]
+// The runtime's own installer puts each version in a folder of this name. A false "missing" only
+// costs a message; the app's exe would say the same when started.
+function DesktopRuntimeInstalled(): Boolean;
+var
+  F: TFindRec;
+begin
+  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.*'), F);
+  if Result then
+    FindClose(F);
+end;
+
+function InitializeSetup(): Boolean;
+var
+  ErrorCode: Integer;
+begin
+  Result := True;
+  // Silent installs (/SUPPRESSMSGBOXES) take No: nothing opens on its own.
+  if not DesktopRuntimeInstalled() then
+    if SuppressibleMsgBox(
+         'Accessible Trader needs Microsoft''s .NET 10 Desktop Runtime for Windows x64, and it is not '
+         + 'installed on this computer.' + #13#10#13#10
+         + 'Setup will go on and install Accessible Trader, but it will not start until the runtime is '
+         + 'installed.' + #13#10#13#10
+         + 'Open Microsoft''s download page now? On it, choose .NET Desktop Runtime 10, Windows, x64.',
+         mbConfirmation, MB_YESNO, IDNO) = IDYES then
+      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/10.0', '', '', SW_SHOWNORMAL,
+        ewNoWait, ErrorCode);
+end;
