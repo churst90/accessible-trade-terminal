@@ -179,9 +179,8 @@ The items that waited here for Cody's look and listen (2026-10-22 to 2026-11-15)
 sounded or looked right is taken as answered by that. What they still ask is below. **Q** marks a
 question for Cody; the rest are known limits I wrote down.
 
-- [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** **Q** Zoomed out, the two red diamonds
-  draw the same size (the 1.8x bar-width cap), so only "faint" tells them apart: keep the cap, or say
-  "small" from the drawn size? Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
+- [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** The two red diamonds' size: DONE
+  2026-11-16 (one factor per indicator; the Blood Diamond stays larger at every zoom). Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
   check it against; the hidden keys keep the shape names ("Blood Diamond").
 - [ ] **Formation keys (2026-11-13).** **Q** Inside a chosen formation, should every `,` `.` stop also say
   which formation starts or ends there (today only "Plus N more" changes)? **Q** Should an arrow step into

@@ -1062,7 +1062,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float radius   = ClampMarkerHalfExtent(ctx, series, comp);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -1218,6 +1218,35 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         internal static float ClampMarkerHalfExtent(float requestedHalfExtent, RenderContext ctx) =>
             ClampMarkerExtent(requestedHalfExtent * 2f, ctx) / 2f;
+
+        /// <summary>
+        /// <see cref="ClampMarkerHalfExtent(float, RenderContext)"/> for a dot, diamond, square or
+        /// cross, keeping its size against the same shape's other marks in the indicator (Cody,
+        /// 2026-11-16, taking the recommendation). Clamping each mark alone drew Cipher A's Blood
+        /// Diamond (12) and red diamond (8) the same size once the bars were narrower than about
+        /// nine pixels, so only their shade told them apart. Here the indicator's same-shape marks
+        /// shrink by one factor: the largest stops at the cap, and the smallest at the floor, so a
+        /// larger mark is drawn larger at every zoom (the largest may pass the cap at extreme zoom
+        /// by its ratio to the smallest). A shape with one size draws exactly as before.
+        /// </summary>
+        internal static float ClampMarkerHalfExtent(RenderContext ctx, ChartSeries series, ComponentConfig comp)
+        {
+            float Half(ComponentConfig c) => Math.Max(c.Thickness, 2f) * ctx.Density;
+            float own = Half(comp), smallest = own, largest = own;
+            foreach (var c in series.Components)
+            {
+                if (c.DisplayType != comp.DisplayType || !c.IsVisible || c.IsEnabled == false || !c.IsDrawn) continue;
+                smallest = Math.Min(smallest, Half(c));
+                largest  = Math.Max(largest, Half(c));
+            }
+            if (smallest == largest) return ClampMarkerHalfExtent(own, ctx);
+
+            float barWidth = ctx.Width / Math.Max(1, ctx.ViewportLength);
+            float floor    = 3f * ctx.Density;                        // half of ClampMarkerExtent's
+            float ceiling  = Math.Max(floor, barWidth * 0.9f);
+            float factor   = Math.Max(Math.Min(1f, ceiling / largest), Math.Min(1f, floor / smallest));
+            return Math.Max(floor, own * factor);
+        }
 
         /// <summary>
         /// Y position for a marker at visible index <paramref name="i"/>.
@@ -1483,7 +1512,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float half     = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float half     = ClampMarkerHalfExtent(ctx, series, comp);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -1521,7 +1550,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float half     = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float half     = ClampMarkerHalfExtent(ctx, series, comp);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
@@ -1673,7 +1702,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
-            float arm      = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
+            float arm      = ClampMarkerHalfExtent(ctx, series, comp);
 
             for (int i = 0; i < ctx.ViewportLength; i++)
             {

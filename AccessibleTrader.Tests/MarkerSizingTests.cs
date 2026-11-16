@@ -177,6 +177,92 @@ namespace AccessibleTrader.Tests
                          StandardRenderers.ClampMarkerExtent(1f, twoX));
         }
 
+        // Cipher A's diamonds as it declares them: the Bullish Conditions (yellow) and Momentum
+        // Turned Down (red) diamonds at 8, the Strongest Sell Warning (Blood Diamond) at 12.
+        private static ChartSeries CipherADiamonds()
+        {
+            var s = new ChartSeries();
+            foreach (var m in new AccessibleTrader.Core.Services.Indicators.CipherAProvider().GetIndicators()[0].Components)
+                s.Components.Add(new ComponentConfig
+                {
+                    Name = m.Name, DisplayType = m.DisplayType, Thickness = m.DefaultThickness ?? 1f, IsVisible = true,
+                });
+            return s;
+        }
+
+        private static ComponentConfig Part(ChartSeries s, string name) => s.Components.Single(c => c.Name == name);
+
+        [Theory]
+        [InlineData(40)] [InlineData(150)] [InlineData(330)] [InlineData(800)] [InlineData(4000)]
+        public void Cipher_As_blood_diamond_is_drawn_larger_than_its_red_diamond_at_every_zoom(int barsInView)
+        {
+            // Cody 2026-11-16, taking the recommendation: the 1.8-bar cap clamped each mark alone,
+            // so from about 150 bars on 800px the two red diamonds came out the same size.
+            using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+            var ctx = Context(surface.Canvas, viewportLength: barsInView);
+            var s = CipherADiamonds();
+            var red = Part(s, AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompRedDiamond);
+            var blood = Part(s, AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompBloodDiamond);
+            Assert.Equal(ComponentDisplayType.Diamond, blood.DisplayType);
+            Assert.True(blood.Thickness > red.Thickness, "the premise: Cipher A declares the Blood Diamond larger");
+
+            float r = StandardRenderers.ClampMarkerHalfExtent(ctx, s, red);
+            float b = StandardRenderers.ClampMarkerHalfExtent(ctx, s, blood);
+            // One factor for both: the declared ratio, 12 to 8, survives.
+            Assert.Equal(blood.Thickness / red.Thickness, b / r, 3);
+            // Neither is ever larger than declared, the smaller never under the floor, and the
+            // larger past the cap only by that ratio.
+            Assert.True(b <= blood.Thickness + 0.001f && r >= 3f - 0.001f);
+            float cap = Math.Max(3f, ctx.Width / barsInView * 0.9f);
+            Assert.True(b <= cap * blood.Thickness / red.Thickness + 0.001f);
+        }
+
+        [Fact]
+        public void A_shape_drawn_in_one_size_is_clamped_as_before()
+        {
+            // Hide the Blood Diamond: the yellow and red diamonds are one size, so the shared
+            // factor must change nothing for them, here or on any indicator with one size a shape.
+            using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+            var s = CipherADiamonds();
+            Part(s, AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompBloodDiamond).IsVisible = false;
+            var red = Part(s, AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompRedDiamond);
+            foreach (int bars in new[] { 40, 150, 330, 4000 })
+            {
+                var ctx = Context(surface.Canvas, viewportLength: bars);
+                Assert.Equal(StandardRenderers.ClampMarkerHalfExtent(red.Thickness, ctx),
+                             StandardRenderers.ClampMarkerHalfExtent(ctx, s, red));
+            }
+        }
+
+        [Fact]
+        public void The_drawn_diamonds_keep_their_order_in_pixels()
+        {
+            // The renderer, not only the arithmetic: draw each diamond alone at 330 bars and count
+            // the pixels it covers.
+            var s = CipherADiamonds();
+            int Covered(string name)
+            {
+                using var surface = SKSurface.Create(new SKImageInfo(800, 400));
+                surface.Canvas.Clear(SKColors.Black);
+                var ctx = Context(surface.Canvas, viewportLength: 330);
+                var comp = Part(s, name);
+                comp.ColorHex = "#FFFFFFFF";
+                var values = new double[330]; Array.Fill(values, double.NaN); values[165] = 50;
+                s.Data.ComponentData[name] = values;
+                using var paint = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = false };
+                StandardRenderers.RenderDiamond(ctx, s, comp, paint);
+                using var image = surface.Snapshot();
+                using var bmp = SKBitmap.FromImage(image);
+                int n = 0;
+                for (int y = 0; y < 400; y++) for (int x = 0; x < 800; x++) if (bmp.GetPixel(x, y).Red > 128) n++;
+                return n;
+            }
+            int red = Covered(AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompRedDiamond);
+            int blood = Covered(AccessibleTrader.Core.Services.Indicators.CipherAProvider.CompBloodDiamond);
+            Assert.True(red > 0, "the red diamond was not drawn");
+            Assert.True(blood > red * 1.5, $"Blood Diamond {blood} px, red diamond {red} px");
+        }
+
         // ── Status line titles ───────────────────────────────────────────
         //
         // These pinned ChartRenderer.ShortSeriesName, the boxed legend's label rule, until the

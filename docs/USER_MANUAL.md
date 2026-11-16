@@ -1684,8 +1684,9 @@ Wave Trend against its slow wave. What makes each symbol:
 The two red diamonds are the **same red**. Momentum Turned Down is drawn see-through (55%) and
 smaller, so it is dimmer on the chart; with looks described it is said as a "faint red diamond", and
 Strongest Sell Warning as a "red diamond". Any marker drawn under 60% opaque is said as "faint".
-When zoomed out, both diamonds are drawn at the same size, because a marker is never drawn wider
-than about twice a candle.
+Zoomed out, the marks shrink so they don't bury the candles, but an indicator's dots, diamonds,
+squares and crosses shrink together: Strongest Sell Warning stays half as large again as Momentum
+Turned Down at every zoom.
 
 How traders read them (their claims; this app has not tested any of them): Early Turn Up is the
 earliest and least reliable sign of a turn up, Trend Turned Up a confirmation that comes later, and

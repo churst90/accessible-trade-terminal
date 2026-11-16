@@ -20,6 +20,16 @@ All notable changes to this project will be documented in this file.
   and only for colours still at MCB's values: saved charts keep their colours, a colour you chose is
   drawn as chosen, and every other theme looks as before. Tests read the drawn pixels on all twelve
   themes; removing either swap, or swapping a chosen colour, turns them red (checked).
+- **Cipher A's Blood Diamond is drawn larger than the red diamond at every zoom.** Each mark was capped
+  alone at about two candles wide, so from about 150 bars on an 800-pixel chart the Strongest Sell
+  Warning (12) and Momentum Turned Down (8) came out the same size, told apart only by shade. Now an
+  indicator's visible dots, diamonds, squares and crosses of one shape shrink by one factor: the largest
+  stops at the cap and the smallest at the floor, so the declared 12-to-8 holds at every zoom (at extreme
+  zoom the larger can pass the cap by that ratio). A shape drawn in one size is clamped as before, so
+  other indicators look the same unless they declare one shape in two sizes. Triangles, check boxes and
+  gradient dots keep the per-mark cap. Tests check the ratio at five zooms, the unchanged one-size case,
+  and the drawn pixels; four sabotages (per-mark cap, no shared floor, hidden marks counted, renderer
+  not switched) each turn one red. Not seen in the app.
 - **Retired built-in strategies leave old libraries; `TradeRanker` deleted.** The twenty catalogue
   strategies retired since 2026-08-01 (the trilogies, the two symmetric shorts, Pulse Reversal, v24, and
   on 10-31 v14, v15, v18 and the v23 family) had their code removed already, but a library seeded before
