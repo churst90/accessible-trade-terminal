@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - **The zip** keeps its name (`AccessibleTrader-Windows-<version>-win-x64.zip`, so links still work) and
   now unzips to one folder, `Accessible Trader <version>`, holding three things: **Accessible Trader.exe**,
   **README.txt** and **app**. The app folder is the publish as before (about 1,070 files), untouched.
-  Accessible Trader.exe is a new launcher (`AccessibleTrader.Launcher`, NativeAOT, about 1 MB): it starts
+  Accessible Trader.exe is a new launcher (`AccessibleTrader.Launcher`, NativeAOT, 1.5 MB): it starts
   `app\AccessibleTrader.BlazorClient.exe` with the app folder as its working directory (the Dot Pad SDK
   opens a file by a path relative to it), passes on any arguments, and exits. If the app folder is
   missing it says so in a message box, so a screen reader reads it, instead of failing silently.
@@ -34,6 +34,9 @@ All notable changes to this project will be documented in this file.
   the setup silently and compares every installed file with the staged one by SHA-256; checks the Start
   menu entry's target; plants an older file in `app\`, runs the setup again and checks it is gone; then
   uninstalls and checks the folder and the Start menu entry are gone. Any failure fails the job.
+  First run (diagnostic run 43890759698, commit 211bbbf2): every trial passed, 1,069 files installed byte
+  for byte both times; the setup is 85.1 MB, the zip 136.9 MB (1,067 files in `app\`), and the payload
+  check passes the zip on both Windows rule sets.
 - **The payload check** (`scripts/verify_release_payloads.py`) now finds the Windows payloads under
   `Accessible Trader */app/` and requires the launcher and README at the top (new rule set
   `maui-windows-package`). Its root is matched one folder at a time: matched against the whole path, a
@@ -54,6 +57,9 @@ All notable changes to this project will be documented in this file.
   Strategies drop-in put by hand into `app\Strategies` is removed by an upgrade (the documented place,
   `%LocalAppData%\AccessibleTrader\Strategies`, is not); the WebHost zips are unchanged (still flat);
   the macOS zip is unchanged. Only the Windows download changed: the app inside is 2.13.0's code.
+  The launcher's publish warns NU1903 (GHSA-p3jp-9v83-76w9, a Brotli decoder overflow fixed in .NET
+  10.0.14; the pinned SDK 10.0.301 carries 10.0.11). The launcher decompresses nothing, so NativeAOT
+  leaves that code out; the self-contained WebHosts carry the same 10.0.11 runtime (see TODO).
 
 ### After the 2.13.0 tag: the Windows zip checked, the website and the hosted terminal on 2.13.0 (2026-11-16)
 

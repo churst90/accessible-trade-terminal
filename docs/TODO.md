@@ -288,6 +288,13 @@ Unreleased). Left:
 - [ ] **The WebHost zips are still flat** (a few hundred files, the exe among them). Same treatment
   possible if wanted.
 
+- **The .NET runtime the WebHosts carry is 10.0.11**, older than the Brotli decoder fix in 10.0.14
+  (GHSA-p3jp-9v83-76w9, high). `global.json` pins SDK 10.0.301 (see its rzc note), and the self-contained
+  WebHost zips ship that SDK's runtime. Exposure needs Brotli decompression of untrusted data; no shipped
+  code enables it (only StrategyLab's MacroFetchCommand, a research tool, uses DecompressionMethods.All),
+  and HttpClient does not by default. Next release: install a newer 10.0.3xx SDK, or set the runtime
+  pack version, and check the WebHost zips' System.Private.CoreLib.dll version.
+
 ## Asked for, not built yet
 
 - [ ] **Indicator template (Cody, 2026-11-05).** Take one chart's indicators and panes, with their
