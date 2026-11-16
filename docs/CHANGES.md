@@ -30,6 +30,15 @@ All notable changes to this project will be documented in this file.
   gradient dots keep the per-mark cap. Tests check the ratio at five zooms, the unchanged one-size case,
   and the drawn pixels; four sabotages (per-mark cap, no shared floor, hidden marks counted, renderer
   not switched) each turn one red. Not seen in the app.
+- **Formation stops name what starts or ends there; nesting says the whole chain.** Inside a chosen
+  formation a `,` or `.` stop read the choice and only "Plus 1 more formation here", so the formation
+  the key stopped for went unnamed. Every stop and arrow step on a start or end now adds *"Also starts
+  here: possible falling wedge."* / *"Also ends here: double bottom."* for the others there, and the
+  "Plus N more" count leaves them out. The containment clause names the whole chain outward, the
+  immediate parent with its date and the rest by name (*"Inside a larger range that began 1 January,
+  inside a larger inverse head and shoulders."*). Two older tests now expect the names in place of the
+  count; three sabotages (no chain, no also-here clause, also-here counted again) each turn one red.
+  Not heard in the app.
 - **Retired built-in strategies leave old libraries; `TradeRanker` deleted.** The twenty catalogue
   strategies retired since 2026-08-01 (the trilogies, the two symmetric shorts, Pulse Reversal, v24, and
   on 10-31 v14, v15, v18 and the v23 family) had their code removed already, but a library seeded before

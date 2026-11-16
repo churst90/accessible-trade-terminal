@@ -182,9 +182,6 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** The two red diamonds' size: DONE
   2026-11-16 (one factor per indicator; the Blood Diamond stays larger at every zoom). Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
   check it against; the hidden keys keep the shape names ("Blood Diamond").
-- [ ] **Formation keys (2026-11-13).** **Q** Inside a chosen formation, should every `,` `.` stop also say
-  which formation starts or ends there (today only "Plus N more" changes)? **Q** Should an arrow step into
-  a nested formation say the whole chain, not only the immediate parent with its date?
 - [ ] **Cipher C on the chart's own clock (2026-11-07).** **Q** Low is in and Low expected are daily-only:
   re-test them on time-counted 4-hour and weekly lows and bring back what holds (my recommendation)?
   **Q** Require two daily cycles in a weekly cycle (CYCLE_POSITION_DESIGN 9.12)? Recommendation: leave it.

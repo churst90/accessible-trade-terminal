@@ -188,8 +188,10 @@ public sealed class ChartPatternPinNarrationTests
 
         string stepped = Move(h, 80);
         Assert.StartsWith("Ascending triangle confirmed here", stepped);
-        Assert.DoesNotContain("ouble bottom", stepped);
-        Assert.EndsWith("Plus 1 more formation here.", stepped);
+        // The double bottom ending here too is named, not read (its sentence would be "Double
+        // bottom confirmed here"); until 2026-11-16 it was "Plus 1 more formation here."
+        Assert.DoesNotContain("ouble bottom confirmed", stepped);
+        Assert.EndsWith(" Also ends here: double bottom.", stepped);
 
         Move(h, 30);
         Assert.Equal(stepped, Move(h, 80));
@@ -383,7 +385,8 @@ public sealed class ChartPatternPinNarrationTests
     /// shoulders. "when I move away from that pattern and move back or to the end of the pattern
     /// ... the one I selected using ; should be what is read and drawn." Wherever the chosen
     /// formation is at the bar, a jump and an arrow step onto a start or end read it; the
-    /// formation starting there is named only as the one it sits in.
+    /// formation starting there is named as the one it sits in and, since 2026-11-16, as the one
+    /// starting here (the stop's reason).
     /// </summary>
     [Fact]
     public void AfterSemicolonTheChosenFormationIsReadOnEveryBarItIsOn()
@@ -397,7 +400,8 @@ public sealed class ChartPatternPinNarrationTests
         Move(h, 30);                                                // away
         string back = Move(h, 80);                                  // comma back
         Assert.Equal("Possible double top forming, neckline 95.00. "
-                   + "Possible double top inside possible inverse head and shoulders.", back);
+                   + "Possible double top inside possible inverse head and shoulders. "
+                   + "Also starts here: possible inverse head and shoulders.", back);
 
         Move(h, 78);
         Move(h, 79);
@@ -859,5 +863,48 @@ public sealed class ChartPatternPinNarrationTests
         var knowable = Build(futureParent with { KnownAtIndex = 62 }, flag);
         Move(knowable, 64);
         Assert.Contains("Inside a larger double bottom that began 21 January.", Move(knowable, 65));
+    }
+
+    /// <summary>
+    /// Cody, 2026-11-16, taking the recommendation: landing in a formation nested two deep names the
+    /// whole chain outward, with a date only for the immediate parent. Until then only the parent
+    /// was named, so the flag below sounded like a piece of the range alone.
+    /// </summary>
+    [Fact]
+    public void LandingTwoDeepNamesTheWholeChainWithTheParentsDateOnly()
+    {
+        var grandparent = new ChartPattern(
+            Kind: ChartPatternKind.InverseHeadAndShoulders, State: ChartPatternState.Forming,
+            StartBarIndex: 0, EndBarIndex: 100, KnownAtIndex: 50,
+            TriggerLevel: 120, StartTime: new DateTime(2025, 12, 1), EndTime: default, ExpiresAtIndex: 300);
+        var h = Build(grandparent, DatedRange, DatedFlag);
+
+        Move(h, 30);
+        string jumped = Move(h, 63);                     // the flag's start
+        Assert.Contains(" Inside a larger range that began 1 January, inside a larger inverse head and shoulders.", jumped);
+        Assert.DoesNotContain("1 December", jumped);
+
+        Move(h, 62);
+        Assert.Equal(jumped, Move(h, 63));               // an arrow step there says the same
+    }
+
+    /// <summary>
+    /// A formation named as starting here is not counted again. On the TAO chart's last bar the
+    /// falling wedge starts beside the chosen head and shoulders, not inside it, so the nesting
+    /// sentence does not name it: "Also starts here" does, and "Plus 1 more" would say it twice.
+    /// </summary>
+    [Fact]
+    public void AFormationNamedAsStartingHereIsNotCountedAgain()
+    {
+        var (ihs, top, wedge) = TaoChart();
+        var h = Build(ihs, top, wedge);
+
+        Move(h, 120);
+        h.Navigator.CycleFocus();                        // the wedge starts here, so this chooses the head and shoulders
+        string said = Move(h, 120);
+
+        Assert.StartsWith("Possible inverse head and shoulders", said);
+        Assert.EndsWith(" Also starts here: possible falling wedge.", said);
+        Assert.DoesNotContain("Plus", said);
     }
 }

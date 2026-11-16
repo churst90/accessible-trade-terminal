@@ -1994,16 +1994,18 @@ would be exactly the untested claim this terminal refuses to make.
 12 March."* The container's start date is given rather than just its name, because that is
 what lets you go and find it — and it is the difference between a setup that stands on its
 own and one that is a detail of a shape still in play. Where shapes nest three deep the
-*immediate* parent is named, not the outermost, because that is the level you are actually
-standing in.
+*immediate* parent comes first, with its date, and then the rest of the chain outward by name:
+*"…Inside a larger range that began 1 January, inside a larger inverse head and shoulders."*
 
 **And you can choose which one leads.** Press **`;`** to cycle through the overlapping
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
 swap them). The one you pick stays chosen until you pick another, wherever you go on the
 chart, and it is still chosen after you close and reopen the terminal. On every bar the chosen formation is on, it is
 what you hear: a `,` or `.` stop, `Home`, `End`, `\` and an arrow step onto any formation's start or
-end all read it, and any other formation there is counted ("Plus 2 more formations here") or named as
-the one it sits in. Where it is not on the bar it is never mentioned: a stop names the formation that
+end all read it. Any other formation starting or ending at that bar is then named — *"Also starts
+here: possible falling wedge."*, *"Also ends here: double bottom."* — so a `,` or `.` stop inside your
+choice says which formation it stopped for; the one it sits in is named as such, and anything else
+there is counted ("Plus 2 more formations here"). Where it is not on the bar it is never mentioned: a stop names the formation that
 starts there, else the one that ends there. An arrow step onto a start or end always says exactly
 what `,` or `.` would say there; between them it is silent. `;` always moves off the formation you
 just heard.
@@ -2028,6 +2030,7 @@ Choosing only changes what is said.
 **Landing inside nested formations names the nesting.** When `\` takes you into the chart, or a
 jump lands inside formations rather than on an edge, the leading formation is described and
 then how they nest, smallest first: *"Possible falling wedge inside possible double top."*
+Formations starting or ending at that bar are named after it ("Also starts here: …"), and
 "Plus N more formations here" then counts only the ones not already named. Lengths are in bars
 ("spans 76 bars": from the formation's first bar to its last), never in time.
 

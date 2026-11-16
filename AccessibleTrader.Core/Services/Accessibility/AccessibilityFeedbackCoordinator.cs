@@ -1299,17 +1299,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var lead = ChartPatternNarrator.Landing(here, idx, chosen?.Identity);
                 if (lead == null) return "";
 
-                // On a start or end the count is of the other formations that start or end here
-                // too, not of those merely passing through — the same as a step onto the bar.
-                int atStop = here.Count(p => ChartPatternNarrator.IsEdge(p, idx));
+                // On a start or end the other formations that start or end here too are named
+                // ("Also starts here: ..."), not those merely passing through; until 2026-11-16 they
+                // were only counted ("Plus 1 more formation here").
+                string also = ChartPatternNarrator.DescribeAlsoAtEdges(lead, here, idx);
                 if (lead.KnownAtIndex == idx)
                     return ChartPatternNarrator.DescribeEntry(lead, idx, SpeechPriceFormatter.FormatPrice)
                          + ChartPatternNarrator.DescribeContainment(lead, all, idx)
-                         + OverlapNote(atStop);
+                         + also;
                 if (lead.ResolvesAt == idx)
                 {
                     string res = ChartPatternNarrator.DescribeResolution(lead, SpeechPriceFormatter.FormatPrice);
-                    if (!string.IsNullOrEmpty(res)) return res + OverlapNote(atStop);
+                    if (!string.IsNullOrEmpty(res)) return res + also;
                 }
 
                 // Lead, not DescribeMany: that re-ranks by size and so ignored the semicolon
@@ -1320,7 +1321,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // one"). The leader is the largest, so without it a shape inside it went unnamed
                 // behind "plus 1 more formation here". The note then counts only what neither
                 // sentence named.
-                return DescribeLeaderAndNesting(here.Where(p => p != lead).Prepend(lead).ToList());
+                return DescribeLeaderAndNesting(here.Where(p => p != lead).Prepend(lead).ToList(), idx);
             }
 
             if (prev < 0 || Math.Abs(idx - prev) != 1) return Landed();
@@ -1342,7 +1343,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return here.Any(p => ChartPatternNarrator.IsEdge(p, idx)) ? Landed() : "";
         }
 
-        private static string DescribeLeaderAndNesting(IReadOnlyList<ChartPattern> here)
+        // Then, as on a start or end, the formations starting or ending at this bar by name: inside a
+        // chosen formation a comma or period stop is for one of them (Cody, 2026-11-16).
+        private static string DescribeLeaderAndNesting(IReadOnlyList<ChartPattern> here, int idx)
         {
             var nest = ChartPatternNarrator.Nesting(here);
             // Only a chain the leader is part of: otherwise the nesting sentence is about two
@@ -1352,9 +1355,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // the real TAO/USDT 1h last bar the falling wedge beside the head and shoulders was
             // its own one-shape chain and dropped out of the count, so "plus 1 more" went unsaid.
             var named = (nest.Count > 1 ? nest.Select(p => p.Key) : Enumerable.Empty<(ChartPatternKind, int, int, int)>())
-                .Append(here[0].Key).ToHashSet();
+                .Append(here[0].Key)
+                .Concat(ChartPatternNarrator.AlsoAtEdges(here[0], here, idx).Select(p => p.Key)).ToHashSet();
             return ChartPatternNarrator.Describe(here[0], SpeechPriceFormatter.FormatPrice)
                  + ChartPatternNarrator.DescribeNesting(nest)
+                 + ChartPatternNarrator.DescribeAlsoAtEdges(here[0], here, idx)
                  + OverlapNote(1 + here.Count(p => !named.Contains(p.Key)));
         }
 

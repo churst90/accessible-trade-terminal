@@ -341,16 +341,48 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// the bar, so no caller can hand this a wider set by mistake.
         /// </para>
         /// </summary>
+        /// <para>
+        /// Then the rest of the chain outward, names only (Cody, 2026-11-16, taking the
+        /// recommendation): " Inside a larger falling wedge that began 3 May, inside a larger double
+        /// top." Only the immediate parent has a date, which is enough to find it and keeps three
+        /// levels short.
+        /// </para>
         public static string DescribeContainment(ChartPattern p, IReadOnlyList<ChartPattern> all, int barIndex)
         {
-            var container = ContainerOf(p, AtBar(all, barIndex));
+            var atBar = AtBar(all, barIndex);
+            var container = ContainerOf(p, atBar);
             if (container == null) return "";
 
             string when = container.StartTime == default
                 ? ""
                 : $" that began {container.StartTime:d MMMM}";
-            return $" Inside a larger {Name(container.Kind)}{when}.";
+            var outer = new System.Text.StringBuilder();
+            for (var c = ContainerOf(container, atBar); c != null; c = ContainerOf(c, atBar))
+                outer.Append($", inside a larger {Name(c.Kind)}");
+            return $" Inside a larger {Name(container.Kind)}{when}{outer}.";
         }
+
+        /// <summary>
+        /// " Also starts here: falling wedge. Also ends here: double top." for the formations in
+        /// <paramref name="here"/> other than <paramref name="lead"/> whose start or end is
+        /// <paramref name="barIndex"/>, or "". Cody, 2026-11-16, taking the recommendation: a comma
+        /// or period stop inside a chosen formation read the choice and only "Plus 1 more formation
+        /// here", so the formation the key had stopped for went unnamed.
+        /// </summary>
+        public static string DescribeAlsoAtEdges(ChartPattern lead, IReadOnlyList<ChartPattern> here, int barIndex)
+        {
+            string Names(IEnumerable<ChartPattern> ps) => string.Join(", ", ps.Select(q =>
+                (q.State == ChartPatternState.Forming ? "possible " : "") + Name(q.Kind)));
+            var others = here.Where(q => !q.Key.Equals(lead.Key)).ToList();
+            var starts = others.Where(q => q.KnownAtIndex == barIndex).ToList();
+            var ends = others.Where(q => q.ResolvesAt == barIndex && q.KnownAtIndex != barIndex).ToList();
+            return (starts.Count > 0 ? $" Also starts here: {Names(starts)}." : "")
+                 + (ends.Count > 0 ? $" Also ends here: {Names(ends)}." : "");
+        }
+
+        /// <summary>The formations <see cref="DescribeAlsoAtEdges"/> names.</summary>
+        public static IEnumerable<ChartPattern> AlsoAtEdges(ChartPattern lead, IReadOnlyList<ChartPattern> here, int barIndex)
+            => here.Where(q => !q.Key.Equals(lead.Key) && IsEdge(q, barIndex));
 
         /// <summary>
         /// The chain of nested formations at a bar, innermost first: the smallest one there (the
