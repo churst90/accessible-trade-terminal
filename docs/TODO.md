@@ -554,6 +554,31 @@ Position" is the more complete one (code CYCLE_POSITION), now shown as **Cipher 
   to 9 months on Bitcoin) was worked by hand on one asset only; Cipher C's "yearly lows found from price"
   switch (above) is the built version.
 
+## Before cutting 2.13 (listed 2026-11-16)
+
+- [ ] **Decide what 2.13 ships as tried.** Kalshi (with its stops), Coinbase futures, Hyperliquid and the
+  venue-rules pass for every venue have never placed an order with money; Hyperliquid has never sent one
+  at all, not even on testnet. Either try each on its practice venue (Kalshi demo, Hyperliquid testnet,
+  Coinbase futures needs a real account) or keep the "Not yet tried with money" lines in WHATSNEW.
+- [ ] **Take Cody's look and listen at the "Built, waiting" items above** that 2.13 headlines: Cipher A's
+  signal names and the Sell dot, the volume profile tones, the Open trades strip, the formation keys,
+  Cipher C on the chart's own clock, the bar-close order. None has been seen or heard.
+- [ ] **"1 contracts".** `SymbolOrderRules.cs:90` prints the unit unpluralised, so Coinbase futures say
+  "smallest BTC Perp order is 1 contracts"; the manual (Trading → Coinbase futures) quotes it. Fix with a
+  test, then fix the quote.
+- [ ] **WHATSNEW is still long** (about 425 lines under Unreleased): the 2026-11-16 sweep removed the
+  entries that contradict later ones, but 2.13's notes should lead with what a user will notice. Read it
+  top to bottom once more at the cut, then move 2.12.0's section out (the file's header rule).
+- [ ] **Version and release:** `Directory.Build.props` still says 2.12.0; the release workflow, the
+  verification doc (the last is `RELEASE_2.4.0_VERIFICATION.md` plus the 2026-09-12 review), and after
+  the zips are up, `r2r-check.py` on the Windows zip. 2.12.0's notes said the client was precompiled again
+  and the shipped zip was not (the site carries a correction); check that 2.13's is.
+- [ ] **The website at the tag** (VPS `~/HOSTED-DEPLOY-NOTES.md` §5j/§5m): sync the six docs from the tag,
+  rewrite `includes/download.php`'s "What's new in 2.13", sizes from the GitHub release API, the
+  structured-data fallback version, `features.php`'s "sixteen trading venues" (eighteen with Hyperliquid
+  and Kalshi), the faqs table, delete the 2.12 `$docNotice` on /whatsnew, and re-shoot the screenshots if
+  the chart looks different.
+
 ## Asked for, not built yet
 
 - [ ] **Indicator template (Cody, 2026-11-05).** Take one chart's indicators and panes, with their

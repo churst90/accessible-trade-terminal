@@ -38,6 +38,7 @@ REPO = Path(__file__).resolve().parent.parent
 SHORTCUTS_CS = REPO / "AccessibleTrader.Core" / "Services" / "ShortcutManager.cs"
 SHORTCUTS_MD = REPO / "docs" / "SHORTCUTS.md"
 README_MD = REPO / "docs" / "README.md"
+ROOT_README_MD = REPO / "README.md"
 MANUAL_MD = REPO / "docs" / "USER_MANUAL.md"
 QUICKSTART_MD = REPO / "docs" / "QUICKSTART.md"
 PROVIDERS_DIR = REPO / "Plugins" / "Providers"
@@ -259,6 +260,38 @@ def check_plugin_counts(errors: list[str]) -> None:
             )
 
 
+# The root README is the first page a visitor reads, and its own wording escaped the guard above:
+# "34 data sources — 17 trading venues (…) and 17 analytics feeds" outlived the Kalshi plugin
+# (2026-11-14) until the 2.13 doc sweep. The venue list in the parentheses spans lines, hence DOTALL.
+ROOT_README_PROVIDER_RE = re.compile(
+    r"(?P<total>\d+)\s+data sources\s*[—-]+\s*(?P<trading>\d+)\s+trading venues\b.*?"
+    r"(?P<analytics>\d+)\s+analytics feeds",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def check_root_readme_counts(errors: list[str]) -> None:
+    actual_providers = sum(1 for p in PROVIDERS_DIR.iterdir() if p.is_dir())
+    actual_analytics = sum(1 for p in ANALYTICS_DIR.iterdir() if p.is_dir())
+    actual = (actual_providers + actual_analytics, actual_providers, actual_analytics)
+    md = ROOT_README_MD.read_text(encoding="utf-8")
+    matches = list(ROOT_README_PROVIDER_RE.finditer(md))
+    if not matches:
+        errors.append(
+            "PLUGIN GUARD: found no \"N data sources — N trading venues … N analytics feeds\" claim in "
+            "README.md. It was removed or rephrased out of the regex's reach — fix the discovery."
+        )
+    for m in matches:
+        claim = (int(m.group("total")), int(m.group("trading")), int(m.group("analytics")))
+        if claim != actual:
+            line = md.count("\n", 0, m.start()) + 1
+            errors.append(
+                f"PLUGIN GUARD: README.md:{line} claims {claim[0]} data sources "
+                f"({claim[1]} trading venues + {claim[2]} analytics feeds); "
+                f"filesystem has {actual[0]} ({actual[1]} + {actual[2]})."
+            )
+
+
 def check_test_count(errors: list[str]) -> None:
     md = README_MD.read_text(encoding="utf-8")
     matches = list(README_TEST_RE.finditer(md))
@@ -315,6 +348,7 @@ def main() -> int:
     check_shortcut_drift(errors)
     check_user_doc_coverage(errors)
     check_plugin_counts(errors)
+    check_root_readme_counts(errors)
     check_test_count(errors)
 
     if errors:
@@ -322,11 +356,11 @@ def main() -> int:
         for e in errors:
             print(e, file=sys.stderr)
         print("", file=sys.stderr)
-        print("Update the relevant doc (docs/README.md, docs/SHORTCUTS.md, "
+        print("Update the relevant doc (README.md, docs/README.md, docs/SHORTCUTS.md, "
               "docs/USER_MANUAL.md or docs/QUICKSTART.md) and re-run.", file=sys.stderr)
         return 1
 
-    print("Doc-drift guard: all four checks passed.")
+    print("Doc-drift guard: all five checks passed.")
     return 0
 
 

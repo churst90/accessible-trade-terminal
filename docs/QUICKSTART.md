@@ -63,7 +63,7 @@ your fingers. Windows only; see the manual's Tactile Display chapter.
 ## 2. Load your first chart
 
 **No key needed to start.** Bitstamp, Kraken, Kraken Futures, Gemini, MEXC, Binance and Hyperliquid serve
-crypto market data without credentials, and so do most analytics feeds (CoinGecko, SEC EDGAR,
+crypto market data without credentials, Kalshi its perpetual futures, and so do most analytics feeds (CoinGecko, SEC EDGAR,
 Fear & Greed, CoinMetrics, FINRA, CFTC, DefiLlama, Mempool and more).
 
 **Keys worth adding, in this order.** All go in the API key manager, **Alt+K**, and stay on
@@ -76,8 +76,9 @@ your machine.
 3. **TwelveData (free tier).** Spot gold `XAU/USD` works; `SPX` and `XAG/USD` need a paid tier.
 4. **An AI provider (optional).** Claude, OpenAI, or a local Ollama. Only the AI Analyst uses it.
 
-Broker keys (Coinbase, Schwab, Tradier, Oanda, Interactive Brokers) are for real orders through
-a broker you already have. Add them last.
+Exchange and broker keys (Coinbase, Kraken, Gemini, Kalshi, Hyperliquid, Schwab, Tradier, Oanda,
+Interactive Brokers and others) are for orders on an account you already have. Add them last; the
+manual's Trading chapter says what each venue can and cannot do.
 
 **The toolbar cascade.** Tab into the toolbar's second row: **Market → Provider → (Type) →
 Symbol → Time → Load**. Each choice refills the next list and pre-selects its first entry.
@@ -90,8 +91,8 @@ history…" then "{Symbol} on {Provider}, {Timeframe}. Ready." From then on **Sh
 the symbol, provider and timeframe, and **Ctrl+Alt+Shift+C** focuses the chart with a fuller
 summary.
 
-**Is it live?** A live feed announces each bar close: a short bell and "Close 42,500. Doji. New
-bar: Open 42,510." Those announcements are your confirmation that data is flowing. Backslash
+**Is it live?** A live feed announces each bar close: a short bell and "Close 42,500 at 14:32,
+Doji. New bar: Open 42,510 at 14:33." Those announcements are your confirmation that data is flowing. Backslash
 (`\`) jumps to the newest bar; "No live data yet" means you ran off the end of what exists.
 
 ---
@@ -172,8 +173,9 @@ zero — the jump uses the line the focused component answers to.
 At the end: "No more {component} signals in this direction."
 
 **Formations.** With **Describe chart patterns** on (Settings → General), `,` and `.` step
-between the edges of double tops, head and shoulders, triangles, wedges, flags and ranges; `;`
-chooses which overlapping formation leads, Shift+`;` releases it.
+between the edges of double tops, head and shoulders, triangles, wedges, flags and ranges. Where
+formations overlap, `;` and Shift+`;` pick the next or previous one at the bar; your choice is what
+you hear on every bar it covers, and it stays until you choose again.
 
 **Mouse and touch** work too: click a bar to hear it, Shift+click to measure, double-click for
 the newest bar, scroll to zoom, Shift+scroll to pan, right-click or Shift+F10 for the chart
@@ -204,10 +206,10 @@ leaves the words; F2 mutes the words.
 
 ## 6. When the terminal speaks on its own
 
-**The bar close.** One sentence per bar: the closing candle and its pattern, then whatever your
-narrated indicators made of it, up to five clauses, most consequential first. "Close 64,905 at
-14:32, Bullish engulfing. New bar: Open 64,910 at 14:33. Buy dot, waves crossed up from oversold. RSI 14:
-RSI overbought."
+**The bar close.** One sentence per bar: the closing candle and its pattern with the way it leans,
+then whatever your narrated indicators made of it (up to five clauses, most consequential first),
+then the new bar's open. "Close 64,905 at 14:32, Bullish engulfing, bullish reversal. Buy dot, waves
+crossed up from oversold. RSI 14: RSI overbought. New bar: Open 64,910 at 14:33."
 
 **N chooses what may speak.** Press **N** on a series (or on one component to narrow it) and its
 signals, level crossings, moving-average crosses and cloud entries are spoken at each bar
@@ -277,8 +279,8 @@ Properties.
 **Heikin-Ashi (Alt+C)** replaces each candle with a smoothed one: its close is the average of
 open, high, low and close, its open the midpoint of the previous smoothed candle. Trends read
 as runs of one colour, so they are easier to hear. Two things to know: **indicators then compute on
-the smoothed candles**, as on TradingView, while strategies, the close line and every formation
-level keep reading the raw ones, because the smoothed prices are averages nobody traded at; and
+the smoothed candles**, as on TradingView, while strategies (unless a strategy ticks **Signals from
+Heikin-Ashi candles**), the close line and every formation level keep reading the raw ones, because the smoothed prices are averages nobody traded at; and
 with HA on, the candle you hear and its pattern are the smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories, and the
 sound follows it: a level-pitched component in the price pane takes its pitch from where the
 value sits on the scale as drawn.
@@ -358,6 +360,8 @@ Schwab) is **refused**, never routed live.
 trailing exits, a **Size** button that sizes from a risk percentage and a stop) and five tabs:
 Positions, Balances, Orders, History, Book. Positions has inline stop and target editors and
 **Close position** / **Close at limit** buttons; Close at limit has a percent field (100 = all of it) for closing part of a position.
+While you hold a position, a strip under the indicator bar (the **Open trades** region) lists it
+with its profit or loss; Settings → Appearance changes or hides it.
 
 **Quick trade from the chart.**
 
@@ -370,7 +374,10 @@ Positions, Balances, Orders, History, Book. Positions has inline stop and target
 | Ctrl+Alt+Shift+Q | Say what is armed |
 | Ctrl+Alt+Shift+0 or Escape | Cancel |
 
-Nothing places until a stop is set, and the stop always travels with the entry. What the
+Nothing places until a stop is set, and the stop always travels with the entry. Bitstamp,
+Coinbase, Gemini, Kraken Futures and MEXC spot cannot attach a stop to an entry, so there a quick
+trade, or any order carrying a stop or target, is refused before it is sent, with the reason: send
+the entry, then a separate stop. A quick trade armed on one tab places only from that tab. What the
 percentage means is a setting (Settings → General → "Quick trade: the risk percentage means"):
 **the position's value** (the default: 1% of a 100,000 account is a 1,000 position, whatever
 the stop) or **what I lose if the stop is hit** (the "1% rule": size = risk ÷ stop distance,
@@ -423,13 +430,15 @@ headless monitor.
 Speech, Narration, Sonification, Braille, Appearance, Keyboard, License, About. A search box
 at the top jumps to any setting. **Nothing is saved until you press Save**; Escape and Cancel
 discard. Appearance choices preview immediately and are put back on Cancel; keyboard rebinds
-save immediately. The toolbar's icons carry no text by default — the spoken name and the
+save immediately. Speech also chooses whether times of day are read in this computer's zone or
+UTC, and on a 12-hour clock. The toolbar's icons carry no text by default — the spoken name and the
 tooltip are unchanged — and **Appearance → Toolbar captions** puts the labels back. Speech is how the terminal says what you asked for; Narration is what it
 says when you pressed nothing.
 
 **Workspaces.** Every tab, its symbol and timeframe, indicators with their settings and sounds,
 drawings, Heikin-Ashi and log scale, pane heights and running strategies. **Ctrl+Alt+Shift+W**
-saves, **Ctrl+Alt+W** loads. The session autosaves within 30 seconds of a change and resumes on start, naming
+saves, **Ctrl+Alt+W** loads. With several tabs open, Save asks **All tabs** or **This tab only**,
+and Load asks **Replace my tabs** or **Open as new tabs, keeping mine**. The session autosaves within 30 seconds of a change and resumes on start, naming
 the chart you were on and its indicators ("Resumed your last session: 3 tabs. BTCUSDT 1 day, with
 Cipher B and Market Structure."); alerts persist on their own.
 
@@ -473,7 +482,7 @@ Windows.
 | `-` / `=` | Zoom out / in |
 | Ctrl+Left / Ctrl+Right | Previous / next crossing or signal for the focused thing |
 | `,` / `.` | Previous / next chart-formation edge |
-| `;` / Shift+`;` | Choose the leading overlapping formation / release the choice |
+| `;` / Shift+`;` | Next / previous of the overlapping formations at this bar; the choice stays until changed |
 
 **Panes, series, components**
 

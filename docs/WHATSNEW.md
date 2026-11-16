@@ -154,20 +154,6 @@
 - **Settings say what they do and their default, nothing else.** The Properties dialog no longer
   tells you which other product a Cipher, DSS or DBSI-style default matches, or what a setting did
   before. Cipher B's older Money Flow Formula and Buy Dot Rule settings were later removed (see above).
-- **Cipher DBSI now matches Market Cipher DBSI's own numbers about 19 times in 20** (closer still now; see
-  the first DBSI item above). It was rebuilt from
-  every rule found in DBSI's own labels on Bitcoin, Ethereum, gold, the Dow, the S&P 500 and Apple,
-  hourly to daily. On ten charts no rule was found on, it prints DBSI's exact number 94 to 97% of the
-  time and is within two points 99 times in 100; on seven weeks of hourly Bitcoin it is exact 96% of
-  the time (was 60%). On three charts gathered after the rules were settled (Microsoft 15-minute,
-  Bitcoin 5-minute and 1-minute) it is exact 94% of the time. On the fifteen livestream charts read
-  by eye it is exact 83% of the time (was 49%). Bear numbers still miss more often than bull numbers. The misses left are mostly a candle early or late where
-  Stoch RSI leaves 0 or 100.
-- **Cipher DBSI's bear numbers are closer.** After a WaveTrend turn down stops pulling away, a close
-  lower than the previous one now adds 3 to the bears' score, not 2, as DBSI's own hourly Bitcoin
-  numbers showed. On seven weeks of hourly Bitcoin it was not built from, it prints DBSI's exact
-  number 44% of the time (was 42%). Within two points it is about the same: a little better there,
-  a little worse on the fifteen livestream charts (77%, was 78%).
 - **Cycle Position on a symbol without a preset counts the way the original does.** Apple, Solana, the euro
   or any symbol none of the sixteen presets covers is now counted from 32 bars, the original's
   default count. Coins used Bitcoin's 48 before, stocks the S&P's 36. Its daily lows match the
@@ -191,13 +177,13 @@
 - **Cipher A's ribbon is narrated as one band.** When a candle closes you hear *"Price entered the
   ribbon, between …"*, *"Price left the ribbon above"* (or below), or *"Price crossed above the
   ribbon"* when one candle jumps it, and nothing while price moves about inside it.
-- **Cipher A's Yellow Diamond now matches Market Cipher A's.** When the two waves nearly touch, it is
+- **Cipher A's yellow diamond now matches Market Cipher A's.** When the two waves nearly touch, it is
   drawn only if Cipher B's money flow is above 5. That removes the few extra diamonds the old rule drew.
-- **Cipher A's symbols say what they mean.** Landing on a Green Dot says *"Trend turned up:
+- **Cipher A's symbols say what they mean.** Landing on a green dot says *"Trend turned up:
   medium-term trend crossed up, with momentum and the short-term trend already up"* instead of the
-  moving-average numbers; a Yellow X says it is often a trap. The manual explains each one.
-- **Arrowing speaks only the component you are on.** On Cipher A's Green Dot you no longer hear the
-  Yellow Diamond on the same candle, and on Cipher B you no longer hear Cipher A's signals. To hear
+  moving-average numbers; a yellow X says it is often a trap. The manual explains each one.
+- **Arrowing speaks only the component you are on.** On Cipher A's green dot you no longer hear the
+  yellow diamond on the same candle, and on Cipher B you no longer hear Cipher A's signals. To hear
   them named after your reading, turn on **Speak other signals while arrowing** (Settings, Speech).
   Chart patterns, cycle marks, your labels and nearby zones are still spoken.
 - **Lines say their colour.** With **Say what lines and signals look like** on, moving onto a line
@@ -211,10 +197,10 @@
   rather than the whole day's, which the original only knows by looking ahead. The Pivot Left Bars
   setting is gone.
 - **Cipher A now matches Market Cipher A's own numbers, symbol for symbol.** Checked
-  candle by candle on Bitcoin daily: the ribbon, the Red X and the Blood Diamond already matched.
-  The Green Dot, Blue Triangle, Red Diamond and Yellow X now land on every one of the original's
-  and nowhere else. The Red Diamond now also appears under a Blood Diamond, as the original's does.
-  The Yellow Diamond, which reads Cipher B's money flow, now matches too (see Cipher B below).
+  candle by candle on Bitcoin daily: the ribbon, the red X and the blood diamond already matched.
+  The green dot, blue triangle, red diamond and yellow X now land on every one of the original's
+  and nowhere else. The red diamond now also appears under a blood diamond, as the original's does.
+  The yellow diamond, which reads Cipher B's money flow, now matches too (see Cipher B below).
 - **Cipher B now matches Market Cipher B's own numbers.** Checked against the original's values
   candle by candle on Bitcoin daily: the waves, the yellow area and every small cross dot already
   matched. The "RSI" and "Stochastic" lines did not and now do. The big green Buy dot now comes on
@@ -225,36 +211,6 @@
   decimals TradingView shows on the Dow's whole daily history and on Bitcoin daily (candles and
   Heikin-Ashi) and 15-minute charts; before, its typical miss was about 6½ points. Cipher A's Yellow
   Diamond, which reads it, now lands on exactly the original's candles on Bitcoin daily and the Dow.
-- **Cipher DBSI hits DBSI's exact number about half the time.** Three changes: a slower stochastic
-  check (40 candles, was 21), a Stoch RSI check in place of "the previous close above the one before
-  it", and a 4-point bonus DBSI keeps after a side's wave has turned back. The bonus starts when the
-  close turns the side's way while a short stochastic is in its low half, and lasts while the close
-  stays beyond the close two candles back. On fifteen charts it was not built from, it now prints DBSI's
-  exact number about 1 time in 2 (was a little more than 1 in 3), within one point 59% of the time (was
-  50%) and within two 78% (was 77%). On seven weeks of hourly Bitcoin it was not chosen on: exact 60%
-  (was 44%), within two 86% (was 82%). Its misses on the fifteen charts are a little bigger than before.
-- **Cipher DBSI is closer again.** A turn up from deep oversold now counts for much more for the bulls
-  than a turn down from deep overbought does for the bears, as the original's numbers showed on a
-  year of hourly Bitcoin. Once a wave has turned back, a close in the side's favour counts for more
-  the longer ago the turn ended. On fifteen charts it was not built from, it now prints DBSI's exact
-  number a little more than 1 time in 3 and lands within two points 78% of the time (was 72%). It
-  reaches 17 or more on 35 of the 48 candles where DBSI does (was 21), but also 6 times where DBSI
-  does not (was 3).
-- **Cipher DBSI counts in whole points, as DBSI does.** Each fast check adds 2 points (one adds 1),
-  and the WaveTrend wave's turn toward a side adds a set number plus 1 a candle while the wave keeps
-  pulling away. On fifteen charts it was not built from, it now prints DBSI's exact number about 1
-  time in 3 (was 1 in 5) and lands within two points 72% of the time (was 67%). It prints 17 or more
-  where DBSI does not only 3 times (was 10), but also reaches 17 a little less often where DBSI does.
-- **Cipher DBSI's numbers are closer to DBSI's.** It was refitted on all twenty charts of DBSI
-  readings, not the first six. Each of its signals now counts for its own amount, a move that has
-  just started scores higher than one that has run for many candles, and an oversold market adds a
-  little to the bulls (overbought to the bears). It also follows the WaveTrend wave's turn toward
-  each side — a turn from deep oversold (overbought for bears) and a wave still pulling away from its
-  average add points — which is what the original was found to remember. On fifteen newer charts it
-  was not fitted to, it lands within two points of DBSI 61% of the time, up from 56%, and is closer on
-  all fifteen. It now reaches 17 and above on more than half the candles where DBSI does, but also on
-  more candles where DBSI does not, and it hits DBSI's exact number no more often than before (about 1
-  time in 7).
 - **Cycle Position confirms a cycle low when the indicator it follows does.** A daily low now has to hold
   for half the shortest cycle before it is confirmed, and a lower low in that time takes its place.
   On the Dow and gold miners, most confirmations now land on the same day as the original's. A low is
@@ -266,9 +222,9 @@
   as a candle closes above the one before. It is closer to the original, not identical. Gold and the
   dollar index now count five-day weeks, as the original does; a stray weekend bar no longer redraws
   their cycles.
-- **Signals can say what they look like.** Turn on "Say what signals look like" on the Speech tab of
-  Settings, and each signal is followed by its look on the chart: "Buy. Drawn as a large green dot.",
-  "Cycle low. Drawn as a green up triangle below the candle." The colour is the one drawn on that bar,
+- **Signals can say what they look like.** Turn on "Say what lines and signals look like" on the Speech
+  tab of Settings, and each signal is followed by its look on the chart: "Buy. Large green dot.",
+  "Cycle low. Green up triangle below the candle." The colour is the one drawn on that bar,
   so a dot that turns red when it is bearish is said as red. It helps when you are talking a chart
   through with someone who reads it by eye.
 - **Arrowing an indicator is heard for the component you are on.** Moving left and right through one
@@ -315,18 +271,14 @@
 - **New indicator: Cipher DBSI.** A bulls score under each candle and a bears score
   over it, like Market Cipher DBSI, plus a 200-bar trend line. Land on a score to hear "Bulls 15, bears
   minus 5, bulls in control"; with narration on it tells you when control changes hands. It is our
-  reconstruction: it names the side in control as DBSI does about 9 candles in 10, but its numbers are
-  often a few points off.
+  reconstruction; how often its number is DBSI's own is in the first DBSI item above.
 - **Cipher B's big green dot is now the "Buy dot".** Properties now names every indicator's parts
   the way speech does.
-- **Cipher B shows what Market Cipher B shows.** The red sell dot, the divergences and the anchor
-  cloud are hidden, so they make no sound. They still work for alerts and strategies; press H on one
-  to bring it back. Charts you already had follow these defaults too, unless you changed one yourself.
 - **Cipher B's dots say the wave trend again** when you land on them, and Money Flow says "buying
   pressure, 18.0" instead of a percentage it never was.
 - **Cipher A is back, rebuilt to match real Market Cipher A:** an eight-line moving-average ribbon
-  that turns from blue to grey as a trend weakens, and Market Cipher A's seven symbols, from the
-  Green Dot to the Yellow X, each with its own sound. The ribbon lines start muted. Old Cipher A
+  that turns from blue to grey as a trend weakens, and Market Cipher A's seven symbols, each with its
+  own sound and named for what it signals (see the first item above). The ribbon lines start muted. Old Cipher A
   strategies and alerts tell you which parts went and what to use instead.
 - **Cipher SR draws Market Cipher SR's levels:** one resistance and one support, held as runs of
   dots until a newer level replaces them. You now hear "New resistance at …, replacing …" where it
@@ -399,9 +351,10 @@
 - **Today's bar is called today.** Daily and weekly bars are named by their own date, so the bar
   forming on October 9 is "October 9", not "October 8", and a week starts on Monday. Intraday bars
   still use your local clock. The bar slider and the arrow keys now always agree.
-- **Semicolon chooses a formation.** Each press of `;` moves to the next overlapping formation ("2
-  of 2", then "1 of 2") and says which larger formation it sits inside. It used to land back where
-  it started on every press.
+- **Semicolon chooses a formation.** Where formations overlap, `;` and Shift+`;` move to the next
+  or previous one at the bar and say which larger formation it sits inside. Your choice is what you
+  hear on every bar it covers until you choose again. It used to land back where it started on every
+  press.
 - **`0` is for indicators.** On an indicator in its own pane it adds or switches its midline. On the
   price chart it now does nothing and says so; draw a horizontal line to mark a price.
 - **Drawn lines chirp when price crosses them.** Horizontal and vertical lines play the same crossing

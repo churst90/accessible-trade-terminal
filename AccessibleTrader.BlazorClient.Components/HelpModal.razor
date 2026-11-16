@@ -84,7 +84,7 @@
                         <li><strong>High Pitch</strong> — High price. Low pitch = low price.</li>
                         <li><strong>Gliding Tone (Continuous)</strong> — A trend or moving average; the pitch slides as price moves.</li>
                         <li><strong>Short Beep (Discrete)</strong> — A single data point such as a Volume bar.</li>
-                        <li><strong>Square Wave</strong> — Point of Control (POC) on a Volume Profile.</li>
+                        <li><strong>Chime</strong> — the Point of Control (POC) on a Volume Profile.</li>
                         <li><strong>Sawtooth Texture</strong> — Liquidity Heatmap data.</li>
                         <li><strong>Chimes / Earcons</strong> — System events: order filled, connection lost, drawing anchor set, boundary reached.</li>
                         <li><strong>Left/Right Panning</strong> — Position in time. Oldest bar = left channel; newest bar = right channel.</li>
@@ -100,9 +100,9 @@
                     <ul style="margin:4px 0 4px 1.2em;">
                         <li><strong>Left/Right arrows are silenced</strong> — profiles are vertical distributions, not time series.</li>
                         <li><strong>Up/Down arrows</strong> move through price bins. Each bin is announced with price range, volume, and percentage of session total.</li>
-                        <li><strong>Square Wave</strong> plays at the Point of Control (POC) — the price level with the most volume.</li>
+                        <li>A <strong>chime</strong> with a click rings at the Point of Control (POC) — the price level with the most volume.</li>
                         <li>Your screen reader announces when you enter the <strong>Value Area</strong> (the 70% distribution zone, between VAL and VAH).</li>
-                        <li>Bin types: LVN (220 Hz, sine), Normal (330 Hz), VAL (440 Hz), VAH (550 Hz), HVN (660 Hz, triangle), POC (880 Hz, sine + click transient).</li>
+                        <li>Each bin is a sine tone pitched by its part of the profile: POC 880 Hz, the value area (its edges included) 440 Hz, outside it 330 Hz, high volume nodes 220 Hz, low volume nodes 165 Hz, empty bins 110 Hz. A bin's size is heard as roughness; every bin is equally loud.</li>
                     </ul>
                     <p>For Liquidity Heatmaps: Left/Right moves through time columns; Up/Down moves through price bins. Sawtooth waveform throughout.</p>
                 </div>
@@ -156,10 +156,13 @@
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>Press <strong>Alt+A</strong> (or the Indicators button in the toolbar) to open the Indicator search. Indicators are grouped by type:</p>
                     <ul style="margin:4px 0 4px 1.2em;">
-                        <li><strong>Trend:</strong> Moving Averages (SMA, EMA, WMA), Ichimoku, ADX, PSAR.</li>
+                        <li><strong>Multi-Signal:</strong> Cipher A, Cipher B.</li>
+                        <li><strong>Trend:</strong> Moving Averages (SMA, EMA, WMA), Ichimoku, ADX, PSAR, Cipher DBSI.</li>
+                        <li><strong>Cycles:</strong> Cipher C, Cycle Position.</li>
                         <li><strong>Momentum:</strong> RSI, MACD, Stochastics, CCI, Williams %R.</li>
                         <li><strong>Volatility:</strong> Bollinger Bands, ATR, Keltner Channels.</li>
                         <li><strong>Volume:</strong> OBV, Chaikin, VWAP, Volume bars.</li>
+                        <li><strong>Overlays:</strong> Cipher SR and other lines drawn on price.</li>
                         <li><strong>Profiles:</strong> Volume Profile and Market Profile (TPO), each over the visible range, a fixed range, one session, or anchored at a bar.</li>
                     </ul>
                     <p>Once an indicator is on the chart, focus it with <strong>Page Up/Down</strong>. Press <strong>P</strong> to open its properties. Press <strong>H</strong> to toggle visibility. Press <strong>M</strong> to toggle audio mute. Press <strong>Delete</strong> to remove it — and if that was a mistake, <strong>Ctrl+Z</strong> brings it back. Ctrl+Z also reverses an accidentally dragged drawing anchor; <strong>Ctrl+Y</strong> redoes.</p>
@@ -193,11 +196,10 @@
             <details style="margin-bottom:12px;">
                 <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Structure, value zones &amp; the respect report</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
-                    <p><strong>Market Structure</strong> is on your charts by default. It marks swing highs (red
+                    <p><strong>Market Structure</strong> is an indicator you add from Alt+A. It marks swing highs (red
                        square) and lows (green square), labels each higher or lower than the last, and adds a
                        <strong>Break of Structure</strong> (amber X) for continuation and a <strong>Change of
-                       Character</strong> (larger purple X) for the first evidence a trend may be over. Turn it off in
-                       Settings → Analysis if you would rather add it per chart. The squares-and-crosses family is
+                       Character</strong> (larger purple X) for the first evidence a trend may be over. The squares-and-crosses family is
                        deliberate: Value Deviation owns triangles, dots and diamonds, so the two never look alike on
                        one chart.</p>
                     <p><em>Read it as context, not as an entry.</em> A swing mark sits on its pivot bar but cannot be
@@ -245,7 +247,7 @@
                         <tr><td>[ / ]</td><td>Pan viewport left or right</td><td>"Viewing X bars from…"</td></tr>
                         <tr><td>- / =</td><td>Zoom out (more bars) / zoom in (fewer bars)</td><td>"Viewing X bars from…"</td></tr>
                         <tr><td>Shift+[ / Shift+]</td><td>Decrease / increase panning step percentage</td><td>"Panning step: N percent"</td></tr>
-                        <tr><td>Ctrl+← / Ctrl+→</td><td>Jump to previous / next trendline crossing</td><td>"Trendline crossing" or "No crossing found"</td></tr>
+                        <tr><td>Ctrl+← / Ctrl+→</td><td>Jump to the previous / next event for the focused thing: a signal, a level or midline crossing, price crossing a drawn line or an average</td><td>The event, or "No more … signals in this direction"</td></tr>
                         <tr><td>Alt+Page Up / Alt+Page Down</td><td>Move to the previous / next pane — the next Y axis up or down the chart</td><td>Series name, then the pane name at the end</td></tr>
                         <tr><td>Ctrl+↑ / Ctrl+↓</td><td>Walk the components of the strip you are in, across every series in the pane</td><td>Component value</td></tr>
                         <tr><td>Alt+Shift+/</td><td>Describe this pane: what each axis measures, its range, and the step between gridlines</td><td>"Main pane, 1 of 3. Y axis, price: 94,000 to 98,000…"</td></tr>
@@ -280,7 +282,7 @@
                         <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td><td>"Component volume N percent"</td></tr>
                         <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td><td>"Series volume N percent"</td></tr>
                         <tr><td>F7 / Shift+F7</td><td>Chart master volume up / down</td><td>"Chart volume N percent"</td></tr>
-                        <tr><td>M</td><td>Toggle audio mute on focused series</td><td>"[Series] muted / active"</td></tr>
+                        <tr><td>M</td><td>Toggle audio mute on the focused series or component</td><td>"[Series] muted / active"</td></tr>
                     </tbody>
                 </table>
             </details>

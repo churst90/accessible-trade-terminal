@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Doc sweep before 2.13 (2026-11-16)
+
+- **What Cody asked:** "go through the quick start and manual sections and then the code and update the
+  manual in all places that need updating. Not just for the ciphers but for the terminal in general."
+- **Quick Start:** Kalshi among the no-key venues; the keys paragraph names every venue kind; the bar-close
+  examples carry the times, the pattern's lean and the new order (close, indicators, then the new bar's
+  open); `;` / Shift+`;` described as next and previous at the bar (they no longer pin or release); the
+  Open trades strip; the venues that refuse a stop on an entry; a quick trade places only from its own
+  tab; the Save and Load workspace choices; times in UTC or on a 12-hour clock; "Signals from Heikin-Ashi
+  candles".
+- **F1 help (HelpModal.razor):** the volume profile's tones are the ones it plays (880/440/330/220/165/110
+  Hz sines; the old list named a square wave and pitches it no longer uses); Market Structure is added
+  from Alt+A, not on by default with a Settings switch (that switch went on 2026-11-04); Ctrl+Left/Right
+  stops at every kind of event, not only trend-line crossings; the indicator list gains Multi-Signal,
+  Cycles, Overlays and Cipher DBSI.
+- **User manual:** the data-source chapter points Kalshi (Key ID + private key file) and Coinbase futures
+  (the ordinary key) to the Trading chapter. The rest of the manual already matched the code; it is
+  updated with each change.
+- **WHATSNEW:** six superseded DBSI accuracy figures removed (the first DBSI item has the current one);
+  "Cipher B shows what Market Cipher B shows ... hidden, press H" removed (those parts were later
+  removed outright); `;` described as it now works; Cipher A's old symbol names in older items written
+  as shapes; the "Drawn as" example matches what is said now.
+- **README.md** said 34 data sources and 17 trading venues; it is 35 and 18 (Kalshi). `docs/README.md`
+  named v2.11.0 as the latest release; it is v2.12.0.
+- **Guard:** `check_doc_drift.py` now also checks the root README's "N data sources — N trading venues …
+  N analytics feeds" against `Plugins/`. Proven: the old 34/17 text goes red, a rephrase out of the
+  regex's reach goes red, the fix is green; all five checks pass.
+- **Caveat:** HelpModal is text-only and was not opened in a browser. The website was checked and left
+  alone: its six docs equal the v2.12.0 tag byte for byte and its pages describe 2.12.0 ("sixteen trading
+  venues" was right then). By the site's own rule, 2.13's features go on it at the tag.
+
 ### Cipher A symbols named for what they signal; "faint" colours; Cipher B Sell dot (2026-11-15)
 
 - **What Cody asked:** "the names of the components should be what the signal is, not the shape";

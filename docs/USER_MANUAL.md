@@ -267,6 +267,10 @@ because that key could withdraw everything. A Paper profile uses Hyperliquid's t
 separate account with its own test funds. Market data needs no key at all. Trailing stops
 are not offered, because Hyperliquid has none.
 
+**Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
+in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary
+Coinbase key. Both are described in the Trading chapter.
+
 Everything the profile stores — the secrets *and* the profile list itself (which
 providers you use, the nicknames, the environments) — is held in your operating
 system's encrypted credential storage, never in a plain-text file on disk. Older
