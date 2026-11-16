@@ -31,6 +31,9 @@ All notable changes to this project will be documented in this file.
 - **Guard:** `check_doc_drift.py` now also checks the root README's "N data sources — N trading venues …
   N analytics feeds" against `Plugins/`. Proven: the old 34/17 text goes red, a rephrase out of the
   regex's reach goes red, the fix is green; all five checks pass.
+- **CI caught one:** 11da971b's Over Bought Level 1 text said "not Market Cipher B's", which
+  `SettingTextNamesOnlyTheSettingTests` forbids (settings name only the setting). Now "A Sell dot (off
+  until included under Parts) …". Red on CI at a054eedc, green locally after.
 - **Caveat:** HelpModal is text-only and was not opened in a browser. The website was checked and left
   alone: its six docs equal the v2.12.0 tag byte for byte and its pages describe 2.12.0 ("sixteen trading
   venues" was right then). By the site's own rule, 2.13's features go on it at the tag.

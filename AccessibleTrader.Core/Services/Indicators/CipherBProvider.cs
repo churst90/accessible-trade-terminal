@@ -447,7 +447,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = ParamOtherTimeframe, DisplayName = "Different Timeframe", DefaultValue = "60", DataType = typeof(string),
                             Description = "The timeframe used when Use Current Chart Resolution is off: minutes (60, 240) or D, W, M. One no longer than the chart's uses the chart's own bars. 60 by default." },
                     new() { Name = ParamOBLevel1, DisplayName = "Over Bought Level 1", DefaultValue = 60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
-                            Description = "The upper solid line. A sell dot (not Market Cipher B's; off until included under Parts) is a cross down with the fast wave above it. 60 by default." },
+                            Description = "The upper solid line. A Sell dot (off until included under Parts) is a cross down with the fast wave above it. 60 by default." },
                     new() { Name = ParamTrigger1, DisplayName = "Trigger 1", DefaultValue = 53.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
                             Description = "The upper dotted line. 53 by default." },
                     new() { Name = ParamOSLevel1, DisplayName = "Over Sold Level 1", DefaultValue = -60.0, DataType = typeof(int), MinValue = -100, MaxValue = 100, Step = 1,
