@@ -37,6 +37,12 @@ None of this has been seen or heard in the app yet.
   possible falling wedge." When a formation sits inside others, the whole chain is named, the nearest
   with its date.
 - **Alt+Shift+D says a timing window's count once,** not as bare numbers and then again in words.
+- **Each "Read as" form keeps its own sound.** A part you can read as a wave or a histogram now
+  remembers the sound you saved for each, so saving the histogram's sound no longer changes the wave's.
+- **Add Indicator has an Advanced group,** as Properties does: settings the original indicator does not
+  have are collapsed under "Advanced", with how many there are.
+- **Alerts can watch a part you left out.** The Alerts dialog lists left-out parts after the others,
+  marked "(left out)", so you can set an alert on one without putting it on the chart.
 
 ### Strategies
 

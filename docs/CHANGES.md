@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cody's answers, 2026-11-17: what was built
+
+- **What Cody said** to the eight questions left after 2026-11-16: "1. cipher b: Yes, keep them gone, I
+  agree / 2. Ok, leave them refusing / 3. Yes, each keeps its own sound / 4. add indicator dialog: Yes,
+  add it / 5. No as you suggested / 6. No. this just unhides what was hidden using h / 7. Yes / 8. Don't
+  wait on it/close it". Answers 1, 2, 5, 6 and 8 build nothing (recorded in TODO); 3, 4 and 7 are below.
+  None of it has been seen or heard in the app.
+- **Each "Read as" form keeps its own saved sound.** A part that can be read as a wave or as a histogram
+  (Cipher B's Wave Gap, for one) had one set of saved sound defaults, applied to whichever form was
+  built, so a histogram's waveform saved in Properties came back on the wave. Switching form in
+  Properties also rebuilt the part from the indicator's defaults, ignoring what was saved. Now the
+  saved defaults hold the form they were saved in plus the other form's sound
+  (`ComponentPreference.OtherFormSound`, `FormSounds`), Save as defaults keeps the other form's sound
+  instead of dropping it, and both a new indicator and a form switch take the sound saved for that form.
+  Four tests; breaking the lookup or the keep turns them red (checked).
+- **Add Indicator splits settings into Advanced, as Properties does.** Settings the original indicator
+  does not have sit in a collapsed "Advanced (N settings)" group with the same sentence Properties uses;
+  the rest are in a "Parameters" group. An indicator with no advanced settings shows no Advanced group.
+  Three tests; putting an advanced setting back in the main list turns them red (checked).
+- **The Alerts dialog lists left-out parts, marked "(left out)".** A part left out in Properties is
+  still computed, so an alert can now watch it without putting it on the chart; the parts are listed
+  after the included ones. Listing them was not enough: every alert path looked parts up among the
+  included ones only, so the evaluator said the indicator "has no Signal any more", a zone alert read
+  every overbought or oversold line instead of the part's own, and the bar-before memory (the chart's
+  alert loop, the hosted and browser-closed poll, and background tabs) skipped the part, so a cross on
+  it could never be known. `ComponentInclusion.Find` and `Computed` cover both lists and each path uses
+  them. Six tests; eight sabotages (the list, the label, the evaluator, the zone lookup, both chart-loop
+  snapshots, the hosted poll's snapshot, and the shared helper) each turn them red (checked). Not tested
+  on its own: the background tab monitor's snapshot (its harness has no indicator engine); it uses the
+  same helper.
+
 ### Cody's answers to the open questions: what was built (2026-11-16)
 
 - **What Cody said:** "take all of your suggestions to the questions. drop the gold dot, not needed."

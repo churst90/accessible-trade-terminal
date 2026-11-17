@@ -196,6 +196,14 @@ question for Cody; the rest are known limits I wrote down.
   Position's "held, unconfirmed, N days" (2026-10-28) and Cipher C's "less reliable on this chart",
   which is the weekly reading's "often missed here" (CYCLE_POSITION_DESIGN 9.8). Built 2026-11-16: the
   rest (CHANGES, "Cody's answers to the open questions").
+- **Cody's answers, 2026-11-17**, to the eight questions left after that: (1) Cipher B's periods and
+  "Version" input stay gone; (2) the three setup graders keep refusing to run; (3) each "Read as" form
+  keeps its own saved sound: BUILT; (4) Add Indicator splits settings into Advanced: BUILT; (5) no trigger
+  or slow DSS adjustment settings for Cycle Position; (6) Ctrl+Alt+Shift+K stays as it is (it unhides
+  only what H hid, not left-out parts); (7) the Alerts dialog lists left-out parts, marked "(left out)":
+  BUILT; (8) the Market Cipher crypto 4h re-test is closed, not waited on (re-runnable later under its
+  own pre-registration). The "move Cipher B's Wave Trend periods to Advanced" question was stale: the
+  periods are gone (answer 1). Built: CHANGES, "Cody's answers, 2026-11-17".
 - [ ] **Cipher C on the chart's own clock (2026-11-07).** Low is in re-run on the time-counted lows:
   DONE 2026-11-16, back on weekly charts (their own weekly lows and the yearly reading) and, on 4-hour
   coin charts, the weekly reading only (CYCLE_POSITION_DESIGN 9.14). Limits: the 4-hour daily and yearly
@@ -212,25 +220,24 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** Grey lines on light themes and opaque waves on
   Steel Gray: DONE 2026-11-16. Retired strategies and `TradeRanker`: DONE 2026-11-16 (the retired
   built-ins move out of old libraries to `strategies.retired.json`; `TradeRanker` deleted; see CHANGES).
-  **Q** The periods and the "Version" input are gone: OK? **Q** The three setup graders refuse to run
-  (build 2e86d377 to re-run one): OK?
-  **Q** Sound defaults saved in one "Read as" form also apply in the other: should each keep its own?
+  The periods and "Version" input stay gone and the setup graders keep refusing (Cody, 2026-11-17;
+  build 2e86d377 to re-run one). Each "Read as" form keeps its own saved sound: DONE 2026-11-17.
   Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
   so Trigger 2 below −53 clips the bar; the buy dot is drawn at −96; a Different Timeframe shorter than the
   chart's falls back to the chart; 4-hour and daily buckets on stocks are UTC-aligned.
-- [ ] **Properties (2026-10-23).** **Q** Should Add Indicator split settings into Advanced the same way?
-  **Q** Move Cipher B's Wave Trend periods to Advanced? **Q** Make the original Cipher C's trigger and slow
-  DSS adjustments settings? **Q** Should Ctrl+Alt+Shift+K also include left-out parts? **Q** Should the
-  Alerts dialog list left-out parts?
+- [ ] **Properties (2026-10-23).** Every question answered 2026-11-17 (above). Add Indicator's Advanced
+  group and the Alerts dialog's left-out parts: DONE 2026-11-17. Limit: the browser-closed tab monitor's
+  memory of a left-out part has no test of its own (its test harness has no indicator engine); it uses
+  the same helper the chart and the hosted poll do, which are tested.
 - [ ] **Cipher DBSI (the study).** No port until the residue is solved (Cody, 2026-10-29). Open: the bear side
   misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
   drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
   re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **Q** (asked 2026-10-24,
   not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
   2026-11-16: "no, do not put them in the repo."** They stay local.
-- [ ] **The Market Cipher strategy tests (2026-10-25).** **Q** Wait months for new 4h bars to re-test the
-  crypto 4h trigger-wave entry under its own pre-registration? A future round with exits needs more than
-  2,380 random books.
+- [x] **The Market Cipher strategy tests (2026-10-25).** CLOSED by Cody 2026-11-17 ("Don't wait on
+  it/close it"). The crypto 4h trigger-wave re-test can be run later under its own pre-registration; a
+  round with exits needs more than 2,380 random books.
 - [ ] **Heikin-Ashi (2026-10-22).** Custom compiled indicators are computed for strategies (on HA
   candles when asked), in the backtester and in background tabs: DONE 2026-11-16 (CHANGES); not tried in
   the app with a custom indicator. Limits: a background tab's candle type is read when its monitor starts; the hosted server's

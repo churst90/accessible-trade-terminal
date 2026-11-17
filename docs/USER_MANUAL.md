@@ -1444,7 +1444,8 @@ blue waves, in the oscillator voice RSI has (a square tinge above zero, triangle
 click as they cross zero; Ctrl+Left/Right on either jumps between its zero crosses (the ±53 and ±60
 lines are the waves' overbought and oversold, not theirs); Properties, Appearance, **Read as** makes either a histogram instead, pitched by its
 side with a grit that grows with its size. Read as changes only what you hear and how it is
-named and arrowed; the picture stays the same. Small green and red
+named and arrowed; the picture stays the same. Each form keeps its own saved sound: "Save as
+Defaults" in the histogram form does not change the wave's sound. Small green and red
 dots on the slow wave mark every cross. The big green **Buy dot** sits in the money-flow bar, on
 every upward cross of the waves with the fast wave below Over Sold Level 1 (−60 by default); narration says "Buy dot, waves
 crossed up from oversold". A big red **Sell dot** is its mirror: every downward cross with the fast wave
@@ -1561,7 +1562,9 @@ Profiles, Overlays (comparison symbols) and My Data — and you move through the
 and indicator lists with the arrow keys and add one with Enter. The dialog says whether
 the indicator joins the price pane or gets a pane of its own. A new indicator arrives with
 audio properties already chosen for its type, so it is immediately playable; you can
-refine them later.
+refine them later. Its settings are under **Parameters**; settings the original indicator does not
+have are in a collapsed **Advanced** group that says how many there are, as in Properties. Their
+defaults behave as the original does.
 
 **Drawing tools are not in this dialog, and never should have been.** Trend lines, Fibonacci
 levels, the measure tool, the risk/reward tool and the rest are placed with **Alt+D** (Drawing
@@ -3779,7 +3782,9 @@ one, read top to bottom, each choice narrowing the next:
 
 - **Target**: Price, Candle or Indicator.
 - **Indicator** and **Component** (indicator alerts): every indicator on the chart is listed
-  separately, so an SMA 20 and an SMA 50 are two choices.
+  separately, so an SMA 20 and an SMA 50 are two choices. Parts you left out in Properties are
+  listed after the others, marked "(left out)": they are still computed, so an alert can watch one
+  without putting it on the chart.
 - **Condition**: Crosses above, Crosses below and **Touches** for every target. Candle adds
   Changes direction (the candle colour flips); Indicator adds Changes direction (the line turns
   up or down). Enters zone and Exits zone appear only for an indicator that has its own
