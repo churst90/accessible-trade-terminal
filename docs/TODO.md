@@ -233,9 +233,10 @@ question for Cody; the rest are known limits I wrote down.
   misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
   drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
   re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **2026-11-17 Cody: "try the rsi
-  script".** A Pine probe printing TV's own `ta.stoch(ta.rsi)` minus 100 at the exception bars is written
-  (local scratchpad) but NOT run: Brave was running without a debugging port. Needs Brave restarted with
-  `--remote-debugging-port=9222`. If it does not separate the exceptions, close the study. **Q** (asked 2026-10-24,
+  script". RUN 2026-11-17:** TradingView's own `ta.stoch(ta.rsi)` equals ours to the last binary digit at
+  every exception bar and at the bars around them that we get right; the same value is treated both ways by
+  DBSI, so the top-digit exceptions come from DBSI's hidden code and cannot be read from outside it.
+  **Proposed: close the study** (nothing left to try from outside); Cody to say. **Q** (asked 2026-10-24,
   not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
   2026-11-16: "no, do not put them in the repo."** They stay local.
 - [x] **The Market Cipher strategy tests (2026-10-25).** CLOSED by Cody 2026-11-17 ("Don't wait on
@@ -316,14 +317,15 @@ shot's old colour key is the only detail out of date).
 
 - [ ] **Where a signal sits (Cody, 2026-11-17).** "something that describes the location of every
   signal, even say on cipher b, like 'large green dot, below the blue waves' ... for any indicator or a
-  custom indicator ... could be part of the describe signals setting." Discussed, not built. Proposed:
-  under "Say what signals look like", name the pane part a mark is above, below or on, read from the
-  values drawn on that bar, for any indicator including custom ones. **Q** for Cody: which parts count
-  (the main waves only, or every drawn line), and whether it is said every time or only on request.
-- [ ] **Line, wave or area fill (Cody, 2026-11-17, discussion).** Cipher B's money flow and wave gap
-  are drawn as filled areas but called lines. Proposed: name a part by how it is DRAWN ("area" when it
-  is a fill down to a level, "line" when not), keep "wave" out of the description as a drawing word, and
-  keep the indicator's own names (blue waves, money flow) as names. **Q** for Cody.
+  custom indicator." **Cody's answer, 2026-11-17:** always said when "Say what signals look like" is on;
+  "it should probably use a fixed value on the axis to use as a reference", not another part, and work
+  for any indicator. **Proposed (Q for Cody):** a mark in an indicator pane names the fixed line it is
+  past, from the indicator's own declared lines (its levels, then its zero or middle line): "Large
+  green dot, below minus 60", "Red dot, above zero". A pane with no declared lines says nothing extra
+  (the value is already said). Price-pane marks keep "above/below the candle". Choice: the number
+  ("below minus 60") or the level's name where it has one ("in oversold").
+- [x] **Line, wave or area fill (Cody, 2026-11-17).** DONE 2026-11-17: "area" when a fill is drawn under
+  it, "line" when not (CHANGES). Not heard.
 - [ ] **Cipher A above the candle (2026-11-17).** Built; not seen. The pad over a tall candle (0.35 of
   its range, the existing rule) may look far; say if it does.
 

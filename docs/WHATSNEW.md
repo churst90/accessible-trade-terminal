@@ -31,6 +31,9 @@ None of this has been seen or heard in the app yet.
   changes colour.
 - **Cipher A's symbols sit above the candle**, one above another when several fall on the same candle,
   and their description says "above the candle".
+- **A filled line is called an "area".** Cipher B's waves, money flow and wave gap are drawn filled,
+  so their colour is said as "blue area" or "faint green area". A line drawn without a fill, or one
+  whose fill you turn off, is still a "line".
 
 - **Cipher A's Blood Diamond is always bigger than the red diamond.** Zoomed out, the two used to come
   out the same size and differed only by shade. They now shrink together, so the larger stays larger at

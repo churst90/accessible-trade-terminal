@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Filled lines said as "area"; TradingView's Stoch RSI probe run, 2026-11-17
+
+Not heard in the app; the VPS is not deployed.
+
+- **What Cody asked:** "I want the speech description to match what is drawn and have it change based
+  on whether there is or is not a fill under the line ... if the waves are technically just filled
+  areas, let's stick with that." A line or area now says "area" exactly when the chart paints a fill
+  under it, and "line" when only its stroke is drawn: "Blue area", "Faint green area". Cipher B's waves,
+  money flow and wave gap are filled, so they are areas; turning a part's fill off makes it a line again.
+  The word comes from the renderer's own choice of drawing route (`StandardRenderers.DrawsFill`), which
+  copies the routes in the renderer: a part coloured by rules or by another part is drawn as a stroke
+  even when a fill is asked for, so it stays a "line".
+- **A wave filled per side names the colour painted.** With its two-colour switch off, a part filled
+  above and below its split (Cipher B's money flow and wave gap) is painted in its second colour below
+  the split, but the colour word named the line's own colour. It now names the colour painted
+  (`StandardRenderers.LineColorAt`). Cipher B's shipped colours were not affected: their fill below the
+  split is the same colour the word already named.
+- **Tests:** `AreaWordTests` draws nine kinds of part through the real chart renderer, once with values
+  and once empty, counts the pixels painted, and checks the word against that count (a fill paints about
+  ten times the pixels of a stroke). Three deliberate breaks each turned tests red.
+- **Limit:** the colour said is the line's colour. A filled part given a different fill colour, and every
+  fill (drawn see-through), still says the line's colour.
+- **DBSI: the Stoch RSI probe (Cody: "try the rsi script").** A Pine script printing TradingView's own
+  `ta.stoch(ta.rsi(close, 12), 12)` was run on TradingView at the DBSI bars our model gets wrong by one
+  rounding step, and at bars it gets right. TradingView's Stoch RSI equals ours to the last binary digit
+  at every one, wrong and right alike. The same Stoch RSI value appears at bars DBSI treats one way and
+  bars it treats the other, so the difference is inside DBSI's own hidden code, not in TradingView's
+  arithmetic. Nothing changed; the study is proposed closed (TODO). Numbers kept out of the repo.
+
 ### Line colour said where it changes, two-tone DBSI trend, Cipher A above the candle, 2026-11-17
 
 None of this has been seen or heard in the app, and the VPS is not deployed.
@@ -34,8 +63,9 @@ None of this has been seen or heard in the app, and the VPS is not deployed.
   tests (`MarkerStackTests`) plus an "above the bar" cell in `DeclaredKnobObservabilityTests`.
   - **Limit:** a bar-pinned symbol keeps the existing padding of 0.35 of the candle's range, so a tall
     candle has a wide gap above it. Checked in a rendered PNG only.
-- **Not built:** (2) the TradingView Stoch RSI probe (TV's browser had no debugging port; the script is
-  ready); the "where the signal sits" description and line/area-fill names are questions in TODO.
+- **Not built then:** (2) the TradingView Stoch RSI probe (TV's browser had no debugging port; run later
+  the same day, above); the "where the signal sits" description (still a question in TODO) and the
+  line/area names (built the same day, above).
 
 ### Browser harness on Playwright 1.64.1, CI back on ubuntu-latest, 2026-11-17
 
