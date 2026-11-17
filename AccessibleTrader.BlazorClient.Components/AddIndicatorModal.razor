@@ -84,47 +84,26 @@
                 </div>
             }
 
-            @* Parameters for selected indicator. The input type branches on DataType:
-               string parameters render as text inputs (provider names, symbol selections);
-               numeric parameters render as the standard number input. Both flow through the
-               same _editParams dictionary as object values, formatted by SeriesManagementService.FormatParam. *@
-            @if (_selectedMeta?.Parameters?.Any() == true)
+            @* Settings the original indicator does not have (IsAdvanced) are in a collapsed
+               "Advanced" group after the rest, as Properties puts them on its Advanced tab
+               (Cody, 2026-11-17): closed, its settings are not Tab stops. *@
+            @if (_selectedMeta?.Parameters?.Any(p => !p.IsAdvanced) == true)
             {
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-top:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Parameters</legend>
-                    @foreach (var param in _selectedMeta.Parameters)
-                    {
-                        <div class="modal-row">
-                            <label for="param-@param.Name">@(string.IsNullOrEmpty(param.DisplayName) ? param.Name : param.DisplayName)</label>
-                            @if (param.DataType == typeof(string))
-                            {
-                                <input id="param-@param.Name" type="text"
-                                       value="@(_editParams.TryGetValue(param.Name, out var sv) ? sv?.ToString() ?? string.Empty : param.DefaultValue?.ToString() ?? string.Empty)"
-                                       @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: true)" />
-                            }
-                            else if (param.DataType == typeof(bool))
-                            {
-                                @* A yes/no knob must be a checkbox. Falling through to the numeric
-                                   input asked the user to type 0 or 1 into a spinner, which is
-                                   unusable with a screen reader and unguessable without one. *@
-                                <input id="param-@param.Name" type="checkbox"
-                                       checked="@IsParamTrue(param)"
-                                       @onchange="e => UpdateBoolParam(param.Name, e.Value)" />
-                            }
-                            else
-                            {
-                                <input id="param-@param.Name" type="number"
-                                       step="1"
-                                       value="@(GetNumericDisplay(param))"
-                                       @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: false)" />
-                            }
-                        </div>
-                        @if (!string.IsNullOrEmpty(param.Description))
-                        {
-                            <p style="margin:-4px 0 10px 0; font-size:0.78rem; color:var(--text-muted);">@param.Description</p>
-                        }
-                    }
+                    @{ ParameterRows(__builder, advanced: false); }
                 </fieldset>
+            }
+            @if (AdvancedCount > 0)
+            {
+                <details @key="_selectedMeta!.Code" id="add-indicator-advanced" style="margin-top:12px;">
+                    <summary style="cursor:pointer; font-weight:bold; padding:4px 0;">Advanced (@AdvancedCount @(AdvancedCount == 1 ? "setting" : "settings"))</summary>
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-top:8px;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Advanced</legend>
+                        <p style="margin:0 0 8px 0; font-size:0.85rem;">Settings the original indicator does not have. Their defaults behave as the original does.</p>
+                        @{ ParameterRows(__builder, advanced: true); }
+                    </fieldset>
+                </details>
             }
 
             <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 10px;">
@@ -378,4 +357,46 @@
     }
 
     public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
+
+    private int AdvancedCount => _selectedMeta?.Parameters?.Count(p => p.IsAdvanced) ?? 0;
+
+    /// <summary>The rows for the main parameters, or for the Advanced ones. The input type branches
+    /// on DataType: string parameters render as text inputs (provider names, symbol selections);
+    /// numeric parameters render as the standard number input. Both flow through the same
+    /// _editParams dictionary as object values, formatted by SeriesManagementService.FormatParam.</summary>
+    private void ParameterRows(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder, bool advanced)
+    {
+        foreach (var param in _selectedMeta!.Parameters.Where(p => p.IsAdvanced == advanced))
+        {
+            <div class="modal-row">
+                <label for="param-@param.Name">@(string.IsNullOrEmpty(param.DisplayName) ? param.Name : param.DisplayName)</label>
+                @if (param.DataType == typeof(string))
+                {
+                    <input id="param-@param.Name" type="text"
+                           value="@(_editParams.TryGetValue(param.Name, out var sv) ? sv?.ToString() ?? string.Empty : param.DefaultValue?.ToString() ?? string.Empty)"
+                           @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: true)" />
+                }
+                else if (param.DataType == typeof(bool))
+                {
+                    @* A yes/no knob must be a checkbox. Falling through to the numeric
+                       input asked the user to type 0 or 1 into a spinner, which is
+                       unusable with a screen reader and unguessable without one. *@
+                    <input id="param-@param.Name" type="checkbox"
+                           checked="@IsParamTrue(param)"
+                           @onchange="e => UpdateBoolParam(param.Name, e.Value)" />
+                }
+                else
+                {
+                    <input id="param-@param.Name" type="number"
+                           step="1"
+                           value="@(GetNumericDisplay(param))"
+                           @onchange="e => UpdateEditParam(param.Name, e.Value?.ToString(), isString: false)" />
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(param.Description))
+            {
+                <p style="margin:-4px 0 10px 0; font-size:0.78rem; color:var(--text-muted);">@param.Description</p>
+            }
+        }
+    }
 }
