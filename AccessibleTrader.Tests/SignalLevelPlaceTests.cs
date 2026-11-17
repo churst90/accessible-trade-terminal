@@ -66,6 +66,33 @@ public class SignalLevelPlaceTests
         Assert.Equal("Large green dot below -60.", MarkerLook.Sentence(With(comp, -70, CipherB()), comp, 0));
     }
 
+    /// <summary>Cody, 2026-11-17: "the large red sell dot is below -100, but shouldn't it be above 60
+    /// to mirror the large green [buy] dot?" His saved Cipher B charts hide the Zero line, and with no
+    /// middle line the sell dot at +96 was placed by the nearest line, the 100% line at the top. The
+    /// hidden middle still says which way is out; it is never named.</summary>
+    [Fact]
+    public void The_buy_and_sell_dots_mirror_with_the_zero_line_hidden()
+    {
+        var levels = CipherB().ToList();
+        levels.Single(l => l.Name == "Zero").IsVisible = false;
+        Assert.Contains(levels, l => l.Name == CipherBProvider.Level100 && l.IsVisible && l.IsDrawn);
+        var buy = Dot(); var sell = Dot();
+        Assert.Equal(" below -60", MarkerLook.LevelPlace(With(buy, CipherBProvider.McbBuyDotY, levels), buy, CipherBProvider.McbBuyDotY));
+        Assert.Equal(" above 60", MarkerLook.LevelPlace(With(sell, CipherBProvider.SellDotY, levels), sell, CipherBProvider.SellDotY));
+    }
+
+    [Theory]
+    [InlineData(30.0, " below 53")]     // inside every drawn line on its side
+    [InlineData(-30.0, " above -53")]
+    [InlineData(0.0, " above -53")]     // on the hidden middle: not named; the lower side places it
+    [InlineData(105.0, " above 100")]
+    public void With_the_middle_hidden_it_is_never_named(double value, string expected)
+    {
+        var levels = CipherB().ToList();
+        levels.Single(l => l.Name == "Zero").IsVisible = false;
+        Assert.Equal(expected, MarkerLook.LevelPlace(With(Dot(), value, levels), Dot(), value));
+    }
+
     [Theory]
     [InlineData(75.0, " above 70")]
     [InlineData(45.0, " above 30")]

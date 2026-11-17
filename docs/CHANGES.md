@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cipher B's sell dot placed like its buy dot when the Zero line is hidden, 2026-11-17
+
+- **What Cody heard:** "the large red sell dot is below -100, but shouldn't it be above 60 to mirror the
+  large green [buy] dot?" His saved Cipher B charts hide the Zero line. With no middle line shown, the
+  place fell back to the nearest line: the sell dot (drawn at +96) is nearest the 100% line at the top of
+  the pane and was said "below 100", while the buy dot (at -96, with no line at -100) was "below -60".
+  The middle line now marks the middle whether shown or hidden; a hidden one is never named. The sell dot
+  is "above 60", the buy dot "below -60". A mark inside every line on its side names the first line
+  ("below 53" for a dot at 30 with Zero hidden).
+- **Tests:** `SignalLevelPlaceTests` +5 on Cipher B's own levels with Zero hidden and the provider's own
+  dot positions. Two deliberate breaks (the middle read only when shown, which is the bug; no first-line
+  fallback) each turned tests red.
+
 ### DBSI study closed; the app's DBSI checked against the last model, 2026-11-17
 
 - **What Cody asked:** "close the dbsi study and be sure that's the latest dbsi in the app". The last model
