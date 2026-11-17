@@ -21,8 +21,7 @@ The agreed order, unchanged:
    filed (2026-08 and earlier), and many may have shipped since: check CHANGES and the code before taking one.
 
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
-never in the main checkout under a running server; DBSI gets no more ports until the residue is solved
-(Cody, 2026-10-29).
+never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
 
 ## Trading not yet tried on a practice or real account
 
@@ -229,18 +228,15 @@ question for Cody; the rest are known limits I wrote down.
   group and the Alerts dialog's left-out parts: DONE 2026-11-17. Limit: the browser-closed tab monitor's
   memory of a left-out part has no test of its own (its test harness has no indicator engine); it uses
   the same helper the chart and the hosted poll do, which are tested.
-- [ ] **Cipher DBSI (the study).** No port until the residue is solved (Cody, 2026-10-29). Open: the bear side
-  misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
-  drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
-  re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **2026-11-17 Cody: "try the rsi
-  script". RUN 2026-11-17:** TradingView's own `ta.stoch(ta.rsi)` equals ours to the last binary digit at
-  every exception bar and at the bars around them that we get right; the same value is treated both ways by
-  DBSI, so the top-digit exceptions come from DBSI's hidden code and cannot be read from outside it.
-  **Cody 2026-11-17 asked whether it was TV's Stoch RSI or Cipher B's:** TV's, 12/12 on close; Cipher B's
-  takes log(price), and the model re-scored on log(close) was worse on 95 of 113 charts. DBSI uses close.
-  **Proposed: close the study** (nothing left to try from outside); Cody to say. **Q** (asked 2026-10-24,
-  not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
-  2026-11-16: "no, do not put them in the repo."** They stay local.
+- [x] **Cipher DBSI (the study).** CLOSED by Cody 2026-11-17 ("close the dbsi study"). The app's DBSI is the
+  study's last adopted model, `zu_hs66e` (ported 2026-11-02); re-checked 2026-11-17: both fixtures regenerated
+  from it equal the committed ones bar for bar, and every DBSI test passes. Left as limits, not to be chased:
+  the bear side misses more than the bull side; flat-price eras ("flat prices, may be 2 off" is said there);
+  the Stoch RSI top digit (TradingView's own `ta.stoch(ta.rsi(close, 12), 12)` equals ours to the last
+  binary digit, and DBSI treats the same value both ways, so the cause is in its hidden code); the
+  pinned-Stoch-RSI re-arms. Its Stoch RSI is on plain close: on log(close), as Cipher B's is, the model was
+  worse on 95 of 113 charts. The original's Start-grid numbers stay out of the public repo (Cody,
+  2026-11-16).
 - [x] **The Market Cipher strategy tests (2026-10-25).** CLOSED by Cody 2026-11-17 ("Don't wait on
   it/close it"). The crypto 4h trigger-wave re-test can be run later under its own pre-registration; a
   round with exits needs more than 2,380 random books.

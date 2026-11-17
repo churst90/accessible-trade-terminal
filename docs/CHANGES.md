@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### DBSI study closed; the app's DBSI checked against the last model, 2026-11-17
+
+- **What Cody asked:** "close the dbsi study and be sure that's the latest dbsi in the app". The last model
+  the study adopted is `dbsi8/zu_hs66e.py` (2026-11-01); everything tried after it (the Stoch RSI top read
+  as exactly 100, dividing first, the one-bar-Q rule, log prices) was rejected. Re-checked today, nothing
+  changed: both test fixtures (`DbsiCleanScores`, 35 charts, and `DbsiCoverageCharts`) regenerated from
+  `zu_hs66e` today equal the committed ones on every bar, and the 128 DBSI tests pass, among them the parity
+  tests that hold `DbsiStyleProvider.Compute` to those scores bit for bit. The app has one DBSI,
+  `DbsiStyleProvider`, registered on the desktop, the web host and the strategy lab, and its `Calculate`
+  runs that `Compute`. TODO's study item is closed with its limits listed.
+
 ### Signals say where they sit, by the number of a level; DBSI's Stoch RSI checked on log prices, 2026-11-17
 
 Not heard in the app; the VPS is not deployed.
