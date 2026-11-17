@@ -654,4 +654,53 @@ public class AlertsModalSimpleFormTests
             Assert.Contains(heard, h => h.Text == "Candle. Touches now means the bar's range reaching the level, wick included.");
         });
     }
+
+    // ── Left-out parts (Cody, 2026-11-17: "7. Yes") ──────────────────────────
+
+    /// <summary>A WaveTrend whose Signal is left out of the chart: still computed, so an alert
+    /// may watch it without including it.</summary>
+    private static ChartSeries WithLeftOutSignal()
+    {
+        var wt = Series("wt-1", "WT", "WaveTrend", "Pane_Wt", null, ("Wave", 12.5), ("Signal", 33.75));
+        var signal = wt.Config.Components.Single(c => c.Name == "Signal");
+        wt.Config.Components.Remove(signal);
+        signal.IsEnabled = false;
+        wt.Config.ExcludedComponents.Add(signal);
+        return wt;
+    }
+
+    [Fact]
+    public void A_left_out_part_is_listed_after_the_included_ones_and_marked_left_out()
+    {
+        var (ctx, _, bus) = BuildContext(out _, drawing: WithLeftOutSignal());
+        var cut = Open(ctx, bus);
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.WaitForElement("select#alert-indicator").Change("wt-1");
+
+        cut.WaitForAssertion(() => Assert.Equal(
+            new[] { "(choose a component)", "Wave", "Signal (left out)" },
+            cut.FindAll("select#alert-component option").Select(o => o.TextContent.Trim()).ToArray()));
+    }
+
+    [Fact]
+    public void An_alert_can_be_set_on_a_left_out_part_and_reads_its_value()
+    {
+        var (ctx, orch, bus) = BuildContext(out _, drawing: WithLeftOutSignal());
+        var cut = Open(ctx, bus);
+        cut.Find("input#alert-name").Change("Signal watch");
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.WaitForElement("select#alert-indicator").Change("wt-1");
+        cut.WaitForElement("select#alert-component").Change("Signal");
+        cut.WaitForAssertion(() =>
+            Assert.Equal("33.75", cut.Find("input#alert-threshold").GetAttribute("value")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var added = Assert.Single(orch.Added);
+            Assert.Equal("Signal", added.ComponentName);
+            Assert.Equal(33.75, added.Threshold);
+            Assert.Equal("WT", added.IndicatorCode);
+        });
+    }
 }

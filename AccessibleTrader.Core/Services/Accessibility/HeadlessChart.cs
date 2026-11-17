@@ -318,7 +318,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (var series in state.ActiveSeries)
             {
                 if (string.IsNullOrEmpty(series.IndicatorCode)) continue;
-                foreach (var comp in series.Components)
+                // Left-out parts too: an alert may watch one (ComponentInclusion.Computed).
+                foreach (var comp in ComponentInclusion.Computed(series.Config))
                 {
                     var data = series.GetComponentData(comp.Name);
                     if (data == null || idx < 0 || idx >= data.Length) continue;

@@ -160,7 +160,7 @@
                             <option value="">(choose a component)</option>
                             @foreach (var c in ComponentsOfChosenIndicator)
                             {
-                                <option value="@c.Name">@ComponentLabel(c)</option>
+                                <option value="@c.Name">@ComponentChoiceLabel(c)</option>
                             }
                         </select>
                     </div>
@@ -419,8 +419,16 @@
     private ChartSeries? ChosenSeries =>
         IndicatorSeries.FirstOrDefault(s => s.Id.Equals(_newAlertSeriesId, StringComparison.Ordinal));
 
+    /// <summary>The chosen indicator's parts: the included ones, then the left-out ones, marked
+    /// "(left out)". A left-out part is still computed, so an alert can watch it without putting
+    /// it on the chart (Cody, 2026-11-17); before, it had to be included first.</summary>
     private IEnumerable<ComponentConfig> ComponentsOfChosenIndicator =>
-        ChosenSeries?.Components ?? Enumerable.Empty<ComponentConfig>();
+        ChosenSeries is { } s ? s.Components.Concat(s.Config.ExcludedComponents) : Enumerable.Empty<ComponentConfig>();
+
+    private bool IsLeftOut(ComponentConfig c) => ChosenSeries?.Config.ExcludedComponents.Contains(c) == true;
+
+    private string ComponentChoiceLabel(ComponentConfig c) =>
+        IsLeftOut(c) ? $"{ComponentLabel(c)} (left out)" : ComponentLabel(c);
 
     private static string SeriesLabel(ChartSeries s) =>
         !string.IsNullOrWhiteSpace(s.FriendlyName) ? s.FriendlyName
@@ -585,7 +593,7 @@
         var said = ReconcileChoices();
         PrefillThreshold();
         var comp = ComponentsOfChosenIndicator.FirstOrDefault(c => c.Name.Equals(_newAlertComponentName, StringComparison.OrdinalIgnoreCase));
-        Say(comp != null ? ComponentLabel(comp) : "No component", said);
+        Say(comp != null ? ComponentChoiceLabel(comp) : "No component", said);
     }
 
     private void OnConditionPicked(ChangeEventArgs e)

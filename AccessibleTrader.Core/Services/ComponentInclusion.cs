@@ -34,6 +34,20 @@ namespace AccessibleTrader.Core.Services
             return true;
         }
 
+        /// <summary>
+        /// The part named <paramref name="name"/>, included or left out (any case), or null. A
+        /// left-out part is still computed, so an alert can read it without putting it on the
+        /// chart (Cody, 2026-11-17).
+        /// </summary>
+        public static ComponentConfig? Find(SeriesConfig config, string? name) =>
+            name == null ? null
+                : Computed(config).FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Every computed part: the included ones, then the left-out ones. What the alert
+        /// paths keep the bar-before values of, so a cross on a left-out part can fire.</summary>
+        public static IEnumerable<ComponentConfig> Computed(SeriesConfig config) =>
+            config.Components.Concat(config.ExcludedComponents);
+
         /// <summary>Every part, included or not, in the indicator's order — the dialog's list.</summary>
         public static IReadOnlyList<ComponentConfig> AllParts(SeriesConfig config, IReadOnlyList<string> indicatorOrder)
         {

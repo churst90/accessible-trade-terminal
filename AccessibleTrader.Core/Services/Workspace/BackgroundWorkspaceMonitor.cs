@@ -245,7 +245,8 @@ namespace AccessibleTrader.Core.Services.Workspace
             foreach (var series in state.ActiveSeries)
             {
                 if (string.IsNullOrEmpty(series.Config.IndicatorCode)) continue;
-                foreach (var comp in series.Config.Components)
+                // Left-out parts too: an alert may watch one, and its cross needs the bar before.
+                foreach (var comp in ComponentInclusion.Computed(series.Config))
                 {
                     var data = series.GetComponentData(comp.Name);
                     if (data == null || idx < 0 || idx >= data.Length) continue;

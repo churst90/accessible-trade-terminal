@@ -205,9 +205,10 @@ namespace AccessibleTrader.Core.Services
             {
                 // An indicator alert must watch the market, not wherever the user's arrow keys
                 // have left the reading cursor.
+                // The part may be left out: it is still computed, and the alerts dialog offers it
+                // (Cody, 2026-11-17), so it is found among the left-out parts too.
                 var series = SubjectSeries(alert, state);
-                var comp = series?.Components.FirstOrDefault(c =>
-                    c.Name.Equals(alert.ComponentName, StringComparison.OrdinalIgnoreCase));
+                var comp = series == null ? null : ComponentInclusion.Find(series.Config, alert.ComponentName);
 
                 // The series is here but the component the alert reads is not: one the indicator no
                 // longer has (Cipher B's Adaptive OB/OS, removed 2026-10-17 on Cody's report). This

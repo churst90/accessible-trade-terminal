@@ -269,6 +269,39 @@ public sealed class HeadlessChartTests
     }
 
     [Fact]
+    public async Task A_left_out_parts_value_is_kept_for_the_next_poll_so_an_alert_on_it_can_cross()
+    {
+        // Cody, 2026-11-17: an alert may watch a part left out of the chart (the Alerts dialog
+        // lists it). The background poll's memory skipped such a part, so its bar before was
+        // never known and a cross on it could not fire with the browser closed.
+        var providers = new List<IIndicatorProvider> { new CoreIndicatorProvider(), new SkenderZeroCrossProvider() };
+        var indicators = new IndicatorService(providers, NullLogger<IndicatorService>.Instance);
+        var engine = new IndicatorEngine(indicators, new CustomIndicatorRegistry(), providers);
+        var styling = new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
+        var prefs = new MockIndicatorPreferencesService();
+        var stack = new HeadlessChartFactory(indicators, engine, new IndicatorStateMapper(),
+            new IndicatorModelFactory(styling, prefs), prefs, new IndicatorContextAnalyzer());
+
+        var macd = new SeriesConfig
+        {
+            Id = "macd-1", Name = "MACD", FriendlyName = "MACD", IndicatorCode = "Macd", Pane = "Pane_Macd",
+            IsAutoNarrated = true, IsVisible = true,
+        };
+        macd.Components.Add(new ComponentConfig { Name = "Macd", DisplayName = "MACD", IsVisible = true });
+        macd.Components.Add(new ComponentConfig { Name = "Histogram", DisplayName = "Histogram", IsVisible = true });
+        macd.ExcludedComponents.Add(new ComponentConfig { Name = "Signal", DisplayName = "Signal", IsEnabled = false });
+
+        var n = stack.Create(Btc, new[] { macd });
+        Func<int, double> wave = h => 100 + 10 * Math.Sin(h / 5.0);
+        await Full(n, Window(0, 99, wave));
+        var next = await CatchUp(n, Window(98, 100, wave));
+
+        Assert.True(next.PreviousValues!.ContainsKey("Macd.Macd"), "vacuity: the included line is remembered");
+        Assert.True(next.PreviousValues!.ContainsKey("Macd.Signal"),
+            "the left-out Signal's bar before must be remembered too: " + string.Join(", ", next.PreviousValues!.Keys));
+    }
+
+    [Fact]
     public async Task The_buffer_is_trimmed_and_the_reading_stays_on_the_right_bar()
     {
         // Volume needs MinBars (50); the first window is twice that, so the first append tips

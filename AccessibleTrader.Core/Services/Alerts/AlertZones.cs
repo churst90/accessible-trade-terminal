@@ -94,9 +94,9 @@ namespace AccessibleTrader.Core.Services.Alerts
             return series.Components.FirstOrDefault(c => For(series, c.Name).Count > 0)?.Name;
         }
 
+        // Left-out parts too: an alert may watch one (ComponentInclusion.Find).
         private static ComponentConfig? Component(SeriesConfig series, string? componentName) =>
-            componentName == null ? null
-                : series.Components.FirstOrDefault(c => c.Name.Equals(componentName, StringComparison.OrdinalIgnoreCase));
+            ComponentInclusion.Find(series, componentName);
 
         /// <summary>The subscription rule <c>SpeechFormatter.ResolveZone</c> and
         /// <c>AudioZoneHelper</c> both apply: null subscribes to every level, empty to none.</summary>
