@@ -42,7 +42,7 @@ internal static class BrowserAvailability
         var root = ResolveRoot();
         var install =
             "Install one with either of:\n" +
-            "  npx playwright@1.55.0 install chromium\n" +
+            "  npx playwright@1.64.1 install chromium\n" +
             "  pwsh AccessibleTrader.BrowserTests/bin/Debug/net10.0/playwright.ps1 install chromium\n" +
             $"(browsers root: {root})";
 

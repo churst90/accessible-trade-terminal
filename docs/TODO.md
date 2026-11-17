@@ -254,8 +254,9 @@ question for Cody; the rest are known limits I wrote down.
   pivots on sessions crossing midnight UTC and on weekly charts are unchecked. A drawing anchored before
   the reachable history is drawn wrong.
 
-- [ ] **CI browser job pinned to ubuntu-24.04 (2026-11-07).** Move Playwright (the package and the
-  `npx playwright@` line in tests.yml) to a version that supports Ubuntu 26.04, then unpin.
+- [ ] **CI browser job back on ubuntu-latest (2026-11-17), with Playwright 1.55 → 1.64.1.** It builds; it has
+  not run yet. The push carrying it is its first run on Ubuntu 26.04 (Chromium 156, build 1248). On the
+  VPS, run `npx playwright@1.64.1 install chromium` before its next browser-harness run (SERVER_SETUP.md).
 
 - [ ] **Flake, not forced yet (2026-11-04):** `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
   failed once in a full local run, then passed 3 of 3 alone. It polls `SelectedMarket` for at most

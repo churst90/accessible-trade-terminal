@@ -125,7 +125,7 @@ Chromium against a real Kestrel running the real WebHost on the commit being dep
 Everything else on the list proves the server answers.
 
 ```bash
-npx playwright@1.55.0 install chromium     # first run only: the .NET driver wants build 1187
+npx playwright@1.64.1 install chromium     # first run, and after each Playwright move: the .NET driver wants build 1248
 dotnet test AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj \
   -c Release -p:UseRazorSourceGenerator=false
 ```

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Browser harness on Playwright 1.64.1, CI back on ubuntu-latest, 2026-11-17
+
+- **What Cody asked:** "can we look into upgrading playright and addressing this issue?" The browser job
+  had been pinned to `ubuntu-24.04` since 2026-11-07, because Playwright 1.55's installer refuses Ubuntu
+  26.04. 1.64.1 (2026-10-14) is the newest version on both npm and NuGet, and its installer lists
+  Ubuntu 26.04 with Chromium and its system packages (read from the published `playwright-core`
+  package). The package, the `npx playwright@` line, the hint the harness prints when Chromium is
+  missing and SERVER_SETUP.md all move to 1.64.1, and the job runs on `ubuntu-latest` again.
+- **The harness builds on 1.64.1 with no errors and no obsolete-API warnings. It has not run here.** The
+  push carrying it is its first run, on the new image.
+- **A test now checks the version is the same everywhere it is named** (`PlaywrightVersionPinTests`). A
+  workflow line left at 1.55.0 turns it red (checked).
+- **The VPS** has build 1187 (1.55). It needs `npx playwright@1.64.1 install chromium` before its next
+  browser-harness run.
+
 ### Tidy WebHost downloads, 2026-11-17
 
 - **What Cody asked:** "webhost zips being flat: let's structure these and all packaged zips to be clean
