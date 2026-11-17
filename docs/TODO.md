@@ -236,6 +236,8 @@ question for Cody; the rest are known limits I wrote down.
   script". RUN 2026-11-17:** TradingView's own `ta.stoch(ta.rsi)` equals ours to the last binary digit at
   every exception bar and at the bars around them that we get right; the same value is treated both ways by
   DBSI, so the top-digit exceptions come from DBSI's hidden code and cannot be read from outside it.
+  **Cody 2026-11-17 asked whether it was TV's Stoch RSI or Cipher B's:** TV's, 12/12 on close; Cipher B's
+  takes log(price), and the model re-scored on log(close) was worse on 95 of 113 charts. DBSI uses close.
   **Proposed: close the study** (nothing left to try from outside); Cody to say. **Q** (asked 2026-10-24,
   not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
   2026-11-16: "no, do not put them in the repo."** They stay local.
@@ -315,15 +317,9 @@ shot's old colour key is the only detail out of date).
 
 ## Asked for, not built yet
 
-- [ ] **Where a signal sits (Cody, 2026-11-17).** "something that describes the location of every
-  signal, even say on cipher b, like 'large green dot, below the blue waves' ... for any indicator or a
-  custom indicator." **Cody's answer, 2026-11-17:** always said when "Say what signals look like" is on;
-  "it should probably use a fixed value on the axis to use as a reference", not another part, and work
-  for any indicator. **Proposed (Q for Cody):** a mark in an indicator pane names the fixed line it is
-  past, from the indicator's own declared lines (its levels, then its zero or middle line): "Large
-  green dot, below minus 60", "Red dot, above zero". A pane with no declared lines says nothing extra
-  (the value is already said). Price-pane marks keep "above/below the candle". Choice: the number
-  ("below minus 60") or the level's name where it has one ("in oversold").
+- [x] **Where a signal sits (Cody, 2026-11-17).** DONE 2026-11-17 ("use the number of the level"): a mark
+  drawn at its value names the drawn level it has passed going out from the middle line, "Large green dot
+  below -60" (CHANGES). Not heard.
 - [x] **Line, wave or area fill (Cody, 2026-11-17).** DONE 2026-11-17: "area" when a fill is drawn under
   it, "line" when not (CHANGES). Not heard.
 - [ ] **Cipher A above the candle (2026-11-17).** Built; not seen. The pad over a tall candle (0.35 of

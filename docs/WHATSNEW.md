@@ -34,6 +34,9 @@ None of this has been seen or heard in the app yet.
 - **A filled line is called an "area".** Cipher B's waves, money flow and wave gap are drawn filled,
   so their colour is said as "blue area" or "faint green area". A line drawn without a fill, or one
   whose fill you turn off, is still a "line".
+- **A signal says where it sits.** With "Say what signals look like" on, a mark in an indicator pane
+  names the level it has passed: "Large green dot below -60", "Red dot above 0". It uses the levels drawn
+  on the chart, so it works for any indicator that draws some, your own included.
 
 - **Cipher A's Blood Diamond is always bigger than the red diamond.** Zoomed out, the two used to come
   out the same size and differed only by shade. They now shrink together, so the larger stays larger at

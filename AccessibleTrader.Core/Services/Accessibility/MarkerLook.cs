@@ -100,7 +100,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return StandardRenderers.DrawsFill(comp) ? $"{colour} area" : $"{colour} line";
         }
 
-        /// <summary>"large green dot below the candle", or empty.</summary>
+        /// <summary>"large green dot below the candle", "large green dot below -60" (<see cref="LevelPlace"/>),
+        /// or empty.</summary>
         public static string Describe(ChartSeries series, ComponentConfig comp, int dataIndex)
         {
             if (!comp.IsVisible || !AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)) return "";
@@ -114,10 +115,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 MarkerAnchor.BelowBar => " below the candle",
                 MarkerAnchor.AboveBar => " above the candle",
-                _ => "",
+                _ => LevelPlace(series, comp, data[dataIndex]),
             };
             return $"{size}{colour} {shape}{where}";
         }
+
+        /// <summary>
+        /// Where a mark drawn at its value sits against its indicator's own drawn level lines:
+        /// " below -60", " above 0", " on 53"; empty when the indicator draws no levels.
+        ///
+        /// <para>
+        /// Cody, 2026-11-17: say where every signal sits, for any indicator, "use a fixed value on
+        /// the axis to use as a reference", not another part; "use the number of the level". The
+        /// level named is the one the mark has passed going out from the middle line (the level
+        /// whose role is <see cref="LevelRole.Neutral"/>): the nearest level between the middle and
+        /// the mark, so a Cipher B dot at -70 is "below -60", at -55 "below -53", at -40 "below 0".
+        /// With no middle line declared, the nearest level. Only levels drawn on the chart count
+        /// (Cipher B's undrawn 80/20 stochastic lines do not), because this says what is SEEN.
+        /// A ZeroDot is drawn on the zero line whatever its value, so it gets no place.
+        /// </para>
+        /// </summary>
+        internal static string LevelPlace(ChartSeries series, ComponentConfig comp, double value)
+        {
+            if (comp.DisplayType == ComponentDisplayType.ZeroDot || !double.IsFinite(value)) return "";
+            var levels = series.Levels.Where(l => l.IsVisible && l.IsDrawn && double.IsFinite(l.Value)).ToList();
+            if (levels.Count == 0) return "";
+            var on = levels.FirstOrDefault(l => Math.Abs(l.Value - value) <= 1e-9 * Math.Max(1, Math.Abs(l.Value)));
+            if (on != null) return " on " + Number(on.Value);
+            var mid = levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral);
+            LevelConfig? past = mid == null
+                ? levels.MinBy(l => Math.Abs(l.Value - value))
+                : value > mid.Value
+                    ? levels.Where(l => l.Value >= mid.Value && l.Value < value).MaxBy(l => l.Value)
+                    : levels.Where(l => l.Value <= mid.Value && l.Value > value).MinBy(l => l.Value);
+            if (past == null) return "";
+            return (value > past.Value ? " above " : " below ") + Number(past.Value);
+        }
+
+        private static string Number(double v) => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
 
         private static string Shape(ComponentConfig comp, double value) => comp.DisplayType switch
         {

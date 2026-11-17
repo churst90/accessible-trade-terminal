@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Signals say where they sit, by the number of a level; DBSI's Stoch RSI checked on log prices, 2026-11-17
+
+Not heard in the app; the VPS is not deployed.
+
+- **What Cody asked:** say where every signal sits when "Say what signals look like" is on, for any
+  indicator, against "a fixed value on the axis", not another part; then "use the number of the level".
+  A mark drawn at its value in an indicator pane now ends with the level it has passed going out from
+  the middle line: "Large green dot below -60", "Red dot above 0", "on 53" when it sits on the line.
+  On Cipher B a dot at -70 is "below -60", at -55 "below -53", at -40 "below 0". With no middle line
+  (a level named Zero, Midline, Midpoint or Neutral) the nearest level is named. Only levels shown AND
+  drawn count, so Cipher B's unpainted stochastic 80/20 are never named. A pane with no drawn levels says
+  nothing extra. Marks pinned to the candle (Cipher A, the price pane) keep "above/below the candle"; a
+  zero dot is drawn on the zero line whatever its value, so it gets no place. The number is written the
+  same way in every language setting (`MarkerLook.LevelPlace`). Arrowing, playback, auto narration and
+  the speech formatter all say it, since they share the one description.
+- **Tests:** `SignalLevelPlaceTests` (19) against Cipher B's own declared levels, plus no-middle-line,
+  hidden and undrawn levels, candle-pinned marks, the zero dot and a German culture. Five deliberate
+  breaks (no place, nearest only, undrawn levels counted, current culture, zero dot placed) each turned
+  tests red.
+- **Note:** a level the user moves is named at its new number, since it is read from the chart.
+- **DBSI: is its Stoch RSI on log prices? (Cody: "is it using the stoch rsi on tv or the stoch rsis from
+  cipher b?")** The probe used TradingView's own Stoch RSI, 12/12 on plain close, which is what our DBSI
+  model was fitted to; Market Cipher B's Stoch RSI (14/14, log price) is a different one. Since Cipher B's
+  takes the log of price, the whole DBSI model was re-scored with its Stoch RSI on log(close): worse on 95
+  of 113 charts, better on 1. DBSI uses plain close. Nothing changed.
+
 ### Filled lines said as "area"; TradingView's Stoch RSI probe run, 2026-11-17
 
 Not heard in the app; the VPS is not deployed.
