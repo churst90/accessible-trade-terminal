@@ -128,35 +128,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Cody, 2026-11-17: say where every signal sits, for any indicator, "use a fixed value on
         /// the axis to use as a reference", not another part; "use the number of the level". The
         /// level named is the one the mark has passed going out from the middle line (the level
-        /// whose role is <see cref="LevelRole.Neutral"/>, hidden or not): the nearest level between the
-        /// middle and the mark, so a Cipher B dot at -70 is "below -60", at -55 "below -53", at -40
-        /// "below 0"; a mark inside every line on its side names the first one ("below 53").
-        /// With no middle line declared, the nearest level. Only levels drawn on the chart count
-        /// (Cipher B's undrawn 80/20 stochastic lines do not), because this says what is SEEN.
+        /// whose role is <see cref="LevelRole.Neutral"/>, shown or hidden): the nearest level between
+        /// the middle and the mark, so a Cipher B dot at -70 is "below -60", at -55 "below -53", at
+        /// -40 "below 0". With no middle line declared, the nearest level. Apart from the middle,
+        /// only levels shown and drawn on the chart count (Cipher B's undrawn 80/20 stochastic lines
+        /// do not).
         /// A ZeroDot is drawn on the zero line whatever its value, so it gets no place.
         /// </para>
         /// </summary>
         internal static string LevelPlace(ChartSeries series, ComponentConfig comp, double value)
         {
             if (comp.DisplayType == ComponentDisplayType.ZeroDot || !double.IsFinite(value)) return "";
-            var levels = series.Levels.Where(l => l.IsVisible && l.IsDrawn && double.IsFinite(l.Value)).ToList();
+            // The middle line (Zero) is the reference whether it is shown or hidden: Cody, 2026-11-17,
+            // "the 0 line should be used as the 'above' or 'below' phrasing ... it shouldn't hinge on
+            // whether the 0 line is shown visually or not". His Cipher B charts hide Zero; read only
+            // when shown, a dot at +96 was placed by the nearest line, "below 100".
+            var mid = series.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral && double.IsFinite(l.Value));
+            var levels = series.Levels.Where(l => (l == mid || l.IsVisible && l.IsDrawn) && double.IsFinite(l.Value)).ToList();
             if (levels.Count == 0) return "";
             var on = levels.FirstOrDefault(l => Math.Abs(l.Value - value) <= 1e-9 * Math.Max(1, Math.Abs(l.Value)));
             if (on != null) return " on " + Number(on.Value);
-            // The middle line marks the middle even when it is hidden (Cody's Cipher B charts hide
-            // Zero): it is never named then, but without it a dot at +96 was placed by the nearest
-            // line, the 100% line at the top, "below 100", where its mirror at -96 was "below -60".
-            var mid = series.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral && double.IsFinite(l.Value));
-            LevelConfig? past;
-            if (mid == null) past = levels.MinBy(l => Math.Abs(l.Value - value));
-            else
-            {
-                // Out from the middle: the furthest line the mark is past; inside the first line on
-                // its side, that line ("below 53" for a dot at 30 with the middle hidden).
-                var side = value > mid.Value ? levels.Where(l => l.Value >= mid.Value) : levels.Where(l => l.Value <= mid.Value);
-                past = side.Where(l => Math.Abs(l.Value - mid.Value) < Math.Abs(value - mid.Value)).MaxBy(l => Math.Abs(l.Value - mid.Value))
-                    ?? side.MinBy(l => Math.Abs(l.Value - mid.Value));
-            }
+            // Out from the middle: the furthest line the mark is past on its side (the middle itself
+            // when it has passed no other). With no middle line declared, the nearest line.
+            LevelConfig? past = mid == null
+                ? levels.MinBy(l => Math.Abs(l.Value - value))
+                : levels.Where(l => value > mid.Value ? l.Value >= mid.Value && l.Value < value : l.Value <= mid.Value && l.Value > value)
+                        .MaxBy(l => Math.Abs(l.Value - mid.Value));
             if (past == null) return "";
             return (value > past.Value ? " above " : " below ") + Number(past.Value);
         }

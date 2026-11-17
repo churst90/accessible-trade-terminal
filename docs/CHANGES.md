@@ -7,15 +7,18 @@ All notable changes to this project will be documented in this file.
 ### Cipher B's sell dot placed like its buy dot when the Zero line is hidden, 2026-11-17
 
 - **What Cody heard:** "the large red sell dot is below -100, but shouldn't it be above 60 to mirror the
-  large green [buy] dot?" His saved Cipher B charts hide the Zero line. With no middle line shown, the
-  place fell back to the nearest line: the sell dot (drawn at +96) is nearest the 100% line at the top of
-  the pane and was said "below 100", while the buy dot (at -96, with no line at -100) was "below -60".
-  The middle line now marks the middle whether shown or hidden; a hidden one is never named. The sell dot
-  is "above 60", the buy dot "below -60". A mark inside every line on its side names the first line
-  ("below 53" for a dot at 30 with Zero hidden).
-- **Tests:** `SignalLevelPlaceTests` +5 on Cipher B's own levels with Zero hidden and the provider's own
-  dot positions. Two deliberate breaks (the middle read only when shown, which is the bug; no first-line
-  fallback) each turned tests red.
+  large green [buy] dot?" His saved Cipher B charts hide the Zero line (his choice). With no middle line
+  shown, the place fell back to the nearest line: the sell dot (drawn at +96) is nearest the 100% line at
+  the top of the pane and was said "below 100", while the buy dot (at -96, with no line at -100) was
+  "below -60".
+- **Cody's rule:** "the 0 line should be used as the 'above' or 'below' phrasing ... it shouldn't hinge
+  on whether the 0 line is shown visually or not". The middle line now counts shown or hidden, both to
+  say which side a mark is on and as a line to name: the sell dot is "above 60", the buy dot "below -60",
+  a dot at +30 "above 0", at 0 "on 0". (The first fix, b9094530, read a hidden Zero for the side but did
+  not name it, so a dot at +30 was "below 53"; that is gone.)
+- **Tests:** `SignalLevelPlaceTests` +7: the provider's own dot positions with Zero hidden, hidden-Zero
+  cases, and every value from -110 to 110 in half steps placed the same with Zero shown and hidden. Two
+  deliberate breaks (Zero named only when shown; Zero the middle only when shown) each turned tests red.
 
 ### DBSI study closed; the app's DBSI checked against the last model, 2026-11-17
 

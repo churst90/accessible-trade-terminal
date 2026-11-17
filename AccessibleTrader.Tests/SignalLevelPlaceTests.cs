@@ -82,15 +82,35 @@ public class SignalLevelPlaceTests
     }
 
     [Theory]
-    [InlineData(30.0, " below 53")]     // inside every drawn line on its side
-    [InlineData(-30.0, " above -53")]
-    [InlineData(0.0, " above -53")]     // on the hidden middle: not named; the lower side places it
+    [InlineData(30.0, " above 0")]
+    [InlineData(-30.0, " below 0")]
+    [InlineData(0.0, " on 0")]
+    [InlineData(56.0, " above 53")]
     [InlineData(105.0, " above 100")]
-    public void With_the_middle_hidden_it_is_never_named(double value, string expected)
+    public void A_hidden_zero_line_is_still_the_reference_and_named(double value, string expected)
     {
         var levels = CipherB().ToList();
         levels.Single(l => l.Name == "Zero").IsVisible = false;
         Assert.Equal(expected, MarkerLook.LevelPlace(With(Dot(), value, levels), Dot(), value));
+    }
+
+    /// <summary>Cody, 2026-11-17: "it shouldn't hinge on whether the 0 line is shown visually or
+    /// not". Every value from -110 to 110 in steps of 0.5 is placed the same with Zero shown and
+    /// hidden.</summary>
+    [Fact]
+    public void Showing_or_hiding_the_zero_line_changes_no_place()
+    {
+        var shown = CipherB().ToList();
+        var hidden = CipherB().ToList();
+        hidden.Single(l => l.Name == "Zero").IsVisible = false;
+        var diffs = new List<string>();
+        for (double v = -110; v <= 110; v += 0.5)
+        {
+            string a = MarkerLook.LevelPlace(With(Dot(), v, shown), Dot(), v), b = MarkerLook.LevelPlace(With(Dot(), v, hidden), Dot(), v);
+            Assert.NotEqual("", a);
+            if (a != b) diffs.Add($"{v}: '{a}' vs '{b}'");
+        }
+        Assert.True(diffs.Count == 0, string.Join("; ", diffs.Take(10)));
     }
 
     [Theory]
