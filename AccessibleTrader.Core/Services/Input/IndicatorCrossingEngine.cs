@@ -139,6 +139,18 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
 
+                // Case 2c: a line coloured against another line (DBSI's trend against its close,
+                // Cipher A's ribbon lines against each other) — where its colour changes, which is
+                // where the two lines cross. Cody, 2026-11-17, on DBSI's trend: "Have ctrl
+                // left/right jump to crossings too." It said "No points of interest on Trend".
+                if (focusedComp.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
+                    && !string.IsNullOrEmpty(focusedComp.ColorAboveComponent)
+                    && focusedSeries.GetComponentData(focusedComp.ColorAboveComponent) is { Length: > 0 })
+                {
+                    DoColourChangeJump(state, focusedSeries, focusedComp, current, jumpRight);
+                    return;
+                }
+
                 // Case 3: indicator component → context-aware crossing
                 var crossingType = GetCrossingStrategy(state, focusedSeries);
                 switch (crossingType)
@@ -303,6 +315,44 @@ namespace AccessibleTrader.Core.Services.Input
                 string compName = focusedComp.DisplayName ?? focusedComp.Name;
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, $"No more {compName} {noun} in this direction"));
             }
+        }
+
+        /// <summary>
+        /// The next bar, in the direction of travel, where a line coloured against a sibling is
+        /// drawn in the other of its two colours from the bar before it
+        /// (<see cref="StandardRenderers.InSiblingSecondary"/>: the colour rule itself, so the key
+        /// lands where the colour visibly changes). "Trend turns green at …".
+        /// </summary>
+        private void DoColourChangeJump(WorkspaceState state, ChartSeries series, ComponentConfig comp, int current, bool jumpRight)
+        {
+            int n = series.GetComponentData(comp.Name)?.Length ?? 0;
+            int found = jumpRight ? NextColourChange(series, comp, current + 1, n, +1)
+                                  : NextColourChange(series, comp, current, n, -1);
+            string name = comp.DisplayName ?? comp.Name;
+            if (found < 0)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, $"No more {name} colour changes in this direction"));
+                return;
+            }
+            string colour = MarkerLook.ColorName(StandardRenderers.LineColorAt(series, comp, found));
+            _store.Dispatch(new NavigateAction(found));
+            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{name} turns {colour} at {FormatTimestamp(state, found)}", true));
+        }
+
+        /// <summary>The first bar i (searching from <paramref name="from"/> in steps of
+        /// <paramref name="step"/>) whose colour side differs from bar i − 1's, both known; −1 if
+        /// none. Leftward, a change ON the current bar is behind the user, so the search starts at
+        /// the bar before it.</summary>
+        internal static int NextColourChange(ChartSeries series, ComponentConfig comp, int from, int count, int step)
+        {
+            if (step < 0) from -= 1;
+            for (int i = from; i >= 1 && i < count; i += step)
+                if (StandardRenderers.InSiblingSecondary(comp, series, i) is bool now
+                    && StandardRenderers.InSiblingSecondary(comp, series, i - 1) is bool before
+                    && now != before)
+                    return i;
+            return -1;
         }
 
         private void DoZeroLineCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)

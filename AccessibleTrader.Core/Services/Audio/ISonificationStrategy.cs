@@ -345,7 +345,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // The Properties dialog labels these "Above/Below midline patch".
             bool barBullish = comp.DisplayType == ComponentDisplayType.Oscillator
                 ? AboveMidline(comp, val, normalizedValue)
-                : OwnSignSide(comp, val) ?? point.Close >= point.Open;
+                : OwnSignSide(comp, val) ?? SiblingToneBright(series, comp, dataIndex) ?? point.Close >= point.Open;
             string? effPatchId = barBullish ? comp.BullishSoundPatchId : comp.BearishSoundPatchId;
             if (string.IsNullOrEmpty(effPatchId)) effPatchId = comp.SoundPatchId;
 
@@ -406,7 +406,18 @@ namespace AccessibleTrader.Core.Services.Audio
                 bool isHistogramComp = comp.Role == ComponentRole.Histogram
                                     || comp.DisplayType == ComponentDisplayType.Histogram
                                     || comp.DisplayType == ComponentDisplayType.Bar;
-                if (comp.DisplayType == ComponentDisplayType.Line)
+                if (comp.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
+                    && SiblingToneBright(series, comp, dataIndex) is bool bright)
+                {
+                    // A LINE COLOURED AGAINST ANOTHER LINE HAS TWO TONES, ONE PER COLOUR, as an
+                    // oscillator has one per side of its midline and with the same two timbres.
+                    // Cody, 2026-11-17, on DBSI's trend line (green with price above it, red below):
+                    // "should this line have 2 tones, like oscillators do so I can tell by ear if
+                    // price is above or below it ... Right now it is a constant single tone."
+                    if (bright) { squareMix = 0.09f; triangleMix = 0.06f; }
+                    else triangleMix = 0.14f;
+                }
+                else if (comp.DisplayType == ComponentDisplayType.Line)
                 {
                     // Price line: warmth (triangle) + a touch of definition (square). No saw — the
                     // line is a single continuous voice; grit would imply a second note. No noise
@@ -605,6 +616,37 @@ namespace AccessibleTrader.Core.Services.Audio
         /// bounded pane but Cipher B's two 0–100 lines it equals the pane middle, so those sound
         /// exactly as before.)
         /// </summary>
+        /// <summary>
+        /// Which of its two tones a line coloured against a sibling takes at this bar: true the
+        /// bright one, false the warm one, null when it has no such rule or a value is missing
+        /// (<see cref="Rendering.StandardRenderers.InSiblingSecondary"/>, the rule its colour follows).
+        ///
+        /// <para>
+        /// By the COLOUR it is drawn in, not by which side of the sibling it is on, because the
+        /// side means opposite things on different lines: DBSI's trend is red ABOVE its close
+        /// (price below it), Cipher A's ribbon is blue above the next line. A warm colour (red,
+        /// orange, yellow, pink, magenta, or a gray) gets the warm tone and a cool one (green, teal,
+        /// cyan, blue, purple) the bright tone, which is how oscillators already sound on their
+        /// bearish and bullish sides. If both colours land on the same side of that, the line's
+        /// own colour is bright and its second warm, so the two tones always differ.
+        /// </para>
+        /// </summary>
+        internal static bool? SiblingToneBright(ChartSeries series, ComponentConfig comp, int dataIndex)
+        {
+            if (Rendering.StandardRenderers.InSiblingSecondary(comp, series, dataIndex) is not bool secondary) return null;
+            bool ownWarm = IsWarmColour(comp.ColorHex), secondWarm = IsWarmColour(comp.ColorHexSecondary);
+            bool drawnWarm = secondary ? secondWarm : ownWarm, otherWarm = secondary ? ownWarm : secondWarm;
+            if (drawnWarm != otherWarm) return !drawnWarm;
+            return !secondary;
+        }
+
+        private static bool IsWarmColour(string? hex)
+        {
+            if (!SkiaSharp.SKColor.TryParse(hex, out var c)) return false;
+            c.ToHsl(out float h, out float sat, out _);
+            return sat < 25 || h < 70 || h >= 300;
+        }
+
         internal static bool AboveMidline(ComponentConfig comp, double val, double normalizedValue) =>
             comp.ReferenceLevel is double mid ? val >= mid : normalizedValue >= 0.5;
 

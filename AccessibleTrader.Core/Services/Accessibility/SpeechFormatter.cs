@@ -43,6 +43,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly ISdkCandlePatternAnalyzer _candles;
 
+        // The bar each line was last read on, and what was in focus then, so a line's colour is
+        // compared with the bar the user came from (MarkerLook.LineSentence), whichever way they
+        // moved. Per circuit in the WebHost (scoped), per app on the desktop.
+        private readonly Dictionary<(string Series, string Comp), int> _lineReadAt = new();
+        private string? _lineFocus;
+
+        /// <summary>The bar to compare a line's colour with: the one it was last read on, or -1
+        /// when the user has just arrived at it (moved onto it, or onto its series).</summary>
+        private int LineFrom(ChartSeries series, ComponentConfig comp, int dataIndex, bool arriving)
+        {
+            var key = (series.Id, comp.Name);
+            int from = !arriving && _lineReadAt.TryGetValue(key, out int at) ? at : -1;
+            _lineReadAt[key] = dataIndex;
+            return from;
+        }
+
+        /// <summary>True when the focus (a series summary, or one component) differs from the
+        /// last one read.</summary>
+        private bool ArrivedAt(string focus)
+        {
+            bool arrived = focus != _lineFocus;
+            _lineFocus = focus;
+            return arrived;
+        }
+
         public SpeechFormatter() : this(NullLogger<SpeechFormatter>.Instance) { }
 
         public SpeechFormatter(ILogger<SpeechFormatter> logger,
@@ -91,6 +116,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool summary = state.LastInteractionContext == InteractionContext.Series;
 
             string seriesId = series.Id.ToLowerInvariant();
+
+            // What is in focus for this reading: a series summary, or one of its components. A
+            // change of it, even by way of the candles and back, is arriving at a line.
+            bool arrived = ArrivedAt(series.Id + "\u0001" + (summary || series.Components.Count == 0
+                ? "" : series.Components[series.ClampComponent(state.FocusedComponentIndex)].Name));
 
             // ── WHICH BAR THIS SERIES DESCRIBES ─────────────────────────────────────────
             //
@@ -180,7 +210,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     .Where(c => c.IsVisible && !c.IsMuted)
                     .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                         viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
-                        describeLook: state.DescribeSignalLooks))
+                        describeLook: state.DescribeSignalLooks,
+                        lineFrom: LineFrom(series, c, state.CurrentDataIndex, arrived || isYMove)))
                     .ToList();
 
                 // A value that already closes its sentence (a signal followed by what it looks
@@ -213,7 +244,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 msg = FormatTemplateValue(series, comp, readsRawBar ? rawPt : pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                     isYMove: isYMove, liveClose: liveClose, provider: provider,
                     viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
-                    describeLook: state.DescribeSignalLooks);
+                    describeLook: state.DescribeSignalLooks,
+                    lineFrom: LineFrom(series, comp, state.CurrentDataIndex, arrived || isYMove));
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -445,7 +477,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
             bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null,
             int viewportStart = -1, int viewportLength = -1, IReadOnlyList<Ohlcv>? bars = null,
-            bool describeLook = false)
+            bool describeLook = false, int lineFrom = -1)
         {
             try
             {
@@ -503,8 +535,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // signal answered by its provider's own speech is described too. Empty on a bar
                 // with no marker, so a left/right sweep adds nothing between signals.
                 string look = describeLook ? MarkerLook.Sentence(series, comp, dataIndex) : "";
-                // A line's colour, on arriving at it and where it changes (MarkerLook.LineSentence).
-                if (describeLook && look.Length == 0) look = MarkerLook.LineSentence(series, comp, dataIndex, isYMove);
+                // A line's colour, on arriving at it and where it differs from the bar the user came
+                // from (MarkerLook.LineSentence).
+                if (describeLook && look.Length == 0) look = MarkerLook.LineSentence(series, comp, dataIndex, lineFrom);
                 string lookSuffix = look.Length == 0 ? "" : " " + look;
 
                 foreach (var strategy in _strategies)

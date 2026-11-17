@@ -638,6 +638,9 @@ public sealed class DeclaredKnobObservabilityTests
         // The same under the bar, where MarkerTouchesBar moves it from a padded place to the bar's
         // low (at its value there is no bar to touch).
         (ComponentDisplayType.TriangleUpRing, "ringed marker under the bar", c => c.MarkerAnchor = MarkerAnchor.BelowBar),
+        // A dot above the bar, where a stack slot (MarkerStackSlot) moves it from centred on its
+        // padded place to standing on it (Cipher A's symbols; MarkerStackTests has the stacking).
+        (ComponentDisplayType.Dot, "dot above the bar", c => c.MarkerAnchor = MarkerAnchor.AboveBar),
     };
 
     private static IEnumerable<(ComponentDisplayType Shape, string Audio, Action<ComponentConfig> Tweak)> Cells()

@@ -55,6 +55,11 @@ namespace AccessibleTrader.Sdk.Models
         /// not overlap: a weekly low's mark under the daily low's mark on the same bar.</summary>
         public string? MarkerStacksUnder { get; set; }
 
+        /// <summary>Where a below-bar or above-bar marker sits in its indicator's stack on a bar
+        /// several of them mark: 1 nearest the bar, then 2 beyond it, and so on; only the marks
+        /// actually on that bar take room, and equal slots share a place. 0 = not stacked.</summary>
+        public int MarkerStackSlot { get; set; }
+
         /// <summary>A below-bar or above-bar marker drawn touching the bar, a couple of pixels
         /// clear of its low or high (a label pointing at the price), instead of padded off it by
         /// a share of the bar's range. False = padded.</summary>

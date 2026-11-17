@@ -498,14 +498,14 @@ public class MarkerLookTests
     {
         var comp = Line("#FF9800");
         var s = One(comp, new[] { 1.0, 2.0, 3.0 });
-        Assert.Equal("Orange line.", MarkerLook.LineSentence(s, comp, 1, arriving: true));
-        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, arriving: false));
-        // The first bar of the line has no bar before it with a colour: that is a change.
+        Assert.Equal("Orange line.", MarkerLook.LineSentence(s, comp, 1, fromIndex: -1));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, fromIndex: 1));
+        // Coming from a bar where the line has no value: that is a change.
         var late = One(comp, new[] { double.NaN, 2.0, 3.0 });
-        Assert.Equal("Orange line.", MarkerLook.LineSentence(late, comp, 1, arriving: false));
+        Assert.Equal("Orange line.", MarkerLook.LineSentence(late, comp, 1, fromIndex: 0));
         // Hidden: not drawn, so no colour.
         comp.IsVisible = false;
-        Assert.Equal("", MarkerLook.LineSentence(s, comp, 1, arriving: true));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 1, fromIndex: -1));
     }
 
     [Fact]
@@ -518,9 +518,9 @@ public class MarkerLookTests
             new() { Condition = ColorCondition.Falling, ColorHex = "#FF1744" },
         };
         var s = One(comp, new[] { 1.0, 2.0, 3.0, 2.0, 1.0 });
-        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, arriving: false));
-        Assert.Equal("Red line.", MarkerLook.LineSentence(s, comp, 3, arriving: false));
-        Assert.Equal("", MarkerLook.LineSentence(s, comp, 4, arriving: false));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 2, fromIndex: 1));
+        Assert.Equal("Red line.", MarkerLook.LineSentence(s, comp, 3, fromIndex: 2));
+        Assert.Equal("", MarkerLook.LineSentence(s, comp, 4, fromIndex: 3));
     }
 
     [Fact]
@@ -540,7 +540,7 @@ public class MarkerLookTests
     {
         var bars = Line("#00E676");
         bars.DisplayType = ComponentDisplayType.Histogram;
-        Assert.Equal("", MarkerLook.LineSentence(One(bars, new[] { 1.0, 2.0 }), bars, 1, arriving: true));
+        Assert.Equal("", MarkerLook.LineSentence(One(bars, new[] { 1.0, 2.0 }), bars, 1, fromIndex: -1));
     }
 
     [Fact]
@@ -558,7 +558,87 @@ public class MarkerLookTests
         string on = Speak(describe: true, yMove: true);
         _out.WriteLine(on);
         Assert.Contains("Blue line.", on);
-        Assert.DoesNotContain("Blue line", Speak(describe: true, yMove: false));   // along it: same colour
         Assert.DoesNotContain("line", Speak(describe: false, yMove: true));
+
+        // Along it, one formatter: arriving says the colour, the next bar does not.
+        var spy = new SpySpeechRouter();
+        var nav = new NavigationFeedbackManager(spy, new SpeechFormatter()) { IsSpeechEnabled = true };
+        nav.HandleNavigationFeedback(NavState(1, true, s.Id, s), isXMove: false, isYMove: true, prefixMessage: "");
+        nav.HandleNavigationFeedback(NavState(2, true, s.Id, s), isXMove: true, isYMove: false, prefixMessage: "");
+        Assert.Contains("Blue line", spy.SpokenTexts[0]);
+        Assert.DoesNotContain("Blue line", spy.SpokenTexts[^1]);
+    }
+
+    // ── Where a line's colour is said: compared with the bar the user came from ──────────────
+    //
+    // Cody, 2026-11-17: "sometimes I may hear 'faint green line' when I'm far away from a
+    // transition". The colour was compared with the bar to the LEFT, not the bar the user came
+    // from: arrowing leftward said the old colour on the bar before the change and nothing on the
+    // change, and a jump said it wherever the landing bar's left neighbour differed.
+
+    /// <summary>Money Flow's colours: faint green at or above zero, faint red below.</summary>
+    private static (ChartSeries Series, ComponentConfig Comp) MoneyFlow(double[] values)
+    {
+        var comp = Line("#663FFF00");
+        comp.Name = "MF"; comp.DisplayName = "Money Flow"; comp.DisplayType = ComponentDisplayType.Oscillator;
+        comp.ColorRules = new List<ColorRule>
+        {
+            new() { Condition = ColorCondition.AboveZero, ColorHex = "#663FFF00" },
+            new() { Condition = ColorCondition.BelowZero, ColorHex = "#66FF1100" },
+        };
+        return (One(comp, values, pane: "Lower", id: "mcb"), comp);
+    }
+
+    /// <summary>Visits <paramref name="path"/> bar by bar (the first by moving onto the
+    /// component) and returns what was said at each.</summary>
+    private static List<string> Visit(ChartSeries s, params int[] path)
+    {
+        var spy = new SpySpeechRouter();
+        var nav = new NavigationFeedbackManager(spy, new SpeechFormatter()) { IsSpeechEnabled = true };
+        var said = new List<string>();
+        for (int i = 0; i < path.Length; i++)
+        {
+            var state = NavState(path[i], true, s.Id, s) with { Data = Bars(s.Data.ComponentData.Values.First().Length) };
+            nav.HandleNavigationFeedback(state, isXMove: i > 0, isYMove: i == 0, prefixMessage: "");
+            said.Add(spy.SpokenTexts.Count > 0 ? spy.SpokenTexts[^1] : "");
+            spy.SpokenTexts.Clear();
+        }
+        return said;
+    }
+
+    [Fact]
+    public void Arrowing_left_names_the_colour_on_the_first_bar_heard_in_it_and_nowhere_else()
+    {
+        // Green on bars 0-3, red from bar 4.
+        var (s, _) = MoneyFlow(new[] { 5.0, 6, 7, 8, -1, -2, -3, -4 });
+        var said = Visit(s, 7, 6, 5, 4, 3, 2, 1);
+        for (int i = 0; i < said.Count; i++) _out.WriteLine(said[i]);
+        Assert.Contains("Faint red line", said[0]);                        // arriving
+        Assert.All(said.Skip(1).Take(3), x => Assert.DoesNotContain("line.", x));   // bars 6, 5, 4: still red
+        Assert.Contains("Faint green line", said[4]);                      // bar 3: the first green
+        Assert.All(said.Skip(5), x => Assert.DoesNotContain("line.", x));  // bars 2, 1
+    }
+
+    [Fact]
+    public void Arrowing_right_names_the_colour_on_the_bar_it_changes()
+    {
+        var (s, _) = MoneyFlow(new[] { 5.0, 6, 7, 8, -1, -2, -3, -4 });
+        var said = Visit(s, 1, 2, 3, 4, 5);
+        Assert.Contains("Faint green line", said[0]);
+        Assert.DoesNotContain("line.", said[1]);
+        Assert.DoesNotContain("line.", said[2]);
+        Assert.Contains("Faint red line", said[3]);
+        Assert.DoesNotContain("line.", said[4]);
+    }
+
+    [Fact]
+    public void A_jump_names_the_colour_only_when_it_lands_on_a_different_one()
+    {
+        // Bar 7's left neighbour is red too, and bar 4's is green: neither is the question.
+        var (s, _) = MoneyFlow(new[] { 5.0, 6, 7, 8, -1, -2, -3, -4 });
+        var said = Visit(s, 5, 7, 4, 1);
+        Assert.DoesNotContain("line.", said[1]);           // red to red
+        Assert.DoesNotContain("line.", said[2]);           // red to red, though bar 3 is green
+        Assert.Contains("Faint green line", said[3]);      // red to green
     }
 }

@@ -254,6 +254,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Said as the signal fires: its name, which is what it signals.
             DefaultSignalSpeechTemplate = "{name}",
             DefaultUsePolarityColoring = false,
+            // Above the candle, stacked in Slot order, as Market Cipher A draws them. They were
+            // placed by price (high + a share of the range per slot), which the chart drew where
+            // it was told but no one could say where it was: "Say what signals look like" says
+            // "above the candle" only for a mark pinned to the candle (Cody, 2026-11-17: "option B,
+            // do it proper"). Pinned, it also stays on the candle as drawn: Heikin-Ashi's.
+            DefaultMarkerAnchor = MarkerAnchor.AboveBar,
+            MarkerStackSlot = Slot(name),
         };
 
         /// <summary>
@@ -303,8 +310,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             return (pivHigh, pivLow);
         }
 
-        /// <summary>Stacking slot above the high, so symbols on one candle sit one above another
-        /// as Market Cipher A draws them, rather than on top of each other.</summary>
+        /// <summary>Stacking slot above the candle (<see cref="IndicatorComponentMetadata.MarkerStackSlot"/>),
+        /// so symbols on one candle sit one above another as Market Cipher A draws them, rather
+        /// than on top of each other: the Blood Diamond shares its red diamond's place and covers
+        /// it, as it fires only with one.</summary>
         private static int Slot(string comp) => comp switch
         {
             CompRedX => 1, CompRedDiamond => 2, CompBloodDiamond => 2, CompYellowDiamond => 3,
@@ -342,8 +351,9 @@ namespace AccessibleTrader.Core.Services.Indicators
             var green = Nan(n); var blue = Nan(n); var yd = Nan(n); var redX = Nan(n); var redD = Nan(n); var blood = Nan(n); var yx = Nan(n);
             for (int i = 1; i < n; i++)
             {
-                double unit = Math.Max((high[i] - low[i]) * 0.15, Math.Abs(close[i]) * 0.002);
-                double At(string comp) => high[i] + unit * Slot(comp);
+                // Each symbol's value is the candle's high, the price it marks; the chart draws it
+                // above the candle in its stack slot (MarkerY), not at that price.
+                double At(string comp) => high[i];
 
                 bool rx = WaveTrendMath.CrossedUnder(e5, e11, i);
                 bool rd = WaveTrendMath.CrossedUnder(wt1, wt2, i);

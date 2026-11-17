@@ -344,6 +344,23 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <para>Market Cipher B's slow stochastic line is red while it is above the fast one and
         /// green while below — 397 of 397 digitised bars of a "MarketCipher B (2.2.6, …)" chart.</para>
         /// </summary>
+        /// <summary>
+        /// For a line coloured against a sibling (<see cref="ComponentConfig.ColorAboveComponent"/>):
+        /// true where it is drawn in its SECONDARY colour (its value above the sibling's), false in
+        /// its own, null where it has no such rule or either value is missing. The one rule its
+        /// colour (<see cref="ColorAgainstSibling"/>), its two tones and Ctrl+Left/Right's colour
+        /// changes (IndicatorCrossingEngine) all read.
+        /// </summary>
+        internal static bool? InSiblingSecondary(ComponentConfig comp, ChartSeries series, int dataIdx)
+        {
+            if (string.IsNullOrEmpty(comp.ColorAboveComponent)) return null;
+            var own = series.GetComponentData(comp.Name);
+            var other = series.GetComponentData(comp.ColorAboveComponent);
+            if (own == null || other == null || dataIdx < 0 || dataIdx >= own.Length || dataIdx >= other.Length
+                || double.IsNaN(own[dataIdx]) || double.IsNaN(other[dataIdx])) return null;
+            return own[dataIdx] > other[dataIdx];
+        }
+
         internal static SKColor? ColorAgainstSibling(ComponentConfig comp, ChartSeries series, int dataIdx, double value)
         {
             if (string.IsNullOrEmpty(comp.ColorAboveComponent)) return null;
@@ -1072,7 +1089,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
 
                 SKColor col = hasGradient && dataIdx < colorData!.Length && !double.IsNaN(colorData[dataIdx])
                     ? DotGradientColor(colorData[dataIdx])
@@ -1108,7 +1125,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
                 bool isUp = val >= 0;
 
                 using var path = new SKPath();
@@ -1292,6 +1309,65 @@ namespace AccessibleTrader.Core.Services.Rendering
         }
 
         /// <summary>
+        /// <see cref="ResolveMarkerY"/> for a marker shape, stacked: a below-bar or above-bar
+        /// marker with a <see cref="ComponentConfig.MarkerStackSlot"/> sits beyond its indicator's
+        /// lower-slot marks on the same bar, each taking its drawn height and a small gap, so
+        /// several on one candle stand one above another instead of on top of each other (Cipher
+        /// A's symbols, which Market Cipher A stacks above the candle). Only marks actually on
+        /// the bar take room, so a lone mark sits at the bar; marks sharing a slot are centred on
+        /// one place (Cipher A's Blood Diamond over its red diamond). Unstacked, or anchored at
+        /// its value, it is <see cref="ResolveMarkerY"/>.
+        /// </summary>
+        internal static float MarkerY(RenderContext ctx, ChartSeries series, ComponentConfig comp, int i, double val, float reach = 0f)
+        {
+            float own = ResolveMarkerY(ctx, comp, i, val, reach);
+            if (comp.MarkerStackSlot <= 0 || comp.MarkerAnchor == MarkerAnchor.Value) return own;
+            int k = ctx.ViewportStart + i;
+            float gap = 2f * ctx.Density;
+            // The height of each slot on this bar: the tallest mark in it that is drawn and on the bar.
+            var slots = new SortedDictionary<int, float>();
+            foreach (var c in series.Components)
+            {
+                if (c.MarkerStackSlot <= 0 || c.MarkerStackSlot > comp.MarkerStackSlot || c.MarkerAnchor != comp.MarkerAnchor) continue;
+                if (!ReferenceEquals(c, comp))
+                {
+                    if (!c.IsVisible || c.IsEnabled == false || !c.IsDrawn) continue;
+                    var d = series.GetComponentData(c.Name);
+                    if (d == null || k < 0 || k >= d.Length || double.IsNaN(d[k])) continue;
+                }
+                var (u, dn) = MarkerReach(ctx, series, c);
+                slots[c.MarkerStackSlot] = Math.Max(slots.GetValueOrDefault(c.MarkerStackSlot), u + dn);
+            }
+            float before = 0f;
+            foreach (var (slot, height) in slots)
+                if (slot < comp.MarkerStackSlot) before += height + gap;
+            // The near edge of the stack is the bar's anchored place; this mark is centred in its slot.
+            float centreFromFloor = before + slots[comp.MarkerStackSlot] / 2f;
+            var (up, down) = MarkerReach(ctx, series, comp);
+            float offset = (up - down) / 2f;   // from the mark's centre to its y
+            float floor = ResolveMarkerY(ctx, comp, i, val);
+            return comp.MarkerAnchor == MarkerAnchor.AboveBar
+                ? floor - centreFromFloor + offset
+                : floor + centreFromFloor + offset;
+        }
+
+        /// <summary>How far a marker shape is drawn above and below its y, in pixels: a triangle
+        /// stands on its y or hangs from it, the other shapes are centred on it.</summary>
+        private static (float Up, float Down) MarkerReach(RenderContext ctx, ChartSeries series, ComponentConfig c)
+        {
+            switch (c.DisplayType)
+            {
+                case ComponentDisplayType.TriangleUp:
+                    return (ClampMarkerExtent(Math.Max(c.Thickness * 3f, 6f) * ctx.Density, ctx), 0f);
+                case ComponentDisplayType.TriangleDown:
+                    return (0f, ClampMarkerExtent(Math.Max(c.Thickness * 3f, 6f) * ctx.Density, ctx));
+                default:
+                    float half = ClampMarkerHalfExtent(ctx, series, c);
+                    return (half, half);
+            }
+        }
+
+        /// <summary>
         /// Renders a fixed upward-pointing triangle at each bar's value Y. Direction is always up,
         /// regardless of value sign — use when the indicator pre-determines bullish direction.
         /// Size = comp.Thickness * 3 (same as Arrow).
@@ -1313,7 +1389,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
 
                 using var path = new SKPath();
                 path.MoveTo(x,                    y - arrowSize);
@@ -1474,7 +1550,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val) || (hidden & ComponentCompanions.HideMarker) != 0) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val, arrowSize);
+                float y = MarkerY(ctx, series, comp, i, val, arrowSize);
 
                 using var path = new SKPath();
                 path.MoveTo(x,                    y + arrowSize);
@@ -1522,7 +1598,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
 
                 using var path = new SKPath();
                 path.MoveTo(x,        y - half);   // top
@@ -1560,7 +1636,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 using var lease = SKPaintPool.Rent();
@@ -1590,7 +1666,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = i * barWidth + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
                 var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 var box = new SKRect(x - half, y - half, x + half, y + half);
 
@@ -1642,7 +1718,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = i * barWidth + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
                 var color = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 var box = new SKRect(x - half, y - half, x + half, y + half);
                 using (var fillLease = SKPaintPool.Rent())
@@ -1712,7 +1788,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ResolveMarkerY(ctx, comp, i, val);
+                float y = MarkerY(ctx, series, comp, i, val);
 
                 var col = ResolveBarColor(comp, data, dataIdx) ?? paint.Color;
                 using var crossLease = SKPaintPool.Rent();

@@ -66,17 +66,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
         };
 
         /// <summary>
-        /// "Orange line." for a visible line or area with a value on
-        /// this bar. Said when <paramref name="arriving"/> (the user just moved onto the component),
-        /// and otherwise only on a bar where the colour's NAME differs from the bar before's, so a
-        /// left/right sweep along an orange line is silent about it and a line that turns from green
-        /// to red says so on the bar it turns. Empty otherwise.
+        /// "Orange line." for a visible line or area with a value on this bar. Said on arriving at
+        /// the component (<paramref name="fromIndex"/> below zero: the user just moved onto it), and
+        /// otherwise only when the colour's NAME differs from the one at <paramref name="fromIndex"/>,
+        /// the bar the user was on before this move. So a sweep along an orange line is silent
+        /// about it, and a line that turns from green to red says so on the first bar heard in the
+        /// new colour, in either direction and after a jump. Empty otherwise.
+        ///
+        /// <para>
+        /// Cody, 2026-11-17: "sometimes I may hear 'faint green line' when I'm far away from a
+        /// transition." It compared with the bar to the LEFT, not the bar the user came from, so
+        /// arrowing leftward said the old colour one bar before the change and nothing on the
+        /// change itself, and a jump said it wherever the landing bar's left neighbour differed.
+        /// </para>
         /// </summary>
-        public static string LineSentence(ChartSeries series, ComponentConfig comp, int dataIndex, bool arriving)
+        public static string LineSentence(ChartSeries series, ComponentConfig comp, int dataIndex, int fromIndex)
         {
             string look = DescribeLine(series, comp, dataIndex);
             if (look.Length == 0) return "";
-            if (!arriving && DescribeLine(series, comp, dataIndex - 1) == look) return "";
+            if (fromIndex >= 0 && DescribeLine(series, comp, fromIndex) == look) return "";
             return Capitalise(look) + ".";
         }
 
