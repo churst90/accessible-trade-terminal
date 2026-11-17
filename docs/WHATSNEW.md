@@ -23,6 +23,15 @@ None of this has been seen or heard in the app yet.
 
 ### Indicators
 
+- **A line's colour is said only where it changes.** Arrowing along a line such as Cipher B's money
+  flow, you hear "faint green line" on the bar where it turns green, in either direction, and not on
+  the bars after. The first bar you read on a line says its colour once.
+- **The DBSI trend line has two tones.** It sounds brighter while it is green and softer while it is
+  red, so you can hear which side of price it is on. Ctrl+Left and Ctrl+Right on it jump to where it
+  changes colour.
+- **Cipher A's symbols sit above the candle**, one above another when several fall on the same candle,
+  and their description says "above the candle".
+
 - **Cipher A's Blood Diamond is always bigger than the red diamond.** Zoomed out, the two used to come
   out the same size and differed only by shade. They now shrink together, so the larger stays larger at
   every zoom.

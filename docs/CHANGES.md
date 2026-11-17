@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Line colour said where it changes, two-tone DBSI trend, Cipher A above the candle, 2026-11-17
+
+None of this has been seen or heard in the app, and the VPS is not deployed.
+
+- **What Cody asked (4):** "Sometimes I may hear 'faint green line' when I'm far away from a transition
+  ... I should hear the description as I left and right arrow only when it transitions." The colour was
+  compared with the bar to the LEFT of the one landed on, so arrowing left named it one bar early and a
+  jump named it on whatever bar it hit. It is now compared with the bar you came FROM: the speech
+  formatter remembers, per line, the last bar it read (`SpeechFormatter._lineReadAt`), and
+  `MarkerLook.LineSentence` speaks only when the colour differs. The first bar read on a line, or after
+  moving to another line, says its colour once. Three tests (`MarkerLookTests`).
+- **What Cody asked (3):** "should this line have 2 tones, like oscillators do ... Have ctrl left/right
+  jump to crossings too." A line coloured by which side of price it is on (the DBSI trend, through
+  `ColorAboveComponent`) now picks its patch and timbre by the colour drawn: the bright colour (green) a
+  brighter tone, the warm one (red) a softer tone. Warm = hue under 70 or from 300, or saturation under
+  25; if both colours fall on one side, the line's own colour is the bright one. A plain one-colour line
+  keeps its one tone. Ctrl+Left/Right on such a line stops where its colour changes ("DBSI trend turns
+  green at ..."), or says "No more DBSI trend colour changes in this direction". Four tests
+  (`SiblingColouredLineTests`), each turned red by breaking the code.
+- **What Cody asked (1):** "cipher A: option B, do it proper." Cipher A's symbols were stored as prices
+  (the candle's high plus a fixed step per symbol), so the look never said where they sit. They are now
+  pinned above the candle (`MarkerAnchor.AboveBar`) with a stack slot each
+  (`IndicatorMetadata.MarkerStackSlot`, the old order: Red X 1, red and Blood diamonds 2, yellow diamond
+  3, green dot 4, yellow X 5, blue triangle 6). The renderer (`StandardRenderers.MarkerY`) stands the
+  symbols on one candle one above another, each slot as tall as the largest symbol in it, so they never
+  overlap; a lone symbol sits right at the candle. The look now says "above the candle". Each symbol's
+  value is the candle's high. The anchor is read from the indicator, so saved charts get it too. Four
+  tests (`MarkerStackTests`) plus an "above the bar" cell in `DeclaredKnobObservabilityTests`.
+  - **Limit:** a bar-pinned symbol keeps the existing padding of 0.35 of the candle's range, so a tall
+    candle has a wide gap above it. Checked in a rendered PNG only.
+- **Not built:** (2) the TradingView Stoch RSI probe (TV's browser had no debugging port; the script is
+  ready); the "where the signal sits" description and line/area-fill names are questions in TODO.
+
 ### Browser harness on Playwright 1.64.1, CI back on ubuntu-latest, 2026-11-17
 
 - **What Cody asked:** "can we look into upgrading playright and addressing this issue?" The browser job

@@ -232,7 +232,10 @@ question for Cody; the rest are known limits I wrote down.
 - [ ] **Cipher DBSI (the study).** No port until the residue is solved (Cody, 2026-10-29). Open: the bear side
   misses more than the bull side; flat-price eras (flagged "flat prices, may be 2 off", not where the RSI
   drifts by noise); the Stoch RSI top digit (2026-11-16: a rounding limit, no rule found); the pinned-Stoch-RSI
-  re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **Q** (asked 2026-10-24,
+  re-arms (3 on real prices); the Start-grid emulator is not on the latest model. **2026-11-17 Cody: "try the rsi
+  script".** A Pine probe printing TV's own `ta.stoch(ta.rsi)` minus 100 at the exception bars is written
+  (local scratchpad) but NOT run: Brave was running without a debugging port. Needs Brave restarted with
+  `--remote-debugging-port=9222`. If it does not separate the exceptions, close the study. **Q** (asked 2026-10-24,
   not answered until 2026-11-16) May the original's Start-grid numbers go in the public repo? **Cody
   2026-11-16: "no, do not put them in the repo."** They stay local.
 - [x] **The Market Cipher strategy tests (2026-10-25).** CLOSED by Cody 2026-11-17 ("Don't wait on
@@ -310,6 +313,19 @@ shot's old colour key is the only detail out of date).
   pack version, and check the WebHost zips' System.Private.CoreLib.dll version.
 
 ## Asked for, not built yet
+
+- [ ] **Where a signal sits (Cody, 2026-11-17).** "something that describes the location of every
+  signal, even say on cipher b, like 'large green dot, below the blue waves' ... for any indicator or a
+  custom indicator ... could be part of the describe signals setting." Discussed, not built. Proposed:
+  under "Say what signals look like", name the pane part a mark is above, below or on, read from the
+  values drawn on that bar, for any indicator including custom ones. **Q** for Cody: which parts count
+  (the main waves only, or every drawn line), and whether it is said every time or only on request.
+- [ ] **Line, wave or area fill (Cody, 2026-11-17, discussion).** Cipher B's money flow and wave gap
+  are drawn as filled areas but called lines. Proposed: name a part by how it is DRAWN ("area" when it
+  is a fill down to a level, "line" when not), keep "wave" out of the description as a drawing word, and
+  keep the indicator's own names (blue waves, money flow) as names. **Q** for Cody.
+- [ ] **Cipher A above the candle (2026-11-17).** Built; not seen. The pad over a tall candle (0.35 of
+  its range, the existing rule) may look far; say if it does.
 
 - [ ] **Indicator template (Cody, 2026-11-05).** Take one chart's indicators and panes, with their
   settings, and put them on the chart in front, keeping that chart's symbol and timeframe (TradingView
