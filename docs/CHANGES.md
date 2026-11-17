@@ -12,8 +12,8 @@ All notable changes to this project will be documented in this file.
   Ubuntu 26.04 with Chromium and its system packages (read from the published `playwright-core`
   package). The package, the `npx playwright@` line, the hint the harness prints when Chromium is
   missing and SERVER_SETUP.md all move to 1.64.1, and the job runs on `ubuntu-latest` again.
-- **The harness builds on 1.64.1 with no errors and no obsolete-API warnings. It has not run here.** The
-  push carrying it is its first run, on the new image.
+- **On CI it passed on Ubuntu 26.04** (run on 8460d881: image `ubuntu-26.04`, 245 passed, 1 skipped,
+  the same as the last run on 24.04). It builds with no errors and no obsolete-API warnings.
 - **A test now checks the version is the same everywhere it is named** (`PlaywrightVersionPinTests`). A
   workflow line left at 1.55.0 turns it red (checked).
 - **The VPS** has build 1187 (1.55). It needs `npx playwright@1.64.1 install chromium` before its next
