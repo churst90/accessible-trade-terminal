@@ -1615,6 +1615,12 @@
             })
             .ToList();
 
+        // Each "Read as" form keeps its own sound: the other form's, saved before, is kept (FormSounds).
+        var before = IndicatorPrefs.GetPreferences(indicatorCode);
+        foreach (var p in prefs)
+            FormSounds.KeepOtherForm(p, before?.FirstOrDefault(b => b.Name == p.Name),
+                _indicatorMeta?.Components.FirstOrDefault(m => m.Name == p.Name));
+
         IndicatorPrefs.SavePreferences(indicatorCode, prefs);
 
         // Also persist the current level audio/display settings as type defaults for future fresh adds.

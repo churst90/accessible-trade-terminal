@@ -134,6 +134,84 @@ public sealed class CipherBWaveFormTests
         }
     }
 
+    // ── Each form keeps its own sound (Cody, 2026-11-17) ────────────────────────────────────
+    // Sound defaults saved in one form used to reach the other: one set of fields, applied to
+    // whichever form the chart was read as.
+
+    private static IIndicatorPreferencesService Saved(params ComponentPreference[] p)
+    {
+        var prefs = Substitute.For<IIndicatorPreferencesService>();
+        prefs.GetPreferences("CIPHER_B").Returns(p.ToList());
+        return prefs;
+    }
+
+    private static ComponentPreference WaveSound(string part) =>
+        new() { Name = part, Waveform = "square", BaseFrequency = 777, NoiseAmount = 0.31f };
+
+    private static IndicatorComponentMetadata MetaOf(string part) => Meta().Components.Single(m => m.Name == part);
+
+    [Fact]
+    public void A_sound_saved_as_the_wave_does_not_reach_a_chart_reading_the_histogram()
+    {
+        var factory = Factory(Saved(Parts.Select(WaveSound).ToArray()));
+        var wave = Default(factory);
+        var hist = ComponentForms.InOtherForm(factory, Meta());
+        var plainHist = ComponentForms.InOtherForm(Factory(), Meta());
+        foreach (var p in Parts)
+        {
+            Assert.Equal(("square", 777.0, 0.31f), (Part(wave, p).Waveform, Part(wave, p).BaseFrequency, Part(wave, p).NoiseAmount));
+            var h = Part(hist, p); var d = Part(plainHist, p);
+            Assert.Equal((d.Waveform, d.BaseFrequency, d.NoiseAmount), (h.Waveform, h.BaseFrequency, h.NoiseAmount));
+        }
+    }
+
+    [Fact]
+    public void Each_form_gets_the_sound_saved_for_it()
+    {
+        var factory = Factory(Saved(Parts.Select(p => new ComponentPreference
+        {
+            Name = p, UserDisplayType = ComponentDisplayType.Histogram,
+            Waveform = "sawtooth", BaseFrequency = 333, NoiseAmount = 0.2f,
+            OtherFormSound = new() { DisplayType = ComponentDisplayType.Oscillator, Waveform = "square", BaseFrequency = 777 },
+        }).ToArray()));
+        var hist = Default(factory);   // the saved default form is the histogram
+        foreach (var p in Parts)
+        {
+            Assert.Equal(("sawtooth", 333.0, 0.2f), (Part(hist, p).Waveform, Part(hist, p).BaseFrequency, Part(hist, p).NoiseAmount));
+            var w = Part(hist, p).Clone();
+            w.UserDisplayType = ComponentDisplayType.Oscillator;
+            factory.ApplyForm(Meta(), w);   // the Properties switch applies the wave's saved sound
+            Assert.Equal(("square", 777.0), (w.Waveform, w.BaseFrequency));
+            Assert.Equal(Part(Default(), p).NoiseAmount, w.NoiseAmount);   // not saved for the wave: its default
+        }
+    }
+
+    [Fact]
+    public void Saving_in_one_form_keeps_the_other_forms_sound()
+    {
+        foreach (var p in Parts)
+        {
+            var mc = MetaOf(p);
+            var wave = WaveSound(p);
+            var hist = new ComponentPreference { Name = p, UserDisplayType = ComponentDisplayType.Histogram, Waveform = "sawtooth" };
+            FormSounds.KeepOtherForm(hist, wave, mc);
+            Assert.Equal((ComponentDisplayType.Oscillator, "square", 777.0, 0.31f),
+                (hist.OtherFormSound!.DisplayType, hist.OtherFormSound.Waveform, hist.OtherFormSound.BaseFrequency, hist.OtherFormSound.NoiseAmount));
+
+            // Saved again as the histogram: the wave's sound is still kept.
+            var hist2 = new ComponentPreference { Name = p, UserDisplayType = ComponentDisplayType.Histogram, Waveform = "triangle" };
+            FormSounds.KeepOtherForm(hist2, hist, mc);
+            Assert.Equal("square", hist2.OtherFormSound!.Waveform);
+
+            // Back to the wave: the histogram's sound is kept, and the wave's is the new one.
+            var wave2 = new ComponentPreference { Name = p, UserDisplayType = ComponentDisplayType.Oscillator, Waveform = "sine" };
+            FormSounds.KeepOtherForm(wave2, hist2, mc);
+            Assert.Equal((ComponentDisplayType.Histogram, "triangle"), (wave2.OtherFormSound!.DisplayType, wave2.OtherFormSound.Waveform));
+            Assert.Equal("sine", FormSounds.For(wave2, mc, ComponentDisplayType.Oscillator)!.Waveform);
+            Assert.Equal("triangle", FormSounds.For(wave2, mc, ComponentDisplayType.Histogram)!.Waveform);
+        }
+    }
+
     /// <summary>The Properties dialog's switch, both ways: the picture the user set is kept, and
     /// back to the wave is the wave as built.</summary>
     [Fact]

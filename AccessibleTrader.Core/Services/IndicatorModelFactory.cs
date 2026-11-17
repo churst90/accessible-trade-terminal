@@ -262,14 +262,10 @@ namespace AccessibleTrader.Core.Services
                     if (pref.ColorHexSecondary  != null) fresh.ColorHexSecondary  = pref.ColorHexSecondary;
                     if (pref.Thickness         != null) fresh.Thickness         = pref.Thickness.Value;
                     if (pref.DashStyle         != null) fresh.DashStyle         = pref.DashStyle.Value;
-                    if (pref.Waveform          != null) fresh.Waveform          = pref.Waveform;
-                    if (pref.EnvelopeType      != null) fresh.EnvelopeType      = pref.EnvelopeType;
                     if (pref.Volume            != null) fresh.Volume            = pref.Volume.Value;
                     if (pref.FreqMultiplier    != null) fresh.FreqMultiplier    = pref.FreqMultiplier.Value;
-                    if (pref.BaseFrequency     != null) fresh.BaseFrequency     = pref.BaseFrequency.Value;
-                    // A texture saved as the default it then was is not a choice (RetiredTextures).
-                    if (pref.NoiseAmount       != null && !RetiredTextures.IsRetiredBaseNoise(meta.Code, fresh.Name, pref.NoiseAmount.Value))
-                        fresh.NoiseAmount = pref.NoiseAmount.Value;
+                    // The sound saved for the form this chart reads the part as (FormSounds).
+                    ApplyFormSound(meta, fresh, pref);
                     // Defaults saved while the part was hidden by default (the same change as layer 2):
                     // it stays left out, and its saved "hidden" does not follow it in when included.
                     if (pref.IsVisible == false && ProviderDefaultVisibility.HiddenDefaultIsNowLeftOut(
@@ -417,6 +413,26 @@ namespace AccessibleTrader.Core.Services
             var mc = indicator.Components.FirstOrDefault(m => m.Name == comp.Name);
             if (mc?.OtherForm == null) return;
             TakeForm(comp, BuildForm(indicator, mc, comp.UserDisplayType));
+            // The new form's sound saved as this indicator's default, as a load would apply it.
+            if (_prefsService.GetPreferences(indicator.Code)?.FirstOrDefault(p => p.Name == comp.Name) is { } pref)
+                ApplyFormSound(indicator, comp, pref);
+        }
+
+        /// <summary>
+        /// The waveform, envelope, base frequency and noise saved for the form
+        /// <paramref name="comp"/> is read as (<see cref="FormSounds.For"/>); nothing when none was
+        /// saved in that form.
+        /// </summary>
+        private static void ApplyFormSound(IndicatorMetadata indicator, ComponentConfig comp, ComponentPreference pref)
+        {
+            var mc = indicator.Components.FirstOrDefault(m => m.Name == comp.Name);
+            if (FormSounds.For(pref, mc, comp.DisplayType) is not { } sound) return;
+            if (sound.Waveform      != null) comp.Waveform      = sound.Waveform;
+            if (sound.EnvelopeType  != null) comp.EnvelopeType  = sound.EnvelopeType;
+            if (sound.BaseFrequency != null) comp.BaseFrequency = sound.BaseFrequency.Value;
+            // A texture saved as the default it then was is not a choice (RetiredTextures).
+            if (sound.NoiseAmount   != null && !RetiredTextures.IsRetiredBaseNoise(indicator.Code, comp.Name, sound.NoiseAmount.Value))
+                comp.NoiseAmount = sound.NoiseAmount.Value;
         }
 
         /// <summary>

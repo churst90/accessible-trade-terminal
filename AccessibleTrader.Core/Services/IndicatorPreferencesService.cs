@@ -55,8 +55,74 @@ namespace AccessibleTrader.Core.Services
         public BackgroundTint? UserBackgroundTint { get; set; }
         public bool?   UserIsAreaFill     { get; set; }
         public bool?   UserDrawPath       { get; set; }
-        /// <summary>"Read as" (ComponentConfig.UserDisplayType); null = the indicator's first form.</summary>
+        /// <summary>"Read as" (ComponentConfig.UserDisplayType); null = the indicator's first form.
+        /// The sound above (waveform, envelope, base frequency, noise) is THIS form's.</summary>
         public ComponentDisplayType? UserDisplayType { get; set; }
+        /// <summary>
+        /// The sound saved for the part's other "Read as" form, kept when defaults are saved in this
+        /// one; null = never saved in the other form. Cody, 2026-11-17: each form keeps its own sound
+        /// (a wave pitched on ±100 and a histogram pitched by side sound different by design). See
+        /// <see cref="FormSounds"/>.
+        /// </summary>
+        public FormSoundPreference? OtherFormSound { get; set; }
+    }
+
+    /// <summary>One "Read as" form's saved sound: the fields a form decides that Save as Defaults keeps.</summary>
+    public class FormSoundPreference
+    {
+        public ComponentDisplayType DisplayType { get; set; }
+        public string? Waveform      { get; set; }
+        public string? EnvelopeType  { get; set; }
+        public double? BaseFrequency { get; set; }
+        public float?  NoiseAmount   { get; set; }
+    }
+
+    /// <summary>
+    /// Which saved sound a part with two "Read as" forms gets (Cody, 2026-11-17: "each keeps its
+    /// own sound"). A preference's own sound fields are the sound of the form it names
+    /// (<see cref="ComponentPreference.UserDisplayType"/>, null = the first form);
+    /// <see cref="ComponentPreference.OtherFormSound"/> holds the other form's. Until then one set of
+    /// sound fields was applied to whichever form the chart was read as.
+    /// </summary>
+    public static class FormSounds
+    {
+        /// <summary>The form a preference's own sound fields belong to.</summary>
+        public static ComponentDisplayType SavedForm(ComponentPreference pref, IndicatorComponentMetadata mc) =>
+            IndicatorModelFactory.FormOf(mc, pref.UserDisplayType).DisplayType;
+
+        /// <summary>
+        /// The saved sound for the form <paramref name="form"/>, or null when none was saved in it.
+        /// A part with one form always gets the preference's own sound.
+        /// </summary>
+        public static FormSoundPreference? For(ComponentPreference pref, IndicatorComponentMetadata? mc, ComponentDisplayType form)
+        {
+            if (mc?.OtherForm == null || SavedForm(pref, mc) == form) return Own(pref, form);
+            return pref.OtherFormSound is { } other && other.DisplayType == form ? other : null;
+        }
+
+        /// <summary>
+        /// <paramref name="now"/>, about to be saved, keeping the other form's sound from
+        /// <paramref name="before"/> (the defaults it replaces): saved in the same form, the other
+        /// form's sound already kept there; saved in the other form, the sound saved before.
+        /// </summary>
+        public static ComponentPreference KeepOtherForm(ComponentPreference now, ComponentPreference? before, IndicatorComponentMetadata? mc)
+        {
+            if (mc?.OtherForm == null || before == null) return now;
+            var nowForm = SavedForm(now, mc);
+            var beforeForm = SavedForm(before, mc);
+            var kept = beforeForm == nowForm ? before.OtherFormSound : Own(before, beforeForm);
+            now.OtherFormSound = kept != null && kept.DisplayType != nowForm && HasSound(kept) ? kept : null;
+            return now;
+        }
+
+        private static FormSoundPreference Own(ComponentPreference p, ComponentDisplayType form) => new()
+        {
+            DisplayType = form, Waveform = p.Waveform, EnvelopeType = p.EnvelopeType,
+            BaseFrequency = p.BaseFrequency, NoiseAmount = p.NoiseAmount,
+        };
+
+        private static bool HasSound(FormSoundPreference s) =>
+            s.Waveform != null || s.EnvelopeType != null || s.BaseFrequency != null || s.NoiseAmount != null;
     }
 
     /// <summary>

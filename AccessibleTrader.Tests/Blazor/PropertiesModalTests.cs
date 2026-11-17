@@ -634,6 +634,47 @@ public class PropertiesModalTests
         Assert.Null(untouched.UserBackgroundTint);
     }
     /// <summary>
+    /// Save as Defaults while a part is read as its other form keeps the sound saved before for the
+    /// first form (Cody, 2026-11-17: each "Read as" form keeps its own sound).
+    /// </summary>
+    [Fact]
+    public void Save_as_defaults_in_the_other_form_keeps_the_first_forms_saved_sound()
+    {
+        using var h = new BlazorTestHarness();
+        var series = NewSeries("cb", "Cipher B");
+        series.Config.IndicatorCode = "FORMS";
+        series.Config.Components.Add(new ComponentConfig
+        {
+            Name = "Gap", DisplayName = "Gap", DisplayType = ComponentDisplayType.Histogram,
+            UserDisplayType = ComponentDisplayType.Histogram, Waveform = "sawtooth",
+        });
+        h.IndicatorService.GetAvailableIndicators().Returns(new List<IndicatorMetadata>
+        {
+            new() { Code = "FORMS", Name = "Forms", Components =
+            {
+                new IndicatorComponentMetadata { Name = "Gap", DisplayType = ComponentDisplayType.Oscillator,
+                    OtherForm = new() { Name = "Gap", DisplayType = ComponentDisplayType.Histogram } },
+            } },
+        });
+        h.IndicatorPreferences.GetPreferences("FORMS").Returns(new List<ComponentPreference>
+            { new() { Name = "Gap", Waveform = "square", BaseFrequency = 777 } });
+        SeedActiveSeries(h, series);
+        List<ComponentPreference>? saved = null;
+        h.IndicatorPreferences
+            .When(s => s.SavePreferences(Arg.Any<string>(), Arg.Any<List<ComponentPreference>>()))
+            .Do(call => saved = call.ArgAt<List<ComponentPreference>>(1));
+
+        var cut = OpenProperties(h);
+        cut.WaitForAssertion(() => Assert.Contains(cut.FindAll("button"), b => b.TextContent.Trim() == "Save as Defaults"));
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Save as Defaults").Click();
+
+        var gap = Assert.Single(saved!, p => p.Name == "Gap");
+        Assert.Equal((ComponentDisplayType.Histogram, "sawtooth"), (gap.UserDisplayType, gap.Waveform));
+        Assert.Equal((ComponentDisplayType.Oscillator, "square", (double?)777),
+            (gap.OtherFormSound?.DisplayType, gap.OtherFormSound?.Waveform, gap.OtherFormSound?.BaseFrequency));
+    }
+
+    /// <summary>
     /// Parts → Include refuses to leave out the last part. The refusal used to be spoken while the
     /// box was left UNTICKED in the browser: the part stays in, so the checked value Blazor renders
     /// does not change and it never puts the tick back. The last part's box now cancels the click
