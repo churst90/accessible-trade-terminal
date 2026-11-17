@@ -134,6 +134,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 return !double.IsNaN(val) && val < 0 && SKColor.TryParse(comp.ColorHexSecondary, out var neg) ? neg : own;
             if (comp.ColorRules is { Count: > 0 })
                 return (data != null ? ResolveBarColor(comp, data, dataIdx) : null) ?? own;
+            // A wave filled per side (Cipher B's money flow and wave gap) is painted by
+            // RenderHistogramArea in its two colours, split at ColorBaseline, whatever
+            // UsePolarityColoring says (DataLayer routes it there before RenderLine).
+            if (comp.AreaBySign && comp.IsAreaFillInEffect() && !double.IsNaN(val))
+            {
+                var (up, down) = DirectionalBarColors(null, comp);
+                return val >= comp.ColorBaseline ? up : down;
+            }
             if (!string.IsNullOrEmpty(comp.ColorAboveComponent))
                 return ColorAgainstSibling(comp, series, dataIdx, val) ?? own;
             if (WantsPolaritySplit(comp) && !double.IsNaN(val))
@@ -404,6 +412,26 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static bool IsFilled(ComponentConfig comp) =>
             comp.IsAreaFillInEffect()
             || comp.DisplayType is ComponentDisplayType.Area or ComponentDisplayType.Gradient;
+
+        /// <summary>
+        /// Whether a line or area component is drawn with a fill under it, by the same routes
+        /// <see cref="DataLayer"/> and <see cref="RenderLine"/> take: a ZeroArea always; a wave
+        /// filled per side (<see cref="ComponentConfig.AreaBySign"/>, Cipher B's money flow and wave
+        /// gap) when its fill is on; otherwise <see cref="IsFilled"/>, except that a line coloured
+        /// by rules or by a sibling is drawn piece by piece and never filled. For speech
+        /// (MarkerLook): Cody, 2026-11-17, "I want the speech description to match what is drawn
+        /// and have it change based on whether there is or is not a fill under the line", so this
+        /// decides "area" or "line".
+        /// </summary>
+        internal static bool DrawsFill(ComponentConfig comp) => comp.DisplayType switch
+        {
+            ComponentDisplayType.ZeroArea => true,
+            ComponentDisplayType.Line or ComponentDisplayType.Area
+                or ComponentDisplayType.Oscillator or ComponentDisplayType.Gradient =>
+                (comp.AreaBySign && comp.IsAreaFillInEffect())
+                || (comp.ColorRules is not { Count: > 0 } && string.IsNullOrEmpty(comp.ColorAboveComponent) && IsFilled(comp)),
+            _ => false,
+        };
 
         /// <summary>
         /// Whether the fill switch does something for this component, so the Properties dialog

@@ -88,14 +88,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return Capitalise(look) + ".";
         }
 
-        /// <summary>"orange line", or empty.</summary>
+        /// <summary>"orange line", "orange area" when a fill is drawn under it
+        /// (<see cref="StandardRenderers.DrawsFill"/>), or empty. Cody, 2026-11-17: one word for
+        /// what is drawn; Cipher B's waves, money flow and wave gap are filled, so they are areas.</summary>
         public static string DescribeLine(ChartSeries series, ComponentConfig comp, int dataIndex)
         {
             if (!comp.IsVisible || !LineTypes.Contains(comp.DisplayType)) return "";
             var data = series.GetComponentData(comp.Name);
             if (data == null || dataIndex < 0 || dataIndex >= data.Length || double.IsNaN(data[dataIndex])) return "";
             string colour = ColorName(StandardRenderers.LineColorAt(series, comp, dataIndex));
-            return $"{colour} line";
+            return StandardRenderers.DrawsFill(comp) ? $"{colour} area" : $"{colour} line";
         }
 
         /// <summary>"large green dot below the candle", or empty.</summary>
