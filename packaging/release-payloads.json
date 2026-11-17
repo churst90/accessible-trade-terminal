@@ -162,12 +162,14 @@
         {
           "file": "Accessible Trader.exe",
           "why": "the one program at the top of the download; it starts app\\AccessibleTrader.BlazorClient.exe. Without it the user unzips a folder holding only README.txt and app\\, and has to find the right exe among 480 files and three exes, which is the problem this layout exists to end",
-          "stagedBy": "packaging-script"
+          "stagedBy": "packaging-script",
+          "script": "packaging/windows/package.ps1"
         },
         {
           "file": "README.txt",
           "why": "says which file to run, that the app folder must stay beside it, and where settings live",
-          "stagedBy": "packaging-script"
+          "stagedBy": "packaging-script",
+          "script": "packaging/windows/package.ps1"
         }
       ],
       "$note": [
@@ -204,7 +206,7 @@
     {
       "id": "webhost",
       "match": "AccessibleTrader-WebHost-*.zip",
-      "root": "",
+      "root": "AccessibleTrader-WebHost-*/app/",
       "head": "the self-contained WebHost (the package the site recommends first)",
       "required": [
         {
@@ -234,6 +236,68 @@
           "stagedBy": "msbuild-target",
           "stagedAs": "AccessibleTrader.ScriptWorker",
           "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
+        }
+      ]
+    },
+    {
+      "id": "webhost-windows-package",
+      "match": "AccessibleTrader-WebHost-*-win-x64.zip",
+      "root": "AccessibleTrader-WebHost-*/",
+      "head": "the Windows WebHost download's own top folder",
+      "required": [
+        {
+          "file": "Accessible Trader.exe",
+          "why": "the one program at the top of the download (AccessibleTrader.Launcher built with LauncherApp=WebHost); it starts app\\AccessibleTrader.WebHost.exe from inside app\\, where the server reads appsettings.json and so its port, and says in a message box if the server stops as it starts. Without it the user is back to finding one exe among about 470 files",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.ps1"
+        },
+        {
+          "file": "README.txt",
+          "why": "says which file to run, that the app folder must stay beside it, where settings and the cache are kept, and what to do about the unsigned-program warning",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.ps1"
+        }
+      ]
+    },
+    {
+      "id": "webhost-linux-package",
+      "match": "AccessibleTrader-WebHost-*-linux-x64.zip",
+      "root": "AccessibleTrader-WebHost-*/",
+      "head": "the Linux WebHost download's own top folder",
+      "required": [
+        {
+          "file": "accessible-trader",
+          "why": "the one file to run; it starts app/AccessibleTrader.WebHost from inside app/, where the server reads appsettings.json. Started from anywhere else the server binds port 5000 instead of 5145 and says nothing about it. It must keep its executable bit in the zip, or ./accessible-trader is refused",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.sh",
+          "executable": true
+        },
+        {
+          "file": "README.txt",
+          "why": "says which file to run, that the app folder must stay beside it, where settings and the cache are kept, and what to do about the unsigned-program warning",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.sh"
+        }
+      ]
+    },
+    {
+      "id": "webhost-macos-package",
+      "match": "AccessibleTrader-WebHost-*-osx-*.zip",
+      "root": "AccessibleTrader-WebHost-*/",
+      "head": "the macOS WebHost download's own top folder",
+      "required": [
+        {
+          "file": "Accessible Trader.command",
+          "why": "the one file to open; Finder runs a .command file in Terminal, and it starts app/AccessibleTrader.WebHost from inside app/, where the server reads appsettings.json. It must keep its executable bit in the zip, or Finder will not run it",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.sh",
+          "executable": true
+        },
+        {
+          "file": "README.txt",
+          "why": "says which file to run, that the app folder must stay beside it, where settings and the cache are kept, and what to do about the unsigned-program warning",
+          "stagedBy": "packaging-script",
+          "script": "packaging/webhost/package.sh"
         }
       ]
     }

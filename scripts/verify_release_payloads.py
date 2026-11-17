@@ -105,8 +105,8 @@ def entries_under_root(names: list[str], root: str) -> list[str] | None:
     """
     Paths inside the asset, relative to the spec's root.
 
-    `root` is "" for a flat zip, "Accessible Trader */app/" for the Windows download (its top
-    folder carries the version), and "*.app/Contents/MonoBundle/" for the macOS bundle, whose
+    `root` is "" for a flat zip, "Accessible Trader */app/" for the Windows download and
+    "AccessibleTrader-WebHost-*/app/" for the WebHost ones (their top folders carry the version), and "*.app/Contents/MonoBundle/" for the macOS bundle, whose
     top-level directory name is the app's and not ours to hard-code. Returns None
     when the root matches nothing at all — that is itself a failure worth naming, because it
     means the asset is not shaped the way the spec thinks it is.
@@ -164,6 +164,16 @@ def check_asset(path: Path, spec: dict) -> tuple[list[str], list[str]]:
             if "file" in rule:
                 if rule["file"].lower() not in lower:
                     failures.append(f"MISSING {rule['file']} — {why}")
+                elif rule.get("executable"):
+                    # A Unix mode lives in the top 16 bits of external_attr, and only an entry
+                    # made on Unix (create_system 3) has one; Compress-Archive's entries do not.
+                    real = lower[rule["file"].lower()]
+                    info = next(i for i in zf.infolist() if i.filename == real or i.filename.endswith("/" + real))
+                    mode = (info.external_attr >> 16) & 0o777
+                    if info.create_system != 3 or not mode & 0o111:
+                        failures.append(
+                            f"NOT EXECUTABLE {rule['file']} (mode {mode:o}, made on system "
+                            f"{info.create_system}) — {why}")
 
             elif "anyOf" in rule:
                 if not any(c.lower() in lower for c in rule["anyOf"]):

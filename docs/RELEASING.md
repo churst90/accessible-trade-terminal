@@ -8,19 +8,31 @@ GitHub Release.
 
 | Artifact                                              | Head    | Runner  | Notes |
 |-------------------------------------------------------|---------|---------|-------|
-| `AccessibleTrader-WebHost-<ver>-linux-x64.zip`        | WebHost | Ubuntu  | Self-contained, no .NET needed |
-| `AccessibleTrader-WebHost-<ver>-win-x64.zip`          | WebHost | Ubuntu  | Self-contained |
-| `AccessibleTrader-WebHost-<ver>-osx-x64.zip`          | WebHost | Ubuntu  | Self-contained (Intel Mac) |
-| `AccessibleTrader-WebHost-<ver>-osx-arm64.zip`        | WebHost | Ubuntu  | Self-contained (Apple Silicon) |
+| `AccessibleTrader-WebHost-<ver>-linux-x64.zip`        | WebHost | Ubuntu  | Self-contained, no .NET needed; one folder holding `accessible-trader`, `README.txt` and `app/` |
+| `AccessibleTrader-WebHost-<ver>-win-x64.zip`          | WebHost | Windows | Self-contained; one folder holding `Accessible Trader.exe`, `README.txt` and `app\` |
+| `AccessibleTrader-WebHost-<ver>-osx-x64.zip`          | WebHost | Ubuntu  | Self-contained (Intel Mac); one folder holding `Accessible Trader.command`, `README.txt` and `app/` |
+| `AccessibleTrader-WebHost-<ver>-osx-arm64.zip`        | WebHost | Ubuntu  | Self-contained (Apple Silicon); same layout as Intel |
 | `AccessibleTrader-Windows-<ver>-win-x64.zip`          | MAUI    | Windows | Unpackaged native app, **unsigned**; one folder `Accessible Trader <ver>\` holding `Accessible Trader.exe`, `README.txt` and `app\` |
 | `AccessibleTrader-<ver>-Windows-Setup.exe`            | MAUI    | Windows | Inno Setup installer of that same folder: per-user, no admin, **unsigned** |
 | `AccessibleTrader-macOS-<ver>-universal.zip`          | MAUI    | macOS   | Mac Catalyst `.app`, universal, **unsigned** |
 | `SHA256SUMS.txt`                                       | —       | —       | Checksums for every zip and the setup |
 
 The **WebHost** is the cross-platform Blazor Server desktop head: unzip, run the
-`AccessibleTrader.WebHost` executable, and it serves the terminal on a local
-Kestrel port and opens your browser. Flags: `--no-launch` (don't auto-open the
-browser), `--demo` (read-only demo mode).
+starter at the top of the folder, and it serves the terminal on a local
+Kestrel port (5145) and opens your browser. Flags, passed through the starter: `--no-launch`
+(don't auto-open the browser), `--demo` (read-only demo mode).
+
+The WebHost downloads are laid out by `packaging/webhost/package.sh` (Linux, macOS) and
+`packaging/webhost/package.ps1` (Windows), which the release job runs. Each puts the publish in
+`app/` and a starter and README on top. The starter's one job is to run the server **from inside
+`app/`**: the server reads `appsettings.json`, and so its port, from its working directory, and
+started anywhere else it binds 5000 and says nothing. On Windows the starter is the launcher
+again, built with `-p:LauncherApp=WebHost`, which also puts up a message box if the server stops
+as it starts (port taken). On Linux and macOS it is a shell script. Each script then TRIES the zip
+where it can: unzipped, started from another folder, the server must serve the page, must log
+its content root as `app/`, and must write nothing into its own folder. The Linux trial runs in
+every release; the macOS zips are cross-built on Ubuntu and are not run anywhere; the Windows
+trial runs on the Windows runner.
 
 The **MAUI** heads are the native Windows / macOS apps.
 

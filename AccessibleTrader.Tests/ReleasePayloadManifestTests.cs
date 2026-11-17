@@ -196,28 +196,130 @@ public sealed class ReleasePayloadManifestTests
     }
 
     /// <summary>
-    /// The files at the top of the Windows download, beside <c>app\</c>, are put there by
-    /// <c>packaging/windows/package.ps1</c> and by nothing else. Each one the manifest requires
-    /// must be staged into the top folder by that script, or the release fails at the verifier
-    /// with the zip already built: this says so before a tag is pushed.
+    /// The files at the top of each laid-out download, beside <c>app\</c>, are put there by a
+    /// packaging script and by nothing else, and each rule names its script. A PowerShell script
+    /// must stage each one into the top folder, or the release fails at the verifier with the zip
+    /// already built: this says so before a tag is pushed. (The PowerShell scripts publish a
+    /// NativeAOT launcher and can only run on Windows; package.sh is RUN below instead.)
     /// </summary>
-    public static TheoryData<string> TopFolderPayloadsFromTheManifest()
+    public static TheoryData<string, string> TopFolderPayloadsFromTheManifest()
     {
-        var data = new TheoryData<string>();
-        foreach (var name in Rules().Where(r => r.StagedBy == "packaging-script").Select(r => r.Name).Distinct())
-            data.Add(name);
+        var data = new TheoryData<string, string>();
+        foreach (var (name, script) in PackagingScriptRules().Where(r => r.Script.EndsWith(".ps1")).Distinct())
+            data.Add(name, script);
         Assert.NotEmpty(data);
         return data;
     }
 
+    private static IEnumerable<(string Name, string Script)> PackagingScriptRules()
+    {
+        foreach (var asset in Manifest().GetProperty("assets").EnumerateArray())
+            foreach (var rule in asset.GetProperty("required").EnumerateArray())
+                if (rule.GetProperty("stagedBy").GetString() == "packaging-script")
+                    yield return (rule.GetProperty("file").GetString()!,
+                        rule.TryGetProperty("script", out var s) ? s.GetString()! : "(no script named)");
+    }
+
+    [Fact]
+    public void EveryTopFolderPayloadNamesAPackagingScriptThatExists()
+    {
+        foreach (var (name, script) in PackagingScriptRules())
+            Assert.True(File.Exists(Path.Combine(RepoRoot(), script)),
+                $"{name} is staged by a packaging script, and its rule's script '{script}' is not in the repository");
+    }
+
     [Theory]
     [MemberData(nameof(TopFolderPayloadsFromTheManifest))]
-    public void ThePackagingScriptStagesEveryTopFolderPayload(string name)
+    public void ThePackagingScriptStagesEveryTopFolderPayload(string name, string script)
     {
-        string script = File.ReadAllText(Path.Combine(RepoRoot(), "packaging", "windows", "package.ps1"));
+        string text = File.ReadAllText(Path.Combine(RepoRoot(), script));
         Assert.Matches(new System.Text.RegularExpressions.Regex(
                 @"Join-Path\s+\$stage\s+'" + System.Text.RegularExpressions.Regex.Escape(name) + "'"),
-            script);
+            text);
+    }
+
+    /// <summary>
+    /// packaging/webhost/package.sh, RUN for each RID it makes, on a stand-in publish, gives a zip
+    /// that has every top-folder file its manifest entries require, under their root, executable
+    /// where the rule says so. Info-ZIP keeps a file's mode only if the file had it, and macOS will
+    /// not run a .command file without it, so this is the check that it survives the zip rather
+    /// than that a line saying chmod is in the script.
+    /// </summary>
+    [Fact]
+    public void TheWebHostPackagingScriptLaysOutWhatTheManifestRequires()
+    {
+        if (!OperatingSystem.IsLinux()) return; // bash, zip and Unix modes; CI's xunit job is Linux
+
+        string script = Path.Combine(RepoRoot(), "packaging", "webhost", "package.sh");
+        var specs = Manifest().GetProperty("assets").EnumerateArray()
+            .Where(a => a.GetProperty("required").EnumerateArray().Any(r =>
+                r.TryGetProperty("script", out var s) && s.GetString() == "packaging/webhost/package.sh"))
+            .ToList();
+        Assert.Equal(2, specs.Count); // Linux and macOS
+
+        foreach (string rid in new[] { "linux-x64", "osx-x64", "osx-arm64" })
+        {
+            string publish = TestTemp.NewDir("webhost-publish-");
+            File.WriteAllText(Path.Combine(publish, "AccessibleTrader.WebHost"), "stand-in");
+            Directory.CreateDirectory(Path.Combine(publish, "wwwroot"));
+            File.WriteAllText(Path.Combine(publish, "wwwroot", "app.css"), "stand-in");
+            string outDir = TestTemp.NewDir("webhost-dist-");
+
+            var start = new System.Diagnostics.ProcessStartInfo("bash")
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+            };
+            foreach (var a in new[] { script, "--publish-dir", publish, "--version", "9.9.9-test", "--rid", rid, "--out-dir", outDir, "--skip-trial" })
+                start.ArgumentList.Add(a);
+            start.Environment["RUNNER_TEMP"] = TestTemp.NewDir("webhost-work-");
+            using var p = System.Diagnostics.Process.Start(start)!;
+            string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+            p.WaitForExit();
+            Assert.True(p.ExitCode == 0, $"package.sh for {rid} exited {p.ExitCode}:\n{output}");
+
+            string zipName = $"AccessibleTrader-WebHost-9.9.9-test-{rid}.zip";
+            using var zip = System.IO.Compression.ZipFile.OpenRead(Path.Combine(outDir, zipName));
+            var matching = specs.Where(s => Glob(s.GetProperty("match").GetString()!).IsMatch(zipName)).ToList();
+            Assert.Single(matching);
+            var spec = matching[0];
+            var root = Glob(spec.GetProperty("root").GetString()!.TrimEnd('/') + "/");
+
+            foreach (var rule in spec.GetProperty("required").EnumerateArray())
+            {
+                string file = rule.GetProperty("file").GetString()!;
+                var entry = zip.Entries.SingleOrDefault(e =>
+                    e.FullName.EndsWith("/" + file) && root.IsMatch(e.FullName[..^file.Length]));
+                Assert.True(entry != null, $"{zipName} has no {file} under {spec.GetProperty("root")}");
+                if (rule.TryGetProperty("executable", out var x) && x.GetBoolean())
+                    Assert.True(((entry!.ExternalAttributes >> 16) & 0b001_001_001) != 0,
+                        $"{file} in {zipName} is not executable");
+            }
+
+            // The server itself keeps its mode, and the publish is all under app/.
+            var server = zip.Entries.Single(e => e.FullName == "AccessibleTrader-WebHost-9.9.9-test/app/AccessibleTrader.WebHost");
+            Assert.True(((server.ExternalAttributes >> 16) & 0b001_001_001) != 0, $"the server in {zipName} is not executable");
+            Assert.Contains(zip.Entries, e => e.FullName == "AccessibleTrader-WebHost-9.9.9-test/app/wwwroot/app.css");
+            Assert.All(zip.Entries, e => Assert.StartsWith("AccessibleTrader-WebHost-9.9.9-test/", e.FullName));
+        }
+    }
+
+    /// <summary>The manifest's fnmatch patterns, with <c>*</c> kept inside one folder name.</summary>
+    private static System.Text.RegularExpressions.Regex Glob(string pattern) =>
+        new("^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace(@"\*", "[^/]*") + "$");
+
+    /// <summary>
+    /// The WebHost job lays out every download with a packaging script, Linux and macOS with
+    /// package.sh and Windows with package.ps1, and neither skips its trial. Without them the
+    /// zips go back to about 470 loose files at their root.
+    /// </summary>
+    [Fact]
+    public void TheWebHostJobPackagesEveryRidWithItsScript()
+    {
+        var workflow = ReleaseWorkflow();
+        Assert.Contains("./packaging/webhost/package.sh", workflow);
+        Assert.Contains("./packaging/webhost/package.ps1", workflow);
+        Assert.DoesNotContain("--skip-trial", workflow);
+        Assert.DoesNotContain("zip -r -q \"$OLDPWD/dist/$NAME.zip\" .", workflow);
     }
 
     /// <summary>

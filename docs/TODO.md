@@ -290,8 +290,16 @@ shot's old colour key is the only detail out of date).
 - [ ] **An upgrade empties `app\`** before copying the new version in. The app keeps nothing there (user
   data is under `%LocalAppData%\AccessibleTrader`), but a Strategies drop-in put by hand into
   `app\Strategies` would go. The documented place is `%LocalAppData%\AccessibleTrader\Strategies`.
-- [ ] **The WebHost zips are still flat** (a few hundred files, the exe among them). Same treatment
-  possible if wanted.
+- [ ] **The tidy WebHost zips (2026-11-17, Cody: "structure these and all packaged zips") are tried only
+  on Linux.** Each unzips to `AccessibleTrader-WebHost-<version>/` with `app/`, `README.txt` and one
+  starter. The Linux zip was built and run here (started from another folder, it served the page from
+  `app/` and wrote nothing into its folder; the trial in `package.sh` fails when either is broken). Not
+  yet run anywhere: **`packaging/webhost/package.ps1`** (pwsh is not on this machine; the first
+  `diagnostic-build.yml` run or the next release is its first run, and its trial then runs the Windows
+  zip), the **WebHost launcher's message box** when the server stops as it starts, and the **macOS
+  `Accessible Trader.command`** (cross-built; Gatekeeper may want Control-click Open, which its README
+  says). Starting the server outside `app/` used to be how everyone ran it; old bookmarks to
+  `AccessibleTrader.WebHost` at the top of the folder no longer exist.
 
 - **The .NET runtime the WebHosts carry is 10.0.11**, older than the Brotli decoder fix in 10.0.14
   (GHSA-p3jp-9v83-76w9, high). `global.json` pins SDK 10.0.301 (see its rzc note), and the self-contained
@@ -375,7 +383,6 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] The Alpaca live stream: the log showed 409 "insufficient subscription" (the plan is IEX only) (archive 1150)
 - [ ] The DIA 1d tab "freezes" and Orca crashed on it (Cody, 2026-10-21). Not explained: DIA's (archive 1157)
 - [ ] `LocalBackgroundMonitor.FetchAsync` (WebHost alert poll) asks the provider for the watch's (archive 1182)
-- [ ] `FileCacheService` puts its cache under `Environment.SpecialFolder.InternetCache`, which is (archive 1185)
 - [ ] Untested live on stocks: no stock request with the new `start`/`sort=desc` has been sent with (archive 1190)
 - [ ] Re-score the dated calls in `Corpus/rules/*.md` against prices (Camel Finance's 358 first, (archive 1209)
 - [ ] Fold the 35 later educator transcripts (Trader Geo's 93-minute tutorial among them) and the (archive 1214)

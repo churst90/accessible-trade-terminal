@@ -10,6 +10,17 @@
 
 None of this has been seen or heard in the app yet.
 
+### Downloads
+
+- **The web host's zip is one tidy folder.** It used to unzip to about 470 loose files. It now unzips to
+  one folder, `AccessibleTrader-WebHost-<version>`, holding a `README.txt`, the program in `app`, and one
+  file to start it: **Accessible Trader.exe** on Windows, `./accessible-trader` on Linux, **Accessible
+  Trader.command** on macOS. Start it with that file, not from inside `app`.
+- **On Windows, if the server cannot start** (most often because it is already running), a message says
+  so and points you at `http://localhost:5145`, instead of a window that flashes and closes.
+- **The web host no longer leaves a data cache in the folder you started it from.** It goes to your
+  system's cache folder (`~/.cache/AccessibleTrader` on Linux).
+
 ### Indicators
 
 - **Cipher A's Blood Diamond is always bigger than the red diamond.** Zoomed out, the two used to come

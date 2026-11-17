@@ -41,6 +41,13 @@ program is in the `app` folder beside it, which stays where it is. The Windows a
 .NET 10 Desktop Runtime (x64); the setup checks for it and offers the download, and the app says so
 if it is missing.
 
+**Starting the web host** (any of Windows, Linux or macOS, nothing to install). Its zip unzips to
+one folder, `AccessibleTrader-WebHost-<version>`. Run **Accessible Trader.exe** in it on Windows,
+`./accessible-trader` on Linux, or open **Accessible Trader.command** on macOS. That starts the
+server, whose window stays open while you use it, and opens the terminal in your browser at
+`http://localhost:5145`. The folder's `README.txt` says what to do if your system warns you about
+it or the port is taken.
+
 On the **Windows desktop client** the terminal talks to NVDA and JAWS directly, because the
 chart there is a native canvas your screen reader cannot read through the page. Nothing to set
 up — whichever is running gets used, including one you start after the terminal. If the terminal

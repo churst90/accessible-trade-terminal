@@ -23,9 +23,16 @@
       and this starts app\AccessibleTrader.BlazorClient.exe. Published NativeAOT on the Windows
       release runner, so it needs no .NET on the user's machine and carries no runtime of its
       own. It is not referenced by any other project and is not part of the app.
+
+      Published with -p:LauncherApp=WebHost it is the same program at the top of the Windows
+      WebHost download (packaging/webhost/package.ps1), and starts app\AccessibleTrader.WebHost.exe.
     -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(LauncherApp)' == 'WebHost'">
+    <DefineConstants>$(DefineConstants);WEBHOST</DefineConstants>
   </PropertyGroup>
 
 </Project>

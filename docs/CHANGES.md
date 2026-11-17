@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Tidy WebHost downloads, 2026-11-17
+
+- **What Cody asked:** "webhost zips being flat: let's structure these and all packaged zips to be clean
+  and organized for the end user." The four WebHost zips were the publish's ~470 files at the zip's root.
+  Each now unzips to one folder, `AccessibleTrader-WebHost-<version>/`, holding `app/` (the publish,
+  untouched), a `README.txt` for that system, and one file to start it: **Accessible Trader.exe** on
+  Windows, `accessible-trader` on Linux, **Accessible Trader.command** on macOS. The MAUI Windows zip,
+  its setup and the macOS `.app` zip were already one folder each and are unchanged.
+- **The starter runs the server from inside `app/`, and that is its one real job.** The server reads
+  `appsettings.json` from its working directory; started from anywhere else it binds port 5000 instead of
+  5145 and says nothing (the page itself is served from any directory, so it looks fine). On Linux and
+  macOS the starter is a shell script; on Windows it is the existing launcher built a second way
+  (`-p:LauncherApp=WebHost`), which also puts up a message box if the server stops within 30 seconds of
+  starting (port taken, most likely), where before the console window would just flash and vanish.
+- **The market-data cache no longer lands in the folder the server was started from.** On Linux
+  `GetFolderPath(InternetCache)` is empty, so `WebHostPathService` and `UserScopedPathService` put the
+  cache at the relative path `AccessibleTrader/DataCache`: in the checkout on Cody's machine (TODO since
+  2026-10-21), and inside an unzipped download for anyone who ran it from there. It now goes to
+  `PlatformPaths.LocalCacheRoot()`: the OS cache folder, else `$XDG_CACHE_HOME`, else `~/.cache`, always
+  absolute. The old `AccessibleTrader/DataCache` folder in the checkout is no longer used and can be
+  deleted; the cache rebuilds itself. A test checks every cache path is absolute and outside the working
+  directory; the old code turns it red (checked).
+- **Laid out by `packaging/webhost/package.sh` (Linux, macOS) and `package.ps1` (Windows)**, run by the
+  release job, which now builds win-x64 on a Windows runner. Each tries its zip where it can: unzipped,
+  the starter run from another folder must serve the page and blazor.web.js, the server's log must name
+  `app/` as its content root, and nothing may be written into the folder. Run here on the Linux zip: all
+  three pass, a starter that does not change into `app/` fails the content-root check, and the old cache
+  code fails the nothing-written check (both checked). `release-payloads.json` now expects the payload
+  under `AccessibleTrader-WebHost-*/app/` and the starter and README on top, with the Linux and macOS
+  starters executable in the zip; the verifier checks that bit (a 644 starter and the old flat zip both
+  fail it, checked). A test runs `package.sh` for all three of its RIDs on a stand-in publish and checks
+  the zips against the manifest; a 644 starter, a flat zip, a wrong script name and a workflow without
+  `package.ps1` each turn a test red (checked).
+- **Not tried:** `package.ps1` has never run (no PowerShell here), so the Windows zip, its launcher and its
+  message box are untried until a `diagnostic-build.yml` run or the next release; the macOS starter is
+  cross-built and has not been opened on a Mac.
+
 ### Cody's answers, 2026-11-17: what was built
 
 - **What Cody said** to the eight questions left after 2026-11-16: "1. cipher b: Yes, keep them gone, I

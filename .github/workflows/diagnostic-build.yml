@@ -279,3 +279,40 @@ jobs:
             dist/*.zip
             dist/*.exe
           retention-days: 14
+
+  # The Windows WebHost download, laid out and tried exactly as the release does it
+  # (packaging/webhost/package.ps1), so the one WebHost download that needs a Windows runner (for
+  # its NativeAOT launcher) can be shaken out without cutting a release.
+  webhost-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.301'
+
+      - name: Publish WebHost (win-x64)
+        shell: pwsh
+        run: |
+          dotnet publish AccessibleTrader.WebHost/AccessibleTrader.WebHost.csproj `
+            --configuration Release --runtime win-x64 --self-contained true `
+            -p:ServerPublish=true -p:PublishSingleFile=false -p:PublishTrimmed=false `
+            --output publish/webhost-win
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
+
+      - name: Package (zip + trial)
+        shell: pwsh
+        run: |
+          $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText
+          ./packaging/webhost/package.ps1 -PublishDir publish/webhost-win -Version "$v-diagnostic" -OutDir dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: AccessibleTrader-WebHost-Windows-diagnostic
+          path: dist/*.zip
+          retention-days: 14

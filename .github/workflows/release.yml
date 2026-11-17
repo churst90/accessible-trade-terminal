@@ -23,7 +23,8 @@ name: release
 # NOTE ON SIGNING: the MAUI Windows and macOS artifacts are UNSIGNED. End users
 # will see SmartScreen (Windows) / Gatekeeper (macOS) warnings on first launch.
 # Wiring in real code-signing certs (stored as repo secrets) is a follow-up;
-# the WebHost artifacts are unaffected since they're plain zips.
+# the WebHost zips are unsigned too: the Windows one's launcher meets SmartScreen
+# and the macOS ones' starter meets Gatekeeper (their READMEs say what to do).
 
 on:
   push:
@@ -78,15 +79,20 @@ jobs:
           echo "Building tag=$TAG version=$VERSION display=$DISPLAY_VERSION"
 
   # ---------------------------------------------------------------------------
-  # WebHost — all four RIDs from a single Ubuntu runner.
+  # WebHost — Linux and both macOS RIDs cross-built on Ubuntu; win-x64 on Windows,
+  # because its download's launcher is NativeAOT and needs a Windows toolchain.
   # ---------------------------------------------------------------------------
   webhost:
     needs: meta
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        rid: [linux-x64, win-x64, osx-x64, osx-arm64]
+        include:
+          - { rid: linux-x64, os: ubuntu-latest }
+          - { rid: win-x64,   os: windows-latest }
+          - { rid: osx-x64,   os: ubuntu-latest }
+          - { rid: osx-arm64, os: ubuntu-latest }
     steps:
       - uses: actions/checkout@v5
 
@@ -112,13 +118,31 @@ jobs:
             -p:PublishTrimmed=false \
             --output "publish/${{ matrix.rid }}"
 
-      - name: Zip
+      # The zip used to be the publish's ~470 files at its root. It is now one folder,
+      # AccessibleTrader-WebHost-<version>/, holding app/ (the publish, untouched), a README and
+      # the one file to run: "Accessible Trader.exe" on Windows, accessible-trader on Linux,
+      # "Accessible Trader.command" on macOS. Each starts the server from inside app/, where it
+      # reads appsettings.json. linux-x64 and win-x64 are then unzipped and RUN: the server must
+      # serve the page on its own port and write nothing into its own folder. The macOS zips are
+      # cross-built here and cannot be run.
+      - name: Package (Linux, macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p dist
-          NAME="AccessibleTrader-WebHost-${{ needs.meta.outputs.version }}-${{ matrix.rid }}"
-          (cd "publish/${{ matrix.rid }}" && zip -r -q "$OLDPWD/dist/$NAME.zip" .)
-          ls -lh dist
+          ./packaging/webhost/package.sh \
+            --publish-dir "publish/${{ matrix.rid }}" \
+            --version ${{ needs.meta.outputs.version }} \
+            --rid ${{ matrix.rid }} \
+            --out-dir dist
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./packaging/webhost/package.ps1 `
+            -PublishDir "publish/${{ matrix.rid }}" `
+            -Version ${{ needs.meta.outputs.version }} `
+            -OutDir dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6

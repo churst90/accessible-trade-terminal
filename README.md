@@ -37,6 +37,9 @@ Pre-built binaries are on the [Releases page](https://github.com/churst90/access
 
 The **WebHost** build is the recommended one on every platform: run it and the terminal opens
 in your browser, works with your existing screen reader, and runs on Linux, Windows and macOS.
+Each WebHost zip unzips to one folder, `AccessibleTrader-WebHost-<version>`, holding a
+`README.txt`, the program in `app`, and one file to start it: **Accessible Trader.exe** on Windows,
+`./accessible-trader` on Linux, **Accessible Trader.command** on macOS. It needs nothing installed.
 Native desktop builds are also attached but are unsigned, so expect a SmartScreen or Gatekeeper
 prompt. The Windows desktop app comes two ways: `AccessibleTrader-<version>-Windows-Setup.exe`
 installs it for you alone, with no administrator prompt, a Start menu entry and an uninstaller; or
