@@ -30,11 +30,10 @@ namespace AccessibleTrader.WebHost.Services
                 AccessibleTrader.Core.Services.PlatformPaths.LocalAppDataRoot(),
                 AppFolderName));
 
-            // SpecialFolder.InternetCache maps to ~/.cache on Linux via
-            // .NET's XDG handling; on Windows it lands at INetCache which
-            // is fine for transient HTTP / OHLCV cache files.
+            // PlatformPaths for the cache too: GetFolderPath(InternetCache) is empty on Linux,
+            // which put the cache in the server's working directory.
             CacheDirectory = EnsureDir(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.InternetCache),
+                AccessibleTrader.Core.Services.PlatformPaths.LocalCacheRoot(),
                 AppFolderName));
         }
 
@@ -52,7 +51,7 @@ namespace AccessibleTrader.WebHost.Services
 
             AppDataDirectory = EnsureDir(appDataDirectory);
             CacheDirectory = EnsureDir(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.InternetCache),
+                AccessibleTrader.Core.Services.PlatformPaths.LocalCacheRoot(),
                 AppFolderName));
         }
 

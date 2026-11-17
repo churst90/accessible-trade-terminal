@@ -37,11 +37,10 @@ namespace AccessibleTrader.WebHost.Services
 
             _dataRoot = string.IsNullOrWhiteSpace(dataRoot) ? _legacyAppData : dataRoot!;
 
-            // Shared cache: under the data root when accounts are on, else the legacy
-            // InternetCache location (unchanged for local/demo).
+            // Shared cache: under the data root when accounts are on, else the OS cache root.
             _cacheDir = EnsureDir(_accountsEnabled
                 ? Path.Combine(_dataRoot, "cache")
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.InternetCache), AppFolderName));
+                : Path.Combine(AccessibleTrader.Core.Services.PlatformPaths.LocalCacheRoot(), AppFolderName));
         }
 
         public string AppDataDirectory

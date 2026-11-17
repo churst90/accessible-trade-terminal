@@ -37,11 +37,6 @@ namespace AccessibleTrader.Tests
             ["PlatformPaths.cs"] =
                 "Core's local-app-data resolver. This is the file that adds the absolute-path "
                 + "guarantee GetFolderPath does not give you, so it is the one place that has to call it.",
-            ["WebHostPathService.cs"] =
-                "The WebHost's IPlatformPathService for the single-user desktop host.",
-            ["UserScopedPathService.cs"] =
-                "The WebHost's IPlatformPathService for the hosted multi-user head, which is the "
-                + "whole reason this rule exists.",
             ["App.xaml.cs"] =
                 "Windows last-chance crash handler. It runs when the app is already failing, "
                 + "possibly before or because of DI, so it cannot resolve a service — and on "

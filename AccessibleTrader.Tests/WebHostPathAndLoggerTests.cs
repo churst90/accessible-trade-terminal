@@ -46,6 +46,31 @@ namespace AccessibleTrader.Tests
             }
         }
 
+        /// <summary>
+        /// The cache folder is absolute on every head that has one. GetFolderPath(InternetCache)
+        /// is empty on Linux whatever exists, so the cache used to be the RELATIVE path
+        /// "AccessibleTrader", made in the server's working directory: inside the checkout on
+        /// Cody's machine, inside the program folder once the zip's starter runs the server from
+        /// app/, and an UnauthorizedAccessException at startup when started from "/".
+        /// </summary>
+        [Fact]
+        public void The_cache_directory_is_absolute_and_not_in_the_working_directory()
+        {
+            string cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+            foreach (var dir in new[]
+            {
+                PlatformPaths.LocalCacheRoot(),
+                new WebHostPathService().CacheDirectory,
+                new WebHostPathService(TestTemp.NewPath("at-test-")).CacheDirectory,
+                new UserScopedPathService(NSubstitute.Substitute.For<AccessibleTrader.WebHost.Account.ICurrentUser>(), accountsEnabled: false, dataRoot: null).CacheDirectory,
+            })
+            {
+                Assert.True(Path.IsPathRooted(dir), $"'{dir}' is relative, so it lands in the working directory");
+                Assert.False(Path.GetFullPath(dir).StartsWith(cwd + Path.DirectorySeparatorChar, StringComparison.Ordinal),
+                    $"'{dir}' is inside the working directory {cwd}");
+            }
+        }
+
         [Fact]
         public void Blank_explicit_root_is_rejected()
         {
