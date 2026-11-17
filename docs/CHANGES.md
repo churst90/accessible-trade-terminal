@@ -23,6 +23,8 @@ All notable changes to this project will be documented in this file.
   does not have sit in a collapsed "Advanced (N settings)" group with the same sentence Properties uses;
   the rest are in a "Parameters" group. An indicator with no advanced settings shows no Advanced group.
   Three tests; putting an advanced setting back in the main list turns them red (checked).
+  The group's title is a level-3 heading inside the summary, as in Help, so screen reader heading keys
+  reach it. The first push had plain text there, and CI's DisclosureHeadingSweepTests caught it.
 - **The Alerts dialog lists left-out parts, marked "(left out)".** A part left out in Properties is
   still computed, so an alert can now watch it without putting it on the chart; the parts are listed
   after the included ones. Listing them was not enough: every alert path looked parts up among the
