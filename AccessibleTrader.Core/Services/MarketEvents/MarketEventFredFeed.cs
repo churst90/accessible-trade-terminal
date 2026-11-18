@@ -434,8 +434,15 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     };
                     if (e.Figures is { } figures)
                     {
-                        row["figures"] = new JArray(figures.Figures.Select(f => new JArray(
-                            f.Name, f.Actual, f.Previous, (int)f.Unit, (int)f.Direction)));
+                        row["figures"] = new JArray(figures.Figures.Select(f =>
+                        {
+                            var cells = new JArray { f.Name };
+                            cells.Add(f.Actual is double actual ? new JValue(actual) : JValue.CreateNull());
+                            cells.Add(f.Previous is double previous ? new JValue(previous) : JValue.CreateNull());
+                            cells.Add((int)f.Unit);
+                            cells.Add((int)f.Direction);
+                            return cells;
+                        }));
                         if (figures.EstimateNumber is int estimate) row["estimate"] = estimate;
                         if (figures.Period is DateOnly period)
                             row["period"] = period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
