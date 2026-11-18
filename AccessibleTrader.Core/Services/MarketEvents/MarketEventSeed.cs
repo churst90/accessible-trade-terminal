@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Reflection;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Models;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services.MarketEvents
@@ -18,6 +18,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// every Fed decision from 2000 to 2027. Rebuilt by <c>scripts/build_market_events_seed.py</c>.
     ///
     /// <para>
+    /// The file holds only dates and provenance. Everything repeated for every date — the kind,
+    /// both names, importance, market scope, source and the release-time rule — is code here,
+    /// because that is where the rule that produces it belongs. The times are 8:30 New York for
+    /// releases from 1997, 14:00 New York for scheduled Fed decisions from 2013, and day-only
+    /// for everything earlier and for unscheduled Fed decisions.
+    /// </para>
+    ///
+    /// <para>
     /// The seed ends where its inputs end — July 2026 for the releases, 2027 for the Fed. Stage 2
     /// fetches the rest. Nothing here is fetched at run time and nothing here is a figure: only
     /// dates, times and sources.
@@ -27,7 +35,34 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     {
         internal const string ResourceName = "AccessibleTrader.Core.Resources.MarketEvents.us_events_seed.json";
 
+        private static readonly DateOnly ReleaseTimeRule = new(1997, 1, 1);
+        private static readonly DateOnly FomcTimeRule = new(2013, 1, 1);
+        private static readonly TimeOnly ReleaseTime = new(8, 30);
+        private static readonly TimeOnly FomcTime = new(14, 0);
+
         private static readonly Lazy<MarketEventSeedDocument> Cached = new(LoadUncached);
+
+        private sealed record ReleaseSpec(
+            MarketEventKind Kind,
+            string SpokenName,
+            string LongName,
+            MarketEventImportance Importance,
+            int FredReleaseId,
+            DateOnly ExactFrom,
+            TimeOnly ExactTime);
+
+        private static readonly IReadOnlyDictionary<string, ReleaseSpec> Releases =
+            new Dictionary<string, ReleaseSpec>(StringComparer.Ordinal)
+            {
+                ["cpi"] = new(MarketEventKind.Economy, "CPI", "Consumer Price Index",
+                    MarketEventImportance.High, 10, ReleaseTimeRule, ReleaseTime),
+                ["nfp"] = new(MarketEventKind.Economy, "jobs report", "Nonfarm payrolls",
+                    MarketEventImportance.High, 50, ReleaseTimeRule, ReleaseTime),
+                ["ppi"] = new(MarketEventKind.Economy, "PPI", "Producer Price Index",
+                    MarketEventImportance.Medium, 46, ReleaseTimeRule, ReleaseTime),
+                ["gdp"] = new(MarketEventKind.Economy, "GDP", "Gross domestic product",
+                    MarketEventImportance.Medium, 53, ReleaseTimeRule, ReleaseTime),
+            };
 
         /// <summary>The shipped seed. Never null; throws only if the embedded file is missing.</summary>
         public static MarketEventSeedDocument Load() => Cached.Value;
@@ -58,52 +93,85 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 .ToList();
 
             var allMarkets = Enum.GetValues<MarketType>().ToArray();
-            var events = (root["events"] as JArray ?? new JArray())
-                .OfType<JObject>()
-                .Select(e => new MarketEvent(
-                    Id: (string?)e["id"] ?? throw new FormatException("A seed event has no id."),
-                    Kind: ParseKind((string?)e["kind"]),
-                    SpokenName: (string?)e["spokenName"] ?? "",
-                    LongName: (string?)e["longName"] ?? "",
-                    Scope: (string?)e["scope"] == "all"
-                        ? allMarkets
-                        : (e["scope"] as JArray ?? new JArray())
-                            .Select(t => Enum.Parse<MarketType>((string)t!))
-                            .ToArray(),
-                    Importance: ParseImportance((string?)e["importance"]),
-                    MomentUtc: ParseMoment((string?)e["moment"]),
-                    Precision: (string?)e["precision"] == "Exact"
-                        ? MarketEventPrecision.Exact
-                        : MarketEventPrecision.DayOnly,
-                    Date: DateOnly.ParseExact((string?)e["date"] ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture),
-                    Source: (string?)e["source"] ?? ""))
-                .ToList();
+            var events = new List<MarketEvent>();
+
+            foreach (var (id, spec) in Releases)
+                foreach (var day in ParseDates(root[id], id))
+                    events.Add(ReleaseEvent(id, day, spec, allMarkets));
+
+            var fomc = root["fomc"] as JObject;
+            foreach (var day in ParseDates(fomc?["scheduled"], "fomc.scheduled"))
+                events.Add(FomcEvent(day, allMarkets, scheduled: true));
+            foreach (var day in ParseDates(fomc?["unscheduled"], "fomc.unscheduled"))
+                events.Add(FomcEvent(day, allMarkets, scheduled: false));
+
+            // The old file was ordered by moment, then id; keep that so a reader sees the
+            // calendar in the same order it has always had.
+            events.Sort((a, b) =>
+            {
+                int byMoment = a.MomentUtc.CompareTo(b.MomentUtc);
+                return byMoment != 0 ? byMoment : string.CompareOrdinal(a.Id, b.Id);
+            });
 
             return new MarketEventSeedDocument(sources, events);
         }
 
-        private static MarketEventKind ParseKind(string? value) => value switch
+        private static MarketEvent ReleaseEvent(
+            string id,
+            DateOnly day,
+            ReleaseSpec spec,
+            IReadOnlyList<MarketType> scope)
         {
-            "Economy" => MarketEventKind.Economy,
-            "Fed" => MarketEventKind.Fed,
-            "Expiry" => MarketEventKind.Expiry,
-            "Holiday" => MarketEventKind.Holiday,
-            "Halving" => MarketEventKind.Halving,
-            _ => throw new FormatException($"Unknown market-event kind '{value}'."),
-        };
+            bool exact = day >= spec.ExactFrom;
+            return new MarketEvent(
+                Id: $"{id}-{day:yyyy-MM-dd}",
+                Kind: spec.Kind,
+                SpokenName: spec.SpokenName,
+                LongName: spec.LongName,
+                Scope: scope,
+                Importance: spec.Importance,
+                MomentUtc: Moment(day, exact ? spec.ExactTime : null),
+                Precision: exact ? MarketEventPrecision.Exact : MarketEventPrecision.DayOnly,
+                Date: day,
+                Source: $"FRED release {spec.FredReleaseId}, fetched 2026-08-01");
+        }
 
-        private static MarketEventImportance ParseImportance(string? value) => value switch
+        private static MarketEvent FomcEvent(DateOnly day, IReadOnlyList<MarketType> scope, bool scheduled)
         {
-            "High" => MarketEventImportance.High,
-            "Medium" => MarketEventImportance.Medium,
-            "Low" => MarketEventImportance.Low,
-            _ => throw new FormatException($"Unknown market-event importance '{value}'."),
-        };
+            bool exact = scheduled && day >= FomcTimeRule;
+            return new MarketEvent(
+                Id: $"fomc-{day:yyyy-MM-dd}",
+                Kind: MarketEventKind.Fed,
+                SpokenName: scheduled ? "Fed decision" : "Fed decision, unscheduled",
+                LongName: scheduled
+                    ? "Federal Open Market Committee decision"
+                    : "Unscheduled Federal Open Market Committee decision",
+                Scope: scope,
+                Importance: MarketEventImportance.High,
+                MomentUtc: Moment(day, exact ? FomcTime : null),
+                Precision: exact ? MarketEventPrecision.Exact : MarketEventPrecision.DayOnly,
+                Date: day,
+                Source: "Federal Reserve FOMC calendar, fetched 2026-07-31");
+        }
 
-        private static DateTime ParseMoment(string? value)
-            => DateTime.Parse(
-                value ?? throw new FormatException("A seed event has no moment."),
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+        private static IEnumerable<DateOnly> ParseDates(JToken? token, string name)
+        {
+            if (token is not JArray dates)
+                throw new FormatException($"The market-events seed has no '{name}' dates.");
+            foreach (var date in dates)
+                yield return DateOnly.ParseExact(
+                    (string?)date ?? throw new FormatException($"A '{name}' date is not a string."),
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>A New York wall-clock moment; a day-only event is midnight in that zone.</summary>
+        private static DateTime Moment(DateOnly day, TimeOnly? at)
+        {
+            var local = DateTime.SpecifyKind(
+                day.ToDateTime(at ?? TimeOnly.MinValue),
+                DateTimeKind.Unspecified);
+            return TimeZoneInfo.ConvertTimeToUtc(local, ExchangeTime.UsEastern);
+        }
     }
 }

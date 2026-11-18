@@ -15,16 +15,12 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, datetime, time, timezone
+from datetime import date
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 INPUT = ROOT / "strategy-lab-data" / "events-seed-input"
 OUTPUT = ROOT / "AccessibleTrader.Core" / "Resources" / "MarketEvents" / "us_events_seed.json"
-
-EASTERN = ZoneInfo("America/New_York")
-UTC = timezone.utc
 
 RELEASES = {
     "cpi": {
@@ -61,111 +57,67 @@ RELEASES = {
     },
 }
 
-RELEASE_TIME_RULE = date(1997, 1, 1)
-FOMC_TIME_RULE = date(2013, 1, 1)
-
-
 def load_dates(name: str) -> list[date]:
     rows = json.loads((INPUT / name).read_text(encoding="utf-8"))
     return sorted(date.fromisoformat(row["date"]) for row in rows)
 
 
-def moment(day: date, at: time | None) -> datetime:
-    """UTC instant for a New York wall-clock time (or midnight New York for a day)."""
-    local = datetime.combine(day, at or time(0, 0), tzinfo=EASTERN)
-    return local.astimezone(UTC)
-
-
-def iso_utc(value: datetime) -> str:
-    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def release_events() -> list[dict]:
-    events = []
-    for key, spec in RELEASES.items():
-        for day in load_dates(spec["file"]):
-            exact = day >= RELEASE_TIME_RULE
-            events.append(
-                {
-                    "id": f"{key}-{day.isoformat()}",
-                    "kind": "Economy",
-                    "spokenName": spec["spoken"],
-                    "longName": spec["long"],
-                    "importance": spec["importance"],
-                    "moment": iso_utc(moment(day, time(8, 30) if exact else None)),
-                    "precision": "Exact" if exact else "DayOnly",
-                    "date": day.isoformat(),
-                    "scope": "all",
-                    "source": f"FRED release {spec['release_id']}, fetched 2026-08-01",
-                }
-            )
-    return events
-
-
-def fomc_events() -> list[dict]:
-    events = []
+def fomc_dates() -> tuple[list[date], list[date]]:
+    scheduled: list[date] = []
+    unscheduled: list[date] = []
     for row in json.loads((INPUT / "events_fomc.json").read_text(encoding="utf-8")):
         day = date.fromisoformat(row["date"])
-        scheduled = bool(row["scheduled"])
-        exact = scheduled and day >= FOMC_TIME_RULE
-        events.append(
-            {
-                "id": f"fomc-{day.isoformat()}",
-                "kind": "Fed",
-                "spokenName": "Fed decision" if scheduled else "Fed decision, unscheduled",
-                "longName": (
-                    "Federal Open Market Committee decision"
-                    if scheduled
-                    else "Unscheduled Federal Open Market Committee decision"
-                ),
-                "importance": "High",
-                "moment": iso_utc(moment(day, time(14, 0) if exact else None)),
-                "precision": "Exact" if exact else "DayOnly",
-                "date": day.isoformat(),
-                "scope": "all",
-                "source": "Federal Reserve FOMC calendar, fetched 2026-07-31",
-            }
-        )
-    return events
+        (scheduled if bool(row["scheduled"]) else unscheduled).append(day)
+    return sorted(scheduled), sorted(unscheduled)
 
 
 def main() -> int:
-    events = release_events() + fomc_events()
-    events.sort(key=lambda e: (e["moment"], e["id"]))
-    document = {
-        "header": {
-            "generated": "2026-11-18",
-            "note": "US release dates, Fed decisions, and the source and fetch date of each. Times are UTC; day-only events carry their own date and midnight in their own zone.",
-            "sources": [
-                {
-                    "id": key,
-                    "name": f"FRED release dates: {spec['long']} (release {spec['release_id']})",
-                    "url": spec["url"],
-                    "fetched": "2026-08-01",
-                }
-                for key, spec in RELEASES.items()
-            ]
-            + [
-                {
-                    "id": "fomc",
-                    "name": "Federal Reserve FOMC decision calendar",
-                    "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-                    "fetched": "2026-07-31",
-                }
-            ],
-        },
-        "events": events,
+    header = {
+        "generated": "2026-11-18",
+        "note": (
+            "US release dates and Fed decisions, and the source and fetch date of each. "
+            "The kinds, names, importance, scope and release times live in MarketEventSeed.cs; "
+            "only dates are stored here."
+        ),
+        "sources": [
+            {
+                "id": key,
+                "name": f"FRED release dates: {spec['long']} (release {spec['release_id']})",
+                "url": spec["url"],
+                "fetched": "2026-08-01",
+            }
+            for key, spec in RELEASES.items()
+        ]
+        + [
+            {
+                "id": "fomc",
+                "name": "Federal Reserve FOMC decision calendar",
+                "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+                "fetched": "2026-07-31",
+            }
+        ],
     }
+
+    release_dates = {key: load_dates(spec["file"]) for key, spec in RELEASES.items()}
+    scheduled, unscheduled = fomc_dates()
+
+    lines = ["{", '"header": ' + json.dumps(header, separators=(",", ":"), ensure_ascii=False) + ","]
+    for key in RELEASES:
+        days = json.dumps([day.isoformat() for day in release_dates[key]], separators=(",", ":"))
+        lines.append(f'"{key}": {days},')
+    fomc = {
+        "scheduled": [day.isoformat() for day in scheduled],
+        "unscheduled": [day.isoformat() for day in unscheduled],
+    }
+    lines.append('"fomc": ' + json.dumps(fomc, separators=(",", ":")) + "")
+    lines.append("}")
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(
-        json.dumps(document, indent=1, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    counts: dict[str, int] = {}
-    for event in events:
-        kind = event["id"].split("-", 1)[0]
-        counts[kind] = counts.get(kind, 0) + 1
-    print(f"wrote {OUTPUT} with {len(events)} events: {counts}")
+    OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    counts = {key: len(days) for key, days in release_dates.items()}
+    counts["fomc"] = len(scheduled) + len(unscheduled)
+    total = sum(counts.values())
+    print(f"wrote {OUTPUT} with {total} events: {counts}")
     return 0
 
 
