@@ -214,7 +214,7 @@ unavailable, Finnhub key not set".
 Each stage is one or more DeepSeek runs from a handoff; Claude reviews, re-runs the tests and the
 sabotages, merges locally, and pushes once at the end of a batch (the push is the full suite).
 
-1. **Events on bars, the past — BUILT 2026-11-18, not heard by Cody yet.** The event model; the bar
+1. **Events on bars, the past — BUILT 2026-11-18; Cody tried it the same day: "this works amazing."** The event model; the bar
    placement rule; sources that need no network at run time: a seed of FRED release dates for CPI, NFP,
    PPI and GDP and the Fed decision dates, the release-time table, and the rule-worked events (expiries,
    holidays, halvings); the setting (off by default) with levels and kinds; the arrow clause; the

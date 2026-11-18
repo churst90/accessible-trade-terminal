@@ -73,7 +73,7 @@ All notable changes to this project will be documented in this file.
 - **Caveats.** The seed ends where its inputs end — July 2026 for the releases, 2027 for the Fed;
   stage 2 fetches the rest. Fed decisions before 2013 and releases before 1997 are day-only.
   There are no actual or expected figures yet, no live fetch, no countdowns and no sound.
-  **Nothing has been heard by Cody yet.**
+  **Cody tried it locally on 2026-11-18: "beautiful, this works amazing."**
 - **Tests.** 81 new `MarketEvent*` tests (seed counts, header, first/last dates, daylight saving,
   the rules, one test per placement rule, the cache built once, the placement call-count guard,
   the one shared cache, settings defaults and filtering, speech wording, detail key, jumps, key
