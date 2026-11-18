@@ -37,6 +37,98 @@ public class MarketEventFiguresCalculatorTests
     private static MarketEventFigure Figure(MarketEventFigures figures, string name)
         => figures.Figures.Single(f => f.Name == name);
 
+    private static IReadOnlyDictionary<string, IReadOnlyList<MarketEventVintageRow>> Series(
+        string id,
+        params MarketEventVintageRow[] rows)
+        => new Dictionary<string, IReadOnlyList<MarketEventVintageRow>>(StringComparer.Ordinal)
+        {
+            [id] = rows,
+        };
+
+    private static MarketEventVintageRow Row(string period, double value, string start)
+        => new(
+            DateOnly.ParseExact(period, "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            value,
+            DateOnly.ParseExact(start, "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            new DateOnly(9999, 12, 31));
+
+    [Fact]
+    public void KeepReleasesDropsAPastDateWithNoVintageAndOneWithNoNewerPeriod()
+    {
+        var rows = Series("CPIAUCSL",
+            Row("2023-12-01", 99, "2024-01-11"),
+            Row("2024-01-01", 100, "2024-02-13"),
+            Row("2023-12-01", 99.5, "2024-03-12"));
+        var kept = MarketEventFiguresCalculator.KeepReleases(
+            "cpi",
+            new[] { new DateOnly(2024, 2, 9), new DateOnly(2024, 2, 13), new DateOnly(2024, 3, 12) },
+            rows,
+            new DateOnly(2024, 4, 1));
+
+        Assert.Equal(new[] { new DateOnly(2024, 2, 13) }, kept);
+    }
+
+    [Fact]
+    public void KeepReleasesKeepsDatesBeforeTheFirstVintage()
+    {
+        var rows = Series("CPIAUCSL", Row("1991-10-01", 100, "1991-12-04"));
+
+        var kept = MarketEventFiguresCalculator.KeepReleases(
+            "cpi",
+            new[] { new DateOnly(1947, 7, 20), new DateOnly(1991, 12, 4) },
+            rows,
+            new DateOnly(2024, 1, 1));
+
+        Assert.Equal(new[] { new DateOnly(1947, 7, 20), new DateOnly(1991, 12, 4) }, kept);
+    }
+
+    [Fact]
+    public void KeepReleasesKeepsFutureDatesEvenWithNoVintage()
+    {
+        var rows = Series("CPIAUCSL", Row("2024-01-01", 100, "2024-02-13"));
+
+        var kept = MarketEventFiguresCalculator.KeepReleases(
+            "cpi", new[] { new DateOnly(2026, 12, 11) }, rows, new DateOnly(2026, 11, 18));
+
+        Assert.Equal(new[] { new DateOnly(2026, 12, 11) }, kept);
+    }
+
+    [Fact]
+    public void KeepReleasesKeepsGdpSecondAndThirdEstimates()
+    {
+        var rows = Series("GDPC1",
+            Row("2026-01-01", 99, "2026-07-30"),
+            Row("2026-04-01", 100, "2026-07-30"),
+            Row("2026-04-01", 101, "2026-08-27"),
+            Row("2026-04-01", 102, "2026-09-24"));
+
+        var kept = MarketEventFiguresCalculator.KeepReleases(
+            "gdp",
+            new[] { new DateOnly(2026, 7, 30), new DateOnly(2026, 8, 27), new DateOnly(2026, 9, 24) },
+            rows,
+            new DateOnly(2026, 10, 1));
+
+        Assert.Equal(
+            new[] { new DateOnly(2026, 7, 30), new DateOnly(2026, 8, 27), new DateOnly(2026, 9, 24) },
+            kept);
+    }
+
+    [Fact]
+    public void KeepReleasesUsesPpifisForPpi()
+    {
+        var rows = Series("PPIFIS",
+            Row("2024-01-01", 100, "2024-02-14"),
+            Row("2024-02-01", 101, "2024-02-16"));
+
+        var kept = MarketEventFiguresCalculator.KeepReleases(
+            "ppi",
+            new[] { new DateOnly(2024, 2, 14), new DateOnly(2024, 2, 16) },
+            rows,
+            new DateOnly(2024, 3, 1));
+
+        Assert.Equal(new[] { new DateOnly(2024, 2, 14), new DateOnly(2024, 2, 16) }, kept);
+    }
+
     [Theory]
     [InlineData("cpi", "2022-07-13", "CPI", 1.3, 1.0)]
     [InlineData("cpi", "2026-07-14", "CPI", -0.4, 0.5)]

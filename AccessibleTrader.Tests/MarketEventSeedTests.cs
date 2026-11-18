@@ -16,10 +16,10 @@ public class MarketEventSeedTests
     {
         var events = Seed().Events;
 
-        Assert.Equal(947, events.Count(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)));
-        Assert.Equal(861, events.Count(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)));
-        Assert.Equal(598, events.Count(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)));
-        Assert.Equal(855, events.Count(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)));
+        Assert.Equal(928, events.Count(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)));
+        Assert.Equal(854, events.Count(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)));
+        Assert.Equal(582, events.Count(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)));
+        Assert.Equal(807, events.Count(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)));
         Assert.Equal(248, events.Count(e => e.Id.StartsWith("fomc-", StringComparison.Ordinal)));
     }
 
@@ -40,6 +40,49 @@ public class MarketEventSeedTests
             Assert.False(string.IsNullOrWhiteSpace(s.Url));
             Assert.False(string.IsNullOrWhiteSpace(s.Fetched));
         });
+    }
+
+    [Fact]
+    public void CorrectionAndRevisionDaysAreNotInTheSeed()
+    {
+        var events = Seed().Events;
+
+        Assert.DoesNotContain(events, e => e.Id == "cpi-2024-02-09");
+        Assert.DoesNotContain(events, e => e.Id == "nfp-2020-05-11");
+        Assert.DoesNotContain(events, e => e.Id == "nfp-2024-01-10");
+        Assert.DoesNotContain(events, e => e.Id == "nfp-2012-12-12");
+    }
+
+    [Fact]
+    public void TheRealReleasesBesideThoseRevisionDaysStayWithFigures()
+    {
+        var events = Seed().Events;
+
+        foreach (string id in new[] { "cpi-2024-02-13", "nfp-2020-05-08", "nfp-2024-01-05", "nfp-2012-12-07" })
+        {
+            var e = Assert.Single(events, x => x.Id == id);
+            Assert.NotNull(e.Figures);
+        }
+    }
+
+    [Fact]
+    public void The1960sDoubleMonthsAreKept()
+    {
+        var events = Seed().Events;
+
+        Assert.Contains(events, e => e.Id == "nfp-1961-05-02");
+        Assert.Contains(events, e => e.Id == "nfp-1961-05-31");
+    }
+
+    [Fact]
+    public void PpiFebruaryRevisionDaysAreDroppedAndTheOtherDoubleMonthsAreKept()
+    {
+        var events = Seed().Events;
+
+        Assert.DoesNotContain(events, e => e.Id == "ppi-2024-02-14");
+        Assert.Contains(events, e => e.Id == "ppi-2024-02-16");
+        Assert.Contains(events, e => e.Id == "ppi-2026-01-14");
+        Assert.Contains(events, e => e.Id == "ppi-2026-01-30");
     }
 
     [Fact]

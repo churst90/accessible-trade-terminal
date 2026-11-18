@@ -113,9 +113,9 @@ public class MarketEventSeedFiguresTests
     }
 
     [Theory]
-    [InlineData("cpi", 667, 947)]
-    [InlineData("nfp", 857, 861)]
-    [InlineData("gdp", 417, 855)]
+    [InlineData("cpi", 648, 928)]
+    [InlineData("nfp", 854, 854)]
+    [InlineData("gdp", 417, 807)]
     public void CoverageCountsMatchTheInputFiles(string source, int withFigures, int dates)
     {
         var root = Newtonsoft.Json.Linq.JObject.Parse(SeedText());
@@ -133,9 +133,9 @@ public class MarketEventSeedFiguresTests
         var cpi = (Newtonsoft.Json.Linq.JArray)root["cpi_figures"]!;
         var nfp = (Newtonsoft.Json.Linq.JArray)root["nfp_figures"]!;
 
-        Assert.Equal(374, cpi.Count(row =>
+        Assert.Equal(355, cpi.Count(row =>
             row is Newtonsoft.Json.Linq.JArray values && values[2].Type != Newtonsoft.Json.Linq.JTokenType.Null));
-        Assert.Equal(797, nfp.Count(row =>
+        Assert.Equal(796, nfp.Count(row =>
             row is Newtonsoft.Json.Linq.JArray values && values[2].Type != Newtonsoft.Json.Linq.JTokenType.Null));
     }
 

@@ -17,6 +17,15 @@ future" rule): every row with realtime_start <= day <= realtime_end, newest
 realtime_start per period. A source's figures for a day exist only when at least
 one row of the relevant series starts on that day.
 
+FRED's release/dates list also names correction and seasonal-revision days, so a
+date is kept only when it is a release: before the key series' first vintage
+(there is nothing to check), or a key-series vintage starts that day and, for
+CPI, jobs and PPI, its newest period is newer than the previous kept date's. GDP
+keeps any date a GDPC1 vintage starts because second and third estimates
+republish the same quarter. PPI has no offline vintages, so two PPI dates in the
+same February no more than 7 days apart drop the earlier one; that is inferred
+from CPI's pattern, not checked against PPI data.
+
 Figure columns, aligned by index with each source's date array:
   cpi: [cpi, previous, core, corePrevious]
   nfp: [payrolls, previous, unemployment, unemploymentPrevious]
@@ -90,6 +99,8 @@ FIGURE_COLUMNS = {
 
 ALFRED_URL = "https://alfred.stlouisfed.org/series/downloaddata?seid={series}"
 
+KEY_SERIES = {"cpi": "CPIAUCSL", "nfp": "PAYEMS", "gdp": "GDPC1"}
+
 END_OF_TIME = date(9999, 12, 31)
 
 
@@ -141,6 +152,62 @@ def vintage(rows: list[tuple[date, float, date, date]], day: date) -> dict[date,
 
 def has_start(rows: list[tuple[date, float, date, date]], day: date) -> bool:
     return any(start == day for _, _, start, _ in rows)
+
+
+def newest_period(rows: list[tuple[date, float, date, date]], day: date) -> date | None:
+    values = vintage(rows, day)
+    return max(values) if values else None
+
+
+def ppi_release_days(days: list[date]) -> tuple[list[date], list[date]]:
+    """The earlier of two PPI dates in the same February within 7 days is a revision.
+
+    PPIFIS has no offline vintages, so this is inferred from CPI's pattern and not
+    checked against PPI data.
+    """
+    by_month: dict[tuple[int, int], list[date]] = {}
+    for day in days:
+        if day.month == 2:
+            by_month.setdefault((day.year, day.month), []).append(day)
+    dropped: set[date] = set()
+    for february in by_month.values():
+        ordered = sorted(february)
+        for earlier, later in zip(ordered, ordered[1:]):
+            if (later - earlier).days <= 7:
+                dropped.add(earlier)
+    return [day for day in days if day not in dropped], sorted(dropped)
+
+
+def release_days(
+    key: str,
+    days: list[date],
+    series: dict[str, list[tuple[date, float, date, date]]],
+) -> tuple[list[date], list[date]]:
+    """Split a source's FRED dates into releases and correction/revision days."""
+    if key == "ppi":
+        return ppi_release_days(days)
+    rows = series[KEY_SERIES[key]]
+    first_vintage = min(start for _, _, start, _ in rows)
+    kept: list[date] = []
+    dropped: list[date] = []
+    previous_newest: date | None = None
+    for day in days:
+        if day < first_vintage:
+            kept.append(day)
+            continue
+        if not has_start(rows, day):
+            dropped.append(day)
+            continue
+        if key == "gdp":
+            kept.append(day)
+            continue
+        newest = newest_period(rows, day)
+        if previous_newest is None or (newest is not None and newest > previous_newest):
+            kept.append(day)
+            previous_newest = newest
+        else:
+            dropped.append(day)
+    return kept, dropped
 
 
 def round_half_away(value: float, digits: int) -> float:
@@ -268,6 +335,12 @@ def main() -> int:
         "note": (
             "US release dates and Fed decisions, with the source and fetch date of each. "
             "The kinds, names, importance, scope and release times live in MarketEventSeed.cs. "
+            "A date is a release only: correction and seasonal-revision days are dropped. Before the "
+            "key series' first vintage every date is kept; otherwise CPIAUCSL, PAYEMS and PPIFIS "
+            "must start a vintage that day whose newest period is newer than the previous kept "
+            "date's, and GDPC1 need only start one that day (second and third estimates are real). "
+            "PPI has no offline vintages: the earlier of two PPI dates in the same February within "
+            "7 days is dropped, inferred from CPI's pattern, not checked against PPI data. "
             "Figures are the values visible on the release day itself (never a later vintage). "
             "Figure row columns, aligned by index with each date array: "
             "cpi [CPI month change %, previous, core CPI month change %, previous]; "
@@ -303,6 +376,11 @@ def main() -> int:
     })
 
     release_dates = {key: load_dates(spec["file"]) for key, spec in RELEASES.items()}
+    kept_dates: dict[str, list[date]] = {}
+    dropped_dates: dict[str, list[date]] = {}
+    for key in RELEASES:
+        kept_dates[key], dropped_dates[key] = release_days(key, release_dates[key], series)
+    release_dates = kept_dates
     scheduled, unscheduled = fomc_dates()
     figures = build_figures(series, release_dates)
 
@@ -326,6 +404,9 @@ def main() -> int:
     total = sum(counts.values())
     print(f"wrote {OUTPUT} with {total} events: {counts}")
     print(f"size {OUTPUT.stat().st_size} bytes")
+    for key in RELEASES:
+        print(f"dropped {key} {len(dropped_dates[key])}: "
+              + ", ".join(day.isoformat() for day in dropped_dates[key]))
     for key in RELEASES:
         print(f"{key}_figures non-null {sum(1 for row in figures[key] if row is not None)} of {len(figures[key])}")
     print("core CPI non-null", sum(1 for row in figures["cpi"] if row and row[2] is not None))

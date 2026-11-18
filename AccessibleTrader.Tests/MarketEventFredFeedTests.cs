@@ -65,15 +65,15 @@ public class MarketEventFredFeedTests
                     ? throw new HttpRequestException("connection refused")
                     : Respond(body));
 
-            Rule("release_id=10", """{"release_dates":[{"release_id":10,"date":"2026-07-14"},{"release_id":10,"date":"2026-09-11"}]}""");
+            Rule("release_id=10", """{"release_dates":[{"release_id":10,"date":"2026-07-14"},{"release_id":10,"date":"2026-09-11"},{"release_id":10,"date":"2026-10-13"},{"release_id":10,"date":"2026-10-20"},{"release_id":10,"date":"2026-12-11"}]}""");
             Rule("release_id=50", """{"release_dates":[]}""");
             Rule("release_id=46", """{"release_dates":[]}""");
-            Rule("release_id=53", """{"release_dates":[]}""");
+            Rule("release_id=53", """{"release_dates":[{"release_id":53,"date":"2026-07-30"},{"release_id":53,"date":"2026-08-27"},{"release_id":53,"date":"2026-09-24"}]}""");
             Rule("series_id=CPIAUCSL", CpiObservations);
             Rule("series_id=CPILFESL", """{"observations":[]}""");
             Rule("series_id=PAYEMS", """{"observations":[]}""");
             Rule("series_id=UNRATE", """{"observations":[]}""");
-            Rule("series_id=GDPC1", """{"observations":[]}""");
+            Rule("series_id=GDPC1", GdpObservations);
             Rule("series_id=PPIFIS", """{"observations":[]}""");
             Keys = MarketEventFredFeedTests.Keys(key);
             Feed = new MarketEventFredFeed(
@@ -105,7 +105,19 @@ public class MarketEventFredFeedTests
           {"realtime_start":"2026-05-12","realtime_end":"9999-12-31","date":"2026-04-01","value":"99"},
           {"realtime_start":"2026-06-10","realtime_end":"9999-12-31","date":"2026-05-01","value":"100"},
           {"realtime_start":"2026-07-14","realtime_end":"9999-12-31","date":"2026-06-01","value":"101"},
-          {"realtime_start":"2026-08-12","realtime_end":"9999-12-31","date":"2026-07-01","value":"103"}
+          {"realtime_start":"2026-08-12","realtime_end":"9999-12-31","date":"2026-07-01","value":"103"},
+          {"realtime_start":"2026-09-11","realtime_end":"9999-12-31","date":"2026-08-01","value":"104"},
+          {"realtime_start":"2026-10-13","realtime_end":"9999-12-31","date":"2026-08-01","value":"104.5"}
+        ]}
+        """;
+
+    /// <summary>A first, second and third estimate of the same quarter, each a new vintage.</summary>
+    private const string GdpObservations = """
+        {"observations":[
+          {"realtime_start":"2026-07-30","realtime_end":"9999-12-31","date":"2026-01-01","value":"99"},
+          {"realtime_start":"2026-07-30","realtime_end":"9999-12-31","date":"2026-04-01","value":"100"},
+          {"realtime_start":"2026-08-27","realtime_end":"9999-12-31","date":"2026-04-01","value":"101"},
+          {"realtime_start":"2026-09-24","realtime_end":"9999-12-31","date":"2026-04-01","value":"102"}
         ]}
         """;
 
@@ -137,6 +149,49 @@ public class MarketEventFredFeedTests
         Assert.Equal(1.0, figure.Previous);
         Assert.Null(cpi.Figures.Figures.Single(f => f.Name == "core CPI").Actual);
         Assert.Contains(rig.Feed.Events, e => e.Id == "cpi-2026-09-11");
+    }
+
+    [Fact]
+    public async Task APastDateWithNoVintageThatDayIsDropped()
+    {
+        var rig = new Rig();
+
+        await rig.Feed.UpdateNowAsync();
+
+        Assert.DoesNotContain(rig.Feed.Events, e => e.Id == "cpi-2026-10-20");
+    }
+
+    [Fact]
+    public async Task APastCpiDateWithNoNewerPeriodIsDropped()
+    {
+        var rig = new Rig();
+
+        await rig.Feed.UpdateNowAsync();
+
+        Assert.DoesNotContain(rig.Feed.Events, e => e.Id == "cpi-2026-10-13");
+    }
+
+    [Fact]
+    public async Task AFutureDateIsKept()
+    {
+        var rig = new Rig();
+
+        await rig.Feed.UpdateNowAsync();
+
+        Assert.Contains(rig.Feed.Events, e => e.Id == "cpi-2026-12-11");
+    }
+
+    [Fact]
+    public async Task ASecondAndThirdGdpEstimateOfTheSameQuarterAreKept()
+    {
+        var rig = new Rig();
+
+        await rig.Feed.UpdateNowAsync();
+
+        var second = Assert.Single(rig.Feed.Events, e => e.Id == "gdp-2026-08-27");
+        var third = Assert.Single(rig.Feed.Events, e => e.Id == "gdp-2026-09-24");
+        Assert.Equal(2, second.Figures!.EstimateNumber);
+        Assert.Equal(3, third.Figures!.EstimateNumber);
     }
 
     [Fact]

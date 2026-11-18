@@ -369,8 +369,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             }
 
             var events = new List<MarketEvent>();
+            var fetchDay = DateOnly.FromDateTime(fetchedUtc);
             foreach (var (source, dates) in releaseDates)
-                foreach (var day in dates)
+                foreach (var day in MarketEventFiguresCalculator.KeepReleases(source, dates, rows, fetchDay))
                     events.Add(MarketEventSeed.CreateRelease(
                         source, day, MarketEventFiguresCalculator.Compute(source, day, rows), fetched));
             return events;

@@ -91,6 +91,73 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             }
         }
 
+        /// <summary>
+        /// The handoff's release rule for fetched dates. A date is a release when it is before
+        /// the key series' first vintage (nothing to check), or a key-series vintage starts that
+        /// day and, for CPI, jobs and PPI, the vintage's newest period is newer than the previous
+        /// kept date's. GDP keeps any date a GDPC1 vintage starts: second and third estimates
+        /// republish the same quarter and are real releases. Dates after
+        /// <paramref name="fetchDay"/> are kept because nothing can be checked yet. Correction
+        /// and seasonal-revision days fail the rule and are dropped.
+        /// </summary>
+        public static IReadOnlyList<DateOnly> KeepReleases(
+            string sourceId,
+            IEnumerable<DateOnly> dates,
+            IReadOnlyDictionary<string, IReadOnlyList<MarketEventVintageRow>> rows,
+            DateOnly fetchDay)
+        {
+            string series = sourceId switch
+            {
+                Cpi => "CPIAUCSL",
+                Jobs => "PAYEMS",
+                Gdp => "GDPC1",
+                Ppi => "PPIFIS",
+                _ => "",
+            };
+            if (series.Length == 0) return Array.Empty<DateOnly>();
+
+            var seriesRows = rows.TryGetValue(series, out var found)
+                ? found
+                : Array.Empty<MarketEventVintageRow>();
+            DateOnly? firstVintage = seriesRows.Count == 0
+                ? null
+                : seriesRows.Min(row => row.RealtimeStart);
+            DateOnly? previousNewest = null;
+            var kept = new List<DateOnly>();
+
+            foreach (var day in dates.Distinct().OrderBy(d => d))
+            {
+                if (day > fetchDay)
+                {
+                    kept.Add(day);
+                    continue;
+                }
+                if (firstVintage is not { } first || day < first)
+                {
+                    kept.Add(day);
+                    continue;
+                }
+                if (!HasStart(seriesRows, day)) continue;
+                if (sourceId == Gdp)
+                {
+                    kept.Add(day);
+                    continue;
+                }
+
+                var visible = seriesRows
+                    .Where(row => double.IsFinite(row.Value)
+                        && row.RealtimeStart <= day && day <= row.RealtimeEnd)
+                    .ToList();
+                if (visible.Count == 0) continue;
+                var newest = visible.Max(row => row.Period);
+                if (previousNewest is { } previous && newest <= previous) continue;
+                kept.Add(day);
+                previousNewest = newest;
+            }
+
+            return kept;
+        }
+
         private static (double Actual, double Previous)? MonthChange(
             IReadOnlyList<MarketEventVintageRow> rows,
             DateOnly day)
