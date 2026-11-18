@@ -27,6 +27,44 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         DayOnly,
     }
 
+    /// <summary>What a figure is measured in. Percentages are spoken to one decimal; thousands are whole.</summary>
+    public enum MarketEventFigureUnit
+    {
+        Percent,
+        Thousands,
+    }
+
+    /// <summary>
+    /// Which direction is "hot" for a figure. Stored and tested, but deliberately not spoken in
+    /// stage 2: without an expected figure there is no surprise word (design doc, section 1).
+    /// </summary>
+    public enum MarketEventFigureDirection
+    {
+        HigherIsHotter,
+        HigherIsStronger,
+        HigherIsWeaker,
+    }
+
+    /// <summary>
+    /// One figure from a release: what was published, the figure it is measured against, its
+    /// unit and which way is hot. A null actual means that source had nothing for this release.
+    /// </summary>
+    public sealed record MarketEventFigure(
+        string Name,
+        double? Actual,
+        double? Previous,
+        MarketEventFigureUnit Unit,
+        MarketEventFigureDirection Direction);
+
+    /// <summary>
+    /// The figures carried by one event. <see cref="EstimateNumber"/> and <see cref="Period"/> are
+    /// GDP's: which estimate this release published, and the quarter it describes.
+    /// </summary>
+    public sealed record MarketEventFigures(
+        IReadOnlyList<MarketEventFigure> Figures,
+        int? EstimateNumber = null,
+        DateOnly? Period = null);
+
     /// <summary>
     /// The "Market events on the chart" setting. Off by default (Cody, 2026-11-18: "don't want to
     /// overwhelm new users").
@@ -61,7 +99,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         DateTime MomentUtc,
         MarketEventPrecision Precision,
         DateOnly Date,
-        string Source)
+        string Source,
+        MarketEventFigures? Figures = null)
     {
         /// <summary>True when the event touches a chart of <paramref name="market"/>.</summary>
         public bool Touches(MarketType market) => Scope.Contains(market);
