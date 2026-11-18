@@ -37,12 +37,13 @@ public class MarketEventNoticePlannerTests
         MarketEventLevel level = MarketEventLevel.All,
         MarketEventKindFilter? kinds = null,
         IReadOnlyCollection<string>? fired = null,
-        bool hasKey = false)
+        bool hasKey = false,
+        IReadOnlyCollection<string>? watched = null)
         => MarketEventNoticePlanner.Due(
             now, events, leads ?? Leads,
             open ?? Crypto, held ?? Array.Empty<MarketType>(),
             level, kinds ?? MarketEventKindFilter.All,
-            fired ?? Array.Empty<string>(), hasKey);
+            fired ?? Array.Empty<string>(), hasKey, watched);
 
     [Fact]
     public void FifteenAndOneFireInTheirWindowsAndTheReadOutOneMinuteLater()
@@ -187,6 +188,64 @@ public class MarketEventNoticePlannerTests
 
         var second = Due(T.AddMinutes(-15).AddSeconds(2), new[] { e }, fired: fired);
         Assert.Empty(second);
+    }
+
+    [Fact]
+    public void AWatchedEventAtLevelOffTouchingNothingGetsItsCountdown()
+    {
+        var e = Event(scope: MarketType.Stock);
+
+        var due = Due(T.AddMinutes(-15), new[] { e },
+            open: Array.Empty<MarketType>(), held: Array.Empty<MarketType>(),
+            level: MarketEventLevel.Off, watched: new[] { e.Id });
+
+        var notice = Assert.Single(due);
+        Assert.Equal(MarketEventNoticeKind.Countdown, notice.Kind);
+        Assert.Equal(15, notice.Minutes);
+    }
+
+    [Fact]
+    public void TheSameEventUnwatchedAtLevelOffGetsNothing()
+    {
+        var e = Event(scope: MarketType.Stock);
+
+        Assert.Empty(Due(T.AddMinutes(-15), new[] { e },
+            open: Array.Empty<MarketType>(), held: Array.Empty<MarketType>(),
+            level: MarketEventLevel.Off));
+    }
+
+    [Fact]
+    public void AWatchedDayOnlyEventGetsNothing()
+    {
+        var expiry = Event(
+            precision: MarketEventPrecision.DayOnly,
+            importance: MarketEventImportance.Medium,
+            kind: MarketEventKind.Expiry,
+            id: "stock-expiry-2026-03-20",
+            spoken: "options expiry",
+            scope: new[] { MarketType.Stock });
+
+        foreach (var now in new[] { T.AddMinutes(-15), T.AddMinutes(-1), T.AddSeconds(60) })
+            Assert.Empty(Due(now, new[] { expiry },
+                open: Array.Empty<MarketType>(), held: Array.Empty<MarketType>(),
+                level: MarketEventLevel.Off, watched: new[] { expiry.Id }));
+    }
+
+    [Fact]
+    public void AWatchedEventWithTheCountdownSettingOffUsesFifteenAndOne()
+    {
+        var e = Event(scope: MarketType.Stock);
+
+        var at15 = Due(T.AddMinutes(-15), new[] { e }, leads: Array.Empty<int>(),
+            open: Array.Empty<MarketType>(), held: Array.Empty<MarketType>(),
+            level: MarketEventLevel.Off, watched: new[] { e.Id });
+        Assert.Equal(15, Assert.Single(at15).Minutes);
+
+        var at1 = Due(T.AddMinutes(-1), new[] { e }, leads: Array.Empty<int>(),
+            open: Array.Empty<MarketType>(), held: Array.Empty<MarketType>(),
+            level: MarketEventLevel.Off, watched: new[] { e.Id },
+            fired: at15.Select(n => n.Key).ToList());
+        Assert.Equal(1, Assert.Single(at1).Minutes);
     }
 
     [Fact]

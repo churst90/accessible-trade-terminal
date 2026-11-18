@@ -121,6 +121,8 @@ namespace AccessibleTrader.Tests
             if (prop.PropertyType == typeof(float)) return 2.5f;
             if (prop.PropertyType == typeof(double)) return 2.5d;
             if (prop.PropertyType == typeof(string)) return $"val_{prop.Name}";
+            if (prop.PropertyType == typeof(IReadOnlyList<string>))
+                return new List<string> { "watch-a", "watch-b" };
             throw new InvalidOperationException($"Unhandled type {prop.PropertyType} on {prop.Name}");
         }
 

@@ -121,7 +121,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             {
                 var state = _store.State;
                 var level = MarketEventSettings.Level(state);
-                if (level == MarketEventLevel.Off) return;
+                var watched = MarketEventSettings.Watched(state);
+                // Off normally means no live work at all. A watched event is the exception the
+                // user asked for by name, so the tick keeps going while one exists.
+                if (level == MarketEventLevel.Off && watched.Count == 0) return;
                 if (_presence is { CanReachUser: false }) return;
 
                 var now = NowUtc;
@@ -134,19 +137,19 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     now.AddMinutes(-61), now.AddMinutes(31), AllMarkets);
 
                 var openMarkets = OpenMarkets(state);
-                bool hasKey = await KeyNeededAndPresentAsync(now, candidates, level, kinds)
+                bool hasKey = await KeyNeededAndPresentAsync(now, candidates, level, kinds, watched)
                     .ConfigureAwait(false);
 
                 var planned = MarketEventNoticePlanner.Due(
                     now, candidates, leads, openMarkets,
                     _held?.Markets ?? Array.Empty<MarketType>(), level, kinds,
-                    FiredKeys(), hasKey);
+                    FiredKeys(), hasKey, watched);
 
                 // Positions are read only when a countdown is actually due, and once more
                 // around a read-out so a position opened since the countdown is included.
                 // Never on a plain tick.
-                bool countdownWindow = AnyCountdownDue(now, candidates, leads, level, kinds);
-                bool readOutOrFigureDue = AnyReadOutOrFigureDue(now, candidates, level, kinds);
+                bool countdownWindow = AnyCountdownDue(now, candidates, leads, level, kinds, watched);
+                bool readOutOrFigureDue = AnyReadOutOrFigureDue(now, candidates, level, kinds, watched);
                 bool staleCountdown = countdownWindow
                     && (_held == null
                         || (planned.Any(n => n.Kind == MarketEventNoticeKind.Countdown)
@@ -158,7 +161,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     _held = await ReadHeldAsync(state).ConfigureAwait(false);
                     planned = MarketEventNoticePlanner.Due(
                         now, candidates, leads, openMarkets, _held.Markets, level, kinds,
-                        FiredKeys(), hasKey);
+                        FiredKeys(), hasKey, watched);
                 }
 
                 foreach (var notice in planned)
@@ -242,15 +245,17 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// </summary>
         private async Task<bool> KeyNeededAndPresentAsync(
             DateTime now, IReadOnlyList<MarketEvent> events,
-            MarketEventLevel level, MarketEventKindFilter kinds)
+            MarketEventLevel level, MarketEventKindFilter kinds,
+            IReadOnlyCollection<string> watched)
         {
+            var watchedSet = new HashSet<string>(watched, StringComparer.Ordinal);
             bool needed = events.Any(e =>
                 e.Kind == MarketEventKind.Economy
                 && MarketEventNoticePlanner.IsFredRelease(e)
                 && e.Figures == null
                 && e.Precision == MarketEventPrecision.Exact
-                && MarketEventLevels.Includes(level, e.Importance)
-                && kinds.Includes(e.Kind)
+                && (watchedSet.Contains(e.Id)
+                    || (MarketEventLevels.Includes(level, e.Importance) && kinds.Includes(e.Kind)))
                 && (InWindow(now, e.MomentUtc.AddSeconds(60), MarketEventNoticePlanner.ReadOutWindow)
                     || MarketEventNoticePlanner.FigureTries.Any(m =>
                         InWindow(now, e.MomentUtc.AddMinutes(m), MarketEventNoticePlanner.Window))));
@@ -264,28 +269,43 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// <summary>Is any event's countdown window open, whatever market it touches?</summary>
         private static bool AnyCountdownDue(
             DateTime now, IReadOnlyList<MarketEvent> events, IReadOnlyList<int> leads,
-            MarketEventLevel level, MarketEventKindFilter kinds)
-            => events.Any(e => Passes(e, level, kinds)
-                && leads.Any(lead => lead > 0
+            MarketEventLevel level, MarketEventKindFilter kinds,
+            IReadOnlyCollection<string> watched)
+        {
+            var watchedSet = new HashSet<string>(watched, StringComparer.Ordinal);
+            return events.Any(e => Passes(e, level, kinds, watchedSet)
+                && EffectiveLeads(e, leads, watchedSet).Any(lead => lead > 0
                     && InWindow(now, e.MomentUtc.AddMinutes(-lead),
                         MarketEventNoticePlanner.Window)));
+        }
 
         /// <summary>Is any event's read-out or figure window open, whatever market it touches?</summary>
         private static bool AnyReadOutOrFigureDue(
             DateTime now, IReadOnlyList<MarketEvent> events,
-            MarketEventLevel level, MarketEventKindFilter kinds)
-            => events.Any(e => Passes(e, level, kinds)
+            MarketEventLevel level, MarketEventKindFilter kinds,
+            IReadOnlyCollection<string> watched)
+        {
+            var watchedSet = new HashSet<string>(watched, StringComparer.Ordinal);
+            return events.Any(e => Passes(e, level, kinds, watchedSet)
                 && (InWindow(now, e.MomentUtc.AddSeconds(60),
                         MarketEventNoticePlanner.ReadOutWindow)
                     || MarketEventNoticePlanner.FigureTries.Any(m =>
                         InWindow(now, e.MomentUtc.AddMinutes(m),
                             MarketEventNoticePlanner.Window))));
+        }
+
+        private static IReadOnlyList<int> EffectiveLeads(
+            MarketEvent e, IReadOnlyList<int> leads, HashSet<string> watched)
+            => watched.Contains(e.Id) && leads.Count == 0
+                ? MarketEventCountdowns.DefaultLeads
+                : leads;
 
         private static bool Passes(
-            MarketEvent e, MarketEventLevel level, MarketEventKindFilter kinds)
+            MarketEvent e, MarketEventLevel level, MarketEventKindFilter kinds,
+            HashSet<string> watched)
             => e.Precision == MarketEventPrecision.Exact
-               && MarketEventLevels.Includes(level, e.Importance)
-               && kinds.Includes(e.Kind);
+               && (watched.Contains(e.Id)
+                   || (MarketEventLevels.Includes(level, e.Importance) && kinds.Includes(e.Kind)));
 
         // ── The focused chart's live closes ───────────────────────────────────
 
@@ -319,7 +339,19 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         // ── Markets ──────────────────────────────────────────────────────────
 
-        private static HashSet<MarketType> OpenMarkets(WorkspaceState state)
+        /// <summary>
+        /// The markets a held position is in, as of the last position read. Empty before the
+        /// first read (and when no position has been read). The calendar's "only touching"
+        /// filter reads this rather than doing a broker read of its own.
+        /// </summary>
+        public IReadOnlyCollection<MarketType> HeldMarkets
+            => _held?.Markets ?? Array.Empty<MarketType>();
+
+        /// <summary>
+        /// The markets on the open chart tabs: the focused chart, plus every tab snapshot. The
+        /// live notice planner and the calendar's "only touching" filter share this one answer.
+        /// </summary>
+        public static HashSet<MarketType> OpenMarkets(WorkspaceState state)
         {
             var markets = new HashSet<MarketType>();
             if (MarketOf(state.Identity) is { } focused)
@@ -335,6 +367,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     markets.Add(market);
             return markets;
         }
+
+        /// <summary>The focused chart's market, or the terminal's selected market when the chart
+        /// has no category of its own. The calendar's history price part asks this.</summary>
+        public static MarketType? MarketOfChart(WorkspaceState state)
+            => FocusedMarket(state);
 
         private static MarketType? FocusedMarket(WorkspaceState state)
             => MarketOf(state.Identity) ?? state.SelectedMarketType;

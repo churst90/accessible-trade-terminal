@@ -276,6 +276,10 @@ namespace AccessibleTrader.Sdk.Models
         // Default "15,1" matches the design doc's 15- and 1-minute leads. Read by the live
         // notice service; never carried into the script sandbox (see WorkspaceProjection).
         string MarketEventsCountdowns = "15,1",
+        // Event ids the user marked "Alert me before" in the calendar. Watched events are
+        // spoken even at level Off, outside the kind/importance filters and with no open or
+        // held market; pruned by the writer once an event is more than two days past.
+        IReadOnlyList<string>? MarketEventsWatched = null,
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -330,6 +334,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsHalvings: true,
             MarketEventsSoundOnEventBars: true,
             MarketEventsCountdowns: "15,1",
+            MarketEventsWatched: Array.Empty<string>(),
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

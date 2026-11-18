@@ -92,7 +92,7 @@ public class PreferenceRoundTripTests
         foreach (var p in prefs)
         {
             var onState = typeof(WorkspaceState).GetProperty(p.Name)!.GetValue(state);
-            if (!Equals(onState, written[p.Name])) missed.Add(p.Name);
+            if (!SamePreference(onState, written[p.Name])) missed.Add(p.Name);
         }
 
         Assert.True(missed.Count == 0,
@@ -117,6 +117,17 @@ public class PreferenceRoundTripTests
     /// a silent pass.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Value equality for the preferences: a list preference (the watched event ids) is equal
+    /// when its items match, not when it is the same list instance.
+    /// </summary>
+    private static bool SamePreference(object? a, object? b)
+    {
+        if (a is IEnumerable<string> left && b is IEnumerable<string> right)
+            return left.SequenceEqual(right, StringComparer.Ordinal);
+        return Equals(a, b);
+    }
+
     private static object? Flip(object? current, Type t)
     {
         if (t == typeof(bool)) return !(bool)(current ?? false);
@@ -125,6 +136,8 @@ public class PreferenceRoundTripTests
         if (t == typeof(float)) return (float)(current ?? 0f) + 0.7f;
         if (t == typeof(double)) return (double)(current ?? 0d) + 7d;
         if (t == typeof(string)) return "roundtrip-probe";
+        if (t == typeof(IReadOnlyList<string>))
+            return new List<string> { "roundtrip-probe", "roundtrip-other" };
         throw new InvalidOperationException(
             $"PreferenceRoundTripTests cannot produce a distinct value for a {t.Name} preference, "
           + "so the round-trip assertion for it would compare a value with itself and pass "

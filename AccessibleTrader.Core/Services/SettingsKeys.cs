@@ -171,6 +171,13 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string MarketEventsCountdowns = "narration.marketEvents.countdowns";
 
+        /// <summary>
+        /// Event ids the user asked to be alerted about by name ("cpi-2026-03-11"). A watched
+        /// event gets its countdowns and read-out even when the level is off, its kind or
+        /// importance is filtered out, or it touches nothing open or held.
+        /// </summary>
+        public const string MarketEventsWatched = "narration.marketEvents.watched";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

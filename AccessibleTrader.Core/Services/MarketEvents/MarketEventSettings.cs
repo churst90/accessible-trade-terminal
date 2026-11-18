@@ -14,5 +14,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             Expiries: state.MarketEventsExpiries,
             Holidays: state.MarketEventsHolidays,
             Halvings: state.MarketEventsHalvings);
+
+        /// <summary>The event ids the user asked to be alerted about by name.</summary>
+        public static IReadOnlyList<string> Watched(WorkspaceState state)
+            => state.MarketEventsWatched ?? Array.Empty<string>();
     }
 }

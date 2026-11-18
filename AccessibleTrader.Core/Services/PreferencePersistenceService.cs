@@ -81,7 +81,8 @@ namespace AccessibleTrader.Core.Services
             string MarketEventsLevel = "off", bool MarketEventsEconomy = true,
             bool MarketEventsFed = true, bool MarketEventsExpiries = true,
             bool MarketEventsHolidays = true, bool MarketEventsHalvings = true,
-            bool MarketEventsSoundOnEventBars = true, string MarketEventsCountdowns = "15,1");
+            bool MarketEventsSoundOnEventBars = true, string MarketEventsCountdowns = "15,1",
+            IReadOnlyList<string>? MarketEventsWatched = null);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -92,7 +93,7 @@ namespace AccessibleTrader.Core.Services
             s.PlaybackSpeed, s.DescribeSignalLooks,
             s.MarketEventsLevel, s.MarketEventsEconomy, s.MarketEventsFed,
             s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings,
-            s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns);
+            s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns, s.MarketEventsWatched);
 
         public void Initialize()
         {
@@ -139,6 +140,7 @@ namespace AccessibleTrader.Core.Services
                     MarketEventsHalvings = _settings.MarketEventsHalvings,
                     MarketEventsSoundOnEventBars = _settings.MarketEventsSoundOnEventBars,
                     MarketEventsCountdowns = _settings.MarketEventsCountdowns,
+                    MarketEventsWatched = _settings.MarketEventsWatched,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -184,6 +186,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.MarketEventsHalvings = p.MarketEventsHalvings;
                         _settings.MarketEventsSoundOnEventBars = p.MarketEventsSoundOnEventBars;
                         _settings.MarketEventsCountdowns = p.MarketEventsCountdowns;
+                        _settings.MarketEventsWatched = p.MarketEventsWatched ?? Array.Empty<string>();
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

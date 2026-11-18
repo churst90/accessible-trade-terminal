@@ -110,6 +110,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"off", "1", "5,1", "15,1" or "30,15,1". Default "15,1".</summary>
         string MarketEventsCountdowns { get; set; }
 
+        /// <summary>Event ids watched by name from the calendar. Empty by default.</summary>
+        IReadOnlyList<string> MarketEventsWatched { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -464,6 +467,27 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetString(SettingsKeys.MarketEventsCountdowns, "15,1");
             set => Set(SettingsKeys.MarketEventsCountdowns, value);
+        }
+
+        /// <summary>
+        /// Event ids watched by name from the calendar. Stored as a JSON string array; an older
+        /// or hand-edited value that is not one reads as an empty list rather than throwing.
+        /// </summary>
+        public IReadOnlyList<string> MarketEventsWatched
+        {
+            get
+            {
+                try
+                {
+                    return _sm.GetSetting(SettingsKeys.MarketEventsWatched)?.ToObject<List<string>>()
+                        ?? (IReadOnlyList<string>)Array.Empty<string>();
+                }
+                catch
+                {
+                    return Array.Empty<string>();
+                }
+            }
+            set => Set(SettingsKeys.MarketEventsWatched, value.ToList());
         }
 
         /// <summary>

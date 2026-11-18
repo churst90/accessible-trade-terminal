@@ -162,6 +162,9 @@ public static class WorkspaceProjection
         // Which countdowns the terminal speaks before a live event. Same reasoning: a host
         // narration preference, not an input to a strategy.
         nameof(WorkspaceState.MarketEventsCountdowns),
+        // The ids the user asked to be alerted about by name. A host watch list; a strategy's
+        // signals must not change because of which calendar rows the user starred.
+        nameof(WorkspaceState.MarketEventsWatched),
     };
 
     /// <summary>

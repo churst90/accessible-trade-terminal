@@ -116,14 +116,15 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             MarketEventLevel level,
             MarketEventKindFilter kinds,
             IReadOnlyCollection<string> firedKeys,
-            bool fredKeyAvailable)
+            bool fredKeyAvailable,
+            IReadOnlyCollection<string>? watchedIds = null)
         {
-            if (level == MarketEventLevel.Off || events.Count == 0)
+            var watched = watchedIds == null
+                ? new HashSet<string>(StringComparer.Ordinal)
+                : new HashSet<string>(watchedIds, StringComparer.Ordinal);
+            if (level == MarketEventLevel.Off && watched.Count == 0)
                 return Array.Empty<MarketEventNotice>();
-
-            var markets = new HashSet<MarketType>(openMarkets);
-            foreach (var market in heldMarkets) markets.Add(market);
-            if (markets.Count == 0) return Array.Empty<MarketEventNotice>();
+            if (events.Count == 0) return Array.Empty<MarketEventNotice>();
 
             var now = AsUtc(nowUtc);
             var fired = new HashSet<string>(firedKeys, StringComparer.Ordinal);
@@ -132,15 +133,27 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
             foreach (var e in events)
             {
-                // Day-only events have no moment to count down to and no release minute.
+                // Day-only events have no moment to count down to and no release minute, even
+                // when watched: there is no time to count down to.
                 if (e.Precision != MarketEventPrecision.Exact) continue;
-                if (!MarketEventLevels.Includes(level, e.Importance)) continue;
-                if (!kinds.Includes(e.Kind)) continue;
-                if (!e.Scope.Any(markets.Contains)) continue;
 
+                // A watched event is the user asking for this one by name. It skips the level,
+                // kind and touch tests, and when the countdown setting is Off it falls back to
+                // the shipped 15 and 1 leads rather than staying silent.
+                bool isWatched = watched.Contains(e.Id);
+                if (!isWatched)
+                {
+                    if (!MarketEventLevels.Includes(level, e.Importance)) continue;
+                    if (!kinds.Includes(e.Kind)) continue;
+                    if (!Touches(e, openMarkets, heldMarkets)) continue;
+                }
+
+                var leads = isWatched && leadsMinutes.Count == 0
+                    ? MarketEventCountdowns.DefaultLeads
+                    : leadsMinutes;
                 var moment = AsUtc(e.MomentUtc);
 
-                foreach (int lead in leadsMinutes)
+                foreach (int lead in leads)
                 {
                     if (lead <= 0) continue;
                     var start = moment.AddMinutes(-lead);
@@ -179,6 +192,23 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 if (fired.Contains(notice.Key) || !seen.Add(notice.Key)) return;
                 due.Add(notice);
             }
+        }
+
+        /// <summary>
+        /// The one "touching" test: the event's scope meets an open chart's market or a held
+        /// position's market. The live notices and the calendar's "only touching" filter both
+        /// call this, so the two can never disagree about which events count.
+        /// </summary>
+        public static bool Touches(
+            MarketEvent e,
+            IReadOnlyCollection<MarketType> openMarkets,
+            IReadOnlyCollection<MarketType> heldMarkets)
+        {
+            foreach (var market in openMarkets)
+                if (e.Touches(market)) return true;
+            foreach (var market in heldMarkets)
+                if (e.Touches(market)) return true;
+            return false;
         }
 
         /// <summary>True for the four FRED release sources the seed and feed build.</summary>
