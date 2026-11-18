@@ -35,6 +35,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The shipped market-event seed: US release dates and Fed decisions, rebuilt by
+         scripts/build_market_events_seed.py. No run-time fetch. -->
+    <EmbeddedResource Include="Resources/MarketEvents/us_events_seed.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
     <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
   </ItemGroup>
