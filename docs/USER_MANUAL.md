@@ -1429,7 +1429,9 @@ them.
 
 Which releases have figures, and from when: **CPI** from the 21 July 1972 release, **core CPI** from
 12 December 1996, **payrolls** from 6 May 1955, **unemployment** from 15 March 1960, and **GDP** from
-4 December 1991. Not every release date has one — a date is stored because FRED knows the release
+4 December 1991. Correction and seasonal-revision days are not events: FRED lists them beside the
+releases, but only a day that published something new is kept, plus every GDP estimate. Not every
+release date has one — a date is stored because FRED knows the release
 happened, and the vintage files do not always start on that exact day — so some bars say the event
 and nothing more. **PPI has no figure without a FRED key**; with one it is read from February 2014,
 when the PPI final-demand headline series begins.

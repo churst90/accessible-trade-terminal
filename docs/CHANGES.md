@@ -17,11 +17,22 @@ All notable changes to this project will be documented in this file.
   otherwise its column is null. Percentages are rounded to 1 decimal and payrolls to whole thousands,
   half away from zero after a 6-decimal clean-up, and a rounded -0.0 is stored as 0.0. The seed's
   values were checked against the handoff's independently computed table; every row matches.
-- **Seed.** `us_events_seed.json` grew from 47,076 to 96,885 bytes (still under 150 KB) and keeps
-  3,509 events. Figure rows are aligned by index with each source's dates: cpi
+- **Revision days removed (review fix).** FRED's `release/dates` list also names correction and
+  seasonal-revision days, so stage 1's seed named a release on days when none came out, and stage
+  2's figures made those days speak near-copies of the real release. A date is now kept only when
+  it is before the key series' first vintage, or a key-series vintage starts that day and — for
+  CPI, jobs and PPI — its newest period is newer than the previous kept date's. GDP keeps any date
+  a GDPC1 vintage starts, because second and third estimates republish the same quarter and are
+  real releases. Dropped with their figures rows: CPI 19, jobs 7, GDP 48, PPI 16; the 1960s jobs
+  months with two real releases stay. PPI has no offline vintages, so two PPI dates in the same
+  February no more than 7 days apart drop the earlier one; that is inferred from CPI's pattern,
+  not checked against PPI data. The same rule runs in `MarketEventFredFeed` for fetched dates on
+  or before the fetch day; future dates are kept because nothing can be checked yet.
+- **Seed.** `us_events_seed.json` grew from 47,076 to 95,440 bytes (still under 150 KB) and keeps
+  3,419 events. Figure rows are aligned by index with each source's dates: cpi
   `[CPI, previous, core, previous]`, nfp `[payrolls, previous, unemployment, previous]`, gdp
-  `[growth, estimate, previous, period]`, and `ppi_figures` is all null. Coverage: CPI 667 of 947
-  dates, core CPI 374, payrolls 857 of 861, unemployment 797, GDP 417 of 855. The header now carries
+  `[growth, estimate, previous, period]`, and `ppi_figures` is all null. Coverage: CPI 648 of 928
+  dates, core CPI 355, payrolls 854 of 854, unemployment 796, GDP 417 of 807. The header now carries
   each ALFRED series id, its download URL and the file's newest `realtime_start`.
 - **What is heard.** A one-event bar shorter than a week reads the figure after the time and before
   the placement word: "CPI 8:30, up 1.3% on the month, previous up 1.0%", "unchanged on the month",
@@ -61,17 +72,23 @@ All notable changes to this project will be documented in this file.
   each index change through the new interface entry point, ignoring F3 as playback sound does by
   design. A `MarketEvent` earcon key is in the Sound Designer, and an assigned patch replaces the
   bell with volume scale 1.0 (High), 0.75 (Medium) and 0.5 (Low).
-- **Tests.** 450 tests pass on the working filter and 1,903 on the wider one; the source-reading
-  classes pass 1,057. The test project builds with no new warnings. Six sabotages, each
+- **Tests.** 492 tests pass on the handoff's working filter; the source-reading classes pass 1,061.
+  The test project builds with no new warnings. Six earlier sabotages, each
   buildable and each restored from `strategy-lab-data/sab/` with `cp`, `touch` and `cmp`, then green:
   using the newest vintage instead of the one on the release day turned 7 red; bypassing the shared
   kind/level filter in the sonifier turned 1 red; removing the bell's dedup turned 1 red; putting the
   key-bearing URL in the cache turned 1 red; dropping the feed version from the map stamp turned 1
   red; leaving the feed unregistered on the WebHost turned 2 red (the feed guard and `HostParity`).
+  For this fix, rebuilding the seed with the drop skipped (into a copy, then used for the test run)
+  turned 7 `MarketEventSeed*` tests red; a one-release-per-month rule turned the 1960s double-month
+  test red (1); and returning every fetched date as a release turned 3 red. Each was restored from
+  `strategy-lab-data/sab/` with `cp`, `touch` and `cmp`, then green.
 - **Caveats.** The live fetch was never tried against real FRED — this environment has no network.
   PPI history before February 2014 has no figures. ALFRED refused automated requests for PPI on
-  2026-11-18, so its history comes only through the user's key. Nothing here has been heard by Cody
-  yet.
+  2026-11-18, so its history comes only through the user's key, and the seed's PPI February drops
+  are inferred from CPI's pattern rather than checked against PPI data. A scheduled future revision
+  day, if FRED lists one, is kept until it has passed and a fetch shows it published nothing new.
+  Nothing here has been heard by Cody yet.
 
 ### Market events on the chart, stage 1: the past, 2026-11-18
 

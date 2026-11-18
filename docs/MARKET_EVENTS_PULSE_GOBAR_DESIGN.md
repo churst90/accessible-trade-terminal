@@ -244,7 +244,14 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    requests for PPI on 2026-11-18, so PPI has no figures in the seed and its history comes only through
    the user's FRED key, from the PPIFIS headline start in February 2014; the seed's newest economic
    release date is 30 July 2026 (GDP), not the 14 July 2026 example in the handoff; and the live fetch
-   could not be tried against real FRED because this environment has no network.
+   could not be tried against real FRED because this environment has no network. Correction and
+   seasonal-revision days were also dropped in a follow-up: a date is kept only before the key
+   series' first vintage, or when a vintage starts that day and — except for GDP — its newest period
+   is newer than the previous kept date's. GDP keeps every GDPC1 vintage start because second and
+   third estimates are real releases. That removed 19 CPI, 7 jobs, 48 GDP and 16 PPI dates; the same
+   rule runs in the live feed for fetched dates on or before the fetch day, while future dates stay
+   unchecked. The 16 PPI February drops are inferred from CPI's pattern, not checked against PPI
+   data, because PPIFIS has no offline vintages.
 3. **Live:** countdowns, release read-outs (price reaction first), the position-aware warning, the
    alerts route, the Alt+E calendar screen, "alert me before this".
 4. **Earnings (Finnhub, Cody's key), Kalshi expected figures, token unlocks.**
