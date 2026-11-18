@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -1600,6 +1600,62 @@ the chart touches the event's market, what price did over that bar in Alt+Shift+
 Price fell 1.2% over this bar."* A release older than the loaded history, or on a market your
 chart does not touch, has no price part. Fewer than six earlier releases lists what exists; none
 says **"No earlier releases."** Expiries and holidays have History too, with no figure part.
+
+### The market pulse (Alt+P)
+
+**Alt+P** answers "how is the market right now?" in one spoken sentence, without you having to
+visit six charts. It reads a watchlist named exactly **Pulse**, in that list's order, and ends with
+anything you hold that is not already on the list:
+
+> *"S&P up 0.4, Nasdaq up 0.6, Bitcoin down 1.2, Ethereum down 2.1, ten-year 4.31, up 3 basis
+> points, dollar index flat, gold up 0.2, 4 minutes old, oil unavailable, VIX closed, up 2.1
+> Friday."*
+
+**The list.** The first time you press Alt+P with no Pulse list, the terminal creates one with
+nine items in this order: **S&P**, **Nasdaq**, **Bitcoin**, **Ethereum**, **ten-year** (the US
+10-year yield), **dollar index**, **gold**, **oil** and **VIX**. Each is resolved against the
+providers you have configured — a symbol on a provider you can use now, stored in that provider's
+own spelling. If a market has no usable source, the sentence ends by naming it: *"Left out, no
+data source: VIX. Add them in the watchlist screen, Alt+M."* That happens only on the press that
+creates the list; after that, add or remove it yourself.
+
+**Edit it in the watchlist screen (Alt+M).** Pulse is an ordinary watchlist: add, remove and move
+symbols there. The order is fixed and is never re-sorted, so your ear can learn where Bitcoin
+comes. If the list is empty, Alt+P says *"Your Pulse list is empty. Add markets to it in the
+watchlist screen, Alt+M."*
+
+**Positions are added, not saved.** After the list, the pulse appends each position you hold that
+is not already on it, in the order the broker or paper account returns them. These are for that
+reading only; they are never written into the saved Pulse list.
+
+**What each item says.** A change is one decimal, with no "percent" word: *"Bitcoin down 1.2"*.
+**Flat** means it rounds to 0.0. A yield reads its level and changes in **basis points**: *"ten-year
+4.31, up 3 basis points"*, singular *"1 basis point"*. A quote more than two minutes old adds its
+age: *"gold up 0.2, 4 minutes old"*. **Unavailable** means the quote did not arrive within the
+pulse's four-second limit or its fetch failed; the rest of the sentence still speaks. A **closed**
+market reads its most recent session's change and names the day: *"VIX closed, up 2.1 Friday"*,
+with *"today"* and *"yesterday"* used where they fit. A closed yield keeps both: *"ten-year
+closed, 4.31, up 3 basis points Friday."*
+
+**What "closed" means.** US stocks, indices and bonds are open Monday–Friday, 09:30–16:00 US
+Eastern, and closed at any other time; during those hours a newest one-minute bar more than
+fifteen minutes old also counts as closed, which is how a holiday reads. Forex and commodities
+are closed from Friday 17:00 to Sunday 17:00 Eastern. Bitcoin and Ethereum never close.
+
+**The stated start.** Stock, index, forex and commodity changes run from the **previous session's
+close**. Bitcoin and Ethereum run from **midnight UTC** by default, so the number is today's move.
+Under **Settings (F12) → Narration → Market pulse**, **Pulse: crypto change measured from** offers
+**Midnight UTC** or **Last 24 hours**; the second makes crypto a rolling day. An unknown saved
+value reads as Midnight UTC.
+
+**One sentence under one deadline.** Every item is fetched at once under a four-second limit, so a
+slow quote becomes "unavailable" rather than making you wait. If the sentence is not ready one
+second after you press, the terminal says *"Gathering the pulse."*; pressing Alt+P again while it
+gathers says *"Still gathering the pulse."* and starts nothing new. Nothing is spoken after the
+sentence — a late answer is dropped, not added.
+
+**F2 and Shift+F2 do not mute the pulse.** You asked for it by pressing Alt+P, so it is spoken on
+the interface tier and both chart and alert mutes leave it alone, like the detail key.
 
 ---
 
@@ -4724,6 +4780,10 @@ nothing to say; and playback narration is on because it is what the terminal alr
   **Level** setting (off, important only, important and medium, all) gates the five kind boxes.
   Figures, a FRED key for live dates and PPI, and the landing bell are described under *Reading the
   Chart → Market events on the chart*. Off by default so a new chart stays quiet.
+- **Pulse: crypto change measured from** — **Midnight UTC** (default) or **Last 24 hours**. Chooses
+  where Alt+P measures a Bitcoin or Ethereum change; stocks, indices, forex and commodities always
+  use the previous session's close. The list itself is the watchlist named Pulse (Alt+M); see
+  *Reading the Chart → The market pulse (Alt+P)*.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery

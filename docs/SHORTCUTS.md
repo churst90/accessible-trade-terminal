@@ -520,6 +520,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Levels**) |
 | Alt+E | Market event calendar — days as headings, filters, "alert me before" and release history (toolbar: **Market events**) |
+| Alt+P | Market pulse — the "Pulse" watchlist spoken as one sentence (stocks, indices, crypto, forex, gold, oil, VIX, then what you hold) |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
 | Ctrl+Alt+Shift+J | Journal — review every speech utterance, alert, strategy setup, and error this session (filterable, copyable monospace text view) |

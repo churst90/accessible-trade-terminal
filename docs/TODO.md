@@ -170,7 +170,19 @@ as proposed.
   paid API plan" (checked 2026-11-18), so it needs a paid source or Cody's decision.
 - [ ] **Fed expected rate.** Kalshi has KXFED, but our Fed events carry no figures; open, and
   deliberately not in stage 4a.
-- [ ] Stage 5: market pulse (Alt+P), then the change log and catch-up (Alt+U).
+- [x] **Stage 5a: the market pulse (Alt+P).** The "Pulse" watchlist, seeded from the nine-item
+  table and edited in Alt+M; fixed order; held positions appended for the reading only; one
+  sentence with percent changes, basis-point yields, closed sessions and minutes-old quotes; the
+  four-second limit and the one-second "Gathering the pulse."; and the "Pulse: crypto change
+  measured from" setting. **Built 2026-11-18, not yet heard by Cody.** Caveats: the four-second
+  limit, the US-hours closed rule's reliance on a stale bar instead of a holiday calendar, index
+  CFDs treated as closed outside 09:30–16:00, a fixed symbol-candidate table never probed live,
+  and the browser-closed delivery limits above.
+- [ ] **Stage 5a follow-up: the compact braille line for the Dot Pad.** The design's one-line
+  tactile summary of the pulse is not built.
+- [ ] **Stage 5a follow-up: a detail read of the pulse.** Each item's source, reference and time
+  on demand; not built.
+- [ ] **Stage 5b: "what changed" (Alt+U).** The change log and catch-up. Open.
 - [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.
 
 ## Trading not yet tried on a practice or real account

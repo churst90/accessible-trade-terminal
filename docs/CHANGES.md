@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market pulse (stage 5a), 2026-11-18
+
+- **Alt+P answers "how is the market right now?" in one sentence.** The list is an ordinary
+  watchlist named **Pulse**, seeded on the first press with nine items in a fixed, never-re-sorted
+  order: S&P, Nasdaq, Bitcoin, Ethereum, ten-year (US 10-year yield), dollar index, gold, oil and
+  VIX. It is edited in the existing watchlist screen (Alt+M). Held positions are appended after
+  the list for that reading only; they are never written into the saved list. If an item found no
+  usable data source when the list was created, the seeding press adds *"Left out, no data
+  source: … Add them in the watchlist screen, Alt+M."*
+- **The words.** A change is one decimal with no "percent" and no plus sign: *"Bitcoin down 1.2"*;
+  a value that rounds to 0.0 is *"flat"*. A yield reads its level and changes in basis points:
+  *"ten-year 4.31, up 3 basis points"*, with the singular *"1 basis point"*. A quote more than two
+  minutes old says its age (*"4 minutes old"*), a closed market names its session
+  (*"VIX closed, up 2.1 Friday"*, or *today*/*yesterday*), and a failed or late fetch says
+  *"unavailable"* without losing the rest of the sentence.
+- **Pure halves.** `MarketPulseDefaults` holds the nine-item candidate table, the provider
+  preference (Coinbase, Kraken, Gemini, Bitstamp for crypto; Fmp, TwelveData, Oanda, Finnhub,
+  Polygon, InteractiveBrokers otherwise; any other configured provider last, never Binance) and
+  the resolver that stores the provider's own symbol spelling. `MarketPulseMath` turns daily and
+  one-minute bars into a quote: today's open for a crypto midnight reference, a one-hour bar for
+  the last-24-hours setting, the previous session's close otherwise, a stale one-minute bar (or a
+  missing today bar) as the holiday test, the 09:30–16:00 Eastern equity hours and the
+  Friday-to-Sunday forex/commodity window through the shared exchange-time resolver, and the CBOE
+  TNX ten-times adjustment. `MarketPulseWording` builds the sentence.
+- **The live half.** `MarketPulseService` (singleton on MAUI, scoped on the WebHost) fetches every
+  item at once under one four-second `CancellationTokenSource`, with at most four requests in
+  flight per provider. An item that misses the deadline or throws is unavailable, and nothing is
+  published after the sentence. If the sentence is not ready one second after the press, it says
+  *"Gathering the pulse."*; a second press while gathering says *"Still gathering the pulse."* and
+  starts nothing. Everything is published on the Interface speech tier, which neither F2 nor
+  Shift+F2 mutes. Failures are logged by exception type only; symbol lists and keys never are.
+- **The setting.** Settings → Narration → **Pulse: crypto change measured from** chooses
+  **Midnight UTC** (default) or **Last 24 hours**. Stored as `marketPulseCryptoStart`
+  (`midnightUtc` / `last24h`), mirrored through `WorkspaceState` and the preference file; an
+  unknown value reads as midnight.
+- **Caveats.** The whole sentence is limited to four seconds, so a slow provider becomes
+  "unavailable" rather than delaying or improving the answer. The US-hours closed rule has no
+  holiday calendar of its own: it relies on the stale-minute-bar test (and a missing today bar),
+  so a US holiday that still publishes a fresh-looking bar is not detected. Index CFDs that trade
+  nearly 24 hours are still treated as closed outside 09:30–16:00 Eastern. Symbol candidates are
+  a fixed table and were never tried against live providers in this build. The listening test was
+  not run: **not heard by Cody.**
+- **Tests:** 45 new tests across `MarketPulseDefaultsTests`, `MarketPulseMathTests`,
+  `MarketPulseWordingTests` and `MarketPulseServiceTests`. Wording pins every example sentence,
+  singulars, flat at ±0.04 and invariance under `de-DE`; math pins both crypto reference modes,
+  the previous close, the Saturday and holiday closed rules, freshness at 90 seconds and 4
+  minutes, TNX at 43.1, the Sunday forex open and both DST seasons; defaults pin the provider's
+  own spelling, usable-provider filtering, Binance exclusion, preference order and left-out
+  reporting; the service pins one-time seeding, a user-edited list, the four-second deadline and
+  its dropped late answers, the one-second gather notice, a second press, the Interface channel,
+  held-position append-without-saving and the seeding-only left-out sentence. The filter
+  (`MarketPulse|MarketEvent|Shortcut|CommandDispatcher|Watchlist|WebHost|HostParity|Settings`)
+  runs 1167 tests, all green.
+- **Sabotages:** Chart channel instead of Interface (**1 red**), crypto reference changed to the
+  previous daily close (**2 red**), TNX ÷10 dropped (**1 red**), Binance allowed to be picked
+  (**1 red**), per-provider in-flight limit raised from four to one hundred (**1 red**). Each was
+  restored and compared byte-for-byte.
+
 ### Market events stage 4a: expected figures from Kalshi, 2026-11-18
 
 - **An expected figure for the five releases that have Kalshi markets:** CPI, core CPI,

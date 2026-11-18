@@ -1,10 +1,10 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2, 3a, 3b and 4a are built (2026-11-18); stage 1 has been tried by
-Cody and stages 2, 3a, 3b and 4a have not been heard yet. Stage 4b, stage 5, stage 6 and the rest are
-not built** except where a stage below says it is. This is the plan and the reasons, so a later
-session (or a sub-agent) does not have to re-derive them.
+terminal does not. **Stages 1, 2, 3a, 3b, 4a and 5a are built (2026-11-18); stage 1 has been tried by
+Cody and stages 2, 3a, 3b, 4a and 5a have not been heard yet. Stage 4b, stage 5b (the change log),
+stage 6 and the rest are not built** except where a stage below says it is. This is the plan and the
+reasons, so a later session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
 
@@ -364,6 +364,21 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      paid API plan" (checked 2026-11-18); needs a paid source or Cody's decision.
    - **Fed expected rate OPEN:** Kalshi has KXFED, but our Fed events carry no figures yet, so
      stage 4a deliberately leaves them alone.
-5. **Pulse**, then the **change log and catch-up**.
+5. **Pulse — 5a BUILT 2026-11-18, not yet heard by Cody**, then the change log and catch-up. The
+   watchlist named "Pulse" seeded from the nine-item table and edited in Alt+M; the fixed order;
+   held positions appended for the reading but never saved; one sentence with percent changes,
+   basis-point yields, closed sessions, minutes-old quotes and "unavailable"; the four-second
+   limit, the one-second "Gathering the pulse.", and the Interface speech tier neither mute
+   silences; and the "Pulse: crypto change measured from" setting (midnight UTC or last 24 hours).
+   The pure halves are `MarketPulseDefaults`, `MarketPulseMath` and `MarketPulseWording`; the live
+   half is `MarketPulseService`, singleton on MAUI and scoped on the WebHost.
+   **Differences found while building:** `MarketType` has no CFD or ETF member, so S&P searches
+   Index then Stock and cannot try a CFD/ETF market the way the handoff's parenthetical imagined;
+   the US-hours closed rule has no holiday calendar of its own and relies on the stale-minute-bar
+   test (plus a missing today daily bar), so a holiday with a fresh-looking bar is not detected;
+   Forex/Commodity use the Friday-to-Sunday window only and do not use the equity hours; symbol
+   resolution reads each provider's own symbol list but was never run against live providers in
+   this build, and the candidate spellings are the fixed table above. **5b** (the change log,
+   Alt+U) is not part of this stage.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the
    biggest change and goes last.
