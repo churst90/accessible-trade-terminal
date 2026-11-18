@@ -145,6 +145,7 @@ until it is fixed.
 | `ASPNETCORE_ENVIRONMENT` | all | `Production` for deploys |
 | `Accounts__Enabled` | hosted | `true` (equivalent to `--accounts`) |
 | `Accounts__DataRoot` | hosted | where per-user data + `auth.db` + `dp-keys` live, e.g. `/var/lib/accessible-trader-terminal` |
+| `Leaderboard__OutputPath` | hosted (optional) | where the public leaderboard JSON is written. Default `{Accounts__DataRoot}/public/leaderboard.json`; on a real server point it outside the data root — see *Public leaderboard file* below. |
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
 | `FRED_APIKEY` | demo/hosted | server-side FRED key — unlocks the Economic market (CPI, NFP, GDP, unemployment, fed funds, yields). Read-only public research data. Falls back to `FRED_API_KEY`. |
 | `ACCOUNTS_SEED_EMAIL` / `ACCOUNTS_SEED_PASSWORD` | hosted (optional) | provision one owner/admin account at startup, bypassing the public password policy. Idempotent. |
@@ -161,6 +162,30 @@ until it is fixed.
 
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
 paper-only; the API-keys modal is gated off).
+
+### Public leaderboard file
+
+The hosted head writes one public JSON file for the website to render, by default at
+`{Accounts__DataRoot}/public/leaderboard.json`, every five minutes. Set
+`Leaderboard__OutputPath` to choose another location.
+
+**On a real server, point it OUTSIDE the data root.** The data root is `0700` (and
+`dp-keys/` is asserted private), so the web server user cannot traverse into it to read a
+file left there. A working arrangement:
+
+```ini
+Leaderboard__OutputPath=/var/lib/accessible-trader-public/leaderboard.json
+```
+
+with `/var/lib/accessible-trader-public/` a directory mode `0750`, owned by the terminal's
+service user with the web server's user in its group. The publisher creates the folder if it
+is missing, writes atomically (temp file + rename, so a reader never sees half a file) and
+sets the file mode to `0640` explicitly on Unix — the service runs with a `077` umask, and
+the web server reads through the group. If the mode cannot be set the run logs a warning;
+fix the ownership/permissions rather than widening the file.
+
+The file contains only display names and paper-trading figures. A user appears only after
+opting in and setting a display name; emails and user ids are never written.
 
 ### Account email (Brevo SMTP)
 

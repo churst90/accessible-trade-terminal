@@ -50,6 +50,12 @@ and Identity already has 2FA, lockout and rate limits.
   the VPS: a pure calculator, a publisher every 5 minutes writing `public/leaderboard.json` atomically,
   opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real
   `<table>` with caption and column headers in the PHP page. Paper only (the hosted terminal is paper).
+  **Server side done 2026-11-18 (`CHANGES.md`):** lifetime stats, the calculator and the publisher.
+- [ ] **Website leaderboard section (VPS PHP, Claude).** Render the published JSON on the
+  accessibletrader.com front page: a real `<table>` with a caption and column headers, "be the first"
+  under 3 entries, no email address anywhere. The file, its 0640 mode and
+  `Leaderboard__OutputPath` are documented in `SERVER_SETUP.md`; the publisher is the part this
+  repository owns.
 - [ ] **Seed Cody's P&L.** Replace his VPS `users/49698e84…/paper_account.json` with his local one, NO
   "imported" label (Cody: they are his practice trades). Back up the VPS file first; confirm before
   writing to production.

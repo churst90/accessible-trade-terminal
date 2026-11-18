@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Leaderboard publisher, 2026-11-18
+
+- **Lifetime trade stats on every paper account** (`PaperTradeStats`, persisted under
+  `Stats` in `paper_account.json`): closed trades, wins, realised total, first and last fill.
+  Updated on every fill; a break-even close counts as a closed trade and not a win. Old files
+  with no `Stats` are seeded by replaying the kept `History` oldest-first, and `ResetAccount`
+  zeroes them. The starting balance is now `PaperTradingProvider.DefaultStartingBalance`
+  (100 000), the only copy.
+- **A pure calculator** (`AccessibleTrader.Core/Services/Leaderboard/PaperAccountStanding.cs`):
+  equity = cash + positions at their marks + collateral, return percent, realised P&L, trade
+  count, win rate, first/last trade, and a stale flag. A position with no usable price is
+  valued at its entry price and flagged, never at zero and never by throwing. `PaperAccountFile`
+  is a public read model of the account file, parsed with Newtonsoft; malformed JSON is refused.
+- **A hosted publisher** (`LeaderboardPublisher`, `--accounts` only): every five minutes it
+  reads users with `LeaderboardOptIn` and a `DisplayName` (never `UserName`/`Email`, and it
+  refuses a name containing `@`), prices each position from the chart it was traded on, skips
+  accounts with no closed trades, ranks by return percent (ties share a rank, then trade count,
+  then name), keeps the top 25, and writes `{dataRoot}/public/leaderboard.json` atomically,
+  mode 0640 on Unix. The file is written even with no entries so `generatedAt` distinguishes
+  "no one yet" from "publisher down". Configurable with `Leaderboard__OutputPath`.
+- **Caveats.** For accounts written before this change, the seeded trade count covers only the
+  kept 200 fills — older fills were already dropped and cannot be recovered. Prices come from
+  the chart each position was traded on, so a venue that is down makes that row stale rather
+  than guessing. The website that renders the JSON is not in this repository; only the file is.
+
 ### Account page, account email through Brevo, and a minimum fill time on Register, 2026-11-18
 
 - **A real account page at `/account/manage`**, reached from Settings → General → Account
