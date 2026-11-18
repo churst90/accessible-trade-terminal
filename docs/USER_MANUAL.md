@@ -1458,7 +1458,49 @@ on the same bar, and it sounds during playback as the cursor crosses event bars.
 bars** under the Market events setting turns it off. It is also silent when Level is Off, when
 Shift+F3 mutes earcons, and — while arrowing — when F3 turns chart sonification off. The bell has a
 **MarketEvent** entry in the Sound Designer's Earcon Assignments, so you can replace it with one of
-your own patches. Stage 2 has no countdowns and no calendar screen; those come later.
+your own patches.
+
+**Countdowns before an event.** With **Level** on, an event with an exact time is counted down
+before it happens, but only when it touches a market on an open chart tab or a market you hold a
+position in. The default is *"CPI in 15 minutes."* and then *"CPI in 1 minute."*; the setting
+**Countdowns before events**, under **Market events on the chart**, chooses **Off**, **1 minute**,
+**5 and 1 minutes**, **15 and 1 minutes** or **30, 15 and 1 minutes**. The countdowns are spoken on
+the alerts tier: **Shift+F2 mutes them and F2 does not**. A countdown whose moment passed while the
+terminal was asleep or busy is skipped, never said late — starting at 15 minutes minus 10 with
+15- and 1-minute leads says only the 1-minute one. Day-only events (expiries, holidays, halvings
+and old dates without a time) are not counted down.
+
+**Your positions.** If you hold a position in a market the event touches, the countdown names it:
+*"CPI in 15 minutes. You're long 0.05 BTC on MEXC, stop at 89000.00."* Up to three positions are
+named, then *"And 2 more."* The **"stop at"** part appears only when a working stop or stop-limit
+order rests on that symbol; without one the position is named without it. Paper positions say
+*"on Paper"*. A position whose market cannot be identified is not guessed at and is left out.
+
+**The release read-out.** One minute after the event the terminal says what price did first, from
+the chart in front of you: *"CPI out. BTC down 0.8% in the first minute."* The change is the
+focused chart's own newest close at the first tick at or after the event time compared with its
+newest close in the first minute, rounded to one decimal. It says **up**, **down** or
+**unchanged** when the rounded change is zero. If that chart got no live update in the first
+minute — a stock chart before the open, for example — or the first update came more than five
+seconds after the event, it says only *"CPI out."* and nothing about price. If no open chart
+touches the event's market, likewise only *"CPI out."*
+
+**The figure.** For an economic release with a FRED key, the read-out ends *"Waiting for the
+figure."* The terminal then asks FRED for that one release's figure at 2, 5, 15, 30 and 60
+minutes, at most five times, and reads it with the same wording as the bar clause — *"CPI up 3.1%
+on the month, previous up 2.9%"* — as soon as it arrives. Asking stops once the event has figures;
+if the last try finds none, nothing more is said. Without a key there is no "Waiting for the
+figure" and no request. FRED can lag the official release by minutes, so the figure may not arrive
+within the hour.
+
+Every countdown, read-out and figure also plays the market-event bell, under the same
+**Sound on event bars**, Shift+F3 and Sound Designer gates as the bar bell. When the app window is
+hidden, the same text becomes a desktop notification; nothing arrives from this feature while the
+browser itself is closed yet.
+
+For CPI, jobs, PPI and GDP the future dates come from FRED, so **without a key the only future
+countdowns are Fed decisions**, which the shipped seed carries into 2027. The calendar screen
+(Alt+E) and "alert me before this" are a later stage.
 
 ---
 

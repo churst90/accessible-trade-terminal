@@ -1,9 +1,10 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1 and 2 are built (2026-11-18); stage 1 has been tried by Cody and stage 2
-has not been heard yet. The rest is not built** except where a stage below says it is. This is the plan
-and the reasons, so a later session (or a sub-agent) does not have to re-derive them.
+terminal does not. **Stages 1, 2 and 3a are built (2026-11-18); stage 1 has been tried by Cody and
+stages 2 and 3a have not been heard yet. Stage 3b and the rest are not built** except where a stage
+below says it is. This is the plan and the reasons, so a later session (or a sub-agent) does not have
+to re-derive them.
 
 ## Why these three
 
@@ -252,8 +253,33 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    rule runs in the live feed for fetched dates on or before the fetch day, while future dates stay
    unchecked. The 16 PPI February drops are inferred from CPI's pattern, not checked against PPI
    data, because PPIFIS has no offline vintages.
-3. **Live:** countdowns, release read-outs (price reaction first), the position-aware warning, the
-   alerts route, the Alt+E calendar screen, "alert me before this".
+3. **Live — split into two runs on 2026-11-18.**
+   - **3a BUILT 2026-11-18, not yet heard by Cody.** Countdowns before an event that touches an
+     open chart or a held position; the position-aware line; the release read-out at T + 60 s with
+     the focused chart's price reaction first; the FRED figure asked for at T + 2, 5, 15, 30 and 60
+     minutes; the stage 2 bell with every notice; a desktop toast when the window is hidden; the
+     "Countdowns before events" setting (Off, 1, 5 and 1, 15 and 1 — the default — and 30, 15 and
+     1). Everything goes out on the alerts tier, so Shift+F2 mutes it and F2 does not. The planner
+     and the wording are pure Core classes; `MarketEventLiveNotices` owns the one-second
+     `TimeProvider` timer, the fired set, the focused chart's recent closes and the rare broker
+     reads. It is registered singleton on the MAUI head, scoped on the WebHost, and resolved at
+     startup.
+     **Differences found while building:** the planner takes open and held markets as two sets,
+     because a position's market alone has to be enough (and so a test can prove the held half);
+     the position line reuses `QuantityFormatter` and `SpeechPriceFormatter`, so the stop is said
+     as "89000.00" rather than the handoff's illustrative "89,000"; the read-out compares the
+     newest close in the first minute (bounded at T + 60 s) at the read-out tick, and requires the
+     first tick within 5 s of T or says nothing about price; positions are read on the first
+     countdown, then at most every five minutes around a read-out, never on a plain tick; the
+     single-release FRED request skips a try when a full refresh is in flight rather than waiting;
+     `MarketEventCalendar` gained a multi-market range overload so the live tick walks the
+     calendar once instead of once per market; and the toast rides the existing Alerts category
+     rather than adding a fourth. The browser-closed delivery promised above is **not** done: it
+     needs one process-wide owner, as the alert monitor has, or a closed tab and the headless
+     session would both speak it. It is in `docs/TODO.md`.
+   - **3b, still to do:** the Alt+E calendar screen, "alert me before this" on any event, and the
+     release history key (the last six figures with the surprise and the price reaction each
+     time).
 4. **Earnings (Finnhub, Cody's key), Kalshi expected figures, token unlocks.**
 5. **Pulse**, then the **change log and catch-up**.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the

@@ -34,9 +34,27 @@ None of this has been seen or heard in the app yet.
   figures in the background, at most every 12 hours. The status line under the setting says what
   was stored or when it last failed, and "Update release dates now" skips the wait. No key, no
   network: the shipped dates and figures still work.
-- **Still to come.** Countdowns, the release read-out with its expected figure, the Alt+E calendar,
-  earnings and the market pulse. The shipped dates run through July 2026 for releases and 2027 for
-  Fed decisions.
+- **Countdowns and the release read-out.** With market events on, an event that touches an open
+  chart or a position is counted down 15 and 1 minutes before ("CPI in 15 minutes.", "CPI in
+  1 minute."), and one minute after it lands the terminal says the price reaction first ("CPI out.
+  BTC down 0.8% in the first minute."). If the focused chart was quiet in that first minute it
+  says only "CPI out." The countdown times are a setting: Off, 1, 5 and 1, 15 and 1, or 30, 15
+  and 1.
+- **Your positions ride along.** Holding a position in a market the event touches adds it: "CPI in
+  15 minutes. You're long 0.05 BTC on MEXC, stop at 89000.00." Up to three positions are named,
+  then "And 2 more." "stop at" appears only when a working stop order rests on that symbol, and
+  paper positions say "on Paper".
+- **The figure when FRED has it.** With a FRED key, a release says "Waiting for the figure." and
+  the terminal asks for that release's figure at 2, 5, 15, 30 and 60 minutes, then reads it with
+  the existing wording. FRED can lag the official release, so it may never arrive within the hour.
+  No key, no request.
+- **Shift+F2 mutes the countdowns and read-outs; F2 does not.** They are alerts-tier speech, with
+  the same market-event bell as the bar, and they become a desktop notification when the app
+  window is hidden. They do not yet arrive while the browser is closed.
+- **Still to come.** The Alt+E calendar, "alert me before this", expected figures, earnings and the
+  market pulse. For CPI, jobs, PPI and GDP the future dates come from FRED, so without a key the
+  only future countdowns are Fed decisions; the shipped dates run through July 2026 for releases
+  and 2027 for Fed decisions.
 
 ### Downloads
 

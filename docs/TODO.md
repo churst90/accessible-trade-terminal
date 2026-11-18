@@ -41,7 +41,23 @@ as proposed.
   real FRED (no network in the build environment), PPI history before 2014 has no figures, ALFRED
   refused automated requests for PPI so its history comes only through the key, and nothing here has
   been heard by Cody yet.
-- [ ] Stage 3: countdowns, release read-outs (price reaction first), position-aware warnings, Alt+E calendar.
+- [x] **Stage 3a: live notices.** Countdowns and position-aware warnings, the release read-out
+  (price reaction first), the FRED figure at T + 2/5/15/30/60 minutes, the bell with every notice,
+  the desktop toast when the window is hidden, and the "Countdowns before events" setting.
+  **Built 2026-11-18, not yet heard by Cody.** Caveats: no delivery while the browser is closed
+  (see the item below); for CPI, jobs, PPI and GDP future dates come only from FRED, so without a
+  key the only future countdowns are Fed decisions; the price reaction is the focused chart only;
+  FRED can lag, so the figure may never come within the hour.
+- [ ] **Stage 3b (the next market-events step):** the Alt+E calendar screen (days as headings,
+  filters, Enter to the event's bar), "alert me before this" on any event, and the release history
+  key (the last six figures with the surprise and the price reaction each time). Split from stage
+  3 so the live half could ship first.
+- [ ] **Live market-event notices while the browser is closed.** The design doc promised the
+  alerts route; stage 3a only speaks while a session is open. Doing it needs ONE process-wide
+  owner, as `LocalBackgroundMonitor` and `CircuitAlertCoverage` are for alerts: with a plain
+  second subscriber, a closed tab's circuit (alive for about three minutes) and the headless
+  session would both speak every countdown and read-out, and the bell would ring twice. Not done
+  yet, deliberately.
 - [ ] Stage 4: earnings (Finnhub key), Kalshi expected figures, token unlocks (check DefiLlama's free API).
 - [ ] Stage 5: market pulse (Alt+P), then the change log and catch-up (Alt+U).
 - [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.

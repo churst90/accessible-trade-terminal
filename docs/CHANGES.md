@@ -4,6 +4,79 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events live, stage 3a: countdowns, release read-outs and position warnings, 2026-11-18
+
+- **What was built.** The live half of market events, while the app is open: countdowns before an
+  event that touches an open chart or a held position, the release read-out one minute after it
+  with the focused chart's price reaction, the FRED figure when it posts, the stage 2 bell with
+  every notice, and a desktop toast when the window is hidden. Nothing is heard when the
+  market-events Level is Off, which is still the default. All speech is on the **Event** tier:
+  **Shift+F2 mutes it; F2 does not.**
+- **Pure core.** `MarketEventNoticePlanner` decides what is due from a fakeable `now`, the events,
+  the leads, the open and held markets and the fired set. `MarketEventNoticeWording` writes every
+  sentence. Both are static and free of clocks, buses and I/O; the service only reads state and
+  acts.
+- **Windows, so nothing stale.** A lead L countdown fires only in [T − L, T − L + 20 s); the
+  read-out only in [T + 60 s, T + 90 s); a figure try at minute M only in [T + M, T + M + 20 s).
+  Starting at T − 10 minutes with leads 15 and 1 says only the 1-minute countdown. Each
+  (event id, lead), each read-out and each figure try fires once per service instance.
+- **Which events.** An event needs the user's Level and kind filter, an exact time (day-only
+  expiries, holidays, halvings and old dates get nothing), and a market that is on an open chart
+  tab or held by a position. The planner takes open and held markets separately so a position's
+  market alone is enough; a position whose venue and symbol cannot be classified is not guessed
+  at.
+- **The words.** "CPI in 15 minutes." and "CPI in 1 minute." use the event's `SpokenName`. When a
+  position is held in a market the event touches the sentence adds it: "CPI in 15 minutes. You're
+  long 0.05 BTC on MEXC, stop at 89000.00." At most three positions are named, then "And 2 more."
+  "stop at" is omitted when no working stop order rests on that symbol, and paper positions say
+  "on Paper". Quantities use `QuantityFormatter` and prices `SpeechPriceFormatter`, the existing
+  speech formatters, rather than a second set.
+- **The read-out.** At T + 60 s, one utterance: "CPI out. BTC down 0.8% in the first minute."
+  The price is the focused chart's own live feed — its first close at or after T (within 5 s) and
+  its newest close in the first minute — rounded to one decimal, with "up", "down" or "unchanged".
+  If the chart got no live update between T and T + 60 s, or the first update came more than 5 s
+  after T, the sentence is "CPI out." and says nothing about price. If the focused chart does not
+  touch the event's market, likewise "CPI out."
+- **The figure.** A FRED release with a key ends the read-out "Waiting for the figure." and is
+  asked for at T + 2, 5, 15, 30 and 60 minutes, at most five times, bypassing only the 12-hour
+  gate. `MarketEventFredFeed.RequestReleaseFigureAsync` fetches that release's series only, merges
+  the result, bumps `Version` so the bar map rebuilds, and saves the cache; the key, logging and
+  failure-word rules are unchanged (exception type names only). As soon as the event carries
+  figures the asking stops, and the figure is said with the existing
+  `MarketEventSpeech.FigureClause`. A try that finds nothing says nothing; the last one included.
+  With no key there is no "Waiting for the figure" and no request.
+- **The bell.** `INavigationSonifier.PlayMarketEventBell` is the bar bell without a bar: the same
+  notes, Sound Designer `MarketEvent` override and volume scale, shared through one private core
+  with `FireMarketEventEarcon`. It is silent when "Sound on event bars" is unticked or Shift+F3
+  mutes earcons. The bar bell's own wording and firing times are unchanged.
+- **Desktop notification.** `DesktopNotificationService` subscribes to the new
+  `MarketEventNoticeEvent` under the Alerts category and toasts it only when
+  `_presence.IsAppVisible` is false and `Enabled()` is true. A visible window is already speaking
+  it; a window hidden to the tray has no other channel.
+- **Setting.** "Countdowns before events" in Settings → Narration → Market events, values Off,
+  1 minute, 5 and 1, 15 and 1 (default) and 30, 15 and 1, key
+  `narration.marketEvents.countdowns`. It travels the same four places as every preference
+  (SettingsKeys, AppSettings, PreferencePersistenceService, WorkspaceState) and is not carried
+  into the script sandbox. The service runs on a one-second `TimeProvider.CreateTimer`;
+  `TimeProvider.System` is registered on both heads and the tests use a hand-written fake clock,
+  no package.
+- **Registration.** `MarketEventLiveNotices` is a singleton on the MAUI head, scoped on the
+  WebHost, registered beside `IAccessibilityFeedbackCoordinator`, and resolved by
+  `AppStartupService` so its timer and subscriptions start with the session. It does nothing when
+  `IUserPresence.CanReachUser` is false, as the alert delivery service does.
+- **Tests.** 748 pass on the handoff's working filter; the source-reading classes pass 1,066.
+  Five sabotages, each buildable and each restored from `strategy-lab-data/sab/` with `cp`,
+  `touch` and `cmp`, then green: dropping the countdown window's upper bound turned 1 red;
+  ignoring held markets in the planner turned 1 red; dropping the quiet-feed rule in the wording
+  turned 1 red; removing the presence check turned 1 red; speaking the notice on Chart instead of
+  Event turned 1 red.
+- **Caveats.** No delivery while the browser is closed: that needs one process-wide owner, as the
+  alert monitor has, or a closed tab and the headless session would both speak it
+  (`docs/TODO.md`). For CPI, jobs, PPI and GDP, future dates come only from the FRED feed, so
+  without a key the only future countdowns are Fed decisions, which the seed carries into 2027.
+  The price reaction is the focused chart only. FRED can lag the official release by minutes, so
+  the figure may never come within the hour. Nothing here has been heard by Cody yet.
+
 ### Market events on the chart, stage 2: figures, live FRED dates and the landing bell, 2026-11-18
 
 - **What was built.** The market-events seed now carries the release figures, the model stores them
