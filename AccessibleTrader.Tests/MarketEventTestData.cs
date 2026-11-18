@@ -26,6 +26,7 @@ internal static class MarketEventTestData
         DateTime? moment = null,
         MarketEventPrecision precision = MarketEventPrecision.Exact,
         DateOnly? date = null,
+        MarketEventFigures? figures = null,
         params MarketType[] scope)
     {
         var momentUtc = DateTime.SpecifyKind(
@@ -41,7 +42,8 @@ internal static class MarketEventTestData
             momentUtc,
             precision,
             date ?? DateOnly.FromDateTime(momentUtc),
-            "Test source");
+            "Test source",
+            figures);
     }
 
     public static MarketEventCalendar Calendar(params MarketEvent[] events)
