@@ -814,6 +814,26 @@
                                    @onchange="e => _marketEventsHalvings = e.Value is bool b ? b : _marketEventsHalvings" />
                         </div>
                         <div class="modal-row">
+                            <label for="s-market-events-countdowns">Countdowns before events</label>
+                            <select id="s-market-events-countdowns"
+                                    aria-describedby="s-market-events-countdowns-hint"
+                                    value="@_marketEventsCountdowns"
+                                    @onchange="e => _marketEventsCountdowns = e.Value?.ToString() ?? _marketEventsCountdowns">
+                                <option value="off" selected="@(_marketEventsCountdowns == "off")">Off</option>
+                                <option value="1" selected="@(_marketEventsCountdowns == "1")">1 minute</option>
+                                <option value="5,1" selected="@(_marketEventsCountdowns == "5,1")">5 and 1 minutes</option>
+                                <option value="15,1" selected="@(_marketEventsCountdowns == "15,1")">15 and 1 minutes</option>
+                                <option value="30,15,1" selected="@(_marketEventsCountdowns == "30,15,1")">30, 15 and 1 minutes</option>
+                            </select>
+                        </div>
+                        <p id="s-market-events-countdowns-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            "15 and 1 minutes" by default. Speaks before an event that touches an
+                            open chart or a held position, says the release's price reaction one
+                            minute after it, then the figure when FRED has it. Muted by Shift+F2,
+                            not F2. Off leaves the bar clauses and the landing bell alone.
+                        </p>
+
+                        <div class="modal-row">
                             <label for="s-market-events-sound">Sound on event bars</label>
                             <input id="s-market-events-sound" type="checkbox"
                                    checked="@_marketEventsSound"
@@ -1441,6 +1461,7 @@
     private bool _marketEventsHolidays = true;
     private bool _marketEventsHalvings = true;
     private bool _marketEventsSound = true;
+    private string _marketEventsCountdowns = "15,1";
     private string _marketEventStatus = "";
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
@@ -1493,6 +1514,7 @@
         new("Holiday events", "Narration", "s-market-events-holidays", "market events holidays market closed thanksgiving christmas"),
         new("Bitcoin halving events", "Narration", "s-market-events-halvings", "market events bitcoin halving crypto"),
         new("Sound on event bars", "Narration", "s-market-events-sound", "market events bell earcon landing sound event bars"),
+        new("Countdowns before events", "Narration", "s-market-events-countdowns", "market events countdown warning minutes before cpi jobs fed decision 15 5 1 30 off"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
@@ -2161,6 +2183,7 @@
         _marketEventsHolidays = Store.State.MarketEventsHolidays;
         _marketEventsHalvings = Store.State.MarketEventsHalvings;
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
+        _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
         _marketEventStatus = NoKeyMarketEventStatus();
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
@@ -2491,6 +2514,7 @@
             MarketEventsHolidays = _marketEventsHolidays,
             MarketEventsHalvings = _marketEventsHalvings,
             MarketEventsSoundOnEventBars = _marketEventsSound,
+            MarketEventsCountdowns = _marketEventsCountdowns,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

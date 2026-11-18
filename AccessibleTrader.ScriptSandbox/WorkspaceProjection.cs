@@ -159,6 +159,9 @@ public static class WorkspaceProjection
         // Whether the chart plays the market-event landing bell. A host audio preference; a
         // strategy's signals must not change with the user's earcon settings.
         nameof(WorkspaceState.MarketEventsSoundOnEventBars),
+        // Which countdowns the terminal speaks before a live event. Same reasoning: a host
+        // narration preference, not an input to a strategy.
+        nameof(WorkspaceState.MarketEventsCountdowns),
     };
 
     /// <summary>

@@ -272,6 +272,10 @@ namespace AccessibleTrader.Sdk.Models
         bool MarketEventsHolidays = true,
         bool MarketEventsHalvings = true,
         bool MarketEventsSoundOnEventBars = true,
+        // Which countdowns fire before a live event: "off", "1", "5,1", "15,1" or "30,15,1".
+        // Default "15,1" matches the design doc's 15- and 1-minute leads. Read by the live
+        // notice service; never carried into the script sandbox (see WorkspaceProjection).
+        string MarketEventsCountdowns = "15,1",
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -325,6 +329,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsHolidays: true,
             MarketEventsHalvings: true,
             MarketEventsSoundOnEventBars: true,
+            MarketEventsCountdowns: "15,1",
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

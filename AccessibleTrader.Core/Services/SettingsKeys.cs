@@ -165,6 +165,12 @@ namespace AccessibleTrader.Core.Services
         public const string MarketEventsHalvings = "narration.marketEvents.halvings";
         public const string MarketEventsSound = "narration.marketEvents.sound";
 
+        /// <summary>
+        /// Which countdowns fire before an event: "off", "1", "5,1", "15,1" (default) or
+        /// "30,15,1". A narration preference, so it survives a restart.
+        /// </summary>
+        public const string MarketEventsCountdowns = "narration.marketEvents.countdowns";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

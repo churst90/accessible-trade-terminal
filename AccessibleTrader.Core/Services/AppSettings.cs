@@ -107,6 +107,9 @@ namespace AccessibleTrader.Core.Services
         bool MarketEventsHalvings { get; set; }
         bool MarketEventsSoundOnEventBars { get; set; }
 
+        /// <summary>"off", "1", "5,1", "15,1" or "30,15,1". Default "15,1".</summary>
+        string MarketEventsCountdowns { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -451,6 +454,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.MarketEventsSound, def: true);
             set => Set(SettingsKeys.MarketEventsSound, value);
+        }
+
+        /// <summary>
+        /// The countdowns before a live event, as the setting string. Default "15,1" — the two
+        /// leads the design doc promises. Parsed by <c>MarketEventCountdowns</c>.
+        /// </summary>
+        public string MarketEventsCountdowns
+        {
+            get => GetString(SettingsKeys.MarketEventsCountdowns, "15,1");
+            set => Set(SettingsKeys.MarketEventsCountdowns, value);
         }
 
         /// <summary>
