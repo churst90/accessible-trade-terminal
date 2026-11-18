@@ -140,6 +140,31 @@ public sealed class ForgotPasswordEmailTests : IClassFixture<HostedEmailWebHostF
     }
 
     [Fact]
+    public async Task The_page_does_not_wait_for_the_mail_server()
+    {
+        // Only a real account sends mail, so a response that waited for SMTP would be
+        // seconds slower for registered addresses than for unknown ones.
+        await WebHostIntegration.SeedUserAsync(_host.Factory, "mail-slow@example.test", "Correct-h0rse-battery");
+        var never = new TaskCompletionSource();
+        _host.Email.Hold = never.Task;
+        try
+        {
+            using var client = WebHostIntegration.NewClient(_host.Factory);
+            var post = RequestResetAsync(client, "mail-slow@example.test");
+            var first = await Task.WhenAny(post, Task.Delay(TimeSpan.FromSeconds(20)));
+
+            Assert.Same(post, first);
+            Assert.Equal(HttpStatusCode.OK, (await post).StatusCode);
+            Assert.Single(_host.Email.Snapshot(), m => m.To == "mail-slow@example.test");
+        }
+        finally
+        {
+            _host.Email.Hold = null;
+            never.SetResult();
+        }
+    }
+
+    [Fact]
     public async Task An_unknown_address_gets_the_same_page_and_no_email()
     {
         using var client = WebHostIntegration.NewClient(_host.Factory);

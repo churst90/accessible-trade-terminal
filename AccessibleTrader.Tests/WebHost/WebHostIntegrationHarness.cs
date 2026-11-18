@@ -277,14 +277,19 @@ public sealed class RecordingAccountEmailSender : IAccountEmailSender
     public bool Succeed { get; set; } = true;
     public List<RecordedAccountEmail> Sent { get; } = new();
 
-    public Task<bool> SendAsync(
+    /// <summary>When set, every send is recorded at once and then waits for this task — a
+    /// stand-in for a slow SMTP round trip.</summary>
+    public Task? Hold { get; set; }
+
+    public async Task<bool> SendAsync(
         string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
             Sent.Add(new RecordedAccountEmail(toAddress, subject, plainTextBody));
         }
-        return Task.FromResult(Succeed);
+        if (Hold is { } hold) await hold;
+        return Succeed;
     }
 
     public IReadOnlyList<RecordedAccountEmail> Snapshot()

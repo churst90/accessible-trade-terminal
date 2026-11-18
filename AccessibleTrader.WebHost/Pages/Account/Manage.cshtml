@@ -171,7 +171,8 @@
                     </div>
                 }
                 <label class="auth-check" for="DeleteInput_Understands">
-                    <input asp-for="DeleteInput.Understands" type="checkbox" aria-required="true" />
+                    <input asp-for="DeleteInput.Understands" type="checkbox" aria-required="true"
+                           aria-describedby="delete-understand-err" />
                     I understand this cannot be undone
                 </label>
                 <span id="delete-understand-err" class="field-error" asp-validation-for="DeleteInput.Understands"></span>

@@ -45,6 +45,14 @@ All notable changes to this project will be documented in this file.
   account and Sign out; desktop and `--demo` do not render the group.
 - **New security events** for display name, leaderboard opt-in, password change, email
   change requested/changed, data download and account deletion, all with the client IP.
+- **Review fixes (Claude, after DeepSeek's build).** The reset email is sent without
+  waiting for the mail server, so a registered address no longer answers seconds slower
+  than an unknown one. A wrong current password on Change password, and a wrong
+  authenticator code on Delete, now count toward the 15-minute lockout like the sign-in
+  page (before, a stolen session could guess forever there). Delete no longer reaches into
+  the background alert monitor's memory from the web request (its own next poll drops a
+  deleted user); the folder guard accepts only a direct child of `users/`, never a folder
+  nested inside another. Each fix has a test that was watched to fail with the bug put back.
 - **Caveats.** The leaderboard itself is not built; this release only stores the display
   name and the opt-in. The reset-email throttle is in memory, so a restart forgets the
   five-minute window. Account email needs Brevo (or any SMTP relay) credentials; without

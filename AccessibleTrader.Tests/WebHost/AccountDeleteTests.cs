@@ -150,8 +150,11 @@ public sealed class AccountDeleteTests : IClassFixture<HostedEmailWebHostFixture
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         Assert.Contains("Nothing was deleted",
             await resp.Content.ReadAsStringAsync());
-        Assert.NotNull(await FindByEmailOrNullAsync("delete-2fa@example.test"));
+        var kept = await FindByEmailOrNullAsync("delete-2fa@example.test");
+        Assert.NotNull(kept);
         Assert.True(File.Exists(marker));
+        // The right password reset the count; the wrong code then counts toward lockout.
+        Assert.Equal(1, kept!.AccessFailedCount);
     }
 
     private async Task<AppUser?> FindByEmailOrNullAsync(string email)

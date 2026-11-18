@@ -96,9 +96,13 @@ namespace AccessibleTrader.WebHost.Pages.Account
                                $"?email={Uri.EscapeDataString(email)}" +
                                $"&token={Uri.EscapeDataString(token)}";
 
-                    // The body is handed to the sender; its logs name the domain and subject
-                    // only, never the link.
-                    await _email.SendAsync(
+                    // NOT awaited. An SMTP round trip takes a second or more, and only a real
+                    // account reaches this line, so awaiting it made the response measurably
+                    // slower for registered addresses: a timing oracle beside the identical
+                    // text. The sender never throws and logs its own failures; the request's
+                    // abort token is not passed because the send must outlive the response.
+                    // Its logs name the domain and subject only, never the link.
+                    _ = _email.SendAsync(
                         email,
                         "Reset your Accessible Trader password",
                         "Someone asked to reset the password for this Accessible Trader account."
@@ -107,7 +111,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                         + Environment.NewLine + link
                         + Environment.NewLine + Environment.NewLine
                         + "If you did not ask for this, you can ignore this email; your password has not changed.",
-                        HttpContext.RequestAborted);
+                        CancellationToken.None);
                 }
             }
             else

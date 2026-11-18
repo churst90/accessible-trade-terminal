@@ -64,6 +64,8 @@ public sealed class AccountManagePasswordTests : IClassFixture<HostedEmailWebHos
         var user = await users.FindByEmailAsync("pw-wrong@example.test");
         Assert.True(await users.CheckPasswordAsync(user!, HostedAccountTestSupport.Password));
         Assert.False(await users.CheckPasswordAsync(user!, "BrandNewPass9"));
+        // The wrong guess counts toward lockout, as on the sign-in page.
+        Assert.Equal(1, await users.GetAccessFailedCountAsync(user!));
     }
 }
 

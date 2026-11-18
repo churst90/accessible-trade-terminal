@@ -78,6 +78,17 @@ public class AccountDataFolderGuardTests
     }
 
     [Fact]
+    public void A_folder_inside_another_users_folder_is_never_safe()
+    {
+        // Only a direct child of users/ is an account's folder; anything deeper belongs to
+        // the account (or the anon space) above it.
+        Assert.False(AccountDataFolderGuard.IsSafeUserFolder(
+            Root, Path.Combine(Root, "users", "anon", "11111111-2222-3333-4444-555555555555"), out _));
+        Assert.False(AccountDataFolderGuard.IsSafeUserFolder(
+            Root, Path.Combine(Root, "users", "someone-else", "charts"), out _));
+    }
+
+    [Fact]
     public void Traversal_out_of_the_users_root_is_never_safe()
     {
         Assert.False(AccountDataFolderGuard.IsSafeUserFolder(

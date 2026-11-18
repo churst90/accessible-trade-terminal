@@ -74,7 +74,13 @@ namespace AccessibleTrader.WebHost.Account
                 : usersRoot + Path.DirectorySeparatorChar;
             if (!fullPath.StartsWith(prefix, comparison)) return false;
 
-            var leaf = Path.GetFileName(fullPath.TrimEnd(Path.DirectorySeparatorChar));
+            // A user's folder is a DIRECT child of users/ — never deeper, so a path service
+            // that ever resolved users/anon/x or users/<other>/x cannot pass.
+            var trimmed = fullPath.TrimEnd(Path.DirectorySeparatorChar);
+            var parent = Path.GetDirectoryName(trimmed);
+            if (!string.Equals(parent, usersRoot.TrimEnd(Path.DirectorySeparatorChar), comparison)) return false;
+
+            var leaf = Path.GetFileName(trimmed);
             return !string.Equals(leaf, "anon", comparison);
         }
     }

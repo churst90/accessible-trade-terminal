@@ -46,7 +46,6 @@ namespace AccessibleTrader.WebHost.Pages.Account
         private readonly IConfiguration _config;
         private readonly PaperAccountHub _paper;
         private readonly QuickTradeEquityHub _equity;
-        private readonly IEnumerable<IHostedService> _hostedServices;
         private readonly TimeProvider _time;
         private readonly ILogger<ManageModel> _logger;
 
@@ -59,7 +58,6 @@ namespace AccessibleTrader.WebHost.Pages.Account
             IConfiguration config,
             PaperAccountHub paper,
             QuickTradeEquityHub equity,
-            IEnumerable<IHostedService> hostedServices,
             TimeProvider time,
             ILogger<ManageModel> logger)
         {
@@ -71,7 +69,6 @@ namespace AccessibleTrader.WebHost.Pages.Account
             _config = config;
             _paper = paper;
             _equity = equity;
-            _hostedServices = hostedServices;
             _time = time;
             _logger = logger;
         }
@@ -248,6 +245,16 @@ namespace AccessibleTrader.WebHost.Pages.Account
             KeepModelState(nameof(PasswordInput));
 
             if (!ModelState.IsValid)
+            {
+                await LoadAsync(user);
+                return Page();
+            }
+
+            // Re-confirm through the lockout-counting check first, as every other section
+            // does. ChangePasswordAsync's own PasswordMismatch does NOT count a failed attempt,
+            // so on its own it gave a stolen session unlimited guesses at the current password.
+            if (!await ConfirmPasswordAsync(user, PasswordInput.CurrentPassword,
+                    nameof(PasswordInput) + "." + nameof(PasswordInput.CurrentPassword)))
             {
                 await LoadAsync(user);
                 return Page();
@@ -459,6 +466,8 @@ namespace AccessibleTrader.WebHost.Pages.Account
             {
                 if (!await ConfirmTwoFactorAsync(user, DeleteInput.TwoFactorCode))
                 {
+                    // A wrong code counts toward the same lockout as a wrong password.
+                    await _users.AccessFailedAsync(user);
                     ModelState.AddModelError(nameof(DeleteInput) + "." + nameof(DeleteInput.TwoFactorCode),
                         "That authenticator or recovery code didn't work. Nothing was deleted.");
                     await LoadAsync(user);
@@ -486,10 +495,9 @@ namespace AccessibleTrader.WebHost.Pages.Account
             _paper.Evict(user.Id);
             _equity.Evict(user.Id);
             WebHostBrowserCircuitHandler.ForgetUser(user.Id);
-            foreach (var hosted in _hostedServices)
-            {
-                if (hosted is HostedAlertMonitor monitor) monitor.ForgetUser(user.Id);
-            }
+            // The hosted alert monitor is NOT touched from here: its maps are plain
+            // dictionaries owned by its poll loop, and its next poll drops any user whose
+            // folder is gone (PollOnceAsync's stale-user sweep).
 
             // 2. The Identity row.
             var deleted = await _users.DeleteAsync(user);
