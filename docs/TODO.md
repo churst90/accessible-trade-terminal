@@ -70,11 +70,39 @@ and Identity already has 2FA, lockout and rate limits.
   each part (as TradingView) and kept valid, said in the manual to be approximate; no volume. Both live
   streams feed the last bar. Never tradeable, paper included. Today's nearest thing is "Compare symbol
   (ratio)", a close-only line.
-- [ ] **Open questions put to Cody 2026-11-18:** colour words for histograms, profiles and the heatmap
-  (today by design only lines and signals say a colour); a TD Sequential style 9 and 13 count (none in
-  the app); and which missing TradingView features to add (line and area charts, Renko and range bars,
-  percent and indexed-to-100 scales, several charts on one screen, extended-hours sessions, and the
-  indicator template below).
+- [ ] **The context menu items (Cody: "all recommended options", 2026-11-18).** Being built by
+  DeepSeek, branch `att-ctx-menu`: add label here, horizontal line here, alert at this price, buy /
+  sell limit here (opens the dashboard filled in, never places), copy price, copy this bar, bar
+  replay from here, add indicator, object tree, remove all drawings (asks first); per series: alert
+  on this line, copy value, move to a new pane. Each names its shortcut.
+- [ ] **Colour said the same way everywhere (Cody: "consistency", 2026-11-18).** Next DeepSeek run
+  after the menu. Histograms and volume bars say their colour as lines do (on arrival, then only
+  where it changes); the heatmap says how busy a cell is rather than a gradient's colour name; all
+  behind the existing opt-in look setting.
+- [ ] **Profiles split into buying and selling, as TradingView draws them (Cody, 2026-11-18).** Same
+  run as the colours. Today a profile row holds total volume only and is drawn in one colour (POC in
+  another). Each row gets buying and selling volume (a bar's volume counts as buying when it closed
+  up, selling when down, as TradingView does without lower-timeframe data), drawn in two colours,
+  spoken as "62 percent buying", and heard as Cody proposed: **triangle when buyers lead the row,
+  sine when sellers do**, the oscillator rule (above zero triangle, below sine), keeping the
+  accepted profile sound's pitch by part and grit by size.
+- [ ] **"9-13 sequential" (Cody named it, 2026-11-18).** A DeMark-style count: setup 1 to 9 (close
+  against the close 4 bars back), then countdown 1 to 13 (close against the low/high 2 bars back),
+  with perfection, cancellation and recycle rules to settle from the published descriptions and to
+  check against a TradingView community script before calling it exact. A tick per count, a distinct
+  tone at 9 and at 13, spoken "Buy setup 9" / "Sell countdown 13". Not called "TD Sequential" (a
+  DeMark trademark).
+- [ ] **TradingView gaps, Cody's pick 2026-11-18 ("1, 2 and 3 for right now"):**
+  1. **More chart types.** Line and area (close only), then Renko, range bars, line break, Kagi and
+     Point & Figure. The brick and box types drop time, so the bar cursor, playback and speech must
+     say a brick's own start and end time, and indicators run on the bricks.
+  2. **Percent and indexed-to-100 price scales.** Percent from the first visible bar (TradingView's),
+     indexed to 100 the same way; speech says "+4.2 percent" / "104.2"; pairs with Add symbol and the
+     formula charts.
+  3. **Indicator templates.** Already filed, see "Indicator template (Cody, 2026-11-05)" below.
+
+  Not picked for now: several charts on one screen with linked symbol and crosshair; extended-hours
+  sessions for stocks.
 
 ## Market events, market pulse and the Go bar (Cody, 2026-11-18)
 
