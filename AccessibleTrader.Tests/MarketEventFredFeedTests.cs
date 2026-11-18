@@ -51,6 +51,7 @@ public class MarketEventFredFeedTests
     {
         public DateTime Now = Start;
         public bool Fail;
+        public bool NetworkFail;
         public readonly FakeHttpMessageHandler Handler = new();
         public readonly string CachePath =
             Path.Combine(TestTemp.NewDir("market-events-"), "fred.json");
@@ -60,7 +61,9 @@ public class MarketEventFredFeedTests
         public Rig(string? key = Secret)
         {
             void Rule(string regex, string body) =>
-                Handler.Add(HttpMethod.Get, regex, _ => Respond(body));
+                Handler.Add(HttpMethod.Get, regex, _ => NetworkFail
+                    ? throw new HttpRequestException("connection refused")
+                    : Respond(body));
 
             Rule("release_id=10", """{"release_dates":[{"release_id":10,"date":"2026-07-14"},{"release_id":10,"date":"2026-09-11"}]}""");
             Rule("release_id=50", """{"release_dates":[]}""");
@@ -169,6 +172,39 @@ public class MarketEventFredFeedTests
     }
 
     [Fact]
+    public async Task ANoAnswerFailureSaysNoAnswerAndKeepsTheSeed()
+    {
+        var rig = new Rig();
+        rig.NetworkFail = true;
+
+        var status = await rig.Feed.UpdateNowAsync();
+
+        Assert.Equal(MarketEventFeedState.Failed, status.State);
+        Assert.Contains("no answer", status.Describe());
+        Assert.Empty(rig.Feed.Events);
+    }
+
+    [Fact]
+    public async Task TheStatusTextNamesTheFetchTimeAndTheFailureTime()
+    {
+        var fetched = new DateTime(2026, 11, 18, 6, 10, 0, DateTimeKind.Utc);
+        var fetchedLocal = fetched.ToLocalTime()
+            .ToString("d MMMM yyyy 'at' HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        var failed = fetched.AddHours(1);
+        var failedLocal = failed.ToLocalTime()
+            .ToString("d MMMM yyyy 'at' HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+        Assert.Equal(
+            $"Release dates and figures updated from FRED on {fetchedLocal}.",
+            new MarketEventFeedStatus(MarketEventFeedState.Fetched, fetched, null, null,
+                new DateOnly(2026, 7, 30)).Describe());
+        Assert.Equal(
+            $"The last update from FRED failed on {failedLocal}: no answer. Using what was stored before.",
+            new MarketEventFeedStatus(MarketEventFeedState.Failed, fetched, failed, "no answer",
+                new DateOnly(2026, 7, 30)).Describe());
+    }
+
+    [Fact]
     public async Task TheTwelveHourGateHoldsAndForceSkipsIt()
     {
         var rig = new Rig();
@@ -196,7 +232,9 @@ public class MarketEventFredFeedTests
         var status = await rig.Feed.UpdateNowAsync();
 
         Assert.True(File.Exists(rig.CachePath));
-        Assert.DoesNotContain(Secret, File.ReadAllText(rig.CachePath));
+        string cache = File.ReadAllText(rig.CachePath);
+        Assert.DoesNotContain(Secret, cache);
+        Assert.DoesNotContain(Uri.EscapeDataString(Secret), cache);
         Assert.DoesNotContain(Secret, status.Describe());
         Assert.DoesNotContain(Secret, status.ToString());
     }

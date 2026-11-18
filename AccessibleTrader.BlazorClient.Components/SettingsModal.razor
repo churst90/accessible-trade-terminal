@@ -2161,6 +2161,7 @@
         _marketEventsHolidays = Store.State.MarketEventsHolidays;
         _marketEventsHalvings = Store.State.MarketEventsHalvings;
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
+        _marketEventStatus = NoKeyMarketEventStatus();
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -2274,21 +2275,22 @@
     private async Task RefreshMarketEventStatusAsync()
     {
         var feed = ServiceProvider.GetService(typeof(MarketEventFredFeed)) as MarketEventFredFeed;
-        if (feed == null)
-        {
-            var seedDate = MarketEventSeed.Load().Events
-                .Where(e => e.Kind == MarketEventKind.Economy)
-                .Select(e => e.Date)
-                .DefaultIfEmpty(default)
-                .Max();
-            _marketEventStatus = new MarketEventFeedStatus(
-                MarketEventFeedState.NoKey, null, null, null, seedDate).Describe();
-        }
-        else
-        {
-            _marketEventStatus = (await feed.GetStatusAsync()).Describe();
-        }
+        _marketEventStatus = feed == null
+            ? NoKeyMarketEventStatus()
+            : (await feed.GetStatusAsync()).Describe();
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>The seed-state status, also used before the live feed answers or when none is registered.</summary>
+    private static string NoKeyMarketEventStatus()
+    {
+        var seedDate = MarketEventSeed.Load().Events
+            .Where(e => e.Kind == MarketEventKind.Economy)
+            .Select(e => e.Date)
+            .DefaultIfEmpty(default)
+            .Max();
+        return new MarketEventFeedStatus(
+            MarketEventFeedState.NoKey, null, null, null, seedDate).Describe();
     }
 
     /// <summary>
