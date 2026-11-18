@@ -139,7 +139,7 @@
             <GatedButton role="menuitem" class="ctx-item" OnClick="OnMoveToNewPane"
                     Gate="MovePaneGate">Move to a new pane</GatedButton>
             <GatedButton role="menuitem" class="ctx-item" OnClick="OnMoveToPricePane"
-                    Gate="MovePaneGate">Move to the price pane</GatedButton>
+                    Gate="PricePaneGate">Move to the price pane</GatedButton>
             <GatedButton role="menuitem" class="ctx-item" OnClick="OnRemove"
                     Gate="RemoveGate">Remove</GatedButton>
         }
@@ -691,6 +691,14 @@
         : _selectedSeries.IsDrawing ? "A drawing cannot be moved to another pane."
         : CanMovePane(_selectedSeries) ? null
         : "This series' provider fixes its pane.";
+
+    /// <summary>As <see cref="MovePaneGate"/>, and not for a series already on the price pane.</summary>
+    private string? PricePaneGate() =>
+          MovePaneGate() is { } why ? why
+        : string.IsNullOrEmpty(_selectedSeries!.Pane)
+          || string.Equals(_selectedSeries.Pane, ChartContextHere.MainPane, StringComparison.OrdinalIgnoreCase)
+            ? "It is already on the price pane."
+        : null;
 
     private void OnRemove()
     {

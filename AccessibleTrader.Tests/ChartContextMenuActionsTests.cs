@@ -560,6 +560,20 @@ public sealed class ChartContextMenuActionsTests
     }
 
     [Fact]
+    public void Move_to_the_price_pane_is_refused_for_a_series_already_there()
+    {
+        var h = NewHarness(State(new[]
+        {
+            Series("candles", "Candles", code: "CANDLES"),
+            Series("sma-1", "SMA 20", "Main", "SMA", 40, 45, 52, 55),
+        }));
+        using var _ = h;
+        var cut = OpenSeries(h, "SMA 20");
+        GatedButtonAssert.IsRefusedBecause(cut, Item(cut, "Move to the price pane"), "already on the price pane");
+        h.SeriesManager.DidNotReceive().MoveSeriesToPane(Arg.Any<string>(), Arg.Any<string?>());
+    }
+
+    [Fact]
     public void Alerts_and_pane_moves_are_refused_for_drawings_and_provider_fixed_series()
     {
         var h = NewHarness(State(new[]
