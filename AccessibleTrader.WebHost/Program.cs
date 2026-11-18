@@ -197,6 +197,21 @@ if (hostMode == HostMode.Hosted)
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.IPasswordResetRequestNotifier,
                                   AccessibleTrader.WebHost.Services.Push.OwnerPushResetRequestNotifier>();
 
+    // The public leaderboard: one JSON file rebuilt every five minutes from the users who
+    // opted in. Accounts-only (Hosted is exactly --accounts) and deliberately NOT behind
+    // DemoPolicy.AllowBackgroundAlerts — that switch is about alerts, and the leaderboard is a
+    // product surface of the hosted build. Desktop and --demo never reach this block.
+    string leaderboardOutput = builder.Configuration["Leaderboard:OutputPath"] ?? "";
+    if (string.IsNullOrWhiteSpace(leaderboardOutput))
+        leaderboardOutput = Path.Combine(instanceRoot, "public", "leaderboard.json");
+    builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
+        new AccessibleTrader.WebHost.Services.LeaderboardPublisher(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            instanceRoot,
+            leaderboardOutput,
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.LeaderboardPublisher>>()));
+
     // GATED 2026-09-11 (Cody): the hosted terminal is paper-only, and alerts evaluated after the
     // browser closes are not useful there. DemoPolicy.AllowBackgroundAlerts is false for every
     // mode but Full, so this never registers today; it stays behind the policy rather than being
