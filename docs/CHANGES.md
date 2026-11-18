@@ -43,18 +43,40 @@ All notable changes to this project will be documented in this file.
   open-to-close move, and reads whatever the level is set to. Apostrophe and Shift+apostrophe jump
   to the next and previous event bar; with the level off, at either end, or with nothing passing
   the filters, they say why rather than nothing.
+- **Placement speed (review fix).** `MarketEventPlacement.Place` now computes each bar's chart
+  date and UTC open once into arrays and finds each event's bars by binary search, instead of
+  scanning every bar per event and converting its zone again. Fresh-cache `For` timings fell:
+  stock daily 2006–2026 (7,300 bars) 153 → 6 ms; crypto daily 2012–2026 (5,100) 65 → 2 ms;
+  crypto 1m, 35 days (50,000) 77 → 2 ms; crypto 1h, 5 years (43,800) 424 → 3 ms. An internal
+  `[ThreadStatic]` `BarDateCalls` counter guards the property, not a time: placing all 3,509 seed
+  events on 5,000 daily bars and 5,000 hourly bars must call `BarDate` at most bars + events.
+  Putting one per-event scan back turned the guard red at 9,794,081 calls (limit 8,509);
+  restored from `strategy-lab-data/sab/` with `cp`, `touch`, `cmp`, green again.
+- **Compact seed.** `us_events_seed.json` now holds the unchanged header plus one date array per
+  source (FOMC scheduled and unscheduled separately); the repeated names, importance, scope,
+  source and the 8:30/14:00 New York release-time rules moved into `MarketEventSeed.cs`. The
+  file fell from 1,086,612 bytes to 47,076; the same 3,509 events, counts, dates, daylight-saving
+  times and header. `scripts/build_market_events_seed.py` writes the new format.
+- **One event map.** `IMarketEventBarMapCache` is registered once (WebHost scoped, BlazorClient
+  singleton, beside `IChartPatternCache`), and both `AccessibilityFeedbackCoordinator` and
+  `BarDetailService` take the interface, so navigation speech, the detail key and the apostrophe
+  jumps share one map instead of each service building its own.
+- **Setting label.** The select under the "Market events on the chart" legend is now labelled
+  **Level**, so a screen reader no longer reads the group name twice; the manual names it the
+  same way.
 - **Caveats.** The seed ends where its inputs end — July 2026 for the releases, 2027 for the Fed;
   stage 2 fetches the rest. Fed decisions before 2013 and releases before 1997 are day-only.
   There are no actual or expected figures yet, no live fetch, no countdowns and no sound.
   **Nothing has been heard by Cody yet.**
-- **Tests.** 79 new `MarketEvent*` tests (seed counts, header, first/last dates, daylight saving,
-  the rules, one test per placement rule, the cache built once, settings defaults and filtering,
-  speech wording, detail key, jumps, key bindings), plus the two new chart-scope cases in
-  `Phase5KeyboardScopeTests`. Four sabotages, each after green and restored from
-  `strategy-lab-data/sab/`: excluding a bar's opening moment from its span turned 1 red; a fixed
-  UTC-5 in place of New York turned 1 red (a cache test added for that gap); defaulting the level
-  to Important only turned 1 red; dropping rule 5's next-bar fallback turned 2 red. Every restore
-  rebuilt green.
+- **Tests.** 81 new `MarketEvent*` tests (seed counts, header, first/last dates, daylight saving,
+  the rules, one test per placement rule, the cache built once, the placement call-count guard,
+  the one shared cache, settings defaults and filtering, speech wording, detail key, jumps, key
+  bindings), plus the two new chart-scope cases in `Phase5KeyboardScopeTests`. Four sabotages,
+  each after green and restored from `strategy-lab-data/sab/`: excluding a bar's opening moment
+  from its span turned 1 red; a fixed UTC-5 in place of New York turned 1 red (a cache test added
+  for that gap); defaulting the level to Important only turned 1 red; dropping rule 5's next-bar
+  fallback turned 2 red. The review's per-event scan turned the new placement guard red (1) and
+  was restored green. Every restore rebuilt green.
 
 ### Cipher B's sell dot placed like its buy dot when the Zero line is hidden, 2026-11-17
 

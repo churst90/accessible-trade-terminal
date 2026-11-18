@@ -1382,9 +1382,10 @@ halved. Those are **market events**, and the terminal can put each one on the ba
 happened — the same bar TradingView puts it on — and tell you about it.
 
 **They are off by default**, so a new chart stays quiet. Turn them on under **Settings (F12) →
-Narration → Market events on the chart**. The level chooses how much you hear: **Off**,
-**Important only** (CPI, the jobs report and Fed decisions), **Important and medium** (adds PPI,
-GDP and the quarterly expiries), or **All**. Below the level, five tick boxes choose the kinds:
+Narration → Market events on the chart**. The **Level** setting inside **Market events on the
+chart** chooses how much you hear: **Off**, **Important only** (CPI, the jobs report, Fed
+decisions and Bitcoin halvings), **Important and medium** (adds PPI, GDP and the quarterly
+expiries), or **All**. Below **Level**, five tick boxes choose the kinds:
 **Economy** (CPI, jobs, PPI, GDP), **Fed**, **Expiries**, **Holidays** and **Bitcoin halvings**. All
 five start ticked; a kind you untick is never spoken or jumped to. Events are filtered to the
 chart's own market: a crypto chart never mentions a stock expiry, and a stock chart never mentions
@@ -1401,15 +1402,13 @@ more events"*; on weekly and monthly bars each name carries its weekday.
 
 **Alt+Shift+D** adds an **"Events on this bar"** section: every event there with its long name,
 time, importance, where it was placed and its source, then what price did from that bar's open to
-close. This key reads the events whatever the level is set to, because you asked; the kind boxes
+close. This key reads the events whatever **Level** is set to, because you asked; the kind boxes
 still apply, and a bar with no events gets no section.
 
 **Apostrophe and Shift+apostrophe** (`'` and `Shift+'`) jump to the next and previous bar with an
-event, the way comma and period move between chart formations. Both keys need the level on; with it
+event, the way comma and period move between chart formations. Both keys need **Level** on; with it
 off the terminal says *"Market events are off. Turn them on in Settings, Narration."* At the end of
-the data it says *"No later market events."* or *"No earlier market events."* — never nothing. The
-apostrophe's OEM spelling is `OEM7` (so `Shift+OEM7` is Shift+apostrophe); it is the same physical
-key, bound the way backslash is bound as both `\` and `OEM5`.
+the data it says *"No later market events."* or *"No earlier market events."* — never nothing.
 
 The dates ship with the terminal: US release dates from FRED and Fed decisions from the Federal
 Reserve through July 2026 and 2027 respectively, plus the rule-worked expiries, holidays and
@@ -4463,10 +4462,10 @@ nothing to say; and playback narration is on because it is what the terminal alr
   are, and it is also a calendar read to you every few seconds; turning it off keeps the
   signals and the formation outcomes and stops the dates.
 - **Market events on the chart** (off) — CPI, the jobs report, PPI, GDP, Fed decisions, options
-  expiries, US market holidays and Bitcoin halvings, said on the bars they happened on. The
-  level (off, important only, important and medium, all) gates the five kind boxes. Off by
-  default so a new chart stays quiet; the full description is under *Reading the Chart → Market
-  events on the chart*.
+  expiries, US market holidays and Bitcoin halvings, said on the bars they happened on. Its
+  **Level** setting (off, important only, important and medium, all) gates the five kind boxes.
+  Off by default so a new chart stays quiet; the full description is under *Reading the Chart →
+  Market events on the chart*.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery

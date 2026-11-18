@@ -78,6 +78,7 @@ KEY_TO_DOC: dict[str, tuple[str, ...]] = {
     "OEMMINUS": ("-",),
     "OEMPLUS": ("=",),
     "OEMCOMMA": (",", "Comma"),
+    "OEM7": ("'", "Apostrophe"),
     ",": (",", "Comma"),
     "\\": ("Backslash", "\\"),
 }
