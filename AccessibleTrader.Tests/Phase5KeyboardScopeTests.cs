@@ -43,6 +43,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.NavPatternNext)]
         [InlineData(SystemCommand.CyclePatternFocus)]
         [InlineData(SystemCommand.ClearPatternFocus)]
+        [InlineData(SystemCommand.NavEventNext)]
+        [InlineData(SystemCommand.NavEventPrev)]
         // Quick trade: the stop and the limit both come from the bar under the cursor, and
         // Shift+Enter must stay available to every form control in the application.
         [InlineData(SystemCommand.QuickArmRisk1)]
@@ -202,6 +204,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.NavLeftJump, SystemCommand.NavRightJump,
                 SystemCommand.NavPatternPrev, SystemCommand.NavPatternNext,
                 SystemCommand.CyclePatternFocus, SystemCommand.ClearPatternFocus,
+                SystemCommand.NavEventNext, SystemCommand.NavEventPrev,
                 SystemCommand.QuickArmRisk1, SystemCommand.QuickArmRisk2, SystemCommand.QuickArmRisk3,
                 SystemCommand.QuickSetStop, SystemCommand.QuickPlaceLimit, SystemCommand.QuickPlaceMarket,
                 SystemCommand.QuickDisarm, SystemCommand.QuickArmStatus,

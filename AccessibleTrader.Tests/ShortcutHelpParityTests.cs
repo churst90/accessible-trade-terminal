@@ -81,6 +81,9 @@ public class ShortcutHelpParityTests
         // The bindings carry both an OEM spelling and the bare character for the punctuation
         // keys; collapse onto the OEM one so two bindings for one physical key are one Combo.
         ["\\"] = "OEM5", ["["] = "OEM4", ["]"] = "OEM6", ["-"] = "OEMMINUS", ["="] = "OEMPLUS",
+        // The apostrophe's OEM spelling (bound beside the character, as backslash is) is the same
+        // physical key the help dialog names as ' — so the documents need not print "OEM7".
+        ["OEM7"] = "'",
         [" "] = "SPACE", ["Spacebar"] = "SPACE",
         ["Esc"] = "ESCAPE", ["Del"] = "DELETE", ["Application"] = "CONTEXTMENU",
     };

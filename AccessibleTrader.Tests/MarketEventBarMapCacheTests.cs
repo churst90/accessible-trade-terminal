@@ -1,0 +1,87 @@
+using AccessibleTrader.Core.Services.MarketEvents;
+using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Models;
+
+namespace AccessibleTrader.Tests;
+
+/// <summary>The bar-to-event map is built once per chart data, not once per key press.</summary>
+public class MarketEventBarMapCacheTests
+{
+    private static readonly DateTime Now = new(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void ASecondReadDoesNotRebuildTheMap()
+    {
+        var bars = new[]
+        {
+            MarketEventTestData.Bar(new DateTime(2024, 3, 11, 0, 0, 0, DateTimeKind.Utc)),
+            MarketEventTestData.Bar(new DateTime(2024, 3, 12, 0, 0, 0, DateTimeKind.Utc)),
+        };
+        var e = MarketEventTestData.Event(moment: new DateTime(2024, 3, 12, 12, 30, 0, DateTimeKind.Utc));
+        var cache = new MarketEventBarMapCache(MarketEventTestData.Calendar(e));
+        var state = MarketEventTestData.State(bars, timeframe: "1d");
+
+        var first = cache.For(state, Now);
+        var second = cache.For(state, Now);
+
+        Assert.Equal(1, cache.BuildCount);
+        Assert.Equal(first.Count, second.Count);
+        Assert.Equal(first.Select(p => p.BarIndex), second.Select(p => p.BarIndex));
+    }
+
+    [Fact]
+    public void AStockChartsDayIsNewYorkTimeIncludingDaylightSaving()
+    {
+        var bars = new[]
+        {
+            MarketEventTestData.Bar(new DateTime(2024, 3, 11, 0, 0, 0, DateTimeKind.Utc)),
+            MarketEventTestData.Bar(new DateTime(2024, 3, 12, 0, 0, 0, DateTimeKind.Utc)),
+        };
+        // 00:30 New York on the 12th in March (EDT); a fixed UTC-5 would call it the 11th.
+        var e = MarketEventTestData.Event(
+            id: "dst", moment: new DateTime(2024, 3, 12, 4, 30, 0, DateTimeKind.Utc));
+        var cache = new MarketEventBarMapCache(MarketEventTestData.Calendar(e));
+        var state = MarketEventTestData.State(bars, timeframe: "1d", market: MarketType.Stock);
+
+        var placed = cache.For(state, Now).Single(p => p.Event.Id == "dst" && p.IsPlaced);
+
+        Assert.Equal(1, placed.BarIndex);
+    }
+
+    [Fact]
+    public void NewBarsRebuildTheMap()
+    {
+        var bars = new List<Ohlcv>
+        {
+            MarketEventTestData.Bar(new DateTime(2024, 3, 11, 0, 0, 0, DateTimeKind.Utc)),
+            MarketEventTestData.Bar(new DateTime(2024, 3, 12, 0, 0, 0, DateTimeKind.Utc)),
+        };
+        var e = MarketEventTestData.Event(moment: new DateTime(2024, 3, 12, 12, 30, 0, DateTimeKind.Utc));
+        var cache = new MarketEventBarMapCache(MarketEventTestData.Calendar(e));
+        var state = MarketEventTestData.State(bars, timeframe: "1d");
+
+        cache.For(state, Now);
+        bars.Add(MarketEventTestData.Bar(new DateTime(2024, 3, 13, 0, 0, 0, DateTimeKind.Utc)));
+        cache.For(MarketEventTestData.State(bars, timeframe: "1d"), Now);
+
+        Assert.Equal(2, cache.BuildCount);
+    }
+
+    [Fact]
+    public void ScheduledIsAppliedOnReadWithoutRebuilding()
+    {
+        var bars = new[] { MarketEventTestData.Bar(new DateTime(2024, 3, 12, 0, 0, 0, DateTimeKind.Utc)) };
+        var e = MarketEventTestData.Event(moment: new DateTime(2024, 3, 12, 12, 30, 0, DateTimeKind.Utc));
+        var cache = new MarketEventBarMapCache(MarketEventTestData.Calendar(e));
+        var state = MarketEventTestData.State(bars, timeframe: "1d");
+
+        var before = cache.For(state, new DateTime(2024, 3, 12, 10, 0, 0, DateTimeKind.Utc));
+        var after = cache.For(state, new DateTime(2024, 3, 12, 13, 0, 0, DateTimeKind.Utc));
+
+        var beforePlaced = Assert.Single(before, p => p.IsPlaced);
+        var afterPlaced = Assert.Single(after, p => p.IsPlaced);
+        Assert.Equal(MarketEventPlacement.Scheduled, beforePlaced.Placement);
+        Assert.Null(afterPlaced.Placement);
+        Assert.Equal(1, cache.BuildCount);
+    }
+}
