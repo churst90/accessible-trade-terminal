@@ -34,8 +34,11 @@
 
             <h2 id="market-event-calendar-title" tabindex="-1">Market events</h2>
 
-            <p style="color:var(--text-muted); font-size:0.9em; margin: 4px 0 12px 0;">
+            <p style="color:var(--text-muted); font-size:0.9em; margin: 4px 0 4px 0;">
                 @_status
+            </p>
+            <p style="color:var(--text-muted); font-size:0.9em; margin: 0 0 12px 0;">
+                @_kalshiStatus
             </p>
 
             <div role="group" aria-label="Filters"
@@ -172,6 +175,7 @@
     private static readonly IReadOnlyList<MarketType> AllMarkets = Enum.GetValues<MarketType>();
 
     private string _status = "";
+    private string _kalshiStatus = "";
     private string _range = "next7";
     private string _importance = "importantOnly";
     private bool _economy = true;
@@ -187,6 +191,8 @@
 
     private MarketEventFredFeed? _feed;
     private bool _feedResolved;
+    private MarketEventKalshiFeed? _kalshi;
+    private bool _kalshiResolved;
     private MarketEventCalendar? _calendar;
     private MarketEventLiveNotices? _live;
     private bool _liveResolved;
@@ -207,9 +213,22 @@
         }
     }
 
+    private MarketEventKalshiFeed? Kalshi
+    {
+        get
+        {
+            if (!_kalshiResolved)
+            {
+                _kalshi = Services.GetService(typeof(MarketEventKalshiFeed)) as MarketEventKalshiFeed;
+                _kalshiResolved = true;
+            }
+            return _kalshi;
+        }
+    }
+
     private MarketEventCalendar Calendar
         => _calendar ??= Services.GetService(typeof(MarketEventCalendar)) as MarketEventCalendar
-            ?? new MarketEventCalendar(feed: Feed);
+            ?? new MarketEventCalendar(feed: Feed, expectedFeed: Kalshi);
 
     private MarketEventLiveNotices? Live
     {
@@ -226,7 +245,7 @@
 
     private IMarketEventBarMapCache Map
         => _map ??= Services.GetService(typeof(IMarketEventBarMapCache)) as IMarketEventBarMapCache
-            ?? new MarketEventBarMapCache(Calendar, Feed);
+            ?? new MarketEventBarMapCache(Calendar, Feed, Kalshi);
 
     private MarketEventNavigator Navigator
         => _navigator ??= Services.GetService(typeof(MarketEventNavigator)) as MarketEventNavigator
@@ -291,6 +310,8 @@
         {
             _status = MarketEventFeedStatus.SeedOnly().Describe();
         }
+
+        _kalshiStatus = Kalshi?.Status.Describe() ?? new MarketEventKalshiStatus(0, null).Describe();
     }
 
     private void Rebuild()

@@ -36,7 +36,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             IReadOnlyList<MarketEventHeldPosition> positions)
         {
             string lead = leadMinutes == 1 ? "1 minute" : $"{leadMinutes} minutes";
-            string text = $"{e.SpokenName} in {lead}.";
+            string expected = MarketEventSpeech.ExpectedShort(e);
+            string text = expected.Length == 0
+                ? $"{e.SpokenName} in {lead}."
+                : $"{e.SpokenName}, {expected}, in {lead}.";
             if (positions.Count == 0) return text;
 
             var parts = new List<string>(Math.Min(positions.Count, 3) + 1) { text };
@@ -77,8 +80,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// <para>
         /// <paramref name="awaitingFigure"/> is true for a FRED release whose figure has not
         /// arrived, so the sentence ends "Waiting for the figure." When the event already carries
-        /// its figures, the existing <see cref="MarketEventSpeech.FigureClause"/> rides along
-        /// instead — one wording, wherever the figure is said.
+        /// its figures, the figure rides along: the compact actual/expected/surprise clause when
+        /// Kalshi has an expected, otherwise the existing
+        /// <see cref="MarketEventSpeech.FigureClause"/> — one wording, wherever the figure is said.
         /// </para>
         /// </summary>
         public static string ReadOut(
@@ -120,7 +124,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 };
             }
 
-            string figure = e.Figures != null ? MarketEventSpeech.FigureClause(e) : "";
+            string release = MarketEventSpeech.ReleaseFigureClause(e);
+            string figure = release.Length > 0
+                ? release + "."
+                : e.Figures != null ? MarketEventSpeech.FigureClause(e) : "";
             if (figure.Length > 0) text += " " + figure;
             else if (awaitingFigure) text += " Waiting for the figure.";
             return text;
@@ -129,8 +136,15 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// <summary>How far before T a live close may be and still be "the price going in".</summary>
         public static readonly TimeSpan BaselineReach = TimeSpan.FromMinutes(5);
 
-        /// <summary>The figure notice's sentence: the existing figure clause, or "" if none.</summary>
-        public static string Figure(MarketEvent e) => MarketEventSpeech.FigureClause(e);
+        /// <summary>
+        /// The figure notice's sentence: the compact actual/expected/word when Kalshi has an
+        /// expected figure, otherwise the existing figure clause (or "" if none).
+        /// </summary>
+        public static string Figure(MarketEvent e)
+        {
+            string release = MarketEventSpeech.ReleaseFigureClause(e);
+            return release.Length > 0 ? release + "." : MarketEventSpeech.FigureClause(e);
+        }
 
         private static string Percent(double value)
             => Math.Abs(value).ToString("0.0", CultureInfo.InvariantCulture) + "%";

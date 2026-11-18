@@ -80,12 +80,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             MarketEventCalendar? calendar = null,
             IDataService? dataService = null,
             IUserPresence? presence = null,
-            ILogger<MarketEventLiveNotices>? logger = null)
+            ILogger<MarketEventLiveNotices>? logger = null,
+            IMarketEventExpectedFeed? expectedFeed = null)
         {
             _store = store;
             _bus = bus;
             _feed = feed;
-            _calendar = calendar ?? new MarketEventCalendar(feed: feed);
+            _calendar = calendar
+                ?? new MarketEventCalendar(feed: feed, expectedFeed: expectedFeed);
             _orders = orders;
             _paper = paper;
             _apiKeys = apiKeys;
@@ -216,6 +218,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     {
                         var updated = _feed.Events.FirstOrDefault(e => e.Id == notice.Event.Id)
                             ?? notice.Event;
+                        updated = _calendar.ApplyExpected(updated);
                         string text = MarketEventNoticeWording.Figure(updated);
                         if (text.Length > 0) Publish(text, notice);
                     }

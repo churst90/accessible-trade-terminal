@@ -35,22 +35,25 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 : MarketEventSpeech.TimeText(e);
 
         /// <summary>
-        /// "8:30, CPI, important, up 3.1% on the month, previous down 2.9%."
+        /// "8:30, CPI, important, expected 3.0, up 3.1% on the month, previous down 2.9%."
         ///
         /// <para>
         /// A past event reads its actual figure in the existing figure-clause words. A future one
-        /// has no actual, so it says only what the previous figure was, when that is known.
-        /// Nothing is said about "expected" — that needs the stage 4 source.
+        /// has no actual, so it says only what the previous figure was, when that is known. An
+        /// expected figure, when Kalshi has one, comes after the importance word for both.
         /// </para>
         /// </summary>
         public static string EventLine(MarketEvent e, DateTime nowUtc)
         {
-            var parts = new List<string>(4)
+            var parts = new List<string>(5)
             {
                 TimeWord(e),
                 e.SpokenName,
                 ImportanceWord(e.Importance),
             };
+
+            string expected = MarketEventSpeech.ExpectedShort(e);
+            if (expected.Length > 0) parts.Add(expected);
 
             string figure = IsPast(e, nowUtc)
                 ? (e.Figures != null ? MarketEventSpeech.FigureClause(e) : "")
@@ -119,14 +122,16 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         }
 
         /// <summary>
-        /// "13 February 2026, up 3.0% on the month, previous down 2.9; Price fell 1.2% over this
-        /// bar." A release with no figure says "no figure"; the price part is left out entirely
-        /// when <paramref name="bar"/> is null (not loaded, or the chart does not touch it).
+        /// "13 February 2026, up 3.0% on the month, previous down 2.9%, expected 3.0, by
+        /// Kalshi, as expected; Price fell 1.2% over this bar." A release with no figure says
+        /// "no figure"; the price part is left out entirely when <paramref name="bar"/> is null
+        /// (not loaded, or the chart does not touch it).
         /// </summary>
         public static string HistoryLine(MarketEvent e, Ohlcv? bar)
         {
             string figure = e.Figures != null ? MarketEventSpeech.FigureClause(e) : "";
             if (figure.Length == 0) figure = "no figure";
+            figure += MarketEventSpeech.ExpectedSuffix(MarketEventSpeech.PrimaryFigureWithExpected(e));
 
             string line = $"{LongDate(e.Date)}, {figure}";
             return bar is { } drawn ? line + "; " + MarketEventSpeech.PriceSentence(drawn) : line + ".";

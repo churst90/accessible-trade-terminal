@@ -97,7 +97,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             // ONE passing event, and never on a weekly or longer bar where the bar is not a
             // single release's moment.
             string figures = !weeklyOrLonger ? FigureClause(e) : "";
-            if (figures.Length > 0) text += ", " + figures;
+            if (figures.Length > 0)
+            {
+                text += ", " + figures;
+                // The surprise word follows the figure it already reads. No expected figure
+                // means the stage-one clause is unchanged.
+                string surprise = PrimarySurprise(e);
+                if (surprise.Length > 0) text += ", " + surprise;
+            }
 
             if (!string.IsNullOrEmpty(placement.Placement))
                 text += ", " + placement.Placement;
@@ -224,8 +231,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             {
                 var parts = new List<string>(4);
                 parts.Add(payrolls?.Actual is double pay
-                    ? $"Figure: payrolls {ThousandsPhrase(pay)}."
-                    : "Figure: payrolls unavailable.");
+                    ? $"Figure: payrolls {ThousandsPhrase(pay)}{ExpectedSuffix(payrolls)}."
+                    : "Figure: payrolls unavailable" + ExpectedSuffix(payrolls) + ".");
                 if (payrolls?.Actual is not null)
                 {
                     parts.Add(payrolls.Previous is double payPrevious
@@ -233,11 +240,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                         : "Previous: unavailable.");
                 }
                 parts.Add(unemployment?.Actual is double rate
-                    ? $"Unemployment: {PercentValue(rate)}%, previous "
+                    ? $"Unemployment: {PercentValue(rate)}%{ExpectedSuffix(unemployment)}, previous "
                       + (unemployment.Previous is double ratePrevious
                           ? $"{PercentValue(ratePrevious)}%."
                           : "unavailable.")
-                    : "Unemployment: unavailable.");
+                    : "Unemployment: unavailable" + ExpectedSuffix(unemployment) + ".");
                 parts.Add(FirstPrintLine);
                 return string.Join(" ", parts);
             }
@@ -249,7 +256,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 {
                     $"Figure: {EstimateWord(figures.EstimateNumber)}, "
                     + $"{Direction(growth)} {PercentValue(growth)}% annualized"
-                    + QuarterPhrase(figures.Period) + ".",
+                    + QuarterPhrase(figures.Period) + ExpectedSuffix(gdp) + ".",
                 };
                 if ((figures.EstimateNumber ?? 1) <= 1)
                 {
@@ -273,8 +280,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 var parts = new List<string>(4);
                 string name = ppi != null && cpi == null ? "PPI" : "CPI";
                 parts.Add(primary?.Actual is double actual
-                    ? $"Figure: {name} {MonthPhrase(actual)}."
-                    : $"Figure: {name} unavailable.");
+                    ? $"Figure: {name} {MonthPhrase(actual)}{ExpectedSuffix(primary)}."
+                    : $"Figure: {name} unavailable" + ExpectedSuffix(primary) + ".");
                 if (primary?.Actual is not null)
                 {
                     parts.Add(primary.Previous is double previous
@@ -284,11 +291,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 if (cpi != null)
                 {
                     parts.Add(core?.Actual is double coreActual
-                        ? $"Core CPI: {MonthPhrase(coreActual)}, previous "
+                        ? $"Core CPI: {MonthPhrase(coreActual)}{ExpectedSuffix(core)}, previous "
                           + (core.Previous is double corePrevious
                               ? $"{SignedPercent(corePrevious)}."
                               : "unavailable.")
-                        : "Core CPI: unavailable.");
+                        : "Core CPI: unavailable" + ExpectedSuffix(core) + ".");
                 }
                 parts.Add(FirstPrintLine);
                 return string.Join(" ", parts);
@@ -298,6 +305,122 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         }
 
         private const string FirstPrintLine = "First print, from FRED/ALFRED.";
+
+        /// <summary>
+        /// The surprise word when both an actual and an expected figure exist. Both are rounded
+        /// to the figure's own step first, so 0.34 against 0.3 is "as expected" on a 0.1 grid.
+        /// </summary>
+        public static string SurpriseWord(MarketEventFigure figure)
+        {
+            if (figure.Actual is not double actual || figure.Expected is not double expected)
+                return "";
+
+            int decimals = figure.Unit == MarketEventFigureUnit.Thousands ? 0 : 1;
+            double a = Math.Round(actual, decimals, MidpointRounding.AwayFromZero);
+            double e = Math.Round(expected, decimals, MidpointRounding.AwayFromZero);
+            if (a == e) return "as expected";
+
+            bool higher = a > e;
+            return figure.Direction switch
+            {
+                MarketEventFigureDirection.HigherIsStronger =>
+                    higher ? "stronger than expected" : "weaker than expected",
+                MarketEventFigureDirection.HigherIsWeaker =>
+                    higher ? "weaker than expected" : "stronger than expected",
+                _ => higher ? "hotter than expected" : "cooler than expected",
+            };
+        }
+
+        /// <summary>The same word in the release read-out's short form: "hotter", not "hotter than expected".</summary>
+        public static string ShortSurpriseWord(MarketEventFigure figure)
+        {
+            string word = SurpriseWord(figure);
+            return word.EndsWith(" than expected", StringComparison.Ordinal)
+                ? word[..^" than expected".Length]
+                : word;
+        }
+
+        /// <summary>The expected figure in its own unit: "0.3", "-0.1", "up 128 thousand".</summary>
+        public static string ExpectedValue(MarketEventFigure figure)
+        {
+            if (figure.Expected is not double expected) return "";
+            return figure.Unit == MarketEventFigureUnit.Thousands
+                ? ThousandsPhrase(expected)
+                : expected.ToString("0.0", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>"expected 0.3, by Kalshi" — the source always travels with the number.</summary>
+        public static string ExpectedClause(MarketEventFigure figure)
+        {
+            string value = ExpectedValue(figure);
+            return value.Length == 0 ? "" : $"expected {value}, by Kalshi";
+        }
+
+        /// <summary>The inline detail suffix: ", expected 0.3, by Kalshi, hotter than expected".</summary>
+        public static string ExpectedSuffix(MarketEventFigure? figure)
+        {
+            if (figure == null) return "";
+            string clause = ExpectedClause(figure);
+            if (clause.Length == 0) return "";
+            string word = SurpriseWord(figure);
+            return ", " + clause + (word.Length > 0 ? ", " + word : "");
+        }
+
+        /// <summary>The calendar's short form, with no source: "expected 0.3".</summary>
+        public static string ExpectedShort(MarketEvent e)
+        {
+            var figure = PrimaryFigureWithExpected(e);
+            return figure == null ? "" : "expected " + ExpectedValue(figure);
+        }
+
+        /// <summary>The word for the headline figure alone; core CPI gets its own in the detail.</summary>
+        public static string PrimarySurprise(MarketEvent e)
+        {
+            var figure = PrimaryExpectedFigure(e);
+            return figure == null ? "" : SurpriseWord(figure);
+        }
+
+        /// <summary>
+        /// The figure whose surprise word decides the short clause: payrolls for jobs, CPI for a
+        /// CPI release, GDP, PPI, then unemployment and core CPI when they are all there is. A
+        /// figure without both actual and expected is skipped.
+        /// </summary>
+        public static MarketEventFigure? PrimaryExpectedFigure(MarketEvent e)
+            => PrimaryFigureWhere(e, f => f.Actual is not null && f.Expected is not null);
+
+        /// <summary>The same priority, but an expected figure alone is enough (an upcoming release).</summary>
+        public static MarketEventFigure? PrimaryFigureWithExpected(MarketEvent e)
+            => PrimaryFigureWhere(e, f => f.Expected is not null);
+
+        private static MarketEventFigure? PrimaryFigureWhere(
+            MarketEvent e, Func<MarketEventFigure, bool> test)
+        {
+            var figures = e.Figures;
+            if (figures == null) return null;
+            foreach (string name in new[] { "payrolls", "CPI", "PPI", "GDP", "unemployment", "core CPI" })
+            {
+                var figure = Find(figures, name);
+                if (figure != null && test(figure)) return figure;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// The release read-out's compact figure when a surprise can be said: "CPI 0.4,
+        /// expected 0.3, hotter." Empty when there is no expected figure, so the older wording
+        /// below is untouched.
+        /// </summary>
+        public static string ReleaseFigureClause(MarketEvent e)
+        {
+            var figure = PrimaryExpectedFigure(e);
+            if (figure?.Actual is not double actual || figure.Expected is not double expected)
+                return "";
+            string value = figure.Unit == MarketEventFigureUnit.Thousands
+                ? ThousandsPhrase(actual)
+                : actual.ToString("0.0", CultureInfo.InvariantCulture);
+            return $"{figure.Name} {value}, expected {ExpectedValue(figure)}, "
+                + ShortSurpriseWord(figure);
+        }
 
         private static MarketEventFigure? Find(MarketEventFigures figures, string name)
             => figures.Figures.FirstOrDefault(f => f.Name == name);

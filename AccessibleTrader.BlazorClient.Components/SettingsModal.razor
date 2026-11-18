@@ -857,8 +857,11 @@
                                    checked="@_marketEventsSound"
                                    @onchange="e => _marketEventsSound = e.Value is bool b ? b : _marketEventsSound" />
                         </div>
-                        <p id="market-events-status" style="margin:6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        <p id="market-events-status" style="margin:6px 0 4px 0; color:var(--text-muted); font-size:0.9em;">
                             @_marketEventStatus
+                        </p>
+                        <p id="market-events-kalshi-status" style="margin:0 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            @_marketEventKalshiStatus
                         </p>
                         <div class="modal-row">
                             <button type="button" @onclick="UpdateMarketEventsNowAsync">Update release dates now</button>
@@ -1481,6 +1484,7 @@
     private bool _marketEventsSound = true;
     private string _marketEventsCountdowns = "15,1";
     private string _marketEventStatus = "";
+    private string _marketEventKalshiStatus = "";
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -2203,6 +2207,7 @@
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
         _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
         _marketEventStatus = NoKeyMarketEventStatus();
+        _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -2319,8 +2324,13 @@
         _marketEventStatus = feed == null
             ? NoKeyMarketEventStatus()
             : (await feed.GetStatusAsync()).Describe();
+        var kalshi = ServiceProvider.GetService(typeof(MarketEventKalshiFeed)) as MarketEventKalshiFeed;
+        _marketEventKalshiStatus = kalshi?.Status.Describe() ?? NoKalshiStatus();
         await InvokeAsync(StateHasChanged);
     }
+
+    private static string NoKalshiStatus()
+        => new MarketEventKalshiStatus(0, null).Describe();
 
     /// <summary>The seed-state status, also used before the live feed answers or when none is registered.</summary>
     private static string NoKeyMarketEventStatus()
