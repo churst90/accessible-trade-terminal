@@ -58,6 +58,8 @@ None of this has been seen or heard in the app yet.
 
 ### Market events: the calendar, alerts and release history
 
+- **Toolbar fixes.** The Heikin Ashi and Log scale buttons now say their shortcuts (Alt+C and
+  Alt+L), and the Market events button has its own calendar icon instead of sharing the Levels one.
 - **Alt+E opens a calendar of the days ahead.** Days are headings, each event is one line —
   "8:30, CPI, important, previous up 2.9%." — and filters choose the range, importance, kinds, or only
   the events touching your charts and positions. The FRED status sentence sits at the top. The

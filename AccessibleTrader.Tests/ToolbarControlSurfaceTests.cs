@@ -361,6 +361,75 @@ namespace AccessibleTrader.Tests
                 + string.Join("\n  ", offenders));
         }
 
+        /// <summary>
+        /// A button whose command has a default chord must name THAT chord in its tooltip. The
+        /// test above only checks that a chord, if written, is written in words; Heikin Ashi
+        /// (Alt+C) and Log scale (Alt+L) shipped with tooltips that named no chord at all, so a
+        /// screen reader user arrowing the toolbar heard every neighbour's shortcut but theirs.
+        /// The button is tied to its command through CommandDispatcher: the action or event its
+        /// OnClick constructs is the one the dispatcher's case for that command constructs.
+        /// </summary>
+        [Fact]
+        public void EveryToolbarButtonWithADefaultChordNamesItInItsTooltip()
+        {
+            string dispatcher = File.ReadAllText(Path.Combine(
+                ComponentsDir(), "..", "AccessibleTrader.Core", "Services", "Input", "CommandDispatcher.cs"));
+            var commandFor = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (Match m in Regex.Matches(dispatcher,
+                @"case SystemCommand\.(\w+):\s*_(?:store|eventBus)\.(?:Dispatch|Publish)\(new (\w+)\(\)\)"))
+                commandFor.TryAdd(m.Groups[2].Value, m.Groups[1].Value);
+
+            var chordFor = new Dictionary<string, string>(StringComparer.Ordinal);
+            var dir = TestTemp.NewDir("att-toolbar-chords-");
+            try
+            {
+                foreach (var s in new AccessibleTrader.Core.Services.ShortcutManager(new ChordPaths(dir))
+                             .CurrentProfile.Shortcuts)
+                {
+                    // Single letters and digits only: those are the chords a tooltip spells
+                    // verbatim. Named keys ("Minus", "OemComma") have their own spoken words.
+                    if (s.Key.Length != 1 || !char.IsLetterOrDigit(s.Key[0])) continue;
+                    var words = new List<string>();
+                    if (s.Ctrl) words.Add("Control");
+                    if (s.Alt) words.Add("Alt");
+                    if (s.Shift) words.Add("Shift");
+                    words.Add(s.Key.ToUpperInvariant());
+                    chordFor.TryAdd(s.Command.ToString(), string.Join(" plus ", words));
+                }
+            }
+            finally { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+
+            var offenders = new List<string>();
+            int checkedButtons = 0;
+            foreach (var button in TopToolbarButtons())
+            {
+                string? onClick = AttributeValue(button, "OnClick");
+                var made = onClick == null ? null : Regex.Match(onClick, @"new (\w+)\(\)");
+                if (made is not { Success: true }) continue;
+                if (!commandFor.TryGetValue(made.Groups[1].Value, out var command)) continue;
+                if (!chordFor.TryGetValue(command, out var chord)) continue;
+
+                checkedButtons++;
+                string tip = AttributeValue(button, "Tooltip") ?? "";
+                if (!tip.Contains(chord, StringComparison.OrdinalIgnoreCase))
+                    offenders.Add($"button '{AttributeValue(button, "Icon") ?? "?"}' runs {command}, "
+                                  + $"bound to \"{chord}\", but its Tooltip \"{tip}\" does not say so.");
+            }
+
+            Assert.True(commandFor.Count >= 20,
+                $"only {commandFor.Count} dispatcher cases were read; the pattern has stopped matching.");
+            Assert.True(checkedButtons >= 8,
+                $"only {checkedButtons} toolbar buttons were tied to a chord; the sweep checks nothing.");
+            Assert.True(offenders.Count == 0, string.Join("\n  ", offenders));
+        }
+
+        private sealed class ChordPaths : AccessibleTrader.Core.Services.IPlatformPathService
+        {
+            public ChordPaths(string root) { AppDataDirectory = root; CacheDirectory = root; }
+            public string AppDataDirectory { get; }
+            public string CacheDirectory { get; }
+        }
+
         [Fact]
         public void NoIconButtonCarriesBothAPressedStateAndAStateBearingLabel()
         {

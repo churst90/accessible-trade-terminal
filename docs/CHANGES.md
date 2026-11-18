@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Toolbar: Heikin Ashi and Log scale name their shortcuts; Market events gets a calendar icon, 2026-11-18
+
+Cody found that the Heikin Ashi and Log scale buttons did not say their keyboard shortcuts, though every
+other toolbar button does.
+
+- **Tooltips.** "Toggle Heikin Ashi candles, Alt plus C" and "Toggle the logarithmic price scale, Alt
+  plus L". The tooltip is the button's accessible description, so a screen reader now reads the chord
+  for both.
+- **Market events icon.** The button had reused the Levels icon (a zigzag with dots), so the two looked
+  the same. It now has its own calendar icon: a page with two binding rings and a grid of day dots, drawn
+  in the same 28-unit outline style as the rest of the sprite.
+- **Guard.** `ToolbarControlSurfaceTests.EveryToolbarButtonWithADefaultChordNamesItInItsTooltip` ties
+  each toolbar button to its command through `CommandDispatcher` (the action or event its click
+  constructs). If that command has a default letter or digit chord, the tooltip must name it in words.
+  Before the fix it went red on exactly these two buttons and no others.
+- **Caveats.** The guard only covers buttons whose click constructs an action or event that a
+  dispatcher case also constructs, and only letter or digit chords. On the day it was written that was 8
+  or more buttons; the test fails if it ever checks fewer. A user who rebinds a key still sees the
+  default chord in the tooltip, as before. Nobody has looked at the icon yet.
+
 ### Market events live, stage 3b: the Alt+E calendar, watched alerts and release history, 2026-11-18
 
 - **The calendar screen (Alt+E).** Days as headings ("Wednesday 11 March 2026"), one line per

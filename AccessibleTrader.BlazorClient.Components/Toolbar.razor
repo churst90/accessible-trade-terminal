@@ -115,7 +115,7 @@
                                   Tooltip="Open level respect report, Alt plus R"
                                   OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
             }
-            <ToolbarIconButton Icon="analytics" Label="Market events" Variant="thought"
+            <ToolbarIconButton Icon="calendar" Label="Market events" Variant="thought"
                               Tooltip="Open the market event calendar, Alt plus E"
                               OnClick="() => EventBus.Publish(new OpenMarketEventCalendarEvent())" />
             <ToolbarIconButton Icon="journal" Label="Trade journal" Variant="neutral"
@@ -228,11 +228,11 @@
                                   OnClick="AddHeatmap" />
                 <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
                                   IsToggleOn="@(Store.State.IsHeikinAshi)"
-                                  Tooltip="Toggle Heikin Ashi candles"
+                                  Tooltip="Toggle Heikin Ashi candles, Alt plus C"
                                   OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
                 <ToolbarIconButton Icon="log-scale" Label="Log scale" Variant="data"
                                   IsToggleOn="@(Store.State.IsLogScale)"
-                                  Tooltip="Toggle the logarithmic price scale"
+                                  Tooltip="Toggle the logarithmic price scale, Alt plus L"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
                 <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
                                   IsToggleOn="@IsReplayActive"
