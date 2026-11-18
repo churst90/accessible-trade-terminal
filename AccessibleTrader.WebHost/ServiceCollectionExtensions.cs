@@ -710,6 +710,8 @@ namespace AccessibleTrader.WebHost
             // One per circuit: its countdowns belong to this browser session, and its timer
             // stops when the circuit is disposed. AppStartupService resolves it on start.
             services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
+            services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddScoped<IEarconService, EarconService>();

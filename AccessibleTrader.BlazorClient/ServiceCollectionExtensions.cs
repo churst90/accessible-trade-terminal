@@ -732,6 +732,9 @@ namespace AccessibleTrader.BlazorClient
             // and starts its own timer; AppStartupService resolves it so the clock is running
             // before the first chart is loaded.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // Alt+P. Singleton on this head because the Pulse watchlist is per-user singleton
+            // here; on the WebHost it is scoped beside the per-circuit watchlists.
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddSingleton<IEarconService, EarconService>();

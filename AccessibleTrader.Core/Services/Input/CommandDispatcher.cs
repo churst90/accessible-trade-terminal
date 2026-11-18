@@ -32,6 +32,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IndicatorCrossingEngine _crossingEngine;
         private readonly Analysis.ChartPatternNavigator? _patternNavigator;
         private readonly MarketEvents.MarketEventNavigator _marketEventNavigator;
+        private readonly MarketPulse.MarketPulseService? _marketPulse;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
@@ -70,7 +71,8 @@ namespace AccessibleTrader.Core.Services.Input
             Analysis.ChartPatternNavigator? patternNavigator = null,
             Trading.IQuickTradeService? quickTrade = null,
             ModalStack? modalStack = null,
-            MarketEvents.MarketEventNavigator? marketEventNavigator = null)
+            MarketEvents.MarketEventNavigator? marketEventNavigator = null,
+            MarketPulse.MarketPulseService? marketPulse = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -87,6 +89,10 @@ namespace AccessibleTrader.Core.Services.Input
             // silently drops the key.
             _marketEventNavigator = marketEventNavigator
                 ?? new MarketEvents.MarketEventNavigator(store, eventBus);
+            // Optional only so the dispatcher's many test constructions keep working; both
+            // heads register the service. Without it the key is inert, which HostParity cannot
+            // catch because the registration itself is present.
+            _marketPulse = marketPulse;
             _quickTrade = quickTrade;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
@@ -283,6 +289,11 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenWatchlist: _eventBus.Publish(new OpenWatchlistEvent()); return;
                 case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
                 case SystemCommand.OpenMarketEventCalendar: _eventBus.Publish(new OpenMarketEventCalendarEvent()); return;
+                case SystemCommand.MarketPulse:
+                    // One sentence, gathered off the dispatcher's thread. A second press while
+                    // it gathers is the service's to answer.
+                    if (_marketPulse != null) _ = _marketPulse.SpeakAsync(_store.State);
+                    return;
 
                 // ── Orientation and recovery ──────────────────────────────
                 // "What am I looking at?" — the question a sighted user answers by glancing at
