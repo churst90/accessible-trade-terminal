@@ -260,7 +260,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     return Snapshot(hasKey: false);
 
                 var now = AsUtc(_nowUtc());
-                if (!force && _lastAttemptUtc is { } last && now - last < FetchInterval)
+                var last = _lastAttemptUtc ?? _fetchedUtc;
+                if (!force && last is { } recent && now - recent < FetchInterval)
                     return Snapshot(hasKey: true);
 
                 _lastAttemptUtc = now;
