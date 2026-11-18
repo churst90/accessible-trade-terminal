@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events live, stage 3b: the Alt+E calendar, watched alerts and release history, 2026-11-18
+
+- **The calendar screen (Alt+E).** Days as headings ("Wednesday 11 March 2026"), one line per
+  event in time order, the FRED status sentence at the top, and filters for range (next 7 days by
+  default, next 30, past 30), importance, the five kinds, and "only events touching my charts and
+  positions". The screen opens whatever the Level setting is — it was asked for. Its filters start
+  from the user's Level and kinds, or from important-only with every kind when Level is Off.
+- **One line per event.** "8:30, CPI, important, previous up 2.9%." The time follows the F12 clock; a
+  day-only event says "all day". A past event reads its actual in the existing figure-clause words;
+  a future one reads only its known previous figure. Enter on a line takes the chart to the event's
+  bar through the apostrophe jump's own navigation, so the bar is read with the jump clause. When
+  the event is not on the loaded bars (the future, or older than the history) the screen stays open
+  and announces "CPI on 11 March 2026 is not on this chart's bars." through the speech router.
+- **"Alert me before".** A toggle beside every exact-time event, with aria-pressed, writes the new
+  `narration.marketEvents.watched` setting (a string list of stable ids such as
+  `cpi-2026-03-11`). A watched event gets its countdowns and read-out even when it touches no open
+  chart or held position, its importance or kind is filtered out, or Level is Off. Day-only events
+  cannot be watched (a disabled "No set time" toggle). Countdown leads are the user's setting; when
+  that is Off, a watched event uses 15 and 1. Ids more than two days past are pruned whenever the
+  list is written.
+- **Release history.** The History disclosure lists the last six releases of the same source before
+  the event, newest first: date, the existing figure clause (or "no figure"), and the focused chart's
+  price move over the bar that release sits on, when that bar is loaded and the chart touches the
+  event's market. Same source means the same id prefix (`cpi`, `nfp`, `ppi`, `gdp`, `fomc`,
+  `stock-expiry`, ...). Fewer than six lists what exists; none says "No earlier releases." Day-only
+  kinds have History too, with no figure part.
+- **One touch test.** The calendar's "only touching" filter and the live notices share
+  `MarketEventNoticePlanner.Touches`; `MarketEventLiveNotices` exposes its last held markets
+  read-only rather than doing a second broker read for the screen.
+- **Caveats.** There is no expected figure and no surprise word yet; that needs the stage 4 source.
+  The history's price part comes from the focused chart only, so a release older than the loaded
+  bars, or on a market the chart does not touch, has no price part. Watched alerts are still not
+  delivered while the browser is closed — the same browser-closed item remains open.
+
 ### Market events live, stage 3a: countdowns, release read-outs and position warnings, 2026-11-18
 
 - **What was built.** The live half of market events, while the app is open: countdowns before an

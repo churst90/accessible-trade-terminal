@@ -1,10 +1,10 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2 and 3a are built (2026-11-18); stage 1 has been tried by Cody and
-stages 2 and 3a have not been heard yet. Stage 3b and the rest are not built** except where a stage
-below says it is. This is the plan and the reasons, so a later session (or a sub-agent) does not have
-to re-derive them.
+terminal does not. **Stages 1, 2, 3a and 3b are built (2026-11-18); stage 1 has been tried by Cody
+and stages 2, 3a and 3b have not been heard yet. Stage 4 and the rest are not built** except where a
+stage below says it is. This is the plan and the reasons, so a later session (or a sub-agent) does not
+have to re-derive them.
 
 ## Why these three
 
@@ -253,7 +253,7 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    rule runs in the live feed for fetched dates on or before the fetch day, while future dates stay
    unchecked. The 16 PPI February drops are inferred from CPI's pattern, not checked against PPI
    data, because PPIFIS has no offline vintages.
-3. **Live — split into two runs on 2026-11-18.**
+3. **Live — BUILT 2026-11-18 (3a and 3b), not yet heard by Cody.**
    - **3a BUILT 2026-11-18, not yet heard by Cody.** Countdowns before an event that touches an
      open chart or a held position; the position-aware line; the release read-out at T + 60 s with
      the focused chart's price reaction first; the FRED figure asked for at T + 2, 5, 15, 30 and 60
@@ -277,9 +277,26 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      rather than adding a fourth. The browser-closed delivery promised above is **not** done: it
      needs one process-wide owner, as the alert monitor has, or a closed tab and the headless
      session would both speak it. It is in `docs/TODO.md`.
-   - **3b, still to do:** the Alt+E calendar screen, "alert me before this" on any event, and the
-     release history key (the last six figures with the surprise and the price reaction each
-     time).
+   - **3b BUILT 2026-11-18, not yet heard by Cody.** The Alt+E calendar screen: days as
+     headings, the FRED status sentence, range/importance/kind filters and "only touching my
+     charts and positions"; one button per event line with Enter taking the chart to its bar
+     through the apostrophe jump's own navigation, or a spoken "not on this chart's bars" when
+     it is not; "alert me before" as a toggle that writes the watched ids, which then skip the
+     level, kind, importance and touching tests and fall back to 15 and 1 when countdowns are
+     off; and a History disclosure with the last six releases of the same source, each with its
+     figure and the focused chart's move over its bar. The words are pure static
+     `MarketEventCalendarWording`; the watched list is pruned of events more than two days past
+     whenever it is written.
+     **Differences found while building:** the handoff's history example says "BTC fell 1.2% by
+     that bar's close", but Alt+Shift+D has always said "Price fell 1.2% over this bar"; the
+     history reuses that sentence verbatim rather than introducing a second wording. The handoff's
+     event-line example says "previous 2.9", while the existing figure clause carries the sign and
+     the unit ("previous up 2.9%"); the calendar uses the existing words, so "previous 2.9" reads
+     with its direction and percent. There is still no expected figure and no surprise word; that
+     needs the stage 4 source, and the manual says so. The history price comes from the focused
+     chart only. The held-market half of "only touching" is the live service's last position read,
+     exposed read-only rather than re-read by the screen; before the first read it is empty, and
+     the live service now keeps ticking while a watch exists even at Level Off.
 4. **Earnings (Finnhub, Cody's key), Kalshi expected figures, token unlocks.**
 5. **Pulse**, then the **change log and catch-up**.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the

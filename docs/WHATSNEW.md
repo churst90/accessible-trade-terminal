@@ -51,10 +51,26 @@ None of this has been seen or heard in the app yet.
 - **Shift+F2 mutes the countdowns and read-outs; F2 does not.** They are alerts-tier speech, with
   the same market-event bell as the bar, and they become a desktop notification when the app
   window is hidden. They do not yet arrive while the browser is closed.
-- **Still to come.** The Alt+E calendar, "alert me before this", expected figures, earnings and the
-  market pulse. For CPI, jobs, PPI and GDP the future dates come from FRED, so without a key the
-  only future countdowns are Fed decisions; the shipped dates run through July 2026 for releases
-  and 2027 for Fed decisions.
+- **Still to come.** Expected figures (and the surprise word), earnings and the market pulse. For
+  CPI, jobs, PPI and GDP the future dates come from FRED, so without a key the only future
+  countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
+  Fed decisions.
+
+### Market events: the calendar, alerts and release history
+
+- **Alt+E opens a calendar of the days ahead.** Days are headings, each event is one line —
+  "8:30, CPI, important, previous up 2.9%." — and filters choose the range, importance, kinds, or only
+  the events touching your charts and positions. The FRED status sentence sits at the top. The
+  screen opens even when market events are off.
+- **Enter on a line takes the chart to that event's bar**, with the same jump reading as the
+  apostrophe key. If the event is not on the loaded bars it says so and stays open.
+- **"Alert me before"** watches one event by name. It is counted down and read out even if it
+  touches nothing you hold, its kind or importance is filtered out, or market events are off.
+  The setting's countdowns are used; with countdowns off it uses 15 and 1 minutes.
+- **History** on a line lists the last six releases of the same source, newest first, with each
+  figure and — when that bar is on your chart — what price did over it.
+- **Still to come.** Expected figures (and the surprise word they make possible), earnings from
+  Finnhub, and the market pulse. Watched alerts still do not arrive while the browser is closed.
 
 ### Downloads
 

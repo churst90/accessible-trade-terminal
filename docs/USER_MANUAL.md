@@ -1500,8 +1500,67 @@ hidden, the same text becomes a desktop notification; nothing arrives from this 
 browser itself is closed yet.
 
 For CPI, jobs, PPI and GDP the future dates come from FRED, so **without a key the only future
-countdowns are Fed decisions**, which the shipped seed carries into 2027. The calendar screen
-(Alt+E) and "alert me before this" are a later stage.
+countdowns are Fed decisions**, which the shipped seed carries into 2027.
+
+### The calendar screen (Alt+E)
+
+**Alt+E**, or the **Market events** toolbar button, opens a calendar of the days ahead. It opens
+whatever the **Level** setting is — you asked for it, so Off does not hide it. The FRED status
+sentence from Settings sits at the top, in its own paragraph, so you know whether the dates are
+the shipped ones or a recent update. There is no earnings line yet; that is the next stage.
+
+**Filters.** A **Range** select offers **Next 7 days** (the default), **Next 30 days** and **Past
+30 days**. **Importance** offers **Important only**, **Important and medium** and **All**; it
+starts on the user's Level. Below those are one tick box per kind — **Economy**, **Fed**,
+**Expiries**, **Holidays** and **Bitcoin halvings** — also starting from the user's setting. When
+Level is **Off** there is no level to start from, so the screen starts on **Important only** with
+every kind ticked. **Only events touching my charts and positions** is off by default; on, it
+keeps an event only when its market is on an open chart tab or is held by a position, using the
+same test as the live countdowns. Each filter has its own label, and the group is announced as
+"Filters".
+
+**The days and the lines.** Each day with passing events is an `<h3>` such as *"Wednesday 11 March
+2026"*, with one line per event in time order. The line is a button whose text puts the most
+important part first: *"8:30, CPI, important, previous up 2.9%."* The time follows your F12 clock, so
+it is UTC or local and 24-hour or 12-hour as you chose; a day-only event says **"all day"**. The
+importance word is **"important"**, **"medium"** or **"minor"**. A past event with a figure reads
+it in the same words as the bar clause — *"up 3.1% on the month, previous up 2.9%"* — and a
+future one reads only its known **"previous …"** figure. Nothing is said about an **expected**
+figure yet, because there is no consensus source; that is a later stage, and the same reason the
+calendar never says "surprise". If nothing matches, the screen says *"No events in this range with
+these filters."* and shows no empty heading.
+
+**Enter on a line** closes the screen and takes the chart to the event's bar through the same
+navigation as the apostrophe jump, so you hear the bar reading and the jump clause. If the event
+is not on the bars your chart has loaded — it is in the future, or older than the loaded history
+— the screen stays open and says, through the speech router, *"CPI on 11 March 2026 is not on this
+chart's bars."* Focus stays on the line.
+
+**"Alert me before".** Each exact-time event has a toggle button whose accessible name includes
+the event (*"Alert me before CPI, 11 March"*), with **aria-pressed** saying whether it is watched.
+Pressing it announces *"Alert set for CPI, 11 March, 15 and 1 minutes before."* or *"Alert removed
+for CPI, 11 March."* A day-only event cannot be watched: its button is disabled and reads **"No set
+time"**, because there is no moment to count down to.
+
+A watched event is the one exception to the Level, kind, importance and touching rules. It is
+counted down and read out even when the Level is **Off**, its kind or importance is filtered out,
+and it touches no open chart or held position — you asked for this one by name. Its leads are your
+**Countdowns before events** setting; when that is **Off**, a watched event uses **15 and 1**
+minutes rather than staying silent. The watch list is stored by event id, so it survives a restart
+and a chart change. Ids whose event is more than two days past are dropped whenever the list is
+written; tomorrow's survives. Like the other live notices, a watched alert is not spoken while the
+browser is closed.
+
+**History.** Each line has a **History** disclosure (its accessible name includes the event) with
+the last **six** releases of the same source before this one, newest first — same source meaning
+the same id prefix, so a CPI line lists CPI releases and a Fed line lists Fed decisions. Each
+entry gives the date, the figure in the existing words (or **"no figure"** when the source had
+none), and, when the bar that release sits on is loaded on the focused chart and the chart touches
+the event's market, what price did over that bar in Alt+Shift+D's words: *"13 February 2026, up
+0.3% on the month, previous up 0.2%; Price fell 1.2% over this bar."* A release older than the
+loaded history, or on a market your chart does not touch, has no price part. Fewer than six
+earlier releases lists what exists; none says **"No earlier releases."** Expiries and holidays have
+History too, with no figure part. There is no surprise column yet — that needs expected figures.
 
 ---
 

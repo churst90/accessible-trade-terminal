@@ -48,17 +48,21 @@ as proposed.
   (see the item below); for CPI, jobs, PPI and GDP future dates come only from FRED, so without a
   key the only future countdowns are Fed decisions; the price reaction is the focused chart only;
   FRED can lag, so the figure may never come within the hour.
-- [ ] **Stage 3b (the next market-events step):** the Alt+E calendar screen (days as headings,
-  filters, Enter to the event's bar), "alert me before this" on any event, and the release history
-  key (the last six figures with the surprise and the price reaction each time). Split from stage
-  3 so the live half could ship first.
+- [x] **Stage 3b: the Alt+E calendar.** Days as headings, range/importance/kind/only-touching
+  filters, Enter to the event's bar, "alert me before this" (the watched ids) and the release
+  history (the last six releases of the same source, with each figure and the focused chart's
+  price move). **Built 2026-11-18, not yet heard by Cody.** Caveats: no expected figure and no
+  surprise word yet (stage 4), the history's price part is the focused chart only, and watched
+  alerts are not delivered while the browser is closed (the item below).
 - [ ] **Live market-event notices while the browser is closed.** The design doc promised the
-  alerts route; stage 3a only speaks while a session is open. Doing it needs ONE process-wide
+  alerts route; stages 3a and 3b only speak while a session is open, including a watched event's countdowns. Doing it needs ONE process-wide
   owner, as `LocalBackgroundMonitor` and `CircuitAlertCoverage` are for alerts: with a plain
   second subscriber, a closed tab's circuit (alive for about three minutes) and the headless
   session would both speak every countdown and read-out, and the bell would ring twice. Not done
   yet, deliberately.
-- [ ] Stage 4: earnings (Finnhub key), Kalshi expected figures, token unlocks (check DefiLlama's free API).
+- [ ] **Stage 4 (the next step):** earnings (Finnhub key), Kalshi expected figures, token unlocks
+  (check DefiLlama's free API). Expected figures are also what makes the "surprise" word possible
+  in the bar clause and the calendar history.
 - [ ] Stage 5: market pulse (Alt+P), then the change log and catch-up (Alt+U).
 - [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.
 
