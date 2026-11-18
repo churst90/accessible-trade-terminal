@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 
@@ -22,6 +23,13 @@ namespace AccessibleTrader.Core.Services.Audio
         /// cannot come to sound different from a level's.
         /// </summary>
         void PlayCrossEarcon(int direction, float pan);
+        /// <summary>
+        /// The market-event landing bell: sounds when the cursor arrives on a bar carrying an
+        /// event that passes the user's level, kind ticks and market. Also called by playback as
+        /// it crosses bars. Silent when the level is Off, the sound box is unticked, or earcons
+        /// are muted; F3 is handled by the caller, as for the text-label tick.
+        /// </summary>
+        void FireMarketEventEarcon(WorkspaceState state, int index);
         // SonifySeries/SonifyComponent were removed on 2026-08-25. They were a second way to
         // write voice slot 0, exported all the way up through IAudioFeedbackRouter and
         // ISonificationManager, and called by nothing in production. SyncNavigationSlots is
@@ -95,16 +103,22 @@ namespace AccessibleTrader.Core.Services.Audio
             => SLOT_UI_START + (int)((uint)Interlocked.Increment(ref _uiSlotCounter) % UiRoundRobinSlots);
 
         public NavigationSonifier(IAudioDriver audioDriver, ISonificationStrategy strategy, ISoundPatchRegistry patchRegistry,
-            ISoundPatchLibrary? patchLibrary = null)
+            ISoundPatchLibrary? patchLibrary = null,
+            MarketEvents.IMarketEventBarMapCache? marketEvents = null)
         {
             _audioDriver = audioDriver;
             _strategy = strategy;
             _patchRegistry = patchRegistry;
             _patchLibrary = patchLibrary;
+            _marketEvents = marketEvents;
         }
 
         // Optional: user patch library for level-cue earcon overrides (null in minimal tests).
         private readonly ISoundPatchLibrary? _patchLibrary;
+
+        // Optional: the shared bar map for the market-event landing bell. DI fills it because
+        // both heads register IMarketEventBarMapCache with this class's lifetime.
+        private readonly MarketEvents.IMarketEventBarMapCache? _marketEvents;
 
         /// <summary>Whether a component is drawn as a bar from a baseline — volume, or any
         /// histogram — and so takes the bar treatment under navigation: a 0.40 s ping whose grit
@@ -144,7 +158,12 @@ namespace AccessibleTrader.Core.Services.Audio
             // own series is focused — a label is a note pinned to a BAR, and the bar is what
             // the user is arrowing across. Fired before any of the early returns below so a
             // heatmap or profile in focus does not swallow it.
-            FireTextLabelEarcon(state, idx);
+            bool labelFired = FireTextLabelEarcon(state, idx);
+
+            // The bell comes after the label tick, not on top of it, so the two are heard one
+            // after the other. Fired here rather than from SonificationManager because this is
+            // the one writer of an arrival sound; F3 never reaches this method at all.
+            FireMarketEventEarconCore(state, idx, afterLabel: labelFired);
 
             string seriesId = state.FocusedSeriesId ?? "candles";
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
@@ -488,7 +507,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// it here would close a DI cycle.
         /// </para>
         /// </summary>
-        private void FireTextLabelEarcon(WorkspaceState state, int idx)
+        private bool FireTextLabelEarcon(WorkspaceState state, int idx)
         {
             bool labelled = false;
             foreach (var s in state.ActiveSeries)
@@ -504,10 +523,10 @@ namespace AccessibleTrader.Core.Services.Audio
             if (!labelled)
             {
                 _lastLabelEarconIndex = -1;
-                return;
+                return false;
             }
 
-            if (_lastLabelEarconIndex == idx) return;
+            if (_lastLabelEarconIndex == idx) return false;
             _lastLabelEarconIndex = idx;
 
             // Two mutes reach this, and both are deliberate. Shift+F3 (IsEarconsEnabled) is
@@ -516,13 +535,119 @@ namespace AccessibleTrader.Core.Services.Audio
             // silences the label tick as well — correct, because this is a per-bar navigation
             // sound of exactly the family F3 turns off, and unlike an error earcon nothing is
             // lost by it: the label is still SPOKEN on the same bar.
-            if (!state.IsEarconsEnabled) return;
+            if (!state.IsEarconsEnabled) return false;
 
             float pan = (float)AudioConstants.CalculatePan(
                 idx - state.ViewportStartIndex, AudioConstants.ComputePanWidth(state));
             float vol = Math.Clamp(0.11f * state.ChartVolume, 0f, 1f);
             PlayNote(1567.98, 0.045, "triangle", vol, pan);           // G6
             PlayNote(1046.50, 0.055, "triangle", vol, pan, delay: 55); // C6
+            return true;
+        }
+
+        /// <summary>
+        /// The bar index the market-event bell last fired for. Kept separate from the label's so
+        /// a labelled event bar plays both once, and leaving either kind of bar resets it.
+        /// </summary>
+        private int _lastMarketEventEarconIndex = -1;
+
+        /// <summary>Test seam: the last bell notes rendered, including their start delays.</summary>
+        internal IReadOnlyList<MarketEventBellNote> LastMarketEventBellNotes { get; private set; }
+            = Array.Empty<MarketEventBellNote>();
+
+        /// <summary>One note of the bell: frequency, duration, volume and its start delay.</summary>
+        internal readonly record struct MarketEventBellNote(
+            double Frequency, double Duration, float Volume, double DelayMs);
+
+        internal const double BellF5 = 698.46;
+        internal const double BellC5 = 523.25;
+
+        /// <summary>
+        /// The bell's notes, pure so tests can pin frequency, duration, volume and the 110 ms
+        /// between the two strikes without timing anything against the wall clock. High is a
+        /// falling fourth (F5 then C5, 110 ms later); Medium and Low are one F5 strike at
+        /// different loudness. A strike is three sines: the fundamental and two inharmonic
+        /// partials (2.76 and 5.40), which is what makes this a bell rather than a data tone.
+        /// </summary>
+        internal static IReadOnlyList<MarketEventBellNote> BellNotes(
+            MarketEventImportance importance, float chartVolume, double startDelayMs = 0)
+        {
+            float v = importance switch
+            {
+                MarketEventImportance.High => 0.13f,
+                MarketEventImportance.Medium => 0.10f,
+                _ => 0.06f,
+            };
+            v = Math.Clamp(v * chartVolume, 0f, 1f);
+
+            var notes = new List<MarketEventBellNote>(6);
+            void Strike(double frequency, double delay)
+            {
+                notes.Add(new MarketEventBellNote(frequency, 0.18, v, delay));
+                notes.Add(new MarketEventBellNote(frequency * 2.76, 0.08, 0.35f * v, delay));
+                notes.Add(new MarketEventBellNote(frequency * 5.40, 0.04, 0.15f * v, delay));
+            }
+
+            Strike(BellF5, startDelayMs);
+            if (importance == MarketEventImportance.High)
+                Strike(BellC5, startDelayMs + 110);
+            return notes;
+        }
+
+        /// <summary>
+        /// Fires the bell for the current bar. The public interface entry point: playback calls
+        /// this as it crosses bars, so it deliberately ignores F3 (playback keeps its narration
+        /// sound by design — see SonificationManager). Arrowing reaches it through
+        /// <see cref="SyncNavigationSlots"/> with the label offset.
+        /// </summary>
+        public void FireMarketEventEarcon(WorkspaceState state, int index)
+            => FireMarketEventEarconCore(state, index, afterLabel: false);
+
+        private void FireMarketEventEarconCore(WorkspaceState state, int idx, bool afterLabel)
+        {
+            LastMarketEventBellNotes = Array.Empty<MarketEventBellNote>();
+
+            if (_marketEvents == null) return;
+            if (MarketEvents.MarketEventSettings.Level(state) == MarketEvents.MarketEventLevel.Off) return;
+            if (!state.MarketEventsSoundOnEventBars) return;
+            if (!state.IsEarconsEnabled) return;
+
+            var onBar = _marketEvents.For(state, DateTime.UtcNow)
+                .Where(p => p.BarIndex == idx)
+                .ToList();
+            var passing = MarketEvents.MarketEventSpeech.Passing(
+                onBar,
+                MarketEvents.MarketEventSettings.Level(state),
+                MarketEvents.MarketEventSettings.Kinds(state),
+                state.SelectedMarketType);
+            if (passing.Count == 0)
+            {
+                _lastMarketEventEarconIndex = -1;
+                return;
+            }
+
+            if (_lastMarketEventEarconIndex == idx) return;
+            _lastMarketEventEarconIndex = idx;
+
+            var importance = passing.Min(p => p.Event.Importance);
+            float pan = (float)AudioConstants.CalculatePan(
+                idx - state.ViewportStartIndex, AudioConstants.ComputePanWidth(state));
+
+            float scale = importance switch
+            {
+                MarketEventImportance.High => 1.0f,
+                MarketEventImportance.Medium => 0.75f,
+                _ => 0.5f,
+            };
+            if (EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
+                    EarconPatchPlayer.MarketEventKey, scale, pan))
+                return;
+
+            double delay = afterLabel ? 130 : 0;
+            var notes = BellNotes(importance, state.ChartVolume, delay);
+            LastMarketEventBellNotes = notes;
+            foreach (var note in notes)
+                PlayNote(note.Frequency, note.Duration, "sine", note.Volume, pan, note.DelayMs);
         }
 
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null, bool isLogScale = false)

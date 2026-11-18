@@ -14,6 +14,7 @@ namespace AccessibleTrader.Core.Services.Audio
         public const string CrossDownKey = "LevelCrossDown";
         public const string ApproachKey  = "LevelApproach";
         public const string SustainedKey = "LevelSustained";
+        public const string MarketEventKey = "MarketEvent";
 
         // Slots 26–29: one-shot patch layers for level cues. Inside the UI earcon
         // range (16–31), below the chirp pair on 30/31, so cues layer cleanly over

@@ -128,6 +128,14 @@ namespace AccessibleTrader.Core.Services
                     return;
                 }
 
+                // Playback does not run SyncNavigationSlots, so the landing bell needs its own
+                // path while the cursor walks. It fires after the start/stop transitions, so the
+                // bar playback was already sitting on when Space was pressed is not newly
+                // "passed". It obeys the level, the sound box and Shift+F3; F3 deliberately does
+                // not silence it — playback is the narration mode (see IsEnabled below).
+                if (indexChanged && state.IsPlaying && !state.IsPaused)
+                    _navigation.FireMarketEventEarcon(state, state.CurrentDataIndex);
+
                 if (focusChanged)
                 {
                     _stateMachine.Fire(SonificationTrigger.SelectionChanged);
