@@ -261,6 +261,16 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Follow a spoken signal with what its marker looks like ("Large green
         /// dot."). Cody, 2026-10-22. See MarkerLook. Off by default: it lengthens every signal.</summary>
         bool DescribeSignalLooks = false,
+        // ── Market events on the chart ─────────────────────────────────────
+        // Off by default (Cody, 2026-11-18: "don't want to overwhelm new users"). The level
+        // gates the kinds below; the five boxes are all ticked so that turning the level on
+        // does not also require a second pass. Mirrors AppSettings.MarketEvents*.
+        string MarketEventsLevel = "off",
+        bool MarketEventsEconomy = true,
+        bool MarketEventsFed = true,
+        bool MarketEventsExpiries = true,
+        bool MarketEventsHolidays = true,
+        bool MarketEventsHalvings = true,
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -307,6 +317,12 @@ namespace AccessibleTrader.Sdk.Models
             SpeakPlaybackLandmarks: true,
             SpeakDateOnEveryBar: false,
             DescribeSignalLooks: false,
+            MarketEventsLevel: "off",
+            MarketEventsEconomy: true,
+            MarketEventsFed: true,
+            MarketEventsExpiries: true,
+            MarketEventsHolidays: true,
+            MarketEventsHalvings: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

@@ -31,14 +31,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly ISdkCandlePatternAnalyzer _analyzer;
 
+        /// <summary>
+        /// The bar-to-event map, shared in shape with the arrow keys' cache. Optional so existing
+        /// constructions keep working; a default instance loads the shipped seed.
+        /// </summary>
+        private readonly MarketEvents.IMarketEventBarMapCache _marketEvents;
+
         public BarDetailService(
             IEventBus eventBus,
             IChartPatternCache? patterns = null,
-            ISdkCandlePatternAnalyzer? analyzer = null)
+            ISdkCandlePatternAnalyzer? analyzer = null,
+            MarketEvents.IMarketEventBarMapCache? marketEvents = null)
         {
             _eventBus = eventBus;
             _patterns = patterns;
             _analyzer = analyzer ?? new SdkCandlePatternAnalyzer();
+            _marketEvents = marketEvents ?? new MarketEvents.MarketEventBarMapCache();
         }
 
         /// <inheritdoc />
@@ -117,6 +125,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string formations = ChartFormationDetail(state, idx);
             if (!string.IsNullOrEmpty(formations)) blocks.Add(formations);
 
+            string events = MarketEventDetail(state, idx, bar);
+            if (!string.IsNullOrEmpty(events)) blocks.Add(events);
+
             // Nothing shown and nothing focused: a bare date would sound like a broken key.
             if (!blocks.Any(b => b.Length > 0))
             {
@@ -130,6 +141,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
             detail = detail.TrimEnd();
 
             _eventBus.Publish(new AnnouncementEvent(detail, true));
+        }
+
+        /// <summary>
+        /// "Events on this bar", read whatever the level setting says.
+        ///
+        /// <para>
+        /// Deliberately NOT gated on the market-events level, for the same reason
+        /// <see cref="ChartFormationDetail"/> is not gated on "Describe chart patterns": that
+        /// setting governs unsolicited narration while arrowing, and this key is the user asking
+        /// a direct question. It does honour the kind boxes, because a kind the user unticked is
+        /// one they said they never want to hear; the market type filters too, so a crypto chart
+        /// gets no stock expiries. No events means no section, never an empty heading.
+        /// </para>
+        /// </summary>
+        private string MarketEventDetail(WorkspaceState state, int idx, Ohlcv barAsDrawn)
+        {
+            var placements = _marketEvents.For(state, DateTime.UtcNow);
+            return MarketEvents.MarketEventSpeech.Detail(
+                placements,
+                idx,
+                barAsDrawn,
+                MarketEvents.MarketEventSettings.Kinds(state),
+                state.SelectedMarketType);
         }
 
         /// <summary>

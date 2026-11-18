@@ -98,6 +98,14 @@ namespace AccessibleTrader.Core.Services
         bool NarrateSignalsOnBarClose { get; set; }
         bool NarrateDuringPlayback { get; set; }
 
+        /// <summary>"off", "importantOnly", "importantAndMedium" or "all". Default "off".</summary>
+        string MarketEventsLevel { get; set; }
+        bool MarketEventsEconomy { get; set; }
+        bool MarketEventsFed { get; set; }
+        bool MarketEventsExpiries { get; set; }
+        bool MarketEventsHolidays { get; set; }
+        bool MarketEventsHalvings { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -393,6 +401,48 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.NarrateDuringPlayback, def: true);
             set => Set(SettingsKeys.NarrateDuringPlayback, value);
+        }
+
+        /// <summary>
+        /// "Market events on the chart": off, important only, important and medium, or all.
+        /// Default OFF — new users should not be overwhelmed (Cody, 2026-11-18).
+        /// </summary>
+        public string MarketEventsLevel
+        {
+            get => GetString(SettingsKeys.MarketEventsLevel) is { Length: > 0 } value
+                ? value
+                : Services.MarketEvents.MarketEventLevels.Off;
+            set => Set(SettingsKeys.MarketEventsLevel, value);
+        }
+
+        public bool MarketEventsEconomy
+        {
+            get => GetBool(SettingsKeys.MarketEventsEconomy, def: true);
+            set => Set(SettingsKeys.MarketEventsEconomy, value);
+        }
+
+        public bool MarketEventsFed
+        {
+            get => GetBool(SettingsKeys.MarketEventsFed, def: true);
+            set => Set(SettingsKeys.MarketEventsFed, value);
+        }
+
+        public bool MarketEventsExpiries
+        {
+            get => GetBool(SettingsKeys.MarketEventsExpiries, def: true);
+            set => Set(SettingsKeys.MarketEventsExpiries, value);
+        }
+
+        public bool MarketEventsHolidays
+        {
+            get => GetBool(SettingsKeys.MarketEventsHolidays, def: true);
+            set => Set(SettingsKeys.MarketEventsHolidays, value);
+        }
+
+        public bool MarketEventsHalvings
+        {
+            get => GetBool(SettingsKeys.MarketEventsHalvings, def: true);
+            set => Set(SettingsKeys.MarketEventsHalvings, value);
         }
 
         /// <summary>

@@ -154,6 +154,16 @@ namespace AccessibleTrader.Core.Services
         public const string NarrateDuringPlayback = "narration.duringPlayback";
         public const string SpeakPlaybackLandmarks = "narration.playbackLandmarks";
 
+        // Market events on the chart (Settings → Narration). Off by default (Cody, 2026-11-18:
+        // "don't want to overwhelm new users"). The level gates the kinds; the kind boxes are
+        // all ticked so turning the level on does not also require a second pass.
+        public const string MarketEventsLevel = "narration.marketEventsLevel";
+        public const string MarketEventsEconomy = "narration.marketEvents.economy";
+        public const string MarketEventsFed = "narration.marketEvents.fed";
+        public const string MarketEventsExpiries = "narration.marketEvents.expiries";
+        public const string MarketEventsHolidays = "narration.marketEvents.holidays";
+        public const string MarketEventsHalvings = "narration.marketEvents.halvings";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

@@ -77,7 +77,10 @@ namespace AccessibleTrader.Core.Services
             bool DescribeChartPatterns, bool DescribeCandlePatterns,
             bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback,
             bool SpeakPlaybackLandmarks = true, bool SpeakDateOnEveryBar = false,
-            float PlaybackSpeed = 1.0f, bool DescribeSignalLooks = false);
+            float PlaybackSpeed = 1.0f, bool DescribeSignalLooks = false,
+            string MarketEventsLevel = "off", bool MarketEventsEconomy = true,
+            bool MarketEventsFed = true, bool MarketEventsExpiries = true,
+            bool MarketEventsHolidays = true, bool MarketEventsHalvings = true);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -85,7 +88,9 @@ namespace AccessibleTrader.Core.Services
             s.DescribeChartPatterns, s.DescribeCandlePatterns,
             s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback,
             s.SpeakPlaybackLandmarks, s.SpeakDateOnEveryBar,
-            s.PlaybackSpeed, s.DescribeSignalLooks);
+            s.PlaybackSpeed, s.DescribeSignalLooks,
+            s.MarketEventsLevel, s.MarketEventsEconomy, s.MarketEventsFed,
+            s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings);
 
         public void Initialize()
         {
@@ -124,6 +129,12 @@ namespace AccessibleTrader.Core.Services
                     SpeakPlaybackLandmarks = _settings.SpeakPlaybackLandmarks,
                     SpeakDateOnEveryBar = _settings.SpeakDateOnEveryBar,
                     DescribeSignalLooks = _settings.DescribeSignalLooks,
+                    MarketEventsLevel = _settings.MarketEventsLevel,
+                    MarketEventsEconomy = _settings.MarketEventsEconomy,
+                    MarketEventsFed = _settings.MarketEventsFed,
+                    MarketEventsExpiries = _settings.MarketEventsExpiries,
+                    MarketEventsHolidays = _settings.MarketEventsHolidays,
+                    MarketEventsHalvings = _settings.MarketEventsHalvings,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -161,6 +172,12 @@ namespace AccessibleTrader.Core.Services
                         _settings.SpeakPlaybackLandmarks = p.SpeakPlaybackLandmarks;
                         _settings.SpeakDateOnEveryBar = p.SpeakDateOnEveryBar;
                         _settings.DescribeSignalLooks = p.DescribeSignalLooks;
+                        _settings.MarketEventsLevel = p.MarketEventsLevel;
+                        _settings.MarketEventsEconomy = p.MarketEventsEconomy;
+                        _settings.MarketEventsFed = p.MarketEventsFed;
+                        _settings.MarketEventsExpiries = p.MarketEventsExpiries;
+                        _settings.MarketEventsHolidays = p.MarketEventsHolidays;
+                        _settings.MarketEventsHalvings = p.MarketEventsHalvings;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

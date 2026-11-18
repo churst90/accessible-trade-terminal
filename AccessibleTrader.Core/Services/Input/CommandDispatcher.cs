@@ -31,6 +31,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IBarDetailService _barDetailService;
         private readonly IndicatorCrossingEngine _crossingEngine;
         private readonly Analysis.ChartPatternNavigator? _patternNavigator;
+        private readonly MarketEvents.MarketEventNavigator _marketEventNavigator;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
@@ -68,7 +69,8 @@ namespace AccessibleTrader.Core.Services.Input
             IndicatorCrossingEngine crossingEngine,
             Analysis.ChartPatternNavigator? patternNavigator = null,
             Trading.IQuickTradeService? quickTrade = null,
-            ModalStack? modalStack = null)
+            ModalStack? modalStack = null,
+            MarketEvents.MarketEventNavigator? marketEventNavigator = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -79,6 +81,12 @@ namespace AccessibleTrader.Core.Services.Input
             // DI always supplies it. When absent the comma/period keys report that there is
             // nothing to navigate rather than throwing.
             _patternNavigator = patternNavigator;
+            // The apostrophe keys work without DI: the navigator needs only the store and the
+            // bus, both of which are already here. A caller may supply one (a test with a
+            // seeded calendar) but the default is a working navigator, never a null that
+            // silently drops the key.
+            _marketEventNavigator = marketEventNavigator
+                ?? new MarketEvents.MarketEventNavigator(store, eventBus);
             _quickTrade = quickTrade;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
@@ -667,6 +675,13 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
 
+                // Apostrophe / Shift+apostrophe: the next / previous bar with a market event.
+                if (command is SystemCommand.NavEventNext or SystemCommand.NavEventPrev)
+                {
+                    _marketEventNavigator.Jump(command == SystemCommand.NavEventNext);
+                    return;
+                }
+
                 string navTarget = MapCommandToNavString(command);
                 if (!string.IsNullOrEmpty(navTarget))
                 {
@@ -946,6 +961,11 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.NavPatternNext:
                 case SystemCommand.CyclePatternFocus:
                 case SystemCommand.ClearPatternFocus:
+                // Apostrophe / Shift+apostrophe are printable characters too, and mean nothing
+                // without the chart's own bars; global bindings would swallow them in every
+                // text box.
+                case SystemCommand.NavEventNext:
+                case SystemCommand.NavEventPrev:
                 // Quick trade is chart-scoped: the stop and the limit both come from the bar
                 // under the cursor, so these mean nothing without chart focus — and Shift+Enter
                 // must stay available to every form control in the application.

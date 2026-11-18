@@ -73,6 +73,16 @@ namespace AccessibleTrader.Core.Models
         NavPatternNext,
 
         /// <summary>
+        /// Apostrophe — jump to the next bar carrying a market event that passes the setting.
+        /// Bound beside comma and period; both keys were free on 2026-11-18. Shift+apostrophe
+        /// goes back one.
+        /// </summary>
+        NavEventNext,
+
+        /// <summary>Shift+apostrophe — jump to the previous bar carrying a passing market event.</summary>
+        NavEventPrev,
+
+        /// <summary>
         /// Semicolon — cycle which of the overlapping formations at this bar leads the readout.
         /// Press again to move to the next; Shift+semicolon goes back one. The choice is sticky — kept
         /// wherever the cursor goes and across restarts, until semicolon picks another — and never

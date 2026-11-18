@@ -74,6 +74,12 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.AnnounceNewBars),
         nameof(WorkspaceState.DescribeChartPatterns),
         nameof(WorkspaceState.DescribeCandlePatterns),
+        nameof(WorkspaceState.MarketEventsLevel),
+        nameof(WorkspaceState.MarketEventsEconomy),
+        nameof(WorkspaceState.MarketEventsFed),
+        nameof(WorkspaceState.MarketEventsExpiries),
+        nameof(WorkspaceState.MarketEventsHolidays),
+        nameof(WorkspaceState.MarketEventsHalvings),
         nameof(WorkspaceState.RightMarginBars),
         nameof(WorkspaceState.IsSpeechEnabled),
         nameof(WorkspaceState.IsSonificationEnabled),
@@ -228,6 +234,12 @@ public static class WorkspaceProjection
         Wire.WriteI32(s, (int)state.CurrentDataShape);
         Wire.WriteString(s, state.SymbolDisplayName);
         Wire.WriteBool(s, state.IsReplaying);
+        Wire.WriteString(s, state.MarketEventsLevel);
+        Wire.WriteBool(s, state.MarketEventsEconomy);
+        Wire.WriteBool(s, state.MarketEventsFed);
+        Wire.WriteBool(s, state.MarketEventsExpiries);
+        Wire.WriteBool(s, state.MarketEventsHolidays);
+        Wire.WriteBool(s, state.MarketEventsHalvings);
         // APPENDED 2026-09-21. New fields go at the TAIL of the frame so the reader's fixed
         // order below stays valid for everything written before them.
     }
@@ -285,6 +297,12 @@ public static class WorkspaceProjection
         var currentDataShape      = (ProviderDataShape)r.ReadI32();
         string symbolDisplayName  = r.ReadString();
         bool isReplaying          = r.ReadBool();
+        string marketEventsLevel  = r.ReadString();
+        bool marketEventsEconomy  = r.ReadBool();
+        bool marketEventsFed      = r.ReadBool();
+        bool marketEventsExpiries = r.ReadBool();
+        bool marketEventsHolidays = r.ReadBool();
+        bool marketEventsHalvings = r.ReadBool();
 
         // The not-carried three keep Initial's defaults. Stated here rather than left implicit
         // because "a strategy sees an empty PaneRanges in the worker" is a behaviour, not an
@@ -340,6 +358,12 @@ public static class WorkspaceProjection
             CurrentDataShape = currentDataShape,
             SymbolDisplayName = symbolDisplayName,
             IsReplaying = isReplaying,
+            MarketEventsLevel = marketEventsLevel,
+            MarketEventsEconomy = marketEventsEconomy,
+            MarketEventsFed = marketEventsFed,
+            MarketEventsExpiries = marketEventsExpiries,
+            MarketEventsHolidays = marketEventsHolidays,
+            MarketEventsHalvings = marketEventsHalvings,
         };
     }
 

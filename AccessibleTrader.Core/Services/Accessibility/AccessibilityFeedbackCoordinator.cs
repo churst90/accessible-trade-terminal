@@ -46,6 +46,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // every read below falls back to the SHIPPED default rather than to false — a bare
         // substitute answering false to an opt-OUT setting is how a feature silently inverts.
         private readonly IAppSettings? _appSettings;
+        // The bar-to-market-event map. Built once per chart data/setting and reused on every
+        // arrow key, exactly as _patternCache does for formations.
+        private readonly MarketEvents.MarketEventBarMapCache _marketEventMap;
         private readonly CompositeDisposable _subscriptions = new();
 
         // The bar-close narrator. Held so the new-bar sentence can be composed INTO its
@@ -116,11 +119,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
             IDrawingInteractionManager? drawings = null,
-            IAppSettings? appSettings = null)
+            IAppSettings? appSettings = null,
+            MarketEvents.MarketEventBarMapCache? marketEventMap = null)
         {
             _logger = logger;
             _drawings = drawings;
             _appSettings = appSettings;
+            _marketEventMap = marketEventMap ?? new MarketEvents.MarketEventBarMapCache();
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -1046,7 +1051,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // armed it is the single most consequential fact about the current keystroke,
                     // and a user who has forgotten they are armed is the failure mode the whole
                     // feature is designed against.
-                    string? nav = e.IsXMove ? ChartPatternContext() : null;
+                    string? nav = e.IsXMove ? ChartAndMarketEventContext() : null;
                     string armed = _quickTrade?.ArmedSuffix() ?? "";
                     if (armed.Length > 0)
                         nav = string.IsNullOrWhiteSpace(nav) ? armed : armed + " " + nav;
@@ -1219,6 +1224,47 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // The bar the cursor was on last time a pattern readout was computed. -1 means "no idea",
         // which is the correct state after a load, a jump, or a timeframe change — see below.
         private int _lastPatternBar = -1;
+
+        /// <summary>
+        /// The formation clause, then the market-events clause. They are composed into one
+        /// utterance because two Speak calls do not reliably produce two announcements (see the
+        /// Navigation arm in OnFeedbackRequest).
+        ///
+        /// <para>
+        /// Events are independent of "Describe chart patterns": a user may want the calendar and
+        /// no formation names, or the reverse. The events clause is appended after the formation
+        /// clause and is empty unless the level is not Off and something on this bar passes the
+        /// level, the kinds and the chart's market.
+        /// </para>
+        /// </summary>
+        internal string ChartAndMarketEventContext()
+        {
+            string patterns = ChartPatternContext();
+            string events = MarketEventContext();
+            if (events.Length == 0) return patterns;
+            return patterns.Length == 0 ? events : patterns + " " + events;
+        }
+
+        /// <summary>The events clause for the bar under the cursor, or "".</summary>
+        internal string MarketEventContext()
+        {
+            var state = _store.State;
+            var level = MarketEvents.MarketEventSettings.Level(state);
+            if (level == MarketEvents.MarketEventLevel.Off) return "";
+
+            var data = state.Data;
+            int idx = state.CurrentDataIndex;
+            if (data == null || idx < 0 || idx >= data.Count) return "";
+
+            var placements = _marketEventMap.For(state, DateTime.UtcNow);
+            var onBar = placements.Where(p => p.BarIndex == idx).ToList();
+            return MarketEvents.MarketEventSpeech.Clause(
+                onBar,
+                PlaybackNarration.BarSeconds(state),
+                level,
+                MarketEvents.MarketEventSettings.Kinds(state),
+                state.SelectedMarketType);
+        }
 
         /// <summary>
         /// The chart-formation clause for the bar the cursor has just moved to, or "" for silence.

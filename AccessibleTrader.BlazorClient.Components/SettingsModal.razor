@@ -755,6 +755,64 @@
                         tones are. Off keeps the signals and the chart-formation outcomes and
                         stops the calendar. Needs "Narrate during playback" on.
                     </p>
+
+                    @* Off by default (Cody, 2026-11-18: "don't want to overwhelm new users").
+                       The level gates the kinds; all five kinds are ticked so turning the level
+                       on does not need a second pass. Alt+Shift+D reads the bar's events whatever
+                       this setting says, because that key is the user asking. *@
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin:16px 0 0 0;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Market events on the chart</legend>
+
+                        <div class="modal-row">
+                            <label for="s-market-events-level">Market events on the chart</label>
+                            <select id="s-market-events-level"
+                                    aria-describedby="s-market-events-level-hint"
+                                    value="@_marketEventsLevel"
+                                    @onchange="e => _marketEventsLevel = e.Value?.ToString() ?? _marketEventsLevel">
+                                <option value="off" selected="@(_marketEventsLevel == "off")">Off</option>
+                                <option value="importantOnly" selected="@(_marketEventsLevel == "importantOnly")">Important only</option>
+                                <option value="importantAndMedium" selected="@(_marketEventsLevel == "importantAndMedium")">Important and medium</option>
+                                <option value="all" selected="@(_marketEventsLevel == "all")">All</option>
+                            </select>
+                        </div>
+                        <p id="s-market-events-level-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            Off by default. CPI, the jobs report, Fed decisions, options expiries,
+                            US market holidays and Bitcoin halvings are said on the bars they
+                            happened on, and apostrophe jumps between them. Alt+Shift+D reads this
+                            bar's events whatever this is set to.
+                        </p>
+
+                        <div class="modal-row">
+                            <label for="s-market-events-economy">Economy</label>
+                            <input id="s-market-events-economy" type="checkbox"
+                                   checked="@_marketEventsEconomy"
+                                   @onchange="e => _marketEventsEconomy = e.Value is bool b ? b : _marketEventsEconomy" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-market-events-fed">Fed</label>
+                            <input id="s-market-events-fed" type="checkbox"
+                                   checked="@_marketEventsFed"
+                                   @onchange="e => _marketEventsFed = e.Value is bool b ? b : _marketEventsFed" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-market-events-expiries">Expiries</label>
+                            <input id="s-market-events-expiries" type="checkbox"
+                                   checked="@_marketEventsExpiries"
+                                   @onchange="e => _marketEventsExpiries = e.Value is bool b ? b : _marketEventsExpiries" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-market-events-holidays">Holidays</label>
+                            <input id="s-market-events-holidays" type="checkbox"
+                                   checked="@_marketEventsHolidays"
+                                   @onchange="e => _marketEventsHolidays = e.Value is bool b ? b : _marketEventsHolidays" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-market-events-halvings">Bitcoin halvings</label>
+                            <input id="s-market-events-halvings" type="checkbox"
+                                   checked="@_marketEventsHalvings"
+                                   @onchange="e => _marketEventsHalvings = e.Value is bool b ? b : _marketEventsHalvings" />
+                        </div>
+                    </fieldset>
                 </fieldset>
 
             </div>
@@ -1363,6 +1421,12 @@
     private bool _narrateSignals;
     private bool _narratePlayback;
     private bool _playbackLandmarks;
+    private string _marketEventsLevel = "off";
+    private bool _marketEventsEconomy = true;
+    private bool _marketEventsFed = true;
+    private bool _marketEventsExpiries = true;
+    private bool _marketEventsHolidays = true;
+    private bool _marketEventsHalvings = true;
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -1407,6 +1471,12 @@
         new("Narrate chart formations as they form", "Narration", "s-narrate-forming-charts", "narration chart pattern formation forming live double top head shoulders triangle flag"),
         new("Narrate during playback", "Narration", "s-narrate-playback", "narration playback signal speech space master"),
         new("Speak time landmarks during playback", "Narration", "s-playback-landmarks", "narration playback landmark date hour time calendar boundary"),
+        new("Market events on the chart", "Narration", "s-market-events-level", "market events cpi jobs report fed decision options expiry holiday bitcoin halving economy off important medium all"),
+        new("Economy events", "Narration", "s-market-events-economy", "market events economy cpi jobs report nfp ppi gdp release"),
+        new("Fed events", "Narration", "s-market-events-fed", "market events fed fomc decision"),
+        new("Expiry events", "Narration", "s-market-events-expiries", "market events options expiry quarterly crypto"),
+        new("Holiday events", "Narration", "s-market-events-holidays", "market events holidays market closed thanksgiving christmas"),
+        new("Bitcoin halving events", "Narration", "s-market-events-halvings", "market events bitcoin halving crypto"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
@@ -2068,6 +2138,12 @@
         _narrateSignals = Store.State.NarrateSignalsOnBarClose;
         _narratePlayback = Store.State.NarrateDuringPlayback;
         _playbackLandmarks = Store.State.SpeakPlaybackLandmarks;
+        _marketEventsLevel = Store.State.MarketEventsLevel;
+        _marketEventsEconomy = Store.State.MarketEventsEconomy;
+        _marketEventsFed = Store.State.MarketEventsFed;
+        _marketEventsExpiries = Store.State.MarketEventsExpiries;
+        _marketEventsHolidays = Store.State.MarketEventsHolidays;
+        _marketEventsHalvings = Store.State.MarketEventsHalvings;
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -2341,6 +2417,12 @@
             NarrateSignalsOnBarClose = _narrateSignals,
             NarrateDuringPlayback = _narratePlayback,
             SpeakPlaybackLandmarks = _playbackLandmarks,
+            MarketEventsLevel = _marketEventsLevel,
+            MarketEventsEconomy = _marketEventsEconomy,
+            MarketEventsFed = _marketEventsFed,
+            MarketEventsExpiries = _marketEventsExpiries,
+            MarketEventsHolidays = _marketEventsHolidays,
+            MarketEventsHalvings = _marketEventsHalvings,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

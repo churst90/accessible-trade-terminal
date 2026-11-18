@@ -509,6 +509,14 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.NavPatternPrev, ","));
             s.Add(new(SystemCommand.NavPatternNext, "."));
 
+            // Apostrophe: jump between bars carrying a market event. Bound both as the character
+            // a browser reports and as the OEM spelling, exactly as backslash is (OEM5 + "\").
+            // Shift+apostrophe arrives as '"' and KeyNormalizationService folds it back to "'".
+            s.Add(new(SystemCommand.NavEventNext, "OEM7"));
+            s.Add(new(SystemCommand.NavEventNext, "'"));
+            s.Add(new(SystemCommand.NavEventPrev, "OEM7", Shift: true));
+            s.Add(new(SystemCommand.NavEventPrev, "'", Shift: true));
+
             // Semicolon sits beside comma and period on a QWERTY keyboard, which puts the whole
             // formation vocabulary under one hand.
             s.Add(new(SystemCommand.CyclePatternFocus, ";"));
