@@ -32,9 +32,9 @@ Decisions: an event sits on the bar of its own day, as TradingView does (after-c
 report day); events OFF by default; earnings from Finnhub (Cody is getting the free key); the pulse list
 as proposed.
 
-- [ ] Stage 1: events on bars, the past (seeded US release dates and Fed decisions, rule-worked expiries,
+- [x] Stage 1: events on bars, the past (seeded US release dates and Fed decisions, rule-worked expiries,
   holidays and halvings; the placement rule; the setting, off by default; the arrow clause; Alt+Shift+D;
-  apostrophe jumps). No figures, no live fetch.
+  apostrophe jumps). No figures, no live fetch. **Built 2026-11-18; not heard by Cody yet.**
 - [ ] Stage 2: live FRED dates with Cody's key, first-print actual figures, "hot" direction, landing sound.
 - [ ] Stage 3: countdowns, release read-outs (price reaction first), position-aware warnings, Alt+E calendar.
 - [ ] Stage 4: earnings (Finnhub key), Kalshi expected figures, token unlocks (check DefiLlama's free API).

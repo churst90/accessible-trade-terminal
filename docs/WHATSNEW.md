@@ -10,6 +10,21 @@
 
 None of this has been seen or heard in the app yet.
 
+### Market events on the chart
+
+- **The chart can tell you what happened on a bar, not just what it cost.** CPI, the jobs report,
+  PPI and GDP, Fed decisions, stock and crypto options expiries, US market holidays and the four
+  past Bitcoin halvings are placed on the bar of the day they happened. Arrow onto one and a short
+  clause follows the price reading: "CPI 8:30", "Fed decision 2 pm, before the open", "market
+  closed Thursday, Thanksgiving".
+- **Off by default.** Turn it on under Settings, Narration, "Market events on the chart"; choose
+  important only, important and medium, or all, and tick which kinds you want. Times follow your
+  F12 clock choices. Alt+Shift+D adds an "Events on this bar" section with each event's long name,
+  importance, source and what price did over the bar.
+- **Apostrophe and Shift+apostrophe** jump to the next and previous bar with an event.
+- **The past only, for now.** The shipped dates run through July 2026 for releases and 2027 for
+  Fed decisions; actual and expected figures, countdowns and a calendar screen come later.
+
 ### Downloads
 
 - **The web host's zip is one tidy folder.** It used to unzip to about 470 loose files. It now unzips to

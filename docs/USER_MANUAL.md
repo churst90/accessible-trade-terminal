@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -1373,6 +1373,49 @@ muting silences the sound, not the information. It is the one-key way to gather
 everything the terminal knows about a single moment, which is exactly what you want
 in front of a decision — and a natural lead-in to the analysis tools in the next
 chapter.
+
+### Market events on the chart
+
+Some bars carry something the price alone does not say: the day's CPI or jobs report came out, the
+Fed decided, the month's options expired, the market was closed for Thanksgiving, or Bitcoin
+halved. Those are **market events**, and the terminal can put each one on the bar of the day it
+happened — the same bar TradingView puts it on — and tell you about it.
+
+**They are off by default**, so a new chart stays quiet. Turn them on under **Settings (F12) →
+Narration → Market events on the chart**. The level chooses how much you hear: **Off**,
+**Important only** (CPI, the jobs report and Fed decisions), **Important and medium** (adds PPI,
+GDP and the quarterly expiries), or **All**. Below the level, five tick boxes choose the kinds:
+**Economy** (CPI, jobs, PPI, GDP), **Fed**, **Expiries**, **Holidays** and **Bitcoin halvings**. All
+five start ticked; a kind you untick is never spoken or jumped to. Events are filtered to the
+chart's own market: a crypto chart never mentions a stock expiry, and a stock chart never mentions
+a halving.
+
+**What you hear on a bar.** Arrowing onto a bar that has an event appends a short clause after the
+price reading: *"CPI 8:30"*, *"Fed decision 2 pm"*, *"CPI 8:30, before the open"*, *"Bitcoin
+halving, time not given"*, or *"market closed Thursday, Thanksgiving"*. Times are on your clock,
+so they follow the F12 choices for UTC and the 12-hour clock. A day-only event says "time not
+given" only when a time could be known — old releases from before 1997, old Fed decisions from
+before 2013, and halvings. A stock expiry or a holiday is a whole-day fact and says nothing about
+a time. When more than two events share a bar you hear the two most important and then *"plus N
+more events"*; on weekly and monthly bars each name carries its weekday.
+
+**Alt+Shift+D** adds an **"Events on this bar"** section: every event there with its long name,
+time, importance, where it was placed and its source, then what price did from that bar's open to
+close. This key reads the events whatever the level is set to, because you asked; the kind boxes
+still apply, and a bar with no events gets no section.
+
+**Apostrophe and Shift+apostrophe** (`'` and `Shift+'`) jump to the next and previous bar with an
+event, the way comma and period move between chart formations. Both keys need the level on; with it
+off the terminal says *"Market events are off. Turn them on in Settings, Narration."* At the end of
+the data it says *"No later market events."* or *"No earlier market events."* — never nothing. The
+apostrophe's OEM spelling is `OEM7` (so `Shift+OEM7` is Shift+apostrophe); it is the same physical
+key, bound the way backslash is bound as both `\` and `OEM5`.
+
+The dates ship with the terminal: US release dates from FRED and Fed decisions from the Federal
+Reserve through July 2026 and 2027 respectively, plus the rule-worked expiries, holidays and
+halvings. Nothing is fetched while you read, and one-off closures such as a national day of
+mourning are not listed. This stage is the past only: the actual and expected figures, live
+countdowns and the calendar screen come in later stages.
 
 ---
 
@@ -4394,7 +4437,7 @@ the terminal afterwards so every part of it re-reads the defaults.
 
 #### The Narration tab
 
-"What the terminal says on its own, without you pressing anything." Six switches. Most are
+"What the terminal says on its own, without you pressing anything." The switches below. Most are
 **on** to begin with, and that is not the terminal being chatty at you: none of them lets
 anything new through on its own. Signal narration only ever speaks about series and
 components you flagged yourself with N, so on a chart where you have flagged nothing it has
@@ -4419,6 +4462,11 @@ nothing to say; and playback narration is on because it is what the terminal alr
   subordinate to the switch above. It is the only thing that says where in time the tones
   are, and it is also a calendar read to you every few seconds; turning it off keeps the
   signals and the formation outcomes and stops the dates.
+- **Market events on the chart** (off) — CPI, the jobs report, PPI, GDP, Fed decisions, options
+  expiries, US market holidays and Bitcoin halvings, said on the bars they happened on. The
+  level (off, important only, important and medium, all) gates the five kind boxes. Off by
+  default so a new chart stays quiet; the full description is under *Reading the Chart → Market
+  events on the chart*.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery

@@ -1,7 +1,8 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Nothing here is built yet** except where a stage below says it is. This is the plan
+terminal does not. **Stage 1 is built (2026-11-18) but has not been heard by Cody yet; the rest is not
+built** except where a stage below says it is. This is the plan
 and the reasons, so a later session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
@@ -213,11 +214,18 @@ unavailable, Finnhub key not set".
 Each stage is one or more DeepSeek runs from a handoff; Claude reviews, re-runs the tests and the
 sabotages, merges locally, and pushes once at the end of a batch (the push is the full suite).
 
-1. **Events on bars, the past.** The event model; the bar placement rule; sources that need no network at
-   run time: a seed of FRED release dates for CPI, NFP, PPI and GDP and the Fed decision dates, the
-   release-time table, and the rule-worked events (expiries, holidays, halvings); the setting (off by
-   default) with levels and kinds; the arrow clause; the Alt+Shift+D section; apostrophe jumps. No
-   expected figures, no actual figures yet, no live fetch.
+1. **Events on bars, the past — BUILT 2026-11-18, not heard by Cody yet.** The event model; the bar
+   placement rule; sources that need no network at run time: a seed of FRED release dates for CPI, NFP,
+   PPI and GDP and the Fed decision dates, the release-time table, and the rule-worked events (expiries,
+   holidays, halvings); the setting (off by default) with levels and kinds; the arrow clause; the
+   Alt+Shift+D section; apostrophe jumps. No expected figures, no actual figures yet, no live fetch.
+   Differences found while building: FRED's release ids were not in `MacroEventCommand.cs` (it reads the
+   extracted date files), so the seed script records the standard ids 10/50/46/53; the FRED inputs run
+   from 1947–49 rather than 1990, and the seed keeps those older day-only dates; the chart's zone is the
+   market's (US Eastern for stock-session markets, UTC otherwise) rather than inferred per chart from
+   `CipherCFutureClock`, which needs a long bar run and answers null on a daily stock chart; replay keeps
+   all bars in `ReplayService` only as its private history and dispatches a growing PREFIX, so the
+   ordinary rule 7 already excludes later events and no replay branch was needed.
 2. **Live dates and actual figures.** FRED fetch with the user's key, saved to disk with its fetch time;
    first-print actuals with the previous figure; "hot" direction per release; the landing sound.
 3. **Live:** countdowns, release read-outs (price reaction first), the position-aware warning, the

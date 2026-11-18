@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events on the chart, stage 1: the past, 2026-11-18
+
+- **What was built.** Scheduled market events now sit on the bars they happened on. The new
+  `AccessibleTrader.Core/Services/MarketEvents/` folder holds the record (`MarketEvent`: id, kind,
+  short and long names, market scope, importance, UTC moment, exact-or-day-only precision, the
+  event's own date, and its source), the rule engine, the calendar, the pure bar-placement
+  function, a cached bar-to-event map, the speech wording, a detail section and the apostrophe
+  jumps. Kinds are Economy, Fed, Expiry, Holiday and Halving; importance is High, Medium or Low.
+- **Sources.** A committed seed, `AccessibleTrader.Core/Resources/MarketEvents/us_events_seed.json`
+  (embedded; 3,509 events), rebuilt by `python3 -I scripts/build_market_events_seed.py`. FRED
+  release dates for CPI (release 10), NFP (50), PPI (46) and GDP (53), fetched 2026-08-01:
+  947 / 861 / 598 / 855 dates. Fed decisions from the Federal Reserve's calendar pages, fetched
+  2026-07-31: 248 dates, 2000–2027, with unscheduled meetings marked. The seed header names every
+  source, its URL and its fetch date. No network is used at run time.
+- **Worked out by rule.** Stock options expiry is the third Friday, moved to Thursday when that
+  Friday is Good Friday (April 2025 is the 17th); March, June, September and December are
+  quarterly and Medium. Crypto options expiry is the last Friday at 08:00 UTC. US market holidays
+  reuse `CipherCFutureClock.Holiday` and `HolidayNames` unchanged, with Juneteenth only from 2022.
+  The four past Bitcoin halvings are UTC dates. One-off closures (for example 2025-01-09) are not
+  listed.
+- **The placement rule (Cody, 2026-11-18).** The event goes on the bar of the day it happened on,
+  as TradingView does. On intraday charts, the bar whose span holds the moment, with a bar's own
+  opening moment inside it; the same day outside the session is "before the open" or "after the
+  close"; daily charts use the chart's own date; weekly and monthly bars hold their span; a date
+  with no bar goes on the next bar as "came out {weekday}"; day-only events go on the day's first
+  intraday bar; before the first bar is not placed; inside the last bar but later than "now" is
+  "scheduled". Replay reveals a growing prefix of the bars, so rule 7 already keeps events after
+  the replay cursor out — no replay-specific branch was needed.
+- **Setting.** "Market events on the chart" is on the Narration tab, **off by default** (Cody:
+  "don't want to overwhelm new users"), with levels Off, Important only, Important and medium and
+  All, and tick boxes for Economy, Fed, Expiries, Holidays and Bitcoin halvings (all on). It
+  travels the same path as `DescribeCandlePatterns`: `SettingsKeys`, `AppSettings`,
+  `PreferencePersistenceService`, the `WorkspaceState` mirror and `WorkspaceProjection`.
+- **What is heard.** A short clause follows the price reading on a bar with events; more than two
+  show the two most important and "plus N more events"; weekly bars carry weekdays. Alt+Shift+D
+  adds "Events on this bar" with long name, time, importance, placement, source and the bar's
+  open-to-close move, and reads whatever the level is set to. Apostrophe and Shift+apostrophe jump
+  to the next and previous event bar; with the level off, at either end, or with nothing passing
+  the filters, they say why rather than nothing.
+- **Caveats.** The seed ends where its inputs end — July 2026 for the releases, 2027 for the Fed;
+  stage 2 fetches the rest. Fed decisions before 2013 and releases before 1997 are day-only.
+  There are no actual or expected figures yet, no live fetch, no countdowns and no sound.
+  **Nothing has been heard by Cody yet.**
+- **Tests.** 79 new `MarketEvent*` tests (seed counts, header, first/last dates, daylight saving,
+  the rules, one test per placement rule, the cache built once, settings defaults and filtering,
+  speech wording, detail key, jumps, key bindings), plus the two new chart-scope cases in
+  `Phase5KeyboardScopeTests`. Four sabotages, each after green and restored from
+  `strategy-lab-data/sab/`: excluding a bar's opening moment from its span turned 1 red; a fixed
+  UTC-5 in place of New York turned 1 red (a cache test added for that gap); defaulting the level
+  to Important only turned 1 red; dropping rule 5's next-bar fallback turned 2 red. Every restore
+  rebuilt green.
+
 ### Cipher B's sell dot placed like its buy dot when the Zero line is hidden, 2026-11-17
 
 - **What Cody heard:** "the large red sell dot is below -100, but shouldn't it be above 60 to mirror the

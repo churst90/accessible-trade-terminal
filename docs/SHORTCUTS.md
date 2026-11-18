@@ -47,12 +47,16 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 | Home | Jump to leftmost bar in visible viewport | Bar data at start |
 | End | Jump to rightmost bar in visible viewport | Bar data at end |
 | Backslash (\) | Jump to the latest (live) bar | Bar data at live edge |
+| ' (apostrophe) | Jump to the next bar carrying a market event that passes the setting | The event, or "No later market events." |
+| Shift+' | Jump to the previous bar carrying a market event | The event, or "No earlier market events." |
 | [ | Pan viewport left (older bars come into view) | "Viewing X bars from..." |
 | ] | Pan viewport right (newer bars come into view) | "Viewing X bars from..." |
 | Shift+[ | Decrease pan step size | — |
 | Shift+] | Increase pan step size | — |
 | - (minus) | Zoom out (more bars visible) | "Viewing X bars from..." |
 | = (equals) | Zoom in (fewer bars visible) | "Viewing X bars from..." |
+
+The apostrophe's OEM spelling is `OEM7` (with Shift, `Shift+OEM7`); it is the same physical key as `'`, bound the way backslash is bound as both `\` and `OEM5`. Market events are off by default; turn them on under Settings (F12) → Narration → Market events on the chart. With the level off the key says so rather than doing nothing.
 
 ---
 
