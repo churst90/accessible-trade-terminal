@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Theming;
 using SkiaSharp;
 
 namespace AccessibleTrader.Core.Services.Accessibility
@@ -55,9 +56,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// The display types drawn as a line or an area, which say their colour. Not bars: volume
-        /// and histograms are painted by direction on every bar, so their colour word would only
-        /// restate up or down, on nearly every bar of a sweep.
+        /// The display types drawn as a line or an area, which say their colour.
         /// </summary>
         private static readonly HashSet<ComponentDisplayType> LineTypes = new()
         {
@@ -66,12 +65,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
         };
 
         /// <summary>
-        /// "Orange line." for a visible line or area with a value on this bar. Said on arriving at
-        /// the component (<paramref name="fromIndex"/> below zero: the user just moved onto it), and
-        /// otherwise only when the colour's NAME differs from the one at <paramref name="fromIndex"/>,
-        /// the bar the user was on before this move. So a sweep along an orange line is silent
-        /// about it, and a line that turns from green to red says so on the first bar heard in the
-        /// new colour, in either direction and after a jump. Empty otherwise.
+        /// The display types drawn as bars, which say their colour as "{colour} bar": volume wears
+        /// the Bar type, and MACD, Cipher B and the other zero-cross histograms wear Histogram.
+        /// </summary>
+        private static readonly HashSet<ComponentDisplayType> BarTypes = new()
+        {
+            ComponentDisplayType.Bar, ComponentDisplayType.Histogram,
+        };
+
+        /// <summary>
+        /// "Orange line." or "Green bar." for a visible line, area or bar with a value on this bar.
+        /// Said on arriving at the component (<paramref name="fromIndex"/> below zero: the user just
+        /// moved onto it), and otherwise only when the colour's NAME differs from the one at
+        /// <paramref name="fromIndex"/>, the bar the user was on before this move. So a sweep along
+        /// an orange line is silent about it, and a line that turns from green to red says so on the
+        /// first bar heard in the new colour, in either direction and after a jump. Empty otherwise.
         ///
         /// <para>
         /// Cody, 2026-11-17: "sometimes I may hear 'faint green line' when I'm far away from a
@@ -79,21 +87,59 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// arrowing leftward said the old colour one bar before the change and nothing on the
         /// change itself, and a jump said it wherever the landing bar's left neighbour differed.
         /// </para>
+        ///
+        /// <para>The bar arguments are optional so the line callers keep their old shape; a bar
+        /// needs them to know the candle direction and the theme it was painted in.</para>
         /// </summary>
-        public static string LineSentence(ChartSeries series, ComponentConfig comp, int dataIndex, int fromIndex)
+        public static string LineSentence(ChartSeries series, ComponentConfig comp, int dataIndex, int fromIndex,
+            ChartTheme? theme = null, Ohlcv? bar = null, Ohlcv? fromBar = null)
+            => ChangeSentence(DescribeLineOrBar(series, comp, dataIndex, theme, bar),
+                fromIndex >= 0 ? DescribeLineOrBar(series, comp, fromIndex, theme, fromBar) : null);
+
+        /// <summary>
+        /// "Green bar." for a visible bar-like component with a value on this bar, as
+        /// <see cref="LineSentence"/> says a line's colour: on arrival, otherwise only when the
+        /// name differs from the bar the user came from, either way and after a jump. The colour
+        /// is <see cref="StandardRenderers.BarColorAt"/>, the paint the renderer uses — colour
+        /// rules, candle direction and recolourings included.
+        /// </summary>
+        public static string BarSentence(ChartTheme? theme, ChartSeries series, ComponentConfig comp,
+            int dataIndex, int fromIndex, Ohlcv? bar, Ohlcv? fromBar)
+            => LineSentence(series, comp, dataIndex, fromIndex, theme, bar, fromBar);
+
+        private static string DescribeLineOrBar(ChartSeries series, ComponentConfig comp, int dataIndex,
+            ChartTheme? theme, Ohlcv? bar)
+            => DescribeLine(series, comp, dataIndex, theme, bar);
+
+        /// <summary>"green bar", "faint red bar" when a bar is drawn in that colour on this bar,
+        /// or empty.</summary>
+        public static string DescribeBar(ChartTheme? theme, ChartSeries series, ComponentConfig comp,
+            int dataIndex, Ohlcv? bar)
         {
-            string look = DescribeLine(series, comp, dataIndex);
-            if (look.Length == 0) return "";
-            if (fromIndex >= 0 && DescribeLine(series, comp, fromIndex) == look) return "";
-            return Capitalise(look) + ".";
+            if (!comp.IsVisible || !BarTypes.Contains(comp.DisplayType)) return "";
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || dataIndex < 0 || dataIndex >= data.Length || double.IsNaN(data[dataIndex])) return "";
+            string colour = ColorName(StandardRenderers.BarColorAt(theme, comp, data, dataIndex, bar));
+            return $"{colour} bar";
         }
 
+        /// <summary>The one comparison for "say it on arrival, then only on change": the look is
+        /// said when it is not empty and differs from the one at the bar the user came from
+        /// (<paramref name="previous"/> null means there is no such bar).</summary>
+        private static string ChangeSentence(string look, string? previous)
+            => look.Length == 0 || previous == look ? "" : Capitalise(look) + ".";
+
         /// <summary>"orange line", "orange area" when a fill is drawn under it
-        /// (<see cref="StandardRenderers.DrawsFill"/>), or empty. Cody, 2026-11-17: one word for
-        /// what is drawn; Cipher B's waves, money flow and wave gap are filled, so they are areas.</summary>
-        public static string DescribeLine(ChartSeries series, ComponentConfig comp, int dataIndex)
+        /// (<see cref="StandardRenderers.DrawsFill"/>), "green bar" for a bar-like type, or empty.
+        /// Cody, 2026-11-17: one word for what is drawn; Cipher B's waves, money flow and wave gap
+        /// are filled, so they are areas.</summary>
+        public static string DescribeLine(ChartSeries series, ComponentConfig comp, int dataIndex,
+            ChartTheme? theme = null, Ohlcv? bar = null)
         {
-            if (!comp.IsVisible || !LineTypes.Contains(comp.DisplayType)) return "";
+            if (!comp.IsVisible) return "";
+            if (BarTypes.Contains(comp.DisplayType))
+                return DescribeBar(theme, series, comp, dataIndex, bar);
+            if (!LineTypes.Contains(comp.DisplayType)) return "";
             var data = series.GetComponentData(comp.Name);
             if (data == null || dataIndex < 0 || dataIndex >= data.Length || double.IsNaN(data[dataIndex])) return "";
             string colour = ColorName(StandardRenderers.LineColorAt(series, comp, dataIndex));
@@ -236,6 +282,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return hue;
         }
 
-        private static string Capitalise(string phrase) => char.ToUpperInvariant(phrase[0]) + phrase[1..];
+        internal static string Capitalise(string phrase) => char.ToUpperInvariant(phrase[0]) + phrase[1..];
     }
 }

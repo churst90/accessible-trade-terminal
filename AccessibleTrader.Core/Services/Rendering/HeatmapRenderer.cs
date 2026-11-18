@@ -30,9 +30,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // Ensure at least 1 pixel height for depth levels
                     if (Math.Abs(yBottom - yTop) < 1) yBottom = yTop + 1;
 
-                    double volumeMultiplier = series.Volume;
-                    byte alpha = (byte)Math.Clamp((bin.TotalVolume / 100.0) * 255 * volumeMultiplier, 0, 255);
-                    
+                    byte alpha = CellAlpha(series, bin);
+
                     using var binPaint = new SKPaint
                     {
                         Color = basePaint.Color.WithAlpha(alpha),
@@ -43,5 +42,27 @@ namespace AccessibleTrader.Core.Services.Rendering
                 }
             }
         }
+
+        /// <summary>
+        /// The alpha the heatmap paints a cell with: volume against the normalised 0–100 scale,
+        /// times the series' own depth. The ONE calculation the renderer and speech share, so a
+        /// shade word cannot drift from the picture. A NaN volume is empty, not a crash.
+        /// </summary>
+        internal static byte CellAlpha(ChartSeries series, ProfileBin bin)
+        {
+            double alpha = (bin.TotalVolume / 100.0) * 255 * series.Volume;
+            return double.IsNaN(alpha) ? (byte)0 : (byte)Math.Clamp(alpha, 0, 255);
+        }
+
+        /// <summary>
+        /// "dark", "medium" or "light" from the alpha: the top, middle and bottom third of the
+        /// 0–255 range. Empty when nothing is painted (alpha 0), so an empty cell says nothing.
+        /// </summary>
+        internal static string CellShade(ChartSeries series, ProfileBin bin) => ShadeWord(CellAlpha(series, bin));
+
+        internal static string ShadeWord(byte alpha) => alpha == 0 ? ""
+            : alpha <= 85 ? "light"
+            : alpha <= 170 ? "medium"
+            : "dark";
     }
 }

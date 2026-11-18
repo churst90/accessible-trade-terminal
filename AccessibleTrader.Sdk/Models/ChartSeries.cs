@@ -465,6 +465,14 @@ namespace AccessibleTrader.Sdk.Models
         public double PriceMid => (PriceLow + PriceHigh) / 2.0;
         public double Price => PriceMid;
         public required double TotalVolume { get; init; }
+        /// <summary>Of <see cref="TotalVolume"/>, the part traded by bars that closed above their
+        /// open (or, for a doji, above the previous close). A split by bar direction, not by
+        /// trade: real buy/sell volume needs lower-timeframe or tick data. Zero on a TPO row.
+        /// <see cref="BuyVolume"/> + <see cref="SellVolume"/> equals <see cref="TotalVolume"/>
+        /// on every volume-profile bin.</summary>
+        public double BuyVolume { get; init; }
+        /// <summary>The selling part of <see cref="TotalVolume"/>; see <see cref="BuyVolume"/>.</summary>
+        public double SellVolume { get; init; }
         public double Density => TotalVolume;
         public required double TpoPeriodCount { get; init; }
         public required bool IsPOC { get; init; }

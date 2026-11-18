@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Colour said the same way everywhere; profiles split into buying and selling, 2026-11-18
+
+- **Histograms and volume bars say their colour**, in the same words and on the same rule as a
+  line: *"Green bar."*, *"Faint red bar."* on arriving at the component, then only where the
+  colour's name changes, either direction and after a jump. The colour comes from the paint the
+  renderer uses — `StandardRenderers.BarColorAt`, shared by the bar renderer and speech — so
+  colour rules (MACD's shades), a recoloured histogram and volume's candle-direction pair are all
+  what is drawn. Behind the existing **Say what lines and signals look like** opt-in; off, nothing
+  changes.
+- **The heatmap says its shade**: *"Dark cell."*, *"Medium cell."* or *"Light cell."* from the top,
+  middle and bottom third of the alpha `HeatmapRenderer` paints, with the same arrival/change rule
+  when moving between prices in a column or between bars. An empty cell says nothing. The alpha is
+  one shared function, `HeatmapRenderer.CellAlpha`, so renderer and speech cannot drift. Behind the
+  same opt-in.
+- **A volume-profile row is split into buying and selling**, as TradingView draws it. `ProfileBin`
+  gained `BuyVolume` and `SellVolume`; a bar's volume is buying when it closed above its open and
+  selling when below, a doji is compared with the previous bar's close, and an equal close is half
+  each. Each row is drawn buying-first from the profile's base side in the theme's bullish colour,
+  then selling in the bearish colour, at `ProfileNormal`'s opacity; the POC row keeps its own
+  marking. A TPO/zero-volume row draws as before.
+- **Speech and sound.** The row's price line ends with *"…, 62 percent buying."*, *"…, 58 percent
+  selling."* or *"…, even."*; this is data, not looks, and is always on. Under the look opt-in the
+  row's drawn colours follow the line rule (*"… and … row."*), and the POC row says the POC's own
+  colour. The profile sound keeps the accepted 2026-11-03 pitch-by-part and grit-by-size, and
+  changes only the base waveform: **triangle when buying leads the row**, sine when selling leads,
+  the split is even, or there is no split — the oscillator rule applied to buying and selling. TPO
+  and no-volume profiles sound exactly as before.
+- **Caveats.** The split is by **bar direction**, not by real trade-by-trade buying and selling;
+  that needs lower-timeframe or tick data the terminal does not have, so a bar that opened low,
+  traded up and closed high is all "buying" however much selling happened inside it. Where volume
+  goes is untouched: `TotalVolume`, the POC, the value area, the levels and the backtests are
+  bit-identical on a pinned data set, `BuyVolume + SellVolume == TotalVolume` on every
+  volume-profile bin, and TPO/market-profile rows carry no split and are unchanged. The new fields
+  cross the script-sandbox projection wire, so an older sandbox build cannot read a newer
+  projection (they ship together). The shades are thirds of the alpha range, not absolute volume:
+  a cell is "dark" relative to the 0–255 opacity scale the renderer uses, so changing the chart's
+  heatmap volume multiplier changes the words as it changes the picture.
+
 ### Chart context menu: here, labels and horizontal lines in any pane, 2026-11-18
 
 - **One definition of "here".** `ChartContextHere` resolves the clicked bar and the value under the

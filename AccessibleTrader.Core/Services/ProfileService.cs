@@ -44,6 +44,8 @@ namespace AccessibleTrader.Core.Services
             double binSize = range / binCount;
 
             var volumeBins  = new double[binCount];
+            var buyBins     = new double[binCount];
+            var sellBins    = new double[binCount];
             var tpoCounts   = new double[binCount];
             // Each bin accumulates a set of TPO letters that visited it
             var tpoLetterSets = new List<HashSet<char>>(binCount);
@@ -64,6 +66,27 @@ namespace AccessibleTrader.Core.Services
                     int index = (int)((d.Close - min) / binSize);
                     index = Math.Clamp(index, 0, binCount - 1);
                     volumeBins[index] += d.Volume;
+
+                    // TradingView's split, without lower-timeframe data: a bar's volume is buying
+                    // when it closed above its open and selling when it closed below. A doji is
+                    // compared with the previous bar's close; when those are equal too, the
+                    // volume is half each. The split never decides WHERE volume goes (the close's
+                    // bin, above): it only divides the same total.
+                    int direction = d.Close > d.Open ? 1 : d.Close < d.Open ? -1 : 0;
+                    if (direction == 0 && barIdx > 0)
+                    {
+                        double previousClose = data[barIdx - 1].Close;
+                        if (d.Close > previousClose) direction = 1;
+                        else if (d.Close < previousClose) direction = -1;
+                    }
+                    if (direction > 0) buyBins[index] += d.Volume;
+                    else if (direction < 0) sellBins[index] += d.Volume;
+                    else
+                    {
+                        buyBins[index] += d.Volume / 2.0;
+                        sellBins[index] += d.Volume / 2.0;
+                    }
+
                     tpoCounts[index]++;
                 }
                 else
@@ -86,12 +109,14 @@ namespace AccessibleTrader.Core.Services
             // Determine primary metric for POC + value area
             double[] density = isVolume ? volumeBins : tpoCounts;
 
-            return CreateProfileBins(density, volumeBins, tpoCounts, tpoLetterSets, min, binSize, binCount);
+            return CreateProfileBins(density, volumeBins, buyBins, sellBins, tpoCounts, tpoLetterSets, min, binSize, binCount);
         }
 
         private static List<ProfileBin> CreateProfileBins(
             double[] density,
             double[] volumeBins,
+            double[] buyBins,
+            double[] sellBins,
             double[] tpoCounts,
             List<HashSet<char>> tpoLetterSets,
             double min,
@@ -150,6 +175,8 @@ namespace AccessibleTrader.Core.Services
                     PriceLow        = priceLow,
                     PriceHigh       = priceHigh,
                     TotalVolume     = volumeBins[i],
+                    BuyVolume       = buyBins[i],
+                    SellVolume      = sellBins[i],
                     TpoPeriodCount  = tpoCounts[i],
                     IsPOC           = i == pocIndex,
                     IsValueArea     = valueAreaIndices.Contains(i),

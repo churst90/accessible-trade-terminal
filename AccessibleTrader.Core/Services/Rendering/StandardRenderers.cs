@@ -820,17 +820,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float spacing  = barWidth * 0.1f;
 
-            // Shared with the legend and the crosshair badge — see DirectionalBarColors.
-            var (upColor, downColor) = DirectionalBarColors(ctx.Theme, comp);
-            // The opacity the colour carries (8-digit #AARRGGBB), else the historical 180.
-            upColor   = upColor.WithAlpha(HexAlpha(comp.ColorHex, 180));
-            downColor = downColor.WithAlpha(HexAlpha(comp.ColorHexSecondary, 180));
-            using var upPaint = SKPaintPool.Rent();
-            upPaint.Paint.Color = upColor;
-            upPaint.Paint.Style = SKPaintStyle.Fill;
-            using var downPaint = SKPaintPool.Rent();
-            downPaint.Paint.Color = downColor;
-            downPaint.Paint.Style = SKPaintStyle.Fill;
+            // Shared with the legend, the crosshair badge and speech — see BarColorAt.
+            var fills = BarFillColors(ctx.Theme, comp);
 
             bool useCandleDirection = comp.ColorSource == ColorSource.PriceAction;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;
@@ -842,10 +833,11 @@ namespace AccessibleTrader.Core.Services.Rendering
             // Histogram.
             if (comp.IsAreaFillInEffect() && !useCandleDirection && !hasColorRules)
             {
-                RenderHistogramArea(ctx, comp, barData, upColor, downColor);
+                RenderHistogramArea(ctx, comp, barData, fills.Up, fills.Down);
                 return;
             }
 
+            using var barPaint = new SKPaint { Style = SKPaintStyle.Fill };
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 int dataIdx = ctx.ViewportStart + i;
@@ -861,41 +853,43 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double barBase = comp.ReferenceLevel ?? 0.0;
                 float yZero  = ChartMath.MapY(barBase, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
 
-                SKPaint barPaint;
-                RentedPaint ruleLease = default;
-                bool ruleRented = false;
-                if (hasColorRules)
-                {
-                    var col = ResolveBarColor(comp, barData, dataIdx);
-                    if (col.HasValue)
-                    {
-                        ruleLease = SKPaintPool.Rent();
-                        ruleRented = true;
-                        barPaint = ruleLease.Paint;
-                        barPaint.Color = col.Value;
-                        barPaint.Style = SKPaintStyle.Fill;
-                    }
-                    else
-                    {
-                        // ctx.Data is the viewport slice (length = ViewportLength), so index with i, not dataIdx.
-                        bool isUp = useCandleDirection
-                            ? (i < ctx.Data.Count && ctx.Data[i].Close >= ctx.Data[i].Open)
-                            : val >= comp.ColorBaseline;
-                        barPaint = isUp ? upPaint.Paint : downPaint.Paint;
-                    }
-                }
-                else
-                {
-                    bool isUp = useCandleDirection
-                        ? (i < ctx.Data.Count && ctx.Data[i].Close >= ctx.Data[i].Open)
-                        : val >= comp.ColorBaseline;
-                    barPaint = isUp ? upPaint.Paint : downPaint.Paint;
-                }
+                // ctx.Data is the viewport slice (length = ViewportLength), so index with i, not dataIdx.
+                barPaint.Color = BarColorAt(comp, barData, dataIdx,
+                    i < ctx.Data.Count ? ctx.Data[i] : null, fills);
 
                 ctx.Canvas.DrawRect(x + spacing, Math.Min(yVal, yZero), barWidth - (2 * spacing), Math.Abs(yVal - yZero), barPaint);
-
-                if (ruleRented) ruleLease.Dispose();
             }
+        }
+
+        /// <summary>The up and down fills a directional bar is painted with, alpha included.
+        /// <see cref="DirectionalBarColors"/> chooses the hue; the alpha is the colour's own
+        /// (8-digit #AARRGGBB) or the historical 180. Shared with speech so "green bar" names the
+        /// fill actually drawn.</summary>
+        internal static (SKColor Up, SKColor Down) BarFillColors(ChartTheme? theme, ComponentConfig comp)
+        {
+            var (up, down) = DirectionalBarColors(theme, comp);
+            return (up.WithAlpha(HexAlpha(comp.ColorHex, 180)),
+                    down.WithAlpha(HexAlpha(comp.ColorHexSecondary, 180)));
+        }
+
+        /// <summary>
+        /// The colour a bar component is painted at <paramref name="dataIdx"/>, the one
+        /// <see cref="RenderDirectionalBars"/> draws: the first matching colour rule, otherwise
+        /// the up or down fill chosen by the candle's direction (<see cref="ColorSource.PriceAction"/>)
+        /// or the value against <see cref="ComponentConfig.ColorBaseline"/>. For speech
+        /// (MarkerLook), so "green bar" is the colour on the chart, recolourings included.
+        /// </summary>
+        internal static SKColor BarColorAt(ChartTheme? theme, ComponentConfig comp, double[] data, int dataIdx, Ohlcv? bar)
+            => BarColorAt(comp, data, dataIdx, bar, BarFillColors(theme, comp));
+
+        internal static SKColor BarColorAt(ComponentConfig comp, double[] data, int dataIdx, Ohlcv? bar,
+            (SKColor Up, SKColor Down) fills)
+        {
+            if (ResolveBarColor(comp, data, dataIdx) is { } ruled) return ruled;
+            bool isUp = comp.ColorSource == ColorSource.PriceAction
+                ? bar is { } b && b.Close >= b.Open
+                : data[dataIdx] >= comp.ColorBaseline;
+            return isUp ? fills.Up : fills.Down;
         }
 
         /// <summary>

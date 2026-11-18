@@ -76,17 +76,22 @@ and Identity already has 2FA, lockout and rate limits.
   sell limit here (opens the dashboard filled in, never places), copy price, copy this bar, bar
   replay from here, add indicator, object tree, remove all drawings (asks first); per series: alert
   on this line, copy value, move to a new pane. Each names its shortcut.
-- [ ] **Colour said the same way everywhere (Cody: "consistency", 2026-11-18).** Next DeepSeek run
-  after the menu. Histograms and volume bars say their colour as lines do (on arrival, then only
-  where it changes); the heatmap says how busy a cell is rather than a gradient's colour name; all
-  behind the existing opt-in look setting.
-- [ ] **Profiles split into buying and selling, as TradingView draws them (Cody, 2026-11-18).** Same
-  run as the colours. Today a profile row holds total volume only and is drawn in one colour (POC in
-  another). Each row gets buying and selling volume (a bar's volume counts as buying when it closed
-  up, selling when down, as TradingView does without lower-timeframe data), drawn in two colours,
-  spoken as "62 percent buying", and heard as Cody proposed: **triangle when buyers lead the row,
-  sine when sellers do**, the oscillator rule (above zero triangle, below sine), keeping the
-  accepted profile sound's pitch by part and grit by size.
+- [x] **Colour said the same way everywhere (Cody: "consistency", 2026-11-18).** Done 2026-11-18:
+  histograms and volume bars say "{colour} bar" as lines do (on arrival, then only where it
+  changes); heatmap cells say dark/medium/light from the alpha the renderer paints, with silence on
+  an empty cell; all behind the existing opt-in look setting. Renderer and words share one colour /
+  alpha function, pinned by pixel tests. What is left: the heatmap shade is a third of the 0–255
+  alpha range, so it is relative to the chart's heatmap volume multiplier rather than absolute
+  liquidity, and no new colour words were invented for display types that are not bars or lines.
+- [x] **Profiles split into buying and selling, as TradingView draws them (Cody, 2026-11-18).** Done
+  2026-11-18: `ProfileBin.BuyVolume`/`SellVolume`; a bar counts as buying when it closed up and
+  selling when down, with TradingView's doji-vs-previous-close rule and half each when that is
+  equal. Rows are drawn in the theme's bullish and bearish colours, spoken as "62 percent buying" /
+  "even", and sound a triangle when buyers lead, sine otherwise, keeping pitch by part and grit by
+  size. TotalVolume, POC, value area, levels and backtests are pinned unchanged; TPO rows have no
+  split. What is left: this is a split by **bar direction**, not real trade-by-trade buying; proper
+  delta needs lower-timeframe or tick data, and the profile is not split per trade or per price
+  inside a bar.
 - [ ] **"9-13 sequential" (Cody named it, 2026-11-18).** A DeMark-style count: setup 1 to 9 (close
   against the close 4 bars back), then countdown 1 to 13 (close against the low/high 2 bars back),
   with perfection, cancellation and recycle rules to settle from the published descriptions and to

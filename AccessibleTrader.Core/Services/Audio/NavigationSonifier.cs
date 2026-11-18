@@ -791,10 +791,14 @@ namespace AccessibleTrader.Core.Services.Audio
         /// pitch with the length texturing, poc has it's own chime tone with texturing, lvn's hvn's
         /// and bars with no data should be a low tone").
         /// <list type="bullet">
-        /// <item><b>The pitch is the bin's part of the profile</b>, on a pure sine: the Point of
-        /// Control 880 Hz as a chime (with its octave and a bell partial, and a click); the value area
-        /// 440, its high and low edges included; outside it 330; a high volume node 220; a low volume
-        /// node 165; a bin with no volume 110.</item>
+        /// <item><b>The pitch is the bin's part of the profile</b>: the Point of Control 880 Hz as a
+        /// chime (with its octave and a bell partial, and a click); the value area 440, its high and
+        /// low edges included; outside it 330; a high volume node 220; a low volume node 165; a bin
+        /// with no volume 110.</item>
+        /// <item><b>The waveform is the split</b> (Cody, 2026-11-18): a triangle when buying leads
+        /// the row, otherwise a sine — selling ahead, an even split, or no split at all. That is the
+        /// oscillator rule (above zero triangle, below sine) applied to buying and selling, and it
+        /// leaves TPO and no-volume profiles sounding exactly as before.</item>
         /// <item><b>Grit is the bin's size</b> (the length it is drawn at): the sub-octave saw of
         /// <see cref="DefaultSonificationStrategy.BarGrit"/> against the profile's biggest bin, on the
         /// first note only. A bin with no volume is clean.</item>
@@ -819,19 +823,24 @@ namespace AccessibleTrader.Core.Services.Audio
                 : DefaultSonificationStrategy.BarGrit(bin.TotalVolume, (0, 0), peak);
             float vol = Math.Clamp(volume, 0f, 1f);
 
-            VoiceParams Sine(double f, float gain, double dur, float subSaw = 0f, bool click = false)
+            // The oscillator rule: above zero triangle, below sine. Here "above zero" is buying
+            // leading the row. Selling leads, an even split, or no split at all keeps the sine,
+            // so TPO profiles and data with no volume sound exactly as they did.
+            string waveform = bin.BuyVolume > bin.SellVolume ? "triangle" : "sine";
+
+            VoiceParams Note(double f, float gain, double dur, float subSaw = 0f, bool click = false)
                 => new()
                 {
-                    Frequency = f, Volume = vol * gain, Waveform = "sine", DurationSeconds = dur,
+                    Frequency = f, Volume = vol * gain, Waveform = waveform, DurationSeconds = dur,
                     DataIndex = binIndex, Envelope = "Ping", Click = click, SubSawMix = subSaw,
                 };
 
             if (!noData && type == ProfileNodeType.POC)
                 return new[]
                 {
-                    new ProfileNote(SLOT_NAV_START, Sine(ProfilePocHz, 1f, 0.80, grit, click: true)),
-                    new ProfileNote(SLOT_NAV_START + 1, Sine(ProfilePocHz * ChimeOctave, 0.40f, 0.80)),
-                    new ProfileNote(SLOT_NAV_START + 2, Sine(ProfilePocHz * ChimeBell, 0.20f, 0.60)),
+                    new ProfileNote(SLOT_NAV_START, Note(ProfilePocHz, 1f, 0.80, grit, click: true)),
+                    new ProfileNote(SLOT_NAV_START + 1, Note(ProfilePocHz * ChimeOctave, 0.40f, 0.80)),
+                    new ProfileNote(SLOT_NAV_START + 2, Note(ProfilePocHz * ChimeBell, 0.20f, 0.60)),
                 };
 
             double hz = noData ? ProfileNoDataHz : type switch
@@ -841,7 +850,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 ProfileNodeType.VAH or ProfileNodeType.VAL or ProfileNodeType.ValueArea => ProfileValueAreaHz,
                 _ => ProfileOutsideHz,
             };
-            return new[] { new ProfileNote(SLOT_NAV_START, Sine(hz, 1f, 0.40, grit)) };
+            return new[] { new ProfileNote(SLOT_NAV_START, Note(hz, 1f, 0.40, grit)) };
         }
 
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
@@ -864,6 +873,8 @@ namespace AccessibleTrader.Core.Services.Audio
                 PriceLow       = b.PriceLow,
                 PriceHigh      = b.PriceHigh,
                 TotalVolume    = b.TotalVolume,
+                BuyVolume      = b.BuyVolume,
+                SellVolume     = b.SellVolume,
                 TpoPeriodCount = 0,
                 IsPOC          = Math.Abs(b.TotalVolume - barMaxVol) < 1e-9,
                 IsValueArea    = false,

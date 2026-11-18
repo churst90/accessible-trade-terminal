@@ -504,6 +504,8 @@ public static class WorkspaceProjection
             Wire.WriteF64(s, b.PriceLow);
             Wire.WriteF64(s, b.PriceHigh);
             Wire.WriteF64(s, b.TotalVolume);
+            Wire.WriteF64(s, b.BuyVolume);
+            Wire.WriteF64(s, b.SellVolume);
             Wire.WriteF64(s, b.TpoPeriodCount);
             Wire.WriteBool(s, b.IsPOC);
             Wire.WriteBool(s, b.IsValueArea);
@@ -522,10 +524,12 @@ public static class WorkspaceProjection
         var bins = new List<ProfileBin>(n);
         for (int i = 0; i < n; i++)
         {
-            double priceLow  = r.ReadF64();
-            double priceHigh = r.ReadF64();
-            double volume    = r.ReadF64();
-            double tpoCount  = r.ReadF64();
+            double priceLow   = r.ReadF64();
+            double priceHigh  = r.ReadF64();
+            double volume     = r.ReadF64();
+            double buyVolume  = r.ReadF64();
+            double sellVolume = r.ReadF64();
+            double tpoCount   = r.ReadF64();
             bool isPoc       = r.ReadBool();
             bool isValueArea = r.ReadBool();
             int? letter      = r.ReadNullableI32();
@@ -541,6 +545,8 @@ public static class WorkspaceProjection
                 PriceLow = priceLow,
                 PriceHigh = priceHigh,
                 TotalVolume = volume,
+                BuyVolume = buyVolume,
+                SellVolume = sellVolume,
                 TpoPeriodCount = tpoCount,
                 IsPOC = isPoc,
                 IsValueArea = isValueArea,

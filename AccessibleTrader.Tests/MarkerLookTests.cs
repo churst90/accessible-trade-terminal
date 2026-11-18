@@ -536,11 +536,14 @@ public class MarkerLookTests
     }
 
     [Fact]
-    public void Volume_and_histogram_bars_do_not_say_a_colour()
+    public void Histogram_bars_say_their_colour_as_bars_not_lines()
     {
         var bars = Line("#00E676");
         bars.DisplayType = ComponentDisplayType.Histogram;
-        Assert.Equal("", MarkerLook.LineSentence(One(bars, new[] { 1.0, 2.0 }), bars, 1, fromIndex: -1));
+        var series = One(bars, new[] { 1.0, 2.0 });
+        Assert.Equal("green bar", MarkerLook.DescribeLine(series, bars, 1));
+        Assert.Equal("Green bar.", MarkerLook.LineSentence(series, bars, 1, fromIndex: -1));
+        Assert.Equal("Green bar.", MarkerLook.BarSentence(null, series, bars, 1, fromIndex: -1, null, null));
     }
 
     [Fact]

@@ -2,9 +2,13 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Analysis;
+using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Theming;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Rendering;
+using AccessibleTrader.Core.Services.Theming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -43,11 +47,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly ISdkCandlePatternAnalyzer _candles;
 
+        // The live theme, for the words that name what the renderer paints (volume's candle
+        // colours, a profile row's two halves). Optional so minimal tests still construct; the
+        // default matches a fresh install's Classic theme, the same default ChartRenderer uses.
+        private readonly IThemeService? _themes;
+
         // The bar each line was last read on, and what was in focus then, so a line's colour is
         // compared with the bar the user came from (MarkerLook.LineSentence), whichever way they
         // moved. Per circuit in the WebHost (scoped), per app on the desktop.
         private readonly Dictionary<(string Series, string Comp), int> _lineReadAt = new();
         private string? _lineFocus;
+
+        // The last shade said for each heatmap, and the last profile row read, compared with the
+        // cell/row the user came from in either direction.
+        private readonly Dictionary<string, string> _heatmapShade = new();
+        private readonly Dictionary<string, int> _profileReadAt = new();
+
+        private ChartTheme Theme => _themes?.Current ?? BaseThemeResolver.Resolve(ThemeType.Classic);
 
         /// <summary>The bar to compare a line's colour with: the one it was last read on, or -1
         /// when the user has just arrived at it (moved onto it, or onto its series).</summary>
@@ -58,6 +74,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _lineReadAt[key] = dataIndex;
             return from;
         }
+
+        private static Ohlcv? BarAt(IReadOnlyList<Ohlcv>? bars, int index)
+            => bars != null && index >= 0 && index < bars.Count ? bars[index] : null;
 
         /// <summary>True when the focus (a series summary, or one component) differs from the
         /// last one read.</summary>
@@ -72,11 +91,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public SpeechFormatter(ILogger<SpeechFormatter> logger,
                                Indicators.IIndicatorEngine? indicatorEngine = null,
-                               ISdkCandlePatternAnalyzer? candleAnalyzer = null)
+                               ISdkCandlePatternAnalyzer? candleAnalyzer = null,
+                               IThemeService? themeService = null)
         {
             _logger = logger;
             _indicatorEngine = indicatorEngine;
             _candles = candleAnalyzer ?? new SdkCandlePatternAnalyzer();
+            _themes = themeService;
             // ── THE utterance precedence list (debt item 4) ────────────────────
             // Component-context speech resolves top-down; first non-null wins.
             // This array + the fallback IS the whole precedence — there is no
@@ -379,6 +400,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
             }
 
+            // Buying and selling: data, not looks, so always said when a row has a split. The
+            // leader rides inside the row's sentence — "…, 62 percent buying." — and is silent
+            // for a TPO or restored row that has no split.
+            dataMsg = WithTrailingClause(dataMsg, SplitLeader(bin));
+
+            // The row's drawn colour, under the same opt-in and the same arrival/change rule as a
+            // line or a bar. No-split rows are not given a colour word.
+            string lookSuffix = "";
+            if (state.DescribeSignalLooks)
+            {
+                bool arrived = ArrivedAt(series.Id + "\u0001profile");
+                int from = !arrived && _profileReadAt.TryGetValue(series.Id, out int at) ? at : -1;
+                _profileReadAt[series.Id] = binIndex;
+                string look = ProfileRowLook(Theme, bin);
+                string? previous = from >= 0 && from < allBins.Count ? ProfileRowLook(Theme, allBins[from]) : null;
+                if (look.Length > 0 && previous != look)
+                    lookSuffix = " " + MarkerLook.Capitalise(look) + ".";
+            }
+
             // Timestamps on profiles only when moving across time (X axis).
             bool shouldSpeakTimestamp = state.SpeakTimestamps && isXMove
                 && state.Data != null && state.CurrentDataIndex >= 0 && state.CurrentDataIndex < state.Data.Count;
@@ -386,7 +426,39 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ? SpeechTimeFormatter.FormatBarClock(state.Data![state.CurrentDataIndex].Date, PlaybackNarration.BarSeconds(state)) + ". "
                 : "";
 
-            return timestamp + prefixMessage + dataMsg;
+            return timestamp + prefixMessage + dataMsg + lookSuffix;
+        }
+
+        /// <summary>", 62 percent buying", ", 58 percent selling" or ", even", from the split a
+        /// volume-profile row carries; empty when it has none (TPO, zero volume, an old bin).</summary>
+        private static string SplitLeader(ProfileBin bin)
+        {
+            double split = bin.BuyVolume + bin.SellVolume;
+            if (!(split > 0)) return "";
+            double buying = bin.BuyVolume / split * 100.0;
+            if (Math.Abs(buying - 50.0) <= 0.5) return ", even";
+            return buying > 50.0
+                ? $", {buying.ToString("F0", CultureInfo.InvariantCulture)} percent buying"
+                : $", {(100.0 - buying).ToString("F0", CultureInfo.InvariantCulture)} percent selling";
+        }
+
+        /// <summary>The row's drawn colour: the POC's own colour on a POC row, otherwise the two
+        /// halves' names, in the order the renderer paints them; empty when the row has no split.</summary>
+        private static string ProfileRowLook(ChartTheme theme, ProfileBin bin)
+        {
+            if (bin.IsPOC) return MarkerLook.ColorName(ProfileRenderLayer.PocColor(theme)) + " row";
+            if (bin.BuyVolume + bin.SellVolume <= 0) return "";
+            var (buy, sell) = ProfileRenderLayer.SplitColors(theme);
+            return $"{MarkerLook.ColorName(buy)} and {MarkerLook.ColorName(sell)} row";
+        }
+
+        /// <summary>Puts <paramref name="clause"/> (which starts with a comma or a word) before the
+        /// full stop of <paramref name="sentence"/>; leaves the sentence alone when it is empty.</summary>
+        private static string WithTrailingClause(string sentence, string clause)
+        {
+            if (clause.Length == 0) return sentence;
+            string body = sentence.EndsWith(".") ? sentence[..^1] : sentence;
+            return body + clause + ".";
         }
 
         public string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage, int cursorDataIndex = -1)
@@ -416,10 +488,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 borrowedLabel = $"no book here, showing {SpeechTimeFormatter.FormatBarClock(state.Data[dataIndex].Date, PlaybackNarration.BarSeconds(state))}, ";
 
             string dataMsg;
+            ProfileBin? described;
             if (binIndex < 0 || binIndex >= bar.Count)
             {
                 // No bin focused — announce the column's peak.
                 var peak = bar.MaxBy(b => b.TotalVolume);
+                described = peak;
                 if (peak == null || peak.TotalVolume <= 0)
                 {
                     dataMsg = "no liquidity.";
@@ -439,6 +513,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else
             {
                 var bin     = bar[binIndex];
+                described   = bin;
                 double barMax = bar.Max(b => b.TotalVolume);
                 var classifyBins = BuildClassifyBins(bar, barMax);
                 var nodeType = ProfileBinClassifier.Classify(classifyBins[binIndex], classifyBins);
@@ -455,12 +530,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
                           $"{pct.ToString("F1", CultureInfo.InvariantCulture)} percent.";
             }
 
+            // The cell's shade, from the alpha the renderer paints it with (HeatmapRenderer).
+            // Same arrival/change rule as a line: said on arriving, then only where the word
+            // differs from the cell the user came from, moving between prices or between bars.
+            // An empty cell says nothing.
+            bool arrived = ArrivedAt(series.Id + "\u0001heatmap");
+            string shade = state.DescribeSignalLooks && described != null
+                ? HeatmapRenderer.CellShade(series, described)
+                : "";
+            bool hadShade = _heatmapShade.TryGetValue(series.Id, out string? previousShade);
+            _heatmapShade[series.Id] = shade;
+            string shadeSuffix = shade.Length > 0 && (arrived || !hadShade || previousShade != shade)
+                ? " " + MarkerLook.Capitalise(shade) + " cell."
+                : "";
+
             // Timestamp first, then prefix, then data — consistent with FormatPointFeedback ordering.
             // The borrowed-snapshot caveat rides immediately before the data it qualifies, and is
             // NOT gated on SpeakTimestamps: turning timestamps off asks for less chatter, not to
             // be told about another bar's liquidity as though it were this one's.
             string timestampPrefix = state.SpeakTimestamps ? timeLabel : "";
-            return timestampPrefix + prefixMessage + borrowedLabel + dataMsg;
+            return timestampPrefix + prefixMessage + borrowedLabel + dataMsg + shadeSuffix;
         }
 
         // ── Dispatcher ───────────────────────────────────────────────────────────
@@ -535,9 +624,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // signal answered by its provider's own speech is described too. Empty on a bar
                 // with no marker, so a left/right sweep adds nothing between signals.
                 string look = describeLook ? MarkerLook.Sentence(series, comp, dataIndex) : "";
-                // A line's colour, on arriving at it and where it differs from the bar the user came
-                // from (MarkerLook.LineSentence).
-                if (describeLook && look.Length == 0) look = MarkerLook.LineSentence(series, comp, dataIndex, lineFrom);
+                // A line's or a bar's colour, on arriving at it and where it differs from the bar
+                // the user came from (MarkerLook.LineSentence); bars need the theme and the two
+                // bars so the word is the paint the renderer used.
+                if (describeLook && look.Length == 0)
+                    look = MarkerLook.LineSentence(series, comp, dataIndex, lineFrom,
+                        Theme, BarAt(bars, dataIndex), BarAt(bars, lineFrom));
                 string lookSuffix = look.Length == 0 ? "" : " " + look;
 
                 foreach (var strategy in _strategies)
@@ -656,6 +748,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 PriceLow       = b.PriceLow,
                 PriceHigh      = b.PriceHigh,
                 TotalVolume    = b.TotalVolume,
+                BuyVolume      = b.BuyVolume,
+                SellVolume     = b.SellVolume,
                 TpoPeriodCount = 0,
                 IsPOC          = Math.Abs(b.TotalVolume - barMax) < 1e-9,
                 IsValueArea    = false,

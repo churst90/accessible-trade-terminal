@@ -2901,6 +2901,20 @@ bin is as easy to hear as a fat one. The price is spoken, not played. Moving int
 value area announces "Entering Value Area", and leaving it announces "Exiting Value
 Area".
 
+**Each row now says which side bought it.** A volume-profile row is split into buying
+and selling, and the price line ends with the larger side: *"…, 62 percent buying."*,
+*"…, 58 percent selling."*, or *"…, even."* when the two are within half a percentage
+point. A bar's volume counts as **buying** when the bar closed above its open and
+**selling** when it closed below; when open and close are equal, the close is compared
+with the previous bar's close, and if those are equal too the volume is half each. This
+is TradingView's rule, a split by **bar direction** rather than by trade: real
+buy/sell volume needs lower-timeframe or tick data, which the terminal does not have.
+The row is drawn in the theme's bullish and bearish colours in that order, and the
+**waveform** says who leads: a **triangle** when buying leads, a **sine** when selling
+leads, the split is even, or there is no split. The pitch by part and grit by size are
+unchanged, so the landmarks still sound as they did. TPO/market profiles have no split
+and sound and read exactly as before.
+
 There are eight profiles in the Add Indicator dialog's Profile category, and they are
 one idea crossed with another rather than eight different tools. The first choice is
 **what is counted**: a *Volume Profile* counts the volume traded at each price, and a
@@ -2931,6 +2945,13 @@ zone by how much trading happened there. Its real payoff is in sound: with the
 heatmap on, playback folds that intensity into the audio, so higher-volume bars play
 louder than quiet ones and a busy stretch of market is something you hear swell
 rather than something you have to look up. Press Alt+H again to turn it off.
+
+The heatmap is one colour at different strengths, so a colour name would mean
+nothing. With **Say what lines and signals look like** on, a cell says its strength
+instead — **"Dark cell."**, **"Medium cell."** or **"Light cell."** from the top,
+middle or bottom third of the opacity the renderer draws it with. You hear it when
+you arrive on the heatmap, then only when the word changes, whether you are moving
+between prices in one column or between bars; an empty cell says nothing.
 
 ### The object tree
 
@@ -3165,11 +3186,15 @@ You hear it when you arrow onto a signal, for the other signals on the bar when 
 signals while arrowing** is on, during playback, and when signals are narrated as a bar closes.
 Alerts are not described.
 
-**Lines say their colour** too: *"Orange line."* when you move up or down onto a line or a filled
-area (a moving average, an RSI, Cipher B's waves), and again while arrowing left and right only on
-the bar where its colour changes, so a line that turns from green to red says *"Red line."* there.
-The colour is the one drawn, so a line you recoloured says its new colour. Volume and histogram
-bars are coloured up or down on every bar and do not say a colour.
+**Lines, bars and heatmap cells say their colour** too. *"Orange line."* when you move up or
+down onto a line or a filled area (a moving average, an RSI, Cipher B's waves), and again while
+arrowing left and right only on the bar where its colour changes, so a line that turns from green
+to red says *"Red line."* there. A volume bar or histogram says *"Green bar."* or *"Faint red
+bar."* the same way: on arriving at it, then only where its colour changes, so a MACD histogram
+that turns from solid green to faint green says so on the first bar in the new shade. Volume
+follows the candle colours, and the colour is always the one drawn, so a bar you recoloured says
+its new colour. The heatmap says its shade instead — *"Dark cell."*, *"Medium cell."* or *"Light
+cell."* — because it is one colour at varying strength; an empty cell says nothing.
 
 It is off by default because it lengthens what you hear.
 

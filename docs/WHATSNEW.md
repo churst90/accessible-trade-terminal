@@ -10,6 +10,15 @@
 
 None of this has been seen or heard in the app yet.
 
+### Colour words and the buying/selling profile
+
+- **Bars and heatmap cells say what they look like.** With "Say what lines and signals look like"
+  on, a histogram or volume bar says *"Green bar."* on arrival and again only when its colour
+  changes, and a heatmap cell says *"Dark cell."*, *"Medium cell."* or *"Light cell."* from how
+  strongly it is drawn. A volume-profile row now leads with *"62 percent buying"* or *"58 percent
+  selling"* (or *"even"*), and its sound is a triangle when buyers lead, a sine otherwise — the
+  profile's pitch by part and grit by size are unchanged.
+
 ### Chart context menu
 
 - **Right-click or the Application key now does more.** Add a text label or horizontal line at the

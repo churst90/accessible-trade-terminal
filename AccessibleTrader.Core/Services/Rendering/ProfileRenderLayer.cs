@@ -1,5 +1,6 @@
 using SkiaSharp;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Theming;
 
 namespace AccessibleTrader.Core.Services.Rendering
 {
@@ -35,26 +36,67 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <summary>The volume bars, right-aligned. Painted under the candles.</summary>
         public void RenderBins(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
+            var (buy, sell) = SplitColors(ctx.Theme);
+            using var normalPaint = new SKPaint
+            {
+                Color = ThemeNormal(ctx.Theme),
+                Style = SKPaintStyle.Fill
+            };
+            using var buyPaint = new SKPaint { Color = buy, Style = SKPaintStyle.Fill };
+            using var sellPaint = new SKPaint { Color = sell, Style = SKPaintStyle.Fill };
+
             foreach (var (bins, maxVolume) in Profiles(ctx, series))
             {
                 float profileWidth = ProfileWidth(ctx);
-                using var paint = new SKPaint
-                {
-                    Color = ctx.Theme.ProfileNormal.WithAlpha(BinAlpha),
-                    Style = SKPaintStyle.Fill
-                };
 
                 foreach (var bin in bins)
                 {
                     float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                     float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                     float binWidth = (float)(bin.TotalVolume / maxVolume) * profileWidth;
+                    float left = ctx.Width - binWidth;
+                    float top = Math.Min(yTop, yBottom);
+                    float height = Math.Abs(yBottom - yTop);
+                    double split = bin.BuyVolume + bin.SellVolume;
 
-                    // Right-aligned profile
-                    ctx.Canvas.DrawRect(ctx.Width - binWidth, Math.Min(yTop, yBottom), binWidth, Math.Abs(yBottom - yTop), paint);
+                    if (split > 0)
+                    {
+                        // Buying first, from the profile's base side (the right edge it is
+                        // anchored to), then selling to its left. Split proportionally so the
+                        // row's drawn length stays TotalVolume's length even if an old bin's
+                        // two halves do not add up to it.
+                        float buyWidth = binWidth * (float)(bin.BuyVolume / split);
+                        float sellWidth = binWidth - buyWidth;
+                        if (buyWidth > 0)
+                            ctx.Canvas.DrawRect(ctx.Width - buyWidth, top, buyWidth, height, buyPaint);
+                        if (sellWidth > 0)
+                            ctx.Canvas.DrawRect(left, top, sellWidth, height, sellPaint);
+                    }
+                    else
+                    {
+                        // TPO, zero volume, or a bin restored from before the split: one colour,
+                        // exactly as it was drawn.
+                        ctx.Canvas.DrawRect(left, top, binWidth, height, normalPaint);
+                    }
                 }
             }
         }
+
+        /// <summary>The colour a no-split profile row is drawn in.</summary>
+        internal static SKColor ThemeNormal(ChartTheme theme) => theme.ProfileNormal.WithAlpha(BinAlpha);
+
+        /// <summary>The two colours a split row is drawn in, at the same opacity as a whole row:
+        /// the theme's candle direction pair (so ColorVisionSafe's blue and orange apply), never a
+        /// literal. Speech names these, so both callers must come through here.</summary>
+        internal static (SKColor Buy, SKColor Sell) SplitColors(ChartTheme theme)
+        {
+            var (buy, sell) = StandardRenderers.ApplyColorVision(
+                theme, theme.CandleBullishBody, theme.CandleBearishBody);
+            return (buy.WithAlpha(BinAlpha), sell.WithAlpha(BinAlpha));
+        }
+
+        /// <summary>The point-of-control line's colour, as speech names it for the POC row.</summary>
+        internal static SKColor PocColor(ChartTheme theme) => theme.ProfilePOC;
 
         /// <summary>The point-of-control line across the profile strip. Painted over the candles.</summary>
         public void RenderPoc(RenderContext ctx, IEnumerable<ChartSeries> series)
@@ -64,7 +106,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float profileWidth = ProfileWidth(ctx);
                 using var pocPaint = new SKPaint
                 {
-                    Color = ctx.Theme.ProfilePOC,
+                    Color = PocColor(ctx.Theme),
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = 2 * ctx.Density
                 };
@@ -92,7 +134,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// Contrast Dark. The theme's own ProfileNormal alpha was never used (it was overridden
         /// with 100 before this too). Pinned in rendered pixels by <c>VolumeProfileDepthTests</c>.
         /// </summary>
-        private const byte BinAlpha = 60;
+        internal const byte BinAlpha = 60;
 
         // Profiles take up 20% of pane width.
         private static float ProfileWidth(RenderContext ctx) => ctx.Width * 0.2f;
