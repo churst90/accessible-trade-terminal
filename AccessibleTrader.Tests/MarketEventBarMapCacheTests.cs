@@ -1,6 +1,9 @@
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Tests.Mocks;
 
 namespace AccessibleTrader.Tests;
 
@@ -8,6 +11,61 @@ namespace AccessibleTrader.Tests;
 public class MarketEventBarMapCacheTests
 {
     private static readonly DateTime Now = new(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void OneCachePassedToBothServicesIsBuiltOnce()
+    {
+        var bars = new[]
+        {
+            MarketEventTestData.Bar(new DateTime(2024, 3, 11, 0, 0, 0, DateTimeKind.Utc)),
+            MarketEventTestData.Bar(new DateTime(2024, 3, 12, 0, 0, 0, DateTimeKind.Utc)),
+        };
+        var e = MarketEventTestData.Event(
+            moment: new DateTime(2024, 3, 11, 12, 30, 0, DateTimeKind.Utc));
+        var state = MarketEventTestData.State(bars, timeframe: "1d", level: "all");
+        var map = new MarketEventBarMapCache(MarketEventTestData.Calendar(e));
+        var shared = new CountingMap(map);
+
+        var store = new MockWorkspaceStore();
+        var formatter = new SpeechFormatter();
+        var router = new SpeechFeedbackRouter(new CounterSpeechManager(), formatter, store);
+        var coordinator = new AccessibilityFeedbackCoordinator(
+            store,
+            new NavigationFeedbackManager(router, formatter),
+            router,
+            new AudioFeedbackRouter(new MockNavigationSonifier(), new MockEarconService()),
+            formatter,
+            new SpyEventBus(),
+            new MockEarconService(),
+            new SdkCandlePatternAnalyzer(),
+            new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())),
+            new ChartPatternFocus(),
+            new MockAutoNarrationService(),
+            marketEventMap: shared);
+        store.EmitState(state);
+        var detail = new BarDetailService(new SpyEventBus(), marketEvents: shared);
+
+        _ = coordinator.MarketEventContext();
+        detail.AnnounceDetails(state);
+
+        Assert.Equal(2, shared.Reads);
+        Assert.Equal(1, map.BuildCount);
+    }
+
+    private sealed class CountingMap : IMarketEventBarMapCache
+    {
+        private readonly MarketEventBarMapCache _inner;
+
+        public CountingMap(MarketEventBarMapCache inner) => _inner = inner;
+
+        public int Reads { get; private set; }
+
+        public IReadOnlyList<MarketEventBarPlacement> For(WorkspaceState state, DateTime nowUtc)
+        {
+            Reads++;
+            return _inner.For(state, nowUtc);
+        }
+    }
 
     [Fact]
     public void ASecondReadDoesNotRebuildTheMap()

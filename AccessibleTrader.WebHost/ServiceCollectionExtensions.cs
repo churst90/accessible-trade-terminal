@@ -9,6 +9,7 @@ using AccessibleTrader.Core.Services.Drawing.Calculators;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Core.Strategies;
 using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
@@ -470,6 +471,9 @@ namespace AccessibleTrader.WebHost
             // for them to disagree about what is on the chart.
             services.AddScoped<IChartPatternCache, ChartPatternCache>();
             services.AddScoped<IChartPatternFocus, ChartPatternFocus>();
+            // One bar-to-event map shared by navigation speech, the detail summary and the
+            // apostrophe jumps, for the same reason as the pattern cache above.
+            services.AddScoped<IMarketEventBarMapCache, MarketEventBarMapCache>();
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddScoped<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>

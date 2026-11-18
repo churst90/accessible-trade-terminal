@@ -48,7 +48,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IAppSettings? _appSettings;
         // The bar-to-market-event map. Built once per chart data/setting and reused on every
         // arrow key, exactly as _patternCache does for formations.
-        private readonly MarketEvents.MarketEventBarMapCache _marketEventMap;
+        private readonly MarketEvents.IMarketEventBarMapCache _marketEventMap;
         private readonly CompositeDisposable _subscriptions = new();
 
         // The bar-close narrator. Held so the new-bar sentence can be composed INTO its
@@ -120,7 +120,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
             IDrawingInteractionManager? drawings = null,
             IAppSettings? appSettings = null,
-            MarketEvents.MarketEventBarMapCache? marketEventMap = null)
+            MarketEvents.IMarketEventBarMapCache? marketEventMap = null)
         {
             _logger = logger;
             _drawings = drawings;
