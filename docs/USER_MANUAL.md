@@ -1516,7 +1516,9 @@ starts on the user's Level. Below those are one tick box per kind — **Economy*
 Level is **Off** there is no level to start from, so the screen starts on **Important only** with
 every kind ticked. **Only events touching my charts and positions** is off by default; on, it
 keeps an event only when its market is on an open chart tab or is held by a position, using the
-same test as the live countdowns. Each filter has its own label, and the group is announced as
+same test as the live countdowns. The app reads your positions only around a countdown or a
+release read-out, never on its own, so a market you hold counts here only once a notice has read
+them in this session; an open chart's market always counts. Each filter has its own label, and the group is announced as
 "Filters".
 
 **The days and the lines.** Each day with passing events is an `<h3>` such as *"Wednesday 11 March

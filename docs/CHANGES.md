@@ -32,7 +32,16 @@ All notable changes to this project will be documented in this file.
   kinds have History too, with no figure part.
 - **One touch test.** The calendar's "only touching" filter and the live notices share
   `MarketEventNoticePlanner.Touches`; `MarketEventLiveNotices` exposes its last held markets
-  read-only rather than doing a second broker read for the screen.
+  read-only rather than doing a second broker read for the screen. Those are the markets of the
+  last position read, which happens only around a notice, so until one has happened this session
+  only open charts count as touching (Claude's review note).
+- **Fix found in review: the FRED feed broke hosted-accounts mode.** Stage 2 registered
+  `MarketEventFredFeed` as one-per-process, but in hosted-accounts mode (the VPS) the data-folder
+  service is per user, so the service container refused to start: 58 WebHost tests failed, and CI
+  would have failed on the push. `AddHostedAccounts` now gives the feed the instance's own folders,
+  as it already does for the encrypted key store; the key service is process-wide there anyway.
+  Proven: without the fix the hosted-accounts tests go red (12 of 38), with it all 537 WebHost tests
+  pass.
 - **Caveats.** There is no expected figure and no surprise word yet; that needs the stage 4 source.
   The history's price part comes from the focused chart only, so a release older than the loaded
   bars, or on a market the chart does not touch, has no price part. Watched alerts are still not

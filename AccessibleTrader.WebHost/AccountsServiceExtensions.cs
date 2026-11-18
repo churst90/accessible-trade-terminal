@@ -54,6 +54,15 @@ namespace AccessibleTrader.WebHost
             services.RemoveAll<InstancePaths>();
             services.AddSingleton(new InstancePaths(sharedSecretPaths));
 
+            // The FRED feed is one per process (its key comes from the process-wide key service and
+            // the figures are the same for every user), so its cache sits under the instance's own
+            // paths too, not the per-user ones a Singleton cannot hold.
+            services.RemoveAll<AccessibleTrader.Core.Services.MarketEvents.MarketEventFredFeed>();
+            services.AddSingleton(sp => new AccessibleTrader.Core.Services.MarketEvents.MarketEventFredFeed(
+                sp.GetRequiredService<IApiKeyService>(),
+                sharedSecretPaths,
+                sp.GetRequiredService<ILogger<AccessibleTrader.Core.Services.MarketEvents.MarketEventFredFeed>>()));
+
             services.RemoveAll<WebHostSecureStorageService>();
             services.AddSingleton<WebHostSecureStorageService>(sp =>
                 new WebHostSecureStorageService(
