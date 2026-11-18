@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace AccessibleTrader.Tests.WebHost;
@@ -37,13 +38,18 @@ namespace AccessibleTrader.Tests.WebHost;
 internal static class WebHostIntegration
 {
     /// <summary>Hosted multi-user mode (--accounts equivalent). Requests must use the /terminal path base.</summary>
-    public static WebApplicationFactory<WebHostDemoMode> HostedFactory(string dataRoot, string environment = "Production")
+    public static WebApplicationFactory<WebHostDemoMode> HostedFactory(
+        string dataRoot,
+        string environment = "Production",
+        Action<IServiceCollection>? configureTestServices = null)
         => new WebApplicationFactory<WebHostDemoMode>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment(environment);
             b.UseSetting("Accounts:Enabled", "true");
             b.UseSetting("Accounts:DataRoot", dataRoot);
             b.UseSetting("Launch:Disabled", "true");
+            if (configureTestServices != null)
+                b.ConfigureTestServices(configureTestServices);
         });
 
     /// <summary>
@@ -120,16 +126,44 @@ internal static class WebHostIntegration
         return ExtractAntiforgeryToken(await resp.Content.ReadAsStringAsync());
     }
 
-    public static async Task<HttpResponseMessage> RegisterAsync(
-        HttpClient client, string email, string password, string honeypot = "")
+    /// <summary>
+    /// Pulls a hidden input's value out of a page (used for the registration fill-time
+    /// stamp as well as remedy fields).
+    /// </summary>
+    public static string ExtractHiddenValue(string html, string name)
     {
-        var token = await GetAntiforgeryTokenAsync(client, "/terminal/account/register");
+        var m = Regex.Match(html,
+            $"name=\"{Regex.Escape(name)}\"[^>]*value=\"([^\"]*)\"");
+        Assert.True(m.Success, $"page contains no hidden input named {name}");
+        return System.Net.WebUtility.HtmlDecode(m.Groups[1].Value);
+    }
+
+    public static async Task<HttpResponseMessage> RegisterAsync(
+        HttpClient client,
+        string email,
+        string password,
+        string honeypot = "",
+        TestTimeProvider? clock = null)
+    {
+        var resp = await client.GetAsync("/terminal/account/register");
+        Assert.Equal(System.Net.HttpStatusCode.OK, resp.StatusCode);
+        var html = await resp.Content.ReadAsStringAsync();
+        var token = ExtractAntiforgeryToken(html);
+        var fillStamp = ExtractHiddenValue(html, "FillTimeStamp");
+
+        // The real form is filled by a person, so move past the three-second floor. A
+        // mutable clock keeps the integration suite fast; a factory without one gets the
+        // honest wait instead of a forged stamp.
+        if (clock != null) clock.Advance(TimeSpan.FromSeconds(3.1));
+        else await Task.Delay(TimeSpan.FromSeconds(3.1));
+
         return await client.PostAsync("/terminal/account/register", Form(
             ("__RequestVerificationToken", token),
             ("Input.Email", email),
             ("Input.Password", password),
             ("Input.ConfirmPassword", password),
-            ("Website", honeypot)));
+            ("Website", honeypot),
+            ("FillTimeStamp", fillStamp)));
     }
 
     public static async Task<HttpResponseMessage> LoginAsync(
@@ -213,6 +247,55 @@ public sealed class PluginBridgeScope : IDisposable
 }
 
 /// <summary>
+/// A hand-driven clock. Registration's fill-time gate and the reset-email throttle both
+/// read <see cref="TimeProvider"/>, so tests move time instead of sleeping.
+/// </summary>
+public sealed class TestTimeProvider : TimeProvider
+{
+    private readonly object _gate = new();
+    private DateTimeOffset _now;
+
+    public TestTimeProvider(DateTimeOffset now) => _now = now;
+
+    public override DateTimeOffset GetUtcNow()
+    {
+        lock (_gate) return _now;
+    }
+
+    public void Advance(TimeSpan by)
+    {
+        lock (_gate) _now += by;
+    }
+}
+
+/// <summary>Every account email a test host "sent", and whether sends succeed.</summary>
+public sealed class RecordingAccountEmailSender : IAccountEmailSender
+{
+    private readonly object _gate = new();
+
+    public bool IsConfigured { get; set; } = true;
+    public bool Succeed { get; set; } = true;
+    public List<RecordedAccountEmail> Sent { get; } = new();
+
+    public Task<bool> SendAsync(
+        string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            Sent.Add(new RecordedAccountEmail(toAddress, subject, plainTextBody));
+        }
+        return Task.FromResult(Succeed);
+    }
+
+    public IReadOnlyList<RecordedAccountEmail> Snapshot()
+    {
+        lock (_gate) return Sent.ToList();
+    }
+}
+
+public sealed record RecordedAccountEmail(string To, string Subject, string Body);
+
+/// <summary>
 /// One hosted-mode WebHost per test class: its own temp data root (auth.db,
 /// DataProtection keys, per-user dirs all land there and are deleted after),
 /// and — importantly — its own rate-limiter state, so each class has the full
@@ -225,11 +308,48 @@ public sealed class HostedWebHostFixture : IDisposable
     private readonly PluginBridgeScope _bridges = new();
 
     public string DataRoot { get; } = TestTemp.NewDir("att-webhost-int-");
+    public TestTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
     public WebApplicationFactory<WebHostDemoMode> Factory { get; }
 
     public HostedWebHostFixture()
     {
-        Factory = WebHostIntegration.HostedFactory(DataRoot);
+        Factory = WebHostIntegration.HostedFactory(DataRoot, configureTestServices: services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Clock);
+        });
+    }
+
+    public void Dispose()
+    {
+        Factory.Dispose();
+        _bridges.Dispose();
+        try { Directory.Delete(DataRoot, recursive: true); } catch { }
+    }
+}
+
+/// <summary>
+/// The same host with a recording account-email sender and a hand-driven clock. Every
+/// test using this fixture is offline: the recording sender never opens a network socket.
+/// </summary>
+public sealed class HostedEmailWebHostFixture : IDisposable
+{
+    private readonly PluginBridgeScope _bridges = new();
+
+    public string DataRoot { get; } = TestTemp.NewDir("att-webhost-email-");
+    public TestTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
+    public RecordingAccountEmailSender Email { get; } = new();
+    public WebApplicationFactory<WebHostDemoMode> Factory { get; }
+
+    public HostedEmailWebHostFixture()
+    {
+        Factory = WebHostIntegration.HostedFactory(DataRoot, configureTestServices: services =>
+        {
+            services.RemoveAll<IAccountEmailSender>();
+            services.AddSingleton<IAccountEmailSender>(Email);
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Clock);
+        });
     }
 
     public void Dispose()

@@ -138,6 +138,10 @@ public class WebHostSecurityPolicyTests
     [InlineData("POST", "/account/loginwithrecovery", true)] // recovery-code guessing
     [InlineData("POST", "/account/forgotpassword", true)]    // writes attacker-supplied audit records
     [InlineData("POST", "/account/resetpassword", true)]     // token guessing
+    [InlineData("POST", "/account/manage", true)]            // current-password + 2FA re-checks, data export, deletion
+    [InlineData("POST", "/account/confirmemail", true)]      // token guessing
+    [InlineData("GET", "/account/manage", false)]            // rendering the page is general traffic
+    [InlineData("GET", "/account/confirmemail", false)]      // a link scanner's GET changes nothing
     [InlineData("GET", "/account/forgotpassword", false)]    // rendering the form is general traffic
     [InlineData("GET", "/account/login", false)]   // rendering the form is general traffic
     [InlineData("POST", "/account/logout", false)] // logout is not a guessing surface

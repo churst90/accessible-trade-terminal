@@ -60,6 +60,27 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Accounts currently held, for diagnostics.</summary>
         public IReadOnlyCollection<string> ActiveUsers => _accounts.Keys.ToList();
 
+        /// <summary>
+        /// Drop one user's in-memory account and tear it down. Used when an account is
+        /// deleted: without this the shared account kept its file watchers and could write
+        /// paper_account.json back into a folder that had just been removed.
+        /// Returns false when this user had no account in the hub.
+        /// </summary>
+        public bool Evict(string userKey)
+        {
+            if (string.IsNullOrEmpty(userKey)) userKey = "anon";
+            if (!_accounts.TryRemove(userKey, out var lazy)) return false;
+
+            // A Lazy nobody forced holds nothing; forcing it here would build one only to
+            // dispose it, the same rule Dispose follows.
+            if (lazy.IsValueCreated)
+            {
+                lazy.Value.SharedOwnership = false;
+                lazy.Value.DisposeAccount();
+            }
+            return true;
+        }
+
         public void Dispose()
         {
             foreach (var kv in _accounts)

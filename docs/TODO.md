@@ -30,7 +30,7 @@ the P&L seed, then market events stages 4 to 6, then the charting items below "a
 stay on the terminal's own ASP.NET Identity (not the PHP sites' logins): different registrable domains,
 and Identity already has 2FA, lockout and rate limits.
 
-- [ ] **Email through Brevo (Cody chose it, 2026-11-18).** Free plan, 300 a day. The terminal writes
+- [x] **Email through Brevo (Cody chose it, 2026-11-18).** Free plan, 300 a day. The terminal writes
   every email itself (password reset, confirm a new address, "your password/email was changed" sent to
   the old address); Brevo only delivers. Cody: Brevo account, add `accessibletrader.com` under Senders,
   Domains, copy its records into NameSilo (brevo-code TXT on @, `brevo1._domainkey` and
@@ -38,9 +38,14 @@ and Identity already has 2FA, lockout and rate limits.
   `no-reply@accessibletrader.com`; the domain has no mailbox, so say "do not reply". Check the first test
   email for Brevo branding. Self-hosting was checked and NOT chosen: port 25 is open from the VPS
   (Gmail answered), but a new IP's deliverability and the shared IP of every hosted site are the risk.
-- [ ] **Account page.** Display name, change password, change email (needs the email above), leaderboard
+  Done 2026-11-18: server side by Cody and Claude; this run wired the app
+  (`IAccountEmailSender`/`SmtpAccountEmailSender`, ForgotPassword, change-email confirm, notices).
+  **Left:** put `AccountEmail__User`/`AccountEmail__Password` on the VPS and send one real test email
+  to confirm delivery and Brevo branding.
+- [x] **Account page.** Display name, change password, change email (needs the email above), leaderboard
   opt-in (OFF by default), download my data (a zip of the user's folder), delete account; and a minimum
-  fill time on the register form's honeypot.
+  fill time on the register form's honeypot. Built with its tests on 2026-11-18. **Left:** the
+  leaderboard itself (next item) reading the stored display name and opt-in.
 - [ ] **Leaderboard on the accessibletrader.com front page.** Per `~/ATT-ACCOUNTS-LEADERBOARD-SPEC.md` on
   the VPS: a pure calculator, a publisher every 5 minutes writing `public/leaderboard.json` atomically,
   opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real

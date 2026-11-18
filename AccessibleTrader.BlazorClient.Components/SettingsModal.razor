@@ -116,6 +116,24 @@
                  aria-labelledby="tab-general"
                  hidden="@(_activeTab != "General")">
 
+                @* ── Account (hosted only) ────────────────────────────────────
+                   The hosted terminal is the only head with an account to manage and a
+                   session to end. Ordinary links, not buttons: a screen reader announces
+                   them as links and the keyboard opens them with Enter, exactly as a link
+                   should. Sign-out goes to its page, which owns the POST. *@
+                @if (Demo.IsHosted)
+                {
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Account</legend>
+                        <p style="margin:0 0 8px;">
+                            <a href="account/manage">Your account</a>
+                        </p>
+                        <p style="margin:0;">
+                            <a href="account/logout">Sign out</a>
+                        </p>
+                    </fieldset>
+                }
+
                 @* ── Trading ─────────────────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Trading</legend>

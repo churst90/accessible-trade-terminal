@@ -35,6 +35,11 @@
                 <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
             }
 
+            @if (!string.IsNullOrEmpty(Model.Status))
+            {
+                <div class="auth-note" auth-announce role="status" aria-live="polite">@Model.Status</div>
+            }
+
             @if (Model.PasswordReset)
             {
                 <div class="auth-note" auth-announce role="status" aria-live="polite">Your password has been updated. Sign in with your new password.</div>

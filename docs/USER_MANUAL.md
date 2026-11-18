@@ -5120,6 +5120,60 @@ using, so it self-documents per platform.
 
 ---
 
+### Your account on the hosted terminal
+
+The hosted terminal (the logged-in `--accounts` build at
+`accessibletrader.com/terminal`) has its own account page. Open **Settings** (F12),
+then the **General** tab, then **Your account**; the same page is at
+`/account/manage`, and there is a **Your account** link on the Account security page.
+At the top it offers **Back to the terminal** and **Account security**.
+
+Each section is a separate form, so an error in one never clears what you typed in
+another.
+
+- **Display name.** A public name for the leaderboard, 3 to 30 characters: letters,
+  digits, spaces, dots, dashes and underscores. It is never your email and may not
+  contain `@`. Names are unique regardless of letter case. Leaving it empty clears
+  the name and switches the leaderboard off, and the page says so.
+- **Leaderboard.** One checkbox, off by default: **Show my paper trading results on
+  the public leaderboard**. The leaderboard shows your display name, return percent,
+  number of trades and win rate, never your email. Turning it on without a display
+  name is refused with "Set a display name first." The leaderboard itself is not
+  built yet; this page stores the choice.
+- **Change password.** Enter your current password, then the new one twice. The new
+  password follows the same rule as registration: 10 to 128 characters. You stay
+  signed in here; other browsers are signed out. When the email service is set up,
+  the account's address is also sent a notice with the time in UTC and a link to the
+  reset page in case the change was not you.
+- **Change email.** Enter the new address and your current password. An address
+  already used by another account is refused plainly. Otherwise a confirmation link
+  goes to the **new** address, and your email stays as it is until you open it — so a
+  mistyped address cannot take the account with it. The confirmation page changes
+  nothing on the first visit (mail scanners follow links); the **Confirm the new
+  address** button does the change. The old address is then told the new one. On a
+  server with no email service this section says so and shows no form.
+- **Download my data.** A zip named `accessible-trader-data-{date}.zip` containing
+  every file in your own data folder at its usual relative path, plus
+  `account.json`: your email, display name, leaderboard choice, created and last-seen
+  times, tier, and whether two-factor is on. It never contains your password, security
+  stamp, authenticator key, recovery codes or any token.
+- **Delete your account.** This cannot be undone: it removes the account, the paper
+  account and its history, saved charts, settings, strategies, alerts, and everything
+  in your data folder. Download your data first if you might want it. You must enter
+  your current password and tick **I understand this cannot be undone**; if two-factor
+  is on, you must also enter a current authenticator code or a recovery code. On
+  success you are signed out and the sign-in page says **Your account has been
+  deleted.** Another account's files are never touched.
+
+**Forgotten password.** If the server has the email service configured, **Forgot your
+password?** on the sign-in page emails a one-day reset link to the address on file. The
+page gives the same answer whether or not the address is registered, and a repeat
+request for the same address inside five minutes is quietly not sent. Where no email
+service is configured, the page still asks you to contact support and the owner is
+notified, as before.
+
+---
+
 ## Glossary
 
 Brief definitions of the terms used throughout this manual, in alphabetical order. They

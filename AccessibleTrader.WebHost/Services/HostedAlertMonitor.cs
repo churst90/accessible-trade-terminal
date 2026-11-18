@@ -86,6 +86,17 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
+        /// <summary>
+        /// Drop one user's evaluator and warning latch. Account deletion calls this so a
+        /// removed account does not leave crossing-edge state (and its symbol names) in
+        /// memory, even though the next poll's stale-user sweep would eventually do so.
+        /// </summary>
+        internal void ForgetUser(string userKey)
+        {
+            _evaluators.Remove(userKey);
+            _lastUnwatchableByUser.Remove(userKey);
+        }
+
         internal async Task PollOnceAsync(CancellationToken ct)
         {
             var userKeys = EnumerateUserKeys(_usersRoot);

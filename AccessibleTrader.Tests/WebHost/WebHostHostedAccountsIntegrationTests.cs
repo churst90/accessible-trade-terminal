@@ -64,7 +64,7 @@ public sealed class WebHostHostedAccountsIntegrationTests
     public async Task Register_creates_the_account_signs_in_and_redirects_into_the_app()
     {
         using var client = WebHostIntegration.NewClient(_host.Factory);
-        var resp = await WebHostIntegration.RegisterAsync(client, "reg-happy@example.test", Password);
+        var resp = await WebHostIntegration.RegisterAsync(client, "reg-happy@example.test", Password, clock: _host.Clock);
 
         Assert.Equal(HttpStatusCode.Found, resp.StatusCode);
         Assert.Equal("/terminal/", resp.Headers.Location!.OriginalString);
@@ -82,7 +82,7 @@ public sealed class WebHostHostedAccountsIntegrationTests
     {
         using var client = WebHostIntegration.NewClient(_host.Factory);
         var resp = await WebHostIntegration.RegisterAsync(
-            client, "reg-bot@example.test", Password, honeypot: "https://spam.example");
+            client, "reg-bot@example.test", Password, honeypot: "https://spam.example", clock: _host.Clock);
 
         // Same redirect a real registration gets — the bot learns nothing.
         Assert.Equal(HttpStatusCode.Found, resp.StatusCode);
@@ -100,7 +100,7 @@ public sealed class WebHostHostedAccountsIntegrationTests
         await WebHostIntegration.SeedUserAsync(_host.Factory, "reg-dupe@example.test", Password);
 
         using var client = WebHostIntegration.NewClient(_host.Factory);
-        var resp = await WebHostIntegration.RegisterAsync(client, "reg-dupe@example.test", Password);
+        var resp = await WebHostIntegration.RegisterAsync(client, "reg-dupe@example.test", Password, clock: _host.Clock);
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var html = await resp.Content.ReadAsStringAsync();

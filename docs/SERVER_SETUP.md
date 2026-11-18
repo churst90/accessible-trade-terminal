@@ -148,12 +148,39 @@ until it is fixed.
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
 | `FRED_APIKEY` | demo/hosted | server-side FRED key — unlocks the Economic market (CPI, NFP, GDP, unemployment, fed funds, yields). Read-only public research data. Falls back to `FRED_API_KEY`. |
 | `ACCOUNTS_SEED_EMAIL` / `ACCOUNTS_SEED_PASSWORD` | hosted (optional) | provision one owner/admin account at startup, bypassing the public password policy. Idempotent. |
-| `Accounts__OwnerEmail` | hosted (optional) | the account whose Web Push subscriptions receive operator notices (today: password-reset requests). Defaults to `ACCOUNTS_SEED_EMAIL`. |
+| `Accounts__OwnerEmail` | hosted (optional) | the account whose Web Push subscriptions receive operator notices (today: password-reset requests when no email service is configured). Defaults to `ACCOUNTS_SEED_EMAIL`. |
+| `Accounts__PublicBaseUrl` | hosted | public base URL used in emailed links, including the PathBase. Default `https://accessibletrader.com/terminal`. The admin `--reset-link` setting (`Accounts__ResetLinkBaseUrl`) is separate and unchanged. |
+| `AccountEmail__Host` | hosted (optional) | SMTP relay host. Default `smtp-relay.brevo.com`. |
+| `AccountEmail__Port` | hosted (optional) | SMTP submission port. Default `587` with STARTTLS. |
+| `AccountEmail__User` | hosted (optional) | SMTP username. With no user/password the email service is off and account mail is not sent. |
+| `AccountEmail__Password` | hosted (optional) | **SMTP password/key — the only secret in this group.** Set it in the environment file, mode 0600. |
+| `AccountEmail__From` | hosted (optional) | sender address. Default `noreply@accessibletrader.com`. |
+| `AccountEmail__FromName` | hosted (optional) | sender display name. Default `Accessible Trader`. |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` | optional | isolate a staging instance's state from a live one |
 | `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS` | desktop/local only | `1` opts into running custom scripts when the OS sandbox primitive is missing (bwrap / sandbox-exec / AppContainer). Default: script execution is **refused** without the sandbox. Every launch under the override is recorded to the security event log. Never set this on a server. |
 
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
 paper-only; the API-keys modal is gated off).
+
+### Account email (Brevo SMTP)
+
+Account mail is optional. It is off unless **both** `AccountEmail__User` and
+`AccountEmail__Password` are non-empty; when it is off, ForgotPassword falls back to the
+admin-mediated flow below and the change-email section on `/account/manage` shows no form.
+When it is on, the server sends plain-text mail through `smtp-relay.brevo.com:587` with
+STARTTLS: password-reset links, change-email confirmation links (to the new address), and
+"your password/email was changed" notices (to the old address). Every message ends with the
+support address from `Accounts__SupportEmail`.
+
+Only `AccountEmail__Password` is secret. Put it in `/etc/accessible-trader-terminal.env`
+(mode 0600) and never in the unit file or a repository. The application logs the
+recipient's **domain**, the subject and success/failure — never the password, a token, or a
+link that carries a token. The reset-email throttle (one per address per five minutes) is
+in memory, so a restart forgets it.
+
+Brevo setup: verify `accessibletrader.com` as a sender/domain, copy Brevo's DNS records
+into the DNS provider, create an SMTP key, and use the Brevo account's SMTP login as
+`AccountEmail__User` and the key as `AccountEmail__Password`.
 
 ### Market data available
 
@@ -326,7 +353,13 @@ Accounts__DataRoot=/var/lib/accessible-trader-terminal
 TWELVEDATA_APIKEY=xxxxxxxx
 # ACCOUNTS_SEED_EMAIL=owner@example.com
 # ACCOUNTS_SEED_PASSWORD=...
+# Account email (optional; only the Password is secret)
+# AccountEmail__User=your-brevo-smtp-login
+# AccountEmail__Password=your-brevo-smtp-key
+# AccountEmail__From=noreply@accessibletrader.com
+# Accounts__PublicBaseUrl=https://accessibletrader.com/terminal
 ```
+Keep this file `0600` and owned by the service user.
 The demo is a parallel service with `--demo`, its own port (e.g. 5146), and
 `DEMO_TWELVEDATA_APIKEY`.
 
@@ -398,22 +431,28 @@ the second layer behind it.
   `UMask=0077` unit drop-in is still an open item.
 - Back up `auth.db` + `users/` + `dp-keys/` (single instance = single disk).
 
-## Password reset (admin-mediated — no mail server)
+## Password reset (email, with admin fallback)
 
-Users who forget their password use **Forgot password** on the sign-in page, which
-never confirms whether an address exists; it tells them to contact support and logs
-an `AuthPasswordResetRequested` security event (with IP) so you can see the request.
+Users who forget their password use **Forgot password** on the sign-in page, which never
+confirms whether an address exists. With the email service configured it emails a one-day
+Identity reset link straight to the address on file
+(`{Accounts__PublicBaseUrl}/account/resetpassword?email=…&token=…`), at most once per
+address per five minutes; the page's neutral answer is identical whether the address exists,
+whether the send happened, or the throttle swallowed it. Without the email service it falls
+back to the original support-contact flow described below. Either way the request is logged
+as an `AuthPasswordResetRequested` security event with the client IP.
 
-**You are told, not left to find it.** The request is also pushed to the owner account's
-Web Push subscriptions — "Password reset requested: user@example.com asked for a reset link
-from 203.0.113.9. Run --reset-link …" — and written to the journal at **Warning**, which a
-log scrape can key on. The owner account is `Accounts__OwnerEmail`, falling back to
-`ACCOUNTS_SEED_EMAIL`; sign in as it once and enable push notifications in the terminal so
-the subscription exists. Two requests sat unread in the security-event file for ten days
-each before this existed; neither was real, and that was luck. The page still never looks
-up the account that was named, so nothing here leaks whether an address is registered.
+**Where there is no email service, you are told rather than left to find it.** The request
+is pushed to the owner account's Web Push subscriptions — "Password reset requested:
+user@example.com asked for a reset link from 203.0.113.9. Run --reset-link …" — and written
+to the journal at **Warning**, which a log scrape can key on. The owner account is
+`Accounts__OwnerEmail`, falling back to `ACCOUNTS_SEED_EMAIL`; sign in as it once and enable
+push notifications in the terminal so the subscription exists. Two requests sat unread in
+the security-event file for ten days each before this existed; neither was real, and that
+was luck. The page still never looks up the account that was named, so nothing here leaks
+whether an address is registered.
 
-You then mint a reset link out of band:
+You can then mint a reset link out of band (still useful when mail is down or disabled):
 
 ```
 dotnet AccessibleTrader.WebHost.dll --accounts --reset-link user@example.com
@@ -440,8 +479,9 @@ same generic CLI output (no enumeration even at the console).
 
 ## Known limitations (current)
 
-- **No transactional email** → no email confirmation or self-service password reset
-  (`RequireConfirmedAccount=false`). Add SMTP before scaling. Anyone can register any email.
+- **No registration email confirmation** (`RequireConfirmedAccount=false`): anyone can
+  register any address. Transactional email now exists for password resets and email
+  changes, but registration does not yet send a confirmation.
 - **Per-user OHLCV cache** (first cut); a shared symbol-keyed connection pool is the
   documented efficiency optimisation (see `HOSTED_ACCOUNTS_STRATEGY.md`).
 

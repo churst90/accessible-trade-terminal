@@ -184,5 +184,12 @@ namespace AccessibleTrader.Core.Services.Trading
             if (string.IsNullOrEmpty(userKey)) userKey = "anon";
             return _byUser.GetOrAdd(userKey, _ => new QuickTradeEquity());
         }
+
+        /// <summary>Forget one user's cache, so a deleted account leaves no balance behind.</summary>
+        public bool Evict(string? userKey)
+        {
+            if (string.IsNullOrEmpty(userKey)) userKey = "anon";
+            return _byUser.TryRemove(userKey, out _);
+        }
     }
 }

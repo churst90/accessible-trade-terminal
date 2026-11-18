@@ -88,6 +88,9 @@ body {
   padding: 2rem 2rem 1.75rem;
   box-shadow: 0 18px 50px rgba(8, 14, 28, 0.16);
 }
+/* The account page carries several sections and forms; the narrow login card would
+   wrap every sentence into a column two words wide. */
+.auth-card--wide { max-width: 44rem; }
 .auth-card h1 {
   margin: 0 0 0.35rem;
   font-size: 1.6rem;

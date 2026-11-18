@@ -79,6 +79,18 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>Test seam: forget every recorded on-screen symbol.</summary>
         internal static void ResetOnScreenSymbolsForTests() => _symbolsByUser.Clear();
 
+        /// <summary>
+        /// Forget everything this process remembers about one user. Called when an account
+        /// is deleted: the id will never legitimately return, and leaving its circuit count
+        /// or on-screen symbols behind is a per-user cache with no owner.
+        /// </summary>
+        internal static void ForgetUser(string userKey)
+        {
+            if (string.IsNullOrEmpty(userKey)) return;
+            _circuitsByUser.TryRemove(userKey, out _);
+            _symbolsByUser.TryRemove(userKey, out _);
+        }
+
         /// <summary>Test seam: record a symbol as on screen for a user's circuit.</summary>
         internal static void RecordOnScreenSymbol(string userKey, string circuitId, string? symbol)
         {

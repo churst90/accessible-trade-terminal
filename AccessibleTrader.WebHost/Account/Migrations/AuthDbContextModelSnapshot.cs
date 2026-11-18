@@ -32,6 +32,11 @@ namespace AccessibleTrader.WebHost.Account.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
@@ -41,6 +46,9 @@ namespace AccessibleTrader.WebHost.Account.Migrations
 
                     b.Property<DateTime?>("LastSeenUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("LeaderboardOptIn")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER");
@@ -80,6 +88,11 @@ namespace AccessibleTrader.WebHost.Account.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DisplayName")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AspNetUsers_DisplayName")
+                        .HasFilter("\"DisplayName\" IS NOT NULL");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");

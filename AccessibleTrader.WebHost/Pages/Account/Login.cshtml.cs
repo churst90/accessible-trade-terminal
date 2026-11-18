@@ -24,6 +24,12 @@ namespace AccessibleTrader.WebHost.Pages.Account
         /// <summary>Set when the visitor arrives from a successful password reset (?reset=1) — shows a confirmation banner.</summary>
         public bool PasswordReset { get; set; }
 
+        /// <summary>
+        /// One-off status from another page (today: "Your account has been deleted.").
+        /// Carried in TempData so a refresh does not repeat it.
+        /// </summary>
+        public string? Status { get; set; }
+
         public class InputModel
         {
             [Required, EmailAddress, Display(Name = "Email")]
@@ -36,7 +42,11 @@ namespace AccessibleTrader.WebHost.Pages.Account
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet(int reset = 0) => PasswordReset = reset == 1;
+        public void OnGet(int reset = 0)
+        {
+            PasswordReset = reset == 1;
+            Status = TempData["LoginStatus"] as string;
+        }
 
         public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {

@@ -1,0 +1,57 @@
+@page "/account/confirmemail"
+@model AccessibleTrader.WebHost.Pages.Account.ConfirmEmailModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Confirm your new email";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title auth-error="@(!string.IsNullOrEmpty(Model.Error))">Confirm your new email — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/auth.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
+</head>
+<body>
+    <header class="auth-header">
+        <a href="/" aria-label="Accessible Trade Terminal home">
+            <img class="mark" src="~/icons/icon-192.png" alt="" aria-hidden="true" />
+            <span>Accessible Trade Terminal</span>
+        </a>
+    </header>
+    <main role="main" class="auth-wrap">
+        <div class="auth-card">
+            <h1>Confirm your new email</h1>
+
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Status))
+            {
+                <div class="auth-note" auth-announce role="status" aria-live="polite">@Model.Status</div>
+            }
+
+            @if (Model.LinkValid)
+            {
+                <p>
+                    Confirm <strong>@Model.Email</strong> as the email address for your
+                    Accessible Trade Terminal account. Your current address stays in place
+                    until you press the button.
+                </p>
+                <form method="post">
+                    <input asp-for="UserId" type="hidden" />
+                    <input asp-for="Email" type="hidden" />
+                    <input asp-for="Code" type="hidden" />
+                    <button class="auth-btn" type="submit">Confirm the new address</button>
+                </form>
+            }
+
+            <p class="auth-alt">
+                <a href="@Url.Content("~/account/login")">Back to sign in</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

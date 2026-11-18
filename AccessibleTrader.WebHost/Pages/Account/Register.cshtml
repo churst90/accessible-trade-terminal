@@ -45,6 +45,10 @@
                     <label for="Website">Leave this field blank</label>
                     <input asp-for="Website" type="text" tabindex="-1" autocomplete="off" />
                 </div>
+                @* When this form was rendered, signed by DataProtection. A POST less than
+                   three seconds later, older than two hours, or without a valid stamp is
+                   dropped exactly like the honeypot. *@
+                <input asp-for="FillTimeStamp" type="hidden" />
                 <div class="auth-field">
                     <label asp-for="Input.Email">Email</label>
                     <input class="auth-input" asp-for="Input.Email" type="email" autocomplete="username" autofocus aria-describedby="email-err" />

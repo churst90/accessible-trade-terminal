@@ -10,6 +10,15 @@
 
 None of this has been seen or heard in the app yet.
 
+### Your account on the hosted terminal
+
+- **Your account page** (Settings → General → Your account, or `/account/manage`): choose a
+  display name and whether to join the public leaderboard, change your password or email,
+  download a zip of your own data, and delete the account. Deleting needs your current
+  password, the cannot-be-undone checkbox, and a 2FA code when it is on. A forgotten
+  password now arrives by email when the server has the mail service. The register form
+  quietly refuses anything submitted in under three seconds.
+
 ### Colour words and the buying/selling profile
 
 - **Bars and heatmap cells say what they look like.** With "Say what lines and signals look like"

@@ -21,5 +21,20 @@ namespace AccessibleTrader.WebHost.Account
         /// and history depth per docs/HOSTED_ACCOUNTS_STRATEGY.md. Defaults to free.
         /// </summary>
         public string Tier { get; set; } = "free";
+
+        /// <summary>
+        /// Public name on the leaderboard. Never an email address, and never required:
+        /// null/empty means the account has no display name. Unique regardless of case
+        /// (the SQLite column uses COLLATE NOCASE, with a partial unique index that
+        /// ignores NULLs).
+        /// </summary>
+        public string? DisplayName { get; set; }
+
+        /// <summary>
+        /// Whether this account has chosen to appear on the public leaderboard.
+        /// Defaults to false: nobody appears without choosing to. Turning it on
+        /// requires a <see cref="DisplayName"/>; clearing the display name clears this.
+        /// </summary>
+        public bool LeaderboardOptIn { get; set; }
     }
 }

@@ -56,6 +56,20 @@ public enum SecurityEventKind
     AuthRecoveryCodesGenerated,
     /// <summary>A signed-in user's re-confirmation of their CURRENT password failed on the account-security page (the gate in front of "disable two-factor" and "regenerate recovery codes"). Distinct from <see cref="AuthLoginFailed"/> on purpose: this one is only reachable by someone who already holds a session, so it is the signature of a hijacked session probing for the account password rather than of an outsider guessing at the front door.</summary>
     AuthReauthenticationFailed,
+    /// <summary>A hosted account's display name was set, changed or cleared (password-confirmed only by the session itself).</summary>
+    AccountDisplayNameChanged,
+    /// <summary>A hosted account chose to join, leave, or stay off the public leaderboard.</summary>
+    AccountLeaderboardOptInChanged,
+    /// <summary>A signed-in user's password was changed from the account page (current password confirmed).</summary>
+    AccountPasswordChanged,
+    /// <summary>A signed-in user asked to change their email address; a confirmation link was sent to the NEW address. The change has not happened yet.</summary>
+    AccountEmailChangeRequested,
+    /// <summary>A change-email confirmation link was opened (POST), and the account's address and username were updated.</summary>
+    AccountEmailChanged,
+    /// <summary>A signed-in user downloaded a zip of their own account data.</summary>
+    AccountDataDownloaded,
+    /// <summary>A hosted account deleted itself: Identity record removed, in-memory state evicted, data folder deleted.</summary>
+    AccountDeleted,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }

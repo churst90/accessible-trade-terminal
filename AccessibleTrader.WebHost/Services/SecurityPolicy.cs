@@ -132,7 +132,10 @@ public static class AuthRateLimitPolicy
     /// class's summary records as the bug that was fixed for the login page.
     /// A six-digit TOTP has a million values; at general-tier rates a
     /// still-valid code is reachable, which is the whole point of the second
-    /// factor.
+    /// factor. <c>/account/manage</c> POSTs verify the current password AND a
+    /// 2FA code before deletion, export the user's data, and email tokens;
+    /// <c>/account/confirmemail</c> POSTs spend a change-email token. Both belong
+    /// in the same strict tier for the same reason.
     /// </para>
     /// </summary>
     public static bool IsAuthMutation(string method, PathString path)
@@ -144,7 +147,9 @@ public static class AuthRateLimitPolicy
             || path.StartsWithSegments("/account/forgotpassword")
             || path.StartsWithSegments("/account/resetpassword")
             || path.StartsWithSegments("/account/security")
-            || path.StartsWithSegments("/account/enable2fa"));
+            || path.StartsWithSegments("/account/enable2fa")
+            || path.StartsWithSegments("/account/manage")
+            || path.StartsWithSegments("/account/confirmemail"));
 
     /// <summary>
     /// The window a rejected request was measured against, so the refusal can say

@@ -137,6 +137,12 @@ namespace AccessibleTrader.WebHost
             // (built-in antiforgery), independent of the Blazor render-mode pipeline.
             services.AddRazorPages();
 
+            // Outbound account mail (Brevo SMTP) and the per-address reset-email throttle.
+            // Accounts-only, like everything in this method: desktop and --demo must not
+            // resolve mail services they will never use.
+            services.AddSingleton<IAccountEmailSender, SmtpAccountEmailSender>();
+            services.AddSingleton<PasswordResetEmailThrottle>();
+
             return services;
         }
     }

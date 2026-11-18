@@ -1,0 +1,183 @@
+@page "/account/manage"
+@model AccessibleTrader.WebHost.Pages.Account.ManageModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Your account";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title auth-error="@(!string.IsNullOrEmpty(Model.Error))">Your account — Accessible Trade Terminal</title>
+    <link rel="stylesheet" href="~/auth.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
+</head>
+<body>
+    <header class="auth-header">
+        <a href="/" aria-label="Accessible Trade Terminal home">
+            <img class="mark" src="~/icons/icon-192.png" alt="" aria-hidden="true" />
+            <span>Accessible Trade Terminal</span>
+        </a>
+    </header>
+    <main role="main" class="auth-wrap">
+        <div class="auth-card auth-card--wide">
+            <h1>Your account</h1>
+            <p class="auth-sub">Signed in as @Model.Email</p>
+
+            <p class="auth-alt" style="margin-top:0;">
+                <a href="@Url.Content("~/")">Back to the terminal</a> ·
+                <a href="@Url.Content("~/account/security")">Account security</a>
+            </p>
+
+            @* Same precedence as Security: a failure outranks a stale confirmation and is
+               placed first so AuthErrorBoxTagHelper gives it the page's opening focus. *@
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Status))
+            {
+                <div class="auth-note" auth-announce role="status" aria-live="polite">@Model.Status</div>
+            }
+
+            <h2>Display name</h2>
+            <form method="post" asp-page-handler="DisplayName">
+                <div class="auth-field">
+                    <label asp-for="NewDisplayName">Display name</label>
+                    <input class="auth-input" asp-for="NewDisplayName" type="text"
+                           autocomplete="nickname"
+                           aria-describedby="display-name-hint display-name-err" />
+                    <span id="display-name-hint" class="auth-hint">
+                        Shown on the public leaderboard if you join it. Not your email.
+                        3 to 30 characters: letters, digits, spaces, dots, dashes and
+                        underscores. Leave it empty to clear it.
+                    </span>
+                    <span id="display-name-err" class="field-error" asp-validation-for="NewDisplayName"></span>
+                </div>
+                <button class="auth-btn" type="submit">Save display name</button>
+            </form>
+
+            <h2>Leaderboard</h2>
+            <form method="post" asp-page-handler="Leaderboard">
+                <label class="auth-check" for="NewLeaderboardOptIn">
+                    <input asp-for="NewLeaderboardOptIn" type="checkbox"
+                           aria-describedby="leaderboard-hint" />
+                    Show my paper trading results on the public leaderboard
+                </label>
+                <p id="leaderboard-hint" class="auth-hint" style="margin-top:-0.6rem;">
+                    The leaderboard shows your display name, return percent, number of trades
+                    and win rate. Never your email.
+                </p>
+                <button class="auth-btn" type="submit">Save leaderboard choice</button>
+            </form>
+
+            <h2>Change password</h2>
+            <form method="post" asp-page-handler="Password">
+                <p class="auth-required-note">Fields marked with an asterisk are required.</p>
+                <div class="auth-field">
+                    <label asp-for="PasswordInput.CurrentPassword">Current password</label>
+                    <input class="auth-input" asp-for="PasswordInput.CurrentPassword" type="password"
+                           autocomplete="current-password" aria-describedby="pw-current-err" />
+                    <span id="pw-current-err" class="field-error" asp-validation-for="PasswordInput.CurrentPassword"></span>
+                </div>
+                <div class="auth-field">
+                    <label asp-for="PasswordInput.NewPassword">New password</label>
+                    <input class="auth-input" asp-for="PasswordInput.NewPassword" type="password"
+                           autocomplete="new-password" aria-describedby="pw-new-hint pw-new-err" />
+                    <span id="pw-new-hint" class="auth-hint">At least 10 characters, including an uppercase letter and a number.</span>
+                    <span id="pw-new-err" class="field-error" asp-validation-for="PasswordInput.NewPassword"></span>
+                </div>
+                <div class="auth-field">
+                    <label asp-for="PasswordInput.ConfirmPassword">Confirm new password</label>
+                    <input class="auth-input" asp-for="PasswordInput.ConfirmPassword" type="password"
+                           autocomplete="new-password" aria-describedby="pw-confirm-err" />
+                    <span id="pw-confirm-err" class="field-error" asp-validation-for="PasswordInput.ConfirmPassword"></span>
+                </div>
+                <button class="auth-btn" type="submit">Change password</button>
+            </form>
+
+            <h2>Change email</h2>
+            <p>Your email is <strong>@Model.Email</strong>. It is also your sign-in name.</p>
+            @if (Model.EmailServiceConfigured)
+            {
+                <form method="post" asp-page-handler="Email">
+                    <p class="auth-required-note">Fields marked with an asterisk are required.</p>
+                    <div class="auth-field">
+                        <label asp-for="EmailInput.NewEmail">New email</label>
+                        <input class="auth-input" asp-for="EmailInput.NewEmail" type="email"
+                               autocomplete="email" aria-describedby="new-email-hint new-email-err" />
+                        <span id="new-email-hint" class="auth-hint">
+                            We send a confirmation link to the new address. Your email does not
+                            change until you open it.
+                        </span>
+                        <span id="new-email-err" class="field-error" asp-validation-for="EmailInput.NewEmail"></span>
+                    </div>
+                    <div class="auth-field">
+                        <label asp-for="EmailInput.CurrentPassword">Current password</label>
+                        <input class="auth-input" asp-for="EmailInput.CurrentPassword" type="password"
+                               autocomplete="current-password" aria-describedby="email-pw-err" />
+                        <span id="email-pw-err" class="field-error" asp-validation-for="EmailInput.CurrentPassword"></span>
+                    </div>
+                    <button class="auth-btn" type="submit">Send confirmation link</button>
+                </form>
+            }
+            else
+            {
+                <p class="auth-note">
+                    Changing your email needs the email service, which is not set up on this
+                    server.
+                </p>
+            }
+
+            <h2 id="download">Download my data</h2>
+            <p>
+                A zip file of everything this account holds: every file in your data folder,
+                plus an <strong>account.json</strong> describing your account. It never contains
+                your password, security stamp, authenticator key, recovery codes or any token.
+            </p>
+            <form method="post" asp-page-handler="Download">
+                <button class="auth-btn" type="submit">Download my data</button>
+            </form>
+
+            <h2>Delete your account</h2>
+            <p>
+                This deletes the account, the paper account and its history, saved charts,
+                settings, strategies, alerts, and everything in your data folder. It cannot be
+                undone. If you might want a copy,
+                <a href="#download">download your data first</a>.
+            </p>
+            <form method="post" asp-page-handler="Delete">
+                <p class="auth-required-note">Fields marked with an asterisk are required.</p>
+                <div class="auth-field">
+                    <label asp-for="DeleteInput.CurrentPassword">Current password</label>
+                    <input class="auth-input" asp-for="DeleteInput.CurrentPassword" type="password"
+                           autocomplete="current-password" aria-describedby="delete-pw-err" />
+                    <span id="delete-pw-err" class="field-error" asp-validation-for="DeleteInput.CurrentPassword"></span>
+                </div>
+                @if (Model.TwoFactorEnabled)
+                {
+                    <div class="auth-field">
+                        <label asp-for="DeleteInput.TwoFactorCode">Authenticator or recovery code</label>
+                        <input class="auth-input" asp-for="DeleteInput.TwoFactorCode" type="text"
+                               inputmode="numeric" autocomplete="one-time-code"
+                               aria-describedby="delete-code-hint delete-code-err" />
+                        <span id="delete-code-hint" class="auth-hint">
+                            Enter the current six-digit code from your authenticator app, or one
+                            of your recovery codes.
+                        </span>
+                        <span id="delete-code-err" class="field-error" asp-validation-for="DeleteInput.TwoFactorCode"></span>
+                    </div>
+                }
+                <label class="auth-check" for="DeleteInput_Understands">
+                    <input asp-for="DeleteInput.Understands" type="checkbox" aria-required="true" />
+                    I understand this cannot be undone
+                </label>
+                <span id="delete-understand-err" class="field-error" asp-validation-for="DeleteInput.Understands"></span>
+                <button class="auth-btn" type="submit">Delete my account</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

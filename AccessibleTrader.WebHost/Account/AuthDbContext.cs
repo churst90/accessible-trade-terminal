@@ -11,5 +11,22 @@ namespace AccessibleTrader.WebHost.Account
     public class AuthDbContext : IdentityDbContext<AppUser>
     {
         public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options) { }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            var user = builder.Entity<AppUser>();
+            // Case-insensitive uniqueness for display names. SQLite applies the column's
+            // NOCASE collation to comparisons and to the unique index, so "Cody" and "cody"
+            // collide. The filter leaves NULL names out of the index: any number of accounts
+            // may have no display name.
+            user.Property(u => u.DisplayName)
+                .HasMaxLength(30)
+                .UseCollation("NOCASE");
+            user.HasIndex(u => u.DisplayName)
+                .IsUnique()
+                .HasFilter("\"DisplayName\" IS NOT NULL");
+        }
     }
 }

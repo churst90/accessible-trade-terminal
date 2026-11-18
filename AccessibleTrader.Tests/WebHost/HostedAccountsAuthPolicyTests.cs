@@ -1,5 +1,6 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost;
+using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -127,5 +128,18 @@ public class HostedAccountsAuthPolicyTests : IDisposable
         {
             try { Directory.Delete(root, recursive: true); } catch { /* best effort */ }
         }
+    }
+
+    [Fact]
+    public void Accounts_off_registers_no_account_email_or_reset_throttle()
+    {
+        // Desktop and --demo must not resolve mail services, and must not create a users/
+        // folder or an auth database. Registering the services behind AddHostedAccounts is
+        // what keeps that true; this fails if they leak into the shared registration.
+        var services = new ServiceCollection().AddAccessibleTraderWebHostServices();
+
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IAccountEmailSender));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(PasswordResetEmailThrottle));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(AuthDbContext));
     }
 }

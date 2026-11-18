@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Account page, account email through Brevo, and a minimum fill time on Register, 2026-11-18
+
+- **A real account page at `/account/manage`**, reached from Settings → General → Account
+  on the hosted build (and linked from Account security). Separate forms for display name,
+  leaderboard opt-in, change password, change email, download my data and delete account.
+  Display names are 3–30 characters, letters/digits/spaces/`.`/`-`/`_` only, never an `@`,
+  and unique regardless of case (a `COLLATE NOCASE` partial unique index on `AspNetUsers`,
+  added by an EF migration after the initial Identity schema; old `auth.db` files gain the
+  columns with leaderboard opt-in false). Empty clears the name and turns the opt-in off.
+- **Account email through Brevo SMTP.** A new `IAccountEmailSender` and
+  `SmtpAccountEmailSender` (STARTTLS on 587, 20-second timeout, plain text) send
+  password-reset links, change-email confirmation links to the new address, and
+  "your password/email was changed" notices to the old one. Configured by the
+  `AccountEmail__*` environment settings; only `AccountEmail__Password` is secret.
+  Logs name the recipient DOMAIN, the subject and success/failure — never the password,
+  a token or a link carrying one. Every message ends with the support address.
+- **ForgotPassword now emails the reset link when the service is configured**, with one
+  email per address per five minutes, and keeps the same neutral answer for known,
+  unknown and throttled addresses. With no email service it keeps the old support-contact
+  flow and owner push notice; `--reset-link` is unchanged. Links use the new
+  `Accounts:PublicBaseUrl` (default `https://accessibletrader.com/terminal`).
+- **Changing an email needs two steps.** The confirmation link goes to the new address;
+  GET shows a **Confirm the new address** button and changes nothing (link scanners), the
+  POST changes the address and sign-in name, refreshes a signed-in session, and emails the
+  old address. A bad or expired link says so and changes nothing.
+- **Download my data** returns `accessible-trader-data-{yyyyMMdd}.zip` with every file in
+  the user's own folder plus `account.json` (email, display name, leaderboard opt-in,
+  created/last seen, tier, 2FA on/off). It contains no password hash, security stamp,
+  authenticator key, recovery codes or tokens, and no other user's files.
+- **Delete account** evicts the user's in-memory paper account and per-user caches, deletes
+  the Identity row, deletes only a folder proven to be inside `{dataRoot}/users/` and not
+  `users/anon`, signs out, and tells the sign-in page "Your account has been deleted."
+  Current password, the cannot-be-undone checkbox, and a current authenticator/recovery
+  code when 2FA is on are all required.
+- **Register has a minimum fill time.** The GET signs the issue time with DataProtection;
+  a POST missing it, tampered with, older than two hours or less than three seconds old is
+  dropped exactly like the honeypot — a success-looking redirect and no account.
+- **Settings → General → Account** on the hosted build offers ordinary links to Your
+  account and Sign out; desktop and `--demo` do not render the group.
+- **New security events** for display name, leaderboard opt-in, password change, email
+  change requested/changed, data download and account deletion, all with the client IP.
+- **Caveats.** The leaderboard itself is not built; this release only stores the display
+  name and the opt-in. The reset-email throttle is in memory, so a restart forgets the
+  five-minute window. Account email needs Brevo (or any SMTP relay) credentials; without
+  them the old admin-mediated reset is used. Registration does not yet require email
+  confirmation.
+
 ### Colour said the same way everywhere; profiles split into buying and selling, 2026-11-18
 
 - **Histograms and volume bars say their colour**, in the same words and on the same rule as a

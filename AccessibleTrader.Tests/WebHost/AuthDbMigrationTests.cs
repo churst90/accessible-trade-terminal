@@ -48,6 +48,38 @@ namespace AccessibleTrader.Tests.WebHost
                 .UseSqlite($"Data Source={Path.Combine(_dir, file)}")
                 .Options);
 
+        /// <summary>
+        /// Builds the schema exactly as the pre-migrations deployments had it: apply ONLY the
+        /// initial migration, optionally insert a user through raw SQL (the current entity has
+        /// columns the old table does not), then drop the history table so this looks like a
+        /// database built by the old <c>EnsureCreated()</c> path.
+        /// </summary>
+        private static void CreateLegacyDatabase(AuthDbContext db, string? email = null, string? password = null)
+        {
+            db.Database.Migrate("20260827094804_InitialIdentitySchema");
+
+            if (email != null)
+            {
+                var hash = password == null
+                    ? null
+                    : new Microsoft.AspNetCore.Identity.PasswordHasher<AppUser>()
+                        .HashPassword(new AppUser(), password);
+                db.Database.ExecuteSqlRaw(
+                    "INSERT INTO \"AspNetUsers\" ("
+                    + "\"Id\", \"CreatedUtc\", \"LastSeenUtc\", \"Tier\", \"UserName\", "
+                    + "\"NormalizedUserName\", \"Email\", \"NormalizedEmail\", \"EmailConfirmed\", "
+                    + "\"PasswordHash\", \"SecurityStamp\", \"ConcurrencyStamp\", \"PhoneNumber\", "
+                    + "\"PhoneNumberConfirmed\", \"TwoFactorEnabled\", \"LockoutEnd\", "
+                    + "\"LockoutEnabled\", \"AccessFailedCount\") VALUES ("
+                    + "'u1', '2026-01-02 03:04:05', NULL, 'free', {0}, {1}, {0}, {1}, 0, {2}, "
+                    + "'stamp', 'concurrency', NULL, 0, 0, NULL, 1, 0);",
+                    email, email.ToUpperInvariant(), hash);
+            }
+
+            // No history table → the baseline path in AuthDbSchema is what runs.
+            db.Database.ExecuteSqlRaw("DROP TABLE \"__EFMigrationsHistory\";");
+        }
+
         public void Dispose()
         {
             try { Directory.Delete(_dir, recursive: true); } catch { /* best effort */ }
@@ -81,7 +113,7 @@ namespace AccessibleTrader.Tests.WebHost
             // This is the upgrade every existing deployment will perform exactly once.
             using (var legacy = NewContext("legacy.db"))
             {
-                legacy.Database.EnsureCreated();                       // the old startup path
+                CreateLegacyDatabase(legacy);                          // old schema, no history
                 Assert.Empty(legacy.Database.GetAppliedMigrations());  // no history table
             }
 
@@ -98,19 +130,10 @@ namespace AccessibleTrader.Tests.WebHost
         {
             // The whole point. An upgrade that "worked" by dropping AspNetUsers would pass
             // every other assertion here.
+            const string password = "Correct-h0rse-battery";
             using (var legacy = NewContext("withuser.db"))
             {
-                legacy.Database.EnsureCreated();
-                legacy.Users.Add(new AppUser
-                {
-                    Id = "u1",
-                    UserName = "someone@example.com",
-                    NormalizedUserName = "SOMEONE@EXAMPLE.COM",
-                    Email = "someone@example.com",
-                    NormalizedEmail = "SOMEONE@EXAMPLE.COM",
-                    SecurityStamp = "stamp",
-                });
-                legacy.SaveChanges();
+                CreateLegacyDatabase(legacy, "someone@example.com", password);
             }
 
             using var db = NewContext("withuser.db");
@@ -118,6 +141,73 @@ namespace AccessibleTrader.Tests.WebHost
 
             var user = Assert.Single(db.Users);
             Assert.Equal("someone@example.com", user.Email);
+            Assert.Equal(
+                Microsoft.AspNetCore.Identity.PasswordVerificationResult.Success,
+                new Microsoft.AspNetCore.Identity.PasswordHasher<AppUser>()
+                    .VerifyHashedPassword(user, user.PasswordHash!, password));
+        }
+
+        [Fact]
+        public void An_old_database_gains_the_profile_columns_with_opt_in_false()
+        {
+            // The second field-adding migration, exercised on the schema existing
+            // deployments actually have. EnsureCreated cannot be used to build the "old"
+            // database any more (it would create the new columns too), so the helper
+            // applies only the initial migration and drops the history table.
+            const string password = "Correct-h0rse-battery";
+            using (var legacy = NewContext("profile.db"))
+            {
+                CreateLegacyDatabase(legacy, "profile@example.com", password);
+            }
+
+            using var db = NewContext("profile.db");
+            AuthDbSchema.BringUpToDate(db);
+
+            var user = Assert.Single(db.Users);
+            Assert.Equal("profile@example.com", user.Email);
+            Assert.Null(user.DisplayName);
+            Assert.False(user.LeaderboardOptIn);
+            // The password survived the schema change — the reason this test exists.
+            Assert.Equal(
+                Microsoft.AspNetCore.Identity.PasswordVerificationResult.Success,
+                new Microsoft.AspNetCore.Identity.PasswordHasher<AppUser>()
+                    .VerifyHashedPassword(user, user.PasswordHash!, password));
+        }
+
+        [Fact]
+        public void Display_names_are_unique_regardless_of_case_but_nulls_are_allowed()
+        {
+            using var db = NewContext("names.db");
+            AuthDbSchema.BringUpToDate(db);
+
+            db.Users.Add(new AppUser
+            {
+                Id = "a", UserName = "a@example.com", NormalizedUserName = "A@EXAMPLE.COM",
+                Email = "a@example.com", NormalizedEmail = "A@EXAMPLE.COM",
+                DisplayName = "Cody", LeaderboardOptIn = true,
+            });
+            db.Users.Add(new AppUser
+            {
+                Id = "b", UserName = "b@example.com", NormalizedUserName = "B@EXAMPLE.COM",
+                Email = "b@example.com", NormalizedEmail = "B@EXAMPLE.COM",
+                DisplayName = null,
+            });
+            db.Users.Add(new AppUser
+            {
+                Id = "c", UserName = "c@example.com", NormalizedUserName = "C@EXAMPLE.COM",
+                Email = "c@example.com", NormalizedEmail = "C@EXAMPLE.COM",
+                DisplayName = null,
+            });
+            db.SaveChanges();
+
+            db.Users.Add(new AppUser
+            {
+                Id = "d", UserName = "d@example.com", NormalizedUserName = "D@EXAMPLE.COM",
+                Email = "d@example.com", NormalizedEmail = "D@EXAMPLE.COM",
+                DisplayName = "cody",
+            });
+
+            Assert.Throws<DbUpdateException>(() => db.SaveChanges());
         }
 
         [Fact]
