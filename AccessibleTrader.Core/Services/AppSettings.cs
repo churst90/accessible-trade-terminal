@@ -113,6 +113,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Event ids watched by name from the calendar. Empty by default.</summary>
         IReadOnlyList<string> MarketEventsWatched { get; set; }
 
+        /// <summary>"midnightUtc" (default) or "last24h": where a crypto pulse change starts.</summary>
+        string MarketPulseCryptoStart { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -488,6 +491,16 @@ namespace AccessibleTrader.Core.Services
                 }
             }
             set => Set(SettingsKeys.MarketEventsWatched, value.ToList());
+        }
+
+        /// <summary>
+        /// "Pulse: crypto change measured from" — midnight UTC (default) or the last 24 hours.
+        /// An unknown value reads as midnight in <c>MarketPulseSettings</c>.
+        /// </summary>
+        public string MarketPulseCryptoStart
+        {
+            get => GetString(SettingsKeys.MarketPulseCryptoStart, "midnightUtc");
+            set => Set(SettingsKeys.MarketPulseCryptoStart, value);
         }
 
         /// <summary>

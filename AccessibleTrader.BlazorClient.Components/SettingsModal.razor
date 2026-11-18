@@ -867,6 +867,31 @@
                             <button type="button" @onclick="UpdateMarketEventsNowAsync">Update release dates now</button>
                         </div>
                     </fieldset>
+
+                    @* Alt+P's one sentence. The Pulse list is a watchlist (Alt+M); this only
+                       chooses where a crypto change starts, because midnight UTC and a rolling
+                       24 hours answer different questions and both are defensible. *@
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin:16px 0 0 0;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Market pulse</legend>
+
+                        <div class="modal-row">
+                            <label for="s-market-pulse-crypto-start">Pulse: crypto change measured from</label>
+                            <select id="s-market-pulse-crypto-start"
+                                    aria-describedby="s-market-pulse-crypto-start-hint"
+                                    value="@_marketPulseCryptoStart"
+                                    @onchange="e => _marketPulseCryptoStart = e.Value?.ToString() ?? _marketPulseCryptoStart">
+                                <option value="midnightUtc" selected="@(_marketPulseCryptoStart == "midnightUtc")">Midnight UTC</option>
+                                <option value="last24h" selected="@(_marketPulseCryptoStart == "last24h")">Last 24 hours</option>
+                            </select>
+                        </div>
+                        <p id="s-market-pulse-crypto-start-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            Alt+P reads the markets you put on the watchlist named Pulse, in that
+                            order. Bitcoin and Ethereum measure from midnight UTC by default, so
+                            the change is today's move; "Last 24 hours" makes it a rolling day.
+                            Stocks, indices, forex and commodities always use the previous
+                            session's close.
+                        </p>
+                    </fieldset>
                 </fieldset>
 
             </div>
@@ -1483,6 +1508,7 @@
     private bool _marketEventsHalvings = true;
     private bool _marketEventsSound = true;
     private string _marketEventsCountdowns = "15,1";
+    private string _marketPulseCryptoStart = "midnightUtc";
     private string _marketEventStatus = "";
     private string _marketEventKalshiStatus = "";
 
@@ -1537,6 +1563,7 @@
         new("Bitcoin halving events", "Narration", "s-market-events-halvings", "market events bitcoin halving crypto"),
         new("Sound on event bars", "Narration", "s-market-events-sound", "market events bell earcon landing sound event bars"),
         new("Countdowns before events", "Narration", "s-market-events-countdowns", "market events countdown warning minutes before cpi jobs fed decision 15 5 1 30 off"),
+        new("Pulse: crypto change measured from", "Narration", "s-market-pulse-crypto-start", "market pulse alt+p crypto bitcoin ethereum midnight utc last 24 hours rolling day change"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
@@ -2206,6 +2233,7 @@
         _marketEventsHalvings = Store.State.MarketEventsHalvings;
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
         _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
+        _marketPulseCryptoStart = Store.State.MarketPulseCryptoStart;
         _marketEventStatus = NoKeyMarketEventStatus();
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
@@ -2543,6 +2571,7 @@
             MarketEventsHalvings = _marketEventsHalvings,
             MarketEventsSoundOnEventBars = _marketEventsSound,
             MarketEventsCountdowns = _marketEventsCountdowns,
+            MarketPulseCryptoStart = _marketPulseCryptoStart,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

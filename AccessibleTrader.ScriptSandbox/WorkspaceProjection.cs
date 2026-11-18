@@ -165,6 +165,9 @@ public static class WorkspaceProjection
         // The ids the user asked to be alerted about by name. A host watch list; a strategy's
         // signals must not change because of which calendar rows the user starred.
         nameof(WorkspaceState.MarketEventsWatched),
+        // Where the Alt+P pulse measures a crypto change from. A host read-aloud preference; a
+        // strategy's signals must not change because the user picked midnight or 24 hours.
+        nameof(WorkspaceState.MarketPulseCryptoStart),
     };
 
     /// <summary>

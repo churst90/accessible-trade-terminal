@@ -280,6 +280,9 @@ namespace AccessibleTrader.Sdk.Models
         // spoken even at level Off, outside the kind/importance filters and with no open or
         // held market; pruned by the writer once an event is more than two days past.
         IReadOnlyList<string>? MarketEventsWatched = null,
+        // Where a crypto pulse change starts: "midnightUtc" (default) or "last24h". A host
+        // preference, read by MarketPulseService; never carried into the script sandbox.
+        string MarketPulseCryptoStart = "midnightUtc",
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -335,6 +338,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsSoundOnEventBars: true,
             MarketEventsCountdowns: "15,1",
             MarketEventsWatched: Array.Empty<string>(),
+            MarketPulseCryptoStart: "midnightUtc",
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

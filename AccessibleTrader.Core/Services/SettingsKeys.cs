@@ -178,6 +178,12 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string MarketEventsWatched = "narration.marketEvents.watched";
 
+        /// <summary>
+        /// "Pulse: crypto change measured from" — "midnightUtc" (default) or "last24h". A
+        /// narration preference, so it survives a restart.
+        /// </summary>
+        public const string MarketPulseCryptoStart = "marketPulseCryptoStart";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 
