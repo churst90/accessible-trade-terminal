@@ -49,6 +49,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // The bar-to-market-event map. Built once per chart data/setting and reused on every
         // arrow key, exactly as _patternCache does for formations.
         private readonly MarketEvents.IMarketEventBarMapCache _marketEventMap;
+        // Optional so the many existing constructions keep working; DI supplies the one
+        // sonifier every other sound goes through. Used only for the live-notice bell.
+        private readonly Audio.INavigationSonifier? _navigationSonifier;
         private readonly CompositeDisposable _subscriptions = new();
 
         // The bar-close narrator. Held so the new-bar sentence can be composed INTO its
@@ -120,9 +123,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
             IDrawingInteractionManager? drawings = null,
             IAppSettings? appSettings = null,
-            MarketEvents.IMarketEventBarMapCache? marketEventMap = null)
+            MarketEvents.IMarketEventBarMapCache? marketEventMap = null,
+            Audio.INavigationSonifier? navigationSonifier = null)
         {
             _logger = logger;
+            _navigationSonifier = navigationSonifier;
             _drawings = drawings;
             _appSettings = appSettings;
             _marketEventMap = marketEventMap ?? new MarketEvents.MarketEventBarMapCache();
@@ -164,6 +169,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }));
 
             // Live bar events — gated by AnnounceNewBars setting
+            // Live market-event notices. The Event tier is the whole point: Shift+F2 mutes
+            // alerts and monitoring, and a countdown before CPI is exactly that kind of news;
+            // F2, the chart mute, must not silence it. One bell, shared with the bar bell.
+            _subscriptions.Add(_eventBus.Subscribe<MarketEventNoticeEvent>(e =>
+            {
+                _navigationSonifier?.PlayMarketEventBell(_store.State, e.Importance);
+                _speechRouter.Speak(e.Text, interrupt: false, channel: SpeechChannel.Event);
+            }));
+
             _subscriptions.Add(_eventBus.Subscribe<NewBarEvent>(OnNewBar));
             _subscriptions.Add(_eventBus.Subscribe<IntraBarUpdateEvent>(OnIntraBarUpdate));
 

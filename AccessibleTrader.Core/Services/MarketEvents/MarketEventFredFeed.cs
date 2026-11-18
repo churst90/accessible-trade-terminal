@@ -55,6 +55,30 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     }
 
     /// <summary>
+    /// The live feed surface the market-event services read: what has been fetched, its version,
+    /// whether a key exists, and the single-release figure request. <see cref="MarketEventFredFeed"/>
+    /// is the one production implementation; tests substitute a fake without a network.
+    /// </summary>
+    public interface IMarketEventFigureFeed
+    {
+        /// <summary>The fetched events in force, merged over the seed by the calendar.</summary>
+        IReadOnlyList<MarketEvent> Events { get; }
+
+        /// <summary>Bumped whenever fetched data changes; the bar-map cache watches it.</summary>
+        int Version { get; }
+
+        /// <summary>Whether a FRED key is configured. Never the key itself.</summary>
+        Task<bool> HasKeyAsync();
+
+        /// <summary>
+        /// Fetches only one release's series for one date, merges the result, bumps
+        /// <see cref="Version"/> and saves the cache. Returns true when figures arrived.
+        /// No key means no request.
+        /// </summary>
+        Task<bool> RequestReleaseFigureAsync(string source, DateOnly date);
+    }
+
+    /// <summary>
     /// Live release dates and figures from FRED. One process-wide instance per head, optional
     /// (no key means nothing is fetched and every consumer works from the seed), and never on a
     /// navigation path: a read uses whatever is loaded, a background task replaces it later.
@@ -65,7 +89,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// include the full URL), and the disk cache holds figures, never the request.
     /// </para>
     /// </summary>
-    public sealed class MarketEventFredFeed
+    public sealed class MarketEventFredFeed : IMarketEventFigureFeed
     {
         private const string BaseUrl = "https://api.stlouisfed.org/fred";
         private const string ProviderName = "FRED";
@@ -240,6 +264,82 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         /// <summary>The settings button: skips the 12-hour gate, one fetch at a time.</summary>
         public Task<MarketEventFeedStatus> UpdateNowAsync() => RefreshAsync(force: true);
+
+        /// <summary>Whether a FRED key is configured, without fetching anything.</summary>
+        public async Task<bool> HasKeyAsync()
+        {
+            var key = await _apiKeys.GetKeyForProviderAsync(ProviderName).ConfigureAwait(false);
+            return !string.IsNullOrWhiteSpace(key?.ApiKey);
+        }
+
+        /// <summary>
+        /// The live read-out's figure request: that release's series only, for that date, merged
+        /// over what is in force. Bypasses the 12-hour gate and nothing else — no key means no
+        /// request, a full refresh already running means this try is skipped (its result is
+        /// newer), and a failure keeps the old data and logs the exception type only.
+        /// </summary>
+        public async Task<bool> RequestReleaseFigureAsync(string source, DateOnly date)
+        {
+            if (!SourceSeries.TryGetValue(source, out var seriesIds)) return false;
+            if (!await _oneAtATime.WaitAsync(0).ConfigureAwait(false)) return false;
+
+            try
+            {
+                var key = await _apiKeys.GetKeyForProviderAsync(ProviderName).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(key?.ApiKey)) return false;
+
+                try
+                {
+                    var rows = new Dictionary<string, IReadOnlyList<MarketEventVintageRow>>(StringComparer.Ordinal);
+                    foreach (string series in seriesIds)
+                    {
+                        var last = source == "ppi"
+                            ? new DateOnly(2014, 1, 1)
+                            : date.AddDays(-400);
+                        string url = $"{BaseUrl}/series/observations?series_id={series}"
+                            + $"&realtime_start={last.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}"
+                            + "&realtime_end=9999-12-31";
+                        if (source != "ppi")
+                        {
+                            string observationStart = date.AddYears(-2)
+                                .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                            url += $"&observation_start={observationStart}";
+                        }
+                        url += $"&file_type=json&api_key={Uri.EscapeDataString(key.ApiKey)}";
+                        rows[series] = ParseObservations(await GetAsync(url).ConfigureAwait(false));
+                    }
+
+                    var figures = MarketEventFiguresCalculator.Compute(source, date, rows);
+                    if (figures == null) return false;
+
+                    var now = AsUtc(_nowUtc());
+                    var built = MarketEventSeed.CreateRelease(
+                        source, date, figures, DateOnly.FromDateTime(now)
+                            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                    lock (_gate)
+                    {
+                        var merged = _events.Where(e => e.Id != built.Id).ToList();
+                        merged.Add(built);
+                        merged.Sort(MarketEventCalendar.Compare);
+                        _events = merged;
+                        _version++;
+                    }
+                    SaveCache();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    // Type name only, as everywhere here: the URL carries the key.
+                    _logger.LogWarning("Market-events FRED figure request failed: {Type}.",
+                        ex.GetType().Name);
+                    return false;
+                }
+            }
+            finally
+            {
+                _oneAtATime.Release();
+            }
+        }
 
         /// <summary>The current state, with a key check but no network.</summary>
         public async Task<MarketEventFeedStatus> GetStatusAsync()

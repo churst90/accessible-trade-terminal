@@ -359,6 +359,52 @@ public class MarketEventFredFeedTests
         Assert.DoesNotContain("services.AddScoped<MarketEventFredFeed>();", text);
     }
 
+    [Fact]
+    public async Task AFigureRequestFetchesOnlyThatReleaseAndMergesIt()
+    {
+        var rig = new Rig();
+
+        bool arrived = await rig.Feed.RequestReleaseFigureAsync(
+            "cpi", new DateOnly(2026, 7, 14));
+
+        Assert.True(arrived);
+        var merged = rig.Feed.Events.Single(e => e.Id == "cpi-2026-07-14");
+        Assert.NotNull(merged.Figures);
+        Assert.True(rig.Feed.Version > 0);
+        Assert.Equal(2, rig.Handler.Captured.Count); // CPIAUCSL and CPILFESL only
+        Assert.All(rig.Handler.Captured, request =>
+        {
+            string url = request.RequestUri!.ToString();
+            Assert.DoesNotContain("release_id", url);
+            Assert.Contains("series_id=CP", url);
+        });
+        Assert.True(File.Exists(rig.CachePath));
+        Assert.DoesNotContain(Secret, File.ReadAllText(rig.CachePath));
+    }
+
+    [Fact]
+    public async Task AFigureRequestWithoutAKeyMakesNoRequest()
+    {
+        var rig = new Rig(key: null);
+
+        Assert.False(await rig.Feed.RequestReleaseFigureAsync(
+            "cpi", new DateOnly(2026, 7, 14)));
+        Assert.Empty(rig.Handler.Captured);
+        Assert.Equal(0, rig.Feed.Version);
+    }
+
+    [Fact]
+    public async Task AFigureRequestFailureKeepsTheOldDataAndTheKeyOutOfTheLog()
+    {
+        var rig = new Rig();
+        rig.Fail = true;
+
+        Assert.False(await rig.Feed.RequestReleaseFigureAsync(
+            "cpi", new DateOnly(2026, 7, 14)));
+        Assert.Empty(rig.Feed.Events);
+        Assert.Equal(0, rig.Feed.Version);
+    }
+
     /// <summary>
     /// A singleton may not take a scoped service. The WebHost registers settings, the event bus
     /// and most of the accessibility graph as Scoped, so an eager future dependency on one of

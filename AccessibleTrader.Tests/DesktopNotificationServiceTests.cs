@@ -1,5 +1,6 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Notifications;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
@@ -91,6 +92,39 @@ public class DesktopNotificationServiceTests
         string symbol, string timeframe, DateTime closedAt, TimeSpan step) =>
         new(new ChartIdentity("Crypto", "Bitstamp", symbol, timeframe),
             Bar(closedAt), Bar(closedAt + step));
+
+    // ── A LIVE MARKET-EVENT NOTICE ────────────────────────────────────────────
+
+    private sealed class Presence(bool canReach, bool visible) : IUserPresence
+    {
+        public bool CanReachUser => canReach;
+        public bool IsAppVisible => visible;
+    }
+
+    [Fact]
+    public void AMarketEventNoticeIsToastedWhenTheWindowIsHidden()
+    {
+        var h = new Harness(notify: true, presence: new Presence(canReach: true, visible: false));
+
+        h.Bus.Publish(new MarketEventNoticeEvent(
+            "CPI in 15 minutes.", MarketEventImportance.High, "cpi-2026-03-11"));
+
+        var shown = Assert.Single(h.Notifier.Shown);
+        Assert.Equal("Market event", shown.Title);
+        Assert.Equal("CPI in 15 minutes.", shown.Body);
+    }
+
+    [Fact]
+    public void AMarketEventNoticeIsNotToastedWhileTheWindowIsVisible()
+    {
+        // The live region is saying it; a toast would be the same sentence twice.
+        var h = new Harness(notify: true, presence: new Presence(canReach: true, visible: true));
+
+        h.Bus.Publish(new MarketEventNoticeEvent(
+            "CPI in 15 minutes.", MarketEventImportance.High, "cpi-2026-03-11"));
+
+        Assert.Empty(h.Notifier.Shown);
+    }
 
     // ── THE RULE: the chart in front of the trader is never toasted ──────────
 

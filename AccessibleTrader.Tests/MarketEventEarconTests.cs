@@ -320,6 +320,43 @@ public class MarketEventEarconTests
 
     private sealed record VoiceCall(int Slot, double Frequency, float Volume, double Duration);
 
+    [Fact]
+    public void TheLiveNoticeBellIsTheSameBellWithoutABar()
+    {
+        var driver = new SpyDriver();
+        var sonifier = Sonifier(driver, Array.Empty<MarketEvent>());
+
+        sonifier.PlayMarketEventBell(State(sound: true, earcons: true), MarketEventImportance.High);
+
+        var notes = sonifier.LastMarketEventBellNotes;
+        Assert.Equal(NavigationSonifier.BellNotes(MarketEventImportance.High, 0.5f), notes);
+        Assert.Equal(6, notes.Count);
+        Assert.Equal(NavigationSonifier.BellF5, notes[0].Frequency);
+        Assert.Equal(NavigationSonifier.BellC5, notes[3].Frequency);
+        Assert.All(notes.Take(3), n => Assert.Equal(0, n.DelayMs));
+        Assert.All(notes.Skip(3), n => Assert.Equal(110, n.DelayMs));
+        Assert.Equal(3, driver.UiNotes().Count); // the second strike is scheduled after 110 ms
+    }
+
+    [Fact]
+    public void TheLiveNoticeBellHonoursTheSoundBoxAndTheEarconMute()
+    {
+        foreach (var state in new[]
+        {
+            State(sound: false, earcons: true),
+            State(sound: true, earcons: false),
+        })
+        {
+            var driver = new SpyDriver();
+            var sonifier = Sonifier(driver, Array.Empty<MarketEvent>());
+
+            sonifier.PlayMarketEventBell(state, MarketEventImportance.High);
+
+            Assert.Empty(sonifier.LastMarketEventBellNotes);
+            Assert.Empty(driver.UiNotes());
+        }
+    }
+
     private sealed class SpyDriver : IAudioDriver
     {
         public int SampleRate => 48000;

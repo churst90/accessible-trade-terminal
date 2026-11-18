@@ -122,7 +122,13 @@ namespace AccessibleTrader.Core.Services.Notifications
             // returns early. An unowned category is then unreachable rather than merely
             // unhandled, which is the difference between a routing rule and a comment.
             if (Owns(DesktopNotificationCategories.Alerts))
+            {
                 _subs.Add(bus.Subscribe<AlertFiredEvent>(OnAlertFired));
+                // A live market-event notice is the same kind of news as an alert: it is
+                // spoken in the live region while the window is visible, and toasted only
+                // when it is not. See OnMarketEventNotice.
+                _subs.Add(bus.Subscribe<MarketEventNoticeEvent>(OnMarketEventNotice));
+            }
             if (Owns(DesktopNotificationCategories.NewBars))
             {
                 // The FOCUSED chart's bar close. Subscribed, but OnNewBar refuses while the app
@@ -174,6 +180,20 @@ namespace AccessibleTrader.Core.Services.Notifications
             if (AlreadyBeingSaid(e.Alert.Symbol)) return;
             Send(AlertTitle(e.Alert.Definition.Name), e.Alert.SpeechText);
         }
+
+        /// <summary>
+        /// A live market-event notice. The rule is the focused chart's: while the window is in
+        /// front of the trader the speech layer is already saying it, and a toast would be the
+        /// same sentence twice. Hidden to the tray, the toast is the only channel left.
+        /// </summary>
+        private void OnMarketEventNotice(MarketEventNoticeEvent e)
+        {
+            if (!_notifier.IsAvailable || !Enabled()) return;
+            if (_presence?.IsAppVisible ?? true) return;
+            Send(MarketEventTitle, e.Text);
+        }
+
+        internal const string MarketEventTitle = "Market event";
 
         /// <summary>
         /// Is this event about the chart the trader is looking AT, on a window they can

@@ -4,6 +4,7 @@ using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Core.Services.MarketEvents;
 
 namespace AccessibleTrader.Core.Models
 {
@@ -258,6 +259,15 @@ namespace AccessibleTrader.Core.Models
         /// surfaced on the event for delivery payloads + per-asset webhook routing.</summary>
         public string? Symbol => Alert.Symbol;
     }
+
+    /// <summary>
+    /// One live market-event notice — "CPI in 15 minutes", "CPI out. ...", or the figure.
+    /// Published by <c>MarketEventLiveNotices</c>; spoken on the Event tier (Shift+F2 mutes it)
+    /// by <c>AccessibilityFeedbackCoordinator</c>, with the same bell, and toasted by the desktop
+    /// head only when its window is hidden. <see cref="EventId"/> is the event's own id, so a
+    /// subscriber can find the record again without parsing the sentence.
+    /// </summary>
+    public record MarketEventNoticeEvent(string Text, MarketEventImportance Importance, string EventId);
 
     // ── UI Modal Events ───────────────────────────────────────────────────────
     public record OpenAlertsEvent();

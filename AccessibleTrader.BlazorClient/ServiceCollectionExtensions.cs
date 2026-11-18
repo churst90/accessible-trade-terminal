@@ -465,6 +465,9 @@ namespace AccessibleTrader.BlazorClient
             // must see the same cache and the same version. A key is optional; with none the
             // seed alone is complete.
             services.AddSingleton<MarketEventFredFeed>();
+            // The same instance through the narrow surface the live notice service needs.
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.IMarketEventFigureFeed>(
+                sp => sp.GetRequiredService<MarketEventFredFeed>());
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>
@@ -720,6 +723,12 @@ namespace AccessibleTrader.BlazorClient
             // and route events to speech and audio outputs.
             services.AddSingleton<ISpeechFormatter, SpeechFormatter>();
             services.AddSingleton<IAccessibilityFeedbackCoordinator, AccessibilityFeedbackCoordinator>();
+            // Countdowns, release read-outs and the figure. It subscribes in its constructor
+            // and starts its own timer; AppStartupService resolves it so the clock is running
+            // before the first chart is loaded.
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // The live-notice timer's clock. Tests inject a hand-written fake instead.
+            services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddSingleton<IEarconService, EarconService>();
             services.AddSingleton<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
             services.AddSingleton<IAudioFeedbackRouter, AudioFeedbackRouter>();

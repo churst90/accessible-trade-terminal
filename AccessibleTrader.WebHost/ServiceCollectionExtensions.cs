@@ -479,6 +479,9 @@ namespace AccessibleTrader.WebHost
             // must see the same cache and the same version. A key is optional; with none the
             // seed alone is complete.
             services.AddSingleton<MarketEventFredFeed>();
+            // The same instance through the narrow surface the live notice service needs.
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.IMarketEventFigureFeed>(
+                sp => sp.GetRequiredService<MarketEventFredFeed>());
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddScoped<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>
@@ -699,6 +702,11 @@ namespace AccessibleTrader.WebHost
 
             services.AddScoped<ISpeechFormatter, SpeechFormatter>();
             services.AddScoped<IAccessibilityFeedbackCoordinator, AccessibilityFeedbackCoordinator>();
+            // One per circuit: its countdowns belong to this browser session, and its timer
+            // stops when the circuit is disposed. AppStartupService resolves it on start.
+            services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // The live-notice timer's clock. Tests inject a hand-written fake instead.
+            services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddScoped<IEarconService, EarconService>();
             services.AddScoped<ISpeechFeedbackRouter, SpeechFeedbackRouter>();
             services.AddScoped<IAudioFeedbackRouter, AudioFeedbackRouter>();

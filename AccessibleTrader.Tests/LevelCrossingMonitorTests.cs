@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Services.Audio;
+using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Tests
@@ -17,6 +18,7 @@ namespace AccessibleTrader.Tests
             public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
             public void PlayCrossEarcon(int direction, float pan) { }
             public void FireMarketEventEarcon(WorkspaceState state, int index) { }
+            public void PlayMarketEventBell(WorkspaceState state, MarketEventImportance importance) { }
 
             public void SyncNavigationSlots(WorkspaceState state) { }
             public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1) { }

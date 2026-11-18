@@ -14,10 +14,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     public sealed class MarketEventCalendar
     {
         private readonly IReadOnlyList<MarketEvent> _seed;
-        private readonly MarketEventFredFeed? _feed;
+        private readonly IMarketEventFigureFeed? _feed;
 
         /// <summary>A calendar over the embedded seed and the live feed, or over a supplied set for a test.</summary>
-        public MarketEventCalendar(IReadOnlyList<MarketEvent>? seed = null, MarketEventFredFeed? feed = null)
+        public MarketEventCalendar(IReadOnlyList<MarketEvent>? seed = null, IMarketEventFigureFeed? feed = null)
         {
             _seed = seed ?? MarketEventSeed.Load().Events;
             _feed = feed;
@@ -28,8 +28,21 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             DateTime fromUtc,
             DateTime toUtc,
             MarketType market)
+            => Between(fromUtc, toUtc, new[] { market });
+
+        /// <summary>
+        /// Every event that touches ANY of <paramref name="markets"/> and starts in the half-open
+        /// range. One pass over the seed and the rules, not one pass per market: the live service
+        /// asks this every second and must not walk the calendar fourteen times.
+        /// </summary>
+        public IReadOnlyList<MarketEvent> Between(
+            DateTime fromUtc,
+            DateTime toUtc,
+            IReadOnlyCollection<MarketType> markets)
         {
-            if (toUtc <= fromUtc) return Array.Empty<MarketEvent>();
+            if (toUtc <= fromUtc || markets.Count == 0) return Array.Empty<MarketEvent>();
+
+            bool TouchesAny(MarketEvent e) => e.Scope.Any(markets.Contains);
 
             var events = new List<MarketEvent>();
             var fetched = _feed?.Events ?? Array.Empty<MarketEvent>();
@@ -39,7 +52,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             if (fetched.Count == 0)
             {
                 foreach (var e in _seed)
-                    if (e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                    if (TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc))
                         events.Add(e);
             }
             else
@@ -47,10 +60,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 var fetchedIds = new HashSet<string>(fetched.Select(e => e.Id), StringComparer.Ordinal);
                 foreach (var e in _seed)
                     if (!fetchedIds.Contains(e.Id)
-                        && e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                        && TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc))
                         events.Add(e);
                 foreach (var e in fetched)
-                    if (e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                    if (TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc))
                         events.Add(e);
             }
 
@@ -58,8 +71,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             // (a New York midnight is 04:00/05:00Z), so a margin year on either side keeps a
             // New Year's Eve or New Year's Day event from being missed at the edge of the data.
             for (int year = fromUtc.Year - 1; year <= toUtc.Year + 1; year++)
-                foreach (var e in MarketEventRules.ForYear(year, market))
-                    if (InRange(e.MomentUtc, fromUtc, toUtc)
+                foreach (var e in MarketEventRules.ForYear(year))
+                    if (TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc)
                         && !events.Any(x => x.Id == e.Id))
                         events.Add(e);
 

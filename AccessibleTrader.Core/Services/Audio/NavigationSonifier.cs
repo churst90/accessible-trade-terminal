@@ -30,6 +30,14 @@ namespace AccessibleTrader.Core.Services.Audio
         /// are muted; F3 is handled by the caller, as for the text-label tick.
         /// </summary>
         void FireMarketEventEarcon(WorkspaceState state, int index);
+        /// <summary>
+        /// The same market-event bell, for a live notice that has no bar: a countdown, a
+        /// read-out or a figure. It honours the "Sound on event bars" box and Shift+F3, and the
+        /// Sound Designer's MarketEvent override, exactly as the bar bell does. There is one
+        /// bell: both entry points play <see cref="NavigationSonifier.BellNotes"/> through the
+        /// same private core.
+        /// </summary>
+        void PlayMarketEventBell(WorkspaceState state, MarketEventImportance importance);
         // SonifySeries/SonifyComponent were removed on 2026-08-25. They were a second way to
         // write voice slot 0, exported all the way up through IAudioFeedbackRouter and
         // ISonificationManager, and called by nothing in production. SyncNavigationSlots is
@@ -632,6 +640,27 @@ namespace AccessibleTrader.Core.Services.Audio
             var importance = passing.Min(p => p.Event.Importance);
             float pan = (float)AudioConstants.CalculatePan(
                 idx - state.ViewportStartIndex, AudioConstants.ComputePanWidth(state));
+            PlayBellCore(state, importance, pan, afterLabel ? 130 : 0);
+        }
+
+        /// <summary>
+        /// A live market-event notice has no bar, so the bell has no position: centre it and
+        /// start it at once. The gates are the bar bell's, minus the bar and the level (the
+        /// notice service never publishes when the level is off).
+        /// </summary>
+        public void PlayMarketEventBell(WorkspaceState state, MarketEventImportance importance)
+        {
+            LastMarketEventBellNotes = Array.Empty<MarketEventBellNote>();
+            if (!state.MarketEventsSoundOnEventBars) return;
+            if (!state.IsEarconsEnabled) return;
+            PlayBellCore(state, importance, pan: 0, delay: 0);
+        }
+
+        /// <summary>The one bell: override first, then the notes, shared by both entry points.</summary>
+        private void PlayBellCore(
+            WorkspaceState state, MarketEventImportance importance, float pan, double delay)
+        {
+            LastMarketEventBellNotes = Array.Empty<MarketEventBellNote>();
 
             float scale = importance switch
             {
@@ -643,7 +672,6 @@ namespace AccessibleTrader.Core.Services.Audio
                     EarconPatchPlayer.MarketEventKey, scale, pan))
                 return;
 
-            double delay = afterLabel ? 130 : 0;
             var notes = BellNotes(importance, state.ChartVolume, delay);
             LastMarketEventBellNotes = notes;
             foreach (var note in notes)

@@ -230,6 +230,13 @@ namespace AccessibleTrader.Core.Services
             _services.GetRequiredService<IHistoryBufferCoordinator>();
             _services.GetRequiredService<IAccessibilityFeedbackCoordinator>();
 
+            // 4c. Live market-event countdowns, read-outs and figures. It subscribes to the
+            //     focused chart's live events and starts its own one-second timer in the
+            //     constructor, so a service nobody resolves is a feature that never runs — the
+            //     QuickTradeExecutor lesson. GetService, not GetRequiredService: an older host
+            //     composition without it should lose the notices, not fail to start.
+            _services.GetService<MarketEvents.MarketEventLiveNotices>();
+
             // 4a. Bars closing on a LIVE BACKGROUND TAB — a chart the user has open but is not
             //     looking at. Resolved here for the same reason 4b below is Start()ed here: the
             //     class subscribes in its constructor, so a subscriber nobody resolves is a
