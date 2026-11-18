@@ -142,4 +142,28 @@ public class MarketEventBarMapCacheTests
         Assert.Null(afterPlaced.Placement);
         Assert.Equal(1, cache.BuildCount);
     }
+
+    /// <summary>
+    /// The apostrophe jumps read the same map as the arrow keys and Alt+Shift+D. CommandDispatcher
+    /// takes its MarketEventNavigator as an optional parameter, so if no head registers the
+    /// navigator, dependency injection passes null and the dispatcher quietly builds a navigator
+    /// with a private third map (it did, until 2026-11-18). Both heads must register it, with the
+    /// same lifetime as the shared map, so the scoped map is the one injected.
+    /// </summary>
+    [Theory]
+    [InlineData("AccessibleTrader.WebHost/ServiceCollectionExtensions.cs", "AddScoped")]
+    [InlineData("AccessibleTrader.BlazorClient/ServiceCollectionExtensions.cs", "AddSingleton")]
+    public void EachHeadRegistersTheJumpNavigatorBesideTheSharedMap(string file, string lifetime)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        string path = Path.Combine(dir!.FullName, file);
+        Assert.True(File.Exists(path), $"{file} not found at {path}");
+        string text = File.ReadAllText(path);
+
+        Assert.Contains($"services.{lifetime}<IMarketEventBarMapCache, MarketEventBarMapCache>();", text);
+        Assert.Contains($"services.{lifetime}<MarketEventNavigator>();", text);
+    }
 }

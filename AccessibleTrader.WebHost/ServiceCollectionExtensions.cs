@@ -474,6 +474,7 @@ namespace AccessibleTrader.WebHost
             // One bar-to-event map shared by navigation speech, the detail summary and the
             // apostrophe jumps, for the same reason as the pattern cache above.
             services.AddScoped<IMarketEventBarMapCache, MarketEventBarMapCache>();
+            services.AddScoped<MarketEventNavigator>();
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddScoped<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>

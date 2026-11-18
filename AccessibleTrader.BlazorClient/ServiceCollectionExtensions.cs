@@ -460,6 +460,7 @@ namespace AccessibleTrader.BlazorClient
             // One bar-to-event map shared by navigation speech, the detail summary and the
             // apostrophe jumps, for the same reason as the pattern cache above.
             services.AddSingleton<IMarketEventBarMapCache, MarketEventBarMapCache>();
+            services.AddSingleton<MarketEventNavigator>();
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>

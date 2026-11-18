@@ -61,6 +61,12 @@ All notable changes to this project will be documented in this file.
   singleton, beside `IChartPatternCache`), and both `AccessibilityFeedbackCoordinator` and
   `BarDetailService` take the interface, so navigation speech, the detail key and the apostrophe
   jumps share one map instead of each service building its own.
+  Claude's review found the jumps still had a private map: `CommandDispatcher` takes its
+  `MarketEventNavigator` as an optional parameter and no head registered it, so dependency
+  injection passed null and the dispatcher built its own. `MarketEventNavigator` is now registered
+  on both heads with the map's lifetime; `EachHeadRegistersTheJumpNavigatorBesideTheSharedMap`
+  turned red (1) with the WebHost line removed. Claude also re-ran the default-Off sabotage
+  (`WorkspaceState` default to "importantOnly"): 1 red, as DeepSeek reported.
 - **Setting label.** The select under the "Market events on the chart" legend is now labelled
   **Level**, so a screen reader no longer reads the group name twice; the manual names it the
   same way.
