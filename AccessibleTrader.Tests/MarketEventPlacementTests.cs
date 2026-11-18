@@ -254,6 +254,36 @@ public class MarketEventPlacementTests
         Assert.False(placement.IsPlaced);
     }
 
+    // ── Placement must not rescan the bars once per event ──
+
+    [Fact]
+    public void PlacingEverySeedEventComputesEachBarsDateOnce()
+    {
+        var events = MarketEventSeed.Load().Events;
+
+        var daily = ManyBars(new DateTime(2000, 1, 3, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromDays(1), 5000);
+        MarketEventPlacement.BarDateCalls = 0;
+        MarketEventPlacement.Place(events, daily, 86400, TimeZoneInfo.Utc, Now);
+        Assert.True(
+            MarketEventPlacement.BarDateCalls <= daily.Length + events.Count,
+            $"daily: {MarketEventPlacement.BarDateCalls} BarDate calls for {daily.Length} bars and {events.Count} events");
+
+        var hourly = ManyBars(new DateTime(2000, 1, 3, 0, 0, 0, DateTimeKind.Utc), TimeSpan.FromHours(1), 5000);
+        MarketEventPlacement.BarDateCalls = 0;
+        MarketEventPlacement.Place(events, hourly, 3600, TimeZoneInfo.Utc, Now);
+        Assert.True(
+            MarketEventPlacement.BarDateCalls <= hourly.Length + events.Count,
+            $"hourly: {MarketEventPlacement.BarDateCalls} BarDate calls for {hourly.Length} bars and {events.Count} events");
+    }
+
+    private static Ohlcv[] ManyBars(DateTime startUtc, TimeSpan step, int count)
+    {
+        var bars = new Ohlcv[count];
+        for (int i = 0; i < count; i++)
+            bars[i] = MarketEventTestData.Bar(startUtc.AddTicks(step.Ticks * i));
+        return bars;
+    }
+
     // ── Replay: the data is a growing prefix, so rule 7 keeps later events out ──
 
     [Fact]

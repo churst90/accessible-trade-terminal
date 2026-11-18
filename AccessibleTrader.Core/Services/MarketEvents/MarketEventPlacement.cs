@@ -53,6 +53,16 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private const int DaySeconds = 86400;
         private const int WeekSeconds = 7 * DaySeconds;
 
+        // Counts BarDate calls for the placement guard. ThreadStatic so parallel tests do not
+        // share it; Place is synchronous, so one thread sees the whole call.
+        [ThreadStatic] private static int _barDateCalls;
+
+        internal static int BarDateCalls
+        {
+            get => _barDateCalls;
+            set => _barDateCalls = value;
+        }
+
         /// <summary>Every event, placed or not, in the order supplied.</summary>
         public static IReadOnlyList<MarketEventBarPlacement> Place(
             IReadOnlyList<MarketEvent> events,
@@ -61,41 +71,57 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             TimeZoneInfo zone,
             DateTime nowUtc)
         {
+            barSeconds = Math.Max(1, barSeconds);
+            nowUtc = AsUtc(nowUtc);
             var result = new List<MarketEventBarPlacement>(events.Count);
+            if (bars.Count == 0)
+            {
+                foreach (var e in events) result.Add(MarketEventBarPlacement.NotPlaced(e));
+                return result;
+            }
+
+            // Each bar's date and open is worked out ONCE, then every event finds its bars by
+            // binary search. Bar dates are non-decreasing because the bars are chronological.
+            var barDates = new DateOnly[bars.Count];
+            var barOpens = new DateTime[bars.Count];
+            for (int i = 0; i < bars.Count; i++)
+            {
+                barOpens[i] = AsUtc(bars[i].Date);
+                barDates[i] = BarDate(barOpens[i], barSeconds, zone);
+            }
+
             foreach (var e in events)
-                result.Add(PlaceOne(e, bars, Math.Max(1, barSeconds), zone, AsUtc(nowUtc)));
+                result.Add(PlaceOne(e, bars, barDates, barOpens, barSeconds, zone, nowUtc));
             return result;
         }
 
         private static MarketEventBarPlacement PlaceOne(
             MarketEvent e,
             IReadOnlyList<Ohlcv> bars,
+            DateOnly[] barDates,
+            DateTime[] barOpens,
             int barSeconds,
             TimeZoneInfo zone,
             DateTime nowUtc)
         {
-            if (bars.Count == 0) return MarketEventBarPlacement.NotPlaced(e);
-
             bool intraday = barSeconds < DaySeconds;
             bool daily = barSeconds >= DaySeconds && barSeconds < WeekSeconds;
             bool weeklyOrLonger = barSeconds >= WeekSeconds;
 
             var eventDate = EventDate(e, zone);
-            var firstDate = BarDate(bars[0].Date, barSeconds, zone);
-            var lastDate = BarDate(bars[^1].Date, barSeconds, zone);
 
             // 8. Before the first bar — not placed. A date with no bar (rule 5) is a different
             // case: it belongs to a later bar, and only a date before the first one is dropped.
-            if (eventDate < firstDate) return MarketEventBarPlacement.NotPlaced(e);
+            if (eventDate < barDates[0]) return MarketEventBarPlacement.NotPlaced(e);
 
             if (intraday)
-                return PlaceIntraday(e, bars, barSeconds, zone, eventDate, nowUtc);
+                return PlaceIntraday(e, bars, barDates, barOpens, barSeconds, eventDate, nowUtc);
 
             if (daily)
-                return PlaceDaily(e, bars, barSeconds, zone, eventDate, nowUtc);
+                return PlaceDaily(e, bars, barDates, eventDate, nowUtc);
 
             if (weeklyOrLonger)
-                return PlaceWeekly(e, bars, barSeconds, zone, eventDate, nowUtc);
+                return PlaceWeekly(e, bars, barDates, barSeconds, eventDate, nowUtc);
 
             return MarketEventBarPlacement.NotPlaced(e);
         }
@@ -104,24 +130,24 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private static MarketEventBarPlacement PlaceIntraday(
             MarketEvent e,
             IReadOnlyList<Ohlcv> bars,
+            DateOnly[] barDates,
+            DateTime[] barOpens,
             int barSeconds,
-            TimeZoneInfo zone,
             DateOnly eventDate,
             DateTime nowUtc)
         {
-            var day = FindDayBars(bars, barSeconds, zone, eventDate);
-            if (day.Count == 0)
+            int first = LowerBound(barDates, eventDate);
+            int last = UpperBound(barDates, eventDate) - 1;
+            if (first > last)
             {
                 // 5. A date with no bar (weekend, holiday, a gap in the data): the next bar,
                 // worded with the day the event came out. A DateOnly event has no moment to
                 // place inside a bar, so rule 6 sends it to the day's first bar too.
-                int next = FirstBarAfter(bars, barSeconds, zone, eventDate);
-                if (next < 0) return MarketEventBarPlacement.NotPlaced(e);
+                int next = UpperBound(barDates, eventDate);
+                if (next >= bars.Count) return MarketEventBarPlacement.NotPlaced(e);
                 return new MarketEventBarPlacement(
                     e, next, CameOut(eventDate));
             }
-
-            int first = day[0], last = day[^1];
 
             // 6. A day-only event goes on the day's first bar, whatever its time of day.
             if (e.Precision == MarketEventPrecision.DayOnly)
@@ -129,16 +155,16 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
             // 2. Same day, outside the session: before the first bar, after the last one.
             var moment = AsUtc(e.MomentUtc);
-            if (moment < AsUtc(bars[first].Date))
+            if (moment < barOpens[first])
                 return Finish(e, bars, first, BeforeTheOpen, nowUtc);
 
-            var lastEnd = AsUtc(bars[last].Date).AddSeconds(barSeconds);
+            var lastEnd = barOpens[last].AddSeconds(barSeconds);
             if (moment >= lastEnd)
                 return Finish(e, bars, last, AfterTheClose, nowUtc);
 
             // 1. The bar whose span [open, next open) holds the moment. A bar's opening moment
             // is INSIDE it: 8:30 is the bar that opens at 8:30, never the one before.
-            int index = BarHolding(bars, barSeconds, moment);
+            int index = BarHolding(barOpens, moment);
             return Finish(e, bars, index, placement: null, nowUtc);
         }
 
@@ -146,19 +172,17 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private static MarketEventBarPlacement PlaceDaily(
             MarketEvent e,
             IReadOnlyList<Ohlcv> bars,
-            int barSeconds,
-            TimeZoneInfo zone,
+            DateOnly[] barDates,
             DateOnly eventDate,
             DateTime nowUtc)
         {
-            for (int i = 0; i < bars.Count; i++)
-                if (BarDate(bars[i].Date, barSeconds, zone) == eventDate)
-                    return Finish(e, bars, i, placement: null, nowUtc);
+            int index = LowerBound(barDates, eventDate);
+            if (index < bars.Count && barDates[index] == eventDate)
+                return Finish(e, bars, index, placement: null, nowUtc);
 
             // 5. A date with no bar: the next daily bar, worded with the day it came out.
-            for (int i = 0; i < bars.Count; i++)
-                if (BarDate(bars[i].Date, barSeconds, zone) > eventDate)
-                    return new MarketEventBarPlacement(e, i, CameOut(eventDate));
+            if (index < bars.Count)
+                return new MarketEventBarPlacement(e, index, CameOut(eventDate));
 
             // 7. Past the end of the last bar's span: not placed (stage 3 reads upcoming events).
             return MarketEventBarPlacement.NotPlaced(e);
@@ -168,27 +192,28 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private static MarketEventBarPlacement PlaceWeekly(
             MarketEvent e,
             IReadOnlyList<Ohlcv> bars,
+            DateOnly[] barDates,
             int barSeconds,
-            TimeZoneInfo zone,
             DateOnly eventDate,
             DateTime nowUtc)
         {
             // 4. The bar whose span holds the date. The last bar's span is nominal: a week for a
             // weekly chart, a calendar month for a monthly one.
-            for (int i = 0; i < bars.Count; i++)
+            int i = UpperBound(barDates, eventDate) - 1;
+            if (i >= 0)
             {
-                var start = BarDate(bars[i].Date, barSeconds, zone);
+                var start = barDates[i];
                 var end = i + 1 < bars.Count
-                    ? BarDate(bars[i + 1].Date, barSeconds, zone)
+                    ? barDates[i + 1]
                     : NominalEnd(start, barSeconds);
                 if (eventDate >= start && eventDate < end)
                     return Finish(e, bars, i, placement: null, nowUtc);
             }
 
             // 5. In a gap between bars: the next bar, worded with the day it came out.
-            for (int i = 0; i < bars.Count; i++)
-                if (BarDate(bars[i].Date, barSeconds, zone) > eventDate)
-                    return new MarketEventBarPlacement(e, i, CameOut(eventDate));
+            int next = UpperBound(barDates, eventDate);
+            if (next < bars.Count)
+                return new MarketEventBarPlacement(e, next, CameOut(eventDate));
 
             return MarketEventBarPlacement.NotPlaced(e);
         }
@@ -211,41 +236,49 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         }
 
         /// <summary>The bar whose [open, next open) holds the moment; a bar's own open is inside it.</summary>
-        private static int BarHolding(IReadOnlyList<Ohlcv> bars, int barSeconds, DateTime moment)
+        private static int BarHolding(DateTime[] barOpens, DateTime moment)
         {
-            int lo = 0, hi = bars.Count - 1, found = -1;
-            while (lo <= hi)
-            {
-                int mid = (lo + hi) / 2;
-                if (AsUtc(bars[mid].Date) <= moment) { found = mid; lo = mid + 1; }
-                else hi = mid - 1;
-            }
+            int found = UpperBound(barOpens, moment) - 1;
             return found < 0 ? 0 : found;
         }
 
-        private static List<int> FindDayBars(
-            IReadOnlyList<Ohlcv> bars,
-            int barSeconds,
-            TimeZoneInfo zone,
-            DateOnly day)
+        /// <summary>The first index whose date is not before <paramref name="value"/>.</summary>
+        private static int LowerBound(DateOnly[] dates, DateOnly value)
         {
-            var found = new List<int>();
-            for (int i = 0; i < bars.Count; i++)
-                if (BarDate(bars[i].Date, barSeconds, zone) == day)
-                    found.Add(i);
-            return found;
+            int lo = 0, hi = dates.Length;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (dates[mid] < value) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
         }
 
-        private static int FirstBarAfter(
-            IReadOnlyList<Ohlcv> bars,
-            int barSeconds,
-            TimeZoneInfo zone,
-            DateOnly day)
+        /// <summary>The first index whose date is after <paramref name="value"/>.</summary>
+        private static int UpperBound(DateOnly[] dates, DateOnly value)
         {
-            for (int i = 0; i < bars.Count; i++)
-                if (BarDate(bars[i].Date, barSeconds, zone) > day)
-                    return i;
-            return -1;
+            int lo = 0, hi = dates.Length;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (dates[mid] <= value) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
+        /// <summary>The first index whose open is after <paramref name="value"/>.</summary>
+        private static int UpperBound(DateTime[] opens, DateTime value)
+        {
+            int lo = 0, hi = opens.Length;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (opens[mid] <= value) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
         }
 
         private static DateOnly EventDate(MarketEvent e, TimeZoneInfo zone)
@@ -259,9 +292,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// their open.
         /// </summary>
         private static DateOnly BarDate(DateTime stamp, int barSeconds, TimeZoneInfo zone)
-            => barSeconds >= DaySeconds
+        {
+            _barDateCalls++;
+            return barSeconds >= DaySeconds
                 ? DateOnly.FromDateTime(SpeechTimeFormatter.BarDate(stamp))
                 : DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(AsUtc(stamp), zone));
+        }
 
         private static DateOnly NominalEnd(DateOnly start, int barSeconds)
             => barSeconds >= 28 * DaySeconds
