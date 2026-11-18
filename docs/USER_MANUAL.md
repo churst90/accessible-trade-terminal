@@ -1410,11 +1410,53 @@ event, the way comma and period move between chart formations. Both keys need **
 off the terminal says *"Market events are off. Turn them on in Settings, Narration."* At the end of
 the data it says *"No later market events."* or *"No earlier market events."* — never nothing.
 
-The dates ship with the terminal: US release dates from FRED and Fed decisions from the Federal
-Reserve through July 2026 and 2027 respectively, plus the rule-worked expiries, holidays and
-halvings. Nothing is fetched while you read, and one-off closures such as a national day of
-mourning are not listed. This stage is the past only: the actual and expected figures, live
-countdowns and the calendar screen come in later stages.
+**What the figure sounds like.** When the bar carries exactly one event that passes your Level and
+kind boxes — and the chart is shorter than weekly — the clause also reads the release's figure, after
+the time and before the placement word: *"CPI 8:30 am, up 1.3% on the month, previous up 1.0%"*,
+*"CPI 8:30 am, unchanged on the month, previous up 0.2%"*, *"jobs report 8:30 am, payrolls up 227
+thousand, previous up 36 thousand, unemployment 4.2%"*, or *"GDP 8:30 am, first estimate, up 3.0%
+annualized, previous quarter down 0.5%"*. A later GDP estimate says *"second estimate"* (or *"third
+estimate"*, and *"revised estimate"* after that) and *"was up 3.0%"* for the estimate it revised. A
+large payroll change is said in millions: *"payrolls down 20.5 million"*. Percentages always carry
+one decimal; payrolls never do. On a bar with several events the short list stays as before, and on
+weekly or monthly bars no figure is read. The figure is information, not advice: stage 2 does not
+say whether it was "hotter" than anything, because there is no expected figure to compare with.
+
+**First print.** A figure is the number as it was first published, never a later revision. The
+terminal reads the vintage that existed on the release day itself, so a 2022 bar still says what
+the 2022 release said. Revisions appear only when you navigate to the later release that published
+them.
+
+Which releases have figures, and from when: **CPI** from the 21 July 1972 release, **core CPI** from
+12 December 1996, **payrolls** from 6 May 1955, **unemployment** from 15 March 1960, and **GDP** from
+4 December 1991. Not every release date has one — a date is stored because FRED knows the release
+happened, and the vintage files do not always start on that exact day — so some bars say the event
+and nothing more. **PPI has no figure without a FRED key**; with one it is read from February 2014,
+when the PPI final-demand headline series begins.
+
+**Keeping dates current.** The dates ship with the terminal: US release dates from FRED and Fed
+decisions from the Federal Reserve through July 2026 and 2027 respectively, plus the rule-worked
+expiries, holidays and halvings. One-off closures such as a national day of mourning are not listed.
+If you add a **FRED key in API Keys**, the terminal also refreshes release dates and figures from
+FRED — including PPI — in the background: at most once every 12 hours, never while you are reading,
+and only while **Level** is not Off. The status line under the Level setting says which state it is
+in: *"Release dates stored up to 30 July 2026. Add a FRED key in API Keys to keep them current and
+get PPI figures."*, the date and time of the last successful update, or the time and a short reason
+for the last failure (*"no answer"* for a network or timeout problem). A failure keeps the copy from
+the last success and never interrupts navigation or makes a sound. **Update release dates now** does
+the same immediately, skipping the 12-hour wait; with no key it simply refreshes the status line. The
+last fetch is saved to disk, so a restart with no network still has it. Nothing is fetched when
+Level is Off.
+
+**The landing bell.** Arriving on a bar whose events pass the filter plays a small bell after the
+price reading, so events can be noticed with speech muted. It is deliberately unlike every other
+chart sound: two falling notes for an important event (CPI, the jobs report, a Fed decision, a
+halving), one note for medium and low, and the low one is quieter. It never repeats while you stay
+on the same bar, and it sounds during playback as the cursor crosses event bars. **Sound on event
+bars** under the Market events setting turns it off. It is also silent when Level is Off, when
+Shift+F3 mutes earcons, and — while arrowing — when F3 turns chart sonification off. The bell has a
+**MarketEvent** entry in the Sound Designer's Earcon Assignments, so you can replace it with one of
+your own patches. Stage 2 has no countdowns and no calendar screen; those come later.
 
 ---
 
@@ -4464,8 +4506,8 @@ nothing to say; and playback narration is on because it is what the terminal alr
 - **Market events on the chart** (off) — CPI, the jobs report, PPI, GDP, Fed decisions, options
   expiries, US market holidays and Bitcoin halvings, said on the bars they happened on. Its
   **Level** setting (off, important only, important and medium, all) gates the five kind boxes.
-  Off by default so a new chart stays quiet; the full description is under *Reading the Chart →
-  Market events on the chart*.
+  Figures, a FRED key for live dates and PPI, and the landing bell are described under *Reading the
+  Chart → Market events on the chart*. Off by default so a new chart stays quiet.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery

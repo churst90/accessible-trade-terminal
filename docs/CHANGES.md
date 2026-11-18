@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events on the chart, stage 2: figures, live FRED dates and the landing bell, 2026-11-18
+
+- **What was built.** The market-events seed now carries the release figures, the model stores them
+  with their unit and hot direction, the arrow clause and Alt+Shift+D speak them, an optional live
+  FRED feed refreshes dates and figures, and a small bell marks event bars. Nothing was heard by
+  Cody yet.
+- **First print, never the future.** A release day gets figures only from the ALFRED vintage visible
+  on that day itself: rows with `realtime_start <= D <= realtime_end`, one value per period, newest
+  vintage winning, and no value from a later revision. CPI uses CPIAUCSL and CPILFESL, jobs uses
+  PAYEMS and UNRATE, GDP uses GDPC1. A figure exists only when that series published on the day;
+  otherwise its column is null. Percentages are rounded to 1 decimal and payrolls to whole thousands,
+  half away from zero after a 6-decimal clean-up, and a rounded -0.0 is stored as 0.0. The seed's
+  values were checked against the handoff's independently computed table; every row matches.
+- **Seed.** `us_events_seed.json` grew from 47,076 to 96,885 bytes (still under 150 KB) and keeps
+  3,509 events. Figure rows are aligned by index with each source's dates: cpi
+  `[CPI, previous, core, previous]`, nfp `[payrolls, previous, unemployment, previous]`, gdp
+  `[growth, estimate, previous, period]`, and `ppi_figures` is all null. Coverage: CPI 667 of 947
+  dates, core CPI 374, payrolls 857 of 861, unemployment 797, GDP 417 of 855. The header now carries
+  each ALFRED series id, its download URL and the file's newest `realtime_start`.
+- **What is heard.** A one-event bar shorter than a week reads the figure after the time and before
+  the placement word: "CPI 8:30, up 1.3% on the month, previous up 1.0%", "unchanged on the month",
+  "payrolls up 227 thousand, previous up 36 thousand, unemployment 4.2%", "payrolls down 20.5
+  million", "GDP 8:30, first estimate, up 3.0% annualized, previous quarter down 0.5%", "second
+  estimate ... was up 3.0%". Percentages always carry one decimal and thousands never do. The detail
+  key adds a full line per figure, "unavailable" where a source had nothing, plus GDP's estimate and
+  quarter. A crowd or a weekly-or-longer bar keeps stage 1's wording unchanged.
+- **Live FRED (optional).** `MarketEventFredFeed` is one singleton per process on both heads, takes
+  the user's key from `IApiKeyService` (provider "FRED"), and does nothing without one. It fetches
+  release dates for ids 10/50/46/53, observations for CPIAUCSL, CPILFESL, PAYEMS, UNRATE, GDPC1 and
+  PPIFIS, and computes figures with one C# function whose fixture test agrees with the seed's Python
+  builder on the handoff's table. Fetched dates and figures win over the seed by event id; seed dates
+  are never removed. The fetch runs at most every 12 hours, one at a time, only while the level is
+  not Off, and never on the navigation path; the first fetch starts on the first event read. The
+  bar-map stamp includes the feed version, so the next arrow press rebuilds it. Failures keep the old
+  data and record the time and a short reason ("no answer", "HTTP 500", "a bad answer"); there is no
+  error sound or speech.
+- **Cache and key.** `AppDataDirectory/market-events/fred.json` is written atomically and holds the
+  fetch time and fetched figures only. It is loaded at start, so a restart with no network still has
+  the last fetch; a corrupt file is logged and ignored. The key is URL-escaped into the request and
+  appears in no log, exception message, status line or cache file; failures log an exception type,
+  never its message.
+- **Settings.** The "Market events on the chart" fieldset gains a sixth tick box, **Sound on event
+  bars** (default on, key `narration.marketEvents.sound`), the status paragraph
+  `<p id="market-events-status">`, and a never-disabled **Update release dates now** button. The
+  Level select describes both the existing hint and the status. The status words the seed's newest
+  economic release date (30 July 2026), the last successful update, or the last failure. The button
+  skips the 12-hour gate, does nothing but re-read status without a key, and announces its result
+  once through the dialog's existing `FeedbackRequestEvent` route.
+- **The landing bell.** `NavigationSonifier.FireMarketEventEarcon` plays an inharmonic bell — a
+  0.18 s sine plus 2.76× and 5.40× partials — with two falling strikes (F5 then C5, 110 ms apart)
+  for High and one F5 strike for Medium and Low, quieter for Low. It uses the same
+  `MarketEventSpeech.Passing` filter as the spoken clause, deduplicates per bar, starts 130 ms after
+  a text-label tick, is scaled by `ChartVolume` and panned by bar position. It is silent with the
+  level off, the new box unticked or Shift+F3, and while arrowing with F3 off. Playback calls it on
+  each index change through the new interface entry point, ignoring F3 as playback sound does by
+  design. A `MarketEvent` earcon key is in the Sound Designer, and an assigned patch replaces the
+  bell with volume scale 1.0 (High), 0.75 (Medium) and 0.5 (Low).
+- **Tests.** 450 tests pass on the working filter and 1,903 on the wider one; the source-reading
+  classes pass 1,057. The test project builds with no new warnings. Six sabotages, each
+  buildable and each restored from `strategy-lab-data/sab/` with `cp`, `touch` and `cmp`, then green:
+  using the newest vintage instead of the one on the release day turned 7 red; bypassing the shared
+  kind/level filter in the sonifier turned 1 red; removing the bell's dedup turned 1 red; putting the
+  key-bearing URL in the cache turned 1 red; dropping the feed version from the map stamp turned 1
+  red; leaving the feed unregistered on the WebHost turned 2 red (the feed guard and `HostParity`).
+- **Caveats.** The live fetch was never tried against real FRED — this environment has no network.
+  PPI history before February 2014 has no figures. ALFRED refused automated requests for PPI on
+  2026-11-18, so its history comes only through the user's key. Nothing here has been heard by Cody
+  yet.
+
 ### Market events on the chart, stage 1: the past, 2026-11-18
 
 - **What was built.** Scheduled market events now sit on the bars they happened on. The new

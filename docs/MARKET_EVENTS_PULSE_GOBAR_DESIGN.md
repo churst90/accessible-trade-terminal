@@ -1,8 +1,8 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stage 1 is built (2026-11-18) but has not been heard by Cody yet; the rest is not
-built** except where a stage below says it is. This is the plan
+terminal does not. **Stages 1 and 2 are built (2026-11-18); stage 1 has been tried by Cody and stage 2
+has not been heard yet. The rest is not built** except where a stage below says it is. This is the plan
 and the reasons, so a later session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
@@ -226,8 +226,25 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    `CipherCFutureClock`, which needs a long bar run and answers null on a daily stock chart; replay keeps
    all bars in `ReplayService` only as its private history and dispatches a growing PREFIX, so the
    ordinary rule 7 already excludes later events and no replay branch was needed.
-2. **Live dates and actual figures.** FRED fetch with the user's key, saved to disk with its fetch time;
-   first-print actuals with the previous figure; "hot" direction per release; the landing sound.
+2. **Live dates and actual figures — BUILT 2026-11-18, not yet heard by Cody.** FRED fetch with the
+   user's key, saved to disk with its fetch time; first-print actuals with the previous figure; "hot"
+   direction per release; the landing sound. What was built: the seed carries figures for CPI (with core
+   CPI), payrolls, unemployment and GDP, computed from ALFRED vintages visible on each release day and
+   aligned by index with the date arrays; the model stores each figure's unit and its hot direction,
+   though nothing speaks "hot" yet because there is still no expected figure. A `MarketEventFredFeed`
+   singleton on both heads fetches release dates (ids 10/50/46/53) and observations for CPIAUCSL,
+   CPILFESL, PAYEMS, UNRATE, GDPC1 and PPIFIS, computes figures with the same rules as the seed's Python
+   builder, merges them over the seed without removing a date, and caches what was fetched (never the
+   key) under `market-events/fred.json`. The bar-map stamp includes the feed's version. The settings
+   fieldset gains "Sound on event bars", a status paragraph and an "Update release dates now" button.
+   The landing sound is a three-partial inharmonic bell — two falling strikes for High, one F5 strike for
+   Medium and Low, quieter for Low — deduplicated per bar, delayed 130 ms after a text label, silent with
+   the level off, the new box unticked or Shift+F3, and fired by playback as it crosses bars under the
+   `MarketEvent` key in the Sound Designer. Differences found while building: ALFRED refused automated
+   requests for PPI on 2026-11-18, so PPI has no figures in the seed and its history comes only through
+   the user's FRED key, from the PPIFIS headline start in February 2014; the seed's newest economic
+   release date is 30 July 2026 (GDP), not the 14 July 2026 example in the handoff; and the live fetch
+   could not be tried against real FRED because this environment has no network.
 3. **Live:** countdowns, release read-outs (price reaction first), the position-aware warning, the
    alerts route, the Alt+E calendar screen, "alert me before this".
 4. **Earnings (Finnhub, Cody's key), Kalshi expected figures, token unlocks.**

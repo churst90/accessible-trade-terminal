@@ -22,8 +22,21 @@ None of this has been seen or heard in the app yet.
   F12 clock choices. Alt+Shift+D adds an "Events on this bar" section with each event's long name,
   importance, source and what price did over the bar.
 - **Apostrophe and Shift+apostrophe** jump to the next and previous bar with an event.
-- **The past only, for now.** The shipped dates run through July 2026 for releases and 2027 for
-  Fed decisions; actual and expected figures, countdowns and a calendar screen come later.
+- **The figures are spoken.** CPI, core CPI, payrolls, unemployment and GDP now read their
+  first print — the number as first published, never a later revision — with the previous figure.
+  CPI says "up 1.3% on the month, previous up 1.0%", jobs says "payrolls up 227 thousand, previous
+  up 36 thousand, unemployment 4.2%", and GDP names its estimate and quarter. PPI figures need a
+  FRED key and run from February 2014.
+- **A small bell on event bars.** Two falling notes for an important event, one for the rest and a
+  quieter one for low; it plays as you arrow and during playback, has its own "Sound on event bars"
+  tick box and a MarketEvent entry in the Sound Designer.
+- **Live dates with a FRED key.** Add one in API Keys and the terminal refreshes release dates and
+  figures in the background, at most every 12 hours. The status line under the setting says what
+  was stored or when it last failed, and "Update release dates now" skips the wait. No key, no
+  network: the shipped dates and figures still work.
+- **Still to come.** Countdowns, the release read-out with its expected figure, the Alt+E calendar,
+  earnings and the market pulse. The shipped dates run through July 2026 for releases and 2027 for
+  Fed decisions.
 
 ### Downloads
 

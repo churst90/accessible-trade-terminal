@@ -35,7 +35,12 @@ as proposed.
 - [x] Stage 1: events on bars, the past (seeded US release dates and Fed decisions, rule-worked expiries,
   holidays and halvings; the placement rule; the setting, off by default; the arrow clause; Alt+Shift+D;
   apostrophe jumps). No figures, no live fetch. **Built 2026-11-18; Cody tried it the same day: "this works amazing."**
-- [ ] Stage 2: live FRED dates with Cody's key, first-print actual figures, "hot" direction, landing sound.
+- [x] Stage 2: live FRED dates with Cody's key, first-print actual figures, "hot" direction, landing
+  sound. **Built 2026-11-18, not yet heard by Cody.** Figures are in the seed for CPI (with core),
+  payrolls, unemployment and GDP; PPI needs the key. Caveats: the live fetch was never tried against
+  real FRED (no network in the build environment), PPI history before 2014 has no figures, ALFRED
+  refused automated requests for PPI so its history comes only through the key, and nothing here has
+  been heard by Cody yet.
 - [ ] Stage 3: countdowns, release read-outs (price reaction first), position-aware warnings, Alt+E calendar.
 - [ ] Stage 4: earnings (Finnhub key), Kalshi expected figures, token unlocks (check DefiLlama's free API).
 - [ ] Stage 5: market pulse (Alt+P), then the change log and catch-up (Alt+U).
