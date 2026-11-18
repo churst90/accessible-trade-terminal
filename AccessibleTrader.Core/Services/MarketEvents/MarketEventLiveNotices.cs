@@ -311,7 +311,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             {
                 return _samples
                     .Where(x => x.Identity.Equals(identity)
-                        && x.Sample.AtUtc >= AsUtc(moment))
+                        && x.Sample.AtUtc >= AsUtc(moment) - MarketEventNoticeWording.BaselineReach)
                     .Select(x => x.Sample)
                     .ToList();
             }

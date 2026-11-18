@@ -1477,13 +1477,14 @@ order rests on that symbol; without one the position is named without it. Paper 
 *"on Paper"*. A position whose market cannot be identified is not guessed at and is left out.
 
 **The release read-out.** One minute after the event the terminal says what price did first, from
-the chart in front of you: *"CPI out. BTC down 0.8% in the first minute."* The change is the
-focused chart's own newest close at the first tick at or after the event time compared with its
-newest close in the first minute, rounded to one decimal. It says **up**, **down** or
-**unchanged** when the rounded change is zero. If that chart got no live update in the first
-minute — a stock chart before the open, for example — or the first update came more than five
-seconds after the event, it says only *"CPI out."* and nothing about price. If no open chart
-touches the event's market, likewise only *"CPI out."*
+the chart in front of you: *"CPI out. BTC down 0.8% in the first minute."* The change runs from
+that chart's last live price before the event (up to five minutes before it) to its newest price in
+the first minute after it, rounded to one decimal. It says **up**, **down** or **unchanged** when
+the rounded change is zero. If the chart got no live update after the event in that minute — a
+stock chart before the open, for example — it says only *"CPI out."* and nothing about price. If
+the app was asleep before the event, the first update within five seconds after it stands in for
+the price going in; without one there is no reaction. If the chart in front of you does not touch
+the event's market, likewise only *"CPI out."*
 
 **The figure.** For an economic release with a FRED key, the read-out ends *"Waiting for the
 figure."* The terminal then asks FRED for that one release's figure at 2, 5, 15, 30 and 60

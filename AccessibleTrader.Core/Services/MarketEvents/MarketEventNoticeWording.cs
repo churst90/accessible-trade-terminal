@@ -69,9 +69,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         /// <summary>
         /// The release read-out, price reaction first. <paramref name="samples"/> is the focused
-        /// chart's live updates, oldest first. The reaction needs a sample at T (the first tick
-        /// within 5 seconds) and at least one update somewhere in [T, T + 60 s]; with neither
-        /// the sentence is "CPI out." and nothing about price.
+        /// chart's live updates. The reaction is measured from the newest close at or before T
+        /// (within <see cref="BaselineReach"/>; failing that, the first update within 5 s after
+        /// T) to the newest update in (T, T + 60 s]. With no update after T in that minute the
+        /// feed was quiet, and the sentence is "CPI out." with nothing about price.
         ///
         /// <para>
         /// <paramref name="awaitingFigure"/> is true for a FRED release whose figure has not
@@ -86,32 +87,37 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             bool awaitingFigure)
         {
             var moment = AsUtc(e.MomentUtc);
-            var inFirstMinute = samples
-                .Where(s => AsUtc(s.AtUtc) >= moment && AsUtc(s.AtUtc) <= moment.AddSeconds(60))
-                .OrderBy(s => s.AtUtc)
-                .ToList();
+            var ordered = samples.OrderBy(s => AsUtc(s.AtUtc)).ToList();
+
+            // The price going into the release: the newest live close at or before T, if the
+            // feed was live in the minutes before it. With none (the app was asleep, or the
+            // chart was opened at the release), the first update within 5 s after T stands in.
+            var start = ordered.LastOrDefault(s =>
+                AsUtc(s.AtUtc) <= moment && AsUtc(s.AtUtc) >= moment - BaselineReach);
+            start ??= ordered.FirstOrDefault(s =>
+                AsUtc(s.AtUtc) > moment && AsUtc(s.AtUtc) < moment.AddSeconds(5));
+
+            // A reaction needs a live update AFTER T inside the first minute, other than the
+            // one standing in for the start. A quiet feed (a stock before the open) has none.
+            var end = start == null ? null : ordered.LastOrDefault(s =>
+                AsUtc(s.AtUtc) > moment && AsUtc(s.AtUtc) <= moment.AddSeconds(60)
+                && !ReferenceEquals(s, start));
 
             string text = $"{e.SpokenName} out.";
-            if (inFirstMinute.Count > 0)
+            if (start != null && end != null
+                && start.Close > 0 && double.IsFinite(start.Close)
+                && end.Close > 0 && double.IsFinite(end.Close))
             {
-                var start = inFirstMinute.FirstOrDefault(s => AsUtc(s.AtUtc) < moment.AddSeconds(5));
-                if (start != null && start.Close > 0 && double.IsFinite(start.Close))
+                double percent = Math.Round(
+                    (end.Close - start.Close) / start.Close * 100.0,
+                    1, MidpointRounding.AwayFromZero);
+                string symbol = string.IsNullOrWhiteSpace(start.Symbol) ? "Price" : start.Symbol;
+                text += percent switch
                 {
-                    var end = inFirstMinute[^1];
-                    if (end.Close > 0 && double.IsFinite(end.Close))
-                    {
-                        double percent = Math.Round(
-                            (end.Close - start.Close) / start.Close * 100.0,
-                            1, MidpointRounding.AwayFromZero);
-                        string symbol = string.IsNullOrWhiteSpace(start.Symbol) ? "Price" : start.Symbol;
-                        text += percent switch
-                        {
-                            > 0 => $" {symbol} up {Percent(percent)} in the first minute.",
-                            < 0 => $" {symbol} down {Percent(percent)} in the first minute.",
-                            _ => $" {symbol} unchanged in the first minute.",
-                        };
-                    }
-                }
+                    > 0 => $" {symbol} up {Percent(percent)} in the first minute.",
+                    < 0 => $" {symbol} down {Percent(percent)} in the first minute.",
+                    _ => $" {symbol} unchanged in the first minute.",
+                };
             }
 
             string figure = e.Figures != null ? MarketEventSpeech.FigureClause(e) : "";
@@ -119,6 +125,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             else if (awaitingFigure) text += " Waiting for the figure.";
             return text;
         }
+
+        /// <summary>How far before T a live close may be and still be "the price going in".</summary>
+        public static readonly TimeSpan BaselineReach = TimeSpan.FromMinutes(5);
 
         /// <summary>The figure notice's sentence: the existing figure clause, or "" if none.</summary>
         public static string Figure(MarketEvent e) => MarketEventSpeech.FigureClause(e);

@@ -32,11 +32,13 @@ All notable changes to this project will be documented in this file.
   "on Paper". Quantities use `QuantityFormatter` and prices `SpeechPriceFormatter`, the existing
   speech formatters, rather than a second set.
 - **The read-out.** At T + 60 s, one utterance: "CPI out. BTC down 0.8% in the first minute."
-  The price is the focused chart's own live feed — its first close at or after T (within 5 s) and
-  its newest close in the first minute — rounded to one decimal, with "up", "down" or "unchanged".
-  If the chart got no live update between T and T + 60 s, or the first update came more than 5 s
-  after T, the sentence is "CPI out." and says nothing about price. If the focused chart does not
-  touch the event's market, likewise "CPI out."
+  The price is the focused chart's own live feed, from its newest close at or before T (no more
+  than 5 minutes before) to its newest close in (T, T + 60 s], rounded to one decimal, with "up",
+  "down" or "unchanged". With no close before T in reach (the app was asleep), the first update
+  within 5 s after T stands in. With no update after T in that minute the feed was quiet and the
+  sentence is "CPI out." with nothing about price. If the focused chart does not touch the event's
+  market, likewise "CPI out." (Claude's review changed the start from "the first tick at or after
+  T", which said nothing on a feed slower than 5 s and measured from a price already moved.)
 - **The figure.** A FRED release with a key ends the read-out "Waiting for the figure." and is
   asked for at T + 2, 5, 15, 30 and 60 minutes, at most five times, bypassing only the 12-hour
   gate. `MarketEventFredFeed.RequestReleaseFigureAsync` fetches that release's series only, merges

@@ -115,6 +115,36 @@ public class MarketEventNoticeWordingTests
     }
 
     [Fact]
+    public void TheReactionIsMeasuredFromThePriceGoingIntoTheRelease()
+    {
+        // A feed that ticks every 20 s: the last close before the release is the start, not
+        // the first tick after it, and a slow feed still gets its reaction.
+        var samples = new[] { Sample(-20, 100), Sample(15, 99.6), Sample(35, 99.2) };
+
+        Assert.Equal("CPI out. BTC down 0.8% in the first minute.",
+            MarketEventNoticeWording.ReadOut(Cpi(), samples, awaitingFigure: false));
+    }
+
+    [Fact]
+    public void ALivePriceBeforeTheReleaseIsNoReactionWhenNothingMovesAfterIt()
+    {
+        // Live up to T, then quiet for the whole first minute: no reaction, not "unchanged".
+        var samples = new[] { Sample(-30, 100), Sample(-5, 101), Sample(70, 99) };
+
+        Assert.Equal("CPI out.",
+            MarketEventNoticeWording.ReadOut(Cpi(), samples, awaitingFigure: false));
+    }
+
+    [Fact]
+    public void APriceFromBeforeTheBaselineReachIsNotTheStart()
+    {
+        var samples = new[] { Sample(-400, 100), Sample(20, 99), Sample(40, 98) };
+
+        Assert.Equal("CPI out.",
+            MarketEventNoticeWording.ReadOut(Cpi(), samples, awaitingFigure: false));
+    }
+
+    [Fact]
     public void ASampleThatLandsTooLateForTheEventTimeIsNoReaction()
     {
         // The first update is at T + 10 s: the app was asleep at the release moment, so there
