@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Leaderboard;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
@@ -90,7 +91,26 @@ namespace AccessibleTrader.Core.Services
     public sealed class PaperTradingProvider : IPaperTradingProvider, IDisposable
     {
         private const string Quote = "USDT";
-        public double StartingBalance => 100_000.0;
+
+        /// <summary>The quote-currency balance every new paper account starts from.</summary>
+        public const double DefaultStartingBalance = 100_000.0;
+
+        public double StartingBalance => DefaultStartingBalance;
+
+        /// <summary>
+        /// Lifetime trade statistics, maintained on every fill and persisted. A read-only
+        /// snapshot; the broker mutates its private counters under the account lock. See
+        /// <see cref="PaperTradeStats"/> for why these cannot be counted from History.
+        /// </summary>
+        public PaperTradeStats Stats
+        {
+            get
+            {
+                lock (_lock)
+                    return new PaperTradeStats(
+                        _closedTrades, _wins, _realizedTotal, _firstFillAt, _lastFillAt);
+            }
+        }
 
         // The charts this account is watching. ONE account can be looked at from several browser
         // tabs at once, each with its own IWorkspaceStore, so this is a set rather than the single
@@ -272,6 +292,14 @@ namespace AccessibleTrader.Core.Services
         private readonly Dictionary<string, double> _leverage = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
+
+        // Lifetime stats. Kept apart from _history because History is capped at 200 fills,
+        // so counting it would under-report every active account.
+        private int _closedTrades;
+        private int _wins;
+        private double _realizedTotal;
+        private DateTime? _firstFillAt;
+        private DateTime? _lastFillAt;
 
         /// <summary>
         /// Market-data access, for the two things the ledger cannot do from its own state: ask a
@@ -549,9 +577,10 @@ namespace AccessibleTrader.Core.Services
                     }
 
                     string id = NewId();
-                    var pnl = ApplyFill(symbol, signal.Side, mktQty, px, ParseMarginMode(signal.MarginType));
+                    DateTime filledAt = DateTime.UtcNow;
+                    var pnl = ApplyFill(symbol, signal.Side, mktQty, px, ParseMarginMode(signal.MarginType), filledAt);
                     Emit(id, symbol, signal.Side, mktQty, px, 0, OrderStatus.Filled, false, false, pnl);
-                    RecordFill(symbol, signal.Side, mktQty, px, pnl, id);
+                    RecordFill(symbol, signal.Side, mktQty, px, pnl, id, filledAt);
 
                     // A market entry exists the instant it fills, so its protection can
                     // be attached here and now. A resting entry cannot — see below.
@@ -883,6 +912,11 @@ namespace AccessibleTrader.Core.Services
                 _ledgerAlias.Clear();
                 _collateral.Clear();
                 _marginMode.Clear();
+                _closedTrades = 0;
+                _wins = 0;
+                _realizedTotal = 0.0;
+                _firstFillAt = null;
+                _lastFillAt = null;
                 Persist();
             }
         }
@@ -1011,9 +1045,10 @@ namespace AccessibleTrader.Core.Services
                         continue;
                     }
 
-                    var pnl = ApplyFill(o.Symbol, o.Side, qty, px, o.MarginMode);
+                    DateTime filledAt = DateTime.UtcNow;
+                    var pnl = ApplyFill(o.Symbol, o.Side, qty, px, o.MarginMode, filledAt);
                     Emit(o.Id, o.Symbol, o.Side, qty, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
-                    RecordFill(o.Symbol, o.Side, qty, px, pnl, o.Id);
+                    RecordFill(o.Symbol, o.Side, qty, px, pnl, o.Id, filledAt);
                     CancelOcoSiblings(o);
 
                     // The entry has become a position, so now its protection can exist.
@@ -1151,9 +1186,10 @@ namespace AccessibleTrader.Core.Services
         private void ForceClose(string symbol, double qty, double price, string reason)
         {
             string id = NewId();
-            var pnl = ApplyFill(symbol, OrderSide.Buy, qty, price);
+            DateTime filledAt = DateTime.UtcNow;
+            var pnl = ApplyFill(symbol, OrderSide.Buy, qty, price, at: filledAt);
             Emit(id, symbol, OrderSide.Buy, qty, price, 0, OrderStatus.Filled, false, false, pnl, reason: reason);
-            RecordFill(symbol, OrderSide.Buy, qty, price, pnl, id);
+            RecordFill(symbol, OrderSide.Buy, qty, price, pnl, id, filledAt);
 
             foreach (var o in _open.Where(o => string.Equals(o.Symbol, symbol, StringComparison.OrdinalIgnoreCase)).ToList())
             {
@@ -1870,8 +1906,9 @@ namespace AccessibleTrader.Core.Services
         // switching an isolated position to cross would move its liquidation price
         // without anyone asking.
         private double? ApplyFill(string symbol, OrderSide side, double qty, double price,
-            MarginMode requested = MarginMode.None)
+            MarginMode requested = MarginMode.None, DateTime? at = null)
         {
+            DateTime filledAt = at ?? DateTime.UtcNow;
             var pos = _positions.TryGetValue(symbol, out var p) ? p : (Qty: 0.0, Avg: 0.0);
             double signed = side == OrderSide.Buy ? qty : -qty;
             double newQty = pos.Qty + signed;
@@ -1890,6 +1927,19 @@ namespace AccessibleTrader.Core.Services
             double? realized = null;
             if (s.ClosingQty > 0)
                 realized = pos.Qty > 0 ? (price - pos.Avg) * s.ClosingQty : (pos.Avg - price) * s.ClosingQty;
+
+            // Lifetime stats, updated from the fill itself. A closing fill is one that
+            // reduced existing exposure — realized is non-null exactly then. A break-even
+            // close realizes 0 and still counts, which is why the presence of the value,
+            // not its magnitude, is the test.
+            if (realized is double closedPnL)
+            {
+                _closedTrades++;
+                if (closedPnL > 0) _wins++;
+                _realizedTotal += closedPnL;
+            }
+            _lastFillAt = filledAt;
+            _firstFillAt ??= filledAt;
 
             if (Math.Abs(newQty) < 1e-12)
             {
@@ -1918,10 +1968,11 @@ namespace AccessibleTrader.Core.Services
         // Log a fill to the (capped) history. The fee is recomputed here for the
         // history line only — it was already charged inside Settle, which is what
         // lets CanFill see it. Do not subtract it again.
-        private void RecordFill(string symbol, OrderSide side, double qty, double price, double? realized, string orderId)
+        private void RecordFill(string symbol, OrderSide side, double qty, double price, double? realized,
+            string orderId, DateTime filledAt)
         {
             double fee = qty * price * FeeRate;
-            _history.Insert(0, new TradeFill(NewId(), symbol, side, qty, price, DateTime.UtcNow, fee, orderId, realized ?? 0));
+            _history.Insert(0, new TradeFill(NewId(), symbol, side, qty, price, filledAt, fee, orderId, realized ?? 0));
             if (_history.Count > 200) _history.RemoveRange(200, _history.Count - 200);
         }
 
@@ -2078,6 +2129,8 @@ namespace AccessibleTrader.Core.Services
                         }
                     }).ToList(),
                     History = _history.ToList(),
+                    Stats = new PaperTradeStats(
+                        _closedTrades, _wins, _realizedTotal, _firstFillAt, _lastFillAt),
                     Collateral = _collateral.Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
                     // Only the positions that actually have collateral behind them: a
                     // mode recorded against a long describes nothing, and reloading it
@@ -2140,6 +2193,30 @@ namespace AccessibleTrader.Core.Services
                     _open.Add(restored);
                 }
                 if (dto.History != null) _history.AddRange(dto.History);
+
+                if (dto.Stats is { } stats)
+                {
+                    _closedTrades = stats.ClosedTrades;
+                    _wins = stats.Wins;
+                    _realizedTotal = stats.RealizedTotal;
+                    _firstFillAt = stats.FirstFillAt;
+                    _lastFillAt = stats.LastFillAt;
+                }
+                else if (_history.Count > 0)
+                {
+                    // Accounts written before Stats existed. Seed from the kept History,
+                    // oldest-first, with the same replay the calculator uses.
+                    // NOTE: a seeded count only covers the kept 200 fills — anything older
+                    // was already dropped by ApplyFill's history cap and is unrecoverable.
+                    var seeded = PaperTradeStats.SeedFromHistory(
+                        _history.Select(f => new PaperFillFacts(
+                            f.Symbol, f.Side, f.Quantity, f.FilledAt, f.RealizedPnL)).ToList());
+                    _closedTrades = seeded.ClosedTrades;
+                    _wins = seeded.Wins;
+                    _realizedTotal = seeded.RealizedTotal;
+                    _firstFillAt = seeded.FirstFillAt;
+                    _lastFillAt = seeded.LastFillAt;
+                }
                 foreach (var c in dto.Collateral ?? new List<LevDto>()) _collateral[c.Symbol] = c.Value;
                 foreach (var m in dto.Margins ?? new List<ModeDto>())
                 {
@@ -2308,6 +2385,9 @@ namespace AccessibleTrader.Core.Services
             public List<LevDto> Leverage { get; set; } = new();
             public List<OrderDto> Open { get; set; } = new();
             public List<TradeFill> History { get; set; } = new();
+            // Absent in files written before lifetime stats existed; Load seeds it from
+            // History in that case. Always written by new code.
+            public PaperTradeStats? Stats { get; set; }
             public List<IdentDto> Charts { get; set; } = new();
             // Locked against open shorts. Restoring positions without it would hand
             // back collateral the account still owes — free money on every restart.
