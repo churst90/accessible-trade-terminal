@@ -105,6 +105,7 @@ namespace AccessibleTrader.Core.Services
         bool MarketEventsExpiries { get; set; }
         bool MarketEventsHolidays { get; set; }
         bool MarketEventsHalvings { get; set; }
+        bool MarketEventsSoundOnEventBars { get; set; }
 
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
@@ -443,6 +444,13 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.MarketEventsHalvings, def: true);
             set => Set(SettingsKeys.MarketEventsHalvings, value);
+        }
+
+        /// <summary>The market-event landing bell. On by default; Shift+F3 and the level still gate it.</summary>
+        public bool MarketEventsSoundOnEventBars
+        {
+            get => GetBool(SettingsKeys.MarketEventsSound, def: true);
+            set => Set(SettingsKeys.MarketEventsSound, value);
         }
 
         /// <summary>

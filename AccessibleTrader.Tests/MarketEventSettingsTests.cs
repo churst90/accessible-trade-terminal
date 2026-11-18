@@ -30,6 +30,7 @@ public class MarketEventSettingsTests
         Assert.True(app.MarketEventsExpiries);
         Assert.True(app.MarketEventsHolidays);
         Assert.True(app.MarketEventsHalvings);
+        Assert.True(app.MarketEventsSoundOnEventBars);
     }
 
     [Fact]
@@ -43,6 +44,7 @@ public class MarketEventSettingsTests
         Assert.True(state.MarketEventsExpiries);
         Assert.True(state.MarketEventsHolidays);
         Assert.True(state.MarketEventsHalvings);
+        Assert.True(state.MarketEventsSoundOnEventBars);
     }
 
     [Theory]
@@ -68,6 +70,7 @@ public class MarketEventSettingsTests
             MarketEventsExpiries = false,
             MarketEventsHolidays = true,
             MarketEventsHalvings = false,
+            MarketEventsSoundOnEventBars = false,
         };
 
         var store = new MockWorkspaceStore();
@@ -84,6 +87,7 @@ public class MarketEventSettingsTests
         Assert.False(seeded.MarketEventsExpiries);
         Assert.True(seeded.MarketEventsHolidays);
         Assert.False(seeded.MarketEventsHalvings);
+        Assert.False(seeded.MarketEventsSoundOnEventBars);
     }
 
     [Fact]

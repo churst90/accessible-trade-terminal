@@ -1,5 +1,6 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Services.MarketEvents
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Interfaces
@@ -766,7 +767,7 @@
                         <div class="modal-row">
                             <label for="s-market-events-level">Level</label>
                             <select id="s-market-events-level"
-                                    aria-describedby="s-market-events-level-hint"
+                                    aria-describedby="s-market-events-level-hint market-events-status"
                                     value="@_marketEventsLevel"
                                     @onchange="e => _marketEventsLevel = e.Value?.ToString() ?? _marketEventsLevel">
                                 <option value="off" selected="@(_marketEventsLevel == "off")">Off</option>
@@ -811,6 +812,18 @@
                             <input id="s-market-events-halvings" type="checkbox"
                                    checked="@_marketEventsHalvings"
                                    @onchange="e => _marketEventsHalvings = e.Value is bool b ? b : _marketEventsHalvings" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-market-events-sound">Sound on event bars</label>
+                            <input id="s-market-events-sound" type="checkbox"
+                                   checked="@_marketEventsSound"
+                                   @onchange="e => _marketEventsSound = e.Value is bool b ? b : _marketEventsSound" />
+                        </div>
+                        <p id="market-events-status" style="margin:6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            @_marketEventStatus
+                        </p>
+                        <div class="modal-row">
+                            <button type="button" @onclick="UpdateMarketEventsNowAsync">Update release dates now</button>
                         </div>
                     </fieldset>
                 </fieldset>
@@ -1427,6 +1440,8 @@
     private bool _marketEventsExpiries = true;
     private bool _marketEventsHolidays = true;
     private bool _marketEventsHalvings = true;
+    private bool _marketEventsSound = true;
+    private string _marketEventStatus = "";
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -1477,6 +1492,7 @@
         new("Expiry events", "Narration", "s-market-events-expiries", "market events options expiry quarterly crypto"),
         new("Holiday events", "Narration", "s-market-events-holidays", "market events holidays market closed thanksgiving christmas"),
         new("Bitcoin halving events", "Narration", "s-market-events-halvings", "market events bitcoin halving crypto"),
+        new("Sound on event bars", "Narration", "s-market-events-sound", "market events bell earcon landing sound event bars"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
@@ -2144,6 +2160,7 @@
         _marketEventsExpiries = Store.State.MarketEventsExpiries;
         _marketEventsHolidays = Store.State.MarketEventsHolidays;
         _marketEventsHalvings = Store.State.MarketEventsHalvings;
+        _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -2245,6 +2262,54 @@
             ? TabElementId(requestedTab)
             : "settings-title";
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", focusTarget); } catch { }
+
+        await RefreshMarketEventStatusAsync();
+    }
+
+    /// <summary>
+    /// The status line's text. No key is the seed's default; a successful fetch and a failed
+    /// fetch say their time and, on failure, a short reason. A background fetch never speaks:
+    /// this paragraph is where its outcome is read.
+    /// </summary>
+    private async Task RefreshMarketEventStatusAsync()
+    {
+        var feed = ServiceProvider.GetService(typeof(MarketEventFredFeed)) as MarketEventFredFeed;
+        if (feed == null)
+        {
+            var seedDate = MarketEventSeed.Load().Events
+                .Where(e => e.Kind == MarketEventKind.Economy)
+                .Select(e => e.Date)
+                .DefaultIfEmpty(default)
+                .Max();
+            _marketEventStatus = new MarketEventFeedStatus(
+                MarketEventFeedState.NoKey, null, null, null, seedDate).Describe();
+        }
+        else
+        {
+            _marketEventStatus = (await feed.GetStatusAsync()).Describe();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// The one button that skips the 12-hour gate. It is never disabled: with no key it simply
+    /// re-reads the status. Its result is announced once through the dialog's existing
+    /// FeedbackRequestEvent route — no second live region.
+    /// </summary>
+    private async Task UpdateMarketEventsNowAsync()
+    {
+        var feed = ServiceProvider.GetService(typeof(MarketEventFredFeed)) as MarketEventFredFeed;
+        if (feed == null)
+        {
+            await RefreshMarketEventStatusAsync();
+            return;
+        }
+
+        var status = await feed.UpdateNowAsync();
+        _marketEventStatus = status.Describe();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _marketEventStatus, true,
+            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>
@@ -2423,6 +2488,7 @@
             MarketEventsExpiries = _marketEventsExpiries,
             MarketEventsHolidays = _marketEventsHolidays,
             MarketEventsHalvings = _marketEventsHalvings,
+            MarketEventsSoundOnEventBars = _marketEventsSound,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

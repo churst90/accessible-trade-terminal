@@ -14,10 +14,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     public sealed class MarketEventCalendar
     {
         private readonly IReadOnlyList<MarketEvent> _seed;
+        private readonly MarketEventFredFeed? _feed;
 
-        /// <summary>A calendar over the embedded seed, or over a supplied set for a test.</summary>
-        public MarketEventCalendar(IReadOnlyList<MarketEvent>? seed = null)
-            => _seed = seed ?? MarketEventSeed.Load().Events;
+        /// <summary>A calendar over the embedded seed and the live feed, or over a supplied set for a test.</summary>
+        public MarketEventCalendar(IReadOnlyList<MarketEvent>? seed = null, MarketEventFredFeed? feed = null)
+        {
+            _seed = seed ?? MarketEventSeed.Load().Events;
+            _feed = feed;
+        }
 
         /// <summary>Every event that touches <paramref name="market"/> and starts in the half-open range.</summary>
         public IReadOnlyList<MarketEvent> Between(
@@ -28,9 +32,27 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             if (toUtc <= fromUtc) return Array.Empty<MarketEvent>();
 
             var events = new List<MarketEvent>();
-            foreach (var e in _seed)
-                if (e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
-                    events.Add(e);
+            var fetched = _feed?.Events ?? Array.Empty<MarketEvent>();
+
+            // A fetched date or figure WINS over the seed for the same id; seed dates are
+            // never removed, and a source with no fetched history leaves the seed alone.
+            if (fetched.Count == 0)
+            {
+                foreach (var e in _seed)
+                    if (e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                        events.Add(e);
+            }
+            else
+            {
+                var fetchedIds = new HashSet<string>(fetched.Select(e => e.Id), StringComparer.Ordinal);
+                foreach (var e in _seed)
+                    if (!fetchedIds.Contains(e.Id)
+                        && e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                        events.Add(e);
+                foreach (var e in fetched)
+                    if (e.Touches(market) && InRange(e.MomentUtc, fromUtc, toUtc))
+                        events.Add(e);
+            }
 
             // A rule event's own date can sit a few hours outside the UTC window used to find it
             // (a New York midnight is 04:00/05:00Z), so a margin year on either side keeps a

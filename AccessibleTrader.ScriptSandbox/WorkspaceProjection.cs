@@ -156,6 +156,9 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.SpeakDateOnEveryBar),
         // And this one whether a spoken signal says what its marker looks like.
         nameof(WorkspaceState.DescribeSignalLooks),
+        // Whether the chart plays the market-event landing bell. A host audio preference; a
+        // strategy's signals must not change with the user's earcon settings.
+        nameof(WorkspaceState.MarketEventsSoundOnEventBars),
     };
 
     /// <summary>

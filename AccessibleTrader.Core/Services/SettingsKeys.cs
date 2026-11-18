@@ -163,6 +163,7 @@ namespace AccessibleTrader.Core.Services
         public const string MarketEventsExpiries = "narration.marketEvents.expiries";
         public const string MarketEventsHolidays = "narration.marketEvents.holidays";
         public const string MarketEventsHalvings = "narration.marketEvents.halvings";
+        public const string MarketEventsSound = "narration.marketEvents.sound";
 
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";

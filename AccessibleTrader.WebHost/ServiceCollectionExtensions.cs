@@ -475,6 +475,10 @@ namespace AccessibleTrader.WebHost
             // apostrophe jumps, for the same reason as the pattern cache above.
             services.AddScoped<IMarketEventBarMapCache, MarketEventBarMapCache>();
             services.AddScoped<MarketEventNavigator>();
+            // One live FRED feed per process: the map, the status line and the update button
+            // must see the same cache and the same version. A key is optional; with none the
+            // seed alone is complete.
+            services.AddSingleton<MarketEventFredFeed>();
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddScoped<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>

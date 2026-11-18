@@ -271,6 +271,7 @@ namespace AccessibleTrader.Sdk.Models
         bool MarketEventsExpiries = true,
         bool MarketEventsHolidays = true,
         bool MarketEventsHalvings = true,
+        bool MarketEventsSoundOnEventBars = true,
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -323,6 +324,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsExpiries: true,
             MarketEventsHolidays: true,
             MarketEventsHalvings: true,
+            MarketEventsSoundOnEventBars: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,
