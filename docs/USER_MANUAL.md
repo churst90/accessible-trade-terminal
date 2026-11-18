@@ -1427,8 +1427,26 @@ annualized, previous quarter down 0.5%"*. A later GDP estimate says *"second est
 estimate"*, and *"revised estimate"* after that) and *"was up 3.0%"* for the estimate it revised. A
 large payroll change is said in millions: *"payrolls down 20.5 million"*. Percentages always carry
 one decimal; payrolls never do. On a bar with several events the short list stays as before, and on
-weekly or monthly bars no figure is read. The figure is information, not advice: stage 2 does not
-say whether it was "hotter" than anything, because there is no expected figure to compare with.
+weekly or monthly bars no figure is read. The figure is information, not advice.
+
+**The expected figure, and the surprise word.** For five releases — CPI, core CPI, payrolls,
+unemployment and GDP — the terminal also knows what **Kalshi's prediction markets** priced before
+the release. That is the *expected* figure, and it is always said with its source: *"expected 0.3,
+by Kalshi"* in the detail, *"expected 0.3"* in a bar clause or calendar line. Kalshi is public
+market data and needs no key. When both an actual and an expected figure exist, the clause adds
+the surprise word after the figure it already reads: **hotter than expected** or **cooler than
+expected** for CPI and core CPI, **stronger than expected** or **weaker than expected** for
+payrolls and GDP, and for unemployment — where higher is weaker — higher reads **weaker than
+expected** and lower reads **stronger than expected**. When both figures round to the same step
+(0.1 for percents, one thousand for payrolls) it says **as expected**. CPI's headline figure
+decides the short bar clause; core CPI gets its own word in the Alt+Shift+D detail.
+
+There is no expected figure without a Kalshi market, so the terminal never invents a consensus
+and never says "expected unavailable" on old bars. History goes back only as far as Kalshi's
+markets, about mid-2021; older releases read the actual figure and no surprise word. Kalshi's
+traders are not the economists whose consensus the news quotes, so the two can differ. An
+upcoming release's expected figure moves as its market moves, and the countdown says it:
+*"CPI, expected -0.1, in 15 minutes."*
 
 **First print.** A figure is the number as it was first published, never a later revision. The
 terminal reads the vintage that existed on the release day itself, so a 2022 bar still says what
@@ -1458,6 +1476,12 @@ the same immediately, skipping the 12-hour wait; with no key it simply refreshes
 last fetch is saved to disk, so a restart with no network still has it. Nothing is fetched when
 Level is Off.
 
+A second status line below it covers the expected figures: *"Expected figures: Kalshi, 12 releases
+read, updated 18 November 2026 at 14:02"*, or *"Expected figures: Kalshi not reached yet."* Kalshi
+needs no key. Its past releases are read in the background, newest first, at most forty per pass,
+and its upcoming releases at most once an hour; a Kalshi failure simply leaves the last expected
+figures in place.
+
 **The landing bell.** Arriving on a bar whose events pass the filter plays a small bell after the
 price reading, so events can be noticed with speech muted. It is deliberately unlike every other
 chart sound: two falling notes for an important event (CPI, the jobs report, a Fed decision, a
@@ -1470,7 +1494,8 @@ your own patches.
 
 **Countdowns before an event.** With **Level** on, an event with an exact time is counted down
 before it happens, but only when it touches a market on an open chart tab or a market you hold a
-position in. The default is *"CPI in 15 minutes."* and then *"CPI in 1 minute."*; the setting
+position in. The default is *"CPI in 15 minutes."* and then *"CPI in 1 minute."*; when Kalshi has a
+provisional expected figure it is named first: *"CPI, expected -0.1, in 15 minutes."* The setting
 **Countdowns before events**, under **Market events on the chart**, chooses **Off**, **1 minute**,
 **5 and 1 minutes**, **15 and 1 minutes** or **30, 15 and 1 minutes**. The countdowns are spoken on
 the alerts tier: **Shift+F2 mutes them and F2 does not**. A countdown whose moment passed while the
@@ -1497,7 +1522,8 @@ the event's market, likewise only *"CPI out."*
 **The figure.** For an economic release with a FRED key, the read-out ends *"Waiting for the
 figure."* The terminal then asks FRED for that one release's figure at 2, 5, 15, 30 and 60
 minutes, at most five times, and reads it with the same wording as the bar clause — *"CPI up 3.1%
-on the month, previous up 2.9%"* — as soon as it arrives. Asking stops once the event has figures;
+on the month, previous up 2.9%"* — as soon as it arrives. When Kalshi has an expected figure, the
+arrival reads *"CPI 3.1, expected 3.0, hotter."* Asking stops once the event has figures;
 if the last try finds none, nothing more is said. Without a key there is no "Waiting for the
 figure" and no request. FRED can lag the official release by minutes, so the figure may not arrive
 within the hour.
@@ -1515,7 +1541,8 @@ countdowns are Fed decisions**, which the shipped seed carries into 2027.
 **Alt+E**, or the **Market events** toolbar button, opens a calendar of the days ahead. It opens
 whatever the **Level** setting is — you asked for it, so Off does not hide it. The FRED status
 sentence from Settings sits at the top, in its own paragraph, so you know whether the dates are
-the shipped ones or a recent update. There is no earnings line yet; that is the next stage.
+the shipped ones or a recent update; the Kalshi expected-figures status sits in the paragraph
+under it. There is no earnings line yet; that is the next stage.
 
 **Filters.** A **Range** select offers **Next 7 days** (the default), **Next 30 days** and **Past
 30 days**. **Importance** offers **Important only**, **Important and medium** and **All**; it
@@ -1535,10 +1562,11 @@ important part first: *"8:30, CPI, important, previous up 2.9%."* The time follo
 it is UTC or local and 24-hour or 12-hour as you chose; a day-only event says **"all day"**. The
 importance word is **"important"**, **"medium"** or **"minor"**. A past event with a figure reads
 it in the same words as the bar clause — *"up 3.1% on the month, previous up 2.9%"* — and a
-future one reads only its known **"previous …"** figure. Nothing is said about an **expected**
-figure yet, because there is no consensus source; that is a later stage, and the same reason the
-calendar never says "surprise". If nothing matches, the screen says *"No events in this range with
-these filters."* and shows no empty heading.
+future one reads only its known **"previous …"** figure. When Kalshi has an expected figure it
+comes after the importance word — *"8:30, CPI, important, expected 0.3, up 3.1% on the month,
+previous up 2.9%."* — and an upcoming one carries it too, moving until the release. If nothing
+matches, the screen says *"No events in this range with these filters."* and shows no empty
+heading.
 
 **Enter on a line** closes the screen and takes the chart to the event's bar through the same
 navigation as the apostrophe jump, so you hear the bar reading and the jump clause. If the event
@@ -1565,12 +1593,13 @@ browser is closed.
 the last **six** releases of the same source before this one, newest first — same source meaning
 the same id prefix, so a CPI line lists CPI releases and a Fed line lists Fed decisions. Each
 entry gives the date, the figure in the existing words (or **"no figure"** when the source had
-none), and, when the bar that release sits on is loaded on the focused chart and the chart touches
-the event's market, what price did over that bar in Alt+Shift+D's words: *"13 February 2026, up
-0.3% on the month, previous up 0.2%; Price fell 1.2% over this bar."* A release older than the
-loaded history, or on a market your chart does not touch, has no price part. Fewer than six
-earlier releases lists what exists; none says **"No earlier releases."** Expiries and holidays have
-History too, with no figure part. There is no surprise column yet — that needs expected figures.
+none), the expected figure and the surprise word when Kalshi has one — *"expected 0.3, by Kalshi,
+hotter than expected"* — and, when the bar that release sits on is loaded on the focused chart and
+the chart touches the event's market, what price did over that bar in Alt+Shift+D's words:
+*"13 February 2026, up 0.3% on the month, previous up 0.2%, expected 0.3, by Kalshi, as expected;
+Price fell 1.2% over this bar."* A release older than the loaded history, or on a market your
+chart does not touch, has no price part. Fewer than six earlier releases lists what exists; none
+says **"No earlier releases."** Expiries and holidays have History too, with no figure part.
 
 ---
 

@@ -1,10 +1,10 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2, 3a and 3b are built (2026-11-18); stage 1 has been tried by Cody
-and stages 2, 3a and 3b have not been heard yet. Stage 4 and the rest are not built** except where a
-stage below says it is. This is the plan and the reasons, so a later session (or a sub-agent) does not
-have to re-derive them.
+terminal does not. **Stages 1, 2, 3a, 3b and 4a are built (2026-11-18); stage 1 has been tried by
+Cody and stages 2, 3a, 3b and 4a have not been heard yet. Stage 4b, stage 5, stage 6 and the rest are
+not built** except where a stage below says it is. This is the plan and the reasons, so a later
+session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
 
@@ -50,7 +50,7 @@ a sighted one. Three features do most of that:
 | Fed decisions and minutes | the Fed's own calendar pages. 248 decision dates 2000-2027 were already parsed for the lab (`strategy-lab-data/events_fomc.json`); ship them as a seed and refresh | dates; decision time 14:00 New York |
 | Worked out by the terminal | rules | stock options expiry (third Friday, Thursday when Friday is a market holiday), quarterly expiry (March, June, September, December), crypto monthly options expiry (last Friday, 08:00 UTC), US market holidays (the terminal already knows them: `CipherCFutureClock`), Bitcoin halvings |
 | Earnings, dividends, splits | past report dates: SEC EDGAR filings (exact, free). Future: Finnhub (free key) | date, and before the open / after the close |
-| Crypto token unlocks | DefiLlama, if still on its free API (check before promising) | date, amount |
+| Crypto token unlocks | DefiLlama's emissions/unlocks API now answers "Upgrade to the paid API plan" (checked 2026-11-18), so this needs a paid source or Cody's decision | date, amount |
 | Your own | typed in | anything |
 
 **The "expected" figure is the honest gap.** Free sources give the actual figure (the terminal already
@@ -59,6 +59,59 @@ reads FRED's first prints, not later revisions). Nobody gives away the economist
 Kalshi traders priced before the release, said with its source ("expected 3.0, by Kalshi"). Which
 Kalshi markets exist must be checked. For history before Kalshi there is no expected figure: old bars say
 "CPI 3.1, up from 2.9" and no surprise word. The terminal never makes a consensus up.
+
+#### Kalshi expected figures (stage 4a, checked against the live API 2026-11-18)
+
+No key and no auth header; base URL `https://api.elections.kalshi.com/trade-api/v2`. One event per
+release per figure. The series are tried newest name first, then the older name for releases before
+late 2024:
+
+| our figure | series (in order) | reporting step | strike scale |
+|---|---|---|---|
+| `CPI` | `KXCPI`, `CPI` | 0.1 | 1 |
+| `core CPI` | `KXCPICORE`, `CPICORE` | 0.1 | 1 |
+| `payrolls` | `KXPAYROLLS`, `PAYROLLS` | 1 (thousands) | strikes are jobs: divide by 1000 |
+| `unemployment` | `KXU3`, `U3` | 0.1 | 1 |
+| `GDP` | `KXGDP`, `GDP` | 0.1 | 1 |
+
+- **Event ticker.** Monthly figures use the month BEFORE the release month: CPI released
+  2026-07-14 is `KXCPI-26JUN`; payrolls released 2026-07-02 is `KXPAYROLLS-26JUN`; the old
+  series uses `CPI-24OCT` for the 2024-11-13 release. GDP uses the RELEASE date itself:
+  `KXGDP-26APR30`, `GDP-24OCT30`. Month names are upper-case English three letters, year two
+  digits. Only GDP's advance estimate has markets; a second or third estimate finds none.
+- **Close-date guard.** A found event is used only when its markets' `close_time` date is within
+  one day of our release date, so a delayed release cannot borrow another month's market.
+- **Listing markets.** `GET /markets?event_ticker={T}&limit=100`; if that is empty, the event is
+  older than the live cutoff, so `GET /historical/markets?event_ticker={T}&limit=100`. A market
+  has `ticker`, `close_time`, `strike_type` ("greater" only), `floor_strike` ("the figure is
+  greater than this"), `status`, and for open markets `yes_bid_dollars`, `yes_ask_dollars`,
+  `last_price_dollars` as decimal strings.
+- **Candles.** Live: `GET /series/{series}/markets/{ticker}/candlesticks?start_ts={s}&end_ts={e}&period_interval=60`.
+  Historical: `GET /historical/markets/{ticker}/candlesticks?...` (the live path 404s for them).
+  Unix seconds; `e` is the release moment and `s` is `e - 3 days`. A candle's `end_period_ts`,
+  `yes_bid`, `yes_ask` and `price` objects close under `close_dollars` on the live path and
+  `close` on the historical path; both spellings are read everywhere.
+- **One strike's probability** is P(figure > strike) from the newest candle at or before the
+  release moment with a usable quote, walking back if needed: mid of bid and ask when both exist,
+  ask >= bid and ask - bid <= 0.10; else the last trade (`price.close`); else the previous candle.
+  An empty book (bid 0, ask 1, mid 0.50) is why the spread limit exists — `CPI-24OCT` has three
+  such strikes and without it the answer is wrong. An upcoming release uses the market list's
+  own `yes_bid_dollars` / `yes_ask_dollars` / `last_price_dollars` with the same rule, no candles.
+- **The expected figure** is the median outcome. Strikes ascend, probabilities are made
+  non-increasing by a running minimum from the lowest strike, and adjacent k1 < k2 with
+  p1 >= 0.5 > p2 give c = k1 + (k2 - k1) x (p1 - 0.5) / (p1 - p2); expected is
+  `ceil(c / step - 1e-9) x step`, rounded to the step's decimals. Rounding up is right: the
+  figures are on a 0.1 or 1-thousand grid and the median is the smallest grid value v with
+  P(X > v) <= 0.5. Strikes one step apart give k2. Fewer than two strikes, or a ladder that never
+  crosses 0.5, give no expected figure.
+- **Saved reference answers** (in `AccessibleTrader.Tests/Fixtures/MarketEvents/Kalshi/`):
+  KXCPI-26JUN -0.2, KXCPICORE-26JUN 0.2, KXPAYROLLS-26JUN 128, KXU3-26JUN 4.3,
+  KXGDP-26APR30 2.6, KXGDP-26JUL30 1.9, KXCPI-26OCT 0.3 (live candles), CPI-24OCT 0.2 and
+  PAYROLLS-24OCT 137 (old series), KXCPI-25OCT 0.2, and upcoming KXCPI-26NOV -0.1 (market list).
+- **Rate limit.** About 12 requests a second got a 429, so the feed sends at most three a second.
+  A 429, 5xx, timeout or malformed answer stops the pass and is never cached as "no market"; a
+  404 or empty list from both market paths is a real no market, permanent once the release is
+  more than two days past.
 
 ### One event
 
@@ -292,12 +345,25 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      history reuses that sentence verbatim rather than introducing a second wording. The handoff's
      event-line example says "previous 2.9", while the existing figure clause carries the sign and
      the unit ("previous up 2.9%"); the calendar uses the existing words, so "previous 2.9" reads
-     with its direction and percent. There is still no expected figure and no surprise word; that
-     needs the stage 4 source, and the manual says so. The history price comes from the focused
-     chart only. The held-market half of "only touching" is the live service's last position read,
+     with its direction and percent. At that stage there was still no expected figure and no
+     surprise word; stage 4a supplied both. The history price comes from the focused chart only. The held-market half of "only touching" is the live service's last position read,
      exposed read-only rather than re-read by the screen; before the first read it is empty, and
      the live service now keeps ticking while a watch exists even at Level Off.
-4. **Earnings (Finnhub, Cody's key), Kalshi expected figures, token unlocks.**
+4. **Earnings, Kalshi expected figures, token unlocks.**
+   - **4a BUILT 2026-11-18, not yet heard by Cody.** Expected figures from Kalshi for CPI,
+     core CPI, payrolls, unemployment and GDP, with the surprise word; the pure
+     `KalshiExpectedFigures` rules and the keyless `MarketEventKalshiFeed` with its own cache,
+     status line and rate limit; expected merged into the calendar, bar map, detail, read-out,
+     countdown and Alt+E screen. The facts and rules are in section 1 above. **Differences found
+     while building:** the seed ends in July 2026, so the upcoming path depends on FRED's future
+     dates (as stage 3a already did); an upcoming release whose FRED event carries no figures
+     gains an expected-only figure row so the countdown can say it; with no Kalshi market the
+     event is left exactly as stage 3b had it.
+   - **4b OPEN: earnings (Finnhub, Cody's key).**
+   - **Token unlocks BLOCKED:** DefiLlama's emissions/unlocks API now answers "Upgrade to the
+     paid API plan" (checked 2026-11-18); needs a paid source or Cody's decision.
+   - **Fed expected rate OPEN:** Kalshi has KXFED, but our Fed events carry no figures yet, so
+     stage 4a deliberately leaves them alone.
 5. **Pulse**, then the **change log and catch-up**.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the
    biggest change and goes last.

@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events stage 4a: expected figures from Kalshi, 2026-11-18
+
+- **An expected figure for the five releases that have Kalshi markets:** CPI, core CPI,
+  payrolls, unemployment and GDP. `MarketEventFigure` gained an optional `Expected`; the
+  calendar merges it in from `MarketEventKalshiFeed` as a copy, and the seed is never mutated.
+  Says its source: *"expected 0.3, by Kalshi"*. The terminal never invents a consensus: no
+  Kalshi market means no expected figure.
+- **The surprise word, when an actual and an expected both exist:** hotter/cooler for CPI and
+  core CPI, stronger/weaker for payrolls and GDP, weaker/stronger (reversed) for unemployment,
+  and *"as expected"* when both round to the same 0.1 (or 1 thousand) step. It is added to the
+  bar clause, each Alt+Shift+D figure line, the release read-out, the Alt+E event line and its
+  release history, and counts down as *"CPI, expected -0.1, in 15 minutes."*
+- **`KalshiExpectedFigures`** is the pure half: the event-ticker rule, the one-day close guard,
+  the candle and market-list quote rule, and the median that finds where the ladder crosses
+  one half and rounds up onto the release's own grid.
+- **`MarketEventKalshiFeed`** is the live half, keyless, one per process, cached atomically
+  under `market-events/kalshi.json`. It reads upcoming markets in the next 14 days at most
+  hourly (provisional, in memory and on disk) and backfills past releases from 2021-06-01 at
+  most 40 per pass. At most three requests a second; a 429, 5xx, timeout or malformed answer
+  stops the pass and is never remembered as "no market". The bar-map key includes its version
+  beside FRED's, and Settings and the calendar show its own status line.
+- **Caveats.** Only the five figures: Fed decisions still have no expected rate, earnings still
+  need Cody's Finnhub key, and token unlocks are blocked on a paid source. History goes only as
+  far back as Kalshi's markets (about mid-2021); older bars have no expected figure and say no
+  surprise word. Kalshi's traders are not the economists whose consensus the news quotes, so
+  the two can differ. An upcoming release's expected figure moves until the release. The live
+  fetch was never run against the real Kalshi API from the app in this build (there is no
+  network here); the fixtures are real responses saved on 2026-11-18. Not heard by Cody.
+- **Tests:** the reference table of eleven saved events (including both series spellings, live
+  candles and an upcoming market list) is reproduced end to end; the cache reads back with no
+  requests; a 429 is retried; Level Off makes no request; the bar map rebuilds on a version
+  change. Sabotages: spread limit dropped (**5 red**), median rounded to nearest (**5 red**),
+  429 cached as no market (**1 red**), unemployment direction swapped (**2 red**).
+
 ### Leaderboard publisher, 2026-11-18
 
 - **Lifetime trade stats on every paper account** (`PaperTradeStats`, persisted under
