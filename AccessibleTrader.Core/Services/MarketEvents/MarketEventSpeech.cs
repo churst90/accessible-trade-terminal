@@ -164,6 +164,47 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         }
 
         /// <summary>
+        /// The previous figure alone, in the same words <see cref="FigureClause"/> uses for it:
+        /// "previous up 2.9%", "previous payrolls up 151 thousand", "previous quarter up 2.1%".
+        /// Empty when no previous figure is stored. The calendar says this for an event that has
+        /// not happened yet, where there is no actual figure to read.
+        /// </summary>
+        public static string PreviousFigureClause(MarketEvent e)
+        {
+            var figures = e.Figures;
+            if (figures == null) return "";
+
+            var cpi = Find(figures, "CPI");
+            var core = Find(figures, "core CPI");
+            var payrolls = Find(figures, "payrolls");
+            var unemployment = Find(figures, "unemployment");
+            var gdp = Find(figures, "GDP");
+            var ppi = Find(figures, "PPI");
+
+            if (payrolls != null || unemployment != null)
+            {
+                var parts = new List<string>(2);
+                if (payrolls?.Previous is double payPrevious)
+                    parts.Add($"previous payrolls {ThousandsPhrase(payPrevious)}");
+                if (unemployment?.Previous is double ratePrevious)
+                    parts.Add($"previous unemployment {PercentValue(ratePrevious)}%");
+                return string.Join(", ", parts);
+            }
+
+            if (gdp != null)
+            {
+                if (gdp.Previous is not double previous) return "";
+                string label = (figures.EstimateNumber ?? 1) <= 1 ? "previous quarter" : "was";
+                return $"{label} {Direction(previous)} {PercentValue(previous)}%";
+            }
+
+            var month = cpi ?? ppi ?? core;
+            return month?.Previous is double monthPrevious
+                ? "previous " + SignedPercent(monthPrevious)
+                : "";
+        }
+
+        /// <summary>
         /// The detail key's figure lines for one event. Full sentences, and a dossier value or
         /// "unavailable" on every fact — never a blank.
         /// </summary>
