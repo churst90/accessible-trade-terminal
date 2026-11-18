@@ -27,7 +27,10 @@ namespace AccessibleTrader.Core.Services.Leaderboard
             var facts = new List<PaperFillFacts>();
             foreach (var fill in History ?? new List<PaperAccountFill>())
                 if (fill != null) facts.Add(fill.ToFacts());
-            return PaperTradeStats.SeedFromHistory(facts);
+            var held = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var position in Positions ?? new List<PaperAccountPosition>())
+                if (position != null) held[position.Symbol] = position.Qty;
+            return PaperTradeStats.SeedFromHistory(facts, held);
         }
 
         /// <summary>

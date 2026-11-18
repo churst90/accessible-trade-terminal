@@ -41,41 +41,52 @@ namespace AccessibleTrader.Core.Services.Leaderboard
         /// </para>
         ///
         /// <para>
-        /// <paramref name="newestFirst"/> is the on-disk order. The replay walks it backwards with
-        /// a per-symbol signed quantity: a fill moving that quantity toward zero closed
-        /// <c>min(|fill|, |position|)</c>, which is exactly <c>Settle</c>'s closing definition.
+        /// <paramref name="newestFirst"/> is the on-disk order. The replay walks it from the
+        /// NEWEST fill back, starting from the positions the account holds now
+        /// (<paramref name="heldNow"/>): the position before a fill is the position after it
+        /// less the fill. A fill whose position-before was non-zero and on the other side
+        /// closed exposure — exactly <c>Settle</c>'s closing definition. Walking forward from
+        /// flat instead was wrong for any capped history: the oldest kept fill can close a
+        /// position whose opening fill was dropped, a forward replay reads it as an opening,
+        /// and every later fill on that symbol is then classified against a phantom position.
         /// </para>
         /// </summary>
-        public static PaperTradeStats SeedFromHistory(IReadOnlyList<PaperFillFacts> newestFirst)
+        public static PaperTradeStats SeedFromHistory(
+            IReadOnlyList<PaperFillFacts> newestFirst,
+            IReadOnlyDictionary<string, double>? heldNow = null)
         {
             if (newestFirst.Count == 0) return Empty;
 
             var positions = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            if (heldNow != null)
+                foreach (var kv in heldNow) positions[kv.Key] = kv.Value;
+
             int closed = 0, wins = 0;
             double realizedTotal = 0.0;
             DateTime? first = null, last = null;
 
-            for (int i = newestFirst.Count - 1; i >= 0; i--)
+            for (int i = 0; i < newestFirst.Count; i++)
             {
                 var fill = newestFirst[i];
                 if (string.IsNullOrEmpty(fill.Symbol) || fill.Quantity <= 0) continue;
 
-                first ??= fill.FilledAt;
-                last = fill.FilledAt;
+                last ??= fill.FilledAt;
+                first = fill.FilledAt;
 
                 double signed = fill.Side == OrderSide.Buy ? fill.Quantity : -fill.Quantity;
-                positions.TryGetValue(fill.Symbol, out double position);
+                positions.TryGetValue(fill.Symbol, out double after);
+                double before = after - signed;
+                // Subtraction leaves dust where the broker had exactly zero.
+                if (Math.Abs(before) < 1e-9 * Math.Max(1.0, fill.Quantity)) before = 0;
 
-                if (Math.Abs(position) > 1e-12 && Math.Sign(signed) != Math.Sign(position))
+                if (before != 0 && Math.Sign(signed) != Math.Sign(before))
                 {
                     closed++;
                     if (fill.RealizedPnL > 0) wins++;
                     realizedTotal += fill.RealizedPnL;
                 }
 
-                double next = position + signed;
-                if (Math.Abs(next) < 1e-12) positions.Remove(fill.Symbol);
-                else positions[fill.Symbol] = next;
+                positions[fill.Symbol] = before;
             }
 
             return new PaperTradeStats(closed, wins, realizedTotal, first, last);

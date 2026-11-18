@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Lifetime trade stats on every paper account** (`PaperTradeStats`, persisted under
   `Stats` in `paper_account.json`): closed trades, wins, realised total, first and last fill.
   Updated on every fill; a break-even close counts as a closed trade and not a win. Old files
-  with no `Stats` are seeded by replaying the kept `History` oldest-first, and `ResetAccount`
+  with no `Stats` are seeded by replaying the kept `History` back from the positions the account holds now, and `ResetAccount`
   zeroes them. The starting balance is now `PaperTradingProvider.DefaultStartingBalance`
   (100 000), the only copy.
 - **A pure calculator** (`AccessibleTrader.Core/Services/Leaderboard/PaperAccountStanding.cs`):
@@ -24,6 +24,11 @@ All notable changes to this project will be documented in this file.
   then name), keeps the top 25, and writes `{dataRoot}/public/leaderboard.json` atomically,
   mode 0640 on Unix. The file is written even with no entries so `generatedAt` distinguishes
   "no one yet" from "publisher down". Configurable with `Leaderboard__OutputPath`.
+- **Review fix (Claude).** The first seed replayed History forward from a flat account, which is wrong
+  whenever the 200-fill cap has dropped the fill that opened a position: the oldest kept close reads
+  as an opening, and later fills on that symbol are counted against a phantom position. It now walks
+  back from the held positions, which is exact for every kept fill; a test drives an old file through
+  both the calculator and the broker's own load, and goes red if either reader loses the positions.
 - **Caveats.** For accounts written before this change, the seeded trade count covers only the
   kept 200 fills — older fills were already dropped and cannot be recovered. Prices come from
   the chart each position was traded on, so a venue that is down makes that row stale rather

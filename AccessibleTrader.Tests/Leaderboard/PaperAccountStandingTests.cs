@@ -262,6 +262,41 @@ public sealed class PaperAccountStandingTests
         Assert.Equal(live.FirstFillAt, standing.FirstTradeAt);
         Assert.Equal(live.LastFillAt, standing.LastTradeAt);
     }
+
+    /// <summary>
+    /// An old file (no Stats) whose kept history starts mid-position: the cap dropped the buy
+    /// that opened the long the oldest kept sell closed, and the account holds a NEW long now.
+    /// Both the calculator and the broker's own load must walk back from what is held; a
+    /// replay forward from flat counts the newest buy as closing a phantom short instead.
+    /// </summary>
+    [Fact]
+    public void A_capped_old_history_is_seeded_from_the_held_position_by_both_readers()
+    {
+        const string json = """
+            {
+              "Cash": 99905.0,
+              "Positions": [ { "Symbol": "BTC/USDT", "Qty": 1.0, "Avg": 100.0 } ],
+              "History": [
+                { "Id": "b", "Symbol": "BTC/USDT", "Side": 0, "Quantity": 1.0, "Price": 100.0,
+                  "FilledAt": "2026-01-03T00:00:00Z", "RealizedPnL": 0.0 },
+                { "Id": "s", "Symbol": "BTC/USDT", "Side": 1, "Quantity": 1.0, "Price": 105.0,
+                  "FilledAt": "2026-01-02T00:00:00Z", "RealizedPnL": 5.0 }
+              ]
+            }
+            """;
+
+        var standing = PaperAccountStanding.Compute(Parse(json), _ => 100, 100_000);
+        Assert.Equal(1, standing.TradeCount);
+        Assert.Equal(1.0, standing.WinRate);
+        Assert.Equal(5.0, standing.RealizedPnL, 6);
+
+        var paths = new TempWorkspacePaths();
+        File.WriteAllText(StateFile(paths), json);
+        var paper = MakeAccount(paths, out _);
+        Assert.Equal(1, paper.Stats.ClosedTrades);
+        Assert.Equal(1, paper.Stats.Wins);
+        Assert.Equal(5.0, paper.Stats.RealizedTotal, 6);
+    }
 }
 
 internal static class PaperAccountStandingTestExtensions

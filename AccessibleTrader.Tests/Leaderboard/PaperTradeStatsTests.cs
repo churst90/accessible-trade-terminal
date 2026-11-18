@@ -214,6 +214,31 @@ public sealed class PaperTradeStatsTests
     }
 
     [Fact]
+    public void A_capped_history_that_starts_mid_position_counts_the_right_fills()
+    {
+        // The cap dropped the buy that opened the long the oldest kept fill closes. The
+        // account holds a NEW long of 1 now. A replay forward from flat reads the sell as
+        // opening a short and then counts the newest buy as closing that phantom (a
+        // break-even "trade", no win). Walking back from what is held is exact.
+        var history = new List<PaperFillFacts>(new[]
+        {
+            new PaperFillFacts(Btc, OrderSide.Buy, 1.0,
+                new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc), 0.0),
+            new PaperFillFacts(Btc, OrderSide.Sell, 1.0,
+                new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc), 5.0),
+        });
+        var held = new Dictionary<string, double> { [Btc] = 1.0 };
+
+        var stats = PaperTradeStats.SeedFromHistory(history, held);
+
+        Assert.Equal(1, stats.ClosedTrades);
+        Assert.Equal(1, stats.Wins);
+        Assert.Equal(5.0, stats.RealizedTotal, 6);
+        Assert.Equal(new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc), stats.FirstFillAt);
+        Assert.Equal(new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc), stats.LastFillAt);
+    }
+
+    [Fact]
     public async Task A_seeded_file_keeps_accumulating_past_the_kept_200_fills()
     {
         var paths = new TempWorkspacePaths();

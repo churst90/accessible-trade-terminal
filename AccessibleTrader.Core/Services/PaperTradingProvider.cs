@@ -2205,12 +2205,14 @@ namespace AccessibleTrader.Core.Services
                 else if (_history.Count > 0)
                 {
                     // Accounts written before Stats existed. Seed from the kept History,
-                    // oldest-first, with the same replay the calculator uses.
+                    // walked back from the positions restored above, with the same replay
+                    // the calculator uses.
                     // NOTE: a seeded count only covers the kept 200 fills — anything older
                     // was already dropped by ApplyFill's history cap and is unrecoverable.
                     var seeded = PaperTradeStats.SeedFromHistory(
                         _history.Select(f => new PaperFillFacts(
-                            f.Symbol, f.Side, f.Quantity, f.FilledAt, f.RealizedPnL)).ToList());
+                            f.Symbol, f.Side, f.Quantity, f.FilledAt, f.RealizedPnL)).ToList(),
+                        _positions.ToDictionary(kv => kv.Key, kv => kv.Value.Qty, StringComparer.OrdinalIgnoreCase));
                     _closedTrades = seeded.ClosedTrades;
                     _wins = seeded.Wins;
                     _realizedTotal = seeded.RealizedTotal;
