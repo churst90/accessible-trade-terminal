@@ -375,7 +375,10 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    **Differences found while building:** `MarketType` has no CFD or ETF member, so S&P searches
    Index then Stock and cannot try a CFD/ETF market the way the handoff's parenthetical imagined;
    the US-hours closed rule has no holiday calendar of its own and relies on the stale-minute-bar
-   test (plus a missing today daily bar), so a holiday with a fresh-looking bar is not detected;
+   test, so a holiday with a fresh-looking bar is not detected (review fix: a missing daily bar no
+   longer closes a market whose minute bars are fresh, and "today's bar" is the bar in progress,
+   not the bar whose UTC date is today, because Oanda stamps forex at 17:00 New York the evening
+   before);
    Forex/Commodity use the Friday-to-Sunday window only and do not use the equity hours; symbol
    resolution reads each provider's own symbol list but was never run against live providers in
    this build, and the candidate spellings are the fixed table above. **5b** (the change log,
