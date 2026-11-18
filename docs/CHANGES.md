@@ -29,7 +29,10 @@ All notable changes to this project will be documented in this file.
   row's drawn colours follow the line rule (*"… and … row."*), and the POC row says the POC's own
   colour. The profile sound keeps the accepted 2026-11-03 pitch-by-part and grit-by-size, and
   changes only the base waveform: **triangle when buying leads the row**, sine when selling leads,
-  the split is even, or there is no split — the oscillator rule applied to buying and selling. TPO
+  the split is even, or there is no split — the oscillator rule applied to buying and selling.
+  "Even" (within half a percentage point) is one rule, `ProfileSplit.Leader`, read by both the
+  words and the sound, so a row spoken as even never plays the buying triangle (Claude's review
+  fix: the first cut played a triangle for 50.3 percent buying). TPO
   and no-volume profiles sound exactly as before.
 - **Caveats.** The split is by **bar direction**, not by real trade-by-trade buying and selling;
   that needs lower-timeframe or tick data the terminal does not have, so a bar that opened low,

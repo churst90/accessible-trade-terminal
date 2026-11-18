@@ -433,13 +433,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// volume-profile row carries; empty when it has none (TPO, zero volume, an old bin).</summary>
         private static string SplitLeader(ProfileBin bin)
         {
-            double split = bin.BuyVolume + bin.SellVolume;
-            if (!(split > 0)) return "";
-            double buying = bin.BuyVolume / split * 100.0;
-            if (Math.Abs(buying - 50.0) <= 0.5) return ", even";
-            return buying > 50.0
-                ? $", {buying.ToString("F0", CultureInfo.InvariantCulture)} percent buying"
-                : $", {(100.0 - buying).ToString("F0", CultureInfo.InvariantCulture)} percent selling";
+            int leader = ProfileSplit.Leader(bin, out double buying);
+            if (double.IsNaN(buying)) return "";
+            return leader switch
+            {
+                > 0 => $", {buying.ToString("F0", CultureInfo.InvariantCulture)} percent buying",
+                < 0 => $", {(100.0 - buying).ToString("F0", CultureInfo.InvariantCulture)} percent selling",
+                _ => ", even",
+            };
         }
 
         /// <summary>The row's drawn colour: the POC's own colour on a POC row, otherwise the two

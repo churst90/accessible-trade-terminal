@@ -117,4 +117,16 @@ public sealed class ProfileSplitSonificationTests
         Assert.Equal("triangle", buying.Waveform);
         Assert.Equal("sine", selling.Waveform);
     }
+
+    [Fact]
+    public void A_row_spoken_as_even_plays_the_sine_even_when_buying_is_a_hair_ahead()
+    {
+        // 50.3 percent buying: the words say "even" (within half a point), so the sound must
+        // not play the buying triangle. Both read ProfileSplit.Leader.
+        var bins = new List<ProfileBin> { Bin(100, 1000, 503, 497), Bin(101, 1000, 506, 494) };
+        Assert.Equal(0, ProfileSplit.Leader(bins[0], out _));
+        Assert.Equal("sine", NavigationSonifier.ProfileBinNotes(bins, 0, 1f)[0].Voice.Waveform);
+        Assert.Equal(1, ProfileSplit.Leader(bins[1], out _));
+        Assert.Equal("triangle", NavigationSonifier.ProfileBinNotes(bins, 1, 1f)[0].Voice.Waveform);
+    }
 }

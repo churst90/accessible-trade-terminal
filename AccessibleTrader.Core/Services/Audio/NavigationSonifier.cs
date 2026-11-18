@@ -826,7 +826,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // The oscillator rule: above zero triangle, below sine. Here "above zero" is buying
             // leading the row. Selling leads, an even split, or no split at all keeps the sine,
             // so TPO profiles and data with no volume sound exactly as they did.
-            string waveform = bin.BuyVolume > bin.SellVolume ? "triangle" : "sine";
+            string waveform = ProfileSplit.Leader(bin, out _) > 0 ? "triangle" : "sine";
 
             VoiceParams Note(double f, float gain, double dur, float subSaw = 0f, bool click = false)
                 => new()
