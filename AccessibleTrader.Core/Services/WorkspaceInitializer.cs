@@ -801,7 +801,9 @@ namespace AccessibleTrader.Core.Services
             // WRITTEN, and re-deriving it here is how a saved workspace heals without being
             // re-built by hand. A drawing or core series never reaches this line (meta is null).
             string savedPane = config.Pane;
-            config.Pane = PaneAssignmentService.PaneFor(meta);
+            config.Pane = config.PanePinned && !string.IsNullOrWhiteSpace(savedPane)
+                ? savedPane
+                : PaneAssignmentService.PaneFor(meta);
 
             // A series that moves OFF an oscillator pane ONTO the price pane leaves its levels
             // behind. They were constants on the oscillator's own scale — the old Cipher C's

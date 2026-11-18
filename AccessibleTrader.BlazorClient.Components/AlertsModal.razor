@@ -741,17 +741,22 @@
     {
         base.OnInitialized(); // arms ModalBase's CloseTopModalEvent (Escape) subscription
         // _eventSub is declared in ModalBase and disposed there automatically.
-        _eventSub = EventBus.Subscribe<OpenAlertsEvent>(_ => InvokeAsync(ShowAsync));
+        _eventSub = EventBus.Subscribe<OpenAlertsEvent>(ev => InvokeAsync(() => ShowAsync(ev)));
         RefreshAlerts();
     }
 
-    private async Task ShowAsync()
+    private async Task ShowAsync() => await ShowAsync(null);
+
+    private async Task ShowAsync(OpenAlertsEvent? request)
     {
         // Alt+J is "show me my alerts", every time. A dialog that reopens on whatever panel
         // it was left on makes the shortcut's destination depend on history.
         _view = View.Alerts;
         RefreshAlerts();
         RefreshChartContext();
+        // A chart-menu item arrives with the target, series, component and/or value already
+        // decided. Applied BEFORE the re-check so the form validates what the user just chose.
+        if (request != null) ApplyRequest(request);
         // The chart may have changed since the form was last open — an indicator removed, the
         // price moved — so the choices are re-checked and an untyped value starts at today's.
         // What the re-check replaced is said AFTER the heading has been focused, and without
@@ -760,6 +765,39 @@
         PrefillThreshold();
         await ShowModalAsync("alerts-title");
         Say(null, replaced);
+    }
+
+    /// <summary>
+    /// Fills the form from a chart-menu request: a price alert at the clicked value, or an
+    /// indicator alert on the clicked/focused series with one of its components selected.
+    /// The value is treated as TYPED so the live prefill cannot overwrite the user's point.
+    /// </summary>
+    private void ApplyRequest(OpenAlertsEvent request)
+    {
+        if (request.Target == AlertTarget.Indicator && !string.IsNullOrEmpty(request.SeriesId))
+        {
+            _newAlertTarget = AlertTarget.Indicator;
+            _newAlertSeriesId = request.SeriesId;
+            _chosenSeriesLabel = ChosenSeries is { } s ? SeriesLabel(s) : "";
+
+            var comps = ComponentsOfChosenIndicator.ToList();
+            var pick = string.IsNullOrEmpty(request.ComponentName)
+                ? comps.FirstOrDefault()
+                : comps.FirstOrDefault(c => c.Name.Equals(request.ComponentName, StringComparison.OrdinalIgnoreCase))
+                  ?? comps.FirstOrDefault();
+            _newAlertComponentName = _wantedComponentName = pick?.Name ?? "";
+        }
+        else if (request.Target == AlertTarget.Price)
+        {
+            _newAlertTarget = AlertTarget.Price;
+        }
+
+        if (request.Value is double value && double.IsFinite(value))
+        {
+            _newAlertThresholdText = AlertDescriptions.FormatForInput(value);
+            _thresholdTyped = true;
+        }
+        _lastTarget = _newAlertTarget;
     }
 
     private void RefreshChartContext()

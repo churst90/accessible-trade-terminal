@@ -55,6 +55,13 @@ namespace AccessibleTrader.Core.Services
         /// user placed, a fixed-range profile's anchor, and the mute / hide / narrate switches.
         /// </summary>
         void ResetToIndicatorDefaults(ChartSeries series, IndicatorMetadata meta);
+
+        /// <summary>
+        /// Moves a series to <paramref name="pane"/> ("Main" = the price pane), or to a fresh
+        /// pane of its own when null/blank. Returns the pane name used. Marks the choice pinned so
+        /// a workspace load keeps it, and drops a stale saved-height ratio for a pane left empty.
+        /// </summary>
+        string MoveSeriesToPane(string seriesId, string? pane = null);
     }
 
     public class SeriesManagementService : ISeriesManagementService
@@ -535,6 +542,7 @@ namespace AccessibleTrader.Core.Services
             // the workspace file carries it, and this list never read it back. Same class as the
             // narration flag above — set it, restart, it is gone.
             freshSeries.Config.AnnounceAcrossSeries = config.AnnounceAcrossSeries;
+            freshSeries.Config.PanePinned = config.PanePinned;
 
             // Restore levels from workspace-saved config when available (per-instance source of
             // truth).  This prevents global IndicatorPreferencesService type-defaults from
@@ -818,6 +826,63 @@ namespace AccessibleTrader.Core.Services
             meta.Parameters
                 .Select(p => (p.Name, FormatParam(p.DefaultValue ?? (p.DataType == typeof(string) ? "" : (object)0.0))))
                 .ToList();
+
+        public string MoveSeriesToPane(string seriesId, string? pane = null)
+        {
+            var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
+            if (series == null) return "";
+
+            string target = string.IsNullOrWhiteSpace(pane)
+                ? FreshPaneName(series)
+                : pane!;
+
+            if (string.Equals(series.Config.Pane, target, StringComparison.Ordinal))
+                return target;
+
+            string oldPane = series.Config.Pane;
+            var moved = series.Clone();
+            moved.Config.Pane = target;
+            moved.Config.PanePinned = true;
+
+            var updated = _store.State.ActiveSeries
+                .Select(s => s.Id == seriesId ? moved : s)
+                .ToImmutableList();
+            _store.Dispatch(new UpdateSeriesAction(updated));
+
+            // A saved height for a pane no longer on the chart would resize the NEXT series
+            // that lands there; the target starts at equal weight instead of inheriting one.
+            var ratios = _store.State.PaneHeightRatios;
+            if (ratios != null)
+            {
+                bool oldStillUsed = updated.Any(s => string.Equals(s.Pane, oldPane, StringComparison.Ordinal));
+                var cleaned = ratios;
+                if (!string.Equals(target, "Main", StringComparison.Ordinal))
+                    cleaned = cleaned.Remove(target);
+                if (!oldStillUsed && !string.Equals(oldPane, "Main", StringComparison.Ordinal))
+                    cleaned = cleaned.Remove(oldPane);
+                if (cleaned.Count != ratios.Count)
+                    _store.Dispatch(new SetPaneHeightRatiosAction(cleaned));
+            }
+
+            _eventBus.Publish(new RedrawEvent());
+            _eventBus.Publish(new IndicatorUpdatedEvent(seriesId));
+            return target;
+        }
+
+        private string FreshPaneName(ChartSeries series)
+        {
+            string stem = string.IsNullOrWhiteSpace(series.IndicatorCode)
+                ? series.Name
+                : series.IndicatorCode;
+            string baseName = PaneAssignmentService.OwnPaneKey(stem);
+            string candidate = baseName;
+            int n = 2;
+            while (_store.State.ActiveSeries.Any(s =>
+                       s.Id != series.Id && string.Equals(s.Pane, candidate, StringComparison.Ordinal))
+                   || string.Equals(series.Pane, candidate, StringComparison.Ordinal))
+                candidate = $"{baseName}_{n++}";
+            return candidate;
+        }
 
         public void ResetLevelsToProviderDefaults(ChartSeries series)
         {

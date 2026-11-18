@@ -57,6 +57,9 @@ public sealed class BlazorTestHarness : IDisposable
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
+    /// <summary>ChartContextMenu injects this. A substitute: tests that assert a drawing was
+    /// created replace the return value; tests that only render the menu need it present.</summary>
+    public IDrawingInteractionManager DrawingManager { get; }
     public AccessibleTrader.Core.Services.Notifications.IDesktopNotifier DesktopNotifier { get; }
     public AccessibleTrader.Core.Services.ISoundPatchLibrary SoundPatchLibrary { get; }
 
@@ -129,6 +132,7 @@ public sealed class BlazorTestHarness : IDisposable
         StrategyBacktester          = Substitute.For<IStrategyBacktester>();
         BacktestWarmupAnalyzer      = Substitute.For<IBacktestWarmupAnalyzer>();
         OrderService                = Substitute.For<IOrderExecutionService>();
+        DrawingManager              = Substitute.For<IDrawingInteractionManager>();
         SoundPatchLibrary           = Substitute.For<AccessibleTrader.Core.Services.ISoundPatchLibrary>();
         SoundPatchLibrary.GetPatches().Returns(_ => new List<AccessibleTrader.Sdk.Models.SoundPatch>());
         SoundPatchLibrary.EarconOverrides.Returns(new AccessibleTrader.Core.Services.EarconSettings());
@@ -164,6 +168,11 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(StrategyBacktester);
         Ctx.Services.AddSingleton(BacktestWarmupAnalyzer);
         Ctx.Services.AddSingleton(OrderService);
+        Ctx.Services.AddSingleton(DrawingManager);
+        // ChartContextMenu asks the layout service for the clicked pane. Real instance, empty
+        // until a frame is drawn — the same state a menu opened before the first render sees.
+        Ctx.Services.AddSingleton<AccessibleTrader.Core.Services.Rendering.IPaneLayoutService>(
+            new AccessibleTrader.Core.Services.Rendering.PaneLayoutService());
         // SettingsModal injects IPaperTradingProvider (paper-trading reset button).
         Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
 

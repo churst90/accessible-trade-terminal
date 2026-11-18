@@ -11,12 +11,13 @@ namespace AccessibleTrader.Core.Services.Rendering
     {
         public void Render(RenderContext ctx, IEnumerable<ChartSeries> series)
         {
-            if (ctx.PaneName != "Main") return;
-
             var theme = ctx.Theme;
-            
+
             // ── CROSSHAIR ───────────────────────────────────────────────────────────
-            if (ctx.LocalCursorIndex >= 0 && ctx.LocalCursorIndex < ctx.Data.Count)
+            // The crosshair belongs to the price pane. Text labels do not: a label placed on
+            // an indicator's own axis is drawn in THAT pane's scale, which is the only way
+            // "add a text label anywhere" can mean what it says.
+            if (ctx.PaneName == "Main" && ctx.LocalCursorIndex >= 0 && ctx.LocalCursorIndex < ctx.Data.Count)
             {
                 float x = (ctx.LocalCursorIndex * ctx.ItemWidth) + (ctx.ItemWidth / 2);
                 float y = ChartMath.MapY(ctx.Data[ctx.LocalCursorIndex].Close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
@@ -135,6 +136,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 if (s.Drawing is not { Type: DrawingType.TextLabel } drawing) continue;
                 if (!s.IsVisible || string.IsNullOrWhiteSpace(drawing.Text)) continue;
+                if (!string.Equals(string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane, ctx.PaneName, StringComparison.OrdinalIgnoreCase))
+                    continue;
 
                 var data = s.GetComponentData("Label");
                 if (data == null || data.Length == 0) continue;

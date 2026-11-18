@@ -295,6 +295,38 @@ namespace AccessibleTrader.Core.Services
                 }
             }));
 
+            // ── REMOVE ALL DRAWINGS ──────────────────────────────────────────────────
+            // One user action, one undo entry. Sequential DeleteSeriesEvents would make Ctrl+Z
+            // restore them one at a time, which is not what "remove all" meant.
+            _subscriptions.Add(_eventBus.Subscribe<RemoveAllDrawingsEvent>(_ => {
+                try
+                {
+                    var drawings = _store.State.ActiveSeries.Where(s => s.IsDrawing).ToList();
+                    if (drawings.Count == 0)
+                    {
+                        _eventBus.Publish(new AnnouncementEvent("No drawings on this chart."));
+                        return;
+                    }
+
+                    foreach (var drawing in drawings)
+                        _store.Dispatch(new RemoveSeriesAction(drawing.Id));
+
+                    _undo?.Push(new Accessibility.SeriesBatchDeleteUndo(
+                        $"Remove all {drawings.Count} drawings",
+                        drawings,
+                        restore: s => _store.Dispatch(new AddSeriesAction(s)),
+                        remove: s => _store.Dispatch(new RemoveSeriesAction(s.Id))));
+
+                    _eventBus.Publish(new AnnouncementEvent(
+                        drawings.Count == 1 ? "Removed 1 drawing." : $"Removed {drawings.Count} drawings."));
+                    _eventBus.Publish(new RedrawEvent());
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "[ChartCommandManager] RemoveAllDrawingsEvent error");
+                }
+            }));
+
             // ── UNDO / REDO ──────────────────────────────────────────────────────────
             //
             // Every branch SPEAKS, including the two that do nothing. Silence on Ctrl+Z is

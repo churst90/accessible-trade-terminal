@@ -1064,6 +1064,38 @@ window.accessibleTrader = {
         return !!(element && element.open);
     },
 
+    /**
+     * Roving tabindex for a role="menu" built from ordinary buttons.
+     *
+     * keyboard.js releases Arrow/Home/End to a [role="menu"] because the widget is
+     * supposed to handle them; a menu that does not is keyboard-dead. This keeps one
+     * item as the single Tab stop and moves focus with the arrow keys, wrapping at
+     * both ends. `step` is +1, -1, "home" or "end".
+     */
+    moveMenuFocus: function (menuId, step) {
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        if (!items.length) return;
+
+        let index = items.indexOf(document.activeElement);
+        if (step === 'home') index = 0;
+        else if (step === 'end') index = items.length - 1;
+        else if (index < 0) index = step > 0 ? 0 : items.length - 1;
+        else index = (index + (step > 0 ? 1 : -1) + items.length) % items.length;
+
+        items.forEach(function (el, i) { el.tabIndex = i === index ? 0 : -1; });
+        items[index].focus();
+    },
+
+    /** Make the first item the menu's only Tab stop before focus is moved to it. */
+    initMenuFocus: function (menuId) {
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        items.forEach(function (el, i) { el.tabIndex = i === 0 ? 0 : -1; });
+    },
+
     focusElement: function (elementId) {
         const startedOn = document.activeElement;
         let framesLeft = 10;

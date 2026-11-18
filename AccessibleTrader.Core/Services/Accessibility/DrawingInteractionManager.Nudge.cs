@@ -320,7 +320,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     RefuseCoalesced($"{Capitalise(slotName)} of {name} has no price yet. Set one in Properties.");
                     return;
                 }
-                double step = PriceNudgeStep(state.ViewportRange.Max - state.ViewportRange.Min, current.Value);
+                // The nudge is in the UNITS of the pane the drawing lives in. A horizontal
+                // line on an RSI pane stepped by one percent of the PRICE range would leap
+                // thousands of oscillator points per press.
+                var (paneMin, paneMax, _) = ChartMath.RangeFor(state, series.Pane);
+                double step = PriceNudgeStep(paneMax - paneMin, current.Value);
                 double moved = current.Value + (direction == AnchorNudgeDirection.Up ? step : -step);
                 BeginNudgeRunIfNeeded(drawing);
                 SetAnchorPrice(drawing, slot, moved);

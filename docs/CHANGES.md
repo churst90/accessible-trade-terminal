@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart context menu: here, labels and horizontal lines in any pane, 2026-11-18
+
+- **One definition of "here".** `ChartContextHere` resolves the clicked bar and the value under the
+  pointer in the clicked pane, or the cursor bar and the focused series' value in its own pane when
+  the menu is opened from the keyboard. Every new item uses it; mouse and keyboard origins are both
+  unit-tested.
+- **New chart-level items, after Jump to latest.** Add label here..., Draw a horizontal line here,
+  Add alert at the price, Buy/Sell limit at the price, Copy price, Copy this bar, Start/Stop bar
+  replay here, then Add indicator, Object tree and Remove all drawings. Labels and lines are placed
+  in the clicked/focused pane at that pane's value. Every item that has an exact existing shortcut
+  names its current binding in words; rebinding changes the words.
+- **Alerts and orders are prefilled, never fired.** `OpenAlertsEvent` gained optional
+  target/series/component/value and `OpenTradingDashboardEvent` gained optional side/limit price.
+  The limit items open the dashboard for review; they never call the order service. They are gated
+  for demo builds, analytics markets, non-price panes, an empty provider and providers that do not
+  execute orders, using the dashboard's own refusal sentence where it has one.
+- **Copy actions** use the same clipboard call and failure sentence as the wallet: "Copied." or
+  "Could not copy: the browser refused." Copy this bar is one line: the chart's date/time stamp,
+  then Open, High, Low, Close and Volume.
+- **Remove all drawings** asks in place, removes nothing on Cancel, announces the count, and is one
+  `Ctrl+Z` entry via a new batch undo. **Move to a new pane / Move to the price pane** update
+  `ChartSeries.Pane`, add the new `PanePinned` flag so a workspace reload does not re-derive the
+  provider's default pane, and announce the move.
+- **Per-series submenu** adds Add alert on this line, Copy value and the two pane moves after
+  Properties. Drawings and provider-fixed panes are refused with a spoken reason.
+- **Drawing pipeline in a non-price pane.** Text labels and horizontal lines now carry a pane and a
+  price; they render in that pane's own scale, speak their value, nudge by that pane's range rather
+  than the price range, survive a workspace round-trip, and remain reachable in the pane list and
+  object tree when their indicator is removed.
+- **Keyboard menu behaviour.** The chart menu now implements the ARIA menu pattern: Arrow Up/Down
+  wrap, Home/End jump, Tab closes, with a roving tabindex (`keyboard.js moveMenuFocus`).
+- **Caveats.** Only text labels and horizontal lines can leave the price pane; every other drawing
+  tool stays price-pane only. Clipboard success/failure and the actual browser menu focus were not
+  exercised in a real browser in this change — only through bUnit and the JS bridge. The context
+  menu's limit ticket still depends on the dashboard's own account/provider checks after it opens.
+  Writing the new `PanePinned` flag into the workspace restore contract found and fixed its restore
+  path; older workspaces without it keep deriving the provider pane as before.
+
 ### Toolbar: Heikin Ashi and Log scale name their shortcuts; Market events gets a calendar icon, 2026-11-18
 
 Cody found that the Heikin Ashi and Log scale buttons did not say their keyboard shortcuts, though every

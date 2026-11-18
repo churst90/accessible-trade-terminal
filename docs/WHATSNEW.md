@@ -10,6 +10,14 @@
 
 None of this has been seen or heard in the app yet.
 
+### Chart context menu
+
+- **Right-click or the Application key now does more.** Add a text label or horizontal line at the
+  clicked bar, value and pane; open an alert or a limit ticket prefilled; copy the price or the whole
+  bar; start replay from here; remove every drawing with one undo. The per-series menu can preselect
+  an alert, copy a reading and move an indicator into its own pane or back to price. Text labels and
+  horizontal lines now work on any pane, not just price.
+
 ### Market events on the chart
 
 - **The chart can tell you what happened on a bar, not just what it cost.** CPI, the jobs report,

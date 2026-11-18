@@ -1,13 +1,24 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Core.Services.Rendering
 @using AccessibleTrader.Sdk.Models
+@using AccessibleTrader.Sdk.Alerts
+@using AccessibleTrader.Sdk.Plugins
 @using AccessibleTrader.BlazorClient.Services
+@using Microsoft.Extensions.DependencyInjection
 @inject IEventBus EventBus
 @inject IWorkspaceStore Store
 @inject ISpeechFeedbackRouter Speech
 @inject ChartHoverTracker HoverTracker
 @inject ISettingsManager Settings
+@inject IShortcutManager Shortcuts
+@inject IDrawingInteractionManager Drawing
+@inject ISeriesManagementService SeriesManager
+@inject IOrderExecutionService Orders
+@inject DemoPolicy Demo
+@inject IServiceProvider Services
 @inject Microsoft.JSInterop.IJSRuntime Js
 @implements IDisposable
 
@@ -17,15 +28,22 @@
     DrawingInteractionManager), and from the keyboard Application/Shift+F10 key when no
     drawing is focused (CommandDispatcher). Two views:
 
-      1. Main: Play from here / Jump to latest / Crosshair toggle, then a Series section
-         listing every active series by name. Listing series as MENU ITEMS is deliberate
-         accessibility design: acting on an indicator line never requires pointing at a
-         2-pixel-wide line — a win for low-vision and tremor users.
-      2. Per-series: Focus / Mute / Hide / Properties / Remove, with Back.
+      1. Main: the chart verbs, every pane-aware drawing/alert/order action, then a Series
+         section listing every active series by name. Listing series as MENU ITEMS is
+         deliberate accessibility design: acting on an indicator line never requires
+         pointing at a 2-pixel-wide line — a win for low-vision and tremor users.
+      2. Per-series: Focus / Mute / Hide / Properties / Add alert / Copy value / Move pane /
+         Remove, with Back.
+
+    "Here" is ONE answer for every item: the clicked bar and the value under the pointer in
+    the clicked pane, or the cursor bar and the focused series' value in its own pane when
+    opened from the keyboard. ChartContextHere owns that arithmetic and the tests pin it.
 
     All actions route through the existing event/action surfaces (ToggleMuteEvent,
-    ToggleHideEvent, DeleteSeriesEvent, OpenPropertiesEvent, SetPlaybackAction…), so
-    announcements and redraws behave exactly like their keyboard twins.
+    ToggleHideEvent, DeleteSeriesEvent, OpenPropertiesEvent, SetPlaybackAction, AddDrawing,
+    OpenAlertsEvent, OpenTradingDashboardEvent…), so announcements and redraws behave exactly
+    like their keyboard twins. The menu never places an order: it opens the dashboard with a
+    limit ticket filled in for review.
 *@
 
 @if (_isVisible)
@@ -35,16 +53,50 @@
          @oncontextmenu:preventDefault="true"
          style="position:fixed; inset:0; z-index:9998; background:transparent;">
     </div>
-    <div role="menu"
+    <div id="chart-ctx-menu"
+         role="menu"
          aria-label="@(_selectedSeries == null ? "Chart actions" : $"Actions for {_selectedSeries.FriendlyName}")"
          style="@_menuStyle"
          @onclick:stopPropagation="true"
+         @onkeydown="OnMenuKeyDown"
          @oncontextmenu:preventDefault="true">
         @if (_selectedSeries == null)
         {
             <GatedButton ElementId="chart-ctx-first" role="menuitem" class="ctx-item" OnClick="OnPlayFromHere"
                     Gate="PlayFromHereGate">Play from here</GatedButton>
-            <button role="menuitem" class="ctx-item" @onclick="OnJumpToLatest">Jump to latest</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnJumpToLatest">@WithShortcut("Jump to latest", SystemCommand.JumpToLatest)</button>
+
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnAddLabelHere"
+                    Gate="HereGate">@WithShortcut("Add label here...", SystemCommand.DrawLabel)</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnDrawHorizontalHere"
+                    Gate="HereGate">@WithShortcut("Draw a horizontal line here", SystemCommand.DrawHorizontal)</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnAddAlertHere"
+                    Gate="AlertHereGate">Add alert at @PriceText...</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick='() => OnLimitOrder("Buy")'
+                    Gate="TradeGate">Buy limit at @PriceText...</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick='() => OnLimitOrder("Sell")'
+                    Gate="TradeGate">Sell limit at @PriceText...</GatedButton>
+            <button role="menuitem" class="ctx-item" @onclick="OnCopyPrice">Copy price</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnCopyBar">Copy this bar</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnReplayHere">
+                @WithShortcut(ReplayActive ? "Stop bar replay" : "Start bar replay here", SystemCommand.ReplayToggle)
+            </button>
+
+            <div role="separator" style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
+            <button role="menuitem" class="ctx-item" @onclick="OnAddIndicator">@WithShortcut("Add indicator...", SystemCommand.OpenIndicators)</button>
+            <button role="menuitem" class="ctx-item" @onclick="OnObjectTree">@WithShortcut("Object tree...", SystemCommand.OpenObjectTree)</button>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnRemoveAllDrawings"
+                    Gate="RemoveAllGate">Remove all drawings...</GatedButton>
+            @if (_confirmRemoveAll)
+            {
+                <button id="chart-ctx-confirm-remove-all" role="menuitem" class="ctx-item" @onclick="OnConfirmRemoveAll">
+                    Confirm remove all @DrawingCount @(DrawingCount == 1 ? "drawing" : "drawings")
+                </button>
+                <button id="chart-ctx-cancel-remove-all" role="menuitem" class="ctx-item"
+                        aria-label="Cancel removing all drawings" @onclick="OnCancelRemoveAll">Cancel</button>
+            }
+
+            <div role="separator" style="border-top:1px solid var(--border-color); margin:4px 0;"></div>
             <button role="menuitem" class="ctx-item" @onclick="OnToggleCrosshair">
                 @(HoverTracker.IsEnabled ? "Hide crosshair" : "Show crosshair")
             </button>
@@ -80,6 +132,14 @@
                 @(_selectedSeries.IsVisible ? "Hide" : "Show")
             </button>
             <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnSeriesAlert"
+                    Gate="SeriesAlertGate">Add alert on this line...</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnCopySeriesValue"
+                    Gate="CopyValueGate">Copy value</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnMoveToNewPane"
+                    Gate="MovePaneGate">Move to a new pane</GatedButton>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnMoveToPricePane"
+                    Gate="MovePaneGate">Move to the price pane</GatedButton>
             <GatedButton role="menuitem" class="ctx-item" OnClick="OnRemove"
                     Gate="RemoveGate">Remove</GatedButton>
         }
@@ -92,37 +152,66 @@
     private string _menuStyle = "";
     private ChartSeries? _selectedSeries;
     private List<ChartSeries> _seriesList = new();
+    private ChartHere _here;
+    private bool _confirmRemoveAll;
+
+    // Trading availability is an async question on IOrderExecutionService. Asked once when the
+    // menu opens (the dashboard asks the same service and uses the same sentence when it is no).
+    private bool _tradingChecked;
+    private bool _tradingSupported;
+    private int _tradingGeneration;
+
     private IDisposable? _sub;
     private IDisposable? _closeSub;
 
+    private IPaneLayoutService? Layout => Services.GetService<IPaneLayoutService>();
+    private IReplayService? Replay => Services.GetService<IReplayService>();
+    private IMarketOrchestrator? Market => Services.GetService<IMarketOrchestrator>();
+    private bool ReplayActive => Replay?.IsActive == true;
+    private string PriceText => _here.HasPrice ? SpeechPriceFormatter.FormatPrice(_here.Price) : "no value";
+
+    private int DrawingCount => Store.State.ActiveSeries.Count(s => s.IsDrawing);
+
     protected override void OnInitialized()
     {
-        _sub = EventBus.Subscribe<OpenChartContextMenuEvent>(ev =>
-            InvokeAsync(() => Open(ev.ViewportX, ev.ViewportY, ev.BarIndex, ev.HitSeriesId)));
+        _sub = EventBus.Subscribe<OpenChartContextMenuEvent>(ev => InvokeAsync(() => Open(ev)));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
             if (_isVisible && e.ModalName == "ChartContextMenu") InvokeAsync(Close);
         });
     }
 
-    private async Task Open(double x, double y, int barIndex, string? hitSeriesId = null)
+    private async Task Open(OpenChartContextMenuEvent ev)
     {
-        _barIndex = barIndex;
+        _barIndex = ev.BarIndex;
+        _confirmRemoveAll = false;
+        _tradingChecked = false;
+        _tradingSupported = false;
+        _tradingGeneration++;
         _seriesList = Store.State.ActiveSeries.ToList();
+
         // Right-click landed near a specific component (Phase B hit-tester):
         // open directly on that series' actions — the series list stays one
         // "Back" away for everything else.
-        _selectedSeries = hitSeriesId == null
+        _selectedSeries = string.IsNullOrEmpty(ev.HitSeriesId)
             ? null
-            : _seriesList.FirstOrDefault(s => s.Id == hitSeriesId);
+            : _seriesList.FirstOrDefault(s => s.Id == ev.HitSeriesId);
+
+        bool keyboardOrigin = double.IsNaN(ev.ViewportX) || double.IsNaN(ev.ViewportY);
+        var layout = Layout;
+        _here = keyboardOrigin
+            ? ChartContextHere.FromKeyboard(Store.State)
+            : ChartContextHere.FromMouse(
+                Store.State, ev.BarIndex, ev.ViewportY, ev.ViewportHeight,
+                layout?.Dividers, layout?.AxisHeightFraction ?? 0f, layout?.StatusBands,
+                ev.HitSeriesId, ev.HitComponentIndex);
 
         // Mouse origin anchors at the cursor; keyboard origin (NaN) self-positions
         // centrally — same convention as DrawingContextMenu.
-        bool keyboardOrigin = double.IsNaN(x) || double.IsNaN(y);
         string position = keyboardOrigin
             ? "position:fixed; left:40vw; top:30vh; "
-            : $"position:fixed; left:{(x + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; " +
-              $"top:{(y + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; ";
+            : $"position:fixed; left:{(ev.ViewportX + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; " +
+              $"top:{(ev.ViewportY + 4).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)}px; ";
         _menuStyle = position +
             "z-index:9999; min-width:180px; max-height:60vh; overflow-y:auto; background:#1c1c1e; " +
             "border:1px solid #333; border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
@@ -131,11 +220,28 @@
         EventBus.Publish(new ModalStateChangedEvent(true, "ChartContextMenu"));
         await InvokeAsync(StateHasChanged);
 
+        try { await Js.InvokeVoidAsync("accessibleTrader.initMenuFocus", "chart-ctx-menu"); }
+        catch { /* non-critical */ }
         if (keyboardOrigin)
         {
             try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
             catch { /* non-critical */ }
         }
+
+        _ = RefreshTradingAvailabilityAsync(_tradingGeneration);
+    }
+
+    private async Task RefreshTradingAvailabilityAsync(int generation)
+    {
+        string provider = Store.State.Identity.Provider ?? "";
+        if (!Demo.AllowTrading || string.IsNullOrEmpty(provider)) return;
+        bool supported;
+        try { supported = await Orders.SupportsTradingAsync(provider); }
+        catch { supported = false; }
+        if (generation != _tradingGeneration || !_isVisible) return;
+        _tradingSupported = supported;
+        _tradingChecked = true;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void Close()
@@ -143,14 +249,39 @@
         if (!_isVisible) return;
         _isVisible = false;
         _selectedSeries = null;
+        _confirmRemoveAll = false;
+        _tradingGeneration++;
         EventBus.Publish(new ModalStateChangedEvent(false, "ChartContextMenu"));
         StateHasChanged();
+    }
+
+    /// <summary>Arrow/Home/End roving focus over the menu items; Tab leaves the menu.</summary>
+    private async Task OnMenuKeyDown(KeyboardEventArgs e)
+    {
+        object? step = e.Key switch
+        {
+            "ArrowDown" => 1,
+            "ArrowUp" => -1,
+            "Home" => "home",
+            "End" => "end",
+            _ => null,
+        };
+        if (step is null)
+        {
+            if (e.Key == "Tab") Close();
+            return;
+        }
+        try { await Js.InvokeVoidAsync("accessibleTrader.moveMenuFocus", "chart-ctx-menu", step); }
+        catch { /* non-critical */ }
     }
 
     private async Task OpenSeries(ChartSeries s)
     {
         _selectedSeries = s;
+        _confirmRemoveAll = false;
         await InvokeAsync(StateHasChanged);
+        try { await Js.InvokeVoidAsync("accessibleTrader.initMenuFocus", "chart-ctx-menu"); }
+        catch { /* non-critical */ }
         try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
         catch { /* non-critical */ }
     }
@@ -159,8 +290,41 @@
     {
         _selectedSeries = null;
         await InvokeAsync(StateHasChanged);
+        try { await Js.InvokeVoidAsync("accessibleTrader.initMenuFocus", "chart-ctx-menu"); }
+        catch { /* non-critical */ }
         try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
         catch { /* non-critical */ }
+    }
+
+    // ── Labels and shortcut words ────────────────────────────────────────────
+
+    /// <summary>Names the item's REAL current binding, in words — never a literal chord, so a
+    /// rebind is reflected. An item with no binding is just its words.</summary>
+    private string WithShortcut(string text, SystemCommand command)
+    {
+        string? words = ShortcutWords.ForCommand(Shortcuts, command);
+        return words is null ? text : $"{text}, {words}";
+    }
+
+    private double? SelectedValue()
+    {
+        if (_selectedSeries is null || !_here.HasBar) return null;
+        int component = _selectedSeries.ClampComponent(
+            Store.State.FocusedSeriesId == _selectedSeries.Id
+                ? Store.State.FocusedComponentIndex
+                : 0);
+        return component < 0
+            ? null
+            : ChartContextHere.ValueAt(_selectedSeries, _here.BarIndex, component);
+    }
+
+    private string? SelectedComponentName()
+    {
+        if (_selectedSeries is null || _selectedSeries.Components.Count == 0) return null;
+        int component = Store.State.FocusedSeriesId == _selectedSeries.Id
+            ? _selectedSeries.ClampComponent(Store.State.FocusedComponentIndex)
+            : _selectedSeries.ClampComponent(0);
+        return component < 0 ? null : _selectedSeries.Components[component].Name;
     }
 
     // ── Main actions ─────────────────────────────────────────────────────────
@@ -181,6 +345,148 @@
         Store.Dispatch(new JumpToLatestAction());
         Store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
+    }
+
+    private void OnAddLabelHere()
+    {
+        var here = _here;
+        Close();
+        if (!here.HasBar) return;
+        Drawing.AddTextLabelHere(here.BarIndex, here.Price, here.Pane, Store.State.Data.ToList());
+    }
+
+    private void OnDrawHorizontalHere()
+    {
+        var here = _here;
+        Close();
+        if (!here.HasBar) return;
+        Drawing.AddHorizontalLineHere(here.BarIndex, here.Price, here.Pane, Store.State.Data.ToList());
+    }
+
+    /// <summary>A price alert on the price pane; on an indicator pane, an alert on the
+    /// focused/clicked series at the same value.</summary>
+    private void OnAddAlertHere()
+    {
+        var here = _here;
+        var series = here.SeriesId is null ? null : Store.State.ActiveSeries.FirstOrDefault(s => s.Id == here.SeriesId);
+        Close();
+        if (!here.HasPrice) return;
+
+        if (string.Equals(here.Pane, ChartContextHere.MainPane, StringComparison.OrdinalIgnoreCase))
+        {
+            EventBus.Publish(new OpenAlertsEvent(AlertTarget.Price, Value: here.Price));
+            return;
+        }
+
+        if (series is null) return;
+        int componentIndex = series.ClampComponent(here.ComponentIndex);
+        string? component = componentIndex < 0 ? null : series.Components[componentIndex].Name;
+        EventBus.Publish(new OpenAlertsEvent(AlertTarget.Indicator, series.Id, component, here.Price));
+    }
+
+    /// <summary>Opens the dashboard with a limit ticket prefilled. Never places anything.</summary>
+    private void OnLimitOrder(string side)
+    {
+        double price = _here.Price;
+        Close();
+        if (!double.IsFinite(price)) return;
+        EventBus.Publish(new OpenTradingDashboardEvent(side, price));
+    }
+
+    private async Task OnCopyPrice()
+    {
+        var here = _here;
+        Close();
+        if (!here.HasPrice) return;
+        await CopyAsync(SpeechPriceFormatter.FormatPrice(here.Price));
+    }
+
+    private async Task OnCopyBar()
+    {
+        var state = Store.State;
+        int index = _here.BarIndex;
+        Close();
+        if (state.Data == null || index < 0 || index >= state.Data.Count) return;
+
+        var bar = state.Data[index];
+        int barSeconds = PlaybackNarration.BarSeconds(state);
+        string when = PlaybackNarration.DateText(bar.Date, barSeconds);
+        string line = $"{when}. Open {SpeechPriceFormatter.FormatPrice(bar.Open)} " +
+                      $"High {SpeechPriceFormatter.FormatPrice(bar.High)} " +
+                      $"Low {SpeechPriceFormatter.FormatPrice(bar.Low)} " +
+                      $"Close {SpeechPriceFormatter.FormatPrice(bar.Close)} " +
+                      $"Volume {ChartStatusLine.FormatVolume(bar.Volume)}";
+        await CopyAsync(line);
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            EventBus.Publish(new AnnouncementEvent("Copied.", Channel: SpeechChannel.Interface));
+        }
+        catch
+        {
+            EventBus.Publish(new AnnouncementEvent("Could not copy: the browser refused.", Channel: SpeechChannel.Interface));
+        }
+    }
+
+    private void OnReplayHere()
+    {
+        int index = _here.BarIndex;
+        bool active = ReplayActive;
+        Close();
+        if (!active && index >= 0) Store.Dispatch(new NavigateAction(index));
+        // The same event Alt+Ctrl+Shift+P publishes — replay start/stop, announcements and all.
+        EventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle));
+    }
+
+    private void OnAddIndicator()
+    {
+        Close();
+        EventBus.Publish(new OpenAddIndicatorEvent());
+    }
+
+    private void OnObjectTree()
+    {
+        Close();
+        EventBus.Publish(new OpenObjectTreeEvent());
+    }
+
+    private void OnRemoveAllDrawings()
+    {
+        if (DrawingCount == 0) return;
+        _confirmRemoveAll = true;
+        var prompt = new AnnouncementEvent($"Remove all {DrawingCount} drawings from this chart? Confirm remove all, or cancel.", Channel: SpeechChannel.Interface);
+        EventBus.Publish(prompt);
+        _ = InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            try { await Js.InvokeVoidAsync("accessibleTrader.initMenuFocus", "chart-ctx-menu"); }
+            catch { /* non-critical */ }
+            try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-confirm-remove-all"); }
+            catch { /* non-critical */ }
+        });
+    }
+
+    private void OnConfirmRemoveAll()
+    {
+        Close();
+        EventBus.Publish(new RemoveAllDrawingsEvent());
+    }
+
+    private void OnCancelRemoveAll()
+    {
+        _confirmRemoveAll = false;
+        _ = InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            try { await Js.InvokeVoidAsync("accessibleTrader.initMenuFocus", "chart-ctx-menu"); }
+            catch { /* non-critical */ }
+            try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", "chart-ctx-first"); }
+            catch { /* non-critical */ }
+        });
     }
 
     private void OnToggleCrosshair()
@@ -256,18 +562,135 @@
         EventBus.Publish(new OpenPropertiesEvent(s.Id));
     }
 
+    private void OnSeriesAlert()
+    {
+        var s = _selectedSeries;
+        string? component = SelectedComponentName();
+        double? value = SelectedValue();
+        Close();
+        if (s == null || !CanAlert(s)) return;
+        EventBus.Publish(new OpenAlertsEvent(AlertTarget.Indicator, s.Id, component, value));
+    }
+
+    private async Task OnCopySeriesValue()
+    {
+        double? value = SelectedValue();
+        Close();
+        if (value is not double v) return;
+        await CopyAsync(SpeechPriceFormatter.FormatPrice(v));
+    }
+
+    private void OnMoveToNewPane()
+    {
+        var s = _selectedSeries;
+        string name = s?.FriendlyName ?? "";
+        Close();
+        if (s == null || !CanMovePane(s)) return;
+        string pane = SeriesManager.MoveSeriesToPane(s.Id, null);
+        if (!string.IsNullOrEmpty(pane))
+            EventBus.Publish(new AnnouncementEvent($"Moved {name} to a new pane.", Channel: SpeechChannel.Interface));
+    }
+
+    private void OnMoveToPricePane()
+    {
+        var s = _selectedSeries;
+        string name = s?.FriendlyName ?? "";
+        Close();
+        if (s == null || !CanMovePane(s)) return;
+        string pane = SeriesManager.MoveSeriesToPane(s.Id, ChartContextHere.MainPane);
+        if (!string.IsNullOrEmpty(pane))
+            EventBus.Publish(new AnnouncementEvent($"Moved {name} to the price pane.", Channel: SpeechChannel.Interface));
+    }
+
     private static bool CanRemove(ChartSeries s)
         => s.Id != "candles" && s.Id != "price";
+
+    /// <summary>Same targets the Alerts dialog offers: not a drawing, not the price itself,
+    /// not a profile, and with at least one component to watch.</summary>
+    private static bool CanAlert(ChartSeries s)
+    {
+        if (s.IsDrawing || s.Components.Count == 0) return false;
+        string code = (s.IndicatorCode ?? "").ToUpperInvariant();
+        return code is not ("CANDLES" or "PRICE" or "HEATMAP") && !ProfileAnchoring.IsProfileCode(code);
+    }
+
+    /// <summary>Core/provider-owned panes are fixed: the price and volume series are what their
+    /// pane IS. Everything else can be moved; drawings have their own pane rules.</summary>
+    private static bool CanMovePane(ChartSeries s)
+    {
+        if (s.IsDrawing) return false;
+        string code = (s.IndicatorCode ?? "").ToUpperInvariant();
+        return code is not ("CANDLES" or "PRICE" or "VOLUME" or "HEATMAP");
+    }
+
+    /// <summary>Null when there is a valid bar and value for "here"; otherwise why not.</summary>
+    private string? HereGate() =>
+          !_here.HasBar ? "The pointer is not over a bar."
+        : !_here.HasPrice ? "The pointer is not over a chart pane."
+        : null;
 
     /// <summary>Null when playback can start from the clicked bar; otherwise why it cannot.</summary>
     private string? PlayFromHereGate() =>
         _barIndex < 0 ? "The pointer is not over a bar." : null;
+
+    /// <summary>Price alerts work on the price pane; elsewhere the item needs an indicator the
+    /// Alerts dialog can actually target.</summary>
+    private string? AlertHereGate()
+    {
+        if (HereGate() is { } here) return here;
+        if (string.Equals(_here.Pane, ChartContextHere.MainPane, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var series = _here.SeriesId is null ? null : Store.State.ActiveSeries.FirstOrDefault(s => s.Id == _here.SeriesId);
+        return series is not null && CanAlert(series)
+            ? null
+            : "Alerts at a value work on the price pane only.";
+    }
+
+    /// <summary>The dashboard's own refusal wording, plus the chart-menu-only reasons.</summary>
+    private string? TradeGate()
+    {
+        if (!Demo.AllowTrading) return "Trading is not available in this build.";
+        if (Store.State.CurrentDataShape != ProviderDataShape.Ohlcv
+            || string.Equals(Market?.SelectedMarket, MarketOrchestrator.AnalyticsMarket,
+                StringComparison.OrdinalIgnoreCase))
+            return "This is an analytics chart; orders need a price chart.";
+        string provider = Store.State.Identity.Provider ?? "";
+        if (string.IsNullOrEmpty(provider))
+            return "No chart is focused, so there is nothing to place an order on.";
+        if (HereGate() is { } here) return here;
+        if (!string.Equals(_here.Pane, ChartContextHere.MainPane, StringComparison.OrdinalIgnoreCase))
+            return "Limit orders work on the price pane only.";
+        if (!_tradingChecked) return "Checking whether this chart can place orders.";
+        if (!_tradingSupported)
+            return $"The current provider {provider} does not support order execution.";
+        return null;
+    }
+
+    private string? RemoveAllGate() =>
+        DrawingCount == 0 ? "No drawings on this chart." : null;
 
     /// <summary>Null when the selected series can be removed; otherwise why it cannot.</summary>
     private string? RemoveGate() =>
           _selectedSeries is null ? "No series is selected."
         : CanRemove(_selectedSeries) ? null
         : "The price series cannot be removed; the chart is built on it.";
+
+    private string? SeriesAlertGate() =>
+          _selectedSeries is null ? "No series is selected."
+        : _selectedSeries.IsDrawing ? "Alerts cannot watch a drawing."
+        : CanAlert(_selectedSeries) ? null
+        : "The alert dialog cannot watch this series.";
+
+    private string? CopyValueGate() =>
+          _selectedSeries is null ? "No series is selected."
+        : _here.HasBar && SelectedValue() is not null ? null
+        : "No value on this bar.";
+
+    private string? MovePaneGate() =>
+          _selectedSeries is null ? "No series is selected."
+        : _selectedSeries.IsDrawing ? "A drawing cannot be moved to another pane."
+        : CanMovePane(_selectedSeries) ? null
+        : "This series' provider fixes its pane.";
 
     private void OnRemove()
     {

@@ -1299,10 +1299,18 @@ place so you can bring it back with the same key.
 
 ### Text labels on the chart
 
-**Alt+Shift+L** pins a text label at the cursor bar. The anchor goes down first,
-then a small dialog asks what the label should say — so the position and the
-wording are two separate decisions, which matters when you cannot see where the
-anchor landed.
+**Alt+Shift+L** pins a text label at the cursor bar, and **Alt+Shift+H** draws a
+horizontal line there. Both can live on any pane, not only the price pane. With an
+indicator focused, the label or line is placed in that indicator's pane at that
+indicator's value on the cursor bar; with the price series focused, or nothing focused,
+it goes on the price pane at the bar's close. The chart's context menu can also place
+either one at a mouse-clicked bar and value ("Add label here..." and "Draw a horizontal
+line here"). A label or line on an oscillator pane uses that pane's own units, is read
+back with that value, is nudged in those units, and survives a workspace reload.
+
+For a label, the anchor goes down first, then a small dialog asks what it should say —
+so the position and the wording are two separate decisions, which matters when you
+cannot see where the anchor landed.
 
 The text is drawn on the chart beside the anchor, and it is read wherever you meet
 the label. Arrow or jump onto the bar it is pinned to — from the label's own series
@@ -2803,9 +2811,57 @@ The Applications / Context Menu key, or `Shift+F10` if your keyboard has no such
 opens the same right-click menu a mouse user gets. What you get depends on what is
 focused: a focused drawing gets the drawing's own menu — Delete, Duplicate,
 Properties — and anything else gets the chart-level menu, the one right-clicking empty chart space
-opens, carrying the bar under your cursor so options like "Play from here" act on the
-right bar. It is exact keyboard parity with right-click, so nothing in this application
+opens. It is exact keyboard parity with right-click, so nothing in this application
 is mouse-only.
+
+**What "here" means.** With a mouse, "here" is the bar you clicked and the value under
+the pointer in the pane you clicked — an oscillator pane uses its own 0–100 scale, not
+the price scale. From the keyboard, "here" is the bar under the cursor, and the value is
+the focused series' reading on that bar in its own pane; with no series focused, or with
+the price series focused, it is the bar's close. Every item that says "here" or shows a
+price uses that one answer.
+
+The chart-level menu carries, in order:
+
+- **Play from here** and **Jump to latest**.
+- **Add label here...** — places a text label at here's bar, price and pane, then opens
+  the same text dialog as `Alt+Shift+L` (`Alt plus Shift plus L`).
+- **Draw a horizontal line here** (`Alt plus Shift plus H`) — at here's price in here's
+  pane.
+- **Add alert at {price}...** — opens the Alerts dialog with a price alert at that value.
+  On an indicator pane it targets the clicked or focused series at that value. When no
+  indicator there can carry the alert, the item says "Alerts at a value work on the price
+  pane only."
+- **Buy limit at {price}...** and **Sell limit at {price}...** — open the Trading
+  Dashboard with a Limit ticket, the side and the price already filled in. They never
+  place an order: review and Confirm stay in the dashboard. They are unavailable with a
+  reason when trading is off in this build, the market is analytics-only, the chart is
+  not on the price pane, or the provider cannot execute orders.
+- **Copy price** — the here value, formatted as the chart speaks it. **Copy this bar** —
+  one line with the chart's own date/time stamp, then Open, High, Low, Close and Volume.
+  Both say "Copied." or "Could not copy: the browser refused."
+- **Start bar replay here** (or **Stop bar replay**) — moves the cursor to here's bar,
+  then runs the same replay toggle as `Ctrl+Alt+Shift+P`.
+- **Add indicator...** (`Alt plus A`), **Object tree...** (`Alt plus O`), and
+  **Remove all drawings...**. Remove all asks first, in place: "Remove all N drawings from
+  this chart?" Choose Confirm or Cancel. A cancel removes nothing. Confirmed removals are
+  one `Ctrl+Z` entry, not one per drawing.
+- The crosshair, magnet snap and hover sound toggles, then the list of every series by
+  name. Choosing a series opens its own actions: Focus, Mute/Unmute, Hide/Show,
+  Properties, Add alert on this line, Copy value, Move to a new pane, Move to the price
+  pane, and Remove. Back returns to the chart list.
+- **Add alert on this line...** preselects that series, its focused component and the
+  value at here's bar. **Copy value** copies that reading. **Move to a new pane** gives
+  the series a fresh pane; **Move to the price pane** returns it to Main. Drawings cannot
+  be moved between panes, and a provider-fixed series (candles, price, volume) says so.
+  A moved series keeps that pane across a workspace reload.
+
+Every unavailable item stays in the menu and explains why, rather than disappearing.
+Arrow Up/Down move through the items, Home and End jump to the ends, and Tab closes the
+menu.
+
+Only text labels and horizontal lines can be placed outside the price pane. Every other
+drawing tool remains price-pane only.
 
 ### Naming your drawings
 

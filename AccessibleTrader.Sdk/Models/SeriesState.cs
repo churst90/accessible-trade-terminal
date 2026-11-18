@@ -14,6 +14,15 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private string _friendlyName = "";
         public string IndicatorCode { get; set; } = "";
         public string Pane { get; set; } = "Main";
+
+        /// <summary>
+        /// True when the user moved this series to a pane by hand. The provider's own
+        /// <c>DefaultPane</c> is re-derived on every workspace load for indicators (see
+        /// <c>WorkspaceInitializer.MigrateSeriesConfig</c>); this flag is what keeps a deliberate
+        /// "Move to a new pane" from being silently undone by the next load.
+        /// </summary>
+        public bool PanePinned { get; set; }
+
         public Dictionary<string, double> Parameters { get; set; } = new();
 
         /// <summary>
@@ -120,7 +129,8 @@ namespace AccessibleTrader.Sdk.Models
             var c = new SeriesConfig
             {
                 Id = Id, Name = Name, FriendlyName = FriendlyName, IndicatorCode = IndicatorCode,
-                Pane = Pane, IsMuted = IsMuted, Volume = Volume, IsVisible = IsVisible,
+                Pane = Pane, PanePinned = PanePinned,
+                IsMuted = IsMuted, Volume = Volume, IsVisible = IsVisible,
                 IsAutoNarrated = IsAutoNarrated,
                 SpeakHeaderFirst = SpeakHeaderFirst, IncludeTimestamp = IncludeTimestamp,
                 AnnounceAcrossSeries = AnnounceAcrossSeries,

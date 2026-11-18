@@ -1257,14 +1257,16 @@
 
     protected override void OnInitialized()
     {
-        _eventSub = EventBus.Subscribe<OpenTradingDashboardEvent>(_ => InvokeAsync(ShowAsync));
+        _eventSub = EventBus.Subscribe<OpenTradingDashboardEvent>(ev => InvokeAsync(() => ShowAsync(ev)));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
             if (_isVisible && e.ModalName == "Trading dashboard") InvokeAsync(Close);
         });
     }
 
-    private async Task ShowAsync()
+    private async Task ShowAsync() => await ShowAsync(null);
+
+    private async Task ShowAsync(OpenTradingDashboardEvent? request)
     {
         _orderStatus = null;
         // Nothing half-confirmed is resumable by reopening, and this is asserted on the way IN
@@ -1323,6 +1325,14 @@
         _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
         _limitPrice  = GetCurrentPrice();
+        // The chart context menu opens the dashboard with a limit ticket FILLED IN, never sent:
+        // review and confirm stay here, where every order has always been confirmed.
+        if (request?.LimitPrice is double limit && double.IsFinite(limit))
+        {
+            _orderSide = string.Equals(request.Side, "Sell", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
+            _orderType = "Limit";
+            _limitPrice = limit;
+        }
         _isVisible   = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "Trading dashboard"));
         StateHasChanged();

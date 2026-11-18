@@ -53,6 +53,7 @@ public class WorkspaceRestoreContractTests
         "IsAutoNarrated",       // N on a series
         "AnnounceAcrossSeries", // Properties → announce this series' signals from elsewhere
         "Volume",               // Properties → series volume
+        "PanePinned",           // "Move to a new pane" — without it the next load re-derives the provider pane
     };
 
     /// <summary>

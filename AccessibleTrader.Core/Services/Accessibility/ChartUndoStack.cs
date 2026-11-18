@@ -248,4 +248,38 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public void Undo() => _restore(_series);
         public void Redo() => _remove(_series.Id);
     }
+
+    /// <summary>
+    /// Several deleted series as ONE undoable edit — "Remove all drawings" reversed by one
+    /// Ctrl+Z rather than one press per drawing. Each ChartSeries is held whole for the same
+    /// reason as <see cref="SeriesDeleteUndo"/>: anchors and identity, not a lookalike.
+    /// </summary>
+    public sealed class SeriesBatchDeleteUndo : IUndoableEdit
+    {
+        private readonly IReadOnlyList<ChartSeries> _series;
+        private readonly Action<ChartSeries> _restore;
+        private readonly Action<ChartSeries> _remove;
+
+        public SeriesBatchDeleteUndo(
+            string description, IReadOnlyList<ChartSeries> series,
+            Action<ChartSeries> restore, Action<ChartSeries> remove)
+        {
+            Description = description;
+            _series = series;
+            _restore = restore;
+            _remove = remove;
+        }
+
+        public string Description { get; }
+
+        public void Undo()
+        {
+            foreach (var s in _series) _restore(s);
+        }
+
+        public void Redo()
+        {
+            foreach (var s in _series) _remove(s);
+        }
+    }
 }

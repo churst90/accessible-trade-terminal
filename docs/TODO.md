@@ -48,14 +48,15 @@ and Identity already has 2FA, lockout and rate limits.
 - [ ] **Seed Cody's P&L.** Replace his VPS `users/49698e84…/paper_account.json` with his local one, NO
   "imported" label (Cody: they are his practice trades). Back up the VPS file first; confirm before
   writing to production.
-- [ ] **"Add label here..." in the chart's context menu (Application key / right-click).** Places a text
-  label at that bar: by mouse at the clicked bar and price and in the clicked pane, by keyboard at the
-  cursor bar on the focused series' value. Then the same text dialog as Alt+Shift+L. Other context-menu
-  additions proposed 2026-11-18 wait for Cody's pick.
-- [ ] **Text labels anywhere, as on TradingView, including another pane.** Today every drawing is
-  created on the price pane (`CreateDrawingSeries` hard-codes `Pane = "Main"`) and a label anchors at
-  the bar's close. Labels (and then the other drawings) should take the pane of the focused series or
-  of the click, at any price in that pane's own scale.
+- [x] **"Add label here..." in the chart's context menu (Application key / right-click).** Done
+  2026-11-18: the chart menu resolves one "here" (bar, price, pane) for mouse and keyboard, places the
+  label through the same prompt as Alt+Shift+L, and also adds the other context-menu items requested
+  for this pass (alerts, limit tickets, copy, replay, remove all, per-series actions). The limit items
+  only prefill the dashboard; they never place an order.
+- [x] **Text labels anywhere, as on TradingView, including another pane.** Done 2026-11-18 for text
+  labels and horizontal lines: they carry a pane and a price, use the focused/clicked pane's own
+  units, render/speak/nudge/save there, and survive the indicator's removal. What is left: the other
+  drawing types (trend line, Fibonacci, rectangle, etc.) still stay on the price pane.
 - [ ] **"Add symbol (own pane)".** A third Compare mode: the series' own values in its own pane, so any
   of the 17 analytics sources (FRED, Glassnode, DefiLlama, …) can sit under a price chart without a
   wrapper indicator each. Plus a picker using the toolbar's Market, Analytics type, Provider, Symbol

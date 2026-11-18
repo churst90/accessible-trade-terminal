@@ -9,6 +9,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         void HandleAddDrawing(string type, IReadOnlyList<Ohlcv> chartData);
         void HandleMouseEvent(double x, double y, string type, double width, double height);
 
+        /// <summary>Places a text label at an explicit bar, value and pane — the chart context
+        /// menu's "Add label here". Announces and prompts exactly as Alt+Shift+L does.</summary>
+        string? AddTextLabelHere(int barIndex, double price, string pane, IReadOnlyList<Ohlcv> chartData);
+
+        /// <summary>Places a horizontal line at an explicit value and pane — the chart context
+        /// menu's "Draw a horizontal line here". Announces exactly as Alt+Shift+H does.</summary>
+        string? AddHorizontalLineHere(int barIndex, double price, string pane, IReadOnlyList<Ohlcv> chartData);
+
         /// <summary>True while a multi-point drawing is awaiting more anchors.</summary>
         bool HasPendingDrawing { get; }
 
@@ -39,6 +47,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly System.Reactive.Disposables.CompositeDisposable _subs = new();
 
         private DrawingType _pendingDrawingType = DrawingType.None;
+        /// <summary>The pane a single-point drawing was started in. Only text labels and
+        /// horizontal lines may leave the price pane; every other tool keeps Main.</summary>
+        private string _pendingDrawingPane = "Main";
         /// <summary>The points placed so far, as placed (the close, or the pointer's price) —
         /// the swing snap is applied on reading, in <see cref="PlacedPoints"/>.</summary>
         private readonly List<(DateTime Date, double Price)> _placed = new();
@@ -216,6 +227,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (drawingFlow && (type == "MouseDown" || (type == "MouseUp" && _isMouseDragging)))
                     _eventBus.Publish(new AnnouncementEvent(OutOfRoom(dataIndex, state.RightMarginBars)));
                 return;
+            }
+
+            // A label or horizontal line takes the pane the pointer is in and that pane's own
+            // value — the whole point of drawing "here" on an indicator's axis. Other tools keep
+            // the price pane, which is why this branch names them rather than widening the map.
+            if (_pendingDrawingType is DrawingType.HorizontalLine or DrawingType.TextLabel)
+            {
+                var here = ChartContextHere.FromMouse(
+                    state, dataIndex, y, height, Dividers, AxisHeightFraction, StatusBands);
+                if (here.HasPrice)
+                {
+                    price = here.Price;
+                    _pendingDrawingPane = here.Pane;
+                }
+            }
+            else if (_editSeriesId != null)
+            {
+                var editing = state.ActiveSeries.FirstOrDefault(s => s.Id == _editSeriesId);
+                string editPane = string.IsNullOrEmpty(editing?.Pane) ? "Main" : editing!.Pane;
+                if (!string.Equals(editPane, "Main", StringComparison.OrdinalIgnoreCase))
+                {
+                    var (rangeMin, rangeMax, rangeLog) = ChartMath.RangeFor(state, editPane);
+                    price = ChartMath.MapYToPriceInPane(
+                        y, height, Dividers, AxisHeightFraction, rangeMin, rangeMax, rangeLog, StatusBands);
+                }
             }
 
             System.DateTime anchorDate;
@@ -1248,7 +1284,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     d.SetAnchorDate(i + 1, points[i].Date);
                     d.SetAnchorPrice(i + 1, points[i].Price);
                 }
-                string id = CreateDrawingSeries(placedType.ToString(), d, _store.State.Data.ToList());
+                string pane = placedType is DrawingType.HorizontalLine or DrawingType.TextLabel
+                    ? _pendingDrawingPane
+                    : "Main";
+                string id = CreateDrawingSeries(placedType.ToString(), d, _store.State.Data.ToList(), pane);
                 series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == id);
             }
 
@@ -1278,6 +1317,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _previewSeriesId = null;
             _pendingDrawingType = DrawingType.None;
+            _pendingDrawingPane = "Main";
             _placed.Clear();
         }
 
@@ -1325,19 +1365,52 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return said.Trim();
         }
 
+        /// <summary>
+        /// Places a text label at an explicit bar and value in an explicit pane. The anchor goes
+        /// down first, then the same prompt Alt+Shift+L uses — so cancelling the text still leaves
+        /// the annotation where the user pointed.
+        /// </summary>
+        public string? AddTextLabelHere(int barIndex, double price, string pane, IReadOnlyList<Ohlcv> chartData)
+        {
+            if (chartData == null || barIndex < 0 || barIndex >= chartData.Count) return null;
+            double anchor = double.IsNaN(price) || double.IsInfinity(price) ? chartData[barIndex].Close : price;
+            string id = CreateDrawingSeries("Label",
+                new DrawingData { Type = DrawingType.TextLabel, AnchorDate1 = chartData[barIndex].Date, AnchorPrice1 = anchor },
+                chartData, pane);
+            _eventBus.Publish(new AnnouncementEvent($"Text label pinned at {SpeechPriceFormatter.FormatPrice(anchor)}"));
+            _eventBus.Publish(new PromptForLabelTextEvent(id));
+            return id;
+        }
+
+        /// <summary>Places a horizontal line at an explicit value in an explicit pane, with the
+        /// same sentence the Alt+Shift+H tool speaks.</summary>
+        public string? AddHorizontalLineHere(int barIndex, double price, string pane, IReadOnlyList<Ohlcv> chartData)
+        {
+            if (chartData == null || barIndex < 0 || barIndex >= chartData.Count) return null;
+            double anchor = double.IsNaN(price) || double.IsInfinity(price) ? chartData[barIndex].Close : price;
+            string id = CreateDrawingSeries("Horizontal",
+                new DrawingData { Type = DrawingType.HorizontalLine, AnchorPrice1 = anchor },
+                chartData, pane);
+            _eventBus.Publish(new AnnouncementEvent($"Horizontal line added at {SpeechPriceFormatter.FormatPrice(anchor)}"));
+            return id;
+        }
+
         public void HandleAddDrawing(string type, IReadOnlyList<Ohlcv> chartData)
         {
             if (chartData == null || !chartData.Any()) return;
 
             var state = _store.State;
             var pt = chartData[Math.Clamp(state.CurrentDataIndex, 0, chartData.Count - 1)];
+            var here = ChartContextHere.FromKeyboard(state);
+            int bar = here.HasBar ? here.BarIndex : Math.Clamp(state.CurrentDataIndex, 0, chartData.Count - 1);
+            double value = here.HasPrice ? here.Price : pt.Close;
+            string pane = here.HasBar ? here.Pane : "Main";
 
             var dType = ToolType(type);
 
             if (dType == DrawingType.HorizontalLine)
             {
-                CreateDrawingSeries("Horizontal", new DrawingData { Type = DrawingType.HorizontalLine, AnchorPrice1 = pt.Close }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Horizontal line added at {SpeechPriceFormatter.FormatPrice(pt.Close)}"));
+                AddHorizontalLineHere(bar, value, pane, chartData);
             }
             else if (dType == DrawingType.VerticalLine)
             {
@@ -1346,15 +1419,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else if (dType == DrawingType.TextLabel)
             {
-                // The anchor is placed first, then the text is asked for. Placing it first means
-                // the label exists at the price the user chose even if they cancel the prompt, and
-                // it keeps the anchor decision and the wording decision separate — which matters
-                // when the wording is being typed by someone who cannot see where the anchor went.
-                string id = CreateDrawingSeries("Label",
-                    new DrawingData { Type = DrawingType.TextLabel, AnchorDate1 = pt.Date, AnchorPrice1 = pt.Close },
-                    chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Text label pinned at {SpeechPriceFormatter.FormatPrice(pt.Close)}"));
-                _eventBus.Publish(new PromptForLabelTextEvent(id));
+                AddTextLabelHere(bar, value, pane, chartData);
             }
             else if (dType != DrawingType.None)
             {
@@ -1455,6 +1520,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             _pendingDrawingType = DrawingType.None;
+            _pendingDrawingPane = "Main";
             _placed.Clear();
             _isMouseDragging = false;
             _eventBus.Publish(new AnnouncementEvent($"{label} cancelled."));
@@ -1503,7 +1569,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     : $"Label reads: {trimmed}."));
         }
 
-        private string CreateDrawingSeries(string name, DrawingData drawing, IReadOnlyList<Ohlcv> chartData)
+        private string CreateDrawingSeries(string name, DrawingData drawing, IReadOnlyList<Ohlcv> chartData,
+            string pane = "Main")
         {
             string seriesId = Guid.NewGuid().ToString();
             var config = new SeriesConfig
@@ -1514,7 +1581,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // as one word. `name` itself still keys the component configs and must stay.
                 Name = $"{FriendlyName(drawing.Type)} ({_store.State.ActiveSeries.Count(x => x.IsDrawing) + 1})",
                 FriendlyName = $"{name} Drawing",
-                Pane = "Main"
+                Pane = string.IsNullOrWhiteSpace(pane) ? "Main" : pane
             };
 
             var dataBuffer = new SeriesDataBuffer { SeriesId = seriesId };

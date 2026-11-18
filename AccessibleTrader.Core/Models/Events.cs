@@ -138,7 +138,9 @@ namespace AccessibleTrader.Core.Models
     /// </para>
     /// </summary>
     public record OpenSettingsEvent(string? Tab = null);
-    public record OpenTradingDashboardEvent();
+    /// <summary>Alt+T, or a chart-menu limit order with the ticket prefilled. The menu NEVER
+    /// places an order: it opens the dashboard for review and confirmation.</summary>
+    public record OpenTradingDashboardEvent(string? Side = null, double? LimitPrice = null);
     public record OpenObjectTreeEvent();
 
     /// <summary>Alt+I. Carries nothing: the dossier reads the ACTIVE chart's identity, so there is
@@ -189,6 +191,9 @@ namespace AccessibleTrader.Core.Models
     public record OpenDrawingToolsEvent();
     public record OpenPropertiesEvent(string? SeriesId = null);
     public record DeleteSeriesEvent(string? SeriesId = null);
+    /// <summary>Remove every drawing on the active chart as one undoable edit. Drawings only;
+    /// indicators, the price series and annotations that are not drawings stay.</summary>
+    public record RemoveAllDrawingsEvent();
     /// <summary>Ctrl+Z — reverse the last recorded chart edit.</summary>
     public record UndoChartEditEvent();
     /// <summary>Ctrl+Y — re-apply the last undone chart edit.</summary>
@@ -226,7 +231,8 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record OpenChartContextMenuEvent(
         double ViewportX, double ViewportY, int BarIndex,
-        string? HitSeriesId = null, int HitComponentIndex = -1);
+        string? HitSeriesId = null, int HitComponentIndex = -1,
+        double ViewportHeight = double.NaN);
     /// <summary>
     /// Published by <see cref="Services.Accessibility.EarconService"/> whenever an earcon
     /// actually plays (after the enable + throttle gates), so a visual channel can
@@ -270,7 +276,13 @@ namespace AccessibleTrader.Core.Models
     public record MarketEventNoticeEvent(string Text, MarketEventImportance Importance, string EventId);
 
     // ── UI Modal Events ───────────────────────────────────────────────────────
-    public record OpenAlertsEvent();
+    /// <summary>Alt+J opens the empty form. Optional fields let the chart menu open it with a
+    /// price alert at the clicked value, or an indicator alert on a named series/component.</summary>
+    public record OpenAlertsEvent(
+        AlertTarget? Target = null,
+        string? SeriesId = null,
+        string? ComponentName = null,
+        double? Value = null);
     public record OpenStrategiesEvent();
     public record OpenCustomScriptsEvent();
     public record OpenSoundDesignerEvent();
