@@ -63,6 +63,14 @@ namespace AccessibleTrader.WebHost
                 sharedSecretPaths,
                 sp.GetRequiredService<ILogger<AccessibleTrader.Core.Services.MarketEvents.MarketEventFredFeed>>()));
 
+            // Kalshi needs no key, but its cache is process-wide in the same way, so it must also
+            // sit under this instance's own data root rather than a per-user path.
+            services.RemoveAll<AccessibleTrader.Core.Services.MarketEvents.MarketEventKalshiFeed>();
+            services.AddSingleton(sp => new AccessibleTrader.Core.Services.MarketEvents.MarketEventKalshiFeed(
+                sharedSecretPaths,
+                sp.GetRequiredService<ILogger<AccessibleTrader.Core.Services.MarketEvents.MarketEventKalshiFeed>>(),
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.IMarketEventFigureFeed>()));
+
             services.RemoveAll<WebHostSecureStorageService>();
             services.AddSingleton<WebHostSecureStorageService>(sp =>
                 new WebHostSecureStorageService(

@@ -15,12 +15,17 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     {
         private readonly IReadOnlyList<MarketEvent> _seed;
         private readonly IMarketEventFigureFeed? _feed;
+        private readonly IMarketEventExpectedFeed? _expectedFeed;
 
-        /// <summary>A calendar over the embedded seed and the live feed, or over a supplied set for a test.</summary>
-        public MarketEventCalendar(IReadOnlyList<MarketEvent>? seed = null, IMarketEventFigureFeed? feed = null)
+        /// <summary>A calendar over the embedded seed and the live feeds, or over a supplied set for a test.</summary>
+        public MarketEventCalendar(
+            IReadOnlyList<MarketEvent>? seed = null,
+            IMarketEventFigureFeed? feed = null,
+            IMarketEventExpectedFeed? expectedFeed = null)
         {
             _seed = seed ?? MarketEventSeed.Load().Events;
             _feed = feed;
+            _expectedFeed = expectedFeed;
         }
 
         /// <summary>Every event that touches <paramref name="market"/> and starts in the half-open range.</summary>
@@ -76,8 +81,52 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                         && !events.Any(x => x.Id == e.Id))
                         events.Add(e);
 
+            if (_expectedFeed != null)
+                for (int i = 0; i < events.Count; i++)
+                    events[i] = ApplyExpected(events[i]);
+
             events.Sort(Compare);
             return events;
+        }
+
+        /// <summary>
+        /// The event with every Kalshi expected figure added, as a copy. A figure the event does
+        /// not carry yet — an upcoming release with no actual row — gains an expected-only row in
+        /// its canonical unit and direction. The seed objects are never mutated.
+        /// </summary>
+        public MarketEvent ApplyExpected(MarketEvent e)
+        {
+            if (_expectedFeed == null || e.Kind != MarketEventKind.Economy) return e;
+            string source = SourceOf(e);
+            var figures = e.Figures?.Figures.ToList() ?? new List<MarketEventFigure>();
+            bool changed = false;
+
+            foreach (string name in KalshiExpectedFigures.FigureNames)
+            {
+                if (_expectedFeed.ExpectedFor(source, e.Date, name) is not double expected) continue;
+                int index = figures.FindIndex(f => string.Equals(f.Name, name, StringComparison.Ordinal));
+                if (index >= 0)
+                {
+                    if (figures[index].Expected == expected) continue;
+                    figures[index] = figures[index] with { Expected = expected };
+                }
+                else
+                {
+                    figures.Add(new MarketEventFigure(
+                        name, null, null,
+                        KalshiExpectedFigures.UnitFor(name),
+                        KalshiExpectedFigures.DirectionFor(name),
+                        expected));
+                }
+                changed = true;
+            }
+
+            if (!changed) return e;
+            return e with
+            {
+                Figures = new MarketEventFigures(
+                    figures, e.Figures?.EstimateNumber, e.Figures?.Period),
+            };
         }
 
         /// <summary>The same, filtered by the level and kind settings (Part 3).</summary>
@@ -108,6 +157,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             int byImportance = a.Importance.CompareTo(b.Importance);
             if (byImportance != 0) return byImportance;
             return string.CompareOrdinal(a.SpokenName, b.SpokenName);
+        }
+
+        private static string SourceOf(MarketEvent e)
+        {
+            int dash = e.Id.IndexOf('-');
+            return dash > 0 ? e.Id[..dash] : e.Id;
         }
 
         private static bool InRange(DateTime moment, DateTime fromUtc, DateTime toUtc)

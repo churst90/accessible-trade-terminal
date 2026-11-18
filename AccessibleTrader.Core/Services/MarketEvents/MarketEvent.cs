@@ -35,8 +35,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     }
 
     /// <summary>
-    /// Which direction is "hot" for a figure. Stored and tested, but deliberately not spoken in
-    /// stage 2: without an expected figure there is no surprise word (design doc, section 1).
+    /// Which direction is "hot" for a figure. Stage 4a speaks it as the surprise word only when
+    /// an actual and an expected figure both exist (design doc, section 1).
     /// </summary>
     public enum MarketEventFigureDirection
     {
@@ -48,13 +48,15 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// <summary>
     /// One figure from a release: what was published, the figure it is measured against, its
     /// unit and which way is hot. A null actual means that source had nothing for this release.
+    /// <see cref="Expected"/> is Kalshi's median outcome, or null when no market was stored.
     /// </summary>
     public sealed record MarketEventFigure(
         string Name,
         double? Actual,
         double? Previous,
         MarketEventFigureUnit Unit,
-        MarketEventFigureDirection Direction);
+        MarketEventFigureDirection Direction,
+        double? Expected = null);
 
     /// <summary>
     /// The figures carried by one event. <see cref="EstimateNumber"/> and <see cref="Period"/> are

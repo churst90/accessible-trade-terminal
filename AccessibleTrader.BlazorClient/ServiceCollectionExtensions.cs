@@ -468,6 +468,11 @@ namespace AccessibleTrader.BlazorClient
             // The same instance through the narrow surface the live notice service needs.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.IMarketEventFigureFeed>(
                 sp => sp.GetRequiredService<MarketEventFredFeed>());
+            // One keyless Kalshi feed per process for the expected figures; the calendar and
+            // the bar-map key watch its version beside FRED's.
+            services.AddSingleton<MarketEventKalshiFeed>();
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.IMarketEventExpectedFeed>(
+                sp => sp.GetRequiredService<MarketEventKalshiFeed>());
             // Quick trade. Equity is supplied as a delegate so the service can never reach a
             // broker itself — sizing is arithmetic and must stay unit-testable.
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.IQuickTradeService>(sp =>

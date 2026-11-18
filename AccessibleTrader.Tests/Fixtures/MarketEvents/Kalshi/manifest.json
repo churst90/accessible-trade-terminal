@@ -1,0 +1,466 @@
+{
+ "/historical/markets/CPI-24OCT-T-0.1/candlesticks": {
+  "file": "k085.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.0/candlesticks": {
+  "file": "k084.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.1/candlesticks": {
+  "file": "k083.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.2/candlesticks": {
+  "file": "k082.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.3/candlesticks": {
+  "file": "k081.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.4/candlesticks": {
+  "file": "k080.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.5/candlesticks": {
+  "file": "k079.json",
+  "status": 200
+ },
+ "/historical/markets/CPI-24OCT-T0.6/candlesticks": {
+  "file": "k078.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T-0.1/candlesticks": {
+  "file": "k113.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T0.0/candlesticks": {
+  "file": "k114.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T0.1/candlesticks": {
+  "file": "k112.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T0.2/candlesticks": {
+  "file": "k111.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T0.3/candlesticks": {
+  "file": "k110.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-25OCT-T0.4/candlesticks": {
+  "file": "k109.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T-0.1/candlesticks": {
+  "file": "k009.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T-0.2/candlesticks": {
+  "file": "k003.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T-0.3/candlesticks": {
+  "file": "k002.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.0/candlesticks": {
+  "file": "k010.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.1/candlesticks": {
+  "file": "k008.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.2/candlesticks": {
+  "file": "k007.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.3/candlesticks": {
+  "file": "k006.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.4/candlesticks": {
+  "file": "k005.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPI-26JUN-T0.5/candlesticks": {
+  "file": "k004.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.0/candlesticks": {
+  "file": "k023.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.1/candlesticks": {
+  "file": "k022.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.2/candlesticks": {
+  "file": "k021.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.3/candlesticks": {
+  "file": "k020.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.4/candlesticks": {
+  "file": "k019.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.5/candlesticks": {
+  "file": "k018.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.6/candlesticks": {
+  "file": "k017.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.7/candlesticks": {
+  "file": "k016.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.8/candlesticks": {
+  "file": "k015.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T0.9/candlesticks": {
+  "file": "k014.json",
+  "status": 200
+ },
+ "/historical/markets/KXCPICORE-26JUN-T1.0/candlesticks": {
+  "file": "k013.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T1.0/candlesticks": {
+  "file": "k062.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T1.5/candlesticks": {
+  "file": "k061.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T2.0/candlesticks": {
+  "file": "k060.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T2.5/candlesticks": {
+  "file": "k059.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T3.0/candlesticks": {
+  "file": "k058.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T3.5/candlesticks": {
+  "file": "k057.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T4.0/candlesticks": {
+  "file": "k056.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26APR30-T4.5/candlesticks": {
+  "file": "k055.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T0.0/candlesticks": {
+  "file": "k101.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T0.5/candlesticks": {
+  "file": "k102.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T1.0/candlesticks": {
+  "file": "k106.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T1.5/candlesticks": {
+  "file": "k105.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T2.0/candlesticks": {
+  "file": "k104.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T2.5/candlesticks": {
+  "file": "k103.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T3.0/candlesticks": {
+  "file": "k100.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T3.5/candlesticks": {
+  "file": "k099.json",
+  "status": 200
+ },
+ "/historical/markets/KXGDP-26JUL30-T4.0/candlesticks": {
+  "file": "k098.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T-25000/candlesticks": {
+  "file": "k035.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T0/candlesticks": {
+  "file": "k040.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T10000/candlesticks": {
+  "file": "k039.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T100000/candlesticks": {
+  "file": "k038.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T125000/candlesticks": {
+  "file": "k037.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T150000/candlesticks": {
+  "file": "k027.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T175000/candlesticks": {
+  "file": "k026.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T20000/candlesticks": {
+  "file": "k036.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T30000/candlesticks": {
+  "file": "k034.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T40000/candlesticks": {
+  "file": "k033.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T50000/candlesticks": {
+  "file": "k032.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T60000/candlesticks": {
+  "file": "k031.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T70000/candlesticks": {
+  "file": "k030.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T80000/candlesticks": {
+  "file": "k029.json",
+  "status": 200
+ },
+ "/historical/markets/KXPAYROLLS-26JUN-T90000/candlesticks": {
+  "file": "k028.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T3.9/candlesticks": {
+  "file": "k052.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.0/candlesticks": {
+  "file": "k051.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.1/candlesticks": {
+  "file": "k050.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.2/candlesticks": {
+  "file": "k049.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.3/candlesticks": {
+  "file": "k048.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.4/candlesticks": {
+  "file": "k047.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.5/candlesticks": {
+  "file": "k046.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.6/candlesticks": {
+  "file": "k045.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.7/candlesticks": {
+  "file": "k044.json",
+  "status": 200
+ },
+ "/historical/markets/KXU3-26JUN-T4.8/candlesticks": {
+  "file": "k043.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T-50000/candlesticks": {
+  "file": "k089.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T0/candlesticks": {
+  "file": "k095.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T100000/candlesticks": {
+  "file": "k094.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T150000/candlesticks": {
+  "file": "k093.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T200000/candlesticks": {
+  "file": "k092.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T250000/candlesticks": {
+  "file": "k091.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T254000/candlesticks": {
+  "file": "k088.json",
+  "status": 200
+ },
+ "/historical/markets/PAYROLLS-24OCT-T50000/candlesticks": {
+  "file": "k090.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=CPI-24OCT": {
+  "file": "k077.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXCPI-25OCT": {
+  "file": "k108.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXCPI-26JUN": {
+  "file": "k001.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXCPICORE-26JUN": {
+  "file": "k012.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXGDP-26APR30": {
+  "file": "k054.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXGDP-26JUL30": {
+  "file": "k097.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXPAYROLLS-26JUN": {
+  "file": "k025.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=KXU3-26JUN": {
+  "file": "k042.json",
+  "status": 200
+ },
+ "/historical/markets?event_ticker=PAYROLLS-24OCT": {
+  "file": "k087.json",
+  "status": 200
+ },
+ "/markets?event_ticker=CPI-24OCT": {
+  "file": "k076.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXCPI-25OCT": {
+  "file": "k107.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXCPI-26JUN": {
+  "file": "k000.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXCPI-26NOV": {
+  "file": "k115.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXCPI-26OCT": {
+  "file": "k063.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXCPICORE-26JUN": {
+  "file": "k011.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXGDP-26APR30": {
+  "file": "k053.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXGDP-26JUL30": {
+  "file": "k096.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXPAYROLLS-26JUN": {
+  "file": "k024.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXU3-26JUN": {
+  "file": "k041.json",
+  "status": 200
+ },
+ "/markets?event_ticker=PAYROLLS-24OCT": {
+  "file": "k086.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T-0.1/candlesticks": {
+  "file": "k069.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.0/candlesticks": {
+  "file": "k067.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.1/candlesticks": {
+  "file": "k070.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.2/candlesticks": {
+  "file": "k071.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.3/candlesticks": {
+  "file": "k066.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.4/candlesticks": {
+  "file": "k064.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.5/candlesticks": {
+  "file": "k068.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.6/candlesticks": {
+  "file": "k075.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.7/candlesticks": {
+  "file": "k065.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.8/candlesticks": {
+  "file": "k072.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T0.9/candlesticks": {
+  "file": "k073.json",
+  "status": 200
+ },
+ "/series/KXCPI/markets/KXCPI-26OCT-T1.0/candlesticks": {
+  "file": "k074.json",
+  "status": 200
+ }
+}

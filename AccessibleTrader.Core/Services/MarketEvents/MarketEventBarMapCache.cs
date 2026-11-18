@@ -26,6 +26,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         private readonly MarketEventCalendar _calendar;
         private readonly MarketEventFredFeed? _feed;
+        private readonly IMarketEventExpectedFeed? _kalshiFeed;
         private readonly object _gate = new();
         private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private readonly Queue<string> _order = new();
@@ -33,10 +34,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// <summary>How many times the map was actually rebuilt. A test reads it to prove reuse.</summary>
         public int BuildCount { get; private set; }
 
-        public MarketEventBarMapCache(MarketEventCalendar? calendar = null, MarketEventFredFeed? feed = null)
+        public MarketEventBarMapCache(
+            MarketEventCalendar? calendar = null,
+            MarketEventFredFeed? feed = null,
+            IMarketEventExpectedFeed? kalshiFeed = null)
         {
             _feed = feed;
-            _calendar = calendar ?? new MarketEventCalendar(feed: feed);
+            _kalshiFeed = kalshiFeed;
+            _calendar = calendar ?? new MarketEventCalendar(feed: feed, expectedFeed: kalshiFeed);
         }
 
         public IReadOnlyList<MarketEventBarPlacement> For(WorkspaceState state, DateTime nowUtc)
@@ -47,12 +52,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             // A loaded seed is enough for this read; a background fetch replaces it later and
             // bumps Version, which makes the next arrow press rebuild the map.
             _feed?.RequestRefresh(state);
+            _kalshiFeed?.RequestRefresh(state);
 
             int barSeconds = Math.Max(1, Accessibility.PlaybackNarration.BarSeconds(state));
             var market = state.SelectedMarketType;
             var zone = MarketEventChartZone.For(market);
             string key = $"{ChartPatternKey(state)}|{(int)market}|{barSeconds}|{zone.Id}"
-                + $"|feed{_feed?.Version ?? 0}";
+                + $"|feed{_feed?.Version ?? 0}"
+                + $"|kx{_kalshiFeed?.Version ?? 0}";
             var stamp = (data.Count, data[^1].Date);
 
             IReadOnlyList<MarketEventBarPlacement> placements;
