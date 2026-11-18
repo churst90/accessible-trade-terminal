@@ -23,6 +23,59 @@ The agreed order, unchanged:
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
 never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
 
+## Accounts, leaderboard and charting asks (Cody, 2026-11-18)
+
+Agreed order: the toolbar fixes (done 2026-11-18, CHANGES), then the account page, the leaderboard and
+the P&L seed, then market events stages 4 to 6, then the charting items below "as outlined". The accounts
+stay on the terminal's own ASP.NET Identity (not the PHP sites' logins): different registrable domains,
+and Identity already has 2FA, lockout and rate limits.
+
+- [ ] **Email through Brevo (Cody chose it, 2026-11-18).** Free plan, 300 a day. The terminal writes
+  every email itself (password reset, confirm a new address, "your password/email was changed" sent to
+  the old address); Brevo only delivers. Cody: Brevo account, add `accessibletrader.com` under Senders,
+  Domains, copy its records into NameSilo (brevo-code TXT on @, `brevo1._domainkey` and
+  `brevo2._domainkey` CNAMEs, `_dmarc` TXT), make an SMTP key, and put it on the VPS. Sender
+  `no-reply@accessibletrader.com`; the domain has no mailbox, so say "do not reply". Check the first test
+  email for Brevo branding. Self-hosting was checked and NOT chosen: port 25 is open from the VPS
+  (Gmail answered), but a new IP's deliverability and the shared IP of every hosted site are the risk.
+- [ ] **Account page.** Display name, change password, change email (needs the email above), leaderboard
+  opt-in (OFF by default), download my data (a zip of the user's folder), delete account; and a minimum
+  fill time on the register form's honeypot.
+- [ ] **Leaderboard on the accessibletrader.com front page.** Per `~/ATT-ACCOUNTS-LEADERBOARD-SPEC.md` on
+  the VPS: a pure calculator, a publisher every 5 minutes writing `public/leaderboard.json` atomically,
+  opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real
+  `<table>` with caption and column headers in the PHP page. Paper only (the hosted terminal is paper).
+- [ ] **Seed Cody's P&L.** Replace his VPS `users/49698e84…/paper_account.json` with his local one, NO
+  "imported" label (Cody: they are his practice trades). Back up the VPS file first; confirm before
+  writing to production.
+- [ ] **"Add label here..." in the chart's context menu (Application key / right-click).** Places a text
+  label at that bar: by mouse at the clicked bar and price and in the clicked pane, by keyboard at the
+  cursor bar on the focused series' value. Then the same text dialog as Alt+Shift+L. Other context-menu
+  additions proposed 2026-11-18 wait for Cody's pick.
+- [ ] **Text labels anywhere, as on TradingView, including another pane.** Today every drawing is
+  created on the price pane (`CreateDrawingSeries` hard-codes `Pane = "Main"`) and a label anchors at
+  the bar's close. Labels (and then the other drawings) should take the pane of the focused series or
+  of the click, at any price in that pane's own scale.
+- [ ] **"Add symbol (own pane)".** A third Compare mode: the series' own values in its own pane, so any
+  of the 17 analytics sources (FRED, Glassnode, DefiLlama, …) can sit under a price chart without a
+  wrapper indicator each. Plus a picker using the toolbar's Market, Analytics type, Provider, Symbol
+  choices instead of typed text. Analytics stay providers (TradingView treats them as symbols too).
+  Caveat to solve: FRED dates a figure by the period it measures, not its release, so a forward-filled
+  CPI would show weeks before it was known; it needs a release delay or ALFRED vintages. Untested
+  today: whether the existing Compare already accepts an analytics market.
+- [ ] **Formula charts (BTC/ETH, spreads, baskets).** A "Formula" source in the Market list: a builder
+  (leg, operator, leg, add a leg) plus a typed form with quoted symbols, `Bitstamp:"BTC/USD" /
+  Bitstamp:"ETH/USD"`, since our symbols contain "/". Legs fetched on the chart's timeframe, matched by
+  time, last value held when one market is closed. Open and close exact; high and low by the formula on
+  each part (as TradingView) and kept valid, said in the manual to be approximate; no volume. Both live
+  streams feed the last bar. Never tradeable, paper included. Today's nearest thing is "Compare symbol
+  (ratio)", a close-only line.
+- [ ] **Open questions put to Cody 2026-11-18:** colour words for histograms, profiles and the heatmap
+  (today by design only lines and signals say a colour); a TD Sequential style 9 and 13 count (none in
+  the app); and which missing TradingView features to add (line and area charts, Renko and range bars,
+  percent and indexed-to-100 scales, several charts on one screen, extended-hours sessions, and the
+  indicator template below).
+
 ## Market events, market pulse and the Go bar (Cody, 2026-11-18)
 
 The plan, the reasons and Cody's decisions are in `docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md`. Built in
