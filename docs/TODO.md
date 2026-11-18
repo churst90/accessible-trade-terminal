@@ -23,6 +23,24 @@ The agreed order, unchanged:
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
 never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
 
+## Market events, market pulse and the Go bar (Cody, 2026-11-18)
+
+The plan, the reasons and Cody's decisions are in `docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md`. Built in
+stages by DeepSeek V4.1 Flash through OpenCode (Cody: saves Claude usage); Claude writes each handoff,
+reviews, re-runs the tests and sabotages, and merges locally. Docs and the user manual with every stage.
+Decisions: an event sits on the bar of its own day, as TradingView does (after-close earnings on the
+report day); events OFF by default; earnings from Finnhub (Cody is getting the free key); the pulse list
+as proposed.
+
+- [ ] Stage 1: events on bars, the past (seeded US release dates and Fed decisions, rule-worked expiries,
+  holidays and halvings; the placement rule; the setting, off by default; the arrow clause; Alt+Shift+D;
+  apostrophe jumps). No figures, no live fetch.
+- [ ] Stage 2: live FRED dates with Cody's key, first-print actual figures, "hot" direction, landing sound.
+- [ ] Stage 3: countdowns, release read-outs (price reaction first), position-aware warnings, Alt+E calendar.
+- [ ] Stage 4: earnings (Finnhub key), Kalshi expected figures, token unlocks (check DefiLlama's free API).
+- [ ] Stage 5: market pulse (Alt+P), then the change log and catch-up (Alt+U).
+- [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.
+
 ## Trading not yet tried on a practice or real account
 
 Cody, 2026-11-16: everything else built up to 2.13 has been seen and heard; trading through the venues
