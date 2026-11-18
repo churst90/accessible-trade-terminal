@@ -45,6 +45,11 @@ public class MarketPulseServiceTests
             return timer;
         }
 
+        public int LiveTimers
+        {
+            get { lock (_gate) return _timers.Count(t => !t.Disposed); }
+        }
+
         public void Advance(TimeSpan by)
         {
             var target = _now + by;
@@ -550,5 +555,43 @@ public class MarketPulseServiceTests
         public void SaveSettings() { }
         public void ResetToDefaults() { }
         public void Reload() { }
+    }
+
+    // ── Review fixes (Claude): a slow broker and a provider without minute bars ──
+
+    [Fact]
+    public async Task AHoldingsReadThatNeverAnswersIsLeftOutAfterTwoSeconds()
+    {
+        var rig = new Rig();
+        rig.SeedPulse(new WatchlistEntry("Fmp", "^GSPC", MarketType.Index));
+        rig.Paper.GetPositionsAsync().Returns(new TaskCompletionSource<List<Position>>().Task);
+
+        var press = rig.Service.SpeakAsync(rig.State);
+        // The press may reach the holdings read on another thread; its limit's timer must
+        // exist (beside the gather timer) before the clock moves.
+        for (int i = 0; i < 250 && rig.Clock.LiveTimers < 2; i++) await Task.Delay(20);
+        Assert.Equal(2, rig.Clock.LiveTimers);
+        rig.Clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal("Gathering the pulse.", rig.Announcements[^1].Message);
+        rig.Clock.Advance(MarketPulseService.HoldingsLimit);
+
+        Assert.Same(press, await Task.WhenAny(press, Task.Delay(5000)));
+        Assert.StartsWith("S&P up", rig.Announcements[^1].Message);
+    }
+
+    [Fact]
+    public async Task AFailedMinuteFetchLeavesTheItemOnItsDailyBars()
+    {
+        var rig = new Rig();
+        rig.SeedPulse(new WatchlistEntry("Fmp", "^GSPC", MarketType.Index));
+        rig.Data.Fetch = (_, request, _) => request.Timeframe == "1m"
+            ? throw new InvalidOperationException("no one-minute bars")
+            : Task.FromResult(rig.Data.DefaultBars(request.Timeframe));
+
+        await rig.Service.SpeakAsync(rig.State);
+
+        string sentence = rig.Announcements[^1].Message;
+        Assert.StartsWith("S&P up", sentence);
+        Assert.DoesNotContain("unavailable", sentence);
     }
 }

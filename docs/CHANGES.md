@@ -24,8 +24,8 @@ All notable changes to this project will be documented in this file.
   Polygon, InteractiveBrokers otherwise; any other configured provider last, never Binance) and
   the resolver that stores the provider's own symbol spelling. `MarketPulseMath` turns daily and
   one-minute bars into a quote: today's open for a crypto midnight reference, a one-hour bar for
-  the last-24-hours setting, the previous session's close otherwise, a stale one-minute bar (or a
-  missing today bar) as the holiday test, the 09:30–16:00 Eastern equity hours and the
+  the last-24-hours setting, the previous session's close otherwise, a stale one-minute bar as
+  the holiday test, the 09:30–16:00 Eastern equity hours and the
   Friday-to-Sunday forex/commodity window through the shared exchange-time resolver, and the CBOE
   TNX ten-times adjustment. `MarketPulseWording` builds the sentence.
 - **The live half.** `MarketPulseService` (singleton on MAUI, scoped on the WebHost) fetches every
@@ -41,8 +41,9 @@ All notable changes to this project will be documented in this file.
   unknown value reads as midnight.
 - **Caveats.** The whole sentence is limited to four seconds, so a slow provider becomes
   "unavailable" rather than delaying or improving the answer. The US-hours closed rule has no
-  holiday calendar of its own: it relies on the stale-minute-bar test (and a missing today bar),
-  so a US holiday that still publishes a fresh-looking bar is not detected. Index CFDs that trade
+  holiday calendar of its own: it relies on the stale-minute-bar test, so a US holiday that still
+  publishes a fresh-looking bar is not detected. The holdings read has its own two-second limit
+  before the four-second fetch, so the slowest possible press is about six seconds. Index CFDs that trade
   nearly 24 hours are still treated as closed outside 09:30–16:00 Eastern. Symbol candidates are
   a fixed table and were never tried against live providers in this build. The listening test was
   not run: **not heard by Cody.**
@@ -61,6 +62,20 @@ All notable changes to this project will be documented in this file.
   previous daily close (**2 red**), TNX ÷10 dropped (**1 red**), Binance allowed to be picked
   (**1 red**), per-provider in-flight limit raised from four to one hundred (**1 red**). Each was
   restored and compared byte-for-byte.
+- **Review fix (Claude): daily bars that are not stamped 00:00 UTC, late daily bars, a slow
+  broker and missing minute bars.** "Today's bar" was judged by its UTC date, so Oanda's forex
+  bar (stamped 17:00 New York the evening before) read as yesterday's all day and the change came
+  out near flat, and a crypto bar stamped midnight New York measured from the wrong open between
+  midnight UTC and 05:00. It is now "the bar in progress": opened at or before now and less than a
+  day ago. A closed market's session is the New York date half a day into its bar, so Oanda's
+  Friday bar no longer reads "Thursday". During US hours a missing daily bar no longer closes the
+  market when fresh minute bars exist (some providers publish the day's bar only after the
+  close); the change is then measured from the newest daily close. A failed one-minute fetch
+  leaves the item on its daily bars instead of making it "unavailable", and the holdings read is
+  held to two seconds and skipped if it misses, instead of holding up the whole sentence. Six
+  tests; each fix was sabotaged back and went red (in-progress by UTC date **2 red**, session by
+  UTC date **1 red**, missing daily bar closes **1 red**, minute failure fails the item **1 red**,
+  unbounded holdings **1 red**), restored and compared byte-for-byte.
 
 ### Market events stage 4a: expected figures from Kalshi, 2026-11-18
 

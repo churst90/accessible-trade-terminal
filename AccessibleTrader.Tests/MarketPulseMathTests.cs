@@ -290,4 +290,76 @@ public class MarketPulseMathTests
         Assert.Equal(PulseCryptoStart.MidnightUtc, MarketPulseSettings.Parse("bogus"));
         Assert.Equal(PulseCryptoStart.Last24Hours, MarketPulseSettings.Parse("last24h"));
     }
+
+    // ── Review fixes (Claude): daily bars stamped other than 00:00 UTC, and late daily bars ──
+
+    [Fact]
+    public void AStockWithoutTodaysDailyBarButFreshMinuteBarsIsOpenAgainstTheNewestClose()
+    {
+        // Some providers publish the day's bar only after the close.
+        var now = Utc(2026, 11, 18, 15, 0);
+        var daily = new[]
+        {
+            Bar(Utc(2026, 11, 16), 98, 99),
+            Bar(Utc(2026, 11, 17), 99, 100),
+        };
+        var intraday = new[] { Bar(Utc(2026, 11, 18, 14, 59), 102, 103) };
+
+        var quote = Quote(Sp, daily, intraday, now);
+
+        Assert.Equal(MarketPulseKind.Change, quote.Kind);
+        Assert.Equal(3d, quote.Change, Tolerance);
+    }
+
+    [Fact]
+    public void AnOandaDailyBarStampedFivePmEasternTheEveningBeforeIsTodaysSession()
+    {
+        // Oanda stamps Wednesday's forex bar 17:00 New York on Tuesday (22:00 UTC in November).
+        var now = Utc(2026, 11, 18, 15, 0);
+        var daily = new[]
+        {
+            Bar(Utc(2026, 11, 16, 22), 1.08, 1.09),
+            Bar(Utc(2026, 11, 17, 22), 1.09, 1.10),
+        };
+        var intraday = new[] { Bar(Utc(2026, 11, 18, 14, 59), 1.10, 1.111) };
+
+        var quote = Quote(EurUsd, daily, intraday, now);
+
+        Assert.Equal(MarketPulseKind.Change, quote.Kind);
+        Assert.Equal((1.111d - 1.09d) / 1.09d * 100d, quote.Change, Tolerance);
+    }
+
+    [Fact]
+    public void AClosedOandaFridayBarStampedThursdayEveningIsSpokenAsFriday()
+    {
+        var now = Utc(2026, 11, 21, 14, 0);
+        var daily = new[]
+        {
+            Bar(Utc(2026, 11, 18, 22), 1.10, 1.10),
+            Bar(Utc(2026, 11, 19, 22), 1.10, 1.09),
+        };
+
+        var quote = Quote(EurUsd, daily, Array.Empty<Ohlcv>(), now);
+
+        Assert.Equal(MarketPulseKind.Closed, quote.Kind);
+        Assert.Equal(new DateOnly(2026, 11, 20), quote.SessionDate);
+    }
+
+    [Fact]
+    public void ACryptoDailyBarStampedMidnightNewYorkStillMeasuresFromItsOpen()
+    {
+        // 05:00 UTC is midnight New York in November; at 03:00 UTC on the 19th it is still
+        // the bar in progress, though its UTC date is the 18th.
+        var now = Utc(2026, 11, 19, 3, 0);
+        var daily = new[]
+        {
+            Bar(Utc(2026, 11, 17, 5), 100, 105),
+            Bar(Utc(2026, 11, 18, 5), 110, 120),
+        };
+        var intraday = new[] { Bar(Utc(2026, 11, 19, 2, 59), 124, 121) };
+
+        var quote = Quote(Btc, daily, intraday, now);
+
+        Assert.Equal((121d - 110d) / 110d * 100d, quote.Change, Tolerance);
+    }
 }

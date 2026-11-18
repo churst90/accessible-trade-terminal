@@ -50,23 +50,12 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             if (IsClosed(entry.Market, daily, intraday, nowUtc))
                 return ClosedQuote(daily[^1], daily[^2], name, isYield);
 
+            // While the newest daily bar is the day still being traded, the bar before it holds
+            // the previous close. Otherwise the newest bar is the previous session: a Sunday
+            // evening forex session has no bar yet, and some providers publish the day's bar only
+            // after the close (IsClosed checked the minute bars are fresh).
             var newest = daily[^1];
-            double reference;
-            if (entry.Market is MarketType.Forex or MarketType.Commodity)
-            {
-                // Forex and commodities trade in a window that spans the UTC date line, so a
-                // Sunday evening session has no "today" daily bar yet. Its previous close is the
-                // newest daily close; when the provider does publish today's bar, the one before
-                // it is the stated start.
-                reference = AtUtcDate(newest.Date, nowUtc)
-                    ? daily[^2].Close
-                    : newest.Close;
-            }
-            else
-            {
-                // IsClosed guarantees today's daily bar exists on the open path.
-                reference = daily[^2].Close;
-            }
+            double reference = InProgress(newest, nowUtc) ? daily[^2].Close : newest.Close;
 
             double last = intraday.Count > 0 ? intraday[^1].Close : newest.Close;
             int? minutesOld = MinutesOld(intraday, nowUtc);
@@ -96,7 +85,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             else
             {
                 var newest = daily[^1];
-                reference = AtUtcDate(newest.Date, nowUtc) ? newest.Open : newest.Close;
+                reference = InProgress(newest, nowUtc) ? newest.Open : newest.Close;
                 last = intraday.Count > 0 ? intraday[^1].Close : newest.Close;
             }
 
@@ -139,7 +128,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
         private static MarketPulseQuote ClosedQuote(
             Ohlcv newest, Ohlcv previous, string name, bool isYield)
         {
-            var session = DateOnly.FromDateTime(newest.Date);
+            var session = SessionDate(newest);
             if (isYield)
             {
                 double last = newest.Close;
@@ -203,17 +192,17 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return true;
             if (time < UsOpen || time >= UsClose) return true;
 
-            // A missing today bar during the session is a holiday as surely as a stale minute
-            // bar: there is no session to measure a change in.
-            if (!AtUtcDate(daily[^1].Date, nowUtc)) return true;
-
+            // In hours, the minute bars decide: a newest minute bar more than fifteen minutes old
+            // is a holiday. Some providers publish the day's bar only after the close, so a
+            // missing daily bar alone does not close the market; with no minute bars at all,
+            // the day's bar must be in progress.
             if (intraday.Count > 0)
             {
                 var end = AsUtc(intraday[^1].Date).AddMinutes(1);
-                if (nowUtc - end > FifteenMinutes) return true;
+                return nowUtc - end > FifteenMinutes;
             }
 
-            return false;
+            return !InProgress(daily[^1], nowUtc);
         }
 
         private static int? MinutesOld(IReadOnlyList<Ohlcv> intraday, DateTime nowUtc)
@@ -225,8 +214,26 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             return (int)Math.Floor(age.TotalMinutes);
         }
 
-        private static bool AtUtcDate(DateTime barDate, DateTime nowUtc)
-            => AsUtc(barDate).Date == nowUtc.Date;
+        /// <summary>
+        /// True when <paramref name="bar"/> is the day still being traded: its open is at or
+        /// before now and less than a day ago. Providers stamp a daily bar differently (00:00 UTC,
+        /// midnight New York, the session open, or 17:00 New York the evening before for Oanda's
+        /// forex), so the bar's UTC date alone is not "today".
+        /// </summary>
+        private static bool InProgress(Ohlcv bar, DateTime nowUtc)
+        {
+            var open = AsUtc(bar.Date);
+            return open <= nowUtc && nowUtc - open < TimeSpan.FromDays(1);
+        }
+
+        /// <summary>
+        /// The New York date of the session a daily bar describes, read half a day into the bar:
+        /// right for bars stamped at 00:00 UTC, at midnight New York, at the session open, and at
+        /// 17:00 New York the evening before.
+        /// </summary>
+        private static DateOnly SessionDate(Ohlcv bar)
+            => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+                AsUtc(bar.Date).AddHours(12), ExchangeTime.UsEastern));
 
         private static DateTime AsUtc(DateTime value) => value.Kind switch
         {

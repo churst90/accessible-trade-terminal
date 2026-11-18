@@ -35,6 +35,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
         private const int MaxRequestsPerProvider = 4;
         private static readonly TimeSpan FetchLimit = TimeSpan.FromSeconds(4);
         private static readonly TimeSpan GatherNoticeAfter = TimeSpan.FromSeconds(1);
+        internal static readonly TimeSpan HoldingsLimit = TimeSpan.FromSeconds(2);
 
         private readonly IWatchlistLibrary _watchlists;
         private readonly IDataService _data;
@@ -156,7 +157,15 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                 entries = existing.Entries;
             }
 
-            var held = await ReadHeldEntriesAsync(state).ConfigureAwait(false);
+            // The holdings read is held to its own short limit: a slow broker must not hold up
+            // the sentence. Missed holdings are left out of this reading.
+            var heldRead = ReadHeldEntriesAsync(state);
+            using (var heldLimit = new CancellationTokenSource(HoldingsLimit, _time))
+            {
+                var waited = Task.Delay(Timeout.InfiniteTimeSpan, heldLimit.Token);
+                await Task.WhenAny(heldRead, waited).ConfigureAwait(false);
+            }
+            var held = heldRead.IsCompletedSuccessfully ? heldRead.Result : new List<WatchlistEntry>();
             if (held.Count == 0) return (entries, seeded, leftOut);
 
             var combined = entries.ToList();
@@ -441,7 +450,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             try
             {
                 var primary = FetchAsync(entry, primaryTimeframe, primaryLimit, gate, token);
-                var intraday = FetchAsync(entry, "1m", 3, gate, token);
+                var intraday = FetchIntradayAsync(entry, gate, token);
                 await Task.WhenAll(primary, intraday).ConfigureAwait(false);
 
                 return MarketPulseMath.Quote(
@@ -463,6 +472,30 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                     MarketPulseDefaults.SpokenName(entry),
                     MarketPulseKind.Unavailable,
                     IsYield: MarketPulseDefaults.IsYield(entry));
+            }
+        }
+
+        /// <summary>
+        /// The minute bars only sharpen a quote (age, last price, a holiday); the daily bars carry
+        /// the change. A provider without one-minute bars, or a minute fetch that fails, leaves
+        /// the item on its daily bars instead of making it "unavailable".
+        /// </summary>
+        private async Task<IReadOnlyList<Ohlcv>> FetchIntradayAsync(
+            WatchlistEntry entry, SemaphoreSlim gate, CancellationToken token)
+        {
+            try
+            {
+                return await FetchAsync(entry, "1m", 3, gate, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug("Market pulse minute bars failed for {Provider}: {Type}.",
+                    entry.Provider, ex.GetType().Name);
+                return Array.Empty<Ohlcv>();
             }
         }
 
