@@ -1,0 +1,473 @@
+@*
+    Market event calendar (Alt+E) — days as headings, one line per event, and the two things a
+    line can do besides take the chart to its bar: set an alert for this event, or read the last
+    six releases of the same source.
+
+    The screen opens whatever the Level setting is: it was asked for. The filters start from the
+    user's level and kinds so it feels continuous with the chart, or from "important only" with
+    every kind when the level is Off (there is no level to start from then).
+
+    All the words live in MarketEventCalendarWording; this file only renders and decides which
+    events pass the filters.
+*@
+@inherits ModalBase
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Accessibility
+@using AccessibleTrader.Core.Services.MarketEvents
+@using AccessibleTrader.Sdk.Enums
+@using AccessibleTrader.Sdk.Interfaces
+@using AccessibleTrader.Sdk.Models
+@inject IWorkspaceStore Store
+@inject IServiceProvider Services
+@inject ISpeechFeedbackRouter SpeechRouter
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content"
+             role="dialog" data-modal-name="MarketEventCalendar"
+             aria-modal="true"
+             aria-labelledby="market-event-calendar-title"
+             style="max-width: 900px; width: 90vw;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="market-event-calendar-title" tabindex="-1">Market events</h2>
+
+            <p style="color:var(--text-muted); font-size:0.9em; margin: 4px 0 12px 0;">
+                @_status
+            </p>
+
+            <div role="group" aria-label="Filters"
+                 style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">
+                <div>
+                    <label for="mec-range">Range</label><br />
+                    <select id="mec-range" value="@_range"
+                            @onchange="e => SetRange(e.Value?.ToString())">
+                        <option value="next7" selected="@(_range == "next7")">Next 7 days</option>
+                        <option value="next30" selected="@(_range == "next30")">Next 30 days</option>
+                        <option value="past30" selected="@(_range == "past30")">Past 30 days</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="mec-importance">Importance</label><br />
+                    <select id="mec-importance" value="@_importance"
+                            @onchange="e => SetImportance(e.Value?.ToString())">
+                        <option value="importantOnly" selected="@(_importance == "importantOnly")">Important only</option>
+                        <option value="importantAndMedium" selected="@(_importance == "importantAndMedium")">Important and medium</option>
+                        <option value="all" selected="@(_importance == "all")">All</option>
+                    </select>
+                </div>
+                <fieldset style="border:1px solid var(--border-color); padding:6px 10px; margin:0;">
+                    <legend style="font-weight:700; padding:0 4px;">Kinds</legend>
+                    <label for="mec-economy">
+                        <input id="mec-economy" type="checkbox" checked="@_economy"
+                               @onchange="e => SetKind(Kind.Economy, e.Value is bool b && b)" /> Economy
+                    </label>
+                    <label for="mec-fed" style="margin-left:8px;">
+                        <input id="mec-fed" type="checkbox" checked="@_fed"
+                               @onchange="e => SetKind(Kind.Fed, e.Value is bool b && b)" /> Fed
+                    </label>
+                    <label for="mec-expiries" style="margin-left:8px;">
+                        <input id="mec-expiries" type="checkbox" checked="@_expiries"
+                               @onchange="e => SetKind(Kind.Expiries, e.Value is bool b && b)" /> Expiries
+                    </label>
+                    <label for="mec-holidays" style="margin-left:8px;">
+                        <input id="mec-holidays" type="checkbox" checked="@_holidays"
+                               @onchange="e => SetKind(Kind.Holidays, e.Value is bool b && b)" /> Holidays
+                    </label>
+                    <label for="mec-halvings" style="margin-left:8px;">
+                        <input id="mec-halvings" type="checkbox" checked="@_halvings"
+                               @onchange="e => SetKind(Kind.Halvings, e.Value is bool b && b)" /> Bitcoin halvings
+                    </label>
+                </fieldset>
+                <label for="mec-touching">
+                    <input id="mec-touching" type="checkbox" checked="@_onlyTouching"
+                           @onchange="e => SetOnlyTouching(e.Value is bool b && b)" />
+                    Only events touching my charts and positions
+                </label>
+            </div>
+
+            @if (_days.Count == 0)
+            {
+                <p>No events in this range with these filters.</p>
+            }
+            else
+            {
+                @foreach (var day in _days)
+                {
+                    <h3 style="margin:14px 0 6px 0;">@MarketEventCalendarWording.DayHeading(day.Day)</h3>
+                    <ul style="list-style:none; padding-left:0; margin:0;">
+                        @foreach (var e in day.Events)
+                        {
+                            <li style="margin-bottom:12px;">
+                                <button type="button"
+                                        style="display:block; text-align:left; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:transparent; color:#ccc; cursor:pointer;"
+                                        @onclick="() => OpenEvent(e)">
+                                    @MarketEventCalendarWording.EventLine(e, _now)
+                                </button>
+
+                                @if (e.Precision == MarketEventPrecision.DayOnly)
+                                {
+                                    <button type="button" disabled
+                                            aria-label="No set time for @e.SpokenName, @MarketEventCalendarWording.ShortDate(e.Date)">
+                                        No set time
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            aria-pressed="@(IsWatched(e) ? "true" : "false")"
+                                            aria-label="@MarketEventCalendarWording.WatchLabel(e)"
+                                            @onclick="() => ToggleWatch(e)">
+                                        Alert me before
+                                    </button>
+                                }
+
+                                <button type="button"
+                                        aria-expanded="@(IsExpanded(e) ? "true" : "false")"
+                                        aria-controls="mec-history-@e.Id"
+                                        aria-label="@MarketEventCalendarWording.HistoryLabel(e)"
+                                        @onclick="() => ToggleHistory(e)">
+                                    History
+                                </button>
+
+                                @if (IsExpanded(e))
+                                {
+                                    var history = HistoryFor(e);
+                                    <div id="mec-history-@e.Id" style="margin-top:6px;">
+                                        @if (history.Count == 0)
+                                        {
+                                            <p>No earlier releases.</p>
+                                        }
+                                        else
+                                        {
+                                            <ul>
+                                                @foreach (var h in history)
+                                                {
+                                                    <li>@HistoryLine(h)</li>
+                                                }
+                                            </ul>
+                                        }
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+
+            <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                <button @onclick="CloseModal" aria-label="Close market event calendar dialog">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Kind { Economy, Fed, Expiries, Holidays, Halvings }
+
+    private sealed record DayGroup(DateOnly Day, IReadOnlyList<MarketEvent> Events);
+
+    private static readonly IReadOnlyList<MarketType> AllMarkets = Enum.GetValues<MarketType>();
+
+    private string _status = "";
+    private string _range = "next7";
+    private string _importance = "importantOnly";
+    private bool _economy = true;
+    private bool _fed = true;
+    private bool _expiries = true;
+    private bool _holidays = true;
+    private bool _halvings = true;
+    private bool _onlyTouching;
+    private DateTime _now = DateTime.UtcNow;
+    private IReadOnlyList<DayGroup> _days = Array.Empty<DayGroup>();
+    private List<string> _watched = new();
+    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
+
+    private MarketEventFredFeed? _feed;
+    private bool _feedResolved;
+    private MarketEventCalendar? _calendar;
+    private MarketEventLiveNotices? _live;
+    private bool _liveResolved;
+    private IMarketEventBarMapCache? _map;
+    private MarketEventNavigator? _navigator;
+    private TimeProvider? _clock;
+
+    private MarketEventFredFeed? Feed
+    {
+        get
+        {
+            if (!_feedResolved)
+            {
+                _feed = Services.GetService(typeof(MarketEventFredFeed)) as MarketEventFredFeed;
+                _feedResolved = true;
+            }
+            return _feed;
+        }
+    }
+
+    private MarketEventCalendar Calendar
+        => _calendar ??= Services.GetService(typeof(MarketEventCalendar)) as MarketEventCalendar
+            ?? new MarketEventCalendar(feed: Feed);
+
+    private MarketEventLiveNotices? Live
+    {
+        get
+        {
+            if (!_liveResolved)
+            {
+                _live = Services.GetService(typeof(MarketEventLiveNotices)) as MarketEventLiveNotices;
+                _liveResolved = true;
+            }
+            return _live;
+        }
+    }
+
+    private IMarketEventBarMapCache Map
+        => _map ??= Services.GetService(typeof(IMarketEventBarMapCache)) as IMarketEventBarMapCache
+            ?? new MarketEventBarMapCache(Calendar, Feed);
+
+    private MarketEventNavigator Navigator
+        => _navigator ??= Services.GetService(typeof(MarketEventNavigator)) as MarketEventNavigator
+            ?? new MarketEventNavigator(Store, EventBus, Map);
+
+    private TimeProvider Clock
+        => _clock ??= Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenMarketEventCalendarEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _now = Clock.GetUtcNow().UtcDateTime;
+
+        var state = Store.State;
+        var level = MarketEventSettings.Level(state);
+        _importance = level switch
+        {
+            MarketEventLevel.ImportantAndMedium => "importantAndMedium",
+            MarketEventLevel.All => "all",
+            _ => "importantOnly",
+        };
+
+        var kinds = level == MarketEventLevel.Off
+            ? MarketEventKindFilter.All
+            : MarketEventSettings.Kinds(state);
+        _economy = kinds.Economy;
+        _fed = kinds.Fed;
+        _expiries = kinds.Expiries;
+        _holidays = kinds.Holidays;
+        _halvings = kinds.Halvings;
+
+        _range = "next7";
+        _onlyTouching = false;
+        _watched = MarketEventSettings.Watched(state).ToList();
+        _expanded.Clear();
+
+        await RefreshStatusAsync();
+        Rebuild();
+
+        await ShowModalAsync("market-event-calendar-title");
+    }
+
+    /// <summary>
+    /// The FRED feed's own status sentence, in a paragraph. No network: GetStatusAsync only
+    /// checks for a key. With no feed registered (a test, or a head without one) the seed's
+    /// no-key sentence is the honest answer.
+    /// </summary>
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            _status = Feed == null
+                ? MarketEventFeedStatus.SeedOnly().Describe()
+                : (await Feed.GetStatusAsync()).Describe();
+        }
+        catch
+        {
+            _status = MarketEventFeedStatus.SeedOnly().Describe();
+        }
+    }
+
+    private void Rebuild()
+    {
+        var (from, to) = RangeBounds();
+        var kinds = KindFilter;
+        var openMarkets = MarketEventLiveNotices.OpenMarkets(Store.State);
+        var heldMarkets = Live?.HeldMarkets ?? Array.Empty<MarketType>();
+
+        _days = Calendar.Between(from, to, AllMarkets)
+            .Where(e => PassesImportance(e.Importance))
+            .Where(e => kinds.Includes(e.Kind))
+            .Where(e => !_onlyTouching
+                || MarketEventNoticePlanner.Touches(e, openMarkets, heldMarkets))
+            .GroupBy(e => e.Date)
+            .OrderBy(g => g.Key)
+            .Select(g => new DayGroup(
+                g.Key,
+                g.OrderBy(e => e.MomentUtc)
+                    .ThenBy(e => e.Importance)
+                    .ThenBy(e => e.SpokenName, StringComparer.Ordinal)
+                    .ToList()))
+            .ToList();
+    }
+
+    private (DateTime From, DateTime To) RangeBounds()
+    {
+        DateTime today = DateTime.SpecifyKind(_now.Date, DateTimeKind.Utc);
+        return _range switch
+        {
+            "next30" => (today, today.AddDays(30)),
+            "past30" => (_now.AddDays(-30), _now),
+            _ => (today, today.AddDays(7)),
+        };
+    }
+
+    private MarketEventKindFilter KindFilter => new(
+        Economy: _economy,
+        Fed: _fed,
+        Expiries: _expiries,
+        Holidays: _holidays,
+        Halvings: _halvings);
+
+    private bool PassesImportance(MarketEventImportance importance) => _importance switch
+    {
+        "all" => true,
+        "importantAndMedium" => importance != MarketEventImportance.Low,
+        _ => importance == MarketEventImportance.High,
+    };
+
+    private void SetRange(string? value)
+    {
+        if (value is { Length: > 0 }) _range = value;
+        Rebuild();
+    }
+
+    private void SetImportance(string? value)
+    {
+        if (value is { Length: > 0 }) _importance = value;
+        Rebuild();
+    }
+
+    private void SetKind(Kind kind, bool on)
+    {
+        switch (kind)
+        {
+            case Kind.Economy: _economy = on; break;
+            case Kind.Fed: _fed = on; break;
+            case Kind.Expiries: _expiries = on; break;
+            case Kind.Holidays: _holidays = on; break;
+            default: _halvings = on; break;
+        }
+        Rebuild();
+    }
+
+    private void SetOnlyTouching(bool on)
+    {
+        _onlyTouching = on;
+        Rebuild();
+    }
+
+    private bool IsWatched(MarketEvent e) => _watched.Contains(e.Id);
+
+    private IReadOnlyList<int> EffectiveLeads()
+    {
+        var leads = MarketEventCountdowns.Parse(Store.State.MarketEventsCountdowns);
+        return leads.Count == 0 ? MarketEventCountdowns.DefaultLeads : leads;
+    }
+
+    /// <summary>
+    /// Write the watched list and announce what changed. The list is pruned against every event
+    /// this screen can resolve before it is stored, so an old watch does not survive forever.
+    /// </summary>
+    private void ToggleWatch(MarketEvent e)
+    {
+        bool nowWatched = !IsWatched(e);
+        var next = nowWatched
+            ? _watched.Append(e.Id).ToList()
+            : _watched.Where(id => !string.Equals(id, e.Id, StringComparison.Ordinal)).ToList();
+
+        var known = Calendar.Between(
+            _now.AddDays(-40), _now.AddDays(400), AllMarkets);
+        next = MarketEventWatchList.Prune(next, known, _now).ToList();
+
+        _watched = next;
+        Store.Dispatch(new UpdateSettingsAction(s => s with
+        {
+            MarketEventsWatched = next,
+        }));
+
+        SpeechRouter.Speak(
+            MarketEventCalendarWording.WatchAnnouncement(e, nowWatched, EffectiveLeads()),
+            interrupt: true,
+            channel: SpeechChannel.Interface);
+    }
+
+    /// <summary>
+    /// Enter (or a click) on the event line. The same navigation the apostrophe jump uses; when
+    /// the event is not on the loaded bars the screen stays open and says why.
+    /// </summary>
+    private void OpenEvent(MarketEvent e)
+    {
+        if (Navigator.JumpTo(e))
+        {
+            CloseModal();
+            return;
+        }
+
+        SpeechRouter.Speak(
+            MarketEventCalendarWording.NotOnBars(e),
+            interrupt: true,
+            channel: SpeechChannel.Interface);
+    }
+
+    private bool IsExpanded(MarketEvent e) => _expanded.Contains(e.Id);
+
+    private void ToggleHistory(MarketEvent e)
+    {
+        if (!_expanded.Add(e.Id)) _expanded.Remove(e.Id);
+    }
+
+    private IReadOnlyList<MarketEvent> HistoryFor(MarketEvent e)
+    {
+        DateTime from = DateTime.SpecifyKind(
+            e.Date.AddYears(-2).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        DateTime to = DateTime.SpecifyKind(
+            e.Date.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        return MarketEventCalendarWording.History(
+            e, Calendar.Between(from, to, AllMarkets));
+    }
+
+    /// <summary>
+    /// The release's line with the focused chart's price move, when that bar is loaded and the
+    /// chart touches the event's market. The bar comes from the same map the chart's own events
+    /// use, so calendar and chart can never name different bars.
+    /// </summary>
+    private string HistoryLine(MarketEvent h)
+        => MarketEventCalendarWording.HistoryLine(h, HistoryBar(h));
+
+    private Ohlcv? HistoryBar(MarketEvent h)
+    {
+        var state = Store.State;
+        if (state.Data == null || state.Data.Count == 0) return null;
+
+        var market = MarketEventLiveNotices.MarketOfChart(state);
+        if (market is not { } touched || !h.Touches(touched)) return null;
+
+        var placement = Map.For(state, _now)
+            .FirstOrDefault(p => p.IsPlaced && p.Event.Id == h.Id);
+        if (placement == null || placement.BarIndex < 0 || placement.BarIndex >= state.Data.Count)
+            return null;
+
+        return ChartMath.BarAsDrawn(state.Data, placement.BarIndex, state.IsHeikinAshi);
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+    }
+}

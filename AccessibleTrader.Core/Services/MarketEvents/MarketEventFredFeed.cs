@@ -27,6 +27,21 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         string? FailureReason,
         DateOnly SeedNewestReleaseDate)
     {
+        /// <summary>
+        /// The status when no feed is registered: the seed's newest economic release date and the
+        /// no-key sentence. The calendar screen uses this in a host or a test with no feed.
+        /// </summary>
+        public static MarketEventFeedStatus SeedOnly()
+        {
+            var seedDate = MarketEventSeed.Load().Events
+                .Where(e => e.Kind == MarketEventKind.Economy)
+                .Select(e => e.Date)
+                .DefaultIfEmpty(default)
+                .Max();
+            return new MarketEventFeedStatus(
+                MarketEventFeedState.NoKey, null, null, null, seedDate);
+        }
+
         /// <summary>The exact status sentence shown beside the Level select and spoken on update.</summary>
         public string Describe()
         {

@@ -26,6 +26,17 @@ public class MarketEventKeyBindingTests
         => Assert.Equal(expected, Fresh().GetCommand(key, shift, ctrl: false, alt: false));
 
     [Fact]
+    public void AltE_OpensTheMarketEventCalendar_AndAltShiftEStaysTheFibExtension()
+    {
+        var mgr = Fresh();
+
+        Assert.Equal(SystemCommand.OpenMarketEventCalendar,
+            mgr.GetCommand("E", shift: false, ctrl: false, alt: true));
+        Assert.Equal(SystemCommand.DrawFibExtension,
+            mgr.GetCommand("E", shift: true, ctrl: false, alt: true));
+    }
+
+    [Fact]
     public void NoOtherDefaultBindingUsesApostrophe()
     {
         var apostropheBindings = Fresh().CurrentProfile.Shortcuts

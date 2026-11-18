@@ -282,6 +282,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenMyData: _eventBus.Publish(new OpenMyDataEvent()); return;
                 case SystemCommand.OpenWatchlist: _eventBus.Publish(new OpenWatchlistEvent()); return;
                 case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
+                case SystemCommand.OpenMarketEventCalendar: _eventBus.Publish(new OpenMarketEventCalendarEvent()); return;
 
                 // ── Orientation and recovery ──────────────────────────────
                 // "What am I looking at?" — the question a sighted user answers by glancing at

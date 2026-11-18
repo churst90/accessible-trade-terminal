@@ -62,6 +62,8 @@ public class ModalFocusTargetContractTests
             "a report; nothing to type"),
         new("LoadWorkspaceModal",    "load-workspace-title",
             "a chooser over a list, not a single-value form: the list is the content"),
+        new("MarketEventCalendarModal", "market-event-calendar-title",
+            "a calendar/report surface; the heading names the screen before its filters"),
         new("MyDataModal",           "mydata-title",
             "file import, multi-step; the heading frames the steps"),
         new("ObjectTreeModal",       "objtree-title",

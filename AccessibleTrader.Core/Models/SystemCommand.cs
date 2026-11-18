@@ -29,6 +29,7 @@ namespace AccessibleTrader.Core.Models
         OpenMyData,         // Ctrl+Alt+Shift+I: import/manage My Data CSV datasets
         OpenWatchlist,      // Alt+M: market watch — watchlists + the screener
         OpenLevelReport,    // Alt+R: respect report — which lines this market actually honours
+        OpenMarketEventCalendar, // Alt+E: the market event calendar (days, filters, alerts, history)
         ReplayToggle,       // Ctrl+Alt+Shift+P: start bar replay at the cursor / stop it
         ReplayStepForward,  // F9: reveal the next bar
         ReplayStepBack,     // Shift+F9: hide the last revealed bar

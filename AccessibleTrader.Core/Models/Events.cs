@@ -330,6 +330,9 @@ namespace AccessibleTrader.Core.Models
     public record LoadChartRequestedEvent();
     public record OpenJournalEvent();
 
+    /// <summary>Alt+E — the market event calendar: days, filters, alerts and release history.</summary>
+    public record OpenMarketEventCalendarEvent();
+
     /// <summary>Ctrl+Alt+Shift+M — ask the background monitoring service to speak its
     /// status summary ("Monitoring 3 workspaces: KAS current, 1 strategy. ...").</summary>
     public record AnnounceMonitoringStatusEvent();

@@ -115,6 +115,9 @@
                                   Tooltip="Open level respect report, Alt plus R"
                                   OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
             }
+            <ToolbarIconButton Icon="analytics" Label="Market events" Variant="thought"
+                              Tooltip="Open the market event calendar, Alt plus E"
+                              OnClick="() => EventBus.Publish(new OpenMarketEventCalendarEvent())" />
             <ToolbarIconButton Icon="journal" Label="Trade journal" Variant="neutral"
                               Tooltip="Open trade journal, Control plus Alt plus Shift plus J"
                               OnClick="() => EventBus.Publish(new OpenJournalEvent())" />

@@ -65,6 +65,7 @@ namespace AccessibleTrader.Tests
         {
             new object[] { "Watchlist and screener", "OpenWatchlistEvent" },
             new object[] { "Level respect report",   "OpenLevelReportEvent" },
+            new object[] { "Market event calendar",  "OpenMarketEventCalendarEvent" },
             new object[] { "Journal",                "OpenJournalEvent" },
             new object[] { "AI analyst",             "OpenAIAnalystEvent" },
             new object[] { "Bar replay",             "ReplayCommandEvent" },

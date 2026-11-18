@@ -76,7 +76,36 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 return;
             }
 
-            _store.Dispatch(new NavigateAction(target));
+            NavigateTo(target);
+        }
+
+        /// <summary>
+        /// Take the chart to this exact event's bar, for Enter on a calendar line. Returns false
+        /// when the event is not on the loaded bars — the future, or older than the history — so
+        /// the caller can keep its screen open and say why.
+        ///
+        /// <para>
+        /// No level or kind gate here: the user picked the row, exactly as Alt+Shift+D reads a
+        /// bar's events whatever the level says. The navigation itself is the apostrophe jump's
+        /// own path, so the bar is read with the same composition and the jump clause.
+        /// </para>
+        /// </summary>
+        public bool JumpTo(MarketEvent e)
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0) return false;
+
+            var placement = _map.For(state, DateTime.UtcNow)
+                .FirstOrDefault(p => p.IsPlaced && p.Event.Id == e.Id);
+            if (placement == null) return false;
+
+            NavigateTo(placement.BarIndex);
+            return true;
+        }
+
+        private void NavigateTo(int barIndex)
+        {
+            _store.Dispatch(new NavigateAction(barIndex));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
             _eventBus.Publish(new FeedbackRequestEvent(
                 FeedbackType.Navigation, "", true, IsXMove: true, IsJump: true));
