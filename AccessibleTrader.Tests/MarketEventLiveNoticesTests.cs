@@ -103,7 +103,8 @@ public class MarketEventLiveNoticesTests
             bool present = true,
             IReadOnlyList<Position>? positions = null,
             IReadOnlyList<OpenOrder>? orders = null,
-            ChartIdentity? identity = null)
+            ChartIdentity? identity = null,
+            IMarketEventExpectedFeed? expected = null)
         {
             Settings.GetSetting(SettingsKeys.PaperTradingMode).Returns(JToken.FromObject(true));
             Paper.GetPositionsAsync().Returns(Task.FromResult(
@@ -131,7 +132,7 @@ public class MarketEventLiveNoticesTests
                 Store, Bus, Feed, Orders, Paper, Keys, Settings,
                 new DemoPolicy(isDemo: false),
                 timeProvider: Clock,
-                calendar: new MarketEventCalendar(Array.Empty<MarketEvent>(), Feed),
+                calendar: new MarketEventCalendar(Array.Empty<MarketEvent>(), Feed, expected),
                 presence: new FakePresence { CanReachUser = present });
         }
 
@@ -233,6 +234,40 @@ public class MarketEventLiveNoticesTests
         await rig.TickAt(T.AddMinutes(15));
         Assert.Equal(2, rig.Feed.Requests);
         Assert.Equal(2, rig.Notices.Count);
+    }
+
+    private sealed class CpiExpected : IMarketEventExpectedFeed
+    {
+        public int Version => 1;
+
+        public double? ExpectedFor(string source, DateOnly releaseDate, string figureName)
+            => source == "cpi" && releaseDate == new DateOnly(2026, 3, 11) && figureName == "CPI"
+                ? 3.0
+                : null;
+
+        public void RequestRefresh(WorkspaceState state) { }
+    }
+
+    [Fact]
+    public async Task AKalshiExpectedFigureDoesNotPassForThePublishedOne()
+    {
+        // Review fix (Claude): the merge gives the upcoming release an expected-only row, and
+        // every "has a figures object" check took that for the published figure — no waiting,
+        // no FRED tries, and so never the surprise at the very moment it matters.
+        using var rig = new Rig(Cpi(), expected: new CpiExpected());
+        rig.Feed.OnRequest = (_, _) =>
+        {
+            rig.Feed.Fetched.Clear();
+            rig.Feed.Fetched.Add(Cpi(withFigure: true));
+            return true;
+        };
+
+        await rig.TickAt(T.AddSeconds(60));
+        Assert.Equal("CPI out. Waiting for the figure.", rig.Notices[^1].Text);
+
+        await rig.TickAt(T.AddMinutes(2));
+        Assert.Equal(1, rig.Feed.Requests);
+        Assert.Equal("CPI 3.1, expected 3.0, hotter.", rig.Notices[^1].Text);
     }
 
     [Fact]

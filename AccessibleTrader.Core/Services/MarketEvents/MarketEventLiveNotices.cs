@@ -205,7 +205,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                         : Array.Empty<MarketEventPriceSample>();
                     bool awaiting = hasKey
                         && MarketEventNoticePlanner.IsFredRelease(notice.Event)
-                        && notice.Event.Figures == null;
+                        && !MarketEventFigures.Published(notice.Event);
                     Publish(MarketEventNoticeWording.ReadOut(notice.Event, samples, awaiting), notice);
                     break;
                 }
@@ -255,7 +255,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             bool needed = events.Any(e =>
                 e.Kind == MarketEventKind.Economy
                 && MarketEventNoticePlanner.IsFredRelease(e)
-                && e.Figures == null
+                && !MarketEventFigures.Published(e)
                 && e.Precision == MarketEventPrecision.Exact
                 && (watchedSet.Contains(e.Id)
                     || (MarketEventLevels.Includes(level, e.Importance) && kinds.Includes(e.Kind)))

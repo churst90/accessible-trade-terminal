@@ -166,7 +166,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     Add(new MarketEventNotice(MarketEventNoticeKind.ReadOut, e));
 
                 if (fredKeyAvailable && e.Kind == MarketEventKind.Economy
-                    && IsFredRelease(e) && e.Figures == null)
+                    && IsFredRelease(e) && !MarketEventFigures.Published(e))
                 {
                     foreach (int minute in FigureTries)
                     {

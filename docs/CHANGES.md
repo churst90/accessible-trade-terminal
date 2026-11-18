@@ -37,6 +37,16 @@ All notable changes to this project will be documented in this file.
   requests; a 429 is retried; Level Off makes no request; the bar map rebuilds on a version
   change. Sabotages: spread limit dropped (**5 red**), median rounded to nearest (**5 red**),
   429 cached as no market (**1 red**), unemployment direction swapped (**2 red**).
+- **Review fix (Claude):** the merge gives an upcoming release an expected-only figure row, and
+  three places took "the event has a figures object" to mean "the figure was published" (the
+  planner's FRED figure tries, the read-out's "Waiting for the figure" and the FRED key check).
+  With Kalshi on, every upcoming CPI and jobs release would have skipped its figure, so the
+  surprise would never have been said at the release. Now `MarketEventFigures.Published(e)`
+  asks whether any figure has an actual. Guarded by `MarketEventExpectedOnlyTests` and a live
+  notices test that hears "CPI 3.1, expected 3.0, hotter."; each of the three lines put back
+  turns a test red.
+- **Also a caveat:** upcoming release dates come from FRED (the seed ends in July 2026), so
+  without a FRED key there are no upcoming releases for Kalshi to read either.
 
 ### Leaderboard publisher, 2026-11-18
 

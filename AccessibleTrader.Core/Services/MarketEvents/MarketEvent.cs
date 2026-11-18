@@ -65,7 +65,15 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     public sealed record MarketEventFigures(
         IReadOnlyList<MarketEventFigure> Figures,
         int? EstimateNumber = null,
-        DateOnly? Period = null);
+        DateOnly? Period = null)
+    {
+        /// <summary>
+        /// True once the release has published a figure. Kalshi's merge gives an upcoming release
+        /// an expected-only row, so a figures object alone does not mean the figure arrived.
+        /// </summary>
+        public static bool Published(MarketEvent e)
+            => e.Figures?.Figures.Any(f => f.Actual is not null) == true;
+    }
 
     /// <summary>
     /// The "Market events on the chart" setting. Off by default (Cody, 2026-11-18: "don't want to
