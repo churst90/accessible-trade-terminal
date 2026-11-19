@@ -25,7 +25,22 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             ToggleEarconsAction         => state with { IsEarconsEnabled = !state.IsEarconsEnabled },
 
             // Chart display toggles
-            ToggleHeikinAshiAction      => state with { IsHeikinAshi = !state.IsHeikinAshi },
+            //
+            // Turning Heikin-Ashi ON is a choice of the CANDLES chart under the transform, so
+            // it puts the style back to Candles: the user sees one chart type, not a flag
+            // crossed with one. Line and Area are raw-close displays and can never carry it.
+            ToggleHeikinAshiAction      => state with
+            {
+                IsHeikinAshi = !state.IsHeikinAshi,
+                ChartStyle = !state.IsHeikinAshi ? PriceChartStyle.Candles : state.ChartStyle,
+            },
+            SetChartStyleAction a       => state with
+            {
+                ChartStyle = a.Style,
+                // Line and Area always draw the raw close, so they can never carry the
+                // transform; Heikin-Ashi only exists on the candles chart.
+                IsHeikinAshi = a.Style == PriceChartStyle.Candles && a.HeikinAshi,
+            },
             ToggleLogScaleAction        => state with { IsLogScale = !state.IsLogScale },
 
             _ => state

@@ -587,9 +587,11 @@ namespace AccessibleTrader.Core.Services
                 }));
             }
 
-            // Restore display toggles
-            if (tab.IsHeikinAshi != _store.State.IsHeikinAshi)
-                _store.Dispatch(new ToggleHeikinAshiAction());
+            // Restore display toggles. The chart type is the pair the user chose — Candles,
+            // Heikin Ashi, Line or Area — so it goes back in one action; a file saved before
+            // ChartStyle existed reads as Candles, which is what it was showing.
+            if (tab.ChartStyle != _store.State.ChartStyle || tab.IsHeikinAshi != _store.State.IsHeikinAshi)
+                _store.Dispatch(new SetChartStyleAction(tab.ChartStyle, tab.IsHeikinAshi));
             if (tab.IsLogScale != _store.State.IsLogScale)
                 _store.Dispatch(new ToggleLogScaleAction());
 

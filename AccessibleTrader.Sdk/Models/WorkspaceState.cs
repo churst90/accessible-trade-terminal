@@ -7,6 +7,21 @@ namespace AccessibleTrader.Sdk.Models
     public enum InteractionContext { Series, Component, Bin }
     public enum PlaybackScope { Chart, Series, Component }
     public enum InitializationStatus { Booting, Loading, Resetting, Ready, Error }
+
+    /// <summary>
+    /// How the price bars are DRAWN and READ on the price pane: the four chart types of
+    /// TradingView's model. <see cref="Candles"/> is 0 so every workspace saved before this
+    /// field existed loads as the candles it was showing.
+    ///
+    /// <para>
+    /// Heikin-Ashi stays the separate <see cref="WorkspaceState.IsHeikinAshi"/> flag: it is a
+    /// transform of the candles, not a fifth member of this enum, and seventy files already
+    /// read it. To the user the two are one choice — Candles, Heikin Ashi, Line or Area — and
+    /// the invariants are held by the reducer: Line/Area clear the flag, and Heikin-Ashi sets
+    /// this back to <see cref="Candles"/>.
+    /// </para>
+    /// </summary>
+    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2 }
     /// <summary>
     /// What the chart's data is doing, as a value anyone can ASK for.
     ///
@@ -83,7 +98,12 @@ namespace AccessibleTrader.Sdk.Models
         // ── How this tab opens when it was restored from a saved workspace ────
         // Null for a tab the user opened. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
-    );
+    )
+    {
+        /// <summary>The tab's price chart type. Candles for every snapshot made before the
+        /// field existed and for a newly opened tab.</summary>
+        public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
+    }
 
     /// <summary>
     /// How a tab restored from a saved workspace should open, carried until its data first
@@ -375,6 +395,14 @@ namespace AccessibleTrader.Sdk.Models
         /// <see cref="ActiveSeries"/>.
         /// </summary>
         public ImmutableList<ChartSeries>? HeikinAshiSeries { get; init; }
+
+        /// <summary>
+        /// How the price bars are drawn on this chart: Candles (the default), Line or Area.
+        /// An init property rather than a positional parameter because this record is
+        /// constructed positionally in many places and every one would have to be edited.
+        /// It is per tab, saved with <see cref="IsHeikinAshi"/> wherever that goes.
+        /// </summary>
+        public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
     }
 
     public abstract record WorkspaceAction;
@@ -463,6 +491,14 @@ namespace AccessibleTrader.Sdk.Models
     public record SetPlaybackAction(bool IsPlaying, PlaybackScope Scope = PlaybackScope.Chart) : WorkspaceAction;
     public record TogglePauseAction() : WorkspaceAction;
     public record ToggleHeikinAshiAction() : WorkspaceAction;
+
+    /// <summary>
+    /// The one user-facing chart-type choice: Candles, Heikin Ashi, Line or Area.
+    /// <paramref name="HeikinAshi"/> is carried rather than read from the current state so
+    /// choosing it in the select restores Candles+HA on a tab that was showing Line.
+    /// </summary>
+    public record SetChartStyleAction(PriceChartStyle Style, bool HeikinAshi) : WorkspaceAction;
+
     public record ToggleLogScaleAction() : WorkspaceAction;
     public record AddSeriesAction(ChartSeries Series) : WorkspaceAction;
     public record RemoveSeriesAction(string SeriesId) : WorkspaceAction;

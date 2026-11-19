@@ -16,6 +16,9 @@ namespace AccessibleTrader.Core.Models
         public int ViewportStartIndex { get; set; }
         public int ViewportLength { get; set; }
         public bool IsHeikinAshi { get; set; }
+        /// <summary>How the price bars are drawn: Candles (0 and the default for every file
+        /// saved before this field existed), Line or Area.</summary>
+        public PriceChartStyle ChartStyle { get; set; } = PriceChartStyle.Candles;
         public bool IsLogScale { get; set; }
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();

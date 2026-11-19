@@ -20,6 +20,12 @@ public record ChartTheme
     public required SKColor CandleBullishWick { get; init; }
     public required SKColor CandleBearishWick { get; init; }
     public required SKColor CandleDojiBody { get; init; }
+    /// <summary>
+    /// The close line of the Line and Area chart types. Not required: a built-in or saved
+    /// custom theme written before these chart types existed still loads, and gets TradingView's
+    /// #2962FF blue, which is colour-vision safe (hence no colour-vision override applies).
+    /// </summary>
+    public SKColor PriceChartLine { get; init; } = new(41, 98, 255);
     // Volume
     public required SKColor VolumeBullish { get; init; }
     public required SKColor VolumeBearish { get; init; }

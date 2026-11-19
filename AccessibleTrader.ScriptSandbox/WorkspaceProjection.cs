@@ -131,6 +131,9 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.PaneRanges),
         nameof(WorkspaceState.PaneHeightRatios),
         nameof(WorkspaceState.TabSnapshots),
+        // How the price bars are DRAWN on this chart (Candles, Line, Area). Presentation, like
+        // the pane ranges above: a strategy reads closes and indicators, not the chart's ink.
+        nameof(WorkspaceState.ChartStyle),
         // How far back a restored tab loads its history, consumed by the next load and cleared.
         // A loading instruction for the host's data manager; a strategy sees the bars it loaded.
         nameof(WorkspaceState.RestoredLoad),

@@ -131,7 +131,10 @@ namespace AccessibleTrader.Core.Services
                 if (candidate.Data != _currentState.Data ||
                     candidate.ViewportStartIndex != _currentState.ViewportStartIndex ||
                     candidate.ViewportLength != _currentState.ViewportLength ||
-                    candidate.ActiveSeries != _currentState.ActiveSeries)
+                    candidate.ActiveSeries != _currentState.ActiveSeries ||
+                    // Line and Area autoscale from CLOSES rather than highs/lows, so a chart
+                    // type change changes what the range is.
+                    candidate.ChartStyle != _currentState.ChartStyle)
                 {
                     var result = _rangeCalculator.Calculate(candidate);
                     candidate = candidate with
@@ -342,7 +345,7 @@ namespace AccessibleTrader.Core.Services
                 // routing list — they fell through to "unhandled" and the
                 // shortcuts silently did nothing (found live 2026-07-23).
                 or ToggleEventSpeechAction or ToggleEarconsAction
-                or ToggleHeikinAshiAction or ToggleLogScaleAction
+                or ToggleHeikinAshiAction or SetChartStyleAction or ToggleLogScaleAction
                 => PlaybackReducer.Reduce(state, action),
 
             // ── Tabs + pane layout ───────────────────────────────────────────

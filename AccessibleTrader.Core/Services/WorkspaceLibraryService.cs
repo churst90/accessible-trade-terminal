@@ -305,6 +305,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportStartIndex = state.ViewportStartIndex,
                 ViewportLength = state.ViewportLength,
                 IsHeikinAshi = state.IsHeikinAshi,
+                ChartStyle = state.ChartStyle,
                 IsLogScale = state.IsLogScale,
                 Series = state.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
@@ -325,6 +326,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportStartIndex = snap.ViewportStartIndex,
                 ViewportLength = snap.ViewportLength,
                 IsHeikinAshi = snap.IsHeikinAshi,
+                ChartStyle = snap.ChartStyle,
                 IsLogScale = snap.IsLogScale,
                 Series = snap.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = snap.PaneHeightRatios != null

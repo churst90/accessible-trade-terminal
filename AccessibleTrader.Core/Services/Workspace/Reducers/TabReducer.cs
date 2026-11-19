@@ -70,7 +70,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             CurrentDataShape: s.CurrentDataShape,
             SymbolDisplayName: s.SymbolDisplayName,
             RestoredLoad: s.RestoredLoad
-        );
+        )
+        { ChartStyle = s.ChartStyle };
 
         /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.</summary>
         private static WorkspaceState RestoreSnapshot(WorkspaceState state, TabSnapshot snap) => state with
@@ -101,7 +102,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             PrimarySeriesId = snap.PrimarySeriesId,
             CurrentDataShape = snap.CurrentDataShape,
             SymbolDisplayName = snap.SymbolDisplayName,
-            RestoredLoad = snap.RestoredLoad
+            RestoredLoad = snap.RestoredLoad,
+            ChartStyle = snap.ChartStyle
         };
 
         private static WorkspaceState AddTab(WorkspaceState state)
