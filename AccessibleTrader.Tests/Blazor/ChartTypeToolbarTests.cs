@@ -10,7 +10,7 @@ namespace AccessibleTrader.Tests.Blazor;
 
 /// <summary>
 /// The toolbar's chart-type select. It is one control for the whole choice — Candles, Heikin
-/// Ashi, Line, Area — beside the Alt+C Heikin-Ashi button, and it is gated on trading tabs
+/// Ashi, Line, Area — reached by Alt+C, and it is gated on trading tabs
 /// exactly as that button is.
 /// </summary>
 public sealed class ChartTypeToolbarTests

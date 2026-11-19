@@ -62,7 +62,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             var buffer = new SeriesDataBuffer { SeriesId = series.Id };
             int count = data.Count;
 
-            foreach (var component in series.Components)
+            // The candle parts kept aside while the price series is a line or bricks
+            // (SeriesConfig.CandleParts) are mapped too: a strategy or alert that names the body or
+            // a wick still finds its column on a Line or Renko chart.
+            foreach (var component in series.Components.Concat(series.Config.CandleParts))
             {
                 var mapping = component.DataMapping?.ToLower();
                 if (string.IsNullOrEmpty(mapping)) continue;

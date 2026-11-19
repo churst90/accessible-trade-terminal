@@ -527,7 +527,7 @@ namespace AccessibleTrader.Core.Services
             if (Is(n, "Open")) return point.Open;
             if (Is(n, "High", "upper_wick", "Upper Wick")) return point.High;
             if (Is(n, "Low", "lower_wick", "Lower Wick")) return point.Low;
-            if (Is(n, "Close", "body", "line", "Candle Body")) return point.Close;
+            if (Is(n, "Close", "body", "line", "brick", "Candle Body")) return point.Close;
             if (Is(n, "Volume")) return point.Volume;
             return double.NaN;
 

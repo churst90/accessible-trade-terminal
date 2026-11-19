@@ -87,6 +87,36 @@ public sealed class RenkoSpeechTests
         Assert.DoesNotContain("wick", spoken, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void A_Renko_chart_has_one_brick_part_and_reads_it_once_not_three_times()
+    {
+        // Cody, 2026-11-19: "I hear the upp/lower wick and the candle body but they all read as
+        // 'up brick'". The price series' parts become one Brick part on a brick chart.
+        var (state, _, _) = BrickState();
+        var candles = state.ActiveSeries[0].Config.Clone();
+        candles.Components.Insert(0, new ComponentConfig
+        {
+            Name = "upper_wick", DisplayName = "Upper Wick", IsVisible = true,
+            DisplayType = ComponentDisplayType.Wick, Role = ComponentRole.PriceAction, DataMapping = "high",
+        });
+        candles.Components.Add(new ComponentConfig
+        {
+            Name = "lower_wick", DisplayName = "Lower Wick", IsVisible = true,
+            DisplayType = ComponentDisplayType.Wick, Role = ComponentRole.PriceAction, DataMapping = "low",
+        });
+        state = PriceSeriesShape.Apply(state with
+        {
+            ActiveSeries = ImmutableList.Create(new ChartSeries(candles, new SeriesDataBuffer { SeriesId = "candles" })),
+            LastInteractionContext = InteractionContext.Component,
+        });
+
+        var brick = Assert.Single(state.ActiveSeries[0].Components);
+        Assert.Equal(ComponentDisplayType.Brick, brick.DisplayType);
+        string spoken = Speak(state);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(spoken, "Up brick"));
+        Assert.DoesNotContain("wick", spoken, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(PriceScaleMode.Percent)]
     [InlineData(PriceScaleMode.IndexedTo100)]

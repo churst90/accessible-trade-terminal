@@ -234,8 +234,8 @@
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
                 @* Chart type: Candles, Heikin Ashi, Line, Area, Renko — one choice, like
-                   TradingView. Alt+C still toggles Heikin Ashi; the separate HA button went
-                   2026-11-19 (Cody: it is already in this list). *@
+                   TradingView. Alt+C puts focus here (until 2026-11-19 it toggled Heikin Ashi);
+                   the separate HA button went the same day (Cody: it is already in this list). *@
                 <label for="chart-type-select" class="visually-hidden">Chart type</label>
                 <select id="chart-type-select"
                         aria-label="Chart type"
@@ -256,8 +256,8 @@
                 }
                 @* Price scale: Regular, Logarithmic, Percent, Indexed to 100 — one choice,
                    like TradingView's menu. Percent and Indexed are relabels of the same linear
-                   scale from the first close on screen. Alt+L still toggles Logarithmic; the
-                   separate Log scale button went 2026-11-19 with the HA one. *@
+                   scale from the first close on screen. Alt+L puts focus here (until 2026-11-19
+                   it toggled Logarithmic); the separate Log scale button went with the HA one. *@
                 <label for="price-scale-select" class="visually-hidden">Price scale</label>
                 <select id="price-scale-select"
                         aria-label="Price scale"
@@ -527,6 +527,9 @@
     private IDisposable? _loadChartSub;
     private IDisposable? _stateSub;
     private IDisposable? _replaySub;
+    private IDisposable? _focusControlSub;
+    private IDisposable? _focusModeSub;
+    private bool _focusModeOn;
     private IDisposable? _apiKeysSub;
     private IDisposable? _providersSub;
     private IDisposable? _switchWarnSub;
@@ -698,6 +701,11 @@
         // flips its own state on the same event, so this deliberately re-renders AFTER it by
         // hopping through InvokeAsync.
         _replaySub = EventBus.Subscribe<ReplayCommandEvent>(_ => InvokeAsync(StateHasChanged));
+
+        // Alt+C / Alt+L: focus onto the Chart type / Price scale list. Focus mode (Alt+Z) hides
+        // the toolbar, and a hidden list cannot take focus, so the key leaves focus mode first.
+        _focusModeSub = EventBus.Subscribe<FocusModeChangedEvent>(e => _focusModeOn = e.On);
+        _focusControlSub = EventBus.Subscribe<FocusToolbarControlEvent>(e => InvokeAsync(() => FocusControlAsync(e)));
 
         // Escape closes the shape-change confirmation, and Escape means CANCEL: it is the
         // non-destructive branch, and a dialog that warns about stripping the user's work
@@ -1017,6 +1025,30 @@
     /// toolbar controls (Strategies, Drawings, Heatmap, Heikin Ashi, Log Scale) —
     /// none of which make sense when the user is looking at a scalar analytics metric.
     /// </summary>
+    /// <summary>
+    /// Puts keyboard focus on a toolbar list (Alt+C Chart type, Alt+L Price scale). The lists
+    /// are only on a price chart's tab; anywhere else the key says so rather than doing nothing.
+    /// </summary>
+    private async Task FocusControlAsync(FocusToolbarControlEvent e)
+    {
+        if (!IsTradingTab)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
+                $"No {e.Name} list on this tab: it is for price charts.", true,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            return;
+        }
+        if (_focusModeOn)
+        {
+            EventBus.Publish(new ToggleFocusModeEvent());
+            // The layout re-renders with the toolbar shown before the focus call reaches the
+            // browser: both go down the same circuit, the render first.
+            await Task.Yield();
+        }
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", e.ElementId); }
+        catch { /* JS bridge may not be ready during early renders or unit tests */ }
+    }
+
     private bool IsTradingTab => Store.State.CurrentDataShape == ProviderDataShape.Ohlcv;
 
     /// <summary>
@@ -1143,6 +1175,8 @@
         _loadChartSub?.Dispose();
         _stateSub?.Dispose();
         _replaySub?.Dispose();
+        _focusControlSub?.Dispose();
+        _focusModeSub?.Dispose();
         _apiKeysSub?.Dispose();
         _providersSub?.Dispose();
         _switchWarnSub?.Dispose();

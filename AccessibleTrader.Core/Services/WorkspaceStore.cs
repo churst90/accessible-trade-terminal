@@ -5,6 +5,7 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Workspace.Reducers;
+using AccessibleTrader.Core.Services.Charts;
 using DynamicData;
 
 namespace AccessibleTrader.Core.Services
@@ -120,6 +121,13 @@ namespace AccessibleTrader.Core.Services
             lock (_lock)
             {
                 var candidate = Reduce(_currentState, action);
+
+                // The price series in the chart type's shape: candle parts, one close line, or
+                // one brick part (PriceSeriesShape). Here, after EVERY reduce, rather than in the
+                // chart-type reducer alone, because the series list is replaced wholesale by
+                // restore, tab switch, undo and the Properties dialog, and each of those hands back
+                // whatever shape it was given. Before the range fit, which reads ActiveSeries.
+                candidate = PriceSeriesShape.Apply(candidate);
 
                 // Auto-calculate ViewportRange if viewport parameters or data changed
                 //

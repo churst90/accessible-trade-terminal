@@ -592,6 +592,14 @@ namespace AccessibleTrader.Core.Services.Input
                     _store.Dispatch(new SwitchTabAction(prev));
                     return;
                 }
+                // Alt+C / Alt+L: onto the Chart type / Price scale list on the toolbar. The
+                // toolbar owns the ids and says why when the list is not on screen.
+                case SystemCommand.FocusChartTypeSelect:
+                    _eventBus.Publish(new FocusToolbarControlEvent("chart-type-select", "Chart type"));
+                    return;
+                case SystemCommand.FocusPriceScaleSelect:
+                    _eventBus.Publish(new FocusToolbarControlEvent("price-scale-select", "Price scale"));
+                    return;
                 case SystemCommand.FocusTabBar:
                     // Ctrl+Tab/Ctrl+Number are browser-reserved on the web; this asks the
                     // TabBar to move keyboard focus onto the switcher bar so the user can

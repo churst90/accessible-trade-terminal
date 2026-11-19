@@ -78,6 +78,9 @@ public class WorkspaceRestoreContractTests
         ["ExcludedComponents"] = "the parts left out (Properties → Parts), rebuilt with Components: "
                             + "each part's Include (ComponentConfig.IsEnabled) is user-owned, merged in "
                             + "layer 2 and asserted with the component properties below",
+        ["CandleParts"]     = "the candle parts kept aside while the price series is a line or bricks "
+                            + "(PriceSeriesShape); never saved — a save stores the candle shape "
+                            + "(Canonical), so this is always empty in a save",
         ["Levels"]          = "restored wholesale when present — asserted by its own test below",
         ["CloudFills"]      = "restored wholesale when present, same as Levels",
         ["ZoneBands"]       = "restored wholesale when present, same as Levels",

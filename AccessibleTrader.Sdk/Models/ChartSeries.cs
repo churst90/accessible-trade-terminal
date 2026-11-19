@@ -161,6 +161,14 @@ namespace AccessibleTrader.Sdk.Models
         /// </para>
         /// </summary>
         Window,
+        /// <summary>
+        /// A Renko brick: the main price series' one part on a brick chart, in place of the
+        /// candle's body and wicks (a brick has no wicks; every brick is one box tall). Drawn as
+        /// the bricks, heard as a short knock pitched by direction (up high, down low), spoken
+        /// as "brick". Appended, never inserted: a saved workspace stores the number.
+        /// Cody, 2026-11-19: "shouldn't there be a component/sonification type for these bricks?"
+        /// </summary>
+        Brick,
     }
     
     /// <summary>

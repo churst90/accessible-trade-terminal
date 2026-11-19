@@ -201,19 +201,16 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         }
 
         /// <summary>
-        /// The focus follows the drawing. Choosing Line or Area while the candles are focused
-        /// moves focus to the Price line, which IS the line on screen; going back to candles
-        /// from there moves it back to the candles. Focus on anything else (an indicator, a
-        /// drawing's series) is the user's own choice and is left where it is.
+        /// The focus follows the drawing. The price series takes the chart type's shape itself
+        /// (PriceSeriesShape, applied by the store after every reduce), so focus on it stays
+        /// put. Focus on the separate Price line when Line or Area is chosen goes to the price
+        /// series: that line is not drawn there (ChartTypeFocus). Focus on anything else (an
+        /// indicator, a drawing's series) is the user's own choice and is left where it is.
         /// </summary>
         private static WorkspaceState FollowChartType(WorkspaceState before, WorkspaceState after)
         {
             string focused = after.FocusedSeriesId ?? CoreSeriesIds.Candles;
-            if (ChartTypeFocus.CandlesOffScreen(after) && focused == CoreSeriesIds.Candles)
-                return FocusSeries(after, CoreSeriesIds.Price);
-            if (ChartTypeFocus.CandlesOffScreen(before) && !ChartTypeFocus.CandlesOffScreen(after)
-                && focused == CoreSeriesIds.Price
-                && after.ActiveSeries.Any(s => s.Id == CoreSeriesIds.Candles))
+            if (focused == CoreSeriesIds.Price && ChartTypeFocus.PriceLineOffScreen(after))
                 return FocusSeries(after, CoreSeriesIds.Candles);
             return after;
         }

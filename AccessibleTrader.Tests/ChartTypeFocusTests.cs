@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -100,7 +101,7 @@ public sealed class ChartTypeFocusTests
             SpeechOrder = "ValueOnly",
             ActiveTabIndex = 0,
             TabSnapshots = ImmutableList<TabSnapshot>.Empty,
-        };
+        } is var state ? PriceSeriesShape.Apply(state) : null!;
     }
 
     private static WorkspaceState Reduce(WorkspaceState initial, params WorkspaceAction[] actions)
@@ -132,70 +133,153 @@ public sealed class ChartTypeFocusTests
 
     private static string P(double v) => SpeechPriceFormatter.FormatPrice(v);
 
-    // ── Focus follows the drawing ─────────────────────────────────────────────
+    // ── The price series takes the chart type's shape ─────────────────────────
+
+    private static ChartSeries PriceSeries(WorkspaceState state) =>
+        state.ActiveSeries.Single(s => s.Id == CoreSeriesIds.Candles);
+
+    private static WorkspaceState Without(WorkspaceState state, string id) =>
+        state with { ActiveSeries = state.ActiveSeries.RemoveAll(s => s.Id == id) };
 
     [Theory]
-    [InlineData(PriceChartStyle.Line)]
-    [InlineData(PriceChartStyle.Area)]
-    public void Choosing_line_or_area_on_the_candles_moves_focus_to_the_price_line(PriceChartStyle style)
+    [InlineData(PriceChartStyle.Line, ComponentDisplayType.Line, "line", "Close")]
+    [InlineData(PriceChartStyle.Area, ComponentDisplayType.Area, "line", "Close")]
+    [InlineData(PriceChartStyle.Renko, ComponentDisplayType.Brick, "brick", "Brick")]
+    public void Choosing_a_type_gives_the_price_series_that_types_one_part(
+        PriceChartStyle style, ComponentDisplayType type, string name, string display)
     {
-        var after = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles, context: InteractionContext.Component, component: 1),
-            new SetChartStyleAction(style, false));
+        // Cody, 2026-11-19: "I switch to line and i still see candles ... I hear the 3 components
+        // for upper/lower wicks and the bodies even on line series."
+        var before = State(PriceChartStyle.Candles, CoreSeriesIds.Candles, context: InteractionContext.Component, component: 1)
+            with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) };
 
-        Assert.Equal(CoreSeriesIds.Price, after.FocusedSeriesId);
+        var after = Reduce(before, new SetChartStyleAction(style, false));
+
+        var part = Assert.Single(PriceSeries(after).Components);
+        Assert.Equal(name, part.Name);
+        Assert.Equal(display, part.DisplayName);
+        Assert.Equal(type, part.DisplayType);
+        Assert.Equal("close", part.DataMapping);
+        Assert.Equal(3, PriceSeries(after).Config.CandleParts.Count);     // kept, not lost
+        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);       // the arrows stay on price
         Assert.Equal(0, after.FocusedComponentIndex);
-        Assert.Equal(InteractionContext.Series, after.LastInteractionContext);
+    }
+
+    [Fact]
+    public void It_works_on_a_chart_with_no_Price_series()
+    {
+        // Cody's charts have no Price series: the first version needed one to take over.
+        var after = Reduce(Without(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), CoreSeriesIds.Price),
+            new SetChartStyleAction(PriceChartStyle.Line, false));
+
+        Assert.Equal("line", Assert.Single(PriceSeries(after).Components).Name);
+        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Going_back_to_candles_or_Heikin_Ashi_moves_focus_back_to_the_candles(bool heikinAshi)
+    public void Going_back_to_candles_or_Heikin_Ashi_brings_the_candle_parts_back_as_they_were(bool heikinAshi)
     {
-        var after = Reduce(State(PriceChartStyle.Line, CoreSeriesIds.Price),
-            new SetChartStyleAction(PriceChartStyle.Candles, heikinAshi));
+        var start = State(PriceChartStyle.Candles, CoreSeriesIds.Candles);
+        var wick = PriceSeries(start).Components[0];
+        wick.ColorHex = "#123456";
+        wick.IsUserStyled = true;
 
-        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);
-        Assert.Equal(1, after.FocusedComponentIndex);   // the body, as on a load
+        var line = Reduce(start, new SetChartStyleAction(PriceChartStyle.Line, false));
+        PriceSeries(line).Components[0].IsMuted = true;     // the user mutes the line
+        var back = Reduce(line, new SetChartStyleAction(PriceChartStyle.Candles, heikinAshi));
+
+        var parts = PriceSeries(back).Components;
+        Assert.Equal(new[] { "upper_wick", "body", "lower_wick" }, parts.Select(c => c.Name));
+        Assert.Equal("#123456", parts[0].ColorHex);                 // the wick's own settings
+        Assert.True(parts[1].IsMuted);                               // the line's mute is the price's
+        Assert.Empty(PriceSeries(back).Config.CandleParts);
+        Assert.Equal(CoreSeriesIds.Candles, back.FocusedSeriesId);
+        Assert.Equal(1, back.FocusedComponentIndex);                 // the body, as on a load
     }
 
     [Fact]
-    public void Renko_from_a_line_chart_moves_focus_back_to_the_bricks_and_Line_from_Renko_to_the_price_line()
+    public void Line_to_Renko_and_back_swaps_the_one_part_and_keeps_the_candle_parts()
     {
-        var line = State(PriceChartStyle.Line, CoreSeriesIds.Price) with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) };
+        var line = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles) with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) },
+            new SetChartStyleAction(PriceChartStyle.Line, false));
 
         var renko = Reduce(line, new SetChartStyleAction(PriceChartStyle.Renko, false));
-        Assert.Equal(PriceChartStyle.Renko, renko.ChartStyle);
-        Assert.Equal(CoreSeriesIds.Candles, renko.FocusedSeriesId);   // the bricks are drawn by the candles
+        Assert.Equal("brick", Assert.Single(PriceSeries(renko).Components).Name);
+        Assert.Equal(3, PriceSeries(renko).Config.CandleParts.Count);
 
         var back = Reduce(renko, new SetChartStyleAction(PriceChartStyle.Line, false));
-        Assert.Equal(PriceChartStyle.Line, back.ChartStyle);
-        Assert.Equal(CoreSeriesIds.Price, back.FocusedSeriesId);
+        Assert.Equal("line", Assert.Single(PriceSeries(back).Components).Name);
+        Assert.Equal(CoreSeriesIds.Candles, back.FocusedSeriesId);
     }
 
     [Fact]
-    public void Alt_C_from_a_line_chart_also_moves_focus_back_to_the_candles()
+    public void Alt_C_from_a_line_chart_brings_the_candles_back()
     {
-        var after = Reduce(State(PriceChartStyle.Line, CoreSeriesIds.Price), new ToggleHeikinAshiAction());
+        var line = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), new SetChartStyleAction(PriceChartStyle.Line, false));
+
+        var after = Reduce(line, new ToggleHeikinAshiAction());
 
         Assert.Equal(PriceChartStyle.Candles, after.ChartStyle);
-        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);
+        Assert.Equal(3, PriceSeries(after).Components.Count);
     }
 
     [Fact]
-    public void Line_to_area_keeps_focus_on_the_price_line()
+    public void A_series_list_handed_back_in_candle_shape_is_reshaped_again()
     {
-        var after = Reduce(State(PriceChartStyle.Line, CoreSeriesIds.Price),
-            new SetChartStyleAction(PriceChartStyle.Area, false));
+        // Restore, tab switch, undo and Properties replace the series list wholesale.
+        var line = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), new SetChartStyleAction(PriceChartStyle.Line, false));
 
-        Assert.Equal(CoreSeriesIds.Price, after.FocusedSeriesId);
+        var after = Reduce(line, new UpdateSeriesAction(State(PriceChartStyle.Candles, CoreSeriesIds.Candles).ActiveSeries));
+
+        Assert.Equal("line", Assert.Single(PriceSeries(after).Components).Name);
+    }
+
+    [Fact]
+    public void A_save_stores_the_candle_shape_and_leaves_the_live_series_alone()
+    {
+        var line = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), new SetChartStyleAction(PriceChartStyle.Line, false));
+        var live = PriceSeries(line).Config;
+
+        var saved = PriceSeriesShape.Canonical(live);
+
+        Assert.Equal(new[] { "upper_wick", "body", "lower_wick" }, saved.Components.Select(c => c.Name));
+        Assert.Empty(saved.CandleParts);
+        Assert.Equal("line", Assert.Single(live.Components).Name);
+        var ma = line.ActiveSeries.Single(s => s.Id == "ma").Config;
+        Assert.Same(ma, PriceSeriesShape.Canonical(ma));
+    }
+
+    [Fact]
+    public void The_line_part_has_the_value_of_the_close_at_once()
+    {
+        var start = State(PriceChartStyle.Candles, CoreSeriesIds.Candles);
+        PriceSeries(start).Data.ComponentData["body"] = new[] { 100.0, 104.2, 98.7 };
+
+        var line = Reduce(start, new SetChartStyleAction(PriceChartStyle.Line, false));
+
+        Assert.Equal(new[] { 100.0, 104.2, 98.7 }, PriceSeries(line).GetComponentData("line"));
+    }
+
+    // ── Focus follows the drawing ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(PriceChartStyle.Line)]
+    [InlineData(PriceChartStyle.Area)]
+    public void Choosing_line_or_area_on_the_Price_line_moves_focus_to_the_price_series(PriceChartStyle style)
+    {
+        // The Price line repeats the close line and is not drawn there.
+        var after = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Price), new SetChartStyleAction(style, false));
+
+        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);
+        Assert.Equal(0, after.FocusedComponentIndex);
+        Assert.Equal(InteractionContext.Series, after.LastInteractionContext);
     }
 
     [Fact]
     public void A_price_line_the_user_chose_on_a_candle_chart_stays_focused_through_Heikin_Ashi()
     {
-        // Only a move OUT of Line or Area hands focus back to the candles; on a candle chart
-        // the Price line is a series the user walked to on purpose.
         var after = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Price),
             new SetChartStyleAction(PriceChartStyle.Candles, true));
 
@@ -211,53 +295,39 @@ public sealed class ChartTypeFocusTests
     }
 
     [Fact]
-    public void Selecting_the_candles_on_a_line_chart_lands_on_the_price_line()
+    public void Selecting_the_Price_line_on_a_line_chart_lands_on_the_price_series()
     {
-        // Load, the object tree, a pane jump and a click all focus a series this way.
-        var after = Reduce(State(PriceChartStyle.Line, "ma"), new SelectSeriesAction(CoreSeriesIds.Candles));
+        var after = Reduce(State(PriceChartStyle.Line, "ma"), new SelectSeriesAction(CoreSeriesIds.Price));
 
-        Assert.Equal(CoreSeriesIds.Price, after.FocusedSeriesId);
+        Assert.Equal(CoreSeriesIds.Candles, after.FocusedSeriesId);
     }
 
     [Fact]
-    public void Removing_the_focused_series_on_a_line_chart_falls_back_to_the_price_line()
+    public void A_Price_line_on_the_high_is_a_different_line_and_stays_reachable()
     {
-        var after = Reduce(State(PriceChartStyle.Line, "ma"), new RemoveSeriesAction("ma"));
-
-        Assert.Equal(CoreSeriesIds.Price, after.FocusedSeriesId);
-    }
-
-    [Fact]
-    public void With_no_close_line_to_walk_the_candles_stay_reachable()
-    {
-        // A Price line remapped to the high is not the line on screen; the candles stay the
-        // stop and read the point on the line themselves.
         var state = State(PriceChartStyle.Line, CoreSeriesIds.Candles, price: PriceLine("high"));
 
-        Assert.False(ChartTypeFocus.CandlesOffScreen(state));
-        Assert.Equal(CoreSeriesIds.Candles, Reduce(state, new SelectSeriesAction(CoreSeriesIds.Candles)).FocusedSeriesId);
-        Assert.Equal(CoreSeriesIds.Candles,
-            Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles, price: PriceLine("high")),
-                new SetChartStyleAction(PriceChartStyle.Line, false)).FocusedSeriesId);
+        Assert.False(ChartTypeFocus.PriceLineOffScreen(state));
+        Assert.Equal(CoreSeriesIds.Price, Reduce(state, new SelectSeriesAction(CoreSeriesIds.Price)).FocusedSeriesId);
     }
 
     [Theory]
     [InlineData(PriceChartStyle.Candles, true)]
     [InlineData(PriceChartStyle.Line, false)]
     [InlineData(PriceChartStyle.Area, false)]
-    public void The_candles_are_a_stop_only_when_they_are_drawn(PriceChartStyle style, bool navigable)
+    [InlineData(PriceChartStyle.Renko, true)]
+    public void The_Price_line_is_a_stop_only_when_it_is_drawn_and_the_price_series_always_is(PriceChartStyle style, bool navigable)
     {
-        var state = State(style, CoreSeriesIds.Price);
-        var candles = state.ActiveSeries.First(s => s.Id == CoreSeriesIds.Candles);
+        var state = State(style, CoreSeriesIds.Candles);
 
-        Assert.Equal(navigable, ChartTypeFocus.IsNavigable(state, candles));
-        Assert.True(ChartTypeFocus.IsNavigable(state, state.ActiveSeries.First(s => s.Id == CoreSeriesIds.Price)));
+        Assert.Equal(navigable, ChartTypeFocus.IsNavigable(state, state.ActiveSeries.First(s => s.Id == CoreSeriesIds.Price)));
+        Assert.True(ChartTypeFocus.IsNavigable(state, PriceSeries(state)));
     }
 
     [Theory]
-    [InlineData(SystemCommand.SelectPrevSeries, "price", "ma")]   // wraps past the candles
-    [InlineData(SystemCommand.SelectNextSeries, "ma", "price")]   // wraps onto the line, not the candles
-    public void The_series_cycle_keys_skip_the_candles_on_a_line_chart(SystemCommand command, string from, string to)
+    [InlineData(SystemCommand.SelectPrevSeries, "candles", "ma")]   // wraps past the Price line
+    [InlineData(SystemCommand.SelectNextSeries, "candles", "ma")]   // steps over it
+    public void The_series_cycle_keys_skip_the_Price_line_on_a_line_chart(SystemCommand command, string from, string to)
     {
         var store = new MockWorkspaceStore();
         store.EmitState(State(PriceChartStyle.Line, from));
@@ -271,14 +341,23 @@ public sealed class ChartTypeFocusTests
         Assert.Equal(to, store.DispatchedActions.OfType<SelectSeriesAction>().Single().SeriesId);
     }
 
-    // ── The Price line reads the point on the line ────────────────────────────
+    // ── The price series reads the point on the line ──────────────────────────
 
     [Theory]
     [InlineData(InteractionContext.Series)]
     [InlineData(InteractionContext.Component)]
-    public void On_a_line_chart_the_price_line_reads_the_close_and_its_move(InteractionContext context)
+    public void On_a_line_chart_the_price_series_reads_the_close_and_its_move(InteractionContext context)
     {
-        string spoken = Reading(State(PriceChartStyle.Line, CoreSeriesIds.Price, context: context));
+        string spoken = Reading(State(PriceChartStyle.Line, CoreSeriesIds.Candles, context: context));
+
+        Assert.Equal($"Close {P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);
+    }
+
+    [Fact]
+    public void On_a_line_chart_with_no_Price_series_the_one_part_reads_the_line_not_a_wick()
+    {
+        string spoken = Reading(Without(State(PriceChartStyle.Line, CoreSeriesIds.Candles,
+            context: InteractionContext.Component), CoreSeriesIds.Price));
 
         Assert.Equal($"Close {P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);
     }
@@ -286,7 +365,7 @@ public sealed class ChartTypeFocusTests
     [Fact]
     public void On_an_area_chart_a_fall_reads_down()
     {
-        string spoken = Reading(State(PriceChartStyle.Area, CoreSeriesIds.Price) with { CurrentDataIndex = 2 });
+        string spoken = Reading(State(PriceChartStyle.Area, CoreSeriesIds.Candles) with { CurrentDataIndex = 2 });
 
         Assert.Equal($"Close {P(98.7)}. Down {P(5.5)} from the previous close, 5.28 percent.", spoken);
     }
@@ -299,6 +378,36 @@ public sealed class ChartTypeFocusTests
         Assert.Equal($"Price. line. {P(104.2)}.", spoken);
     }
 
+    // ── What the one part sounds like ─────────────────────────────────────────
+
+    [Fact]
+    public void A_brick_knocks_high_going_up_and_low_going_down()
+    {
+        var renko = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles) with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) },
+            new SetChartStyleAction(PriceChartStyle.Renko, false));
+        var series = PriceSeries(renko);
+        var brick = Assert.Single(series.Components);
+        var sound = new AccessibleTrader.Core.Services.Audio.DefaultSonificationStrategy(new AccessibleTrader.Core.Services.Audio.SoundPatchRegistry());
+        var t = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var up = sound.CreateAudioPoint(series, brick, 102, new Ohlcv(t, 100, 102, 100, 102, 0), 0, 10, (90, 110), 1f);
+        var down = sound.CreateAudioPoint(series, brick, 98, new Ohlcv(t, 100, 100, 98, 98, 0), 0, 10, (90, 110), 1f);
+
+        Assert.Equal("Ping", brick.EnvelopeType);
+        Assert.Equal(PitchMapping.Direction, brick.PitchMapping);
+        Assert.True(up.Frequency > down.Frequency);
+    }
+
+    [Fact]
+    public void The_close_line_is_pitched_by_where_the_price_is()
+    {
+        var line = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), new SetChartStyleAction(PriceChartStyle.Line, false));
+        var part = Assert.Single(PriceSeries(line).Components);
+
+        Assert.Equal(PitchMapping.Value, part.PitchMapping);
+        Assert.Equal("Sustain", part.EnvelopeType);
+    }
+
     // ── Percent and Indexed lead every main-pane price reading ─────────────────
 
     [Theory]
@@ -307,7 +416,9 @@ public sealed class ChartTypeFocusTests
     [InlineData(PriceChartStyle.Candles, InteractionContext.Series)]
     public void The_price_line_starts_with_the_percent(PriceChartStyle style, InteractionContext context)
     {
-        string spoken = Reading(State(style, CoreSeriesIds.Price, scale: PriceScaleMode.Percent, context: context));
+        // On Line the price series is the line; on Candles the Price line is.
+        string focus = style == PriceChartStyle.Line ? CoreSeriesIds.Candles : CoreSeriesIds.Price;
+        string spoken = Reading(State(style, focus, scale: PriceScaleMode.Percent, context: context));
 
         Assert.StartsWith("Plus 4.20 percent. ", spoken);
     }

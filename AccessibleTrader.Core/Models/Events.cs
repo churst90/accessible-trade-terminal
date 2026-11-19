@@ -115,6 +115,13 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record FocusTabBarEvent();
 
+    /// <summary>
+    /// Asks the toolbar to put keyboard focus on one of its controls: Alt+C the Chart type
+    /// list, Alt+L the Price scale list. <paramref name="ElementId"/> is the control's id;
+    /// <paramref name="Name"/> is what to say when the control is not there to focus.
+    /// </summary>
+    public record FocusToolbarControlEvent(string ElementId, string Name);
+
     public record RedrawEvent();
     public record ConnectionStatusEvent(string Provider, ConnectionState State, string Message);
 

@@ -90,6 +90,15 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
             // present, differing in character).
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.DeltaFromPrice, PitchMapping.Direction, 440, 1.0, false, "Sustain");
 
+        // 6b. Renko bricks: a short KNOCK pitched by direction (440 up / 220 down — the body's
+        //     pair, so up is high and down is low as on candles). A Ping, not a Sustain: a brick
+        //     is one step of one box, not a stretch of time, and the envelope is what tells it
+        //     from a candle body by ear. No size grit: every brick is the same height, so a
+        //     constant square edge (set in CreateAudioPoint) is the brick's character.
+        //     Cody, 2026-11-19: "shouldn't there be a component/sonification type for these bricks?"
+        if (displayType == ComponentDisplayType.Brick)
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Direction, 440, 1.0, false, "Ping");
+
         // 7. Static levels: quiet low sine
         if (displayType == ComponentDisplayType.Level)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.None, 220, 1.0, false, "Sustain");

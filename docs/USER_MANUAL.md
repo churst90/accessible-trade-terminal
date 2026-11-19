@@ -602,15 +602,15 @@ of the chart back to the top is the one move you could not detect.
 
 The price ruler itself can be **regular** (prices), **logarithmic** (equal distance is equal
 percentage), **percent** (zero at the first visible close) or **indexed to 100** (that close is
-100). The toolbar's Price scale select is the mouse path; `REG`, `PCT` and `IDX` in the Go bar
-are the keyboard path; Alt+L is still the logarithmic toggle. Percent and Indexed move the
+100). Alt+L puts the focus on the toolbar's Price scale list, where the arrows reach all four;
+`REG`, `PCT`, `IDX` and `LOG` in the Go bar choose one outright. Percent and Indexed move the
 zero as you pan, which is why the layout describer names it rather than every arrow key.
 
 **Bounded panes keep their scale.** An RSI pane always runs 0 to 100, at every zoom. An
 unbounded pane, MACD or ATR, fits itself to the values in view. Seventeen indicators declare
 their natural range and four declare a floor, and the difference matters by ear: RSI 70 is
 the same note on every chart, whereas a MACD reading is a note relative to whatever else is
-in the window. Alt+L switches the price pane's ruler to logarithmic, so equal distance means
+in the window. Logarithmic switches the price pane's ruler, so equal distance means
 equal percentage, which is the honest ruler for a history in which price multiplied. The ear
 follows the same ruler: a level-pitched component in the price pane, the close line for one, takes
 its pitch from where the value sits on the scale as drawn, so on a log chart the price halfway up
@@ -724,11 +724,12 @@ hear is what a sighted partner sees.
 ### Chart types: candles, Heikin Ashi, line, area and Renko
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
-It is one choice with five options, like TradingView's chart-type menu:
+It is one choice with five options, like TradingView's chart-type menu. **Alt+C** puts the focus
+on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `HA` still does):
 
 - **Candles** — the standard OHLC bars, the default.
-- **Heikin Ashi** — the smoothed candles described in the next section. This is the same as
-  Alt+C; choosing it sets Heikin Ashi on. (There is no separate Heikin Ashi button any more:
+- **Heikin Ashi** — the smoothed candles described in the next section. Choosing it sets
+  Heikin Ashi on. (There is no separate Heikin Ashi button any more:
   this list carries it.)
 - **Line** — one line through the close of every visible bar.
 - **Area** — the same line with a fill from the line down to the bottom of the price pane.
@@ -744,23 +745,29 @@ It is one choice with five options, like TradingView's chart-type menu:
 
 Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
 Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. Renko never draws
-Heikin-Ashi bricks: Alt+C from Renko restores the real bars as candles plus Heikin-Ashi. The line is the new
+Heikin-Ashi bricks: choosing Heikin Ashi from Renko restores the real bars as candles plus Heikin-Ashi. The line is the new
 **Line and area close** colour in the theme (TradingView's blue by default), so the white Price
 series is not painted over it while it is set to read the close.
 
-**On Line and Area the arrows walk the line, not the candles.** The candles are not on screen,
-so they leave the Page Up / Page Down and next/previous-series rotation, and the focus moves to
-the **Price** series, the line itself. Choosing Line or Area says *"Line chart. On the price
-line."* (or *"Area chart. …"*); choosing Candles or Heikin Ashi again puts the focus back on the
-candles and says *"Candle chart. On the candles."* Anything that would have focused the candles
-(removing the series you were on, a command naming them) lands on the Price line instead. If
-you were on an indicator, the focus stays there. If the Price series has been changed to draw
-something other than the close (the high, say), it is a different line, so the candles stay in
-the rotation.
+**The chart type changes the price series itself.** What you arrow through is the shape on
+screen. On Candles and Heikin Ashi the price series has three parts: upper wick, body and lower
+wick. On Line and Area it has one part, **Close**, the line through the closes, with the steady
+line sound pitched by where the price is. On Renko it has one part, **Brick**, with a sound of
+its own: a short ping, high on an up brick and low on a down brick. The arrows stay on the price
+series whatever the type. Going back to Candles brings the three candle parts back with their
+colours and sounds as you left them; muting the line or the bricks mutes the body. A saved
+workspace keeps the candle parts, so a tab saved on Line opens on Line with them intact.
+
+The separate **Price** series, if you added one, repeats the close line on Line and Area and is
+not drawn there, so the Page Up / Page Down and next/previous-series keys step over it there. A
+focus on it moves to the price series, and choosing Line or Area from it says *"Line chart. On
+the close line."* (or *"Area chart. …"*). If you were on an indicator, the focus stays there. A
+Price series changed to draw something other than the close (the high, say) is a different line
+and stays in the rotation. The Price series is optional: the chart types do not need it.
 
 The price axis fits the closes on Line and Area, so the line uses the whole pane; overlays and
 reference levels still widen the axis, and log scale works as usual. On Line and Area the price
-pane's status line shows just `C <close>`, and the Price line's arrow-key reading describes
+pane's status line shows just `C <close>`, and the price series' arrow-key reading describes
 the point on the line: *"Close 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*,
 *"Down …"*, *"Unchanged from the previous close."* or *"First bar."* The detail key
 (Alt+Shift+D) still reads the full bar. On an analytics chart, which is already a single line,
@@ -791,12 +798,12 @@ this build.
 ### Price scales: regular, logarithmic, percent and indexed to 100
 
 The **Price scale** select sits in the toolbar's display group, after the Chart type select.
-There is no separate Log scale button any more; this list carries it, and Alt+L still toggles
-it. It is one choice with four entries, like TradingView's price-scale menu:
+There is no separate Log scale button any more; this list carries it. **Alt+L** puts the focus
+on it from anywhere (until 2026-11-19 Alt+L toggled log; the Go bar's `LOG` still does). It is one choice with four entries, like TradingView's price-scale menu:
 
 - **Regular** — prices on a linear axis, the default.
 - **Logarithmic** — equal vertical distance means equal percentage move. This is the same as
-  Alt+L and the Go bar's `LOG`; turning it on returns the select to Regular plus the
+  the Go bar's `LOG`; turning it on returns the select to Regular plus the
   log flag.
 - **Percent** — the close of the first bar on screen is zero, and every other price reads as
   its change from that close. A close of 95,000.50 on a chart whose first visible close was
@@ -844,7 +851,7 @@ yet. Cody has not heard these scales; the examples above are the shipped sentenc
 ### Heikin-Ashi, and what stays raw
 
 A standard candle reports what happened in one bar: it opened here, traded up to there and
-down to there, closed here. A **Heikin-Ashi** candle (Alt+C) is a smoothed version: its close
+down to there, closed here. A **Heikin-Ashi** candle (Chart type list, Alt+C) is a smoothed version: its close
 is the average of the bar's open, high, low and close, and its open is the midpoint of the
 previous smoothed candle. The effect is that a trend becomes a run of same-coloured candles
 with wicks on one side only, and choppy noise inside the trend is averaged away, which is why
@@ -890,7 +897,7 @@ close in the new-bar announcement ("Close 102.62 on April 9 2026. New bar: Open 
 background tab, in a toast and with the browser closed. A price or candle-pattern alert fires on
 the HA close, and so does a price crossing: price crossing a moving average or a drawn line in
 narration, Ctrl+Left and Ctrl+Right, and the crossing chirp. The `{price}` in a signal's
-narration is the HA close too. Turn HA off (Alt+C) and all of these go back to the real close.
+narration is the HA close too. Turn HA off (Candles on the Chart type list, Alt+C) and all of these go back to the real close.
 Two exceptions: with the close line focused, which is always drawn from the real close,
 Ctrl+Left/Right and the chirp use the real close. And on the hosted web version, alerts the
 server checks while your browser is closed (delivered through your alert channels) still read

@@ -1,4 +1,5 @@
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Core.Models;
 
 namespace AccessibleTrader.Core.Services.Audio
 {
@@ -425,6 +426,22 @@ namespace AccessibleTrader.Core.Services.Audio
                     // one. Cody, 2026-10-31: "the noise coloring should only happen in zones such as
                     // over bought or over sold, as it signifies that zone. Having it always on would
                     // lose its meaning." Until then every line had a 0.05 brown tinge on every bar.
+                    triangleMix = 0.10f;
+                    squareMix = 0.08f;
+                }
+                else if (comp.DisplayType == ComponentDisplayType.Brick)
+                {
+                    // A brick: one box, always the same size, so no size grit — a fixed square
+                    // edge is its character. Direction colours it as it does the body: an up brick
+                    // brighter, a down brick warmer.
+                    bool brickUp = point.Close >= point.Open;
+                    squareMix   = brickUp ? 0.18f : 0.10f;
+                    triangleMix = brickUp ? 0f    : 0.10f;
+                }
+                else if (comp.DisplayType == ComponentDisplayType.Area && series.Id == CoreSeriesIds.Candles)
+                {
+                    // The price series drawn as an Area chart is the same line as on a Line chart,
+                    // and sounds like it.
                     triangleMix = 0.10f;
                     squareMix = 0.08f;
                 }

@@ -85,6 +85,19 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public ObservableCollection<ComponentConfig> ExcludedComponents { get; set; } = new();
 
+        /// <summary>
+        /// The main price series' candle parts (upper wick, body, lower wick), kept here while the
+        /// chart type draws that series as something else: one close line on Line and Area, one
+        /// brick part on Renko. <see cref="Components"/> then holds that one part, so everything
+        /// that draws, sounds, speaks or navigates meets what is on screen and nothing else.
+        /// Choosing Candles or Heikin Ashi puts these back with their settings intact. Empty on
+        /// every other series, and on the price series while it is candles. A saved workspace
+        /// stores the candle shape (<c>PriceSeriesShape.Canonical</c>), so this is normally empty
+        /// on disk too. Cody, 2026-11-19: "if a line is drawn then the candles series should be
+        /// replaced with a line series and same for the bricks".
+        /// </summary>
+        public ObservableCollection<ComponentConfig> CandleParts { get; set; } = new();
+
         /// <summary>True when <paramref name="componentName"/> is one of <see cref="ExcludedComponents"/>.</summary>
         public bool IsExcluded(string componentName)
         {
@@ -139,6 +152,7 @@ namespace AccessibleTrader.Sdk.Models
             };
             foreach (var comp in Components) c.Components.Add(comp.Clone());
             foreach (var comp in ExcludedComponents) c.ExcludedComponents.Add(comp.Clone());
+            foreach (var comp in CandleParts) c.CandleParts.Add(comp.Clone());
             foreach (var level in Levels) c.Levels.Add(level.Clone());
             foreach (var fill in CloudFills) c.CloudFills.Add(fill.Clone());
             foreach (var band in ZoneBands) c.ZoneBands.Add(band.Clone());

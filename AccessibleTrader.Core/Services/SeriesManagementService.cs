@@ -591,7 +591,7 @@ namespace AccessibleTrader.Core.Services
             var state = _store.State;
             var cfg = new WorkspaceConfiguration
             {
-                Series = state.ActiveSeries.Select(s => s.Config).ToList(),
+                Series = state.ActiveSeries.Select(s => Charts.PriceSeriesShape.Canonical(s.Config)).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
                     ? new Dictionary<string, float>(state.PaneHeightRatios)
                     : new()

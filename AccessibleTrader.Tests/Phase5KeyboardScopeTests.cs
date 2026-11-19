@@ -178,6 +178,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.SwitchTabNext)]
         [InlineData(SystemCommand.SwitchTabPrev)]
         [InlineData(SystemCommand.FocusTabBar)]   // Ctrl+Alt+Shift+T: focus the tab switcher bar
+        [InlineData(SystemCommand.FocusChartTypeSelect)]    // Alt+C: onto the toolbar's Chart type list
+        [InlineData(SystemCommand.FocusPriceScaleSelect)]   // Alt+L: onto the toolbar's Price scale list
         // Workspace management
         [InlineData(SystemCommand.SaveWorkspace)]
         [InlineData(SystemCommand.LoadWorkspace)]
@@ -279,6 +281,8 @@ namespace AccessibleTrader.Tests
                 SystemCommand.AddTab, SystemCommand.CloseTab,
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,
+                SystemCommand.FocusChartTypeSelect,
+                SystemCommand.FocusPriceScaleSelect,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
                 SystemCommand.SaveIndicatorTemplate, SystemCommand.ApplyIndicatorTemplate,
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,

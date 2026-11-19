@@ -124,7 +124,11 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                     using var paint = _stylingService.GetPaint(comp, ctx.Density);
 
-                    if (s.Id == CoreSeriesIds.Candles && comp.Name == "body")
+                    // The price series' drawing part: the body on candles, or the one part it has on
+                    // a line, area or brick chart (PriceSeriesShape).
+                    if (s.Id == CoreSeriesIds.Candles
+                        && comp.DisplayType is ComponentDisplayType.Candle or ComponentDisplayType.Brick
+                            || s.Id == CoreSeriesIds.Candles && comp.Name == Charts.PriceSeriesShape.LinePart)
                     {
                         // Candles body renders as real OHLCV candlesticks. Analytics
                         // providers (single-value) no longer reach this branch: after the

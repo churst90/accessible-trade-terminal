@@ -9,7 +9,7 @@ using Cmp = AccessibleTrader.BlazorClient.Components;
 namespace AccessibleTrader.Tests.Blazor;
 
 /// <summary>
-/// The toolbar's price-scale select, right before the Alt+L Log scale button: the four entries
+/// The toolbar's price-scale select, reached by Alt+L: the four entries
 /// of TradingView's menu, one choice, labelled and gated exactly like that button. Choosing
 /// Percent or Indexed on a base that cannot carry it refuses aloud rather than relabelling a
 /// zero; Regular and Logarithmic write the existing log flag.

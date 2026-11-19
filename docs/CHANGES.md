@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The price series takes the chart type's shape; Alt+C and Alt+L focus the lists, 2026-11-19 — not yet heard by Cody
+
+Cody tried 58d9bad0: *"I select renko ... I still hear 3 components like the candles are still
+there ... they all read as 'up brick' ... I switch to line and i still see candles ... if a line
+is drawn then the candles series should be replaced with a line series and same for the bricks"*.
+The first version kept the candle parts and sent the arrows to the separate Price indicator,
+which his charts do not have. So he walked a line chart's wicks, and three parts on Renko.
+
+- **The main price series reshapes.** New `PriceSeriesShape` (Core/Services/Charts). On Candles
+  and Heikin Ashi it has three parts (upper wick, body, lower wick). On Line it has one part,
+  "Close", a line. On Area it has one part, "Close", filled. On Renko it has one part,
+  "Brick". `WorkspaceStore.Dispatch` applies the shape after every reduce, so every path that
+  changes the chart type (the select, the Go bar, a loaded workspace) reshapes. The candle parts
+  are kept in `SeriesConfig.CandleParts` and come back with their settings. The one part is made
+  from the body, so colours, volume, visibility and mute go with it and return to the body.
+- **The brick has its own sound.** `ComponentDisplayType.Brick` has its own row in
+  `SonificationProfileProvider`: a short ping, pitched by direction (the body's up/down pair).
+  The line and area parts use the line and area sounds. Speech is one reading per brick or
+  point: *"Up brick, 110.00 to 120.00."*, *"Close X. Up Y from the previous close, Z percent."*
+- **Saves keep the candle shape** (`PriceSeriesShape.Canonical` in `WorkspaceLibraryService`
+  and `SeriesManagementService`). The background monitor, alerts, templates and older builds
+  reading a save meet the series they always have.
+- **The Price indicator is optional.** On Line and Area it only repeats the close line, so it
+  leaves the arrow rotation and focus asked of it lands on the price series
+  (`ChartTypeFocus.Redirect`). A Price line remapped to the high stays. When the change moves
+  focus off the Price line, the chart-type sentence says where it went: *"Line chart. On the
+  close line."*, *"Renko chart, fixed box 500.00. On the bricks."*
+- **Alt+C and Alt+L focus the lists.** Cody: *"also change alt c and l to focus on those
+  dropdowns"*. New `SystemCommand.FocusChartTypeSelect` and `FocusPriceScaleSelect` (global keys)
+  publish `FocusToolbarControlEvent`. The toolbar leaves focus mode first if it is on, then
+  focuses the list. On a tab with no lists it says *"No Chart type list on this tab: it is for
+  price charts."* Go bar codes CTYPE and PSCALE. Heikin Ashi and Log no longer have a key of
+  their own: they are entries in the lists, and the Go bar's HA and LOG still toggle them.
+- **Found on the way:** the Renko merge never enrolled `ChartTypeSettingsModal` in the modal
+  catalog. It is now enrolled, with focus on its title.
+- **Tests:** `ChartTypeFocusTests` rewritten for the new design. Also new or changed:
+  `ChartListKeysTests` (new), the Line cases in `ChartKeyboardNavigationTests`, a one-brick test
+  in `RenkoSpeechTests`, `ChartTypeAnnouncementTests`, `Phase5KeyboardScopeTests`, and the modal
+  catalog and focus contract. The browser screenshot probe now picks chart type and scale from
+  the lists. Each of these sabotages turned the tests red: removing the store's Apply call (14
+  failures), the brick sound row, `Canonical`, the mute carry, the old Alt+C binding, and the
+  toolbar not leaving focus mode.
+- **Caveats.** Cody has not heard any of this. A `shortcuts.json` saved by the user replaces the
+  defaults wholesale, so a saved file keeps the old Alt+C/Alt+L toggles until it is reset. None
+  exists on Cody's machine. Still open for Cody: whether alerts on a Renko chart should read
+  bricks "as drawn", and whether background Renko tabs should announce bricks.
+
 ### Chart type and price scale are HEARD, not just drawn; HA and Log buttons removed, 2026-11-19 — not yet heard by Cody
 
 Cody tried Line, Area and Percent and heard no change: *"I still wasn't able to arrow around the
@@ -28,7 +75,8 @@ should be mirrored visually and through sound and speech."*
   series components and `{value:price}` templates in the value-only speech order, which skipped
   the template before. Indicator panes are untouched; Regular reads exactly as before.
 - **Toolbar:** the separate Heikin Ashi and Log scale buttons and their sprite icons are gone;
-  the Chart type and Price scale selects carry both. Alt+C and Alt+L are unchanged.
+  the Chart type and Price scale selects carry both. (Alt+C and Alt+L were unchanged here; the
+  entry above makes them focus the lists.)
 - **Tests:** `ChartTypeFocusTests` (new), three Line-chart cases in
   `ChartKeyboardNavigationTests` (Page Up stops on Price, *silently* at the top),
   `ChartTypeAnnouncementTests` focus clause, `ToolbarControlSurfaceTests` (buttons gone, the

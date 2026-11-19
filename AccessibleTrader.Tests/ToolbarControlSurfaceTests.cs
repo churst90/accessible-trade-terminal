@@ -121,8 +121,8 @@ namespace AccessibleTrader.Tests
         /// <summary>
         /// The separate Heikin Ashi and Log scale buttons are GONE (Cody, 2026-11-19: "they're
         /// part of the dropdowns"). Each was a second control for one entry of a list beside
-        /// it, so a screen reader met the same choice twice in a row. Their keys stay — Alt+C
-        /// and Alt+L — and the lists are the controls a shortcut pairs with.
+        /// it, so a screen reader met the same choice twice in a row. Their keys, Alt+C and
+        /// Alt+L, now put the focus on the lists themselves.
         /// </summary>
         [Fact]
         public void HeikinAshiAndLogScaleButtons_areGoneAndTheListsCarryThem()

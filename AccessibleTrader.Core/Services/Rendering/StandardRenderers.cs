@@ -276,7 +276,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             // repaint the background, the grid, the axes and the whole application chrome, and
             // the candles stayed teal. Which is to say the one element people actually look at
             // was the one element the theme could not touch.
-            var bodyComp = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Candle);
+            // The body, or on a brick chart the brick part (PriceSeriesShape) — its colours are the body's.
+            var bodyComp = series.Components.FirstOrDefault(c => c.DisplayType is ComponentDisplayType.Candle or ComponentDisplayType.Brick);
             SKColor bullish = ctx.Theme.CandleBullishBody;
             SKColor bearish = ctx.Theme.CandleBearishBody;
             if (bodyComp is { IsUserStyled: true })

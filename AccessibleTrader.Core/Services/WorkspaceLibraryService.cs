@@ -269,7 +269,9 @@ namespace AccessibleTrader.Core.Services
         private static SeriesConfig CaptureConfig(ChartSeries s)
         {
             s.Config.Drawing = s.Drawing;
-            return s.Config;
+            // The price series is saved as candles whatever the chart type draws it as: the
+            // background monitor, alerts and older builds read a save and expect the candle parts.
+            return Charts.PriceSeriesShape.Canonical(s.Config);
         }
 
         private static TabConfiguration CreateTabConfig(WorkspaceState state)

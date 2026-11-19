@@ -280,26 +280,25 @@ public sealed class ChartKeyboardNavigationTests
     }
 
     [Fact]
-    public void On_a_line_chart_Page_Up_from_the_average_stops_on_the_price_line_not_the_candles()
+    public void On_a_line_chart_Page_Up_from_the_average_stops_on_the_close_line_not_the_Price_line()
     {
-        // Cody, 2026-11-19: on a Line chart the candles are not drawn, so they are not a stop.
+        // Cody, 2026-11-19: on a Line chart the price series IS the close line; the separate
+        // Price line repeats it, is not drawn there, and is not a stop.
         var h = LineChart();
-        Assert.Equal("price", h.Store.State.FocusedSeriesId);   // the chart-type change moved it
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);   // the price series kept focus
         h.Store.Dispatch(new SelectSeriesAction("ma"));
 
         h.Press("NAV_SERIES_PREV");
-        Assert.Equal("price", h.Store.State.FocusedSeriesId);
-        Assert.Contains(h.Spoken, t => t.Contains("Price"));    // the landing is heard
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);
+        Assert.Contains(h.Spoken, t => t.Contains("Close"));      // the landing is heard as the line
 
-        h.Press("NAV_SERIES_PREV");                              // the top of the chart: clamps
-        Assert.Equal("price", h.Store.State.FocusedSeriesId);
-        // Silently, as at the top of a candle chart. Stepping "onto" the hidden candles and
-        // being bounced back would re-read the Price line as though Page Up had gone somewhere.
+        h.Press("NAV_SERIES_PREV");                                // the top of the chart: clamps
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);
         Assert.Empty(h.Spoken);
     }
 
     [Fact]
-    public void On_a_line_chart_Page_Down_walks_on_from_the_price_line()
+    public void On_a_line_chart_Page_Down_walks_past_the_Price_line()
     {
         var h = LineChart();
 
@@ -315,7 +314,9 @@ public sealed class ChartKeyboardNavigationTests
         var h = LineChart();
         h.Store.Dispatch(new SetChartStyleAction(PriceChartStyle.Candles, false));
         Assert.Equal("candles", h.Store.State.FocusedSeriesId);
+        Assert.Equal("Close", h.Store.State.ActiveSeries.Single(s => s.Id == "candles").Components.Single().Name);   // its own part back
         h.Store.Dispatch(new SelectSeriesAction("price"));
+        Assert.Equal("price", h.Store.State.FocusedSeriesId);     // a stop again on candles
 
         h.Press("NAV_SERIES_PREV");
 

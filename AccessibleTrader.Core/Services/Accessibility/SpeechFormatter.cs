@@ -187,22 +187,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // that axis, and the base is the first visible brick's close.
                 msg = ScalePrefix(scaleMode, brick.Close, scaleBase) + BrickChartSpeech.BrickSummary(brick, brickSpan);
             }
-            else if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+            else if (seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
             {
-                // On Line and Area there is no candle on screen: no body, no wicks, no shape and
-                // no pattern to name. The reading describes the POINT ON THE LINE instead — the
-                // close and how it moved from the previous close. The bar-detail key still reads
-                // the full OHLC bar, because that is a question about the market rather than
-                // about the drawing. (The arrow keys normally walk the Price line on these types —
-                // ChartTypeFocus — so this is reached only when there is no close line to walk.)
-                msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + LineReading(state, rawPt);
-            }
-            else if (seriesId == CoreSeriesIds.Price && ChartTypeFocus.CandlesOffScreen(state))
-            {
-                // The Price series IS the line on a Line or Area chart, so it reads the point on
-                // the line in both the summary and its one component — the same sentence the
-                // candles gave before they left the rotation. Cody, 2026-11-19: choosing Line
-                // changed the picture and nothing he heard, because only the candles knew.
+                // On Line and Area the price series IS the line (PriceSeriesShape: its one part is
+                // the close), so the summary and that part both read the POINT ON THE LINE — the
+                // close and how it moved from the previous close. No body, no wicks, no shape and
+                // no pattern: none is on screen. The bar-detail key still reads the full OHLC bar,
+                // because that is a question about the market rather than about the drawing.
                 msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + LineReading(state, rawPt);
             }
             else if (summary && seriesId == "candles")
@@ -795,6 +786,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ComponentDisplayType.Heatmap    => "heatmap",
             ComponentDisplayType.Wick       => "wick",
             ComponentDisplayType.Candle      => "candle",
+            ComponentDisplayType.Brick       => "brick",
             ComponentDisplayType.TriangleUp   => "triangle up",
             ComponentDisplayType.TriangleDown => "triangle down",
             ComponentDisplayType.Diamond      => "diamond",

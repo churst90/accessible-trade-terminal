@@ -86,12 +86,13 @@ public sealed class ChartTypeAnnouncementTests
     {
         Assert.Equal("Candle chart.", Announce(PriceChartStyle.Candles, true, PriceChartStyle.Candles, false));
     }
-    // Cody 2026-11-19: choosing Line or Area moves the arrows onto the Price line, and back to
-    // the candles on Candles. The sentence says where they went; a change that leaves the focus
-    // where it was (an indicator) says nothing extra.
+    // Cody 2026-11-19: the price series takes the chart type's shape, so the arrows stay on it;
+    // only a Price line, which Line and Area do not draw, hands focus to it. The sentence names
+    // the shape the arrows are now on; a change that leaves the focus where it was says nothing extra.
     [Theory]
-    [InlineData(PriceChartStyle.Candles, "candles", PriceChartStyle.Line, "price", "Line chart. On the price line.")]
-    [InlineData(PriceChartStyle.Area, "price", PriceChartStyle.Candles, "candles", "Candle chart. On the candles.")]
+    [InlineData(PriceChartStyle.Candles, "price", PriceChartStyle.Line, "candles", "Line chart. On the close line.")]
+    [InlineData(PriceChartStyle.Candles, "price", PriceChartStyle.Area, "candles", "Area chart. On the close line.")]
+    [InlineData(PriceChartStyle.Line, "candles", PriceChartStyle.Candles, "candles", "Candle chart.")]
     [InlineData(PriceChartStyle.Candles, "rsi", PriceChartStyle.Line, "rsi", "Line chart.")]
     public void A_style_change_that_moves_the_focus_says_where(
         PriceChartStyle from, string focusFrom, PriceChartStyle to, string focusTo, string expected)

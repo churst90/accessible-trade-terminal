@@ -391,12 +391,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _ => "Candle chart.",
                     };
                 }
-                // The change moved the focus (ChartTypeFocus): say where the arrows now are, so
-                // the next reading is not a surprise. Only when the reducer actually moved it.
+                // The change moved the focus off the Price line, which Line and Area do not draw
+                // (ChartTypeFocus): say where the arrows now are, in the price series' new shape
+                // (PriceSeriesShape), so the next reading is not a surprise.
                 if (state.FocusedSeriesId != _previousState.FocusedSeriesId)
                 {
                     if (state.FocusedSeriesId == CoreSeriesIds.Price) msg += " On the price line.";
-                    else if (state.FocusedSeriesId == CoreSeriesIds.Candles) msg += " On the candles.";
+                    else if (state.FocusedSeriesId == CoreSeriesIds.Candles)
+                        msg += state.ChartStyle switch
+                        {
+                            PriceChartStyle.Line or PriceChartStyle.Area => " On the close line.",
+                            _ when state.ChartStyle.IsBrickStyle() => " On the bricks.",
+                            _ => " On the candles.",
+                        };
                 }
                 _speechRouter.Speak(msg, interrupt: true, channel: SpeechChannel.Interface);
             }

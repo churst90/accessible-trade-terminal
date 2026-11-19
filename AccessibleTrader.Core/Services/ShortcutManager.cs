@@ -397,9 +397,14 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.UndoChartEdit, "Z", Ctrl: true));
             s.Add(new(SystemCommand.RedoChartEdit, "Y", Ctrl: true));
 
-            // Chart display toggles (Alt+key) — require no data gate, so always work.
-            s.Add(new(SystemCommand.ToggleHeikinAshi, "C", Alt: true)); // Alt+C
-            s.Add(new(SystemCommand.ToggleLogScale,   "L", Alt: true)); // Alt+L
+            // Chart type and price scale (Alt+key). Until 2026-11-19 these toggled Heikin Ashi
+            // and Log; each is now one entry of a list (Candles, Heikin Ashi, Line, Area, Renko;
+            // Regular, Logarithmic, Percent, Indexed), so the keys put focus ON the list, where
+            // the arrows reach every choice. Cody: "change alt c and l to focus on those
+            // dropdowns". The two toggles keep their Go bar codes (HA, LOG). Global, not
+            // chart-scoped: the lists are on the toolbar, so the key has to work from anywhere.
+            s.Add(new(SystemCommand.FocusChartTypeSelect,  "C", Alt: true)); // Alt+C
+            s.Add(new(SystemCommand.FocusPriceScaleSelect, "L", Alt: true)); // Alt+L
             // Alt+F is deliberately UNBOUND. It toggled "fit price only" from 2026-09-21 until
             // Cody retired that mode on 2026-09-23 (see WorkspaceState). It is the File menu in
             // nearly every Windows program, so it stays free rather than being reused.

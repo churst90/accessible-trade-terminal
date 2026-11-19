@@ -348,25 +348,33 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 
 | Key | Action |
 |-----|--------|
-| Alt+C | Toggle Heikin-Ashi candle mode |
-| Alt+L | Toggle logarithmic (log) scale / regular scale |
+| Alt+C | Focus the toolbar's **Chart type** list (Candles, Heikin Ashi, Line, Area, Renko) |
+| Alt+L | Focus the toolbar's **Price scale** list (Regular, Logarithmic, Percent, Indexed to 100) |
 | Alt+H | Toggle volume heatmap overlay |
 
-**Chart type** (Candles / Heikin Ashi / Line / Area / Renko) has no key of its own: use the
-toolbar's Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, `RENKO`, or
-`heikin ashi chart`. Alt+C and Alt+L have no toolbar buttons of their own any more: the Chart
-type and Price scale selects carry them. On Line and Area the series keys skip the candles and
-land on the Price line. Typing `candles` now chooses the candle chart; it no longer toggles
-Heikin-Ashi. On a Renko chart, **Brick settings** appears beside the select (Go bar
+Until 2026-11-19 Alt+C toggled Heikin-Ashi and Alt+L toggled log scale. Each is now one entry of a
+list, so the keys put focus on the list and the arrows reach every choice. The toggles are still in
+the Go bar: `HA` and `LOG`. Both keys work from anywhere; in focus mode (Alt+Z) they show the
+toolbar first. On a tab that is not a price chart they say there is no list there.
+
+**Chart type** (Candles / Heikin Ashi / Line / Area / Renko): Alt+C, or the Go bar — `CANDLE`,
+`LINE`, `AREA`, `RENKO`, or `heikin ashi chart`. The choice changes the **price series itself**:
+on Candles and Heikin Ashi it has three parts (upper wick, body, lower wick); on Line and Area it
+has one part, **Close**, the line through the closes; on Renko it has one part, **Brick**, with a
+brick sound of its own (a short ping, high going up, low going down). The arrows stay on the price
+series whatever the type, and going back to Candles brings the candle parts back with their
+settings. A separate Price line repeating the close is not drawn on Line and Area, so the series
+keys step over it there. Typing `candles` chooses the candle chart; it does not toggle
+Heikin-Ashi. On a Renko chart, **Brick settings** appears beside the list (Go bar
 `brick settings`); `RENKO 500` sets a fixed box and `RENKO ATR 20` sets an ATR length. Arrow
 keys read a brick as *"Up brick, 95,000.00 to 95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* —
 the two brick edges and the real window that formed it.
 
-**Price scale** (Regular / Logarithmic / Percent / Indexed to 100) has no key of its own either:
-use the toolbar's Price scale select, or the Go bar — `REG` (`regular scale`, `linear scale`,
-`linear`), `PCT` (`percent scale`, `percentage`) and `IDX` (`indexed`, `index to 100`, `rebase`).
-Percent puts zero on the first visible close; Indexed puts 100 there. The zero moves as you pan.
-Alt+L is still the logarithmic toggle and returns the select to Regular when it turns log on.
+**Price scale** (Regular / Logarithmic / Percent / Indexed to 100): Alt+L, or the Go bar — `REG`
+(`regular scale`, `linear scale`, `linear`), `PCT` (`percent scale`, `percentage`), `IDX`
+(`indexed`, `index to 100`, `rebase`) and `LOG` (the logarithmic toggle, which returns the list to
+Regular when it turns log on). Percent puts zero on the first visible close; Indexed puts 100
+there. The zero moves as you pan.
 
 **What the price pane fits.** The price pane always holds everything drawn on it: the candles
 *and* every visible overlay. A Bollinger band or a Keltner channel that swings wider than the bars

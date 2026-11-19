@@ -411,6 +411,14 @@ namespace AccessibleTrader.Core.Services.GoBar
                 "Chart master volume down by ten percent", GoBarKind.Normal),
 
             // ── Chart Settings ─────────────────────────────────────────────
+            new(SystemCommand.FocusChartTypeSelect, "Chart type list",
+                new[] { "CTYPE" },
+                new[] { "chart type", "chart types" },
+                "Move focus to the Chart type list: Candles, Heikin Ashi, Line, Area, Renko", GoBarKind.Normal),
+            new(SystemCommand.FocusPriceScaleSelect, "Price scale list",
+                new[] { "PSCALE" },
+                new[] { "price scale", "scale" },
+                "Move focus to the Price scale list: Regular, Logarithmic, Percent, Indexed", GoBarKind.Normal),
             new(SystemCommand.ToggleHeikinAshi, "Toggle Heikin-Ashi candles",
                 new[] { "HA" },
                 new[] { "heikin ashi", "heikin" },

@@ -289,12 +289,12 @@ Properties.
 
 **Delete** removes the focused series after confirmation. **Ctrl+Z** takes it back.
 
-**Heikin-Ashi (Alt+C)** replaces each candle with a smoothed one: its close is the average of
+**Heikin-Ashi** (Alt+C puts you on the Chart type list; arrow to Heikin Ashi) replaces each candle with a smoothed one: its close is the average of
 open, high, low and close, its open the midpoint of the previous smoothed candle. Trends read
 as runs of one colour, so they are easier to hear. Two things to know: **indicators then compute on
 the smoothed candles**, as on TradingView, while strategies (unless a strategy ticks **Signals from
 Heikin-Ashi candles**), the close line and every formation level keep reading the raw ones, because the smoothed prices are averages nobody traded at; and
-with HA on, the candle you hear and its pattern are the smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories, and the
+with HA on, the candle you hear and its pattern are the smoothed ones. **Logarithmic** on the Price scale list (Alt+L) switches the price axis to logarithmic for long histories, and the
 sound follows it: a level-pitched component in the price pane takes its pitch from where the
 value sits on the scale as drawn.
 
@@ -545,7 +545,7 @@ Windows.
 | 0 | Toggle the pane's neutral level, or mark the price under the cursor |
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
-| Alt+C / Alt+L / Alt+H | Heikin-Ashi / log scale / volume heatmap |
+| Alt+C / Alt+L / Alt+H | Chart type list / Price scale list / volume heatmap |
 | Alt+Z | Focus mode: hide the toolbar, tabs and indicator bar, or show them again |
 
 **Drawings**

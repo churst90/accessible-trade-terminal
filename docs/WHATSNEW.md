@@ -82,10 +82,23 @@ None of this has been seen or heard in the app yet.
   countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
   Fed decisions.
 
+### Chart types and price scales
+
+- **The chart type changes the price series itself.** Choose Line or Area and the arrows walk one
+  close line: *"Close X. Up Y from the previous close, Z percent."* Choose Renko and they walk
+  bricks, one reading and one short ping per brick: *"Up brick, 110.00 to 120.00."* Choose Candles
+  or Heikin Ashi and the upper wick, body and lower wick come back with their settings. You do not
+  need the Price indicator for any of this.
+- **Percent and Indexed scales** lead every price reading in the main pane: *"Plus 4.20 percent,
+  Open 95,000.50."*
+- **Alt+C focuses the Chart type list and Alt+L the Price scale list.** Heikin Ashi and Log scale
+  are entries in those lists. The separate buttons are gone, and the Go bar's HA and LOG still
+  toggle them.
+
 ### Market events: the calendar, alerts and release history
 
-- **Toolbar fixes.** The Heikin Ashi and Log scale buttons now say their shortcuts (Alt+C and
-  Alt+L), and the Market events button has its own calendar icon instead of sharing the Levels one.
+- **Toolbar fix.** The Market events button has its own calendar icon instead of sharing the
+  Levels one.
 - **Alt+E opens a calendar of the days ahead.** Days are headings, each event is one line —
   "8:30, CPI, important, previous up 2.9%." — and filters choose the range, importance, kinds, or only
   the events touching your charts and positions. The FRED status sentence sits at the top. The

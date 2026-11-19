@@ -176,6 +176,11 @@ namespace AccessibleTrader.Core.Models
         ShowRegularScale,
         ShowPercentScale,
         ShowIndexedScale,
+        // Alt+C / Alt+L since 2026-11-19 (Cody: "change alt c and l to focus on those
+        // dropdowns"): the keys go to the Chart type and Price scale lists, where every choice
+        // is, rather than toggling one entry of each. The toggles stay in the Go bar.
+        FocusChartTypeSelect,
+        FocusPriceScaleSelect,
 
         // Drawings — Alt+Shift+letter on every head since 2026-09-05 (see ShortcutManager)
         DrawTrend,          // Alt+Shift+T

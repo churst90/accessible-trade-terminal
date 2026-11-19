@@ -74,20 +74,20 @@ public sealed class ChartScreenshotProbe
 
         await Snap(t, outDir, report, "01_candles_linear");
 
-        // Log scale and back. Alt+L is the ToggleLogScale chord in ShortcutManager.
-        await Toggle(t, "Alt+l");
+        // Log scale and back, through the Price scale list (Alt+L only focuses it since 2026-11-19).
+        await Choose(t, "#price-scale-select", "logarithmic");
         await Snap(t, outDir, report, "02_candles_log");
-        await Toggle(t, "Alt+l");
+        await Choose(t, "#price-scale-select", "regular");
 
         // Zoom in six steps, photograph, zoom back out.
         for (int i = 0; i < 6; i++) await Toggle(t, "=");
         await Snap(t, outDir, report, "03_zoomed_in");
         for (int i = 0; i < 6; i++) await Toggle(t, "-");
 
-        // Heikin Ashi and back. Alt+C.
-        await Toggle(t, "Alt+c");
+        // Heikin Ashi and back, through the Chart type list (Alt+C only focuses it).
+        await Choose(t, "#chart-type-select", "heikin");
         await Snap(t, outDir, report, "04_heikin_ashi");
-        await Toggle(t, "Alt+c");
+        await Choose(t, "#chart-type-select", "candles");
 
         // Indicators through the real dialog.
         var added = new List<string>();
@@ -100,9 +100,9 @@ public sealed class ChartScreenshotProbe
         }
         await Snap(t, outDir, report, "07_eight_panes");
 
-        await Toggle(t, "Alt+l");
+        await Choose(t, "#price-scale-select", "logarithmic");
         await Snap(t, outDir, report, "08_eight_panes_log");
-        await Toggle(t, "Alt+l");
+        await Choose(t, "#price-scale-select", "regular");
 
         for (int i = 0; i < 6; i++) await Toggle(t, "=");
         await Snap(t, outDir, report, "09_eight_panes_zoomed");
@@ -124,6 +124,14 @@ public sealed class ChartScreenshotProbe
         var before = await t.ImageSrcLengthAsync();
         await t.PressAsync(chord);
         await t.WaitForPaintAsync(before);
+    }
+
+    private static async Task Choose(TerminalPage t, string select, string value)
+    {
+        var before = await t.ImageSrcLengthAsync();
+        await t.Page.SelectOptionAsync(select, value);
+        await t.WaitForPaintAsync(before);
+        await t.FocusChartAsync();
     }
 
     private static async Task Snap(TerminalPage t, string outDir, List<Dictionary<string, object?>> report, string name)
