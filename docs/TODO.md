@@ -120,6 +120,31 @@ and Identity already has 2FA, lockout and rate limits.
 
   Not picked for now: several charts on one screen with linked symbol and crosshair; extended-hours
   sessions for stocks.
+- [ ] **Full Pine Script in the script editor (Cody, 2026-11-19: "add that to the todo to be done
+  later").** Its own track, after the charting items above. Today `Core/PineScript/PineTranspiler.cs`
+  rewrites Pine to C# with regex patterns; that cannot follow indented blocks, user functions,
+  types/methods, arrays/maps/matrices, `[n]` on any expression, `var`/`varip` or tuples, and
+  `line.new`, `label.new`, `strategy.*` and `request.security` are stubs. Nothing in the language
+  needs TradingView's internals; it is documented. The order:
+  1. **Conformance bank first (cheap, can go alone):** 30–50 popular open-source indicators run
+     through today's transpiler and compared value by value with TradingView's own export, the
+     way Stoch RSI and Cipher B were matched. This measures what "some may not work" really is.
+  2. **A real parser + bar-by-bar engine**, compiled to C# for the existing sandboxed worker:
+     per-value history, `var`, `varip`, live-bar rollback and re-run per tick.
+  3. **The built-in library** (`ta.*`, `math.*`, `str.*`, `array.*`, `map.*`, `matrix.*`, types),
+     matched against the bank, including seeding and `na` handling.
+  4. **`request.security`** with Pine's documented no-lookahead rules for higher timeframes.
+  5. **Drawings** (`line`, `label`, `box`, `table`, `polyline`) on the drawing layer, each with a
+     spoken form (a table read out, a label as an event).
+  6. **Strategies**: an emulator of TradingView's documented broker (fill rules, intrabar order
+     path, pyramiding, commission, slippage, margin calls).
+
+  Can never work, and must be said in words when met: invite-only/protected scripts (no source),
+  `import user/lib/N` without pasted source, TradingView-only data (`request.financial`,
+  `request.economic`, `request.seed`, `EXCHANGE:SYMBOL` ids that do not map to a provider), and
+  tick-exact live-bar behaviour (their feed's ticks, not ours; closed bars can match exactly).
+  "Pine Script" is TradingView's trademark: describe it as "runs Pine Script v5/v6 indicators".
+  Replaces the old "Pine dialect fidelity was not assessed" line below once started.
 
 ## Market events, market pulse and the Go bar (Cody, 2026-11-18)
 
