@@ -768,8 +768,10 @@ and stays in the rotation. The Price series is optional: the chart types do not 
 The price axis fits the closes on Line and Area, so the line uses the whole pane; overlays and
 reference levels still widen the axis, and log scale works as usual. On Line and Area the price
 pane's status line shows just `C <close>`, and the price series' arrow-key reading describes
-the point on the line: *"Close 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*,
-*"Down …"*, *"Unchanged from the previous close."* or *"First bar."* The detail key
+the point on the line, read like any other line (its part's name, its type, its value), then the
+move: *"Close. line. 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*, *"Down …"*,
+*"Unchanged from the previous close."* or *"First bar."* With the value-only speech order you
+hear just *"95,000.50. Up 1,120.00 …"*. The detail key
 (Alt+Shift+D) still reads the full bar. On an analytics chart, which is already a single line,
 the select is not shown and the phrases refuse aloud.
 
@@ -778,8 +780,15 @@ the select is not shown and the phrases refuse aloud.
 `bricks`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
 than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*
 
-**On a Renko chart the arrow keys read the brick, not a candle:** *"Up brick, 95,000.00 to
-95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* The two prices are the brick's edges and the two
+**The price series is named after the chart type.** Page Up / Page Down, the indicator bar, the
+Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Line*, *Area* or *Renko*,
+whichever is chosen. A name you gave the series yourself is kept. Saved workspaces store it as
+Candles, as before.
+
+**On a Renko chart the arrow keys read the brick, not a candle,** by the same template as every
+part, with the brick's direction where a line says its type: *"Brick. Up. 95,000.00 to
+95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* (value-only order: *"Up, 95,000.00 to 95,500.00."*).
+The two prices are the brick's edges and the two
 times are the REAL window it took to form (the first bar after the previous brick completed to
 the close of the bar that completed it). There is no body, wick or candle-pattern name on a
 brick. The status line says `Up brick 95,000 → 95,500`, the layout description says

@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The price series is named after its chart type and read by the template, 2026-11-19 — not yet heard by Cody
+
+Cody tried 9f5ac4ad: *"when i change to renko and use pg up/down and land on that series, it is
+still called candles even though they are renko bricks. same for line or area"* and *"as with
+any other line it needs to follow the speech template, component name, component type ... The
+main series pane right now just reads values"*. Sound was right; the name and the words were not.
+
+- **Name.** `PriceSeriesShape.NameFor` gives Candles, Heikin Ashi, Line, Area or Renko, and `Apply`
+  renames the price series (`Name` and `FriendlyName`) whenever it reshapes it, so Page Up/Down,
+  the indicator bar, the Object Tree and Properties all say it. Only a name that is one of those
+  five is replaced: a name the user gave is kept. An unnamed series stays unnamed on Candles.
+  `Canonical` saves "Candles", so saved workspaces and templates do not change.
+- **Reading.** New `PriceLineStrategy` and `BrickStrategy` in `SpeechFormatter`'s strategy list.
+  The close line reads *"Close. line. 104.20. Up 4.20 from the previous close, 4.20 percent."*
+  (Area: *"area"*), the brick *"Brick. Up. 110.00 to 120.00."* then its real window. On Percent
+  and Indexed the scale reading leads the VALUE (*"Close. line. plus 4.20 percent, 104.20. …"*),
+  as on the candle body, instead of the whole sentence. Value-only order drops the name and type
+  as for every other part. The summary reading and the part reading go through
+  `FormatTemplateValue`, so hidden/muted and look suffixes apply as on any part.
+- **Caveats.** A Line/Renko chart whose price series still has candle parts (not reshaped; the
+  store reshapes after every action, so only hand-built test states get there) keeps the old plain reading. The brick's "type" slot holds its
+  direction (Up/Down), mirroring the body's Bullish/Bearish; Cody has not confirmed that choice.
+- **Tests:** 15 new or changed cases in `ChartTypeFocusTests` and `RenkoSpeechTests`. Five
+  sabotages went red: Renko named Candles (3), save keeps the Renko name (1), a user's name
+  overwritten (1), the line template removed (8), the brick template removed (2).
+
 ### Background Renko tabs say their new bricks, 2026-11-19 — not yet heard by Cody
 
 Cody: *"yes keep price as option indicator overlay, yes announce new bricks on renko views"*.

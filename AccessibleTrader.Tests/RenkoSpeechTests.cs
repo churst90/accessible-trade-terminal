@@ -113,8 +113,25 @@ public sealed class RenkoSpeechTests
         var brick = Assert.Single(state.ActiveSeries[0].Components);
         Assert.Equal(ComponentDisplayType.Brick, brick.DisplayType);
         string spoken = Speak(state);
-        Assert.Single(System.Text.RegularExpressions.Regex.Matches(spoken, "Up brick"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(spoken, @"\bUp\b"));   // value-only fixture: "Up, X to Y"
         Assert.DoesNotContain("wick", spoken, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void The_brick_part_reads_by_the_template_name_direction_edges_then_its_window()
+    {
+        // Cody, 2026-11-19: "stick to the template of how to read" — the part's name, its type
+        // (the direction, as the body says Bullish), its value (the two edges); the window kept.
+        var (state, span, brick) = BrickState();
+        state = PriceSeriesShape.Apply(state with
+        {
+            LastInteractionContext = InteractionContext.Component, SpeechOrder = "HeaderValue", ReadColumnHeaders = true,
+        });
+
+        string spoken = Speak(state);
+
+        string edges = $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to {SpeechPriceFormatter.FormatPrice(brick.Close)}";
+        Assert.Contains($"Brick. Up. {edges}. {Window(span)}.", spoken);
     }
 
     [Theory]

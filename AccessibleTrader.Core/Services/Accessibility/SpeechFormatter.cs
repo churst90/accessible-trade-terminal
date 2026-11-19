@@ -113,6 +113,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 new CloudComponentStrategy(),   // 5. Ichimoku-style cloud narration
                 new PhaseNameStrategy(),        // 6. sentiment-phase names
                 new MarkerSignalStrategy(),     // 7. signal-marker templates
+                new PriceLineStrategy(),        // 8. the price series as one close line (Line, Area)
+                new BrickStrategy(),            // 8. the price series as bricks (Renko)
                 new CandleBodyStrategy(),       // 8. body = open→close span
                 new VolumeBarStrategy(),        // 9. signed exact volume
             };
@@ -181,20 +183,43 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool brickCandle = seriesId == "candles"
                 && BrickChartSpeech.TryGetBrick(state, state.CurrentDataIndex, out brick, out brickSpan);
 
-            if (brickCandle)
+            // On Line, Area and Renko the price series has ONE part (PriceSeriesShape): the close
+            // line or the brick. The summary and that part read the same sentence, through the
+            // template every part follows — its name, its type, then its value (Cody, 2026-11-19:
+            // "as with any other line it needs to follow the speech template, component name,
+            // component type"). No body, no wicks, no shape and no pattern: none is on screen.
+            // The bar-detail key still reads the full OHLC bar, a question about the market.
+            var onePart = seriesId == CoreSeriesIds.Candles && series.Components.Count == 1
+                && series.Components[0].Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BrickPart
+                ? series.Components[0]
+                : null;
+
+            bool lineChart = seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area;
+            if (brickCandle || lineChart)
             {
-                // Percent and Indexed lead here too: the brick's close is the point drawn on
-                // that axis, and the base is the first visible brick's close.
-                msg = ScalePrefix(scaleMode, brick.Close, scaleBase) + BrickChartSpeech.BrickSummary(brick, brickSpan);
-            }
-            else if (seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
-            {
-                // On Line and Area the price series IS the line (PriceSeriesShape: its one part is
-                // the close), so the summary and that part both read the POINT ON THE LINE — the
-                // close and how it moved from the previous close. No body, no wicks, no shape and
-                // no pattern: none is on screen. The bar-detail key still reads the full OHLC bar,
-                // because that is a question about the market rather than about the drawing.
-                msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + LineReading(state, rawPt);
+                if (onePart != null)
+                {
+                    // The point as drawn: the brick on Renko, the raw close on Line and Area.
+                    msg = FormatTemplateValue(series, onePart, brickCandle ? brick : rawPt, state.CurrentDataIndex,
+                        state.ReadColumnHeaders, state.SpeechOrder, isYMove: isYMove,
+                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
+                        describeLook: state.DescribeSignalLooks,
+                        lineFrom: LineFrom(series, onePart, state.CurrentDataIndex, arrived || isYMove),
+                        scaleMode: scaleMode, scaleBase: scaleBase);
+                    if (brickCandle) msg = msg.TrimEnd().TrimEnd('.');   // the window follows
+                }
+                else if (brickCandle)
+                {
+                    // Bricks drawn under candle parts (a shape not yet applied): the brick, plainly.
+                    msg = ScalePrefix(scaleMode, brick.Close, scaleBase) + BrickChartSpeech.BrickSummary(brick, brickSpan);
+                }
+                else
+                {
+                    // A line drawn over candle parts (a shape not yet applied): the point, plainly.
+                    msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase)
+                        + $"Close {SpeechPriceFormatter.FormatPrice(rawPt.Close)}. "
+                        + MoveFromPreviousClose(state.Data, state.CurrentDataIndex, rawPt.Close);
+                }
             }
             else if (summary && seriesId == "candles")
             {
@@ -620,22 +645,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// previous close."</c> or <c>"… First bar."</c> The close is the RAW one: the reducer
         /// clears Heikin-Ashi for these types and the renderer never draws an HA line.
         /// </summary>
-        private static string LineReading(WorkspaceState state, Ohlcv onLine)
+        /// <summary>How the close at <paramref name="idx"/> moved from the one before it:
+        /// "Up 4.20 from the previous close, 4.20 percent." The point on a close line.</summary>
+        internal static string MoveFromPreviousClose(IReadOnlyList<Ohlcv>? bars, int idx, double close)
         {
-            int idx = state.CurrentDataIndex;
-            double close = onLine.Close;
-            if (state.Data == null || idx <= 0 || idx >= state.Data.Count)
-                return $"Close {SpeechPriceFormatter.FormatPrice(close)}. First bar.";
+            if (bars == null || idx <= 0 || idx >= bars.Count) return "First bar.";
 
-            double previous = state.Data[idx - 1].Close;
+            double previous = bars[idx - 1].Close;
             double change = close - previous;
-            if (change == 0)
-                return $"Close {SpeechPriceFormatter.FormatPrice(close)}. Unchanged from the previous close.";
+            if (change == 0) return "Unchanged from the previous close.";
 
             double percent = previous == 0 ? 0 : Math.Abs((change / previous) * 100.0);
             string direction = change > 0 ? "Up" : "Down";
-            return $"Close {SpeechPriceFormatter.FormatPrice(close)}. {direction} " +
-                   $"{SpeechPriceFormatter.FormatPrice(Math.Abs(change))} from the previous close, " +
+            return $"{direction} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))} from the previous close, " +
                    $"{percent.ToString("F2", CultureInfo.InvariantCulture)} percent.";
         }
 
@@ -1336,6 +1358,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// its size — speak both ends plus direction: "Body. Bullish. Open 49,800, close
     /// 50,200." Series-context navigation (the full-candle summary) is unaffected.
     /// </summary>
+    /// <summary>
+    /// The price series' one part on a Line or Area chart, read like any other line: its name,
+    /// its type, its value — "Close. line. 104.20." — then how it moved from the previous close.
+    /// On Percent and Indexed the scale reading leads the value, as on the candle body.
+    /// </summary>
+    internal sealed class PriceLineStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
+            && ctx.Comp.Name == Charts.PriceSeriesShape.LinePart;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            double close = ctx.Pt.Close;
+            string scale = StandardTemplateStrategy.ScaleReading(ctx, close);
+            string value = (scale.Length == 0 ? "" : scale + ", ") + SpeechPriceFormatter.FormatPrice(close);
+            string move = SpeechFormatter.MoveFromPreviousClose(ctx.Bars, ctx.DataIndex, close);
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return $"{value}. {move}";
+            return $"{ctx.Comp.DisplayName}. {SpeechFormatter.SpokenType(ctx.Comp, ctx.Series)}. {value}. {move}";
+        }
+    }
+
+    /// <summary>
+    /// The price series' one part on a Renko chart: "Brick. Up. 110.00 to 120.00." — its name,
+    /// then its direction in the type's place (as the candle body says Bullish), then its two
+    /// edges as drawn. The brick's real window follows from the caller.
+    /// </summary>
+    internal sealed class BrickStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
+            && ctx.Comp.Name == Charts.PriceSeriesShape.BrickPart;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            var brick = ctx.Pt;
+            string direction = brick.Close >= brick.Open ? "Up" : "Down";
+            string scale = StandardTemplateStrategy.ScaleReading(ctx, brick.Close);
+            string edges = (scale.Length == 0 ? "" : scale + ", ")
+                + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to {SpeechPriceFormatter.FormatPrice(brick.Close)}";
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return $"{direction}, {edges}";
+            return $"{ctx.Comp.DisplayName}. {direction}. {edges}.";
+        }
+    }
+
     internal sealed class CandleBodyStrategy : IComponentSpeechStrategy
     {
         public bool CanHandle(ComponentFormatContext ctx) =>

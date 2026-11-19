@@ -84,11 +84,12 @@ None of this has been seen or heard in the app yet.
 
 ### Chart types and price scales
 
-- **The chart type changes the price series itself.** Choose Line or Area and the arrows walk one
-  close line: *"Close X. Up Y from the previous close, Z percent."* Choose Renko and they walk
-  bricks, one reading and one short ping per brick: *"Up brick, 110.00 to 120.00."* Choose Candles
-  or Heikin Ashi and the upper wick, body and lower wick come back with their settings. You do not
-  need the Price indicator for any of this.
+- **The chart type changes the price series itself, name and all.** Choose Line or Area and the
+  series is called Line or Area, and the arrows walk one close line, read like any line: *"Close.
+  line. X. Up Y from the previous close, Z percent."* Choose Renko and it is called Renko, and
+  the arrows walk bricks, one reading and one short ping per brick: *"Brick. Up. 110.00 to
+  120.00."* Choose Candles or Heikin Ashi and the upper wick, body and lower wick come back with
+  their settings. You do not need the Price indicator for any of this.
 - **Percent and Indexed scales** lead every price reading in the main pane: *"Plus 4.20 percent,
   Open 95,000.50."*
 - **Alt+C focuses the Chart type list and Alt+L the Price scale list.** Heikin Ashi and Log scale

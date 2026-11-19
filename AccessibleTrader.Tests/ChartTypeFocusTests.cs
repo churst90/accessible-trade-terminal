@@ -350,7 +350,7 @@ public sealed class ChartTypeFocusTests
     {
         string spoken = Reading(State(PriceChartStyle.Line, CoreSeriesIds.Candles, context: context));
 
-        Assert.Equal($"Close {P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);
+        Assert.Equal($"{P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);   // value only: this fixture's order
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public sealed class ChartTypeFocusTests
         string spoken = Reading(Without(State(PriceChartStyle.Line, CoreSeriesIds.Candles,
             context: InteractionContext.Component), CoreSeriesIds.Price));
 
-        Assert.Equal($"Close {P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);
+        Assert.Equal($"{P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);   // value only: this fixture's order
     }
 
     [Fact]
@@ -367,7 +367,7 @@ public sealed class ChartTypeFocusTests
     {
         string spoken = Reading(State(PriceChartStyle.Area, CoreSeriesIds.Candles) with { CurrentDataIndex = 2 });
 
-        Assert.Equal($"Close {P(98.7)}. Down {P(5.5)} from the previous close, 5.28 percent.", spoken);
+        Assert.Equal($"{P(98.7)}. Down {P(5.5)} from the previous close, 5.28 percent.", spoken);
     }
 
     [Fact]
@@ -420,7 +420,80 @@ public sealed class ChartTypeFocusTests
         string focus = style == PriceChartStyle.Line ? CoreSeriesIds.Candles : CoreSeriesIds.Price;
         string spoken = Reading(State(style, focus, scale: PriceScaleMode.Percent, context: context));
 
-        Assert.StartsWith("Plus 4.20 percent. ", spoken);
+        // The close line is a part read through the template, so the reading leads its value
+        // as on the candle body; the Price indicator's summary leads the sentence.
+        Assert.StartsWith(style == PriceChartStyle.Line ? $"plus 4.20 percent, {P(104.2)}. " : "Plus 4.20 percent. ", spoken);
+    }
+
+    // ── The price series is named after the chart type and read by the template ──
+
+    [Theory]
+    [InlineData(PriceChartStyle.Candles, false, "Candles")]
+    [InlineData(PriceChartStyle.Candles, true, "Heikin Ashi")]
+    [InlineData(PriceChartStyle.Line, false, "Line")]
+    [InlineData(PriceChartStyle.Area, false, "Area")]
+    [InlineData(PriceChartStyle.Renko, false, "Renko")]
+    public void The_price_series_takes_the_chart_types_name(PriceChartStyle style, bool heikinAshi, string name)
+    {
+        // Cody, 2026-11-19: "when i change to renko and use pg up/down and land on that series,
+        // it is still called candles even though they are renko bricks. same for line or area".
+        // Through Renko first, so every case is a CHANGE of type (Candles → Candles would be none).
+        var state = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles) with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) },
+            new SetChartStyleAction(PriceChartStyle.Renko, false), new SetChartStyleAction(style, heikinAshi));
+
+        Assert.Equal(name, PriceSeries(state).Name);
+        Assert.Equal(name, PriceSeries(state).FriendlyName);
+    }
+
+    [Fact]
+    public void Back_on_candles_the_name_is_candles_again_and_a_save_keeps_candles()
+    {
+        var renko = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles), new SetChartStyleAction(PriceChartStyle.Renko, false));
+        Assert.Equal("Candles", PriceSeriesShape.Canonical(PriceSeries(renko).Config).Name);
+
+        var back = Reduce(renko, new SetChartStyleAction(PriceChartStyle.Candles, false));
+        Assert.Equal("Candles", PriceSeries(back).Name);
+    }
+
+    [Fact]
+    public void A_name_the_user_gave_the_price_series_is_kept()
+    {
+        var mine = State(PriceChartStyle.Candles, CoreSeriesIds.Candles);
+        var cfg = PriceSeries(mine).Config.Clone();
+        cfg.Name = "My BTC";
+        cfg.FriendlyName = "My BTC";
+        mine = mine with { ActiveSeries = mine.ActiveSeries.Replace(PriceSeries(mine), new ChartSeries(cfg, PriceSeries(mine).Data)) };
+
+        var line = Reduce(mine, new SetChartStyleAction(PriceChartStyle.Line, false));
+
+        Assert.Equal("My BTC", PriceSeries(line).Name);
+    }
+
+    [Theory]
+    [InlineData(PriceChartStyle.Line, "Line")]
+    [InlineData(PriceChartStyle.Area, "Area")]
+    [InlineData(PriceChartStyle.Renko, "Renko")]
+    public void Paging_to_the_price_series_says_its_chart_type(PriceChartStyle style, string name)
+    {
+        var state = Reduce(State(PriceChartStyle.Candles, CoreSeriesIds.Candles) with { Renko = new RenkoSettings(RenkoBoxMode.Fixed, 2) },
+            new SetChartStyleAction(style, false)) with { LastInteractionContext = InteractionContext.Series };
+        string said = Speak(state);   // a first landing on the series names it
+
+        Assert.StartsWith($"{name}. 1 component.", said);
+        Assert.DoesNotContain("Candles", said);
+    }
+
+    [Theory]
+    [InlineData(PriceChartStyle.Line)]
+    [InlineData(PriceChartStyle.Area)]
+    public void With_headers_the_close_line_reads_its_name_its_type_then_its_value(PriceChartStyle style)
+    {
+        // Cody: "as with any other line it needs to follow the speech template, component name,
+        // component type." The move from the previous close is kept after the value.
+        string spoken = Reading(State(style, CoreSeriesIds.Candles, context: InteractionContext.Component)
+            with { SpeechOrder = "HeaderValue", ReadColumnHeaders = true });
+
+        Assert.Equal($"Close. {(style == PriceChartStyle.Area ? "area" : "line")}. {P(104.2)}. Up {P(4.2)} from the previous close, 4.20 percent.", spoken);
     }
 
     [Fact]

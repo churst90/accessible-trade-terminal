@@ -38,6 +38,27 @@ namespace AccessibleTrader.Core.Services.Charts
         /// <summary>The one part's name on a brick chart.</summary>
         public const string BrickPart = "brick";
 
+        /// <summary>
+        /// The price series' name on each chart type: the Chart type list's own words. Cody,
+        /// 2026-11-19: "when i change to renko and use pg up/down and land on that series, it is
+        /// still called candles even though they are renko bricks ... we just need to change the
+        /// name of the main series to whatever it is that series is."
+        /// </summary>
+        public static string NameFor(PriceChartStyle style, bool heikinAshi) => style switch
+        {
+            PriceChartStyle.Line => "Line",
+            PriceChartStyle.Area => "Area",
+            PriceChartStyle.Renko => "Renko",
+            _ => heikinAshi ? "Heikin Ashi" : "Candles",
+        };
+
+        /// <summary>The names this class gives the price series. A name the user gave it is
+        /// none of these, and is never touched.</summary>
+        private static readonly HashSet<string> ChartTypeNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "", "Candles", "Heikin Ashi", "Line", "Area", "Renko",
+        };
+
         /// <summary>What the price series' parts are.</summary>
         public enum Kind { Candles, Line, Area, Brick }
 
@@ -75,7 +96,7 @@ namespace AccessibleTrader.Core.Services.Charts
             int at = state.ActiveSeries.FindIndex(s => s.Id == CoreSeriesIds.Candles);
             if (at < 0) return state;
             var series = state.ActiveSeries[at];
-            var reshaped = Apply(series, state.ChartStyle);
+            var reshaped = Apply(series, state.ChartStyle, state.IsHeikinAshi);
             if (ReferenceEquals(reshaped, series)) return state;
 
             var next = state with { ActiveSeries = state.ActiveSeries.SetItem(at, reshaped) };
@@ -84,15 +105,16 @@ namespace AccessibleTrader.Core.Services.Charts
             return next;
         }
 
-        /// <summary><paramref name="series"/> in the shape <paramref name="style"/> draws; the
-        /// same instance when it is already, or when it is not the price series.</summary>
-        public static ChartSeries Apply(ChartSeries series, PriceChartStyle style)
+        /// <summary><paramref name="series"/> in the shape <paramref name="style"/> draws, and
+        /// named for it; the same instance when it is already, or when it is not the price series.</summary>
+        public static ChartSeries Apply(ChartSeries series, PriceChartStyle style, bool heikinAshi = false)
         {
             if (!IsPriceSeries(series.Config)) return series;
             var target = For(style);
-            if (Of(series.Config) == target) return series;
+            string name = NameFor(style, heikinAshi);
+            if (Of(series.Config) == target && !NeedsName(series.Config, name)) return series;
 
-            var config = Reshape(series.Config, target);
+            var config = Named(Reshape(series.Config, target), name);
             return new ChartSeries(config, WithPartData(series.Data, config))
             {
                 Drawing = series.Drawing,
@@ -131,8 +153,30 @@ namespace AccessibleTrader.Core.Services.Charts
         /// The config to SAVE: the candle shape, whatever the chart type. The live config is left
         /// alone. Every other series, and a price series already candles, comes back as it is.
         /// </summary>
-        public static SeriesConfig Canonical(SeriesConfig config) =>
-            IsPriceSeries(config) && Of(config) != Kind.Candles ? Reshape(config, Kind.Candles) : config;
+        public static SeriesConfig Canonical(SeriesConfig config)
+        {
+            if (!IsPriceSeries(config)) return config;
+            if (Of(config) == Kind.Candles && !NeedsName(config, "Candles")) return config;
+            return Named(Reshape(config, Kind.Candles), "Candles");
+        }
+
+        /// <summary>True when a name this class gave (or no name) differs from <paramref name="name"/>.</summary>
+        private static bool NeedsName(SeriesConfig config, string name) =>
+            Renames(config.Name, name) || Renames(config.FriendlyName, name);
+
+        private static bool Renames(string? current, string name) =>
+            string.IsNullOrEmpty(current)
+                ? name != "Candles"   // an unnamed candle series is left as it was
+                : ChartTypeNames.Contains(current) && !string.Equals(current, name, StringComparison.Ordinal);
+
+        /// <summary><paramref name="config"/> (already a copy) with the chart type's name in place
+        /// of a chart-type name; a name the user gave stays.</summary>
+        private static SeriesConfig Named(SeriesConfig config, string name)
+        {
+            if (Renames(config.Name, name)) config.Name = name;
+            if (Renames(config.FriendlyName, name)) config.FriendlyName = name;
+            return config;
+        }
 
         /// <summary>A copy of <paramref name="config"/> with its parts in <paramref name="target"/>.</summary>
         public static SeriesConfig Reshape(SeriesConfig config, Kind target)
