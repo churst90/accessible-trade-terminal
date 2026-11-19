@@ -117,6 +117,48 @@ public sealed class HeadlessNarrationTests : IDisposable
     }
 
     /// <summary>
+    /// A saved Renko tab with the browser closed says the bricks a close completed, as the open
+    /// tab does (Cody, 2026-11-19: "yes announce new bricks on renko views"), and a close that
+    /// completed none says nothing. Box 10 from 100: hour 99 closes at 125 (two up bricks),
+    /// hour 100 at 125 (none), hour 101 at 131 (one). Run bare and with a headless chart.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_Renko_tab_says_its_bricks_with_the_browser_closed(bool withChart)
+    {
+        using var h = new HeadlessMonitorHarness(withChart ? new[] { SavedVolume() } : Array.Empty<SeriesConfig>(),
+            priceAt: hr => hr < HeadlessMonitorHarness.StartHour ? 100 : hr <= HeadlessMonitorHarness.StartHour + 1 ? 125 : 131,
+            shapeTab: t =>
+            {
+                t.ChartStyle = PriceChartStyle.Renko;
+                t.Renko = new RenkoSettings(RenkoBoxMode.Fixed, 10);
+                t.BrickBoxSize = 10;
+            });
+        h.NewBarToasts(true);
+
+        await h.PollAsync();          // seeds
+        h.CloseABar();
+        await h.PollAsync();          // hour 99 closed at 125
+        Assert.StartsWith("BTC/USD 1h: 2 new up bricks, 100.00 to 120.00.", h.Single(), StringComparison.Ordinal);
+
+        h.CloseABar();
+        await h.PollAsync();          // hour 100 closed at 125: no brick
+        h.Single();                   // still the one
+
+        h.CloseABar();
+        await h.PollAsync();          // hour 101 closed at 131
+        var all = h.Delivered.ToList();
+        Assert.Equal(2, all.Count);
+        Assert.StartsWith("BTC/USD 1h: new up brick, 120.00 to 130.00.", all[1], StringComparison.Ordinal);
+        Assert.DoesNotContain(all, d => d.Contains("close ", StringComparison.Ordinal) || d.Contains("New bar", StringComparison.Ordinal));
+        Assert.Contains(h.Presenter.Toasts, t => t.Title == "BTC/USD 1h: new brick");
+        // Every poll fetches enough history for the bricks to go the tab's way (BrickNews.HistoryBars):
+        // a short catch-up window reads the first move off a few bars as a fresh brick.
+        Assert.All(h.RequestedLimits, l => Assert.True(l >= AccessibleTrader.Core.Services.Charts.BrickNews.HistoryBars, $"fetched {l}"));
+    }
+
+    /// <summary>
     /// The same with a narrated EMA on the tab: the headless chart's state carries the candle
     /// type, so the crossing the ladder narrates is the Heikin-Ashi close crossing the
     /// Heikin-Ashi EMA. Hour 99 closes flat (the scanner's first sighting of the EMA, which

@@ -140,6 +140,23 @@ namespace AccessibleTrader.Core.Services.Feeds
             // is the seed case, not an error.
             if (bars.Count < 2) return;
 
+            // A Renko tab draws bricks, so its news is the bricks this close completed — and a
+            // close that completed none is not news at all: no chime, no toast, no words. Cody,
+            // 2026-11-19: "yes announce new bricks on renko views". Built from the CLOSED bars
+            // here, on the hub's thread, because it decides whether the earcon plays; it is one
+            // pass over the bars.
+            var brickTab = BrickTabFor(feed.Identity);
+            if (brickTab != null)
+            {
+                var bricks = Charts.BrickNews.CompletedAtClose(
+                    bars, Charts.BrickNews.BoxFor(bars, brickTab.Renko, brickTab.BrickBoxSize), feed.Identity);
+                if (bricks.Count == 0) return;
+                try { _earcons.PlayNewBar(); }
+                catch (Exception ex) { _logger?.LogWarning(ex, "Background brick earcon failed."); }
+                _ = AnnounceBricksAsync(feed, bricks);
+                return;
+            }
+
             var closed = bars[bars.Count - 2];
             var opened = bars[bars.Count - 1];
 
@@ -205,6 +222,27 @@ namespace AccessibleTrader.Core.Services.Feeds
         }
 
         /// <summary>
+        /// The bricks a background Renko tab's close completed: the toast, then the words when
+        /// background speech is on, with the tab's ladder (computed on its bricks) after them.
+        /// </summary>
+        private async Task AnnounceBricksAsync(ChartFeed feed, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks)
+        {
+            try
+            {
+                string? ladder = await LadderAsync(feed).ConfigureAwait(false);
+                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks), ladder));
+                if (SpeakEnabled())
+                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder),
+                        interrupt: false, channel: SpeechChannel.Narration);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Background brick announcement failed for {Symbol}.",
+                    feed.Identity.Symbol);
+            }
+        }
+
+        /// <summary>
         /// The tab's narration ladder at this close, or null when it has nothing under N, no
         /// factory is registered, or the scan found nothing to say.
         /// </summary>
@@ -215,9 +253,14 @@ namespace AccessibleTrader.Core.Services.Feeds
             var (configs, heikinAshi) = SavedSeriesFor(feed.Identity);
             if (configs == null || !Accessibility.HeadlessChartFactory.HasNarratedSeries(configs)) return null;
 
+            // A Renko tab's series are computed on its bricks, so its narrator is a brick chart
+            // with the tab's frozen box: the ladder is about the newest brick, not a time bar.
+            var brickTab = BrickTabFor(feed.Identity);
+
             // The candle type is part of what the chart computes: a tab switched to Heikin-Ashi
-            // gets a new narrator.
-            string signature = Accessibility.HeadlessChartFactory.Signature(configs) + (heikinAshi ? "\nheikin-ashi" : "");
+            // gets a new narrator, and so does one switched to Renko or given a new box.
+            string signature = Accessibility.HeadlessChartFactory.Signature(configs) + (heikinAshi ? "\nheikin-ashi" : "")
+                + (brickTab == null ? "" : $"\nrenko|{brickTab.Renko}|{brickTab.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}");
             Accessibility.HeadlessChart chart;
             lock (_narratorGate)
             {
@@ -225,7 +268,10 @@ namespace AccessibleTrader.Core.Services.Feeds
                 // components that may no longer exist. Same rule as the headless chart cache.
                 if (!_narrators.TryGetValue(feed.Identity, out var held) || held.Signature != signature)
                 {
-                    held = (signature, _charts.Create(feed.Identity, configs, Array.Empty<AccessibleTrader.Sdk.Alerts.AlertDefinition>(), heikinAshi));
+                    held = (signature, brickTab == null
+                        ? _charts.Create(feed.Identity, configs, Array.Empty<AccessibleTrader.Sdk.Alerts.AlertDefinition>(), heikinAshi)
+                        : _charts.Create(feed.Identity, configs, Array.Empty<AccessibleTrader.Sdk.Alerts.AlertDefinition>(),
+                            heikinAshi: false, brickTab.ChartStyle, brickTab.Renko, brickTab.BrickBoxSize));
                     _narrators[feed.Identity] = held;
                 }
                 chart = held.Chart;
@@ -239,6 +285,17 @@ namespace AccessibleTrader.Core.Services.Feeds
             var observed = await chart.ObserveAsync(bars, isFullHistory: true, CancellationToken.None)
                                       .ConfigureAwait(false);
             return observed?.Narration;
+        }
+
+        /// <summary>The saved tab for <paramref name="identity"/> when it draws bricks, else null.</summary>
+        private TabSnapshot? BrickTabFor(ChartIdentity identity)
+        {
+            try { return _store.State.TabSnapshots?.FirstOrDefault(s => s.Identity.Equals(identity) && s.ChartStyle.IsBrickStyle()); }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Could not read the chart type for {Symbol}.", identity.Symbol);
+                return null;
+            }
         }
 
         /// <summary>Does the saved tab for <paramref name="identity"/> show Heikin-Ashi candles?

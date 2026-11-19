@@ -89,7 +89,8 @@ internal sealed class HeadlessMonitorHarness : IDisposable
     public HeadlessMonitorHarness(
         IReadOnlyList<SeriesConfig> savedSeries, string timeframe = "1h",
         IReadOnlyList<AlertDefinition>? alerts = null, Func<int, double>? priceAt = null, bool withTab = true,
-        bool settingsOnDisk = false, Func<int, (double O, double H, double L, double C)>? barAt = null, bool heikinAshi = false)
+        bool settingsOnDisk = false, Func<int, (double O, double H, double L, double C)>? barAt = null, bool heikinAshi = false,
+        Action<TabConfiguration>? shapeTab = null)
     {
         var provider = Substitute.For<IMarketDataProvider>();
         provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(ci =>
@@ -125,6 +126,7 @@ internal sealed class HeadlessMonitorHarness : IDisposable
                 }
                 : new List<TabConfiguration>(),
         };
+        if (shapeTab != null) foreach (var t in session.Tabs) shapeTab(t);
         var library = Substitute.For<IWorkspaceLibraryService>();
         library.LoadAlerts().Returns(_ => (alerts ?? Array.Empty<AlertDefinition>()).ToList());
         library.GetAllProfilesWithTimes().Returns(_ => new[] { (SessionAutosaveService.LastSessionProfileName + "x", DateTime.UtcNow) });

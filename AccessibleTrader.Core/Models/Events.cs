@@ -448,6 +448,17 @@ namespace AccessibleTrader.Core.Models
     /// with a null default so existing constructions still compile.</param>
     public record BackgroundBarClosedEvent(
         ChartIdentity Identity, Ohlcv ClosedBar, Ohlcv NewBar, string? Narration = null);
+
+    /// <summary>
+    /// A time bar closed on a live background RENKO tab and completed one or more bricks. A
+    /// Renko tab publishes this INSTEAD of <see cref="BackgroundBarClosedEvent"/>, and nothing at
+    /// all for a close that completed no brick: the chart draws bricks, so bricks are its news
+    /// (Cody, 2026-11-19: "yes announce new bricks on renko views").
+    /// </summary>
+    /// <param name="Summary">"new up brick, 95,000.00 to 95,500.00" — the body's first sentence,
+    /// without the symbol (the title names the chart).</param>
+    /// <param name="Narration">The tab's narration ladder at the newest brick, or null.</param>
+    public record BackgroundBricksFormedEvent(ChartIdentity Identity, string Summary, string? Narration = null);
     /// <summary>Fired on every intra-bar tick (same bar count, last bar updated in place).</summary>
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 

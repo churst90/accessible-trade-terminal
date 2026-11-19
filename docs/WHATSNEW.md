@@ -94,6 +94,11 @@ None of this has been seen or heard in the app yet.
 - **Alt+C focuses the Chart type list and Alt+L the Price scale list.** Heikin Ashi and Log scale
   are entries in those lists. The separate buttons are gone, and the Go bar's HA and LOG still
   toggle them.
+- **A Renko tab you are not looking at says its new bricks**, not its bar closes: *"BTC/USD 1h:
+  2 new up bricks, 95,000.00 to 96,000.00."*, as a notification titled *"BTC/USD 1h: new brick"*
+  and, with "Also speak bar closes from other tabs" on, in speech. A close that completed no brick
+  is silent, and a brick the forming bar made and took back is never said. The same happens with
+  the browser closed.
 
 ### Market events: the calendar, alerts and release history
 

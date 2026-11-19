@@ -786,6 +786,15 @@ brick. The status line says `Up brick 95,000 → 95,500`, the layout description
 *"Renko chart, box 512.30 from ATR 14."* or *"Renko chart, fixed box 500.00."*, and when a brick
 completes the live chart says *"New up brick, 95,000.00 to 95,500.00."*
 
+**A Renko tab in the background says its bricks, not its bar closes.** When a bar closes on a
+Renko tab you are not looking at, or on a saved Renko tab with the browser closed, you hear the
+bricks that close completed: *"BTC/USD 1h: 2 new up bricks, 95,000.00 to 96,000.00."* The
+notification is titled *"BTC/USD 1h: new brick"*, and the tab's narration ladder (its indicators,
+read on the bricks) follows the sentence. A close that completed no brick says nothing and plays
+no earcon. Only closed bars count: a brick the forming bar made and then took back is never
+announced. The same switches as any background bar close apply (the notification switch, the
+shortest timeframe, "Also speak bar closes from other tabs").
+
 **Orders and strategies always use the real market price.** A brick's close is a box edge, not a
 price anything traded at. The trading dashboard's last price, quick trade, paper stops and
 targets, strategy history and saved tabs all read the real time bars behind the chart; only the
@@ -4847,7 +4856,8 @@ see** → "Send me a notification". **It is on by default.** Beneath it sit **Sh
 to announce**, a floor so a one-minute chart does not become a notification a minute (it
 covers bar closes and the narration ladder, never alerts or fills), and **Also speak bar
 closes from other tabs**, off by default, which adds speech to the earcon a background tab's
-bar close already plays, waiting for the current sentence to finish.
+bar close already plays, waiting for the current sentence to finish. A Renko tab announces the
+bricks a close completed instead of the close, and nothing at all when it completed none.
 
 Three things ignore all of this. Errors and order outcomes come through every mute and every
 snooze. The soundscape never mixes across tabs: playback, navigation tones and the

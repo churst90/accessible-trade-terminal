@@ -49,6 +49,7 @@ namespace AccessibleTrader.Tests
             public readonly IWorkspaceStore Store = Substitute.For<IWorkspaceStore>();
             public readonly BackgroundBarAnnouncer Announcer;
             public readonly List<BackgroundBarClosedEvent> Published = new();
+            public readonly List<BackgroundBricksFormedEvent> Bricks = new();
 
             private readonly List<ChartIdentity> _liveTabs = new();
 
@@ -69,6 +70,7 @@ namespace AccessibleTrader.Tests
                 Announcer = new BackgroundBarAnnouncer(Hub, TabFeeds, Store, Bus, Settings,
                     Earcons, Speech, NullLogger<BackgroundBarAnnouncer>.Instance, Charts);
                 Bus.Subscribe<BackgroundBarClosedEvent>(e => { lock (Published) Published.Add(e); });
+                Bus.Subscribe<BackgroundBricksFormedEvent>(e => { lock (Bricks) Bricks.Add(e); });
             }
 
             /// <summary>Marks an identity as a live background TAB, which is the eligibility rule.</summary>
@@ -150,6 +152,21 @@ namespace AccessibleTrader.Tests
                     TabSnapshots = ImmutableList.Create(snap),
                 });
             }
+
+            /// <summary>The tab drawn as Renko with a frozen box, as choosing Renko leaves it.</summary>
+            public void RenkoTab(ChartIdentity id, double box, params SeriesConfig[] series)
+            {
+                SnapshotTab(id, false, series);
+                var snap = Store.State.TabSnapshots![0] with
+                {
+                    ChartStyle = PriceChartStyle.Renko,
+                    Renko = new RenkoSettings(RenkoBoxMode.Fixed, box),
+                    BrickBoxSize = box,
+                };
+                Store.State.Returns(_ => WorkspaceState.Initial with { TabSnapshots = ImmutableList.Create(snap) });
+            }
+
+            public int BrickCount { get { lock (Bricks) return Bricks.Count; } }
 
             public void Dispose() { Announcer.Dispose(); Bus.Dispose(); _root?.Dispose(); }
         }
@@ -484,6 +501,143 @@ namespace AccessibleTrader.Tests
             Assert.Equal(heikinAshi ? 150.25 : 101, wick.ClosedBar.Close, 9);
             Assert.Contains($"close {(heikinAshi ? "150.25" : "101.00")}",
                 BackgroundBarAnnouncer.BackgroundSentence(eth, wick.ClosedBar, wick.NewBar), StringComparison.Ordinal);
+        }
+
+        // ── Renko tabs announce bricks (Cody, 2026-11-19) ────────────────────
+
+        private static Ohlcv At(int hours, double close) => new(T0.AddHours(hours), close, close, close, close, 1);
+
+        /// <summary>
+        /// Cody: "yes announce new bricks on renko views". A background Renko tab used to announce
+        /// every time bar's close at its real price. Box 10 from 100: the bar closing at 125
+        /// completes two up bricks, the one at 131 a third, and the one at 135 none — which is
+        /// not news, so nothing at all is chimed, toasted or said for it. No bar close is
+        /// announced on the tab, ever.
+        /// </summary>
+        [Fact]
+        public void ABackgroundRenkoTab_announcesTheBricksACloseCompleted_andNothingElse()
+        {
+            using var h = new Harness();
+            h.Hub.SetFocus(Id("BTC/USD"));
+            var eth = Id("ETH/USD");
+            h.RenkoTab(eth, box: 10);
+            var feed = h.OpenBackgroundTab(eth);
+            h.SpeechOptIn(true);
+
+            feed.ApplyLiveTick(At(1, 125));                  // the forming bar moves: no close
+            Assert.True(feed.ApplyLiveTick(At(2, 125)));     // bar 1 closes at 125: two bricks
+            feed.ApplyLiveTick(At(2, 131));
+            Assert.True(feed.ApplyLiveTick(At(3, 131)));     // bar 2 closes at 131: one brick
+            feed.ApplyLiveTick(At(3, 135));
+            Assert.True(feed.ApplyLiveTick(At(4, 135)));     // bar 3 closes at 135: no brick
+
+            Assert.Empty(h.Published);                       // no time-bar close, on any of them
+            Assert.Equal(2, h.BrickCount);
+            Assert.Equal("ETH/USD", h.Bricks[0].Identity.Symbol);
+            string P(double v) => SpeechPriceFormatter.FormatPrice(v);
+            Assert.Equal($"2 new up bricks, {P(100)} to {P(120)}", h.Bricks[0].Summary);
+            Assert.Equal($"new up brick, {P(120)} to {P(130)}", h.Bricks[1].Summary);
+            h.Earcons.Received(2).PlayNewBar();              // one chime per close that made bricks
+
+            var spoken = h.Speech.ReceivedCalls()
+                .Where(c => c.GetMethodInfo().Name == nameof(ISpeechFeedbackRouter.Speak))
+                .Select(c => c.GetArguments()[0] as string ?? "").ToList();
+            Assert.Equal(new[]
+            {
+                $"ETH/USD 1h: 2 new up bricks, {P(100)} to {P(120)}.",
+                $"ETH/USD 1h: new up brick, {P(120)} to {P(130)}.",
+            }, spoken);
+        }
+
+        /// <summary>The other half: the same closes on a candle tab are three bar closes and no bricks.</summary>
+        [Fact]
+        public void TheSameClosesOnACandleTab_areBarCloses()
+        {
+            using var h = new Harness();
+            h.Hub.SetFocus(Id("BTC/USD"));
+            var eth = Id("ETH/USD");
+            h.SnapshotTab(eth);
+            var feed = h.OpenBackgroundTab(eth);
+
+            Assert.True(feed.ApplyLiveTick(At(2, 125)));
+            Assert.True(feed.ApplyLiveTick(At(3, 131)));
+            Assert.True(feed.ApplyLiveTick(At(4, 135)));
+
+            Assert.Equal(3, h.Count);
+            Assert.Equal(0, h.BrickCount);
+        }
+
+        /// <summary>
+        /// A brick the forming bar has made is not news until that bar closes: a price that
+        /// pokes past the edge and comes back says nothing.
+        /// </summary>
+        [Fact]
+        public void ABrickTheFormingBarMadeAndTookBack_isNeverSaid()
+        {
+            using var h = new Harness();
+            h.Hub.SetFocus(Id("BTC/USD"));
+            var eth = Id("ETH/USD");
+            h.RenkoTab(eth, box: 10);
+            var feed = h.OpenBackgroundTab(eth);
+
+            feed.ApplyLiveTick(At(1, 115));    // past the first edge while forming
+            feed.ApplyLiveTick(At(1, 104));    // and back
+            Assert.True(feed.ApplyLiveTick(At(2, 104)));
+
+            Assert.Equal(0, h.BrickCount);
+            Assert.Empty(h.Published);
+            h.Earcons.DidNotReceive().PlayNewBar();
+        }
+
+        /// <summary>
+        /// The ladder on a Renko tab is computed on its bricks and read at the newest brick. Forty
+        /// bars step down a box at a time, then the price turns: the up brick 110 to 120 crosses
+        /// above an EMA 3 of the brick closes. Before 2026-11-19 the narrator was a candle chart
+        /// (the in-session route never told it the tab was Renko), and the browser-closed one read
+        /// the real bar count as an index into the brick values.
+        /// </summary>
+        [Fact]
+        public async Task ABackgroundRenkoTabsLadder_isAboutItsBricks()
+        {
+            using var h = new Harness(withNarration: true);
+            h.Hub.SetFocus(Id("BTC/USD"));
+            var eth = Id("ETH/USD");
+            var ema = new SeriesConfig
+            {
+                Id = "ema-3", Name = "EMA", FriendlyName = "EMA", IndicatorCode = "Ema", Pane = "Main",
+                IsAutoNarrated = true, IsVisible = true,
+            };
+            ema.Parameters["lookbackPeriods"] = 3;
+            h.RenkoTab(eth, 10, ema);
+            var feed = h.OpenBackgroundTab(eth);
+            h.SpeechOptIn(true);
+            feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(
+                Enumerable.Range(0, 40).Select(i => At(i, 500 - 10 * i)).ToList()));
+
+            Assert.True(feed.ApplyLiveTick(At(40, 100)));    // bar 39 closes at 110: a down brick; the narrator seeds
+            await SettleBricks(h, 1);
+            Assert.True(feed.ApplyLiveTick(At(41, 100)));    // bar 40 closes at 100: another
+            await SettleBricks(h, 2);
+            feed.ApplyLiveTick(At(41, 105));
+            Assert.True(feed.ApplyLiveTick(At(42, 105)));    // bar 41 closes at 105: no brick, nothing said
+            feed.ApplyLiveTick(At(42, 120));
+            Assert.True(feed.ApplyLiveTick(At(43, 120)));    // bar 42 closes at 120: the turn, up 110 to 120
+            await SettleBricks(h, 3);
+
+            Assert.Empty(h.Published);
+            Assert.Equal(3, h.BrickCount);
+            var turn = h.Bricks[2];
+            Assert.Equal($"new up brick, {SpeechPriceFormatter.FormatPrice(110)} to {SpeechPriceFormatter.FormatPrice(120)}", turn.Summary);
+            Assert.False(string.IsNullOrWhiteSpace(turn.Narration), "the turn crosses the brick EMA");
+            // The brick EMA: closes stepping down a box lag it by a box, 110 at the brick at 100,
+            // then (120 + 110) / 2 = 115. On the time bars the 105 close in between pulls it to
+            // 113.75 — the number a candle narrator would say.
+            Assert.Contains("crossed above EMA 3 at 115", turn.Narration!, StringComparison.Ordinal);
+        }
+
+        private static async Task SettleBricks(Harness h, int atLeast)
+        {
+            for (int i = 0; i < 300 && h.BrickCount < atLeast; i++) await Task.Delay(10);
         }
 
         /// <summary>A bar whose VOLUME moves, so a narrated volume pane has something to report.</summary>

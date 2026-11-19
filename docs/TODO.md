@@ -113,7 +113,9 @@ and Identity already has 2FA, lockout and rate limits.
   1. **More chart types.** **Line and area** — built 2026-11-19, not yet heard by Cody (toolbar
      Chart type select and Go bar `CANDLE` / `LINE` / `AREA`; `PriceChartStyle` in the Sdk).
      **Renko** — built 2026-11-19, not yet heard by Cody (toolbar select, Brick settings dialog,
-     Go bar `RENKO` / `bricks`; shared `BrickChart*` plumbing). Still open: range bars, line
+     Go bar `RENKO` / `bricks`; shared `BrickChart*` plumbing). Cody 2026-11-19: Price stays an
+     optional overlay; background Renko tabs announce their bricks (built 2026-11-19, not heard).
+     Still open: range bars, line
      break, Kagi and Point & Figure, which reuse the brick plumbing. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.

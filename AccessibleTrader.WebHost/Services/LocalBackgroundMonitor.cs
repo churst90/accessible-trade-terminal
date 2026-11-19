@@ -284,6 +284,9 @@ namespace AccessibleTrader.WebHost.Services
                 var chart = target.Narrate || watch.Alerts.Count > 0 ? GetChart(services, watch) : null;
                 if (chart != null && !chart.HasSeries) chart = null;   // price alerts only: bars suffice
                 int limit = Math.Max(MinFetch, chart?.FetchLimit ?? MinFetch);
+                // A Renko chart's bricks need history to go the way the tab's do (BrickNews).
+                if (target.WatchBarCloses && watch.ChartStyle.IsBrickStyle())
+                    limit = Math.Max(limit, BrickNews.HistoryBars);
 
                 var bars = await FetchAsync(provider, watch, limit);
                 if (bars == null) continue;
@@ -330,7 +333,18 @@ namespace AccessibleTrader.WebHost.Services
                 bool closed = NoteBarClose(watch, bars);
                 bool speakLadder = ladder != null && narrateKeys.Contains(WatchKey(watch));
 
-                if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
+                if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch))
+                    && watch.ChartStyle.IsBrickStyle())
+                {
+                    // A Renko chart says the bricks this close completed, and a close that
+                    // completed none says nothing of its own — only its ladder, if that had news.
+                    var bricks = BrickNews.CompletedAtClose(
+                        bars, BrickNews.BoxFor(bars, watch.Renko, watch.BrickBoxSize),
+                        new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe));
+                    if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null);
+                    else if (speakLadder) AnnounceNarration(watch, ladder!);
+                }
+                else if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
                 {
                     // The close and open as the chart draws them: Heikin-Ashi on a Heikin-Ashi
                     // chart, as the browser says them.
@@ -990,6 +1004,21 @@ namespace AccessibleTrader.WebHost.Services
             // The headless session is built WITHOUT the NewBars category for exactly this reason
             // — see HeadlessSession. The toast body IS the sentence: the notification is the one
             // path for the words, and the screen reader reads it (DesktopAnnouncement).
+            DesktopAnnouncement.Present(_presenter,
+                title, sentence, sentence, urgent: false, withSound: true, _logger);
+        }
+
+        /// <summary>
+        /// Bricks completed on a Renko chart: the same sentence a background Renko tab says, with
+        /// the sound, toast and speech this monitor owns for a bar close.
+        /// </summary>
+        private void AnnounceBricks(Watch watch, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks, string? ladder)
+        {
+            if (_announcementsSnoozed) return;
+            string title = BrickNews.Title(watch.Symbol, watch.Timeframe);
+            string sentence = BrickNews.Sentence(
+                new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bricks, ladder);
+            _logger.LogInformation("Background bricks: {Sentence}", sentence);
             DesktopAnnouncement.Present(_presenter,
                 title, sentence, sentence, urgent: false, withSound: true, _logger);
         }

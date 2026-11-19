@@ -270,6 +270,36 @@ public class DesktopNotificationServiceTests
     }
 
     /// <summary>
+    /// A background Renko tab's news is its bricks (Cody, 2026-11-19: "yes announce new bricks on
+    /// renko views"): the toast names the chart and says the bricks, then the ladder.
+    /// </summary>
+    [Fact]
+    public void ABackgroundRenkoTabsBricks_AreToasted_NamingItsOwnChart()
+    {
+        var h = new Harness(notify: true);
+        h.Watching("BTC/USD", "1m");
+
+        h.Bus.Publish(new BackgroundBricksFormedEvent(new ChartIdentity("Crypto", "Bitstamp", "ETH/USD", "1h"),
+            "2 new up bricks, 100.00 to 120.00", "RSI crossed above 50."));
+
+        var (title, body) = Assert.Single(h.Notifier.Shown);
+        Assert.Equal("ETH/USD 1h: new brick", title);
+        Assert.Equal("2 new up bricks, 100.00 to 120.00. RSI crossed above 50.", body);
+    }
+
+    [Fact]
+    public void ABackgroundRenkoTabsBricks_OnTheNowFocusedChart_AreNotToasted()
+    {
+        var h = new Harness(notify: true);
+        h.Watching("ETH/USD", "1h");
+
+        h.Bus.Publish(new BackgroundBricksFormedEvent(new ChartIdentity("Crypto", "Bitstamp", "ETH/USD", "1h"),
+            "new up brick, 100.00 to 110.00"));
+
+        Assert.Empty(h.Notifier.Shown);
+    }
+
+    /// <summary>
     /// The tab the bar closed on has since become the focused chart. The live region is
     /// announcing it now, so the toast must stand down — the subject rule is evaluated at
     /// delivery time, not at publication time.

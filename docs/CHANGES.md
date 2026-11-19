@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Background Renko tabs say their new bricks, 2026-11-19 — not yet heard by Cody
+
+Cody: *"yes keep price as option indicator overlay, yes announce new bricks on renko views"*.
+Until now a Renko tab in the background, and a saved Renko tab with the browser closed, said
+real time-bar closes at real prices, and its narration ladder read the candles.
+
+- **What is said.** New `BrickNews` (Core/Services/Charts). At a bar close it builds the bricks on
+  the CLOSED bars only (the last fetched bar is still forming) and keeps those whose completing bar
+  is the one that just closed. *"BTC/USD 1h: 2 new up bricks, 100.00 to 120.00."*, then the ladder.
+  The toast is titled *"BTC/USD 1h: new brick"*. A close that completed no brick is silent: no
+  earcon, no toast, no speech. A brick the forming bar made and took back is never said. The box
+  is the tab's frozen box when it has one, else the box its settings resolve on these bars.
+- **Open background tab:** `BackgroundBarAnnouncer` takes the brick branch for a tab whose
+  `ChartStyle.IsBrickStyle()`, publishes new `BackgroundBricksFormedEvent`, and speaks under the
+  same "Also speak bar closes from other tabs" switch. `DesktopNotificationService` toasts it
+  under the same gates as a background bar close (switch, playback, already being said).
+- **Browser closed:** `LocalBackgroundMonitor` does the same for a saved Renko tab, and fetches
+  at least `BrickNews.HistoryBars` (500) bars there, so the bricks go the tab's way rather than
+  starting fresh off a short catch-up window. With no brick, the ladder alone may still speak.
+- **The ladder reads the bricks.** The background narrator is now built with the tab's chart
+  type, Renko settings and frozen box. Found on the way: `HeadlessChart` on a brick chart scanned
+  a real-bar index into brick-indexed arrays. It now scans the newest completed brick, once per
+  new brick, and reseeds its scanner after a trim instead of shifting indices.
+- **Tests:** `BrickNewsTests` (5), four in `BackgroundBarAnnouncerTests`, two in
+  `DesktopNotificationServiceTests`, `A_Renko_tab_says_its_bricks_with_the_browser_closed` (bare
+  and with a headless chart; `HeadlessMonitorHarness` takes a `shapeTab`). Sabotages, each red:
+  no brick branch, the forming bar counted, the narrator built as candles, the real-bar scan
+  index, the monitor's brick branch off, the short fetch, the toast unsubscribed.
+- **Caveats.** Not heard by Cody. Price stays an optional overlay, as he confirmed; nothing
+  changed there. A Renko tab's alerts still evaluate on the bricks as drawn (open question).
+  The ATR box on a background tab with no frozen box is measured on the fetched history, so it
+  can differ slightly from the open chart's.
+
 ### The price series takes the chart type's shape; Alt+C and Alt+L focus the lists, 2026-11-19 — not yet heard by Cody
 
 Cody tried 58d9bad0: *"I select renko ... I still hear 3 components like the candles are still
@@ -49,7 +82,8 @@ which his charts do not have. So he walked a line chart's wicks, and three parts
 - **Caveats.** Cody has not heard any of this. A `shortcuts.json` saved by the user replaces the
   defaults wholesale, so a saved file keeps the old Alt+C/Alt+L toggles until it is reset. None
   exists on Cody's machine. Still open for Cody: whether alerts on a Renko chart should read
-  bricks "as drawn", and whether background Renko tabs should announce bricks.
+  bricks "as drawn". (Background Renko tabs announcing bricks: answered yes, built in the entry
+  above.)
 
 ### Chart type and price scale are HEARD, not just drawn; HA and Log buttons removed, 2026-11-19 — not yet heard by Cody
 
@@ -205,8 +239,8 @@ should be mirrored visually and through sound and speech."*
   reviewed by hand (labelled fields, a legend on the radio group, refusals spoken and focused).
 - **Caveats, deliberately left out of this change.** A background Renko tab's bar closes are
   announced and notified from that tab's feed, so they say real time-bar closes at real prices,
-  not bricks; whether a background brick tab should announce bricks instead is a question for
-  Cody. A brick still forming can be revised or vanish when the feed bar pulls
+  not bricks. (Superseded the same day: Cody said yes, and background Renko tabs now announce
+  their bricks; see "Background Renko tabs say their new bricks".) A brick still forming can be revised or vanish when the feed bar pulls
   back before close; the frozen box never changes, and a completed brick never does. CSV export
   exports the chart as drawn (bricks and brick-indexed indicators), not the market series. Quick
   trade's cursor bar still reads the focused brick's high/low for a stop the user pointed at;

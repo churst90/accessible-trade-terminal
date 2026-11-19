@@ -265,6 +265,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (appended == 0)
                 return new HeadlessObservation(null, false, false, state, previous);   // the forming bar refreshed; no close
 
+            if (_chartStyle.IsBrickStyle())
+                return new HeadlessObservation(ScanBricks(state), false, true, state, previous);
+
             // The bar that CLOSED is the one before the newest (forming) bar. After a missed poll
             // several bars closed at once; the newest closed one is the only one still news, and
             // the scanner's marker window covers the ones before it.
@@ -304,7 +307,52 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_bars.Count <= BarsNeeded * 2) return;
             int drop = _bars.Count - BarsNeeded;
             _bars.RemoveRange(0, drop);
-            _scanner.ShiftIndices(drop);
+            // A brick chart's series are indexed by brick, and dropping bars from the front
+            // rebuilds the bricks from a new first close: no bar count says how far the brick
+            // indices moved. Its scanner starts over at the next close instead.
+            if (_chartStyle.IsBrickStyle()) _reseedBricks = true;
+            else _scanner.ShiftIndices(drop);
+        }
+
+        /// <summary>How many of the state's bricks the closed bars completed (the forming bar's
+        /// own bricks left out). Zero on a candle chart.</summary>
+        private int CompletedBricks(WorkspaceState state)
+        {
+            int closedBar = _bars.Count - 2;
+            for (int i = state.BrickSpans.Length - 1; i >= 0; i--)
+                if (state.BrickSpans[i].LastBar <= closedBar) return i + 1;
+            return 0;
+        }
+
+        /// <summary>Bricks the scanner has read up to (count), on a brick chart.</summary>
+        private int _bricksScanned;
+        private bool _reseedBricks;
+
+        /// <summary>
+        /// The ladder on a brick chart: its series are indexed by brick, so the scan is at the
+        /// newest brick the CLOSED bars completed, and only when this close completed one. Until
+        /// 2026-11-19 it scanned at the real bar count, an index in a different list. Bricks the
+        /// forming bar has made are left for its own close, as the brick announcement leaves them.
+        /// </summary>
+        private string? ScanBricks(WorkspaceState state)
+        {
+            int completed = CompletedBricks(state);
+
+            if (_reseedBricks)
+            {
+                _reseedBricks = false;
+                _scanner = new NarrationScanner(_analyzer);
+                foreach (var s in state.ActiveSeries)
+                    if (s.IsAutoNarrated) _scanner.Seed(s, state);
+                _bricksScanned = completed;
+                return null;
+            }
+
+            bool grew = completed > _bricksScanned;
+            _bricksScanned = completed;
+            return grew && HasNarratedSeries
+                ? _scanner.ScanAll(state.ActiveSeries, state, completed - 1, isBarClose: true)
+                : null;
         }
 
         private async Task<WorkspaceState> SeedAsync(CancellationToken ct)
@@ -312,6 +360,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = await ComputeStateAsync(ct).ConfigureAwait(false);
             foreach (var s in state.ActiveSeries)
                 if (s.IsAutoNarrated) _scanner.Seed(s, state);
+            _bricksScanned = CompletedBricks(state);   // the seed's bricks are history, not news
+            _reseedBricks = false;
             return state;
         }
 

@@ -140,6 +140,8 @@ namespace AccessibleTrader.Core.Services.Notifications
                 // A bar closing on a live BACKGROUND tab is the same news about a chart nobody
                 // is looking at, and that one needs a notification whatever the window is doing.
                 _subs.Add(bus.Subscribe<BackgroundBarClosedEvent>(OnBackgroundBarClosed));
+                // A background Renko tab's news is a brick, not a time bar.
+                _subs.Add(bus.Subscribe<BackgroundBricksFormedEvent>(OnBackgroundBricksFormed));
             }
             if (Owns(DesktopNotificationCategories.OrderFills))
             {
@@ -268,6 +270,24 @@ namespace AccessibleTrader.Core.Services.Notifications
 
             Send(NewBarTitle(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""), body);
         }
+
+        /// <summary>
+        /// Bricks completed on a background Renko tab. The same gates as a background bar close:
+        /// the user switch, replay, and a tab that has just become the one being spoken.
+        /// </summary>
+        private void OnBackgroundBricksFormed(BackgroundBricksFormedEvent e)
+        {
+            if (!_notifier.IsAvailable || !Enabled()) return;
+            if (_store.State.IsPlaying) return;
+            if (AlreadyBeingSaid(e.Identity.Symbol)) return;
+
+            string body = Capitalise(e.Summary) + "."
+                + (string.IsNullOrWhiteSpace(e.Narration) ? "" : " " + e.Narration.Trim());
+            Send(Charts.BrickNews.Title(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""), body);
+        }
+
+        private static string Capitalise(string s) =>
+            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
         /// <summary>
         /// Bar length from two adjacent bars, for the case where the identity carries no usable
