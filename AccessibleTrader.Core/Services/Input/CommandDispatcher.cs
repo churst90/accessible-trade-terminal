@@ -20,6 +20,15 @@ namespace AccessibleTrader.Core.Services.Input
         ///   6. Volume and drawing tool commands — published via <see cref="IEventBus"/>.
         /// </summary>
         void Dispatch(SystemCommand command);
+
+        /// <summary>
+        /// Runs a command the user chose by name in the Go bar. It follows the same path as
+        /// <see cref="Dispatch"/>, including the modal trap, but skips ONLY the chart-focus
+        /// gate: naming the command is the intent that gate exists to infer, and the browser's
+        /// focus event arrives asynchronously after the Go bar closes.
+        /// </summary>
+        void DispatchFromGoBar(SystemCommand command);
+
         void SetChartActive(bool active);
     }
 
@@ -168,6 +177,8 @@ namespace AccessibleTrader.Core.Services.Input
             _deactivateDebounce?.Dispose();
         }
 
+        public void DispatchFromGoBar(SystemCommand command) => Dispatch(command);
+
         public void Dispatch(SystemCommand command)
         {
             if (command == SystemCommand.None) return;
@@ -292,6 +303,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenWatchlist: _eventBus.Publish(new OpenWatchlistEvent()); return;
                 case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
                 case SystemCommand.OpenMarketEventCalendar: _eventBus.Publish(new OpenMarketEventCalendarEvent()); return;
+                case SystemCommand.OpenGoBar: _eventBus.Publish(new OpenGoBarEvent()); return;
                 case SystemCommand.MarketPulse:
                     // One sentence, gathered off the dispatcher's thread. A second press while
                     // it gathers is the service's to answer.

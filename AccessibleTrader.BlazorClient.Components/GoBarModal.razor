@@ -1,0 +1,96 @@
+@inherits ModalBase
+@using AccessibleTrader.Core.Services.GoBar
+@inject GoBarService GoBar
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="CloseModal">
+        <div class="modal-content"
+             role="dialog" data-modal-name="GoBar"
+             aria-modal="true"
+             aria-labelledby="gobar-title"
+             style="width: min(680px, 90vw); max-height: calc(100vh - 120px); overflow-y: auto;"
+             @onclick:stopPropagation="true">
+
+            <h2 id="gobar-title" tabindex="-1">Go</h2>
+
+            <label for="gobar-input">Type a command</label>
+            <input id="gobar-input"
+                   type="text"
+                   autocomplete="off"
+                   role="combobox"
+                   aria-autocomplete="list"
+                   aria-expanded="@(_matches.Count > 0 ? "true" : "false")"
+                   aria-controls="gobar-list"
+                   @oninput="OnInput"
+                   @onkeydown="OnKeyDown"
+                   style="width: 100%; box-sizing: border-box;" />
+
+            <ul id="gobar-list" role="listbox" aria-label="Command suggestions"
+                style="list-style: none; padding: 0; margin: 12px 0 0 0;">
+                @for (int i = 0; i < _matches.Count; i++)
+                {
+                    var index = i;
+                    var match = _matches[i];
+                    <li role="option"
+                        id="@($"gobar-opt-{index}")"
+                        aria-selected="@(index == _activeIndex ? "true" : "false")"
+                        style="padding: 6px 8px; border-bottom: 1px solid var(--border-color); @(index == _activeIndex ? "background: color-mix(in srgb, var(--accent-color) 26%, transparent); font-weight: bold;" : "")"
+                        @onmousedown:preventDefault="true"
+                        @onclick="() => Choose(index)">
+                        <span>@match.Entry.Name</span> — <span>@match.Entry.Help</span>
+                        @if (GoBar.KeyLabel(match.Entry.Command) is { } key)
+                        {
+                            <span> — @key</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+@code {
+    private List<GoBarMatch> _matches = new();
+    private int _activeIndex = -1;
+    private string _input = "";
+    private IDisposable? _closeSub;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _eventSub = EventBus.Subscribe<OpenGoBarEvent>(_ => InvokeAsync(ShowAsync));
+        _closeSub = EventBus.Subscribe<CloseGoBarRequestEvent>(_ => InvokeAsync(CloseModal));
+    }
+
+    private async Task ShowAsync()
+    {
+        _input = "";
+        _matches = new();
+        _activeIndex = -1;
+        await ShowModalAsync("gobar-title");
+    }
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        _input = e.Value?.ToString() ?? "";
+        _matches = GoBarMatcher.Match(_input, GoBarRegistry.All).ToList();
+        _activeIndex = _matches.Count > 0 ? 0 : -1;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+    }
+
+    private void Choose(int index)
+    {
+        if (index >= 0 && index < _matches.Count)
+            GoBar.Run(_matches[index].Entry);
+    }
+
+    public override void Dispose()
+    {
+        _closeSub?.Dispose();
+        base.Dispose();
+    }
+}

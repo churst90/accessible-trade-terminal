@@ -35,6 +35,11 @@ public sealed class BlazorTestHarness : IDisposable
     public TestContext Ctx { get; } = new();
     public IEventBus EventBus { get; } = new EventBus();
 
+    /// <summary>The dispatcher the Go bar modal resolves. A substitute so a test can see
+    /// exactly what the box ran.</summary>
+    public AccessibleTrader.Core.Services.Input.ICommandDispatcher CommandDispatcher { get; }
+    public AccessibleTrader.Core.Services.Input.ModalStack ModalStack { get; }
+
     // Services common to most modals — substituted at construction; tests
     // override individual members via NSubstitute's `.Returns(...)` API.
     public IWorkspaceStore WorkspaceStore { get; }
@@ -142,6 +147,15 @@ public sealed class BlazorTestHarness : IDisposable
             _ => Task.FromResult<IObservable<OrderBookUpdate>?>(null));
 
         Ctx.Services.AddSingleton(EventBus);
+        // The harness-default Go bar service exists so every catalog dialog can resolve its
+        // injection. Its modal stack listens to a private bus: a stack on the harness bus would
+        // add a permanent subscription that ModalDisposeLeakTests reads as a leak on every
+        // OTHER dialog. GoBarModalTests re-register a service wired to the harness bus.
+        ModalStack = new AccessibleTrader.Core.Services.Input.ModalStack(new EventBus());
+        CommandDispatcher = Substitute.For<AccessibleTrader.Core.Services.Input.ICommandDispatcher>();
+        Ctx.Services.AddSingleton(CommandDispatcher);
+        Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.GoBar.GoBarService(
+            CommandDispatcher, ShortcutManager, EventBus, ModalStack));
         Ctx.Services.AddSingleton(WorkspaceStore);
         Ctx.Services.AddSingleton(StrategyCoordinator);
         Ctx.Services.AddSingleton(StrategyLibrary);

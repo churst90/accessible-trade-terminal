@@ -70,6 +70,7 @@ public static class ModalCatalog
         new("HelpModal",             c => c.RenderComponent<HelpModal>(),             b => b.Publish(new OpenHelpEvent())),
         new("JournalModal",          c => c.RenderComponent<JournalModal>(),          b => b.Publish(new OpenJournalEvent())),
         new("MarketEventCalendarModal", c => c.RenderComponent<MarketEventCalendarModal>(), b => b.Publish(new OpenMarketEventCalendarEvent())),
+        new("GoBarModal",            c => c.RenderComponent<GoBarModal>(),            b => b.Publish(new OpenGoBarEvent())),
         new("LabelTextModal",        c => c.RenderComponent<LabelTextModal>(),        b => b.Publish(new PromptForLabelTextEvent("candles")), SeedChartState),
         new("LevelReportModal",      c => c.RenderComponent<LevelReportModal>(),      b => b.Publish(new OpenLevelReportEvent()), SeedChartState),
         new("LoadWorkspaceModal",    c => c.RenderComponent<LoadWorkspaceModal>(),    b => b.Publish(new OpenLoadWorkspaceEvent()), SeedWorkspaceProfiles),

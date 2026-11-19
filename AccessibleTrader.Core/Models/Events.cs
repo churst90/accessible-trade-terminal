@@ -351,6 +351,16 @@ namespace AccessibleTrader.Core.Models
     /// <summary>Alt+E — the market event calendar: days, filters, alerts and release history.</summary>
     public record OpenMarketEventCalendarEvent();
 
+    /// <summary>Alt+G — the Go bar: one text box that reaches every action by typing.</summary>
+    public record OpenGoBarEvent();
+
+    /// <summary>
+    /// The Go bar has chosen an entry and asks its box to close. The service dispatches the
+    /// command only once the modal stack is empty, so the dispatcher's modal trap does not
+    /// swallow the command the user just named.
+    /// </summary>
+    public record CloseGoBarRequestEvent();
+
     /// <summary>Ctrl+Alt+Shift+M — ask the background monitoring service to speak its
     /// status summary ("Monitoring 3 workspaces: KAS current, 1 strategy. ...").</summary>
     public record AnnounceMonitoringStatusEvent();

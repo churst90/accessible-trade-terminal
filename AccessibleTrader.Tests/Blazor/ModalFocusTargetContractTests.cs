@@ -64,6 +64,9 @@ public class ModalFocusTargetContractTests
             "a chooser over a list, not a single-value form: the list is the content"),
         new("MarketEventCalendarModal", "market-event-calendar-title",
             "a calendar/report surface; the heading names the screen before its filters"),
+        new("GoBarModal",            "gobar-input",
+            "the user opened it to type a command: the only thing to do is type, and landing "
+            + "on the heading would cost a Tab on every use of a box whose whole point is speed"),
         new("MyDataModal",           "mydata-title",
             "file import, multi-step; the heading frames the steps"),
         new("ObjectTreeModal",       "objtree-title",
