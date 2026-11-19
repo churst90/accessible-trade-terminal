@@ -1,10 +1,10 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2, 3a, 3b, 4a and 5a are built (2026-11-18); stage 1 has been tried by
-Cody and stages 2, 3a, 3b, 4a and 5a have not been heard yet. Stage 4b, stage 5b (the change log),
-stage 6 and the rest are not built** except where a stage below says it is. This is the plan and the
-reasons, so a later session (or a sub-agent) does not have to re-derive them.
+terminal does not. **Stages 1, 2, 3a, 3b, 4a, 5a and 5b are built (2026-11-18); stage 1 has been tried
+by Cody and stages 2, 3a, 3b, 4a, 5a and 5b have not been heard yet. Stage 4b, the rest of stage 5
+(5c), stage 6 and the rest are not built** except where a stage below says it is. This is the plan and
+the reasons, so a later session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
 
@@ -381,7 +381,24 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    before);
    Forex/Commodity use the Friday-to-Sunday window only and do not use the equity hours; symbol
    resolution reads each provider's own symbol list but was never run against live providers in
-   this build, and the candidate spellings are the fixed table above. **5b** (the change log,
-   Alt+U) is not part of this stage.
+   this build, and the candidate spellings are the fixed table above.
+   **5b BUILT 2026-11-18, not yet heard by Cody.** The change log and Alt+U. The spoken order is
+   money, alerts, events released, unusual moves, signals, connection problems; stage 5b builds
+   the four whose events already exist (money, alerts, the release read-out, connection problems)
+   and leaves the `Unusual` and `Signal` categories in the enum and ordering for 5c. The top five
+   are read per press, then *"Press Alt+U again for N more."*; the caught-up mark moves past the
+   spoken items only. The optional return prompt appears after five minutes away (default on) and
+   only offers. Settings → Narration gains **Offer a catch-up when I come back**
+   (`changeLogOfferOnReturn`). The pure halves are `ChangeLogRules`, `ChangeLogWording` and the
+   per-event mapping; the live half is `ChangeLogStore` (one per-path lock, `change-log.json`),
+   `ChangeLogRecorder` (per circuit, in the headless session and at MAUI startup) and
+   `ChangeLogCatchUpService` (Alt+U and the prompt). **Differences found while building:** the
+   alert de-duplication key uses the fired time to the minute because `AlertFired` carries no bar
+   time; order events use `OrderUpdate.Timestamp`; `MarketEventNoticeEvent` needed the optional
+   `MarketEventNoticeKind` the handoff predicted, and the publish site now passes it so a countdown
+   is not recorded; the MAUI head has no single foreground hook, so its existing `Window.Created`,
+   `Resumed`, `Stopped`, `Destroying` and the tray's visibility callback carry the away mark and
+   the offer; and the hosted monitor appends its alerts through the same per-user scope's store
+   because that head has no headless bus.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the
    biggest change and goes last.

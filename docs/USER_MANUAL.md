@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, the Alt+U catch-up, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -1656,6 +1656,47 @@ sentence — a late answer is dropped, not added.
 
 **F2 and Shift+F2 do not mute the pulse.** You asked for it by pressing Alt+P, so it is spoken on
 the interface tier and both chart and alert mutes leave it alone, like the detail key.
+
+### What changed (Alt+U)
+
+**Alt+U** answers "what happened while I was not listening?". It reads a log the terminal keeps
+all the time — including while the browser is closed on the local web host — of the things that
+already made it speak. The item text is the sentence you would have heard when the thing happened;
+Alt+U only replays it with a time.
+
+> *"7 changes since 09:40, 47 minutes ago. Money: 09:52, BTC/USDT stop hit, sold 0.1 at 94,210.
+> Alerts: 09:44, BTC/USDT crossed above 95,000. 10:01, ETH/USDT RSI above 70. Events: 10:00, CPI out,
+> up 0.3, hotter than expected. Connection: 10:12, MEXC disconnected. Press Alt+U again for 2 more."*
+
+**The order is fixed:** money first (fills, partial fills, stop hits, take-profit hits), then
+alerts that fired, then market events released (the read-out and the figure), then unusual moves,
+signals, and connection problems. Stage 5b records the first four; the last two are reserved for a
+later stage and will appear where the order says when their producers arrive.
+
+**The top five, then ask again.** A press reads at most five items and ends with **"Press Alt+U
+again for N more."** when anything remains. The next press starts **"N more."** and continues. The
+**caught-up mark moves past the items that were actually spoken**, so an interrupted catch-up keeps
+the rest; an item you never heard stays unheard.
+
+**Nothing new** says *"Nothing new since 09:40."*; a log that has never recorded anything says
+*"Nothing recorded yet."*
+
+**Coming back.** With **Settings (F12) → Narration → What changed → Offer a catch-up when I come
+back** on (the default), returning after at least five minutes says *"You were away 47 minutes,
+3 things changed, Alt+U to hear them."* It only offers — it never reads the items or marks them
+heard. On the web host the away mark is set when the browser connection drops; on the desktop it is
+set when the window is hidden to the tray, the app is stopped, or it closes.
+
+**F2 and Shift+F2 do not mute the catch-up.** You asked for it by pressing Alt+U, so it is spoken
+on the interface tier, like the pulse and the detail key.
+
+**What is kept.** The log is `change-log.json` in your own data folder: at most 500 entries, no
+entry older than seven days. The same fill seen by the browser and by the background session is
+stored once. If the file is unreadable it is moved aside as a `.corrupt-*` copy and a fresh log
+starts, rather than being overwritten.
+
+Not yet recorded: unusual moves, signals and formations on watched charts, position profit and
+loss since you left, market events released while the browser is closed, and the morning brief.
 
 ---
 

@@ -182,7 +182,26 @@ as proposed.
   tactile summary of the pulse is not built.
 - [ ] **Stage 5a follow-up: a detail read of the pulse.** Each item's source, reference and time
   on demand; not built.
-- [ ] **Stage 5b: "what changed" (Alt+U).** The change log and catch-up. Open.
+- [x] **Stage 5b: "what changed" (Alt+U).** The change log and catch-up for the four
+  categories whose events exist: money (fills, stops, take-profits), alerts, market events
+  released and connection problems. It keeps the latest 500 entries for seven days under
+  `change-log.json`, de-duplicates a fill seen by a circuit and the headless session, reads the
+  top five per press in category order with "Press Alt+U again for N more", and marks only the
+  spoken items heard. "Offer a catch-up when I come back" (default on) appears in Settings →
+  Narration and only offers after five minutes. **Built 2026-11-18, not yet heard by Cody.**
+  Caveats: the sound was never heard; a market event released while the browser is closed is
+  still not recorded (the existing process-wide-owner item above); and the hosted head records
+  only its alerts, with in-circuit items through the circuit recorder.
+- [ ] **Stage 5c: unusual moves.** A producer for the `Unusual` category: each asset against its
+  own normal swing over the same interval, not a fixed percent. Not built in 5b.
+- [ ] **Stage 5c: signals and formations on watched charts.** A producer for the `Signal`
+  category, which needs a background signal evaluator. Not built in 5b.
+- [ ] **Stage 5c: position profit and loss since you left.** The change log currently records
+  money events (fills, stops, take-profits), not the mark-to-market move of open positions.
+- [ ] **Stage 5c: market events released while the browser is closed.** The same blocker as the
+  stage 3a item above: one process-wide owner is needed, or a closed tab and the headless
+  session would both speak/record it.
+- [ ] **Stage 5c: the morning brief.** Catch-up, pulse and today's events. Not built.
 - [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.
 
 ## Trading not yet tried on a practice or real account

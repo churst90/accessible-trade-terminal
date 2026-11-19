@@ -4,6 +4,77 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### What changed (stage 5b), 2026-11-18
+
+- **Alt+U answers "what happened while I was not listening?"** with a catch-up of the change log.
+  The fixed order is money (fills, partial fills, stop hits, take-profit hits), alerts, market
+  events released (the read-out and the figure), unusual moves, signals and connection problems.
+  Stage 5b records the four categories whose events already exist; `Unusual` and `Signal` stay in
+  the enum and in the ordering so stage 5c adds only producers.
+- **The words.** The first press says *"7 changes since 09:40, 47 minutes ago."* and then each item
+  as the sentence the terminal already spoke, with a time: *"Money: 09:52, BTC/USDT stop hit, sold
+  0.1 at 94,210. Alerts: 09:44, BTC/USDT crossed above 95,000. 10:01, ETH/USDT RSI above 70."*
+  A category word is said once per press; a stored trailing period is removed so the result never
+  says ". .". At most five items are read per press, followed by *"Press Alt+U again for 2 more."*;
+  an uninterrupted follow-up starts *"2 more."*. Nothing new says *"Nothing new since 09:40."*;
+  an untouched log says *"Nothing recorded yet."*. Every time goes through
+  `SpeechTimeFormatter`, so UTC and the 12-hour clock are honoured; numbers are invariant.
+- **The caught-up mark moves past spoken items only.** `MarkHeard` sets exactly the keys in the
+  sentence and moves `LastCatchUpUtc`; an item the press did not reach stays unheard, so an
+  interrupted catch-up keeps the rest.
+- **Pure halves.** `ChangeLogRules` appends without duplicate keys, keeps 500 entries, drops
+  anything older than seven days without reordering, plans category-then-oldest-first and marks
+  heard. `ChangeLogWording` writes the header, category groups, follow-up, nothing sentences and
+  the return prompt; `ChangeLogRecorder`'s mapping methods turn each event into one entry using
+  `AccessibilityFeedbackCoordinator`'s existing fill/partial/stop/take-profit sentences, so there
+  is no second wording to drift.
+- **The store.** `ChangeLogStore` reads and writes `change-log.json` beside the user's other JSON
+  files, with one semaphore per FULL PATH shared by every instance in the process. Every write is
+  a read-modify-write through the rules and then `AtomicFile`; a file that does not parse is moved
+  aside by `CorruptFileQuarantine` and a fresh log starts. Failures are logged by exception type
+  and never thrown to a bus subscriber.
+- **The recorders.** `ChangeLogRecorder` subscribes to alerts, the four money events, market-event
+  notices and connection status. It records only `ReadOut`/`Figure` notices, never countdowns; it
+  records `Error`/`Disconnected` and a `Connected` only after that provider's previous recorded
+  state was a problem. `MarketEventNoticeEvent` gained an optional
+  `MarketEventNoticeKind Kind = ReadOut` at the end and the live-notice publish site passes the
+  real kind. One recorder is force-created per browser circuit, one in `HeadlessSession.Start()`,
+  and one at MAUI startup; the same fill seen by two buses is one entry because the key is
+  `order|provider|OrderId|Status|FilledQuantity`. `HostedAlertMonitor` appends its fired alerts
+  through the same per-user scope's store, because the hosted head has no headless bus.
+- **The return prompt.** Settings → Narration → **What changed → Offer a catch-up when I come
+  back** (default ON, `changeLogOfferOnReturn`) adds the optional sentence *"You were away 47
+  minutes, 3 things changed, Alt+U to hear them."* after at least five minutes away, when
+  something unheard was recorded after `LastPresentUtc`. It never reads or marks anything. The
+  away mark is set in the circuit handler's connection-down path and on the MAUI window's
+  `Stopped`/`Destroying` and tray-hide path; the offer runs at circuit open and on MAUI
+  `Created`/`Resumed`/tray-show.
+- **Interface tier.** Both the catch-up and the prompt publish on
+  `SpeechChannel.Interface`, so neither F2 nor Shift+F2 mutes them: the user asked.
+- **Caveats.** This is the first four categories only: unusual moves, signals/formations on watched
+  charts, position P&L since you left, market events released while the browser is closed and the
+  morning brief are stage 5c items in `docs/TODO.md`. A market event released while the browser is
+  closed is still not recorded at all, because stage 3a's process-wide owner is still missing. The
+  hosted head records its server-side alerts, while its in-circuit items come through the circuit
+  recorder. The listening test was not run: **not heard by Cody.**
+- **Tests:** 37 new tests across `ChangeLogRulesTests`, `ChangeLogWordingTests`,
+  `ChangeLogRecorderTests`, `ChangeLogStoreTests` and `ChangeLogCatchUpServiceTests`, plus the
+  Alt+U command/scope coverage. They pin duplicate keys, the 500/7-day cap without reordering,
+  category-then-oldest planning and the remaining count, mark-heard touching only the spoken keys,
+  header singular/plural and both "since" sources, one category word per press, press-again and
+  follow-up, nothing new/recorded, the return prompt, no ". .", `de-DE` invariance, the 12-hour UTC
+  clock, all seven event mappings, countdown exclusion, first-connect exclusion and
+  error-then-reconnect, one fill on two buses, a throwing store, store round-trip and 2 × 200
+  concurrent appends, corrupt-file quarantine, the settings file being read on the first offer of a session, and the two-press catch-up and prompt rules. The
+  specified filter (`ChangeLog|MarketPulse|MarketEvent|Shortcut|CommandDispatcher|WebHost|HostParity|Settings|Phase5KeyboardScope|Headless|Order|Alert|TestTemp`)
+  runs 2463 tests, all green. One pre-existing failure outside this stage
+  (`AccountManageProfileTests` called `Path.GetTempPath` directly, which the TestTemp guard
+  forbids) was fixed so that guard suite is green.
+- **Sabotages:** record countdowns too (**1 red**), drop the de-duplication check (**2 red**), mark
+  every unheard entry heard (**4 red**), sort newest-first within a category (**1 red**), publish on
+  the Chart channel (**2 red**), remove the per-path lock (**1 red**, five consecutive runs). Each
+  was backed up in `.sab/`, restored with `cp`, `touch`ed and compared byte-for-byte.
+
 ### Market pulse (stage 5a), 2026-11-18
 
 - **Alt+P answers "how is the market right now?" in one sentence.** The list is an ordinary
