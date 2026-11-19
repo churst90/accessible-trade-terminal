@@ -29,7 +29,7 @@ feature and understand what it is doing.
 
 1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
-3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
+3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, chart types, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
 5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, the Alt+U catch-up, the Alt+G Go bar, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
@@ -715,6 +715,39 @@ Three keys describe the structure instead of a value.
 The numbers these three speak come from the same ranges the chart is drawn with, so what you
 hear is what a sighted partner sees.
 
+### Chart types: candles, Heikin Ashi, line and area
+
+The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
+It is one choice with four options, like TradingView's chart-type menu:
+
+- **Candles** — the standard OHLC bars, the default.
+- **Heikin Ashi** — the smoothed candles described in the next section. This is the same as
+  the Alt+C button; choosing it sets Heikin Ashi on.
+- **Line** — one line through the close of every visible bar.
+- **Area** — the same line with a fill from the line down to the bottom of the price pane.
+
+Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
+Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. The line is the new
+**Line and area close** colour in the theme (TradingView's blue by default), so the white Price
+series is not painted over it while it is set to read the close. The Price series is still
+there in every other way — it is in the status line, and arrowing to it still speaks and sonifies
+the close.
+
+The price axis fits the closes on Line and Area, so the line uses the whole pane; overlays and
+reference levels still widen the axis, and log scale works as usual. On Line and Area the price
+pane's status line shows just `C <close>`, and the candles series' arrow-key reading describes
+the point on the line: *"Close 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*,
+*"Down …"*, *"Unchanged from the previous close."* or *"First bar."* The detail key
+(Alt+Shift+D) still reads the full bar. On an analytics chart, which is already a single line,
+the select is not shown and the phrases refuse aloud.
+
+**From the keyboard**, use the Go bar (Alt+G): `CANDLE` or `candle chart`, `heikin ashi chart`,
+`LINE` or `line chart`, and `AREA`, `area chart` or `mountain`. Choosing the type already on
+screen says *"Already a line chart."* (and so on) rather than doing nothing.
+
+Brick-based chart types — Renko, range bars, line break, Kagi and Point & Figure — are not in
+this build.
+
 ### Heikin-Ashi, and what stays raw
 
 A standard candle reports what happened in one bar: it opened here, traded up to there and
@@ -984,7 +1017,8 @@ behind the text, the value is printed in plain text with a small square of that 
 front of it; the name is always there, so colour is never the only way to tell values apart.
 The price pane's first line names the chart (symbol, timeframe, provider) and gives the bar's
 open, high, low and close — on a Heikin Ashi chart, the Heikin Ashi candle's, the same ones
-the candles reading speaks. The values follow the keyboard cursor; when someone moves the
+the candles reading speaks. On a Line or Area chart there is no open, high or low on screen,
+so that line gives the close alone, in the line's colour. The values follow the keyboard cursor; when someone moves the
 mouse, they follow the bar under the pointer until the keyboard cursor moves again, and a mouse
 merely resting on the chart never takes over. When space runs out the block says so: "+2 more
 (see the object tree)", "+N" at the end of a long line, and "9 mark types" for an indicator
@@ -1721,11 +1755,15 @@ every label match. Plain text lists settings after the commands. Case does not m
 | `PULSE` | Market pulse (Alt+P) |
 | `CHANGES` | What changed (Alt+U) |
 | `DES` | Describe the chart layout — axes, scales, panes and what is hidden |
+| `CANDLE` | Draw the price as candlesticks (`candles`, `candlestick`) |
+| `LINE` | Draw the price as a line through the closes (`line chart`) |
+| `AREA` | Draw the closes with a filled area under the line (`area chart`, `mountain`) |
 | `HELP` | Help (F1) |
 | `GO` | The Go bar itself |
 
 **Every other command can be reached by its name**, for example `log scale`, `Heikin-Ashi`,
-`zoom in`, `add indicator`, `draw a trend line`, `market watch`, `settings` or `what is armed`.
+`heikin ashi chart`, `line chart`, `area chart`, `zoom in`, `add indicator`, `draw a trend line`,
+`market watch`, `settings` or `what is armed`.
 The list under the box shows each match as *name — one line of help — the key it is bound to
 now*, so a rebind is reflected without a second table.
 

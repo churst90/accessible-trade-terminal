@@ -4,6 +4,99 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart types: Line and Area, 2026-11-19 — not yet heard by Cody
+
+- **A fifth and sixth way to draw the price pane, sharing one choice with Candles and
+  Heikin-Ashi.** `PriceChartStyle { Candles = 0, Line = 1, Area = 2 }` lives beside
+  `WorkspaceState`; the toolbar gained a native **Chart type** select (Candles / Heikin Ashi /
+  Line / Area) before the Alt+C Heikin-Ashi button, and the Go bar gained `CANDLE`, `LINE`,
+  `AREA` and a code-less *Heikin Ashi chart*. Alt+C is still the toggle and no key was added.
+  Candles = 0 so every saved workspace written before the field loads as candles.
+- **Line** draws one 2 × density line through the RAW closes of the visible bars in
+  `ChartTheme.PriceChartLine` (new non-required token, default TradingView #2962FF). **Area**
+  adds a fill from the line to the pane floor in the same colour, fading to transparent at the
+  bottom. No bodies, no wicks; hollow-up and colour-vision-safe candle settings do not apply
+  because blue is already safe. The volume pane and every indicator pane are unchanged.
+- **The Price series keeps its speech, navigation and sonification, and loses only its ink**
+  while the style is Line or Area and every visible part of it maps to `close`. Otherwise it is
+  the identical white line drawn on top of the chart type's line, hiding its colour. A Price
+  whose mapping is `high` (or anything else) is a different line and still draws. The Price
+  series still appears in the status line either way.
+- **Autoscale is fitted to the closes on Line and Area**, not to highs and lows, so the line
+  fills the pane as it does on TradingView. Reference levels and main-pane overlays still widen
+  the range exactly as before, the existing 5% padding is unchanged, and the log scale still
+  maps it unchanged. Candles and Heikin-Ashi keep the original high/low fit.
+- **Speech on the candles series describes the point on the line**, not a candle:
+  *"Close 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*,
+  *"Close 95,000.50. Down 300.00 from the previous close, 0.31 percent."*,
+  *"Close 95,000.50. Unchanged from the previous close."* and *"Close 95,000.50. First bar."*
+  Prices are `SpeechPriceFormatter.FormatPrice`, the percentage is two decimals invariant with
+  its sign removed (the word Up/Down carries it), and the close is always raw. No candle shape,
+  pattern name, open/high/low or wick percentage is read, because none of it is on screen.
+  Everything else is untouched: the Alt+Shift+D detail key still reads full OHLC, and
+  candle-pattern announcements at bar close, alerts, playback narration and sonification keep
+  their old meaning.
+- **The status line's symbol line is `C <close>` in the line colour on Line and Area.** There
+  is no O/H/L on the canvas. Candles and Heikin-Ashi keep O H L C as before. The layout
+  describer (Ctrl+Alt+Shift+Y) says *"Line chart of closes."* or *"Area chart of closes."* where
+  the Heikin-Ashi sentence would sit on a HA chart.
+- **Speaking the change, one Interface sentence, interrupt:** *"Line chart."*, *"Area chart."*,
+  *"Candle chart."*, *"Heikin Ashi chart."*; a request for the type already on screen says
+  *"Already a line chart."*, *"Already an area chart."*, *"Already a candle chart."* or
+  *"Already a Heikin Ashi chart."*. Turning Heikin-Ashi on from Line or Area says the existing
+  HA-on sentence (including the formation caveat when it applies) followed by *"Candle chart."*,
+  because two things changed. Turning HA off says *"Candle chart."*
+- **Analytics / single-line charts:** the select is gated exactly like the Heikin-Ashi button
+  (trading tabs only), and a Go bar or command request on a `SingleValueLine` chart says
+  *"This chart is already a single line; chart types are for price bars."* and changes
+  nothing. `ToggleHeikinAshi` refuses there the same way.
+- **State and persistence:** `WorkspaceState.ChartStyle` and `TabSnapshot.ChartStyle` are init
+  properties (default candles — the positional records are built in too many places to widen),
+  `TabConfiguration.ChartStyle` defaults to candles in the file, and save/restore now covers the
+  active tab, every snapshot, the workspace library and `WorkspaceInitializer`. The reducer's
+  `SetChartStyleAction(style, heikinAshi)` enforces the invariants: Line/Area always clear the
+  HA flag, HA only exists with Candles, and `ToggleHeikinAshiAction` ON also returns to Candles.
+  A new tab starts as Candles. The script-sandbox projection deliberately does not carry the
+  field: it is presentation, like pane ranges.
+- **Go bar alias moved.** `candles` belonged to `ToggleHeikinAshi`; it now belongs to the
+  **Candle chart** entry, so typing "candles" gives candles instead of turning Heikin-Ashi on.
+  The HA entry keeps `heikin ashi` and `heikin`, and its own chart-type entry is reachable as
+  "heikin ashi chart". The `LINE` code needed no fallback: the 6b own-words-first guard stayed
+  green.
+- **One handoff claim was wrong against the code, so the implementation differs.** The
+  `Gradient` display type does not draw a line with a fade to the pane bottom: `RenderLine`
+  fills a flat alpha-60 polygon to the **zero baseline** (clamped to the pane floor for a price
+  series). Area therefore reuses that polygon-to-floor shape but gives it the fade the handoff
+  describes (line colour at 110 alpha at the top, transparent at the floor). `RenderPriceLine`
+  is the one place that draws the new line and fill; there is no second RenderCandles path.
+- **Caveats.** Renko, range bars, line break, Kagi and Point & Figure are NOT built: this run
+  is Line and Area only, and the enum has room for them. The new token and select have not been
+  heard or seen by Cody. The example sentences in the handoff used thousands separators
+  ("95,000.5", "1,120"); `SpeechPriceFormatter.FormatPrice` is the formatter they asked for and
+  does not group, so the shipped sentence reads "95000.50 ... 1120.00".
+- **Tests:** the specified filter runs **3,640 tests, all passing** (up from 3,333). New
+  coverage: reducer invariants (Line clears HA, HA on from Area gives Candles+HA, HA off keeps
+  Candles, per-tab styles, new tab = Candles); workspace round-trip for Line and Area plus a
+  literal old-shape JSON that loads as Candles and a restore that dispatches the saved type;
+  pixel tests for the blue line, no body on Line, tinted floor under Area, Price-series white
+  hidden when it maps close and present when it maps high, and the closes-only autoscale with
+  the candles high/low control; the four speech sentences plus candles/HA anatomy controls;
+  status line C-only and candles O H L C control; both describer sentences; a toolbar bUnit
+  suite for the labelled select, current value, dispatch and analytics gating; Go bar reachability
+  by name/code/alias, the moved `candles` alias, `Already …` sentences and the analytics refusal.
+- **Sabotages** (backed up in `.sab/`, built, filter run, restored with `cp`/`touch`/`cmp`;
+  red counts are failures in the 3,637-test filter build used for the sabotage runs):
+  (a) draw candle bodies on Line too — **1 red**;
+  (b) keep drawing the white Price series on Line — **1 red**;
+  (c) autoscale Line from highs/lows — **1 red**;
+  (d) default a missing saved field to Line — **2 red**;
+  (e) let SetChartStyle Line leave HA on — **2 red**;
+  (f) speak the candle shape on Line — **4 red**;
+  (g) refuse analytics chart-type requests silently — **6 red**.
+  Sabotage (a) first exposed a hole in the tests (they called `RenderPriceLine` directly and
+  never exercised the Layer's dispatch); the new `The_layer_draws_the_line_chart_type_as_a_line_and_not_as_candles`
+  test is the one that now goes red.
+
 ### Go bar (stage 6c), 2026-11-18 — not yet heard by Cody
 
 - **Settings by name.** The Settings dialog's 63-row search registry moved to Core

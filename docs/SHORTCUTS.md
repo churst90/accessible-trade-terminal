@@ -352,6 +352,10 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | Alt+L | Toggle logarithmic (log) scale |
 | Alt+H | Toggle volume heatmap overlay |
 
+**Chart type** (Candles / Heikin Ashi / Line / Area) has no key of its own: use the toolbar's
+Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, or `heikin ashi chart`. Typing
+`candles` now chooses the candle chart; it no longer toggles Heikin-Ashi.
+
 **What the price pane fits.** The price pane always holds everything drawn on it: the candles
 *and* every visible overlay. A Bollinger band or a Keltner channel that swings wider than the bars
 widens the pane instead of running off it. That matters to the ear as well as the eye, because the
