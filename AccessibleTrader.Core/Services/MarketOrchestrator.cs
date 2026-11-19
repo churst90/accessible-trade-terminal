@@ -904,6 +904,35 @@ namespace AccessibleTrader.Core.Services
             if (string.IsNullOrEmpty(targetSymbol))
                 return new(GoBar.GoBarLoadOutcomeKind.NoChart, targetProvider, "", targetTimeframe);
 
+            // A symbol load that changes the tab's data shape is the one load the toolbar would
+            // have stopped to warn about. Refuse before touching the toolbar, so a refused load
+            // leaves the user looking at exactly the chart they were looking at; the toolbar's
+            // own Load button can still open it in a new tab.
+            if (symbol != null)
+            {
+                var targetShape = Sdk.Plugins.ProviderDataShape.Ohlcv;
+                try
+                {
+                    var target = await _dataService.GetProviderAsync(targetProvider).ConfigureAwait(false);
+                    targetShape = target?.GetDataShapeForSymbol(targetSymbol)
+                                  ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+                }
+                catch
+                {
+                    // A provider lookup failure is not a shape change; the load will say what
+                    // went wrong through DataManager's own speech.
+                }
+
+                int nonCore = CountNonCoreSeries();
+                if (targetShape != _store.State.CurrentDataShape
+                    && targetShape == Sdk.Plugins.ProviderDataShape.SingleValueLine
+                    && nonCore > 0)
+                {
+                    return new(GoBar.GoBarLoadOutcomeKind.ShapeChange,
+                        targetProvider, targetSymbol, targetTimeframe, nonCore);
+                }
+            }
+
             // Refresh the provider's lists only when the provider itself changes. The identity
             // is the chart on screen, so a stray toolbar provider is corrected here too.
             bool providerChanging = !string.Equals(
@@ -911,7 +940,7 @@ namespace AccessibleTrader.Core.Services
 
             if (providerChanging)
             {
-                _selectedProvider = targetProvider;
+                SelectedProvider = targetProvider;
                 if (!string.Equals(_selectedProvider, targetProvider, StringComparison.Ordinal))
                 {
                     return new(GoBar.GoBarLoadOutcomeKind.NotInDemo,
@@ -945,34 +974,6 @@ namespace AccessibleTrader.Core.Services
             {
                 return new(GoBar.GoBarLoadOutcomeKind.NotInDemo,
                     targetProvider, targetSymbol, targetTimeframe);
-            }
-
-            // A symbol load that changes the tab's data shape is the one load the toolbar would
-            // have stopped to warn about. Refuse rather than silently strip user indicators or
-            // drawings; the toolbar's own Load button can still open it in a new tab.
-            if (symbol != null)
-            {
-                var targetShape = Sdk.Plugins.ProviderDataShape.Ohlcv;
-                try
-                {
-                    var target = await _dataService.GetProviderAsync(targetProvider).ConfigureAwait(false);
-                    targetShape = target?.GetDataShapeForSymbol(targetSymbol)
-                                  ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
-                }
-                catch
-                {
-                    // A provider lookup failure is not a shape change; the load will say what
-                    // went wrong through DataManager's own speech.
-                }
-
-                int nonCore = CountNonCoreSeries();
-                if (targetShape != _store.State.CurrentDataShape
-                    && targetShape == Sdk.Plugins.ProviderDataShape.SingleValueLine
-                    && nonCore > 0)
-                {
-                    return new(GoBar.GoBarLoadOutcomeKind.ShapeChange,
-                        targetProvider, targetSymbol, targetTimeframe, nonCore);
-                }
             }
 
             await LoadChartAsync().ConfigureAwait(false);

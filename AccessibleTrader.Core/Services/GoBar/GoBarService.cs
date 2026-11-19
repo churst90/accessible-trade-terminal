@@ -50,6 +50,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         private readonly IMarketEventBarMapCache? _eventMap;
         private readonly IChartPatternCache? _patterns;
         private readonly ISdkCandlePatternAnalyzer? _candles;
+        private readonly TimeZoneInfo? _displayZone;
         private GoBarOption? _pending;
 
         public GoBarService(
@@ -66,7 +67,8 @@ namespace AccessibleTrader.Core.Services.GoBar
             MarketEventNavigator? marketEvents = null,
             IMarketEventBarMapCache? eventMap = null,
             IChartPatternCache? patterns = null,
-            ISdkCandlePatternAnalyzer? candles = null)
+            ISdkCandlePatternAnalyzer? candles = null,
+            TimeZoneInfo? displayZone = null)
         {
             _dispatcher = dispatcher;
             _shortcuts = shortcuts;
@@ -82,6 +84,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             _eventMap = eventMap;
             _patterns = patterns;
             _candles = candles;
+            _displayZone = displayZone;
             _modalStack.Changed += OnModalStackChanged;
         }
 
@@ -208,7 +211,8 @@ namespace AccessibleTrader.Core.Services.GoBar
             new($"Go to {DateLong(moment, hasTime)}",
                 Action: new GoBarDateAction(moment, hasTime, DateLong(moment, hasTime)),
                 CanonicalText: $"GOTO {canonicalText}",
-                Help: "Move the cursor to the last bar at or before that moment");
+                Help: "Move the cursor to the last bar at or before that moment, "
+                    + "in the clock the bar readout uses");
 
         private GoBarSuggestion ResolveSymbol(string argument)
         {
@@ -729,8 +733,8 @@ namespace AccessibleTrader.Core.Services.GoBar
             }
 
             int barSeconds = PlaybackNarration.BarSeconds(state);
-            var first = SpeechTimeFormatter.ToBarDisplay(data[0].Date, barSeconds);
-            var last = SpeechTimeFormatter.ToBarDisplay(data[^1].Date, barSeconds);
+            var first = BarMoment(data[0].Date, barSeconds);
+            var last = BarMoment(data[^1].Date, barSeconds);
 
             if (action.Wall < first)
             {
@@ -748,7 +752,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             int target = -1;
             for (int i = data.Count - 1; i >= 0; i--)
             {
-                if (SpeechTimeFormatter.ToBarDisplay(data[i].Date, barSeconds) <= action.Wall)
+                if (BarMoment(data[i].Date, barSeconds) <= action.Wall)
                 {
                     target = i;
                     break;
@@ -800,10 +804,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                 return;
             }
 
+            // The navigator and this fallback are the same two dispatches. If it refuses the
+            // event for any reason, the placement we already found is still a real bar; moving
+            // there is right, and doing nothing would be one of the silent drops 6a review
+            // banned. (The placement came from the same map JumpTo consults.)
             if (_marketEvents == null || !_marketEvents.JumpTo(placement.Event))
-            {
-                if (_marketEvents == null) NavigateTo(placement.BarIndex);
-            }
+                NavigateTo(placement.BarIndex);
         }
 
         private void ExecuteFind(GoBarFindAction action)
@@ -975,9 +981,20 @@ namespace AccessibleTrader.Core.Services.GoBar
             return $"{date}, {moment.ToString(SpeechTimeFormatter.Clock("HH:mm"), CultureInfo.InvariantCulture)}";
         }
 
-        private static string BarMomentText(DateTime stamp, int barSeconds)
+        /// <summary>
+        /// The app's own display clock for a typed date: F12's "times in UTC" setting when on,
+        /// otherwise the user's local zone. A test passes a zone in rather than inheriting the
+        /// machine's, so the rule is proved on any build agent.
+        /// </summary>
+        private TimeZoneInfo DisplayZone =>
+            _displayZone ?? (SpeechTimeFormatter.UseUtc ? TimeZoneInfo.Utc : TimeZoneInfo.Local);
+
+        private DateTime BarMoment(DateTime stamp, int barSeconds)
+            => SpeechTimeFormatter.ToBarDisplay(stamp, barSeconds, DisplayZone);
+
+        private string BarMomentText(DateTime stamp, int barSeconds)
         {
-            var display = SpeechTimeFormatter.ToBarDisplay(stamp, barSeconds);
+            var display = BarMoment(stamp, barSeconds);
             return barSeconds < 86400
                 ? DateLong(display, hasTime: true)
                 : DateLong(display, hasTime: false);

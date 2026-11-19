@@ -130,6 +130,27 @@ public class GoBarModalTests
     }
 
     [Fact]
+    public void TheListRendersTheServicesArgumentOptionAndTabCompletesItsCanonicalText()
+    {
+        using var h = new BlazorTestHarness();
+        var (cut, _, _) = Open(h);
+
+        Type(cut, "TF 4h");
+
+        cut.WaitForAssertion(() =>
+        {
+            var options = cut.FindAll("#gobar-list [role='option']");
+            Assert.Single(options);
+            Assert.Contains("Timeframe 4 hours", options[0].TextContent);
+        });
+
+        Key(cut, "Tab");
+
+        cut.WaitForAssertion(() =>
+            Assert.Equal("TF 4h", cut.Find("#gobar-input").GetAttribute("value")));
+    }
+
+    [Fact]
     public void ThePoliteReadIsNonInterruptingAndSpeaksTheTopSuggestion()
     {
         using var h = new BlazorTestHarness();
