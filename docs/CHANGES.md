@@ -47,8 +47,8 @@ All notable changes to this project will be documented in this file.
   minutes, 3 things changed, Alt+U to hear them."* after at least five minutes away, when
   something unheard was recorded after `LastPresentUtc`. It never reads or marks anything. The
   away mark is set in the circuit handler's connection-down path and on the MAUI window's
-  `Stopped`/`Destroying` and tray-hide path; the offer runs at circuit open and on MAUI
-  `Created`/`Resumed`/tray-show.
+  `Stopped`/`Destroying` and tray-hide path; the offer runs in `AppStartupService` (step 9b, once
+  the speech pipeline is listening) on both heads, and on MAUI `Resumed`/tray-show.
 - **Interface tier.** Both the catch-up and the prompt publish on
   `SpeechChannel.Interface`, so neither F2 nor Shift+F2 mutes them: the user asked.
 - **Caveats.** This is the first four categories only: unusual moves, signals/formations on watched
@@ -70,6 +70,19 @@ All notable changes to this project will be documented in this file.
   runs 2463 tests, all green. One pre-existing failure outside this stage
   (`AccountManageProfileTests` called `Path.GetTempPath` directly, which the TestTemp guard
   forbids) was fixed so that guard suite is green.
+- **Review fix (Claude).** Three things the first build got wrong. (1) The desktop recorder was a
+  singleton nothing resolved, so on the desktop app the log stayed empty; `AppStartupService` now
+  resolves it (step 4d). (2) The return prompt was published at circuit open and on the MAUI
+  window's `Created`, before anything was listening for speech, so it was said to no one; it now
+  runs in `AppStartupService` after the feedback coordinator exists (step 9b). (3) After a press
+  that left items unread, a new item made the next header say *"since"* the press time while
+  reading an older leftover; "since" is now the earlier of the last catch-up and the oldest unheard
+  item. Three new tests (`ChangeLogStartupTests` ×2, a wording test); one existing catch-up test
+  pinned the old "since" and was updated. Sabotages: recorder not resolved (**1 red**), offer moved
+  before the speech pipeline (**1 red**), "since" back to the catch-up time (**2 red**). Further
+  caveats: the alert de-duplication key is the fire time to the minute, so if the circuit and a
+  background monitor fire the same alert on either side of a minute boundary it is logged twice;
+  a provider whose circuit keeps tripping logs one connection item per minute it trips.
 - **Sabotages:** record countdowns too (**1 red**), drop the de-duplication check (**2 red**), mark
   every unheard entry heard (**4 red**), sort newest-first within a category (**1 red**), publish on
   the Chart channel (**2 red**), remove the per-path lock (**1 red**, five consecutive runs). Each

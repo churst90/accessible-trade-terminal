@@ -237,6 +237,11 @@ namespace AccessibleTrader.Core.Services
             //     composition without it should lose the notices, not fail to start.
             _services.GetService<MarketEvents.MarketEventLiveNotices>();
 
+            // 4d. Alt+U's change log. The recorder subscribes in its constructor; on the desktop
+            //     it is a singleton nothing else resolves, so without this line the desktop log
+            //     stays empty forever. (The WebHost also force-creates it per circuit, earlier.)
+            _services.GetService<ChangeLog.ChangeLogRecorder>();
+
             // 4a. Bars closing on a LIVE BACKGROUND TAB — a chart the user has open but is not
             //     looking at. Resolved here for the same reason 4b below is Start()ed here: the
             //     class subscribes in its constructor, so a subscriber nobody resolves is a
@@ -302,6 +307,20 @@ namespace AccessibleTrader.Core.Services
             var reconciliation = _services.GetService<ITradingReconciliationCoordinator>();
             if (reconciliation != null)
                 await reconciliation.AnnounceAtStartupAsync().ConfigureAwait(false);
+
+            // 9b. "You were away 47 minutes, 3 things changed, Alt+U to hear them." Here and not
+            //     at circuit open or window creation, because only from step 4 on is anything
+            //     listening for speech — a prompt published earlier is spoken to no one. It only
+            //     offers; nothing is read or marked heard until Alt+U.
+            var catchUp = _services.GetService<ChangeLog.ChangeLogCatchUpService>();
+            if (catchUp != null)
+            {
+                try { await catchUp.OfferOnReturnAsync(DateTime.UtcNow).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _logger?.LogDebug(ex, "Change-log return prompt skipped.");
+                }
+            }
 
             // 10. Session resume — restore the autosaved last session (opt-out via
             //     workspace.resumeLastSession) BEFORE the monitors reconcile so the

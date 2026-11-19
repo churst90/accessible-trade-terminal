@@ -396,9 +396,10 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    alert de-duplication key uses the fired time to the minute because `AlertFired` carries no bar
    time; order events use `OrderUpdate.Timestamp`; `MarketEventNoticeEvent` needed the optional
    `MarketEventNoticeKind` the handoff predicted, and the publish site now passes it so a countdown
-   is not recorded; the MAUI head has no single foreground hook, so its existing `Window.Created`,
-   `Resumed`, `Stopped`, `Destroying` and the tray's visibility callback carry the away mark and
-   the offer; and the hosted monitor appends its alerts through the same per-user scope's store
+   is not recorded; the MAUI head has no single foreground hook, so its existing `Window.Resumed`,
+   `Stopped`, `Destroying` and the tray's visibility callback carry the away mark and the later
+   offers, while the launch and circuit-open offer runs in `AppStartupService` once speech is
+   listening (review fix: `Created` and circuit open were too early to be heard); and the hosted monitor appends its alerts through the same per-user scope's store
    because that head has no headless bus.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the
    biggest change and goes last.

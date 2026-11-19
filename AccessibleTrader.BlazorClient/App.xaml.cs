@@ -27,11 +27,11 @@ public partial class App : Application
             MarkAway();
             Application.Current?.Quit();
         };
-        // MAUI's own lifecycle gives startup and foreground/background without a new hook:
-        // Created/Resumed offer the Alt+U catch-up; Stopped and Destroying record when the user
-        // left. The tray's visibility callback below covers Windows' hide-to-tray, where the
+        // MAUI's own lifecycle gives foreground/background without a new hook: Resumed offers
+        // the Alt+U catch-up; Stopped and Destroying record when the user left. The launch
+        // offer is AppStartupService's (step 9b): Created fires before the page and its speech
+        // exist. The tray's visibility callback below covers Windows' hide-to-tray, where the
         // window is hidden without Stopped.
-        window.Created += (_, _) => OfferCatchUp();
         window.Resumed += (_, _) => OfferCatchUp();
         window.Stopped += (_, _) => MarkAway();
 #if TRAY_ICON

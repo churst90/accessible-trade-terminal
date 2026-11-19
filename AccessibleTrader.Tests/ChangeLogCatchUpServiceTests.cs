@@ -141,7 +141,9 @@ public class ChangeLogCatchUpServiceTests : IDisposable
         await rig.Service.SpeakAsync();
 
         string second = rig.Announcements[1].Message;
-        Assert.StartsWith("2 changes since 10:27, 3 minutes ago.", second);
+        // The leftover 09:56 fill is one of the two, so "since" is its time, not the 10:27
+        // press (review fix: "since 10:27" was false about an item it then read).
+        Assert.StartsWith("2 changes since 09:56, 34 minutes ago.", second);
         Assert.DoesNotContain("2 more.", second);
     }
 

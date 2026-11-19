@@ -22,8 +22,11 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             }
             else
             {
-                DateTime since = doc.LastCatchUpUtc
-                    ?? ChangeLogRules.Unheard(doc).Min(e => e.TimeUtc);
+                // The earlier of the last catch-up and the oldest unheard item: a press that
+                // left items unread moves the mark forward, and "since" must not then be later
+                // than an item this press is about to read.
+                DateTime oldest = ChangeLogRules.Unheard(doc).Min(e => e.TimeUtc);
+                DateTime since = doc.LastCatchUpUtc is { } last && last < oldest ? last : oldest;
                 parts.Add(
                     $"{plan.TotalUnheard} {(plan.TotalUnheard == 1 ? "change" : "changes")} "
                     + $"since {Time(since)}, {Age(since, nowUtc)} ago.");

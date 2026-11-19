@@ -80,6 +80,22 @@ public class ChangeLogWordingTests : IDisposable
     }
 
     [Fact]
+    public void ALeftoverOlderThanTheLastCatchUpMovesTheSinceTimeBack()
+    {
+        // A press at 10:05 read five and left one from 09:50 unheard; a new alert came at 10:10.
+        // "since 10:05" would be false about the 09:50 item it is about to read.
+        var doc = new ChangeLogDocument(
+            new List<ChangeLogEntry>
+            {
+                E("m1", ChangeLogCategory.Money, 9, 50, "BTC/USDT filled."),
+                E("a1", ChangeLogCategory.Alert, 10, 10, "BTC/USDT crossed above 95,000."),
+            },
+            LastCatchUpUtc: new DateTime(2026, 11, 18, 10, 5, 0, DateTimeKind.Utc));
+
+        Assert.StartsWith("2 changes since 09:50, 37 minutes ago.", Speak(doc));
+    }
+
+    [Fact]
     public void EachCategoryWordIsSaidOncePerPress()
     {
         var doc = new ChangeLogDocument(new List<ChangeLogEntry>

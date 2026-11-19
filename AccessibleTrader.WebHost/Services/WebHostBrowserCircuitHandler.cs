@@ -209,16 +209,8 @@ namespace AccessibleTrader.WebHost.Services
             try { _scope.GetService<ChangeLogRecorder>(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Change-log recorder init skipped."); }
 
-            // Offer the catch-up if the user was away. It only offers; nothing is read or marked
-            // heard until Alt+U.
-            try
-            {
-                if (_scope.GetService<ChangeLogCatchUpService>() is { } catchUp)
-                    SafeFireAndForget.Run(
-                        () => catchUp.OfferOnReturnAsync(DateTime.UtcNow),
-                        _logger, "Change-log return prompt");
-            }
-            catch (Exception ex) { _logger.LogDebug(ex, "Change-log return prompt skipped."); }
+            // The return prompt is offered by AppStartupService (step 9b), once this circuit's
+            // speech pipeline exists; offered here it was published before anything listened.
 
             // Bind this tab to the user's shared paper account. Force-created for the same reason
             // as the recorder above: the account has to be watching THIS chart from the moment the
