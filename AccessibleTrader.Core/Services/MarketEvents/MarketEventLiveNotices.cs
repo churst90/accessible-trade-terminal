@@ -234,7 +234,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private void Publish(string text, MarketEventNotice notice)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
-            _bus.Publish(new MarketEventNoticeEvent(text, notice.Event.Importance, notice.Event.Id));
+            _bus.Publish(new MarketEventNoticeEvent(
+                text, notice.Event.Importance, notice.Event.Id, notice.Kind));
         }
 
         private IReadOnlyList<string> FiredKeys()

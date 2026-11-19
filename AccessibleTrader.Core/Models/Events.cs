@@ -273,7 +273,13 @@ namespace AccessibleTrader.Core.Models
     /// head only when its window is hidden. <see cref="EventId"/> is the event's own id, so a
     /// subscriber can find the record again without parsing the sentence.
     /// </summary>
-    public record MarketEventNoticeEvent(string Text, MarketEventImportance Importance, string EventId);
+    public record MarketEventNoticeEvent(
+        string Text,
+        MarketEventImportance Importance,
+        string EventId,
+        // Countdowns are not changes; a read-out and a figure are. The default keeps every
+        // existing construction (and every test that builds one by hand) meaning read-out.
+        Services.MarketEvents.MarketEventNoticeKind Kind = Services.MarketEvents.MarketEventNoticeKind.ReadOut);
 
     // ── UI Modal Events ───────────────────────────────────────────────────────
     /// <summary>Alt+J opens the empty form. Optional fields let the chart menu open it with a

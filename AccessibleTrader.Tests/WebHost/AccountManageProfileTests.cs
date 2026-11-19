@@ -46,7 +46,7 @@ public class DisplayNameRulesTests
 
 public class AccountDataFolderGuardTests
 {
-    private static readonly string Root = Path.Combine(Path.GetTempPath(), "att-guard-root");
+    private static readonly string Root = TestTemp.NewPath("att-guard-root-");
 
     [Fact]
     public void A_user_folder_under_users_is_safe()
