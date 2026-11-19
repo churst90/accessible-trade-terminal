@@ -221,6 +221,8 @@ namespace AccessibleTrader.Core.Models
         // Workspace management
         SaveWorkspace,   // Ctrl+Alt+Shift+W: save workspace profile
         LoadWorkspace,   // Ctrl+Alt+W: load workspace profile
+        SaveIndicatorTemplate,  // no key; Go bar TPLS
+        ApplyIndicatorTemplate, // no key; Go bar TPL, or TPL name to apply directly
         LoadChart,       // Ctrl+Alt+Shift+L: load the chart for the toolbar's selected symbol
 
         // Top-level pane navigation — a pane is a Y axis, so this is the key that moves

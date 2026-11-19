@@ -250,6 +250,58 @@ namespace AccessibleTrader.Core.Services.Accessibility
     }
 
     /// <summary>
+    /// Applying an indicator template as ONE undoable edit. The whole removed series are held,
+    /// as <see cref="SeriesDeleteUndo"/> holds its own, and the added ones by id; the pane
+    /// heights on both sides are kept so Ctrl+Z puts the chart back exactly as it was.
+    /// </summary>
+    public sealed class SeriesReplaceUndo : IUndoableEdit
+    {
+        private readonly IReadOnlyList<ChartSeries> _removed;
+        private readonly IReadOnlyList<ChartSeries> _added;
+        private readonly IReadOnlyDictionary<string, float> _ratiosBefore;
+        private readonly IReadOnlyDictionary<string, float> _ratiosAfter;
+        private readonly Action<ChartSeries> _restore;
+        private readonly Action<string> _remove;
+        private readonly Action<IReadOnlyDictionary<string, float>> _setRatios;
+
+        public SeriesReplaceUndo(
+            string description,
+            IReadOnlyList<ChartSeries> removed,
+            IReadOnlyList<ChartSeries> added,
+            IReadOnlyDictionary<string, float> ratiosBefore,
+            IReadOnlyDictionary<string, float> ratiosAfter,
+            Action<ChartSeries> restore,
+            Action<string> remove,
+            Action<IReadOnlyDictionary<string, float>> setRatios)
+        {
+            Description = description;
+            _removed = removed;
+            _added = added;
+            _ratiosBefore = ratiosBefore;
+            _ratiosAfter = ratiosAfter;
+            _restore = restore;
+            _remove = remove;
+            _setRatios = setRatios;
+        }
+
+        public string Description { get; }
+
+        public void Undo()
+        {
+            foreach (var s in _removed) _restore(s);
+            foreach (var s in _added) _remove(s.Id);
+            _setRatios(_ratiosBefore);
+        }
+
+        public void Redo()
+        {
+            foreach (var s in _removed) _remove(s.Id);
+            foreach (var s in _added) _restore(s);
+            _setRatios(_ratiosAfter);
+        }
+    }
+
+    /// <summary>
     /// Several deleted series as ONE undoable edit — "Remove all drawings" reversed by one
     /// Ctrl+Z rather than one press per drawing. Each ChartSeries is held whole for the same
     /// reason as <see cref="SeriesDeleteUndo"/>: anchors and identity, not a lookalike.

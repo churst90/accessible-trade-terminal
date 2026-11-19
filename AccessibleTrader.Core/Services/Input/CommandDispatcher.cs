@@ -44,6 +44,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly MarketEvents.MarketEventNavigator _marketEventNavigator;
         private readonly MarketPulse.MarketPulseService? _marketPulse;
         private readonly ChangeLog.ChangeLogCatchUpService? _changeLog;
+        private readonly DemoPolicy? _demo;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
@@ -84,7 +85,8 @@ namespace AccessibleTrader.Core.Services.Input
             ModalStack? modalStack = null,
             MarketEvents.MarketEventNavigator? marketEventNavigator = null,
             MarketPulse.MarketPulseService? marketPulse = null,
-            ChangeLog.ChangeLogCatchUpService? changeLog = null)
+            ChangeLog.ChangeLogCatchUpService? changeLog = null,
+            DemoPolicy? demo = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -106,6 +108,7 @@ namespace AccessibleTrader.Core.Services.Input
             // catch because the registration itself is present.
             _marketPulse = marketPulse;
             _changeLog = changeLog;
+            _demo = demo;
             _quickTrade = quickTrade;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
@@ -397,6 +400,22 @@ namespace AccessibleTrader.Core.Services.Input
                 }
                 case SystemCommand.SaveWorkspace: _eventBus.Publish(new OpenSaveWorkspaceEvent()); return;
                 case SystemCommand.LoadWorkspace: _eventBus.Publish(new OpenLoadWorkspaceEvent()); return;
+                case SystemCommand.SaveIndicatorTemplate:
+                case SystemCommand.ApplyIndicatorTemplate:
+                {
+                    if (_demo?.IsDemo == true)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                            "Not in the public demo.", true,
+                            Channel: SpeechChannel.Interface));
+                        return;
+                    }
+                    if (command == SystemCommand.SaveIndicatorTemplate)
+                        _eventBus.Publish(new OpenSaveIndicatorTemplateEvent());
+                    else
+                        _eventBus.Publish(new OpenApplyIndicatorTemplateEvent());
+                    return;
+                }
                 case SystemCommand.LoadChart: _eventBus.Publish(new LoadChartRequestedEvent()); return;
                 case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
                 case SystemCommand.AddReferenceLevel:

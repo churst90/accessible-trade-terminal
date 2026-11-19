@@ -47,6 +47,16 @@ namespace AccessibleTrader.Core.Services
         void AppendWorkspace(WorkspaceConfiguration config);
 
         /// <summary>
+        /// Replaces this chart's indicators with <paramref name="template"/>'s: the non-core,
+        /// non-drawing indicators go, the template's are restored through the workspace path
+        /// with fresh ids, and the pane heights come with them. Symbol, timeframe, drawings,
+        /// alerts and orders are untouched, and the applied indicators compute on the data
+        /// already loaded. The whole change is one undo entry labelled
+        /// "Apply indicator template {name}".
+        /// </summary>
+        void ApplyIndicatorTemplate(IndicatorTemplate template, string name);
+
+        /// <summary>
         /// What the last <see cref="RestoreWorkspace"/> left off the chart and why, as one
         /// sentence for whoever announces the load — or null when it left nothing off. Today
         /// that is an indicator that was REMOVED from the app (<see cref="Indicators.RetiredIndicators"/>):
@@ -67,6 +77,7 @@ namespace AccessibleTrader.Core.Services
         private readonly Sdk.Strategies.IStrategyEngine? _strategyEngine;
         private readonly Strategies.IConfigurableStrategyFactory? _strategyFactory;
         private readonly Strategies.IStrategyLibrary? _strategyLibrary;
+        private readonly Accessibility.IChartUndoStack? _undo;
 
         /// <summary>The retired indicator codes the current restore skipped, for
         /// <see cref="LastRestoreNotice"/>.</summary>
@@ -81,7 +92,8 @@ namespace AccessibleTrader.Core.Services
             IIndicatorService indicatorService,
             Sdk.Strategies.IStrategyEngine? strategyEngine = null,
             Strategies.IConfigurableStrategyFactory? strategyFactory = null,
-            Strategies.IStrategyLibrary? strategyLibrary = null)
+            Strategies.IStrategyLibrary? strategyLibrary = null,
+            Accessibility.IChartUndoStack? undo = null)
         {
             _seriesService = seriesService;
             _store = store;
@@ -89,6 +101,7 @@ namespace AccessibleTrader.Core.Services
             _strategyEngine = strategyEngine;
             _strategyFactory = strategyFactory;
             _strategyLibrary = strategyLibrary;
+            _undo = undo;
         }
 
         /// <summary>
@@ -454,6 +467,70 @@ namespace AccessibleTrader.Core.Services
 
             AddActiveStrategies(config, replace: false);
             LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
+        }
+
+        public void ApplyIndicatorTemplate(IndicatorTemplate template, string name)
+        {
+            _retiredSkipped.Clear();
+            LastRestoreNotice = null;
+            if (template == null) return;
+
+            var allMeta = _indicatorService.GetAvailableIndicators();
+            string? focusedBefore = _store.State.FocusedSeriesId;
+
+            // Rule one: what a template would SAVE is what applying REMOVES. Candles, price,
+            // volume and heatmap belong to the data shape; drawings to this symbol's prices.
+            var removed = _store.State.ActiveSeries
+                .Where(s => !SeriesManagementService.IsCoreCode(s.Config.IndicatorCode) && !s.IsDrawing)
+                .ToList();
+            bool focusedRemoved = removed.Any(s => s.Id == focusedBefore);
+
+            var ratiosBefore = _store.State.PaneHeightRatios != null
+                ? _store.State.PaneHeightRatios.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : new Dictionary<string, float>();
+
+            foreach (var series in removed)
+                _store.Dispatch(new RemoveSeriesAction(series.Id));
+
+            var added = new List<ChartSeries>();
+            foreach (var saved in template.Series)
+            {
+                var config = saved.Clone();
+                // Ids are per chart: applying the same template twice must not share them.
+                config.Id = Guid.NewGuid().ToString();
+                if (SkipRetired(config)) continue;
+                MigrateSeriesConfig(config, allMeta);
+                var meta = allMeta.FirstOrDefault(m =>
+                    m.Code.Equals(config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+                _seriesService.RestoreSeriesFromSaved(config, meta);
+                var restored = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == config.Id);
+                if (restored != null) added.Add(restored);
+            }
+
+            RestorePaneHeightRatios(template.PaneHeightRatios);
+
+            var ratiosAfter = _store.State.PaneHeightRatios != null
+                ? _store.State.PaneHeightRatios.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : new Dictionary<string, float>();
+
+            if (focusedRemoved)
+                SetPrimaryAndFocusFromRestore();
+            else if (focusedBefore != null
+                     && _store.State.ActiveSeries.Any(s => s.Id == focusedBefore))
+                _store.Dispatch(new SelectSeriesAction(focusedBefore));
+
+            LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
+
+            if (_undo != null && (removed.Count > 0 || added.Count > 0))
+                _undo.Push(new Accessibility.SeriesReplaceUndo(
+                    $"Apply indicator template {name}",
+                    removed,
+                    added,
+                    ratiosBefore,
+                    ratiosAfter,
+                    restore: s => _store.Dispatch(new AddSeriesAction(s)),
+                    remove: id => _store.Dispatch(new RemoveSeriesAction(id)),
+                    setRatios: r => _store.Dispatch(new SetPaneHeightRatiosAction(r.ToImmutableDictionary()))));
         }
 
         /// <summary>

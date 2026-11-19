@@ -303,6 +303,8 @@ namespace AccessibleTrader.Core.Models
     public record OpenAIAnalystEvent();
     public record OpenSaveWorkspaceEvent();
     public record OpenLoadWorkspaceEvent();
+    public record OpenSaveIndicatorTemplateEvent();
+    public record OpenApplyIndicatorTemplateEvent();
     public record OpenMyDataEvent();
     /// <summary>Alt+M — open the market-watch modal (watchlist management + screener).</summary>
     public record OpenWatchlistEvent();

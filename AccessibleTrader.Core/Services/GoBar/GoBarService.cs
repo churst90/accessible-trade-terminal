@@ -54,6 +54,8 @@ namespace AccessibleTrader.Core.Services.GoBar
         private readonly TimeZoneInfo? _displayZone;
         private readonly IRuntimePlatform? _platform;
         private readonly IBrowserSpeechOutput? _browserSpeech;
+        private readonly IIndicatorTemplateService? _templates;
+        private readonly IWorkspaceInitializer? _workspaceInit;
         private GoBarOption? _pending;
 
         public GoBarService(
@@ -73,7 +75,9 @@ namespace AccessibleTrader.Core.Services.GoBar
             ISdkCandlePatternAnalyzer? candles = null,
             TimeZoneInfo? displayZone = null,
             IRuntimePlatform? platform = null,
-            IBrowserSpeechOutput? browserSpeech = null)
+            IBrowserSpeechOutput? browserSpeech = null,
+            IIndicatorTemplateService? templates = null,
+            IWorkspaceInitializer? workspaceInit = null)
         {
             _dispatcher = dispatcher;
             _shortcuts = shortcuts;
@@ -92,6 +96,8 @@ namespace AccessibleTrader.Core.Services.GoBar
             _displayZone = displayZone;
             _platform = platform;
             _browserSpeech = browserSpeech;
+            _templates = templates;
+            _workspaceInit = workspaceInit;
             _modalStack.Changed += OnModalStackChanged;
         }
 
@@ -412,6 +418,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                 case GoBarVerb.Indicator:
                     return ResolveIndicator(parsed.Argument);
 
+                case GoBarVerb.Template:
+                    return ResolveTemplate(parsed.Argument);
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {
@@ -542,6 +551,35 @@ namespace AccessibleTrader.Core.Services.GoBar
                 Action: new GoBarIndicatorAction(meta.Code, meta.Name),
                 CanonicalText: $"IND {meta.Code}",
                 Help: $"{meta.Category}, {IndicatorCatalog.PaneDescription(meta)}; added with its defaults")).ToList();
+
+            return new GoBarSuggestion(options, SentenceFor(options));
+        }
+
+        /// <summary>
+        /// TPL with a name applies that template on Enter, with no dialog. An exact name wins;
+        /// otherwise templates containing the typed words are listed so the user can pick one.
+        /// </summary>
+        private GoBarSuggestion ResolveTemplate(string argument)
+        {
+            var available = _templates?.GetAvailable() ?? new List<string>();
+            var exact = available
+                .Where(n => string.Equals(n, argument, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var matches = exact.Count > 0
+                ? exact
+                : available
+                    .Where(n => n.Contains(argument, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+            if (matches.Count == 0)
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(),
+                    $"No indicator template called {argument}.");
+
+            var options = matches.Select(name => new GoBarOption(
+                $"Apply indicator template {name}",
+                Action: new GoBarApplyTemplateAction(name),
+                CanonicalText: $"TPL {name}",
+                Help: "Replaces this chart's indicators; Control plus Z undoes it")).ToList();
 
             return new GoBarSuggestion(options, SentenceFor(options));
         }
@@ -812,6 +850,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                     case GoBarPriceAlertAction alert:
                         ExecutePriceAlert(alert);
                         break;
+                    case GoBarApplyTemplateAction template:
+                        ExecuteTemplate(template);
+                        break;
                     case GoBarDateAction date:
                         ExecuteDate(date);
                         break;
@@ -956,6 +997,33 @@ namespace AccessibleTrader.Core.Services.GoBar
 
             _series.RegisterSeriesFromMetadata(meta, IndicatorCatalog.DefaultParameters(meta));
             Speak($"{meta.Name} added, {IndicatorCatalog.PaneDescription(meta)}.", interrupt: true);
+        }
+
+        private void ExecuteTemplate(GoBarApplyTemplateAction action)
+        {
+            if (_demo?.IsDemo == true)
+            {
+                Speak("Not in the public demo.", interrupt: true);
+                return;
+            }
+
+            var template = _templates?.Load(action.Name);
+            if (template == null || _workspaceInit == null)
+            {
+                Speak($"Indicator template {action.Name} could not be read.", interrupt: true);
+                return;
+            }
+
+            _workspaceInit.ApplyIndicatorTemplate(template, action.Name);
+
+            var id = _store?.State.Identity;
+            string chart = WorkspaceLibraryService.ChartName(id?.Provider, id?.Symbol, id?.Timeframe);
+            int count = template.Series.Count;
+            string sentence = $"Indicator template {action.Name} applied to {chart}: "
+                + $"{count} {(count == 1 ? "indicator" : "indicators")}.";
+            if (_workspaceInit.LastRestoreNotice is { } notice && notice.Length > 0)
+                sentence += " " + notice;
+            Speak(sentence, interrupt: true);
         }
 
         private void ExecuteSetting(GoBarSettingAction action)

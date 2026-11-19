@@ -34,6 +34,9 @@ namespace AccessibleTrader.Core.Services.GoBar
     /// <summary>Open the alerts form with a price filled in. It does not create the alert.</summary>
     public sealed record GoBarPriceAlertAction(double Price) : GoBarAction;
 
+    /// <summary>Apply a saved indicator template to the chart in front, replacing its indicators.</summary>
+    public sealed record GoBarApplyTemplateAction(string Name) : GoBarAction;
+
     /// <summary>Move the cursor to the last bar at or before a wall-clock moment.</summary>
     public sealed record GoBarDateAction(DateTime Wall, bool HasTime, string Display) : GoBarAction;
 

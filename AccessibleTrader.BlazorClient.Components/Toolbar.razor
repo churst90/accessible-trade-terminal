@@ -171,6 +171,12 @@
                 <ToolbarIconButton Icon="load-workspace" Label="Load workspace" Variant="neutral"
                                   Tooltip="Load workspace, Control plus Alt plus W"
                                   OnClick="() => EventBus.Publish(new OpenLoadWorkspaceEvent())" />
+                <ToolbarIconButton Icon="save-workspace" Label="Save indicator template" Variant="neutral"
+                                  Tooltip="Save this chart's indicators and panes as a template, Go bar TPLS"
+                                  OnClick="() => EventBus.Publish(new OpenSaveIndicatorTemplateEvent())" />
+                <ToolbarIconButton Icon="load-workspace" Label="Apply indicator template" Variant="neutral"
+                                  Tooltip="Replace this chart's indicators with a saved template, Go bar TPL"
+                                  OnClick="() => EventBus.Publish(new OpenApplyIndicatorTemplateEvent())" />
             </div>
         }
 
