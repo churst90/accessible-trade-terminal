@@ -66,6 +66,23 @@ public sealed class ChartTypeStatusLineTests
     }
 
     [Fact]
+    public void On_Renko_the_symbol_line_is_the_direction_and_the_two_edges()
+    {
+        var bars = Bars();
+        bars[20] = new Ohlcv(bars[20].Date, 80_100, 80_200, 80_000, 80_200, 1000);
+        var line = Build(bars, 20, PriceChartStyle.Renko).Lines[0];
+
+        Assert.Equal(new[] { "Up brick" }, line.Values.Select(v => v.Label));
+        Assert.Equal(
+            $"{ChartStatusLine.FormatReading(bars[20].Open)} → {ChartStatusLine.FormatReading(bars[20].Close)}",
+            line.Values[0].Text);
+
+        bars[20] = new Ohlcv(bars[20].Date, 80_200, 80_200, 80_000, 80_000, 1000);
+        var down = Build(bars, 20, PriceChartStyle.Renko).Lines[0];
+        Assert.Equal("Down brick", down.Values[0].Label);
+    }
+
+    [Fact]
     public void Candles_still_print_open_high_low_and_close()
     {
         var line = Build(Bars(), 20, PriceChartStyle.Candles).Lines[0];
