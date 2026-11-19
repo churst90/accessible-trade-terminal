@@ -150,4 +150,48 @@ public class GoBarRegistryTests
             Assert.Equal(command, entries[0].Command);
         }
     }
+
+    /// <summary>
+    /// A money code is reached only by typing it exactly, so it must never be a word somebody
+    /// types while looking for something else. "MARKET" was: "market" meant to find Market
+    /// pulse or the market watch was an exact code for "Place a market order", top of the
+    /// list, one Enter from an order. Every word of every other entry's name and aliases, and
+    /// every other code, is a thing the user may type; none may be a money code.
+    /// </summary>
+    [Fact]
+    public void NoMoneyCodeIsAWordAnotherCommandIsKnownBy()
+    {
+        var otherWords = GoBarRegistry.All
+            .Where(e => e.Kind != GoBarKind.Money)
+            .SelectMany(e => e.Codes
+                .Concat(e.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .Concat(e.Aliases.SelectMany(a => a.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+                .Concat(e.Aliases))
+            .Select(w => w.ToUpperInvariant())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var clashes = GoBarRegistry.All
+            .Where(e => e.Kind == GoBarKind.Money)
+            .SelectMany(e => e.Codes.Where(c => otherWords.Contains(c.ToUpperInvariant()))
+                .Select(c => $"{c} ({e.Command})"))
+            .ToList();
+
+        Assert.True(clashes.Count == 0,
+            "money codes that are also a word for another command: " + string.Join(", ", clashes));
+    }
+
+    [Theory]
+    [InlineData("market")]
+    [InlineData("stop")]
+    [InlineData("limit")]
+    [InlineData("armed")]
+    [InlineData("disarm")]
+    public void TypingAnOrdinaryWordNeverOffersAMoneyCommand(string typed)
+    {
+        var money = GoBarMatcher.Match(typed, GoBarRegistry.All)
+            .Where(m => m.Entry.Kind == GoBarKind.Money)
+            .Select(m => m.Entry.Command)
+            .ToList();
+        Assert.True(money.Count == 0, $"'{typed}' offered {string.Join(", ", money)}");
+    }
 }

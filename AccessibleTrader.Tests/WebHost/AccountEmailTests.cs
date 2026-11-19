@@ -11,6 +11,9 @@ namespace AccessibleTrader.Tests.WebHost;
 /// a socket: the sender's network call is replaced, and the integration host swaps in
 /// <see cref="RecordingAccountEmailSender"/>.
 /// </summary>
+// Enrolled although this class boots no host: the bridge scan is per FILE, and this file's
+// hosted tests use the WebHost fixture.
+[Collection("ProviderCredentialBridge")]
 public class AccountEmailSenderTests
 {
     private sealed class CapturingLogger<T> : ILogger<T>

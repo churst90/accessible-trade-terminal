@@ -660,6 +660,13 @@ namespace AccessibleTrader.Core.Services.Input
                     // Boundary, not Error: the key was understood, there is simply no chart.
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true, Channel: SpeechChannel.Interface));
                 }
+                else if (fromGoBar)
+                {
+                    // Everything else here (zoom, drawing, quick trade, ...) is a key on an empty
+                    // chart from the keyboard; typed by name in the Go bar, silence would read as
+                    // "the command is broken". Boundary on the Interface tier, as above.
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true, Channel: SpeechChannel.Interface));
+                }
                 return;
             }
 
@@ -687,7 +694,13 @@ namespace AccessibleTrader.Core.Services.Input
                     if (_quickTrade == null) return;
 
                     bool isEnter = command is SystemCommand.QuickPlaceLimit or SystemCommand.QuickPlaceMarket;
-                    if (isEnter && _quickTrade.State.Stage == Trading.QuickTradeStage.Idle) return;
+                    if (isEnter && _quickTrade.State.Stage == Trading.QuickTradeStage.Idle)
+                    {
+                        // From the Go bar the user typed this command's name, so passing it
+                        // through unanswered would read as "it did nothing". Say what is armed.
+                        if (fromGoBar) _quickTrade.Announce();
+                        return;
+                    }
 
                     switch (command)
                     {

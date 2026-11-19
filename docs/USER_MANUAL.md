@@ -1740,9 +1740,11 @@ the list does not repeat it — your screen reader is already reading the option
 read is on the interface tier: F2 and Shift+F2 never mute what you asked for.
 
 **Money is never fuzzy.** The quick-trade commands (arming a risk budget, setting the stop,
-placing the order) run only from their exact code (`R05`, `R10`, `R20`, `STOP`, `LIMIT`,
-`MARKET`, `DISARM`, `ARMED`) or their exact full name (*"Arm 1 percent risk"*). A prefix, an
-alias, the start of a word or a typo never reaches them.
+placing the order) run only from their exact code (`R05`, `R10`, `R20`, `QSTOP`, `QLIMIT`,
+`QMARKET`, `QDISARM`, `QARMED`) or their exact full name (*"Arm 1 percent risk"*). A prefix, an
+alias, the start of a word or a typo never reaches them, and no money code is a word you would
+type for anything else (typing *market* finds Market pulse and the market watch, never an order).
+Placing from the Go bar with nothing armed says *"Nothing armed."*
 
 **Keys that are only keys.** The arrow keys, Home, End, Page Up and Page Down, Escape (close a
 dialog or cancel a drawing) and the drawing-anchor nudges are still listed and still match.

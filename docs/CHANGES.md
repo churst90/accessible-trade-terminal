@@ -60,6 +60,36 @@ All notable changes to this project will be documented in this file.
   1 and 3 (**2 red**), make `DispatchFromGoBar` skip the modal trap too (**1 red**), dispatch
   before the close (**3 red**), publish the polite read on the Chart channel (**1 red**). Each
   count is the new failures above the standing `ProviderCredentialBridgeEnrollmentTests` failure.
+- **Review fix (Claude).**
+  - **Typing "market" offered a market order.** The money codes were ordinary words (`MARKET`,
+    `LIMIT`, `STOP`, `DISARM`, `ARMED`). An exact code is allowed for money, so *market*, typed
+    to find Market pulse or the market watch, put "Place a market order" at the top of the
+    list. With a trade armed and a stop set, Enter would have sent it. The codes are now
+    `QMARKET`, `QLIMIT`, `QSTOP`, `QDISARM` and `QARMED`. A new guard fails if any money code
+    is a word or code another command is known by. Red before the rename: the guard plus five
+    ordinary words.
+  - **Two silent paths.** A command typed by name now always gets an answer:
+    - Placing from the Go bar with nothing armed now says "Nothing armed." The keyboard's
+      Enter chords still pass through unanswered, as before.
+    - A chart command typed with no chart loaded now says "No chart loaded." Drawing tools
+      were among the commands that said nothing.
+    - Sabotage: removing the "Nothing armed" answer turns 2 tests red; removing the "No chart
+      loaded" answer turns 1 red.
+  - **Escape had two close paths.** The box closed itself on Escape, and so did the dispatcher
+    (keyboard.js always sends Escape there, even from a text field). Now only the dispatcher
+    closes it, like every other dialog. The close request does nothing when the box is already
+    closed.
+  - **The "standing" failure was not standing.** It came from the account page work merged
+    locally on 2026-11-18. Its new hosted test helpers were never registered with the bridge
+    guard, and the three plain test classes in their files were never enrolled. CI would have
+    gone red on the push. Fixed: the five helpers are now registered and the three classes
+    enrolled. The guard and the account tests pass (168).
+  - **Caveat, not heard:** while typing, the screen reader reads the active option as it
+    changes, and half a second later the polite read says the top suggestion again. It may
+    sound doubled. Cody to judge.
+  - Review filter: 1,633 tests, all pass. The accessibility agents are not installed here, so
+    the combobox markup was reviewed by hand: label, role, expanded, controls, active
+    descendant, option ids and selection state are all correct.
 
 ### What changed (stage 5b), 2026-11-18
 

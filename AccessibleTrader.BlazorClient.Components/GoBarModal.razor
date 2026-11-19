@@ -4,7 +4,7 @@
 
     ARIA 1.2 combobox: DOM focus stays in the input, and aria-activedescendant names the
     active option. Down/Up move the active option, Tab completes to its first code, Enter
-    runs it and Escape closes. The polite read is the top suggestion, 500 ms after the last
+    runs it; Escape closes through the dispatcher like every dialog. The polite read is the top suggestion, 500 ms after the last
     keystroke, on the Interface tier so neither F2 nor Shift+F2 silences what was asked for.
 *@
 @inherits ModalBase
@@ -82,7 +82,10 @@
     {
         base.OnInitialized();
         _eventSub = EventBus.Subscribe<OpenGoBarEvent>(_ => InvokeAsync(ShowAsync));
-        _closeSub = EventBus.Subscribe<CloseGoBarRequestEvent>(_ => InvokeAsync(CloseModal));
+        _closeSub = EventBus.Subscribe<CloseGoBarRequestEvent>(_ => InvokeAsync(() =>
+        {
+            if (_isVisible) CloseModal();
+        }));
     }
 
     private async Task ShowAsync()
@@ -137,9 +140,9 @@
             case "Enter":
                 RunActiveOrTop();
                 break;
-            case "Escape":
-                CloseModal();
-                break;
+            // Escape is not handled here: keyboard.js always sends it to the dispatcher, even
+            // from a text field, and the dispatcher closes the top dialog. A second close here
+            // would publish a second "closed".
         }
     }
 

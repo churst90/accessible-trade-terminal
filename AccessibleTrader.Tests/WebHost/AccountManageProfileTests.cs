@@ -5,6 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.Tests.WebHost;
 
+// Enrolled although this class boots no host: the bridge scan is per FILE, and this file's
+// hosted tests use the WebHost fixture.
+[Collection("ProviderCredentialBridge")]
 public class DisplayNameRulesTests
 {
     [Theory]
@@ -44,6 +47,9 @@ public class DisplayNameRulesTests
     }
 }
 
+// Enrolled although this class boots no host: the bridge scan is per FILE, and this file's
+// hosted tests use the WebHost fixture.
+[Collection("ProviderCredentialBridge")]
 public class AccountDataFolderGuardTests
 {
     private static readonly string Root = TestTemp.NewPath("att-guard-root-");

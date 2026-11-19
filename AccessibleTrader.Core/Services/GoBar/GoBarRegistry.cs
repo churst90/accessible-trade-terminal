@@ -266,6 +266,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                 "The previous overlapping formation at this bar leads the readout", GoBarKind.KeyOnly),
 
             // ── Quick trade from the chart ─────────────────────────────────────────────
+            // Money codes start with Q (or R and the percent) so none is a word typed while
+            // looking for something else: "MARKET" was the exact code for a market order, and
+            // "market" is how one looks for Market pulse. GoBarRegistryTests pins the property.
             new(SystemCommand.QuickArmRisk1, "Arm 0.5 percent risk",
                 new[] { "R05" },
                 new[] { "arm half", "arm 0.5" },
@@ -279,23 +282,23 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "arm two", "arm 2" },
                 "Arm a 2 percent risk budget", GoBarKind.Money),
             new(SystemCommand.QuickSetStop, "Set the stop from this bar",
-                new[] { "STOP" },
+                new[] { "QSTOP" },
                 new[] { "set stop", "stop here" },
                 "Use the bar under the cursor as the stop", GoBarKind.Money),
             new(SystemCommand.QuickPlaceLimit, "Place a limit order at this bar",
-                new[] { "LIMIT" },
+                new[] { "QLIMIT" },
                 new[] { "place limit", "limit order" },
                 "Place a limit order at the bar under the cursor", GoBarKind.Money),
             new(SystemCommand.QuickPlaceMarket, "Place a market order",
-                new[] { "MARKET" },
+                new[] { "QMARKET" },
                 new[] { "place market", "market order" },
                 "Place an order at market now", GoBarKind.Money),
             new(SystemCommand.QuickDisarm, "Disarm quick trade",
-                new[] { "DISARM" },
+                new[] { "QDISARM" },
                 new[] { "cancel arm", "disarm" },
                 "Cancel the armed risk budget", GoBarKind.Money),
             new(SystemCommand.QuickArmStatus, "Say what is armed",
-                new[] { "ARMED" },
+                new[] { "QARMED" },
                 new[] { "armed", "arm status" },
                 "Say what the quick trade is armed with", GoBarKind.Money),
 

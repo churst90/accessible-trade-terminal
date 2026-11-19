@@ -82,4 +82,56 @@ public class CommandDispatcherGoBarTests
 
         Assert.Empty(bus.Log.OfType<OpenSettingsEvent>());
     }
+
+    /// <summary>
+    /// From the keyboard, Enter-to-place with nothing armed passes through unanswered: Shift+Enter
+    /// and Ctrl+Enter are chords people press for other reasons. From the Go bar the user typed
+    /// the command's name, so silence would read as "it did nothing"; it says what is armed.
+    /// </summary>
+    [Theory]
+    [InlineData(SystemCommand.QuickPlaceMarket)]
+    [InlineData(SystemCommand.QuickPlaceLimit)]
+    public void APlaceCommandFromTheGoBarWithNothingArmedSaysSo(SystemCommand command)
+    {
+        var quick = Substitute.For<AccessibleTrader.Core.Services.Trading.IQuickTradeService>();
+        quick.State.Returns(AccessibleTrader.Core.Services.Trading.QuickTradeState.Idle);
+        var store = new MockWorkspaceStore();
+        store.EmitState(LoadedState());
+        var dispatcher = new CommandDispatcher(new SpyEventBus(), Substitute.For<INavigationEngine>(),
+            store, Substitute.For<IBarDetailService>(),
+            new IndicatorCrossingEngine(new MockWorkspaceStore(), new SpyEventBus()),
+            quickTrade: quick, modalStack: new ModalStack(new EventBus()));
+
+        dispatcher.SetChartActive(true);
+        dispatcher.Dispatch(command);
+        quick.DidNotReceive().Announce();
+
+        dispatcher.SetChartActive(false);
+        dispatcher.DispatchFromGoBar(command);
+        quick.Received(1).Announce();
+        quick.DidNotReceiveWithAnyArgs().Place(default);
+    }
+
+    /// <summary>
+    /// With no chart loaded, most chart commands (zoom, draw, quick trade) fall through the
+    /// data check without a word: from the keyboard that is a key on an empty chart, but a
+    /// command typed by name must say why it did nothing.
+    /// </summary>
+    [Theory]
+    [InlineData(SystemCommand.ZoomIn)]
+    [InlineData(SystemCommand.DrawTrend)]
+    [InlineData(SystemCommand.QuickArmRisk2)]
+    public void AChartCommandFromTheGoBarWithNoChartSaysSo(SystemCommand command)
+    {
+        var bus = new SpyEventBus();
+        var dispatcher = new CommandDispatcher(bus, Substitute.For<INavigationEngine>(),
+            new MockWorkspaceStore(), Substitute.For<IBarDetailService>(),
+            new IndicatorCrossingEngine(new MockWorkspaceStore(), new SpyEventBus()),
+            modalStack: new ModalStack(new EventBus()));
+
+        dispatcher.DispatchFromGoBar(command);
+
+        var said = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
+        Assert.Equal("No chart loaded.", said.Message);
+    }
 }

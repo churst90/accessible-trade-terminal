@@ -412,7 +412,11 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      key-only sentence takes Escape from that live binding; `KeyOnly` entries carry no short
      codes, because a code that only exists to be refused is noise, while their names and aliases
      are still matched; and the service speaks the key in the app's existing words ("Alt plus P")
-     through `ShortcutWords`, rather than the handoff's illustrative "Alt+P".
+     through `ShortcutWords`, rather than the handoff's illustrative "Alt+P". **Review rule
+     added:** a money code may not be a word or code that any other command is known by (the
+     first build had `MARKET`, an exact code one Enter from a market order for anyone typing
+     "market"; the codes now start with Q). A command typed by name always gets an answer:
+     "Nothing armed." and "No chart loaded." replace two silent drops.
    - **6b OPEN: commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`,
      `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` / `GP BTC`).
    - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed

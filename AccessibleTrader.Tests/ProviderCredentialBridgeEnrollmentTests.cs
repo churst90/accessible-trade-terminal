@@ -55,6 +55,11 @@ namespace AccessibleTrader.Tests
             "WebHostIntegration",       // the factories that boot Program.cs
             "PluginBridgeScope",        // the snapshot/restore helper itself
             "HostedWebHostFixture",     // holds a factory and a PluginBridgeScope
+            // The account page's hosted rigs (2026-11-18): a fixture that boots Program.cs with a
+            // recording email sender, the sender and its record, the clock it is given, and the
+            // static helpers that sign a user in through that host.
+            "HostedEmailWebHostFixture", "RecordingAccountEmailSender", "RecordedAccountEmail",
+            "TestTimeProvider", "HostedAccountTestSupport",
 
             // The provider conformance rigs (ProviderOrderConformanceRigs.cs) construct every
             // trading provider with Configure()-supplied credentials; their one consumer,
