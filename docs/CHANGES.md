@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Chart types: Line and Area, 2026-11-19 — not yet heard by Cody
 
-- **A fifth and sixth way to draw the price pane, sharing one choice with Candles and
+- **Two more ways to draw the price pane, sharing one choice with Candles and
   Heikin-Ashi.** `PriceChartStyle { Candles = 0, Line = 1, Area = 2 }` lives beside
   `WorkspaceState`; the toolbar gained a native **Chart type** select (Candles / Heikin Ashi /
   Line / Area) before the Alt+C Heikin-Ashi button, and the Go bar gained `CANDLE`, `LINE`,
@@ -96,6 +96,19 @@ All notable changes to this project will be documented in this file.
   Sabotage (a) first exposed a hole in the tests (they called `RenderPriceLine` directly and
   never exercised the Layer's dispatch); the new `The_layer_draws_the_line_chart_type_as_a_line_and_not_as_candles`
   test is the one that now goes red.
+- **Review (Claude).** Re-ran the filter: 3,640 passing. Claude's own sabotages, each restored
+  with `cp`, `touch`ed and compared: the tab snapshot drops the style **1 red**; the workspace
+  library save drops it **1 red**; restoring a saved workspace ignores it **1 red**; Heikin-Ashi
+  on from Line keeps Line **1 red**; an analytics chart's status line takes the tab's style
+  **1 red**; the spoken change measured from the bar's open instead of the previous close
+  **3 red**. One sabotage stayed green: the store no longer refits the price axis when the
+  chart type changes (the tests called the range calculator directly), so choosing Line on a
+  paused or closed market would leave the line floating in a pane sized for highs and lows
+  until the next tick. Added `Choosing_line_in_the_store_refits_the_axis_to_the_closes_at_once`;
+  the same sabotage is now **1 red**, and the filter is 3,641 passing. The toolbar select's
+  markup was reviewed by hand (native `<select>`, visually hidden `<label for>`, same name as
+  its `aria-label`, never disabled); the accessibility-lead agent is not registered in this
+  setup, so it was not run.
 
 ### Go bar (stage 6c), 2026-11-18 — not yet heard by Cody
 

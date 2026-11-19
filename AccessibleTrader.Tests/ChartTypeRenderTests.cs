@@ -290,6 +290,28 @@ public sealed class ChartTypeRenderTests
         Assert.Equal(closeMax + span * 0.05, result.MainRange.Max, 6);
     }
 
+    // The calculator alone is not the whole path: the store only refits the axis when
+    // something it watches changes. Choosing Line on a paused or closed market must refit at
+    // once, or the line floats in a pane sized for highs and lows until the next tick.
+    [Fact]
+    public void Choosing_line_in_the_store_refits_the_axis_to_the_closes_at_once()
+    {
+        var candles = RangeState(PriceChartStyle.Candles);
+        using var store = new WorkspaceStore(new Mocks.SpyEventBus(), new ViewportRangeCalculator(),
+            new MockViewportNavigationService(), new MockVolumeStateService());
+        store.Dispatch(new UpdateSettingsAction(_ => candles));
+        double high = candles.Data.Max(b => (double)b.High);
+        Assert.True(store.State.ViewportRange.Max >= high, "the candles fit should cover the highs first");
+
+        store.Dispatch(new SetChartStyleAction(PriceChartStyle.Line, false));
+
+        double closeMin = candles.Data.Min(b => (double)b.Close);
+        double closeMax = candles.Data.Max(b => (double)b.Close);
+        double span = closeMax - closeMin;
+        Assert.Equal(closeMin - span * 0.05, store.State.ViewportRange.Min, 6);
+        Assert.Equal(closeMax + span * 0.05, store.State.ViewportRange.Max, 6);
+    }
+
     [Fact]
     public void Candles_autoscale_from_highs_and_lows_as_before()
     {
