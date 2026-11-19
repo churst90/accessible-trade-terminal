@@ -4,6 +4,101 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Go bar (stage 6b), 2026-11-18 — not yet heard by Cody
+
+- **A typed command can carry one value, and the words go in either order.** `TF 4h` =
+  `4h TF`, `GP BTC` = `BTC GP`, `PROV Kraken` = `Kraken PROV`, `IND rsi` = `rsi IND`,
+  `ALERT 95000` = `95000 ALERT`, `GOTO 2024-03-01` = `2024-03-01 GOTO`, `FIND hammer` =
+  `hammer FIND`. `go to` is matched as a two-word phrase at either end. Bare timeframes (`4h`,
+  `15m`, `1d`, `1w`, `1M`, `4 hours`, `15 min`) and ISO dates (`2024-03-01`,
+  `2024-03-01 14:00`) are offered after any command match, because they cannot mean anything
+  else. Nothing else is guessed without its verb.
+- **The four 6a silent drops are now commands.** `ChangeTimeframe`, `ChangeSymbol`,
+  `ChangeProvider` and `RefreshData` had registry entries, no key and no handler: typing `TF` and
+  Enter closed the box and reached nothing. `TF`/`SYM`(`GP`)/`PROV` now change the chart on
+  screen or choose a provider, and `REF` reloads it through the same one load path. A bare verb
+  keeps the box open, completes the text and says what to type next — *"Type a timeframe after
+  TF, like TF 4h."*, *"Type a symbol after GP, like GP BTC."*, *"Type a provider after PROV, like
+  PROV Kraken."* — instead of closing. `GP` is a new code on `ChangeSymbol`.
+- **The either-command guard.** `EveryGoBarCommandHasAHandler` scans every `.cs`/`.razor` under
+  Core, the components, the WebHost and the Blazor client (asserting each folder exists and more
+  than 100 files were scanned) for `SystemCommand.<Name>` on every non-`KeyOnly` entry, except
+  the entries the registry marks `HandledByGoBar`. The Go bar's own folder is excluded from the
+  scan: a mention in the verb table or the service is not a handler in a head, and counting it
+  made removing the flags stay green. Proved red before the flags existed: **1 failed test,
+  naming ChangeProvider, ChangeSymbol, ChangeTimeframe and RefreshData**.
+- **One load path for the chart on screen.** `IMarketOrchestrator.LoadOnActiveTabAsync` starts
+  from the active tab's identity, applies only the parts given, refreshes the provider's symbol
+  list only when the provider changes, reads every value back (the public demo refuses silently
+  in the setters), and then loads. `TF` therefore changes the chart in front of the user, not a
+  toolbar dropdown they never pressed Load on. The shape-change pre-flight is the toolbar's: a
+  symbol load that would turn an OHLCV tab into a single-value analytics tab and strip user
+  series is refused in words — *"That is a different kind of chart and would remove your 3
+  indicators. Load it from the toolbar to open it in a new tab."* The toolbar's timeframe
+  composer now re-parses `SelectedTimeframe` on `PipelineUpdated`; before this, `TF 4h` left it
+  showing `1` / `hr` and the next edit wrote a 1h timeframe back over the chart.
+- **Symbols are never guessed quietly.** The search is the current venue, then every watchlist,
+  then other venues whose symbol lists are already in memory, de-duplicated by (provider,
+  symbol). Comparison ignores case and removes `/`, `-`, `_` and spaces. One match is one
+  option ("Open MEXC BTCUSDT"); several are one option each, capped at 20, and the sentence
+  names the first five: *"BTC, 6 matches: MEXC BTCUSDT, MEXC BTCUSDC, Kraken XBTUSD, …, and 1
+  more."* Enter without moving onto one runs nothing and says *"BTC, 3 matches. Arrow down to
+  pick one."*; an exact full-symbol match on the current venue is the only option and runs. A
+  watchlist match loads with its provider, market and sub-type; the same venue keeps the tab's
+  timeframe. **No other venue is searched in 6b:** only the current provider's symbol list is in
+  memory (the data service's symbol cache is an asynchronous disk cache, not a list the bar can
+  read while typing), so the no-match sentence names where it looked — *"No BTC on MEXC or your
+  watchlists."*
+- **`IND` shares the dialog's list.** `IndicatorCatalog` in Core now owns the demo and retired
+  filters, the metadata defaults, the pane words and the name/code/description search that the
+  Add Indicator dialog uses, so a typed `IND rsi` adds exactly what the dialog would with exactly
+  its defaults and says *"RSI added, its own pane."* An analytics tab is refused with *"This is
+  an analytics chart; indicators need a price chart."* (There was no existing indicator-button
+  refusal to copy; this sentence parallels the chart menu's order refusal.)
+- **`ALERT` opens the form; it does not create the alert.** *"Price alert at 95,000"* closes the
+  box and publishes `OpenAlertsEvent(AlertTarget.Price, Value)`, pre-filling the form. The user
+  reads it and presses Add. Prices accept `95000`, `95,000`, `95000.5`, `95k`, `1.2m`; zero and
+  negative are refused in words.
+- **`GOTO` a date uses the app's own clock.** A typed date is in the zone the bar readout uses
+  (F12's "times in UTC" setting, otherwise local) — never the machine's zone in tests, where the
+  zone is passed in. It moves to the last bar at or before the moment and the bar read says
+  where; before the first bar it says *"1 March 2019 is before this chart's first bar, 3 January
+  2023."* and after the latest *"That is after the latest bar."*; neither moves. Slash dates are
+  refused: *"Write the date as 2024-03-01 or 1 March 2024."* `GOTO CPI` finds the latest placed
+  event at or before the newest bar; events off says *"Market events are off. Turn them on in
+  Settings to use GOTO with an event."*, none found says *"No CPI on this chart."*, and several
+  different names become options.
+- **`FIND` scans only on run.** The candle route calls `CandlePatternSpeech.AnalyzeAt` with the
+  same DI analyzer instance and the same Heikin-Ashi flag the arrow keys use, so a bar can never
+  be named one way by FIND and another by the arrows; the formation route uses
+  `ChartPatternNavigator`/`ChartPatternNarrator.Name` and keeps the *"Chart formation description
+  is off…"* refusal. It lands on the first match right of the cursor and lets the bar read say
+  it; none after says *"No Hammer after this bar; 4 before it."* and does not move.
+- **The box** now renders the options `GoBarService.Suggest` returned and reads that same
+  object's sentence, so the two can no longer disagree once arguments exist. It tracks whether
+  the user moved with the arrows (typing resets it), which is what makes the several-symbols rule
+  honest, and Tab completes an argument option to its canonical text (`TF 4h`, `GP BTCUSDT`,
+  `IND RSI`). Every argument command still waits for the box to close before acting.
+- **Caveats.** Other venues are not searched (no in-memory cross-venue symbol list; reported
+  above). `ALERT` opens the form rather than creating an alert. Stage 6c — settings by name,
+  `HELP <code>`, typed `BUY`/`SELL`/`FLAT` and the backtick question — is not built. **Not heard
+  by Cody.**
+- **Tests:** 69 parser cases (`GoBarParserTests`: both orders for every verb, the `go to` phrase
+  at either end, both ends verbs, bare timeframes and ISO dates, spelled units, `1m`/`1M`, the
+  999 cap, prices, each date form, the slash refusal, `tr-TR`, and a money code followed by
+  text), 44 `GoBarArgumentTests` sentence-by-sentence with a recording store and a controllable
+  orchestrator, the new registry guards (GP→ChangeSymbol, no verb belongs to another entry, no
+  verb is a money code, and the handler guard), one box script and one toolbar-composer bUnit
+  test. The specified filter runs **2,197 tests, all passing**.
+- **Sabotages** (backed up in `.sab/`, restored with `cp`, `touch`ed and compared; each count is
+  failures in the specified filter): (a) delete `ChangeTimeframe`'s `HandledByGoBar` flag —
+  **1 red**, the handler guard; (b) let Enter run the first of several symbol matches — **1
+  red**; (c) make the load path prefer the toolbar's stray selection — **1 red**; (d) make FIND
+  use a fresh analyzer and the wrong Heikin-Ashi flag — **2 red**; (e) make GOTO move when the
+  date is before the first bar — **1 red**; (f) remove the toolbar composer's re-parse — **1
+  red**; (g) act on an argument option before the box closes — **4 red** (including two 6a
+  sequencing tests).
+
 ### Go bar (stage 6a), 2026-11-18
 
 - **Alt+G opens one text box that reaches every action in the terminal by typing.** Type a

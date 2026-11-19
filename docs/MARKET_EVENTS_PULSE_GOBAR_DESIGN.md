@@ -417,9 +417,25 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      first build had `MARKET`, an exact code one Enter from a market order for anyone typing
      "market"; the codes now start with Q). A command typed by name always gets an answer:
      "Nothing armed." and "No chart loaded." replace two silent drops.
-   - **6b OPEN: commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`,
-     `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` / `GP BTC`).
-   - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
-     money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: the
-     backtick as a second opener ("maybe as well" from the 2026-11-18 discussion) is not built and
-     is not yet a decision.
+    - **6b BUILT 2026-11-18, not yet heard by Cody.** Commands with arguments: `TF 4h`,
+      `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`, `GOTO CPI`, `FIND hammer`, symbols, and words
+      in either order (`BTC GP` / `GP BTC`). The four 6a silent drops (`ChangeTimeframe`,
+      `ChangeSymbol`, `ChangeProvider`, `RefreshData`) now have real meanings, and
+      `EveryGoBarCommandHasAHandler` scans the heads so no other entry can close the box and
+      reach nothing. The either-order parser, the options, the symbol tiers, `IndicatorCatalog`,
+      `LoadOnActiveTabAsync` (tab identity, demo read-back, shape-change refusal) and the
+      toolbar's timeframe re-parse are all in. **Differences found while building:** the guard
+      must exclude the Go bar's own folder, or a mention in the verb table/service counts as a
+      handler and removing the four flags stays green; there is no cross-venue in-memory symbol
+      list to search in 6b — the data service's symbol cache is an asynchronous disk cache — so
+      other venues are not searched and the no-match sentence names only the current venue and
+      watchlists; there is no MAUI head folder in this tree, so the fourth scan folder is
+      `AccessibleTrader.BlazorClient`; and the toolbar has no "Indicators unavailable" sentence
+      to reuse, so the Go bar's analytics refusal parallels the chart menu's order sentence
+      ("This is an analytics chart; indicators need a price chart."). The date zone is the
+      F12 clock (`SpeechTimeFormatter.UseUtc`, otherwise local), passed into the service for
+      tests rather than read from the machine.
+    - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
+      money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: the
+      backtick as a second opener ("maybe as well" from the 2026-11-18 discussion) is not built and
+      is not yet a decision.

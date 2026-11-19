@@ -208,9 +208,13 @@ as proposed.
   exact-full-name only; the close-then-dispatch entry point; and the ARIA 1.2 combobox with the
   polite read on the Interface tier. **Built 2026-11-18, not yet heard by Cody.** Caveats: no
   arguments, no settings by name, no typed `BUY`/`SELL`/`FLAT`, and the box has not been heard.
-- [ ] **Stage 6b: Go bar commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`,
+- [x] **Stage 6b: Go bar commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`,
   `GOTO 2024-03-01`, `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` /
-  `GP BTC`). Not built in 6a.
+  `GP BTC`); the four 6a silent-drop commands now have real handlers and a guard; one load path
+  from the tab's identity, the shape-change refusal and the toolbar composer re-parse.
+  **Built 2026-11-18, not yet heard by Cody.** Caveats: other venues are not searched (no
+  in-memory cross-venue symbol list), `ALERT` opens the form rather than creating the alert, and
+  6c (settings by name, `HELP <code>`, typed `BUY`/`SELL`/`FLAT`) is still open.
 - [ ] **Stage 6c: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
   money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: should
   the backtick open the Go bar as well as Alt+G? Not built in 6a, and not yet a decision.

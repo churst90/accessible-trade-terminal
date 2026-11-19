@@ -1746,14 +1746,43 @@ alias, the start of a word or a typo never reaches them, and no money code is a 
 type for anything else (typing *market* finds Market pulse and the market watch, never an order).
 Placing from the Go bar with nothing armed says *"Nothing armed."*
 
+**Commands that take a value.** Put the value after the verb — or before it; both are the same
+command. `TF 4h` and `4h TF` both change the chart's timeframe; `GP BTC` and `BTC GP` both open
+BTC.
+
+| Verb (and aliases) | Value | What it does |
+| --- | --- | --- |
+| `TF`, `timeframe` | a timeframe | Changes **the chart on screen** to it. `TF 4h`, `4 hours TF`, `TF 15m`, `TF 1M` |
+| `GP`, `SYM`, `chart`, `symbol` | a symbol | Opens it on the active tab, keeping its timeframe. `GP BTC`, `BTC GP`, `GP BTC/USDT` |
+| `PROV`, `provider`, `venue` | a provider name | Chooses that provider in the toolbar and lists its symbols; it does not load. `PROV Kraken` |
+| `IND`, `indicator`, `add` | an indicator name | Adds it with the dialog's defaults. `IND rsi`, `add macd` |
+| `ALERT`, `alert` | a price | Opens the Alerts form with that price filled in. `ALERT 95000`, `ALERT 95k`, `ALERT 1.2m` |
+| `GOTO`, `go to`, `date` | a date or an event name | Moves the cursor there. `GOTO 2024-03-01`, `GOTO 1 March 2024`, `GOTO CPI` |
+| `FIND`, `find` | a candle pattern or chart formation | Moves to the next one right of the cursor. `FIND hammer`, `FIND double top` |
+| `REF` | — | Reloads **the chart on screen**. `REF` |
+
+A timeframe or an ISO date on its own (`4h`, `15 min`, `2024-03-01`) is offered as the command it
+obviously means. Nothing else is guessed without its verb.
+
+**What each one says.** *"Loading BTCUSDT, 4 hours."* and then the load's own speech; already on
+it says *"Already on 4 hours."*; the public demo's refusal is *"Not in the public demo."* A
+symbol that matches more than one place is never picked silently: *"BTC, 3 matches: MEXC BTCUSDT,
+MEXC BTCUSDC, Kraken XBTUSD."* — press Down to move onto the one you want, then Enter. An exact
+full symbol on the current venue runs on its own. A symbol from a watchlist brings its provider
+and market with it. Adding an indicator says where it landed (*"RSI added, its own pane."*).
+`ALERT` only opens the form; read it and press Add. A date before the first bar or after the last
+does not move and says why. `FIND` scans only when you press Enter; with no match after the cursor
+it tells you how many were before it.
+
 **Keys that are only keys.** The arrow keys, Home, End, Page Up and Page Down, Escape (close a
 dialog or cancel a drawing) and the drawing-anchor nudges are still listed and still match.
 Choosing one says which key it is — *"Move one bar back is a key, Left Arrow; it does nothing
 from the Go bar."* — rather than pretending to run it.
 
-**What it does not do yet.** This stage reaches commands that take no argument. Typed arguments
-(`TF 4h`, `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`), settings by name, `HELP <code>` and the
-typed money commands `BUY`, `SELL` and `FLAT` are later stages. The box has not been heard by
+**What it does not do yet.** Settings by name, `HELP <code>` and the typed money commands `BUY`,
+`SELL` and `FLAT` are stage 6c. Other venues are searched only if their symbol lists are already
+in memory, which in this build they are not; a symbol not on the current venue or a watchlist
+says so. `ALERT` opens the form rather than creating the alert. The box has not been heard by
 Cody yet.
 
 ---
