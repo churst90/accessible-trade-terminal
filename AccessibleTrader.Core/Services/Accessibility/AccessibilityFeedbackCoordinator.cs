@@ -346,9 +346,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsEarconsEnabled != _previousState.IsEarconsEnabled)
                 _speechRouter.Speak(state.IsEarconsEnabled ? "Earcons on" : "Earcons muted",
                     interrupt: true, channel: SpeechChannel.Critical);
+            // Only the shown type's own settings count: RANGEBAR 500 typed on a Renko chart stores the
+            // range first and changes nothing on screen until the type follows.
             bool renkoSettingsChanged = state.ChartStyle.IsBrickStyle()
-                && _previousState.ChartStyle.IsBrickStyle()
-                && (state.Renko != _previousState.Renko || state.BrickBoxSize != _previousState.BrickBoxSize);
+                && _previousState.ChartStyle == state.ChartStyle
+                && (!Charts.BuiltCharts.SameFor(state.ChartStyle, state.Renko, _previousState.Renko)
+                    || state.BrickBoxSize != _previousState.BrickBoxSize);
             if (state.IsHeikinAshi != _previousState.IsHeikinAshi
                 || state.ChartStyle != _previousState.ChartStyle
                 || renkoSettingsChanged)
@@ -387,7 +390,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         PriceChartStyle.Line => "Line chart.",
                         PriceChartStyle.Area => "Area chart.",
-                        PriceChartStyle.Renko => BrickChartSpeech.ChangeSentence(state),
+                        _ when state.ChartStyle.IsBrickStyle() => BrickChartSpeech.ChangeSentence(state),
                         _ => "Candle chart.",
                     };
                 }
@@ -401,7 +404,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         msg += state.ChartStyle switch
                         {
                             PriceChartStyle.Line or PriceChartStyle.Area => " On the close line.",
-                            _ when state.ChartStyle.IsBrickStyle() => " On the bricks.",
+                            _ when state.ChartStyle.IsBrickStyle() => $" On the {Charts.BuiltCharts.Noun(state.ChartStyle, 2)}.",
                             _ => " On the candles.",
                         };
                 }
@@ -723,7 +726,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 _earconService.PlayNewBar();
                 _speechRouter.Speak(
-                    $"New {(span.Up ? "up" : "down")} brick, "
+                    $"New {(span.Up ? "up" : "down")} {Charts.BuiltCharts.Noun(state.ChartStyle)}, "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.",
                     interrupt: false, channel: SpeechChannel.Narration);

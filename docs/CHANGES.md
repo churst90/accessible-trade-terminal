@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Range bars and line break chart types, 2026-11-19 — not yet heard by Cody
+
+Cody, after the series naming: *"yes, continue everyting reads good now"* — range bars and line
+break next, Kagi and Point & Figure after.
+
+- **One door.** `Charts/BuiltCharts` is the only place that knows the three types built off the
+  clock (Renko, range bars, line break): name, noun ("brick", "range bar", "block"), which
+  settings fields are each type's own (`SameFor`, `Merge`), resolving the frozen size, building
+  and planning. The reducers, `HeadlessChart`, both background monitors, the dialog and the
+  commands call it with the chart type. `PriceChartStyle` gains `RangeBars = 4` and
+  `LineBreak = 5` on the end; `IsBrickStyle()` is all three, `IsBlockStyle()` Renko and line break
+  (no wicks, one part).
+- **Builders.** `RangeBarBuilder`: equal high-to-low range, closes at the edge it broke, keeps
+  wicks; built from time bars, so the in-bar path is ASSUMED (up bar open-low-high-close, down
+  bar open-high-low-close); gaps walked; only completed bars. `LineBreakBuilder`: closes only,
+  continues past the last block, turns past the extreme of the last N blocks (1 to 50, default 3).
+- **Settings.** `RenkoSettings` gains `RangeMode`, `RangeSize`, `RangeAtrLength`,
+  `LineBreakLines`; an old file reads the defaults. Line break's frozen "box" is its line count,
+  so every "is a size resolved" check holds unchanged.
+- **Read and heard.** Line break's price series has one part, **Block** (not "line", which is the
+  Line chart): *"Block. Up. X to Y. window."* Range bars keep the three candle parts and read as
+  candles, with the bar's real window. Series names "Range bars" / "Line break"; change sentences
+  *"Line break chart, 3 lines."*, *"Range bars chart, fixed range 500.00."*; *"New up block, …"*;
+  status line `Up block …`; layout, playback and background news use the type's noun. Choosing a
+  type from another speaks the new type's sentence once (the settings-changed path needs the same
+  type before and after).
+- **Chosen from.** Toolbar Chart type list (Range bars, Line break); one settings dialog that
+  shows the shown type's settings (Range ATR/fixed, or one Lines field); Go bar `RANGEBAR` /
+  `RANGEBARS` / `range bars` and `LINEBREAK` / `LBREAK` / `line break` / `three line break`.
+  `RANGE` stays the measure tool's word, and codes are capped at eight letters, hence `RANGEBAR`
+  and `LBREAK`. `ICommandDispatcher.ShowBuiltChart(style, settings)` merges only that type's
+  fields, so `RANGEBAR 500` keeps the tab's Renko box.
+- **Found on the way.** The settings dialog built `new RenkoSettings(mode, box, atr)` on Apply,
+  which would have reset every other type's settings; it now uses `state.Renko with { … }`.
+- **Caveats.** Alerts are UNCHANGED, waiting on Cody's yes to the split (price and drawn-line
+  alerts on the real price, indicator alerts on the bars, new up/down/reversal alerts). Restoring a
+  workspace across built types re-resolves the size instead of keeping the saved one. The
+  range-bar path assumption above. Not seen or heard by Cody.
+- **Tests:** `BuiltChartTypesTests` (47 cases: both builders, Merge/SameFor, switching between the
+  three in the reducer, naming, speech, change sentences, background news, the Go bar words and
+  arguments, the dispatcher merge, "already", and the save round trip); `RenkoSpeechTests`'
+  settings refusal updated.
+
 ### The price series is named after its chart type and read by the template, 2026-11-19 — not yet heard by Cody
 
 Cody tried 9f5ac4ad: *"when i change to renko and use pg up/down and land on that series, it is

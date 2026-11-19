@@ -12,15 +12,36 @@
              aria-labelledby="chart-type-settings-title"
              @onclick:stopPropagation="true">
 
-            <h2 id="chart-type-settings-title" tabindex="-1">Brick settings</h2>
+            <h2 id="chart-type-settings-title" tabindex="-1">@Title</h2>
 
+            @if (_style == PriceChartStyle.LineBreak)
+            {
+                <p style="margin-top: 12px; font-size: 0.9rem;">
+                    A block turns only when a close breaks past the high or low of this many
+                    blocks before it. Three is the classic setting.
+                </p>
+                <div class="modal-row" style="margin-top: 12px;">
+                    <label for="line-break-lines">Lines:</label>
+                    <input id="line-break-lines"
+                           type="number"
+                           min="@LineBreakBuilder.MinLines"
+                           max="@LineBreakBuilder.MaxLines"
+                           step="1"
+                           @bind="_linesText" @bind:event="oninput"
+                           @onkeydown="OnKeyDown"
+                           style="width: 8em;" />
+                </div>
+            }
+            else
+            {
             <p style="margin-top: 12px; font-size: 0.9rem;">
-                The box is the price move that makes one brick. ATR follows the market's own
-                range; a fixed size never changes.
+                @(_style == PriceChartStyle.RangeBars
+                    ? "The range is how far price moves, high to low, in one bar. ATR follows the market's own range; a fixed size never changes."
+                    : "The box is the price move that makes one brick. ATR follows the market's own range; a fixed size never changes.")
             </p>
 
             <fieldset style="margin-top: 12px; border: none; padding: 0;">
-                <legend>Renko box</legend>
+                <legend>@(_style == PriceChartStyle.RangeBars ? "Range" : "Renko box")</legend>
                 <label style="display: block;">
                     <input id="renko-box-atr" type="radio" name="renko-box-mode"
                            checked="@(_mode == RenkoBoxMode.Atr)"
@@ -54,7 +75,7 @@
             else
             {
                 <div class="modal-row" style="margin-top: 12px;">
-                    <label for="renko-box-size">Box size:</label>
+                    <label for="renko-box-size">@(_style == PriceChartStyle.RangeBars ? "Range size:" : "Box size:")</label>
                     <input id="renko-box-size"
                            type="number"
                            min="0"
@@ -71,6 +92,7 @@
                     @BoxPreview()
                 </p>
             }
+            }
 
             @if (!string.IsNullOrEmpty(_statusMessage))
             {
@@ -79,16 +101,28 @@
 
             <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
                 <button class="primary" @onclick="Apply">Apply</button>
-                <button @onclick="Close" aria-label="Cancel, close the brick settings dialog">Cancel</button>
+                <button @onclick="Close" aria-label="@($"Cancel, close the {Title.ToLowerInvariant()} dialog")">Cancel</button>
             </div>
         </div>
     </div>
 }
 
 @code {
+    private PriceChartStyle _style = PriceChartStyle.Renko;
     private RenkoBoxMode _mode = RenkoBoxMode.Atr;
     private string _atrLengthText = "14";
     private string _boxSizeText = "";
+    private string _linesText = "3";
+
+    /// <summary>One dialog for the three charts built off the clock; it shows the settings of
+    /// the type on screen. Its modal name stays "Brick settings" so the modal stack and the
+    /// keyboard scope know it as before.</summary>
+    private string Title => _style switch
+    {
+        PriceChartStyle.RangeBars => "Range bar settings",
+        PriceChartStyle.LineBreak => "Line break settings",
+        _ => "Brick settings",
+    };
     private string? _statusMessage;
     private bool _isError;
 
@@ -103,11 +137,15 @@
     private async Task ShowAsync()
     {
         var state = Store.State;
-        _mode = state.Renko.Mode;
-        _atrLengthText = state.Renko.AtrLength.ToString(CultureInfo.InvariantCulture);
-        _boxSizeText = (state.BrickBoxSize > 0 ? state.BrickBoxSize
-            : state.Renko.BoxSize > 0 ? state.Renko.BoxSize : 0)
+        _style = state.ChartStyle.IsBrickStyle() ? state.ChartStyle : PriceChartStyle.Renko;
+        bool range = _style == PriceChartStyle.RangeBars;
+        _mode = range ? state.Renko.RangeMode : state.Renko.Mode;
+        _atrLengthText = (range ? state.Renko.RangeAtrLength : state.Renko.AtrLength).ToString(CultureInfo.InvariantCulture);
+        double fixedSize = range ? state.Renko.RangeSize : state.Renko.BoxSize;
+        _boxSizeText = (state.BrickBoxSize > 0 && _style != PriceChartStyle.LineBreak ? state.BrickBoxSize
+            : fixedSize > 0 ? fixedSize : 0)
             .ToString("0.##########", CultureInfo.InvariantCulture);
+        _linesText = state.Renko.LineBreakLines.ToString(CultureInfo.InvariantCulture);
         _statusMessage = null;
         _isError = false;
         await ShowModalAsync("chart-type-settings-title");
@@ -128,15 +166,29 @@
             return "Enter an ATR length from 1 to 200.";
 
         var state = Store.State;
-        return BrickChartBuilder.TryResolveBox(
-            state.MarketBars, new RenkoSettings(RenkoBoxMode.Atr, 0, length), out double box, out _)
-            ? $"Resolved box: {AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(box)}."
+        var asked = _style == PriceChartStyle.RangeBars
+            ? new RenkoSettings(RangeMode: RenkoBoxMode.Atr, RangeAtrLength: length)
+            : new RenkoSettings(RenkoBoxMode.Atr, 0, length);
+        return BuiltCharts.TryResolveBox(_style, state.MarketBars, asked, out double box, out _)
+            ? $"Resolved {(_style == PriceChartStyle.RangeBars ? "range" : "box")}: {AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(box)}."
             : $"ATR {length} needs at least {length + 2} bars; this chart has {state.MarketBars.Count}.";
     }
 
     private void Apply()
     {
         var state = Store.State;
+
+        if (_style == PriceChartStyle.LineBreak)
+        {
+            if (!int.TryParse(_linesText, NumberStyles.None, CultureInfo.InvariantCulture, out int lines)
+                || lines < LineBreakBuilder.MinLines || lines > LineBreakBuilder.MaxLines)
+            {
+                Refuse(BrickChartSpeech.LineBreakBadArgument.Replace(", like LINEBREAK 3", ""), "line-break-lines");
+                return;
+            }
+            ApplySettings(state, state.Renko with { LineBreakLines = lines }, "line-break-lines");
+            return;
+        }
 
         int atrLength = 14;
         if (!int.TryParse(_atrLengthText, NumberStyles.Integer, CultureInfo.InvariantCulture, out atrLength)
@@ -151,20 +203,27 @@
             && (!double.TryParse(_boxSizeText, NumberStyles.Number, CultureInfo.InvariantCulture, out boxSize)
                 || !double.IsFinite(boxSize) || boxSize <= 0))
         {
-            Refuse("A Renko box must be a positive price.", "renko-box-size");
+            Refuse(_style == PriceChartStyle.RangeBars
+                ? "A range bar's range must be a positive price."
+                : "A Renko box must be a positive price.", "renko-box-size");
             return;
         }
 
-        var settings = new RenkoSettings(_mode, boxSize, atrLength);
-        if (!BrickChartSpeech.TryPlan(state, settings, out _, out string? refusal))
+        var settings = _style == PriceChartStyle.RangeBars
+            ? state.Renko with { RangeMode = _mode, RangeSize = boxSize, RangeAtrLength = atrLength }
+            : state.Renko with { Mode = _mode, BoxSize = boxSize, AtrLength = atrLength };
+        string sizeTarget = _mode == RenkoBoxMode.Fixed ? "renko-box-size" : "renko-atr-length";
+        ApplySettings(state, settings, sizeTarget);
+    }
+
+    /// <summary>Validate against the real bars, then store; the reducer rebuilds the chart.</summary>
+    private void ApplySettings(WorkspaceState state, RenkoSettings settings, string target)
+    {
+        if (!BrickChartSpeech.TryPlan(state, settings, out _, out string? refusal, _style))
         {
             // A box too small for the loaded moves is a box-size problem; too little history is
             // an ATR-length problem. Focus the control the user can change.
-            string target = _mode == RenkoBoxMode.Atr
-                && (refusal?.Contains("needs at least", StringComparison.Ordinal) ?? false)
-                ? "renko-atr-length"
-                : _mode == RenkoBoxMode.Fixed ? "renko-box-size" : "renko-atr-length";
-            Refuse(refusal ?? "That Renko box cannot be drawn.", target);
+            Refuse(refusal ?? $"That {BuiltCharts.Name(_style)} chart cannot be drawn.", target);
             return;
         }
 

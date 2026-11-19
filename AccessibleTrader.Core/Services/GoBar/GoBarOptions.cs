@@ -39,7 +39,9 @@ namespace AccessibleTrader.Core.Services.GoBar
     public sealed record GoBarApplyTemplateAction(string Name) : GoBarAction;
 
     /// <summary>Choose Renko with an explicit box; the dispatcher runs the refusal checks.</summary>
-    public sealed record GoBarRenkoAction(RenkoSettings Settings) : GoBarAction;
+    /// <summary>Show a chart built off the clock; only <paramref name="Style"/>'s own fields of
+    /// <paramref name="Settings"/> are taken (the tab keeps its others).</summary>
+    public sealed record GoBarRenkoAction(RenkoSettings Settings, PriceChartStyle Style = PriceChartStyle.Renko) : GoBarAction;
 
     /// <summary>Move the cursor to the last bar at or before a wall-clock moment.</summary>
     public sealed record GoBarDateAction(DateTime Wall, bool HasTime, string Display) : GoBarAction;

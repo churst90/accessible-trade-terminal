@@ -21,32 +21,52 @@ namespace AccessibleTrader.Sdk.Models
     /// this back to <see cref="Candles"/>.
     /// </para>
     /// </summary>
-    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3 }
+    /// <remarks>Members are saved as numbers: new ones go on the end.</remarks>
+    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3, RangeBars = 4, LineBreak = 5 }
 
     /// <summary>
     /// True for the chart types drawn from BOUNDARIES of price movement rather than from the
-    /// clock: Renko today, and the range / line-break / Kagi / Point &amp; Figure types when
-    /// they arrive. Those charts drop time from the index axis, so every index-based consumer
-    /// runs on the drawn bricks, while every money and feed path keeps the real time bars
-    /// (<see cref="WorkspaceState.MarketBars"/>).
+    /// clock: Renko, range bars and line break today, and Kagi / Point &amp; Figure when they
+    /// arrive. Those charts drop time from the index axis, so every index-based consumer runs on
+    /// the drawn bars, while every money and feed path keeps the real time bars
+    /// (<see cref="WorkspaceState.MarketBars"/>). "Brick" in the plumbing's names means any of
+    /// them; <see cref="IsBlockStyle"/> is the narrower "drawn as blocks with no wicks".
     /// </summary>
     public static class PriceChartStyleExtensions
     {
-        public static bool IsBrickStyle(this PriceChartStyle style) => style == PriceChartStyle.Renko;
+        public static bool IsBrickStyle(this PriceChartStyle style) =>
+            style is PriceChartStyle.Renko or PriceChartStyle.RangeBars or PriceChartStyle.LineBreak;
+
+        /// <summary>
+        /// Renko and line break: each drawn bar is a block between two prices, with no wicks, and
+        /// the price series has one part. Range bars are not: each is a real candle (open, high,
+        /// low, close) and keeps the candle parts.
+        /// </summary>
+        public static bool IsBlockStyle(this PriceChartStyle style) =>
+            style is PriceChartStyle.Renko or PriceChartStyle.LineBreak;
     }
 
     /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.</summary>
     public enum RenkoBoxMode { Atr = 0, Fixed = 1 }
 
     /// <summary>
-    /// Per-tab Renko box settings. <see cref="BoxSize"/> is used only in
-    /// <see cref="RenkoBoxMode.Fixed"/> mode. Saved wherever the chart style is; a file saved
-    /// before this record existed reads as the defaults (ATR 14).
+    /// Per-tab settings of the charts built off the clock. The first three are Renko's box:
+    /// <see cref="BoxSize"/> is used only in <see cref="RenkoBoxMode.Fixed"/> mode. The range
+    /// bars' size is chosen the same way and kept apart (<see cref="RangeMode"/>,
+    /// <see cref="RangeSize"/>, <see cref="RangeAtrLength"/>), so choosing one never moves the
+    /// other. <see cref="LineBreakLines"/> is how many lines a line-break reversal must break
+    /// (TradingView's default, three). One record so every save, tab snapshot and background
+    /// monitor that already carries Renko's settings carries all of them; a file saved before a
+    /// field existed reads its default.
     /// </summary>
     public sealed record RenkoSettings(
         RenkoBoxMode Mode = RenkoBoxMode.Atr,
         double BoxSize = 0,
-        int AtrLength = 14);
+        int AtrLength = 14,
+        RenkoBoxMode RangeMode = RenkoBoxMode.Atr,
+        double RangeSize = 0,
+        int RangeAtrLength = 14,
+        int LineBreakLines = 3);
 
     /// <summary>
     /// The real time window a brick formed in. <see cref="FirstBar"/> and
@@ -163,12 +183,13 @@ namespace AccessibleTrader.Sdk.Models
         /// field existed and for a newly opened tab.</summary>
         public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
 
-        /// <summary>The tab's Renko settings. Defaults for every snapshot made before the
-        /// field existed and for a newly opened tab.</summary>
+        /// <summary>The tab's settings for Renko, range bars and line break. Defaults for every
+        /// snapshot made before the field existed and for a newly opened tab.</summary>
         public RenkoSettings Renko { get; init; } = new();
 
-        /// <summary>The box a Renko tab froze when it was chosen, so switching tabs rebuilds
-        /// the same bricks without recomputing the ATR. Zero when the tab never resolved one.</summary>
+        /// <summary>The size a built-off-the-clock tab froze when its type was chosen (Renko's
+        /// box, the range, or line break's line count), so switching tabs rebuilds the same bars
+        /// without recomputing the ATR. Zero when the tab never resolved one.</summary>
         public double BrickBoxSize { get; init; }
     }
 
@@ -494,7 +515,8 @@ namespace AccessibleTrader.Sdk.Models
         /// per tick and never on a history prepend.</summary>
         public double BrickBoxSize { get; init; }
 
-        /// <summary>The tab's Renko settings, used when the chart type is Renko.</summary>
+        /// <summary>The tab's settings for Renko, range bars and line break; each type reads only
+        /// its own fields.</summary>
         public RenkoSettings Renko { get; init; } = new();
 
         /// <summary>
@@ -600,8 +622,9 @@ namespace AccessibleTrader.Sdk.Models
     public record SetChartStyleAction(PriceChartStyle Style, bool HeikinAshi) : WorkspaceAction;
 
     /// <summary>
-    /// Changes the tab's Renko settings. When the chart is already Renko the reducer refreezes
-    /// the box from <see cref="WorkspaceState.TimeBars"/> and rebuilds the bricks. The command
+    /// Changes the tab's built-chart settings. When the chart is Renko, range bars or line break
+    /// the reducer refreezes that type's size from <see cref="WorkspaceState.TimeBars"/> and
+    /// rebuilds. The command
     /// or dialog has already run the refusal checks. A restore carries the saved frozen box
     /// so the same bricks return instead of a fresh ATR box.
     /// </summary>

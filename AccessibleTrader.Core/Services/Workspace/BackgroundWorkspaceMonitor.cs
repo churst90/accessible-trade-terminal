@@ -200,23 +200,11 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             if (brick)
             {
-                box = _brickBoxSize;
-                if (!(box > 0) && !BrickChartBuilder.TryResolveBox(bars, _renko, out box, out _))
-                    box = 0;
-
-                if (box > 0)
+                if (BuiltCharts.TryBuild(_chartStyle, bars, _renko, _brickBoxSize,
+                        BrickChartBuilder.BarLength(_identity, bars), out var built, out box))
                 {
-                    var built = BrickChartBuilder.Build(
-                        bars, box, BrickChartBuilder.BarLength(_identity, bars));
-                    if (built.Ok)
-                    {
-                        displayBars = built.Bricks;
-                        spans = built.Spans;
-                    }
-                    else
-                    {
-                        displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
-                    }
+                    displayBars = built.Bricks;
+                    spans = built.Spans;
                 }
                 else
                 {
@@ -238,7 +226,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                 BrickSpans = spans,
                 BrickBoxSize = box,
                 Renko = _renko,
-                ChartStyle = brick ? PriceChartStyle.Renko : PriceChartStyle.Candles,
+                ChartStyle = brick ? _chartStyle : PriceChartStyle.Candles,
                 ActiveSeries = computed,
                 IsHeikinAshi = !brick && heikinAshi,
                 CurrentDataIndex = Math.Max(0, displayBars.Count - 1),

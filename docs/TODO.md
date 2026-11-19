@@ -118,8 +118,12 @@ and Identity already has 2FA, lockout and rate limits.
      Same day, Cody: the series kept the name "Candles" and the line read values only → the price
      series is now named after the chart type and reads "Close. line. X. …" / "Brick. Up. X to Y."
      (built, not heard). Open: is the brick's direction right in the type slot?
-     Still open: range bars, line
-     break, Kagi and Point & Figure, which reuse the brick plumbing. The brick and box types drop
+     **Range bars and line break** — built 2026-11-19, not yet heard by Cody (toolbar select,
+     per-type settings dialog, Go bar `RANGEBAR` / `LINEBREAK` / `LBREAK`; one-door
+     `BuiltCharts`; line break reads as "Block"). Open: Cody's yes on the Renko alerts split
+     (price and drawn-line alerts on the real price, indicator alerts on the bars, new up/down/
+     reversal bar alerts) — alerts untouched until then. Caveat: restoring a workspace across built
+     types re-resolves the size. Still open: Kagi and Point & Figure, which reuse the brick plumbing. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**

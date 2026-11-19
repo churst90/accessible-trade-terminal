@@ -16,6 +16,8 @@ namespace AccessibleTrader.Core.Services.GoBar
         PriceAlert,
         Template,
         Renko,
+        RangeBars,
+        LineBreak,
         GoTo,
         Find,
         Settings,
@@ -56,6 +58,10 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "TPL", "TEMPLATE" }, SystemCommand.ApplyIndicatorTemplate),
             new GoBarVerbSpec(GoBarVerb.Renko,
                 new[] { "RENKO", "BRICKS" }, SystemCommand.ShowRenkoChart),
+            new GoBarVerbSpec(GoBarVerb.RangeBars,
+                new[] { "RANGEBAR", "RANGEBARS" }, SystemCommand.ShowRangeBarsChart),
+            new GoBarVerbSpec(GoBarVerb.LineBreak,
+                new[] { "LINEBREAK", "LBREAK" }, SystemCommand.ShowLineBreakChart),
             new GoBarVerbSpec(GoBarVerb.GoTo,
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
@@ -280,23 +286,66 @@ namespace AccessibleTrader.Core.Services.GoBar
         public static bool TryParseRenko(string? text, out RenkoSettings settings)
         {
             settings = new RenkoSettings();
+            if (!TryParseSize(text, out var mode, out double size, out int length)) return false;
+            settings = new RenkoSettings(mode, size, length);
+            return true;
+        }
+
+        /// <summary>The chart type a built chart's verb shows.</summary>
+        public static PriceChartStyle BuiltStyle(GoBarVerb verb) => verb switch
+        {
+            GoBarVerb.RangeBars => PriceChartStyle.RangeBars,
+            GoBarVerb.LineBreak => PriceChartStyle.LineBreak,
+            _ => PriceChartStyle.Renko,
+        };
+
+        /// <summary>RANGEBAR's argument, in RENKO's forms ("500", "ATR", "ATR 20"), as the range fields.</summary>
+        public static bool TryParseRange(string? text, out RenkoSettings settings)
+        {
+            settings = new RenkoSettings();
+            if (!TryParseSize(text, out var mode, out double size, out int length)) return false;
+            settings = new RenkoSettings(RangeMode: mode, RangeSize: size, RangeAtrLength: length);
+            return true;
+        }
+
+        /// <summary>LINEBREAK's argument: a whole number of lines, 1 to 50.</summary>
+        public static bool TryParseLineBreak(string? text, out RenkoSettings settings)
+        {
+            settings = new RenkoSettings();
+            if (!int.TryParse((text ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int lines)
+                || lines < Charts.LineBreakBuilder.MinLines || lines > Charts.LineBreakBuilder.MaxLines)
+                return false;
+            settings = new RenkoSettings(LineBreakLines: lines);
+            return true;
+        }
+
+        /// <summary>The argument of a built chart's word, by type.</summary>
+        public static bool TryParseBuiltChart(PriceChartStyle style, string? text, out RenkoSettings settings) => style switch
+        {
+            PriceChartStyle.RangeBars => TryParseRange(text, out settings),
+            PriceChartStyle.LineBreak => TryParseLineBreak(text, out settings),
+            _ => TryParseRenko(text, out settings),
+        };
+
+        /// <summary>A size argument: a positive price, or ATR with an optional length 1..200.</summary>
+        private static bool TryParseSize(string? text, out RenkoBoxMode mode, out double size, out int length)
+        {
+            mode = RenkoBoxMode.Atr;
+            size = 0;
+            length = 14;
             string typed = (text ?? "").Trim();
             if (typed.Length == 0) return false;
 
             var parts = typed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length == 1 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase))
-            {
-                settings = new RenkoSettings(RenkoBoxMode.Atr, 0, 14);
                 return true;
-            }
 
             if (parts.Length == 2 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase))
             {
-                if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int length)
+                if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out length)
                     || length < 1 || length > 200)
                     return false;
-                settings = new RenkoSettings(RenkoBoxMode.Atr, 0, length);
                 return true;
             }
 
@@ -304,7 +353,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 && double.TryParse(typed, NumberStyles.Number, CultureInfo.InvariantCulture, out double box)
                 && double.IsFinite(box) && box > 0)
             {
-                settings = new RenkoSettings(RenkoBoxMode.Fixed, box, 14);
+                mode = RenkoBoxMode.Fixed;
+                size = box;
                 return true;
             }
 
@@ -352,9 +402,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                     return new GoBarParseResult(GoBarParseKind.Argument, verb, argument, Price: price);
 
                 case GoBarVerb.Renko:
-                    if (!TryParseRenko(argument, out _))
+                case GoBarVerb.RangeBars:
+                case GoBarVerb.LineBreak:
+                    var builtStyle = BuiltStyle(verb);
+                    if (!TryParseBuiltChart(builtStyle, argument, out _))
                         return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,
-                            Refusal: BrickChartSpeech.BadArgument);
+                            Refusal: BrickChartSpeech.BadArgumentFor(builtStyle));
                     return new GoBarParseResult(GoBarParseKind.Argument, verb, argument);
 
                 case GoBarVerb.GoTo:

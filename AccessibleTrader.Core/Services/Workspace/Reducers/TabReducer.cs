@@ -127,32 +127,23 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             if (!snap.ChartStyle.IsBrickStyle())
                 return restored;
 
-            double box = snap.BrickBoxSize;
-            if (!(box > 0)
-                && !BrickChartBuilder.TryResolveBox(snap.Data, snap.Renko, out box, out _))
-                box = 0;
-
-            if (box > 0)
+            if (BuiltCharts.TryBuild(snap.ChartStyle, snap.Data, snap.Renko, snap.BrickBoxSize,
+                    BrickChartBuilder.BarLength(snap.Identity, snap.Data), out var built, out double box))
             {
-                var built = BrickChartBuilder.Build(
-                    snap.Data, box, BrickChartBuilder.BarLength(snap.Identity, snap.Data));
-                if (built.Ok)
+                return restored with
                 {
-                    return restored with
-                    {
-                        ChartStyle = PriceChartStyle.Renko,
-                        IsHeikinAshi = false,
-                        TimeBars = snap.Data,
-                        Data = built.Bricks,
-                        BrickSpans = built.Spans,
-                        BrickBoxSize = box,
-                    };
-                }
+                    ChartStyle = snap.ChartStyle,
+                    IsHeikinAshi = false,
+                    TimeBars = snap.Data,
+                    Data = built.Bricks,
+                    BrickSpans = built.Spans,
+                    BrickBoxSize = box,
+                };
             }
 
             // The frozen box could not rebuild these bars (a saved snapshot from another app
             // version, say). Show the real bars as candles rather than time bars dressed as
-            // bricks; a later RENKO choice resolves a fresh box.
+            // bricks; choosing the type again resolves a fresh box.
             return restored with
             {
                 ChartStyle = PriceChartStyle.Candles,

@@ -675,6 +675,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // The price series' one part on a Line/Area or Renko chart (PriceSeriesShape).
                 ("CANDLES", "line")       => b => b.Close,
                 ("CANDLES", "brick")      => b => b.Close,
+                ("CANDLES", "block")      => b => b.Close,
                 ("PRICE", "line")         => b => b.Close,
                 ("VOLUME", "volume")      => b => b.Volume,
                 _ => null

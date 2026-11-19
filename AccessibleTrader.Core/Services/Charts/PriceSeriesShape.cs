@@ -8,7 +8,8 @@ namespace AccessibleTrader.Core.Services.Charts
     /// <summary>
     /// The main price series takes the shape of the chart type: three candle parts (upper wick,
     /// body, lower wick) on Candles and Heikin Ashi, one close line on Line, one filled close
-    /// line on Area, one brick part on Renko.
+    /// line on Area, one brick part on Renko, one block part on line break. Range bars are real
+    /// candles and keep the three candle parts.
     ///
     /// <para>
     /// Cody, 2026-11-19, after trying Line and Renko: "I still hear 3 components like the candles
@@ -38,6 +39,10 @@ namespace AccessibleTrader.Core.Services.Charts
         /// <summary>The one part's name on a brick chart.</summary>
         public const string BrickPart = "brick";
 
+        /// <summary>The one part's name on a line break chart. "Block", not "line", so a line break
+        /// chart is never mistaken for the Line chart by ear.</summary>
+        public const string BlockPart = "block";
+
         /// <summary>
         /// The price series' name on each chart type: the Chart type list's own words. Cody,
         /// 2026-11-19: "when i change to renko and use pg up/down and land on that series, it is
@@ -49,6 +54,8 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Line => "Line",
             PriceChartStyle.Area => "Area",
             PriceChartStyle.Renko => "Renko",
+            PriceChartStyle.RangeBars => "Range bars",
+            PriceChartStyle.LineBreak => "Line break",
             _ => heikinAshi ? "Heikin Ashi" : "Candles",
         };
 
@@ -56,18 +63,19 @@ namespace AccessibleTrader.Core.Services.Charts
         /// none of these, and is never touched.</summary>
         private static readonly HashSet<string> ChartTypeNames = new(StringComparer.OrdinalIgnoreCase)
         {
-            "", "Candles", "Heikin Ashi", "Line", "Area", "Renko",
+            "", "Candles", "Heikin Ashi", "Line", "Area", "Renko", "Range bars", "Line break",
         };
 
         /// <summary>What the price series' parts are.</summary>
-        public enum Kind { Candles, Line, Area, Brick }
+        public enum Kind { Candles, Line, Area, Brick, Block }
 
         /// <summary>The shape a chart type draws the price series in.</summary>
         public static Kind For(PriceChartStyle style) => style switch
         {
             PriceChartStyle.Line => Kind.Line,
             PriceChartStyle.Area => Kind.Area,
-            _ when style.IsBrickStyle() => Kind.Brick,
+            PriceChartStyle.Renko => Kind.Brick,
+            PriceChartStyle.LineBreak => Kind.Block,
             _ => Kind.Candles,
         };
 
@@ -77,6 +85,7 @@ namespace AccessibleTrader.Core.Services.Charts
             if (config.Components.Count != 1) return Kind.Candles;
             var only = config.Components[0];
             if (only.Name == BrickPart) return Kind.Brick;
+            if (only.Name == BlockPart) return Kind.Block;
             if (only.Name == LinePart)
                 return only.DisplayType == ComponentDisplayType.Area ? Kind.Area : Kind.Line;
             return Kind.Candles;
@@ -133,7 +142,7 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             var missing = config.Components.Where(c => !data.ComponentData.ContainsKey(c.Name)).ToList();
             if (missing.Count == 0) return data;
-            string? closeKey = new[] { "body", LinePart, BrickPart }.FirstOrDefault(data.ComponentData.ContainsKey);
+            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart }.FirstOrDefault(data.ComponentData.ContainsKey);
             if (closeKey == null) return data;
             var copy = new SeriesDataBuffer
             {
@@ -239,11 +248,15 @@ namespace AccessibleTrader.Core.Services.Charts
             var type = target switch
             {
                 Kind.Area => ComponentDisplayType.Area,
-                Kind.Brick => ComponentDisplayType.Brick,
+                Kind.Brick or Kind.Block => ComponentDisplayType.Brick,
                 _ => ComponentDisplayType.Line,
             };
-            part.Name = target == Kind.Brick ? BrickPart : LinePart;
-            part.DisplayName = target == Kind.Brick ? "Brick" : "Close";
+            (part.Name, part.DisplayName) = target switch
+            {
+                Kind.Brick => (BrickPart, "Brick"),
+                Kind.Block => (BlockPart, "Block"),
+                _ => (LinePart, "Close"),
+            };
             part.DisplayType = type;
             part.UserDisplayType = null;
             // Body, not PriceAction: the brick and the close line are the price itself, which is

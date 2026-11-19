@@ -233,7 +233,7 @@
                                   IsToggleOn="@(IsHeatmapVisible == "true")"
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
-                @* Chart type: Candles, Heikin Ashi, Line, Area, Renko — one choice, like
+                @* Chart type: Candles, Heikin Ashi, Line, Area, Renko, Range bars, Line break — one choice, like
                    TradingView. Alt+C puts focus here (until 2026-11-19 it toggled Heikin Ashi);
                    the separate HA button went the same day (Cody: it is already in this list). *@
                 <label for="chart-type-select" class="visually-hidden">Chart type</label>
@@ -246,12 +246,14 @@
                     <option value="line" selected="@(ChartTypeValue == "line")">Line</option>
                     <option value="area" selected="@(ChartTypeValue == "area")">Area</option>
                     <option value="renko" selected="@(ChartTypeValue == "renko")">Renko</option>
+                    <option value="rangebars" selected="@(ChartTypeValue == "rangebars")">Range bars</option>
+                    <option value="linebreak" selected="@(ChartTypeValue == "linebreak")">Line break</option>
                 </select>
                 @if (Store.State.ChartStyle.IsBrickStyle())
                 {
                     <ToolbarIconButton Icon="settings" Label="Brick settings" Variant="data"
                                       ElementId="brick-settings-button"
-                                      Tooltip="Change the Renko box: ATR length or a fixed size"
+                                      Tooltip="@BuiltChartSettingsTooltip"
                                       OnClick="() => EventBus.Publish(new OpenChartTypeSettingsEvent())" />
                 }
                 @* Price scale: Regular, Logarithmic, Percent, Indexed to 100 — one choice,
@@ -895,8 +897,17 @@
             PriceChartStyle.Line => "line",
             PriceChartStyle.Area => "area",
             PriceChartStyle.Renko => "renko",
+            PriceChartStyle.RangeBars => "rangebars",
+            PriceChartStyle.LineBreak => "linebreak",
             _ => "candles",
         });
+
+    private string BuiltChartSettingsTooltip => Store.State.ChartStyle switch
+    {
+        PriceChartStyle.RangeBars => "Change the range: ATR length or a fixed size",
+        PriceChartStyle.LineBreak => "Change how many lines a turn must break",
+        _ => "Change the Renko box: ATR length or a fixed size",
+    };
 
     /// <summary>The entry the user just picked, held for ONE render when a Renko choice is
     /// refused — the same write-back problem the price-scale select has (946ffb1a).</summary>
@@ -905,12 +916,19 @@
     private async Task OnChartTypeChanged(ChangeEventArgs e)
     {
         string value = e.Value?.ToString() ?? "candles";
-        if (value == "renko")
+        PriceChartStyle? built = value switch
+        {
+            "renko" => PriceChartStyle.Renko,
+            "rangebars" => PriceChartStyle.RangeBars,
+            "linebreak" => PriceChartStyle.LineBreak,
+            _ => null,
+        };
+        if (built is { } builtStyle)
         {
             // The tab's own settings (ATR 14 by default). A refusal leaves the state on its
             // old style, so the select must be rendered back to the real entry.
-            if (!RenkoChoice.TryApply(Store, EventBus, Store.State.Renko))
-                await ShowTheRealChartType("renko");
+            if (!RenkoChoice.TryApply(Store, EventBus, builtStyle, Store.State.Renko))
+                await ShowTheRealChartType(value);
             return;
         }
 

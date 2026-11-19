@@ -35,6 +35,10 @@ namespace AccessibleTrader.Core.Services.Input
         /// The refusal is decided here, before any store action is dispatched.</summary>
         void ShowRenko(RenkoSettings settings);
 
+        /// <summary>Shows a chart built off the clock with <paramref name="typed"/>'s own fields for
+        /// that type (the tab's other settings are kept). Validated first; refusals are spoken.</summary>
+        void ShowBuiltChart(PriceChartStyle style, RenkoSettings typed);
+
         void SetChartActive(bool active);
     }
 
@@ -190,10 +194,13 @@ namespace AccessibleTrader.Core.Services.Input
 
         public void DispatchFromGoBar(SystemCommand command) => DispatchCore(command, fromGoBar: true);
 
-        public void ShowRenko(RenkoSettings settings)
+        public void ShowRenko(RenkoSettings settings) => ShowBuiltChart(PriceChartStyle.Renko, settings);
+
+        public void ShowBuiltChart(PriceChartStyle style, RenkoSettings typed)
         {
             if (RefuseChartTypeOnSingleLine()) return;
-            RenkoChoice.TryApply(_store, _eventBus, settings);
+            var settings = BuiltCharts.Merge(style, _store.State.Renko, typed);
+            RenkoChoice.TryApply(_store, _eventBus, style, settings);
         }
 
         private void DispatchCore(SystemCommand command, bool fromGoBar)
@@ -816,6 +823,12 @@ namespace AccessibleTrader.Core.Services.Input
                     // arrive through ShowRenko with the argument parsed.
                     ShowRenko(_store.State.Renko);
                     break;
+                case SystemCommand.ShowRangeBarsChart:
+                    ShowBuiltChart(PriceChartStyle.RangeBars, _store.State.Renko);
+                    break;
+                case SystemCommand.ShowLineBreakChart:
+                    ShowBuiltChart(PriceChartStyle.LineBreak, _store.State.Renko);
+                    break;
                 case SystemCommand.ShowBrickSettings:
                     if (!_store.State.ChartStyle.IsBrickStyle())
                     {
@@ -1244,6 +1257,8 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowAreaChart:
                 case SystemCommand.ShowRenkoChart:
                 case SystemCommand.ShowBrickSettings:
+                case SystemCommand.ShowRangeBarsChart:
+                case SystemCommand.ShowLineBreakChart:
                 case SystemCommand.ShowRegularScale:
                 case SystemCommand.ShowPercentScale:
                 case SystemCommand.ShowIndexedScale:

@@ -69,7 +69,24 @@ namespace AccessibleTrader.Core.Services.Charts
             RenkoSettings settings,
             out double box,
             out string? refusal)
+            => TryResolveSize(bars, settings.Mode, settings.BoxSize, settings.AtrLength, "Renko", "box",
+                out box, out refusal);
+
+        /// <summary>
+        /// The ATR-or-fixed size behind Renko's box and the range bars' range: the same rule,
+        /// worded for the chart that asked (<paramref name="chart"/> and its <paramref name="unit"/>).
+        /// </summary>
+        internal static bool TryResolveSize(
+            IReadOnlyList<Ohlcv> bars,
+            RenkoBoxMode mode,
+            double fixedSize,
+            int atrLength,
+            string chart,
+            string unit,
+            out double box,
+            out string? refusal)
         {
+            var settings = new RenkoSettings(mode, fixedSize, atrLength);
             box = 0;
             refusal = null;
 
@@ -78,7 +95,7 @@ namespace AccessibleTrader.Core.Services.Charts
                 box = settings.BoxSize;
                 if (!(box > 0) || double.IsNaN(box) || double.IsInfinity(box))
                 {
-                    refusal = "A Renko box must be a positive price.";
+                    refusal = $"A {chart} {unit} must be a positive price.";
                     return false;
                 }
                 return true;
@@ -90,7 +107,7 @@ namespace AccessibleTrader.Core.Services.Charts
             int needed = settings.AtrLength + 2;
             if (settings.AtrLength < 1 || bars.Count < needed)
             {
-                refusal = $"Renko needs at least {needed} bars for ATR {settings.AtrLength}; "
+                refusal = $"{chart} needs at least {needed} bars for ATR {settings.AtrLength}; "
                         + $"this chart has {bars.Count}.";
                 return false;
             }
@@ -102,7 +119,7 @@ namespace AccessibleTrader.Core.Services.Charts
 
             if (!(box > 0) || double.IsNaN(box) || double.IsInfinity(box))
             {
-                refusal = "A Renko box must be a positive price.";
+                refusal = $"A {chart} {unit} must be a positive price.";
                 return false;
             }
             return true;
@@ -118,27 +135,7 @@ namespace AccessibleTrader.Core.Services.Charts
             TimeSpan barLength,
             out BrickChartPlan? plan,
             out string? refusal)
-        {
-            plan = null;
-            if (!TryResolveBox(bars, settings, out double box, out refusal)) return false;
-
-            var built = Build(bars, box, barLength);
-            if (!built.Ok)
-            {
-                refusal = built.Refusal;
-                return false;
-            }
-
-            if (built.Bricks.Count == 0)
-            {
-                refusal = $"No Renko bricks: price has not moved one box of "
-                        + $"{SpeechPriceFormatter.FormatPrice(box)} in the loaded bars.";
-                return false;
-            }
-
-            plan = new BrickChartPlan(settings, box, built.Bricks, built.Spans);
-            return true;
-        }
+            => BuiltCharts.TryPlan(PriceChartStyle.Renko, bars, settings, barLength, out plan, out refusal);
 
         /// <summary>
         /// Builds the bricks. Returns a refusal for an unusable box or a result that would

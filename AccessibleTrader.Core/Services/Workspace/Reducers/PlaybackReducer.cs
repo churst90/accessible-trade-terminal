@@ -78,7 +78,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         private static WorkspaceState ApplyChartStyle(WorkspaceState state, PriceChartStyle style, bool heikinAshi)
         {
             if (style.IsBrickStyle())
-                return EnterBricks(state, state.Renko);
+                return EnterBricks(state, style, state.Renko);
 
             var baseState = state.ChartStyle.IsBrickStyle() ? LeaveBricks(state) : state;
             return baseState with
@@ -93,7 +93,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         private static WorkspaceState ApplyRenkoSettings(
             WorkspaceState state, RenkoSettings settings, double savedBox)
         {
-            if (!state.ChartStyle.IsBrickStyle())
+            // Off a built chart, or a change that does not touch the shown type's own fields
+            // (the range changed while Renko is on screen): keep the choice, rebuild nothing.
+            if (!state.ChartStyle.IsBrickStyle()
+                || (!(savedBox > 0) && BuiltCharts.SameFor(state.ChartStyle, settings, state.Renko)))
             {
                 return state with
                 {
@@ -102,37 +105,40 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 };
             }
 
-            return EnterBricks(state, settings, savedBox);
+            return EnterBricks(state, state.ChartStyle, settings, savedBox);
         }
 
         /// <summary>
-        /// Chooses a brick chart: the real bars become <see cref="WorkspaceState.TimeBars"/>,
+        /// Chooses a built chart (<paramref name="style"/>: Renko, range bars or line break): the real bars become <see cref="WorkspaceState.TimeBars"/>,
         /// the box is resolved once and frozen, and every index-based field is put on the bricks.
         /// A source with no bars (a restore before its first load) keeps the choice with an
         /// empty brick set; the command path has already refused anything it could not plan.
         /// </summary>
         private static WorkspaceState EnterBricks(
-            WorkspaceState state, RenkoSettings settings, double savedBox = 0)
+            WorkspaceState state, PriceChartStyle style, RenkoSettings settings, double savedBox = 0)
         {
             var source = (state.ChartStyle.IsBrickStyle() ? state.TimeBars : state.Data) ?? state.Data;
 
             // A restore carries the box the tab was drawn at. A settings change does not, and
             // must resolve afresh even though the old box is still on the state. A direct style
-            // choice that is already Renko and unchanged keeps its frozen box.
+            // choice that is already that type and unchanged keeps its frozen box; another built
+            // type (Renko to range bars) resolves its own. Off a built chart the box on the state
+            // is a restore's (LeaveBricks clears it), so it belongs to the type being entered.
             double hint = state.ChartStyle.IsBrickStyle()
-                ? (savedBox > 0 ? savedBox : settings == state.Renko ? state.BrickBoxSize : 0)
+                ? (savedBox > 0 ? savedBox
+                    : state.ChartStyle == style && BuiltCharts.SameFor(style, settings, state.Renko) ? state.BrickBoxSize : 0)
                 : savedBox > 0 ? savedBox : state.BrickBoxSize;
 
             // A workspace restore chooses the style BEFORE its data has loaded, so there is
-            // nothing to resolve a box from yet. Keep the choice; the first UpdateData while
-            // Renko resolves and freezes the box. A command never reaches this with a bad box:
+            // nothing to resolve a box from yet. Keep the choice; the first UpdateData on the
+            // built chart resolves and freezes the box. A command never reaches this with a bad box:
             // it validated against the loaded bars before dispatching.
             if (source.Count == 0
-                || (!(hint > 0) && !BrickChartBuilder.TryResolveBox(source, settings, out hint, out _)))
+                || (!(hint > 0) && !BuiltCharts.TryResolveBox(style, source, settings, out hint, out _)))
             {
                 return state with
                 {
-                    ChartStyle = PriceChartStyle.Renko,
+                    ChartStyle = style,
                     IsHeikinAshi = false,
                     Renko = settings,
                     TimeBars = source,
@@ -145,13 +151,13 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             }
 
             double box = hint;
-            var built = BrickChartBuilder.Build(
-                source, box, BrickChartBuilder.BarLength(state.Identity, source));
+            var built = BuiltCharts.Build(
+                style, source, settings, box, BrickChartBuilder.BarLength(state.Identity, source));
             if (!built.Ok)
             {
                 return state with
                 {
-                    ChartStyle = PriceChartStyle.Renko,
+                    ChartStyle = style,
                     IsHeikinAshi = false,
                     Renko = settings,
                     TimeBars = source,
@@ -166,7 +172,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             int idx = Math.Max(0, built.Bricks.Count - 1);
             return state with
             {
-                ChartStyle = PriceChartStyle.Renko,
+                ChartStyle = style,
                 IsHeikinAshi = false,
                 Renko = settings,
                 BrickBoxSize = box,
@@ -189,6 +195,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 Data = time,
                 TimeBars = null,
                 BrickSpans = ImmutableArray<BrickSpan>.Empty,
+                // The frozen size is the type's own (a Renko box is no range bar's range), so it
+                // goes with the chart; choosing a built type again resolves afresh.
+                BrickBoxSize = 0,
                 CurrentDataIndex = idx,
                 ViewportStartIndex = LiveStart(state, time.Count),
             };

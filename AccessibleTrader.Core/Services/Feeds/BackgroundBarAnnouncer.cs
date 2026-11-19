@@ -149,11 +149,12 @@ namespace AccessibleTrader.Core.Services.Feeds
             if (brickTab != null)
             {
                 var bricks = Charts.BrickNews.CompletedAtClose(
-                    bars, Charts.BrickNews.BoxFor(bars, brickTab.Renko, brickTab.BrickBoxSize), feed.Identity);
+                    bars, Charts.BrickNews.BoxFor(bars, brickTab.Renko, brickTab.BrickBoxSize, brickTab.ChartStyle),
+                    feed.Identity, brickTab.ChartStyle, brickTab.Renko);
                 if (bricks.Count == 0) return;
                 try { _earcons.PlayNewBar(); }
                 catch (Exception ex) { _logger?.LogWarning(ex, "Background brick earcon failed."); }
-                _ = AnnounceBricksAsync(feed, bricks);
+                _ = AnnounceBricksAsync(feed, bricks, brickTab.ChartStyle);
                 return;
             }
 
@@ -225,14 +226,15 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// The bricks a background Renko tab's close completed: the toast, then the words when
         /// background speech is on, with the tab's ladder (computed on its bricks) after them.
         /// </summary>
-        private async Task AnnounceBricksAsync(ChartFeed feed, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks)
+        private async Task AnnounceBricksAsync(ChartFeed feed, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
+            PriceChartStyle style)
         {
             try
             {
                 string? ladder = await LadderAsync(feed).ConfigureAwait(false);
-                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks), ladder));
+                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks, style), ladder, style));
                 if (SpeakEnabled())
-                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder),
+                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder, style),
                         interrupt: false, channel: SpeechChannel.Narration);
             }
             catch (Exception ex)
@@ -260,7 +262,7 @@ namespace AccessibleTrader.Core.Services.Feeds
             // The candle type is part of what the chart computes: a tab switched to Heikin-Ashi
             // gets a new narrator, and so does one switched to Renko or given a new box.
             string signature = Accessibility.HeadlessChartFactory.Signature(configs) + (heikinAshi ? "\nheikin-ashi" : "")
-                + (brickTab == null ? "" : $"\nrenko|{brickTab.Renko}|{brickTab.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}");
+                + (brickTab == null ? "" : $"\n{brickTab.ChartStyle}|{brickTab.Renko}|{brickTab.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}");
             Accessibility.HeadlessChart chart;
             lock (_narratorGate)
             {

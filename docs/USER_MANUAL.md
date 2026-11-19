@@ -721,10 +721,10 @@ Three keys describe the structure instead of a value.
 The numbers these three speak come from the same ranges the chart is drawn with, so what you
 hear is what a sighted partner sees.
 
-### Chart types: candles, Heikin Ashi, line, area and Renko
+### Chart types: candles, Heikin Ashi, line, area, Renko, range bars and line break
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
-It is one choice with five options, like TradingView's chart-type menu. **Alt+C** puts the focus
+It is one choice with seven options, like TradingView's chart-type menu. **Alt+C** puts the focus
 on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `HA` still does):
 
 - **Candles** — the standard OHLC bars, the default.
@@ -742,6 +742,23 @@ on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `H
   the Go bar's `RENKO 500` sets a fixed box, `RENKO ATR 20` an ATR length, and `brick settings`
   opens the same dialog. Renko is close-based and traditional: the trend continues one box past
   the last brick, a reversal takes two boxes, and a bar that moves four boxes draws four bricks.
+- **Range bars** — every bar spans the same price range, high to low, however long it takes. A
+  bar ends when price moves past its range; it closes at the edge it broke and the next bar opens
+  there. They are real candles (open, high, low and close are prices the market traded through),
+  so they keep their wicks and read as candles. The range is the ATR (14 by default) or a fixed
+  size, frozen like Renko's box. **Range bar settings** opens the same dialog with "Range" in place
+  of "Box"; the Go bar's `RANGEBAR 500` sets a fixed range and `RANGEBAR ATR 20` an ATR length.
+  The bars are built from the time bars, not ticks, so the path inside each bar is assumed: an
+  up bar goes open, low, high, close; a down bar open, high, low, close. A gap is walked too, so
+  a gap of three ranges makes three bars.
+- **Line break** (three-line break by default) — closes only. A block is drawn when a close goes
+  past the last block; the chart turns only when a close breaks past the low (or high) of the
+  last three blocks. Blocks have no fixed size: each is as tall as the move that made it. **Line
+  break settings** has one field, **Lines** (1 to 50); the Go bar's `LINEBREAK 2` sets it.
+
+Renko, range bars and line break draw only completed bars; the one still forming is left out
+until it completes. Each type keeps its own settings on the tab, so `RANGEBAR 500` leaves the
+Renko box as it was.
 
 Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
 Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. Renko never draws
@@ -777,11 +794,12 @@ the select is not shown and the phrases refuse aloud.
 
 **From the keyboard**, use the Go bar (Alt+G): `CANDLE` or `candle chart`, `heikin ashi chart`,
 `LINE` or `line chart`, `AREA`, `area chart` or `mountain`, and `RENKO`, `renko chart` or
-`bricks`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
+`bricks`, `RANGEBAR` or `range bars`, and `LINEBREAK`, `LBREAK` or `line break`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
 than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*
 
 **The price series is named after the chart type.** Page Up / Page Down, the indicator bar, the
-Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Line*, *Area* or *Renko*,
+Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Line*, *Area*, *Renko*,
+*Range bars* or *Line break*,
 whichever is chosen. A name you gave the series yourself is kept. Saved workspaces store it as
 Candles, as before.
 
@@ -795,7 +813,16 @@ brick. The status line says `Up brick 95,000 → 95,500`, the layout description
 *"Renko chart, box 512.30 from ATR 14."* or *"Renko chart, fixed box 500.00."*, and when a brick
 completes the live chart says *"New up brick, 95,000.00 to 95,500.00."*
 
-**A Renko tab in the background says its bricks, not its bar closes.** When a bar closes on a
+**Line break reads the same way, as a block:** the price series has one part, **Block** (not
+"line", so it is not mistaken for the Line chart): *"Block. Up. 95,000.00 to 95,500.00. 18 Nov
+14:00 to 18 Nov 17:00."*, the layout says *"Line break chart, 3 lines."*, and a new one says
+*"New up block, …"*. **Range bars read as candles** (upper wick, body, lower wick, with the
+pattern words), with the bar's real window where a candle says its time; the layout says
+*"Range bars chart, range 512.30 from ATR 14."* or *"… fixed range 500.00."*, and a new one says
+*"New up range bar, …"*.
+
+**A Renko, range bar or line break tab in the background says its new bars, not its bar
+closes** (*"… 2 new up blocks, …"*, *"… new range bar"* and so on, by the type). When a bar closes on a
 Renko tab you are not looking at, or on a saved Renko tab with the browser closed, you hear the
 bricks that close completed: *"BTC/USD 1h: 2 new up bricks, 95,000.00 to 96,000.00."* The
 notification is titled *"BTC/USD 1h: new brick"*, and the tab's narration ladder (its indicators,
@@ -810,8 +837,7 @@ targets, strategy history and saved tabs all read the real time bars behind the 
 drawing, cursor, indicators and alerts read the bricks. The one exception is by design: alerts
 read the chart as drawn, so a price/indicator alert on a Renko tab evaluates on the bricks.
 
-The other brick-based chart types — range bars, line break, Kagi and Point & Figure — are not in
-this build.
+The same holds for range bars and line break. Kagi and Point & Figure are not in this build.
 
 ### Price scales: regular, logarithmic, percent and indexed to 100
 

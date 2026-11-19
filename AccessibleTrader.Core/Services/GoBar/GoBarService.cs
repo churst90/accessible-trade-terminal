@@ -438,6 +438,37 @@ namespace AccessibleTrader.Core.Services.GoBar
                             Help: "Draw the price as Renko bricks with this box"),
                     }, renkoName + ".");
 
+                case GoBarVerb.RangeBars:
+                    if (!GoBarParser.TryParseRange(parsed.Argument, out var range))
+                        return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.RangeBadArgument);
+                    string rangeName = range.RangeMode == RenkoBoxMode.Fixed
+                        ? $"Range bars chart, fixed range {SpeechPriceFormatter.FormatPrice(range.RangeSize)}"
+                        : $"Range bars chart, ATR {range.RangeAtrLength}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            rangeName,
+                            Action: new GoBarRenkoAction(range, PriceChartStyle.RangeBars),
+                            CanonicalText: parsed.Argument.StartsWith("ATR", StringComparison.OrdinalIgnoreCase)
+                                ? $"RANGEBAR ATR {range.RangeAtrLength}"
+                                : $"RANGEBAR {range.RangeSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            Help: "Draw the price as range bars of this range"),
+                    }, rangeName + ".");
+
+                case GoBarVerb.LineBreak:
+                    if (!GoBarParser.TryParseLineBreak(parsed.Argument, out var lineBreak))
+                        return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.LineBreakBadArgument);
+                    int lines = lineBreak.LineBreakLines;
+                    string lineBreakName = $"Line break chart, {lines} line{(lines == 1 ? "" : "s")}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            lineBreakName,
+                            Action: new GoBarRenkoAction(lineBreak, PriceChartStyle.LineBreak),
+                            CanonicalText: $"LINEBREAK {lines}",
+                            Help: "Draw the price as line break blocks, turning on this many lines"),
+                    }, lineBreakName + ".");
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {
@@ -871,7 +902,7 @@ namespace AccessibleTrader.Core.Services.GoBar
                         ExecuteTemplate(template);
                         break;
                     case GoBarRenkoAction renko:
-                        _dispatcher.ShowRenko(renko.Settings);
+                        _dispatcher.ShowBuiltChart(renko.Style, renko.Settings);
                         break;
                     case GoBarDateAction date:
                         ExecuteDate(date);

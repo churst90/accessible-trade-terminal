@@ -11,22 +11,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         public const string Already = "Already a Renko chart.";
         public const string SettingsOnlyOnRenko =
-            "Brick settings are for Renko charts. Choose RENKO first.";
+            "Brick settings are for Renko, range bars and line break charts. Choose one first.";
         public const string BadArgument =
             "Renko takes a box size, like RENKO 500, or ATR and a length, like RENKO ATR 14.";
+        public const string RangeBadArgument =
+            "Range bars take a range, like RANGEBAR 500, or ATR and a length, like RANGEBAR ATR 14.";
+        public const string LineBreakBadArgument =
+            "Line break takes a number of lines from 1 to 50, like LINEBREAK 3.";
 
-        /// <summary>"Renko chart, box 512.30 from ATR 14." or "Renko chart, fixed box 500.00."
-        /// The box is the frozen one the chart actually uses.</summary>
+        /// <summary>"Already a Renko chart.", "Already a Range bars chart." ...</summary>
+        public static string AlreadyFor(PriceChartStyle style) =>
+            style == PriceChartStyle.Renko ? Already
+                : style == PriceChartStyle.RangeBars ? "Already a range bar chart."
+                : "Already a line break chart.";
+
+        /// <summary>The Go bar's refusal for a bad argument to <paramref name="style"/>'s word.</summary>
+        public static string BadArgumentFor(PriceChartStyle style) => style switch
+        {
+            PriceChartStyle.RangeBars => RangeBadArgument,
+            PriceChartStyle.LineBreak => LineBreakBadArgument,
+            _ => BadArgument,
+        };
+
+        /// <summary>"Renko chart, box 512.30 from ATR 14." or "Renko chart, fixed box 500.00.";
+        /// "Range bars chart, range 512.30 from ATR 14."; "Line break chart, 3 lines." The size is
+        /// the frozen one the chart actually uses.</summary>
         public static string ChangeSentence(WorkspaceState state)
         {
+            var style = state.ChartStyle.IsBrickStyle() ? state.ChartStyle : PriceChartStyle.Renko;
+            string chart = $"{BuiltCharts.Name(style)} chart";
+            if (style == PriceChartStyle.LineBreak)
+            {
+                int lines = state.Renko.LineBreakLines;
+                return $"{chart}, {lines} line{(lines == 1 ? "" : "s")}.";
+            }
+
             double box = state.BrickBoxSize;
             if (!(box > 0))
-                return "Renko chart.";
+                return chart + ".";
 
             string price = SpeechPriceFormatter.FormatPrice(box);
-            return state.Renko.Mode == RenkoBoxMode.Fixed
-                ? $"Renko chart, fixed box {price}."
-                : $"Renko chart, box {price} from ATR {state.Renko.AtrLength}.";
+            string unit = style == PriceChartStyle.RangeBars ? "range" : "box";
+            var (mode, atr) = style == PriceChartStyle.RangeBars
+                ? (state.Renko.RangeMode, state.Renko.RangeAtrLength)
+                : (state.Renko.Mode, state.Renko.AtrLength);
+            return mode == RenkoBoxMode.Fixed
+                ? $"{chart}, fixed {unit} {price}."
+                : $"{chart}, {unit} {price} from ATR {atr}.";
         }
 
         /// <summary>The brick at <paramref name="index"/>, when this chart has one.</summary>
@@ -48,23 +79,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             => SpeechTimeFormatter.FormatBrickRange(
                 span.Start, span.End, PlaybackNarration.BarSeconds(state));
 
-        /// <summary>"Up brick, 95,000.00 to 95,500.00" — direction and the two prices as drawn.</summary>
-        public static string BrickSummary(Ohlcv brick, BrickSpan span)
-            => $"{(span.Up ? "Up" : "Down")} brick, "
+        /// <summary>"Up brick, 95,000.00 to 95,500.00" — direction and the two prices as drawn
+        /// ("Up block" on line break).</summary>
+        public static string BrickSummary(Ohlcv brick, BrickSpan span, PriceChartStyle style = PriceChartStyle.Renko)
+            => $"{(span.Up ? "Up" : "Down")} {BuiltCharts.Noun(style)}, "
              + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
              + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}";
 
         /// <summary>The arrow-key sentence for a brick: its direction, prices and real window.</summary>
         public static string Readout(WorkspaceState state, Ohlcv brick, BrickSpan span)
-            => $"{BrickSummary(brick, span)}. {Window(state, span)}.";
+            => $"{BrickSummary(brick, span, state.ChartStyle)}. {Window(state, span)}.";
 
         /// <summary>Validates a choice against the real bars and returns the bricks it would make.</summary>
         public static bool TryPlan(
             WorkspaceState state,
             RenkoSettings settings,
             out BrickChartPlan? plan,
-            out string? refusal)
-            => BrickChartBuilder.TryPlan(
+            out string? refusal,
+            PriceChartStyle style = PriceChartStyle.Renko)
+            => BuiltCharts.TryPlan(
+                style,
                 state.MarketBars,
                 settings,
                 BrickChartBuilder.BarLength(state.Identity, state.MarketBars),

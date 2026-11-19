@@ -383,10 +383,11 @@ namespace AccessibleTrader.Core.Services.Rendering
             bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles)
         {
             var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
-            bool brickChart = chartStyle.IsBrickStyle();
+            bool brickChart = chartStyle.IsBlockStyle();
             // A brick has no duration, so its symbol line must not print the tab's timeframe
-            // beside it (a 1h tab's brick may have taken ten minutes or two days).
-            string title = string.Join(" · ", new[] { id.Symbol, brickChart ? null : id.Timeframe, id.Provider }
+            // beside it (a 1h tab's brick may have taken ten minutes or two days). Nor does a
+            // range bar, which otherwise prints its O/H/L/C as a candle does.
+            string title = string.Join(" · ", new[] { id.Symbol, chartStyle.IsBrickStyle() ? null : id.Timeframe, id.Provider }
                 .Where(p => !string.IsNullOrWhiteSpace(p)));
 
             // A brick has two edges and no wicks. The symbol line names the direction and the
@@ -398,7 +399,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 bool up = bar.Close >= bar.Open;
                 var brickValues = new List<StatusValue>
                 {
-                    Value(up ? "Up brick" : "Down brick",
+                    Value($"{(up ? "Up" : "Down")} {Charts.BuiltCharts.Noun(chartStyle)}",
                         $"{FormatReading(bar.Open)} → {FormatReading(bar.Close)}",
                         up ? brickBull : brickBear, theme, backing),
                 };

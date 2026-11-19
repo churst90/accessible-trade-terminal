@@ -81,7 +81,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // case that needs the ATR here.
             if (!haveBox)
             {
-                if (!BrickChartBuilder.TryResolveBox(timeBars, state.Renko, out box, out _))
+                if (!BuiltCharts.TryResolveBox(state.ChartStyle, timeBars, state.Renko, out box, out _))
                 {
                     var empty = state with
                     {
@@ -97,8 +97,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 }
             }
 
-            var built = BrickChartBuilder.Build(
-                timeBars, box, BrickChartBuilder.BarLength(state.Identity, timeBars));
+            var built = BuiltCharts.Build(
+                state.ChartStyle, timeBars, state.Renko, box, BrickChartBuilder.BarLength(state.Identity, timeBars));
 
             var withBricks = state with
             {

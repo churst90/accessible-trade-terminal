@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && BrickChartSpeech.TryGetBrick(state, start, out _, out var firstBrick)
                 && BrickChartSpeech.TryGetBrick(state, end, out _, out var lastBrick))
             {
-                parts.Add($"X axis, time: {length} bricks in view of "
+                parts.Add($"X axis, time: {length} {Charts.BuiltCharts.Noun(state.ChartStyle, length)} in view of "
                     + $"{bars.Count.ToString("N0", CultureInfo.InvariantCulture)} drawn, "
                     + $"{BrickChartSpeech.Window(state, firstBrick)} to "
                     + $"{BrickChartSpeech.Window(state, lastBrick)}.");
@@ -241,7 +241,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && BrickChartSpeech.TryGetBrick(state, end, out _, out var paneLast))
             {
                 parts.Add($"X axis, time: {BrickChartSpeech.Window(state, paneFirst)} to "
-                    + $"{BrickChartSpeech.Window(state, paneLast)}, {length} bricks.");
+                    + $"{BrickChartSpeech.Window(state, paneLast)}, {length} {Charts.BuiltCharts.Noun(state.ChartStyle, length)}.");
             }
             else
             {

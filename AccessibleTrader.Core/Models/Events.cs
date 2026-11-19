@@ -458,7 +458,8 @@ namespace AccessibleTrader.Core.Models
     /// <param name="Summary">"new up brick, 95,000.00 to 95,500.00" — the body's first sentence,
     /// without the symbol (the title names the chart).</param>
     /// <param name="Narration">The tab's narration ladder at the newest brick, or null.</param>
-    public record BackgroundBricksFormedEvent(ChartIdentity Identity, string Summary, string? Narration = null);
+    public record BackgroundBricksFormedEvent(ChartIdentity Identity, string Summary, string? Narration = null,
+        PriceChartStyle Style = PriceChartStyle.Renko);
     /// <summary>Fired on every intra-bar tick (same bar count, last bar updated in place).</summary>
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 

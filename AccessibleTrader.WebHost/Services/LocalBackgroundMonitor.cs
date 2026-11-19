@@ -339,8 +339,9 @@ namespace AccessibleTrader.WebHost.Services
                     // A Renko chart says the bricks this close completed, and a close that
                     // completed none says nothing of its own — only its ladder, if that had news.
                     var bricks = BrickNews.CompletedAtClose(
-                        bars, BrickNews.BoxFor(bars, watch.Renko, watch.BrickBoxSize),
-                        new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe));
+                        bars, BrickNews.BoxFor(bars, watch.Renko, watch.BrickBoxSize, watch.ChartStyle),
+                        new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
+                        watch.ChartStyle, watch.Renko);
                     if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null);
                     else if (speakLadder) AnnounceNarration(watch, ladder!);
                 }
@@ -387,17 +388,13 @@ namespace AccessibleTrader.WebHost.Services
 
             if (brick)
             {
-                box = watch.BrickBoxSize;
-                if (!(box > 0) && !BrickChartBuilder.TryResolveBox(bars, watch.Renko ?? new RenkoSettings(), out box, out _))
-                    box = 0;
-
-                if (box > 0)
+                if (BuiltCharts.TryBuild(watch.ChartStyle, bars, watch.Renko ?? new RenkoSettings(), watch.BrickBoxSize,
+                        BrickChartBuilder.BarLength(
+                            new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bars),
+                        out var built, out box))
                 {
-                    var built = BrickChartBuilder.Build(
-                        bars, box, BrickChartBuilder.BarLength(
-                            new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bars));
-                    displayBars = built.Ok ? built.Bricks : TimeSeriesBuffer<Ohlcv>.Empty;
-                    spans = built.Ok ? built.Spans : System.Collections.Immutable.ImmutableArray<BrickSpan>.Empty;
+                    displayBars = built.Bricks;
+                    spans = built.Spans;
                 }
                 else
                 {
@@ -414,7 +411,7 @@ namespace AccessibleTrader.WebHost.Services
                 BrickSpans = spans,
                 BrickBoxSize = box,
                 Renko = watch.Renko ?? new RenkoSettings(),
-                ChartStyle = brick ? PriceChartStyle.Renko : PriceChartStyle.Candles,
+                ChartStyle = brick ? watch.ChartStyle : PriceChartStyle.Candles,
                 // Price and candle alerts read the candle as drawn (AlertEvaluator).
                 IsHeikinAshi = !brick && watch.HeikinAshi,
                 CurrentDataIndex = Math.Max(0, displayBars.Count - 1),
@@ -1015,9 +1012,10 @@ namespace AccessibleTrader.WebHost.Services
         private void AnnounceBricks(Watch watch, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks, string? ladder)
         {
             if (_announcementsSnoozed) return;
-            string title = BrickNews.Title(watch.Symbol, watch.Timeframe);
+            string title = BrickNews.Title(watch.Symbol, watch.Timeframe, watch.ChartStyle);
             string sentence = BrickNews.Sentence(
-                new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bricks, ladder);
+                new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bricks, ladder,
+                watch.ChartStyle);
             _logger.LogInformation("Background bricks: {Sentence}", sentence);
             DesktopAnnouncement.Present(_presenter,
                 title, sentence, sentence, urgent: false, withSound: true, _logger);
@@ -1068,7 +1066,7 @@ namespace AccessibleTrader.WebHost.Services
             string signature = HeadlessChartFactory.Signature(saved, watch.Alerts)
                 + (watch.HeikinAshi ? "\nheikin-ashi" : "")
                 + (watch.ChartStyle.IsBrickStyle()
-                    ? $"\nrenko|{watch.Renko?.Mode}|{watch.Renko?.AtrLength}|{watch.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}"
+                    ? $"\n{watch.ChartStyle}|{watch.Renko}|{watch.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}"
                     : "");
 
             if (_charts.TryGetValue(key, out var held) && held.Signature == signature)

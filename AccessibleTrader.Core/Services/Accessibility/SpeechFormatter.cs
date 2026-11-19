@@ -180,7 +180,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // brick's direction and two edges, then its REAL window — no shape, pattern or wick.
             Ohlcv brick = default;
             BrickSpan brickSpan = default;
-            bool brickCandle = seriesId == "candles"
+            // Range bars are real candles (a body and two wicks), so only Renko and line break
+            // take this path; a range bar reads as a candle, with its real window as the time.
+            bool brickCandle = seriesId == "candles" && state.ChartStyle.IsBlockStyle()
                 && BrickChartSpeech.TryGetBrick(state, state.CurrentDataIndex, out brick, out brickSpan);
 
             // On Line, Area and Renko the price series has ONE part (PriceSeriesShape): the close
@@ -191,6 +193,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // The bar-detail key still reads the full OHLC bar, a question about the market.
             var onePart = seriesId == CoreSeriesIds.Candles && series.Components.Count == 1
                 && series.Components[0].Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BrickPart
+                    or Charts.PriceSeriesShape.BlockPart
                 ? series.Components[0]
                 : null;
 
@@ -211,7 +214,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 else if (brickCandle)
                 {
                     // Bricks drawn under candle parts (a shape not yet applied): the brick, plainly.
-                    msg = ScalePrefix(scaleMode, brick.Close, scaleBase) + BrickChartSpeech.BrickSummary(brick, brickSpan);
+                    msg = ScalePrefix(scaleMode, brick.Close, scaleBase)
+                        + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle);
                 }
                 else
                 {
@@ -1382,7 +1386,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
     }
 
     /// <summary>
-    /// The price series' one part on a Renko chart: "Brick. Up. 110.00 to 120.00." — its name,
+    /// The price series' one part on a Renko or line break chart: "Brick. Up. 110.00 to 120.00."
+    /// ("Block. Up. ..." on line break) — its name,
     /// then its direction in the type's place (as the candle body says Bullish), then its two
     /// edges as drawn. The brick's real window follows from the caller.
     /// </summary>
@@ -1390,7 +1395,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         public bool CanHandle(ComponentFormatContext ctx) =>
             Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
-            && ctx.Comp.Name == Charts.PriceSeriesShape.BrickPart;
+            && ctx.Comp.Name is Charts.PriceSeriesShape.BrickPart or Charts.PriceSeriesShape.BlockPart;
 
         public string Format(ComponentFormatContext ctx)
         {

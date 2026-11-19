@@ -38,7 +38,8 @@ namespace AccessibleTrader.Core.Services.Charts
         /// <paramref name="bars"/>' last entry is the bar that has just opened.
         /// </summary>
         public static IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> CompletedAtClose(
-            IReadOnlyList<Ohlcv> bars, double box, ChartIdentity? identity)
+            IReadOnlyList<Ohlcv> bars, double box, ChartIdentity? identity,
+            PriceChartStyle style = PriceChartStyle.Renko, RenkoSettings? settings = null)
         {
             var none = Array.Empty<(Ohlcv, BrickSpan)>();
             if (bars == null || bars.Count < 2 || !(box > 0) || double.IsNaN(box) || double.IsInfinity(box))
@@ -48,7 +49,8 @@ namespace AccessibleTrader.Core.Services.Charts
             for (int i = 0; i < closed.Length; i++) closed[i] = bars[i];
             int closedBar = closed.Length - 1;
 
-            var built = BrickChartBuilder.Build(closed, box, BrickChartBuilder.BarLength(identity, closed));
+            var built = BuiltCharts.Build(style, closed, settings ?? new RenkoSettings(), box,
+                BrickChartBuilder.BarLength(identity, closed));
             if (!built.Ok) return none;
 
             var news = new List<(Ohlcv, BrickSpan)>();
@@ -62,10 +64,11 @@ namespace AccessibleTrader.Core.Services.Charts
         /// The box a background Renko chart uses: the one the tab froze when Renko was chosen,
         /// else its settings against the bars. Zero when neither gives one.
         /// </summary>
-        public static double BoxFor(IReadOnlyList<Ohlcv> bars, RenkoSettings? settings, double frozenBox)
+        public static double BoxFor(IReadOnlyList<Ohlcv> bars, RenkoSettings? settings, double frozenBox,
+            PriceChartStyle style = PriceChartStyle.Renko)
         {
             if (frozenBox > 0) return frozenBox;
-            return BrickChartBuilder.TryResolveBox(bars, settings ?? new RenkoSettings(), out double box, out _)
+            return BuiltCharts.TryResolveBox(style, bars, settings ?? new RenkoSettings(), out double box, out _)
                 ? box
                 : 0;
         }
@@ -77,33 +80,35 @@ namespace AccessibleTrader.Core.Services.Charts
         /// it is about the newest brick.
         /// </summary>
         public static string Sentence(ChartIdentity identity, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            string? ladder = null)
+            string? ladder = null, PriceChartStyle style = PriceChartStyle.Renko)
         {
             string what = string.Join(" ", new[] { identity.Symbol ?? "", identity.Timeframe ?? "" }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             string lead = what.Length == 0 ? "" : what + ": ";
             string tail = string.IsNullOrWhiteSpace(ladder) ? "" : " " + ladder.Trim();
-            return lead + Summary(bricks) + "." + tail;
+            return lead + Summary(bricks, style) + "." + tail;
         }
 
         /// <summary>"new up brick, 95,000.00 to 95,500.00" without the symbol, for a toast body
-        /// whose title already names the chart.</summary>
-        public static string Summary(IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks)
+        /// whose title already names the chart. Range bars say "range bar", line break "block".</summary>
+        public static string Summary(IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
+            PriceChartStyle style = PriceChartStyle.Renko)
         {
             if (bricks.Count == 0) return "";
             bool up = bricks[^1].Span.Up;
             string count = bricks.Count == 1 ? "new" : $"{bricks.Count} new";
-            string noun = bricks.Count == 1 ? "brick" : "bricks";
+            string noun = BuiltCharts.Noun(style, bricks.Count);
             return $"{count} {(up ? "up" : "down")} {noun}, "
                  + $"{SpeechPriceFormatter.FormatPrice(bricks[0].Brick.Open)} to "
                  + $"{SpeechPriceFormatter.FormatPrice(bricks[^1].Brick.Close)}";
         }
 
         /// <summary>"BTCUSDT 1h: new brick" — the toast title.</summary>
-        public static string Title(string symbol, string timeframe)
+        public static string Title(string symbol, string timeframe, PriceChartStyle style = PriceChartStyle.Renko)
         {
+            string noun = BuiltCharts.Noun(style);
             string what = string.Join(" ", new[] { symbol, timeframe }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            return what.Length == 0 ? "New brick" : $"{what}: new brick";
+            return what.Length == 0 ? $"New {noun}" : $"{what}: new {noun}";
         }
     }
 }

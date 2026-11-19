@@ -64,7 +64,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ? BrickChartSpeech.Window(state, firstBrick)
                 : DateText(state.Data[plan.StartIndex].Date, barSeconds);
             return $"Playing {what} from {from}, {count} "
-                 + (brick ? $"brick{(count == 1 ? "" : "s")}" : $"bar{(count == 1 ? "" : "s")}")
+                 + (brick ? Charts.BuiltCharts.Noun(state.ChartStyle, count) : $"bar{(count == 1 ? "" : "s")}")
                  + "."
                  + SilentSignalsCaveat(state, plan);
         }

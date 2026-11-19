@@ -171,6 +171,10 @@ namespace AccessibleTrader.Core.Models
         // box argument in the Go bar; the command itself means "the tab's settings".
         ShowRenkoChart,
         ShowBrickSettings,
+        // The other two charts built off the clock, sharing Renko's settings dialog. RANGEBAR and
+        // LINEBREAK take an optional argument in the Go bar, as RENKO does.
+        ShowRangeBarsChart,
+        ShowLineBreakChart,
         // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
         // these name a ruler outright so the Go bar can reach it without a new key.
         ShowRegularScale,

@@ -231,7 +231,7 @@ namespace AccessibleTrader.Core.Services.Notifications
                 var brick = state.Data[last];
                 var span = state.BrickSpans[last];
                 Send(NewBarTitle(state),
-                    $"New {(span.Up ? "up" : "down")} brick, "
+                    $"New {(span.Up ? "up" : "down")} {Charts.BuiltCharts.Noun(state.ChartStyle)}, "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.");
                 return;
@@ -283,7 +283,7 @@ namespace AccessibleTrader.Core.Services.Notifications
 
             string body = Capitalise(e.Summary) + "."
                 + (string.IsNullOrWhiteSpace(e.Narration) ? "" : " " + e.Narration.Trim());
-            Send(Charts.BrickNews.Title(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""), body);
+            Send(Charts.BrickNews.Title(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? "", e.Style), body);
         }
 
         private static string Capitalise(string s) =>
