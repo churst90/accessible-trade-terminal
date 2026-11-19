@@ -35,13 +35,16 @@
             else
             {
             <p style="margin-top: 12px; font-size: 0.9rem;">
-                @(_style == PriceChartStyle.RangeBars
-                    ? "The range is how far price moves, high to low, in one bar. ATR follows the market's own range; a fixed size never changes."
-                    : "The box is the price move that makes one brick. ATR follows the market's own range; a fixed size never changes.")
+                @(_style switch
+                {
+                    PriceChartStyle.RangeBars => "The range is how far price moves, high to low, in one bar. ATR follows the market's own range; a fixed size never changes.",
+                    PriceChartStyle.Kagi => "The reversal amount is how far a close must come back from a line's end to turn it. ATR follows the market's own range; a fixed size never changes.",
+                    _ => "The box is the price move that makes one brick. ATR follows the market's own range; a fixed size never changes.",
+                })
             </p>
 
             <fieldset style="margin-top: 12px; border: none; padding: 0;">
-                <legend>@(_style == PriceChartStyle.RangeBars ? "Range" : "Renko box")</legend>
+                <legend>@SizeName</legend>
                 <label style="display: block;">
                     <input id="renko-box-atr" type="radio" name="renko-box-mode"
                            checked="@(_mode == RenkoBoxMode.Atr)"
@@ -75,7 +78,12 @@
             else
             {
                 <div class="modal-row" style="margin-top: 12px;">
-                    <label for="renko-box-size">@(_style == PriceChartStyle.RangeBars ? "Range size:" : "Box size:")</label>
+                    <label for="renko-box-size">@(_style switch
+                    {
+                        PriceChartStyle.RangeBars => "Range size:",
+                        PriceChartStyle.Kagi => "Reversal amount:",
+                        _ => "Box size:",
+                    })</label>
                     <input id="renko-box-size"
                            type="number"
                            min="0"
@@ -114,14 +122,23 @@
     private string _boxSizeText = "";
     private string _linesText = "3";
 
-    /// <summary>One dialog for the three charts built off the clock; it shows the settings of
+    /// <summary>One dialog for the four charts built off the clock; it shows the settings of
     /// the type on screen. Its modal name stays "Brick settings" so the modal stack and the
     /// keyboard scope know it as before.</summary>
     private string Title => _style switch
     {
         PriceChartStyle.RangeBars => "Range bar settings",
         PriceChartStyle.LineBreak => "Line break settings",
+        PriceChartStyle.Kagi => "Kagi settings",
         _ => "Brick settings",
+    };
+
+    /// <summary>The size's name in the legend and the preview.</summary>
+    private string SizeName => _style switch
+    {
+        PriceChartStyle.RangeBars => "Range",
+        PriceChartStyle.Kagi => "Reversal amount",
+        _ => "Renko box",
     };
     private string? _statusMessage;
     private bool _isError;
@@ -138,10 +155,14 @@
     {
         var state = Store.State;
         _style = state.ChartStyle.IsBrickStyle() ? state.ChartStyle : PriceChartStyle.Renko;
-        bool range = _style == PriceChartStyle.RangeBars;
-        _mode = range ? state.Renko.RangeMode : state.Renko.Mode;
-        _atrLengthText = (range ? state.Renko.RangeAtrLength : state.Renko.AtrLength).ToString(CultureInfo.InvariantCulture);
-        double fixedSize = range ? state.Renko.RangeSize : state.Renko.BoxSize;
+        var r = state.Renko;
+        (_mode, int atrLength, double fixedSize) = _style switch
+        {
+            PriceChartStyle.RangeBars => (r.RangeMode, r.RangeAtrLength, r.RangeSize),
+            PriceChartStyle.Kagi => (r.KagiMode, r.KagiAtrLength, r.KagiSize),
+            _ => (r.Mode, r.AtrLength, r.BoxSize),
+        };
+        _atrLengthText = atrLength.ToString(CultureInfo.InvariantCulture);
         _boxSizeText = (state.BrickBoxSize > 0 && _style != PriceChartStyle.LineBreak ? state.BrickBoxSize
             : fixedSize > 0 ? fixedSize : 0)
             .ToString("0.##########", CultureInfo.InvariantCulture);
@@ -166,11 +187,14 @@
             return "Enter an ATR length from 1 to 200.";
 
         var state = Store.State;
-        var asked = _style == PriceChartStyle.RangeBars
-            ? new RenkoSettings(RangeMode: RenkoBoxMode.Atr, RangeAtrLength: length)
-            : new RenkoSettings(RenkoBoxMode.Atr, 0, length);
+        var asked = _style switch
+        {
+            PriceChartStyle.RangeBars => new RenkoSettings(RangeMode: RenkoBoxMode.Atr, RangeAtrLength: length),
+            PriceChartStyle.Kagi => new RenkoSettings(KagiMode: RenkoBoxMode.Atr, KagiAtrLength: length),
+            _ => new RenkoSettings(RenkoBoxMode.Atr, 0, length),
+        };
         return BuiltCharts.TryResolveBox(_style, state.MarketBars, asked, out double box, out _)
-            ? $"Resolved {(_style == PriceChartStyle.RangeBars ? "range" : "box")}: {AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(box)}."
+            ? $"Resolved {SizeName.Replace("Renko ", "").ToLowerInvariant()}: {AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(box)}."
             : $"ATR {length} needs at least {length + 2} bars; this chart has {state.MarketBars.Count}.";
     }
 
@@ -203,15 +227,21 @@
             && (!double.TryParse(_boxSizeText, NumberStyles.Number, CultureInfo.InvariantCulture, out boxSize)
                 || !double.IsFinite(boxSize) || boxSize <= 0))
         {
-            Refuse(_style == PriceChartStyle.RangeBars
-                ? "A range bar's range must be a positive price."
-                : "A Renko box must be a positive price.", "renko-box-size");
+            Refuse(_style switch
+            {
+                PriceChartStyle.RangeBars => "A range bar's range must be a positive price.",
+                PriceChartStyle.Kagi => "A Kagi reversal amount must be a positive price.",
+                _ => "A Renko box must be a positive price.",
+            }, "renko-box-size");
             return;
         }
 
-        var settings = _style == PriceChartStyle.RangeBars
-            ? state.Renko with { RangeMode = _mode, RangeSize = boxSize, RangeAtrLength = atrLength }
-            : state.Renko with { Mode = _mode, BoxSize = boxSize, AtrLength = atrLength };
+        var settings = _style switch
+        {
+            PriceChartStyle.RangeBars => state.Renko with { RangeMode = _mode, RangeSize = boxSize, RangeAtrLength = atrLength },
+            PriceChartStyle.Kagi => state.Renko with { KagiMode = _mode, KagiSize = boxSize, KagiAtrLength = atrLength },
+            _ => state.Renko with { Mode = _mode, BoxSize = boxSize, AtrLength = atrLength },
+        };
         string sizeTarget = _mode == RenkoBoxMode.Fixed ? "renko-box-size" : "renko-atr-length";
         ApplySettings(state, settings, sizeTarget);
     }

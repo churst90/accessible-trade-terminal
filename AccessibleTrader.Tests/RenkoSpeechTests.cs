@@ -293,7 +293,7 @@ public sealed class RenkoSpeechTests
         dispatcher.DispatchFromGoBar(SystemCommand.ShowBrickSettings);
 
         Assert.Contains(bus.Log.OfType<FeedbackRequestEvent>(),
-            e => e.Message == "Brick settings are for Renko, range bars and line break charts. Choose one first.");
+            e => e.Message == "Brick settings are for Renko, range bars, line break and Kagi charts. Choose one first.");
         Assert.DoesNotContain(bus.Log.OfType<OpenChartTypeSettingsEvent>(), _ => true);
     }
 

@@ -95,7 +95,12 @@ None of this has been seen or heard in the app yet.
   that turn only when a close breaks past the last three, read as *"Block. Up. 110.00 to
   120.00."* Each has its own settings dialog and Go bar word: `RANGEBAR 500`, `RANGEBAR ATR 20`,
   `LINEBREAK 3`. A background tab on either says its new range bars or blocks.
-- **Alerts on Renko, range bar and line break charts fire on the real price.** An alert at 64,000
+- **Kagi** is in the Chart type list too: one line per swing that keeps growing while price goes
+  its way and turns on a reversal amount, thick above the last shoulder and thin below the last
+  waist. You hear the thickness as you arrow, *"Kagi line. Up, turns thick at 120.00. 95.00 to
+  125.00."*, and once, live, the moment the growing line passes it: *"Kagi turns thick at
+  120.00."* `KAGI 500` sets a fixed reversal amount, `KAGI ATR 20` an ATR length.
+- **Alerts on Renko, range bar, line break and Kagi charts fire on the real price.** An alert at 64,000
   fires when the market trades 64,000, not when a brick happens to end there; an alert on a drawn
   level does the same. Indicator alerts still read the indicator as the chart draws it, on the
   bricks.

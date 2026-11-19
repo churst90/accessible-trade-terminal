@@ -727,6 +727,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _earconService.PlayNewBar();
                 _speechRouter.Speak(
                     $"New {(span.Up ? "up" : "down")} {Charts.BuiltCharts.Noun(state.ChartStyle)}, "
+                    + (state.ChartStyle == PriceChartStyle.Kagi
+                        ? Charts.KagiLines.Words(Charts.KagiLines.At(state.Data, last)) + ", "
+                        : "")
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.",
                     interrupt: false, channel: SpeechChannel.Narration);
@@ -841,11 +844,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private bool NarrateFormingCharts => _appSettings?.NarrateFormingChartPatterns ?? false;
 
+        /// <summary>The Kagi line whose turn was last said, by its date, so a price that wavers
+        /// across the shoulder says it once.</summary>
+        private DateTime _kagiTurnSaidFor;
+
         private void OnIntraBarUpdate(IntraBarUpdateEvent e)
         {
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
             if (state.IsPlaying) return;
+
+            // A Kagi line grows in place; the one thing worth saying while it does is the moment it
+            // turns thick or thin, which is the chart's own signal. Once per line.
+            if (state.ChartStyle == PriceChartStyle.Kagi)
+            {
+                string? turn = BrickChartSpeech.KagiTurnNews(state.Data, e.PreviousBar);
+                var line = state.Data is { Count: > 0 } d ? d[^1].Date : default;
+                if (turn != null && line != _kagiTurnSaidFor)
+                {
+                    _kagiTurnSaidFor = line;
+                    _speechRouter.Speak(turn, interrupt: false, channel: SpeechChannel.Narration);
+                }
+                return;
+            }
 
             // The forming-bar commentary is about candle anatomy; a brick has none.
             if (state.ChartStyle.IsBrickStyle()) return;

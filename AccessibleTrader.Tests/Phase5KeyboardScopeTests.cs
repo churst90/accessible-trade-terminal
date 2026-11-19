@@ -77,6 +77,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.ShowBrickSettings)]
         [InlineData(SystemCommand.ShowRangeBarsChart)]
         [InlineData(SystemCommand.ShowLineBreakChart)]
+        [InlineData(SystemCommand.ShowKagiChart)]
         [InlineData(SystemCommand.ShowRegularScale)]
         [InlineData(SystemCommand.ShowPercentScale)]
         [InlineData(SystemCommand.ShowIndexedScale)]
@@ -246,6 +247,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ShowLineChart, SystemCommand.ShowAreaChart,
                 SystemCommand.ShowRenkoChart, SystemCommand.ShowBrickSettings,
                 SystemCommand.ShowRangeBarsChart, SystemCommand.ShowLineBreakChart,
+                SystemCommand.ShowKagiChart,
                 SystemCommand.ShowRegularScale, SystemCommand.ShowPercentScale,
                 SystemCommand.ShowIndexedScale,
                 SystemCommand.ToggleLogScale,

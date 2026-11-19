@@ -43,6 +43,10 @@ namespace AccessibleTrader.Core.Services.Charts
         /// chart is never mistaken for the Line chart by ear.</summary>
         public const string BlockPart = "block";
 
+        /// <summary>The one part's name on a Kagi chart, said "Kagi line": never plain "line",
+        /// which is the Line chart's.</summary>
+        public const string KagiPart = "kagi";
+
         /// <summary>
         /// The price series' name on each chart type: the Chart type list's own words. Cody,
         /// 2026-11-19: "when i change to renko and use pg up/down and land on that series, it is
@@ -56,6 +60,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Renko => "Renko",
             PriceChartStyle.RangeBars => "Range bars",
             PriceChartStyle.LineBreak => "Line break",
+            PriceChartStyle.Kagi => "Kagi",
             _ => heikinAshi ? "Heikin Ashi" : "Candles",
         };
 
@@ -63,11 +68,11 @@ namespace AccessibleTrader.Core.Services.Charts
         /// none of these, and is never touched.</summary>
         private static readonly HashSet<string> ChartTypeNames = new(StringComparer.OrdinalIgnoreCase)
         {
-            "", "Candles", "Heikin Ashi", "Line", "Area", "Renko", "Range bars", "Line break",
+            "", "Candles", "Heikin Ashi", "Line", "Area", "Renko", "Range bars", "Line break", "Kagi",
         };
 
         /// <summary>What the price series' parts are.</summary>
-        public enum Kind { Candles, Line, Area, Brick, Block }
+        public enum Kind { Candles, Line, Area, Brick, Block, Kagi }
 
         /// <summary>The shape a chart type draws the price series in.</summary>
         public static Kind For(PriceChartStyle style) => style switch
@@ -76,6 +81,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Area => Kind.Area,
             PriceChartStyle.Renko => Kind.Brick,
             PriceChartStyle.LineBreak => Kind.Block,
+            PriceChartStyle.Kagi => Kind.Kagi,
             _ => Kind.Candles,
         };
 
@@ -86,6 +92,7 @@ namespace AccessibleTrader.Core.Services.Charts
             var only = config.Components[0];
             if (only.Name == BrickPart) return Kind.Brick;
             if (only.Name == BlockPart) return Kind.Block;
+            if (only.Name == KagiPart) return Kind.Kagi;
             if (only.Name == LinePart)
                 return only.DisplayType == ComponentDisplayType.Area ? Kind.Area : Kind.Line;
             return Kind.Candles;
@@ -142,7 +149,7 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             var missing = config.Components.Where(c => !data.ComponentData.ContainsKey(c.Name)).ToList();
             if (missing.Count == 0) return data;
-            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart }.FirstOrDefault(data.ComponentData.ContainsKey);
+            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart, KagiPart }.FirstOrDefault(data.ComponentData.ContainsKey);
             if (closeKey == null) return data;
             var copy = new SeriesDataBuffer
             {
@@ -248,13 +255,14 @@ namespace AccessibleTrader.Core.Services.Charts
             var type = target switch
             {
                 Kind.Area => ComponentDisplayType.Area,
-                Kind.Brick or Kind.Block => ComponentDisplayType.Brick,
+                Kind.Brick or Kind.Block or Kind.Kagi => ComponentDisplayType.Brick,
                 _ => ComponentDisplayType.Line,
             };
             (part.Name, part.DisplayName) = target switch
             {
                 Kind.Brick => (BrickPart, "Brick"),
                 Kind.Block => (BlockPart, "Block"),
+                Kind.Kagi => (KagiPart, "Kagi line"),
                 _ => (LinePart, "Close"),
             };
             part.DisplayType = type;

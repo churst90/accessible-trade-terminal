@@ -193,7 +193,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // The bar-detail key still reads the full OHLC bar, a question about the market.
             var onePart = seriesId == CoreSeriesIds.Candles && series.Components.Count == 1
                 && series.Components[0].Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BrickPart
-                    or Charts.PriceSeriesShape.BlockPart
+                    or Charts.PriceSeriesShape.BlockPart or Charts.PriceSeriesShape.KagiPart
                 ? series.Components[0]
                 : null;
 
@@ -215,7 +215,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     // Bricks drawn under candle parts (a shape not yet applied): the brick, plainly.
                     msg = ScalePrefix(scaleMode, brick.Close, scaleBase)
-                        + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle);
+                        + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle, state.Data, state.CurrentDataIndex);
                 }
                 else
                 {
@@ -1389,18 +1389,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// The price series' one part on a Renko or line break chart: "Brick. Up. 110.00 to 120.00."
     /// ("Block. Up. ..." on line break) — its name,
     /// then its direction in the type's place (as the candle body says Bullish), then its two
-    /// edges as drawn. The brick's real window follows from the caller.
+    /// edges as drawn. The brick's real window follows from the caller. A Kagi line adds its
+    /// thickness, which the chart draws: "Kagi line. Up, turns thick at 115.00. 110.00 to 120.00."
     /// </summary>
     internal sealed class BrickStrategy : IComponentSpeechStrategy
     {
         public bool CanHandle(ComponentFormatContext ctx) =>
             Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
-            && ctx.Comp.Name is Charts.PriceSeriesShape.BrickPart or Charts.PriceSeriesShape.BlockPart;
+            && ctx.Comp.Name is Charts.PriceSeriesShape.BrickPart or Charts.PriceSeriesShape.BlockPart
+                or Charts.PriceSeriesShape.KagiPart;
 
         public string Format(ComponentFormatContext ctx)
         {
             var brick = ctx.Pt;
             string direction = brick.Close >= brick.Open ? "Up" : "Down";
+            if (ctx.Comp.Name == Charts.PriceSeriesShape.KagiPart && ctx.Bars != null
+                && ctx.DataIndex >= 0 && ctx.DataIndex < ctx.Bars.Count)
+                direction += ", " + Charts.KagiLines.Words(Charts.KagiLines.At(ctx.Bars, ctx.DataIndex));
             string scale = StandardTemplateStrategy.ScaleReading(ctx, brick.Close);
             string edges = (scale.Length == 0 ? "" : scale + ", ")
                 + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to {SpeechPriceFormatter.FormatPrice(brick.Close)}";

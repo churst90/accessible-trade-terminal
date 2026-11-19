@@ -175,6 +175,8 @@ namespace AccessibleTrader.Core.Models
         // LINEBREAK take an optional argument in the Go bar, as RENKO does.
         ShowRangeBarsChart,
         ShowLineBreakChart,
+        // Kagi, the fourth, likewise: KAGI takes an optional reversal amount.
+        ShowKagiChart,
         // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
         // these name a ruler outright so the Go bar can reach it without a new key.
         ShowRegularScale,

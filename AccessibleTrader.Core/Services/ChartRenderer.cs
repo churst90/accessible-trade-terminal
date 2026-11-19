@@ -346,6 +346,9 @@ namespace AccessibleTrader.Core.Services
                 // base that cannot carry the mode (≤ 0, NaN, or log left on) draws Regular.
                 double mainScaleBase = ChartMath.ScaleBase(data, viewportStart, drawsHeikinAshi);
                 var mainScaleMode = ChartMath.EffectiveScaleMode(priceScaleMode, mainScaleBase, isLogScale);
+                // Kagi's thick and thin run through the whole history, so they are worked out
+                // from every line, not the visible ones.
+                var kagiLooks = chartStyle == PriceChartStyle.Kagi ? Charts.KagiLines.All(data) : null;
 
                 var mainPaneRect = new SKRect(0, currentY, width - _axisWidth, currentY + mainPaneHeight);
                 var mainAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + mainPaneHeight);
@@ -408,7 +411,7 @@ namespace AccessibleTrader.Core.Services
                         BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)), badgeText);
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase, kagiLooks: kagiLooks);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
@@ -524,7 +527,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusBand">The height of the pane's status band (<see cref="StatusBandFor"/>):
         /// the pane's background and border fill the whole pane, its values are mapped and clipped
         /// to what is below the band.</param>
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, IReadOnlyList<Charts.KagiLines.Look>? kagiLooks = null)
         {
             if (viewportLength <= 0) return;
             var paneRect = rect;
@@ -545,7 +548,7 @@ namespace AccessibleTrader.Core.Services
             var frameRect        = new SKRect(rect.Left, paneRect.Top, rect.Right, mainRect.Bottom);
             var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid,
                 FrameRect: statusBand > 0 ? frameRect : null)
-            { ChartStyle = chartStyle, ScaleMode = scaleMode, ScaleBase = scaleBase };
+            { ChartStyle = chartStyle, ScaleMode = scaleMode, ScaleBase = scaleBase, KagiLooks = kagiLooks };
 
             canvas.Save(); canvas.ClipRect(frameRect);
             for (int li = 0; li < _layers.Count; li++)

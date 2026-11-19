@@ -469,6 +469,23 @@ namespace AccessibleTrader.Core.Services.GoBar
                             Help: "Draw the price as line break blocks, turning on this many lines"),
                     }, lineBreakName + ".");
 
+                case GoBarVerb.Kagi:
+                    if (!GoBarParser.TryParseKagi(parsed.Argument, out var kagi))
+                        return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.KagiBadArgument);
+                    string kagiName = kagi.KagiMode == RenkoBoxMode.Fixed
+                        ? $"Kagi chart, fixed reversal amount {SpeechPriceFormatter.FormatPrice(kagi.KagiSize)}"
+                        : $"Kagi chart, ATR {kagi.KagiAtrLength}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            kagiName,
+                            Action: new GoBarRenkoAction(kagi, PriceChartStyle.Kagi),
+                            CanonicalText: parsed.Argument.StartsWith("ATR", StringComparison.OrdinalIgnoreCase)
+                                ? $"KAGI ATR {kagi.KagiAtrLength}"
+                                : $"KAGI {kagi.KagiSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            Help: "Draw the price as Kagi lines turning on this reversal amount"),
+                    }, kagiName + ".");
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {

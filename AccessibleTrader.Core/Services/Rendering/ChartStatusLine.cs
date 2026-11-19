@@ -399,7 +399,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                 bool up = bar.Close >= bar.Open;
                 var brickValues = new List<StatusValue>
                 {
-                    Value($"{(up ? "Up" : "Down")} {Charts.BuiltCharts.Noun(chartStyle)}",
+                    Value($"{(up ? "Up" : "Down")} {Charts.BuiltCharts.Noun(chartStyle)}"
+                          + (chartStyle == PriceChartStyle.Kagi
+                              ? ", " + (Charts.KagiLines.At(bars, i).ThickAtEnd ? "thick" : "thin")
+                              : ""),
                         $"{FormatReading(bar.Open)} → {FormatReading(bar.Close)}",
                         up ? brickBull : brickBear, theme, backing),
                 };

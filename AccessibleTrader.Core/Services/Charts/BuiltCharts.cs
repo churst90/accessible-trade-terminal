@@ -4,12 +4,13 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Charts
 {
     /// <summary>
-    /// The one door to the charts built off the clock — Renko, range bars and line break. Every
+    /// The one door to the charts built off the clock — Renko, range bars, line break and Kagi. Every
     /// reducer, background monitor, dialog and command that builds one asks here with the chart
     /// type, so a new type is added in this file and its builder, not at each caller.
     ///
     /// <para>
-    /// The "box" every caller freezes is the type's own size: Renko's box, the range bars' range.
+    /// The "box" every caller freezes is the type's own size: Renko's box, the range bars' range,
+    /// Kagi's reversal amount.
     /// Line break has none; its frozen value is its line count, so the callers' "is a box
     /// resolved" test holds unchanged, and the build reads the count from the settings.
     /// </para>
@@ -21,16 +22,20 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             PriceChartStyle.RangeBars => "Range bars",
             PriceChartStyle.LineBreak => "Line break",
+            PriceChartStyle.Kagi => "Kagi",
             _ => "Renko",
         };
 
-        /// <summary>What one drawn bar is called: "brick", "range bar" or "block".</summary>
+        /// <summary>What one drawn bar is called: "brick", "range bar", "block" or "Kagi line"
+        /// (never plain "line", which is the Line chart).</summary>
         public static string Noun(PriceChartStyle style, int count = 1) => (style, count == 1) switch
         {
             (PriceChartStyle.RangeBars, true) => "range bar",
             (PriceChartStyle.RangeBars, false) => "range bars",
             (PriceChartStyle.LineBreak, true) => "block",
             (PriceChartStyle.LineBreak, false) => "blocks",
+            (PriceChartStyle.Kagi, true) => "Kagi line",
+            (PriceChartStyle.Kagi, false) => "Kagi lines",
             (_, true) => "brick",
             _ => "bricks",
         };
@@ -44,6 +49,8 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.RangeBars => a.RangeMode == b.RangeMode && a.RangeSize == b.RangeSize
                                          && a.RangeAtrLength == b.RangeAtrLength,
             PriceChartStyle.LineBreak => a.LineBreakLines == b.LineBreakLines,
+            PriceChartStyle.Kagi => a.KagiMode == b.KagiMode && a.KagiSize == b.KagiSize
+                                    && a.KagiAtrLength == b.KagiAtrLength,
             _ => a.Mode == b.Mode && a.BoxSize == b.BoxSize && a.AtrLength == b.AtrLength,
         };
 
@@ -59,6 +66,10 @@ namespace AccessibleTrader.Core.Services.Charts
                 RangeMode = typed.RangeMode, RangeSize = typed.RangeSize, RangeAtrLength = typed.RangeAtrLength,
             },
             PriceChartStyle.LineBreak => current with { LineBreakLines = typed.LineBreakLines },
+            PriceChartStyle.Kagi => current with
+            {
+                KagiMode = typed.KagiMode, KagiSize = typed.KagiSize, KagiAtrLength = typed.KagiAtrLength,
+            },
             _ => current with { Mode = typed.Mode, BoxSize = typed.BoxSize, AtrLength = typed.AtrLength },
         };
 
@@ -75,6 +86,9 @@ namespace AccessibleTrader.Core.Services.Charts
                 case PriceChartStyle.RangeBars:
                     return BrickChartBuilder.TryResolveSize(bars, settings.RangeMode, settings.RangeSize,
                         settings.RangeAtrLength, "Range bars", "range", out box, out refusal);
+                case PriceChartStyle.Kagi:
+                    return BrickChartBuilder.TryResolveSize(bars, settings.KagiMode, settings.KagiSize,
+                        settings.KagiAtrLength, "Kagi", "reversal amount", out box, out refusal);
                 case PriceChartStyle.LineBreak:
                     box = settings.LineBreakLines;
                     refusal = null;
@@ -99,6 +113,7 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             PriceChartStyle.RangeBars => RangeBarBuilder.Build(bars, box, barLength, max),
             PriceChartStyle.LineBreak => LineBreakBuilder.Build(bars, settings.LineBreakLines, barLength, max),
+            PriceChartStyle.Kagi => KagiBuilder.Build(bars, box, barLength, max),
             _ => BrickChartBuilder.Build(bars, box, barLength, max),
         };
 
@@ -157,6 +172,8 @@ namespace AccessibleTrader.Core.Services.Charts
                         $"No range bars: price has not moved a range of {size} in the loaded bars.",
                     PriceChartStyle.LineBreak =>
                         "No line break blocks: no close in the loaded bars differs from the first.",
+                    PriceChartStyle.Kagi =>
+                        $"No Kagi lines: price has not moved a reversal amount of {size} in the loaded bars.",
                     _ => $"No Renko bricks: price has not moved one box of {size} in the loaded bars.",
                 };
                 return false;

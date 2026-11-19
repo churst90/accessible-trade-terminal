@@ -390,7 +390,12 @@ namespace AccessibleTrader.Core.Services
             _lastFiredBar = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>One completed bar as drawn: what a new-bar alert compares and says.</summary>
-        internal readonly record struct DrawnBar(DateTime Date, double Open, double Close, bool Up);
+        internal readonly record struct DrawnBar(DateTime Date, double Open, double Close, bool Up)
+        {
+            /// <summary>The same bar, wherever its end has got to: a Kagi line keeps growing after
+            /// it is drawn, so its Close is not part of what it is.</summary>
+            public bool SameBar(DrawnBar other) => Date == other.Date && Open == other.Open && Up == other.Up;
+        }
 
         // The newest completed drawn bar each new-bar alert has seen, with the chart it saw it on.
         // A different chart (symbol, timeframe, type, box, Heikin-Ashi) starts it again silently,
@@ -442,11 +447,11 @@ namespace AccessibleTrader.Core.Services
             var newest = bars[^1];
             bool known = _lastDrawnBar.TryGetValue(alert.Id, out var seen) && seen.Chart == chart;
             _lastDrawnBar[alert.Id] = (chart, newest);
-            if (!known || seen.Bar == newest) return null;
+            if (!known || seen.Bar.SameBar(newest)) return null;
 
             int from = -1;
             for (int i = bars.Count - 2; i >= 0; i--)
-                if (bars[i] == seen.Bar) { from = i; break; }
+                if (bars[i].SameBar(seen.Bar)) { from = i; break; }
             if (from < 0) return null;
 
             DrawnBar? hit = null;

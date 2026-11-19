@@ -310,7 +310,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // A range bar is a real candle and falls through to the candle's words.
             if (state.ChartStyle.IsBlockStyle() && BrickChartSpeech.TryGetBrick(state, index, out var brick, out var span))
             {
-                sb.Append(BrickChartSpeech.BrickSummary(brick, span, state.ChartStyle));
+                sb.Append(BrickChartSpeech.BrickSummary(brick, span, state.ChartStyle, state.Data, index));
                 if (includeVolume)
                     sb.Append($", volume {ChartStatusLine.FormatVolume(brick.Volume)}");
                 sb.Append('.');

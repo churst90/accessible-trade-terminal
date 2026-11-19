@@ -248,6 +248,7 @@
                     <option value="renko" selected="@(ChartTypeValue == "renko")">Renko</option>
                     <option value="rangebars" selected="@(ChartTypeValue == "rangebars")">Range bars</option>
                     <option value="linebreak" selected="@(ChartTypeValue == "linebreak")">Line break</option>
+                    <option value="kagi" selected="@(ChartTypeValue == "kagi")">Kagi</option>
                 </select>
                 @if (Store.State.ChartStyle.IsBrickStyle())
                 {
@@ -899,6 +900,7 @@
             PriceChartStyle.Renko => "renko",
             PriceChartStyle.RangeBars => "rangebars",
             PriceChartStyle.LineBreak => "linebreak",
+            PriceChartStyle.Kagi => "kagi",
             _ => "candles",
         });
 
@@ -906,6 +908,7 @@
     {
         PriceChartStyle.RangeBars => "Change the range: ATR length or a fixed size",
         PriceChartStyle.LineBreak => "Change how many lines a turn must break",
+        PriceChartStyle.Kagi => "Change the reversal amount: ATR length or a fixed size",
         _ => "Change the Renko box: ATR length or a fixed size",
     };
 
@@ -921,6 +924,7 @@
             "renko" => PriceChartStyle.Renko,
             "rangebars" => PriceChartStyle.RangeBars,
             "linebreak" => PriceChartStyle.LineBreak,
+            "kagi" => PriceChartStyle.Kagi,
             _ => null,
         };
         if (built is { } builtStyle)

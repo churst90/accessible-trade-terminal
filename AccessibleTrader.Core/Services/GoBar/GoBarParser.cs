@@ -18,6 +18,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         Renko,
         RangeBars,
         LineBreak,
+        Kagi,
         GoTo,
         Find,
         Settings,
@@ -62,6 +63,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "RANGEBAR", "RANGEBARS" }, SystemCommand.ShowRangeBarsChart),
             new GoBarVerbSpec(GoBarVerb.LineBreak,
                 new[] { "LINEBREAK", "LBREAK" }, SystemCommand.ShowLineBreakChart),
+            new GoBarVerbSpec(GoBarVerb.Kagi,
+                new[] { "KAGI" }, SystemCommand.ShowKagiChart),
             new GoBarVerbSpec(GoBarVerb.GoTo,
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
@@ -296,6 +299,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         {
             GoBarVerb.RangeBars => PriceChartStyle.RangeBars,
             GoBarVerb.LineBreak => PriceChartStyle.LineBreak,
+            GoBarVerb.Kagi => PriceChartStyle.Kagi,
             _ => PriceChartStyle.Renko,
         };
 
@@ -305,6 +309,15 @@ namespace AccessibleTrader.Core.Services.GoBar
             settings = new RenkoSettings();
             if (!TryParseSize(text, out var mode, out double size, out int length)) return false;
             settings = new RenkoSettings(RangeMode: mode, RangeSize: size, RangeAtrLength: length);
+            return true;
+        }
+
+        /// <summary>KAGI's argument, in RENKO's forms ("500", "ATR", "ATR 20"), as the reversal amount.</summary>
+        public static bool TryParseKagi(string? text, out RenkoSettings settings)
+        {
+            settings = new RenkoSettings();
+            if (!TryParseSize(text, out var mode, out double size, out int length)) return false;
+            settings = new RenkoSettings(KagiMode: mode, KagiSize: size, KagiAtrLength: length);
             return true;
         }
 
@@ -324,6 +337,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         {
             PriceChartStyle.RangeBars => TryParseRange(text, out settings),
             PriceChartStyle.LineBreak => TryParseLineBreak(text, out settings),
+            PriceChartStyle.Kagi => TryParseKagi(text, out settings),
             _ => TryParseRenko(text, out settings),
         };
 
@@ -404,6 +418,7 @@ namespace AccessibleTrader.Core.Services.GoBar
                 case GoBarVerb.Renko:
                 case GoBarVerb.RangeBars:
                 case GoBarVerb.LineBreak:
+                case GoBarVerb.Kagi:
                     var builtStyle = BuiltStyle(verb);
                     if (!TryParseBuiltChart(builtStyle, argument, out _))
                         return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,

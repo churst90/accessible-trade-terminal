@@ -260,6 +260,79 @@ namespace AccessibleTrader.Core.Services.Rendering
             ctx.Canvas.DrawPath(linePath, linePaint);
         }
 
+        /// <summary>
+        /// Kagi: each line a vertical stroke at its bar from where it starts to where it ends,
+        /// joined to the next by a horizontal at its end (the shoulder or waist). Thick lines draw
+        /// wide in the up colour, thin ones narrow in the down colour, and a line that turns is
+        /// split at the price it turned — the same thick and thin the speech reads
+        /// (<see cref="Charts.KagiLines"/>). Colours are the body's, as on every built chart.
+        /// </summary>
+        public static void RenderKagi(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfBar = barWidth / 2f;
+            float X(int i) => i * barWidth + halfBar;
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+
+            var part = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Brick);
+            SKColor thickColor = ctx.Theme.CandleBullishBody;
+            SKColor thinColor = ctx.Theme.CandleBearishBody;
+            if (part is { IsUserStyled: true })
+            {
+                SKColor.TryParse(part.ColorHex, out thickColor);
+                SKColor.TryParse(part.ColorHexSecondary, out thinColor);
+            }
+            (thickColor, thinColor) = ApplyColorVision(ctx.Theme, thickColor, thinColor);
+
+            using var thick = new SKPaint
+            {
+                Color = thickColor, StrokeWidth = 3f * ctx.Density, Style = SKPaintStyle.Stroke,
+                IsAntialias = true, StrokeCap = SKStrokeCap.Square,
+            };
+            using var thin = new SKPaint
+            {
+                Color = thinColor, StrokeWidth = 1.25f * ctx.Density, Style = SKPaintStyle.Stroke,
+                IsAntialias = true, StrokeCap = SKStrokeCap.Square,
+            };
+
+            Charts.KagiLines.Look LookAt(int i)
+            {
+                int abs = ctx.ViewportStart + i;
+                return ctx.KagiLooks != null && abs >= 0 && abs < ctx.KagiLooks.Count
+                    ? ctx.KagiLooks[abs]
+                    : Charts.KagiLines.At(data, i);
+            }
+
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+            for (int i = 0; i < count; i++)
+            {
+                var line = data[i];
+                if (double.IsNaN(line.Open) || double.IsNaN(line.Close)) continue;
+                var look = LookAt(i);
+                float x = X(i);
+
+                // The line before, off the left edge: its shoulder still reaches this line.
+                if (i == 0 && ctx.ViewportStart > 0)
+                    ctx.Canvas.DrawLine(x - barWidth, Y(line.Open), x, Y(line.Open), look.ThickAtStart ? thick : thin);
+
+                if (look.Turned)
+                {
+                    ctx.Canvas.DrawLine(x, Y(line.Open), x, Y(look.TurnAt), look.ThickAtStart ? thick : thin);
+                    ctx.Canvas.DrawLine(x, Y(look.TurnAt), x, Y(line.Close), look.ThickAtEnd ? thick : thin);
+                }
+                else
+                {
+                    ctx.Canvas.DrawLine(x, Y(line.Open), x, Y(line.Close), look.ThickAtEnd ? thick : thin);
+                }
+
+                if (i + 1 < data.Count)
+                    ctx.Canvas.DrawLine(x, Y(line.Close), X(i + 1), Y(line.Close), look.ThickAtEnd ? thick : thin);
+            }
+        }
+
         public static void RenderCandles(RenderContext ctx, ChartSeries series, SKPaint paint, double[]? phaseData = null)
         {
             var data = ctx.Data;

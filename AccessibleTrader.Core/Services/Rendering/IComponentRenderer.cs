@@ -73,6 +73,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// is not Regular. NaN means nothing usable, which draws as Regular.</summary>
         public double ScaleBase { get; init; } = double.NaN;
 
+        /// <summary>On a Kagi chart, every line's thick and thin by its index in the WHOLE data
+        /// (<see cref="Charts.KagiLines.All"/>), so the visible slice draws them as the history
+        /// set them. Null on every other chart.</summary>
+        public IReadOnlyList<Charts.KagiLines.Look>? KagiLooks { get; init; }
+
         /// <summary>The mode this pane actually draws, after the base and log guards.</summary>
         public PriceScaleMode EffectiveScaleMode =>
             ChartMath.EffectiveScaleMode(ScaleMode, ScaleBase, IsLogScale);

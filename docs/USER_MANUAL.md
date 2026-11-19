@@ -721,10 +721,10 @@ Three keys describe the structure instead of a value.
 The numbers these three speak come from the same ranges the chart is drawn with, so what you
 hear is what a sighted partner sees.
 
-### Chart types: candles, Heikin Ashi, line, area, Renko, range bars and line break
+### Chart types: candles, Heikin Ashi, line, area, Renko, range bars, line break and Kagi
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
-It is one choice with seven options, like TradingView's chart-type menu. **Alt+C** puts the focus
+It is one choice with eight options, like TradingView's chart-type menu. **Alt+C** puts the focus
 on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `HA` still does):
 
 - **Candles** — the standard OHLC bars, the default.
@@ -755,9 +755,19 @@ on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `H
   past the last block; the chart turns only when a close breaks past the low (or high) of the
   last three blocks. Blocks have no fixed size: each is as tall as the move that made it. **Line
   break settings** has one field, **Lines** (1 to 50); the Go bar's `LINEBREAK 2` sets it.
+- **Kagi** — closes only, one vertical line per swing. A line keeps growing while closes go its
+  way and turns only when a close comes back the **reversal amount** from the line's end; a short
+  horizontal shoulder joins each line to the next. The line goes **thick** where it rises above
+  the top of the line before (the last shoulder) and **thin** where it falls below the bottom of
+  the line before (the last waist); a line keeps its thickness until then, so thickness is the
+  trend and direction is the swing. The reversal amount is the ATR (14 by default) or a fixed
+  size, frozen like Renko's box. **Kagi settings** opens the same dialog with "Reversal amount";
+  the Go bar's `KAGI 500` sets a fixed amount and `KAGI ATR 20` an ATR length. TradingView also
+  offers a percentage reversal; this build does not yet.
 
 Renko, range bars and line break draw only completed bars; the one still forming is left out
-until it completes. Each type keeps its own settings on the tab, so `RANGEBAR 500` leaves the
+until it completes. Kagi is the exception: its newest line is the one still growing, and it
+grows and turns thick or thin with the live close. Each type keeps its own settings on the tab, so `RANGEBAR 500` leaves the
 Renko box as it was.
 
 Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
@@ -794,12 +804,13 @@ the select is not shown and the phrases refuse aloud.
 
 **From the keyboard**, use the Go bar (Alt+G): `CANDLE` or `candle chart`, `heikin ashi chart`,
 `LINE` or `line chart`, `AREA`, `area chart` or `mountain`, and `RENKO`, `renko chart` or
-`bricks`, `RANGEBAR` or `range bars`, and `LINEBREAK`, `LBREAK` or `line break`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
+`bricks`, `RANGEBAR` or `range bars`, `LINEBREAK`, `LBREAK` or `line break`, and `KAGI` or
+`kagi chart`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
 than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*
 
 **The price series is named after the chart type.** Page Up / Page Down, the indicator bar, the
 Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Line*, *Area*, *Renko*,
-*Range bars* or *Line break*,
+*Range bars*, *Line break* or *Kagi*,
 whichever is chosen. A name you gave the series yourself is kept. Saved workspaces store it as
 Candles, as before.
 
@@ -821,7 +832,20 @@ pattern words), with the bar's real window where a candle says its time; the lay
 *"Range bars chart, range 512.30 from ATR 14."* or *"… fixed range 500.00."*, and a new one says
 *"New up range bar, …"*.
 
-**A Renko, range bar or line break tab in the background says its new bars, not its bar
+**Kagi reads its lines with their thickness,** as drawn: the price series has one part, **Kagi
+line**: *"Kagi line. Up, turns thick at 120.00. 95.00 to 125.00. 18 Nov 14:00 to 18 Nov
+17:00."*, or *"Down, thin."* and so on. The two prices are where the line starts and where it
+ends now; the window is the real time since the line before ended. The status line says `Up Kagi
+line, thick …`, the layout *"Kagi chart, reversal amount 512.30 from ATR 14."* or *"… fixed
+reversal amount 500.00."*, and a new line says *"New up Kagi line, turns thick at 120.00, 95.00
+to 125.00."* A line that is still growing says once, the moment it passes the shoulder or
+waist, *"Kagi turns thick at 120.00."* (or thin). A line growing is not a new bar: a Kagi tab in
+the background says only its new lines, and the New up / New down / Reversal alerts fire on a new
+line, not each time the newest one grows. Kagi sounds like the bricks for now: a short ping, high
+on an up line and low on a down one; thick and thin are spoken and drawn but not yet given their
+own sound.
+
+**A Renko, range bar, line break or Kagi tab in the background says its new bars, not its bar
 closes** (*"… 2 new up blocks, …"*, *"… new range bar"* and so on, by the type). When a bar closes on a
 Renko tab you are not looking at, or on a saved Renko tab with the browser closed, you hear the
 bricks that close completed: *"BTC/USD 1h: 2 new up bricks, 95,000.00 to 96,000.00."* The
@@ -837,7 +861,7 @@ targets, strategy history and saved tabs all read the real time bars behind the 
 drawing, cursor, indicators and alerts read the bricks. The one exception is by design: alerts
 read the chart as drawn, so a price/indicator alert on a Renko tab evaluates on the bricks.
 
-The same holds for range bars and line break. Kagi and Point & Figure are not in this build.
+The same holds for range bars, line break and Kagi. Point & Figure is not in this build.
 
 ### Price scales: regular, logarithmic, percent and indexed to 100
 
@@ -4519,7 +4543,8 @@ one, read top to bottom, each choice narrowing the next:
   up or down). Enters zone and Exits zone appear only for an indicator that has its own
   overbought or oversold lines, such as RSI, and only those zones are offered. Candle also has
   **New up**, **New down** and **Reversal (a bar the other way)**, named after the chart's own
-  bars: brick on Renko, range bar on range bars, block on line break, candle on a time chart. A
+  bars: brick on Renko, range bar on range bars, block on line break, Kagi line on Kagi (a new
+  line, not the newest one growing), candle on a time chart. A
   candle counts once the next one opens; a brick as soon as it is drawn. Several new bars in one
   update fire once, for the newest that matches: *"Trend: reversal, new down brick, 120 to 110."*
 - **Compare with**: a number, or a line on the chart — "price touches the SMA 50" is a Price
@@ -4528,7 +4553,7 @@ one, read top to bottom, each choice narrowing the next:
 - **Price level** or **Value**: filled in with the current price or reading when you choose the
   target, indicator or component. A number you type yourself is kept until you add the alert.
 
-**On a Renko, range bar or line break chart** price, candle and drawn-level alerts read the real
+**On a Renko, range bar, line break or Kagi chart** price, candle and drawn-level alerts read the real
 price behind the bars, so a 64,000 alert fires when the market trades 64,000 rather than when a
 brick ends there; Changes direction and candle patterns read the real candles too. Indicator
 alerts read the indicator as drawn, on the bricks. New up, New down and Reversal need the chart,

@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Kagi chart type, 2026-11-19 — not yet heard by Cody
+
+Cody: *"continue with the next chart type"* — Kagi, after range bars and line break.
+
+- **Builder.** `Charts/KagiBuilder`: closes only. The first line runs from the first close to the
+  first close one reversal amount away; a close past the newest line's end extends it; a close at
+  least one reversal back starts a new line from that end. A line's `Date` is the bar that turned
+  it and never moves as it grows; its span runs from the bar after the line before ended to its
+  own end, and its volume is that window's. The forming bar is fed in, so the newest line follows
+  the live close. `PriceChartStyle.Kagi = 6` on the end; brick and block style (one part, no
+  wicks). `RenkoSettings` gains `KagiMode`, `KagiSize`, `KagiAtrLength` (ATR 14 by default); an
+  old file reads the defaults. `BuiltCharts` covers it like the other three.
+- **Thick and thin.** `KagiLines` works them out from the lines in order (the first line thick
+  going up, thin going down; an up line turns thick past the line before's top, a down line thin
+  past the line before's bottom; otherwise it keeps what it started with). One `Look` per line
+  (thick at start, thick at end, turn price) serves the drawing and the speech alike.
+- **Drawn.** `StandardRenderers.RenderKagi`: one vertical per line at the bar's centre, split at
+  the turn price, joined by a shoulder to the next; thick 3 px × density, thin 1.25 px; the
+  theme's up and down body colours (or the user's two Kagi line colours), colour-vision safe.
+  The looks are worked out once per frame for the whole history (`RenderContext.KagiLooks`), so
+  scrolling does not change a line's thickness.
+- **Read and heard.** The price series is named *Kagi*, one part **Kagi line**: *"Kagi line. Up,
+  turns thick at 120.00. 95.00 to 125.00. window."*; the summary, status line (`Up Kagi line,
+  thick`) and *"New up Kagi line, turns thick at 120.00, 95.00 to 125.00."* carry it too. A
+  growing line says *"Kagi turns thick at 120.00."* (or thin) once, on the update that passed the
+  turn price, on the narration channel. Change sentence *"Kagi chart, reversal amount 512.30 from
+  ATR 14."* / *"… fixed reversal amount 500.00."*.
+- **A line growing is not a new bar.** Background Kagi tabs (`BrickNews`) say only lines turned
+  by the bar that closed. The new-bar alerts (`AlertEvaluator.DrawnBar.SameBar`) match a bar by
+  date, open and direction, not close, so a growing line neither re-seeds nor fires and the next
+  line fires once; this changes nothing on the other types, whose drawn bars never change.
+- **Chosen from.** Toolbar Chart type list (Kagi), **Kagi settings** in the shared dialog
+  ("Reversal amount", ATR or fixed), Go bar `KAGI`, `kagi chart`, `KAGI 500`, `KAGI ATR 20`
+  (`SystemCommand.ShowKagiChart`, not persisted by ordinal).
+- **Caveats.** Thick and thin have NO sound of their own: a Kagi line pings like a brick (high
+  up, low down), because the sound path sees one value and not the lines before it — question
+  for Cody. TradingView's percentage reversal is not built (ATR and fixed only) — question for
+  Cody. Not seen or heard by Cody.
+- **Tests:** `KagiChartTests` (27: builder, dates and spans, refusals, thick/thin, BuiltCharts and
+  the reducer, the series shape, arrowing, summary, change sentence, live new line and live turn
+  once, `KagiTurnNews`, background news, new-bar alerts, Go bar words and arguments, "already",
+  the dispatcher, and the drawing's thick/thin split by pixel width). Sabotaged 17 ways (extending
+  makes a new line, strict reversal, span from the wrong bar, turn edge from the close, no thin
+  turn, thickness by direction, background news counts growth, `SameBar` compares the close, turn
+  said when already past, turn said every update, renderer split and shoulder thickness, Go bar
+  style and action, dispatcher, arrowing words, summary words) — every one red.
+
 ### Alerts on the charts built off the clock, 2026-11-19 — not yet heard by Cody
 
 Cody: *"yes on your suggestions on the alerts."*

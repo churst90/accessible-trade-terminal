@@ -140,6 +140,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                         // phase colouring (a property of candles) has nothing to colour.
                         if (ctx.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
                             StandardRenderers.RenderPriceLine(ctx, area: ctx.ChartStyle == PriceChartStyle.Area);
+                        else if (ctx.ChartStyle == PriceChartStyle.Kagi)
+                            StandardRenderers.RenderKagi(ctx, s);
                         else
                             StandardRenderers.RenderCandles(ctx, s, paint, candlePhaseData);
                     }

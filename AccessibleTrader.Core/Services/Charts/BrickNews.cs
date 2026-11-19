@@ -35,7 +35,9 @@ namespace AccessibleTrader.Core.Services.Charts
         /// <summary>
         /// The bricks the bar before the newest one completed, with their spans. Empty when that
         /// bar completed none, when there are fewer than two bars, or when the box is unusable.
-        /// <paramref name="bars"/>' last entry is the bar that has just opened.
+        /// <paramref name="bars"/>' last entry is the bar that has just opened. On Kagi only a line
+        /// that bar TURNED is news: a line growing on (its end moving to the new close) is the
+        /// same line, and saying it on every bar would be every close again.
         /// </summary>
         public static IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> CompletedAtClose(
             IReadOnlyList<Ohlcv> bars, double box, ChartIdentity? identity,
@@ -55,7 +57,10 @@ namespace AccessibleTrader.Core.Services.Charts
 
             var news = new List<(Ohlcv, BrickSpan)>();
             for (int i = built.Spans.Length - 1; i >= 0 && built.Spans[i].LastBar == closedBar; i--)
+            {
+                if (style == PriceChartStyle.Kagi && built.Bricks[i].Date != closed[closedBar].Date) continue;
                 news.Add((built.Bricks[i], built.Spans[i]));
+            }
             news.Reverse();
             return news;
         }
