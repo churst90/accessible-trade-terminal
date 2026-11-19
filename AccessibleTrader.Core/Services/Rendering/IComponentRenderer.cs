@@ -54,6 +54,12 @@ namespace AccessibleTrader.Core.Services.Rendering
 
         /// <summary>The gradient span: the whole chart when known, this pane otherwise.</summary>
         public SKRect GradientRect => ChartRect ?? PaneRect;
+
+        /// <summary>
+        /// The chart type of the price pane. Only the Main pane's candles use it; every
+        /// indicator pane and every test that does not set it draws standard candles.
+        /// </summary>
+        public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
     }
 
     public interface IComponentRenderer

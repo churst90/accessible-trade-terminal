@@ -1,4 +1,5 @@
 using System.Globalization;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Theming;
 using AccessibleTrader.Sdk.Models;
@@ -182,8 +183,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <param name="Bars">The chart's bars (absolute indices), for the symbol line's O H L C.</param>
         /// <param name="Identity">The chart's symbol, timeframe and provider, for the symbol line; null leaves the line off.</param>
         /// <param name="IsHeikinAshi">The candles are drawn Heikin Ashi: the symbol line gives the bar AS DRAWN, as speech does.</param>
+        /// <param name="ChartStyle">Line and Area draw no O/H/L, so their symbol line is the
+        /// close alone, in the line's colour. Candles and Heikin-Ashi keep O H L C.</param>
         public sealed record Context(
-            ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity, bool IsHeikinAshi = false);
+            ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity,
+            bool IsHeikinAshi = false, PriceChartStyle ChartStyle = PriceChartStyle.Candles);
 
         /// <summary>
         /// A pane's status block at bar <paramref name="absIndex"/> (an index into the chart's
@@ -212,7 +216,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             var backing = Backing(ctx.Theme, ctx.BackingAlpha);
 
             if (paneName == "Main" && ctx.Identity is { } id && ctx.Bars is { Count: > 0 } chartBars && absIndex < chartBars.Count)
-                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi), maxWidth, gap, measure));
+                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi, ctx.ChartStyle), maxWidth, gap, measure));
 
             foreach (var s in paneSeries)
             {
@@ -266,7 +270,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             float plotWidth = (float)(cssWidth * (1 - Math.Clamp(axisWidthFraction, 0f, 0.9f)));
             double plotBottom = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
 
-            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi);
+            // Chart types are types of price BARS: an analytics chart's one Price line keeps
+            // the O H L C symbol line whatever style the tab carried in, as the renderer does.
+            bool drawsPriceBars = state.ActiveSeries.Any(s =>
+                s.Id == CoreSeriesIds.Candles && s.IsVisible
+                && (string.IsNullOrEmpty(s.Pane) || s.Pane == "Main"));
+            var chartStyle = drawsPriceBars ? state.ChartStyle : PriceChartStyle.Candles;
+            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi, chartStyle);
             using var font = new SKFont(StatusTypeface, FontPx * scale);
             // DOM text is laid out by the browser's own font, not this one: measure a little wide
             // so a line the model says fits does not overflow its pane in the page.
@@ -370,9 +380,22 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </para>
         /// </summary>
         internal static StatusLine SymbolLine(ChartIdentity id, IReadOnlyList<Ohlcv> bars, int i, ChartTheme theme, SKColor backing,
-            bool isHeikinAshi = false)
+            bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles)
         {
             var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
+            string title = string.Join(" · ", new[] { id.Symbol, id.Timeframe, id.Provider }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+            // On a line or area chart there is no open, high or low on screen — just the close —
+            // so the line prints C alone, in the ink the close line is drawn in.
+            if (chartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+            {
+                var lineValues = new List<StatusValue>
+                {
+                    Value("C", FormatReading(bar.Close), theme.PriceChartLine.WithAlpha(255), theme, backing),
+                };
+                return new StatusLine(StatusLineKind.Symbol, title, "", lineValues);
+            }
+
             var (bull, bear) = StandardRenderers.ApplyColorVision(theme, theme.CandleBullishBody, theme.CandleBearishBody);
             var dir = bar.Close >= bar.Open ? bull : bear;
             var values = new List<StatusValue>
@@ -382,7 +405,6 @@ namespace AccessibleTrader.Core.Services.Rendering
                 Value("L", FormatReading(bar.Low), dir, theme, backing),
                 Value("C", FormatReading(bar.Close), dir, theme, backing),
             };
-            string title = string.Join(" · ", new[] { id.Symbol, id.Timeframe, id.Provider }.Where(p => !string.IsNullOrWhiteSpace(p)));
             return new StatusLine(StatusLineKind.Symbol, title, "", values);
         }
 

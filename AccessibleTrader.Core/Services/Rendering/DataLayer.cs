@@ -82,6 +82,17 @@ namespace AccessibleTrader.Core.Services.Rendering
                 string sPane = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
                 if (sPane != ctx.PaneName) continue;
 
+                // The Price series is the identical close line in white, drawn over the chart
+                // type's own line. On Line and Area it would hide the blue entirely, so its
+                // line is skipped there — speech, navigation, sonification and its status line
+                // are untouched, and its reference levels are still drawn below. A Price whose
+                // mapping is not the close (say, high) is a different line and still draws.
+                if (IsClosePriceLineHiddenByChartStyle(s, ctx))
+                {
+                    RenderLevels(ctx, s);
+                    continue;
+                }
+
                 // 1. HEATMAP (Special Property)
                 if (s.Components.Any(c => c.DisplayType == ComponentDisplayType.Heatmap))
                 {
@@ -111,7 +122,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                         // providers (single-value) no longer reach this branch: after the
                         // Phase 4 refactor they seed the PRICE series instead of CANDLES,
                         // so there's nothing degenerate to detect or re-route here.
-                        StandardRenderers.RenderCandles(ctx, s, paint, candlePhaseData);
+                        //
+                        // Line and Area are the same series DRAWN differently: one line through
+                        // the raw closes, plus the fill for Area. No bodies, no wicks, and the
+                        // phase colouring (a property of candles) has nothing to colour.
+                        if (ctx.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+                            StandardRenderers.RenderPriceLine(ctx, area: ctx.ChartStyle == PriceChartStyle.Area);
+                        else
+                            StandardRenderers.RenderCandles(ctx, s, paint, candlePhaseData);
                     }
                     else
                     {
@@ -214,30 +232,55 @@ namespace AccessibleTrader.Core.Services.Rendering
                 }
 
                 // 3. LEVELS. Cloud fills and zone bands are already rendered in Pass 0 above.
-
-                foreach (var lvl in s.Levels)
-                {
-                    if (!lvl.IsVisible || !lvl.IsDrawn) continue;   // an undrawn level is heard, not painted
-
-                    float y = ChartMath.MapY(lvl.Value, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    var pathEffect = lvl.DashStyle switch
-                    {
-                        DashStyle.Dash    => SKPathEffect.CreateDash(new[] { 8f, 4f }, 0),
-                        DashStyle.Dot     => SKPathEffect.CreateDash(new[] { 2f, 4f }, 0),
-                        DashStyle.DashDot => SKPathEffect.CreateDash(new[] { 8f, 4f, 2f, 4f }, 0),
-                        _                 => null
-                    };
-                    using var lvlPaint = new SKPaint
-                    {
-                        Color      = SKColor.Parse(ThemeAdaptedColours.Level(lvl.ColorHex, ctx.Theme)),
-                        StrokeWidth = lvl.Thickness,
-                        Style      = SKPaintStyle.Stroke,
-                        PathEffect = pathEffect
-                    };
-                    ctx.Canvas.DrawLine(0, y, ctx.Width, y, lvlPaint);
-                    pathEffect?.Dispose();
-                }
+                RenderLevels(ctx, s);
             }
+        }
+
+        /// <summary>A series' reference levels, in its pane's coordinates.</summary>
+        private static void RenderLevels(RenderContext ctx, ChartSeries s)
+        {
+            foreach (var lvl in s.Levels)
+            {
+                if (!lvl.IsVisible || !lvl.IsDrawn) continue;   // an undrawn level is heard, not painted
+
+                float y = ChartMath.MapY(lvl.Value, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                var pathEffect = lvl.DashStyle switch
+                {
+                    DashStyle.Dash    => SKPathEffect.CreateDash(new[] { 8f, 4f }, 0),
+                    DashStyle.Dot     => SKPathEffect.CreateDash(new[] { 2f, 4f }, 0),
+                    DashStyle.DashDot => SKPathEffect.CreateDash(new[] { 8f, 4f, 2f, 4f }, 0),
+                    _                 => null
+                };
+                using var lvlPaint = new SKPaint
+                {
+                    Color      = SKColor.Parse(ThemeAdaptedColours.Level(lvl.ColorHex, ctx.Theme)),
+                    StrokeWidth = lvl.Thickness,
+                    Style      = SKPaintStyle.Stroke,
+                    PathEffect = pathEffect
+                };
+                ctx.Canvas.DrawLine(0, y, ctx.Width, y, lvlPaint);
+                pathEffect?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The Price series is a second, identical line through the closes (white by default).
+        /// Line and Area already draw that line in the chart type's colour, so on those types
+        /// the Price series' ink is skipped when every visible part of it is mapped to the
+        /// close. Anything else on it — a high mapping, a level, a component — still draws.
+        /// </summary>
+        internal static bool IsClosePriceLineHiddenByChartStyle(ChartSeries s, RenderContext ctx)
+        {
+            if (ctx.PaneName != "Main") return false;
+            if (ctx.ChartStyle is not (PriceChartStyle.Line or PriceChartStyle.Area)) return false;
+            if (s.Id != CoreSeriesIds.Price) return false;
+
+            var mappings = s.Components
+                .Where(c => c.IsVisible && c.IsDrawn)
+                .Select(c => c.DataMapping)
+                .ToList();
+            return mappings.Count > 0
+                && mappings.All(m => string.Equals(m, "close", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>The components in paint order: ascending <see cref="ComponentConfig.DrawOrder"/>,

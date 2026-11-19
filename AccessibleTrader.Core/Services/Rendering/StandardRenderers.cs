@@ -179,6 +179,87 @@ namespace AccessibleTrader.Core.Services.Rendering
         // file. If you're digging for that fallback in git history, search for
         // "IsDegenerateOhlcv" before commit d5e2f325's descendants.
 
+        /// <summary>
+        /// The Line and Area chart types' whole picture: one line through the raw close of every
+        /// visible bar, with the Area type's fill dropping from the line to the pane floor.
+        ///
+        /// <para>
+        /// It reads <see cref="RenderContext.Data"/>, which the renderer has already sliced to
+        /// the viewport. On these chart types the reducer clears Heikin-Ashi, and the renderer
+        /// also skips its transform, so these are the real closes rather than an HA average.
+        /// The fill fades to transparent at the bottom instead of ending on a hard edge; the
+        /// <see cref="ComponentDisplayType.Gradient"/> path fills flat to the zero baseline,
+        /// which is the pane floor for a price series but not a fade, so this reuses that
+        /// picture's shape rather than its paint.
+        /// </para>
+        /// </summary>
+        public static void RenderPriceLine(RenderContext ctx, bool area)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfBar = barWidth / 2f;
+            SKColor color = ctx.Theme.PriceChartLine;
+
+            float X(int i) => i * barWidth + halfBar;
+            float Y(double close) => ChartMath.MapY(close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+
+            using var linePath = new SKPath();
+            bool first = true;
+            for (int i = 0; i < ctx.ViewportLength && i < data.Count; i++)
+            {
+                double close = data[i].Close;
+                if (double.IsNaN(close)) { first = true; continue; }
+                if (first) { linePath.MoveTo(X(i), Y(close)); first = false; }
+                else linePath.LineTo(X(i), Y(close));
+            }
+
+            if (area)
+            {
+                // One polygon per RUN of closes, each dropping to the floor at its own first and
+                // last bar — the same shape RenderLine uses, so a gap never becomes a filled
+                // triangle across the warm-up and the future margin stays empty.
+                using var fillPath = new SKPath();
+                bool run = false;
+                float runLastX = 0f;
+                void CloseRun()
+                {
+                    if (!run) return;
+                    fillPath.LineTo(runLastX, ctx.Bottom);
+                    fillPath.Close();
+                    run = false;
+                }
+                for (int i = 0; i < ctx.ViewportLength && i < data.Count; i++)
+                {
+                    double close = data[i].Close;
+                    if (double.IsNaN(close)) { CloseRun(); continue; }
+                    float x = X(i);
+                    if (!run) { fillPath.MoveTo(x, ctx.Bottom); run = true; }
+                    fillPath.LineTo(x, Y(close));
+                    runLastX = x;
+                }
+                CloseRun();
+
+                using var shader = SKShader.CreateLinearGradient(
+                    new SKPoint(0, ctx.Top), new SKPoint(0, ctx.Bottom),
+                    new[] { color.WithAlpha(110), color.WithAlpha(0) }, null, SKShaderTileMode.Clamp);
+                using var fillPaint = new SKPaint { Shader = shader, Style = SKPaintStyle.Fill, IsAntialias = true };
+                ctx.Canvas.DrawPath(fillPath, fillPaint);
+            }
+
+            using var linePaint = new SKPaint
+            {
+                Color = color,
+                StrokeWidth = 2f * ctx.Density,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true,
+                StrokeJoin = SKStrokeJoin.Round,
+                StrokeCap = SKStrokeCap.Round,
+            };
+            ctx.Canvas.DrawPath(linePath, linePaint);
+        }
+
         public static void RenderCandles(RenderContext ctx, ChartSeries series, SKPaint paint, double[]? phaseData = null)
         {
             var data = ctx.Data;

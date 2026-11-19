@@ -166,7 +166,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : pt;
             bool readsRawBar = seriesId == CoreSeriesIds.Price;
 
-            if (summary && seriesId == "candles")
+            if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+            {
+                // On Line and Area there is no candle on screen: no body, no wicks, no shape and
+                // no pattern to name. The reading describes the POINT ON THE LINE instead — the
+                // close and how it moved from the previous close. The bar-detail key still reads
+                // the full OHLC bar, because that is a question about the market rather than
+                // about the drawing.
+                //
+                // The close is the RAW one: the reducer clears Heikin-Ashi for these chart types,
+                // and the renderer skips the transform even if a stale flag survived. Reading an
+                // HA average here would describe a point the line never drew.
+                int idx = state.CurrentDataIndex;
+                Ohlcv onLine = rawPt;
+                double close = onLine.Close;
+
+                if (state.Data == null || idx <= 0 || idx >= state.Data.Count)
+                {
+                    msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. First bar.";
+                }
+                else
+                {
+                    double previous = state.Data[idx - 1].Close;
+                    double change = close - previous;
+                    if (change == 0)
+                    {
+                        msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. Unchanged from the previous close.";
+                    }
+                    else
+                    {
+                        double percent = previous == 0 ? 0 : Math.Abs((change / previous) * 100.0);
+                        string direction = change > 0 ? "Up" : "Down";
+                        msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. {direction} " +
+                              $"{SpeechPriceFormatter.FormatPrice(Math.Abs(change))} from the previous close, " +
+                              $"{percent.ToString("F2", CultureInfo.InvariantCulture)} percent.";
+                    }
+                }
+            }
+            else if (summary && seriesId == "candles")
             {
                 // ── THE ARROW KEYS NAME MULTI-BAR PATTERNS NOW ──────────────────────────────
                 //

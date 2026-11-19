@@ -91,6 +91,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             if (state.IsHeikinAshi) parts.Add("Heikin Ashi candles.");
+            else if (state.ChartStyle == PriceChartStyle.Line) parts.Add("Line chart of closes.");
+            else if (state.ChartStyle == PriceChartStyle.Area) parts.Add("Area chart of closes.");
 
             // ── Is this chart LIVE? ──────────────────────────────────────────
             //

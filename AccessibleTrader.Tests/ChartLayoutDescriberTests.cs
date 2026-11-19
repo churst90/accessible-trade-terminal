@@ -279,6 +279,28 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Heikin Ashi", ChartLayoutDescriber.Describe(state));
         }
 
+        [Fact]
+        public void ItNamesTheLineChartType()
+        {
+            var state = StateWith(series: Series("Candles", "Main", "Close")) with
+            {
+                ChartStyle = PriceChartStyle.Line,
+            };
+
+            Assert.Contains("Line chart of closes.", ChartLayoutDescriber.Describe(state));
+        }
+
+        [Fact]
+        public void ItNamesTheAreaChartType()
+        {
+            var state = StateWith(series: Series("Candles", "Main", "Close")) with
+            {
+                ChartStyle = PriceChartStyle.Area,
+            };
+
+            Assert.Contains("Area chart of closes.", ChartLayoutDescriber.Describe(state));
+        }
+
         // ── Wording ──────────────────────────────────────────────────────
 
         [Theory]

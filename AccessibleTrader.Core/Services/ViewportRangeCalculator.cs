@@ -23,8 +23,18 @@ namespace AccessibleTrader.Core.Services
             // Data-driven bounds from the OHLCV buffer. For analytics tabs where
             // O=H=L=C (SingleValueLine provider), Low/High collapse to the scalar
             // min/max — still correct.
-            double mainMin = visibleBars.Min(b => (double)b.Low);
-            double mainMax = visibleBars.Max(b => (double)b.High);
+            //
+            // Line and Area draw only the closes, so the axis is fitted to those: using the
+            // highs and lows would leave the line floating inside a pane sized for ink that is
+            // not on screen. This is TradingView's rule. Overlays still widen the range below,
+            // and the log scale still maps it exactly as before.
+            bool closesOnly = state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area;
+            double mainMin = closesOnly
+                ? visibleBars.Min(b => (double)b.Close)
+                : visibleBars.Min(b => (double)b.Low);
+            double mainMax = closesOnly
+                ? visibleBars.Max(b => (double)b.Close)
+                : visibleBars.Max(b => (double)b.High);
 
             // Expand main range to include any reference levels on main-pane series
             // (e.g. analytics hint-injected FNG 25/50/75 zones). Otherwise the pane

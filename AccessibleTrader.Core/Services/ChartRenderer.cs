@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Theming;
 using SkiaSharp;
 using System.Collections.Immutable;
@@ -230,7 +231,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
         /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
         /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles)
         {
             try
             {
@@ -273,7 +274,12 @@ namespace AccessibleTrader.Core.Services
                 // indicators compute on (IndicatorCandles). Built from the visible slice alone,
                 // the first candle on screen was seeded afresh and every candle after it drifted
                 // from those, more the further the chart was panned.
-                var visibleData = isHeikinAshi
+                //
+                // Line and Area are raw closes by definition; the reducer clears HA when either
+                // is chosen, and this second guard keeps a stale flag from turning their line into
+                // an average of four prices.
+                bool drawsHeikinAshi = isHeikinAshi && chartStyle == PriceChartStyle.Candles;
+                var visibleData = drawsHeikinAshi
                     ? ChartMath.BarsAsDrawn(data, viewportStart + rawVisibleData.Count - 1, rawVisibleData.Count, true).ToList()
                     : rawVisibleData;
                 _textPaint.Color = _theme.Current.AxisText;
@@ -287,6 +293,15 @@ namespace AccessibleTrader.Core.Services
                 // found here by name: Cipher B's "Anchor Polarity" (removed from Cipher B on 2026-10-31) and
                 // Top/Bottom Detector's "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
                 _frameSeries = seriesList;
+
+                // The chart types are types of PRICE BARS. A single-value analytics chart has
+                // no candles to restyle, so its one Price line must keep drawing whatever the
+                // tab's saved style says — the select is hidden there but the state can survive
+                // a shape change from a trading tab.
+                bool drawsPriceBars = seriesList.Any(s =>
+                    s.Id == CoreSeriesIds.Candles && s.IsVisible
+                    && (string.IsNullOrEmpty(s.Pane) || s.Pane == "Main"));
+                if (!drawsPriceBars) chartStyle = PriceChartStyle.Candles;
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();
                 // Every indicator pane is drawn. There used to be a scroll offset here —
@@ -339,7 +354,7 @@ namespace AccessibleTrader.Core.Services
                 // as "—"), so the band is the same whichever bar the DOM reads.
                 float textScale = ChartStatusLine.ClampTextScale(statusTextScale);
                 using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * textScale * density);
-                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, isHeikinAshi);
+                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, drawsHeikinAshi, chartStyle);
                 int statusBar = crossIndex >= 0 ? viewportStart + crossIndex : Math.Clamp(cursorIndex, 0, data.Count - 1);
                 var statusBands = new Dictionary<string, PaneStatusBand>(StringComparer.Ordinal);
                 var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);
@@ -368,7 +383,7 @@ namespace AccessibleTrader.Core.Services
                         BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)));
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
@@ -472,7 +487,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusBand">The height of the pane's status band (<see cref="StatusBandFor"/>):
         /// the pane's background and border fill the whole pane, its values are mapped and clipped
         /// to what is below the band.</param>
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles)
         {
             if (viewportLength <= 0) return;
             var paneRect = rect;
@@ -492,7 +507,7 @@ namespace AccessibleTrader.Core.Services
             // so the band reads as the top of the pane, not a gap between two.
             var frameRect        = new SKRect(rect.Left, paneRect.Top, rect.Right, mainRect.Bottom);
             var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid,
-                FrameRect: statusBand > 0 ? frameRect : null);
+                FrameRect: statusBand > 0 ? frameRect : null) { ChartStyle = chartStyle };
 
             canvas.Save(); canvas.ClipRect(frameRect);
             for (int li = 0; li < _layers.Count; li++)
