@@ -131,7 +131,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <param name="heikinAshi">The saved tab shows Heikin-Ashi candles, so its indicators
         /// compute on them, as the open chart's do (IndicatorCandles).</param>
         public HeadlessChart Create(ChartIdentity identity, IReadOnlyList<SeriesConfig>? saved, IReadOnlyList<AlertDefinition> alerts,
-            bool heikinAshi = false)
+            bool heikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles,
+            RenkoSettings? renko = null, double brickBoxSize = 0)
         {
             saved ??= Array.Empty<SeriesConfig>();
 
@@ -263,7 +264,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Add(built.Id)) template.Add(built);
             }
 
-            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing, removed, heikinAshi);
+            return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing, removed,
+                heikinAshi, chartStyle, renko, brickBoxSize);
         }
 
         /// <summary>

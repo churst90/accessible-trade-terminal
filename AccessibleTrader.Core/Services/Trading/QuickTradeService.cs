@@ -107,7 +107,7 @@ namespace AccessibleTrader.Core.Services.Trading
         public void Arm(double riskPercent)
         {
             var state = _store.State;
-            if (state.Data == null || state.Data.Count == 0)
+            if (state.MarketBars == null || state.MarketBars.Count == 0)
             {
                 Say("No chart loaded.");
                 return;
@@ -398,7 +398,8 @@ namespace AccessibleTrader.Core.Services.Trading
 
         private double LatestClose()
         {
-            var d = _store.State.Data;
+            // The market's own last price, never the newest brick's edge.
+            var d = _store.State.MarketBars;
             return d == null || d.Count == 0 ? 0 : (double)d[^1].Close;
         }
 

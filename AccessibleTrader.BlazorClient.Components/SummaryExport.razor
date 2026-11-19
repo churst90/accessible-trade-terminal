@@ -171,7 +171,7 @@
         try
         {
             var spec = Spec.ToSpec();
-            var data = Store.State.Data;
+            var data = Store.State.MarketBars;
             if (data == null || data.Count < 10)
             {
                 _previewSummary = "No chart loaded — load a chart first to run preview.";

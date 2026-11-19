@@ -346,7 +346,7 @@ namespace AccessibleTrader.Core.Services
                     // Capture the snapshot data now — after SwitchTab ran, WorkspaceState.Data
                     // already holds the restored snapshot data. We pass it to CatchUpFromSnapshotAsync
                     // so the full scrollback history is preserved and only the gap is fetched.
-                    var capturedSnapshotData = state.Data;
+                    var capturedSnapshotData = state.MarketBars;
 
                     Task.Run(async () =>
                     {
@@ -864,7 +864,7 @@ namespace AccessibleTrader.Core.Services
             _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
             try
             {
-                await _dataManager.CatchUpFromSnapshotAsync(_store.State.Data).ConfigureAwait(false);
+                await _dataManager.CatchUpFromSnapshotAsync(_store.State.MarketBars).ConfigureAwait(false);
                 _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Ready));
             }
             catch
@@ -978,7 +978,7 @@ namespace AccessibleTrader.Core.Services
 
             await LoadChartAsync().ConfigureAwait(false);
 
-            var kind = _store.State.Data.Count == 0
+            var kind = _store.State.MarketBars.Count == 0
                 ? GoBar.GoBarLoadOutcomeKind.Failed
                 : GoBar.GoBarLoadOutcomeKind.Loaded;
 
@@ -1050,7 +1050,7 @@ namespace AccessibleTrader.Core.Services
                 // (open circuit, 200-OK-with-no-bars, uninitialised orchestrator) returns from
                 // RefreshDataAsync normally, so the only honest test is whether there are bars.
                 // DataManager has already SAID what went wrong; this decides what the chart IS.
-                if (_store.State.Data.Count == 0)
+                if (_store.State.MarketBars.Count == 0)
                 {
                     _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Error));
                     _stateMachine.Fire(MarketTrigger.ErrorOccurred);

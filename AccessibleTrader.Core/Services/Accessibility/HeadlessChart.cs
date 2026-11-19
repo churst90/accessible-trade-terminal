@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Models;
@@ -100,6 +101,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly ChartIdentity _identity;
         // The tab shows Heikin-Ashi candles: its indicators compute on them (IndicatorCandles).
         private readonly bool _heikinAshi;
+        // The saved tab's drawn chart type and, for a brick chart, its frozen box and settings.
+        private readonly PriceChartStyle _chartStyle;
+        private readonly RenkoSettings _renko;
+        private readonly double _brickBoxSize;
         private readonly IIndicatorEngine _engine;
         private readonly IIndicatorStateMapper _mapper;
         private readonly IIndicatorContextAnalyzer _analyzer;
@@ -158,10 +163,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IProfileService? profiles = null,
             IReadOnlyList<string>? missingIndicators = null,
             IReadOnlyList<string>? removedIndicators = null,
-            bool heikinAshi = false)
+            bool heikinAshi = false,
+            PriceChartStyle chartStyle = PriceChartStyle.Candles,
+            RenkoSettings? renko = null,
+            double brickBoxSize = 0)
         {
             _identity = identity;
             _heikinAshi = heikinAshi;
+            _chartStyle = chartStyle;
+            _renko = renko ?? new RenkoSettings();
+            _brickBoxSize = brickBoxSize;
             _engine = engine;
             _mapper = mapper;
             _analyzer = analyzer;
@@ -339,24 +350,61 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private async Task<WorkspaceState> ComputeStateAsync(CancellationToken ct)
         {
+            var realBars = new TimeSeriesBuffer<Ohlcv>(_bars);
+            var displayBars = realBars;
+            var spans = ImmutableArray<BrickSpan>.Empty;
+            double box = 0;
+            bool brick = _chartStyle.IsBrickStyle();
+
+            if (brick)
+            {
+                box = _brickBoxSize;
+                if (!(box > 0) && !BrickChartBuilder.TryResolveBox(_bars, _renko, out box, out _))
+                    box = 0;
+
+                if (box > 0)
+                {
+                    var built = BrickChartBuilder.Build(
+                        _bars, box, BrickChartBuilder.BarLength(_identity, _bars));
+                    if (built.Ok)
+                    {
+                        displayBars = built.Bricks;
+                        spans = built.Spans;
+                    }
+                    else
+                    {
+                        displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
+                    }
+                }
+                else
+                {
+                    displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
+                }
+            }
+
             var computed = ImmutableList.CreateBuilder<ChartSeries>();
             foreach (var series in _template)
-                computed.Add(await ComputeSeriesAsync(series, ct).ConfigureAwait(false));
+                computed.Add(await ComputeSeriesAsync(series, displayBars, ct).ConfigureAwait(false));
 
             return WorkspaceState.Initial with
             {
                 Identity = _identity,
                 SymbolDisplayName = _identity.Symbol ?? "",
-                Data = new TimeSeriesBuffer<Ohlcv>(_bars),
+                Data = displayBars,
+                TimeBars = brick ? realBars : null,
+                BrickSpans = spans,
+                BrickBoxSize = box,
+                Renko = _renko,
+                ChartStyle = brick ? PriceChartStyle.Renko : PriceChartStyle.Candles,
                 ActiveSeries = computed.ToImmutable(),
                 // What the alerts and the narration's price read: the candle as drawn.
-                IsHeikinAshi = _heikinAshi,
-                CurrentDataIndex = _bars.Count - 1,
+                IsHeikinAshi = !brick && _heikinAshi,
+                CurrentDataIndex = Math.Max(0, displayBars.Count - 1),
                 // The whole buffer is the "visible range" here: a visible-range profile (VPVR,
                 // TPO) is the profile of the last BarsNeeded bars, which is what a chart showing
                 // that many bars would draw.
                 ViewportStartIndex = 0,
-                ViewportLength = _bars.Count,
+                ViewportLength = displayBars.Count,
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
             };
@@ -371,8 +419,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// alert and the profile ladder both read them). Drawings and heatmaps have nothing
         /// either consumer reads and are left empty.
         /// </summary>
-        private async Task<ChartSeries> ComputeSeriesAsync(ChartSeries series, CancellationToken ct)
+        private async Task<ChartSeries> ComputeSeriesAsync(
+            ChartSeries series, IReadOnlyList<Ohlcv> bars, CancellationToken ct)
         {
+            if (bars.Count == 0) return series;
             try
             {
                 if (series.IsDrawing
@@ -380,12 +430,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     return series;
 
                 if (series.IsProfile || ProfileAnchoring.IsProfileCode(series.IndicatorCode))
-                    return ComputeProfile(series);
+                    return ComputeProfile(series, bars);
 
                 if (series.Components.Any(c => !string.IsNullOrEmpty(c.DataMapping)))
                 {
-                    var mapped = _mapper.MapInternalDataToBuffer(series, _bars);
-                    mapped.FirstBarDate = _bars[0].Date;
+                    var mapped = _mapper.MapInternalDataToBuffer(series, bars);
+                    mapped.FirstBarDate = bars[0].Date;
                     return series.WithData(mapped);
                 }
 
@@ -402,10 +452,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 IndicatorCandles.Stamp(parameters, _heikinAshi);
 
                 var (results, zoneBands) = await _engine
-                    .CalculateWithBandsAsync(series.IndicatorCode, _bars, parameters, ct)
+                    .CalculateWithBandsAsync(series.IndicatorCode, bars, parameters, ct)
                     .ConfigureAwait(false);
-                var buffer = _mapper.MapResultsToBuffer(series, results, _bars.Count);
-                buffer.FirstBarDate = _bars[0].Date;
+                var buffer = _mapper.MapResultsToBuffer(series, results, bars.Count);
+                buffer.FirstBarDate = bars[0].Date;
 
                 if (zoneBands.Count > 0)
                 {
@@ -428,12 +478,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// chart — the anchoring rule picks the bars (a session, a fixed range, the "visible"
         /// range, which here is the whole buffer) and the profile service bins them.
         /// </summary>
-        private ChartSeries ComputeProfile(ChartSeries series)
+        private ChartSeries ComputeProfile(ChartSeries series, IReadOnlyList<Ohlcv> bars)
         {
-            if (_profiles == null || _bars.Count == 0) return series;
+            if (_profiles == null || bars.Count == 0) return series;
 
             string codeUpper = series.IndicatorCode.ToUpperInvariant();
-            var slice = ProfileAnchoring.Slice(codeUpper, _bars, series.Config?.Parameters, 0, _bars.Count);
+            var slice = ProfileAnchoring.Slice(codeUpper, bars, series.Config?.Parameters, 0, bars.Count);
             if (slice == null || slice.Count == 0) return series;
 
             var bins = ProfileAnchoring.CountsTime(codeUpper)
@@ -441,7 +491,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : _profiles.CalculateVolumeProfile(slice);
 
             var buffer = new SeriesDataBuffer { SeriesId = series.Id, ProfileBins = bins ?? new List<ProfileBin>() };
-            buffer.FirstBarDate = _bars[0].Date;
+            buffer.FirstBarDate = bars[0].Date;
             return series.WithData(buffer);
         }
     }

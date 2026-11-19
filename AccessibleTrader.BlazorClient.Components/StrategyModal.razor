@@ -853,7 +853,7 @@ public class MyStrategy : BaseStrategy
 
     private async Task RunLabWindowsAsync()
     {
-        if (Store.State.Data == null || !Store.State.Data.Any())
+        if (Store.State.MarketBars == null || !Store.State.MarketBars.Any())
         {
             _labError = true; _labMessage = "Load chart data first."; return;
         }
@@ -862,7 +862,7 @@ public class MyStrategy : BaseStrategy
         {
             var progress = new Progress<string>(msg => { _labMessage = msg; InvokeAsync(StateHasChanged); });
             _labWindowResults = await LabRunner.RunWindowsAsync(
-                _labSpecId, Store.State.Data, Store.State, _labWindows, LabBaseConfig(), progress);
+                _labSpecId, Store.State.MarketBars, Store.State, _labWindows, LabBaseConfig(), progress);
 
             int profitable = _labWindowResults.Count(w => w.AverageR > 0);
             int traded = _labWindowResults.Count(w => w.Trades > 0);
@@ -881,7 +881,7 @@ public class MyStrategy : BaseStrategy
 
     private async Task RunLabComparisonAsync()
     {
-        if (Store.State.Data == null || !Store.State.Data.Any())
+        if (Store.State.MarketBars == null || !Store.State.MarketBars.Any())
         {
             _labError = true; _labMessage = "Load chart data first."; return;
         }
@@ -891,7 +891,7 @@ public class MyStrategy : BaseStrategy
             var specs = StrategyLibrary.All.Select(sp => (sp.Id, sp.Name)).ToList();
             var progress = new Progress<string>(msg => { _labMessage = msg; InvokeAsync(StateHasChanged); });
             _labComparison = await LabRunner.CompareAsync(
-                specs, Store.State.Data, Store.State, LabBaseConfig(), progress);
+                specs, Store.State.MarketBars, Store.State, LabBaseConfig(), progress);
 
             var survivors = _labComparison.Where(r => r.Survivor).ToList();
             _labMessage = _labComparison.Count == 0
@@ -1137,14 +1137,14 @@ public class MyStrategy : BaseStrategy
     /// </summary>
     private DateTime? GetMidpointDate()
     {
-        var data = Store.State.Data;
+        var data = Store.State.MarketBars;
         if (data == null || data.Count < 4) return null;
         return data[data.Count / 2].Date;
     }
 
     private void WalkForwardFirstHalf()
     {
-        var data = Store.State.Data;
+        var data = Store.State.MarketBars;
         if (data == null || data.Count < 4)
         {
             _btMessage = "Load a chart first — need at least 4 bars to split.";
@@ -1159,7 +1159,7 @@ public class MyStrategy : BaseStrategy
 
     private void WalkForwardLastHalf()
     {
-        var data = Store.State.Data;
+        var data = Store.State.MarketBars;
         if (data == null || data.Count < 4)
         {
             _btMessage = "Load a chart first — need at least 4 bars to split.";
@@ -1201,7 +1201,7 @@ public class MyStrategy : BaseStrategy
                 FundingIntervalHours: _btFundingHours,
                 BorrowRateAnnual: _btBorrow);
             var (result, status) = await Coordinator.RunBacktestAsync(
-                _btSelectedSpecId, Store.State.Data, config, Store.State);
+                _btSelectedSpecId, Store.State.MarketBars, config, Store.State);
             _btResult  = result;
             _btMessage = status.Message;
             _btError   = !status.IsSuccess;

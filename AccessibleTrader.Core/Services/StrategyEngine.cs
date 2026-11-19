@@ -89,6 +89,12 @@ namespace AccessibleTrader.Core.Services
             if (_activeStrategies.IsEmpty) return;
 
             var state = _store.State;
+
+            // A brick chart's Data holds bricks and its cursor indexes them. Strategies are
+            // driven by the feed path (OnFocusedFeedUpdated) on the REAL bars; this
+            // state-driven path has no honest bar to hand them, so it does nothing here.
+            if (state.ChartStyle.IsBrickStyle()) return;
+
             _indicatorCache.BeginSeries(state.Identity, state.Data.Count);
             int idx = state.CurrentDataIndex;
             if (idx < 1 || idx >= state.Data.Count) return;
@@ -450,11 +456,10 @@ namespace AccessibleTrader.Core.Services
         /// <summary>The most recent closed price on the workspace, or 0 when there is none.</summary>
         private static double LastClose(WorkspaceState state)
         {
-            var data = state.Data;
-            if (data == null || data.Count == 0) return 0;
-            int idx = state.CurrentDataIndex;
-            if (idx < 0 || idx >= data.Count) idx = data.Count - 1;
-            return data[idx].Close;
+            // The real market's newest close, never a brick edge. CurrentDataIndex indexes the
+            // drawn bricks on a brick chart, so it cannot be reused here.
+            var data = state.MarketBars;
+            return data == null || data.Count == 0 ? 0 : data[^1].Close;
         }
 
         // ── IStrategyEngine ───────────────────────────────────────────────────
@@ -470,9 +475,9 @@ namespace AccessibleTrader.Core.Services
             var instanceId = Guid.NewGuid().ToString("N");
             var @params = parameters ?? new Dictionary<string, object>();
 
-            // Initialise with current history
+            // Initialise with current history: the real bars, never the drawn bricks.
             var state = _store.State;
-            strategy.Initialize(state.Data, state, @params);
+            strategy.Initialize(state.MarketBars, state, @params);
 
             // Bind the instance to the chart it was started on. The foreground engine
             // evaluates it only while that symbol is focused; a background workspace

@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Notifications;
 using AccessibleTrader.Core.Services.Strategies;
@@ -362,18 +363,51 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>The fetched bars and nothing else — the state for a chart that has no series
         /// to compute. Price and candle alerts read this; a three-bar pattern needs the bars in
         /// <c>Data</c>, which the blank state never had.</summary>
-        private static WorkspaceState BareState(Watch watch, IReadOnlyList<Ohlcv> bars) =>
-            WorkspaceState.Initial with
+        private static WorkspaceState BareState(Watch watch, IReadOnlyList<Ohlcv> bars)
+        {
+            var realBars = new TimeSeriesBuffer<Ohlcv>(bars.ToList());
+            var displayBars = realBars;
+            var spans = System.Collections.Immutable.ImmutableArray<BrickSpan>.Empty;
+            double box = 0;
+            bool brick = watch.ChartStyle.IsBrickStyle();
+
+            if (brick)
+            {
+                box = watch.BrickBoxSize;
+                if (!(box > 0) && !BrickChartBuilder.TryResolveBox(bars, watch.Renko ?? new RenkoSettings(), out box, out _))
+                    box = 0;
+
+                if (box > 0)
+                {
+                    var built = BrickChartBuilder.Build(
+                        bars, box, BrickChartBuilder.BarLength(
+                            new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bars));
+                    displayBars = built.Ok ? built.Bricks : TimeSeriesBuffer<Ohlcv>.Empty;
+                    spans = built.Ok ? built.Spans : System.Collections.Immutable.ImmutableArray<BrickSpan>.Empty;
+                }
+                else
+                {
+                    displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
+                }
+            }
+
+            return WorkspaceState.Initial with
             {
                 Identity = new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
                 SymbolDisplayName = watch.Symbol,
-                Data = new TimeSeriesBuffer<Ohlcv>(bars.ToList()),
+                Data = displayBars,
+                TimeBars = brick ? realBars : null,
+                BrickSpans = spans,
+                BrickBoxSize = box,
+                Renko = watch.Renko ?? new RenkoSettings(),
+                ChartStyle = brick ? PriceChartStyle.Renko : PriceChartStyle.Candles,
                 // Price and candle alerts read the candle as drawn (AlertEvaluator).
-                IsHeikinAshi = watch.HeikinAshi,
-                CurrentDataIndex = bars.Count - 1,
+                IsHeikinAshi = !brick && watch.HeikinAshi,
+                CurrentDataIndex = Math.Max(0, displayBars.Count - 1),
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
             };
+        }
 
         /// <summary>
         /// The evaluator, with the headless scope's level service (POC alerts) and condition
@@ -556,7 +590,9 @@ namespace AccessibleTrader.WebHost.Services
         /// compute on them, as the open chart's do (IndicatorCandles). Rides with Series.</param>
         public sealed record Watch(string Provider, string Symbol, string Timeframe,
             IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot",
-            IReadOnlyList<SeriesConfig>? Series = null, bool HeikinAshi = false);
+            IReadOnlyList<SeriesConfig>? Series = null, bool HeikinAshi = false,
+            PriceChartStyle ChartStyle = PriceChartStyle.Candles,
+            RenkoSettings? Renko = null, double BrickBoxSize = 0);
 
         /// <summary>One chart to fetch this poll, and the reasons it is wanted.</summary>
         internal sealed record Target(Watch Watch, bool WatchBarCloses, bool Narrate);
@@ -611,7 +647,10 @@ namespace AccessibleTrader.WebHost.Services
                     Array.Empty<AlertDefinition>(),
                     string.IsNullOrWhiteSpace(tab.Market) ? "Spot" : tab.Market.Trim(),
                     tab.Series,
-                    tab.IsHeikinAshi);
+                    tab.IsHeikinAshi,
+                    tab.ChartStyle,
+                    tab.Renko,
+                    tab.BrickBoxSize);
 
                 // Two tabs on the same chart are one watch. Duplicates would fetch twice and
                 // announce twice — and the second announcement would be indistinguishable from
@@ -701,7 +740,10 @@ namespace AccessibleTrader.WebHost.Services
                     var chart = SavedChartTab(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market);
                     return new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market,
                                      (IReadOnlyList<SeriesConfig>?)tab?.Series ?? Array.Empty<SeriesConfig>(),
-                                     (chart ?? tab)?.IsHeikinAshi ?? false);
+                                     (chart ?? tab)?.IsHeikinAshi ?? false,
+                                     (chart ?? tab)?.ChartStyle ?? PriceChartStyle.Candles,
+                                     (chart ?? tab)?.Renko,
+                                     (chart ?? tab)?.BrickBoxSize ?? 0);
                 })
                 .ToList();
 
@@ -994,7 +1036,11 @@ namespace AccessibleTrader.WebHost.Services
             var saved = watch.Series ?? Array.Empty<SeriesConfig>();
             // The candle type is part of what the chart computes: a tab switched to Heikin-Ashi
             // gets a new chart.
-            string signature = HeadlessChartFactory.Signature(saved, watch.Alerts) + (watch.HeikinAshi ? "\nheikin-ashi" : "");
+            string signature = HeadlessChartFactory.Signature(saved, watch.Alerts)
+                + (watch.HeikinAshi ? "\nheikin-ashi" : "")
+                + (watch.ChartStyle.IsBrickStyle()
+                    ? $"\nrenko|{watch.Renko?.Mode}|{watch.Renko?.AtrLength}|{watch.BrickBoxSize.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}"
+                    : "");
 
             if (_charts.TryGetValue(key, out var held) && held.Signature == signature)
                 return held.Chart;
@@ -1014,7 +1060,8 @@ namespace AccessibleTrader.WebHost.Services
             {
                 var chart = factory.Create(
                     new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved, watch.Alerts,
-                    heikinAshi: watch.HeikinAshi);
+                    heikinAshi: watch.HeikinAshi, chartStyle: watch.ChartStyle,
+                    renko: watch.Renko, brickBoxSize: watch.BrickBoxSize);
                 _charts[key] = (signature, chart);
                 _logger.LogInformation(
                     "Headless chart watching {Symbol} {Timeframe}: {Narrated} narrated series, {Total} in all, {Bars} bars of history.",

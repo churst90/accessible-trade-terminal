@@ -925,7 +925,7 @@ namespace AccessibleTrader.Core.Services
 
         private void OnState(WorkspaceState st)
         {
-            var data = st.Data;
+            var data = st.MarketBars;
             string sym = (st.Identity.Symbol ?? "").ToUpperInvariant();
             if (data == null || data.Count == 0 || sym.Length == 0) return;
             ProcessBar(sym, data[data.Count - 1], IPaperTradingProvider.StreamOf(st.Identity));
@@ -1990,7 +1990,7 @@ namespace AccessibleTrader.Core.Services
             bool Fits(ChartIdentity id) => !string.IsNullOrEmpty(id.Provider)
                 && (venue == null || string.Equals(venue, id.Provider, StringComparison.OrdinalIgnoreCase))
                 && string.Equals(LocalCanonical(id.Symbol ?? ""), local, StringComparison.OrdinalIgnoreCase);
-            if (Fits(st.Identity)) return (st.Identity, st.Data);
+            if (Fits(st.Identity)) return (st.Identity, st.MarketBars);
             if (venue == null) return default;
             foreach (var tab in st.TabSnapshots ?? Enumerable.Empty<TabSnapshot>())
                 if (Fits(tab.Identity)) return (tab.Identity, tab.Data);
@@ -2020,11 +2020,11 @@ namespace AccessibleTrader.Core.Services
         private double PriceFor(string symbol, double fallback, string? venue = null)
         {
             var st = _store?.State;
-            if (st != null && st.Data != null && st.Data.Count > 0 &&
+            if (st != null && st.MarketBars != null && st.MarketBars.Count > 0 &&
                 string.Equals(st.Identity.Symbol, symbol, StringComparison.OrdinalIgnoreCase)
                 && ((venue ?? HomeVenueOf(symbol)) is not string home
                     || string.Equals(home, st.Identity.Provider, StringComparison.OrdinalIgnoreCase)))
-                return st.Data[st.Data.Count - 1].Close;
+                return st.MarketBars[st.MarketBars.Count - 1].Close;
             return _lastPrice.TryGetValue(symbol.ToUpperInvariant(), out double p) && p > 0 ? p : fallback;
         }
 

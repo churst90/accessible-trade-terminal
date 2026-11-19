@@ -1647,8 +1647,8 @@
         bool sameMarket = string.Equals(st.Identity.Symbol, p.Symbol, StringComparison.OrdinalIgnoreCase)
             && (row.Account.IsPaper
                 || string.Equals(st.Identity.Provider, row.Account.ProviderName, StringComparison.OrdinalIgnoreCase));
-        if (sameMarket && st.Data != null && st.Data.Count > 0)
-            return (double)st.Data[st.Data.Count - 1].Close;
+        if (sameMarket && st.MarketBars != null && st.MarketBars.Count > 0)
+            return (double)st.MarketBars[st.MarketBars.Count - 1].Close;
 
         // Otherwise the position's own mark, which is what its venue last valued it at.
         return p.Quantity != 0 ? Math.Abs(p.MarketValue / p.Quantity) : p.AveragePrice;
@@ -2888,15 +2888,16 @@
 
     private string GetLastPrice()
     {
-        var data = Store.State.Data;
+        // The market price, as the trading panel must never quote a brick edge as the last.
+        var data = Store.State.MarketBars;
         if (data == null || !data.Any()) return "—";
         return PriceFormatter.FormatPrice(data[^1].Close);
     }
 
     private double GetCurrentPrice()
     {
-        if (Store.State.Data == null || !Store.State.Data.Any()) return 0;
-        return Store.State.Data.Last().Close;
+        if (Store.State.MarketBars == null || !Store.State.MarketBars.Any()) return 0;
+        return Store.State.MarketBars.Last().Close;
     }
 
     private string GetSpread()

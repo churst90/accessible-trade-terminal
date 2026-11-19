@@ -103,7 +103,9 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 if (IsActive) return false;
 
-                var data = _store.State.Data;
+                // Replay reveals REAL bars; each prefix goes through UpdateDataAction and the
+                // reducer bricks it when the chart is Renko.
+                var data = _store.State.MarketBars;
                 if (data == null || data.Count < MinRevealed + 1) return false;
 
                 _history = new List<Ohlcv>(data);
@@ -204,9 +206,10 @@ namespace AccessibleTrader.Core.Services.Analysis
             }
 
             _store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(prefix), IsInitialLoad: false));
-            // Park the cursor on the newest revealed bar so arrow navigation and the bar-detail
-            // readout describe the bar the user just uncovered.
-            _store.Dispatch(new NavigateAction(revealed - 1));
+            // Park the cursor on the newest DRAWN bar so arrow navigation and the bar-detail
+            // readout describe the bar the user just uncovered. On a brick chart the reducer's
+            // Data is the bricks, and the revealed time-bar count would index the wrong list.
+            _store.Dispatch(new NavigateAction(Math.Max(0, _store.State.Data.Count - 1)));
         }
 
         private void Announce(string message) =>

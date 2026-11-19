@@ -178,6 +178,13 @@ public static class WorkspaceProjection
         // Whether coming back after five minutes offers an Alt+U catch-up. A host narration
         // preference; a strategy's signals must not change because the user ticked a prompt box.
         nameof(WorkspaceState.ChangeLogOfferOnReturn),
+        // A brick chart's real bars and the spans that built its bricks. The projection sends
+        // MarketBars as Data (scripts trade, so they must never see a brick's box edge as the
+        // market price); these fields are the drawing machinery behind that.
+        nameof(WorkspaceState.TimeBars),
+        nameof(WorkspaceState.BrickSpans),
+        nameof(WorkspaceState.BrickBoxSize),
+        nameof(WorkspaceState.Renko),
     };
 
     /// <summary>
@@ -188,6 +195,7 @@ public static class WorkspaceProjection
     public static readonly IReadOnlyList<string> Derived = new[]
     {
         nameof(WorkspaceState.TabCount),
+        nameof(WorkspaceState.MarketBars),
     };
 
     // ObservableObject-derived config types round-trip through the default options. Cased
@@ -206,7 +214,8 @@ public static class WorkspaceProjection
         ArgumentNullException.ThrowIfNull(state);
 
         WriteIdentity(s, state.Identity);
-        WriteData(s, state.Data);
+        // Scripts trade, so they get the REAL bars even when the chart draws bricks.
+        WriteData(s, state.MarketBars);
         WriteSeriesList(s, state.ActiveSeries);
 
         Wire.WriteI32(s, state.FocusedSeriesIndex);

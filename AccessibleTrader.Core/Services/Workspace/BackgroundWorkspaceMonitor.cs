@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
@@ -47,6 +48,11 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly IStrategyEngine _strategyEngine;
         // The tab shows Heikin-Ashi candles, so its indicators compute on them (IndicatorCandles).
         private readonly bool _heikinAshi;
+        // The tab's drawn chart type and, for a brick chart, the frozen box and settings. Alerts
+        // read the chart as drawn; strategies keep the real bars.
+        private readonly PriceChartStyle _chartStyle;
+        private readonly RenkoSettings _renko;
+        private readonly double _brickBoxSize;
         private readonly IEventBus _eventBus;
         private readonly ILogger _logger;
         private readonly TimeSpan _pollInterval;
@@ -88,9 +94,15 @@ namespace AccessibleTrader.Core.Services.Workspace
             int barsToFetch = 400,
             Strategies.IStrategyPositionManager? positions = null,
             Strategies.IConditionEvaluator? conditionEvaluator = null,
-            bool heikinAshi = false)
+            bool heikinAshi = false,
+            PriceChartStyle chartStyle = PriceChartStyle.Candles,
+            RenkoSettings? renko = null,
+            double brickBoxSize = 0)
         {
             _heikinAshi = heikinAshi;
+            _chartStyle = chartStyle;
+            _renko = renko ?? new RenkoSettings();
+            _brickBoxSize = brickBoxSize;
             _positions = positions;
             _conditionEvaluator = conditionEvaluator;
             _identity = identity;
@@ -150,11 +162,14 @@ namespace AccessibleTrader.Core.Services.Workspace
             // ones beside them for a strategy that reads its signals there (StrategyCandles, the
             // same as the focused engine). One state when the tab shows candles and nothing
             // wants Heikin-Ashi.
-            var state = BuildState(bars, _heikinAshi);
+            // Alerts read the chart as drawn: a Renko tab evaluates on its bricks.
+            var state = BuildState(bars, _heikinAshi, forceRealBars: false);
             bool heikinAshiWanted = _strategyEngine.ActiveStrategies.Any(a => !a.IsPaused
                 && Strategies.StrategyCandles.WantsHeikinAshi(a.Strategy)
                 && IsMine(a));
-            var strategyState = Strategies.StrategyCandles.For(_indicators, state, bars.ToArray(), heikinAshiWanted,
+            // Strategies always keep the real bars, whatever the tab draws.
+            var strategyBase = BuildState(bars, _heikinAshi, forceRealBars: true);
+            var strategyState = Strategies.StrategyCandles.For(_indicators, strategyBase, bars.ToArray(), heikinAshiWanted,
                 (series, ex) => _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
                     series.Config.IndicatorCode, _symbolDisplayName));
             LastBarCount = bars.Count;
@@ -175,10 +190,42 @@ namespace AccessibleTrader.Core.Services.Workspace
         /// series template with every indicator recomputed against the new data. Never
         /// dispatched anywhere — this state exists only for evaluation.
         /// </summary>
-        private WorkspaceState BuildState(IReadOnlyList<Ohlcv> bars, bool heikinAshi)
+        private WorkspaceState BuildState(IReadOnlyList<Ohlcv> bars, bool heikinAshi, bool forceRealBars)
         {
+            var realBars = new TimeSeriesBuffer<Ohlcv>(bars);
+            var displayBars = realBars;
+            var spans = System.Collections.Immutable.ImmutableArray<BrickSpan>.Empty;
+            double box = 0;
+            bool brick = !forceRealBars && _chartStyle.IsBrickStyle();
+
+            if (brick)
+            {
+                box = _brickBoxSize;
+                if (!(box > 0) && !BrickChartBuilder.TryResolveBox(bars, _renko, out box, out _))
+                    box = 0;
+
+                if (box > 0)
+                {
+                    var built = BrickChartBuilder.Build(
+                        bars, box, BrickChartBuilder.BarLength(_identity, bars));
+                    if (built.Ok)
+                    {
+                        displayBars = built.Bricks;
+                        spans = built.Spans;
+                    }
+                    else
+                    {
+                        displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
+                    }
+                }
+                else
+                {
+                    displayBars = TimeSeriesBuffer<Ohlcv>.Empty;
+                }
+            }
+
             var computed = Strategies.EvaluationSeries.Compute(
-                _indicators, _seriesTemplate, bars.ToArray(), _identity.Symbol, heikinAshi,
+                _indicators, _seriesTemplate, displayBars.ToArray(), _identity.Symbol, heikinAshi,
                 (series, ex) => _logger.LogWarning(ex, "Background monitor: indicator {Code} failed for {Symbol}",
                     series.Config.IndicatorCode, _symbolDisplayName));
 
@@ -186,10 +233,15 @@ namespace AccessibleTrader.Core.Services.Workspace
             {
                 Identity = _identity,
                 SymbolDisplayName = _symbolDisplayName,
-                Data = new TimeSeriesBuffer<Ohlcv>(bars),
+                Data = displayBars,
+                TimeBars = brick ? realBars : null,
+                BrickSpans = spans,
+                BrickBoxSize = box,
+                Renko = _renko,
+                ChartStyle = brick ? PriceChartStyle.Renko : PriceChartStyle.Candles,
                 ActiveSeries = computed,
-                IsHeikinAshi = heikinAshi,
-                CurrentDataIndex = bars.Count - 1,
+                IsHeikinAshi = !brick && heikinAshi,
+                CurrentDataIndex = Math.Max(0, displayBars.Count - 1),
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
             };
