@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Sdk.Models;
 
@@ -32,9 +34,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // it puts the style back to Candles: the user sees one chart type, not a flag
             // crossed with one. Line and Area are raw-close displays and can never carry it,
             // and a brick chart is already a different construction: HA on from Renko restores
-            // the real bars and lands on Candles + Heikin-Ashi.
-            ToggleHeikinAshiAction      => ToggleHeikinAshi(state),
-            SetChartStyleAction a       => ApplyChartStyle(state, a.Style, a.HeikinAshi),
+            // the real bars and lands on Candles + Heikin-Ashi. The focus follows the drawing
+            // (FollowChartType) whichever way the chart type changes.
+            ToggleHeikinAshiAction      => FollowChartType(state, ToggleHeikinAshi(state)),
+            SetChartStyleAction a       => FollowChartType(state, ApplyChartStyle(state, a.Style, a.HeikinAshi)),
             SetRenkoSettingsAction a    => ApplyRenkoSettings(state, a.Settings, a.BrickBoxSize),
             // The price scale is ONE choice to the user — Regular, Logarithmic, Percent,
             // Indexed to 100 — so the two fields never disagree. Turning log ON is the
@@ -196,5 +199,30 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             int effectiveWindow = Math.Max(1, state.ViewportLength - state.RightMarginBars);
             return Math.Max(0, count - effectiveWindow);
         }
+
+        /// <summary>
+        /// The focus follows the drawing. Choosing Line or Area while the candles are focused
+        /// moves focus to the Price line, which IS the line on screen; going back to candles
+        /// from there moves it back to the candles. Focus on anything else (an indicator, a
+        /// drawing's series) is the user's own choice and is left where it is.
+        /// </summary>
+        private static WorkspaceState FollowChartType(WorkspaceState before, WorkspaceState after)
+        {
+            string focused = after.FocusedSeriesId ?? CoreSeriesIds.Candles;
+            if (ChartTypeFocus.CandlesOffScreen(after) && focused == CoreSeriesIds.Candles)
+                return FocusSeries(after, CoreSeriesIds.Price);
+            if (ChartTypeFocus.CandlesOffScreen(before) && !ChartTypeFocus.CandlesOffScreen(after)
+                && focused == CoreSeriesIds.Price
+                && after.ActiveSeries.Any(s => s.Id == CoreSeriesIds.Candles))
+                return FocusSeries(after, CoreSeriesIds.Candles);
+            return after;
+        }
+
+        private static WorkspaceState FocusSeries(WorkspaceState state, string seriesId) => state with
+        {
+            FocusedSeriesId = seriesId,
+            FocusedComponentIndex = SeriesReducer.GetDefaultComponentIndex(state, seriesId),
+            LastInteractionContext = InteractionContext.Series,
+        };
     }
 }

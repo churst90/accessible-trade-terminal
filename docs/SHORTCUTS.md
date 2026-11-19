@@ -354,7 +354,9 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 
 **Chart type** (Candles / Heikin Ashi / Line / Area / Renko) has no key of its own: use the
 toolbar's Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, `RENKO`, or
-`heikin ashi chart`. Typing `candles` now chooses the candle chart; it no longer toggles
+`heikin ashi chart`. Alt+C and Alt+L have no toolbar buttons of their own any more: the Chart
+type and Price scale selects carry them. On Line and Area the series keys skip the candles and
+land on the Price line. Typing `candles` now chooses the candle chart; it no longer toggles
 Heikin-Ashi. On a Renko chart, **Brick settings** appears beside the select (Go bar
 `brick settings`); `RENKO 500` sets a fixed box and `RENKO ATR 20` sets an ATR length. Arrow
 keys read a brick as *"Up brick, 95,000.00 to 95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* —

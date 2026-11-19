@@ -234,7 +234,8 @@
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
                 @* Chart type: Candles, Heikin Ashi, Line, Area, Renko — one choice, like
-                   TradingView. The HA button beside it stays the Alt+C toggle. *@
+                   TradingView. Alt+C still toggles Heikin Ashi; the separate HA button went
+                   2026-11-19 (Cody: it is already in this list). *@
                 <label for="chart-type-select" class="visually-hidden">Chart type</label>
                 <select id="chart-type-select"
                         aria-label="Chart type"
@@ -253,14 +254,10 @@
                                       Tooltip="Change the Renko box: ATR length or a fixed size"
                                       OnClick="() => EventBus.Publish(new OpenChartTypeSettingsEvent())" />
                 }
-                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
-                                  IsToggleOn="@(Store.State.IsHeikinAshi)"
-                                  Tooltip="Toggle Heikin Ashi candles, Alt plus C"
-                                  OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
                 @* Price scale: Regular, Logarithmic, Percent, Indexed to 100 — one choice,
                    like TradingView's menu. Percent and Indexed are relabels of the same linear
-                   scale from the first close on screen; the Log scale button beside it stays
-                   the Alt+L toggle. *@
+                   scale from the first close on screen. Alt+L still toggles Logarithmic; the
+                   separate Log scale button went 2026-11-19 with the HA one. *@
                 <label for="price-scale-select" class="visually-hidden">Price scale</label>
                 <select id="price-scale-select"
                         aria-label="Price scale"
@@ -271,10 +268,6 @@
                     <option value="percent" selected="@(PriceScaleValue == "percent")">Percent</option>
                     <option value="indexed" selected="@(PriceScaleValue == "indexed")">Indexed to 100</option>
                 </select>
-                <ToolbarIconButton Icon="log-scale" Label="Log scale" Variant="data"
-                                  IsToggleOn="@(Store.State.IsLogScale)"
-                                  Tooltip="Toggle the logarithmic price scale, Alt plus L"
-                                  OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
                 <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
                                   IsToggleOn="@IsReplayActive"
                                   Tooltip="Toggle bar replay, step forward one bar at a time, Control plus Alt plus Shift plus P"

@@ -107,15 +107,34 @@ namespace AccessibleTrader.Tests
         {
             // The button row opens panels and, since 2026-09-22, ends with the chart-view
             // controls; the second row is the cascade that builds a chart. Replay belongs with
-            // the visual toggles, next to Heatmap / Heikin / Log — pinned so a later edit
-            // doesn't scatter it back among the panel openers.
+            // the visual toggles, next to Heatmap and the chart-type and price-scale lists —
+            // pinned so a later edit doesn't scatter it back among the panel openers.
             string toolbar = Toolbar();
 
-            int logScale = toolbar.IndexOf("Icon=\"log-scale\"", StringComparison.Ordinal);
-            int replay   = toolbar.IndexOf("Icon=\"replay\"", StringComparison.Ordinal);
+            int priceScale = toolbar.IndexOf("id=\"price-scale-select\"", StringComparison.Ordinal);
+            int replay     = toolbar.IndexOf("Icon=\"replay\"", StringComparison.Ordinal);
 
-            Assert.True(logScale > 0, "Log scale button not found — the visual-toggle row moved.");
-            Assert.True(replay > logScale, "Replay button is not in the visual-toggle row.");
+            Assert.True(priceScale > 0, "Price scale list not found — the visual-toggle row moved.");
+            Assert.True(replay > priceScale, "Replay button is not in the visual-toggle row.");
+        }
+
+        /// <summary>
+        /// The separate Heikin Ashi and Log scale buttons are GONE (Cody, 2026-11-19: "they're
+        /// part of the dropdowns"). Each was a second control for one entry of a list beside
+        /// it, so a screen reader met the same choice twice in a row. Their keys stay — Alt+C
+        /// and Alt+L — and the lists are the controls a shortcut pairs with.
+        /// </summary>
+        [Fact]
+        public void HeikinAshiAndLogScaleButtons_areGoneAndTheListsCarryThem()
+        {
+            string toolbar = Toolbar();
+            Assert.DoesNotContain("Icon=\"heikin-ashi\"", toolbar);
+            Assert.DoesNotContain("Icon=\"log-scale\"", toolbar);
+            Assert.DoesNotContain("icon-heikin-ashi", Sprite());
+            Assert.DoesNotContain("icon-log-scale", Sprite());
+
+            Assert.Contains("<option value=\"heikin\"", toolbar);
+            Assert.Contains("<option value=\"logarithmic\"", toolbar);
         }
 
         [Fact]
@@ -576,8 +595,8 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TheToolbar_watchesTheStateItDisplays()
         {
-            // Pan and Zoom disable on Store.State.Data.Count; Heatmap, Heikin and Log show pressed
-            // state from the store's own flags. The toolbar read all of that without subscribing
+            // Pan and Zoom disable on Store.State.Data.Count; Heatmap shows pressed state and the
+            // chart-type and price-scale lists their selection from the store's own flags. The toolbar read all of that without subscribing
             // to the store, so it only repainted when something unrelated happened to fire — pan
             // and zoom could sit greyed out over a chart full of data, and toggling Heikin from
             // the keyboard left the button showing the opposite of the truth. A control that lies

@@ -87,6 +87,33 @@ public sealed class RenkoSpeechTests
         Assert.DoesNotContain("wick", spoken, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(PriceScaleMode.Percent)]
+    [InlineData(PriceScaleMode.IndexedTo100)]
+    public void Percent_and_Indexed_lead_a_brick_reading_with_the_bricks_scale_reading(PriceScaleMode mode)
+    {
+        var (state, _, brick) = BrickState();
+        state = state with { ScaleMode = mode };
+        double first = state.Data[0].Close;   // the first visible BRICK's close is the base
+        Assert.NotEqual(first, brick.Close);
+
+        string spoken = Speak(state);
+
+        string reading = ChartMath.FormatScaleReadingSpoken(mode, ChartMath.ScaleReading(mode, brick.Close, first));
+        Assert.Contains(char.ToUpperInvariant(reading[0]) + reading[1..] + ". Up brick", spoken);
+    }
+
+    [Fact]
+    public void A_Regular_scale_brick_reading_says_no_scale_reading()
+    {
+        var (state, _, _) = BrickState();
+
+        string spoken = Speak(state);
+
+        Assert.DoesNotContain("percent", spoken, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("index", spoken, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void A_Renko_readout_never_says_only_the_bricks_completion_Date()
     {

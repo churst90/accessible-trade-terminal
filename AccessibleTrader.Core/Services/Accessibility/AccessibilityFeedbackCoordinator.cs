@@ -391,6 +391,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _ => "Candle chart.",
                     };
                 }
+                // The change moved the focus (ChartTypeFocus): say where the arrows now are, so
+                // the next reading is not a surprise. Only when the reducer actually moved it.
+                if (state.FocusedSeriesId != _previousState.FocusedSeriesId)
+                {
+                    if (state.FocusedSeriesId == CoreSeriesIds.Price) msg += " On the price line.";
+                    else if (state.FocusedSeriesId == CoreSeriesIds.Candles) msg += " On the candles.";
+                }
                 _speechRouter.Speak(msg, interrupt: true, channel: SpeechChannel.Interface);
             }
             // ── The price scale is ONE choice: Regular, Logarithmic, Percent, Indexed ──────

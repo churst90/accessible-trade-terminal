@@ -183,7 +183,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (brickCandle)
             {
-                msg = BrickChartSpeech.BrickSummary(brick, brickSpan);
+                // Percent and Indexed lead here too: the brick's close is the point drawn on
+                // that axis, and the base is the first visible brick's close.
+                msg = ScalePrefix(scaleMode, brick.Close, scaleBase) + BrickChartSpeech.BrickSummary(brick, brickSpan);
             }
             else if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
             {
@@ -191,38 +193,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // no pattern to name. The reading describes the POINT ON THE LINE instead — the
                 // close and how it moved from the previous close. The bar-detail key still reads
                 // the full OHLC bar, because that is a question about the market rather than
-                // about the drawing.
-                //
-                // The close is the RAW one: the reducer clears Heikin-Ashi for these chart types,
-                // and the renderer skips the transform even if a stale flag survived. Reading an
-                // HA average here would describe a point the line never drew.
-                int idx = state.CurrentDataIndex;
-                Ohlcv onLine = rawPt;
-                double close = onLine.Close;
-
-                if (state.Data == null || idx <= 0 || idx >= state.Data.Count)
-                {
-                    msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. First bar.";
-                }
-                else
-                {
-                    double previous = state.Data[idx - 1].Close;
-                    double change = close - previous;
-                    if (change == 0)
-                    {
-                        msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. Unchanged from the previous close.";
-                    }
-                    else
-                    {
-                        double percent = previous == 0 ? 0 : Math.Abs((change / previous) * 100.0);
-                        string direction = change > 0 ? "Up" : "Down";
-                        msg = $"Close {SpeechPriceFormatter.FormatPrice(close)}. {direction} " +
-                              $"{SpeechPriceFormatter.FormatPrice(Math.Abs(change))} from the previous close, " +
-                              $"{percent.ToString("F2", CultureInfo.InvariantCulture)} percent.";
-                    }
-                }
-
-                msg = ScalePrefix(scaleMode, close, scaleBase) + msg;
+                // about the drawing. (The arrow keys normally walk the Price line on these types —
+                // ChartTypeFocus — so this is reached only when there is no close line to walk.)
+                msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + LineReading(state, rawPt);
+            }
+            else if (seriesId == CoreSeriesIds.Price && ChartTypeFocus.CandlesOffScreen(state))
+            {
+                // The Price series IS the line on a Line or Area chart, so it reads the point on
+                // the line in both the summary and its one component — the same sentence the
+                // candles gave before they left the rotation. Cody, 2026-11-19: choosing Line
+                // changed the picture and nothing he heard, because only the candles knew.
+                msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + LineReading(state, rawPt);
             }
             else if (summary && seriesId == "candles")
             {
@@ -286,6 +267,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // (SingleValueLine), where the "close" is the metric's own value and a candle
                 // transform over it would be meaningless as well as wrong.
                 msg = $"{series.Name}. {lineType}. {SpeechPriceFormatter.FormatPrice(rawPt.Close)}.";
+                // Percent and Indexed lead with the scale reading here too: the close line is
+                // drawn on that axis, so its summary says where on it the point sits.
+                if (priceComp == null || string.Equals(priceComp.DataMapping, "close", StringComparison.OrdinalIgnoreCase))
+                    msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase) + msg;
             }
             else if (summary)
             {
@@ -638,6 +623,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Regular, or when the base cannot carry the mode (the chart is drawing Regular then,
         /// and saying a percentage would describe an axis that is not on screen).
         /// </summary>
+        /// <summary>
+        /// The point on a Line or Area chart's line: <c>"Close 95,000.50. Up 1,120.00 from the
+        /// previous close, 1.19 percent."</c>, <c>"… Down …"</c>, <c>"… Unchanged from the
+        /// previous close."</c> or <c>"… First bar."</c> The close is the RAW one: the reducer
+        /// clears Heikin-Ashi for these types and the renderer never draws an HA line.
+        /// </summary>
+        private static string LineReading(WorkspaceState state, Ohlcv onLine)
+        {
+            int idx = state.CurrentDataIndex;
+            double close = onLine.Close;
+            if (state.Data == null || idx <= 0 || idx >= state.Data.Count)
+                return $"Close {SpeechPriceFormatter.FormatPrice(close)}. First bar.";
+
+            double previous = state.Data[idx - 1].Close;
+            double change = close - previous;
+            if (change == 0)
+                return $"Close {SpeechPriceFormatter.FormatPrice(close)}. Unchanged from the previous close.";
+
+            double percent = previous == 0 ? 0 : Math.Abs((change / previous) * 100.0);
+            string direction = change > 0 ? "Up" : "Down";
+            return $"Close {SpeechPriceFormatter.FormatPrice(close)}. {direction} " +
+                   $"{SpeechPriceFormatter.FormatPrice(Math.Abs(change))} from the previous close, " +
+                   $"{percent.ToString("F2", CultureInfo.InvariantCulture)} percent.";
+        }
+
         private static string ScalePrefix(PriceScaleMode mode, double closeAsDrawn, double scaleBase)
         {
             if (mode == PriceScaleMode.Regular || !ChartMath.BaseUsable(scaleBase)) return "";
@@ -1345,10 +1355,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var pt = ctx.Pt;
             string open  = SpeechPriceFormatter.FormatPrice(pt.Open);
             string close = SpeechPriceFormatter.FormatPrice(pt.Close);
+            // Percent and Indexed: the body is read by its close, so the close's place on the
+            // scale leads ("plus 4.20 percent, open …"), as every other main-pane price does.
+            string scale = StandardTemplateStrategy.ScaleReading(ctx, pt.Close);
+            string lead = scale.Length == 0 ? "" : scale + ", ";
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
-                return $"Open {open}, close {close}";
+                return $"{lead}Open {open}, close {close}";
             string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
-            return $"{ctx.Comp.DisplayName}. {trend}. Open {open}, close {close}.";
+            return $"{ctx.Comp.DisplayName}. {trend}. {lead}Open {open}, close {close}.";
         }
     }
 
@@ -1404,8 +1418,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ? "no data"
                 : (isPriceSeries ? SpeechPriceFormatter.FormatPrice(val) : val.ToString("F2", CultureInfo.InvariantCulture));
 
+            // A price-family value (a wick's high or low, the Price line) reads its place on a
+            // Percent or Indexed scale first wherever it is spoken — the value-only order and the
+            // bare {value} token included, not only templates that spell {value:price}. Cody,
+            // 2026-11-19: choosing Percent changed only the candles' summary sentence.
+            string priceF2 = isPriceSeries ? PriceTokenValue(ctx, val) : valF2;
+
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
-                return double.IsNaN(val) ? "no data" : valF2;
+                return double.IsNaN(val) ? "no data"
+                    : isPriceSeries || TemplateReadsPrice(comp) ? PriceTokenValue(ctx, val) : valF2;
 
             // Template priority: provider metadata (comp.SpeechTemplate) → generic fallback.
             string tmpl = string.IsNullOrEmpty(comp.SpeechTemplate) ? "{name}. {type}. {value}." : comp.SpeechTemplate;
@@ -1433,7 +1454,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 m =>
                 {
                     if (double.IsNaN(val)) return "no data";
-                    if (isPriceSeries) return SpeechPriceFormatter.FormatPrice(val);
+                    if (isPriceSeries) return priceF2;
                     int digits = int.Parse(m.Groups[1].Value);
                     return val.ToString("F" + digits, CultureInfo.InvariantCulture);
                 });
@@ -1453,7 +1474,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             result = result.Replace("{value:price}", PriceTokenValue(ctx, val));
 
             return result
-                .Replace("{value}", valF2)
+                .Replace("{value}", priceF2)
                 .Replace("{trend}", trend)
                 .Replace("{zone}", zone);
         }
@@ -1465,12 +1486,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static string PriceTokenValue(ComponentFormatContext ctx, double val)
         {
             string price = double.IsNaN(val) ? "no data" : SpeechPriceFormatter.FormatPrice(val);
-            if (ctx.ScaleMode == PriceScaleMode.Regular || double.IsNaN(val)) return price;
+            string reading = ScaleReading(ctx, val);
+            return reading.Length == 0 ? price : reading + ", " + price;
+        }
+
+        /// <summary>Whether a component's own template reads a price-space value.</summary>
+        private static bool TemplateReadsPrice(ComponentConfig comp) =>
+            comp.SpeechTemplate?.Contains("{value:price}", StringComparison.Ordinal) == true;
+
+        /// <summary>
+        /// The scale reading of a main-pane value on a Percent or Indexed chart —
+        /// <c>"plus 4.20 percent"</c>, <c>"index 104.20"</c> — or empty in Regular, off the main
+        /// pane, or when the base cannot carry the mode.
+        /// </summary>
+        internal static string ScaleReading(ComponentFormatContext ctx, double val)
+        {
+            if (ctx.ScaleMode == PriceScaleMode.Regular || double.IsNaN(val)) return "";
 
             string pane = string.IsNullOrEmpty(ctx.Series.Pane) ? "Main" : ctx.Series.Pane;
-            if (!string.Equals(pane, "Main", StringComparison.OrdinalIgnoreCase)) return price;
+            if (!string.Equals(pane, "Main", StringComparison.OrdinalIgnoreCase)) return "";
 
-            if (!ChartMath.BaseUsable(ctx.ScaleBase)) return price;
+            if (!ChartMath.BaseUsable(ctx.ScaleBase)) return "";
 
             bool isCompare = string.Equals(ctx.Series.IndicatorCode,
                     Indicators.SymbolCompareProvider.OverlayCode, StringComparison.OrdinalIgnoreCase)
@@ -1484,11 +1520,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     ChartMath.FirstVisibleValue(ctx.Series.GetComponentData(ctx.Comp.Name),
                         ctx.ViewportStart, ctx.ViewportLength))
                 : val;
-            if (!ChartMath.BaseUsable(drawnValue)) return price;
+            if (!ChartMath.BaseUsable(drawnValue)) return "";
 
-            string reading = ChartMath.FormatScaleReadingSpoken(ctx.ScaleMode,
+            return ChartMath.FormatScaleReadingSpoken(ctx.ScaleMode,
                 ChartMath.ScaleReading(ctx.ScaleMode, drawnValue, ctx.ScaleBase));
-            return reading + ", " + price;
         }
 
         /// <summary>

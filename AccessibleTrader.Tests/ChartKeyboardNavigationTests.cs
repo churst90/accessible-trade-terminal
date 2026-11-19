@@ -267,6 +267,61 @@ public sealed class ChartKeyboardNavigationTests
         Assert.Equal(0, h.Store.State.FocusedComponentIndex);
     }
 
+    /// <summary>A Line chart: candles, the Price line on the close, an average, and RSI below.</summary>
+    private static Harness LineChart()
+    {
+        var h = new Harness();
+        h.AddSeries("price", "Price", "Main", "line").Config.Components[0].DataMapping = "close";
+        h.AddSeries("ma", "Average", "Main", "line");
+        h.AddSeries("rsi", "RSI 14", "Pane_RSI", "RSI");
+        h.Store.Dispatch(new SelectSeriesAction("candles"));
+        h.Store.Dispatch(new SetChartStyleAction(PriceChartStyle.Line, false));
+        return h;
+    }
+
+    [Fact]
+    public void On_a_line_chart_Page_Up_from_the_average_stops_on_the_price_line_not_the_candles()
+    {
+        // Cody, 2026-11-19: on a Line chart the candles are not drawn, so they are not a stop.
+        var h = LineChart();
+        Assert.Equal("price", h.Store.State.FocusedSeriesId);   // the chart-type change moved it
+        h.Store.Dispatch(new SelectSeriesAction("ma"));
+
+        h.Press("NAV_SERIES_PREV");
+        Assert.Equal("price", h.Store.State.FocusedSeriesId);
+        Assert.Contains(h.Spoken, t => t.Contains("Price"));    // the landing is heard
+
+        h.Press("NAV_SERIES_PREV");                              // the top of the chart: clamps
+        Assert.Equal("price", h.Store.State.FocusedSeriesId);
+        // Silently, as at the top of a candle chart. Stepping "onto" the hidden candles and
+        // being bounced back would re-read the Price line as though Page Up had gone somewhere.
+        Assert.Empty(h.Spoken);
+    }
+
+    [Fact]
+    public void On_a_line_chart_Page_Down_walks_on_from_the_price_line()
+    {
+        var h = LineChart();
+
+        h.Press("NAV_SERIES_NEXT");
+        Assert.Equal("ma", h.Store.State.FocusedSeriesId);
+        h.Press("NAV_SERIES_NEXT");
+        Assert.Equal("rsi", h.Store.State.FocusedSeriesId);
+    }
+
+    [Fact]
+    public void Back_on_candles_Page_Up_reaches_the_candles_again()
+    {
+        var h = LineChart();
+        h.Store.Dispatch(new SetChartStyleAction(PriceChartStyle.Candles, false));
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);
+        h.Store.Dispatch(new SelectSeriesAction("price"));
+
+        h.Press("NAV_SERIES_PREV");
+
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);
+    }
+
     // ── Delete ───────────────────────────────────────────────────────────────
 
     [Fact]

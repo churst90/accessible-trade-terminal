@@ -20,7 +20,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             IEventBus eventBus) => action switch
         {
             // Series focus
-            SelectSeriesAction a        => state with { FocusedSeriesId = a.SeriesId, FocusedComponentIndex = GetDefaultComponentIndex(state, a.SeriesId) },
+            // Off-screen candles (Line and Area) hand focus to the Price line: every route that
+            // focuses a series — load, pane jumps, the object tree, a click — goes through here.
+            SelectSeriesAction a        => SelectSeries(state, ChartTypeFocus.Redirect(state, a.SeriesId)),
             SetPrimarySeriesIdAction a  => state with { PrimarySeriesId = a.SeriesId },
             SelectComponentAction a     => state with { FocusedComponentIndex = a.ComponentIndex },
             SelectBinAction a           => state with { FocusedBinIndex = a.BinIndex },
@@ -55,7 +57,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         /// series. For an indicator with a Body-role component (e.g. Candles), the body is
         /// the natural landing spot — the wicks flanking it are secondary.
         /// </summary>
-        private static int GetDefaultComponentIndex(WorkspaceState state, string seriesId)
+        private static WorkspaceState SelectSeries(WorkspaceState state, string? seriesId) =>
+            state with { FocusedSeriesId = seriesId, FocusedComponentIndex = GetDefaultComponentIndex(state, seriesId!) };
+
+        internal static int GetDefaultComponentIndex(WorkspaceState state, string seriesId)
         {
             var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
             if (s == null || s.Components.Count == 0) return 0;
@@ -176,6 +181,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             var newList = state.ActiveSeries.RemoveAll(s => s.Id == id);
             string? newFocus = state.FocusedSeriesId == id ? (newList.FirstOrDefault()?.Id ?? "candles") : state.FocusedSeriesId;
+            // Removing the focused series on a Line or Area chart falls back to the line on
+            // screen, not to candles that are not drawn.
+            newFocus = ChartTypeFocus.Redirect(state with { ActiveSeries = newList }, newFocus);
             return state with {
                 ActiveSeries = newList,
                 FocusedSeriesId = newFocus,

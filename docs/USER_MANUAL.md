@@ -728,7 +728,8 @@ It is one choice with five options, like TradingView's chart-type menu:
 
 - **Candles** — the standard OHLC bars, the default.
 - **Heikin Ashi** — the smoothed candles described in the next section. This is the same as
-  the Alt+C button; choosing it sets Heikin Ashi on.
+  Alt+C; choosing it sets Heikin Ashi on. (There is no separate Heikin Ashi button any more:
+  this list carries it.)
 - **Line** — one line through the close of every visible bar.
 - **Area** — the same line with a fill from the line down to the bottom of the price pane.
 - **Renko** — bricks of price movement. Time is no longer the X axis: one brick is one box of
@@ -745,13 +746,21 @@ Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either
 Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. Renko never draws
 Heikin-Ashi bricks: Alt+C from Renko restores the real bars as candles plus Heikin-Ashi. The line is the new
 **Line and area close** colour in the theme (TradingView's blue by default), so the white Price
-series is not painted over it while it is set to read the close. The Price series is still
-there in every other way — it is in the status line, and arrowing to it still speaks and sonifies
-the close.
+series is not painted over it while it is set to read the close.
+
+**On Line and Area the arrows walk the line, not the candles.** The candles are not on screen,
+so they leave the Page Up / Page Down and next/previous-series rotation, and the focus moves to
+the **Price** series, the line itself. Choosing Line or Area says *"Line chart. On the price
+line."* (or *"Area chart. …"*); choosing Candles or Heikin Ashi again puts the focus back on the
+candles and says *"Candle chart. On the candles."* Anything that would have focused the candles
+(removing the series you were on, a command naming them) lands on the Price line instead. If
+you were on an indicator, the focus stays there. If the Price series has been changed to draw
+something other than the close (the high, say), it is a different line, so the candles stay in
+the rotation.
 
 The price axis fits the closes on Line and Area, so the line uses the whole pane; overlays and
 reference levels still widen the axis, and log scale works as usual. On Line and Area the price
-pane's status line shows just `C <close>`, and the candles series' arrow-key reading describes
+pane's status line shows just `C <close>`, and the Price line's arrow-key reading describes
 the point on the line: *"Close 95,000.50. Up 1,120.00 from the previous close, 1.19 percent."*,
 *"Down …"*, *"Unchanged from the previous close."* or *"First bar."* The detail key
 (Alt+Shift+D) still reads the full bar. On an analytics chart, which is already a single line,
@@ -781,12 +790,13 @@ this build.
 
 ### Price scales: regular, logarithmic, percent and indexed to 100
 
-The **Price scale** select sits in the toolbar's display group, immediately before the Log scale
-button. It is one choice with four entries, like TradingView's price-scale menu:
+The **Price scale** select sits in the toolbar's display group, after the Chart type select.
+There is no separate Log scale button any more; this list carries it, and Alt+L still toggles
+it. It is one choice with four entries, like TradingView's price-scale menu:
 
 - **Regular** — prices on a linear axis, the default.
 - **Logarithmic** — equal vertical distance means equal percentage move. This is the same as
-  the Alt+L button and the Go bar's `LOG`; turning it on returns the select to Regular plus the
+  Alt+L and the Go bar's `LOG`; turning it on returns the select to Regular plus the
   log flag.
 - **Percent** — the close of the first bar on screen is zero, and every other price reads as
   its change from that close. A close of 95,000.50 on a chart whose first visible close was
@@ -811,11 +821,13 @@ its line starts at the same point as this chart's line at the left edge and the 
 — relative performance you can hear as each symbol's own percent change. Other overlays are
 prices of the same symbol and are not rebased.
 
-**What you hear.** On the candles series (Candles, Heikin-Ashi, Line or Area) the reading starts
-with the scale: *"Plus 4.20 percent. Close 95,000.50 …"*, *"Minus 1.30 percent. …"*, *"Zero
-percent. …"* or *"Index 104.20. …"*. A main-pane series whose speech uses `{value:price}` reads
-*"plus 4.20 percent, 95,000.50"* or *"index 104.20, 95,000.50"*. Indicator panes keep their own
-numbers and units.
+**What you hear.** Every price reading in the main pane leads with the scale, wherever you
+arrow. The candles summary and the Price line start *"Plus 4.20 percent. Close 95,000.50 …"*,
+*"Minus 1.30 percent. …"*, *"Zero percent. …"* or *"Index 104.20. …"*. Arrowing (Up/Down)
+onto one part of a candle reads *"plus 4.20 percent, Open 95,000.50"*, and the Price series'
+own parts and any main-pane series whose speech uses `{value:price}` read *"plus 4.20 percent,
+95,000.50"* or *"index 104.20, 95,000.50"*, in either speech order. Each number is that price's
+own change from the base. Indicator panes keep their own numbers and units.
 
 **Choosing one.** Percent and Indexed are refused aloud, with the state staying Regular, when
 the first visible close is zero or negative (an analytics series can be): *"Percent scale needs
@@ -825,7 +837,7 @@ a positive first close; showing the regular scale."* Choosing the entry already 
 scale*, *linear*), `PCT` (*percent scale*, *percentage*) and `IDX` (*indexed*, *index to 100*,
 *rebase*); no key was added.
 
-The select is gated on trading tabs exactly like the Log button, but the Go bar and command
+The select is gated on trading tabs exactly like the Chart type select, but the Go bar and command
 paths apply the scale on an analytics chart too. Add symbol and formula charts are not built
 yet. Cody has not heard these scales; the examples above are the shipped sentences.
 

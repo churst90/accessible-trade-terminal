@@ -630,7 +630,7 @@ namespace AccessibleTrader.Core.Services.Input
                 // always navigate to a series and then use H/M/volume keys on it.
                 case SystemCommand.SelectNextSeries:
                 {
-                    var series = _store.State.ActiveSeries;
+                    var series = NavigableSeries();
                     if (series.Count > 0)
                     {
                         int cur = series.IndexOf(series.FirstOrDefault(s => s.Id == _store.State.FocusedSeriesId)!);
@@ -642,7 +642,7 @@ namespace AccessibleTrader.Core.Services.Input
                 }
                 case SystemCommand.SelectPrevSeries:
                 {
-                    var series = _store.State.ActiveSeries;
+                    var series = NavigableSeries();
                     if (series.Count > 0)
                     {
                         int cur = series.IndexOf(series.FirstOrDefault(s => s.Id == _store.State.FocusedSeriesId)!);
@@ -1076,6 +1076,13 @@ namespace AccessibleTrader.Core.Services.Input
         /// entry), including an honest "already" answer rather than a silent no-op when the
         /// requested type is the one on screen.
         /// </summary>
+        /// <summary>The series the focus cycle visits: not candles a Line or Area chart does not draw.</summary>
+        private List<ChartSeries> NavigableSeries()
+        {
+            var state = _store.State;
+            return state.ActiveSeries.Where(s => ChartTypeFocus.IsNavigable(state, s)).ToList();
+        }
+
         private void ShowChartType(PriceChartStyle style, bool heikinAshi)
         {
             if (RefuseChartTypeOnSingleLine()) return;

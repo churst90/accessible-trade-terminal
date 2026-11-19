@@ -196,10 +196,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             if (!state.ActiveSeries.Any()) return;
 
-            var all = ChartPaneModel.SeriesInVisualOrder(state.ActiveSeries);
+            // Candles a Line or Area chart does not draw are not a stop on the way down.
+            var all = ChartPaneModel.SeriesInVisualOrder(state.ActiveSeries)
+                .Where(s => ChartTypeFocus.IsNavigable(state, s)).ToList();
             if (all.Count == 0) return;
 
-            var focusedId = state.FocusedSeriesId ?? "candles";
+            var focusedId = ChartTypeFocus.Redirect(state, state.FocusedSeriesId ?? "candles");
             int currentIndex = 0;
             for (int i = 0; i < all.Count; i++)
                 if (all[i].Id == focusedId) { currentIndex = i; break; }

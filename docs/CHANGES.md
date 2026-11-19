@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Chart type and price scale are HEARD, not just drawn; HA and Log buttons removed, 2026-11-19 — not yet heard by Cody
+
+Cody tried Line, Area and Percent and heard no change: *"I still wasn't able to arrow around the
+candles... was the actual main price pane supposed to change or is it just visual?"* Only the
+candles' summary reading knew about the chart type or the scale. His rule: *"whatever is selected
+should be mirrored visually and through sound and speech."*
+
+- **Line and Area: the arrows walk the line.** New `ChartTypeFocus`. When the chart type is Line
+  or Area and the Price series draws the close, the candles leave the Page Up/Down rotation
+  (`NavigationEngine.NavigateSeries`) and the next/previous-series commands
+  (`CommandDispatcher`). `SelectSeriesAction` for the candles lands on Price, and so does the
+  fallback after removing the focused series. Choosing Line/Area (select, Go bar) moves focus
+  from the candles to Price; Candles/Heikin Ashi/Alt+C moves it back from Price to the candles
+  (`PlaybackReducer.FollowChartType`). Focus on an indicator is never moved. The chart-type
+  sentence adds where the focus went: *"Line chart. On the price line."*, *"Candle chart. On
+  the candles."*
+- **The Price line reads the point on the line** on Line/Area, in both summary and component
+  context: *"Close X. Up Y from the previous close, Z percent."* (the reading the candles had).
+- **Percent and Indexed lead every main-pane price reading.** The scale reading now also comes
+  first on the Price series (summary and its close part), on each candle part in component
+  context (*"plus 4.20 percent, Open 95,000.50"*, using that part's own change), and on Price
+  series components and `{value:price}` templates in the value-only speech order, which skipped
+  the template before. Indicator panes are untouched; Regular reads exactly as before.
+- **Toolbar:** the separate Heikin Ashi and Log scale buttons and their sprite icons are gone;
+  the Chart type and Price scale selects carry both. Alt+C and Alt+L are unchanged.
+- **Tests:** `ChartTypeFocusTests` (new), three Line-chart cases in
+  `ChartKeyboardNavigationTests` (Page Up stops on Price, *silently* at the top),
+  `ChartTypeAnnouncementTests` focus clause, `ToolbarControlSurfaceTests` (buttons gone, the
+  lists carry them). Fourteen sabotages were each red: the series-key filter, the Page Up/Down
+  filter, both redirects, both focus moves, the Price line reading, the Price scale prefix, the
+  candle-part prefix, the `{value}` and value-only paths, the high-mapped Price line, a
+  returned sprite icon and the "On the price line" clause.
+- **Caveats.** No new sound was designed, but the sound follows the focus, so on Line and Area
+  arrowing now plays the Price line's tone (the one arrowing to Price always made) instead of
+  the candle sound. Percent and Indexed change no pitch, as before. A Price series
+  remapped away from the close (to the high, say) keeps the candles in the rotation, because it
+  is a different line. The status line, detail key, alerts and orders stay in prices, as
+  before. Cody has not heard any of this.
+- **Joined with Renko** (rebased onto the Renko merge, 2026-11-19): Renko keeps the candles
+  navigable, because the bricks ARE the candles series. Choosing Renko or Heikin Ashi from Line
+  or Area moves focus back to the bricks, and Line/Area from Renko moves it to the Price line:
+  the Renko style and Alt+C paths go through `FollowChartType` too. Percent and Indexed lead a
+  brick reading as well: *"Plus 10.00 percent. Up brick, 110.00 to 120.00."* The base is the first
+  visible brick's close. The Renko toolbar's comment about the HA button was rewritten, since the
+  button is gone. Tests: two brick-scale cases in `RenkoSpeechTests` and a Line → Renko → Line
+  focus case in `ChartTypeFocusTests`. Removing the brick prefix and unwrapping the style path
+  were each red.
+
 ### Renko chart: price bricks, with the market kept underneath, 2026-11-19 — not yet heard by Cody
 
 - **A fourth chart type, and the shared brick plumbing under it.** `PriceChartStyle.Renko = 3`
