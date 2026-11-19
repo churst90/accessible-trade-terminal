@@ -69,8 +69,9 @@ All notable changes to this project will be documented in this file.
 - **Caveats and differences found while building.** The handoff's `SET speech rate` example has
   no destination in this build: there is no speech-rate control, and the 63-row registry
   contains no such label, so it correctly answers *"No setting matches speech rate."* The money
-  verb is the first word only (deliberate, documented). `FLAT` takes no symbol. The backtick as
-  a second opener was **not** built: Cody has not decided. The box has **not been heard by
+  verb is the first word only (deliberate, documented). `FLAT` takes no symbol. No second opener
+  was built: Cody decided on 2026-11-18 that Alt+G is the only one (backtick and `Shift+\`
+  dropped; `Shift+\` is not one key on AltGr layouts). The box has **not been heard by
   Cody**.
 - **Tests:** the specified filter runs **3,333 tests, all passing**. New coverage: money parser
   cases for every table row and every refusal sentence; case-insensitive exact verbs and the
@@ -92,6 +93,17 @@ All notable changes to this project will be documented in this file.
   (e) offer unavailable settings in the Go bar — **1 red**; (f) make Enter on a HELP option run
   it — **3 red**; (g) accept `1,5` as a quantity — **1 red**; (h) make FLAT with no position say
   nothing — **1 red**.
+- **Review (Claude).** Re-ran the filter: 3,333 passing. Claude's own sabotages, each restored
+  and compared: HELP option scheduled instead of read — **3 red**; settings put above commands in
+  a plain search — **7 red**; paper trading offered where the host hides it — **1 red**; focus
+  sent on to `order-confirm-live` after the size field — **8 red**. One gap: dropping the
+  `LimitPrice == null` part of the dashboard's "is this a typed request" test (so the chart
+  menu's *limit order here* would say "filled in" and pull focus to the size field) left
+  everything **green**. New test `TheChartMenusSideAndPriceStillFillSilently` pins that the
+  menu's side-and-price request still fills silently and leaves focus on the dialog title;
+  the same sabotage is now **1 red**. The Go bar's settings, HELP and money paths add no new
+  service registrations (the two new optional dependencies are already registered on both
+  heads). Not heard by Cody.
 
 ### Go bar (stage 6b), 2026-11-18 — not yet heard by Cody
 

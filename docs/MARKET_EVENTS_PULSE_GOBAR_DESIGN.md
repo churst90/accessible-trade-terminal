@@ -239,7 +239,7 @@ unavailable, Finnhub key not set".
 
 ---
 
-## 3. The Go bar (Alt+G, free on 2026-11-18; maybe backtick as well)
+## 3. The Go bar (Alt+G, free on 2026-11-18; the only opener, Cody 2026-11-18)
 
 - **One registry behind it.** Every action the terminal has (about 140 key bindings on 2026-11-18) gets a
   name, Bloomberg-style short codes and plain aliases, one line of help, its arguments, and the
@@ -453,8 +453,9 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
       optional limit price fill the dashboard ticket, and FLAT opens Positions and focuses the
       chart symbol's first open position. Money only ever fills in or focuses: Submit is still the
       only send, and the existing live read-back review is untouched.
-      **Backtick:** the design note "maybe as well" (2026-11-18 discussion) is still an open
-      question. The backtick is **not** built and must not be bound until Cody decides.
+      **Second opener:** closed by Cody on 2026-11-18 — **Alt+G is the only opener.** The
+      backtick and `Shift+\` were both dropped (`Shift+\` is not one key on AltGr layouts such as
+      German, and Alt+G already does the job).
       **Differences found while building:** the handoff's `SET speech rate` example has no
       destination in this build — there is no speech-rate control and the registry has no such
       row — so it refuses with "No setting matches speech rate."; the money verb is deliberately

@@ -153,6 +153,39 @@ public sealed class TradingDashboardMoneyTests
         h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
     }
 
+    /// <summary>
+    /// The chart context menu's "limit order here" sends a side and a price with no quantity.
+    /// It filled the ticket silently before stage 6c and must keep doing so: it is not a typed
+    /// money request, so it must not say "filled in" over the menu's own words or pull focus
+    /// from the dialog title to the size field.
+    /// </summary>
+    [Fact]
+    public void TheChartMenusSideAndPriceStillFillSilently()
+    {
+        using var h = Harness();
+        var spoken = new List<FeedbackRequestEvent>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        var cut = Open(h, new OpenTradingDashboardEvent("Buy", 95000));
+
+        WaitForAccountRead(h);
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("Limit", cut.Find("select#order-type").GetAttribute("value"));
+            Assert.Equal("95000", cut.Find("input#limit-price").GetAttribute("value"));
+        });
+        h.WaitForFocus("trade-title");
+
+        bool typedPathRan = SpinWait.SpinUntil(
+            () => spoken.ToList().Any(s => (s.Message ?? "").Contains("filled in", StringComparison.Ordinal))
+                || h.FocusedElementIds.Contains("order-qty"),
+            TimeSpan.FromSeconds(2));
+        Assert.False(typedPathRan,
+            "the chart menu's request took the typed-money path. Said: "
+            + string.Join(" | ", spoken.ToList().Select(s => s.Message)));
+        h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
+    }
+
     [Fact]
     public void SellWithoutAQuantityLeavesTheTypeAndQuantityAlone()
     {

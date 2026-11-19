@@ -220,8 +220,9 @@ as proposed.
   moved to Core and `OpenSettingsEvent` can focus a named control. **Built 2026-11-18, not yet
   heard by Cody.** Caveats: the money verb is first-word-only, `FLAT` takes no symbol, and the
   handoff's `speech rate` example has no setting to reach in this build.
-- [ ] **Backtick as a second Go bar opener — Cody to decide.** The 2026-11-18 discussion said
-  "maybe as well"; it is not built and must not be bound until Cody decides.
+- [x] **Second Go bar opener — closed, Cody 2026-11-18: Alt+G only.** Neither the backtick nor
+  `Shift+\` is bound. `Shift+\` was free, but on German and other AltGr layouts the backslash
+  needs AltGr, so it is not one key there; and Alt+G already opens the bar. Nothing to bind.
 
 ## Trading not yet tried on a practice or real account
 
