@@ -51,11 +51,18 @@ public sealed class BrowserTitlePriceSourceTests
         return src.Substring(open, i - open + 1);
     }
 
-    /// <summary>The price comes off the last bar in the buffer.</summary>
+    /// <summary>
+    /// The price comes off the last REAL bar. On a Renko chart <c>Data</c> holds the bricks and
+    /// its newest close is a box edge the market may never have traded at, so the title reads
+    /// <c>MarketBars</c> (the time bars on a brick chart, <c>Data</c> otherwise).
+    /// </summary>
     [Fact]
-    public void TheTitlePriceReadsTheLastBar()
+    public void TheTitlePriceReadsTheLastRealBar()
     {
-        Assert.Matches(@"Data\[\^1\]\s*\.\s*Close", GetBrowserTitleBody());
+        string body = GetBrowserTitleBody();
+        Assert.Matches(@"=\s*state\.MarketBars\s*;", body);
+        Assert.Matches(@"market\[\^1\]\s*\.\s*Close", body);
+        Assert.DoesNotMatch(@"state\.Data\b", body);
     }
 
     /// <summary>

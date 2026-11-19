@@ -504,9 +504,11 @@
                      && state.DataStatus == AccessibleTrader.Sdk.Models.DataStatus.Ready;
         string glyph = ready ? "▲" : "△";
         string price = "";
-        if (ready && state.Data != null && state.Data.Count > 0)
+        // The market's last price; on a brick chart Data's newest close is a box edge.
+        var market = state.MarketBars;
+        if (ready && market != null && market.Count > 0)
         {
-            double close = state.Data[^1].Close;
+            double close = market[^1].Close;
             if (!double.IsNaN(close))
                 price = SpeechPriceFormatter.FormatPrice(close) + " ";
         }

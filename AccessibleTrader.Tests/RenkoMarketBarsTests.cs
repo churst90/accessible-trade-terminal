@@ -9,6 +9,9 @@ using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Sdk.Trading;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Tests.Blazor;
 using AccessibleTrader.Tests.Mocks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -191,5 +194,107 @@ public sealed class RenkoMarketBarsTests
         Assert.Equal(PriceChartStyle.Renko, store.State.ChartStyle);
         Assert.Equal(store.State.Data.Count, store.State.BrickSpans.Length);
         Assert.NotEqual(store.State.Data[^1].Close, store.State.MarketBars[^1].Close);
+    }
+    // ── The paper broker: fills and resting orders read the real bars ────────────────────
+
+    private static PaperTradingProvider Paper(MockWorkspaceStore store, string dir)
+    {
+        var paths = Substitute.For<IPlatformPathService>();
+        paths.AppDataDirectory.Returns(dir);
+        var data = Substitute.For<IDataService>();
+        data.GetProviderAsync(Arg.Any<string>()).Returns(Task.FromResult<IMarketDataProvider?>(null));
+        data.FetchOhlcvAsync(Arg.Any<string>(), Arg.Any<MarketDataRequest>())
+            .Returns(Task.FromResult((new List<Ohlcv>(), new List<(long, double)>())));
+        return new PaperTradingProvider(store, paths, NullLogger<PaperTradingProvider>.Instance, null, data);
+    }
+
+    /// <summary>
+    /// A paper market buy fills at the market's last close, 125, not the brick edge 120, and
+    /// the open position is then valued at 125 too (<c>PriceFor</c>, the P&amp;L path).
+    /// </summary>
+    [Fact]
+    public async Task A_paper_market_order_fills_and_is_valued_at_the_real_last_price()
+    {
+        string dir = TestTemp.NewDir("att-renko-paper-");
+        try
+        {
+            var store = new MockWorkspaceStore();
+            store.EmitState(BrickState());
+            var paper = Paper(store, dir);
+
+            await paper.PlaceOrderAsync(new TradeSignal(
+                Symbol: "BTCUSDT", Side: OrderSide.Buy, Quantity: 1.0, Type: OrderType.Market));
+
+            var fill = Assert.Single(await paper.GetFillsAsync("BTCUSDT"));
+            Assert.InRange(fill.Price, 124, 126);   // 125 plus any modelled slippage, never 120
+            var position = Assert.Single(await paper.GetPositionsAsync());
+            Assert.Equal(125, position.MarketValue / position.Quantity, 6);
+        }
+        finally { try { Directory.Delete(dir, true); } catch { /* temp */ } }
+    }
+
+    /// <summary>
+    /// A resting buy limit at 112. The next bar arrives on a Renko chart: the real bar's low is
+    /// 123, the brick drawn for it reaches down to 110. Both are dated the same new hour, so
+    /// the only thing deciding the fill is which buffer the broker reads. Reading the bricks
+    /// fills the order at a price the market never traded at.
+    /// </summary>
+    [Fact]
+    public async Task A_resting_paper_limit_is_checked_against_the_real_bar_not_the_brick()
+    {
+        string dir = TestTemp.NewDir("att-renko-paper-");
+        try
+        {
+            var identity = new ChartIdentity("Crypto", "MEXC", "BTCUSDT", "1h");
+            var before = Bars().Take(3).ToList();                         // last close 120
+            var store = new MockWorkspaceStore();
+            store.EmitState(WorkspaceState.Initial with
+            {
+                Identity = identity,
+                Data = new TimeSeriesBuffer<Ohlcv>(before),
+                InitStatus = InitializationStatus.Ready,
+            });
+            var paper = Paper(store, dir);
+            await paper.PlaceOrderAsync(new TradeSignal(
+                Symbol: "BTCUSDT", Side: OrderSide.Buy, Quantity: 1.0, Type: OrderType.Limit, Price: 112));
+            Assert.Single(await paper.GetOpenOrdersAsync("BTCUSDT"));
+
+            var t = Start.AddHours(3);
+            var real = before.Append(new Ohlcv(t, 124, 126, 123, 125, 100)).ToList();
+            var bricks = new List<Ohlcv>
+            {
+                new(Start.AddHours(1), 100, 110, 100, 110, 100),
+                new(t, 120, 120, 110, 110, 100),                              // low 110 <= 112
+            };
+            store.EmitState(store.State with
+            {
+                ChartStyle = PriceChartStyle.Renko,
+                TimeBars = new TimeSeriesBuffer<Ohlcv>(real),
+                Data = new TimeSeriesBuffer<Ohlcv>(bricks),
+                BrickBoxSize = 10,
+            });
+
+            Assert.Single(await paper.GetOpenOrdersAsync("BTCUSDT"));
+            Assert.Empty(await paper.GetFillsAsync("BTCUSDT"));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { /* temp */ } }
+    }
+    /// <summary>
+    /// Saving a Renko tab records how far back its history reaches from the real bars. The
+    /// first brick is dated an hour after the first bar, so reading the bricks would save a
+    /// shallower history and each restore would fetch less than was on screen.
+    /// </summary>
+    [Fact]
+    public void Saving_a_brick_chart_records_the_first_real_bar()
+    {
+        var state = BrickState();
+        Assert.NotEqual(state.TimeBars![0].Date, state.Data[0].Date);
+        var store = new MockWorkspaceStore();
+        store.EmitState(state);
+        var library = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths());
+
+        var tab = Assert.Single(library.CaptureWorkspace(store).Tabs);
+
+        Assert.Equal(Start, tab.EarliestBarDate);
     }
 }

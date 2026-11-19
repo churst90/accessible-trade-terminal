@@ -291,7 +291,7 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private WorkspaceState StrategyStateFor(WorkspaceState state, IReadOnlyList<Sdk.Models.Ohlcv> history, bool heikinAshiWanted)
         {
-            if (!state.IsHeikinAshi && !heikinAshiWanted) return state;
+            if (!Strategies.StrategyCandles.NeedsRebuild(state, heikinAshiWanted)) return state;
             if (_indicators == null)
             {
                 _logger.LogWarning("Strategy evaluation: no indicator service is registered to compute the strategies' series on the bars they read; they read the chart as it is, and a strategy reading Heikin-Ashi signals on a candle chart does not trade.",

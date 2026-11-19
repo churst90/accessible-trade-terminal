@@ -82,12 +82,35 @@ All notable changes to this project will be documented in this file.
   (i) background monitor ignores the tab's style — **1 red**;
   (j) `RenkoSettings` default loses ATR 14 — **10 red**;
   (k) grid anchored at the first close instead of its floor multiple — **2 red**.
-- **Caveats, deliberately left out of this change.** The pre-existing time-based projections
-  that still speak or notify from `state.Data` on a brick chart — the background time-bar
-  announcer and the background desktop bar toast — are unchanged; they should read
-  `MarketBars`, but that clock work is out of scope here. `StrategyEngine.OnFocusedFeedUpdated`
-  still hands a strategy the brick `ActiveSeries`/indicator values attached to state; its bar
-  and history are real. A brick still forming can be revised or vanish when the feed bar pulls
+- **Review fixes (Claude, 2026-11-19), each with a test that goes red when the fix is undone.**
+  The build above was DeepSeek's; the review found seven places still reading the bricks.
+  (1) `MarketFeeds` answered the focused chart's bars from `state.Data`: anything asking the
+  feed seam for a Renko chart's bars got bricks. (2) The browser tab title priced the chart off
+  the newest brick's close. (3)–(5) Paper trading: a market order priced off the brick's close,
+  an open position valued off it (`PriceFor`), and resting stops and limits checked against the
+  brick's high and low, so a limit could fill at a price the market never traded at. These read
+  `MarketBars` already; nothing tested them, and undoing each left every test green. (6) Saving
+  a Renko tab recorded the first BRICK's date as the history depth, so each restore fetched a
+  little less (also already right, also untested). (7) **The real defect: a strategy on a
+  focused Renko chart, and a backtest started from one, read indicators computed on the bricks
+  against real bars.** The chart's series are indexed by brick; the strategy is handed bars, so
+  "RSI at bar 40" was brick 40's RSI, and an Auto strategy traded on it. `StrategyCandles.For`
+  now rebuilds a brick chart's series on the real bars, empties the price lines (brick prices)
+  and hands over the market's own chart (`Data` = real bars, Candles style), the same shape the
+  background monitor already built; one predicate, `StrategyCandles.NeedsRebuild`, tells the
+  live engine and the backtester when, so the three cannot disagree. A backtest with no
+  indicator service on a brick chart refuses in words instead of reading brick values. Also:
+  the Brick settings dialog's two number fields bind on input, not change — Enter's keydown
+  reaches the server before the field's change event, so typing a box and pressing Enter
+  applied the previous box. New tests: `RenkoStrategySeriesTests` (6), three paper tests and a
+  save test in `RenkoMarketBarsTests`, `FocusedRenkoChart_AnswersWithTheRealBars_NotTheBricks`,
+  `TheTitlePriceReadsTheLastRealBar`, `Enter_applies_the_box_just_typed`. Twelve sabotages,
+  each red. The accessibility review agents are not registered here; the dialog's markup was
+  reviewed by hand (labelled fields, a legend on the radio group, refusals spoken and focused).
+- **Caveats, deliberately left out of this change.** A background Renko tab's bar closes are
+  announced and notified from that tab's feed, so they say real time-bar closes at real prices,
+  not bricks; whether a background brick tab should announce bricks instead is a question for
+  Cody. A brick still forming can be revised or vanish when the feed bar pulls
   back before close; the frozen box never changes, and a completed brick never does. CSV export
   exports the chart as drawn (bricks and brick-indexed indicators), not the market series. Quick
   trade's cursor bar still reads the focused brick's high/low for a stop the user pointed at;

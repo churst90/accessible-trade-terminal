@@ -111,7 +111,7 @@ public sealed class RenkoToolbarTests
         Assert.True(cut.Find("#renko-box-fixed").HasAttribute("checked"));
         Assert.Equal("500", cut.Find("#renko-box-size").GetAttribute("value"));
 
-        cut.Find("#renko-box-size").Change("20");
+        cut.Find("#renko-box-size").Input("20");
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
 
         h.WorkspaceStore.Received(1).Dispatch(
@@ -131,12 +131,38 @@ public sealed class RenkoToolbarTests
         h.EventBus.Publish(new OpenChartTypeSettingsEvent());
         cut.WaitForAssertion(() => Assert.Contains("Renko box", cut.Markup));
 
-        cut.Find("#renko-atr-length").Change("200");
+        cut.Find("#renko-atr-length").Input("200");
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Renko needs at least 202 bars", cut.Markup));
         Assert.Contains(FocusTargets(h.Ctx), id => id == "renko-atr-length");
         h.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<SetRenkoSettingsAction>());
+    }
+
+    /// <summary>
+    /// Type a box, press Enter: the box typed is the box applied. The browser sends Enter's
+    /// keydown before the field's change event, so the field must bind on input — bound on
+    /// change, Enter applied whatever the box was before the typing.
+    /// </summary>
+    [Fact]
+    public void Enter_applies_the_box_just_typed()
+    {
+        using var h = new BlazorTestHarness();
+        h.WorkspaceStore.State.Returns(_ => State(PriceChartStyle.Renko) with
+        {
+            Renko = new RenkoSettings(RenkoBoxMode.Fixed, 500, 14),
+            BrickBoxSize = 500,
+        });
+        h.Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
+        var cut = h.Ctx.RenderComponent<Cmp.ChartTypeSettingsModal>();
+        h.EventBus.Publish(new OpenChartTypeSettingsEvent());
+        cut.WaitForAssertion(() => Assert.Contains("Renko box", cut.Markup));
+
+        cut.Find("#renko-box-size").Input("20");
+        cut.Find("#renko-box-size").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
+
+        h.WorkspaceStore.Received(1).Dispatch(
+            Arg.Is<SetRenkoSettingsAction>(a => a.Settings.Mode == RenkoBoxMode.Fixed && a.Settings.BoxSize == 20));
     }
 
     private static List<string> FocusTargets(TestContext ctx) =>

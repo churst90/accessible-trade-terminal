@@ -27,10 +27,19 @@ namespace AccessibleTrader.Core.Services.Strategies
             strategy is IReadsHeikinAshiSignals h && h.SignalsOnHeikinAshi;
 
         /// <summary>
+        /// Whether the chart's own series are NOT what a strategy reads: a Heikin-Ashi chart, a
+        /// brick chart (series indexed by brick, not by bar), or a strategy reading Heikin-Ashi.
+        /// The live engine and the backtester ask this before <see cref="For"/>, so the three
+        /// cannot disagree about when the series are rebuilt.
+        /// </summary>
+        public static bool NeedsRebuild(WorkspaceState state, bool heikinAshiWanted) =>
+            state.IsHeikinAshi || state.ChartStyle.IsBrickStyle() || heikinAshiWanted;
+
+        /// <summary>
         /// <paramref name="state"/> as the strategies read it over <paramref name="bars"/> (the
         /// closed bars a strategy is handed, oldest first, index-aligned with the chart's series).
         /// Returns <paramref name="state"/> itself when there is nothing to change: a candle chart
-        /// and no strategy wanting Heikin-Ashi.
+        /// and no strategy wanting Heikin-Ashi. A brick chart is always rebuilt on the real bars.
         /// </summary>
         /// <param name="heikinAshiWanted">A running strategy reads its signals on Heikin-Ashi.</param>
         public static WorkspaceState For(
@@ -40,21 +49,39 @@ namespace AccessibleTrader.Core.Services.Strategies
             bool heikinAshiWanted,
             Action<ChartSeries, Exception>? failed = null)
         {
-            if (!state.IsHeikinAshi && !heikinAshiWanted) return state;
+            if (!NeedsRebuild(state, heikinAshiWanted)) return state;
+            bool bricks = state.ChartStyle.IsBrickStyle();
 
             string? symbol = state.Identity.Symbol;
             // On a Heikin-Ashi chart the chart's own indicators already read Heikin-Ashi candles;
             // the real ones are what has to be computed. On a candle chart, the other way round.
-            var real = state.IsHeikinAshi
+            // On a brick chart the chart's series are computed on the bricks and indexed by brick,
+            // while the strategy is handed real bars: an RSI read at bar 40 was brick 40's RSI.
+            // Recomputed on the real bars, with the price lines (brick prices) emptied so a
+            // condition reading price takes it off the bars it is handed.
+            var real = state.IsHeikinAshi || bricks
                 ? EvaluationSeries.Compute(indicators, state.ActiveSeries, bars, symbol, heikinAshi: false, failed)
                 : state.ActiveSeries;
+            if (bricks) real = WithoutPriceLines(real);
             ImmutableList<ChartSeries>? heikinAshi = null;
             if (heikinAshiWanted)
                 heikinAshi = WithoutPriceLines(state.IsHeikinAshi
                     ? state.ActiveSeries
                     : EvaluationSeries.Compute(indicators, state.ActiveSeries, bars, symbol, heikinAshi: true, failed));
 
-            return state with { ActiveSeries = real, IsHeikinAshi = false, HeikinAshiSeries = heikinAshi };
+            var read = state with { ActiveSeries = real, IsHeikinAshi = false, HeikinAshiSeries = heikinAshi };
+            // A script strategy may read state.Data: on a brick chart that is the bricks. It gets
+            // the market's own chart instead, the same shape the background monitor builds.
+            return bricks
+                ? read with
+                {
+                    Data = state.MarketBars,
+                    TimeBars = null,
+                    BrickSpans = ImmutableArray<BrickSpan>.Empty,
+                    ChartStyle = PriceChartStyle.Candles,
+                    CurrentDataIndex = state.MarketBars.Count - 1,
+                }
+                : read;
         }
 
         /// <summary>

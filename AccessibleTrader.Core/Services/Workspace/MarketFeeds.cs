@@ -62,7 +62,9 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             if (identity == _store.State.Identity)
             {
-                var data = _store.State.Data;
+                // The REAL bars, never the drawn bricks: a background monitor or strategy on
+                // another tab of this symbol and timeframe would otherwise trade on brick edges.
+                var data = _store.State.MarketBars;
                 if (data == null || data.Count == 0) return Array.Empty<Ohlcv>();
                 return Slice(data, maxBars);
             }

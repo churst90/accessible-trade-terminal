@@ -39,12 +39,14 @@
             {
                 <div class="modal-row" style="margin-top: 12px;">
                     <label for="renko-atr-length">ATR length:</label>
+                    @* Bound on input, not change: the browser sends Enter's keydown BEFORE the
+                       change event, so a change binding made Enter apply the previous value. *@
                     <input id="renko-atr-length"
                            type="number"
                            min="1"
                            max="200"
                            step="1"
-                           @bind="_atrLengthText"
+                           @bind="_atrLengthText" @bind:event="oninput"
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
@@ -57,7 +59,7 @@
                            type="number"
                            min="0"
                            step="any"
-                           @bind="_boxSizeText"
+                           @bind="_boxSizeText" @bind:event="oninput"
                            @onkeydown="OnKeyDown"
                            style="width: 10em;" />
                 </div>

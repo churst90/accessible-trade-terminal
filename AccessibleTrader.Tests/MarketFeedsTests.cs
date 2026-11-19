@@ -125,5 +125,35 @@ namespace AccessibleTrader.Tests
             Assert.NotNull(bars);
             Assert.Empty(bars);
         }
+
+        /// <summary>
+        /// On a Renko chart the store's Data is the bricks. A background monitor or strategy on
+        /// another tab of the same symbol and timeframe asks here for BARS, and must get the
+        /// real ones: a brick's close is a box edge, not a traded price.
+        /// </summary>
+        [Fact]
+        public async Task FocusedRenkoChart_AnswersWithTheRealBars_NotTheBricks()
+        {
+            var real = Bars(50);
+            var built = AccessibleTrader.Core.Services.Charts.BrickChartBuilder.Build(real, 3, TimeSpan.FromHours(1));
+            Assert.True(built.Ok);
+            Assert.NotEqual(real.Count, built.Bricks.Count);
+            var store = Substitute.For<IWorkspaceStore>();
+            store.State.Returns(WorkspaceState.Initial with
+            {
+                Identity = Focused,
+                ChartStyle = PriceChartStyle.Renko,
+                Data = built.Bricks,
+                TimeBars = new TimeSeriesBuffer<Ohlcv>(real),
+                BrickSpans = built.Spans,
+                BrickBoxSize = 3,
+            });
+            var feeds = new MarketFeeds(store, Substitute.For<IDataService>());
+
+            var bars = await feeds.GetBarsAsync(Focused, 400);
+
+            Assert.Equal(real.Count, bars.Count);
+            Assert.Equal(real[^1].Close, bars[^1].Close);
+        }
     }
 }

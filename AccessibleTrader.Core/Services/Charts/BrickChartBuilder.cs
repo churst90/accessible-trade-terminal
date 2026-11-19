@@ -26,8 +26,9 @@ namespace AccessibleTrader.Core.Services.Charts
     ///
     /// <para>
     /// The grid is anchored at <c>floor(firstClose / box) * box</c>, so every brick edge is a
-    /// whole multiple of the box and a prepend of older history leaves the newest bricks where
-    /// they were. A brick is one box tall; a bar that moves four boxes makes four bricks.
+    /// whole multiple of the box and a prepend of older history keeps the edges on the same
+    /// grid. It does not promise the same bricks: the older bars can leave the trend in a
+    /// different direction, and the bricks then differ until a move large enough to agree. A brick is one box tall; a bar that moves four boxes makes four bricks.
     /// Continuing the trend takes a close one box past the last brick's edge; a reversal takes
     /// a close two boxes past its far edge — one box beyond the last brick's opposite edge — and
     /// draws one brick back across that first box.

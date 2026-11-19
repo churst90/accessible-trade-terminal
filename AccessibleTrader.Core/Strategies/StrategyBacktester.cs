@@ -210,12 +210,17 @@ public class StrategyBacktester : IStrategyBacktester
         // on a Heikin-Ashi chart read the chart's Heikin-Ashi indicators against real fills while
         // the live engine recomputed them on the real bars: the test and the trade disagreed.
         bool heikinAshiSignals = Services.Strategies.StrategyCandles.WantsHeikinAshi(strategy);
-        if (_indicators != null && (state.IsHeikinAshi || heikinAshiSignals))
+        bool brickChart = state.ChartStyle.IsBrickStyle();
+        if (_indicators != null && Services.Strategies.StrategyCandles.NeedsRebuild(state, heikinAshiSignals))
             state = Services.Strategies.StrategyCandles.For(_indicators, state, data as Ohlcv[] ?? data.ToArray(), heikinAshiSignals);
         else if (heikinAshiSignals && !state.IsHeikinAshi)
             return new BacktestResult(new StrategyMetrics(0, 0, 0, 0, 0, 0), Array.Empty<BacktestTrade>(),
                 Array.Empty<(DateTime, double)>(),
                 "This strategy reads its signals on Heikin-Ashi candles, and this backtest has no indicator service to compute them.", 0, 0);
+        else if (brickChart)
+            return new BacktestResult(new StrategyMetrics(0, 0, 0, 0, 0, 0), Array.Empty<BacktestTrade>(),
+                Array.Empty<(DateTime, double)>(),
+                "This chart draws bricks, and this backtest has no indicator service to compute the indicators on the market's own bars.", 0, 0);
 
         // Apply optional date-range filter for walk-forward testing. Slicing here (before any
         // other work) means warmup, indicator buffers, and the strategy lifecycle all see the
