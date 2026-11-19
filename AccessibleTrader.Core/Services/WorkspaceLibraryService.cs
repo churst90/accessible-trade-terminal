@@ -84,25 +84,6 @@ namespace AccessibleTrader.Core.Services
             set { _libraryDir = value; Directory.CreateDirectory(value); }
         }
 
-        /// <summary>
-        /// Reject profile names that could escape the library directory. Applied to every
-        /// save/load/delete path so a malicious workspace name like "../../something" or
-        /// "C:\\Windows\\..." cannot touch files outside _libraryDir.
-        /// </summary>
-        private static string? SanitizeProfileName(string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) return null;
-            var trimmed = name.Trim();
-            if (trimmed.Contains("..", StringComparison.Ordinal)) return null;
-            if (Path.IsPathRooted(trimmed)) return null;
-            if (trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return null;
-            // Strip any directory component; only the filename portion can name a profile.
-            var baseName = Path.GetFileName(trimmed);
-            if (string.IsNullOrWhiteSpace(baseName)) return null;
-            if (baseName.Equals("alerts", StringComparison.OrdinalIgnoreCase)) return null;
-            return baseName;
-        }
-
         public List<string> GetAvailableProfiles()
         {
             try
@@ -148,7 +129,7 @@ namespace AccessibleTrader.Core.Services
 
         public void SaveProfile(string name, WorkspaceConfiguration config)
         {
-            var safe = SanitizeProfileName(name);
+            var safe = ProfileNameGuard.Sanitize(name);
             if (safe == null)
             {
                 _logger.LogWarning("Refused to save workspace profile with unsafe name: {Name}", name);
@@ -350,7 +331,7 @@ namespace AccessibleTrader.Core.Services
 
         public WorkspaceConfiguration? LoadProfile(string name)
         {
-            var safe = SanitizeProfileName(name);
+            var safe = ProfileNameGuard.Sanitize(name);
             if (safe == null) return null;
             string path = Path.Combine(_libraryDir, $"{safe}.json");
             try
@@ -375,7 +356,7 @@ namespace AccessibleTrader.Core.Services
 
         public void DeleteProfile(string name)
         {
-            var safe = SanitizeProfileName(name);
+            var safe = ProfileNameGuard.Sanitize(name);
             if (safe == null) return;
             try
             {

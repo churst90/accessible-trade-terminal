@@ -232,6 +232,7 @@ namespace AccessibleTrader.WebHost
             // non-scoped app-global path source.
             services.AddScoped<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
             services.AddScoped<IWorkspaceLibraryService, WorkspaceLibraryService>();
+            services.AddScoped<IIndicatorTemplateService, IndicatorTemplateService>();
             services.AddScoped<IIndicatorPreferencesService, IndicatorPreferencesService>();
             services.AddScoped<IWorkspaceInitializer, WorkspaceInitializer>();
             services.AddScoped<IAppStartupService, AppStartupService>();

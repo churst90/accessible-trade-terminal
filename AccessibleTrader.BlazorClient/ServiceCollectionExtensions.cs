@@ -172,6 +172,7 @@ namespace AccessibleTrader.BlazorClient
             // singleton on both hosts; the ctor loads persisted imports at startup.
             services.AddSingleton<Core.Services.Audio.IWavetableLibrary, Core.Services.Audio.WavetableLibraryService>();
             services.AddSingleton<IWorkspaceLibraryService, WorkspaceLibraryService>();
+            services.AddSingleton<IIndicatorTemplateService, IndicatorTemplateService>();
             services.AddSingleton<IIndicatorPreferencesService, IndicatorPreferencesService>();
             services.AddSingleton<IWorkspaceInitializer, WorkspaceInitializer>();
             services.AddSingleton<IAppStartupService, AppStartupService>();

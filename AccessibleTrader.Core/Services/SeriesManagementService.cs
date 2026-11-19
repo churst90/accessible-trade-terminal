@@ -565,7 +565,7 @@ namespace AccessibleTrader.Core.Services
             return freshSeries;
         }
 
-        private static bool IsCoreCode(string code) =>
+        public static bool IsCoreCode(string code) =>
             code.ToUpperInvariant() is "CANDLES" or "PRICE" or "VOLUME" or "HEATMAP";
 
         /// <summary>
