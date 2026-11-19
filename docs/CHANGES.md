@@ -113,6 +113,16 @@ All notable changes to this project will be documented in this file.
   (g) the speech prefix is dropped — **5 red**;
   (h) an RSI-pane value is spoken in percent — **1 red**;
   (i) a zero base divides — **4 red**.
+- **Review (Claude, 2026-11-19).** A refused Percent or Indexed in the toolbar select left the
+  control SHOWING the refused entry over a regular axis: Blazor writes a select's value only when
+  the rendered value changes, and a refusal renders "regular" before and after. The handler now
+  renders the picked entry once and then the real one, so the control is put back; a bUnit test
+  pins that the render passes through the picked entry and ends on Regular. Not checked in a
+  browser. My sabotages, each red: no revert (1), crosshair badge left in prices (1), value
+  labels left in prices (1), COMPARE spoken from the chart's base (1), tab snapshot drops the
+  mode (1), library save drops it (1), frame renderer ignores it (1), log on keeps Percent (1).
+  The accessibility review agents are not registered here; the select's markup was checked by
+  hand (native select, visually-hidden label tied by `for`, never disabled).
 
 ### Chart types: Line and Area, 2026-11-19 — not yet heard by Cody
 

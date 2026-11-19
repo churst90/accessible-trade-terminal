@@ -136,6 +136,27 @@ public sealed class PriceScaleToolbarTests
     }
 
     [Fact]
+    public void A_refused_Percent_puts_the_select_back_on_Regular()
+    {
+        // Blazor writes a select's value only when the RENDERED value changes. A refusal leaves
+        // the state Regular, so a tree that says "regular" before and after writes nothing and
+        // the control goes on showing Percent over a regular axis. The fix renders the picked
+        // entry once, then the real one; that change is what puts the browser's control back.
+        using var h = new BlazorTestHarness();
+        h.WorkspaceStore.State.Returns(_ => State(firstClose: 0));
+
+        var cut = h.Ctx.RenderComponent<Cmp.Toolbar>();
+        var shown = new List<string?>();
+        cut.OnMarkupUpdated += (_, _) => shown.Add(cut.Find("#price-scale-select").GetAttribute("value"));
+        cut.Find("#price-scale-select").Change("percent");
+
+        cut.WaitForAssertion(() => Assert.Equal("regular", shown.LastOrDefault()));
+        int picked = shown.IndexOf("percent");
+        Assert.True(picked >= 0, "the select never rendered the refused entry, so the browser keeps showing it: " + string.Join(",", shown));
+        Assert.Contains("regular", shown.Skip(picked + 1));
+    }
+
+    [Fact]
     public void It_is_absent_on_an_analytics_chart_like_the_Log_button()
     {
         using var h = new BlazorTestHarness();

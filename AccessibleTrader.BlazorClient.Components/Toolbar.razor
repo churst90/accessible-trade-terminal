@@ -896,13 +896,22 @@
     /// <summary>The price-scale select's current entry: Logarithmic while the log flag is on,
     /// else the mode. One choice, as on TradingView.</summary>
     private string PriceScaleValue =>
-        Store.State.IsLogScale ? "logarithmic"
+        _priceScaleEcho ?? (Store.State.IsLogScale ? "logarithmic"
         : Store.State.ScaleMode switch
         {
             PriceScaleMode.Percent => "percent",
             PriceScaleMode.IndexedTo100 => "indexed",
             _ => "regular",
-        };
+        });
+
+    /// <summary>
+    /// The entry the user just picked, held for ONE render when it is refused. Blazor diffs
+    /// <c>value</c> against what it last rendered, not against the live control: a refused
+    /// Percent leaves the state Regular, the tree says "regular" before and after, nothing is
+    /// written, and the select goes on SHOWING Percent over a regular axis. Rendering the
+    /// picked entry once and then the real one makes the diff change, so the control is put back.
+    /// </summary>
+    private string? _priceScaleEcho;
 
     /// <summary>
     /// One ruler chosen from the four-entry menu. The log entry writes the existing flag; the
@@ -910,7 +919,7 @@
     /// Percent and Indexed refuse aloud when the first visible close cannot be the base, and a
     /// repeat of the shown entry answers "Already …" rather than changing nothing silently.
     /// </summary>
-    private void OnPriceScaleChanged(ChangeEventArgs e)
+    private async Task OnPriceScaleChanged(ChangeEventArgs e)
     {
         string value = e.Value?.ToString() ?? "regular";
         var state = Store.State;
@@ -948,11 +957,23 @@
                     FeedbackType.Error,
                     $"{what} needs a positive first close; showing the regular scale.",
                     true, Channel: SpeechChannel.Interface));
+                await ShowTheRealPriceScale(value);
                 return;
             }
         }
 
         Store.Dispatch(new SetPriceScaleAction(mode, log));
+    }
+
+    /// <summary>Puts the select back on the state's entry after a refusal (see
+    /// <see cref="_priceScaleEcho"/>): one render with the picked entry, then the real one.</summary>
+    private async Task ShowTheRealPriceScale(string picked)
+    {
+        _priceScaleEcho = picked;
+        StateHasChanged();
+        await Task.Yield();
+        _priceScaleEcho = null;
+        StateHasChanged();
     }
 
     // ── Shape-change confirmation state ────────────────────────────────
