@@ -14,6 +14,11 @@ namespace AccessibleTrader.Core.Services.GoBar
         PriceAlert,
         GoTo,
         Find,
+        Settings,
+        Help,
+        Buy,
+        Sell,
+        Flat,
     }
 
     /// <summary>One verb and every word it answers to, plus the 6a entry it belongs to.</summary>
@@ -47,6 +52,10 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
                 new[] { "FIND" }, null),
+            new GoBarVerbSpec(GoBarVerb.Settings,
+                new[] { "SET" }, SystemCommand.OpenSettings),
+            new GoBarVerbSpec(GoBarVerb.Help,
+                new[] { "HELP" }, SystemCommand.OpenHelp),
         };
 
         public const string GoToPhrase = "GO TO";
@@ -80,6 +89,9 @@ namespace AccessibleTrader.Core.Services.GoBar
 
         /// <summary>A verb and a value that is not a valid timeframe, price or date.</summary>
         Invalid,
+
+        /// <summary>A typed money command: BUY, SELL or FLAT, first word only.</summary>
+        Money,
     }
 
     /// <summary>The pure result of reading one line of Go bar text.</summary>
@@ -92,7 +104,11 @@ namespace AccessibleTrader.Core.Services.GoBar
         double? Price = null,
         DateTime? Moment = null,
         bool MomentHasTime = false,
-        string? Refusal = null);
+        string? Refusal = null,
+        double? Quantity = null,
+        double? LimitPrice = null,
+        bool Flat = false,
+        bool Market = false);
 
     /// <summary>
     /// The Go bar's reader: words in either order, one optional argument, and the two bare
@@ -134,6 +150,9 @@ namespace AccessibleTrader.Core.Services.GoBar
 
         public const string DateRefusal = "Write the date as 2024-03-01 or 1 March 2024.";
 
+        public const string MoneyOutOfOrder =
+            "Money commands start with the word, like BUY 0.5. Nothing was opened.";
+
         public static GoBarParseResult Parse(string? input)
         {
             string typed = Collapse(input);
@@ -141,7 +160,17 @@ namespace AccessibleTrader.Core.Services.GoBar
 
             var tokens = typed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
+            if (IsMoneyWord(tokens[0]))
+                return ParseMoney(tokens);
+
             bool atStart = TryVerbAtStart(tokens, out var verb, out int consumed);
+
+            // A money word anywhere but first is the deliberate exception to either order: it
+            // is never read backwards into an order, and it says so rather than matching a
+            // command by accident. A real verb at the start still owns its value ("TF BUY" is
+            // a timeframe mistake, not a money request).
+            if (!atStart && tokens.Any(IsMoneyWord))
+                return new GoBarParseResult(GoBarParseKind.Invalid, Refusal: MoneyOutOfOrder);
             bool atEnd = false;
             if (!atStart)
                 atEnd = TryVerbAtEnd(tokens, out verb, out consumed);
@@ -173,6 +202,90 @@ namespace AccessibleTrader.Core.Services.GoBar
             }
 
             return new GoBarParseResult(GoBarParseKind.Command);
+        }
+
+        private static bool IsMoneyWord(string token) =>
+            token.Equals("BUY", StringComparison.OrdinalIgnoreCase)
+            || token.Equals("SELL", StringComparison.OrdinalIgnoreCase)
+            || token.Equals("FLAT", StringComparison.OrdinalIgnoreCase);
+
+        private static GoBarParseResult ParseMoney(string[] tokens)
+        {
+            string word = tokens[0].ToUpperInvariant();
+
+            if (word == "FLAT")
+            {
+                if (tokens.Length > 1)
+                    return new GoBarParseResult(GoBarParseKind.Invalid, GoBarVerb.Flat, tokens[1],
+                        Refusal: "FLAT takes nothing; it uses the chart's symbol. Nothing was opened.");
+                return new GoBarParseResult(GoBarParseKind.Money, GoBarVerb.Flat, Flat: true);
+            }
+
+            GoBarVerb side = word == "SELL" ? GoBarVerb.Sell : GoBarVerb.Buy;
+            string refusal = $"{word} takes a quantity and an optional limit price, "
+                + $"like {word} 0.5 or {word} 0.5 95000. Nothing was opened.";
+
+            if (tokens.Length == 1)
+                return new GoBarParseResult(GoBarParseKind.Money, side, Market: false);
+
+            double quantity;
+            double? limit = null;
+
+            switch (tokens.Length)
+            {
+                case 2:
+                    if (!TryParsePositiveDecimal(tokens[1], out quantity))
+                        return new GoBarParseResult(GoBarParseKind.Invalid, side, tokens[1],
+                            Refusal: refusal);
+                    break;
+
+                case 3:
+                    if (!TryParsePositiveDecimal(tokens[1], out quantity)
+                        || !TryParsePositiveDecimal(tokens[2], out double price))
+                        return new GoBarParseResult(GoBarParseKind.Invalid, side,
+                            string.Join(' ', tokens.Skip(1)), Refusal: refusal);
+                    limit = price;
+                    break;
+
+                case 4 when tokens[2].Equals("at", StringComparison.OrdinalIgnoreCase):
+                    if (!TryParsePositiveDecimal(tokens[1], out quantity)
+                        || !TryParsePositiveDecimal(tokens[3], out double atPrice))
+                        return new GoBarParseResult(GoBarParseKind.Invalid, side,
+                            string.Join(' ', tokens.Skip(1)), Refusal: refusal);
+                    limit = atPrice;
+                    break;
+
+                default:
+                    return new GoBarParseResult(GoBarParseKind.Invalid, side,
+                        string.Join(' ', tokens.Skip(1)), Refusal: refusal);
+            }
+
+            return new GoBarParseResult(GoBarParseKind.Money, side,
+                Quantity: quantity, LimitPrice: limit, Market: limit == null);
+        }
+
+        /// <summary>
+        /// A typed quantity or price: digits with at most one dot, positive and finite, parsed
+        /// with the invariant culture. Commas, exponents, signs and words are refused — money
+        /// is never interpreted generously.
+        /// </summary>
+        public static bool TryParsePositiveDecimal(string? text, out double value)
+        {
+            value = 0;
+            string typed = (text ?? "").Trim();
+            if (typed.Length == 0) return false;
+
+            int dots = 0;
+            foreach (char c in typed)
+            {
+                if (c == '.') { if (++dots > 1) return false; }
+                else if (!char.IsAsciiDigit(c)) return false;
+            }
+            if (typed[0] == '.' || typed[^1] == '.') return false;
+
+            return double.TryParse(typed, NumberStyles.AllowDecimalPoint,
+                       CultureInfo.InvariantCulture, out value)
+                   && double.IsFinite(value) && value > 0;
         }
 
         private static GoBarParseResult WithArgument(GoBarVerb verb, string argument)

@@ -619,7 +619,9 @@
                                             {
                                                 var p = row.Position;
                                                 <tr @key="@($"{row.Account.Slug}:{p.Symbol}")">
-                                                    <td>@PositionLabel.Instrument(p)</td>
+                                                    @* FLAT focuses this cell: it is a reading target, not a button, so a
+                                                       held Enter cannot close anything. *@
+                                                    <td id="@PositionRowCellId(row)" tabindex="-1">@PositionLabel.Instrument(p)</td>
                                                     <td>@PositionLabel.Direction(p)</td>
                                                     <td>@row.Account.DisplayName</td>
                                                     <td>@SymbolAssets.WithBaseUnit(p.Quantity, p.Symbol, PriceFormatter.FormatQuantity(p.Quantity))</td>
@@ -1325,14 +1327,46 @@
         _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
         _limitPrice  = GetCurrentPrice();
-        // The chart context menu opens the dashboard with a limit ticket FILLED IN, never sent:
-        // review and confirm stay here, where every order has always been confirmed.
-        if (request?.LimitPrice is double limit && double.IsFinite(limit))
+
+        // Two callers fill the ticket: the chart context menu (side + limit price, unchanged
+        // since before stage 6c) and the Go bar's typed BUY/SELL/FLAT. Nothing here submits;
+        // review and confirm stay where every order has always been confirmed.
+        // The chart menu's (Side, LimitPrice) call is not a typed money request: it already
+        // filled the ticket silently and must keep doing exactly that. A Go bar request has a
+        // quantity, a market flag, FLAT, or a side with no limit price.
+        bool ticketRequest = request != null
+            && !request.Flat
+            && (request.Quantity != null
+                || request.Market
+                || (!string.IsNullOrEmpty(request.Side) && request.LimitPrice == null));
+
+        if (request != null)
         {
-            _orderSide = string.Equals(request.Side, "Sell", StringComparison.OrdinalIgnoreCase) ? "Sell" : "Buy";
-            _orderType = "Limit";
-            _limitPrice = limit;
+            if (request.Flat)
+                _accountTab = "Positions";
+
+            if (!request.Flat && !string.IsNullOrEmpty(request.Side))
+                _orderSide = string.Equals(request.Side, "Sell", StringComparison.OrdinalIgnoreCase)
+                    ? "Sell" : "Buy";
+
+            if (!request.Flat && request.LimitPrice is double limit && double.IsFinite(limit))
+            {
+                _orderType = "Limit";
+                _limitPrice = limit;
+            }
+            else if (!request.Flat && request.Market)
+            {
+                _orderType = "Market";
+            }
+
+            if (!request.Flat && request.Quantity is double quantity
+                && double.IsFinite(quantity) && quantity > 0)
+            {
+                _sizeIn = "Base";
+                _orderQty = quantity;
+            }
         }
+
         _isVisible   = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "Trading dashboard"));
         StateHasChanged();
@@ -1364,6 +1398,11 @@
         await LoadAccountDataAsync();
         await RefreshBookAsync();
 
+        if (request?.Flat == true)
+            await ApplyFlatRequestAsync();
+        else if (ticketRequest)
+            await AnnounceTicketRequestAsync(request!);
+
         // Refreshes the order book AND the account. The account used to be loaded once, when the
         // dashboard opened, and never again — so unrealised P&L was frozen at whatever it happened
         // to be at that moment, and a position opened while the dashboard was up never appeared.
@@ -1374,6 +1413,121 @@
         // instead of four and re-rendered the dialog again while the open was still settling.
         _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshLiveAsync), null, 2000, 2000);
     }
+
+    // ── Typed money requests from the Go bar (stage 6c) ─────────────────────
+
+    /// <summary>
+    /// One sentence on the OrderEvent tier saying what was filled in — and what was not sent.
+    /// Focus goes to the size field, never Submit: the Go bar acts on Enter's keydown, and a
+    /// held Enter over a send button would place the order the user had only asked to review.
+    /// </summary>
+    private async Task AnnounceTicketRequestAsync(OpenTradingDashboardEvent request)
+    {
+        string provider = Store.State.Identity.Provider ?? "";
+        string symbol = Store.State.Identity.Symbol ?? "";
+
+        if (string.IsNullOrEmpty(symbol))
+        {
+            SpeakOrder("No chart is focused, so there is nothing to fill in. Nothing was sent.");
+            return;
+        }
+
+        if (_tradingNotSupported)
+        {
+            string why = string.IsNullOrEmpty(provider)
+                ? "No chart is focused, so there is nothing to fill in. Nothing was sent."
+                : $"{provider} does not support order execution, so the ticket was left alone. "
+                  + "Nothing was sent.";
+            SpeakOrder(why);
+            return;
+        }
+
+        string sentence;
+        if (request.Quantity is double requestedQuantity)
+        {
+            string price = NeedsLimit
+                ? "at limit " + PlainNumber(_limitPrice)
+                : "at market";
+            sentence = $"{_orderSide} {PlainNumber(requestedQuantity)} {symbol} {price}, filled in. "
+                + $"Nothing was sent. {AccountSentence()}";
+        }
+        else
+        {
+            sentence = $"{_orderSide} {symbol}, filled in; the ticket's type and quantity are unchanged. "
+                + $"Nothing was sent. {AccountSentence()}";
+        }
+
+        var stale = new List<string>();
+        if (_stopLoss > 0)
+            stale.Add($"A stop loss at {PlainNumber(_stopLoss)} is still on the ticket.");
+        if (_takeProfit > 0)
+            stale.Add($"A take profit at {PlainNumber(_takeProfit)} is still on the ticket.");
+        if (_reduceOnly)
+            stale.Add("Reduce-only is still on the ticket.");
+        if (stale.Count > 0)
+            sentence += " " + string.Join(" ", stale);
+
+        SpeakOrder(sentence);
+
+        string focusId = SizeByValue ? "order-value" : "order-qty";
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", focusId); }
+        catch { /* focus is best-effort; Tab reaches it */ }
+    }
+
+    /// <summary>
+    /// FLAT: find the chart symbol's open positions and focus the first row's first cell. The
+    /// cell is a reading target, not the Close button, so Enter held down cannot close a live
+    /// position at market with no review.
+    /// </summary>
+    private async Task ApplyFlatRequestAsync()
+    {
+        string symbol = Store.State.Identity.Symbol ?? "";
+        if (string.IsNullOrEmpty(symbol))
+        {
+            SpeakOrder("No chart is focused, so there is no symbol to flatten. Nothing was sent.");
+            return;
+        }
+
+        _accountTab = "Positions";
+        StateHasChanged();
+
+        var rows = _positions
+            .Where(r => string.Equals(r.Position.Symbol, symbol, StringComparison.OrdinalIgnoreCase)
+                     && Math.Abs(r.Position.Quantity) > 0)
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            SpeakOrder($"No open position in {symbol}. Nothing to close.");
+            return;
+        }
+
+        var first = rows[0];
+        string sentence = $"{PositionLabel.Direction(first.Position)} "
+            + $"{PlainNumber(Math.Abs(first.Position.Quantity))} {first.Position.Symbol} "
+            + $"on {first.Account.DisplayName}. Tab reaches Close position. Nothing was sent.";
+        if (rows.Count > 1)
+            sentence = $"{rows.Count} positions in {symbol}; the first is focused. " + sentence;
+
+        SpeakOrder(sentence);
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", PositionRowCellId(first)); }
+        catch { /* focus is best-effort; Tab reaches the row */ }
+    }
+
+    private void SpeakOrder(string sentence) =>
+        EventBus.Publish(new FeedbackRequestEvent(
+            FeedbackType.StateChange, sentence, true,
+            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
+
+    private string AccountSentence() => _paperMode
+        ? "Paper account."
+        : "Live account, Submit reads it back first.";
+
+    private static string PlainNumber(double value) =>
+        value.ToString("0.##########", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string PositionRowCellId(AccountPosition row) =>
+        $"position-{row.Account.Slug}-{new string(row.Position.Symbol.Where(char.IsLetterOrDigit).ToArray())}";
 
     // ── Protective levels on the positions table ────────────────────────────
     //

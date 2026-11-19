@@ -167,4 +167,36 @@ public class GoBarModalTests
         Assert.False(read.Interrupt);
         Assert.Equal(SpeechChannel.Interface, read.Channel);
     }
+    [Fact]
+    public void EnterOnAHelpOptionSpeaksItAndKeepsTheBoxOpen()
+    {
+        using var h = new BlazorTestHarness();
+        var (cut, dispatcher, spoken) = Open(h);
+        var closed = new List<CloseGoBarRequestEvent>();
+        var money = new List<OpenTradingDashboardEvent>();
+        var helpOpened = new List<OpenHelpEvent>();
+        h.EventBus.Subscribe<CloseGoBarRequestEvent>(closed.Add);
+        h.EventBus.Subscribe<OpenTradingDashboardEvent>(money.Add);
+        h.EventBus.Subscribe<OpenHelpEvent>(helpOpened.Add);
+
+        Type(cut, "HELP pulse");
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#gobar-list [role='option']")));
+
+        Key(cut, "Enter");
+
+        // This harness's ShortcutManager is a substitute with an empty profile, so HELP has
+        // no live key to name; the service tests cover the keyed shape with the real manager.
+        string expected = "Market pulse. Codes PULSE. "
+            + "The Pulse watchlist spoken as one sentence.";
+        Assert.True(System.Threading.SpinWait.SpinUntil(
+            () => spoken.Any(e => e.Message == expected), TimeSpan.FromSeconds(3)),
+            "HELP never spoke: " + string.Join(" || ", spoken.Select(e => e.Message)));
+        Assert.NotEmpty(cut.FindAll("#gobar-input"));
+        Assert.Equal("HELP pulse", cut.Find("#gobar-input").GetAttribute("value"));
+        Assert.Empty(closed);
+        Assert.Empty(money);
+        Assert.Empty(helpOpened);
+        dispatcher.DidNotReceiveWithAnyArgs().DispatchFromGoBar(default);
+    }
+
 }

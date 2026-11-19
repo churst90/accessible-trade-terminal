@@ -308,6 +308,22 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "armed", "arm status" },
                 "Say what the quick trade is armed with", GoBarKind.Money),
 
+            // ── Typed money commands (Go bar only) ─────────────────────────────
+            // These three are spelled exactly and only fill in the dashboard; the Go bar owns
+            // their meaning, so no head needs a command handler for them.
+            new(SystemCommand.TypedBuy, "Buy order",
+                new[] { "BUY" },
+                Array.Empty<string>(),
+                "Fill in a buy order on the ticket", GoBarKind.Money, HandledByGoBar: true),
+            new(SystemCommand.TypedSell, "Sell order",
+                new[] { "SELL" },
+                Array.Empty<string>(),
+                "Fill in a sell order on the ticket", GoBarKind.Money, HandledByGoBar: true),
+            new(SystemCommand.TypedFlat, "Flat the position",
+                new[] { "FLAT" },
+                Array.Empty<string>(),
+                "Find the chart's open position and its close button", GoBarKind.Money, HandledByGoBar: true),
+
             // ── View/Zoom ─────────────────────────────────────────────
             new(SystemCommand.ZoomIn, "Zoom in",
                 new[] { "ZI" },

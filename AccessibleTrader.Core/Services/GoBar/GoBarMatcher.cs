@@ -145,7 +145,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
         /// <summary>Trim, collapse every run of whitespace to one space, invariant upper case.</summary>
-        private static string Normalize(string? text)
+        internal static string Normalize(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return string.Empty;
             var parts = new List<string>();
@@ -159,7 +159,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         /// <paramref name="limit"/>. A cheap length check and a banded walk keep the
         /// near-miss tier over 140 entries cheap.
         /// </summary>
-        private static bool WithinDistance(string candidate, string wanted, int limit)
+        internal static bool WithinDistance(string candidate, string wanted, int limit)
         {
             if (Math.Abs(candidate.Length - wanted.Length) > limit) return false;
 

@@ -173,6 +173,11 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.SaveWorkspace)]
         [InlineData(SystemCommand.LoadWorkspace)]
         [InlineData(SystemCommand.LoadChart)]
+        // Typed money commands — Go bar only, no key binding. They open the dashboard; they
+        // never send from a focus location, so they impose no chart-focus requirement.
+        [InlineData(SystemCommand.TypedBuy)]
+        [InlineData(SystemCommand.TypedSell)]
+        [InlineData(SystemCommand.TypedFlat)]
         // Data-source change commands (toolbar-driven, no key binding today)
         [InlineData(SystemCommand.ChangeProvider)]
         [InlineData(SystemCommand.ChangeSymbol)]
@@ -262,6 +267,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse,
                 SystemCommand.WhatChanged, SystemCommand.OpenGoBar,
+                SystemCommand.TypedBuy, SystemCommand.TypedSell, SystemCommand.TypedFlat,
                 SystemCommand.OpenAssetDossier,
                 SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,
                 SystemCommand.ReplayStepBack, SystemCommand.ReplayPlayPause,

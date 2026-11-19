@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Settings;
 using AccessibleTrader.Sdk.Enums;
 
 namespace AccessibleTrader.Core.Services.GoBar
@@ -44,6 +45,26 @@ namespace AccessibleTrader.Core.Services.GoBar
 
     /// <summary>Reload the chart on screen with no changes.</summary>
     public sealed record GoBarRefreshAction : GoBarAction;
+
+    /// <summary>Open Settings on this row's tab and focus its control.</summary>
+    public sealed record GoBarSettingAction(SettingEntry Entry) : GoBarAction;
+
+    /// <summary>
+    /// HELP says this whole sentence again and runs nothing. Enter on it keeps the box open
+    /// with the text as typed — HELP is a reading command, never an execution one.
+    /// </summary>
+    public sealed record GoBarHelpAction(string Sentence) : GoBarAction;
+
+    /// <summary>
+    /// A typed BUY/SELL/FLAT. The Go bar only asks the dashboard to fill in or find the
+    /// position; it never places, closes or arms anything itself.
+    /// </summary>
+    public sealed record GoBarMoneyAction(
+        string Side,
+        double? Quantity,
+        double? LimitPrice,
+        bool Market,
+        bool Flat) : GoBarAction;
 
     /// <summary>
     /// A verb with no argument (or one of GOTO/FIND with no argument). It keeps the box open,

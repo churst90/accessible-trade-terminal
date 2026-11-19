@@ -6,6 +6,7 @@ using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Screening;
+using AccessibleTrader.Core.Services.Settings;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Enums;
@@ -51,6 +52,8 @@ namespace AccessibleTrader.Core.Services.GoBar
         private readonly IChartPatternCache? _patterns;
         private readonly ISdkCandlePatternAnalyzer? _candles;
         private readonly TimeZoneInfo? _displayZone;
+        private readonly IRuntimePlatform? _platform;
+        private readonly IBrowserSpeechOutput? _browserSpeech;
         private GoBarOption? _pending;
 
         public GoBarService(
@@ -68,7 +71,9 @@ namespace AccessibleTrader.Core.Services.GoBar
             IMarketEventBarMapCache? eventMap = null,
             IChartPatternCache? patterns = null,
             ISdkCandlePatternAnalyzer? candles = null,
-            TimeZoneInfo? displayZone = null)
+            TimeZoneInfo? displayZone = null,
+            IRuntimePlatform? platform = null,
+            IBrowserSpeechOutput? browserSpeech = null)
         {
             _dispatcher = dispatcher;
             _shortcuts = shortcuts;
@@ -85,12 +90,18 @@ namespace AccessibleTrader.Core.Services.GoBar
             _patterns = patterns;
             _candles = candles;
             _displayZone = displayZone;
+            _platform = platform;
+            _browserSpeech = browserSpeech;
             _modalStack.Changed += OnModalStackChanged;
         }
 
         // ── What the typed text can mean ───────────────────────────────────────
 
-        /// <summary>The options for what has been typed, plus the one sentence that is read.</summary>
+        /// <summary>
+        /// The options for what has been typed, plus the one sentence that is read. Stage 6c
+        /// adds three closed forms: a typed money command, <c>SET &lt;text&gt;</c> (settings
+        /// only) and <c>HELP &lt;text&gt;</c> (words, never an execution).
+        /// </summary>
         public GoBarSuggestion Suggest(string input)
         {
             string typed = (input ?? "").Trim();
@@ -98,16 +109,68 @@ namespace AccessibleTrader.Core.Services.GoBar
                 return new GoBarSuggestion(Array.Empty<GoBarOption>(), string.Empty);
 
             var parsed = GoBarParser.Parse(typed);
+
+            // A command typed by its exact name/code always keeps its own meaning, even when
+            // that word is also one of stage 6c's closed-form verbs ("Open Help", "Set the stop
+            // from this bar", "Buy order", "Flat the position"). This is 6b's review lesson:
+            // a new merged form must not hide an existing command's own words.
+            if (parsed.Kind is GoBarParseKind.Money
+                || (parsed.Kind == GoBarParseKind.Invalid
+                    && parsed.Verb is GoBarVerb.Buy or GoBarVerb.Sell or GoBarVerb.Flat)
+                || (parsed.Kind == GoBarParseKind.Argument
+                    && parsed.Verb is GoBarVerb.Settings or GoBarVerb.Help))
+            {
+                var exact = GoBarMatcher.Match(typed, GoBarRegistry.All)
+                    .Where(m => m.How is GoBarMatchKind.ExactCode
+                        or GoBarMatchKind.ExactName or GoBarMatchKind.ExactAlias)
+                    .ToList();
+                if (exact.Count > 0)
+                {
+                    var moneyEntry = exact.Select(m => m.Entry)
+                        .FirstOrDefault(e => e.Command is SystemCommand.TypedBuy
+                            or SystemCommand.TypedSell or SystemCommand.TypedFlat);
+                    if (moneyEntry != null)
+                    {
+                        var moneyOption = parsed.Kind == GoBarParseKind.Money
+                            ? MoneyOptions(parsed, moneyEntry).Single()
+                            : MoneyOptionForEntry(moneyEntry);
+                        return new GoBarSuggestion(new[] { moneyOption }, moneyOption.Name + ".");
+                    }
+
+                    return Finish(exact.Select(m => EntryOption(m.Entry)).ToList());
+                }
+            }
+
+            if (parsed.Kind == GoBarParseKind.Money)
+                return ResolveMoney(parsed);
+
+            if (parsed.Kind == GoBarParseKind.Invalid
+                && parsed.Verb is GoBarVerb.Buy or GoBarVerb.Sell or GoBarVerb.Flat)
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(), parsed.Refusal ?? "");
+
+            if (parsed.Kind == GoBarParseKind.Invalid
+                && string.Equals(parsed.Refusal, GoBarParser.MoneyOutOfOrder, StringComparison.Ordinal))
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(), GoBarParser.MoneyOutOfOrder);
+
+            if (parsed.Kind == GoBarParseKind.Argument && parsed.Verb == GoBarVerb.Settings)
+                return ResolveSettings(parsed.Argument);
+
+            if (parsed.Kind == GoBarParseKind.Argument && parsed.Verb == GoBarVerb.Help)
+                return ResolveHelp(parsed.Argument);
+
             if (parsed.Kind is GoBarParseKind.Invalid or GoBarParseKind.Argument)
                 return MergeWithCommands(typed, parsed);
 
             if (parsed.Kind == GoBarParseKind.BareVerb)
                 return ResolveBareVerb(parsed);
 
-            // 6a commands first, then the two bare shapes that cannot mean anything else.
+            // 6a commands first, then settings, then the two bare shapes that cannot mean
+            // anything else. Settings never lead a plain search: a command's own words must
+            // keep their command on top.
             var options = GoBarMatcher.Match(typed, GoBarRegistry.All)
                 .Select(m => EntryOption(m.Entry))
                 .ToList();
+            options.AddRange(SettingOptions(typed));
 
             if (parsed.Kind == GoBarParseKind.BareTimeframe
                 && parsed.Timeframe is { } tf && parsed.TimeframeWords is { } words)
@@ -124,6 +187,152 @@ namespace AccessibleTrader.Core.Services.GoBar
 
             return new GoBarSuggestion(options, SentenceFor(options));
         }
+
+        // ── Settings by name (stage 6c) ────────────────────────────────────────
+
+        private SettingsHost Host => SettingsHost.From(_demo, _platform, _browserSpeech);
+
+        private IEnumerable<GoBarOption> SettingOptions(string typed)
+            => GoBarSettingsSearch.Find(typed, Host).Select(m => SettingOption(m.Entry));
+
+        private static GoBarOption SettingOption(SettingEntry entry) =>
+            new(entry.Label,
+                Action: new GoBarSettingAction(entry),
+                CanonicalText: $"SET {entry.Label}",
+                Help: $"setting, {entry.Tab} tab");
+
+        private GoBarSuggestion ResolveSettings(string argument)
+        {
+            var matches = GoBarSettingsSearch.Find(argument, Host);
+            if (matches.Count == 0)
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(),
+                    $"No setting matches {argument}.");
+
+            return Finish(matches.Select(m => SettingOption(m.Entry)).ToList());
+        }
+
+        // ── HELP (stage 6c) ────────────────────────────────────────────────────
+
+        private GoBarSuggestion ResolveHelp(string argument)
+        {
+            var options = new List<GoBarOption>();
+            foreach (var match in GoBarMatcher.Match(argument, GoBarRegistry.All))
+                options.Add(HelpOption(CommandHelpSentence(match.Entry)));
+
+            foreach (var match in GoBarSettingsSearch.Find(argument, Host))
+            {
+                options.Add(HelpOption(
+                    $"{match.Entry.Label}, a setting on the {match.Entry.Tab} tab. "
+                    + $"Type SET {match.Entry.Label} to go there."));
+            }
+
+            if (options.Count == 0)
+                return new GoBarSuggestion(options,
+                    $"No command or setting matches {argument}.");
+
+            return new GoBarSuggestion(options, SentenceFor(options));
+        }
+
+        private static GoBarOption HelpOption(string sentence) =>
+            new(sentence, Action: new GoBarHelpAction(sentence));
+
+        private string CommandHelpSentence(GoBarEntry entry)
+        {
+            var parts = new List<string> { entry.Name + "." };
+            if (entry.Codes.Count > 0)
+                parts.Add($"Codes {string.Join(", ", entry.Codes)}.");
+            if (KeyLabel(entry.Command) is { } key)
+                parts.Add($"Key {key}.");
+
+            string help = entry.Help.Trim();
+            if (help.Length > 0)
+                parts.Add(help.EndsWith('.') ? help : help + ".");
+
+            return string.Join(" ", parts);
+        }
+
+        // ── Typed money (stage 6c) ─────────────────────────────────────────────
+
+        private static GoBarSuggestion ResolveMoney(GoBarParseResult parsed)
+        {
+            string side = parsed.Verb == GoBarVerb.Sell ? "Sell" : "Buy";
+            var entry = GoBarRegistry.All.FirstOrDefault(e => e.Command
+                == (parsed.Flat ? SystemCommand.TypedFlat
+                    : parsed.Verb == GoBarVerb.Sell ? SystemCommand.TypedSell
+                    : SystemCommand.TypedBuy));
+            var option = MoneyOptions(parsed, entry).Single();
+            return new GoBarSuggestion(new[] { option }, option.Name + ".");
+        }
+
+        private static IReadOnlyList<GoBarOption> MoneyOptions(GoBarParseResult parsed, GoBarEntry? entry)
+        {
+            if (parsed.Flat)
+                return new[]
+                {
+                    MoneyOptionForEntry(entry ?? GoBarRegistry.All.Single(
+                        e => e.Command == SystemCommand.TypedFlat), parsed),
+                };
+
+            string side = parsed.Verb == GoBarVerb.Sell ? "Sell" : "Buy";
+            string name;
+            string canonical;
+
+            if (parsed.Quantity is { } quantity)
+            {
+                string price = parsed.LimitPrice is { } limit
+                    ? "at limit " + PlainNumber(limit)
+                    : "at market";
+                name = $"{side} {PlainNumber(quantity)} {price}";
+                canonical = parsed.LimitPrice is { } canonicalLimit
+                    ? $"{side.ToUpperInvariant()} {PlainNumber(quantity)} {PlainNumber(canonicalLimit)}"
+                    : $"{side.ToUpperInvariant()} {PlainNumber(quantity)}";
+            }
+            else
+            {
+                name = $"{side}, fill in the ticket";
+                canonical = side.ToUpperInvariant();
+            }
+
+            return new[]
+            {
+                new GoBarOption(
+                    name,
+                    Entry: entry,
+                    Action: new GoBarMoneyAction(
+                        side, parsed.Quantity, parsed.LimitPrice, parsed.Market, Flat: false),
+                    CanonicalText: canonical,
+                    Help: "Fill in the ticket; nothing is sent until Submit"),
+            };
+        }
+
+        /// <summary>The command's own name typed exactly ("Buy order", "Flat the position").</summary>
+        private static GoBarOption MoneyOptionForEntry(GoBarEntry entry, GoBarParseResult? parsed = null)
+        {
+            if (entry.Command == SystemCommand.TypedFlat)
+            {
+                return new GoBarOption(
+                    "Find the chart's open position",
+                    Entry: entry,
+                    Action: new GoBarMoneyAction("", null, null, Market: false, Flat: true),
+                    CanonicalText: "FLAT",
+                    Help: "Find the open position and focus it; nothing is closed");
+            }
+
+            string side = entry.Command == SystemCommand.TypedSell ? "Sell" : "Buy";
+            return new GoBarOption(
+                parsed?.Quantity is { } quantity
+                    ? $"{side} {PlainNumber(quantity)} "
+                      + (parsed.LimitPrice is { } limit ? "at limit " + PlainNumber(limit) : "at market")
+                    : $"{side}, fill in the ticket",
+                Entry: entry,
+                Action: new GoBarMoneyAction(
+                    side, parsed?.Quantity, parsed?.LimitPrice, parsed?.Market ?? false, Flat: false),
+                CanonicalText: side.ToUpperInvariant(),
+                Help: "Fill in the ticket; nothing is sent until Submit");
+        }
+
+        private static string PlainNumber(double value) =>
+            value.ToString("0.##########", CultureInfo.InvariantCulture);
 
         /// <summary>
         /// A verb word inside a command's own name ("add tab", "Change the timeframe",
@@ -471,6 +680,14 @@ namespace AccessibleTrader.Core.Services.GoBar
         {
             if (option == null) return;
 
+            // HELP is a reading command: its option says the whole help again, and the box
+            // stays open with the typed text exactly as it was. Nothing is dispatched.
+            if (option.Action is GoBarHelpAction help)
+            {
+                Speak(help.Sentence, interrupt: true);
+                return;
+            }
+
             // A bare verb keeps the box open and completes the text. Nothing is dispatched.
             if (option.Action is GoBarArgHintAction hint)
             {
@@ -607,6 +824,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                     case GoBarRefreshAction:
                         await ExecuteRefreshAsync().ConfigureAwait(false);
                         break;
+                    case GoBarSettingAction setting:
+                        ExecuteSetting(setting);
+                        break;
+                    case GoBarMoneyAction money:
+                        ExecuteMoney(money);
+                        break;
                 }
             }
             catch (Exception ex)
@@ -734,6 +957,22 @@ namespace AccessibleTrader.Core.Services.GoBar
             _series.RegisterSeriesFromMetadata(meta, IndicatorCatalog.DefaultParameters(meta));
             Speak($"{meta.Name} added, {IndicatorCatalog.PaneDescription(meta)}.", interrupt: true);
         }
+
+        private void ExecuteSetting(GoBarSettingAction action)
+            => _bus.Publish(new OpenSettingsEvent(action.Entry.Tab, action.Entry.ControlId));
+
+        /// <summary>
+        /// Ask the dashboard to fill in or find the position. The Go bar never places, closes or
+        /// arms anything, and it does not speak for the dashboard: only the dashboard knows
+        /// whether a ticket exists on this chart.
+        /// </summary>
+        private void ExecuteMoney(GoBarMoneyAction action)
+            => _bus.Publish(new OpenTradingDashboardEvent(
+                Side: action.Flat ? null : action.Side,
+                LimitPrice: action.LimitPrice,
+                Quantity: action.Quantity,
+                Market: action.Market,
+                Flat: action.Flat));
 
         private void ExecutePriceAlert(GoBarPriceAlertAction action)
         {
@@ -1062,7 +1301,15 @@ namespace AccessibleTrader.Core.Services.GoBar
 
             var top = options[0];
             string sentence;
-            if (top.Entry != null)
+            if (top.Action is GoBarSettingAction setting)
+            {
+                sentence = $"{setting.Entry.Label}, setting, {setting.Entry.Tab} tab.";
+            }
+            else if (top.Action is GoBarHelpAction help)
+            {
+                sentence = help.Sentence;
+            }
+            else if (top.Entry != null)
             {
                 string? key = KeyLabel(top.Entry.Command);
                 sentence = key == null ? $"{top.Name}." : $"{top.Name}, {key}.";

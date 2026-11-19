@@ -3,6 +3,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.GoBar;
 using AccessibleTrader.Core.Services.Input;
+using AccessibleTrader.Core.Services.Settings;
 
 namespace AccessibleTrader.Tests;
 
@@ -178,6 +179,56 @@ public class GoBarRegistryTests
 
         Assert.True(clashes.Count == 0,
             "money codes that are also a word for another command: " + string.Join(", ", clashes));
+    }
+
+    /// <summary>
+    /// Stage 6c's three money words must stay reserved. A user typing SELL or FLAT for
+    /// anything else must never be one Enter from a typed order, and the words may not be
+    /// borrowed by an ordinary command, an argument verb or a setting label. The own entries
+    /// are the only places BUY, SELL and FLAT may appear.
+    /// </summary>
+    [Fact]
+    public void MoneyWordsAreNoOtherEntrysWords()
+    {
+        var typed = new (string Word, SystemCommand Command)[]
+        {
+            ("BUY", SystemCommand.TypedBuy),
+            ("SELL", SystemCommand.TypedSell),
+            ("FLAT", SystemCommand.TypedFlat),
+        };
+
+        var problems = new List<string>();
+        foreach (var (word, command) in typed)
+        {
+            var owners = GoBarRegistry.All
+                .Where(e => e.Codes.Contains(word, StringComparer.OrdinalIgnoreCase))
+                .Select(e => e.Command)
+                .ToList();
+            if (owners.Count != 1 || owners[0] != command)
+                problems.Add($"{word} is owned by {string.Join(", ", owners)} instead of {command}");
+
+            foreach (var entry in GoBarRegistry.All.Where(e => e.Command != command))
+            {
+                if (entry.Codes.Any(c => string.Equals(c, word, StringComparison.OrdinalIgnoreCase)))
+                    problems.Add($"{word} is a code of {entry.Command}");
+                if (entry.Aliases.Any(a => string.Equals(a, word, StringComparison.OrdinalIgnoreCase)))
+                    problems.Add($"{word} is an alias of {entry.Command}");
+                if (entry.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Any(w => string.Equals(w, word, StringComparison.OrdinalIgnoreCase)))
+                    problems.Add($"{word} is a name word of {entry.Command}");
+                if (entry.Aliases.SelectMany(a => a.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                    .Any(w => string.Equals(w, word, StringComparison.OrdinalIgnoreCase)))
+                    problems.Add($"{word} is an alias word of {entry.Command}");
+            }
+
+            if (GoBarVerbs.AllWords.Any(w => string.Equals(w, word, StringComparison.OrdinalIgnoreCase)))
+                problems.Add($"{word} is an argument verb");
+            if (SettingsRegistry.All.Any(s => s.Label.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Any(w => string.Equals(w, word, StringComparison.OrdinalIgnoreCase))))
+                problems.Add($"{word} is a settings label word");
+        }
+
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
     }
 
     [Theory]

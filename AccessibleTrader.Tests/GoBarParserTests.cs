@@ -238,3 +238,131 @@ public class GoBarParserTests
         Assert.Null(parsed.Verb);
     }
 }
+
+/// <summary>
+/// Stage 6c's typed money reader. The verb is the first word, spelled exactly, and the two
+/// values are strict positive decimals: a typo, a comma, an exponent, zero or a negative never
+/// becomes a ticket.
+/// </summary>
+public class GoBarMoneyParserTests
+{
+    [Theory]
+    [InlineData("BUY", GoBarVerb.Buy)]
+    [InlineData("buy", GoBarVerb.Buy)]
+    [InlineData("SeLl", GoBarVerb.Sell)]
+    public void ASideAloneIsAMoneyCommand(string typed, GoBarVerb verb)
+    {
+        var parsed = GoBarParser.Parse(typed);
+
+        Assert.Equal(GoBarParseKind.Money, parsed.Kind);
+        Assert.Equal(verb, parsed.Verb);
+        Assert.Null(parsed.Quantity);
+        Assert.Null(parsed.LimitPrice);
+        Assert.False(parsed.Flat);
+    }
+
+    [Fact]
+    public void AQuantityIsMarketAndAPriceIsLimit()
+    {
+        var market = GoBarParser.Parse("BUY 0.5");
+        Assert.Equal(GoBarParseKind.Money, market.Kind);
+        Assert.Equal(0.5, market.Quantity);
+        Assert.Null(market.LimitPrice);
+        Assert.True(market.Market);
+
+        var limit = GoBarParser.Parse("BUY 0.5 95000");
+        Assert.Equal(GoBarParseKind.Money, limit.Kind);
+        Assert.Equal(0.5, limit.Quantity);
+        Assert.Equal(95000, limit.LimitPrice);
+        Assert.False(limit.Market);
+
+        var withAt = GoBarParser.Parse("BUY 0.5 at 95000");
+        Assert.Equal(GoBarParseKind.Money, withAt.Kind);
+        Assert.Equal(0.5, withAt.Quantity);
+        Assert.Equal(95000, withAt.LimitPrice);
+        Assert.False(withAt.Market);
+    }
+
+    [Fact]
+    public void FlatTakesNothing()
+    {
+        var parsed = GoBarParser.Parse("FLAT");
+
+        Assert.Equal(GoBarParseKind.Money, parsed.Kind);
+        Assert.Equal(GoBarVerb.Flat, parsed.Verb);
+        Assert.True(parsed.Flat);
+    }
+
+    [Theory]
+    [InlineData("BUY 1,5")]
+    [InlineData("BUY 1e3")]
+    [InlineData("BUY -1")]
+    [InlineData("BUY 0")]
+    [InlineData("BUY abc")]
+    [InlineData("BUY half")]
+    [InlineData("BUY 0.5 nope")]
+    [InlineData("BUY 0.5 0")]
+    public void ABadQuantityOrPriceIsRefusedInWords(string typed)
+    {
+        var parsed = GoBarParser.Parse(typed);
+
+        Assert.Equal(GoBarParseKind.Invalid, parsed.Kind);
+        Assert.Equal(
+            "BUY takes a quantity and an optional limit price, like BUY 0.5 or BUY 0.5 95000. "
+            + "Nothing was opened.",
+            parsed.Refusal);
+    }
+
+    [Fact]
+    public void SellUsesItsOwnWordInTheRefusal()
+    {
+        var parsed = GoBarParser.Parse("SELL 0");
+
+        Assert.Equal(GoBarParseKind.Invalid, parsed.Kind);
+        Assert.Equal(
+            "SELL takes a quantity and an optional limit price, like SELL 0.5 or SELL 0.5 95000. "
+            + "Nothing was opened.",
+            parsed.Refusal);
+    }
+
+    [Fact]
+    public void FlatWithAnythingAfterItIsRefused()
+    {
+        var parsed = GoBarParser.Parse("FLAT BTCUSDT");
+
+        Assert.Equal(GoBarParseKind.Invalid, parsed.Kind);
+        Assert.Equal(
+            "FLAT takes nothing; it uses the chart's symbol. Nothing was opened.",
+            parsed.Refusal);
+    }
+
+    [Theory]
+    [InlineData("0.5 BUY")]
+    [InlineData("95000 SELL")]
+    public void AMoneyVerbLastIsTheDeliberateRefusal(string typed)
+    {
+        var parsed = GoBarParser.Parse(typed);
+
+        Assert.Equal(GoBarParseKind.Invalid, parsed.Kind);
+        Assert.Equal(
+            "Money commands start with the word, like BUY 0.5. Nothing was opened.",
+            parsed.Refusal);
+    }
+
+    [Theory]
+    [InlineData("BYU 1")]
+    [InlineData("BU")]
+    [InlineData("SEL 2")]
+    [InlineData("FLA")]
+    [InlineData("BUYY")]
+    [InlineData("FLATT")]
+    public void ANearMissOrPrefixIsNotAMoneyVerb(string typed)
+    {
+        var parsed = GoBarParser.Parse(typed);
+
+        Assert.NotEqual(GoBarParseKind.Money, parsed.Kind);
+        Assert.NotEqual(GoBarVerb.Buy, parsed.Verb);
+        Assert.NotEqual(GoBarVerb.Sell, parsed.Verb);
+        Assert.NotEqual(GoBarVerb.Flat, parsed.Verb);
+    }
+}

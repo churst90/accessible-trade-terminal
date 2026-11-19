@@ -120,6 +120,13 @@ namespace AccessibleTrader.Core.Models
         QuickDisarm,        // Ctrl+Alt+Shift+0 — cancel
         QuickArmStatus,     // Ctrl+Alt+Shift+Q — what am I armed with?
 
+        // ── Typed money commands (Go bar only, stage 6c) ─────────────────────
+        // The codes BUY, SELL and FLAT are spelled exactly, first word only, and every one
+        // only FILLS IN the trading dashboard. No key binding: money is typed deliberately.
+        TypedBuy,
+        TypedSell,
+        TypedFlat,
+
 
         // View/Zoom
         ZoomIn,
