@@ -22,6 +22,24 @@ namespace AccessibleTrader.Sdk.Models
     /// </para>
     /// </summary>
     public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2 }
+
+    /// <summary>
+    /// What the price pane's Y axis is MEASURED in: raw prices (Regular), percentage change from
+    /// the first visible close (Percent), or the first visible close set to 100
+    /// (<see cref="IndexedTo100"/>). TradingView's price-scale menu has four entries and so has
+    /// this: Regular, Logarithmic, Percent, Indexed to 100 — but Logarithmic is still the
+    /// existing <see cref="WorkspaceState.IsLogScale"/> flag, which thirty files read, rather
+    /// than a fourth member here.
+    ///
+    /// <para>
+    /// To the user it is ONE choice, so the reducer holds the pairing: Percent and Indexed clear
+    /// the log flag, turning log on returns the mode to Regular, and
+    /// <see cref="SetPriceScaleAction"/> writes both. <see cref="Regular"/> is 0 so every
+    /// workspace saved before this field existed opens on the axis it was showing.
+    /// </para>
+    /// </summary>
+    public enum PriceScaleMode { Regular = 0, Percent = 1, IndexedTo100 = 2 }
+
     /// <summary>
     /// What the chart's data is doing, as a value anyone can ASK for.
     ///
@@ -103,6 +121,10 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>The tab's price chart type. Candles for every snapshot made before the
         /// field existed and for a newly opened tab.</summary>
         public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
+
+        /// <summary>The tab's price-scale mode. Regular for every snapshot made before the
+        /// field existed and for a newly opened tab.</summary>
+        public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
     }
 
     /// <summary>
@@ -403,6 +425,14 @@ namespace AccessibleTrader.Sdk.Models
         /// It is per tab, saved with <see cref="IsHeikinAshi"/> wherever that goes.
         /// </summary>
         public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
+
+        /// <summary>
+        /// What this price pane's ruler measures: raw prices (Regular), percent from the first
+        /// visible close, or that close indexed to 100. An init property for the same reason as
+        /// <see cref="ChartStyle"/>. Per tab, saved with <see cref="IsLogScale"/> wherever that
+        /// goes; the log flag is the fourth menu entry, held beside it.
+        /// </summary>
+        public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
     }
 
     public abstract record WorkspaceAction;
@@ -498,6 +528,14 @@ namespace AccessibleTrader.Sdk.Models
     /// choosing it in the select restores Candles+HA on a tab that was showing Line.
     /// </summary>
     public record SetChartStyleAction(PriceChartStyle Style, bool HeikinAshi) : WorkspaceAction;
+
+    /// <summary>
+    /// The one user-facing price-scale choice: Regular, Logarithmic, Percent or Indexed to 100.
+    /// <paramref name="Log"/> carries the Logarithmic entry, because that is still the separate
+    /// flag; the reducer keeps the pair consistent — any non-Regular mode clears log, and a log
+    /// request only applies with <see cref="PriceScaleMode.Regular"/>.
+    /// </summary>
+    public record SetPriceScaleAction(PriceScaleMode Mode, bool Log) : WorkspaceAction;
 
     public record ToggleLogScaleAction() : WorkspaceAction;
     public record AddSeriesAction(ChartSeries Series) : WorkspaceAction;

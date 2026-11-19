@@ -41,7 +41,21 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 // transform; Heikin-Ashi only exists on the candles chart.
                 IsHeikinAshi = a.Style == PriceChartStyle.Candles && a.HeikinAshi,
             },
-            ToggleLogScaleAction        => state with { IsLogScale = !state.IsLogScale },
+            // The price scale is ONE choice to the user — Regular, Logarithmic, Percent,
+            // Indexed to 100 — so the two fields never disagree. Turning log ON is the
+            // Logarithmic entry and puts the mode back to Regular; turning it off leaves the
+            // mode alone (it can only have been Regular while log was on). A non-Regular mode
+            // is an affine relabel of the regular scale and is never logarithmic.
+            ToggleLogScaleAction        => state with
+            {
+                IsLogScale = !state.IsLogScale,
+                ScaleMode = !state.IsLogScale ? PriceScaleMode.Regular : state.ScaleMode,
+            },
+            SetPriceScaleAction a       => state with
+            {
+                ScaleMode = a.Mode,
+                IsLogScale = a.Mode == PriceScaleMode.Regular && a.Log,
+            },
 
             _ => state
         };

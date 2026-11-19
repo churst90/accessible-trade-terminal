@@ -592,8 +592,11 @@ namespace AccessibleTrader.Core.Services
             // ChartStyle existed reads as Candles, which is what it was showing.
             if (tab.ChartStyle != _store.State.ChartStyle || tab.IsHeikinAshi != _store.State.IsHeikinAshi)
                 _store.Dispatch(new SetChartStyleAction(tab.ChartStyle, tab.IsHeikinAshi));
-            if (tab.IsLogScale != _store.State.IsLogScale)
-                _store.Dispatch(new ToggleLogScaleAction());
+            // Scale mode and the log flag are one choice, restored in one action. A file saved
+            // before ScaleMode existed reads as Regular — the axis it was showing — and the
+            // reducer refuses the impossible pair (Percent plus log).
+            if (tab.ScaleMode != _store.State.ScaleMode || tab.IsLogScale != _store.State.IsLogScale)
+                _store.Dispatch(new SetPriceScaleAction(tab.ScaleMode, tab.IsLogScale));
 
             // Restore series
             RestoreSeriesFromTab(tab, allMeta);

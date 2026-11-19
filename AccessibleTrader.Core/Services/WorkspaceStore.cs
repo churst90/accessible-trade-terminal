@@ -134,7 +134,13 @@ namespace AccessibleTrader.Core.Services
                     candidate.ActiveSeries != _currentState.ActiveSeries ||
                     // Line and Area autoscale from CLOSES rather than highs/lows, so a chart
                     // type change changes what the range is.
-                    candidate.ChartStyle != _currentState.ChartStyle)
+                    candidate.ChartStyle != _currentState.ChartStyle ||
+                    // A COMPARE overlay is rebased to its own first visible value in Percent and
+                    // Indexed, so the price that has to fit changes with the mode. Nothing else
+                    // about the range moves on a scale change; without this, choosing Percent
+                    // on a paused or closed market would leave the rebased comparison clipped
+                    // until the next tick.
+                    (candidate.ScaleMode != _currentState.ScaleMode && HasMainCompareOverlay(candidate)))
                 {
                     var result = _rangeCalculator.Calculate(candidate);
                     candidate = candidate with
@@ -346,6 +352,7 @@ namespace AccessibleTrader.Core.Services
                 // shortcuts silently did nothing (found live 2026-07-23).
                 or ToggleEventSpeechAction or ToggleEarconsAction
                 or ToggleHeikinAshiAction or SetChartStyleAction or ToggleLogScaleAction
+                or SetPriceScaleAction
                 => PlaybackReducer.Reduce(state, action),
 
             // ── Tabs + pane layout ───────────────────────────────────────────
@@ -409,6 +416,26 @@ namespace AccessibleTrader.Core.Services
 
             _ => state
         };
+
+        /// <summary>
+        /// Whether the chart carries a COMPARE overlay on the price pane — the one thing whose
+        /// prices the scale mode changes (it is rebased to its own first visible value). The
+        /// refit on a mode change is gated on this so a chart with no comparison is not
+        /// recomputed for nothing.
+        /// </summary>
+        private static bool HasMainCompareOverlay(WorkspaceState state)
+        {
+            foreach (var s in state.ActiveSeries)
+            {
+                if (!s.IsVisible) continue;
+                string pane = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
+                if (pane != "Main") continue;
+                if (string.Equals(s.IndicatorCode, Indicators.SymbolCompareProvider.OverlayCode,
+                        StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Gate on the InitializationStatus state machine. Error and Resetting

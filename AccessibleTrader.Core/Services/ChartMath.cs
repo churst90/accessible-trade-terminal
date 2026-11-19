@@ -67,6 +67,160 @@ namespace AccessibleTrader.Core.Services
             return Math.Max(1, multiple) * gridStep;
         }
 
+        // ── Percent and Indexed-to-100 scales ─────────────────────────────────────────
+        //
+        // Both are RELABELS of the same linear pixel mapping, not a different one: price p is
+        // still drawn where regular price p is drawn, and only the numbers on the axis, the
+        // rider, the value labels and the speech change. The base is the close of the first
+        // VISIBLE bar as drawn (so on a Heikin-Ashi chart it is the HA close), and it moves as
+        // the user pans — TradingView's behaviour. If that close is zero, negative or missing
+        // the mode cannot be applied and the chart draws and reads as Regular.
+
+        /// <summary>
+        /// The close of the first visible bar AS DRAWN — the zero of a Percent scale and the
+        /// 100 of an Indexed one. <paramref name="viewportStart"/> is clamped into the data;
+        /// <see cref="BarAsDrawn"/> means a Heikin-Ashi chart's base is the HA close, the same
+        /// candle the reader sees and hears. NaN when there is no data.
+        /// </summary>
+        public static double ScaleBase(IReadOnlyList<Ohlcv>? data, int viewportStart, bool isHeikinAshi)
+        {
+            if (data == null || data.Count == 0) return double.NaN;
+            int index = Math.Clamp(viewportStart, 0, data.Count - 1);
+            return BarAsDrawn(data, index, isHeikinAshi).Close;
+        }
+
+        /// <summary>The same base for a whole state, with the chart's own HA-spelling rule.</summary>
+        public static double ScaleBase(WorkspaceState state)
+            => ScaleBase(state.Data, state.ViewportStartIndex,
+                state.IsHeikinAshi && state.ChartStyle == PriceChartStyle.Candles);
+
+        /// <summary>Whether a base can carry Percent or Indexed to 100 at all.</summary>
+        public static bool BaseUsable(double baseValue)
+            => !double.IsNaN(baseValue) && !double.IsInfinity(baseValue) && baseValue > 0;
+
+        /// <summary>
+        /// The mode the chart ACTUALLY draws: a non-Regular mode needs a usable base and cannot
+        /// coexist with the log flag (the reducer refuses that pair; a hand-edited snapshot
+        /// might not).
+        /// </summary>
+        public static PriceScaleMode EffectiveScaleMode(PriceScaleMode mode, double baseValue, bool isLogScale)
+            => mode != PriceScaleMode.Regular && (isLogScale || !BaseUsable(baseValue))
+                ? PriceScaleMode.Regular
+                : mode;
+
+        /// <summary>The number the axis says for a price: p for Regular, (p/base − 1) × 100 for
+        /// Percent, p/base × 100 for Indexed.</summary>
+        public static double ScaleReading(PriceScaleMode mode, double price, double baseValue) => mode switch
+        {
+            PriceScaleMode.Percent      => (price / baseValue - 1.0) * 100.0,
+            PriceScaleMode.IndexedTo100 => price / baseValue * 100.0,
+            _                           => price,
+        };
+
+        /// <summary>The price a scale reading marks — the inverse of <see cref="ScaleReading"/>,
+        /// used to place a tick computed in scale units.</summary>
+        public static double ScalePrice(PriceScaleMode mode, double reading, double baseValue) => mode switch
+        {
+            PriceScaleMode.Percent      => baseValue * (1.0 + reading / 100.0),
+            PriceScaleMode.IndexedTo100 => baseValue * reading / 100.0,
+            _                           => reading,
+        };
+
+        /// <summary>The pane's extent in scale units — what the step is computed over.</summary>
+        public static (double Min, double Max) ScaleBounds(PriceScaleMode mode, double min, double max, double baseValue)
+            => mode == PriceScaleMode.Regular
+                ? (min, max)
+                : (ScaleReading(mode, min, baseValue), ScaleReading(mode, max, baseValue));
+
+        /// <summary>
+        /// The ticks of a price axis, walked in SCALE units and returned with the price each one
+        /// marks. Both the gridlines and the axis labels call this, so the shared-step guard
+        /// (every label sits on a line) holds in Percent and Indexed exactly as it does in
+        /// Regular. In Regular this is the old walk — ceil(min/step)·step up to max — byte for
+        /// byte.
+        /// </summary>
+        public static IEnumerable<(double Reading, double Price)> ScaleTicks(
+            PriceScaleMode mode, double min, double max, double baseValue, double step)
+        {
+            if (step <= 0 || double.IsNaN(step) || double.IsInfinity(step)) yield break;
+
+            var (lo, hi) = ScaleBounds(mode, min, max, baseValue);
+            if (double.IsNaN(lo) || double.IsNaN(hi) || hi < lo) yield break;
+
+            double first = Math.Ceiling(lo / step) * step;
+            // Percent and Indexed walk readings converted back to prices, so the last tick's
+            // residue needs a relative tolerance. Regular keeps the old exact comparison: its
+            // ticks ARE the prices and its labels must stay byte-identical to before.
+            double tolerance = mode == PriceScaleMode.Regular ? 0.0 : step * 1e-9;
+            int safety = 0;
+            for (double reading = first; reading <= hi + tolerance && safety < 500; reading += step, safety++)
+            {
+                // The walk is on a number that starts at a multiple of the step, so the residue
+                // at a hair below zero is rounding noise rather than a reading.
+                double shown = Math.Abs(reading) < step * 1e-9 ? 0.0 : reading;
+                yield return (shown, ScalePrice(mode, shown, baseValue));
+            }
+        }
+
+        /// <summary>
+        /// What an axis label or a badge says in a scale mode: Percent <c>"4.00%"</c>,
+        /// <c>"-2.00%"</c>, <c>"0.00%"</c>; Indexed <c>"104.00"</c>. Two decimals, invariant,
+        /// the same minus sign the regular axis uses. Negative zero is stripped for the same
+        /// reason the regular axis strips it.
+        /// </summary>
+        public static string FormatScaleValue(PriceScaleMode mode, double reading)
+        {
+            if (double.IsNaN(reading) || double.IsInfinity(reading)) return "no data";
+
+            string text = reading.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            if (text is "-0.00") text = "0.00";
+            return mode == PriceScaleMode.Percent ? text + "%" : text;
+        }
+
+        /// <summary>
+        /// The spoken form of a scale reading, lower-case so a caller can put it at the start of
+        /// a sentence or after "value": Percent <c>"plus 4.20 percent"</c>,
+        /// <c>"minus 1.30 percent"</c>, <c>"zero percent"</c>; Indexed <c>"index 104.20"</c>.
+        /// Words, not symbols: a screen reader reads "+" inconsistently.
+        /// </summary>
+        public static string FormatScaleReadingSpoken(PriceScaleMode mode, double reading)
+        {
+            // The sign is read off the number that will be SAID, not off the raw double: a
+            // residue of -0.0001 prints as "0.00" and must not be called "minus zero percent".
+            double shown = Math.Round(reading, 2, MidpointRounding.AwayFromZero);
+            string number = Math.Abs(shown).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            if (mode == PriceScaleMode.IndexedTo100)
+                return shown < 0 ? "index minus " + number : "index " + number;
+
+            if (shown > 0) return "plus " + number + " percent";
+            if (shown < 0) return "minus " + number + " percent";
+            return "zero percent";
+        }
+
+        /// <summary>
+        /// The first non-NaN value in the visible window of a component array — a comparison
+        /// series' own left-edge value. NaN when the window holds none. -1 viewport bounds fall
+        /// back to the whole array, as the sparse-marker speech does.
+        /// </summary>
+        public static double FirstVisibleValue(double[]? data, int viewportStart, int viewportLength)
+        {
+            if (data == null || data.Length == 0) return double.NaN;
+            int start = viewportStart < 0 || viewportLength <= 0 ? 0 : Math.Max(0, viewportStart);
+            int end   = viewportStart < 0 || viewportLength <= 0 ? data.Length : Math.Min(data.Length, viewportStart + viewportLength);
+            for (int i = start; i < end; i++)
+                if (!double.IsNaN(data[i])) return data[i];
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// A compare overlay's value on THIS chart's price axis when a scale mode is on:
+        /// <c>chartBase × v / vFirst</c>, so the comparison starts at the same point as the
+        /// chart's own line at the left edge and the two drift apart — TradingView's compare
+        /// behaviour. NaN when the comparison's own first visible value is missing or zero.
+        /// </summary>
+        public static double RebaseCompareValue(double chartBase, double value, double firstVisibleValue)
+            => BaseUsable(firstVisibleValue) ? chartBase * value / firstVisibleValue : double.NaN;
+
         /// <summary>
         /// True when <paramref name="value"/> falls on a label — the test a renderer uses to draw
         /// that gridline brighter. Tolerance is relative to the step, because the axis walks by

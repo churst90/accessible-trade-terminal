@@ -134,6 +134,10 @@ public static class WorkspaceProjection
         // How the price bars are DRAWN on this chart (Candles, Line, Area). Presentation, like
         // the pane ranges above: a strategy reads closes and indicators, not the chart's ink.
         nameof(WorkspaceState.ChartStyle),
+        // What the price axis is MEASURED in (Regular, Percent, Indexed to 100). An axis
+        // relabel, not an input: a strategy reads the same closes and the same indicators
+        // whichever ruler the user has chosen.
+        nameof(WorkspaceState.ScaleMode),
         // How far back a restored tab loads its history, consumed by the next load and cleared.
         // A loading instruction for the host's data manager; a strategy sees the bars it loaded.
         nameof(WorkspaceState.RestoredLoad),

@@ -19,6 +19,10 @@ namespace AccessibleTrader.Core.Models
         /// <summary>How the price bars are drawn: Candles (0 and the default for every file
         /// saved before this field existed), Line or Area.</summary>
         public PriceChartStyle ChartStyle { get; set; } = PriceChartStyle.Candles;
+        /// <summary>What the price axis measures: Regular (0 and the default for every file
+        /// saved before this field existed), Percent or Indexed to 100. Logarithmic is still
+        /// <see cref="IsLogScale"/>.</summary>
+        public PriceScaleMode ScaleMode { get; set; } = PriceScaleMode.Regular;
         public bool IsLogScale { get; set; }
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();
