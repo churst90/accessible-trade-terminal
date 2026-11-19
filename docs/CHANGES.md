@@ -4,6 +4,90 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Go bar (stage 6c), 2026-11-18 — not yet heard by Cody
+
+- **Settings by name.** The Settings dialog's 63-row search registry moved to Core
+  (`SettingsRegistry`, same rows, same order, same text) so the Go bar and the dialog answer
+  from one list. The seven host-gated rows use one Core rule, `SettingsRegistry.IsAvailable`,
+  fed by a `SettingsHost` built from `DemoPolicy`, `IRuntimePlatform` and
+  `IBrowserSpeechOutput`; `SettingsModal`'s `IsRendered` is now that one call and its own search
+  box behaves exactly as before. Typing a setting's label, a prefix, the start of a word or a
+  near miss offers it; a keyword matches only as an exact whole word and ranks below every
+  label match. Only rows this host renders are offered, so the browser host never sends anyone
+  to the Braille control. Plain text lists settings **after** every command.
+  `SET <text>` offers settings only and says *"No setting matches <text>."* when none does;
+  `SET` alone is still the 6a command that opens Settings. A setting option is spoken
+  *"<Label>, setting, <Tab> tab."* and choosing it publishes `OpenSettingsEvent(Tab, ControlId)`.
+- **`OpenSettingsEvent` can name a control.** When the control is available the dialog opens on
+  its tab and focuses that control; when it is not, it opens the tab and says
+  *"<Label> is not in this version."* An unknown control id says *"That setting is not in this
+  version."* Nothing silently drops focus on the body.
+- **`HELP <code>` reads, it never runs.** Each option is the whole sentence:
+  *"<Name>. Codes GP, SYM. Key Control plus K. <help line>."* — codes omitted when there are
+  none, the key omitted when the command has no live binding, and both taken from the same
+  registry and shortcut profile the rest of the bar uses. A setting says *"<Label>, a setting on
+  the <Tab> tab. Type SET <Label> to go there."* Enter on a HELP option speaks it again and
+  **keeps the box open with the text as typed**: no dispatcher call, no `OpenHelpEvent`, no
+  money request. `HELP BUY` explains the typed buy command and opens nothing. No match says
+  *"No command or setting matches <text>."*; `HELP` alone is still F1's 6a command.
+- **Typed money: `BUY`, `SELL`, `FLAT`.** Three new `SystemCommand` values (`TypedBuy`,
+  `TypedSell`, `TypedFlat`) are `Money` entries owned by the Go bar (`HandledByGoBar`), with
+  codes `BUY`, `SELL`, `FLAT`, no aliases and no key. The verb must be the **first word** and
+  spelled exactly, any letter case. `BUY`/`SELL` alone change only the side; `BUY 0.5` sets
+  side, quantity (Base) and Market; `BUY 0.5 95000` or `BUY 0.5 at 95000` sets side, quantity
+  and a Limit price; `FLAT` takes nothing and uses the chart's symbol. Quantities and prices
+  are positive finite invariant decimals: `1,5`, `1e3`, `-1`, `0`, `abc` and `half` are refused
+  with *"BUY takes a quantity and an optional limit price, like BUY 0.5 or BUY 0.5 95000.
+  Nothing was opened."* (SELL uses its own word); FLAT with anything after it says *"FLAT takes
+  nothing; it uses the chart's symbol. Nothing was opened."* A money word typed last is the
+  deliberate exception to either order: *"Money commands start with the word, like BUY 0.5.
+  Nothing was opened."* A near miss or prefix (`BYU 1`, `BU`, `SEL 2`, `FLA`) never produces a
+  money option.
+- **Money only fills in; the dashboard applies and speaks.** Choosing a money option closes the
+  box and publishes `OpenTradingDashboardEvent`; the dashboard sets the side, quantity (Base),
+  type and limit price, then says one sentence on the OrderEvent channel: *"Buy 0.5 BTCUSDT at
+  market, filled in. Nothing was sent. Paper account."* (or *"at limit 95000"*; a live account
+  ends *"Live account, Submit reads it back first."*). A stale stop loss, take profit or
+  reduce-only is named: *"A stop loss at 90000 is still on the ticket."* A venue that cannot
+  trade says *"<Provider> does not support order execution, so the ticket was left alone.
+  Nothing was sent."*; no chart says there is nothing to fill in. Submit remains the only send:
+  on a live account it still arms the existing read-back review, and nothing in the typed path
+  touches `ArmLiveReview`.
+- **FLAT finds the position, never closes it.** It opens the Positions tab after the account
+  read, matches rows whose `Position.Symbol` is the chart's symbol and whose quantity is not
+  zero, and focuses the first row's first cell (a new stable id and `tabindex="-1"`). No row:
+  *"No open position in BTCUSDT. Nothing to close."* One: *"Long 0.5 BTCUSDT on Kraken. Tab
+  reaches Close position. Nothing was sent."* Several: *"2 positions in BTCUSDT; the first is
+  focused."* in front of that sentence. The close buttons are not touched.
+- **Focus safety, and why it is a rule.** The Go bar acts on Enter's keydown, and a held Enter
+  repeats. If a typed command left focus on a button that sends on Enter, a repeat would place a
+  paper order, arm and then Confirm a live one, or close a live position at market with no
+  review. So BUY/SELL always leaves focus on the size field (`order-qty` in Base, `order-value`
+  in Value) and FLAT on the position row's first cell. Focus never lands on Submit, Confirm,
+  Close position or Close at limit from a Go bar request; a bUnit sweep asserts every money
+  request's focus ids exclude all of them.
+- **Caveats and differences found while building.** The handoff's `SET speech rate` example has
+  no destination in this build: there is no speech-rate control, and the 63-row registry
+  contains no such label, so it correctly answers *"No setting matches speech rate."* The money
+  verb is the first word only (deliberate, documented). `FLAT` takes no symbol. The backtick as
+  a second opener was **not** built: Cody has not decided. The box has **not been heard by
+  Cody**.
+- **Tests:** the specified filter runs **3,333 tests, all passing**. New coverage: money parser
+  cases for every table row and every refusal sentence; case-insensitive exact verbs and the
+  near-miss/prefix list through `GoBarService.Suggest`; a guard that `BUY`, `SELL` and `FLAT`
+  are no other entry's code, alias, name word, argument verb or settings label (proved red by
+  giving *Open Help* the alias `sell` — **1 red**); settings label/keyword/availability/order
+  tests; bUnit `OpenSettingsEvent` focus and unavailable-control speech; HELP sentence shapes
+  and the box-stays-open behaviour; and dashboard money tests for market, limit, side-only, a
+  stale stop, demo-paper, a venue that cannot trade, FLAT none/one/two and the focus sweep.
+- **Sabotages** (each restored with `cp`, `touch`ed and compared; red counts are failures in the
+  targeted tests): (a) let a near miss produce a typed BUY option — **4 red**; (b) make BUY
+  focus `order-confirm-live` — **8 red**; (c) make the dashboard call `SubmitOrder` after
+  applying a BUY — **7 red**; (d) delete the Text size row from the Core registry — **2 red**;
+  (e) offer unavailable settings in the Go bar — **1 red**; (f) make Enter on a HELP option run
+  it — **3 red**; (g) accept `1,5` as a quantity — **1 red**; (h) make FLAT with no position say
+  nothing — **1 red**.
+
 ### Go bar (stage 6b), 2026-11-18 — not yet heard by Cody
 
 - **A typed command can carry one value, and the words go in either order.** `TF 4h` =

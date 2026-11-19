@@ -215,9 +215,13 @@ as proposed.
   **Built 2026-11-18, not yet heard by Cody.** Caveats: other venues are not searched (no
   in-memory cross-venue symbol list), `ALERT` opens the form rather than creating the alert, and
   6c (settings by name, `HELP <code>`, typed `BUY`/`SELL`/`FLAT`) is still open.
-- [ ] **Stage 6c: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
-  money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: should
-  the backtick open the Go bar as well as Alt+G? Not built in 6a, and not yet a decision.
+- [x] **Stage 6c: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
+  money commands `BUY` / `SELL` / `FLAT` through the spoken order review; the Settings registry
+  moved to Core and `OpenSettingsEvent` can focus a named control. **Built 2026-11-18, not yet
+  heard by Cody.** Caveats: the money verb is first-word-only, `FLAT` takes no symbol, and the
+  handoff's `speech rate` example has no setting to reach in this build.
+- [ ] **Backtick as a second Go bar opener — Cody to decide.** The 2026-11-18 discussion said
+  "maybe as well"; it is not built and must not be bound until Cody decides.
 
 ## Trading not yet tried on a practice or real account
 

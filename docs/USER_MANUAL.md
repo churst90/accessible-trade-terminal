@@ -1712,7 +1712,8 @@ a plain alias (`calendar`, `news`) or a short code (`ECO`), and press Enter.
 4. the start of a word inside a name or alias (`scale` finds **Log scale**);
 5. a near-miss spelling (`plse`), for four characters or more.
 
-Case does not matter. A few named codes are worth learning:
+A setting's label uses the same five tiers; a keyword is an exact whole word and comes after
+every label match. Plain text lists settings after the commands. Case does not matter. A few named codes are worth learning:
 
 | Code | What it opens |
 | --- | --- |
@@ -1741,9 +1742,10 @@ read is on the interface tier: F2 and Shift+F2 never mute what you asked for.
 
 **Money is never fuzzy.** The quick-trade commands (arming a risk budget, setting the stop,
 placing the order) run only from their exact code (`R05`, `R10`, `R20`, `QSTOP`, `QLIMIT`,
-`QMARKET`, `QDISARM`, `QARMED`) or their exact full name (*"Arm 1 percent risk"*). A prefix, an
-alias, the start of a word or a typo never reaches them, and no money code is a word you would
-type for anything else (typing *market* finds Market pulse and the market watch, never an order).
+`QMARKET`, `QDISARM`, `QARMED`) or their exact full name (*"Arm 1 percent risk"*). The typed
+money commands `BUY`, `SELL` and `FLAT` are spelled exactly too. A prefix, an alias, the start
+of a word or a typo never reaches any of them, and no money code is a word you would type for
+anything else (typing *market* finds Market pulse and the market watch, never an order).
 Placing from the Go bar with nothing armed says *"Nothing armed."*
 
 **Commands that take a value.** Put the value after the verb — or before it; both are the same
@@ -1778,16 +1780,66 @@ does not move and says why. `FIND` scans only when you press Enter; with no matc
 it tells you how many were before it. A bar answers to its own shape as well as to the multi-bar
 pattern it ends, so `FIND doji` stops on the doji that closes a morning doji star.
 
+**Settings by name.** Type a setting's own label — `text size`, `magnet snap`, `speak the time` —
+or an exact word from its keywords (`tactile` finds **Braille display**). A label matches like a
+command name: exact, prefix, start of a word, then a near miss; a keyword matches only as an
+exact whole word and is listed after every label match. Plain text lists settings **after** the
+commands, never ahead of them. `SET <text>` searches settings only; `SET` on its own is still the
+command that opens Settings. Choosing a setting opens its tab and puts focus on its control; a
+row this build does not render is not offered, and a named row that is missing says *"<Label> is
+not in this version."* No match: *"No setting matches <text>."*
+
+**HELP reads; it never runs.** `HELP GP` says everything the command is:
+*"Change the symbol. Codes SYM, GP. Change the symbol in the toolbar."* — the key is included
+when there is a live binding and left out when there is none, and codes are left out when the
+command has none. `HELP text size` says *"Text size, a setting on the Appearance tab. Type SET
+Text size to go there."* Enter on a HELP line says it again and **leaves the box open with your
+text unchanged**: no command, no dialog and no order is run by HELP, so `HELP BUY` only explains
+the typed buy command. No match: *"No command or setting matches <text>."* `HELP` on its own is
+still F1.
+
+**Typed money: `BUY`, `SELL`, `FLAT`.** The verb must be the first word, spelled exactly (any
+letter case), and it only **fills in** the trading dashboard. Submit is still yours: on a live
+account it reads the order back and waits for Confirm.
+
+| You type | What the dashboard gets |
+| --- | --- |
+| `BUY` / `SELL` | the side only; the ticket's type and quantity are left as they were |
+| `BUY 0.5` | side, quantity 0.5 in base units, type Market |
+| `BUY 0.5 95000` or `BUY 0.5 at 95000` | side, quantity 0.5, type Limit at 95000 |
+| `FLAT` | the focused chart's symbol; finds its open position |
+
+A quantity or price is a positive number written with digits and at most one dot. `1,5`, `1e3`,
+`-1`, `0`, `abc` and `half` are refused in words and nothing opens: *"BUY takes a quantity and an
+optional limit price, like BUY 0.5 or BUY 0.5 95000. Nothing was opened."* A money word typed
+last is not read backwards: *"0.5 BUY"* says *"Money commands start with the word, like BUY 0.5.
+Nothing was opened."* `FLAT` takes nothing after it. A typo or a prefix (`BYU 1`, `BU`, `SEL 2`,
+`FLA`) never offers a money command.
+
+After a BUY or SELL the dashboard says one sentence on the order channel: *"Buy 0.5 BTCUSDT at
+market, filled in. Nothing was sent. Paper account."* (or *"at limit 95000"*; a live account ends
+*"Live account, Submit reads it back first."*). A stop loss, take profit or reduce-only left on
+the ticket is named. A venue that cannot trade says so and never claims the ticket was filled in.
+
+**FLAT finds the position; it does not close it.** With none it says *"No open position in
+BTCUSDT. Nothing to close."* With one it focuses the first cell of that row and says *"Long 0.5
+BTCUSDT on Kraken. Tab reaches Close position. Nothing was sent."* With several it starts *"2
+positions in BTCUSDT; the first is focused."*
+
+**Why focus goes where it does.** The box acts on Enter's keydown, and a held Enter repeats. A
+typed BUY or SELL therefore leaves focus on the size field, and FLAT leaves it on the position
+row's first cell — never on Submit, Confirm, Close position or Close at limit. Holding Enter
+after typing a money command cannot send, arm or close anything.
+
 **Keys that are only keys.** The arrow keys, Home, End, Page Up and Page Down, Escape (close a
 dialog or cancel a drawing) and the drawing-anchor nudges are still listed and still match.
 Choosing one says which key it is — *"Move one bar back is a key, Left Arrow; it does nothing
 from the Go bar."* — rather than pretending to run it.
 
-**What it does not do yet.** Settings by name, `HELP <code>` and the typed money commands `BUY`,
-`SELL` and `FLAT` are stage 6c. Other venues are searched only if their symbol lists are already
-in memory, which in this build they are not; a symbol not on the current venue or a watchlist
-says so. `ALERT` opens the form rather than creating the alert. The box has not been heard by
-Cody yet.
+**What it does not do yet.** Other venues are searched only if their symbol lists are already in
+memory, which in this build they are not; a symbol not on the current venue or a watchlist says
+so. `ALERT` opens the form rather than creating the alert. The backtick is **not** a second Go
+bar opener — Alt+G is the only one, and Cody has not decided whether to add the backtick. `SET speech rate` finds nothing in this build: there is no speech-rate control to go to. The box has not been heard by Cody yet.
 
 ---
 

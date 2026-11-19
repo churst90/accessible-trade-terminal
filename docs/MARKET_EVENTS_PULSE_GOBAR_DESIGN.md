@@ -440,7 +440,24 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
       command leads, otherwise the values lead and the commands follow. FIND now matches a bar's
       own shape as well as its pattern, and a WebHost test pins that the real container builds
       the bar with all ten dependencies.
-    - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
-      money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: the
-      backtick as a second opener ("maybe as well" from the 2026-11-18 discussion) is not built and
-      is not yet a decision.
+    - **6c BUILT 2026-11-18, not yet heard by Cody.** Settings by name, `HELP <code>`, and the
+      typed money commands `BUY` / `SELL` / `FLAT` through the spoken order review. The Settings
+      search registry moved to Core (`SettingsRegistry`, 63 rows, unchanged) with one availability
+      rule (`SettingsHost` + `SettingsRegistry.IsAvailable`); `OpenSettingsEvent` can name a
+      control and the dialog focuses it or says it is not in this version. In the Go bar, setting
+      labels use the command tiers, keywords are exact whole words and rank below every label, and
+      only host-available rows are offered; plain text lists settings after commands, `SET <text>`
+      is settings-only, and `SET` alone is still the 6a command. `HELP <text>` reads the whole
+      help (codes and live key included when present) and never runs anything: Enter re-speaks it
+      and keeps the box open. `BUY` / `SELL` / `FLAT` are exact first-word verbs; a quantity and
+      optional limit price fill the dashboard ticket, and FLAT opens Positions and focuses the
+      chart symbol's first open position. Money only ever fills in or focuses: Submit is still the
+      only send, and the existing live read-back review is untouched.
+      **Backtick:** the design note "maybe as well" (2026-11-18 discussion) is still an open
+      question. The backtick is **not** built and must not be bound until Cody decides.
+      **Differences found while building:** the handoff's `SET speech rate` example has no
+      destination in this build — there is no speech-rate control and the registry has no such
+      row — so it refuses with "No setting matches speech rate."; the money verb is deliberately
+      first-word-only (the one exception to either order), `FLAT` takes no symbol, and the
+      several-position sentence names the count before the first position's sentence. The box has
+      not been heard by Cody.
