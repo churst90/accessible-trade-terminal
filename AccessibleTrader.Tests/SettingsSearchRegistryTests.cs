@@ -24,6 +24,11 @@ namespace AccessibleTrader.Tests
         private static string SettingsModal() => File.ReadAllText(Path.Combine(
             RepoRoot(), "AccessibleTrader.BlazorClient.Components", "SettingsModal.razor"));
 
+        /// <summary>Stage 6c moved the rows to Core so the Go bar and the dialog share one
+        /// list. The labels and ids are still checked against the dialog's markup below.</summary>
+        private static string SettingsRegistrySource() => File.ReadAllText(Path.Combine(
+            RepoRoot(), "AccessibleTrader.Core", "Services", "Settings", "SettingsRegistry.cs"));
+
         private static readonly Regex RegistryRow =
             new(@"new\(""(?<label>[^""]+)"",\s*""(?<tab>[^""]+)"",\s*""(?<id>[^""]+)""", RegexOptions.Compiled);
 
@@ -37,7 +42,8 @@ namespace AccessibleTrader.Tests
         public void EveryLabelledSettingHasARegistryRow()
         {
             string text = SettingsModal();
-            var registryIds = RegistryRow.Matches(text).Select(m => m.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
+            var registryIds = RegistryRow.Matches(SettingsRegistrySource())
+                .Select(m => m.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
 
             var missing = Regex.Matches(text, @"<label for=""(s-[a-z0-9\-]+)""")
                 .Select(m => m.Groups[1].Value)
@@ -60,7 +66,7 @@ namespace AccessibleTrader.Tests
                            .Concat(Regex.Matches(text, @"TabElementId\(tab\)").Select(_ => "tab-*"))
                            .ToHashSet(StringComparer.Ordinal);
 
-            var dangling = RegistryRow.Matches(text)
+            var dangling = RegistryRow.Matches(SettingsRegistrySource())
                 .Select(m => m.Groups["id"].Value)
                 .Where(id => !ids.Contains(id) && !(id.StartsWith("tab-", StringComparison.Ordinal) && ids.Contains("tab-*")))
                 .ToList();
@@ -80,7 +86,7 @@ namespace AccessibleTrader.Tests
             var known = Regex.Matches(tabs, @"""([A-Za-z]+)""").Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
             Assert.True(known.Count >= 8, "SettingsTabs was not found — the scan has lost its anchor.");
 
-            var unknown = RegistryRow.Matches(text)
+            var unknown = RegistryRow.Matches(SettingsRegistrySource())
                 .Select(m => m.Groups["tab"].Value)
                 .Where(t => !known.Contains(t))
                 .Distinct()

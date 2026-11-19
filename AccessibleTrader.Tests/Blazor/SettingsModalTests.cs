@@ -780,3 +780,41 @@ public class SettingsModalTests
     }
 
 }
+
+/// <summary>
+/// Stage 6c: the Go bar can name a setting's control. The dialog must land on that control,
+/// not merely its tab, and an unavailable row must open its tab and say why rather than
+/// dropping focus on the body.
+/// </summary>
+public class SettingsModalControlFocusTests
+{
+    [Fact]
+    public void AControlIdOpensOnItsTabAndFocusesTheControl()
+    {
+        using var h = new BlazorTestHarness();
+
+        var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.SettingsModal>(
+            bus => bus.Publish(new OpenSettingsEvent("General", "s-twelve-hour")));
+
+        h.WaitForFocus("s-twelve-hour");
+        cut.WaitForAssertion(() =>
+            Assert.Equal("true", cut.Find("button#tab-speech").GetAttribute("aria-selected")));
+    }
+
+    [Fact]
+    public void AnUnavailableControlOpensItsTabAndSaysSo()
+    {
+        using var h = new BlazorTestHarness();
+        h.With(new DemoPolicy(isDemo: true));   // paper trading is desktop-only
+        var spoken = new List<AnnouncementEvent>();
+        h.EventBus.Subscribe<AnnouncementEvent>(spoken.Add);
+
+        var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.SettingsModal>(
+            bus => bus.Publish(new OpenSettingsEvent("General", "s-paper-trading")));
+
+        h.WaitForFocus("tab-general");
+        cut.WaitForAssertion(() => Assert.Contains(spoken,
+            e => e.Message == "Paper trading is not in this version."));
+        Assert.Empty(cut.FindAll("#s-paper-trading"));
+    }
+}

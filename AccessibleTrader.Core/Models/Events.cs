@@ -137,10 +137,18 @@ namespace AccessibleTrader.Core.Models
     /// not an error: the dialog falls back to General rather than showing an empty panel.
     /// </para>
     /// </summary>
-    public record OpenSettingsEvent(string? Tab = null);
-    /// <summary>Alt+T, or a chart-menu limit order with the ticket prefilled. The menu NEVER
-    /// places an order: it opens the dashboard for review and confirmation.</summary>
-    public record OpenTradingDashboardEvent(string? Side = null, double? LimitPrice = null);
+    public record OpenSettingsEvent(string? Tab = null, string? ControlId = null);
+    /// <summary>Alt+T, a chart-menu limit order with the ticket prefilled, or a typed money
+    /// command. Every form only FILLS IN the ticket: it never places, closes or arms anything.
+    /// <paramref name="Quantity"/> and <paramref name="Market"/> are the typed BUY/SELL ticket
+    /// fields; <paramref name="Flat"/> asks the dashboard to find the chart symbol's open
+    /// position and focus its row.</summary>
+    public record OpenTradingDashboardEvent(
+        string? Side = null,
+        double? LimitPrice = null,
+        double? Quantity = null,
+        bool Market = false,
+        bool Flat = false);
     public record OpenObjectTreeEvent();
 
     /// <summary>Alt+I. Carries nothing: the dossier reads the ACTIVE chart's identity, so there is
