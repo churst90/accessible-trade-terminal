@@ -50,7 +50,14 @@ namespace AccessibleTrader.Core.Services.Rendering
             using var gridMinor = new SKPaint { Color = _theme.GridLines.WithAlpha(80),  StrokeWidth = 1 * ctx.Density };
             using var gridMajor = new SKPaint { Color = _theme.GridLines.WithAlpha(160), StrokeWidth = 1 * ctx.Density };
 
-            double range = ctx.Max - ctx.Min;
+            // In Percent and Indexed the grid STEPS in scale units (5%, 10%, 1 index point) and
+            // each tick is placed at the price that reading marks, so the lines and the axis
+            // labels still come from one walk and every label stays on a line. Regular is the
+            // old walk unchanged. Neither mode touches the pixel mapping.
+            var scaleMode = ctx.EffectiveScaleMode;
+            double scaleBase = ctx.ScaleBase;
+            var (scaleLo, scaleHi) = ChartMath.ScaleBounds(scaleMode, ctx.Min, ctx.Max, scaleBase);
+            double range = scaleHi - scaleLo;
             double niceStep = ChartMath.GridStep(range);
             if (niceStep > 0)
             {
@@ -63,13 +70,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double labelStep = ChartMath.LabelStep(
                     range, ChartMath.TargetLabelCount(ctx.PaneRect.Height, ctx.Density), niceStep);
 
-                double firstLine = Math.Ceiling(ctx.Min / niceStep) * niceStep;
-                int safety = 0;
-                for (double v = firstLine; v <= ctx.Max && safety < 200; v += niceStep, safety++)
+                foreach (var (reading, price) in ChartMath.ScaleTicks(scaleMode, ctx.Min, ctx.Max, scaleBase, niceStep))
                 {
-                    float y = ChartMath.MapY(v, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ChartMath.MapY(price, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
                     ctx.Canvas.DrawLine(ctx.PaneRect.Left, y, ctx.PaneRect.Right, y,
-                        ChartMath.IsOnLabel(v, labelStep) ? gridMajor : gridMinor);
+                        ChartMath.IsOnLabel(reading, labelStep) ? gridMajor : gridMinor);
                 }
             }
             else

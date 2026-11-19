@@ -166,6 +166,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : pt;
             bool readsRawBar = seriesId == CoreSeriesIds.Price;
 
+            // Percent and Indexed relabel the candles readout: it STARTS with the scale reading
+            // of the close as drawn, then says everything it said before. The base is the first
+            // visible close as drawn (ChartMath's one helper, shared with the renderer and the
+            // describer), so panning moves the zero exactly as it does on TradingView. Regular
+            // adds nothing, byte for byte.
+            double scaleBase = ChartMath.ScaleBase(state);
+            var scaleMode = ChartMath.EffectiveScaleMode(state.ScaleMode, scaleBase, state.IsLogScale);
+
             if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
             {
                 // On Line and Area there is no candle on screen: no body, no wicks, no shape and
@@ -202,6 +210,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                               $"{percent.ToString("F2", CultureInfo.InvariantCulture)} percent.";
                     }
                 }
+
+                msg = ScalePrefix(scaleMode, close, scaleBase) + msg;
             }
             else if (summary && seriesId == "candles")
             {
@@ -252,6 +262,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 msg = $"{shape}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
                       $"High {SpeechPriceFormatter.FormatPrice(pt.High)}. Low {SpeechPriceFormatter.FormatPrice(pt.Low)}. Volume {FormatVolume(pt.Volume)}. " +
                       $"Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.";
+
+                // `pt` is the bar AS DRAWN, so on a Heikin-Ashi chart this is the HA close — the
+                // candle on screen and the same close the axis' base came from.
+                msg = ScalePrefix(scaleMode, pt.Close, scaleBase) + msg;
             }
             else if (summary && seriesId == "price")
             {
@@ -269,7 +283,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                         viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
                         describeLook: state.DescribeSignalLooks,
-                        lineFrom: LineFrom(series, c, state.CurrentDataIndex, arrived || isYMove)))
+                        lineFrom: LineFrom(series, c, state.CurrentDataIndex, arrived || isYMove),
+                        scaleMode: scaleMode, scaleBase: scaleBase))
                     .ToList();
 
                 // A value that already closes its sentence (a signal followed by what it looks
@@ -303,7 +318,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     isYMove: isYMove, liveClose: liveClose, provider: provider,
                     viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
                     describeLook: state.DescribeSignalLooks,
-                    lineFrom: LineFrom(series, comp, state.CurrentDataIndex, arrived || isYMove));
+                    lineFrom: LineFrom(series, comp, state.CurrentDataIndex, arrived || isYMove),
+                    scaleMode: scaleMode, scaleBase: scaleBase);
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -592,6 +608,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── Dispatcher ───────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// The reading a Percent or Indexed chart puts in FRONT of the candles sentence:
+        /// <c>"Plus 4.20 percent. "</c>, <c>"Minus 1.30 percent. "</c>, <c>"Zero percent. "</c>
+        /// or <c>"Index 104.20. "</c> — capitalised because it starts the readout. Empty in
+        /// Regular, or when the base cannot carry the mode (the chart is drawing Regular then,
+        /// and saying a percentage would describe an axis that is not on screen).
+        /// </summary>
+        private static string ScalePrefix(PriceScaleMode mode, double closeAsDrawn, double scaleBase)
+        {
+            if (mode == PriceScaleMode.Regular || !ChartMath.BaseUsable(scaleBase)) return "";
+            string spoken = ChartMath.FormatScaleReadingSpoken(mode,
+                ChartMath.ScaleReading(mode, closeAsDrawn, scaleBase));
+            return char.ToUpperInvariant(spoken[0]) + spoken[1..] + ". ";
+        }
+
         /// <summary>Closes <paramref name="text"/> with a full stop when a sentence is about to
         /// follow it, so "Buy: buy signal at 64,250" and "Large green dot." read as two sentences.</summary>
         private static string EndSentence(string text, string following)
@@ -604,14 +635,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
             bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null,
             int viewportStart = -1, int viewportLength = -1, IReadOnlyList<Ohlcv>? bars = null,
-            bool describeLook = false, int lineFrom = -1)
+            bool describeLook = false, int lineFrom = -1,
+            PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN)
         {
             try
             {
                 double val = GetPointValue(series, pt, comp.Name, dataIndex);
                 var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val,
                     IsYMove: isYMove, LiveClose: liveClose, Provider: provider,
-                    ViewportStart: viewportStart, ViewportLength: viewportLength, Bars: bars);
+                    ViewportStart: viewportStart, ViewportLength: viewportLength, Bars: bars,
+                    ScaleMode: scaleMode, ScaleBase: scaleBase);
 
                 // THE HIDDEN/MUTED QUALIFIER, for every strategy, in one place.
                 //
@@ -877,7 +910,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         int ViewportLength = -1,
         // The loaded bars. A drawing's position clause resolves its anchor DATES to bar indices
         // against these; null drops the clause rather than guessing (see DrawingSpeech.Locate).
-        IReadOnlyList<Ohlcv>? Bars = null);
+        IReadOnlyList<Ohlcv>? Bars = null,
+        // Percent/Indexed relabel the {value:price} token on a MAIN-pane series: the scale
+        // reading first, then the price. Indicator panes are Regular (as they are for log).
+        PriceScaleMode ScaleMode = PriceScaleMode.Regular,
+        double ScaleBase = double.NaN);
 
     /// <summary>
     /// Strategy #1: a Text Label drawing reads the wording the user typed.
@@ -1384,13 +1421,51 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // KAS) would otherwise collapse to "0.00" through the {value} / {value:F2}
             // paths. Routes through SpeechPriceFormatter which scales precision by
             // magnitude and always carries ~3 significant digits.
-            result = result.Replace("{value:price}",
-                double.IsNaN(val) ? "no data" : SpeechPriceFormatter.FormatPrice(val));
+            // In Percent and Indexed, a MAIN-pane value reads its place on the scale FIRST,
+            // then the price: "plus 4.20 percent, 95000.50" / "index 104.20, 95000.50". The
+            // COMPARE overlay reads against its OWN first visible value, so each symbol tells
+            // its own change from the left edge. Every price of this symbol reads against the
+            // chart's base. Indicator panes never take this path (the renderer's pct mode is
+            // Main-only, and so is this).
+            result = result.Replace("{value:price}", PriceTokenValue(ctx, val));
 
             return result
                 .Replace("{value}", valF2)
                 .Replace("{trend}", trend)
                 .Replace("{zone}", zone);
+        }
+
+        /// <summary>
+        /// The <c>{value:price}</c> text: the price, preceded by the scale reading when this is
+        /// a main-pane value on a Percent or Indexed chart.
+        /// </summary>
+        private static string PriceTokenValue(ComponentFormatContext ctx, double val)
+        {
+            string price = double.IsNaN(val) ? "no data" : SpeechPriceFormatter.FormatPrice(val);
+            if (ctx.ScaleMode == PriceScaleMode.Regular || double.IsNaN(val)) return price;
+
+            string pane = string.IsNullOrEmpty(ctx.Series.Pane) ? "Main" : ctx.Series.Pane;
+            if (!string.Equals(pane, "Main", StringComparison.OrdinalIgnoreCase)) return price;
+
+            if (!ChartMath.BaseUsable(ctx.ScaleBase)) return price;
+
+            bool isCompare = string.Equals(ctx.Series.IndicatorCode,
+                    Indicators.SymbolCompareProvider.OverlayCode, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(ctx.Comp.Name, Indicators.SymbolCompareProvider.CompLine,
+                    StringComparison.OrdinalIgnoreCase);
+            // The same transform the renderer and the range calculator use, not a second
+            // spelling of it: for COMPARE the reading comes from chartBase × v / vFirst, so it
+            // is that symbol's own change from the left edge.
+            double drawnValue = isCompare
+                ? ChartMath.RebaseCompareValue(ctx.ScaleBase, val,
+                    ChartMath.FirstVisibleValue(ctx.Series.GetComponentData(ctx.Comp.Name),
+                        ctx.ViewportStart, ctx.ViewportLength))
+                : val;
+            if (!ChartMath.BaseUsable(drawnValue)) return price;
+
+            string reading = ChartMath.FormatScaleReadingSpoken(ctx.ScaleMode,
+                ChartMath.ScaleReading(ctx.ScaleMode, drawnValue, ctx.ScaleBase));
+            return reading + ", " + price;
         }
 
         /// <summary>

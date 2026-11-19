@@ -56,6 +56,18 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         internal (SKRect Axis, double Min, double Max, bool Log, IReadOnlyList<ScaleLabel> Labels) LastMainScale { get; private set; }
 
+        /// <summary>The gridline labels the MAIN price axis actually drew last frame: the text,
+        /// the reading in axis units, the price it marks and the gridline's y. Pinned by the
+        /// scale tests — a sighted reader checks these against the grid by eye.</summary>
+        internal IReadOnlyList<AxisLabelTick> LastMainAxisLabels { get; private set; } = Array.Empty<AxisLabelTick>();
+
+        /// <summary>The price pane's crosshair badge as last drawn, for the scale tests: its
+        /// Value is the raw close and its Text (when set) is the scale reading.</summary>
+        internal CrosshairBadge? LastMainBadge { get; private set; }
+
+        /// <summary>One label the axis drew, with the tick it belongs to.</summary>
+        internal readonly record struct AxisLabelTick(string Text, double Reading, double Price, float Y);
+
         /// <summary>
         /// One axis typeface for the process.
         ///
@@ -231,7 +243,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
         /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
         /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode priceScaleMode = PriceScaleMode.Regular)
         {
             try
             {
@@ -328,6 +340,13 @@ namespace AccessibleTrader.Core.Services
                 double mainMin = viewportRange.Min;
                 double mainMax = viewportRange.Max;
 
+                // Percent and Indexed are AFFINE RELABELS of this same range: the base is the
+                // close of the first visible bar as drawn (HA close on a HA chart), computed
+                // through ChartMath's one helper, and the pixel mapping below is untouched. A
+                // base that cannot carry the mode (≤ 0, NaN, or log left on) draws Regular.
+                double mainScaleBase = ChartMath.ScaleBase(data, viewportStart, drawsHeikinAshi);
+                var mainScaleMode = ChartMath.EffectiveScaleMode(priceScaleMode, mainScaleBase, isLogScale);
+
                 var mainPaneRect = new SKRect(0, currentY, width - _axisWidth, currentY + mainPaneHeight);
                 var mainAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + mainPaneHeight);
                 // The whole stacked-pane area, so a background gradient fades once across the
@@ -379,18 +398,36 @@ namespace AccessibleTrader.Core.Services
                     var (bull, bear) = StandardRenderers.ApplyColorVision(
                         _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
                     float closeY = ChartMath.MapY(bar.Close, mainArea.Top, mainArea.Bottom, mainMin, mainMax, isLogScale);
+                    // The badge's Value stays the raw close (so it still matches a value label at
+                    // the same price); only its text is relabelled.
+                    string? badgeText = mainScaleMode == PriceScaleMode.Regular
+                        ? null
+                        : ChartMath.FormatScaleValue(mainScaleMode,
+                            ChartMath.ScaleReading(mainScaleMode, bar.Close, mainScaleBase));
                     mainBadge = new CrosshairBadge(bar.Close, closeY, bar.Close >= bar.Open ? bull : bear, mainMax - mainMin,
-                        BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)));
+                        BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)), badgeText);
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
-                var mainScale = PlaceScaleLabels(ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current),
+                // In Percent/Indexed the label's TEXT is the scale reading; its Value stays the
+                // price, which is what places it. A COMPARE overlay reads from its OWN first
+                // visible value, so the two symbols each tell their own change from the left edge.
+                var mainLabels = ScaleLabelsFor(mainOverlaySeries, data.Count, _theme.Current);
+                if (mainScaleMode != PriceScaleMode.Regular)
+                    mainLabels = mainLabels.Select(l => l with
+                    {
+                        Text = ChartMath.FormatScaleValue(mainScaleMode,
+                            ChartMath.ScaleReading(mainScaleMode, l.Value,
+                                ScaleBaseForLabel(l.Series, mainOverlaySeries, mainScaleBase, viewportStart, viewportLength)))
+                    }).ToList();
+                var mainScale = PlaceScaleLabels(mainLabels,
                     mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
                 LastMainScale = (mainAxisPlotRect, mainMin, mainMax, isLogScale, mainScale);
-                RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density));
+                LastMainBadge = mainBadge;
+                LastMainAxisLabels = RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density), mainScaleMode, mainScaleBase);
                 RenderScaleLabels(canvas, mainAxisPlotRect, mainScale, mainMax - mainMin, density);
                 if (PaintsStatusLines && crossIndex >= 0 && mainStatus.Lines.Count > 0)
                     PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, textScale, statusFont);
@@ -487,7 +524,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusBand">The height of the pane's status band (<see cref="StatusBandFor"/>):
         /// the pane's background and border fill the whole pane, its values are mapped and clipped
         /// to what is below the band.</param>
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN)
         {
             if (viewportLength <= 0) return;
             var paneRect = rect;
@@ -507,7 +544,8 @@ namespace AccessibleTrader.Core.Services
             // so the band reads as the top of the pane, not a gap between two.
             var frameRect        = new SKRect(rect.Left, paneRect.Top, rect.Right, mainRect.Bottom);
             var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid,
-                FrameRect: statusBand > 0 ? frameRect : null) { ChartStyle = chartStyle };
+                FrameRect: statusBand > 0 ? frameRect : null)
+            { ChartStyle = chartStyle, ScaleMode = scaleMode, ScaleBase = scaleBase };
 
             canvas.Save(); canvas.ClipRect(frameRect);
             for (int li = 0; li < _layers.Count; li++)
@@ -550,8 +588,9 @@ namespace AccessibleTrader.Core.Services
         /// each plot's value label. Each is painted over whatever gridline label sits nearest — so
         /// the axis leaves that label out rather than have two numbers share the same rows.
         /// </param>
-        private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, IReadOnlyList<float>? avoidTextYs = null)
+        private IReadOnlyList<AxisLabelTick> RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, IReadOnlyList<float>? avoidTextYs = null, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN)
         {
+            var drawn = new List<AxisLabelTick>();
             // Round-number anchors. The old algorithm labelled at fixed fractions (0, 0.25, 0.5,
             // 0.75, 1.0) of the raw min/max, producing labels like "76227.38" on a 64k–80k BTC
             // view — accurate but useless; traders read in round thousands.
@@ -561,12 +600,18 @@ namespace AccessibleTrader.Core.Services
             // algorithm against a different target (range/5, where BackgroundLayer used range/7)
             // and the comment here claimed they aligned. On a pane of range 20 the grid stepped
             // by 2 and the labels by 5, so 5 and 15 floated between lines. See ChartMath.NiceStep.
-            double range = max - min;
-            if (range <= 0 || double.IsNaN(range) || double.IsInfinity(range)) return;
+            //
+            // In Percent and Indexed the SAME walk happens in scale units: the step is computed
+            // over the pane's percent (or index) extent and each tick's reading is turned back
+            // into the price that marks it. The gridline layer walks the identical tick list, so
+            // the shared-step guard holds in every mode. Regular is the old walk, byte for byte.
+            var (scaleLo, scaleHi) = ChartMath.ScaleBounds(scaleMode, min, max, scaleBase);
+            double range = scaleHi - scaleLo;
+            if (range <= 0 || double.IsNaN(range) || double.IsInfinity(range)) return drawn;
 
             double niceStep = ChartMath.LabelStep(
                 range, ChartMath.TargetLabelCount(rect.Height, density), ChartMath.GridStep(range));
-            if (niceStep <= 0) return;
+            if (niceStep <= 0) return drawn;
 
             float minLabelSpacing = _textFont.Size + (4 * density);
             float lastTextY = float.MaxValue;
@@ -577,13 +622,11 @@ namespace AccessibleTrader.Core.Services
             // on every tab carrying one (Cody, 2026-10-21, the Camel cycles workspace).
             float labelTop = rect.Top + _textFont.Size + (6 * density);
             float labelBottom = rect.Bottom - (3 * density);
-            if (labelBottom < labelTop) return;
+            if (labelBottom < labelTop) return drawn;
 
-            double firstLine = Math.Ceiling(min / niceStep) * niceStep;
-            int safety = 0;
-            for (double v = firstLine; v <= max && safety < 200; v += niceStep, safety++)
+            foreach (var (reading, price) in ChartMath.ScaleTicks(scaleMode, min, max, scaleBase, niceStep))
             {
-                float y = ChartMath.MapY(v, rect.Top, rect.Bottom, min, max, isLogScale);
+                float y = ChartMath.MapY(price, rect.Top, rect.Bottom, min, max, isLogScale);
                 // The spacing test is on the BASELINE THE TEXT IS DRAWN AT, after the clamp that
                 // keeps a label inside its strip — not on the raw gridline position. The clamp
                 // can move a top label down by most of a line height, and it used to do so after
@@ -599,10 +642,17 @@ namespace AccessibleTrader.Core.Services
                 // simply ran off the right of the canvas while the price pane's "440.00" sat
                 // comfortably inside. Everything else here — the spacing test, the clamp, the
                 // crosshair-badge avoidance — compares labels with each OTHER.
-                string label = FitAxisLabel(ChartMath.FormatAxisValue(v, range), v,
-                                            rect.Right - lx - (3 * density));
+                string label = scaleMode == PriceScaleMode.Regular
+                    ? FitAxisLabel(ChartMath.FormatAxisValue(reading, range), reading,
+                                   rect.Right - lx - (3 * density))
+                    : FitAxisLabel(ChartMath.FormatScaleValue(scaleMode, reading), reading,
+                                   rect.Right - lx - (3 * density),
+                                   scaleMode == PriceScaleMode.Percent ? "%" : "");
                 canvas.DrawText(label, lx, textY, SKTextAlign.Left, _textFont, _textPaint);
+                drawn.Add(new AxisLabelTick(label, reading, price, y));
             }
+
+            return drawn;
         }
 
         /// <summary>
@@ -616,6 +666,10 @@ namespace AccessibleTrader.Core.Services
         {
             /// <summary>The text colour: black or white, whichever reads better on the fill.</summary>
             public SKColor Ink => WcagContrast.MostContrasting(Fill.WithAlpha(255), SKColors.Black, SKColors.White);
+
+            /// <summary>The text, when the plain price reading is not what this axis says
+            /// (Percent and Indexed relabel it). Null keeps <see cref="ChartMath.FormatAxisReading"/>.</summary>
+            public string? Text { get; init; }
         }
 
         /// <summary>
@@ -658,6 +712,25 @@ namespace AccessibleTrader.Core.Services
                 }
             }
             return labels;
+        }
+
+        /// <summary>
+        /// Which base a main-pane value label reads from: the chart's own first visible close for
+        /// every price of THIS symbol, and the comparison's own first visible value for the
+        /// COMPARE overlay — so each symbol's tag says its change from the left edge. Falls back
+        /// to the chart base when the comparison has no visible value.
+        /// </summary>
+        private static double ScaleBaseForLabel(string seriesId, IReadOnlyList<ChartSeries> originals,
+            double chartBase, int viewportStart, int viewportLength)
+        {
+            var series = originals.FirstOrDefault(s => s.Id == seriesId);
+            if (series == null
+                || !string.Equals(series.IndicatorCode, Indicators.SymbolCompareProvider.OverlayCode, StringComparison.OrdinalIgnoreCase))
+                return chartBase;
+
+            double first = ChartMath.FirstVisibleValue(
+                series.GetComponentData(Indicators.SymbolCompareProvider.CompLine), viewportStart, viewportLength);
+            return ChartMath.BaseUsable(first) ? first : chartBase;
         }
 
         /// <summary>
@@ -767,7 +840,7 @@ namespace AccessibleTrader.Core.Services
             using var ink = new SKPaint { IsAntialias = true };
             foreach (var l in labels)
             {
-                string text = FitAxisLabel(ChartMath.FormatAxisReading(l.Value, range), l.Value,
+                string text = FitAxisLabel(l.Text ?? ChartMath.FormatAxisReading(l.Value, range), l.Value,
                                            axisRect.Right - lx - (2 * pad));
                 float w = _textFont.MeasureText(text) + 2 * pad;
                 fill.Color = l.Fill.WithAlpha(255);
@@ -910,7 +983,7 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         /// <param name="LabelY">Where the badge is drawn: <see cref="BadgeCentre"/>, its value's row kept
         /// inside its pane. NaN draws it on <paramref name="LineY"/>.</param>
-        internal readonly record struct CrosshairBadge(double Value, float LineY, SKColor Chip, double Range, float LabelY = float.NaN)
+        internal readonly record struct CrosshairBadge(double Value, float LineY, SKColor Chip, double Range, float LabelY = float.NaN, string? Text = null)
         {
             /// <summary>The badge's vertical centre as drawn.</summary>
             public float Centre => float.IsNaN(LabelY) ? LineY : LabelY;
@@ -1139,8 +1212,9 @@ namespace AccessibleTrader.Core.Services
             float pad = 3 * density;
             float lx = paneRight + (2 * density);
 
-            string label = FitAxisLabel(ChartMath.FormatAxisReading(badge.Value, badge.Range), badge.Value,
-                                        _axisWidth - (2 * density) - chipW - gap - pad);
+            string label = FitAxisLabel(
+                badge.Text ?? ChartMath.FormatAxisReading(badge.Value, badge.Range), badge.Value,
+                _axisWidth - (2 * density) - chipW - gap - pad);
             float labelW = _textFont.MeasureText(label);
             float labelH = _textFont.Size + (4 * density);
             float ly = badge.Centre - (labelH / 2);
@@ -1316,11 +1390,11 @@ namespace AccessibleTrader.Core.Services
         /// trip it, is never touched.
         /// </para>
         /// </summary>
-        private string FitAxisLabel(string full, double value, float maxPx)
+        private string FitAxisLabel(string full, double value, float maxPx, string suffix = "")
         {
             if (maxPx <= 0 || _textFont.MeasureText(full) <= maxPx) return full;
 
-            string compact = ChartMath.FormatAxisValueCompact(value);
+            string compact = ChartMath.FormatAxisValueCompact(value) + suffix;
             // Only if it actually helps. On a pathologically narrow strip neither fits, and the
             // full number is the more honest thing to overflow with.
             return _textFont.MeasureText(compact) < _textFont.MeasureText(full) ? compact : full;

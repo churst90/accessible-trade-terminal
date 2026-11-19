@@ -60,6 +60,22 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// indicator pane and every test that does not set it draws standard candles.
         /// </summary>
         public PriceChartStyle ChartStyle { get; init; } = PriceChartStyle.Candles;
+
+        /// <summary>
+        /// What this pane's axis MEASURES. Only the Main pane ever sets this to Percent or
+        /// Indexed to 100 (<see cref="ChartRenderer"/>); every indicator pane is Regular, as it
+        /// is for the log scale. The pixel mapping is unchanged in every mode — this only
+        /// relabels the axis, the gridline ticks and the value riders.
+        /// </summary>
+        public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
+
+        /// <summary>The scale's base (the first visible close as drawn), when <see cref="ScaleMode"/>
+        /// is not Regular. NaN means nothing usable, which draws as Regular.</summary>
+        public double ScaleBase { get; init; } = double.NaN;
+
+        /// <summary>The mode this pane actually draws, after the base and log guards.</summary>
+        public PriceScaleMode EffectiveScaleMode =>
+            ChartMath.EffectiveScaleMode(ScaleMode, ScaleBase, IsLogScale);
     }
 
     public interface IComponentRenderer

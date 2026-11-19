@@ -55,12 +55,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // ── Y axis: the range, and the step between gridlines ─────────
             var (min, max) = state.ViewportRange;
+            double scaleBase = ChartMath.ScaleBase(state);
+            var scaleMode = ChartMath.EffectiveScaleMode(state.ScaleMode, scaleBase, state.IsLogScale);
             if (max > min && !double.IsNaN(min) && !double.IsNaN(max))
             {
-                string scale = state.IsLogScale ? "logarithmic" : "linear";
+                string scale = state.IsLogScale ? "logarithmic"
+                    : scaleMode == PriceScaleMode.Percent ? "percent"
+                    : scaleMode == PriceScaleMode.IndexedTo100 ? "indexed to 100"
+                    : "linear";
+                // On a relabelled axis the gridline step is in scale units, not dollars, so
+                // quoting a price step here would describe a grid that is not on screen.
+                var (scaleLo, scaleHi) = ChartMath.ScaleBounds(scaleMode, min, max, scaleBase);
+                string scaleStep = GridStep(scaleHi - scaleLo).ToString("0.##", CultureInfo.InvariantCulture);
+                string stepClause = scaleMode switch
+                {
+                    PriceScaleMode.Percent => $"about {scaleStep} percent between gridlines",
+                    PriceScaleMode.IndexedTo100 => $"about {scaleStep} index points between gridlines",
+                    _ => $"about {Money(GridStep(max - min))} between gridlines",
+                };
                 parts.Add($"Y axis, price: {Money(min)} to {Money(max)}, " +
-                          $"about {Money(GridStep(max - min))} between gridlines, {scale} scale.");
+                          $"{stepClause}, {scale} scale.");
             }
+
+            // The base moves as the user pans, and panning must not talk on every arrow — so
+            // the orientation sentence is where the current zero/100 is learned.
+            if (ScaleSentence(state, bars[start].Date, timeframe, scaleMode, scaleBase) is { } scaleSentence)
+                parts.Add(scaleSentence);
 
             // ── Panes: how the vertical space is divided ──────────────────
             var visible = state.ActiveSeries.Where(s => s.IsVisible).ToList();
@@ -156,26 +176,51 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ? $"{pane.DisplayName} pane, {ordinal} of {panes.Count}."
                 : $"{pane.DisplayName} pane.");
 
+            int start = Math.Clamp(state.ViewportStartIndex, 0, Math.Max(0, bars.Count - 1));
+            int length = Math.Clamp(state.ViewportLength, 1, Math.Max(1, bars.Count - start));
+            int end = Math.Min(bars.Count - 1, start + length - 1);
+
             // ── Y axis: what it measures, over what range, at what step ───
             string measure = MeasureOf(pane);
             var (yMin, yMax) = PaneRange(state, pane);
+            bool priceLike = pane.Key.Equals(ChartPaneModel.MainPaneKey, StringComparison.OrdinalIgnoreCase);
+            double scaleBase = ChartMath.ScaleBase(state);
+            var scaleMode = ChartMath.EffectiveScaleMode(state.ScaleMode, scaleBase, state.IsLogScale);
             if (yMax > yMin && !double.IsNaN(yMin) && !double.IsNaN(yMax))
             {
-                bool priceLike = pane.Key.Equals(ChartPaneModel.MainPaneKey, StringComparison.OrdinalIgnoreCase);
-                string scale = priceLike && state.IsLogScale ? ", logarithmic scale" : "";
-                double gridStep = GridStep(yMax - yMin);
+                string scale = priceLike
+                    ? state.IsLogScale ? ", logarithmic scale"
+                    : scaleMode == PriceScaleMode.Percent ? ", percent scale"
+                    : scaleMode == PriceScaleMode.IndexedTo100 ? ", indexed to 100"
+                    : ""
+                    : "";
+                double gridStep;
+                string stepClause;
+                if (priceLike && scaleMode != PriceScaleMode.Regular)
+                {
+                    var (slo, shi) = ChartMath.ScaleBounds(scaleMode, yMin, yMax, scaleBase);
+                    gridStep = GridStep(shi - slo);
+                    stepClause = scaleMode == PriceScaleMode.Percent
+                        ? $"about {gridStep.ToString("0.##", CultureInfo.InvariantCulture)} percent between gridlines"
+                        : $"about {gridStep.ToString("0.##", CultureInfo.InvariantCulture)} index points between gridlines";
+                }
+                else
+                {
+                    gridStep = GridStep(yMax - yMin);
+                    stepClause = $"about {Axis(gridStep, gridStep)} between gridlines";
+                }
                 parts.Add($"Y axis, {measure}: {Axis(yMin, gridStep)} to {Axis(yMax, gridStep)}, " +
-                          $"about {Axis(gridStep, gridStep)} between gridlines{scale}.");
+                          $"{stepClause}{scale}.");
             }
             else
             {
                 parts.Add($"Y axis, {measure}: no range yet.");
             }
 
+            if (priceLike && ScaleSentence(state, bars[start].Date, timeframe, scaleMode, scaleBase) is { } scaleSentence)
+                parts.Add(scaleSentence);
+
             // ── X axis: shared by every pane, which is worth saying once ──
-            int start = Math.Clamp(state.ViewportStartIndex, 0, Math.Max(0, bars.Count - 1));
-            int length = Math.Clamp(state.ViewportLength, 1, Math.Max(1, bars.Count - start));
-            int end = Math.Min(bars.Count - 1, start + length - 1);
             string step = string.IsNullOrWhiteSpace(timeframe)
                 ? "one bar"
                 : SpokenTimeframe(timeframe!);
@@ -274,6 +319,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         : fraction < 7.5 ? 5
                         : 10;
             return step * magnitude;
+        }
+
+        /// <summary>
+        /// The orientation sentence for a Percent or Indexed chart: what the zero (or 100) is,
+        /// and which bar it came from — the date/time in the same form the bars are described in.
+        /// Null in Regular, or when the base cannot carry the mode.
+        /// </summary>
+        private static string? ScaleSentence(WorkspaceState state, DateTime firstVisible, string? timeframe,
+            PriceScaleMode mode, double scaleBase)
+        {
+            if (mode == PriceScaleMode.Regular || !ChartMath.BaseUsable(scaleBase)) return null;
+            // The describer's own bar-zone rule (SpeechTimeFormatter.FormatBar): a daily or
+            // coarser bar is named by its date, an intraday one by date and clock, exactly as
+            // the X-axis sentence names the bars.
+            int barSeconds = TimeframeUtility.ToSeconds(timeframe ?? "");
+            if (barSeconds <= 0) barSeconds = PlaybackNarration.BarSeconds(state);
+            string when = SpeechTimeFormatter.FormatBar(firstVisible, barSeconds,
+                barSeconds < 86400 ? "d MMMM HH:mm" : SpeechTimeFormatter.LongDateFormat);
+            string what = mode == PriceScaleMode.Percent ? "Percent scale" : "Indexed to 100";
+            return $"{what} from the first close on screen, {SpeechPriceFormatter.FormatPrice(scaleBase)} on {when}.";
         }
 
         /// <summary>A bar's date by the bar rule (SpeechTimeFormatter.ToBarDisplay): the timeframe

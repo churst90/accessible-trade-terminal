@@ -20,6 +20,14 @@ namespace AccessibleTrader.Core.Services.Rendering
             // Materialise once so we can iterate multiple times.
             var seriesList = series as IReadOnlyList<ChartSeries> ?? series.ToList();
 
+            // The COMPARE overlay is the one line whose VALUES the scale mode changes: in Percent
+            // and Indexed it is redrawn at chartBase × v / vFirst, its own first visible value,
+            // so the two symbols start at the same point and drift apart. Swap in a drawing copy
+            // here, once, and every renderer below maps the rebased price with unchanged maths.
+            // The state's own series (speech, status line, legends) keep raw prices.
+            if (ctx.EffectiveScaleMode != PriceScaleMode.Regular)
+                seriesList = seriesList.Select(s => RebaseCompareForDrawing(s, ctx) ?? s).ToList();
+
             // ── Pre-scan: detect any active CandleColor overlay so candle rendering can apply
             //             per-bar sentiment phase colors and suppress wicks.
             double[]? candlePhaseData = null;
@@ -234,6 +242,35 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // 3. LEVELS. Cloud fills and zone bands are already rendered in Pass 0 above.
                 RenderLevels(ctx, s);
             }
+        }
+
+        /// <summary>
+        /// A drawing copy of a COMPARE overlay with its values rebased onto this chart's price
+        /// axis for the scale mode, or null when this is not the overlay / it has no visible
+        /// value to rebase from. The ORIGINAL series is untouched, so speech and the status line
+        /// keep prices and the sync path never sees a transformed array.
+        /// </summary>
+        internal static ChartSeries? RebaseCompareForDrawing(ChartSeries s, RenderContext ctx)
+        {
+            if (ctx.EffectiveScaleMode == PriceScaleMode.Regular) return null;
+            if (!string.Equals(s.IndicatorCode, Indicators.SymbolCompareProvider.OverlayCode, StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (!string.Equals(string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane, "Main", StringComparison.Ordinal))
+                return null;
+
+            var original = s.GetComponentData(Indicators.SymbolCompareProvider.CompLine);
+            if (original.Length == 0) return null;
+            double first = ChartMath.FirstVisibleValue(original, ctx.ViewportStart, ctx.ViewportLength);
+            if (!ChartMath.BaseUsable(first) || !ChartMath.BaseUsable(ctx.ScaleBase)) return null;
+
+            var copy = s.WithData(s.Data.Clone());
+            var data = copy.GetComponentData(Indicators.SymbolCompareProvider.CompLine);
+            for (int i = 0; i < data.Length; i++)
+            {
+                if (double.IsNaN(data[i])) continue;
+                data[i] = ChartMath.RebaseCompareValue(ctx.ScaleBase, data[i], first);
+            }
+            return copy;
         }
 
         /// <summary>A series' reference levels, in its pane's coordinates.</summary>

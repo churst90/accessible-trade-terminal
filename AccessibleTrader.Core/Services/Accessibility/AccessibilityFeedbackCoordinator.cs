@@ -387,8 +387,55 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 _speechRouter.Speak(msg, interrupt: true, channel: SpeechChannel.Interface);
             }
-            if (state.IsLogScale != _previousState.IsLogScale)
-                _speechRouter.Speak(state.IsLogScale ? "Log scale" : "Linear scale", interrupt: true);
+            // ── The price scale is ONE choice: Regular, Logarithmic, Percent, Indexed ──────
+            //
+            // The select and the Go bar write both fields, so this speaks the pair as one
+            // change. A log turn-on from Percent/Indexed writes Regular as well; saying
+            // "Log scale. Regular scale." would name a second change the user did not make, so
+            // log-on wins the sentence and the select shows the rest. Log-off is the Regular
+            // entry, which replaces the old "Linear scale".
+            if (state.ScaleMode != _previousState.ScaleMode || state.IsLogScale != _previousState.IsLogScale)
+            {
+                string? sentence = null;
+                if (state.IsLogScale && !_previousState.IsLogScale)
+                {
+                    sentence = "Log scale.";
+                }
+                else if (state.ScaleMode != _previousState.ScaleMode)
+                {
+                    double baseValue = ChartMath.ScaleBase(state);
+                    bool usable = ChartMath.BaseUsable(baseValue);
+                    string price = usable ? SpeechPriceFormatter.FormatPrice(baseValue) : "";
+                    sentence = state.ScaleMode switch
+                    {
+                        PriceScaleMode.Percent when usable =>
+                            $"Percent scale. Zero is {price}, the first close on screen.",
+                        PriceScaleMode.IndexedTo100 when usable =>
+                            $"Indexed to 100. 100 is {price}, the first close on screen.",
+                        PriceScaleMode.Percent =>
+                            "Percent scale needs a positive first close; showing the regular scale.",
+                        PriceScaleMode.IndexedTo100 =>
+                            "Indexed to 100 needs a positive first close; showing the regular scale.",
+                        _ => "Regular scale.",
+                    };
+
+                    // A restored workspace may select Percent before its first load, when there
+                    // is no close to be the zero yet. That is not a failed choice and must not
+                    // be announced as one; the chart draws Regular until the data arrives.
+                    if (state.ScaleMode != PriceScaleMode.Regular && !usable
+                        && state.Data is not { Count: > 0 })
+                        sentence = null;
+                }
+                else if (_previousState.IsLogScale && !state.IsLogScale)
+                {
+                    // Log off is the Regular entry; the mode did not change because it can only
+                    // have been Regular while the log flag was on.
+                    sentence = "Regular scale.";
+                }
+
+                if (sentence != null)
+                    _speechRouter.Speak(sentence, interrupt: true, channel: SpeechChannel.Interface);
+            }
 
             // PLAYBACK. Every word the user hears about playback is spoken from here, and it has
             // to sit ABOVE the gate below because the gate is exactly what playback engages.

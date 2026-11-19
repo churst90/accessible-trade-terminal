@@ -318,7 +318,8 @@ public sealed class AIAnalystService : IAIAnalystService
                 state.PaneHeightRatios,
                 state.RightMarginBars,
                 identity: state.Identity,
-                chartStyle: state.ChartStyle);
+                chartStyle: state.ChartStyle,
+                priceScaleMode: state.ScaleMode);
 
             using var image = surface.Snapshot();
             using var data  = image.Encode(SKEncodedImageFormat.Png, 85);

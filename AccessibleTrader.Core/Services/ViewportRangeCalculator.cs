@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -114,11 +115,26 @@ namespace AccessibleTrader.Core.Services
             // The guard is measured against the ORIGINAL price span (priceMin/priceMax/dataSpan)
             // rather than the running one, so a chain of ever-wider components cannot walk the
             // axis out one plausible step at a time.
+            //
+            // ── A COMPARE overlay moves in Percent and Indexed ──────────────────
+            // It is drawn rebased to its OWN first visible value (ChartMath.RebaseCompareValue),
+            // so the values the pane has to hold are the rebased ones, not the provider's. This
+            // is the one thing about the range that depends on the scale mode; the store refits
+            // when the mode changes for exactly this reason. Every other main-pane overlay is a
+            // price of THIS symbol and is not rebased.
+            var scaleMode = ChartMath.EffectiveScaleMode(
+                state.ScaleMode, ChartMath.ScaleBase(state), state.IsLogScale);
+            double scaleBase = ChartMath.ScaleBase(state);
+            bool rebasesCompare = scaleMode != PriceScaleMode.Regular;
+
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
                 if (paneName != "Main") continue;
                 if (!s.IsVisible) continue;
+
+                bool isCompareOverlay = string.Equals(s.IndicatorCode, SymbolCompareProvider.OverlayCode,
+                    StringComparison.OrdinalIgnoreCase);
 
                 foreach (var comp in s.Components)
                 {
@@ -129,6 +145,9 @@ namespace AccessibleTrader.Core.Services
                     //     of 15, and letting it in drags the axis to the floor.
                     foreach (var data in DrawnArrays(s, comp))
                     {
+                        double compareFirst = rebasesCompare && isCompareOverlay
+                            ? ChartMath.FirstVisibleValue(data, start, state.ViewportLength)
+                            : double.NaN;
                         int cEnd = Math.Min(start + state.ViewportLength, data.Length);
                         for (int i = start; i < cEnd; i++)
                         {
@@ -137,6 +156,11 @@ namespace AccessibleTrader.Core.Services
                             // pivot indicator's every-bar-but-a-few. Skipping it is not a special
                             // case, it is the normal state of the left edge of the window.
                             if (double.IsNaN(val)) continue;
+                            if (rebasesCompare && isCompareOverlay)
+                            {
+                                val = ChartMath.RebaseCompareValue(scaleBase, val, compareFirst);
+                                if (double.IsNaN(val)) continue;
+                            }
                             if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
                             if (val < mainMin) mainMin = val;
                             if (val > mainMax) mainMax = val;
