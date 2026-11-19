@@ -93,7 +93,7 @@ public class GoBarMatcherTests
         var entry = Entry("Alpha", codes: new[] { "ABC" });
 
         Assert.Empty(Match("ABD", entry));
-        Assert.Empty(Match("AB", entry));
+        Assert.Empty(Match("AC", entry));
     }
 
     [Fact]

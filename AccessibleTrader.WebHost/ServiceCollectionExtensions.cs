@@ -712,6 +712,9 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
+            // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal
+            // stack and the shortcut profile it reads are scoped per signed-in user too.
+            services.AddScoped<AccessibleTrader.Core.Services.GoBar.GoBarService>();
             // Alt+U's change log. Scoped per circuit because the path service and settings are
             // per signed-in user; the store's per-FULL-PATH lock is what makes the circuit, the
             // headless session and the hosted monitor agree about one user's file.

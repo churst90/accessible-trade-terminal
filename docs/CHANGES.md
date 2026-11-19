@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Go bar (stage 6a), 2026-11-18
+
+- **Alt+G opens one text box that reaches every action in the terminal by typing.** Type a
+  name, a plain alias or a short Bloomberg-style code, then Enter. The registry in Core carries
+  one entry for every `SystemCommand` except `None` — 140 entries, in the enum's own order, with
+  the enum's section comments — so the desktop and the browser get the same Go bar. A guard test
+  fails if any command is missing; removing one entry turns it red (proved below).
+- **The matching order is fixed:** exact code, then exact name or alias, then a prefix of a code,
+  alias or name, then the start of a word inside a name or alias, then a near-miss spelling
+  (Damerau–Levenshtein ≤ 1 for 4–7 characters, ≤ 2 for 8+, nothing under 4). Every tier is sorted
+  by registry order; an entry appears once, at its best tier; the list is capped at 20. Matching
+  is case- and culture-insensitive (`ToUpperInvariant`, so Turkish's dotted i cannot break it).
+- **Money is never fuzzy.** The eight `Quick*` commands are `Money`, and the matcher has one
+  guard that returns them only for an exact code or an exact full name — never a prefix, alias,
+  word start or typo. New commands cannot opt out of that guard by accident.
+- **Keys that are only keys.** The arrows, Home, End, Page Up/Down, `CloseModal`,
+  `CancelDrawing`, `ConfirmCoordinateEntry`, the drawing context menu, the pane/component walks
+  and the anchor nudges are `KeyOnly`: named, matched and refused with
+  *"Move one bar back is a key, Left Arrow; it does nothing from the Go bar."*
+- **The box** is an ARIA 1.2 combobox: focus goes to the input on open; Down/Up move the active
+  option (DOM focus stays in the input); Tab completes to its first code; Enter runs the active
+  or top suggestion, and with nothing matching says *"Nothing matches …"* and stays open; Escape
+  closes and focus returns to the chart. No key string is stored in the registry: the key shown
+  in the list and read in the sentence comes from the live shortcut profile, so a rebind is
+  reflected with no second table.
+- **The polite read** is the top suggestion, 500 ms after the last keystroke, on the Interface
+  tier with `Interrupt: false`, so F2 and Shift+F2 never mute what the user asked for. A new
+  keystroke cancels a pending read; moving through the list does not trigger it.
+- **Closed, then dispatched.** `CommandDispatcher.DispatchFromGoBar` runs the same dispatch path
+  as the keyboard but skips ONLY the chart-focus gate: naming the command is the intent that
+  gate exists to infer, and the browser's focus event arrives after the box closes. It requests
+  chart focus first, so the next key press lands on the chart. The modal trap still applies; the
+  service dispatches only after the one `ModalStack` reports empty, and if another dialog is
+  underneath it says *"Market pulse can't run while Settings is open."* The keyboard path still
+  drops a chart command when the chart has no focus (a control test proves no behaviour change).
+- **Caveats.** Stage 6a reaches commands that take no argument. Typed arguments (`TF 4h`,
+  `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`, `FIND hammer`, symbols, `BTC GP` / `GP BTC`),
+  settings by name, `HELP <code>` and the typed money commands `BUY` / `SELL` / `FLAT` are stages
+  6b and 6c in `docs/TODO.md` and are not built. The backtick as a second opener is a 6c
+  question, not a decision. The box has not been heard by Cody.
+- **Tests:** 43 new tests across `GoBarRegistryTests`, `GoBarMatcherTests`, `GoBarServiceTests`,
+  `CommandDispatcherGoBarTests`, `GoBarCommandTests` and `GoBarModalTests`, plus the Alt+G
+  binding/scope/parity coverage in the existing shortcut tests. They pin the registry's
+  completeness and code rules, each tier and the fixed order, the Turkish case, whitespace, the
+  20 cap, the money guard from both directions, the live key after a rebind, the key-only refusal,
+  closed-then-dispatched and the dialog-underneath refusal, the dispatcher's two gates, focus on
+  the input, Down/Up, Tab, Enter, no-match and the non-interrupting polite read. The specified
+  filter runs 1,326 tests: 1,325 pass and the one failure is the pre-existing
+  `ProviderCredentialBridgeEnrollmentTests.Bridge_touching_helpers_are_all_known` source scan
+  (it names `HostedAccountTestSupport.cs` and `WebHostIntegrationHarness.cs`, neither touched
+  here).
+- **Sabotages** (backed up in `.sab/`, restored with `cp`, `touch`ed and compared): delete one
+  registry entry (**10 red**), let money entries through the prefix tier (**1 red**), swap tiers
+  1 and 3 (**2 red**), make `DispatchFromGoBar` skip the modal trap too (**1 red**), dispatch
+  before the close (**3 red**), publish the polite read on the Chart channel (**1 red**). Each
+  count is the new failures above the standing `ProviderCredentialBridgeEnrollmentTests` failure.
+
 ### What changed (stage 5b), 2026-11-18
 
 - **Alt+U answers "what happened while I was not listening?"** with a catch-up of the change log.

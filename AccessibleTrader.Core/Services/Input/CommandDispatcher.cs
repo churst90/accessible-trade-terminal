@@ -177,9 +177,11 @@ namespace AccessibleTrader.Core.Services.Input
             _deactivateDebounce?.Dispose();
         }
 
-        public void DispatchFromGoBar(SystemCommand command) => Dispatch(command);
+        public void Dispatch(SystemCommand command) => DispatchCore(command, fromGoBar: false);
 
-        public void Dispatch(SystemCommand command)
+        public void DispatchFromGoBar(SystemCommand command) => DispatchCore(command, fromGoBar: true);
+
+        private void DispatchCore(SystemCommand command, bool fromGoBar)
         {
             if (command == SystemCommand.None) return;
 
@@ -238,6 +240,15 @@ namespace AccessibleTrader.Core.Services.Input
                 }
             }
 
+            // The Go bar is the one path that reaches a chart command by NAME. The user said
+            // what they want, which is the intent the focus gate exists to infer; and the
+            // browser's focus event arrives asynchronously after the box closes, so checking it
+            // here would drop a command the user just chose. Ask for chart focus as well so the
+            // next key press lands on the chart. The modal trap above still applies, and the
+            // service refuses before calling when another dialog is underneath.
+            if (fromGoBar && IsChartScopedCommand(command))
+                _eventBus.Publish(new RequestChartFocusEvent());
+
             // Chart-focus gate: chart-scoped commands (navigation, viewport, playback,
             // drawing, indicator toggle, OpenProperties, detail summary, etc.) only fire
             // when the chart element actually has keyboard focus. Global commands (F-keys,
@@ -250,7 +261,7 @@ namespace AccessibleTrader.Core.Services.Input
             // dropping them without a sound made the whole feature read as "the commands don't
             // work" (reported from real use). keyboard.js releases a shifted arrow to any form
             // control before it gets here, so a text field never reaches this refusal.
-            if (!_isChartActive && IsChartScopedCommand(command) && !nudgeUnderObjectTree)
+            if (!fromGoBar && !_isChartActive && IsChartScopedCommand(command) && !nudgeUnderObjectTree)
             {
                 if (IsAnchorNudgeCommand(command))
                     RefuseNudge("focus", "The chart does not have focus. Control Alt Shift C returns to the chart.");

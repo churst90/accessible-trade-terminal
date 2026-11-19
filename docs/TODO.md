@@ -202,7 +202,18 @@ as proposed.
   stage 3a item above: one process-wide owner is needed, or a closed tab and the headless
   session would both speak/record it.
 - [ ] **Stage 5c: the morning brief.** Catch-up, pulse and today's events. Not built.
-- [ ] Stage 6: the Go bar (Alt+G), with a guard that every action is in it.
+- [x] **Stage 6a: the Go bar's registry, matcher and box (Alt+G).** One entry for every
+  `SystemCommand` except `None` (140) behind a guard test that goes red when one is removed; the
+  fixed order exact code → exact name/alias → prefix → word start → near miss; money exact-code or
+  exact-full-name only; the close-then-dispatch entry point; and the ARIA 1.2 combobox with the
+  polite read on the Interface tier. **Built 2026-11-18, not yet heard by Cody.** Caveats: no
+  arguments, no settings by name, no typed `BUY`/`SELL`/`FLAT`, and the box has not been heard.
+- [ ] **Stage 6b: Go bar commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`,
+  `GOTO 2024-03-01`, `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` /
+  `GP BTC`). Not built in 6a.
+- [ ] **Stage 6c: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
+  money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: should
+  the backtick open the Go bar as well as Alt+G? Not built in 6a, and not yet a decision.
 
 ## Trading not yet tried on a practice or real account
 

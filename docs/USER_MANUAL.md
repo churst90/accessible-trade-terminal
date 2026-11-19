@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, the Alt+U catch-up, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, the Alt+U catch-up, the Alt+G Go bar, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -1697,6 +1697,62 @@ starts, rather than being overwritten.
 
 Not yet recorded: unusual moves, signals and formations on watched charts, position profit and
 loss since you left, market events released while the browser is closed, and the morning brief.
+
+### The Go bar (Alt+G)
+
+**Alt+G** opens one text box that reaches every action in the terminal by typing, so you do not
+have to remember the key chord for something you use once a week. Type a name (`market pulse`),
+a plain alias (`calendar`, `news`) or a short code (`ECO`), and press Enter.
+
+**What you type finds, in this fixed order:**
+
+1. an exact code (`PULSE`);
+2. an exact name or alias (`market pulse`, `calendar`);
+3. the start of a code, alias or name (`pul`);
+4. the start of a word inside a name or alias (`scale` finds **Log scale**);
+5. a near-miss spelling (`plse`), for four characters or more.
+
+Case does not matter. A few named codes are worth learning:
+
+| Code | What it opens |
+| --- | --- |
+| `ECO` | Market events calendar (the same screen as Alt+E) |
+| `PULSE` | Market pulse (Alt+P) |
+| `CHANGES` | What changed (Alt+U) |
+| `DES` | Describe the chart layout — axes, scales, panes and what is hidden |
+| `HELP` | Help (F1) |
+| `GO` | The Go bar itself |
+
+**Every other command can be reached by its name**, for example `log scale`, `Heikin-Ashi`,
+`zoom in`, `add indicator`, `draw a trend line`, `market watch`, `settings` or `what is armed`.
+The list under the box shows each match as *name — one line of help — the key it is bound to
+now*, so a rebind is reflected without a second table.
+
+**The keys inside the box.** Down and Up move through the suggestions; focus stays in the text
+box, so you keep typing. **Tab** completes the typed text to the highlighted suggestion's code.
+**Enter** runs the highlighted suggestion, or the top one. **Escape** closes the box and returns
+focus to the chart, saying nothing extra. With nothing matching, Enter says *"Nothing matches
+…"* and leaves the box open.
+
+**After a short pause** (half a second) the terminal politely reads the top suggestion, for
+example *"Market pulse, Alt plus P. 2 more."* A new keystroke cancels the read. Moving through
+the list does not repeat it — your screen reader is already reading the option you are on. This
+read is on the interface tier: F2 and Shift+F2 never mute what you asked for.
+
+**Money is never fuzzy.** The quick-trade commands (arming a risk budget, setting the stop,
+placing the order) run only from their exact code (`R05`, `R10`, `R20`, `STOP`, `LIMIT`,
+`MARKET`, `DISARM`, `ARMED`) or their exact full name (*"Arm 1 percent risk"*). A prefix, an
+alias, the start of a word or a typo never reaches them.
+
+**Keys that are only keys.** The arrow keys, Home, End, Page Up and Page Down, Escape (close a
+dialog or cancel a drawing) and the drawing-anchor nudges are still listed and still match.
+Choosing one says which key it is — *"Move one bar back is a key, Left Arrow; it does nothing
+from the Go bar."* — rather than pretending to run it.
+
+**What it does not do yet.** This stage reaches commands that take no argument. Typed arguments
+(`TF 4h`, `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`), settings by name, `HELP <code>` and the
+typed money commands `BUY`, `SELL` and `FLAT` are later stages. The box has not been heard by
+Cody yet.
 
 ---
 

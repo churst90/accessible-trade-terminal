@@ -1,6 +1,16 @@
+@*
+    Alt+G — the Go bar. One text box that reaches every action in the terminal by typing.
+    The registry lives in Core, so the desktop and the browser get the same commands.
+
+    ARIA 1.2 combobox: DOM focus stays in the input, and aria-activedescendant names the
+    active option. Down/Up move the active option, Tab completes to its first code, Enter
+    runs it and Escape closes. The polite read is the top suggestion, 500 ms after the last
+    keystroke, on the Interface tier so neither F2 nor Shift+F2 silences what was asked for.
+*@
 @inherits ModalBase
 @using AccessibleTrader.Core.Services.GoBar
 @inject GoBarService GoBar
+@inject IServiceProvider Services
 
 @if (_isVisible)
 {
@@ -22,12 +32,16 @@
                    aria-autocomplete="list"
                    aria-expanded="@(_matches.Count > 0 ? "true" : "false")"
                    aria-controls="gobar-list"
+                   aria-activedescendant="@(_activeIndex >= 0 ? $"gobar-opt-{_activeIndex}" : null)"
+                   value="@_input"
                    @oninput="OnInput"
                    @onkeydown="OnKeyDown"
-                   style="width: 100%; box-sizing: border-box;" />
+                   @onfocus="() => _focused = true"
+                   @onblur="() => _focused = false"
+                   style="width: 100%; box-sizing: border-box; font-size: 1rem; padding: 6px 8px; @(_focused ? "outline: 3px solid var(--accent-color); outline-offset: 2px;" : "")" />
 
             <ul id="gobar-list" role="listbox" aria-label="Command suggestions"
-                style="list-style: none; padding: 0; margin: 12px 0 0 0;">
+                style="list-style: none; padding: 0; margin: 12px 0 0 0; overflow-wrap: anywhere;">
                 @for (int i = 0; i < _matches.Count; i++)
                 {
                     var index = i;
@@ -54,7 +68,15 @@
     private List<GoBarMatch> _matches = new();
     private int _activeIndex = -1;
     private string _input = "";
+    private bool _focused;
     private IDisposable? _closeSub;
+    private CancellationTokenSource? _readCts;
+    private TimeProvider? _clock;
+
+    /// <summary>The clock the 500 ms polite read waits on. Optional so the harness can
+    /// substitute it; the real heads register TimeProvider.System.</summary>
+    private TimeProvider Clock
+        => _clock ??= Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
 
     protected override void OnInitialized()
     {
@@ -68,28 +90,156 @@
         _input = "";
         _matches = new();
         _activeIndex = -1;
+        _focused = false;
+        CancelPoliteRead();
         await ShowModalAsync("gobar-title");
+
+        // The user opened this to type. The heading names the box for the screen reader; the
+        // input is where the hands belong.
+        await FocusInputAsync();
+    }
+
+    private async Task FocusInputAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "gobar-input"); }
+        catch { /* focus is best-effort; Tab still reaches it */ }
     }
 
     private void OnInput(ChangeEventArgs e)
     {
         _input = e.Value?.ToString() ?? "";
+        RefreshMatches();
+        StartPoliteRead();
+    }
+
+    private void RefreshMatches()
+    {
         _matches = GoBarMatcher.Match(_input, GoBarRegistry.All).ToList();
         _activeIndex = _matches.Count > 0 ? 0 : -1;
     }
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
+        if (e.AltKey || e.CtrlKey || e.MetaKey) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                MoveActive(1);
+                break;
+            case "ArrowUp":
+                MoveActive(-1);
+                break;
+            case "Tab":
+                if (e.ShiftKey) return; // leave reverse focus order alone
+                CompleteActive();
+                break;
+            case "Enter":
+                RunActiveOrTop();
+                break;
+            case "Escape":
+                CloseModal();
+                break;
+        }
+    }
+
+    private void MoveActive(int direction)
+    {
+        if (_matches.Count == 0) return;
+
+        if (_activeIndex < 0) _activeIndex = 0;
+        else _activeIndex = (_activeIndex + direction + _matches.Count) % _matches.Count;
+    }
+
+    private void CompleteActive()
+    {
+        var match = ActiveMatch();
+        if (match == null) return;
+
+        string? code = match.Entry.Codes.FirstOrDefault();
+        if (string.IsNullOrEmpty(code)) return;
+
+        _input = code;
+        RefreshMatches();
+        _ = FocusInputAsync();
+    }
+
+    private void RunActiveOrTop()
+    {
+        var match = ActiveMatch();
+        if (match == null)
+        {
+            string sentence = GoBar.Suggest(_input).Sentence;
+            if (!string.IsNullOrEmpty(sentence))
+                EventBus.Publish(new AnnouncementEvent(
+                    sentence, Interrupt: true, Channel: SpeechChannel.Interface));
+            return;
+        }
+
+        Choose(_activeIndex >= 0 ? _activeIndex : 0);
+    }
+
+    private GoBarMatch? ActiveMatch()
+    {
+        if (_matches.Count == 0) return null;
+        int index = _activeIndex >= 0 && _activeIndex < _matches.Count ? _activeIndex : 0;
+        return _matches[index];
     }
 
     private void Choose(int index)
     {
-        if (index >= 0 && index < _matches.Count)
-            GoBar.Run(_matches[index].Entry);
+        if (index < 0 || index >= _matches.Count) return;
+        GoBar.Run(_matches[index].Entry);
+    }
+
+    // ── The polite read ─────────────────────────────────────────────────────
+
+    private void StartPoliteRead()
+    {
+        CancelPoliteRead();
+        if (string.IsNullOrWhiteSpace(_input)) return;
+
+        var cts = new CancellationTokenSource();
+        _readCts = cts;
+        _ = PoliteReadAsync(cts.Token);
+    }
+
+    private async Task PoliteReadAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(500), Clock, token);
+            if (token.IsCancellationRequested) return;
+
+            string sentence = GoBar.Suggest(_input).Sentence;
+            if (string.IsNullOrEmpty(sentence)) return;
+
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                // Not an interruption: the screen reader has just read the option the user is
+                // standing on; this is the polite summary of what the box offers.
+                EventBus.Publish(new AnnouncementEvent(
+                    sentence, Interrupt: false, Channel: SpeechChannel.Interface));
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // A new keystroke replaced this read.
+        }
+    }
+
+    private void CancelPoliteRead()
+    {
+        if (_readCts == null) return;
+        try { _readCts.Cancel(); } catch { /* already gone */ }
+        _readCts.Dispose();
+        _readCts = null;
     }
 
     public override void Dispose()
     {
+        CancelPoliteRead();
         _closeSub?.Dispose();
         base.Dispose();
     }

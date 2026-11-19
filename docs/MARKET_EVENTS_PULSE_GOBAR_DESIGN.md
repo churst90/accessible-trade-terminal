@@ -403,3 +403,19 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    because that head has no headless bus.
 6. **The Go bar.** Most useful once there are more places to go; it touches every action, so it is the
    biggest change and goes last.
+   - **6a BUILT 2026-11-18, not yet heard by Cody.** The registry of every action, the guard test
+     that keeps it complete, the fixed-tier matcher, the service that closes the box before it
+     dispatches, the command and Alt+G binding, and the ARIA 1.2 combobox box. Money entries are
+     exact-code or exact-full-name only. **Differences found while building:** the enum had 140
+     members including `None`, not the handoff's "about 173"; `CloseModal` has no binding of its
+     own by design (Escape is bound to `CancelDrawing` and re-routed by the dispatcher), so its
+     key-only sentence takes Escape from that live binding; `KeyOnly` entries carry no short
+     codes, because a code that only exists to be refused is noise, while their names and aliases
+     are still matched; and the service speaks the key in the app's existing words ("Alt plus P")
+     through `ShortcutWords`, rather than the handoff's illustrative "Alt+P".
+   - **6b OPEN: commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`, `GOTO 2024-03-01`,
+     `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` / `GP BTC`).
+   - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
+     money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: the
+     backtick as a second opener ("maybe as well" from the 2026-11-18 discussion) is not built and
+     is not yet a decision.
