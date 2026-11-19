@@ -712,6 +712,12 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
+            // Alt+U's change log. Scoped per circuit because the path service and settings are
+            // per signed-in user; the store's per-FULL-PATH lock is what makes the circuit, the
+            // headless session and the hosted monitor agree about one user's file.
+            services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogStore>();
+            services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogRecorder>();
+            services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddScoped<IEarconService, EarconService>();

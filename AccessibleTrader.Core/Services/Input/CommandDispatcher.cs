@@ -33,6 +33,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly Analysis.ChartPatternNavigator? _patternNavigator;
         private readonly MarketEvents.MarketEventNavigator _marketEventNavigator;
         private readonly MarketPulse.MarketPulseService? _marketPulse;
+        private readonly ChangeLog.ChangeLogCatchUpService? _changeLog;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
@@ -72,7 +73,8 @@ namespace AccessibleTrader.Core.Services.Input
             Trading.IQuickTradeService? quickTrade = null,
             ModalStack? modalStack = null,
             MarketEvents.MarketEventNavigator? marketEventNavigator = null,
-            MarketPulse.MarketPulseService? marketPulse = null)
+            MarketPulse.MarketPulseService? marketPulse = null,
+            ChangeLog.ChangeLogCatchUpService? changeLog = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -93,6 +95,7 @@ namespace AccessibleTrader.Core.Services.Input
             // heads register the service. Without it the key is inert, which HostParity cannot
             // catch because the registration itself is present.
             _marketPulse = marketPulse;
+            _changeLog = changeLog;
             _quickTrade = quickTrade;
 
             _focusSub = _eventBus.AsObservable<ChartFocusEvent>()
@@ -293,6 +296,12 @@ namespace AccessibleTrader.Core.Services.Input
                     // One sentence, gathered off the dispatcher's thread. A second press while
                     // it gathers is the service's to answer.
                     if (_marketPulse != null) _ = _marketPulse.SpeakAsync(_store.State);
+                    return;
+
+                case SystemCommand.WhatChanged:
+                    // What happened while you were not listening. The catch-up owns the plan,
+                    // the words and the caught-up mark; this only starts the press.
+                    if (_changeLog != null) _ = _changeLog.SpeakAsync();
                     return;
 
                 // ── Orientation and recovery ──────────────────────────────

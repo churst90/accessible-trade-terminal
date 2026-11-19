@@ -137,6 +137,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.OpenLevelReport)]
         [InlineData(SystemCommand.OpenMarketEventCalendar)]
         [InlineData(SystemCommand.MarketPulse)]
+        [InlineData(SystemCommand.WhatChanged)]
         [InlineData(SystemCommand.OpenAssetDossier)]
         // Bar replay transport — global so the keys work while focus sits in a side panel.
         [InlineData(SystemCommand.ReplayToggle)]
@@ -259,6 +260,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse,
+                SystemCommand.WhatChanged,
                 SystemCommand.OpenAssetDossier,
                 SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,
                 SystemCommand.ReplayStepBack, SystemCommand.ReplayPlayPause,

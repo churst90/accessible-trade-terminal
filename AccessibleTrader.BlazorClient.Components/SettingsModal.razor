@@ -892,6 +892,26 @@
                             session's close.
                         </p>
                     </fieldset>
+
+                    @* Alt+U's optional offer. The prompt only says how many things changed;
+                       the items are read only when the user presses Alt+U. *@
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin:16px 0 0 0;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">What changed</legend>
+
+                        <div class="modal-row">
+                            <label for="s-change-log-offer">Offer a catch-up when I come back</label>
+                            <input id="s-change-log-offer" type="checkbox"
+                                   aria-describedby="s-change-log-offer-hint"
+                                   checked="@_changeLogOfferOnReturn"
+                                   @onchange="e => _changeLogOfferOnReturn = e.Value is bool b ? b : _changeLogOfferOnReturn" />
+                        </div>
+                        <p id="s-change-log-offer-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            Alt+U reads what changed while you were away: money first, then alerts,
+                            events released and connection problems. When this is on, coming back
+                            after five minutes or more says how many things changed; it never reads
+                            them unless you ask.
+                        </p>
+                    </fieldset>
                 </fieldset>
 
             </div>
@@ -1509,6 +1529,7 @@
     private bool _marketEventsSound = true;
     private string _marketEventsCountdowns = "15,1";
     private string _marketPulseCryptoStart = "midnightUtc";
+    private bool _changeLogOfferOnReturn = true;
     private string _marketEventStatus = "";
     private string _marketEventKalshiStatus = "";
 
@@ -1564,6 +1585,7 @@
         new("Sound on event bars", "Narration", "s-market-events-sound", "market events bell earcon landing sound event bars"),
         new("Countdowns before events", "Narration", "s-market-events-countdowns", "market events countdown warning minutes before cpi jobs fed decision 15 5 1 30 off"),
         new("Pulse: crypto change measured from", "Narration", "s-market-pulse-crypto-start", "market pulse alt+p crypto bitcoin ethereum midnight utc last 24 hours rolling day change"),
+        new("Offer a catch-up when I come back", "Narration", "s-change-log-offer", "what changed alt+u catch up away return prompt change log money alerts events connection"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Tick other signals while arrowing", "Sonification", "s-tick-other-signals", "cluster ticks markers dots crosses arrow navigation"),
@@ -2234,6 +2256,7 @@
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
         _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
         _marketPulseCryptoStart = Store.State.MarketPulseCryptoStart;
+        _changeLogOfferOnReturn = Store.State.ChangeLogOfferOnReturn;
         _marketEventStatus = NoKeyMarketEventStatus();
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
@@ -2572,6 +2595,7 @@
             MarketEventsSoundOnEventBars = _marketEventsSound,
             MarketEventsCountdowns = _marketEventsCountdowns,
             MarketPulseCryptoStart = _marketPulseCryptoStart,
+            ChangeLogOfferOnReturn = _changeLogOfferOnReturn,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

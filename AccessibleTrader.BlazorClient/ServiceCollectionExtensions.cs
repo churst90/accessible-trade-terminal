@@ -735,6 +735,12 @@ namespace AccessibleTrader.BlazorClient
             // Alt+P. Singleton on this head because the Pulse watchlist is per-user singleton
             // here; on the WebHost it is scoped beside the per-circuit watchlists.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
+            // Alt+U's change log. One store per process on this head (one user), the recorder
+            // subscribes at startup, and the catch-up words a press. On the WebHost all three
+            // are scoped per circuit, with one shared per-path file lock.
+            services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogStore>();
+            services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogRecorder>();
+            services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);
             services.AddSingleton<IEarconService, EarconService>();

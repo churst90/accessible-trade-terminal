@@ -203,6 +203,13 @@ namespace AccessibleTrader.WebHost.Services
             TryAdd<AlertDeliveryService>(sp,
                 "email / Telegram / webhook fan-out for alerts fired with no browser attached");
 
+            // Alt+U's change log, browser closed. The circuit has its own recorder on its own
+            // bus; this one catches what the background monitor and the headless order watch
+            // publish here. Both can see the same fill, which is why the store de-duplicates by
+            // key rather than one side being left out.
+            TryAdd<AccessibleTrader.Core.Services.ChangeLog.ChangeLogRecorder>(sp,
+                "the change log of what happened while the browser was closed");
+
             // Order events — fills, stops, take-profits, and orders that leave the book —
             // spoken/toasted/sounded with no browser attached. HeadlessOrderWatch keeps the
             // venue streams hooked; this is what turns the resulting bus event into something

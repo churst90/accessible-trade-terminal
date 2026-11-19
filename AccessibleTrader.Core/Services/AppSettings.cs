@@ -116,6 +116,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"midnightUtc" (default) or "last24h": where a crypto pulse change starts.</summary>
         string MarketPulseCryptoStart { get; set; }
 
+        /// <summary>Offer the Alt+U catch-up when the user comes back after five minutes.</summary>
+        bool ChangeLogOfferOnReturn { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -501,6 +504,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetString(SettingsKeys.MarketPulseCryptoStart, "midnightUtc");
             set => Set(SettingsKeys.MarketPulseCryptoStart, value);
+        }
+
+        /// <summary>
+        /// "Offer a catch-up when I come back" — ON by default. The prompt only says how many
+        /// things changed; Alt+U still does the reading.
+        /// </summary>
+        public bool ChangeLogOfferOnReturn
+        {
+            get => GetBool(SettingsKeys.ChangeLogOfferOnReturn, true);
+            set => Set(SettingsKeys.ChangeLogOfferOnReturn, value);
         }
 
         /// <summary>

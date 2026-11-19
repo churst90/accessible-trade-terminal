@@ -168,6 +168,9 @@ public static class WorkspaceProjection
         // Where the Alt+P pulse measures a crypto change from. A host read-aloud preference; a
         // strategy's signals must not change because the user picked midnight or 24 hours.
         nameof(WorkspaceState.MarketPulseCryptoStart),
+        // Whether coming back after five minutes offers an Alt+U catch-up. A host narration
+        // preference; a strategy's signals must not change because the user ticked a prompt box.
+        nameof(WorkspaceState.ChangeLogOfferOnReturn),
     };
 
     /// <summary>

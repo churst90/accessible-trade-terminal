@@ -184,6 +184,12 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string MarketPulseCryptoStart = "marketPulseCryptoStart";
 
+        /// <summary>
+        /// Offer the Alt+U return prompt after five minutes away. ON by default; the prompt
+        /// offers the catch-up and never reads it unasked.
+        /// </summary>
+        public const string ChangeLogOfferOnReturn = "changeLogOfferOnReturn";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

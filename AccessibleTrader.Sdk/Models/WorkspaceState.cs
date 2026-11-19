@@ -283,6 +283,9 @@ namespace AccessibleTrader.Sdk.Models
         // Where a crypto pulse change starts: "midnightUtc" (default) or "last24h". A host
         // preference, read by MarketPulseService; never carried into the script sandbox.
         string MarketPulseCryptoStart = "midnightUtc",
+        // Offer the Alt+U catch-up prompt when coming back after five minutes. A host
+        // narration preference; never carried into the script sandbox.
+        bool ChangeLogOfferOnReturn = true,
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -339,6 +342,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsCountdowns: "15,1",
             MarketEventsWatched: Array.Empty<string>(),
             MarketPulseCryptoStart: "midnightUtc",
+            ChangeLogOfferOnReturn: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

@@ -1,5 +1,6 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Alerts;
+using AccessibleTrader.Core.Services.ChangeLog;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.WebHost.Account;
@@ -173,6 +174,10 @@ namespace AccessibleTrader.WebHost.Services
             var settings = scope.ServiceProvider.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? true)) return;
 
+            // This user's Alt+U log. The scope's path service already points at their folder,
+            // so the entry lands in the same change-log.json their circuit writes.
+            var changeLog = scope.ServiceProvider.GetService<ChangeLogStore>();
+
             var alerts = scope.ServiceProvider.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
             // This monitor still evaluates against a BLANK chart (WorkspaceState.Initial below),
             // so it keeps the refusal list the local monitor outgrew on 2026-09-11.
@@ -231,8 +236,15 @@ namespace AccessibleTrader.WebHost.Services
                 foreach (var f in fired)
                 {
                     _logger.LogInformation("Hosted alert fired for {User}: {Text}", userKey, f.SpeechText);
+
+                    // No headless bus exists on this head, so this is where a server-side fire
+                    // reaches the change log. The in-circuit recorder owns anything on screen.
+                    if (changeLog != null)
+                        await changeLog.AppendAsync(
+                            ChangeLogRecorder.MapAlert(f, DateTime.UtcNow)).ConfigureAwait(false);
+
                     var channels = scope.ServiceProvider.GetServices<IAlertChannel>();
-                    await DeliverToChannelsAsync(channels, f, _logger, ct);
+                    await DeliverToChannelsAsync(channels, f, _logger, ct).ConfigureAwait(false);
 
                     if (_push != null)
                     {

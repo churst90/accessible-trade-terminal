@@ -609,6 +609,7 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenLevelReport,   "R",     Alt: true)); // Alt+R: respect report (ranked levels + MAs)
             s.Add(new(SystemCommand.OpenMarketEventCalendar, "E", Alt: true)); // Alt+E: market event calendar
             s.Add(new(SystemCommand.MarketPulse, "P", Alt: true)); // Alt+P: the market pulse in one sentence
+            s.Add(new(SystemCommand.WhatChanged, "U", Alt: true)); // Alt+U: what changed while you were not listening
             s.Add(new(SystemCommand.OpenAssetDossier,  "I",     Alt: true)); // Alt+I: asset dossier (I for Instrument/Info)
 
             // Bar replay — practise reading a market forward without hindsight.

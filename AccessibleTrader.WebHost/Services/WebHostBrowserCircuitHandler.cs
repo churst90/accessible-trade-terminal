@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.ChangeLog;
 using AccessibleTrader.WebHost.Account;
 
 namespace AccessibleTrader.WebHost.Services
@@ -202,6 +203,23 @@ namespace AccessibleTrader.WebHost.Services
             try { _scope.GetService<InSessionAlertRecorder>(); }
             catch (Exception ex) { _logger.LogDebug(ex, "In-session alert recorder init skipped."); }
 
+            // Force-create this circuit's change-log recorder for the same reason: a subscriber
+            // nobody resolves never subscribes. The store is shared by path with the headless
+            // session's recorder, and its key de-duplication makes the overlap one entry.
+            try { _scope.GetService<ChangeLogRecorder>(); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Change-log recorder init skipped."); }
+
+            // Offer the catch-up if the user was away. It only offers; nothing is read or marked
+            // heard until Alt+U.
+            try
+            {
+                if (_scope.GetService<ChangeLogCatchUpService>() is { } catchUp)
+                    SafeFireAndForget.Run(
+                        () => catchUp.OfferOnReturnAsync(DateTime.UtcNow),
+                        _logger, "Change-log return prompt");
+            }
+            catch (Exception ex) { _logger.LogDebug(ex, "Change-log return prompt skipped."); }
+
             // Bind this tab to the user's shared paper account. Force-created for the same reason
             // as the recorder above: the account has to be watching THIS chart from the moment the
             // circuit opens, not from whenever something first asks for the broker — otherwise a
@@ -355,6 +373,17 @@ namespace AccessibleTrader.WebHost.Services
         {
             ReleaseCoverage();
             SetPresence(false);
+
+            // Mark when the user left, so the next circuit can offer a catch-up. A failure here
+            // must not break the connection-down path; the store logs its own failures.
+            try
+            {
+                if (_scope.GetService<ChangeLogCatchUpService>() is { } catchUp)
+                    SafeFireAndForget.Run(
+                        () => catchUp.SetLastPresentAsync(DateTime.UtcNow),
+                        _logger, "Change-log away mark");
+            }
+            catch (Exception ex) { _logger.LogDebug(ex, "Change-log away mark skipped."); }
 
             // The final autosave used to run ONLY in OnCircuitClosedAsync, about three minutes
             // after the tab closed — so for those three minutes the headless monitor derived its
