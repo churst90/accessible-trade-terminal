@@ -32,7 +32,13 @@ namespace AccessibleTrader.Core.Services.GoBar
         IReadOnlyList<string> Codes,
         IReadOnlyList<string> Aliases,
         string Help,
-        GoBarKind Kind);
+        GoBarKind Kind,
+        /// <summary>
+        /// True when the Go bar itself gives this command its meaning (the four commands
+        /// that had no handler at all before stage 6b), so the every-command-has-a-handler
+        /// guard does not look for a <c>SystemCommand.X</c> reference in the heads.
+        /// </summary>
+        bool HandledByGoBar = false);
 
     /// <summary>
     /// Every <see cref="SystemCommand"/> except <see cref="SystemCommand.None"/>, in the
@@ -81,12 +87,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "api keys", "keys" },
                 "Manage provider and data API keys", GoBarKind.Normal),
             new(SystemCommand.OpenAlerts, "Open alerts",
-                new[] { "ALRT" },
-                new[] { "alerts", "alert manager" },
+                new[] { "ALRT", "ALERT" },
+                new[] { "alerts", "alert manager", "alert" },
                 "Open the alerts manager", GoBarKind.Normal),
             new(SystemCommand.OpenIndicators, "Add an indicator",
                 new[] { "IND" },
-                new[] { "add indicator", "indicator" },
+                new[] { "add indicator", "indicator", "add" },
                 "Open the Add Indicator dialog", GoBarKind.Normal),
             new(SystemCommand.OpenDrawingTools, "Open the drawing tools",
                 new[] { "DRW" },
@@ -515,20 +521,20 @@ namespace AccessibleTrader.Core.Services.GoBar
             // ── Data/Market ─────────────────────────────────────────────
             new(SystemCommand.ChangeProvider, "Change the provider",
                 new[] { "PROV" },
-                new[] { "provider" },
-                "Change the data provider in the toolbar", GoBarKind.Normal),
+                new[] { "provider", "venue" },
+                "Change the data provider in the toolbar", GoBarKind.Normal, HandledByGoBar: true),
             new(SystemCommand.ChangeSymbol, "Change the symbol",
-                new[] { "SYM" },
-                new[] { "symbol" },
-                "Change the symbol in the toolbar", GoBarKind.Normal),
+                new[] { "SYM", "GP" },
+                new[] { "symbol", "chart" },
+                "Change the symbol in the toolbar", GoBarKind.Normal, HandledByGoBar: true),
             new(SystemCommand.ChangeTimeframe, "Change the timeframe",
                 new[] { "TF" },
                 new[] { "timeframe" },
-                "Change the timeframe in the toolbar", GoBarKind.Normal),
+                "Change the timeframe in the toolbar", GoBarKind.Normal, HandledByGoBar: true),
             new(SystemCommand.RefreshData, "Refresh the data",
                 new[] { "REF" },
                 new[] { "refresh", "reload" },
-                "Reload the chart data", GoBarKind.Normal),
+                "Reload the chart data", GoBarKind.Normal, HandledByGoBar: true),
 
             // ── Multi-tab ─────────────────────────────────────────────
             new(SystemCommand.AddTab, "Add a chart tab",

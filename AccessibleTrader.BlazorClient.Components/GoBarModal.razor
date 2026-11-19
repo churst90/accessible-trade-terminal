@@ -3,9 +3,15 @@
     The registry lives in Core, so the desktop and the browser get the same commands.
 
     ARIA 1.2 combobox: DOM focus stays in the input, and aria-activedescendant names the
-    active option. Down/Up move the active option, Tab completes to its first code, Enter
-    runs it; Escape closes through the dispatcher like every dialog. The polite read is the top suggestion, 500 ms after the last
-    keystroke, on the Interface tier so neither F2 nor Shift+F2 silences what was asked for.
+    active option. Down/Up move the active option, Tab completes to its canonical text,
+    Enter runs it; Escape closes through the dispatcher like every dialog. The polite read is
+    the sentence from the SAME suggestion object that produced the rendered options, 500 ms
+    after the last keystroke, on the Interface tier so neither F2 nor Shift+F2 silences what
+    was asked for.
+
+    Stage 6b: the list holds options, not only 6a entries. An argument option renders its own
+    spoken name ("Timeframe 4 hours", "Open MEXC BTCUSDT", "Add RSI") and Tab completes the
+    canonical text the service would re-resolve ("TF 4h", "GP BTCUSDT", "IND RSI").
 *@
 @inherits ModalBase
 @using AccessibleTrader.Core.Services.GoBar
@@ -30,7 +36,7 @@
                    autocomplete="off"
                    role="combobox"
                    aria-autocomplete="list"
-                   aria-expanded="@(_matches.Count > 0 ? "true" : "false")"
+                   aria-expanded="@(_options.Count > 0 ? "true" : "false")"
                    aria-controls="gobar-list"
                    aria-activedescendant="@(_activeIndex >= 0 ? $"gobar-opt-{_activeIndex}" : null)"
                    value="@_input"
@@ -42,18 +48,22 @@
 
             <ul id="gobar-list" role="listbox" aria-label="Command suggestions"
                 style="list-style: none; padding: 0; margin: 12px 0 0 0; overflow-wrap: anywhere;">
-                @for (int i = 0; i < _matches.Count; i++)
+                @for (int i = 0; i < _options.Count; i++)
                 {
                     var index = i;
-                    var match = _matches[i];
+                    var option = _options[i];
                     <li role="option"
                         id="@($"gobar-opt-{index}")"
                         aria-selected="@(index == _activeIndex ? "true" : "false")"
                         style="padding: 6px 8px; border-bottom: 1px solid var(--border-color); @(index == _activeIndex ? "background: color-mix(in srgb, var(--accent-color) 26%, transparent); font-weight: bold;" : "")"
                         @onmousedown:preventDefault="true"
-                        @onclick="() => Choose(index)">
-                        <span>@match.Entry.Name</span> — <span>@match.Entry.Help</span>
-                        @if (GoBar.KeyLabel(match.Entry.Command) is { } key)
+                        @onclick="() => Choose(index, explicitlyChosen: true)">
+                        <span>@option.Name</span>
+                        @if (!string.IsNullOrEmpty(option.Help))
+                        {
+                            <span> — @option.Help</span>
+                        }
+                        @if (option.Entry is { } entry && GoBar.KeyLabel(entry.Command) is { } key)
                         {
                             <span> — @key</span>
                         }
@@ -65,11 +75,21 @@
 }
 
 @code {
-    private List<GoBarMatch> _matches = new();
+    private GoBarSuggestion _suggestion = new(Array.Empty<GoBarOption>(), "");
+    private List<GoBarOption> _options = new();
     private int _activeIndex = -1;
     private string _input = "";
     private bool _focused;
+
+    /// <summary>
+    /// True once the user has moved onto an option with Up/Down (or clicked one). It is what
+    /// lets the several-symbols rule distinguish Enter on the top match from a deliberate pick,
+    /// and typing resets it.
+    /// </summary>
+    private bool _hasArrowed;
+
     private IDisposable? _closeSub;
+    private IDisposable? _completeSub;
     private CancellationTokenSource? _readCts;
     private TimeProvider? _clock;
 
@@ -86,13 +106,24 @@
         {
             if (_isVisible) CloseModal();
         }));
+        // A bare verb asks for its value: complete the text, keep the box open.
+        _completeSub = EventBus.Subscribe<GoBarCompleteRequestEvent>(e => InvokeAsync(() =>
+        {
+            if (!_isVisible) return;
+            _input = e.Text ?? "";
+            RefreshMatches();
+            StartPoliteRead();
+            _ = FocusInputAsync();
+        }));
     }
 
     private async Task ShowAsync()
     {
         _input = "";
-        _matches = new();
+        _suggestion = new GoBarSuggestion(Array.Empty<GoBarOption>(), "");
+        _options = new();
         _activeIndex = -1;
+        _hasArrowed = false;
         _focused = false;
         CancelPoliteRead();
         await ShowModalAsync("gobar-title");
@@ -111,14 +142,16 @@
     private void OnInput(ChangeEventArgs e)
     {
         _input = e.Value?.ToString() ?? "";
+        _hasArrowed = false;
         RefreshMatches();
         StartPoliteRead();
     }
 
     private void RefreshMatches()
     {
-        _matches = GoBarMatcher.Match(_input, GoBarRegistry.All).ToList();
-        _activeIndex = _matches.Count > 0 ? 0 : -1;
+        _suggestion = GoBar.Suggest(_input);
+        _options = _suggestion.Options.ToList();
+        _activeIndex = _options.Count > 0 ? 0 : -1;
     }
 
     private void OnKeyDown(KeyboardEventArgs e)
@@ -148,51 +181,57 @@
 
     private void MoveActive(int direction)
     {
-        if (_matches.Count == 0) return;
+        if (_options.Count == 0) return;
+        _hasArrowed = true;
 
         if (_activeIndex < 0) _activeIndex = 0;
-        else _activeIndex = (_activeIndex + direction + _matches.Count) % _matches.Count;
+        else _activeIndex = (_activeIndex + direction + _options.Count) % _options.Count;
     }
 
     private void CompleteActive()
     {
-        var match = ActiveMatch();
-        if (match == null) return;
+        var option = ActiveOption();
+        if (option == null) return;
 
-        string? code = match.Entry.Codes.FirstOrDefault();
-        if (string.IsNullOrEmpty(code)) return;
+        string? canonical = option.CanonicalText;
+        if (string.IsNullOrEmpty(canonical)) return;
 
-        _input = code;
+        _input = canonical;
+        _hasArrowed = false;
         RefreshMatches();
         _ = FocusInputAsync();
     }
 
     private void RunActiveOrTop()
     {
-        var match = ActiveMatch();
-        if (match == null)
+        var option = ActiveOption();
+        if (option == null)
         {
-            string sentence = GoBar.Suggest(_input).Sentence;
-            if (!string.IsNullOrEmpty(sentence))
+            // Use the SAME suggestion object the list rendered, not a second parse: two
+            // calls can disagree once arguments exist.
+            if (!string.IsNullOrEmpty(_suggestion.Sentence))
+            {
                 EventBus.Publish(new AnnouncementEvent(
-                    sentence, Interrupt: true, Channel: SpeechChannel.Interface));
+                    _suggestion.Sentence, Interrupt: true, Channel: SpeechChannel.Interface));
+            }
             return;
         }
 
-        Choose(_activeIndex >= 0 ? _activeIndex : 0);
+        int index = _activeIndex >= 0 && _activeIndex < _options.Count ? _activeIndex : 0;
+        Choose(index, explicitlyChosen: _hasArrowed);
     }
 
-    private GoBarMatch? ActiveMatch()
+    private GoBarOption? ActiveOption()
     {
-        if (_matches.Count == 0) return null;
-        int index = _activeIndex >= 0 && _activeIndex < _matches.Count ? _activeIndex : 0;
-        return _matches[index];
+        if (_options.Count == 0) return null;
+        int index = _activeIndex >= 0 && _activeIndex < _options.Count ? _activeIndex : 0;
+        return _options[index];
     }
 
-    private void Choose(int index)
+    private void Choose(int index, bool explicitlyChosen)
     {
-        if (index < 0 || index >= _matches.Count) return;
-        GoBar.Run(_matches[index].Entry);
+        if (index < 0 || index >= _options.Count) return;
+        GoBar.Run(_options[index], explicitlyChosen);
     }
 
     // ── The polite read ─────────────────────────────────────────────────────
@@ -204,17 +243,17 @@
 
         var cts = new CancellationTokenSource();
         _readCts = cts;
-        _ = PoliteReadAsync(cts.Token);
+        _ = PoliteReadAsync(_suggestion, cts.Token);
     }
 
-    private async Task PoliteReadAsync(CancellationToken token)
+    private async Task PoliteReadAsync(GoBarSuggestion suggestion, CancellationToken token)
     {
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(500), Clock, token);
             if (token.IsCancellationRequested) return;
 
-            string sentence = GoBar.Suggest(_input).Sentence;
+            string sentence = suggestion.Sentence;
             if (string.IsNullOrEmpty(sentence)) return;
 
             await InvokeAsync(() =>
@@ -244,6 +283,7 @@
     {
         CancelPoliteRead();
         _closeSub?.Dispose();
+        _completeSub?.Dispose();
         base.Dispose();
     }
 }

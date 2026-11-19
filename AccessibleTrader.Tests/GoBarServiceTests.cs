@@ -32,8 +32,13 @@ public class GoBarServiceTests
         return (new GoBarService(dispatcher, shortcuts, bus, stack), dispatcher, bus, shortcuts);
     }
 
-    private static GoBarEntry Entry(SystemCommand command)
-        => GoBarRegistry.All.Single(e => e.Command == command);
+    private static GoBarOption Option(SystemCommand command)
+    {
+        var entry = GoBarRegistry.All.Single(e => e.Command == command);
+        return new GoBarOption(entry.Name, Entry: entry,
+            CanonicalText: entry.Codes.Count > 0 ? entry.Codes[0] : entry.Name,
+            Help: entry.Help);
+    }
 
     [Fact]
     public void OneMatchSaysItsNameAndKeyAndNoMore()
@@ -42,7 +47,7 @@ public class GoBarServiceTests
 
         var suggestion = service.Suggest("pulse");
 
-        Assert.Single(suggestion.Matches);
+        Assert.Single(suggestion.Options);
         Assert.Equal("Market pulse, Alt plus P.", suggestion.Sentence);
     }
 
@@ -53,12 +58,12 @@ public class GoBarServiceTests
 
         var suggestion = service.Suggest("load");
 
-        Assert.True(suggestion.Matches.Count >= 2,
+        Assert.True(suggestion.Options.Count >= 2,
             "fixture floor: 'load' should find at least Load a workspace and Load the selected chart, found "
-            + string.Join(", ", suggestion.Matches.Select(m => m.Entry.Command)));
+            + string.Join(", ", suggestion.Options.Select(m => m.Entry!.Command)));
         Assert.StartsWith("Load a workspace, Control plus Alt plus W.", suggestion.Sentence);
-        Assert.EndsWith($"{suggestion.Matches.Count - 1} more.", suggestion.Sentence);
-        if (suggestion.Matches.Count == 2)
+        Assert.EndsWith($"{suggestion.Options.Count - 1} more.", suggestion.Sentence);
+        if (suggestion.Options.Count == 2)
             Assert.Contains(" 1 more.", suggestion.Sentence);
     }
 
@@ -69,9 +74,9 @@ public class GoBarServiceTests
 
         var suggestion = service.Suggest("pl");
 
-        Assert.True(suggestion.Matches.Count > 2,
+        Assert.True(suggestion.Options.Count > 2,
             "fixture floor: 'pl' should find more than two commands");
-        Assert.EndsWith($" {suggestion.Matches.Count - 1} more.", suggestion.Sentence);
+        Assert.EndsWith($" {suggestion.Options.Count - 1} more.", suggestion.Sentence);
     }
 
     [Fact]
@@ -91,7 +96,7 @@ public class GoBarServiceTests
     {
         var (service, dispatcher, bus, _) = Build();
 
-        service.Run(Entry(SystemCommand.CloseModal));
+        service.Run(Option(SystemCommand.CloseModal));
 
         var spoken = Assert.Single(bus.Log.OfType<AnnouncementEvent>());
         Assert.Equal("Close the dialog is a key, Escape; it does nothing from the Go bar.",
@@ -106,7 +111,7 @@ public class GoBarServiceTests
         var (service, dispatcher, bus, _) = Build();
         bus.Publish(new ModalStateChangedEvent(true, "GoBar"));
 
-        service.Run(Entry(SystemCommand.MarketPulse));
+        service.Run(Option(SystemCommand.MarketPulse));
 
         Assert.Contains(bus.Log, e => e is CloseGoBarRequestEvent);
         dispatcher.DidNotReceiveWithAnyArgs().DispatchFromGoBar(default);
@@ -124,7 +129,7 @@ public class GoBarServiceTests
         bus.Publish(new ModalStateChangedEvent(true, "GoBar"));
         bus.Publish(new ModalStateChangedEvent(true, "Settings"));
 
-        service.Run(Entry(SystemCommand.MarketPulse));
+        service.Run(Option(SystemCommand.MarketPulse));
         bus.Publish(new ModalStateChangedEvent(false, "GoBar"));
 
         dispatcher.DidNotReceiveWithAnyArgs().DispatchFromGoBar(default);
@@ -140,7 +145,7 @@ public class GoBarServiceTests
 
         var suggestion = service.Suggest("zzzz");
 
-        Assert.Empty(suggestion.Matches);
+        Assert.Empty(suggestion.Options);
         Assert.Equal("Nothing matches zzzz.", suggestion.Sentence);
     }
 }

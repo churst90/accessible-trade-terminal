@@ -194,4 +194,135 @@ public class GoBarRegistryTests
             .ToList();
         Assert.True(money.Count == 0, $"'{typed}' offered {string.Join(", ", money)}");
     }
+
+    /// <summary>
+    /// A typed command that closes the box and reaches nothing is the worst failure the Go bar
+    /// can have: the user hears the box go away and assumes the command ran. Four entries were
+    /// exactly that after 6a — ChangeProvider, ChangeSymbol, ChangeTimeframe and RefreshData
+    /// were Normal entries with no key binding and no handler anywhere. This guard proves every
+    /// non-key entry has a handler in the heads, or is one the Go bar itself now runs.
+    /// </summary>
+    [Fact]
+    public void EveryGoBarCommandHasAHandler()
+    {
+        string root = RepoPaths.RepoRoot();
+        var folders = new[]
+        {
+            Path.Combine(root, "AccessibleTrader.Core"),
+            Path.Combine(root, "AccessibleTrader.BlazorClient.Components"),
+            Path.Combine(root, "AccessibleTrader.WebHost"),
+            Path.Combine(root, "AccessibleTrader.BlazorClient"),
+        };
+
+        var excludedNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "SystemCommand.cs", "GoBarRegistry.cs", "ShortcutManager.cs",
+        };
+
+        // The Go bar's own implementation is the mechanism, not a handler in a head. A command
+        // it runs itself is marked HandledByGoBar in the registry; without that mark, a mention
+        // in the verb table or the service must not count as one. This is what makes removing a
+        // flag go red even though GoBarParser names ChangeTimeframe.
+        string goBarFolder = Path.Combine(root, "AccessibleTrader.Core", "Services", "GoBar")
+            + Path.DirectorySeparatorChar;
+
+        var files = new List<string>();
+        foreach (var folder in folders)
+        {
+            Assert.True(Directory.Exists(folder), $"The guard's scan folder is missing: {folder}");
+            foreach (var file in Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(root, file);
+                if (relative.Split(Path.DirectorySeparatorChar)
+                    .Any(part => part is "bin" or "obj")) continue;
+                string ext = Path.GetExtension(file);
+                if (ext != ".cs" && ext != ".razor") continue;
+                if (excludedNames.Contains(Path.GetFileName(file))) continue;
+                if (file.StartsWith(goBarFolder, StringComparison.Ordinal)) continue;
+                files.Add(file);
+            }
+        }
+
+        Assert.True(files.Count > 100,
+            $"The guard scanned only {files.Count} files; a moved folder would make it pass by scanning nothing.");
+
+        var text = string.Concat(files.Select(File.ReadAllText));
+
+        var unhandled = GoBarRegistry.All
+            .Where(e => e.Kind != GoBarKind.KeyOnly && !e.HandledByGoBar)
+            .Where(e => !text.Contains($"SystemCommand.{e.Command}", StringComparison.Ordinal))
+            .Select(e => e.Command.ToString())
+            .ToList();
+
+        Assert.True(unhandled.Count == 0,
+            "These Go bar commands have no handler in any head: " + string.Join(", ", unhandled));
+    }
+
+    /// <summary>
+    /// Stage 6b's verb table must not shadow a command somebody types for something else. Each
+    /// verb word is either a code or alias of exactly its own entry (TF → ChangeTimeframe,
+    /// GP/SYM → ChangeSymbol, PROV → ChangeProvider, IND/ADD → OpenIndicators, ALERT →
+    /// OpenAlerts), or — for the verbs with no registry entry (GOTO, DATE, FIND) — no entry's
+    /// code or alias at all. Pinned like 6a's money-code rule, because "GP" was invented for
+    /// this stage and a later code could quietly take it.
+    /// </summary>
+    [Fact]
+    public void EveryArgumentVerbBelongsToItsEntry()
+    {
+        var problems = new List<string>();
+
+        foreach (var spec in GoBarVerbs.All)
+        {
+            foreach (string word in spec.Words)
+            {
+                var owners = GoBarRegistry.All
+                    .Where(e => e.Codes.Concat(e.Aliases)
+                        .Any(x => string.Equals(x, word, StringComparison.OrdinalIgnoreCase)))
+                    .Select(e => e.Command)
+                    .Distinct()
+                    .ToList();
+
+                if (spec.Entry is { } own)
+                {
+                    if (owners.Count != 1 || owners[0] != own)
+                    {
+                        problems.Add($"{word} belongs to {own} but the registry knows it as "
+                            + (owners.Count == 0 ? "nothing" : string.Join(", ", owners)));
+                    }
+                }
+                else if (owners.Count > 0)
+                {
+                    problems.Add($"{word} has no entry of its own but the registry knows it as "
+                        + string.Join(", ", owners));
+                }
+            }
+        }
+
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    [Fact]
+    public void NoArgumentVerbIsAMoneyCode()
+    {
+        var moneyCodes = GoBarRegistry.All
+            .Where(e => e.Kind == GoBarKind.Money)
+            .SelectMany(e => e.Codes)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var clashes = GoBarVerbs.AllWords.Where(moneyCodes.Contains).ToList();
+
+        Assert.True(clashes.Count == 0,
+            "argument verbs that are money codes: " + string.Join(", ", clashes));
+    }
+
+    [Fact]
+    public void GPMapsToChangeSymbol()
+    {
+        var entries = GoBarRegistry.All
+            .Where(e => e.Codes.Contains("GP", StringComparer.Ordinal))
+            .ToList();
+
+        var entry = Assert.Single(entries);
+        Assert.Equal(SystemCommand.ChangeSymbol, entry.Command);
+    }
 }

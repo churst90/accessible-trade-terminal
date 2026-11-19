@@ -361,6 +361,13 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record CloseGoBarRequestEvent();
 
+    /// <summary>
+    /// A bare verb needs its value: complete the box's text to this (the verb and a space)
+    /// and leave the box open. Stage 6b's fix for the four commands that closed the box and
+    /// reached nothing.
+    /// </summary>
+    public record GoBarCompleteRequestEvent(string Text);
+
     /// <summary>Ctrl+Alt+Shift+M — ask the background monitoring service to speak its
     /// status summary ("Monitoring 3 workspaces: KAS current, 1 strategy. ...").</summary>
     public record AnnounceMonitoringStatusEvent();

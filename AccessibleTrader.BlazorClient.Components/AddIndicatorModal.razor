@@ -1,4 +1,5 @@
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Indicators
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Sdk.Models
 @implements IDisposable
@@ -140,11 +141,9 @@
         // ProfileIndicatorProvider (registered under "Volume Profile" category).
         // Do NOT add synthetic duplicates here — use the registry as the sole source of truth.
         // In the public demo the list is narrowed to the curated indicator codes.
-        _allIndicators = IndicatorService.GetAvailableIndicators()
-            .Where(i => Demo.IsIndicatorAllowed(i.Code))
-            .Where(i => !i.IsDeprecated) // retired indicators keep working in saved
-                                         // workspaces/strategies but are not offered here
-            .ToList();
+        // The same list the Go bar's IND uses: demo-allowed and not retired. It lives in
+        // IndicatorCatalog so a typed IND can never offer a different set from this dialog.
+        _allIndicators = IndicatorCatalog.Available(IndicatorService, Demo).ToList();
 
         _categories = _allIndicators.Select(i => i.Category).Distinct().OrderBy(c => c).ToList();
         _filteredIndicators = _allIndicators;
@@ -244,10 +243,7 @@
     /// "Oscillator pane" about a series going somewhere else.
     /// </summary>
     internal static string PaneDescription(IndicatorMetadata meta)
-    {
-        string pane = PaneAssignmentService.PaneFor(meta);
-        return PaneAssignmentService.IsSharedByDesign(pane) ? $"{pane} pane" : "its own pane";
-    }
+        => IndicatorCatalog.PaneDescription(meta);
 
     private string MatchSummary => _filteredIndicators.Count switch
     {
@@ -269,11 +265,9 @@
         // Initialize the edit dictionary from each parameter's default. String parameters
         // hold their default string directly; numeric parameters convert to double via the
         // safe IConvertible path that previously broke on string DefaultValues.
-        _editParams = _selectedMeta?.Parameters
-            .ToDictionary(
-                p => p.Name,
-                p => InitialEditValue(p))
-            ?? new Dictionary<string, object>();
+        _editParams = _selectedMeta == null
+            ? new Dictionary<string, object>()
+            : IndicatorCatalog.DefaultParameters(_selectedMeta);
     }
 
     /// <summary>Records a checkbox change as the "true"/"false" text the parameter pipeline expects.</summary>
@@ -292,18 +286,6 @@
         }
         return p.DefaultValue is bool db ? db
             : p.DefaultValue is IConvertible c && c.ToDouble(null) != 0;
-    }
-
-    private static object InitialEditValue(IndicatorParameterMetadata p)
-    {
-        if (p.DataType == typeof(string))
-            return p.DefaultValue?.ToString() ?? string.Empty;
-        if (p.DefaultValue is IConvertible c)
-        {
-            try { return c.ToDouble(System.Globalization.CultureInfo.InvariantCulture); }
-            catch { return 0.0; }
-        }
-        return 0.0;
     }
 
     // Used by the numeric-input render path. We need this as a method (not a ternary in the

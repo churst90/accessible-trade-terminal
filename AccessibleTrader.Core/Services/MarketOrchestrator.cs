@@ -38,6 +38,17 @@ namespace AccessibleTrader.Core.Services
         Task LoadChartAsync();
 
         /// <summary>
+        /// The Go bar's load: start from the chart ON SCREEN (not from a toolbar selection the
+        /// user changed without pressing Load), apply only the parts given, refresh the
+        /// provider's lists only when the provider changes, read every value back so the demo's
+        /// silent refusals become a spoken one, then load through the normal path. The public
+        /// setters are used so the toolbar receives its <c>PipelineUpdated</c> pulses.
+        /// </summary>
+        Task<GoBar.GoBarLoadOutcome> LoadOnActiveTabAsync(
+            string? provider, string? symbol, string? timeframe,
+            MarketType? market, string? subType);
+
+        /// <summary>
         /// Loads the workspace's ACTIVE tab from its restored identity — used after a session
         /// resume or workspace load, which restore tab config (identity/series) but not data.
         /// Without this the tab shows no live price until the user clicks Load Chart. Syncs the
@@ -862,6 +873,129 @@ namespace AccessibleTrader.Core.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// Stage 6b's one load path for the Go bar. It starts from the ACTIVE TAB's identity,
+        /// because the toolbar's dropdowns can hold a selection the user never loaded: "TF 4h"
+        /// must change the timeframe of the chart on screen, not whatever the toolbar happens
+        /// to say. Only the parts given are applied; a provider change refreshes that provider's
+        /// symbol list, and nothing is held in the toolbar's own private selection beyond what
+        /// the user asked for.
+        ///
+        /// <para><b>The demo refuses silently in the setters.</b> Each value is therefore read
+        /// back; a refusal becomes <see cref="GoBar.GoBarLoadOutcomeKind.NotInDemo"/> rather
+        /// than a load of something else.</para>
+        ///
+        /// <para><b>The shape-change check lives here, not in the box.</b> The toolbar warns
+        /// before a symbol load that would strip a tab's indicators. The Go bar cannot show that
+        /// dialog, so it refuses in the same words' spirit and tells the user to load it from
+        /// the toolbar in a new tab.</para>
+        /// </summary>
+        public async Task<GoBar.GoBarLoadOutcome> LoadOnActiveTabAsync(
+            string? provider, string? symbol, string? timeframe,
+            MarketType? market, string? subType)
+        {
+            var identity = _store.State.Identity;
+
+            string targetProvider = FirstNonEmpty(provider, identity.Provider, _selectedProvider);
+            string targetSymbol = FirstNonEmpty(symbol, identity.Symbol, _selectedSymbol);
+            string targetTimeframe = FirstNonEmpty(timeframe, identity.Timeframe, _selectedTimeframe);
+
+            if (string.IsNullOrEmpty(targetSymbol))
+                return new(GoBar.GoBarLoadOutcomeKind.NoChart, targetProvider, "", targetTimeframe);
+
+            // Refresh the provider's lists only when the provider itself changes. The identity
+            // is the chart on screen, so a stray toolbar provider is corrected here too.
+            bool providerChanging = !string.Equals(
+                targetProvider, _selectedProvider, StringComparison.OrdinalIgnoreCase);
+
+            if (providerChanging)
+            {
+                _selectedProvider = targetProvider;
+                if (!string.Equals(_selectedProvider, targetProvider, StringComparison.Ordinal))
+                {
+                    return new(GoBar.GoBarLoadOutcomeKind.NotInDemo,
+                        targetProvider, targetSymbol, targetTimeframe);
+                }
+
+                if (market is MarketType wantedMarket)
+                {
+                    _selectedMarket = wantedMarket.ToString();
+                    if (!string.IsNullOrEmpty(subType)) _selectedSubType = subType;
+                }
+                else if (!string.IsNullOrEmpty(subType))
+                {
+                    _selectedSubType = subType;
+                }
+
+                await RefreshSymbolsAsync().ConfigureAwait(false);
+            }
+
+            // Read back every value the demo guards can refuse. Assigning through the public
+            // setters also keeps the toolbar's PipelineUpdated pulses.
+            SelectedSymbol = targetSymbol;
+            if (!string.Equals(_selectedSymbol, targetSymbol, StringComparison.Ordinal))
+            {
+                return new(GoBar.GoBarLoadOutcomeKind.NotInDemo,
+                    targetProvider, targetSymbol, targetTimeframe);
+            }
+
+            SelectedTimeframe = targetTimeframe;
+            if (!string.Equals(_selectedTimeframe, targetTimeframe, StringComparison.Ordinal))
+            {
+                return new(GoBar.GoBarLoadOutcomeKind.NotInDemo,
+                    targetProvider, targetSymbol, targetTimeframe);
+            }
+
+            // A symbol load that changes the tab's data shape is the one load the toolbar would
+            // have stopped to warn about. Refuse rather than silently strip user indicators or
+            // drawings; the toolbar's own Load button can still open it in a new tab.
+            if (symbol != null)
+            {
+                var targetShape = Sdk.Plugins.ProviderDataShape.Ohlcv;
+                try
+                {
+                    var target = await _dataService.GetProviderAsync(targetProvider).ConfigureAwait(false);
+                    targetShape = target?.GetDataShapeForSymbol(targetSymbol)
+                                  ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+                }
+                catch
+                {
+                    // A provider lookup failure is not a shape change; the load will say what
+                    // went wrong through DataManager's own speech.
+                }
+
+                int nonCore = CountNonCoreSeries();
+                if (targetShape != _store.State.CurrentDataShape
+                    && targetShape == Sdk.Plugins.ProviderDataShape.SingleValueLine
+                    && nonCore > 0)
+                {
+                    return new(GoBar.GoBarLoadOutcomeKind.ShapeChange,
+                        targetProvider, targetSymbol, targetTimeframe, nonCore);
+                }
+            }
+
+            await LoadChartAsync().ConfigureAwait(false);
+
+            var kind = _store.State.Data.Count == 0
+                ? GoBar.GoBarLoadOutcomeKind.Failed
+                : GoBar.GoBarLoadOutcomeKind.Loaded;
+
+            return new(kind, targetProvider, targetSymbol, targetTimeframe);
+        }
+
+        private int CountNonCoreSeries()
+        {
+            var core = new HashSet<string>(StringComparer.Ordinal)
+            {
+                CoreSeriesIds.Candles, CoreSeriesIds.Volume, CoreSeriesIds.Price,
+                CoreSeriesIds.Heatmap, CoreSeriesIds.VolumeProfile, CoreSeriesIds.MarketProfile,
+            };
+            return _store.State.ActiveSeries.Count(s => !core.Contains(s.Id));
+        }
+
+        private static string FirstNonEmpty(params string?[] values)
+            => values.FirstOrDefault(v => !string.IsNullOrEmpty(v)) ?? "";
 
         public async Task LoadChartAsync()
         {

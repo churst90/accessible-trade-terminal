@@ -607,9 +607,17 @@
 
     protected override void OnInitialized()
     {
-        // Re-render whenever market/provider/symbol/timeframe lists change.
+        // Re-render whenever market/provider/symbol/timeframe lists change, and re-parse the
+        // selected timeframe every time. The composer used to be seeded only at init and in
+        // the demo path, so a timeframe changed from outside it — the Go bar's "TF 4h" is the
+        // one that made this visible — left the multiplier and unit showing 1 / hr, and the
+        // next edit wrote 1h-based values back over the chart.
         _pipelineSub = MarketOrchestrator.PipelineUpdated
-            .Subscribe(_ => InvokeAsync(StateHasChanged));
+            .Subscribe(_ => InvokeAsync(() =>
+            {
+                ParseTimeframe(MarketOrchestrator.SelectedTimeframe);
+                StateHasChanged();
+            }));
 
         // Re-ask the provider-gated questions (Deposit, Withdraw, Order book) the moment the
         // providers become known. IDataService answers null for every provider name until
