@@ -69,6 +69,10 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.PlaySpeedDown)]
         // Indicator / display toggles
         [InlineData(SystemCommand.ToggleHeikinAshi)]
+        [InlineData(SystemCommand.ShowCandleChart)]
+        [InlineData(SystemCommand.ShowHeikinAshiChart)]
+        [InlineData(SystemCommand.ShowLineChart)]
+        [InlineData(SystemCommand.ShowAreaChart)]
         [InlineData(SystemCommand.ToggleLogScale)]
         [InlineData(SystemCommand.ToggleHeatmap)]
         [InlineData(SystemCommand.ToggleIndicatorVisibility)]
@@ -226,7 +230,10 @@ namespace AccessibleTrader.Tests
                 SystemCommand.PlayChart, SystemCommand.PlaySeries, SystemCommand.PlayComponent,
                 SystemCommand.PlayPause, SystemCommand.PlayStop,
                 SystemCommand.PlaySpeedUp, SystemCommand.PlaySpeedDown,
-                SystemCommand.ToggleHeikinAshi, SystemCommand.ToggleLogScale,
+                SystemCommand.ToggleHeikinAshi,
+                SystemCommand.ShowCandleChart, SystemCommand.ShowHeikinAshiChart,
+                SystemCommand.ShowLineChart, SystemCommand.ShowAreaChart,
+                SystemCommand.ToggleLogScale,
                 SystemCommand.ToggleHeatmap, SystemCommand.ToggleIndicatorVisibility,
                 SystemCommand.ToggleIndicatorAudio, SystemCommand.ToggleNarration,
                 SystemCommand.AddReferenceLevel, SystemCommand.OpenProperties,

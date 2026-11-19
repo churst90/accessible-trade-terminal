@@ -226,6 +226,18 @@
                                   IsToggleOn="@(IsHeatmapVisible == "true")"
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
+                @* Chart type: Candles, Heikin Ashi, Line, Area — one choice, like TradingView.
+                   The HA button beside it stays the Alt+C toggle. *@
+                <label for="chart-type-select" class="visually-hidden">Chart type</label>
+                <select id="chart-type-select"
+                        aria-label="Chart type"
+                        @onchange="OnChartTypeChanged"
+                        value="@ChartTypeValue">
+                    <option value="candles" selected="@(ChartTypeValue == "candles")">Candles</option>
+                    <option value="heikin" selected="@(ChartTypeValue == "heikin")">Heikin Ashi</option>
+                    <option value="line" selected="@(ChartTypeValue == "line")">Line</option>
+                    <option value="area" selected="@(ChartTypeValue == "area")">Area</option>
+                </select>
                 <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
                                   IsToggleOn="@(Store.State.IsHeikinAshi)"
                                   Tooltip="Toggle Heikin Ashi candles, Alt plus C"
@@ -843,6 +855,28 @@
     private void AddHeatmap()
     {
         EventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
+    }
+
+    /// <summary>The select's current option: the pair of style + Heikin-Ashi as one value.</summary>
+    private string ChartTypeValue =>
+        Store.State.IsHeikinAshi ? "heikin"
+        : Store.State.ChartStyle switch
+        {
+            PriceChartStyle.Line => "line",
+            PriceChartStyle.Area => "area",
+            _ => "candles",
+        };
+
+    private void OnChartTypeChanged(ChangeEventArgs e)
+    {
+        var (style, heikinAshi) = e.Value?.ToString() switch
+        {
+            "line" => (PriceChartStyle.Line, false),
+            "area" => (PriceChartStyle.Area, false),
+            "heikin" => (PriceChartStyle.Candles, true),
+            _ => (PriceChartStyle.Candles, false),
+        };
+        Store.Dispatch(new SetChartStyleAction(style, heikinAshi));
     }
 
     // ── Shape-change confirmation state ────────────────────────────────

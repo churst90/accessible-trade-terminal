@@ -346,8 +346,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsEarconsEnabled != _previousState.IsEarconsEnabled)
                 _speechRouter.Speak(state.IsEarconsEnabled ? "Earcons on" : "Earcons muted",
                     interrupt: true, channel: SpeechChannel.Critical);
-            if (state.IsHeikinAshi != _previousState.IsHeikinAshi)
+            if (state.IsHeikinAshi != _previousState.IsHeikinAshi || state.ChartStyle != _previousState.ChartStyle)
             {
+                // One sentence, on the Interface channel (this is a chart-type choice, not a
+                // reading). Heikin-Ashi going ON is still the whole existing warning when the
+                // user comes from Line or Area, because that action also puts the chart back on
+                // candles — two visible changes, so the sentence names both.
+                //
                 // The caveat is spoken only when it applies — Heikin-Ashi going ON with formation
                 // description already enabled. Otherwise it is noise about a feature the user is
                 // not using.
@@ -359,12 +364,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Heikin-Ashi close is an average of four prices, not a price anything ever traded
                 // at — so a level derived from one cannot be put in an order, and the trigger and
                 // measured target are exactly the numbers a user might act on.
-                string msg = state.IsHeikinAshi
-                    ? (state.DescribeChartPatterns
+                string msg;
+                if (state.IsHeikinAshi && !_previousState.IsHeikinAshi)
+                {
+                    string ha = state.DescribeChartPatterns
                         ? "Heikin-Ashi candles. Chart formations are still read from standard candles."
-                        : "Heikin-Ashi candles")
-                    : "Standard candles";
-                _speechRouter.Speak(msg, interrupt: true);
+                        : "Heikin-Ashi candles";
+                    msg = _previousState.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area
+                        ? ha.TrimEnd('.') + ". Candle chart."
+                        : state.DescribeChartPatterns
+                            ? "Heikin Ashi chart. Chart formations are still read from standard candles."
+                            : "Heikin Ashi chart.";
+                }
+                else
+                {
+                    msg = state.ChartStyle switch
+                    {
+                        PriceChartStyle.Line => "Line chart.",
+                        PriceChartStyle.Area => "Area chart.",
+                        _ => "Candle chart.",
+                    };
+                }
+                _speechRouter.Speak(msg, interrupt: true, channel: SpeechChannel.Interface);
             }
             if (state.IsLogScale != _previousState.IsLogScale)
                 _speechRouter.Speak(state.IsLogScale ? "Log scale" : "Linear scale", interrupt: true);

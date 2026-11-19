@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Core.Services.Accessibility;
 
 namespace AccessibleTrader.Core.Services.Input
@@ -757,7 +758,21 @@ namespace AccessibleTrader.Core.Services.Input
             // 5. SETTINGS & VISUAL TOGGLES
             switch (command)
             {
-                case SystemCommand.ToggleHeikinAshi: _store.Dispatch(new ToggleHeikinAshiAction()); break;
+                case SystemCommand.ToggleHeikinAshi:
+                    if (!RefuseChartTypeOnSingleLine()) _store.Dispatch(new ToggleHeikinAshiAction());
+                    break;
+                case SystemCommand.ShowCandleChart:
+                    ShowChartType(PriceChartStyle.Candles, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowHeikinAshiChart:
+                    ShowChartType(PriceChartStyle.Candles, heikinAshi: true);
+                    break;
+                case SystemCommand.ShowLineChart:
+                    ShowChartType(PriceChartStyle.Line, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowAreaChart:
+                    ShowChartType(PriceChartStyle.Area, heikinAshi: false);
+                    break;
                 case SystemCommand.ToggleLogScale: _store.Dispatch(new ToggleLogScaleAction()); break;
                 case SystemCommand.ToggleHeatmap:
                     _eventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
@@ -985,6 +1000,52 @@ namespace AccessibleTrader.Core.Services.Input
         }
 
         /// <summary>
+        /// A chart type is a choice about price BARS. On a single-value analytics chart the
+        /// price is already one line and there is nothing to restyle, so say why and change
+        /// nothing — the same answer the hidden toolbar controls imply. Returns true when it
+        /// refused, so the caller can skip its dispatch.
+        /// </summary>
+        private bool RefuseChartTypeOnSingleLine()
+        {
+            if (_store.State.CurrentDataShape == ProviderDataShape.Ohlcv) return false;
+            _eventBus.Publish(new FeedbackRequestEvent(
+                FeedbackType.Error,
+                "This chart is already a single line; chart types are for price bars.",
+                true, Channel: SpeechChannel.Interface));
+            return true;
+        }
+
+        /// <summary>
+        /// Choose a chart type by name (Go bar CANDLE / LINE / AREA and the Heikin-Ashi chart
+        /// entry), including an honest "already" answer rather than a silent no-op when the
+        /// requested type is the one on screen.
+        /// </summary>
+        private void ShowChartType(PriceChartStyle style, bool heikinAshi)
+        {
+            if (RefuseChartTypeOnSingleLine()) return;
+
+            var state = _store.State;
+            bool already = heikinAshi
+                ? state.IsHeikinAshi
+                : !state.IsHeikinAshi && state.ChartStyle == style;
+            if (already)
+            {
+                string what = heikinAshi ? "Heikin Ashi" : style switch
+                {
+                    PriceChartStyle.Line => "line",
+                    PriceChartStyle.Area => "area",
+                    _ => "candle",
+                };
+                string article = what == "area" ? "an" : "a";
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Info, $"Already {article} {what} chart.", true, Channel: SpeechChannel.Interface));
+                return;
+            }
+
+            _store.Dispatch(new SetChartStyleAction(style, heikinAshi));
+        }
+
+        /// <summary>
         /// Returns true for commands that should only fire while the chart element has
         /// keyboard focus. The complementary set — global commands — fire regardless of
         /// focus location so the user can drive the app from anywhere (open modals,
@@ -1055,6 +1116,10 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.PlaySpeedUp:
                 case SystemCommand.PlaySpeedDown:
                 case SystemCommand.ToggleHeikinAshi:
+                case SystemCommand.ShowCandleChart:
+                case SystemCommand.ShowHeikinAshiChart:
+                case SystemCommand.ShowLineChart:
+                case SystemCommand.ShowAreaChart:
                 case SystemCommand.ToggleLogScale:
                 case SystemCommand.ToggleHeatmap:
                 case SystemCommand.ToggleIndicatorVisibility:

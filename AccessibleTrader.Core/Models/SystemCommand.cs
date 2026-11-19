@@ -161,7 +161,13 @@ namespace AccessibleTrader.Core.Models
         ToggleIndicatorAudio, // M
         ToggleHeatmap, // Alt+H
         AddReferenceLevel, // 0
-        
+        // Chart types, Go bar only (no new key: Alt+Shift+C is Draw channel). Heikin-Ashi is
+        // still ToggleHeikinAshi's command; these four name the four choices outright.
+        ShowCandleChart,
+        ShowHeikinAshiChart,
+        ShowLineChart,
+        ShowAreaChart,
+
         // Drawings — Alt+Shift+letter on every head since 2026-09-05 (see ShortcutManager)
         DrawTrend,          // Alt+Shift+T
         DrawHorizontal,     // Alt+Shift+H
