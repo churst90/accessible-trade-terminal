@@ -167,6 +167,11 @@ namespace AccessibleTrader.Core.Models
         ShowHeikinAshiChart,
         ShowLineChart,
         ShowAreaChart,
+        // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
+        // these name a ruler outright so the Go bar can reach it without a new key.
+        ShowRegularScale,
+        ShowPercentScale,
+        ShowIndexedScale,
 
         // Drawings — Alt+Shift+letter on every head since 2026-09-05 (see ShortcutManager)
         DrawTrend,          // Alt+Shift+T

@@ -73,6 +73,9 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.ShowHeikinAshiChart)]
         [InlineData(SystemCommand.ShowLineChart)]
         [InlineData(SystemCommand.ShowAreaChart)]
+        [InlineData(SystemCommand.ShowRegularScale)]
+        [InlineData(SystemCommand.ShowPercentScale)]
+        [InlineData(SystemCommand.ShowIndexedScale)]
         [InlineData(SystemCommand.ToggleLogScale)]
         [InlineData(SystemCommand.ToggleHeatmap)]
         [InlineData(SystemCommand.ToggleIndicatorVisibility)]
@@ -233,6 +236,8 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ToggleHeikinAshi,
                 SystemCommand.ShowCandleChart, SystemCommand.ShowHeikinAshiChart,
                 SystemCommand.ShowLineChart, SystemCommand.ShowAreaChart,
+                SystemCommand.ShowRegularScale, SystemCommand.ShowPercentScale,
+                SystemCommand.ShowIndexedScale,
                 SystemCommand.ToggleLogScale,
                 SystemCommand.ToggleHeatmap, SystemCommand.ToggleIndicatorVisibility,
                 SystemCommand.ToggleIndicatorAudio, SystemCommand.ToggleNarration,

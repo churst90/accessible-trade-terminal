@@ -773,6 +773,15 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowAreaChart:
                     ShowChartType(PriceChartStyle.Area, heikinAshi: false);
                     break;
+                case SystemCommand.ShowRegularScale:
+                    ShowPriceScale(PriceScaleMode.Regular, log: false);
+                    break;
+                case SystemCommand.ShowPercentScale:
+                    ShowPriceScale(PriceScaleMode.Percent, log: false);
+                    break;
+                case SystemCommand.ShowIndexedScale:
+                    ShowPriceScale(PriceScaleMode.IndexedTo100, log: false);
+                    break;
                 case SystemCommand.ToggleLogScale: _store.Dispatch(new ToggleLogScaleAction()); break;
                 case SystemCommand.ToggleHeatmap:
                     _eventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
@@ -1046,6 +1055,57 @@ namespace AccessibleTrader.Core.Services.Input
         }
 
         /// <summary>
+        /// Choose one of the price-scale menu's rulers by name (Go bar REG / PCT / IDX),
+        /// including an honest "already" answer and the unusable-base refusal. The log entry is
+        /// still the ToggleLogScale toggle, and the store's single action keeps the pair
+        /// (mode + log) consistent.
+        ///
+        /// <para>
+        /// Percent and Indexed need a positive base — the first visible close. When there is no
+        /// usable one the state stays Regular and the refusal says why, because an axis that
+        /// silently relabels a zero base is arithmetic, not a reading. Analytics charts are NOT
+        /// refused here: the select is gated like the log button, but the ruler applies to any
+        /// series the way TradingView's does.
+        /// </para>
+        /// </summary>
+        private void ShowPriceScale(PriceScaleMode mode, bool log)
+        {
+            var state = _store.State;
+
+            bool already = log
+                ? state.IsLogScale && state.ScaleMode == PriceScaleMode.Regular
+                : !state.IsLogScale && state.ScaleMode == mode;
+            if (already)
+            {
+                string sentence = log ? "Already a log scale." : mode switch
+                {
+                    PriceScaleMode.Percent => "Already a percent scale.",
+                    PriceScaleMode.IndexedTo100 => "Already indexed to 100.",
+                    _ => "Already a regular scale.",
+                };
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Info, sentence, true, Channel: SpeechChannel.Interface));
+                return;
+            }
+
+            if (mode != PriceScaleMode.Regular)
+            {
+                double baseValue = ChartMath.ScaleBase(state);
+                if (!ChartMath.BaseUsable(baseValue))
+                {
+                    string what = mode == PriceScaleMode.Percent ? "Percent scale" : "Indexed to 100";
+                    _eventBus.Publish(new FeedbackRequestEvent(
+                        FeedbackType.Error,
+                        $"{what} needs a positive first close; showing the regular scale.",
+                        true, Channel: SpeechChannel.Interface));
+                    return;
+                }
+            }
+
+            _store.Dispatch(new SetPriceScaleAction(mode, log));
+        }
+
+        /// <summary>
         /// Returns true for commands that should only fire while the chart element has
         /// keyboard focus. The complementary set — global commands — fire regardless of
         /// focus location so the user can drive the app from anywhere (open modals,
@@ -1120,6 +1180,9 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowHeikinAshiChart:
                 case SystemCommand.ShowLineChart:
                 case SystemCommand.ShowAreaChart:
+                case SystemCommand.ShowRegularScale:
+                case SystemCommand.ShowPercentScale:
+                case SystemCommand.ShowIndexedScale:
                 case SystemCommand.ToggleLogScale:
                 case SystemCommand.ToggleHeatmap:
                 case SystemCommand.ToggleIndicatorVisibility:
