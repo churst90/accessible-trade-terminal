@@ -39,8 +39,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return "No chart loaded.";
 
             // ── What, and at what interval ────────────────────────────────
+            bool brickChart = state.ChartStyle.IsBrickStyle();
             string head = string.IsNullOrWhiteSpace(symbol) ? "Chart" : symbol!;
-            if (!string.IsNullOrWhiteSpace(timeframe)) head += $", {SpokenTimeframe(timeframe!)} per bar";
+            if (!brickChart && !string.IsNullOrWhiteSpace(timeframe))
+                head += $", {SpokenTimeframe(timeframe!)} per bar";
             parts.Add(head + ".");
 
             // ── X axis: how much time is on screen, and which slice ───────
@@ -50,8 +52,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             var first = bars[start];
             var last = bars[end];
-            parts.Add($"X axis, time: {length} bars in view of {bars.Count.ToString("N0", CultureInfo.InvariantCulture)} loaded, " +
-                      $"{BarDate(first.Date, state, timeframe)} to {BarDate(last.Date, state, timeframe)}.");
+            if (brickChart
+                && BrickChartSpeech.TryGetBrick(state, start, out _, out var firstBrick)
+                && BrickChartSpeech.TryGetBrick(state, end, out _, out var lastBrick))
+            {
+                parts.Add($"X axis, time: {length} bricks in view of "
+                    + $"{bars.Count.ToString("N0", CultureInfo.InvariantCulture)} drawn, "
+                    + $"{BrickChartSpeech.Window(state, firstBrick)} to "
+                    + $"{BrickChartSpeech.Window(state, lastBrick)}.");
+            }
+            else
+            {
+                parts.Add($"X axis, time: {length} bars in view of {bars.Count.ToString("N0", CultureInfo.InvariantCulture)} loaded, " +
+                          $"{BarDate(first.Date, state, timeframe)} to {BarDate(last.Date, state, timeframe)}.");
+            }
 
             // ── Y axis: the range, and the step between gridlines ─────────
             var (min, max) = state.ViewportRange;
@@ -113,6 +127,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsHeikinAshi) parts.Add("Heikin Ashi candles.");
             else if (state.ChartStyle == PriceChartStyle.Line) parts.Add("Line chart of closes.");
             else if (state.ChartStyle == PriceChartStyle.Area) parts.Add("Area chart of closes.");
+            else if (state.ChartStyle.IsBrickStyle()) parts.Add(BrickChartSpeech.ChangeSentence(state));
 
             // ── Is this chart LIVE? ──────────────────────────────────────────
             //
@@ -221,11 +236,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 parts.Add(scaleSentence);
 
             // ── X axis: shared by every pane, which is worth saying once ──
-            string step = string.IsNullOrWhiteSpace(timeframe)
-                ? "one bar"
-                : SpokenTimeframe(timeframe!);
-            parts.Add($"X axis, time: {BarDate(bars[start].Date, state, timeframe)} to " +
-                      $"{BarDate(bars[end].Date, state, timeframe)}, {length} bars at {step} each.");
+            if (state.ChartStyle.IsBrickStyle()
+                && BrickChartSpeech.TryGetBrick(state, start, out _, out var paneFirst)
+                && BrickChartSpeech.TryGetBrick(state, end, out _, out var paneLast))
+            {
+                parts.Add($"X axis, time: {BrickChartSpeech.Window(state, paneFirst)} to "
+                    + $"{BrickChartSpeech.Window(state, paneLast)}, {length} bricks.");
+            }
+            else
+            {
+                string step = string.IsNullOrWhiteSpace(timeframe)
+                    ? "one bar"
+                    : SpokenTimeframe(timeframe!);
+                parts.Add($"X axis, time: {BarDate(bars[start].Date, state, timeframe)} to " +
+                          $"{BarDate(bars[end].Date, state, timeframe)}, {length} bars at {step} each.");
+            }
 
             // ── What is in it ─────────────────────────────────────────────
             parts.Add($"{Count(pane.Series.Count, "series")}: " +

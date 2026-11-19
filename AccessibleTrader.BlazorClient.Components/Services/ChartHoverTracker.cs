@@ -326,8 +326,10 @@ namespace AccessibleTrader.BlazorClient.Services
             if (explore && index != _lastSpokenIndex)
             {
                 _lastSpokenIndex = index;
-                _speech?.Speak($"{PriceFormatter.FormatPrice(bar.Close)}, {FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state))}",
-                    interrupt: true);
+                string when = AccessibleTrader.Core.Services.Accessibility.BrickChartSpeech.TryGetBrick(state, index, out _, out var brickSpan)
+                    ? AccessibleTrader.Core.Services.Accessibility.BrickChartSpeech.Window(state, brickSpan)
+                    : FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state));
+                _speech?.Speak($"{PriceFormatter.FormatPrice(bar.Close)}, {when}", interrupt: true);
             }
         }
 
@@ -390,7 +392,9 @@ namespace AccessibleTrader.BlazorClient.Services
 
             Current = new ChartHoverInfo(
                 x, y, barX, i,
-                DateText: ChartMath.FormatCrosshairDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
+                DateText: AccessibleTrader.Core.Services.Accessibility.BrickChartSpeech.TryGetBrick(state, i, out _, out var hoverSpan)
+                    ? AccessibleTrader.Core.Services.Accessibility.BrickChartSpeech.Window(state, hoverSpan)
+                    : ChartMath.FormatCrosshairDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
                 PriceText: double.IsNaN(value) ? null : Core.Services.Rendering.ChartStatusLine.FormatReading(value),
                 PlotWidth: plotWidth,
                 PlotBottom: height * (1 - axisH));

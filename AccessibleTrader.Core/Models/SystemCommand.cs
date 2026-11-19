@@ -167,6 +167,10 @@ namespace AccessibleTrader.Core.Models
         ShowHeikinAshiChart,
         ShowLineChart,
         ShowAreaChart,
+        // Renko, plus the settings dialog every brick type will share. RENKO takes an optional
+        // box argument in the Go bar; the command itself means "the tab's settings".
+        ShowRenkoChart,
+        ShowBrickSettings,
         // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
         // these name a ruler outright so the Go bar can reach it without a new key.
         ShowRegularScale,

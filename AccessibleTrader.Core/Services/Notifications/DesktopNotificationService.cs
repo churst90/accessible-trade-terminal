@@ -219,6 +219,22 @@ namespace AccessibleTrader.Core.Services.Notifications
             if (_presence?.IsAppVisible ?? true) return;
             var state = _store.State;
             if (state.IsPlaying) return;
+
+            // A brick chart's news is the brick that completed, not a time bar's close/open.
+            if (state.ChartStyle.IsBrickStyle())
+            {
+                if (state.Data == null || state.Data.Count == 0) return;
+                int last = state.Data.Count - 1;
+                if (last >= state.BrickSpans.Length) return;
+                var brick = state.Data[last];
+                var span = state.BrickSpans[last];
+                Send(NewBarTitle(state),
+                    $"New {(span.Up ? "up" : "down")} brick, "
+                    + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
+                    + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.");
+                return;
+            }
+
             // The close as drawn — Heikin-Ashi on a Heikin-Ashi chart — as the live region says it.
             var (closed, opened) = AccessibilityFeedbackCoordinator.AsDrawn(state.Data,
                 AccessibilityFeedbackCoordinator.ClosedBarIndex(state.Data, e.ClosedBar),

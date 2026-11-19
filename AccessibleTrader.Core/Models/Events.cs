@@ -305,6 +305,8 @@ namespace AccessibleTrader.Core.Models
     public record OpenLoadWorkspaceEvent();
     public record OpenSaveIndicatorTemplateEvent();
     public record OpenApplyIndicatorTemplateEvent();
+    /// <summary>Opens the chart-type settings dialog (Renko's box, today).</summary>
+    public record OpenChartTypeSettingsEvent();
     public record OpenMyDataEvent();
     /// <summary>Alt+M — open the market-watch modal (watchlist management + screener).</summary>
     public record OpenWatchlistEvent();

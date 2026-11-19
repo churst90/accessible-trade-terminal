@@ -68,6 +68,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             var bar = BarAsDrawn(state, idx);
+            bool brickChart = BrickChartSpeech.TryGetBrick(state, idx, out var brick, out var brickSpan);
 
             // EVERYTHING AT THE BAR, IN ONE ANNOUNCEMENT. Cody, 2026-10-17: "alt shift d doesn't
             // seem to read the entire ladder either, it reads the current chart formation, the
@@ -122,11 +123,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (series != null && !focusedIsCandles && (!series.IsVisible || series.IsDrawing))
                 blocks.Add(Sentence(FocusedSeriesFact(series, idx, bar.Date)));
 
-            string formations = ChartFormationDetail(state, idx);
-            if (!string.IsNullOrEmpty(formations)) blocks.Add(formations);
+            // Formations and market events are read off the clock's bars; a brick has no
+            // candle series to find a formation in and no time-bar identity for an event.
+            if (!brickChart)
+            {
+                string formations = ChartFormationDetail(state, idx);
+                if (!string.IsNullOrEmpty(formations)) blocks.Add(formations);
 
-            string events = MarketEventDetail(state, idx, bar);
-            if (!string.IsNullOrEmpty(events)) blocks.Add(events);
+                string events = MarketEventDetail(state, idx, bar);
+                if (!string.IsNullOrEmpty(events)) blocks.Add(events);
+            }
 
             // Nothing shown and nothing focused: a bare date would sound like a broken key.
             if (!blocks.Any(b => b.Length > 0))
@@ -136,7 +142,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return;
             }
 
-            string detail = $"{SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state))}: "
+            string stamp = brickChart
+                ? BrickChartSpeech.Window(state, brickSpan)
+                : SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state));
+            string detail = $"{stamp}: "
                 + string.Join(" ", blocks.Where(b => b.Length > 0));
             detail = detail.TrimEnd();
 
@@ -296,6 +305,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string CandleFact(WorkspaceState state, Ohlcv bar, int index, bool includeVolume)
         {
             var sb = new StringBuilder();
+
+            // A brick has two edges and no body or wicks. Say the brick, never a candle shape.
+            if (BrickChartSpeech.TryGetBrick(state, index, out var brick, out var span))
+            {
+                sb.Append(BrickChartSpeech.BrickSummary(brick, span));
+                if (includeVolume)
+                    sb.Append($", volume {ChartStatusLine.FormatVolume(brick.Volume)}");
+                sb.Append('.');
+                return sb.ToString();
+            }
 
             // THE SAME CLASSIFIER THE LIVE ANNOUNCEMENT USES, over the same trailing window.
             //

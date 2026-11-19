@@ -174,7 +174,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double scaleBase = ChartMath.ScaleBase(state);
             var scaleMode = ChartMath.EffectiveScaleMode(state.ScaleMode, scaleBase, state.IsLogScale);
 
-            if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+            // A brick is not a candle: its edges are the whole drawing. The readout names the
+            // brick's direction and two edges, then its REAL window — no shape, pattern or wick.
+            Ohlcv brick = default;
+            BrickSpan brickSpan = default;
+            bool brickCandle = seriesId == "candles"
+                && BrickChartSpeech.TryGetBrick(state, state.CurrentDataIndex, out brick, out brickSpan);
+
+            if (brickCandle)
+            {
+                msg = BrickChartSpeech.BrickSummary(brick, brickSpan);
+            }
+            else if (summary && seriesId == "candles" && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
             {
                 // On Line and Area there is no candle on screen: no body, no wicks, no shape and
                 // no pattern to name. The reading describes the POINT ON THE LINE instead — the
@@ -331,7 +342,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 else if (state.TimestampReadLocation == "None") shouldSpeakTimestamp = false;
             }
 
-            string timestamp = shouldSpeakTimestamp ? NavigationTimestamp(state, pt.Date) + ". " : "";
+            if (brickCandle)
+            {
+                string when = shouldSpeakTimestamp
+                    ? " " + BrickChartSpeech.Window(state, brickSpan) + "."
+                    : "";
+                return prefixMessage + msg + "." + when;
+            }
+
+            string timestamp = shouldSpeakTimestamp
+                ? (BrickChartSpeech.TryGetBrick(state, state.CurrentDataIndex, out _, out var anyBrick)
+                    ? BrickChartSpeech.Window(state, anyBrick)
+                    : NavigationTimestamp(state, pt.Date)) + ". "
+                : "";
 
             return timestamp + prefixMessage + msg;
         }

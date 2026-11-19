@@ -3,6 +3,7 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Charts;
 
 namespace AccessibleTrader.Core.Services.Input
 {
@@ -29,6 +30,10 @@ namespace AccessibleTrader.Core.Services.Input
         /// focus event arrives asynchronously after the Go bar closes.
         /// </summary>
         void DispatchFromGoBar(SystemCommand command);
+
+        /// <summary>Chooses Renko with an explicit box (the Go bar's RENKO 500 / RENKO ATR 20).
+        /// The refusal is decided here, before any store action is dispatched.</summary>
+        void ShowRenko(RenkoSettings settings);
 
         void SetChartActive(bool active);
     }
@@ -184,6 +189,12 @@ namespace AccessibleTrader.Core.Services.Input
         public void Dispatch(SystemCommand command) => DispatchCore(command, fromGoBar: false);
 
         public void DispatchFromGoBar(SystemCommand command) => DispatchCore(command, fromGoBar: true);
+
+        public void ShowRenko(RenkoSettings settings)
+        {
+            if (RefuseChartTypeOnSingleLine()) return;
+            RenkoChoice.TryApply(_store, _eventBus, settings);
+        }
 
         private void DispatchCore(SystemCommand command, bool fromGoBar)
         {
@@ -792,6 +803,23 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowAreaChart:
                     ShowChartType(PriceChartStyle.Area, heikinAshi: false);
                     break;
+                case SystemCommand.ShowRenkoChart:
+                    // The bare command means the tab's own settings; RENKO 500 / RENKO ATR 20
+                    // arrive through ShowRenko with the argument parsed.
+                    ShowRenko(_store.State.Renko);
+                    break;
+                case SystemCommand.ShowBrickSettings:
+                    if (!_store.State.ChartStyle.IsBrickStyle())
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Error, BrickChartSpeech.SettingsOnlyOnRenko, true,
+                            Channel: SpeechChannel.Interface));
+                    }
+                    else
+                    {
+                        _eventBus.Publish(new OpenChartTypeSettingsEvent());
+                    }
+                    break;
                 case SystemCommand.ShowRegularScale:
                     ShowPriceScale(PriceScaleMode.Regular, log: false);
                     break;
@@ -1199,6 +1227,8 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowHeikinAshiChart:
                 case SystemCommand.ShowLineChart:
                 case SystemCommand.ShowAreaChart:
+                case SystemCommand.ShowRenkoChart:
+                case SystemCommand.ShowBrickSettings:
                 case SystemCommand.ShowRegularScale:
                 case SystemCommand.ShowPercentScale:
                 case SystemCommand.ShowIndexedScale:

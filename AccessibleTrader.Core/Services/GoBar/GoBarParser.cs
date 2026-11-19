@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.GoBar
 {
@@ -13,6 +15,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         Indicator,
         PriceAlert,
         Template,
+        Renko,
         GoTo,
         Find,
         Settings,
@@ -51,6 +54,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "ALERT" }, SystemCommand.OpenAlerts),
             new GoBarVerbSpec(GoBarVerb.Template,
                 new[] { "TPL", "TEMPLATE" }, SystemCommand.ApplyIndicatorTemplate),
+            new GoBarVerbSpec(GoBarVerb.Renko,
+                new[] { "RENKO", "BRICKS" }, SystemCommand.ShowRenkoChart),
             new GoBarVerbSpec(GoBarVerb.GoTo,
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
@@ -268,6 +273,45 @@ namespace AccessibleTrader.Core.Services.GoBar
         }
 
         /// <summary>
+        /// RENKO's argument: a positive box with optional thousands separators ("500", "1,000"),
+        /// or "ATR" (default 14) with an optional length 1..200 ("ATR 20"). Anything else is
+        /// refused with the one sentence the Go bar always uses for this command.
+        /// </summary>
+        public static bool TryParseRenko(string? text, out RenkoSettings settings)
+        {
+            settings = new RenkoSettings();
+            string typed = (text ?? "").Trim();
+            if (typed.Length == 0) return false;
+
+            var parts = typed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 1 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase))
+            {
+                settings = new RenkoSettings(RenkoBoxMode.Atr, 0, 14);
+                return true;
+            }
+
+            if (parts.Length == 2 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int length)
+                    || length < 1 || length > 200)
+                    return false;
+                settings = new RenkoSettings(RenkoBoxMode.Atr, 0, length);
+                return true;
+            }
+
+            if (parts.Length == 1
+                && double.TryParse(typed, NumberStyles.Number, CultureInfo.InvariantCulture, out double box)
+                && double.IsFinite(box) && box > 0)
+            {
+                settings = new RenkoSettings(RenkoBoxMode.Fixed, box, 14);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// A typed quantity or price: digits with at most one dot, positive and finite, parsed
         /// with the invariant culture. Commas, exponents, signs and words are refused — money
         /// is never interpreted generously.
@@ -306,6 +350,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                         return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,
                             Refusal: "A price must be more than zero, like ALERT 95000.");
                     return new GoBarParseResult(GoBarParseKind.Argument, verb, argument, Price: price);
+
+                case GoBarVerb.Renko:
+                    if (!TryParseRenko(argument, out _))
+                        return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,
+                            Refusal: BrickChartSpeech.BadArgument);
+                    return new GoBarParseResult(GoBarParseKind.Argument, verb, argument);
 
                 case GoBarVerb.GoTo:
                     if (TryParseDate(argument, out DateTime moment, out bool hasTime, out string? refusal))

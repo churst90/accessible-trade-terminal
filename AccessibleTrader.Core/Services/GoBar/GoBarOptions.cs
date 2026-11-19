@@ -1,5 +1,6 @@
 using AccessibleTrader.Core.Services.Settings;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.GoBar
 {
@@ -36,6 +37,9 @@ namespace AccessibleTrader.Core.Services.GoBar
 
     /// <summary>Apply a saved indicator template to the chart in front, replacing its indicators.</summary>
     public sealed record GoBarApplyTemplateAction(string Name) : GoBarAction;
+
+    /// <summary>Choose Renko with an explicit box; the dispatcher runs the refusal checks.</summary>
+    public sealed record GoBarRenkoAction(RenkoSettings Settings) : GoBarAction;
 
     /// <summary>Move the cursor to the last bar at or before a wall-clock moment.</summary>
     public sealed record GoBarDateAction(DateTime Wall, bool HasTime, string Display) : GoBarAction;

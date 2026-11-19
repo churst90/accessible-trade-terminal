@@ -59,8 +59,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             int barSeconds = BarSeconds(state);
             int count = state.Data!.Count - plan.StartIndex;
-            string from = DateText(state.Data[plan.StartIndex].Date, barSeconds);
-            return $"Playing {what} from {from}, {count} bar{(count == 1 ? "" : "s")}."
+            bool brick = BrickChartSpeech.TryGetBrick(state, plan.StartIndex, out _, out var firstBrick);
+            string from = brick
+                ? BrickChartSpeech.Window(state, firstBrick)
+                : DateText(state.Data[plan.StartIndex].Date, barSeconds);
+            return $"Playing {what} from {from}, {count} "
+                 + (brick ? $"brick{(count == 1 ? "" : "s")}" : $"bar{(count == 1 ? "" : "s")}")
+                 + "."
                  + SilentSignalsCaveat(state, plan);
         }
 
@@ -625,7 +630,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var data = state.Data;
             if (data == null || data.Count == 0) return "no bar";
             int idx = Math.Clamp(state.CurrentDataIndex, 0, data.Count - 1);
-            return DateText(data[idx].Date, BarSeconds(state));
+            return BrickChartSpeech.TryGetBrick(state, idx, out _, out var brick)
+                ? BrickChartSpeech.Window(state, brick)
+                : DateText(data[idx].Date, BarSeconds(state));
         }
     }
 }

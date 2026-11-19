@@ -421,6 +421,23 @@ namespace AccessibleTrader.Core.Services.GoBar
                 case GoBarVerb.Template:
                     return ResolveTemplate(parsed.Argument);
 
+                case GoBarVerb.Renko:
+                    if (!GoBarParser.TryParseRenko(parsed.Argument, out var renko))
+                        return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.BadArgument);
+                    string renkoName = renko.Mode == RenkoBoxMode.Fixed
+                        ? $"Renko chart, fixed box {SpeechPriceFormatter.FormatPrice(renko.BoxSize)}"
+                        : $"Renko chart, ATR {renko.AtrLength}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            renkoName,
+                            Action: new GoBarRenkoAction(renko),
+                            CanonicalText: parsed.Argument.StartsWith("ATR", StringComparison.OrdinalIgnoreCase)
+                                ? $"RENKO ATR {renko.AtrLength}"
+                                : $"RENKO {renko.BoxSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            Help: "Draw the price as Renko bricks with this box"),
+                    }, renkoName + ".");
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {
@@ -852,6 +869,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                         break;
                     case GoBarApplyTemplateAction template:
                         ExecuteTemplate(template);
+                        break;
+                    case GoBarRenkoAction renko:
+                        _dispatcher.ShowRenko(renko.Settings);
                         break;
                     case GoBarDateAction date:
                         ExecuteDate(date);

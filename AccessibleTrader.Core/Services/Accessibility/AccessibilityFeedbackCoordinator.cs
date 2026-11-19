@@ -346,7 +346,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsEarconsEnabled != _previousState.IsEarconsEnabled)
                 _speechRouter.Speak(state.IsEarconsEnabled ? "Earcons on" : "Earcons muted",
                     interrupt: true, channel: SpeechChannel.Critical);
-            if (state.IsHeikinAshi != _previousState.IsHeikinAshi || state.ChartStyle != _previousState.ChartStyle)
+            bool renkoSettingsChanged = state.ChartStyle.IsBrickStyle()
+                && _previousState.ChartStyle.IsBrickStyle()
+                && (state.Renko != _previousState.Renko || state.BrickBoxSize != _previousState.BrickBoxSize);
+            if (state.IsHeikinAshi != _previousState.IsHeikinAshi
+                || state.ChartStyle != _previousState.ChartStyle
+                || renkoSettingsChanged)
             {
                 // One sentence, on the Interface channel (this is a chart-type choice, not a
                 // reading). Heikin-Ashi going ON is still the whole existing warning when the
@@ -382,6 +387,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         PriceChartStyle.Line => "Line chart.",
                         PriceChartStyle.Area => "Area chart.",
+                        PriceChartStyle.Renko => BrickChartSpeech.ChangeSentence(state),
                         _ => "Candle chart.",
                     };
                 }
@@ -607,8 +613,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 int startIdx = Math.Clamp(state.ViewportStartIndex, 0, state.Data.Count - 1);
                 int endIdx   = Math.Clamp(state.ViewportStartIndex + state.ViewportLength - 1, 0, state.Data.Count - 1);
+                DateTime rangeStart = BrickChartSpeech.TryGetBrick(state, startIdx, out _, out var firstSpan)
+                    ? firstSpan.Start : state.Data[startIdx].Date;
+                DateTime rangeEnd = BrickChartSpeech.TryGetBrick(state, endIdx, out _, out var lastSpan)
+                    ? lastSpan.End : state.Data[endIdx].Date;
                 string msg   = _formatter.FormatViewportDescription(state.ViewportLength,
-                    state.Data[startIdx].Date, state.Data[endIdx].Date, PlaybackNarration.BarSeconds(state));
+                    rangeStart, rangeEnd, PlaybackNarration.BarSeconds(state));
                 _speechRouter.Speak(msg, true);
             }
 
@@ -684,6 +694,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
+
+            // A brick chart announces the brick that was appended, not a time bar's open.
+            // Nothing is said when a feed bar closes without completing a brick: the store
+            // publishes no bar event for that at all on a brick chart (the brick count did
+            // not move), and the intra-bar candle commentary is suppressed below.
+            if (state.ChartStyle.IsBrickStyle())
+            {
+                if (state.Data == null || state.Data.Count == 0) return;
+                int last = state.Data.Count - 1;
+                var brick = state.Data[last];
+                var span = last < state.BrickSpans.Length ? state.BrickSpans[last] : default;
+                if (last >= state.BrickSpans.Length) return;
+
+                _earconService.PlayNewBar();
+                _speechRouter.Speak(
+                    $"New {(span.Up ? "up" : "down")} brick, "
+                    + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
+                    + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.",
+                    interrupt: false, channel: SpeechChannel.Narration);
+                return;
+            }
 
             // WHICH BAR JUST CLOSED. The store commits the state and THEN publishes this event,
             // so by the time it arrives `Data[^1]` is the bar that just OPENED and the closed
@@ -798,6 +829,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
             if (state.IsPlaying) return;
+
+            // The forming-bar commentary is about candle anatomy; a brick has none.
+            if (state.ChartStyle.IsBrickStyle()) return;
 
             // ── ABILITY vs OCCASION (Cody, 2026-09-11) ────────────────────────────────
             //

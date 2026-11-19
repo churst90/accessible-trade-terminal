@@ -2,6 +2,7 @@
 @using AccessibleTrader.Core.Services
 @using AccessibleTrader.Core.Services.Accessibility
 @using AccessibleTrader.Core.Services.Analysis
+@using AccessibleTrader.Core.Services.Charts
 @using AccessibleTrader.Core.Services.Rendering
 @using Microsoft.Extensions.DependencyInjection
 @using AccessibleTrader.Sdk.Enums
@@ -232,8 +233,8 @@
                                   IsToggleOn="@(IsHeatmapVisible == "true")"
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
-                @* Chart type: Candles, Heikin Ashi, Line, Area — one choice, like TradingView.
-                   The HA button beside it stays the Alt+C toggle. *@
+                @* Chart type: Candles, Heikin Ashi, Line, Area, Renko — one choice, like
+                   TradingView. The HA button beside it stays the Alt+C toggle. *@
                 <label for="chart-type-select" class="visually-hidden">Chart type</label>
                 <select id="chart-type-select"
                         aria-label="Chart type"
@@ -243,7 +244,15 @@
                     <option value="heikin" selected="@(ChartTypeValue == "heikin")">Heikin Ashi</option>
                     <option value="line" selected="@(ChartTypeValue == "line")">Line</option>
                     <option value="area" selected="@(ChartTypeValue == "area")">Area</option>
+                    <option value="renko" selected="@(ChartTypeValue == "renko")">Renko</option>
                 </select>
+                @if (Store.State.ChartStyle.IsBrickStyle())
+                {
+                    <ToolbarIconButton Icon="settings" Label="Brick settings" Variant="data"
+                                      ElementId="brick-settings-button"
+                                      Tooltip="Change the Renko box: ATR length or a fixed size"
+                                      OnClick="() => EventBus.Publish(new OpenChartTypeSettingsEvent())" />
+                }
                 <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
                                   IsToggleOn="@(Store.State.IsHeikinAshi)"
                                   Tooltip="Toggle Heikin Ashi candles, Alt plus C"
@@ -879,17 +888,32 @@
 
     /// <summary>The select's current option: the pair of style + Heikin-Ashi as one value.</summary>
     private string ChartTypeValue =>
-        Store.State.IsHeikinAshi ? "heikin"
+        _chartTypeEcho ?? (Store.State.IsHeikinAshi ? "heikin"
         : Store.State.ChartStyle switch
         {
             PriceChartStyle.Line => "line",
             PriceChartStyle.Area => "area",
+            PriceChartStyle.Renko => "renko",
             _ => "candles",
-        };
+        });
 
-    private void OnChartTypeChanged(ChangeEventArgs e)
+    /// <summary>The entry the user just picked, held for ONE render when a Renko choice is
+    /// refused — the same write-back problem the price-scale select has (946ffb1a).</summary>
+    private string? _chartTypeEcho;
+
+    private async Task OnChartTypeChanged(ChangeEventArgs e)
     {
-        var (style, heikinAshi) = e.Value?.ToString() switch
+        string value = e.Value?.ToString() ?? "candles";
+        if (value == "renko")
+        {
+            // The tab's own settings (ATR 14 by default). A refusal leaves the state on its
+            // old style, so the select must be rendered back to the real entry.
+            if (!RenkoChoice.TryApply(Store, EventBus, Store.State.Renko))
+                await ShowTheRealChartType("renko");
+            return;
+        }
+
+        var (style, heikinAshi) = value switch
         {
             "line" => (PriceChartStyle.Line, false),
             "area" => (PriceChartStyle.Area, false),
@@ -897,6 +921,15 @@
             _ => (PriceChartStyle.Candles, false),
         };
         Store.Dispatch(new SetChartStyleAction(style, heikinAshi));
+    }
+
+    private async Task ShowTheRealChartType(string picked)
+    {
+        _chartTypeEcho = picked;
+        StateHasChanged();
+        await Task.Yield();
+        _chartTypeEcho = null;
+        StateHasChanged();
     }
 
     /// <summary>The price-scale select's current entry: Logarithmic while the log flag is on,

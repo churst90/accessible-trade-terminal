@@ -116,7 +116,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // ── Coordinate Entry mode: always speak price + timestamp regardless of other settings ──
             if (state.IsCoordinateEntryMode)
             {
-                string ts = SpeechTimeFormatter.FormatBarClock(pt.Date, PlaybackNarration.BarSeconds(state));
+                string ts = BrickChartSpeech.TryGetBrick(state, state.CurrentDataIndex, out _, out var ceBrick)
+                    ? BrickChartSpeech.Window(state, ceBrick)
+                    : SpeechTimeFormatter.FormatBarClock(pt.Date, PlaybackNarration.BarSeconds(state));
                 string ceMsg = $"{SpeechPriceFormatter.FormatPrice(pt.Close)}, {ts}";
 
                 // When anchor 1 is already confirmed, also speak the change from that anchor.

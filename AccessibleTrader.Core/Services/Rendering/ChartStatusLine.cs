@@ -383,7 +383,27 @@ namespace AccessibleTrader.Core.Services.Rendering
             bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles)
         {
             var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
-            string title = string.Join(" · ", new[] { id.Symbol, id.Timeframe, id.Provider }.Where(p => !string.IsNullOrWhiteSpace(p)));
+            bool brickChart = chartStyle.IsBrickStyle();
+            // A brick has no duration, so its symbol line must not print the tab's timeframe
+            // beside it (a 1h tab's brick may have taken ten minutes or two days).
+            string title = string.Join(" · ", new[] { id.Symbol, brickChart ? null : id.Timeframe, id.Provider }
+                .Where(p => !string.IsNullOrWhiteSpace(p)));
+
+            // A brick has two edges and no wicks. The symbol line names the direction and the
+            // two prices, in the candle's own colours.
+            if (brickChart)
+            {
+                var (brickBull, brickBear) = StandardRenderers.ApplyColorVision(
+                    theme, theme.CandleBullishBody, theme.CandleBearishBody);
+                bool up = bar.Close >= bar.Open;
+                var brickValues = new List<StatusValue>
+                {
+                    Value(up ? "Up brick" : "Down brick",
+                        $"{FormatReading(bar.Open)} → {FormatReading(bar.Close)}",
+                        up ? brickBull : brickBear, theme, backing),
+                };
+                return new StatusLine(StatusLineKind.Symbol, title, "", brickValues);
+            }
 
             // On a line or area chart there is no open, high or low on screen — just the close —
             // so the line prints C alone, in the ink the close line is drawn in.
