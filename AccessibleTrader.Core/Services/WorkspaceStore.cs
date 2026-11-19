@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using AccessibleTrader.Sdk.Models;
@@ -351,8 +352,8 @@ namespace AccessibleTrader.Core.Services
                 // routing list — they fell through to "unhandled" and the
                 // shortcuts silently did nothing (found live 2026-07-23).
                 or ToggleEventSpeechAction or ToggleEarconsAction
-                or ToggleHeikinAshiAction or SetChartStyleAction or ToggleLogScaleAction
-                or SetPriceScaleAction
+                or ToggleHeikinAshiAction or SetChartStyleAction or SetRenkoSettingsAction
+                or ToggleLogScaleAction or SetPriceScaleAction
                 => PlaybackReducer.Reduce(state, action),
 
             // ── Tabs + pane layout ───────────────────────────────────────────
@@ -388,6 +389,11 @@ namespace AccessibleTrader.Core.Services
             {
                 Identity = a.Identity,
                 Data = new TimeSeriesBuffer<Ohlcv>(),
+                // The real bars belong to the identity that loaded them, exactly as Data does.
+                // The frozen box is re-resolved on the first load of the new symbol/timeframe.
+                TimeBars = null,
+                BrickSpans = ImmutableArray<BrickSpan>.Empty,
+                BrickBoxSize = 0,
                 CurrentDataIndex = 0,
                 ViewportStartIndex = 0,
             },

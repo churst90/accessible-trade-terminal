@@ -24,6 +24,13 @@ namespace AccessibleTrader.Core.Models
         /// <see cref="IsLogScale"/>.</summary>
         public PriceScaleMode ScaleMode { get; set; } = PriceScaleMode.Regular;
         public bool IsLogScale { get; set; }
+        /// <summary>The tab's Renko box settings. Defaults (ATR 14) for every file saved before
+        /// this field existed.</summary>
+        public RenkoSettings Renko { get; set; } = new();
+        /// <summary>The box the tab's bricks were actually drawn at, saved so a restore redraws
+        /// the same bricks instead of resolving a new ATR box. Zero for an old file or when the
+        /// choice is made before the first data arrives; the first load then resolves it.</summary>
+        public double BrickBoxSize { get; set; }
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();
 

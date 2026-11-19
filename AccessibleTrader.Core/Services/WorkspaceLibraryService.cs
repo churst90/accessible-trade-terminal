@@ -289,11 +289,13 @@ namespace AccessibleTrader.Core.Services
                 ChartStyle = state.ChartStyle,
                 ScaleMode = state.ScaleMode,
                 IsLogScale = state.IsLogScale,
+                Renko = state.Renko,
+                BrickBoxSize = state.BrickBoxSize,
                 Series = state.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
                     ? new Dictionary<string, float>(state.PaneHeightRatios)
                     : new(),
-                EarliestBarDate = EarliestBarDate(state.Data, state.RestoredLoad, state.Identity)
+                EarliestBarDate = EarliestBarDate(state.MarketBars, state.RestoredLoad, state.Identity)
             };
         }
 
@@ -311,6 +313,8 @@ namespace AccessibleTrader.Core.Services
                 ChartStyle = snap.ChartStyle,
                 ScaleMode = snap.ScaleMode,
                 IsLogScale = snap.IsLogScale,
+                Renko = snap.Renko,
+                BrickBoxSize = snap.BrickBoxSize,
                 Series = snap.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = snap.PaneHeightRatios != null
                     ? new Dictionary<string, float>(snap.PaneHeightRatios)

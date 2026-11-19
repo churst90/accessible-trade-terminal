@@ -668,8 +668,11 @@ namespace AccessibleTrader.Core.Services
             }
 
             // Restore display toggles. The chart type is the pair the user chose — Candles,
-            // Heikin Ashi, Line or Area — so it goes back in one action; a file saved before
-            // ChartStyle existed reads as Candles, which is what it was showing.
+            // Heikin Ashi, Line, Area or Renko — so it goes back in one action; a file saved
+            // before ChartStyle existed reads as Candles, which is what it was showing. Renko's
+            // per-tab box settings ride beside it, before the style so the first build uses them.
+            if (tab.Renko != _store.State.Renko || tab.BrickBoxSize != _store.State.BrickBoxSize)
+                _store.Dispatch(new SetRenkoSettingsAction(tab.Renko, tab.BrickBoxSize));
             if (tab.ChartStyle != _store.State.ChartStyle || tab.IsHeikinAshi != _store.State.IsHeikinAshi)
                 _store.Dispatch(new SetChartStyleAction(tab.ChartStyle, tab.IsHeikinAshi));
             // Scale mode and the log flag are one choice, restored in one action. A file saved

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -53,6 +54,70 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             bool initial,
             IViewportNavigationService navService)
         {
+            if (state.ChartStyle.IsBrickStyle())
+                return UpdateBrickData(state, list, initial, navService);
+
+            return UpdateDataCore(state, state.Data, list, initial, navService);
+        }
+
+        /// <summary>
+        /// A feed update on a brick chart. The incoming list is the REAL time bars; the box is
+        /// frozen (re-resolved only on the first load of a symbol/timeframe while Renko) and
+        /// the bricks are rebuilt. Everything downstream — cursor, viewport, indicator arrays —
+        /// then runs on the bricks, which are what the chart draws.
+        /// </summary>
+        private static WorkspaceState UpdateBrickData(
+            WorkspaceState state,
+            TimeSeriesBuffer<Ohlcv> timeBars,
+            bool initial,
+            IViewportNavigationService navService)
+        {
+            double box = state.BrickBoxSize;
+            bool haveBox = box > 0 && !double.IsNaN(box) && !double.IsInfinity(box);
+
+            // A frozen box (chosen here, restored from a tab, or saved with the workspace) is
+            // never re-resolved on a load; a new symbol/timeframe clears it in SetIdentityAction
+            // and a settings change resolves it in PlaybackReducer, so a missing box is the only
+            // case that needs the ATR here.
+            if (!haveBox)
+            {
+                if (!BrickChartBuilder.TryResolveBox(timeBars, state.Renko, out box, out _))
+                {
+                    var empty = state with
+                    {
+                        TimeBars = timeBars,
+                        Data = TimeSeriesBuffer<Ohlcv>.Empty,
+                        BrickSpans = ImmutableArray<BrickSpan>.Empty,
+                        BrickBoxSize = 0,
+                        CurrentDataIndex = 0,
+                        ViewportStartIndex = 0,
+                        DataStatus = DataStatus.Ready,
+                    };
+                    return navService.ClampViewportToData(empty);
+                }
+            }
+
+            var built = BrickChartBuilder.Build(
+                timeBars, box, BrickChartBuilder.BarLength(state.Identity, timeBars));
+
+            var withBricks = state with
+            {
+                TimeBars = timeBars,
+                Data = built.Ok ? built.Bricks : TimeSeriesBuffer<Ohlcv>.Empty,
+                BrickSpans = built.Ok ? built.Spans : ImmutableArray<BrickSpan>.Empty,
+                BrickBoxSize = box,
+            };
+
+            return UpdateDataCore(withBricks, state.Data, withBricks.Data, initial, navService);
+        }
+
+        private static WorkspaceState UpdateDataCore(
+            WorkspaceState state,
+            TimeSeriesBuffer<Ohlcv> previousData,
+            TimeSeriesBuffer<Ohlcv> list,
+            bool initial,
+            IViewportNavigationService navService)
+        {
             int newIdx = state.CurrentDataIndex;
             int newStart = state.ViewportStartIndex;
 
@@ -65,13 +130,13 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 newIdx   = list.Count - 1;
                 newStart = Math.Max(0, list.Count - effectiveWindow);
             }
-            else if (list.Count > state.Data.Count
-                     && state.Data.Count > 0
-                     && list[0].Date < state.Data[0].Date)
+            else if (list.Count > previousData.Count
+                     && previousData.Count > 0
+                     && list[0].Date < previousData[0].Date)
             {
                 // PREPEND DETECTION: older bars were added to the front.
                 // Offset cursor and viewport start so the user stays on the same bar.
-                int prependedCount = list.Count - state.Data.Count;
+                int prependedCount = list.Count - previousData.Count;
                 newIdx   = Math.Clamp(state.CurrentDataIndex   + prependedCount, 0, list.Count - 1);
                 newStart = Math.Clamp(state.ViewportStartIndex + prependedCount, 0, Math.Max(0, list.Count - effectiveWindow));
             }
@@ -82,8 +147,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 // command should do that. Advance the viewport only if it was already
                 // showing the live edge (so live watchers keep up), never otherwise.
                 int prevLastVisible     = state.ViewportStartIndex + effectiveWindow - 1;
-                bool viewportWasAtLive  = prevLastVisible >= state.Data.Count - 1;
-                bool isAppend           = list.Count > state.Data.Count;
+                bool viewportWasAtLive  = prevLastVisible >= previousData.Count - 1;
+                bool isAppend           = list.Count > previousData.Count;
 
                 if (viewportWasAtLive && isAppend)
                     newStart = Math.Max(0, list.Count - effectiveWindow);

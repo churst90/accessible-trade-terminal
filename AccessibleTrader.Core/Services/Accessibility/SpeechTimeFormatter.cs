@@ -46,6 +46,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>Date with a year, for viewport and layout descriptions.</summary>
         public const string LongDateFormat = "MMMM d yyyy";
 
+        /// <summary>Short date and clock, for a brick's real time window: "18 Nov 14:00".</summary>
+        public const string BrickDateTimeFormat = "d MMM HH:mm";
+
         /// <summary>
         /// Intraday times are read in UTC rather than this computer's zone (Settings, F12, Speech).
         /// Default off. Cody 2026-11-01: <i>"can I have the option in f12 settings on settings the
@@ -183,6 +186,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// which is not a range at all. The date is spoken once when both ends fall on it.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The REAL window a brick formed in: "18 Nov 14:00 to 18 Nov 17:00". Bricks have no
+        /// fixed spacing, so both ends are named in full; the F12 UTC / 12-hour settings apply
+        /// exactly as they do to every other bar stamp.
+        /// </summary>
+        public static string FormatBrickRange(DateTime start, DateTime end, int barSeconds)
+            => $"{FormatBar(start, barSeconds, BrickDateTimeFormat)} to "
+             + $"{FormatBar(end, barSeconds, BrickDateTimeFormat)}";
+
         public static string FormatBarRange(DateTime start, DateTime end, int barSeconds)
         {
             if (barSeconds >= SecondsPerDay)

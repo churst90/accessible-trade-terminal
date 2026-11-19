@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Workspace.Reducers
@@ -44,7 +45,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         private static TabSnapshot SnapshotFromState(WorkspaceState s) => new TabSnapshot(
             TabIndex: s.ActiveTabIndex,
             Identity: s.Identity,
-            Data: s.Data,
+            // A snapshot always carries the REAL time bars, whatever is drawn. A Renko tab's
+            // bricks are rebuilt from these on restore with its frozen box, so the snapshot is
+            // also what a feed or a paper broker can safely read.
+            Data: s.MarketBars,
             ActiveSeries: s.ActiveSeries,
             FocusedSeriesIndex: s.FocusedSeriesIndex,
             FocusedSeriesId: s.FocusedSeriesId,
@@ -71,13 +75,26 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             SymbolDisplayName: s.SymbolDisplayName,
             RestoredLoad: s.RestoredLoad
         )
-        { ChartStyle = s.ChartStyle, ScaleMode = s.ScaleMode };
-
-        /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.</summary>
-        private static WorkspaceState RestoreSnapshot(WorkspaceState state, TabSnapshot snap) => state with
         {
+            ChartStyle = s.ChartStyle,
+            ScaleMode = s.ScaleMode,
+            Renko = s.Renko,
+            BrickBoxSize = s.BrickBoxSize,
+        };
+
+        /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.
+        /// A brick tab's snapshot holds time bars, so the bricks are rebuilt here with the
+        /// box the tab froze before the switch.</summary>
+        private static WorkspaceState RestoreSnapshot(WorkspaceState state, TabSnapshot snap)
+        {
+            var restored = state with
+            {
             Identity = snap.Identity,
             Data = snap.Data,
+            TimeBars = null,
+            BrickSpans = ImmutableArray<BrickSpan>.Empty,
+            BrickBoxSize = snap.BrickBoxSize,
+            Renko = snap.Renko,
             ActiveSeries = snap.ActiveSeries,
             FocusedSeriesIndex = snap.FocusedSeriesIndex,
             FocusedSeriesId = snap.FocusedSeriesId,
@@ -105,7 +122,43 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             RestoredLoad = snap.RestoredLoad,
             ChartStyle = snap.ChartStyle,
             ScaleMode = snap.ScaleMode
-        };
+            };
+
+            if (!snap.ChartStyle.IsBrickStyle())
+                return restored;
+
+            double box = snap.BrickBoxSize;
+            if (!(box > 0)
+                && !BrickChartBuilder.TryResolveBox(snap.Data, snap.Renko, out box, out _))
+                box = 0;
+
+            if (box > 0)
+            {
+                var built = BrickChartBuilder.Build(
+                    snap.Data, box, BrickChartBuilder.BarLength(snap.Identity, snap.Data));
+                if (built.Ok)
+                {
+                    return restored with
+                    {
+                        ChartStyle = PriceChartStyle.Renko,
+                        IsHeikinAshi = false,
+                        TimeBars = snap.Data,
+                        Data = built.Bricks,
+                        BrickSpans = built.Spans,
+                        BrickBoxSize = box,
+                    };
+                }
+            }
+
+            // The frozen box could not rebuild these bars (a saved snapshot from another app
+            // version, say). Show the real bars as candles rather than time bars dressed as
+            // bricks; a later RENKO choice resolves a fresh box.
+            return restored with
+            {
+                ChartStyle = PriceChartStyle.Candles,
+                IsHeikinAshi = snap.IsHeikinAshi,
+            };
+        }
 
         private static WorkspaceState AddTab(WorkspaceState state)
         {

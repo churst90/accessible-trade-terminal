@@ -21,7 +21,44 @@ namespace AccessibleTrader.Sdk.Models
     /// this back to <see cref="Candles"/>.
     /// </para>
     /// </summary>
-    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2 }
+    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3 }
+
+    /// <summary>
+    /// True for the chart types drawn from BOUNDARIES of price movement rather than from the
+    /// clock: Renko today, and the range / line-break / Kagi / Point &amp; Figure types when
+    /// they arrive. Those charts drop time from the index axis, so every index-based consumer
+    /// runs on the drawn bricks, while every money and feed path keeps the real time bars
+    /// (<see cref="WorkspaceState.MarketBars"/>).
+    /// </summary>
+    public static class PriceChartStyleExtensions
+    {
+        public static bool IsBrickStyle(this PriceChartStyle style) => style == PriceChartStyle.Renko;
+    }
+
+    /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.</summary>
+    public enum RenkoBoxMode { Atr = 0, Fixed = 1 }
+
+    /// <summary>
+    /// Per-tab Renko box settings. <see cref="BoxSize"/> is used only in
+    /// <see cref="RenkoBoxMode.Fixed"/> mode. Saved wherever the chart style is; a file saved
+    /// before this record existed reads as the defaults (ATR 14).
+    /// </summary>
+    public sealed record RenkoSettings(
+        RenkoBoxMode Mode = RenkoBoxMode.Atr,
+        double BoxSize = 0,
+        int AtrLength = 14);
+
+    /// <summary>
+    /// The real time window a brick formed in. <see cref="FirstBar"/> and
+    /// <see cref="LastBar"/> are indexes into <see cref="WorkspaceState.TimeBars"/>; several
+    /// bricks may share a completion bar, and therefore a <see cref="End"/>.
+    /// </summary>
+    public readonly record struct BrickSpan(
+        DateTime Start,
+        DateTime End,
+        int FirstBar,
+        int LastBar,
+        bool Up);
 
     /// <summary>
     /// What the price pane's Y axis is MEASURED in: raw prices (Regular), percentage change from
@@ -125,6 +162,14 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>The tab's price-scale mode. Regular for every snapshot made before the
         /// field existed and for a newly opened tab.</summary>
         public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
+
+        /// <summary>The tab's Renko settings. Defaults for every snapshot made before the
+        /// field existed and for a newly opened tab.</summary>
+        public RenkoSettings Renko { get; init; } = new();
+
+        /// <summary>The box a Renko tab froze when it was chosen, so switching tabs rebuilds
+        /// the same bricks without recomputing the ATR. Zero when the tab never resolved one.</summary>
+        public double BrickBoxSize { get; init; }
     }
 
     /// <summary>
@@ -433,6 +478,31 @@ namespace AccessibleTrader.Sdk.Models
         /// goes; the log flag is the fourth menu entry, held beside it.
         /// </summary>
         public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
+
+        /// <summary>
+        /// The real time bars behind the drawn bars. Null on every non-brick chart, and also
+        /// while a brick chart has no data yet. On a brick chart <see cref="Data"/> holds the
+        /// bricks and this holds the feed's own bars.
+        /// </summary>
+        public TimeSeriesBuffer<Ohlcv>? TimeBars { get; init; }
+
+        /// <summary>One per brick in <see cref="Data"/>; empty when this is not a brick chart.</summary>
+        public ImmutableArray<BrickSpan> BrickSpans { get; init; } = ImmutableArray<BrickSpan>.Empty;
+
+        /// <summary>The box actually in use on a brick chart. The ATR value is FROZEN here when
+        /// the chart is chosen, the symbol/timeframe first loads, or the settings change — never
+        /// per tick and never on a history prepend.</summary>
+        public double BrickBoxSize { get; init; }
+
+        /// <summary>The tab's Renko settings, used when the chart type is Renko.</summary>
+        public RenkoSettings Renko { get; init; } = new();
+
+        /// <summary>
+        /// The REAL time bars, whatever is drawn. Anything that trades, prices an order, saves
+        /// a tab or catches up a feed reads this, never <see cref="Data"/>: a brick's close is a
+        /// box edge, not the market price.
+        /// </summary>
+        public TimeSeriesBuffer<Ohlcv> MarketBars => TimeBars ?? Data;
     }
 
     public abstract record WorkspaceAction;
@@ -528,6 +598,14 @@ namespace AccessibleTrader.Sdk.Models
     /// choosing it in the select restores Candles+HA on a tab that was showing Line.
     /// </summary>
     public record SetChartStyleAction(PriceChartStyle Style, bool HeikinAshi) : WorkspaceAction;
+
+    /// <summary>
+    /// Changes the tab's Renko settings. When the chart is already Renko the reducer refreezes
+    /// the box from <see cref="WorkspaceState.TimeBars"/> and rebuilds the bricks. The command
+    /// or dialog has already run the refusal checks. A restore carries the saved frozen box
+    /// so the same bricks return instead of a fresh ATR box.
+    /// </summary>
+    public record SetRenkoSettingsAction(RenkoSettings Settings, double BrickBoxSize = 0) : WorkspaceAction;
 
     /// <summary>
     /// The one user-facing price-scale choice: Regular, Logarithmic, Percent or Indexed to 100.
