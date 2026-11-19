@@ -851,6 +851,27 @@ public class GoBarArgumentTests
     }
 
     /// <summary>
+    /// A hammer that is also the last bar of a multi-bar pattern is read with the pattern's
+    /// name first, but it is still a hammer: FIND hammer must stop on it (review fix).
+    /// </summary>
+    [Fact]
+    public void FindCandleStopsOnAShapeInsideAMultiBarPattern()
+    {
+        var candles = Substitute.For<ISdkCandlePatternAnalyzer>();
+        candles.Analyze(default, default, default, default).ReturnsForAnyArgs(
+            Hammer() with { Pattern = AccessibleTrader.Sdk.Analysis.CandlePattern.MorningStar, PatternBarCount = 3 });
+        var data = Daily(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 3);
+        Use(State(data, timeframe: "1d", cursor: 0));
+        var service = Build(candles: candles);
+
+        service.Run(service.Suggest("FIND hammer").Options
+            .Single(o => o.Name == "Find the next Hammer"));
+
+        var nav = Assert.Single(_store.DispatchedActions.OfType<NavigateAction>());
+        Assert.Equal(1, nav.NewIndex);
+    }
+
+    /// <summary>
     /// FIND must use the flag the arrow keys use. The fake analyzer only names a hammer when
     /// handed the Heikin-Ashi close, so a fresh analyzer with the raw flag would find nothing.
     /// </summary>
@@ -1044,5 +1065,88 @@ public class GoBarArgumentTests
         await orch.LoadOnActiveTabAsync("Kraken", null, null, null, null);
 
         await data.Received(1).LoadSymbolsAsync(Arg.Any<string>(), "Kraken");
+    }
+
+    // ── A verb word inside a command's own name (review fix) ──────────────
+
+    private static IndicatorMetadata Named(string code, string name) => new()
+    {
+        Code = code,
+        Name = name,
+        Category = "Oscillators",
+        Parameters = new List<IndicatorParameterMetadata>(),
+    };
+
+    /// <summary>
+    /// "add tab", "Change the timeframe", "focus the chart" and "alert manager" each hold a verb
+    /// word (ADD, TIMEFRAME, CHART, ALERT). Every 6a name, code and alias must still put its own
+    /// command first, exactly as the 6a matcher alone ranks it (money aliases are left out: the
+    /// matcher refuses them by design). The resolvers are given symbols and indicators that DO
+    /// match the leftover words, so the argument options are really there to compete.
+    /// </summary>
+    [Fact]
+    public void EveryCommandsOwnWordsStillPutThatCommandFirst()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10)));
+        _orchestrator.AvailableSymbols = new[] { "FOCUSUSDT", "LOADUSDT", "SPEECHUSDT", "PLAYUSDT" };
+        _orchestrator.AvailableProviders = new[] { "Change The Exchange" };
+        var service = Build(
+            indicators: Indicators(Named("TabInd", "Tab Indicator"), Named("IndInd", "Indicator Index")),
+            demo: new DemoPolicy(isDemo: false));
+
+        var wrong = new List<string>();
+        foreach (var entry in GoBarRegistry.All)
+        {
+            var words = new[] { entry.Name }.Concat(entry.Codes);
+            if (entry.Kind != GoBarKind.Money) words = words.Concat(entry.Aliases);
+
+            foreach (var text in words)
+            {
+                var expected = GoBarMatcher.Match(text, GoBarRegistry.All).FirstOrDefault()?.Entry;
+                var top = service.Suggest(text).Options.FirstOrDefault();
+                if (expected != null && top?.Entry?.Command != expected.Command)
+                    wrong.Add($"\"{text}\" -> {top?.Name ?? "nothing"} (wanted {expected.Name})");
+            }
+        }
+
+        Assert.True(wrong.Count == 0, string.Join("\n", wrong));
+    }
+
+    [Fact]
+    public void AnExactCommandLeadsAndTheArgumentOptionsStillFollow()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10)));
+        var service = Build(indicators: Indicators(Named("TabInd", "Tab Indicator")),
+            demo: new DemoPolicy(isDemo: false));
+
+        var options = service.Suggest("add tab").Options;
+
+        Assert.Equal(SystemCommand.AddTab, options[0].Entry?.Command);
+        Assert.Contains(options, o => o.Action is GoBarIndicatorAction { Code: "TabInd" });
+    }
+
+    [Fact]
+    public void AnArgumentLeadsWhileTypingAndTheCommandIsStillListed()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10)));
+        var service = Build(indicators: Indicators(Named("TabInd", "Tab Indicator")),
+            demo: new DemoPolicy(isDemo: false));
+
+        var options = service.Suggest("add ta").Options;
+
+        Assert.True(options[0].Action is GoBarIndicatorAction { Code: "TabInd" },
+            $"top was {options[0].Name}");
+        Assert.Contains(options, o => o.Entry?.Command == SystemCommand.AddTab);
+    }
+
+    [Fact]
+    public void ARefusedArgumentGivesWayToAMatchingCommand()
+    {
+        var service = Build();
+
+        var suggestion = service.Suggest("alert manager");
+
+        Assert.Equal(SystemCommand.OpenAlerts, suggestion.Options[0].Entry?.Command);
+        Assert.DoesNotContain("price", suggestion.Sentence, StringComparison.OrdinalIgnoreCase);
     }
 }

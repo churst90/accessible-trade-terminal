@@ -98,14 +98,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 return new GoBarSuggestion(Array.Empty<GoBarOption>(), string.Empty);
 
             var parsed = GoBarParser.Parse(typed);
-            if (parsed.Kind == GoBarParseKind.Invalid)
-            {
-                return new GoBarSuggestion(Array.Empty<GoBarOption>(),
-                    parsed.Refusal ?? $"Nothing matches {typed}.");
-            }
-
-            if (parsed.Kind == GoBarParseKind.Argument)
-                return ResolveArgument(parsed);
+            if (parsed.Kind is GoBarParseKind.Invalid or GoBarParseKind.Argument)
+                return MergeWithCommands(typed, parsed);
 
             if (parsed.Kind == GoBarParseKind.BareVerb)
                 return ResolveBareVerb(parsed);
@@ -129,6 +123,38 @@ namespace AccessibleTrader.Core.Services.GoBar
                 return new GoBarSuggestion(options, $"Nothing matches {typed}.");
 
             return new GoBarSuggestion(options, SentenceFor(options));
+        }
+
+        /// <summary>
+        /// A verb word inside a command's own name ("add tab", "Change the timeframe",
+        /// "focus the chart", "alert manager") must not hide that command. The 6a matches are
+        /// always kept: a command typed by its exact code, name or alias comes first and the
+        /// argument options follow; otherwise the argument options lead and the commands
+        /// follow. A refusal is only the answer when no command matches either.
+        /// </summary>
+        private GoBarSuggestion MergeWithCommands(string typed, GoBarParseResult parsed)
+        {
+            var matches = GoBarMatcher.Match(typed, GoBarRegistry.All);
+            var commands = matches.Select(m => EntryOption(m.Entry)).ToList();
+
+            var argument = parsed.Kind == GoBarParseKind.Argument
+                ? ResolveArgument(parsed)
+                : new GoBarSuggestion(Array.Empty<GoBarOption>(), parsed.Refusal ?? $"Nothing matches {typed}.");
+
+            if (commands.Count == 0) return argument;
+            if (argument.Options.Count == 0) return Finish(commands);
+
+            bool exactCommand = matches[0].How is GoBarMatchKind.ExactCode
+                or GoBarMatchKind.ExactName or GoBarMatchKind.ExactAlias;
+            if (exactCommand)
+                return Finish(commands.Concat(argument.Options).ToList());
+
+            var merged = argument.Options.Concat(commands).ToList();
+            // The several-symbols sentence names the matches; say the commands are there too.
+            string sentence = argument.Options[0].GroupSentence is { } group
+                ? $"{group} {commands.Count} {(commands.Count == 1 ? "command also matches" : "commands also match")}."
+                : SentenceFor(merged);
+            return new GoBarSuggestion(merged, sentence);
         }
 
         private GoBarSuggestion ResolveBareVerb(GoBarParseResult parsed)
@@ -843,8 +869,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             {
                 var analysis = CandlePatternSpeech.AnalyzeAt(
                     _candles, data, i, state.IsHeikinAshi);
-                if (string.Equals(CandlePatternSpeech.DescribeShape(analysis),
-                        action.Name, StringComparison.OrdinalIgnoreCase))
+                if (CandleIs(analysis, action.Name))
                 {
                     target = i;
                 }
@@ -857,8 +882,7 @@ namespace AccessibleTrader.Core.Services.GoBar
                 {
                     var analysis = CandlePatternSpeech.AnalyzeAt(
                         _candles, data, i, state.IsHeikinAshi);
-                    if (string.Equals(CandlePatternSpeech.DescribeShape(analysis),
-                            action.Name, StringComparison.OrdinalIgnoreCase))
+                    if (CandleIs(analysis, action.Name))
                     {
                         before++;
                     }
@@ -870,6 +894,15 @@ namespace AccessibleTrader.Core.Services.GoBar
 
             NavigateTo(target);
         }
+
+        /// <summary>
+        /// A bar answers to its multi-bar pattern's name AND to its own shape's name. The
+        /// readout's first word is the pattern ("Morning doji star"), but the bar that ends it is
+        /// still a doji, and "FIND doji" skipping it would make the count "before it" wrong too.
+        /// </summary>
+        private static bool CandleIs(CandleAnalysis analysis, string name)
+            => string.Equals(CandlePatternSpeech.DescribeShape(analysis), name, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(CandlePatternSpeech.TypeName(analysis.Type), name, StringComparison.OrdinalIgnoreCase);
 
         private void FindFormation(GoBarFindAction action, WorkspaceState state,
             IReadOnlyList<Ohlcv> data)

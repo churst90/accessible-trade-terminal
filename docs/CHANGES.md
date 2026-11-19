@@ -98,6 +98,30 @@ All notable changes to this project will be documented in this file.
   date is before the first bar — **1 red**; (f) remove the toolbar composer's re-parse — **1
   red**; (g) act on an argument option before the box closes — **4 red** (including two 6a
   sequencing tests).
+- **Review fix (Claude): a verb word inside a command's own name no longer hides the command.**
+  Before the fix, 44 of the registry's own names, codes and aliases put something else first or
+  nothing at all: *add tab* searched indicators for "tab", *Change the timeframe* said "Change the
+  is not a timeframe", *focus the chart* searched symbols, *alert manager* asked for a price.
+  `Suggest` now always keeps the 6a matches. A command typed by its exact code, name or alias
+  leads and the value options follow; otherwise the value options lead and the commands follow;
+  a refusal is the answer only when no command matches either. Guard:
+  `EveryCommandsOwnWordsStillPutThatCommandFirst` runs every name, code and alias (money aliases
+  left out, as the matcher refuses them) against resolvers given symbols and indicators that DO
+  match the leftover words. Removing the merge turns it and three ordering tests red (4); always
+  putting the values first turns it red on *add indicator* (2).
+- **Review fix (Claude): FIND stops on a shape inside a multi-bar pattern.** The bar readout names
+  the pattern first, so *FIND doji* walked past the doji that ends a morning doji star and left it
+  out of the "before it" count. A bar now answers to its pattern's name and its own shape's name.
+  Removing the shape half turns `FindCandleStopsOnAShapeInsideAMultiBarPattern` red.
+- **Review guard (Claude): the web head builds the Go bar with all ten new dependencies.** They
+  are optional on the constructor, so a container that lost one would build the bar without it
+  and IND, GP, GOTO or FIND would refuse everything in silence.
+  `TheGoBarIsBuiltWithEveryArgumentDependency` resolves it from the real WebHost container;
+  replacing the registration with a four-argument factory turns it red, naming the nine missing.
+  The desktop head registers the same ten types (checked by hand, not by a test: the desktop
+  container needs MAUI). The review's other note, that the handler guard skipped a MAUI head
+  folder, was wrong: `AccessibleTrader/` holds only an untracked data cache, and the MAUI head
+  is `AccessibleTrader.BlazorClient`, which the guard already scans.
 
 ### Go bar (stage 6a), 2026-11-18
 

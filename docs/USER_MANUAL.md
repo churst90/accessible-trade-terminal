@@ -1762,7 +1762,10 @@ BTC.
 | `REF` | — | Reloads **the chart on screen**. `REF` |
 
 A timeframe or an ISO date on its own (`4h`, `15 min`, `2024-03-01`) is offered as the command it
-obviously means. Nothing else is guessed without its verb.
+obviously means. Nothing else is guessed without its verb. A command whose own name holds one
+of these words — *Add a chart tab*, *Change the timeframe*, *Focus the chart*, *Alert manager* —
+is still that command when typed in full, and it is listed first; while you are still typing it,
+the value matches come first and the command follows them in the list.
 
 **What each one says.** *"Loading BTCUSDT, 4 hours."* and then the load's own speech; already on
 it says *"Already on 4 hours."*; the public demo's refusal is *"Not in the public demo."* A
@@ -1772,7 +1775,8 @@ full symbol on the current venue runs on its own. A symbol from a watchlist brin
 and market with it. Adding an indicator says where it landed (*"RSI added, its own pane."*).
 `ALERT` only opens the form; read it and press Add. A date before the first bar or after the last
 does not move and says why. `FIND` scans only when you press Enter; with no match after the cursor
-it tells you how many were before it.
+it tells you how many were before it. A bar answers to its own shape as well as to the multi-bar
+pattern it ends, so `FIND doji` stops on the doji that closes a morning doji star.
 
 **Keys that are only keys.** The arrow keys, Home, End, Page Up and Page Down, Escape (close a
 dialog or cancel a drawing) and the drawing-anchor nudges are still listed and still match.

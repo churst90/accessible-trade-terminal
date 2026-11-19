@@ -429,12 +429,17 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
       handler and removing the four flags stays green; there is no cross-venue in-memory symbol
       list to search in 6b — the data service's symbol cache is an asynchronous disk cache — so
       other venues are not searched and the no-match sentence names only the current venue and
-      watchlists; there is no MAUI head folder in this tree, so the fourth scan folder is
-      `AccessibleTrader.BlazorClient`; and the toolbar has no "Indicators unavailable" sentence
+      watchlists; the MAUI head is `AccessibleTrader.BlazorClient` (it holds `MauiProgram.cs`),
+      so that is the fourth scan folder; and the toolbar has no "Indicators unavailable" sentence
       to reuse, so the Go bar's analytics refusal parallels the chart menu's order sentence
       ("This is an analytics chart; indicators need a price chart."). The date zone is the
       F12 clock (`SpeechTimeFormatter.UseUtc`, otherwise local), passed into the service for
-      tests rather than read from the machine.
+      tests rather than read from the machine. **Review (Claude):** a verb word inside a 6a
+      command's own name (*add tab*, *Change the timeframe*, *focus the chart*, *alert manager*)
+      had hidden 44 names, codes and aliases. The 6a matches are now always kept: an exact
+      command leads, otherwise the values lead and the commands follow. FIND now matches a bar's
+      own shape as well as its pattern, and a WebHost test pins that the real container builds
+      the bar with all ten dependencies.
     - **6c OPEN: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
       money commands `BUY` / `SELL` / `FLAT` through the spoken order review. Open question: the
       backtick as a second opener ("maybe as well" from the 2026-11-18 discussion) is not built and

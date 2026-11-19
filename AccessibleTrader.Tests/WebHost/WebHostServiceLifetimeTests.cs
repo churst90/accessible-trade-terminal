@@ -89,6 +89,36 @@ public class WebHostServiceLifetimeTests
         Assert.True(Assert.IsType<AccessibleTrader.Core.Services.Workspace.MarketFeeds>(feeds).PivotsTimeframes);
     }
 
+    /// <summary>
+    /// Stage 6b gave the Go bar ten optional dependencies (store, orchestrator, watchlists,
+    /// indicators, series, demo, events, event map, formations, candles). Optional on the
+    /// constructor, so a container that could not supply one would build the bar without it in
+    /// silence and IND, GP, GOTO or FIND would answer "No indicator called ..." for everything.
+    /// Only the display zone may stay empty: production reads the F12 setting instead.
+    /// </summary>
+    [Fact]
+    public void TheGoBarIsBuiltWithEveryArgumentDependency()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddSingleton(new DemoPolicy(isDemo: false));   // Program.cs registers it
+        services.AddAccessibleTraderWebHostServices();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var circuit = provider.CreateScope();
+
+        var bar = circuit.ServiceProvider.GetRequiredService<AccessibleTrader.Core.Services.GoBar.GoBarService>();
+
+        var empty = typeof(AccessibleTrader.Core.Services.GoBar.GoBarService)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Where(f => !f.FieldType.IsValueType && f.Name != "_displayZone" && f.Name != "_pending")
+            .Where(f => f.GetValue(bar) == null)
+            .Select(f => f.Name)
+            .ToList();
+
+        Assert.True(empty.Count == 0, "The Go bar was built without: " + string.Join(", ", empty));
+    }
+
     private sealed class SevenIndicator : AccessibleTrader.Sdk.Interfaces.ICustomIndicator
     {
         public string Id => "SEVEN";
