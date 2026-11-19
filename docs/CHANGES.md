@@ -80,6 +80,11 @@ All notable changes to this project will be documented in this file.
   tests; bUnit `OpenSettingsEvent` focus and unavailable-control speech; HELP sentence shapes
   and the box-stays-open behaviour; and dashboard money tests for market, limit, side-only, a
   stale stop, demo-paper, a venue that cannot trade, FLAT none/one/two and the focus sweep.
+  Two 6b assertions were deliberately broadened because stage 6c now lists a matching setting
+  after the command: `GoBarServiceTests`' "pulse" single-match test selects the command and its
+  sentence is checked with `StartsWith`, and the live-key sentence test does the same. The old
+  single-option claim is no longer true, and hiding the setting would have broken settings by
+  name.
 - **Sabotages** (each restored with `cp`, `touch`ed and compared; red counts are failures in the
   targeted tests): (a) let a near miss produce a typed BUY option — **4 red**; (b) make BUY
   focus `order-confirm-live` — **8 red**; (c) make the dashboard call `SubmitOrder` after
