@@ -600,6 +600,12 @@ Alt+PageUp and Alt+PageDown move between panes and name the one you land on. The
 the ends with the boundary tone rather than wrapping, because a silent jump from the bottom
 of the chart back to the top is the one move you could not detect.
 
+The price ruler itself can be **regular** (prices), **logarithmic** (equal distance is equal
+percentage), **percent** (zero at the first visible close) or **indexed to 100** (that close is
+100). The toolbar's Price scale select is the mouse path; `REG`, `PCT` and `IDX` in the Go bar
+are the keyboard path; Alt+L is still the logarithmic toggle. Percent and Indexed move the
+zero as you pan, which is why the layout describer names it rather than every arrow key.
+
 **Bounded panes keep their scale.** An RSI pane always runs 0 to 100, at every zoom. An
 unbounded pane, MACD or ATR, fits itself to the values in view. Seventeen indicators declare
 their natural range and four declare a floor, and the difference matters by ear: RSI 70 is
@@ -747,6 +753,56 @@ screen says *"Already a line chart."* (and so on) rather than doing nothing.
 
 Brick-based chart types — Renko, range bars, line break, Kagi and Point & Figure — are not in
 this build.
+
+### Price scales: regular, logarithmic, percent and indexed to 100
+
+The **Price scale** select sits in the toolbar's display group, immediately before the Log scale
+button. It is one choice with four entries, like TradingView's price-scale menu:
+
+- **Regular** — prices on a linear axis, the default.
+- **Logarithmic** — equal vertical distance means equal percentage move. This is the same as
+  the Alt+L button and the Go bar's `LOG`; turning it on returns the select to Regular plus the
+  log flag.
+- **Percent** — the close of the first bar on screen is zero, and every other price reads as
+  its change from that close. A close of 95,000.50 on a chart whose first visible close was
+  91,200 reads *"+4.17 percent"*.
+- **Indexed to 100** — the same base, set to 100 instead of zero; that same close reads
+  *"index 104.17"*.
+
+The base is the first **visible** bar's close **as drawn**, so on a Heikin-Ashi chart it is the
+Heikin-Ashi close and the first candle on screen sits exactly on zero. It moves as you pan, as
+it does on TradingView. One helper computes it, so the axis, the spoken reading and the layout
+describer always quote the same number.
+
+Percent and Indexed change only what the ruler SAYS, never where anything is drawn: the price
+labels and gridlines step in percent (or index) units, the crosshair badge and each plot's value
+label on the price axis read the same units, and the candles, lines and overlays stay exactly
+where they were. The status line, the bar-detail key (Alt+Shift+D), alerts, orders, drawings,
+typed prices, sonification and playback narration stay in prices; indicator panes are never
+relabelled, exactly as they are never logarithmic.
+
+The **Compare symbol (overlay)** is rebased to its own first visible value in these modes, so
+its line starts at the same point as this chart's line at the left edge and the two drift apart
+— relative performance you can hear as each symbol's own percent change. Other overlays are
+prices of the same symbol and are not rebased.
+
+**What you hear.** On the candles series (Candles, Heikin-Ashi, Line or Area) the reading starts
+with the scale: *"Plus 4.20 percent. Close 95,000.50 …"*, *"Minus 1.30 percent. …"*, *"Zero
+percent. …"* or *"Index 104.20. …"*. A main-pane series whose speech uses `{value:price}` reads
+*"plus 4.20 percent, 95,000.50"* or *"index 104.20, 95,000.50"*. Indicator panes keep their own
+numbers and units.
+
+**Choosing one.** Percent and Indexed are refused aloud, with the state staying Regular, when
+the first visible close is zero or negative (an analytics series can be): *"Percent scale needs
+a positive first close; showing the regular scale."* Choosing the entry already shown says
+*"Already a percent scale."*, *"Already indexed to 100."*, *"Already a regular scale."* or
+*"Already a log scale."*. From the keyboard the Go bar has `REG` (*regular scale*, *linear
+scale*, *linear*), `PCT` (*percent scale*, *percentage*) and `IDX` (*indexed*, *index to 100*,
+*rebase*); no key was added.
+
+The select is gated on trading tabs exactly like the Log button, but the Go bar and command
+paths apply the scale on an analytics chart too. Add symbol and formula charts are not built
+yet. Cody has not heard these scales; the examples above are the shipped sentences.
 
 ### Heikin-Ashi, and what stays raw
 
@@ -1758,6 +1814,9 @@ every label match. Plain text lists settings after the commands. Case does not m
 | `CANDLE` | Draw the price as candlesticks (`candles`, `candlestick`) |
 | `LINE` | Draw the price as a line through the closes (`line chart`) |
 | `AREA` | Draw the closes with a filled area under the line (`area chart`, `mountain`) |
+| `REG` | Prices on a linear ruler (`regular scale`, `linear scale`, `linear`) |
+| `PCT` | Percent from the first visible close (`percent scale`, `percentage`) |
+| `IDX` | First visible close set to 100 (`indexed`, `index to 100`, `rebase`) |
 | `HELP` | Help (F1) |
 | `GO` | The Go bar itself |
 
@@ -2293,10 +2352,11 @@ resistance lines. A saved chart that had it opens without it and says so once; a
 that used it says once that it cannot fire. Add an EMA at each length you want instead.
 
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
-Heikin-Ashi candles, and Alt+L to a logarithmic price scale; both are explained in the
-chart-layout chapter, including the one thing to hold on to about Heikin-Ashi — every
-indicator then reads the Heikin-Ashi candles, and every strategy the real ones unless you set it
-to read its signals on Heikin-Ashi (its orders are on real prices either way).
+Heikin-Ashi candles, and Alt+L to a logarithmic price scale; the Price scale select beside them
+adds Percent and Indexed to 100. All are explained in the chart-layout chapter, including the
+one thing to hold on to about Heikin-Ashi — every indicator then reads the Heikin-Ashi candles,
+and every strategy the real ones unless you set it to read its signals on Heikin-Ashi (its
+orders are on real prices either way).
 
 ### Market structure
 
@@ -5568,6 +5628,13 @@ threaten the borrowed funds — the price at which this happens is the liquidati
 
 **Log scale.** A price axis where equal vertical distance means equal *percentage* move,
 useful over long histories where price has changed by large multiples.
+
+**Percent scale.** A price axis that reads every price as its change from the close of the
+first bar on screen, which is zero. Useful for comparing moves without the price's magnitude
+getting in the way; the zero moves as you pan.
+
+**Indexed to 100.** The same base as a percent scale, written as 100 instead of zero, so a
+price 4.2 percent above the first visible close reads 104.2.
 
 **Long / Short.** A long position profits when price rises; a short position profits when
 price falls. In hedge mode an account can hold both sides at once — the *position side*.

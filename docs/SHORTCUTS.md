@@ -349,12 +349,18 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | Key | Action |
 |-----|--------|
 | Alt+C | Toggle Heikin-Ashi candle mode |
-| Alt+L | Toggle logarithmic (log) scale |
+| Alt+L | Toggle logarithmic (log) scale / regular scale |
 | Alt+H | Toggle volume heatmap overlay |
 
 **Chart type** (Candles / Heikin Ashi / Line / Area) has no key of its own: use the toolbar's
 Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, or `heikin ashi chart`. Typing
 `candles` now chooses the candle chart; it no longer toggles Heikin-Ashi.
+
+**Price scale** (Regular / Logarithmic / Percent / Indexed to 100) has no key of its own either:
+use the toolbar's Price scale select, or the Go bar — `REG` (`regular scale`, `linear scale`,
+`linear`), `PCT` (`percent scale`, `percentage`) and `IDX` (`indexed`, `index to 100`, `rebase`).
+Percent puts zero on the first visible close; Indexed puts 100 there. The zero moves as you pan.
+Alt+L is still the logarithmic toggle and returns the select to Regular when it turns log on.
 
 **What the price pane fits.** The price pane always holds everything drawn on it: the candles
 *and* every visible overlay. A Bollinger band or a Keltner channel that swings wider than the bars

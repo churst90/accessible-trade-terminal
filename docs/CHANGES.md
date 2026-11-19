@@ -4,6 +4,116 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Price scales: Percent and Indexed to 100, 2026-11-19 — not yet heard by Cody
+
+- **Two more rulers for the price pane, sharing one choice with Regular and Logarithmic.**
+  `PriceScaleMode { Regular = 0, Percent = 1, IndexedTo100 = 2 }` lives beside
+  `WorkspaceState`, and `WorkspaceState.ScaleMode` is a per-tab init property saved and
+  restored everywhere `ChartStyle` and `IsLogScale` are. The toolbar gained a native
+  **Price scale** select (Regular / Logarithmic / Percent / Indexed to 100) immediately before
+  the Alt+L Log scale button, with a visually-hidden `<label for="price-scale-select">Price
+  scale</label>` and the same trading-tab gate that button has. One store action,
+  `SetPriceScaleAction(mode, log)`, keeps the pair consistent: Percent and Indexed clear the
+  log flag, Logarithmic is Regular + `IsLogScale`, and turning log on (Alt+L, the toolbar
+  button, Go bar `LOG`) returns the mode to Regular. `Regular` is 0, so every workspace written
+  before the field loads on the axis it was showing.
+- **The base is the close of the first visible bar AS DRAWN** — on a Heikin-Ashi chart that is
+  the HA close, so the first candle on screen sits on zero — at `ViewportStartIndex` clamped
+  into the data. It moves as the user pans, exactly as on TradingView. One helper,
+  `ChartMath.ScaleBase`, is used by the renderer, speech and the describer, so the zero they
+  each quote is the same number. Percent reads `(p / base − 1) × 100`; Indexed reads
+  `p / base × 100`. If the base is zero, negative or missing (an analytics series can be), the
+  mode cannot apply: the chart draws and reads Regular, the request is refused aloud, and the
+  state stays Regular when the choice came from the Go bar or the toolbar.
+- **Drawing is an affine relabel of the unchanged pixel mapping.** The price axis computes its
+  1–2–5 step over the pane's percent (or index) extent, then places each tick at
+  `base × (1 + pct/100)` — `base × idx/100` for Indexed. Labels are two decimals invariant:
+  `"4.00%"`, `"-2.00%"`, `"0.00%"`; Indexed `"104.00"`. The gridline layer walks the SAME tick
+  list (`ChartMath.ScaleTicks`) with the same shared-step rule, so every label still sits on a
+  line in the new units. The crosshair badge and the per-plot value labels on the price axis
+  show scale units; the status line, the bar-detail key, alerts, orders, drawings, typed prices,
+  sonification and playback narration keep prices, and every indicator pane is unchanged in
+  every mode.
+- **The COMPARE overlay is rebased to ITS OWN first visible value** in Percent and Indexed:
+  drawn at `chartBase × v / vFirst` (the first non-NaN visible value if the first is missing),
+  so the two symbols start together at the left edge and drift apart — TradingView's compare
+  behaviour, and each spoken reading is that symbol's own change. `ChartMath.RebaseCompareValue`
+  is the one transform the renderer, the range calculator and the speech all call; other
+  main-pane overlays are prices of this symbol and are not rebased. The range calculator uses
+  the rebased values, and the store refits the range when the mode changes on a chart carrying
+  a visible COMPARE overlay — through the store, so a paused market refits at once.
+- **Speech:** the candles series readout (Candles, Heikin-Ashi, Line and Area alike) STARTS
+  with the scale reading of the close as drawn, then says everything it said before —
+  *"Plus 4.20 percent."*, *"Minus 1.30 percent."*, *"Zero percent."*, *"Index 104.20."*. A
+  main-pane series whose template uses `{value:price}` reads the scale first and the price
+  second: *"plus 4.20 percent, 95000.50"* or *"index 104.20, 95000.50"*. The COMPARE overlay
+  reads from its own base; an RSI-pane reading is untouched; Regular is byte-identical.
+- **Saying the change** (Interface channel, interrupt, one sentence from where the log toggle
+  is spoken): *"Percent scale. Zero is 93000.50, the first close on screen."*, *"Indexed to
+  100. 100 is 93000.50, the first close on screen."*, *"Regular scale."* (replacing *"Linear
+  scale."*), *"Log scale."* on a log turn-on — including from Percent or Indexed, where the
+  select also returns to Regular, and that is not named a second time. A repeat of the shown
+  Go bar entry says *"Already a percent scale."*, *"Already indexed to 100."* or *"Already a
+  regular scale."*; re-choosing Logarithmic in the select says *"Already a log scale."*. An
+  unusable base says *"Percent scale needs a positive first close; showing the regular
+  scale."* (Indexed likewise) and changes nothing. Panning does NOT announce the moving base;
+  the layout describer carries it.
+- **Orientation:** Ctrl+Alt+Shift+Y (and Alt+Shift+/) now says *"Percent scale from the first
+  close on screen, 93000.50 on 3 November 14:00."* or *"Indexed to 100 from …"*, using the
+  describer's bar-zone formatting — date and clock for intraday bars, the date alone for daily
+  and coarser. The Y-axis clause says "percent scale" / "indexed to 100" instead of "linear
+  scale" while one is on.
+- **Go bar:** `REG` (*regular scale*, *linear scale*, *linear*), `PCT` (*percent scale*,
+  *percentage*) and `IDX` (*indexed*, *index to 100*, *rebase*), categorised with
+  `ToggleLogScale` and chart-scoped like it. No key was added; `LOG` remains the toggle and its
+  own-words-first guard stayed green.
+- **Analytics / single-line charts get the rulers too**, as TradingView allows percent on any
+  series; the base is the Price series' first visible close. The toolbar select is gated
+  exactly like the Log button (both trade-only), but the Go bar and command paths do not refuse
+  a single-line chart the way the chart-type commands do. The status line stays in prices, so
+  on an analytics chart the spoken status is the metric's own value as before.
+- **Persistence and scope:** `TabSnapshot.ScaleMode`, `TabConfiguration.ScaleMode`,
+  `WorkspaceLibraryService`, `WorkspaceInitializer` and the reducer's snapshot/restore all
+  carry the field; a file without it loads Regular, and the restore writes mode+log in one
+  action so an impossible Percent+log pair from an old file heals to Regular+log. A new tab
+  starts Regular. The script-sandbox projection deliberately does not carry it: an axis relabel
+  is presentation, like `ChartStyle` and pane ranges.
+- **Caveats.** The base moves as you pan, as on TradingView, and is not pinned at a fixed bar.
+  Add symbol and formula charts are NOT built; the comparison that exists today is
+  `Compare symbol (overlay)` (COMPARE), and it is the one that rebases. The status line, bar
+  detail, alerts, orders and typed prices stay in prices by design. Sonification is unchanged
+  (pitch was already relative to the pane's range). Percent and Indexed have not been heard or
+  seen by Cody. The describer's existing bar formatter had no clock clause for intraday bars;
+  the new sentence uses the same `SpeechTimeFormatter.FormatBar` rule with `d MMMM HH:mm` for
+  intraday and the existing long date for daily, matching the handoff's example.
+- **Tests:** the specified filter runs **4,113 tests, all passing** (up from 4,027). New
+  coverage: reducer invariants (Percent clears log, Percent cannot carry log, log on from
+  Indexed gives Regular+log, per-tab modes, new tab Regular); library round-trip of both modes,
+  an old-shape JSON that loads Regular, and restore sending mode+log in one action; the base
+  helper (first visible, clamped, HA-aware, zero/negative/NaN unusable) and the effective-mode
+  guards; axis labels and their y, Indexed labels, the crosshair badge and value-label text,
+  Regular and Log label strings as controls, and a pixel test that the major gridline is on the
+  row the percent label marks with a base where percent and price steps genuinely differ; the
+  compare transform on the series copy, a pixel test of the rebased line's start and end, and a
+  store-level refit test with a compare overlay plus a no-overlay control; speech for candles,
+  Line, Heikin-Ashi, both modes, `{value:price}`, COMPARE's own base, an unchanged RSI pane and a
+  Regular control; the spoken change sentences including "Already …" and the unusable base; the
+  describer's sentences; toolbar bUnit for the labelled select, current value (Logarithmic wins
+  when log is on), dispatch, the "already" and unusable answers and the analytics gate; Go bar
+  reachability by name/code/alias and dispatch.
+- **Sabotages** (backed up in `.sab/`, built, filter run, restored with `cp`/`touch`/`cmp`;
+  red counts are failures in the 4,113-test filter):
+  (a) base = the first bar of the whole history — **4 red**;
+  (b) base from the raw bar on a Heikin-Ashi chart — **2 red** (a third failure in that run was
+  `TabKeepsItsMarketTests`, a timing test that passes alone and in every clean run);
+  (c) Percent leaves log on — **1 red**;
+  (d) gridlines keep the regular step in Percent — **1 red**;
+  (e) COMPARE is not rebased in Percent — **2 red**;
+  (f) the store does not refit the range on a mode change — **1 red**;
+  (g) the speech prefix is dropped — **5 red**;
+  (h) an RSI-pane value is spoken in percent — **1 red**;
+  (i) a zero base divides — **4 red**.
+
 ### Chart types: Line and Area, 2026-11-19 — not yet heard by Cody
 
 - **Two more ways to draw the price pane, sharing one choice with Candles and

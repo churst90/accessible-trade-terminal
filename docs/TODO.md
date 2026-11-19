@@ -115,9 +115,11 @@ and Identity already has 2FA, lockout and rate limits.
      Still open: Renko, range bars, line break, Kagi and
      Point & Figure. The brick and box types drop time, so the bar cursor, playback and speech must
      say a brick's own start and end time, and indicators run on the bricks.
-  2. **Percent and indexed-to-100 price scales.** Percent from the first visible bar (TradingView's),
-     indexed to 100 the same way; speech says "+4.2 percent" / "104.2"; pairs with Add symbol and the
-     formula charts.
+  2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**
+     (toolbar Price scale select and Go bar `REG` / `PCT` / `IDX`; `PriceScaleMode` in the Sdk).
+     Percent from the first visible bar (TradingView's), indexed to 100 the same way; speech says
+     "plus 4.2 percent" / "index 104.2"; COMPARE rebases to its own first visible value. Add symbol
+     and the formula charts are still open, and the scales have not been heard by Cody.
   3. **Indicator templates.** Already filed, see "Indicator template (Cody, 2026-11-05)" below.
 
   Not picked for now: several charts on one screen with linked symbol and crosshair; extended-hours
