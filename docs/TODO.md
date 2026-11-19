@@ -112,9 +112,11 @@ and Identity already has 2FA, lockout and rate limits.
 - [ ] **TradingView gaps, Cody's pick 2026-11-18 ("1, 2 and 3 for right now"):**
   1. **More chart types.** **Line and area** — built 2026-11-19, not yet heard by Cody (toolbar
      Chart type select and Go bar `CANDLE` / `LINE` / `AREA`; `PriceChartStyle` in the Sdk).
-     Still open: Renko, range bars, line break, Kagi and
-     Point & Figure. The brick and box types drop time, so the bar cursor, playback and speech must
-     say a brick's own start and end time, and indicators run on the bricks.
+     **Renko** — built 2026-11-19, not yet heard by Cody (toolbar select, Brick settings dialog,
+     Go bar `RENKO` / `bricks`; shared `BrickChart*` plumbing). Still open: range bars, line
+     break, Kagi and Point & Figure, which reuse the brick plumbing. The brick and box types drop
+     time, so the bar cursor, playback and speech must say a brick's own start and end time, and
+     indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**
      (toolbar Price scale select and Go bar `REG` / `PCT` / `IDX`; `PriceScaleMode` in the Sdk).
      Percent from the first visible bar (TradingView's), indexed to 100 the same way; speech says

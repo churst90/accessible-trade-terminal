@@ -721,19 +721,29 @@ Three keys describe the structure instead of a value.
 The numbers these three speak come from the same ranges the chart is drawn with, so what you
 hear is what a sighted partner sees.
 
-### Chart types: candles, Heikin Ashi, line and area
+### Chart types: candles, Heikin Ashi, line, area and Renko
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
-It is one choice with four options, like TradingView's chart-type menu:
+It is one choice with five options, like TradingView's chart-type menu:
 
 - **Candles** — the standard OHLC bars, the default.
 - **Heikin Ashi** — the smoothed candles described in the next section. This is the same as
   the Alt+C button; choosing it sets Heikin Ashi on.
 - **Line** — one line through the close of every visible bar.
 - **Area** — the same line with a fill from the line down to the bottom of the price pane.
+- **Renko** — bricks of price movement. Time is no longer the X axis: one brick is one box of
+  price, so a quiet day draws no bricks and a crash draws many. The box is the ATR (14 by
+  default) measured on closed bars when you choose the chart, or a fixed size you type; it is
+  frozen until you change the setting or the symbol/timeframe first loads, so the bricks do not
+  jump under you on every tick or when older history arrives. **Brick settings** appears beside
+  the select on a Renko chart and opens a dialog with ATR / Fixed size and the length or box;
+  the Go bar's `RENKO 500` sets a fixed box, `RENKO ATR 20` an ATR length, and `brick settings`
+  opens the same dialog. Renko is close-based and traditional: the trend continues one box past
+  the last brick, a reversal takes two boxes, and a bar that moves four boxes draws four bricks.
 
 Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
-Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. The line is the new
+Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. Renko never draws
+Heikin-Ashi bricks: Alt+C from Renko restores the real bars as candles plus Heikin-Ashi. The line is the new
 **Line and area close** colour in the theme (TradingView's blue by default), so the white Price
 series is not painted over it while it is set to read the close. The Price series is still
 there in every other way — it is in the status line, and arrowing to it still speaks and sonifies
@@ -748,10 +758,25 @@ the point on the line: *"Close 95,000.50. Up 1,120.00 from the previous close, 1
 the select is not shown and the phrases refuse aloud.
 
 **From the keyboard**, use the Go bar (Alt+G): `CANDLE` or `candle chart`, `heikin ashi chart`,
-`LINE` or `line chart`, and `AREA`, `area chart` or `mountain`. Choosing the type already on
-screen says *"Already a line chart."* (and so on) rather than doing nothing.
+`LINE` or `line chart`, `AREA`, `area chart` or `mountain`, and `RENKO`, `renko chart` or
+`bricks`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
+than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*
 
-Brick-based chart types — Renko, range bars, line break, Kagi and Point & Figure — are not in
+**On a Renko chart the arrow keys read the brick, not a candle:** *"Up brick, 95,000.00 to
+95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* The two prices are the brick's edges and the two
+times are the REAL window it took to form (the first bar after the previous brick completed to
+the close of the bar that completed it). There is no body, wick or candle-pattern name on a
+brick. The status line says `Up brick 95,000 → 95,500`, the layout description says
+*"Renko chart, box 512.30 from ATR 14."* or *"Renko chart, fixed box 500.00."*, and when a brick
+completes the live chart says *"New up brick, 95,000.00 to 95,500.00."*
+
+**Orders and strategies always use the real market price.** A brick's close is a box edge, not a
+price anything traded at. The trading dashboard's last price, quick trade, paper stops and
+targets, strategy history and saved tabs all read the real time bars behind the chart; only the
+drawing, cursor, indicators and alerts read the bricks. The one exception is by design: alerts
+read the chart as drawn, so a price/indicator alert on a Renko tab evaluates on the bricks.
+
+The other brick-based chart types — range bars, line break, Kagi and Point & Figure — are not in
 this build.
 
 ### Price scales: regular, logarithmic, percent and indexed to 100
@@ -1814,6 +1839,7 @@ every label match. Plain text lists settings after the commands. Case does not m
 | `CANDLE` | Draw the price as candlesticks (`candles`, `candlestick`) |
 | `LINE` | Draw the price as a line through the closes (`line chart`) |
 | `AREA` | Draw the closes with a filled area under the line (`area chart`, `mountain`) |
+| `RENKO` | Draw price movement as bricks (`renko`, `bricks`); `RENKO 500` sets a fixed box, `RENKO ATR 20` an ATR length |
 | `REG` | Prices on a linear ruler (`regular scale`, `linear scale`, `linear`) |
 | `PCT` | Percent from the first visible close (`percent scale`, `percentage`) |
 | `IDX` | First visible close set to 100 (`indexed`, `index to 100`, `rebase`) |

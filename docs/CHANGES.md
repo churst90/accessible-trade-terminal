@@ -4,6 +4,97 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Renko chart: price bricks, with the market kept underneath, 2026-11-19 — not yet heard by Cody
+
+- **A fourth chart type, and the shared brick plumbing under it.** `PriceChartStyle.Renko = 3`
+  sits beside Candles, Heikin Ashi, Line and Area; `IsBrickStyle()` is the one test the rest of
+  the app uses, so range bars, line break, Kagi and Point & Figure can land later under the same
+  `BrickChart*` names. `BrickChartBuilder` (Core/Services/Charts) is pure arithmetic: a
+  floor-anchored box grid at the chosen box, close-based continuation one box past the last
+  brick, a two-box reversal, one brick per horizontal step and as many bricks as a bar crosses.
+  Each `BrickSpan` records the REAL first bar after the previous completion and the completion
+  bar, so a brick that took three hours says so. A bar can complete several bricks; bricks share
+  the completion bar's `Date`. No bricks on a quiet move. The default box is ATR 14 on closed
+  bars, rounded to `[0.01, price]`; `RENKO 500` or the dialog can fix it instead.
+- **Frozen, not drifting.** The box resolves when Renko is chosen, when the first data of a new
+  symbol/timeframe loads, or when the settings change — never on a live tick, a scrollback
+  prepend, a replay prefix or a saved-tab restore. `BrickBoxSize` is saved with the tab and with
+  the tab snapshot, so a restored chart redraws the same bricks; prepending older data extends
+  the same grid backwards. A saved file with no Renko fields loads Candles and `ATR 14`.
+- **Two lists, on purpose.** `WorkspaceState.TimeBars` is the real feed (always the full live
+  series), `Data` is what is drawn (bricks on Renko), and computed `MarketBars` is `TimeBars ??
+  Data`. `TabSnapshot.Data` stays the real bars so a restored tab resumes its feed; the bricks
+  are rebuilt from them at the saved box. The reducers keep `Data` in step: `PlaybackReducer`
+  enters/leaves Renko, `ViewportReducer.UpdateBrickData` bricks an initial load and keeps the
+  frozen box on later updates, `TabReducer` rebuilds on restore and snapshots the time bars.
+- **Money, feed, saves and catch-up read `MarketBars`.** Quick trade's arm price and last close,
+  the trading dashboard's last/current price, `StrategyEngine.OnDataUpdated` (which now does
+  nothing on a brick chart rather than treating a brick as a bar), `AddStrategy`/`LastClose`,
+  `MarketOrchestrator`'s restore, catch-up, empty check and new-bar event, `ReplayService`,
+  `PaperTradingProvider` (`ChartOn`, `PriceFor`, `OnState`), the workspace snapshot/restore path,
+  and the strategy backtest/lab entry points all use the real series. The background monitor
+  bricks the state its ALERTS read but hands strategies a separate real-bar state; the headless
+  chart bricks its observations with the tab's box. Alerts read the chart as drawn, so a Renko
+  tab's price/indicator alerts evaluate on bricks both focused and background.
+- **Speech describes a brick.** The arrow-key readout on the candles series is
+  *"Up brick, 95,000.00 to 95,500.00. 18 Nov 14:00 to 18 Nov 17:00."*; the status line's first
+  line is `Up brick 95,000 → 95,500`; the layout description says *"Renko chart, box 512.30 from
+  ATR 14."* or *"Renko chart, fixed box 500.00."*; a completed brick says *"New up brick, …"*
+  instead of a new time bar; changing the box says *"Renko chart, …"* once. There is no candle
+  body/wick/pattern talk on a brick, and the detail key does not add a candle fact. Playback,
+  navigation, hover, window announcements and the focused-chart toast all take their timestamp
+  from the brick's real `Start`–`End` window.
+- **Refusals before dispatch, one sentence each.** `RENKO` on a chart with too little history
+  for ATR says the exact shortfall; a box that would draw over 20,000 bricks says so; a
+  non-positive fixed box, a flat chart with no bricks, an analytics single-line chart, and
+  Brick settings on a non-Renko chart each say their one sentence. The toolbar select reverts
+  on a refusal; the dialog stays open and focuses the offending field. Choosing Renko with the
+  same settings again says *"Already a Renko chart."* A workspace restore chooses the style
+  before data arrives, so the reducer keeps the choice with an empty brick set and the first
+  load resolves the box.
+- **Entry points.** Toolbar Chart type select (Renko option) plus a `#brick-settings-button`
+  immediately after it only on Renko; `ChartTypeSettingsModal` with ATR/Fixed, length, box and
+  the resolved-box preview; Go bar `RENKO`/`renko chart`/`bricks`, `RENKO 500`, `RENKO ATR 20`,
+  and `brick settings`/`renko settings`. `SystemCommand.ShowRenkoChart` and
+  `ShowBrickSettings`, `ICommandDispatcher.ShowRenko`, and Phase-5 keyboard scoping for both.
+  Help, the user manual and shortcut docs updated.
+- **Tests.** The standing filter runs **4,650 tests, all passing**. New coverage: builder
+  continuation/reversal/reversal-size/multi-brick bars/shared completion dates/volume/prepend
+  grid/ATR/floor edges/over-cap/zero-box/flat refusals; ATR and fixed resolution; model and
+  snapshot equality including the box; settings round-trip and old-file default; reducer
+  entry/leave/re-entry/HA/frozen box/live update/empty pre-load restore/restore-from-snapshot;
+  `BrickChartSpeech` sentences and window; status line; orientation; coordinator new-brick,
+  settings change and viewport; navigation readout; dispatcher refusals; toolbar select, refusal
+  and settings button; dialog prefill, apply, refusal focus and Escape; Go bar forms; money paths
+  (quick trade, dashboard, strategy initialize/evaluate, orchestrator catch-up, replay);
+  background monitor alerts-vs-strategies; headless observation; workspace persistence. The
+  in-scope filters all pass.
+- **Sabotages** (each backed up in `.sab/`, built, the 4,650-test filter run and restored with
+  `cp`/`touch`/`cmp`; failures are in that filter):
+  (a) bricks built from High instead of Close — **3 red**;
+  (b) reversal after one box — **1 red**;
+  (c) quick trade reads `Data` again — **1 red**;
+  (d) tab snapshot saves bricks — **1 red**;
+  (e) ATR box recomputed on every update — **2 red**;
+  (f) readout speaks only the completion clock instead of Start–End — **2 red**;
+  (g) 20,000-brick cap removed — **2 red**;
+  (h) `OnDataUpdated` runs on a Renko chart — **1 red**;
+  (i) background monitor ignores the tab's style — **1 red**;
+  (j) `RenkoSettings` default loses ATR 14 — **10 red**;
+  (k) grid anchored at the first close instead of its floor multiple — **2 red**.
+- **Caveats, deliberately left out of this change.** The pre-existing time-based projections
+  that still speak or notify from `state.Data` on a brick chart — the background time-bar
+  announcer and the background desktop bar toast — are unchanged; they should read
+  `MarketBars`, but that clock work is out of scope here. `StrategyEngine.OnFocusedFeedUpdated`
+  still hands a strategy the brick `ActiveSeries`/indicator values attached to state; its bar
+  and history are real. A brick still forming can be revised or vanish when the feed bar pulls
+  back before close; the frozen box never changes, and a completed brick never does. CSV export
+  exports the chart as drawn (bricks and brick-indexed indicators), not the market series. Quick
+  trade's cursor bar still reads the focused brick's high/low for a stop the user pointed at;
+  its arm and last price are real. The ATR box is measured with the same wilder-style ATR the
+  ATR indicator uses, on real bars. Range bars, line break, Kagi and Point & Figure are not in
+  this change.
+
 ### Indicator templates: save and apply a chart's indicators, 2026-11-19 — not yet heard by Cody
 
 - **A chart's indicators and panes, without its symbol.** A template is every non-core,

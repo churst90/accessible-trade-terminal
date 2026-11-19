@@ -352,9 +352,13 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | Alt+L | Toggle logarithmic (log) scale / regular scale |
 | Alt+H | Toggle volume heatmap overlay |
 
-**Chart type** (Candles / Heikin Ashi / Line / Area) has no key of its own: use the toolbar's
-Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, or `heikin ashi chart`. Typing
-`candles` now chooses the candle chart; it no longer toggles Heikin-Ashi.
+**Chart type** (Candles / Heikin Ashi / Line / Area / Renko) has no key of its own: use the
+toolbar's Chart type select or the Go bar — `CANDLE`, `LINE`, `AREA`, `RENKO`, or
+`heikin ashi chart`. Typing `candles` now chooses the candle chart; it no longer toggles
+Heikin-Ashi. On a Renko chart, **Brick settings** appears beside the select (Go bar
+`brick settings`); `RENKO 500` sets a fixed box and `RENKO ATR 20` sets an ATR length. Arrow
+keys read a brick as *"Up brick, 95,000.00 to 95,500.00. 18 Nov 14:00 to 18 Nov 17:00."* —
+the two brick edges and the real window that formed it.
 
 **Price scale** (Regular / Logarithmic / Percent / Indexed to 100) has no key of its own either:
 use the toolbar's Price scale select, or the Go bar — `REG` (`regular scale`, `linear scale`,
