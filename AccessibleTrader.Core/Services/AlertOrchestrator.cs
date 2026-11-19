@@ -98,7 +98,9 @@ namespace AccessibleTrader.Core.Services
             if (_sub != null) return;
 
             _sub = _store.StateStream
-                .Select(s => new { s.Data, s.ActiveSeries, s.InitStatus })
+                // TimeBars too: on a Renko, range bar or line break chart the drawn bars move only
+                // when one completes, and a price alert reads the real bars every tick.
+                .Select(s => new { s.Data, s.TimeBars, s.ActiveSeries, s.InitStatus })
                 .DistinctUntilChanged()
                 .Subscribe(x => {
                     if (x.InitStatus == InitializationStatus.Ready)
@@ -137,11 +139,14 @@ namespace AccessibleTrader.Core.Services
 
         private void EvaluateAlerts(WorkspaceState state)
         {
-            var dataList = state.Data?.ToList();
-            if (dataList == null || dataList.Count < 2) return;
+            // The market's bars: on a chart built off the clock, the real time bars behind the
+            // bricks (AlertEvaluator.OnTheMarket reads them again; this only decides there is a
+            // price to read). Indicator values below are still indexed on the drawn bars.
+            var market = state.MarketBars;
+            if (market == null || market.Count < 2) return;
 
-            var lastBar = dataList[^1];
-            var prevBar = dataList[^2];
+            var lastBar = market[^1];
+            var prevBar = market[^2];
 
             // The LIVE BAR, not the navigation cursor.
             //
@@ -160,7 +165,7 @@ namespace AccessibleTrader.Core.Services
             //
             // BackgroundWorkspaceMonitor already evaluated at Data.Count - 1 in its own
             // private state, which is why it was unaffected and why this is the right index.
-            int idx = dataList.Count - 1;
+            int idx = (state.Data?.Count ?? 0) - 1;
 
             if (!_initialized)
             {

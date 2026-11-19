@@ -95,6 +95,13 @@ None of this has been seen or heard in the app yet.
   that turn only when a close breaks past the last three, read as *"Block. Up. 110.00 to
   120.00."* Each has its own settings dialog and Go bar word: `RANGEBAR 500`, `RANGEBAR ATR 20`,
   `LINEBREAK 3`. A background tab on either says its new range bars or blocks.
+- **Alerts on Renko, range bar and line break charts fire on the real price.** An alert at 64,000
+  fires when the market trades 64,000, not when a brick happens to end there; an alert on a drawn
+  level does the same. Indicator alerts still read the indicator as the chart draws it, on the
+  bricks.
+- **New alert conditions: New up, New down and Reversal.** Under the Candle target they watch the
+  chart's own bars: *"Trend: reversal, new down brick, 120 to 110."* On a candle chart a candle
+  counts once the next one opens.
 - **Percent and Indexed scales** lead every price reading in the main pane: *"Plus 4.20 percent,
   Open 95,000.50."*
 - **Alt+C focuses the Chart type list and Alt+L the Price scale list.** Heikin Ashi and Log scale

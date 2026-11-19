@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alerts on the charts built off the clock, 2026-11-19 — not yet heard by Cody
+
+Cody: *"yes on your suggestions on the alerts."*
+
+- **Real price.** `AlertEvaluator.OnTheMarket`: on Renko, range bars and line break, price, candle
+  and point-of-control alerts read the last two REAL time bars (`TimeBars`), whatever bars the
+  caller handed in; other charts keep `AsDrawn` (Heikin-Ashi). Drawn levels are plain price alerts
+  already, so they follow. Candle patterns take the real candles as context too. A price alert
+  compared with a LINE measures both sides against the line's newest value, because the line is
+  per brick and the brick before is not the bar before.
+- **Indicators unchanged**: read at the newest brick, as drawn.
+- **On-screen chart evaluates every real tick.** `AlertOrchestrator` now watches `TimeBars` as well
+  as `Data` (the bricks move only when one completes) and needs two MARKET bars, not two bricks.
+- **New conditions** `NewUpBar`, `NewDownBar`, `Reversal` (appended to the persisted enum), Candle
+  target only. Read off the completed drawn bars: every brick/range bar/block, or on a time chart
+  every candle but the forming one (Heikin-Ashi as drawn). Per alert, remembers the newest bar it
+  saw and the chart (identity, type, box, Heikin-Ashi); first look, another chart or a bar it
+  cannot find again re-seeds silently. Several new bars fire once, for the newest match. Speech
+  *"Name: new up brick, 120 to 130."* / *"Name: reversal, new down block, …"*.
+- **Watchability.** The hosted no-chart monitor refuses the new conditions (it does not know the
+  chart type); the local monitor builds the tab's chart and watches them. A non-Candle target with
+  them is refused as unfireable. Dialog labels name the chart's bar; Changes direction on a built
+  chart says "the real candle's colour flips".
+- Tests: `BuiltChartAlertsTests` (19). Sabotaged 11 ways (bricks instead of real bars, line's
+  brick-before level, pattern context, no warm-up/chart key, unknown bar fires, forming candle
+  judged, oldest match said, reversal = any down, orchestrator ignores TimeBars, orchestrator needs
+  two bricks, watchability target) — every one red; two first survived and got their own cases.
+
 ### Range bars and line break chart types, 2026-11-19 — not yet heard by Cody
 
 Cody, after the series naming: *"yes, continue everyting reads good now"* — range bars and line

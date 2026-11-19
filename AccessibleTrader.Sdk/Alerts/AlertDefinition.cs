@@ -22,6 +22,19 @@ public enum AlertCondition
     /// direction. Once per bar, like every simple condition.
     /// </summary>
     Touches,
+
+    /// <summary>
+    /// A drawn bar completes going up: a brick, range bar or line break block on those charts, a
+    /// candle that closed at or above its open on a time chart (judged when the next one opens).
+    /// Candle target only. Once per new bar; several in one update fire once.
+    /// </summary>
+    NewUpBar,
+
+    /// <summary>A drawn bar completes going down; see <see cref="NewUpBar"/>.</summary>
+    NewDownBar,
+
+    /// <summary>A drawn bar completes the other way from the bar before it; see <see cref="NewUpBar"/>.</summary>
+    Reversal,
 }
 
 public enum AlertDelivery { Speech, Earcon, Both }

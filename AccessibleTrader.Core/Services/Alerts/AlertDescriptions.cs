@@ -93,6 +93,11 @@ namespace AccessibleTrader.Core.Services.Alerts
                 AlertCondition.ChangesDirection => "changes colour",
                 AlertCondition.TrendChange => "changes trend",
                 AlertCondition.PatternDetected => $"forms {a.Pattern}",
+                // "candle" is the target's name; on a Renko or line break chart these watch the
+                // drawn bars, so the words name a bar, not a candle.
+                AlertCondition.NewUpBar => "closes a new up bar",
+                AlertCondition.NewDownBar => "closes a new down bar",
+                AlertCondition.Reversal => "reverses (a bar the other way)",
                 _ => a.Condition.ToString(),
             };
             return $"{symbol} {subject} {what}";

@@ -87,7 +87,7 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyDictionary<string, double> previousValues)
         {
             var results = new List<AlertFired>();
-            (newBar, previousBar) = AsDrawn(state, newBar, previousBar);
+            (newBar, previousBar) = OnTheMarket(state, newBar, previousBar);
 
             foreach (var alert in alerts)
             {
@@ -112,6 +112,21 @@ namespace AccessibleTrader.Core.Services
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// The two bars price, candle and point-of-control alerts read. On a chart built off the
+        /// clock (Renko, range bars, line break) they are the REAL time bars behind it: a brick's
+        /// close is a box edge, and an alert set at 64,000 must fire when the market trades
+        /// 64,000, not when a brick happens to end there (Cody, 2026-11-19). Indicator alerts are
+        /// not touched by this; they read the indicator as drawn, on the bricks. Every other chart
+        /// gets <see cref="AsDrawn"/>.
+        /// </summary>
+        internal static (Ohlcv NewBar, Ohlcv PreviousBar) OnTheMarket(WorkspaceState state, Ohlcv newBar, Ohlcv previousBar)
+        {
+            if (state.ChartStyle.IsBrickStyle())
+                return state.TimeBars is { Count: >= 2 } real ? (real[^1], real[^2]) : (newBar, previousBar);
+            return AsDrawn(state, newBar, previousBar);
         }
 
         /// <summary>
@@ -187,6 +202,10 @@ namespace AccessibleTrader.Core.Services
             // Part D: an advanced condition tree REPLACES the simple rule entirely.
             if (alert.ConditionTree != null)
                 return TryEvaluateTree(alert, state);
+
+            // A new drawn bar: read off the bars as drawn, not off a price.
+            if (alert.Condition is AlertCondition.NewUpBar or AlertCondition.NewDownBar or AlertCondition.Reversal)
+                return alert.Target == AlertTarget.Candle ? TryEvaluateNewBar(alert, state) : null;
 
             // Resolve current and previous values depending on target
             double currentValue;
@@ -272,8 +291,13 @@ namespace AccessibleTrader.Core.Services
                 level = lineData[live];
                 // An indicator's previous value is the previous TICK's (the crossover memory);
                 // price's is the previous BAR's close. The line's previous value follows suit.
+                //
+                // On a chart built off the clock the price is the real bar's and the line is drawn
+                // per brick, so the brick before is not "the bar before" this close: both sides of
+                // the crossing are measured against the line's newest value.
                 prevLevel = alert.Target == AlertTarget.Indicator
                     ? PreviousValue(previousValues, line, lineComp.Name)
+                    : state.ChartStyle.IsBrickStyle() ? level
                     : lineData[live - 1];
                 lineName = Alerts.AlertDescriptions.LineName(line, lineComp);
                 // So the repeat test and the spoken description read the line's value.
@@ -365,6 +389,88 @@ namespace AccessibleTrader.Core.Services
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>
             _lastFiredBar = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>One completed bar as drawn: what a new-bar alert compares and says.</summary>
+        internal readonly record struct DrawnBar(DateTime Date, double Open, double Close, bool Up);
+
+        // The newest completed drawn bar each new-bar alert has seen, with the chart it saw it on.
+        // A different chart (symbol, timeframe, type, box, Heikin-Ashi) starts it again silently,
+        // so switching tabs never reads as a new bar.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Chart, DrawnBar Bar)>
+            _lastDrawnBar = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The newest <paramref name="max"/> COMPLETED bars as drawn, oldest first. On a chart
+        /// built off the clock every drawn bar is complete (the forming one is never drawn), and
+        /// its direction is the builder's. On a time chart the newest candle is still forming, so
+        /// the bars end at the one before it; Heikin-Ashi candles when that is on. Up = closed at
+        /// or above the open, as "changes colour" judges a candle.
+        /// </summary>
+        internal static IReadOnlyList<DrawnBar> CompletedDrawnBars(WorkspaceState state, int max)
+        {
+            var data = state.Data;
+            if (data == null || data.Count == 0) return Array.Empty<DrawnBar>();
+
+            var bars = new List<DrawnBar>();
+            if (state.ChartStyle.IsBrickStyle())
+            {
+                bool spans = state.BrickSpans.Length == data.Count;
+                for (int i = Math.Max(0, data.Count - max); i < data.Count; i++)
+                    bars.Add(new DrawnBar(data[i].Date, data[i].Open, data[i].Close,
+                        spans ? state.BrickSpans[i].Up : data[i].Close >= data[i].Open));
+                return bars;
+            }
+
+            if (data.Count < 2) return bars;
+            foreach (var b in ChartMath.BarsAsDrawn(data, data.Count - 2, max, state.IsHeikinAshi))
+                bars.Add(new DrawnBar(b.Date, b.Open, b.Close, b.Close >= b.Open));
+            return bars;
+        }
+
+        /// <summary>
+        /// New up bar, new down bar, reversal. Fires once for the bars completed since this alert
+        /// last looked: the newest that matches is the one said. The first look only remembers
+        /// where the chart is, and so does a look that cannot find the bar it remembered (history
+        /// reloaded, the bricks rebuilt), since nothing in between can be told apart from noise.
+        /// </summary>
+        private AlertFired? TryEvaluateNewBar(AlertDefinition alert, WorkspaceState state)
+        {
+            const int lookBack = 200;
+            var bars = CompletedDrawnBars(state, lookBack);
+            if (bars.Count == 0) return null;
+
+            string chart = $"{state.Identity}|{state.ChartStyle}|{state.BrickBoxSize}|{state.IsHeikinAshi}";
+            var newest = bars[^1];
+            bool known = _lastDrawnBar.TryGetValue(alert.Id, out var seen) && seen.Chart == chart;
+            _lastDrawnBar[alert.Id] = (chart, newest);
+            if (!known || seen.Bar == newest) return null;
+
+            int from = -1;
+            for (int i = bars.Count - 2; i >= 0; i--)
+                if (bars[i] == seen.Bar) { from = i; break; }
+            if (from < 0) return null;
+
+            DrawnBar? hit = null;
+            for (int i = from + 1; i < bars.Count; i++)
+            {
+                bool match = alert.Condition switch
+                {
+                    AlertCondition.NewUpBar => bars[i].Up,
+                    AlertCondition.NewDownBar => !bars[i].Up,
+                    _ => bars[i].Up != bars[i - 1].Up,
+                };
+                if (match) hit = bars[i];
+            }
+            if (hit is not { } bar) return null;
+
+            string noun = state.ChartStyle.IsBrickStyle() ? Charts.BuiltCharts.Noun(state.ChartStyle) : "candle";
+            string what = $"new {(bar.Up ? "up" : "down")} {noun}, "
+                        + $"{Alerts.AlertDescriptions.FormatForSpeech(bar.Open)} to {Alerts.AlertDescriptions.FormatForSpeech(bar.Close)}";
+            string speech = alert.Condition == AlertCondition.Reversal
+                ? $"{alert.Name}: reversal, {what}."
+                : $"{alert.Name}: {what}.";
+            return new AlertFired(alert, bar.Close, bar.Open, speech);
+        }
+
         private static bool IsLevelStillActive(AlertDefinition alert, double currentValue) =>
             alert.Condition switch
             {
@@ -384,7 +490,10 @@ namespace AccessibleTrader.Core.Services
             // offering them was never the thing that made them reachable.
             // As drawn, like the two bars this was handed (AsDrawn): a Heikin-Ashi chart's
             // pattern is the Heikin-Ashi candles' pattern, as the arrow keys name it.
-            var data = state.Data == null ? null : ChartMath.SeriesAsDrawn(state.Data, state.IsHeikinAshi);
+            // On a chart built off the clock the two bars are the real candles (OnTheMarket), and so is
+            // the bar before them: a brick has no wicks to make a pattern from.
+            var source = state.ChartStyle.IsBrickStyle() ? state.TimeBars : state.Data;
+            var data = source == null ? null : ChartMath.SeriesAsDrawn(source, state.IsHeikinAshi);
             Ohlcv? twoBarsAgo = (data != null && data.Count >= 3) ? data[^3] : (Ohlcv?)null;
 
             var analysis = _patternAnalyzer.Analyze(current, previous, twoBarsAgo, data);
@@ -621,6 +730,9 @@ namespace AccessibleTrader.Core.Services
                 AlertCondition.TrendChange     => "trend changed",
                 AlertCondition.EntersZone      => $"entered {alert.Zone} zone",
                 AlertCondition.ExitsZone       => $"exited {alert.Zone} zone",
+                AlertCondition.NewUpBar        => "new up bar",
+                AlertCondition.NewDownBar      => "new down bar",
+                AlertCondition.Reversal        => "reversal",
                 _                              => alert.Condition.ToString()
             };
         }

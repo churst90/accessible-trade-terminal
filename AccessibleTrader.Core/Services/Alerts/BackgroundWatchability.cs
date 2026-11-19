@@ -57,6 +57,8 @@ namespace AccessibleTrader.Core.Services.Alerts
             if (a.Condition is AlertCondition.TrendChange
                 or AlertCondition.EntersZone or AlertCondition.ExitsZone)
                 return "trend and zone conditions read an indicator, which only exists while the chart is open";
+            if (a.Condition is AlertCondition.NewUpBar or AlertCondition.NewDownBar or AlertCondition.Reversal)
+                return "new bar and reversal conditions read the chart's own bars (bricks, range bars, blocks or candles), which only the chart knows";
             if (string.IsNullOrWhiteSpace(a.Symbol) || string.IsNullOrWhiteSpace(a.Provider))
                 return "it has no explicit symbol and provider to fetch by";
             return null;
@@ -116,6 +118,10 @@ namespace AccessibleTrader.Core.Services.Alerts
                         ? "band zones are not watched; alert on price crossing or touching the band line instead"
                         : $"the {a.Zone} zone is not watched";
             }
+
+            if (a.Condition is AlertCondition.NewUpBar or AlertCondition.NewDownBar or AlertCondition.Reversal
+                && a.Target != AlertTarget.Candle)
+                return "new bar and reversal conditions watch the chart's bars, so they need the Candle target";
 
             if (a.Condition == AlertCondition.TrendChange && string.IsNullOrWhiteSpace(a.IndicatorCode))
                 return "a trend-change condition needs an indicator to read the trend from";

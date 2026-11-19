@@ -4517,12 +4517,23 @@ one, read top to bottom, each choice narrowing the next:
 - **Condition**: Crosses above, Crosses below and **Touches** for every target. Candle adds
   Changes direction (the candle colour flips); Indicator adds Changes direction (the line turns
   up or down). Enters zone and Exits zone appear only for an indicator that has its own
-  overbought or oversold lines, such as RSI, and only those zones are offered.
+  overbought or oversold lines, such as RSI, and only those zones are offered. Candle also has
+  **New up**, **New down** and **Reversal (a bar the other way)**, named after the chart's own
+  bars: brick on Renko, range bar on range bars, block on line break, candle on a time chart. A
+  candle counts once the next one opens; a brick as soon as it is drawn. Several new bars in one
+  update fire once, for the newest that matches: *"Trend: reversal, new down brick, 120 to 110."*
 - **Compare with**: a number, or a line on the chart — "price touches the SMA 50" is a Price
   alert compared with the SMA 50 line. An alert compares on the timeframe of the chart it was set
   on, so set a 50-week SMA alert from the weekly chart, or use the Advanced editor below.
 - **Price level** or **Value**: filled in with the current price or reading when you choose the
   target, indicator or component. A number you type yourself is kept until you add the alert.
+
+**On a Renko, range bar or line break chart** price, candle and drawn-level alerts read the real
+price behind the bars, so a 64,000 alert fires when the market trades 64,000 rather than when a
+brick ends there; Changes direction and candle patterns read the real candles too. Indicator
+alerts read the indicator as drawn, on the bricks. New up, New down and Reversal need the chart,
+so the server's no-chart monitor does not watch them; the background monitor on your computer
+does.
 
 **Touches** means the bar's range reached the level, wick included, from either side, once per
 bar. On an indicator it means the reading reached or crossed the level in either direction. If a

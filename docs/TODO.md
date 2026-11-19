@@ -120,9 +120,10 @@ and Identity already has 2FA, lockout and rate limits.
      (built, not heard). Open: is the brick's direction right in the type slot?
      **Range bars and line break** — built 2026-11-19, not yet heard by Cody (toolbar select,
      per-type settings dialog, Go bar `RANGEBAR` / `LINEBREAK` / `LBREAK`; one-door
-     `BuiltCharts`; line break reads as "Block"). Open: Cody's yes on the Renko alerts split
-     (price and drawn-line alerts on the real price, indicator alerts on the bars, new up/down/
-     reversal bar alerts) — alerts untouched until then. Caveat: restoring a workspace across built
+     `BuiltCharts`; line break reads as "Block"). **Alerts split** (Cody's yes 2026-11-19) built
+     the same day, not heard: price, candle and drawn-level alerts read the real price on all three
+     built types, indicator alerts the bricks, and Candle gains New up / New down / Reversal (the
+     chart's own bars; not watched by the hosted no-chart monitor). Caveat: restoring a workspace across built
      types re-resolves the size. Still open: Kagi and Point & Figure, which reuse the brick plumbing. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.

@@ -453,6 +453,13 @@
             var list = new List<AlertCondition> { AlertCondition.CrossesAbove, AlertCondition.CrossesBelow, AlertCondition.Touches };
             if (_newAlertTarget is AlertTarget.Candle or AlertTarget.Indicator)
                 list.Add(AlertCondition.ChangesDirection);
+            // The chart's own bars: a brick, range bar or block on those charts, a candle here.
+            if (_newAlertTarget == AlertTarget.Candle)
+            {
+                list.Add(AlertCondition.NewUpBar);
+                list.Add(AlertCondition.NewDownBar);
+                list.Add(AlertCondition.Reversal);
+            }
             if (ZonesOffered.Count > 0)
             {
                 list.Add(AlertCondition.EntersZone);
@@ -461,6 +468,18 @@
             return list;
         }
     }
+
+    /// <summary>Whether this chart is built off the clock (Renko, range bars, line break): its price
+    /// alerts read the real price, and its new-bar alerts its own bars.</summary>
+    private bool BuiltChart => Store.State.ChartStyle.IsBrickStyle();
+
+    /// <summary>What one of this chart's bars is called, for the new-bar conditions.</summary>
+    private string BarNoun => BuiltChart
+        ? AccessibleTrader.Core.Services.Charts.BuiltCharts.Noun(Store.State.ChartStyle)
+        : "candle";
+
+    /// <summary>A candle is known to be up or down only once the next one opens; a brick when it is drawn.</summary>
+    private string WhenKnown => BuiltChart ? "" : " (when the next one opens)";
 
     private string ConditionLabel(AlertCondition c) => c switch
     {
@@ -471,7 +490,11 @@
             : "Touches (the bar's range reaches the level, wick included)",
         AlertCondition.ChangesDirection => _newAlertTarget == AlertTarget.Indicator
             ? "Changes direction (turns up or down)"
+            : BuiltChart ? "Changes direction (the real candle's colour flips)"
             : "Changes direction (candle colour flips)",
+        AlertCondition.NewUpBar => $"New up {BarNoun}{WhenKnown}",
+        AlertCondition.NewDownBar => $"New down {BarNoun}{WhenKnown}",
+        AlertCondition.Reversal => $"Reversal (a {BarNoun} the other way){WhenKnown}",
         AlertCondition.EntersZone => "Enters zone",
         AlertCondition.ExitsZone => "Exits zone",
         _ => c.ToString(),
