@@ -148,6 +148,20 @@ namespace AccessibleTrader.Core.Services
             && !Indicators.RetiredIndicators.IsRetired(series.IndicatorCode);
 
         /// <summary>
+        /// What is said when a template goes on a chart. <paramref name="applied"/> is the number
+        /// that actually went on (<see cref="IWorkspaceInitializer.ApplyIndicatorTemplate"/>'s
+        /// return), not the template's size: a retired indicator in the template is skipped and
+        /// named by <paramref name="notice"/>, and counting it as well would say "2 indicators"
+        /// with one on the chart. The dialog and the Go bar both say this sentence.
+        /// </summary>
+        public static string AppliedSentence(string name, string chart, int applied, string? notice)
+        {
+            string sentence = $"Indicator template {name} applied to {chart}: "
+                + $"{applied} {(applied == 1 ? "indicator" : "indicators")}.";
+            return string.IsNullOrEmpty(notice) ? sentence : sentence + " " + notice;
+        }
+
+        /// <summary>
         /// "4 indicators: RSI 14, EMA 20, EMA 50, Cipher B; 2 panes" — names in series order,
         /// panes counted apart from Main.
         /// </summary>

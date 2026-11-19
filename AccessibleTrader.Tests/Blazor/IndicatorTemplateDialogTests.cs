@@ -138,6 +138,8 @@ public sealed class IndicatorTemplateDialogTests
         {
             Identity = new ChartIdentity("Crypto", "Kraken", "BTCUSDT", "1h"),
         });
+        h.Ctx.Services.GetRequiredService<IWorkspaceInitializer>()
+            .ApplyIndicatorTemplate(template, "Oscillators").Returns(2);
         var spoken = new List<AnnouncementEvent>();
         h.EventBus.Subscribe<AnnouncementEvent>(spoken.Add);
 

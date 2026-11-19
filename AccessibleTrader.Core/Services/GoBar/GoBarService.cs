@@ -1014,16 +1014,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                 return;
             }
 
-            _workspaceInit.ApplyIndicatorTemplate(template, action.Name);
+            int applied = _workspaceInit.ApplyIndicatorTemplate(template, action.Name);
 
             var id = _store?.State.Identity;
             string chart = WorkspaceLibraryService.ChartName(id?.Provider, id?.Symbol, id?.Timeframe);
-            int count = template.Series.Count;
-            string sentence = $"Indicator template {action.Name} applied to {chart}: "
-                + $"{count} {(count == 1 ? "indicator" : "indicators")}.";
-            if (_workspaceInit.LastRestoreNotice is { } notice && notice.Length > 0)
-                sentence += " " + notice;
-            Speak(sentence, interrupt: true);
+            Speak(IndicatorTemplateService.AppliedSentence(action.Name, chart, applied,
+                _workspaceInit.LastRestoreNotice), interrupt: true);
         }
 
         private void ExecuteSetting(GoBarSettingAction action)

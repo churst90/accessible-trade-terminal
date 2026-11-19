@@ -1180,6 +1180,7 @@ public class GoBarArgumentTests
         var template = TemplateWith("EMA 20", "RSI 14", "EMA 50", "Cipher B");
         templates.Load("Oscillators").Returns(template);
         var init = Substitute.For<IWorkspaceInitializer>();
+        init.ApplyIndicatorTemplate(template, "Oscillators").Returns(4);
         var service = Build(templates: templates, workspaceInit: init);
 
         var option = Only(service, "TPL Oscillators");
@@ -1198,6 +1199,7 @@ public class GoBarArgumentTests
         templates.Load("Oscillators").Returns(TemplateWith("RSI 14"));
         var init = Substitute.For<IWorkspaceInitializer>();
         init.LastRestoreNotice.Returns("Spider Lines was removed on 2026-10-17, so it was left off this chart.");
+        init.ApplyIndicatorTemplate(default!, default!).ReturnsForAnyArgs(1);
         var service = Build(templates: templates, workspaceInit: init);
 
         service.Run(Only(service, "TPL Oscillators"));

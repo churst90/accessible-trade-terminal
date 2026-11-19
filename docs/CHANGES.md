@@ -105,6 +105,18 @@ All notable changes to this project will be documented in this file.
   (h) the name guard lets `..` through — **1 red**;
   (i) apply changes the symbol and timeframe — **1 red**;
   (j) the save refusal on an empty chart is removed — **1 red**.
+- **Review (Claude, 2026-11-19).** The "applied" sentence counted the template's series, not
+  the ones that went on: a template holding RSI and a retired indicator said "2 indicators" and
+  then named the retired one as left off, with one indicator on the chart. The apply now returns
+  how many went on and the dialog and the Go bar say one shared sentence
+  (`IndicatorTemplateService.AppliedSentence`) built from that number; a test through the real
+  initializer pins it. Filter re-run: 2,598 passing. My sabotages, each red: count the template's
+  size (2), undo leaves the template's pane heights (1), focus left on a removed indicator (1),
+  capture keeps a retired indicator (1), templates written into `Workspaces` (6), WebHost
+  registration removed (2), template ids reused (2). The accessibility review agents are not
+  registered here; the two dialogs were checked by hand against the workspace dialogs they copy
+  (same listbox, labelled name box, status lines, labelled delete buttons). Like Load workspace,
+  each Delete button sits inside its list option; not checked with a screen reader.
 
 ### Price scales: Percent and Indexed to 100, 2026-11-19 — not yet heard by Cody
 

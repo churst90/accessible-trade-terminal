@@ -240,10 +240,14 @@ public sealed class IndicatorTemplateApplyTests
             Pane = "Main",
         });
 
-        f.Init.ApplyIndicatorTemplate(template, "Old");
+        int applied = f.Init.ApplyIndicatorTemplate(template, "Old");
 
         Assert.DoesNotContain(f.Store.State.ActiveSeries, s => s.IndicatorCode == "SPIDER_LINES");
         Assert.Contains("Spider Lines was removed", f.Init.LastRestoreNotice);
+        // The count said aloud is what went on, not the template's size: the retired one is
+        // named by the notice, so counting it too would say one more than the chart has.
+        Assert.Equal(template.Series.Count - 1, applied);
+        Assert.Equal(IndicatorsOn(f.Store).Count(), applied);
     }
 
     [Fact]

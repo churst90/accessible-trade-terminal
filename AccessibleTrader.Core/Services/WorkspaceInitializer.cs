@@ -52,9 +52,10 @@ namespace AccessibleTrader.Core.Services
         /// with fresh ids, and the pane heights come with them. Symbol, timeframe, drawings,
         /// alerts and orders are untouched, and the applied indicators compute on the data
         /// already loaded. The whole change is one undo entry labelled
-        /// "Apply indicator template {name}".
+        /// "Apply indicator template {name}". Returns how many indicators went on — fewer than
+        /// the template holds when a retired one was skipped.
         /// </summary>
-        void ApplyIndicatorTemplate(IndicatorTemplate template, string name);
+        int ApplyIndicatorTemplate(IndicatorTemplate template, string name);
 
         /// <summary>
         /// What the last <see cref="RestoreWorkspace"/> left off the chart and why, as one
@@ -469,11 +470,11 @@ namespace AccessibleTrader.Core.Services
             LastRestoreNotice = Indicators.RetiredIndicators.ChartNotice(_retiredSkipped);
         }
 
-        public void ApplyIndicatorTemplate(IndicatorTemplate template, string name)
+        public int ApplyIndicatorTemplate(IndicatorTemplate template, string name)
         {
             _retiredSkipped.Clear();
             LastRestoreNotice = null;
-            if (template == null) return;
+            if (template == null) return 0;
 
             var allMeta = _indicatorService.GetAvailableIndicators();
             string? focusedBefore = _store.State.FocusedSeriesId;
@@ -531,6 +532,8 @@ namespace AccessibleTrader.Core.Services
                     restore: s => _store.Dispatch(new AddSeriesAction(s)),
                     remove: id => _store.Dispatch(new RemoveSeriesAction(id)),
                     setRatios: r => _store.Dispatch(new SetPaneHeightRatiosAction(r.ToImmutableDictionary()))));
+
+            return added.Count;
         }
 
         /// <summary>

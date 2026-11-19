@@ -161,15 +161,11 @@
             return;
         }
 
-        WorkspaceInit.ApplyIndicatorTemplate(template, name);
+        int count = WorkspaceInit.ApplyIndicatorTemplate(template, name);
 
         var id = Store.State.Identity;
         string chart = WorkspaceLibraryService.ChartName(id.Provider, id.Symbol, id.Timeframe);
-        int count = template.Series.Count;
-        string applied = $"Indicator template {name} applied to {chart}: "
-            + $"{count} {(count == 1 ? "indicator" : "indicators")}.";
-        if (WorkspaceInit.LastRestoreNotice is { } notice && notice.Length > 0)
-            applied += " " + notice;
+        string applied = IndicatorTemplateService.AppliedSentence(name, chart, count, WorkspaceInit.LastRestoreNotice);
         EventBus.Publish(new AnnouncementEvent(applied,
             Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         Close();
