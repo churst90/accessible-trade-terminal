@@ -1,0 +1,187 @@
+@inherits ModalBase
+@inject IWorkspaceStore Store
+@inject IIndicatorTemplateService Templates
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" role="none" @onclick="Close">
+        <div class="modal-content"
+             role="dialog" data-modal-name="Save indicator template"
+             aria-modal="true"
+             aria-labelledby="save-indicator-template-title"
+             @onclick:stopPropagation="true">
+
+            <h2 id="save-indicator-template-title" tabindex="-1">Save Indicator Template</h2>
+
+            <div class="modal-row" style="margin-top: 16px;">
+                <label for="indicator-template-name-input">Template name:</label>
+                <input id="indicator-template-name-input"
+                       type="text"
+                       @bind="_templateName"
+                       @onkeydown="OnKeyDown"
+                       placeholder="e.g. My oscillators"
+                       style="flex: 1;" />
+            </div>
+
+            @if (_existing.Count > 0)
+            {
+                <div style="margin-top: 12px;">
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Existing templates (select to overwrite):</p>
+                    <ul role="listbox" aria-label="Existing indicator templates" style="list-style: none; padding: 0; margin: 4px 0; max-height: 150px; overflow-y: auto;">
+                        @foreach (var template in _existing)
+                        {
+                            <li role="option"
+                                tabindex="0"
+                                aria-selected="@(_templateName == template ? "true" : "false")"
+                                style="padding: 4px 8px; cursor: pointer; @(_templateName == template ? "background: color-mix(in srgb, var(--accent-color) 26%, transparent); font-weight: bold;" : "")"
+                                @onclick="() => SelectTemplate(template)"
+                                @onkeydown="e => OnTemplateKeyDown(e, template)">
+                                @template
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <p role="status" style="margin-top: 12px; font-size: 0.9rem;">
+                What will be saved: @_description from @_frontChart.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <p role="status" style="margin-top: 8px; color: @(_isError ? "#f44" : "#4f4"); font-size: 0.9rem;">@_statusMessage</p>
+            }
+
+            <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
+                <GatedButton class="primary"
+                        Gate="SaveGate"
+                        OnClick="Save">
+                    Save
+                </GatedButton>
+                <button @onclick="Close" aria-label="Cancel, close the save indicator template dialog">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const string NothingToSave = "This chart has no indicators to save as a template.";
+
+    /// <summary>Null when the template can be saved; otherwise why it cannot.</summary>
+    private string? SaveGate() =>
+        _capture.Series.Count == 0 ? NothingToSave
+        : string.IsNullOrWhiteSpace(_templateName) ? "Enter a name for this indicator template first."
+        : null;
+
+    private string _templateName = "";
+    private string _frontChart = "";
+    private string _description = "";
+    private IndicatorTemplate _capture = new();
+    private List<string> _existing = new();
+    private string? _statusMessage;
+    private bool _isError;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized(); // arms ModalBase's CloseTopModalEvent (Escape) subscription
+        _eventSub = EventBus.Subscribe<OpenSaveIndicatorTemplateEvent>(_ => InvokeAsync(ShowAsync));
+    }
+
+    private async Task ShowAsync()
+    {
+        _templateName = "";
+        _statusMessage = null;
+        _isError = false;
+        _existing = Templates.GetAvailable();
+        _capture = Templates.Capture(Store) ?? new IndicatorTemplate();
+        var st = Store.State;
+        _frontChart = WorkspaceLibraryService.ChartName(st.Identity.Provider, st.Identity.Symbol, st.Identity.Timeframe);
+        _description = IndicatorTemplateService.Describe(_capture);
+        if (_capture.Series.Count == 0)
+        {
+            _statusMessage = NothingToSave;
+            _isError = true;
+        }
+        await ShowModalAsync("save-indicator-template-title");
+    }
+
+    private void SelectTemplate(string name)
+    {
+        _templateName = name;
+    }
+
+    private void OnTemplateKeyDown(KeyboardEventArgs e, string template)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            _templateName = template;
+            StateHasChanged();
+        }
+    }
+
+    // Save runs inline, on the dispatcher — see the long note in SaveWorkspaceModal: moving
+    // this method, its Close and its StateHasChanged off the dispatcher is fatal to the web
+    // circuit, and file I/O here is millisecond-scale anyway.
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_templateName))
+        {
+            Save();
+        }
+        else if (e.Key == "Escape")
+        {
+            Close();
+        }
+    }
+
+    private void Save()
+    {
+        if (_capture.Series.Count == 0)
+        {
+            _statusMessage = NothingToSave;
+            _isError = true;
+            EventBus.Publish(new AnnouncementEvent(NothingToSave,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_templateName)) return;
+
+        var safeName = ProfileNameGuard.Sanitize(SanitizeFileName(_templateName.Trim()));
+        if (string.IsNullOrEmpty(safeName))
+        {
+            _statusMessage = "Invalid indicator template name.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            Templates.Save(safeName, _capture);
+            int count = _capture.Series.Count;
+            string saved = $"Indicator template saved: {safeName}, {count} {(count == 1 ? "indicator" : "indicators")}.";
+            _statusMessage = saved;
+            _isError = false;
+            EventBus.Publish(new AnnouncementEvent(saved,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            Close();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Save failed: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private void Close()
+    {
+        CloseModal();
+    }
+
+    protected override string ModalName => "Save indicator template";
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = System.IO.Path.GetInvalidFileNameChars();
+        return new string(name.Where(c => !invalid.Contains(c)).ToArray());
+    }
+}

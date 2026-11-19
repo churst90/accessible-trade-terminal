@@ -129,7 +129,9 @@ public class GoBarArgumentTests
         IChartPatternCache? patterns = null,
         ISdkCandlePatternAnalyzer? candles = null,
         IWatchlistLibrary? watchlists = null,
-        TimeZoneInfo? zone = null)
+        TimeZoneInfo? zone = null,
+        IIndicatorTemplateService? templates = null,
+        IWorkspaceInitializer? workspaceInit = null)
         => new(Substitute.For<ICommandDispatcher>(),
             _shortcuts, _bus, _stack,
             store: _store,
@@ -142,7 +144,9 @@ public class GoBarArgumentTests
             eventMap: eventMap,
             patterns: patterns,
             candles: candles,
-            displayZone: zone ?? TimeZoneInfo.Utc);
+            displayZone: zone ?? TimeZoneInfo.Utc,
+            templates: templates,
+            workspaceInit: workspaceInit);
 
     private static Ohlcv Bar(DateTime stamp, double close = 100) =>
         new(stamp, close - 1, close + 1, close - 2, close, 1000);
@@ -1148,5 +1152,113 @@ public class GoBarArgumentTests
 
         Assert.Equal(SystemCommand.OpenAlerts, suggestion.Options[0].Entry?.Command);
         Assert.DoesNotContain("price", suggestion.Sentence, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── Indicator templates (TPL, TPLS) ───────────────────────────────────
+
+    private static IIndicatorTemplateService TemplatesWith(params string[] names)
+    {
+        var templates = Substitute.For<IIndicatorTemplateService>();
+        templates.GetAvailable().Returns(names.ToList());
+        return templates;
+    }
+
+    private static IndicatorTemplate TemplateWith(params string[] names)
+    {
+        var template = new IndicatorTemplate();
+        foreach (var name in names)
+            template.Series.Add(new SeriesConfig { Name = name, FriendlyName = name, IndicatorCode = "Ema", Pane = "Main" });
+        return template;
+    }
+
+    [Fact]
+    public void TplByNameAppliesThatTemplateWithoutADialog()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10),
+            provider: "MEXC", symbol: "BTCUSDT", timeframe: "1h"));
+        var templates = TemplatesWith("Oscillators", "Trend");
+        var template = TemplateWith("EMA 20", "RSI 14", "EMA 50", "Cipher B");
+        templates.Load("Oscillators").Returns(template);
+        var init = Substitute.For<IWorkspaceInitializer>();
+        var service = Build(templates: templates, workspaceInit: init);
+
+        var option = Only(service, "TPL Oscillators");
+        service.Run(option);
+
+        WaitForSpoken("Indicator template Oscillators applied to MEXC BTCUSDT 1h: 4 indicators.");
+        init.Received(1).ApplyIndicatorTemplate(template, "Oscillators");
+    }
+
+    [Fact]
+    public void TplAppendsTheRetiredIndicatorNotice()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10),
+            provider: "MEXC", symbol: "BTCUSDT", timeframe: "1h"));
+        var templates = TemplatesWith("Oscillators");
+        templates.Load("Oscillators").Returns(TemplateWith("RSI 14"));
+        var init = Substitute.For<IWorkspaceInitializer>();
+        init.LastRestoreNotice.Returns("Spider Lines was removed on 2026-10-17, so it was left off this chart.");
+        var service = Build(templates: templates, workspaceInit: init);
+
+        service.Run(Only(service, "TPL Oscillators"));
+
+        WaitForSpoken("Indicator template Oscillators applied to MEXC BTCUSDT 1h: 1 indicator. "
+            + "Spider Lines was removed on 2026-10-17, so it was left off this chart.");
+    }
+
+    [Fact]
+    public void TplUnknownNameSaysThereIsNoSuchTemplate()
+    {
+        var templates = TemplatesWith("Oscillators");
+        var service = Build(templates: templates);
+
+        var suggestion = service.Suggest("TPL nope");
+
+        Assert.Empty(suggestion.Options);
+        Assert.Equal("No indicator template called nope.", suggestion.Sentence);
+    }
+
+    [Fact]
+    public void TplRefusesInThePublicDemo()
+    {
+        Use(State(Hourly(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 10)));
+        var templates = TemplatesWith("Oscillators");
+        templates.Load("Oscillators").Returns(TemplateWith("RSI 14"));
+        var init = Substitute.For<IWorkspaceInitializer>();
+        var service = Build(templates: templates, workspaceInit: init, demo: new DemoPolicy(isDemo: true));
+
+        service.Run(Only(service, "TPL Oscillators"));
+
+        WaitForSpoken("Not in the public demo.");
+        init.DidNotReceiveWithAnyArgs().ApplyIndicatorTemplate(default!, default!);
+    }
+
+    [Fact]
+    public void TplWithNoValueIsTheCommandThatOpensTheDialog()
+    {
+        var service = Build(templates: TemplatesWith("Oscillators"));
+
+        var option = Only(service, "TPL");
+
+        Assert.Equal(SystemCommand.ApplyIndicatorTemplate, option.Entry?.Command);
+        Assert.Null(option.Action);
+    }
+
+    [Theory]
+    [InlineData("TPLS", SystemCommand.SaveIndicatorTemplate)]
+    [InlineData("save template", SystemCommand.SaveIndicatorTemplate)]
+    [InlineData("save indicators", SystemCommand.SaveIndicatorTemplate)]
+    [InlineData("TPL", SystemCommand.ApplyIndicatorTemplate)]
+    [InlineData("template", SystemCommand.ApplyIndicatorTemplate)]
+    [InlineData("indicator template", SystemCommand.ApplyIndicatorTemplate)]
+    [InlineData("apply template", SystemCommand.ApplyIndicatorTemplate)]
+    [InlineData("load template", SystemCommand.ApplyIndicatorTemplate)]
+    public void TheTemplateCommandsAreReachableByCodeNameAndAlias(string typed, SystemCommand expected)
+    {
+        var service = Build(templates: TemplatesWith());
+
+        var top = service.Suggest(typed).Options.FirstOrDefault();
+
+        Assert.Equal(expected, top?.Entry?.Command);
     }
 }

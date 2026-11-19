@@ -179,6 +179,8 @@ namespace AccessibleTrader.Tests
         // Workspace management
         [InlineData(SystemCommand.SaveWorkspace)]
         [InlineData(SystemCommand.LoadWorkspace)]
+        [InlineData(SystemCommand.SaveIndicatorTemplate)]
+        [InlineData(SystemCommand.ApplyIndicatorTemplate)]
         [InlineData(SystemCommand.LoadChart)]
         // Typed money commands — Go bar only, no key binding. They open the dashboard; they
         // never send from a focus location, so they impose no chart-focus requirement.
@@ -275,6 +277,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,
                 SystemCommand.SaveWorkspace, SystemCommand.LoadWorkspace, SystemCommand.LoadChart,
+                SystemCommand.SaveIndicatorTemplate, SystemCommand.ApplyIndicatorTemplate,
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse,

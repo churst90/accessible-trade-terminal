@@ -36,7 +36,7 @@ public class CommandDispatcherGoBarTests
     }
 
     private static (CommandDispatcher Dispatcher, SpyEventBus Bus, INavigationEngine Nav,
-                    ModalStack ModalStack) Build()
+                    ModalStack ModalStack) Build(DemoPolicy? demo = null)
     {
         var bus = new SpyEventBus();
         var nav = Substitute.For<INavigationEngine>();
@@ -47,7 +47,7 @@ public class CommandDispatcherGoBarTests
         var modalBus = new EventBus();
         var stack = new ModalStack(modalBus);
         var dispatcher = new CommandDispatcher(
-            bus, nav, store, barDetail, crossing, modalStack: stack);
+            bus, nav, store, barDetail, crossing, modalStack: stack, demo: demo);
         return (dispatcher, bus, nav, stack);
     }
 
@@ -70,6 +70,34 @@ public class CommandDispatcherGoBarTests
         dispatcher.Dispatch(SystemCommand.NavRight);
 
         nav.DidNotReceiveWithAnyArgs().ProcessNavigation(Arg.Any<string>());
+    }
+
+    [Theory]
+    [InlineData(SystemCommand.SaveIndicatorTemplate)]
+    [InlineData(SystemCommand.ApplyIndicatorTemplate)]
+    public void TheIndicatorTemplateCommandsOpenTheirDialogs(SystemCommand command)
+    {
+        var (dispatcher, bus, _, _) = Build();
+
+        dispatcher.Dispatch(command);
+
+        if (command == SystemCommand.SaveIndicatorTemplate)
+            Assert.Contains(bus.Log, e => e is OpenSaveIndicatorTemplateEvent);
+        else
+            Assert.Contains(bus.Log, e => e is OpenApplyIndicatorTemplateEvent);
+    }
+
+    [Theory]
+    [InlineData(SystemCommand.SaveIndicatorTemplate)]
+    [InlineData(SystemCommand.ApplyIndicatorTemplate)]
+    public void TheIndicatorTemplateCommandsRefuseInThePublicDemo(SystemCommand command)
+    {
+        var (dispatcher, bus, _, _) = Build(new DemoPolicy(isDemo: true));
+
+        dispatcher.Dispatch(command);
+
+        Assert.Contains(bus.Log, e => e is FeedbackRequestEvent { Message: "Not in the public demo." });
+        Assert.DoesNotContain(bus.Log, e => e is OpenSaveIndicatorTemplateEvent or OpenApplyIndicatorTemplateEvent);
     }
 
     [Fact]

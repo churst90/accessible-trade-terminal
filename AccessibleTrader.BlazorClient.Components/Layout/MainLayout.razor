@@ -149,7 +149,11 @@
     @if (Demo.AllowAlerts)           { <AlertsModal /> }
     @if (Demo.AllowCustomScripts)    { <CustomScriptsModal /> }
     @if (Demo.AllowAiAnalyst)        { <AIAnalystModal /> }
-    @if (Demo.AllowWorkspaceSaveLoad) { <SaveWorkspaceModal /> <LoadWorkspaceModal /> }
+    @if (Demo.AllowWorkspaceSaveLoad)
+    {
+        <SaveWorkspaceModal /> <LoadWorkspaceModal />
+        <SaveIndicatorTemplateModal /> <ApplyIndicatorTemplateModal />
+    }
     @* My Data import — hidden in the shared public demo (no per-visitor persistence). *@
     @if (!Demo.IsDemo)               { <MyDataModal /> }
     @* Market watch (Alt+M) — watchlists + screener. Hidden in the shared public demo for

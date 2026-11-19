@@ -49,6 +49,7 @@ public sealed class BlazorTestHarness : IDisposable
     public IThemeService ThemeService { get; }
     public IDataExportService DataExporter { get; }
     public IWorkspaceLibraryService WorkspaceLibrary { get; }
+    public IIndicatorTemplateService IndicatorTemplates { get; }
     public ISeriesManagementService SeriesManager { get; }
     public IShortcutManager ShortcutManager { get; }
     public IIndicatorModelFactory IndicatorModelFactory { get; }
@@ -123,6 +124,7 @@ public sealed class BlazorTestHarness : IDisposable
         ThemeService       = new ThemeService(SettingsManager);
         DataExporter       = Substitute.For<IDataExportService>();
         WorkspaceLibrary   = Substitute.For<IWorkspaceLibraryService>();
+        IndicatorTemplates = Substitute.For<IIndicatorTemplateService>();
         SeriesManager        = Substitute.For<ISeriesManagementService>();
         ShortcutManager      = Substitute.For<IShortcutManager>();
         IndicatorModelFactory = Substitute.For<IIndicatorModelFactory>();
@@ -169,6 +171,7 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Theming.IThemeLibrary>());
         Ctx.Services.AddSingleton(DataExporter);
         Ctx.Services.AddSingleton(WorkspaceLibrary);
+        Ctx.Services.AddSingleton(IndicatorTemplates);
         Ctx.Services.AddSingleton(SeriesManager);
         Ctx.Services.AddSingleton(ShortcutManager);
         Ctx.Services.AddSingleton(IndicatorModelFactory);

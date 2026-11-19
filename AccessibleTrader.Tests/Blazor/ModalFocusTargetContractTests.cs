@@ -81,6 +81,10 @@ public class ModalFocusTargetContractTests
         // The heading, then the field one Tab away, keeps that list in the reading order.
         new("SaveWorkspaceModal",    "save-workspace-title",
             "collects a name, but the existing-profiles list must be readable before typing"),
+        new("SaveIndicatorTemplateModal", "save-indicator-template-title",
+            "collects a name, but what will be saved and the existing templates must be readable first"),
+        new("ApplyIndicatorTemplateModal", "apply-indicator-template-title",
+            "a chooser over a list, and the dialog must say what applying replaces before it is chosen"),
         new("SettingsModal",         "settings-title",
             "the heading, with the tablist one Tab away"),
         new("SoundDesignerModal",    "sound-designer-title",

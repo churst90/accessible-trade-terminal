@@ -58,6 +58,13 @@ public static class ModalCatalog
     private static void SeedWorkspaceProfiles(BlazorTestHarness h) =>
         h.WorkspaceLibrary.GetAvailableProfiles().Returns(new List<string>());
 
+    private static void SeedIndicatorTemplates(BlazorTestHarness h)
+    {
+        h.IndicatorTemplates.GetAvailable().Returns(new List<string>());
+        h.IndicatorTemplates.Capture(Arg.Any<IWorkspaceStore>())
+            .Returns(new IndicatorTemplate());
+    }
+
     public static readonly IReadOnlyList<ModalCase> Dialogs = new ModalCase[]
     {
         new("AddIndicatorModal",     c => c.RenderComponent<AddIndicatorModal>(),     b => b.Publish(new OpenAddIndicatorEvent())),
@@ -74,6 +81,8 @@ public static class ModalCatalog
         new("LabelTextModal",        c => c.RenderComponent<LabelTextModal>(),        b => b.Publish(new PromptForLabelTextEvent("candles")), SeedChartState),
         new("LevelReportModal",      c => c.RenderComponent<LevelReportModal>(),      b => b.Publish(new OpenLevelReportEvent()), SeedChartState),
         new("LoadWorkspaceModal",    c => c.RenderComponent<LoadWorkspaceModal>(),    b => b.Publish(new OpenLoadWorkspaceEvent()), SeedWorkspaceProfiles),
+        new("SaveIndicatorTemplateModal", c => c.RenderComponent<SaveIndicatorTemplateModal>(), b => b.Publish(new OpenSaveIndicatorTemplateEvent()), SeedIndicatorTemplates),
+        new("ApplyIndicatorTemplateModal", c => c.RenderComponent<ApplyIndicatorTemplateModal>(), b => b.Publish(new OpenApplyIndicatorTemplateEvent()), SeedIndicatorTemplates),
         new("MyDataModal",           c => c.RenderComponent<MyDataModal>(),           b => b.Publish(new OpenMyDataEvent())),
         new("ObjectTreeModal",       c => c.RenderComponent<ObjectTreeModal>(),       b => b.Publish(new OpenObjectTreeEvent()), SeedChartState),
         new("OrderBookModal",        c => c.RenderComponent<OrderBookModal>(),        b => b.Publish(new OpenOrderBookEvent()), SeedChartState),

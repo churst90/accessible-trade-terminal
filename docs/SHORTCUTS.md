@@ -417,6 +417,8 @@ state, last swing high and low, and where price sits between them.
 
 The tab switcher bar (a row of tabs just above the chart) is always visible, even with a single tab open, so the `+` new-tab button is always there. When the bar has focus (via `Ctrl+Alt+Shift+T`, or by clicking it): `←`/`→` (or `↑`/`↓`) switch tabs, `Home`/`End` jump to the first/last tab, the number row `1`–`9` jumps to that tab, `Insert` / `+` opens a new tab, and `Delete` closes the active tab. Each tab also has a **Close tab** button beside it (a real button, so a screen reader's browse mode finds it; it is not a Tab stop, because Delete already answers from the keyboard). It is an ARIA tablist — your screen reader announces the newly selected tab as you move.
 
+Indicator templates add no key. The toolbar's workspace group has **Save indicator template** and **Apply indicator template**; the Go bar (Alt+G) runs them as `TPLS` (save) and `TPL` (apply — `TPL name` applies that template directly, without the list).
+
 ---
 
 ## Drawing Tools — Sequential Anchoring

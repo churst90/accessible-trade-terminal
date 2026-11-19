@@ -4,6 +4,108 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Indicator templates: save and apply a chart's indicators, 2026-11-19 — not yet heard by Cody
+
+- **A chart's indicators and panes, without its symbol.** A template is every non-core,
+  non-drawing indicator on the chart in front, saved as its full `SeriesConfig` (parameters,
+  string parameters, colours, levels, components, excluded components, pane, pinned pane, mute,
+  volume, visible and narration switches) plus the tab's `PaneHeightRatios`. It is one
+  `IndicatorTemplate` (`Version = 1`, `SavedFrom` for the dialog's description, `SavedUtc`), a
+  file under `<AppDataDirectory>/IndicatorTemplates/<name>.json` beside `Workspaces`, one per
+  user on the hosted server exactly as workspaces are. `IIndicatorTemplateService` has
+  `GetAvailable`, `Save`, `Load` (null for missing or unreadable, never a throw to the UI),
+  `Delete`, `Capture(IWorkspaceStore)` and the static `Describe`, which reads
+  *"4 indicators: RSI 14, EMA 20, EMA 50, Cipher B; 2 panes"*. The name guard is the workspace
+  one moved to `ProfileNameGuard`, not a copy, so `..`, rooted paths and `alerts` are refused.
+- **What is deliberately NOT in a template, and why.** Candles, Price, Volume and Heatmap are
+  the chart's data shape and `InitializeDefaultSeries` owns them; drawings are anchored to this
+  symbol's prices; a retired indicator has no provider behind it. Symbol, provider, market,
+  timeframe, viewport, chart type, price scale and strategies are not saved either, because the
+  point of a template is to move the indicators onto the chart in front and keep its chart.
+- **Apply means replace.** Applying removes every non-core, non-drawing indicator on the front
+  chart (candles, price, volume, heatmap and drawings stay), restores each template series
+  through the same workspace path (`SkipRetired`, `MigrateSeriesConfig`,
+  `RestoreSeriesFromSaved`) with a NEW id, applies the saved pane heights through
+  `RestorePaneHeightRatios`, and leaves symbol, timeframe, provider, viewport, chart type,
+  scale, drawings, alerts and orders alone. The restore publishes `IndicatorUpdatedEvent`, so
+  the new indicators compute on the bars already loaded without a chart reload. If the focused
+  series was removed, focus goes where `SetPrimaryAndFocusFromRestore` puts it (candles, price,
+  then the first series). This logic is in `WorkspaceInitializer.ApplyIndicatorTemplate`, not in
+  a razor file.
+- **One undo step.** `SeriesReplaceUndo` holds the removed `ChartSeries` whole (as
+  `SeriesDeleteUndo` does), the added series by id, and both pane-height maps. Ctrl+Z puts the
+  exact indicators back with the same ids and settings, removes the template's, and restores
+  the pane heights; the label is *"Apply indicator template NAME"*, so the existing undo
+  sentence reads *"Undone: Apply indicator template NAME."* Redo re-applies the same edit.
+- **Dialogs, copied from the workspace pair.** **Save indicator template** names the template,
+  lists existing ones to overwrite, says exactly what will be saved —
+  *"What will be saved: 4 indicators: … from Kraken BTCUSDT 1h."* — and refuses an empty chart
+  with *"This chart has no indicators to save as a template."*, writing nothing. **Apply
+  indicator template** lists each template with its description, has a delete button per
+  template labelled *"Delete indicator template: NAME"*, and says
+  *"Replaces this chart's indicators. Symbol, timeframe and drawings stay. Control plus Z undoes
+  it."* above the list; an empty list says *"No indicator templates saved yet."* Both run Save
+  inline on the dispatcher (the Save workspace circuit lesson) and use the same
+  `ModalStateChangedEvent` / `ModalName` wiring.
+- **Every sentence** (Interface channel, one announcement each): saved —
+  *"Indicator template saved: NAME, 4 indicators."*; nothing to save —
+  *"This chart has no indicators to save as a template."*; applied —
+  *"Indicator template NAME applied to Kraken BTCUSDT 1h: 4 indicators."* with
+  `LastRestoreNotice`'s retired-indicator sentence appended when one was skipped; missing or
+  unreadable — *"Indicator template NAME could not be read."*; deleted —
+  *"Indicator template deleted: NAME."*; the Go bar's unknown name —
+  *"No indicator template called NAME."*; undo — the existing *"Undone: …"* with the label above.
+  The public demo refuses the commands with *"Not in the public demo."* (Save workspace and
+  Load workspace remain silent there — their dialogs are simply not mounted — but a new silent
+  path was not copied).
+- **Entry points, no new key.** Two toolbar buttons in the "Workspace persistence" group after
+  Load workspace, gated by `Demo.AllowWorkspaceSaveLoad` exactly as those are: **Save indicator
+  template** and **Apply indicator template**, on the existing save/load workspace icons. New
+  `SystemCommand.SaveIndicatorTemplate` / `ApplyIndicatorTemplate` with dispatcher cases beside
+  the workspace ones and Go bar entries beside them too: `TPLS` (*save template*, *save
+  indicators*) and `TPL` (*template*, *indicator template*, *apply template*, *load template*).
+  `TPL name` applies that template directly with no dialog and the same sentences; `TPL` alone
+  opens the Apply dialog. No code collided with the existing registry.
+- **Caveats.** There is no "add to this chart's indicators" mode: applying always replaces, as
+  decided in the handoff; a template cannot be merged into an existing stack. Volume is not
+  part of a template (it is core and belongs to the chart's data shape). Alerts on an indicator
+  that the apply removes behave exactly as when that indicator is deleted by hand: an alert
+  naming that instance is degraded once — *"the CODE it was set on is no longer on this chart,
+  and a different CODE will not be watched in its place"* — while an alert naming only the
+  indicator code keeps watching the first series with that code, which may be a template's
+  indicator. Alerts are never deleted, and they are not saved into a template. A template saved
+  from a chart with no indicators cannot be written. Not heard by Cody.
+- **Tests.** The specified filter runs **2,598 tests, all passing**. New coverage: the service
+  round-trips every kept field (levels, string parameters, an excluded component, components,
+  muted, hidden, pinned pane) and the pane ratios; `GetAvailable` and delete; the shared name
+  guard for `..`, a rooted path and `alerts`; an unreadable file as null; the folder beside
+  `Workspaces`; per-user isolation; `Describe`'s wording and pane count; capture leaving out
+  candles/volume/drawings/a retired indicator and keeping two EMAs and an RSI with its pane;
+  workspace capture still keeping its drawings and retired series (the control); apply keeping
+  symbol, timeframe, candles and the drawing while replacing A and B with C and D with new ids;
+  pane ratios; the same template on two tabs giving different ids; undo restoring the old ids
+  and settings and removing the template's; focus on candles after removing the focused
+  indicator; a retired template indicator skipped and named; a template whose only indicator is
+  retired still replacing the chart; computation on already-loaded bars through
+  `DataOrchestrationService`/`IndicatorUpdatedEvent` (with the store's state stream silenced, so
+  only the event path can pass it); the save and apply dialogs' descriptions, refusals, saves,
+  applies, deletes and speech; the demo gating of all four toolbar buttons; the Go bar by
+  name/code/alias, `TPL name`, its unknown-name sentence, the retired notice, and the demo
+  refusal; the dispatcher cases; and host parity plus the per-user WebHost path.
+- **Sabotages** (backed up in `.sab/`, built, filter run, restored with `cp`/`touch`/`cmp`;
+  red counts are failures in the 2,595-test filter the sabotage runs used, before the last three tests were added):
+  (a) capture keeps drawings — **1 red**;
+  (b) capture keeps VOLUME — **1 red**;
+  (c) apply keeps the old indicators — **4 red**;
+  (d) apply removes drawings — **2 red** (the apply test, plus `MarketEventEarconTests` once —
+  a timing test that passes alone and in the clean run, as the price-scales entry also saw);
+  (e) apply reuses the template's ids — **2 red**;
+  (f) apply skips the recompute event — **1 red**;
+  (g) undo forgets the removed series — **1 red**;
+  (h) the name guard lets `..` through — **1 red**;
+  (i) apply changes the symbol and timeframe — **1 red**;
+  (j) the save refusal on an empty chart is removed — **1 red**.
+
 ### Price scales: Percent and Indexed to 100, 2026-11-19 — not yet heard by Cody
 
 - **Two more rulers for the price pane, sharing one choice with Regular and Logarithmic.**

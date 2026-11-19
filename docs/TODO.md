@@ -120,7 +120,9 @@ and Identity already has 2FA, lockout and rate limits.
      Percent from the first visible bar (TradingView's), indexed to 100 the same way; speech says
      "plus 4.2 percent" / "index 104.2"; COMPARE rebases to its own first visible value. Add symbol
      and the formula charts are still open, and the scales have not been heard by Cody.
-  3. **Indicator templates.** Already filed, see "Indicator template (Cody, 2026-11-05)" below.
+  3. **Indicator templates.** **Built 2026-11-19, not yet heard by Cody** (toolbar workspace
+     group, Go bar `TPLS` / `TPL`, `IndicatorTemplates/<name>.json`). Replace-only; see
+     "Indicator template (Cody, 2026-11-05)" below for the details and caveats.
 
   Not picked for now: several charts on one screen with linked symbol and crosshair; extended-hours
   sessions for stocks.
@@ -551,11 +553,13 @@ shot's old colour key is the only detail out of date).
 - [ ] **Cipher A above the candle (2026-11-17).** Built; not seen. The pad over a tall candle (0.35 of
   its range, the existing rule) may look far; say if it does.
 
-- [ ] **Indicator template (Cody, 2026-11-05).** Take one chart's indicators and panes, with their
-  settings, and put them on the chart in front, keeping that chart's symbol and timeframe (TradingView
-  calls this an indicator template). Today the only way is a whole workspace, which replaces the symbol
-  too. Likely shape: "Save indicators as template" and "Apply template" in the Indicators menu, kept
-  next to workspaces in their own folder.
+- [x] **Indicator template (Cody, 2026-11-05).** **Built 2026-11-19, not yet heard by Cody.** Take
+  one chart's indicators and panes, with their settings, and put them on the chart in front, keeping
+  that chart's symbol and timeframe (TradingView calls this an indicator template). It is the toolbar
+  workspace group's **Save indicator template** / **Apply indicator template**, or the Go bar's
+  `TPLS` / `TPL` (`TPL name` applies directly); files live in `IndicatorTemplates/` beside
+  `Workspaces/`. Replace-only, one Ctrl+Z; no "add to this chart" mode, volume is not included, and
+  alerts on a replaced indicator behave as when you delete it by hand. See `CHANGES.md`.
 
 ## From the 2026-09-25 to 2026-10-01 test and mutation passes (status unclear, check)
 

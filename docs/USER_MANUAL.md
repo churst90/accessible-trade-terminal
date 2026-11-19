@@ -1858,9 +1858,11 @@ BTC.
 | `ALERT`, `alert` | a price | Opens the Alerts form with that price filled in. `ALERT 95000`, `ALERT 95k`, `ALERT 1.2m` |
 | `GOTO`, `go to`, `date` | a date or an event name | Moves the cursor there. `GOTO 2024-03-01`, `GOTO 1 March 2024`, `GOTO CPI` |
 | `FIND`, `find` | a candle pattern or chart formation | Moves to the next one right of the cursor. `FIND hammer`, `FIND double top` |
+| `TPL`, `template` | an indicator template name | Replaces **this chart's** indicators with that template. `TPL Oscillators`, `TPL` alone opens the apply list |
 | `REF` | — | Reloads **the chart on screen**. `REF` |
 
-A timeframe or an ISO date on its own (`4h`, `15 min`, `2024-03-01`) is offered as the command it
+`TPLS` (or `save template`, `save indicators`) saves the chart's indicators as a template. A
+timeframe or an ISO date on its own (`4h`, `15 min`, `2024-03-01`) is offered as the command it
 obviously means. Nothing else is guessed without its verb. A command whose own name holds one
 of these words — *Add a chart tab*, *Change the timeframe*, *Focus the chart*, *Alert manager* —
 is still that command when typed in full, and it is listed first; while you are still typing it,
@@ -5301,6 +5303,23 @@ last session at startup"; explicit named workspaces are untouched either way.
 With more than one terminal tab open, the one resumed is the tab you were last
 working in: a tab that is only receiving live prices does not count as a change.
 
+**Indicator templates.** When you want the indicators from one chart on another without
+changing that chart's symbol or timeframe, save them as an indicator template rather than a
+whole workspace. The toolbar's workspace group has **Save indicator template** and **Apply
+indicator template**; from the keyboard, type in the Go bar (Alt+G) `TPLS` to save and `TPL`
+to open the apply list, or `TPL name` to apply a named template directly.
+
+A template holds the chart's indicators and pane heights with all their settings — parameters,
+colours, levels, parts left out, mute and hide and narration switches — but not candles,
+price, volume, heatmap or drawings, and not the symbol, timeframe, chart type, scale or
+viewport. Choosing **Apply** replaces the indicators on the chart in front and keeps its
+symbol, timeframe and drawings; the new indicators are computed on the bars already loaded, so
+there is no reload. One Ctrl+Z puts the previous indicators back with their settings and pane
+heights. Applying always replaces: there is no "add these to my chart" mode. Alerts are not
+part of a template; alerts on an indicator that is replaced behave as when you delete that
+indicator by hand. Templates are per user on the hosted server, and their files live in
+`IndicatorTemplates/<name>.json` beside `Workspaces/`.
+
 ### Sharing your setup
 
 Your settings are modular in one specific sense: each kind of thing lives in its own file in
@@ -5316,6 +5335,7 @@ and `%LOCALAPPDATA%\AccessibleTrader\` on Windows. The pieces:
 | Strategies | `strategies.json` | Strategy manager → **Export .atstrat** / **Import strategies** (a `.json` file or pasted text) |
 | Custom scripts | script library | Custom scripts (Alt+,) → **Export .atpkg** / **Import** |
 | Workspaces | `Workspaces/<name>.json` | copying the file |
+| Indicator templates | `IndicatorTemplates/<name>.json` | copying the file |
 | Keyboard rebinds | `shortcuts.json` | copying the file |
 | Watchlists and screens | `watchlists.json`, `screeners.json` | copying the files |
 | Indicator defaults ("Save as Defaults") | `IndicatorPreferences/<CODE>.json` | copying the files |
