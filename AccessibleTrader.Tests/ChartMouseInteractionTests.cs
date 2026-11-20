@@ -31,7 +31,8 @@ public sealed class ChartMouseInteractionTests
         public DrawingInteractionManager Manager { get; }
         public List<Ohlcv> Bars { get; }
 
-        public Harness(int barCount = 200, Core.Services.Rendering.IPaneLayoutService? paneLayout = null)
+        public Harness(int barCount = 200, Core.Services.Rendering.IPaneLayoutService? paneLayout = null,
+            Func<int, Ohlcv>? bar = null)
         {
             Bus = new SpyEventBus();
             Store = new WorkspaceStore(
@@ -42,7 +43,7 @@ public sealed class ChartMouseInteractionTests
             Bars = new List<Ohlcv>();
             for (int i = 0; i < barCount; i++)
             {
-                Bars.Add(new Ohlcv(
+                Bars.Add(bar?.Invoke(i) ?? new Ohlcv(
                     new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddMinutes(i),
                     100, 101, 99, 100, 1000));
             }
@@ -262,6 +263,57 @@ public sealed class ChartMouseInteractionTests
         global.OnWheelPan(-1);
 
         Assert.True(h.Store.State.ViewportStartIndex < startBefore);
+    }
+
+    // ── Panning by mouse on a built chart asks for history by the REAL bars ──
+
+    /// <summary>A slow climb on a Renko chart with a box of 1: a brick every ten real bars, as
+    /// in <c>ChartKeyboardNavigationTests.BuiltChart</c>, zoomed to ten bricks and panned so the
+    /// view starts at brick <paramref name="viewStart"/>.</summary>
+    private static Harness BuiltChart(int viewStart)
+    {
+        var h = new Harness(300, bar: i => new Ohlcv(
+            new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddMinutes(i),
+            100 + i * 0.1, 100.05 + i * 0.1, 99.95 + i * 0.1, 100 + i * 0.1, 1000));
+        h.Store.Dispatch(new SetRenkoSettingsAction(new RenkoSettings(Mode: RenkoBoxMode.Fixed, BoxSize: 1)));
+        h.Store.Dispatch(new SetChartStyleAction(PriceChartStyle.Renko, false));
+        Assert.InRange(h.Store.State.Data.Count, 20, 40);
+        h.Store.Dispatch(new ZoomAction(10));
+        h.Store.Dispatch(new PanAction(viewStart - h.Store.State.ViewportStartIndex));
+        Assert.Equal(viewStart, h.Store.State.ViewportStartIndex);
+        return h;
+    }
+
+    [Theory]
+    [InlineData(12, false)]   // the view starts about 120 real bars in
+    [InlineData(3, true)]     // the view starts in the first real bars
+    public void On_a_built_chart_dragging_toward_older_bars_asks_for_history_only_near_the_start_of_the_REAL_bars(
+        int viewStart, bool asks)
+    {
+        // Cody, 2026-11-20: a daily point and figure chart fetched all its history. "Near the
+        // start" was 50 DRAWN bars there, which is years of real bars.
+        var h = BuiltChart(viewStart);
+
+        h.Input.ProcessMouse(200, 360, "MouseDown", 1280, 720);
+        h.Input.ProcessMouse(600, 360, "MouseMove", 1280, 720);   // right: pulls older bars in
+        h.Input.ProcessMouse(600, 360, "MouseUp", 1280, 720);
+
+        Assert.True(h.Store.State.ViewportStartIndex < viewStart, "the drag should have panned toward older bars");
+        Assert.Equal(asks, h.Bus.Log.OfType<RequestHistoryEvent>().Any());
+    }
+
+    [Theory]
+    [InlineData(12, false)]
+    [InlineData(3, true)]
+    public void On_a_built_chart_wheel_panning_back_asks_for_history_only_near_the_start_of_the_REAL_bars(
+        int viewStart, bool asks)
+    {
+        var h = BuiltChart(viewStart);
+        var global = new GlobalInputService(h.Input, h.Bus, h.Store);
+
+        global.OnWheelPan(-1);
+
+        Assert.Equal(asks, h.Bus.Log.OfType<RequestHistoryEvent>().Any());
     }
 
     [Fact]

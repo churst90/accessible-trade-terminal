@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -29,8 +30,11 @@ namespace AccessibleTrader.Core.Services
             // highs and lows would leave the line floating inside a pane sized for ink that is
             // not on screen. This is TradingView's rule. Overlays still widen the range below,
             // and the log scale still maps it exactly as before.
-            // Baseline draws only the closes too (its base is not fitted in: a fixed base far
-            // from price would squash the line).
+            // Baseline draws only the closes too, plus its base. The base is fitted in (Cody,
+            // 2026-11-20: a chosen base far from price was drawn off the pane, and the sound and
+            // words compared every close with a line nobody could see). Left at the first close
+            // in view, the base is a visible close and changes nothing; a chosen price far away
+            // squashes the line, as it would on paper, and the ear hears the same squash.
             bool closesOnly = state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area or PriceChartStyle.Baseline;
             double mainMin = closesOnly
                 ? visibleBars.Min(b => (double)b.Close)
@@ -38,6 +42,14 @@ namespace AccessibleTrader.Core.Services
             double mainMax = closesOnly
                 ? visibleBars.Max(b => (double)b.Close)
                 : visibleBars.Max(b => (double)b.High);
+            if (state.ChartStyle == PriceChartStyle.Baseline
+                && state.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles) is { } priceSeries
+                && Charts.PriceSeriesShape.BaselineBase(priceSeries, start) is var baseline
+                && double.IsFinite(baseline))
+            {
+                mainMin = Math.Min(mainMin, baseline);
+                mainMax = Math.Max(mainMax, baseline);
+            }
 
             // Expand main range to include any reference levels on main-pane series
             // (e.g. analytics hint-injected FNG 25/50/75 zones). Otherwise the pane

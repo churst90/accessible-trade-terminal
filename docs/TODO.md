@@ -82,8 +82,8 @@ and Identity already has 2FA, lockout and rate limits.
   each part (as TradingView) and kept valid, said in the manual to be approximate; no volume. Both live
   streams feed the last bar. Never tradeable, paper included. Today's nearest thing is "Compare symbol
   (ratio)", a close-only line.
-- [ ] **The context menu items (Cody: "all recommended options", 2026-11-18).** Being built by
-  DeepSeek, branch `att-ctx-menu`: add label here, horizontal line here, alert at this price, buy /
+- [x] **The context menu items (Cody: "all recommended options", 2026-11-18).** Built 2026-11-18
+  (DeepSeek, branch `att-ctx-menu`, merged c52e20ab with Claude's fix; see the "Add label here" item above): add label here, horizontal line here, alert at this price, buy /
   sell limit here (opens the dashboard filled in, never places), copy price, copy this bar, bar
   replay from here, add indicator, object tree, remove all drawings (asks first); per series: alert
   on this line, copy value, move to a new pane. Each names its shortcut.
@@ -140,11 +140,12 @@ and Identity already has 2FA, lockout and rate limits.
      and sell signals** ("Buy signal, above the last X top at 105.00"; chart formations
      untouched). **Bars, hollow candles, baseline, high-low, HLC area and volume
      candles** (Cody's yes, 2026-11-20) — built 2026-11-20 and TRIED by Cody ("everything sounds
-     good"); his three findings fixed the same day, not yet re-heard (newest high-low bar silent,
-     focus jumping to the body on a tick, point and figure fetching all history) (toolbar select,
+     good"); his three findings fixed and re-heard the same day ("I heard the fixes, approved":
+     newest high-low bar silent, focus jumping to the body on a tick, point and figure fetching all
+     history) (toolbar select,
      Go bar `BARS` / `HOLLOW` / `BASELINE 95000` / `HILO` / `HLC` / `VCANDLE`; each drawn, heard,
      spoken and on the status line as its own shape; baseline clicks on crossing its base).
-     Caveats: the baseline's base is not in the price axis range; volume words weigh the 20 bars
+     The baseline's base is fitted into the price axis (2026-11-20, not seen). Caveat: volume words weigh the 20 bars
      before, not the view. Step line, line with markers and columns skipped. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.

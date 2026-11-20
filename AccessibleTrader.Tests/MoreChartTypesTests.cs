@@ -164,6 +164,27 @@ public sealed class MoreChartTypesTests
         Assert.True(double.IsNaN(PriceSeriesShape.BaselineBase(Price(State(PriceChartStyle.Line)), 0)));
     }
 
+    [Theory]
+    [InlineData(90.0)]    // under every close in the sample (101 to 108)
+    [InlineData(120.0)]   // over every close
+    public void A_chosen_baseline_base_off_the_closes_is_fitted_into_the_price_axis(double basePrice)
+    {
+        // Cody, 2026-11-20: a base far from price was drawn off the pane, so the line every close
+        // is coloured and sounded against could not be seen.
+        var range = new ViewportRangeCalculator().Calculate(State(PriceChartStyle.Baseline, basePrice: basePrice)).MainRange;
+
+        Assert.InRange(basePrice, range.Min, range.Max);
+    }
+
+    [Fact]
+    public void The_baseline_base_left_at_the_first_close_does_not_widen_the_axis()
+    {
+        var line = new ViewportRangeCalculator().Calculate(State(PriceChartStyle.Line)).MainRange;
+        var baseline = new ViewportRangeCalculator().Calculate(State(PriceChartStyle.Baseline, viewportStart: 0)).MainRange;
+
+        Assert.Equal(line, baseline);
+    }
+
     // ---- Heard -------------------------------------------------------------------------------
 
     private static AudioPoint Sound(WorkspaceState state, string part, int index, double? prev = null, int relativeIndex = -1)

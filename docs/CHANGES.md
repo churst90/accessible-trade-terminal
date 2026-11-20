@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Cody's three findings on the new chart types, 2026-11-20 — fixed, not yet re-heard
+### The baseline's base kept on screen, and the mouse pans tested, 2026-11-20 — not yet seen by Cody
+
+Cody, after re-hearing the three fixes below: "fix the small issues regarding those bars being off screen, mouse wheel no tests add those".
+
+- **A chosen baseline base is fitted into the price axis.** `ViewportRangeCalculator` fitted a Baseline chart to its closes only, so a base typed far from price (`BASELINE 95000` on a chart trading at 90,000) was drawn off the pane, while the sound and the words still compared every close with it. The base now widens the axis like a reference level does. Left at the first close in view (the default), the base is itself a visible close and changes nothing. The cost, as with any wide overlay: a base far from price squashes the line, and the pitch range with it, so eye and ear agree.
+- **The drag and wheel pans on a built chart are tested.** The one-line change in the entry below (history asked for by real bars, not drawn bars) was untested on the mouse-drag pan (`DrawingInteractionManager`) and the Shift+wheel pan (`GlobalInputService.OnWheelPan`). Both now have the keyboard tests' Renko chart: a view starting about 120 real bars in asks for nothing, one in the first real bars asks for older history.
+
+Tests: `MoreChartTypesTests` +2 (a base under and over every close is inside the axis range; the default base leaves the range equal to the line chart's), `ChartMouseInteractionTests` +2 theories (drag and wheel, each far and near). Four sabotages, all red: the base not fitted (2), the wheel pan by drawn bars (1), the drag by drawn bars (1), the drag never asking (1).
+
+Caveat: the base is fitted without the span guard the reference levels use, deliberately (the user chose it), so a mistyped base (9,500 for 95,000) squashes the chart until it is changed. Not yet seen by Cody.
+
+### Cody's three findings on the new chart types, 2026-11-20 — fixed, re-heard and approved by Cody
 
 Cody tried the six new types ("everything sounds good") and found three faults:
 
@@ -14,7 +25,7 @@ Cody tried the six new types ("everything sounds good") and found three faults:
 
 Tests: `MoreChartTypesTests` +5 (the newest high-low middle through an in-place tick and a new bar, with a pitch; focus staying on the wick through ticks on hollow and volume candles, with a check that the tick did reach the hidden values; choosing another type still moving focus) and `ChartKeyboardNavigationTests` +4 (Left and keyboard pan on a Renko chart with a brick every ten real bars ask for history only near the first real bars). Six sabotages, all red: the tick without `hl2`, focus reset on every tick, the walk measured in drawn bars, `RealBarIndex` returning the drawn index, `RealBarIndex` never near, and the keyboard pan measured in drawn bars.
 
-Caveats: the mouse-drag pan (`DrawingInteractionManager`) and the wheel pan (`GlobalInputService`) got the same one-line change but have no test of their own. The mouse/touch `hl2` fix is not tested. Not yet heard by Cody.
+Caveats: the mouse/touch `hl2` fix is not tested. The drag and wheel pans got their tests in the entry above. Cody re-heard the three fixes the same day: "I heard the fixes, approved."
 
 ### Six more chart types: bars, hollow candles, baseline, high-low, HLC area, volume candles, 2026-11-20 — not yet heard by Cody
 
